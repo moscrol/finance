@@ -1,0 +1,3595 @@
+{
+  "schema_version": 1,
+  "sealed_at": "2026-09-18T17:27:05.193576+00:00",
+  "business_revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+  "branch": "fix/8792-financial-r6-repair",
+  "previous_business_revision": "d965721553741b7a1267b8541e7806d088083a8f",
+  "base_documentation_revision": "0b16bc037d635fefaea39f42c1202e3f474a9be4",
+  "transplant": {
+    "source": "49fd8d726176a1e97eb43ed028bda93edc64f657",
+    "scope": "publication API/UI/SSE/probe slice only; assets rebuilt; not answer preservation/RAG/runtime whole-branch integration"
+  },
+  "decision": {
+    "author_engineering": "conditional_pass_at_pinned_inputs",
+    "ambient_all_passed": false,
+    "original_r6_and_r3": "0/4 not_passed unchanged",
+    "new_live_runs_in_this_candidate": 0,
+    "independent_qc": "not_run",
+    "full_parallel_integration": false,
+    "pushed": false,
+    "merged_main": false,
+    "deployed": false,
+    "production_8792_switched": false
+  },
+  "pytest": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+    "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+    "branch": "fix/8792-financial-r6-repair",
+    "dirty": false,
+    "dirty_paths": [],
+    "worktree_dirty_total": 0,
+    "dependency_gate_bypassed": false,
+    "target": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+    "counts": {
+      "passed": 12198,
+      "failed": 0,
+      "error": 0,
+      "skipped": 86
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-18T17:05:50+00:00"
+  },
+  "pinned_repositories": {
+    "finance-workspace-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/finance-workspace-private",
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+      "revision": "91725ea9ba0252a43665f9e3130142f946c289ae",
+      "status": ""
+    },
+    "finance-research-site": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/finance-research-site",
+      "revision": "9f60bef076749cdba13cf228ffa6f22141876eb8",
+      "status": ""
+    }
+  },
+  "mutation_suites": {
+    "publication": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 8,
+      "assertion_bearing_groups": 8,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 150,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 150,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "publication-requires-commit-event",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 7
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-requires-matching-message",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-requires-matching-conversation",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-reloads-artifact-snapshot",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "sse-waits-for-publication",
+          "failure_types": {
+            "ValueError": 1,
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "sse-drains-between-read-commit",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "probe-waits-for-publication",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "publication-is-not-financial-completeness",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "financial-delivery": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 6,
+      "assertion_bearing_groups": 6,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "financial-final-text-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 11
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "financial-debt-retained-citations",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "financial-concrete-repair-note",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "recovery-final-projection-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "recovery-retained-cards",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "delivery-keeps-earlier-verdict-ledger",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "financial-r6": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 13,
+      "assertion_bearing_groups": 13,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "watch_disclaimer_not_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 6
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "new_watch_swallowed_by_previous",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "question_threshold_shape_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 6
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "financial_semantic_wiring_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 20
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "arithmetic_comparison_disabled",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 11
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "single_quarter_anchor_removed",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "inventory_duration_disabled",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "cumulative_length_disabled",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 8
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "deleted_claims_pretend_complete",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 21
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "product_crosscheck_unwired",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "document_delivery_unwired",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "foreign_document_accepted",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "conflicting_inputs_cherry_picked",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "research-delivery": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 13,
+      "assertion_bearing_groups": 13,
+      "exception_only_groups": [],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 107,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 107,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "result-success-admission",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "strict-table-width",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "domain-error-status",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "harness-status-delivery",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "public-disclosure-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 10
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "public-calculation-check",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "period-not-bag-of-numbers",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "metric-column-not-table-purpose",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "cell-local-preservation",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "same-turn-repair-note",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 12
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "nonmaterial-final-projection",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "retained-bound-citations",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 13
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "missing-product-not-certified",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 3
+          },
+          "assertion_bearing": true
+        }
+      ]
+    },
+    "extraction": {
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "groups": 35,
+      "assertion_bearing_groups": 28,
+      "exception_only_groups": [
+        "M7",
+        "M14",
+        "M23",
+        "M30",
+        "M31",
+        "M34",
+        "M35"
+      ],
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 165,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 165,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "details": [
+        {
+          "id": "M1",
+          "failure_types": {
+            "KeyError": 2,
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M2",
+          "failure_types": {
+            "KeyError": 1,
+            "AssertionError (explicit or pytest assert representation)": 4
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M3",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M4",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M5",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M6",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1,
+            "KeyError": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M7",
+          "failure_types": {
+            "KeyError": 1
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M8",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M9",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M10",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M11",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M12",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M13",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M14",
+          "failure_types": {
+            "UnicodeDecodeError": 3
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M15",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M16",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M17",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2,
+            "KeyError": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M18",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M19",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M20",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M21",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M22",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M23",
+          "failure_types": {
+            "UnicodeDecodeError": 1
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M24",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M25",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M26",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M27",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M28",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 2
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M29",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 6
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M30",
+          "failure_types": {
+            "KeyError": 3
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M31",
+          "failure_types": {
+            "KeyError": 2
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M32",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M33",
+          "failure_types": {
+            "AssertionError (explicit or pytest assert representation)": 1
+          },
+          "assertion_bearing": true
+        },
+        {
+          "id": "M34",
+          "failure_types": {
+            "KeyError": 5
+          },
+          "assertion_bearing": false
+        },
+        {
+          "id": "M35",
+          "failure_types": {
+            "KeyError": 2
+          },
+          "assertion_bearing": false
+        }
+      ]
+    }
+  },
+  "replay": {
+    "scope": "finite original-input mechanical replay, not final publication, live acceptance or general financial correctness",
+    "sources_unchanged": true,
+    "network_connect_attempts": 0,
+    "input_count": 12
+  },
+  "development_reds": {
+    "backend_baseline": "13F/132 deselected: 7 KeyError for missing publication, 1 missing-event ValueError, 5 assertion failures; no collection errors",
+    "frontend_baseline": "8F/107P; command forwarding ran all tests, not the intended filtered subset",
+    "first_integration": "4F/145P: test request omitted required skill_mode, not a product defect; corrected fixture4P",
+    "invalid_receipt_path": "First checker invocation mistyped final receipt filename, exit2, no validation; retained as receipt-check-invalid-filename.log. Correct exact log-referenced receipt passed.",
+    "zero_receipt": "20260918T165836Z-d06dc1e8.json has 0 executed tests; not valid coverage. Selected full receipt by exact pytest.log pointer, not newest glob or SHA alone.",
+    "related": "417P development only; fixed revision full suite separately",
+    "invalid_classification": "type-attribute-only classification draft found no JUnit type attribute; retained externally as invalid. Corrected method uses explicit exception messages/pytest assert representations, rejects unknown."
+  },
+  "boundaries": [
+    "published is visibility, not finance completeness",
+    "partial repair debt retained",
+    "no F2 report retrieval fix",
+    "no root budget/cross-process restoration certification",
+    "neighbor author live/engineering evidence not rebound",
+    "permanent missing event remains pending"
+  ],
+  "closeout": {
+    "business_revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+    "repositories": {
+      "finance": {
+        "path": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+        "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+        "status": ""
+      },
+      "toolkit": {
+        "path": "/Users/a77/harness-wt-financial-r6-repair",
+        "revision": "78ec62260359f996b83cefdca2c08ab7759b11af",
+        "status": ""
+      },
+      "vault": {
+        "path": "/Users/a77/agent-memory",
+        "revision": "86eb21ba1a19d1ed9b247351be04d75516efe64e",
+        "status": ""
+      },
+      "answer-preservation": {
+        "path": "/Users/a77/fwp-wt-research-answer-preservation",
+        "revision": "ad459ad09459ecaa48df2ee97a576d0aa0acbb97",
+        "status": ""
+      },
+      "runtime": {
+        "path": "/Users/a77/fwp-wt-runtime-contracts-0918",
+        "revision": "89f8d72744a64417fe979561c3c49aa00e1c6bb8",
+        "status": ""
+      },
+      "data-readiness": {
+        "path": "/Users/a77/fwp-wt-research-data-readiness",
+        "revision": "b47577092fed5b8771d64b7bd0fa7735e683ea57",
+        "status": ""
+      }
+    },
+    "engineering_pid_finished": 44817,
+    "listeners_8931_8934": false,
+    "removed_owned_registry_worktrees": [
+      "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/finance-workspace-private",
+      "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/finance-research-site"
+    ],
+    "reused_kb_untouched": {
+      "path": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+      "revision": "91725ea9ba0252a43665f9e3130142f946c289ae",
+      "status": ""
+    },
+    "old_packages": {
+      "2026-09-18-8792-financial-r6-repair": {
+        "checksums_valid": true,
+        "sums_sha256": "4fcbab9bd9b7ce9470ba305cdc4122ee1a8626ed4653563669a8e2f79f2fde4b"
+      },
+      "2026-09-18-8792-financial-delivery-integration": {
+        "checksums_valid": true,
+        "sums_sha256": "db4f22519a3d10058d0ba4b4c3d6018864264e2a3fcfbfedd3dd787cbee2e157"
+      }
+    },
+    "new_live_runs_this_candidate": 0,
+    "push_finance_toolkit": false,
+    "merged_main": false,
+    "deployed_or_switched_8792": false,
+    "vault_method_sync": "7457f945",
+    "vault_project_graph_sync": "86eb21ba",
+    "toolkit_revision": "78ec62260359f996b83cefdca2c08ab7759b11af",
+    "parallel_scope": "Read-only identities/handoffs only. Runtime WIP not touched. Only 49fd8d72 publication slice applied; neighbor live/engineering claims not adopted."
+  },
+  "packaged_receipts": [
+    {
+      "path": "engineering.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/result.json",
+      "sha256": "7b0797e1285bdcee9eff7f0c887bbfa057152f4792f30a1a73fd901ab96bcdb0",
+      "bytes": 4396,
+      "source_sha256": "7b0797e1285bdcee9eff7f0c887bbfa057152f4792f30a1a73fd901ab96bcdb0",
+      "source_bytes": 4396,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "pytest-receipt.json",
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T170550Z-d06dc1e8.json",
+      "sha256": "51a985ae9d27950d52f788c50a7fca321368883994d0a1033fbe86256e17dba5",
+      "bytes": 664,
+      "source_sha256": "51a985ae9d27950d52f788c50a7fca321368883994d0a1033fbe86256e17dba5",
+      "source_bytes": 664,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/registry-results.json",
+      "sha256": "daeb89adec42b853e7a03fc02f8f9cd974c9b725d3ded301f44d1690a779e209",
+      "bytes": 2968,
+      "source_sha256": "daeb89adec42b853e7a03fc02f8f9cd974c9b725d3ded301f44d1690a779e209",
+      "source_bytes": 2968,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-ambient-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/registry.log",
+      "sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c",
+      "bytes": 1105,
+      "source_sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c",
+      "source_bytes": 1105,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "archive-replay.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/archive-replay-d06dc1e8.json",
+      "sha256": "5f4dbfcf4859a559c0d5802ee2fc3d003907fda1f388acc0af96a87c241b4668",
+      "bytes": 15107,
+      "source_sha256": "5f4dbfcf4859a559c0d5802ee2fc3d003907fda1f388acc0af96a87c241b4668",
+      "source_bytes": 15107,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "receipt-check.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/receipt-check-d06dc1e8.log",
+      "sha256": "cd7b00d2a1ddbf3a4e75c3191e6b903ae12090cddb42423bc685bc2c50142607",
+      "bytes": 751,
+      "source_sha256": "cd7b00d2a1ddbf3a4e75c3191e6b903ae12090cddb42423bc685bc2c50142607",
+      "source_bytes": 751,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "mutation-failure-classification.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/mutation-failure-classification.json",
+      "sha256": "620f55b8d584a65072c0f48c0f1917b011038d4ec63b9bebfeafdd4dfad5f949",
+      "bytes": 19045,
+      "source_sha256": "620f55b8d584a65072c0f48c0f1917b011038d4ec63b9bebfeafdd4dfad5f949",
+      "source_bytes": 19045,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "closeout-state.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/closeout-state.json",
+      "sha256": "9da337824fefda4641252c18731cee5cafa7a8c0fd7c431a89b3e39d8441e594",
+      "bytes": 2509,
+      "source_sha256": "9da337824fefda4641252c18731cee5cafa7a8c0fd7c431a89b3e39d8441e594",
+      "source_bytes": 2509,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "harness-refs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/harness-refs.log",
+      "sha256": "67de78ac01fbf6e7e8079c198d17dde7aa760721b00ebc5ca24ca3e7f12eae97",
+      "bytes": 2339,
+      "source_sha256": "67de78ac01fbf6e7e8079c198d17dde7aa760721b00ebc5ca24ca3e7f12eae97",
+      "source_bytes": 2339,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "graph-audit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/graph-audit.log",
+      "sha256": "c51c8a04137b2ae0cda01d1bc4e7ca9c15cb0ee134d61a4ce10993098af14698",
+      "bytes": 43260,
+      "source_sha256": "c51c8a04137b2ae0cda01d1bc4e7ca9c15cb0ee134d61a4ce10993098af14698",
+      "source_bytes": 43260,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "vault-lint-before.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/vault-lint-before.log",
+      "sha256": "c8e63d9a9ca1f40253a087ca7caf2c94c7618494cee15730dc9fc63262931a9f",
+      "bytes": 5345,
+      "source_sha256": "c8e63d9a9ca1f40253a087ca7caf2c94c7618494cee15730dc9fc63262931a9f",
+      "source_bytes": 5345,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "vault-lint-after.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/vault-lint-after.log",
+      "sha256": "58710763053efdea08dbe055c6bb908d241a28d023ad56e4ae76ebfedd16fafa",
+      "bytes": 5345,
+      "source_sha256": "58710763053efdea08dbe055c6bb908d241a28d023ad56e4ae76ebfedd16fafa",
+      "source_bytes": 5345,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "vault-lint-diff.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/vault-lint-diff.json",
+      "sha256": "c3ad7df99732b7a25bdc32a473414b5f7d91570af2b759a28b16807d66e7aab6",
+      "bytes": 1701,
+      "source_sha256": "c3ad7df99732b7a25bdc32a473414b5f7d91570af2b759a28b16807d66e7aab6",
+      "source_bytes": 1701,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "ruff.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19,
+      "source_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "source_bytes": 19,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "pytest.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/pytest.log",
+      "sha256": "e654eaab71e5bcb08a552db61f0d933cc2dc4fa4fbdd93da3af8dcc5a4826b35",
+      "bytes": 17774,
+      "source_sha256": "e654eaab71e5bcb08a552db61f0d933cc2dc4fa4fbdd93da3af8dcc5a4826b35",
+      "source_bytes": 17774,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "frontend-lint.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-lint.log",
+      "sha256": "50a429d8d570eadb917e98010a891887c4c5756a92297d6976da05d15f71a59a",
+      "bytes": 118,
+      "source_sha256": "96cc5c6c6c8ad551916c62a0fef84e9fc6c8863b7fbfa23894e755374c7dc03e",
+      "source_bytes": 119,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-typecheck.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-typecheck.log",
+      "sha256": "cae7db441b27c24ba9cfe374bfca25798328458068b3a1555f5d3e8bf298b197",
+      "bytes": 216,
+      "source_sha256": "653ea3a0810fea9267a8e6ee2b2d6bd93f319ca8b16c228291c79b56edbbebe8",
+      "source_bytes": 217,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-test.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-test.log",
+      "sha256": "d8102afa51f1c4e06085d1512aa19404084490e426f515d06550c48a3afbe5e7",
+      "bytes": 846,
+      "source_sha256": "35a9fe82de977b7174afb1b853a7069a666fd7bd30472fd8e9b88db6ca3c23d3",
+      "source_bytes": 847,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-build.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-build.log",
+      "sha256": "2befeb65df5b583687f16baf980db888122a3f8df73c15dcb8dda2a5783326c0",
+      "bytes": 717,
+      "source_sha256": "2befeb65df5b583687f16baf980db888122a3f8df73c15dcb8dda2a5783326c0",
+      "source_bytes": 717,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "e2e.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/e2e.log",
+      "sha256": "a4b38582313946dbb512eb8311acfdceebe5ff4e7e50e64f6a8185a52f781cf7",
+      "bytes": 12749,
+      "source_sha256": "a4b38582313946dbb512eb8311acfdceebe5ff4e7e50e64f6a8185a52f781cf7",
+      "source_bytes": 12749,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-parseability.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/parseability.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "bytes": 95,
+      "source_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "source_bytes": 95,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-registry.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/registry.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+      "bytes": 33,
+      "source_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+      "source_bytes": 33,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-tables.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116,
+      "source_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "source_bytes": 116,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-views.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68,
+      "source_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "source_bytes": 68,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-ledger-crosswalk.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/ledger-crosswalk.log",
+      "sha256": "41424d9a8d8fdb193632a6cfb4fdfa4e2f0f402b7b52a1e66621dfe1172ed354",
+      "bytes": 2106,
+      "source_sha256": "41424d9a8d8fdb193632a6cfb4fdfa4e2f0f402b7b52a1e66621dfe1172ed354",
+      "source_bytes": 2106,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "transplant-baseline-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/transplant-baseline-red.log",
+      "sha256": "b4f43f02e396f1dccb35c51e7a411740b80ebebd2ccf51e0f86293e1298e8514",
+      "bytes": 6239,
+      "source_sha256": "b4f43f02e396f1dccb35c51e7a411740b80ebebd2ccf51e0f86293e1298e8514",
+      "source_bytes": 6239,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "frontend-baseline-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/frontend-baseline-red.log",
+      "sha256": "305112ca2bd693dad205837e3a6056abc56370f575af78487ffbc2447c420b44",
+      "bytes": 28263,
+      "source_sha256": "afc6261ec98c8a2a19d80d61e100ede8c28a9f6fc1cc5732ced4882ac8975bff",
+      "source_bytes": 28272,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "transplant-first.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/transplant-first.log",
+      "sha256": "f6aad681998df03b80a5526ae845729957c1b9090f2633f3c77e132ea0c766b2",
+      "bytes": 2548,
+      "source_sha256": "f6aad681998df03b80a5526ae845729957c1b9090f2633f3c77e132ea0c766b2",
+      "source_bytes": 2548,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "seams-fixed-fixture.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/seams-fixed-fixture.log",
+      "sha256": "788d57da95aaa5216d073a046990ddea59c28847bc4105d850d9f8887dbe4ba4",
+      "bytes": 185,
+      "source_sha256": "788d57da95aaa5216d073a046990ddea59c28847bc4105d850d9f8887dbe4ba4",
+      "source_bytes": 185,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "related-development.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/related-development.log",
+      "sha256": "b7acda30f7b2055149c6bb3a8807d846f66e1ce43c0c278a52dc3974558ac183",
+      "bytes": 588,
+      "source_sha256": "b7acda30f7b2055149c6bb3a8807d846f66e1ce43c0c278a52dc3974558ac183",
+      "source_bytes": 588,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "frontend-development.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/frontend-development.log",
+      "sha256": "7163a1e76c779e3420d2850a6c6e909efd9fbcd0e2f9846ccc5a88f582826873",
+      "bytes": 846,
+      "source_sha256": "4456ecd55e9f9b34f39112628243022abe839710fc0b3f2a3fe706cc32eacb74",
+      "source_bytes": 847,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-build-development.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/frontend-build-development.log",
+      "sha256": "2722ff40b830cdfb57dbefb100b0a9f1e9cd6b18a1b4ec3d5f73e78ac4c2ec7a",
+      "bytes": 717,
+      "source_sha256": "2722ff40b830cdfb57dbefb100b0a9f1e9cd6b18a1b4ec3d5f73e78ac4c2ec7a",
+      "source_bytes": 717,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "publication-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/results.json",
+      "sha256": "1075846b24c1bda88414b9471b88aefaca50e329e901512089a883fa00686b7f",
+      "bytes": 15804,
+      "source_sha256": "1075846b24c1bda88414b9471b88aefaca50e329e901512089a883fa00686b7f",
+      "source_bytes": 15804,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "financial-delivery-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/results.json",
+      "sha256": "bb873f25718e23a4118a96b0be9f15c930af520103df92b45e810394c5615257",
+      "bytes": 23978,
+      "source_sha256": "bb873f25718e23a4118a96b0be9f15c930af520103df92b45e810394c5615257",
+      "source_bytes": 23978,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "financial-r6-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/results.json",
+      "sha256": "ebb50cce4c118e5815eb39b51f1d304962b57b12b517cfb9ce2f6fcac580ba4f",
+      "bytes": 63763,
+      "source_sha256": "ebb50cce4c118e5815eb39b51f1d304962b57b12b517cfb9ce2f6fcac580ba4f",
+      "source_bytes": 63763,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "research-delivery-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/results.json",
+      "sha256": "8fa271dc77e3792d8be9cd638b70778fccaee70d543a4f208251adc3544cc85d",
+      "bytes": 44559,
+      "source_sha256": "8fa271dc77e3792d8be9cd638b70778fccaee70d543a4f208251adc3544cc85d",
+      "source_bytes": 44559,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "extraction-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/results.json",
+      "sha256": "fcbad8b4ebb0f25aac31f267a8d7d524b79960b28ad92453fbcbfcc9f6619e9a",
+      "bytes": 54041,
+      "source_sha256": "fcbad8b4ebb0f25aac31f267a8d7d524b79960b28ad92453fbcbfcc9f6619e9a",
+      "source_bytes": 54041,
+      "transformation": "none; byte-identical copy"
+    }
+  ],
+  "external_sources": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f1-opt-out/artifacts/continuous-episode.json",
+      "sha256": "8b17420c6040d683a46393b6a2a0c13a1a9eeddffefeac3dcc28a75cfce56ead",
+      "bytes": 622729
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f1-opt-out/public-message.json",
+      "sha256": "b4d591106bb8827518ffd4869f59fc3b7e8d1faeec96744593d7ee493f70ee2c",
+      "bytes": 6005
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f1-opt-out/question.txt",
+      "sha256": "358ced15d987f52cc382fa03221e2e2d53551407f7b253cb7502e0a82438d928",
+      "bytes": 962
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f2-dated-citation-plan/artifacts/continuous-episode.json",
+      "sha256": "2c9356b10ca582fc315600fe2a1d3474e47f4d02499aac2f170f169947fef640",
+      "bytes": 621774
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f2-dated-citation-plan/public-message.json",
+      "sha256": "4a0de2725ebccef77c9910a210ff3564dca5395e9ebc89c5fca7d87c577e43c7",
+      "bytes": 5635
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f2-dated-citation-plan/question.txt",
+      "sha256": "32825f7cfe72e9fc308dff6635fea4dd4700ebb117fcfa44f377460e3f1faecb",
+      "bytes": 648
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f3-calculated-financial/artifacts/continuous-episode.json",
+      "sha256": "c358b00cefaf737d1cdd72d01cb48e4d11826eba16a279e0ff679d9ab897715a",
+      "bytes": 716100
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f3-calculated-financial/public-message.json",
+      "sha256": "038b79ea724888ea98fcead3285b70acc089b08ae6974fcb0a109108e173b9c3",
+      "bytes": 6579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f3-calculated-financial/question.txt",
+      "sha256": "df1611908909903b655589cf420fbaf87893de3c7244d04b55e2496ae34b1298",
+      "bytes": 913
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/positive-persistence/artifacts/continuous-episode.json",
+      "sha256": "e051cf1153204d17d6d3602171a9c427deb86dba8b7f4599e69ba7ebf667a9da",
+      "bytes": 770619
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/positive-persistence/public-message.json",
+      "sha256": "c2969a2d8ab822cdb049d2ff833d34d509cdd032d9742ce32642dbc6b3409145",
+      "bytes": 6085
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/positive-persistence/question.txt",
+      "sha256": "68a4e80516fac83c1249f968c5aa24345a708a1d12ea41fd152d47ab9f6b6668",
+      "bytes": 950
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/archive-replay-console.log",
+      "sha256": "c9a265ba42609bf27062f048a89efac18f669404605b0ab3b6c61c805d7d345a",
+      "bytes": 175
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/archive-replay-d06dc1e8.json",
+      "sha256": "5f4dbfcf4859a559c0d5802ee2fc3d003907fda1f388acc0af96a87c241b4668",
+      "bytes": 15107
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/e2e-deploy-ledger.jsonl",
+      "sha256": "8421d8e86f8e5c3fba181ecc6c8cc9e7c13c141d483c8a93adb8847c951d1e83",
+      "bytes": 850
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/e2e-result.json",
+      "sha256": "37d72184521baa8fcd74d0c7c77befbad2c2219f25964c562b25642733b268b3",
+      "bytes": 215
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/e2e.log",
+      "sha256": "a4b38582313946dbb512eb8311acfdceebe5ff4e7e50e64f6a8185a52f781cf7",
+      "bytes": 12749
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-build-result.json",
+      "sha256": "6790682fbfbb7b76d58d9cae213a3d4261c51638d36e8950987f6e2f5756d58e",
+      "bytes": 221
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-build.log",
+      "sha256": "2befeb65df5b583687f16baf980db888122a3f8df73c15dcb8dda2a5783326c0",
+      "bytes": 717
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-lint-result.json",
+      "sha256": "a6c325a4a3e5047bdd503ea0e952b1ba35880fd6cee75bc6cc09adf01e709bc7",
+      "bytes": 220
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-lint.log",
+      "sha256": "96cc5c6c6c8ad551916c62a0fef84e9fc6c8863b7fbfa23894e755374c7dc03e",
+      "bytes": 119
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-test-result.json",
+      "sha256": "e4e19792af4e06274db2119af97da3f4e9d671870848eecd20faabe9bcc0f43d",
+      "bytes": 220
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-test.log",
+      "sha256": "35a9fe82de977b7174afb1b853a7069a666fd7bd30472fd8e9b88db6ca3c23d3",
+      "bytes": 847
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-typecheck-result.json",
+      "sha256": "2c889e6e658cec0f9c41d055d975a7013a3a2d4118ab12effe9f6b6a8fa487a0",
+      "bytes": 230
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/frontend-typecheck.log",
+      "sha256": "653ea3a0810fea9267a8e6ee2b2d6bd93f319ca8b16c228291c79b56edbbebe8",
+      "bytes": 217
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/ledger-crosswalk-result.json",
+      "sha256": "70d7306ca5df219d79a2fe855219449a2d9377b4b3aeb7bb283f0c77c3b59955",
+      "bytes": 316
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/ledger-crosswalk.log",
+      "sha256": "66168f873d4c34499ebffad2e3dd244b1e87d335ef96db0d298c92b5e2a397c4",
+      "bytes": 2014
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/parseability-result.json",
+      "sha256": "2705417e790fb65ce917ab6aae48a59fb684fc4cf047119a2126cd8a10be7960",
+      "bytes": 325
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/parseability.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "bytes": 95
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/pytest-result.json",
+      "sha256": "85326e280e2d673517b6a0b4673f34b0f53a74ab2b91ccf7fd560c444ea028be",
+      "bytes": 453
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/pytest.log",
+      "sha256": "e654eaab71e5bcb08a552db61f0d933cc2dc4fa4fbdd93da3af8dcc5a4826b35",
+      "bytes": 17774
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/registry-result.json",
+      "sha256": "40198912d711245c6ab0617dc627ae5b2306c102604c53ddb50b0f64fe886fc0",
+      "bytes": 308
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/registry.log",
+      "sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c",
+      "bytes": 1105
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/result.json",
+      "sha256": "7b0797e1285bdcee9eff7f0c887bbfa057152f4792f30a1a73fd901ab96bcdb0",
+      "bytes": 4396
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/ruff-result.json",
+      "sha256": "bcc9e64ea2a2325941679fedc1ebfdb94b295b47e1525966e464410234a93fc3",
+      "bytes": 302
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/started.json",
+      "sha256": "9fcf7deb2c5b941a6b3d7c3108d64ff092091b65cd0af0019eec458ff882d7f9",
+      "bytes": 128
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/tables-result.json",
+      "sha256": "1595251938d248f4c989beddadc0ef28e6ad802845079ebe411a369bdae69694",
+      "bytes": 331
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/views-result.json",
+      "sha256": "cbd2a508635d5b5ac31e7e9b017059dc766c30fc0c1f59583496f342484c08b4",
+      "bytes": 329
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/candidate-d06dc1e8/views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/check_pinned_registry.py",
+      "sha256": "747296e8bf73753333b20cb473855b4be9fe70d789bcea1639e331b696fb1510",
+      "bytes": 3149
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/closeout-state.json",
+      "sha256": "9da337824fefda4641252c18731cee5cafa7a8c0fd7c431a89b3e39d8441e594",
+      "bytes": 2509
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/engineering-console.log",
+      "sha256": "1f668991eab126acefbb6ac68b17aab7ddd0b0b26031a5d38f87734f81e4b825",
+      "bytes": 154
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/engineering-pid.json",
+      "sha256": "5197fae4d4ea2c403dd7fa248e4ae2ed803b44efd1e80480cd3929d625eba18d",
+      "bytes": 143
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-console.log",
+      "sha256": "b9149c2989954d1a09974a5ddd63db3e7c79b0b62bbf7ae2583de85ddc011c0d",
+      "bytes": 35196
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M1-green.log",
+      "sha256": "186d286c9650d71530f79291c88ad02a954e82186308ad8301457b95bc995997",
+      "bytes": 955
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M1-green.xml",
+      "sha256": "d3e3f55171d192e4bbf5632d243d1d928380243348c31997f4f0e9eb2f57ff31",
+      "bytes": 1027
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M1-red.log",
+      "sha256": "fd646b6a229bb7345b22ace9955db094c0339729bc70216fd986694466a2c55b",
+      "bytes": 3414
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M1-red.xml",
+      "sha256": "457c3b32414de9bd50f0487c8f77699dc47eb2b14296119157fb45265f416d8a",
+      "bytes": 3875
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M1.diff",
+      "sha256": "e7499c95ca18db88de3b71b78455321f6cd7f5798588da774ac238f311a0a231",
+      "bytes": 550
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M10-green.log",
+      "sha256": "e138116dfb2f757ef8445ee4a0a26c6359c29690550127b8d93b21e71554b660",
+      "bytes": 967
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M10-green.xml",
+      "sha256": "b3fc41085064d7b73193173e47c72a10e2cc66cc079b2458f112846701157f9f",
+      "bytes": 762
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M10-red.log",
+      "sha256": "93f5b72723822c272b2ff069775ce3de5373609b1422e380094b7cd69cabeee9",
+      "bytes": 2144
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M10-red.xml",
+      "sha256": "78a31c615520229ed2b20f4e700042f51bc8f0e444c04cae29113442baa81375",
+      "bytes": 2160
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M10.diff",
+      "sha256": "56b13d01963a0d736510da26bb6b1bb4493a8ed3c178a571c1f4a516477b14e4",
+      "bytes": 682
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M11-green.log",
+      "sha256": "17b1f2ff47a4a49c7f9fddb20e3eb95dacb3bd852b292a1988a80600814b7700",
+      "bytes": 981
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M11-green.xml",
+      "sha256": "078e3a7ae2306602856e4741f647c4b8c66287eb51adfdf513c81ab70af2fba2",
+      "bytes": 602
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M11-red.log",
+      "sha256": "a2ea3f850249645fd45af505cecae9d29e014edd1e9d41581a3b02f9be942dc3",
+      "bytes": 2453
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M11-red.xml",
+      "sha256": "16ac84a89d9ba2d44d4707578c2ac1fcfd4d576d873ad336d0bacd9221ea97fc",
+      "bytes": 1977
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M11.diff",
+      "sha256": "bc08ec6efbb96a70b683d768568f9526bf3c6c5f6ccf6b40214c0566c9a0b3b9",
+      "bytes": 795
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M12-green.log",
+      "sha256": "4ea3981cb03ec1530255c561b1128fe1cf1a88a2d31ece1de0fe5a8ecb0391b2",
+      "bytes": 984
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M12-green.xml",
+      "sha256": "141a5fd500f33935f7b9ca77929d044b4fb9a2af23961f5afb279d91c06599a9",
+      "bytes": 621
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M12-red.log",
+      "sha256": "ea407727d2fb0c6ea589f5a2e6c664665a35144e51e26ac582a47b13e607c069",
+      "bytes": 3016
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M12-red.xml",
+      "sha256": "0efa43f565e4fb6d09c5dde27c7d3b9e38d094133ce20c9cb49b6125c529c8cf",
+      "bytes": 3669
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M12.diff",
+      "sha256": "39597cc87904f6f7fa9474d7502da119fb5d1ae705f86172f112c9afb4f4da32",
+      "bytes": 711
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M13-green.log",
+      "sha256": "0ce6481a5fb6c75ddd15b3f6842bc6de6cda3dfe7d0dbe0a4fe8813a12e62e03",
+      "bytes": 984
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M13-green.xml",
+      "sha256": "b9a6f4e0c024d1c38906e1f36694bb14f33cd2ecd6e89e22396d9b6244f4fc9d",
+      "bytes": 621
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M13-red.log",
+      "sha256": "90df435e17aaca86ff1d0edaa54e09b80674ae9902db8910ffb902b220fcbaa8",
+      "bytes": 1633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M13-red.xml",
+      "sha256": "368adfdd09b7ee28d81a0ba50e8ee0469f5be73a5948ad3e8bcd8e61b36e8bc6",
+      "bytes": 898
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M13.diff",
+      "sha256": "e837e64478f5d6811225639cbd03807a9b2f36ec060e7ebcc067838a31342883",
+      "bytes": 600
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M14-green.log",
+      "sha256": "7a936d68866f4bf4274daf6a97594df1dcd2a954539c0f6fa6b01d5682f0c826",
+      "bytes": 980
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M14-green.xml",
+      "sha256": "e56c4b81cf4b50057831eaa567605ebe5fe2f4475de476fb7174660511bd6b0e",
+      "bytes": 769
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M14-red.log",
+      "sha256": "7dd68844433ca5c92cbee3c9ce142a66bb02a2d9e697783ecd707a9f5c6369aa",
+      "bytes": 3784
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M14-red.xml",
+      "sha256": "6a2b5025acf364c7ed9fad8d47d4cdd1f17ce461169c1d8d08ae2706be965cc7",
+      "bytes": 3146
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M14.diff",
+      "sha256": "21eab79223c1aee9587fbe682fb85ed32fa330310cc3024375bf2c7629f11eeb",
+      "bytes": 1074
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M15-green.log",
+      "sha256": "bf7e86d741bff388d88d8977c06d86476cec1648b930ccb6e06c225b53b149df",
+      "bytes": 973
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M15-green.xml",
+      "sha256": "aa2ac7a538191d3de781d6aae4751b6ecd53add21da43267a1f7b4020f934ce4",
+      "bytes": 603
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M15-red.log",
+      "sha256": "09aa367d2f30215c03a74a296dbfa959ebbfb86b31e4b1cf308433b60b9e2b88",
+      "bytes": 2794
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M15-red.xml",
+      "sha256": "31070b988ed8a9e646836099f9c99a48b8579b3c046a0372f535770cabad266a",
+      "bytes": 2585
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M15.diff",
+      "sha256": "ecf1176bac09ad0c7cb4f0aebe296cfc3913a59af0b7d09ed75cd9d6a69ae24e",
+      "bytes": 808
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M16-green.log",
+      "sha256": "c44e7db1b210cf17c7483e02b2a836caa00940d1ce09010b64c21f29eb8ce81b",
+      "bytes": 982
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M16-green.xml",
+      "sha256": "b35704b7e298603ce35494ee489cd87eabe756426241da1d03c9f5c6ba8fd5f5",
+      "bytes": 428
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M16-red.log",
+      "sha256": "e0d22b42a0d7b1fc54f01e17eda35cebf291ecdbff69122d881fc09742dbeb8f",
+      "bytes": 1633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M16-red.xml",
+      "sha256": "18c057b9bdffb13d0525cab2635961002166f8372fd21711dcff3893fc7abebc",
+      "bytes": 781
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M16.diff",
+      "sha256": "a54ae936d004204161fc8efc5bc834cf93710366145ad07a355ea690b5ddb4d8",
+      "bytes": 580
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M17-green.log",
+      "sha256": "ded42a029315629781ab102ec5e0d086088dbb84394a8765480063ae0b92aad1",
+      "bytes": 978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M17-green.xml",
+      "sha256": "9495e271513ebc9e8d17298c6995095c0f4d13cab7ab008830ca860328e1b220",
+      "bytes": 940
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M17-red.log",
+      "sha256": "722078a6e6e46ac8aa93093cc6232e584e8090dd34b14d48f724199a28a39095",
+      "bytes": 2868
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M17-red.xml",
+      "sha256": "c887571882a35d5d7c7f9b3818ad3d7153edaf008dddbc3d0a1f02a53d2e163e",
+      "bytes": 2699
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M17.diff",
+      "sha256": "90084486a3f7214890187ff1efd85408f040736b02b515ba06b2b84f16beb37f",
+      "bytes": 698
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M18-green.log",
+      "sha256": "dd03be08bf741769445f4a257d01cbe7ca0fee7fb88f5d4930c04a37f7ac1c65",
+      "bytes": 983
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M18-green.xml",
+      "sha256": "83aa1bf9bd284a60a0396f4b937f07dd423fff6c22a482adb6afbd78d107b0ff",
+      "bytes": 611
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M18-red.log",
+      "sha256": "92888aa964a7d82ad52708059810c038cee126123b88465806dbe4991ad43f29",
+      "bytes": 2346
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M18-red.xml",
+      "sha256": "2269e24ba5ca1238098b0710549cb046bf50a2ba02e0229573924bf9c8195947",
+      "bytes": 1797
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M18.diff",
+      "sha256": "8ba75089a3559e0fb6661e5527913ce3be4c1b19c9fe7f75975ecec800cb1981",
+      "bytes": 726
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M19-green.log",
+      "sha256": "54da7780b412f1d03f1155144cabf3ece6702e5c0a3cd92bff5fcb5795e9b879",
+      "bytes": 981
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M19-green.xml",
+      "sha256": "80be50bcb183bcd967344898186830e283e58d577ed4100367fe2862b01f8a6a",
+      "bytes": 583
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M19-red.log",
+      "sha256": "587c9767e8679b7409606ae655763e427c660087a01a4ba2bc4822d465223996",
+      "bytes": 1746
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M19-red.xml",
+      "sha256": "809c5981f7fcc0bd3b11d35a14ea64e4d2764146fc49d6ca9917b17e47cd1647",
+      "bytes": 1145
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M19.diff",
+      "sha256": "61b8b16661d21d3a0c50c8373f6e7c1166b0f74915f269aa47cb6d7108661179",
+      "bytes": 580
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M2-green.log",
+      "sha256": "3b44d966843fbf9b3bbd1443dae9f9f53f22f94aab355b24ebf921d13a7efafb",
+      "bytes": 1011
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M2-green.xml",
+      "sha256": "cb240e55e0b3baaa1e6e0da835b35b9f4dd4b27e11716aa6dd7aca6d56ca8c9d",
+      "bytes": 2529
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M2-red.log",
+      "sha256": "914ee8334e630529444f2f14dab2e14072b717ce58efd5de6080b35ab1d1d4d1",
+      "bytes": 4193
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M2-red.xml",
+      "sha256": "f2b03bdb2c9dd3a26bd5d2ef346aaede6859d5e03e9b2fe9fe09533a714ff686",
+      "bytes": 5908
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M2.diff",
+      "sha256": "87267681b7e2c9f6394f8e264ab305f029d16bc1fcd83f998846df5899d8058e",
+      "bytes": 579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M20-green.log",
+      "sha256": "bd41c834d010f79e7716033d1a8fba2fcf6cfc42e2ebde3434955af66926fcb9",
+      "bytes": 985
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M20-green.xml",
+      "sha256": "04f3f9ed83ea09105089760e0f8eab2ac0add2c86e1d880d7392b1a0e0f2abef",
+      "bytes": 605
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M20-red.log",
+      "sha256": "13c5eebbe8759533dcb19efa5dae5e007784c520a8a2a86b591d9d90f8ea6db6",
+      "bytes": 1754
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M20-red.xml",
+      "sha256": "25ff4e57ba879d6f0222f5603d3f27009ea72ecbc0b7baf911ae15a2b45f46c7",
+      "bytes": 1140
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M20.diff",
+      "sha256": "5b7552899abba0fbf2a8b242bc78201967430e958b961fd5c9f8e1bff7704ed4",
+      "bytes": 794
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M21-green.log",
+      "sha256": "b924e65187e8e3cb646a19f58d0d4e170ef23851294b0b1ee88c4d03ba2bc07e",
+      "bytes": 977
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M21-green.xml",
+      "sha256": "17f41ba70adcfb1ec8d350c1e8d5d0d6ca9dcdfc2aedde244d6c17b0fb534a42",
+      "bytes": 424
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M21-red.log",
+      "sha256": "0eb846890c0eaca2892b4430cf440e85b77963f1cf0f1ca9349aa81c00e2ca59",
+      "bytes": 1959
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M21-red.xml",
+      "sha256": "f3ceb45089ab5a14c56d5d1cc7faf9edfa37a091750b31374ae652ee555cd6b1",
+      "bytes": 755
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M21.diff",
+      "sha256": "a14b422bdcbf30600a93aaafdfccaf482042f1697f2fd6c63296b23a5c4f815a",
+      "bytes": 750
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M22-green.log",
+      "sha256": "57c15e493114a374c4f32a38d0296c3cc1d32916060979f4ac45b87fd619770e",
+      "bytes": 984
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M22-green.xml",
+      "sha256": "9bcb1ccf9a3fe9f6e684b2aee668d37b8b9a749b0025f8e34f90c4a04d99c680",
+      "bytes": 786
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M22-red.log",
+      "sha256": "18b24415b670e1041724fe9e9a99106b35e5161281bd04cbfca6856b8f5accad",
+      "bytes": 2340
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M22-red.xml",
+      "sha256": "99ff7608c8f94e5775454c6b2071e5d41fe5f47efa550154d16c2ce6ddb3c31d",
+      "bytes": 2539
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M22.diff",
+      "sha256": "a8b8b2c5f2819256750ada387d2dddae634d9fd440ab433440590fb9dc1936cc",
+      "bytes": 1291
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M23-green.log",
+      "sha256": "2c3bee01eddf0c9ba6e7339afcf5f6125805932cd4e77bc7968a15a0c2f9d430",
+      "bytes": 983
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M23-green.xml",
+      "sha256": "f0693c04e04ef47c800c8633194f10339309ae0a530276ba7c5554754dc53dbc",
+      "bytes": 429
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M23-red.log",
+      "sha256": "013f67ea42d84ec76000faedbff27aea9c14cda317c9c2ec15bd7d4cb5565524",
+      "bytes": 2072
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M23-red.xml",
+      "sha256": "c4c1494aaf3fdc79dbd6f35d180a883d0ad354bb348fc9ab47371b5e19ea0b52",
+      "bytes": 1240
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M23.diff",
+      "sha256": "c28133659ef5e03c462f38d8107a45c1cdb0fd3eddff78770d661d56688c8082",
+      "bytes": 1367
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M24-green.log",
+      "sha256": "5cbd49a3f4fa80fc0faf9d6bef99a2e01fc062ecb86c87b358a50ff2b84c1d50",
+      "bytes": 980
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M24-green.xml",
+      "sha256": "b1a408fe972706b2d5a2d1708525f14383abb159ac2c50fc6f63f85c22c35bf9",
+      "bytes": 613
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M24-red.log",
+      "sha256": "071999ee0ac12c54b71ce9a72e7949887af6cafc00ad100c30043d7b4bd38557",
+      "bytes": 3920
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M24-red.xml",
+      "sha256": "cf8932008c0ee4ced6e69997c4ee3cba4d73ec06b338f2c2bd2e768a3dcb58d0",
+      "bytes": 4206
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M24.diff",
+      "sha256": "f8f794951a32be489171e9aa790bcb826a9a38139cee5dd426dc1662b6128a73",
+      "bytes": 646
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M25-green.log",
+      "sha256": "8ba02793db7f80573953fcf3e7e80e4238151a8059f9b9ff1d6ac69e23fbc3a6",
+      "bytes": 990
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M25-green.xml",
+      "sha256": "99e8cb2dc0fd1a15142bfd8c69e88e5b5b620ddc02914112bcb21038501e1565",
+      "bytes": 642
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M25-red.log",
+      "sha256": "5cab90a3edd79b84e28befbde5915630053e32687e510c13a1925759453050f9",
+      "bytes": 1841
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M25-red.xml",
+      "sha256": "0d35e201745227a58ff072b0426e7e4bcafda2e926230e7334af0db644047f45",
+      "bytes": 1278
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M25.diff",
+      "sha256": "b2609882238ecda519a46623e7133099716c770fc187b902d1d72e5032a790e7",
+      "bytes": 745
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M26-green.log",
+      "sha256": "8889d82b802151ec4c15e825fd9e4bea5f9fc5a613b39da1fd419eafc22355af",
+      "bytes": 982
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M26-green.xml",
+      "sha256": "d16dc14620bfe233b87e89d4f588fd2d267e0e2330f4027b72815dfc4173055d",
+      "bytes": 773
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M26-red.log",
+      "sha256": "5b89a9d236c665012a26d2d6d28891ee344030a7acb6d66fad6d28a3adec1a50",
+      "bytes": 2474
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M26-red.xml",
+      "sha256": "fde31864dc1a43b935e0722d763c50fa26a4a94a5650c0a325baed7947058118",
+      "bytes": 2232
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M26.diff",
+      "sha256": "a7a802af14cab2f5c43a43adc1919bdec3fe720a25d134e12d0160a769794f4f",
+      "bytes": 914
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M27-green.log",
+      "sha256": "e62afe104718d0abdb7776df79b146ab3f9c30f59f38732e2d8e0eeed4b2e569",
+      "bytes": 985
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M27-green.xml",
+      "sha256": "8a606bed224e67ea33a8a4d05d5e435ec768e8766607bafaec63cd6b4ea65bd7",
+      "bytes": 609
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M27-red.log",
+      "sha256": "5330fb8f047b14c9af7e191af6a29effd87f6b437c0ed8d3ad9dbbacd6c626ad",
+      "bytes": 1852
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M27-red.xml",
+      "sha256": "da618b056957ce35c8739eebfb1e359935a51f6f86de441849b742ccffa6f6cd",
+      "bytes": 1362
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M27.diff",
+      "sha256": "3e86da9313154f9f2bab4b63c4ad295380bdade4de87ca028467c5d45b8948d6",
+      "bytes": 614
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M28-green.log",
+      "sha256": "2ed5d2acdf7517a51958558f310752717d7c9dffd3b56a29bc6b5c530119a69d",
+      "bytes": 980
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M28-green.xml",
+      "sha256": "592b2acea0ed4aeeecaf69b302cbaf937d7a5b9bfcf9311151b5c1102d786c09",
+      "bytes": 762
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M28-red.log",
+      "sha256": "c8280291d4d7909dd30909487c216e38b70f876d0da455cf6b7ff14b2bff5124",
+      "bytes": 2105
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M28-red.xml",
+      "sha256": "23aff08ba96363b8ad79f954fba173cc8244cbb61211f33503e9773ee60e46f0",
+      "bytes": 1525
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M28.diff",
+      "sha256": "de7527ebfd5ea54d6da9274d65a0996463ed498c6de28f46bead9260b2f2d471",
+      "bytes": 889
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M29-green.log",
+      "sha256": "c8d5d7dd6eb746fc4b3efc7122e5e9e7a447e041ccec4798a63aaa4e2b18665c",
+      "bytes": 1003
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M29-green.xml",
+      "sha256": "44dbe6947183ca7a20a56b99113778382c12a40ad233a3b3a2d2ea4a97602826",
+      "bytes": 1238
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M29-red.log",
+      "sha256": "30ad2dea8033bbc8bb93122919441b8b95dda7a32c754c94adc3bec39c878554",
+      "bytes": 4372
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M29-red.xml",
+      "sha256": "2a4ba980b25de26812f6e182aab70de3037dc095d3b63c0e07ca1891bf228bf0",
+      "bytes": 4070
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M29.diff",
+      "sha256": "c5cdbc7ca411bfbe7f64920574b1f1a6ae17b3b6e4da294ffa8b39b1004a051c",
+      "bytes": 581
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M3-green.log",
+      "sha256": "63d66de5f4bb04af0e90d0bf2018fce190ba25a6750d2138a40b534513db5432",
+      "bytes": 960
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M3-green.xml",
+      "sha256": "76b02b80479c9268f4e2608f65f093b09cce9a907e81ba2b8c0d1d7414dddd34",
+      "bytes": 1700
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M3-red.log",
+      "sha256": "95ff0e7c43745c437dd9a9e082408143e771b529760fbd87cb31d8b10f0319fa",
+      "bytes": 1750
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M3-red.xml",
+      "sha256": "270b36b3a7cddf6af0560300a78734a9a2693c9588f0740105813692f1375af6",
+      "bytes": 2368
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M3.diff",
+      "sha256": "564cfbb5a6c1fa53eaf03178e0cae6cb8d16d06310703768378a82bd45bec282",
+      "bytes": 706
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M30-green.log",
+      "sha256": "935067f0017c5cf5102d87e10f1e685fd63b5e7f8324c5990bad7c0b6b75bbce",
+      "bytes": 996
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M30-green.xml",
+      "sha256": "633c1c2bd3ab8962dffc30e77fa8a0c6c0033e778e6be7f4615e6d08090115e4",
+      "bytes": 1025
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M30-red.log",
+      "sha256": "803bab67cc8c309a530cb6ef2bf51e7f53e0cf9d4598b057e013f10d56a92804",
+      "bytes": 2417
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M30-red.xml",
+      "sha256": "67bfefa96cd7c905f07592d16358154fcac8412ef83079bd7f4015cbfc0916d9",
+      "bytes": 1868
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M30.diff",
+      "sha256": "2bee8a479fb2517858c0cc28dcc42817c97ea6ae96c2fc00b2cbe32e1f434fd9",
+      "bytes": 898
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M31-green.log",
+      "sha256": "84b7846f47988f58e2a9219650b8b9f5333d3e4045c03f84ae2acd2d6107a810",
+      "bytes": 996
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M31-green.xml",
+      "sha256": "4e06c072ce48cc028f048624966433c0708f019fb27602e2f0d37d667dd8a90c",
+      "bytes": 1025
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M31-red.log",
+      "sha256": "4703baf2782d40462327010ab2b2bd0e604bd62d8d055296bb871a46c1411590",
+      "bytes": 1999
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M31-red.xml",
+      "sha256": "5e8b5ba0bd3b30f17e683f89efc26e6bb6f08395f63b33bdc331c04822a0981c",
+      "bytes": 1587
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M31.diff",
+      "sha256": "cee4b02d5a247b0a456c9e697a8a299042a5eb1da21337eb580c3c0ab6f5b101",
+      "bytes": 673
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M32-green.log",
+      "sha256": "d3320ebe66d5deefd227346c8b366f4bc3a069cc4b37c7aac3096fe2752ef61e",
+      "bytes": 1008
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M32-green.xml",
+      "sha256": "e7b757a7f318e3be0cc8ddc97ad08d8b59d22c767dae51803084fee040a42b97",
+      "bytes": 390
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M32-red.log",
+      "sha256": "42b6f2de410b74b1454e0d96823ead2ea8f34c525b0f1237efbce579d5045ddb",
+      "bytes": 2043
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M32-red.xml",
+      "sha256": "72fef190b3036aebc4ae3d45c0f65149071b7612daed5a4a922e9457bfcde41d",
+      "bytes": 1628
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M32.diff",
+      "sha256": "904c8420cd90467cb7cc7259feadf6df75ef5e359ab239a5cbe677d26f7e9189",
+      "bytes": 815
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M33-green.log",
+      "sha256": "05c879226a132f2968cfd6129d9dd78468ee1ae86fb2827e7ca5c0f9e279f06b",
+      "bytes": 992
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M33-green.xml",
+      "sha256": "435dd1f580b8dff3eba005da95a2973c9b1e711c527530b73b5c56716e513ee0",
+      "bytes": 1443
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M33-red.log",
+      "sha256": "64cd172659d11e5f829f369fcdb9944acb2aac939e51c4e180c9cd96367881bd",
+      "bytes": 1643
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M33-red.xml",
+      "sha256": "098ded67e4f5aab82ddb10a7226ea8d099e56fbb0783bc6b6c72045c909d04a7",
+      "bytes": 1879
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M33.diff",
+      "sha256": "234871b9d6e6963edd98932de984f38f89d0c47b8856ed2b81b6e03da99c697b",
+      "bytes": 633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M34-green.log",
+      "sha256": "0b25c26c8dd7f778f58c204260c1072c9d50a5928fb3b1c880e0594015c0dbc6",
+      "bytes": 987
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M34-green.xml",
+      "sha256": "aa49e38e9cc40af7649d6ec29c0a14b9d56c80017de505040b01c3aab4e00f31",
+      "bytes": 1214
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M34-red.log",
+      "sha256": "f03c7fa9310a4f8d07b7e2ab3f110031cad664dbb99459e798528fa4b3ac7881",
+      "bytes": 3110
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M34-red.xml",
+      "sha256": "a2662d637581691eaca0461b00bda7799b1d18ae8ca1d03c9c7e111321c41131",
+      "bytes": 2579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M34.diff",
+      "sha256": "8d45fc6c4bcbfbbd117a869fe88c059f34a52b891769fb3d470ffc5efc2bf8a5",
+      "bytes": 670
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M35-green.log",
+      "sha256": "45a7c1099d08c4ba09c0238db5ecead3b52265bcecc4f0f137945a321e9fe552",
+      "bytes": 987
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M35-green.xml",
+      "sha256": "fe0a9f954feed8b0292aaad04fb7f7ea6d82d5631c5dc6201d18c39d3f942530",
+      "bytes": 1214
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M35-red.log",
+      "sha256": "bbefc92e3322fcd3de67ef19f7657f31744966cddf2b48338b917840860a6572",
+      "bytes": 1941
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M35-red.xml",
+      "sha256": "e8f3125d0491d42100646386d8a90f3282df9f0c337db9991810d035e903657b",
+      "bytes": 1760
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M35.diff",
+      "sha256": "d44eb029e05de6687ed0056145cbef7cd94d45a7883b73634179d969246b4a08",
+      "bytes": 590
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M4-green.log",
+      "sha256": "db7206c2f0c5a232238017aa25b5d2f4c910f7d9cb945079ac147c0cbde28635",
+      "bytes": 960
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M4-green.xml",
+      "sha256": "ff81cb0d495c140c1bc1895e3732778386e5973ac4a2eaee8a879f9efffac8e3",
+      "bytes": 1548
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M4-red.log",
+      "sha256": "5710f30e29f907bf0f019ac8caa8fcbdc9b18f5581c6fb4d03a65979c10f709f",
+      "bytes": 2940
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M4-red.xml",
+      "sha256": "c356523d10f9d57dfb7054ccd235cd778ee3a5bd2bc6de570e0b824a68470ce6",
+      "bytes": 4121
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M4.diff",
+      "sha256": "ddaf4ad4342e85c59bc78a4f38578dae900183e0ff42ddb76bb8b61b4101c8b4",
+      "bytes": 504
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M5-green.log",
+      "sha256": "5ee1368f51aa0eaef32630a0e2768dabd1edb40d933c7b47a5358d264fd0a85b",
+      "bytes": 960
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M5-green.xml",
+      "sha256": "e026e57b8129fd26fe244e83f42473b066b9d40123fb3b12ee7557a26dc1cdec",
+      "bytes": 1700
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M5-red.log",
+      "sha256": "1bc908f1a6de6973920103426402bd25c6a99bfd650ccb6f72005334da95667a",
+      "bytes": 2910
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M5-red.xml",
+      "sha256": "4aee7ec7b5678e0ea6cf4ed8ce10548046c54d5a48519f68ee681061eddb423d",
+      "bytes": 4689
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M5.diff",
+      "sha256": "fd7c7a4d9fbd6b7787377a99bb311538c21217ccd2de226f133dfb1e754ef3c1",
+      "bytes": 568
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M6-green.log",
+      "sha256": "28e85e73babfbcded9b5dce9d6410be18cb6b78aa74168f2379732c8b2f3052d",
+      "bytes": 974
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M6-green.xml",
+      "sha256": "1357f0f5522d7d1e06915f05abaa91aafab053823273d3cfab9451a36c58faec",
+      "bytes": 606
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M6-red.log",
+      "sha256": "2c77915f38fb7f29bff2b598a8e86517485e446e539586a69d402509d468f456",
+      "bytes": 2069
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M6-red.xml",
+      "sha256": "e4994faf9679c02cd1add13a93665b6f07770c7da3e6bdcc542b70abd50d7d09",
+      "bytes": 1175
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M6.diff",
+      "sha256": "a3432746e97f77fed3e931feb51868bb25ec0b4c2f3f0538ba873ebb0258fea8",
+      "bytes": 548
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M7-green.log",
+      "sha256": "80243be2e3b07125cf4a340d8307e6bc6b58de189b896500f5ef3c73c8579d90",
+      "bytes": 975
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M7-green.xml",
+      "sha256": "952727e49fae2f618f856efa3254cd94224cc9159a5667207488ade1fd789cea",
+      "bytes": 591
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M7-red.log",
+      "sha256": "fcaabc77f6c4f21c94c56d94b5206289e4384bee8e920efe1355226b118f8cd1",
+      "bytes": 1574
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M7-red.xml",
+      "sha256": "134624627c821619faf78fe6478b3d6aca42b9f3c33cf5fb6d8da78734696a18",
+      "bytes": 852
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M7.diff",
+      "sha256": "1fc97adf06515555849c61b426cfe6b15bf501bf6a0ae842caa57c89938103fa",
+      "bytes": 795
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M8-green.log",
+      "sha256": "4751bc0d9a42d0be2a444894ca69d9ea5d9b3915698f1babd48c73c48d7c60de",
+      "bytes": 978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M8-green.xml",
+      "sha256": "f591fcd433fe9e4e47209e16da8563b1b8e74b5f05730b688d778d65b7350ffe",
+      "bytes": 597
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M8-red.log",
+      "sha256": "428c74726500eda470820dd59629dfa6c4ab97d020c2a465dc710e4579f5739b",
+      "bytes": 1677
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M8-red.xml",
+      "sha256": "eb7082d7f57bf3e648387a7eb5f585489dcfb8f2c05ea66ad7b921c0d1a19e22",
+      "bytes": 1034
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M8.diff",
+      "sha256": "f941d530fc545920e61052d554007254eedca87f8866252aac1b82c85d5607e7",
+      "bytes": 702
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M9-green.log",
+      "sha256": "c24512d2382413b7e820a3082fdd65193c892c996af8546ea0f288f6d82eaf85",
+      "bytes": 975
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M9-green.xml",
+      "sha256": "eee8d526a0f7bf8c9012735a0ba034095acbfc2547d473dc5a9589b547a268b0",
+      "bytes": 609
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M9-red.log",
+      "sha256": "a0591cd5bad5005949b5a79b66afa84583dce16350d855452499b5cc94869fea",
+      "bytes": 1605
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M9-red.xml",
+      "sha256": "53d0995ba94b13be9027f6ab0f585fc1fbd90c7ead9859c6fe03de1b3be0c5d8",
+      "bytes": 890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/M9.diff",
+      "sha256": "aa49d285a15038fdded92ac5b125eb8239607114541e5006802bc1b23b88f64f",
+      "bytes": 858
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/baseline.log",
+      "sha256": "5e2c2cbf5c25209b58b1da01c6482e84d9d0e7a4cd2dc687cfc5aa142a617d24",
+      "bytes": 1078
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/baseline.xml",
+      "sha256": "dd1e5aaf443761be04ace9d5b355fc6961ec29abd73b7dde30d321596781cbce",
+      "bytes": 28071
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/definitions.json",
+      "sha256": "6d1e55296fc6a594f0d6a825b0e547bdd7d7ee9a5f0fa8bd06262e7a3b467cde",
+      "bytes": 14741
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/restored-full.log",
+      "sha256": "ae43fcf6bec102a5ef7c6b9e837330347c2adc3ed4d51995cb486e1e3da90b06",
+      "bytes": 1088
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/restored-full.xml",
+      "sha256": "34c59d64b4d15eea34dc483b462252ed0af8c86b746a12d54945b60aa2b43ef0",
+      "bytes": 28071
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/extraction-mutations-d06dc1e8/results.json",
+      "sha256": "fcbad8b4ebb0f25aac31f267a8d7d524b79960b28ad92453fbcbfcc9f6619e9a",
+      "bytes": 54041
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-console.log",
+      "sha256": "8f19ac1f4b7cfc7ab570ccdb9b7ee530d3ff7362183f454b4440ac2098f96b7c",
+      "bytes": 20859
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/baseline.log",
+      "sha256": "6f996ff3037ed7caa7700bb5971688ed00887358874ef9aafcc2fd5881bd0125",
+      "bytes": 825
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/baseline.xml",
+      "sha256": "a9732a816ac260992e46c47d399d95576b27bb42fc0df703e2c7af2b23ccdc86",
+      "bytes": 4890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/definitions.json",
+      "sha256": "a362c394eb5702e8776227f5a759d5e6ff2c862ab0c7f793ee85829ee2bffa65",
+      "bytes": 2354
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/delivery-keeps-earlier-verdict-ledger-green.log",
+      "sha256": "aec016de5c0332602ca5074a395e27933cd73d69f2b333e867c3ee64ddf736c4",
+      "bytes": 970
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/delivery-keeps-earlier-verdict-ledger-green.xml",
+      "sha256": "2414b73e81af6575bed93129cfcc4e881bcd1bb15c7ae3ef9e1c887900ce4a33",
+      "bytes": 388
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/delivery-keeps-earlier-verdict-ledger-red.log",
+      "sha256": "c6a36cd1df7ec15c7dd9d4deac2b63515330a91724a544617240a3907f2ef81d",
+      "bytes": 1560
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/delivery-keeps-earlier-verdict-ledger-red.xml",
+      "sha256": "26f3805a26c4ec7f61d07b68c80036cdf7129d296ec51976b8299a4c85273494",
+      "bytes": 711
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/delivery-keeps-earlier-verdict-ledger.diff",
+      "sha256": "499f5e4463d9dd0bf9aa8b64fedaa74fa96877288d59e97f90ede37bebe8f7d3",
+      "bytes": 735
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-concrete-repair-note-green.log",
+      "sha256": "c9607cb5baa0f100146b1a5b27f669c754c50785a43d2127d245958cd5fb855c",
+      "bytes": 983
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-concrete-repair-note-green.xml",
+      "sha256": "f6e2c8404cf1db8ac0b08ce99c28e849bd737b680a61c82183a568e840b0f5f4",
+      "bytes": 603
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-concrete-repair-note-red.log",
+      "sha256": "2ced244e1cc5f056a15a90e2c3f42cf5e70aea71650c0d3a223926c04130b3e6",
+      "bytes": 2445
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-concrete-repair-note-red.xml",
+      "sha256": "231ce6072ebeb336d461db1bf98ca4fdbf0bd6d59574d4fd6711200aa2caab1d",
+      "bytes": 1921
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-concrete-repair-note.diff",
+      "sha256": "513d99407130dab3cd18423301f02aaab5aafda59095e7fadabd1be5e8897f8b",
+      "bytes": 704
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-debt-retained-citations-green.log",
+      "sha256": "dc3c0d1c99ad3030d9893efaaf9583d91b025e6584f6f6d5f7bb72cbcd07f249",
+      "bytes": 989
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-debt-retained-citations-green.xml",
+      "sha256": "51deb517338c60d6cb551eb7a35156ce53ecb79ca6354fb9ceb3d560f365a91b",
+      "bytes": 603
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-debt-retained-citations-red.log",
+      "sha256": "a59b5acc8add21410615fff906dac5a25abebeaa68caa9b92685e4f4be2412b0",
+      "bytes": 2421
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-debt-retained-citations-red.xml",
+      "sha256": "967cf5751816739540152c2b5a0317f69de2429f5a33fed119266fbaad81e36e",
+      "bytes": 1777
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-debt-retained-citations.diff",
+      "sha256": "002f0491c1a706acb27435cf8b0aeee92a9dfbe9d03f3f380c7813b063812ac9",
+      "bytes": 1063
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-final-text-check-green.log",
+      "sha256": "b3716e16f1e5d9d814f9eb2120236c1015d19dc112ef7d5298eec3b91c7086e1",
+      "bytes": 1035
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-final-text-check-green.xml",
+      "sha256": "fa713f8e11eb6f1d8929c2ffa868173d59e5c4bbd1c412e4655169ff070d69de",
+      "bytes": 3124
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-final-text-check-red.log",
+      "sha256": "318a3071168337cd59cce99639b6239889abbf84737091d0b0e03573dc9c7966",
+      "bytes": 11254
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-final-text-check-red.xml",
+      "sha256": "ef72a856d15f30722b12126528d9de04a99e8e34cd683063d9c9a509c498725c",
+      "bytes": 12794
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/financial-final-text-check.diff",
+      "sha256": "9784d04b7dd9e39ee3996add80dfc3c4aab8382a8298208c5f0ff79d80855108",
+      "bytes": 741
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-final-projection-check-green.log",
+      "sha256": "72c2afe0e512a7849e98172ed104599d86f35d94755ac288444a642411e5a6ea",
+      "bytes": 1050
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-final-projection-check-green.xml",
+      "sha256": "b897b0bff0cf02c4bc219899931abdb635037011f35a6e99bb3fff0bb48fe773",
+      "bytes": 951
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-final-projection-check-red.log",
+      "sha256": "e42583c6012e3668ad33fffca0e527ba9331bf33f37b1f249a50c01ad5a0fa0e",
+      "bytes": 4646
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-final-projection-check-red.xml",
+      "sha256": "b1950610fb7210b97293b30780668fb4d631387b463b3967661d6a41b06c6e1b",
+      "bytes": 5217
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-final-projection-check.diff",
+      "sha256": "2dd0e1d903f610a3b93c2b25ca06a206aad413fac920b6510cecd3329a447b8e",
+      "bytes": 948
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-retained-cards-green.log",
+      "sha256": "d9de76b7dbadd6ac6faf2ba6048c109a3938849fe6d44a33ddfd978fb8566e19",
+      "bytes": 956
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-retained-cards-green.xml",
+      "sha256": "9afea80ee80612259148ba5ef7ea43455c5ef1569cf8c60d4ab4327e670c35ca",
+      "bytes": 777
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-retained-cards-red.log",
+      "sha256": "e46686bb3369485d64f3001c3fccfa6c706066ffbcadf171f9f780f82c25a2be",
+      "bytes": 8850
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-retained-cards-red.xml",
+      "sha256": "516ddce445cc41bda4844f3d85cdc85945e560222568eb4da2227d52877ba8fb",
+      "bytes": 14239
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/recovery-retained-cards.diff",
+      "sha256": "8792377204cab814b56f9f2ef0ee69549e42368dc2985f2c5e9219b5d239ca9b",
+      "bytes": 776
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/restored-full.log",
+      "sha256": "e4b6718c0424ccaacb1f689c5153f72653dff5424f0609cad2f1e488c5166413",
+      "bytes": 835
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/restored-full.xml",
+      "sha256": "af43e86f12a1521e51060e043657226b6eeea76a72ac0d1ce13ebb9e24761f30",
+      "bytes": 4890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-delivery-mutations-d06dc1e8/results.json",
+      "sha256": "bb873f25718e23a4118a96b0be9f15c930af520103df92b45e810394c5615257",
+      "bytes": 23978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-console.log",
+      "sha256": "5cc1e59c7261c9c82137d70b23aebe07b893256190d64a3818065aa49761dde1",
+      "bytes": 54141
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/arithmetic_comparison_disabled-green.log",
+      "sha256": "db2cb516af67be43ccda3a095ba2e4b50fc8552b20bf5ba57a2e8e90fe4b8dbc",
+      "bytes": 952
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/arithmetic_comparison_disabled-green.xml",
+      "sha256": "145dc36eb51ea4440f82858828527184f40bf05ddba3265eb48bbd9e697e7fae",
+      "bytes": 8073
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/arithmetic_comparison_disabled-red.log",
+      "sha256": "d5b9088f1f7c35b4847950a9636d21af03790a4569f1f1d273a96c9196513c23",
+      "bytes": 11814
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/arithmetic_comparison_disabled-red.xml",
+      "sha256": "9a31a1bb0485650a5b07879d0992ab80a176df6898f2f9652a50187e73fc25d0",
+      "bytes": 18831
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/arithmetic_comparison_disabled.diff",
+      "sha256": "36b4b8a1cb788c1a393ee5511ecd3467960c5144f45022ab45e739346ff6e0cc",
+      "bytes": 710
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/baseline.log",
+      "sha256": "1c5590018df76744baf858f9985e878b7b4407a12ea9e2fad026c51249fffe4d",
+      "bytes": 887
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/baseline.xml",
+      "sha256": "b828c1ff6d32f85ee6788e3e203ab01dd87b9a2bd7919df976ce2c3b88247a12",
+      "bytes": 24055
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/conflicting_inputs_cherry_picked-green.log",
+      "sha256": "99c83263446598f864debc6a9bfa7b5619a16fa815fe09ab69de4a884ebbe610",
+      "bytes": 919
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/conflicting_inputs_cherry_picked-green.xml",
+      "sha256": "43b410f5db2b3c6451cf0a52f02ecc590fc9a1e00814eb2a4ab9612bd07b4750",
+      "bytes": 386
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/conflicting_inputs_cherry_picked-red.log",
+      "sha256": "a33f2781528c688ffea93428d44531e644b3189d51ddcd654eaf1bd27ae3bf43",
+      "bytes": 1563
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/conflicting_inputs_cherry_picked-red.xml",
+      "sha256": "0d8d26181eb3319c193e4a196a05b92710c8302df17bccad47e90930ee6b522b",
+      "bytes": 804
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/conflicting_inputs_cherry_picked.diff",
+      "sha256": "7bc6fc156e9113f8d46df39d46a5f81b2193531a03786f953e1174395c30bd9a",
+      "bytes": 726
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/cumulative_length_disabled-green.log",
+      "sha256": "2f3cd45062d211e895875077edea20cbeea90aa1169e4841a7ba254fc222d9f8",
+      "bytes": 914
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/cumulative_length_disabled-green.xml",
+      "sha256": "df16d47e7f974ccb98ac11f94415aafdf5825a91b1486deee9c0cc25b2b269f1",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/cumulative_length_disabled-red.log",
+      "sha256": "c8093e07515ac9ea9765ceef9eb84b8d3536aa9b324eef4f701543133dd48623",
+      "bytes": 9590
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/cumulative_length_disabled-red.xml",
+      "sha256": "c3426c674f2730d0a69ae33b6e4ee5e6bb935f92a1dfb799ac7a110367d55bbe",
+      "bytes": 13964
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/cumulative_length_disabled.diff",
+      "sha256": "e147f079a450eb67b78f9affb4dc3005499b2ef2f377bc8112ecfc4d548f3706",
+      "bytes": 766
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/definitions.json",
+      "sha256": "77298798dc1b79c6dbde26b250ba81d7fae27d027672d2a954872e0d1132d705",
+      "bytes": 3633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/deleted_claims_pretend_complete-green.log",
+      "sha256": "1a869b5e9ce4fe0ba60e534593ff00deb6d17b8099d055c0eb5b110209a553ae",
+      "bytes": 958
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/deleted_claims_pretend_complete-green.xml",
+      "sha256": "75b1d9fb19298d3d367042114785efc3d9f174061631ef7e3ffac5a65bae9271",
+      "bytes": 6677
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/deleted_claims_pretend_complete-red.log",
+      "sha256": "535722bc3f9fd57589acca8248cde563bb3dcc6ea08faddff281dba04b17f5d7",
+      "bytes": 19210
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/deleted_claims_pretend_complete-red.xml",
+      "sha256": "3949102a40e14d7ea558b46ef5afda3c4940e029cfe9768f63028f0442adc7a0",
+      "bytes": 19377
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/deleted_claims_pretend_complete.diff",
+      "sha256": "11d31e2c5712f87016ce53cd55cecd11b67c4ec484c80d5ad8164f5051de3822",
+      "bytes": 866
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/document_delivery_unwired-green.log",
+      "sha256": "6e007c0eb989fc31f5a7b7bfc4af48a8993c20d0fa406fdb7fdbed375c2cda87",
+      "bytes": 906
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/document_delivery_unwired-green.xml",
+      "sha256": "bbb3daa64836f83ca745fa09c50b8fb57149b40b5a6e96ab7a3d9cc52c09d03f",
+      "bytes": 391
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/document_delivery_unwired-red.log",
+      "sha256": "b3a30783594f4e82059c78bc4b7af65ff1a7ff5d172bbdcda1d348ffe92fbe18",
+      "bytes": 1529
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/document_delivery_unwired-red.xml",
+      "sha256": "d05020b02cc5636247b79171360674e442a812e7c72d00e6eba6e5adbe07a1ed",
+      "bytes": 780
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/document_delivery_unwired.diff",
+      "sha256": "7c69a565ecb7bc016ffef0fceedb19b44490e58db951c64b4aa8405d288dc7bd",
+      "bytes": 754
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/financial_semantic_wiring_removed-green.log",
+      "sha256": "8c7aa9d674512815ba14cff1f2160347fff2f25ba11cf2825421279f9a4bb52b",
+      "bytes": 928
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/financial_semantic_wiring_removed-green.xml",
+      "sha256": "d886f83d7d4110945d6118777fe65ca6eb9ad477ee05e2f9a12d16d48a4dbb2b",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/financial_semantic_wiring_removed-red.log",
+      "sha256": "5a3d781c4e05a98a26953627690819e979aca784a0171b17b18814eea305c5c4",
+      "bytes": 22308
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/financial_semantic_wiring_removed-red.xml",
+      "sha256": "6d604347ea8062403312cc1b3f476ab161759b9f8cbbafefdc256c5d59b7e2be",
+      "bytes": 25997
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/financial_semantic_wiring_removed.diff",
+      "sha256": "0e49ffdde38a152e058a2b7051eb63b908ce1281dc08233702c455f657879103",
+      "bytes": 752
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/foreign_document_accepted-green.log",
+      "sha256": "3cc8f7df45e874985fa7630c0bf7a410def84faa53265b764a2b1d1465303e3d",
+      "bytes": 936
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/foreign_document_accepted-green.xml",
+      "sha256": "d7786f6666d8872f643ca761e933821675719e0802076636619b381b51d3fdf7",
+      "bytes": 3074
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/foreign_document_accepted-red.log",
+      "sha256": "4a04e2c9b051f4ec76f7116e97dd7b3d1f8835a075d9f1792d51d95fc55c98b8",
+      "bytes": 2688
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/foreign_document_accepted-red.xml",
+      "sha256": "d1e27653bfd53f0d8d3bb9dba70fbac50b70329a46d6ec381ea185bb2dc170ca",
+      "bytes": 4488
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/foreign_document_accepted.diff",
+      "sha256": "66383a896f331954ae9ed7cebd234982a9dc2fc1b48befe2708d1ed8dd7dd19d",
+      "bytes": 697
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/inventory_duration_disabled-green.log",
+      "sha256": "49461891b3bbcf16bca65e26876f7234f7d3f0a3f67367dab0b09f5ec3133c87",
+      "bytes": 916
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/inventory_duration_disabled-green.xml",
+      "sha256": "c4abf12cd5457ed0e51f32766b69540367ee3bb2643d1393aae70e4ac9fe9fd8",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/inventory_duration_disabled-red.log",
+      "sha256": "b2322d0c54d7feadd5fe6182c28de3c39a0be615efbd6dc09a826a14411dc788",
+      "bytes": 3066
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/inventory_duration_disabled-red.xml",
+      "sha256": "3de63b11c59eaac5c47fae77c359f9233af18ef68eaf0d9c7cd673f0462594c4",
+      "bytes": 8506
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/inventory_duration_disabled.diff",
+      "sha256": "4eeae8da7970c0166893b69f91e6b1b5a8c725bfd0859326816898ed2479fc11",
+      "bytes": 909
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/new_watch_swallowed_by_previous-green.log",
+      "sha256": "e76031f2a5bfdedd604924fea2fba662a296998ef910248d3193412e2e1e6b89",
+      "bytes": 911
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/new_watch_swallowed_by_previous-green.xml",
+      "sha256": "5badcdf64dfb298e50d6ae2ecb74aaeff0a47d400c19a1b05e37b030d4870a6b",
+      "bytes": 987
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/new_watch_swallowed_by_previous-red.log",
+      "sha256": "73e459665f9e5b31ff7f133715fbe99a0acb67140449d3bb420df06f497410ff",
+      "bytes": 1705
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/new_watch_swallowed_by_previous-red.xml",
+      "sha256": "b1b49fed8346eb6c8bf9aa955072a543adbbd8ebeeb78b58101c55d7b316c749",
+      "bytes": 1465
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/new_watch_swallowed_by_previous.diff",
+      "sha256": "af909af83a781f1fae0810e4c2a10fdda49265d566052b5558015a26731d0201",
+      "bytes": 752
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/product_crosscheck_unwired-green.log",
+      "sha256": "f89a27dae85bc5e13d27e3374037ba3bbcc848a059fbd62080229fd006d65afe",
+      "bytes": 900
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/product_crosscheck_unwired-green.xml",
+      "sha256": "3177ffc0a3c7c4331db268fd87500b11750eb87943a679ac0718ab5909d271c7",
+      "bytes": 392
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/product_crosscheck_unwired-red.log",
+      "sha256": "72d8118402ab9da2752738a20d5ccd9f5885afb40724c7c7f358d3c9d619e61f",
+      "bytes": 1587
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/product_crosscheck_unwired-red.xml",
+      "sha256": "bf7d45353a216ee9b0bed12af1d8f91dc19777015807d0c3049ccc5e83926cde",
+      "bytes": 896
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/product_crosscheck_unwired.diff",
+      "sha256": "ae185b2cd67c95c769c5f82a50a07118c1c07621b36006d7e2e17ea48ecf0499",
+      "bytes": 650
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/question_threshold_shape_removed-green.log",
+      "sha256": "db38eb835179f5bc600f421f6f6f58f9f7e6dfcba40b4cc8074a0d5e8ac57775",
+      "bytes": 917
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/question_threshold_shape_removed-green.xml",
+      "sha256": "db0ff1983aa16a4af2f45418821817b1ac3aa2e30502a115633723c9720b2add",
+      "bytes": 3616
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/question_threshold_shape_removed-red.log",
+      "sha256": "598133193ac131e41c644a2a4b6d5f5b1fda0b5af4a3eca554adaa2f19bdfd67",
+      "bytes": 6160
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/question_threshold_shape_removed-red.xml",
+      "sha256": "1b683c1c3f03b8a882db584bf100f01d6814f4cab48fc21747695630d821c027",
+      "bytes": 8944
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/question_threshold_shape_removed.diff",
+      "sha256": "2de0c06c0a56da3a49237ef1f21af5b9fe8198d18849d728a62cc2301cfd2595",
+      "bytes": 720
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/restored-full.log",
+      "sha256": "5a615ad577141639f9c21b31050a3ec40d8d336c8738edaa48e1b55791cc0873",
+      "bytes": 897
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/restored-full.xml",
+      "sha256": "939b10e99ce8ad5999c80beba11b0a747f69be073d8388bbb52d6f295c124ec8",
+      "bytes": 24055
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/results.json",
+      "sha256": "ebb50cce4c118e5815eb39b51f1d304962b57b12b517cfb9ce2f6fcac580ba4f",
+      "bytes": 63763
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/single_quarter_anchor_removed-green.log",
+      "sha256": "d22fa02ee39d3cdfba65b8c271f94c0c53462bc84c95985ad830e2b5d77f3ef7",
+      "bytes": 920
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/single_quarter_anchor_removed-green.xml",
+      "sha256": "b324ffe5e957fa0d90505787bc7ed5f067793f2fbb6168f6e7e46a11d39dfc96",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/single_quarter_anchor_removed-red.log",
+      "sha256": "6ee9526cfcc3cd837ce2c218621b3d3273e1e28edcf2726337869ff3f2868822",
+      "bytes": 3768
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/single_quarter_anchor_removed-red.xml",
+      "sha256": "6b6f1367cdb9a71cc669ef4bf485a7b0327adc828623adae1ef35d8fb205f2da",
+      "bytes": 8894
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/single_quarter_anchor_removed.diff",
+      "sha256": "87ddfdcc2adf19d5478f697f9377f3390af8d231cd7a68be4c3ca997f41277cb",
+      "bytes": 758
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/watch_disclaimer_not_removed-green.log",
+      "sha256": "5de4cfec5d6bb90ba0bd58e41de1bdc63728fbaa7079813c34ad60ec462027ea",
+      "bytes": 915
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/watch_disclaimer_not_removed-green.xml",
+      "sha256": "27b14db11d4f2f5a2591a9e76e60251833d88146e3bd01398a469732ca5955af",
+      "bytes": 2211
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/watch_disclaimer_not_removed-red.log",
+      "sha256": "9c7ebce624a72a0a6efcd08fc3238b4151c11159c405e83fa36a3d0fff1cbd24",
+      "bytes": 6059
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/watch_disclaimer_not_removed-red.xml",
+      "sha256": "86f85771f4e92aea2d59f3b2427944ec08bb2a298bf2469edb50d62496017fff",
+      "bytes": 4983
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/financial-r6-mutations-d06dc1e8/watch_disclaimer_not_removed.diff",
+      "sha256": "bdd5c2b4d72288440d377cc8fe9cd80412510e16cb6ab3bd1d919b14b583fde8",
+      "bytes": 633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/frontend-baseline-red.log",
+      "sha256": "afc6261ec98c8a2a19d80d61e100ede8c28a9f6fc1cc5732ced4882ac8975bff",
+      "bytes": 28272
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/frontend-build-development.log",
+      "sha256": "2722ff40b830cdfb57dbefb100b0a9f1e9cd6b18a1b4ec3d5f73e78ac4c2ec7a",
+      "bytes": 717
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/frontend-development.log",
+      "sha256": "4456ecd55e9f9b34f39112628243022abe839710fc0b3f2a3fe706cc32eacb74",
+      "bytes": 847
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/graph-audit-before.log",
+      "sha256": "4afbbcf0f63fae3c6defd085e900f0c88321d9e78df2ae89780465f29dd8bf32",
+      "bytes": 42992
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/graph-audit.log",
+      "sha256": "c51c8a04137b2ae0cda01d1bc4e7ca9c15cb0ee134d61a4ce10993098af14698",
+      "bytes": 43260
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/harness-refs.log",
+      "sha256": "67de78ac01fbf6e7e8079c198d17dde7aa760721b00ebc5ca24ca3e7f12eae97",
+      "bytes": 2339
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/mutation-failure-classification-invalid-type-attribute.json",
+      "sha256": "504da2b482a585249566e96db5c57e09915be9ba6aa19d591ad9e7fc27be78f8",
+      "bytes": 15612
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/mutation-failure-classification.json",
+      "sha256": "620f55b8d584a65072c0f48c0f1917b011038d4ec63b9bebfeafdd4dfad5f949",
+      "bytes": 19045
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/mutations-pids.json",
+      "sha256": "07179d199f3ce0e0fc48e5246b6ef32b83bc51115dd7d9add540d4c4f1d8d61f",
+      "bytes": 112
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-console.log",
+      "sha256": "b30be78411404b571318d1ffc4dee2e73e1babe691c1622bcca57966b1749f55",
+      "bytes": 11657
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/baseline.log",
+      "sha256": "1f412334e716a589383931fc1987e016412058cff47e95f24227581d067c10f0",
+      "bytes": 1128
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/baseline.xml",
+      "sha256": "3bcc1b9b48754624a3e6d5bd506d31db7682b16ae5deaea6195539021996b5bb",
+      "bytes": 21611
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/definitions.json",
+      "sha256": "aec5e25a18a09ae1c3f9dcbaca5930dad53cfb387a246d1d90d1dac989be356f",
+      "bytes": 3118
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/probe-waits-for-publication-green.log",
+      "sha256": "253c948f965bbd0d6c1a8b2bed3242d23c39f5e764a96b1c2633fa31a92746bd",
+      "bytes": 1153
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/probe-waits-for-publication-green.xml",
+      "sha256": "2ff0582f855a77519ebf399511e65c13864f976543a4c971eaed9fc3e74ef8be",
+      "bytes": 779
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/probe-waits-for-publication-red.log",
+      "sha256": "e0411ec73e7abe519ebe9b02738b5ed8a95f4c8f423a9a44a8c7baa7e1ea08c7",
+      "bytes": 3027
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/probe-waits-for-publication-red.xml",
+      "sha256": "9c57f947a19893268dfbe4352ac08d98cb944c10b3b158b9153ed6aceee0c8b8",
+      "bytes": 2315
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/probe-waits-for-publication.diff",
+      "sha256": "8be3fc3dead55fdb70cc7369bd534b1d648896b80aa5dd648d90006d05264954",
+      "bytes": 733
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-is-not-financial-completeness-green.log",
+      "sha256": "f0e3d3f820e2c9d9feba6c972b41b51d23a45ca3ef75a97183ffc060361a54d3",
+      "bytes": 1134
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-is-not-financial-completeness-green.xml",
+      "sha256": "162240e80cc2b5df6ed0671f031727a26a160003a3b971484e9f4878cc857ee8",
+      "bytes": 1025
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-is-not-financial-completeness-red.log",
+      "sha256": "5c4be4822e6ee39ec2acc90c16a96e6237d1e888a52b90707f3c09c7ce4cee15",
+      "bytes": 3764
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-is-not-financial-completeness-red.xml",
+      "sha256": "e7ead83713eb8016ef76ca9404bcffbfdfd1fbee1e5c2ab8c04de6312fe2ccb9",
+      "bytes": 3029
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-is-not-financial-completeness.diff",
+      "sha256": "cf23e27f96ebd21b1f150d6bb84fa011b89a1054e350460bb57a9c8c9d963335",
+      "bytes": 570
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-reloads-artifact-snapshot-green.log",
+      "sha256": "d1b0889657708eb41c2dfc9b766aa2065be82dc0cecd8ff49e6aefe6d54419c7",
+      "bytes": 1124
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-reloads-artifact-snapshot-green.xml",
+      "sha256": "23a02b5ae5b575f12c8f97ddefe53d2a200b0d4c1c0345950083dc927fd1806f",
+      "bytes": 393
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-reloads-artifact-snapshot-red.log",
+      "sha256": "fd3638c6f35c5837005b8f4ec8dcc3bea0bc1e08d880a0b74baf7582cbc27f7d",
+      "bytes": 1824
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-reloads-artifact-snapshot-red.xml",
+      "sha256": "39812bc9c032126022b4e0fc4365f581377024f9c5d5e08beb71d87938625788",
+      "bytes": 900
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-reloads-artifact-snapshot.diff",
+      "sha256": "9fb1f8818746fee972bd25f1ab780d5affba34f0d59e736970f42bc86a0424d5",
+      "bytes": 645
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-commit-event-green.log",
+      "sha256": "c04ef9d4a58c9d1b3010c605825d801d89d5f93f13a7b11f75a4bbd99f9e6fcd",
+      "bytes": 1181
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-commit-event-green.xml",
+      "sha256": "d73155bbd0af630a224ab3764bc8d3949566392b44a3a7bfde8bebfb4ae00314",
+      "bytes": 1526
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-commit-event-red.log",
+      "sha256": "3cb6cdea29d8df5e365e396ba8913a9382460e68066955161e1bb04f2bee1bb0",
+      "bytes": 6163
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-commit-event-red.xml",
+      "sha256": "1258a13767a67c1eb5978addec0af79f5af52b1ed38508d1ce37168482e6749c",
+      "bytes": 6504
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-commit-event.diff",
+      "sha256": "0d56c62a5643f4ec41662de4dcf65ce85c4b09fc9068b08d35fcfede4474d42e",
+      "bytes": 605
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-conversation-green.log",
+      "sha256": "e3579d90c53ffb0fd2d170742ba26ad0c7c88069ad59dcf61b659993ec49b631",
+      "bytes": 1120
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-conversation-green.xml",
+      "sha256": "98c50a5421f10782c9b5773ed339e4a7fccba00db3f0092c340c3bdaabd5a149",
+      "bytes": 738
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-conversation-red.log",
+      "sha256": "8b544369ef2ba5af0cfc5e20433917ce41ec3d5bc9a67a6cc12068a71bfe8c75",
+      "bytes": 2778
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-conversation-red.xml",
+      "sha256": "dfed4dd113eaed4bfc794b6761f954796e991b0b9978670c2db483c4665729de",
+      "bytes": 1947
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-conversation.diff",
+      "sha256": "523d85cd55ec68011488c8b1aa9946848d8a87b24eca308becb33bbe6764f43f",
+      "bytes": 641
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-message-green.log",
+      "sha256": "32df581af75618611095d88f960437b7dce787bebc8dcd1f6afd2bb72c6d7727",
+      "bytes": 1110
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-message-green.xml",
+      "sha256": "191058e4d20b61bcdc458dd770aae01e1f93595e93798416fa0bb854d1fd7483",
+      "bytes": 738
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-message-red.log",
+      "sha256": "94e0c400f1ed85bad47060fe03211ec166e653b26c40d787bb694a7b2740d232",
+      "bytes": 2768
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-message-red.xml",
+      "sha256": "10a2faaef640786832a6cfe99cfbe807f476fd0016c06f21948b08de52c46cbb",
+      "bytes": 1947
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/publication-requires-matching-message.diff",
+      "sha256": "f97a3d39cfea86fce05d2cee9e012df96fed991c3edd2b69c4a67567463046fd",
+      "bytes": 709
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/restored-full.log",
+      "sha256": "0df001bfd10d4fac9c1e154c8748af292ca0ba094d4e896fe9326cc65707c755",
+      "bytes": 1128
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/restored-full.xml",
+      "sha256": "003999f4284a27f78dd4ba1051a9a30d4ec00824496b9be7f9ce23b520af1359",
+      "bytes": 21611
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/results.json",
+      "sha256": "1075846b24c1bda88414b9471b88aefaca50e329e901512089a883fa00686b7f",
+      "bytes": 15804
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-drains-between-read-commit-green.log",
+      "sha256": "71a1d22da8f8ff690407d467d231dccbefd2b0dd604cadab469fa555cb409ff3",
+      "bytes": 1088
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-drains-between-read-commit-green.xml",
+      "sha256": "e9de42fd5407406fb2c23108fc69641dbf29d8deec532ed5cb749d5d8f032a29",
+      "bytes": 371
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-drains-between-read-commit-red.log",
+      "sha256": "6313c478ef145313ae17da5212b3fc39b789caba551363a3e8d7ae7b813a5031",
+      "bytes": 1856
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-drains-between-read-commit-red.xml",
+      "sha256": "d7f927b6ad27bebdf3cd7c6eebe4134a9c7dd4a8e0080294b378bb5c56296b90",
+      "bytes": 1233
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-drains-between-read-commit.diff",
+      "sha256": "5c8a34b3b7d73f6fb786aa202173ba6f2b9969149522517b68adaa6411139a57",
+      "bytes": 638
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-waits-for-publication-green.log",
+      "sha256": "8704ec60eda0565e9a4abd6abcc5307384d7de88155fb754a7f05465e4b6f5e6",
+      "bytes": 1096
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-waits-for-publication-green.xml",
+      "sha256": "956ccd6e1e8783b8f9ef8a449641fefce72fa529f993882559ee20bd1f52ddc8",
+      "bytes": 554
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-waits-for-publication-red.log",
+      "sha256": "ef83b1c4bc30b36cd02c7f9b6c89e03307b32e25aea2c08ca40556f41cc70284",
+      "bytes": 2358
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-waits-for-publication-red.xml",
+      "sha256": "742b868e40b912bd3ffc15a3f7ae37088c36efb0245bc783882b781fbd2d3158",
+      "bytes": 1754
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/publication-mutations-d06dc1e8/sse-waits-for-publication.diff",
+      "sha256": "4362d31f306f8a709fcc5d0cb463c9c8ada4d79fe11addead781d5b2d11be531",
+      "bytes": 677
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/receipt-check-d06dc1e8.log",
+      "sha256": "cd7b00d2a1ddbf3a4e75c3191e6b903ae12090cddb42423bc685bc2c50142607",
+      "bytes": 751
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/receipt-check-invalid-filename.log",
+      "sha256": "a794b5079b6a8d3cf7fe54fbade496f4320a1e46eaf61ac9a65ccb579fc036be",
+      "bytes": 188
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-console.log",
+      "sha256": "9a68232ce0118fa93ad9e48785480b0093656d0040a9e078d8c39f5086772cb6",
+      "bytes": 3896
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/ledger-crosswalk.log",
+      "sha256": "41424d9a8d8fdb193632a6cfb4fdfa4e2f0f402b7b52a1e66621dfe1172ed354",
+      "bytes": 2106
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/parseability.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "bytes": 95
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/registry-results.json",
+      "sha256": "daeb89adec42b853e7a03fc02f8f9cd974c9b725d3ded301f44d1690a779e209",
+      "bytes": 2968
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/registry.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+      "bytes": 33
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/related-development.log",
+      "sha256": "b7acda30f7b2055149c6bb3a8807d846f66e1ce43c0c278a52dc3974558ac183",
+      "bytes": 588
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-console.log",
+      "sha256": "753bc6c00e7a1587339bedb4cbd448b0c87fef1dd2b5bf57712cc522f2b56bbf",
+      "bytes": 36197
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/baseline.log",
+      "sha256": "888b38a00ea3ac2d9850a6de3b84653259782d6a9069ce23c05851a92ef7159a",
+      "bytes": 1066
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/baseline.xml",
+      "sha256": "87c876eedaa24121016711e71816bd6403816b23e80c9e2138c0b0651c30dcc9",
+      "bytes": 21783
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/cell-local-preservation-green.log",
+      "sha256": "31fd3fd229f792e923c7fab9d7387d0731f5eaae5eb76f5456eeb7debcca49b2",
+      "bytes": 1186
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/cell-local-preservation-green.xml",
+      "sha256": "c2f99b50667a722d7699b8dcbe3be3b53be6a77f0d784261c00c2cc11dbe5f52",
+      "bytes": 729
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/cell-local-preservation-red.log",
+      "sha256": "95e3ff31870e3e0370d8bf7f41d1e6519782d161a126b53c9dac338e51dcde42",
+      "bytes": 4668
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/cell-local-preservation-red.xml",
+      "sha256": "fa681849c8380a5ebabd361028ebab94785b2683589063e88143e065c5a21548",
+      "bytes": 5582
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/cell-local-preservation.diff",
+      "sha256": "9d198fcef30c87ddded3cba021190ceb9ce69a5b6e5037f85dafd85ea970a98d",
+      "bytes": 716
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/definitions.json",
+      "sha256": "3392d4ba1915f46c4f6dceef5ce24ae8f57db25f2a4cf8062736ebca11d25dd9",
+      "bytes": 4758
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/domain-error-status-green.log",
+      "sha256": "462e523a785fd9c569978b60bd9fb0620a2f529d39d06a0b4dad79bf8f4fc354",
+      "bytes": 1109
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/domain-error-status-green.xml",
+      "sha256": "8e9a660ba345fb9075df398fa462f659a7a8c47bd4c0bfdaa223f07f9e45f8bd",
+      "bytes": 396
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/domain-error-status-red.log",
+      "sha256": "0d707be39c361c3eab26a97d991fe3047c1e75588635da59a098ee7d2167bbd0",
+      "bytes": 1703
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/domain-error-status-red.xml",
+      "sha256": "a99eb9d46069af8339ee2f757b76d9ac72f3e51659f23b27948b29f8a811d2bf",
+      "bytes": 685
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/domain-error-status.diff",
+      "sha256": "92eb266eaae01f528d66a74d867c0318e12a914132ab8e9384c43c75a614e632",
+      "bytes": 756
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/harness-status-delivery-green.log",
+      "sha256": "60b80b79ed5e78408360fc1c9b51353e136e071cb2cc6f4c80d7ce9440f26a91",
+      "bytes": 1117
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/harness-status-delivery-green.xml",
+      "sha256": "8267a5e1522f8f22f4d1a8c3dc5c8935d4aeaee16f5d8282b9e81cf6f2f7f299",
+      "bytes": 396
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/harness-status-delivery-red.log",
+      "sha256": "856ced9d385e1e0b67962f615bfc70d4a9862eeb32bfaa192fcd4fd341230b7b",
+      "bytes": 1711
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/harness-status-delivery-red.xml",
+      "sha256": "1b2fb2a637878dbab08c1390b958893d8a58a55ab28d4bf20f34c92dcfc22be7",
+      "bytes": 685
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/harness-status-delivery.diff",
+      "sha256": "77e19bb71d63cb0ed00ca95590a2a4c805ed88eb2beea688db46cd3a8b611f8b",
+      "bytes": 666
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/metric-column-not-table-purpose-green.log",
+      "sha256": "a3e13e412c2d49cb2c3276b6481820cdb9923a888aa2cea0368229ccb2523441",
+      "bytes": 1132
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/metric-column-not-table-purpose-green.xml",
+      "sha256": "b6281bd1d83f3693c1f345fbaebe8b93ce97267de99c0342a8a5cad1cdb6eb09",
+      "bytes": 2024
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/metric-column-not-table-purpose-red.log",
+      "sha256": "af4d761a4318f67b8b44bc6486001f54629b3d7f3be7a22c0a851f504578d9f3",
+      "bytes": 4368
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/metric-column-not-table-purpose-red.xml",
+      "sha256": "7e46233f71da6971e557757f28411868736008c392b6f1fc7914c353143c79b8",
+      "bytes": 4129
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/metric-column-not-table-purpose.diff",
+      "sha256": "567703c9f3915284d7871cfbd749bbb8fe3ea522a96b3ddc3d1d4c63d47dd192",
+      "bytes": 910
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/missing-product-not-certified-green.log",
+      "sha256": "1c5b38b714dd84245439c84a08897981b09265f3a0dace171d057c0b45f0e425",
+      "bytes": 1206
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/missing-product-not-certified-green.xml",
+      "sha256": "7ba63aa5d18ef2de30ccc8850d52c35c2720e5f776e2e03218601485e703de60",
+      "bytes": 730
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/missing-product-not-certified-red.log",
+      "sha256": "f84e848ef9e72aa810b7993c02546207bdf26b9fda8b245ddc97564e812f0397",
+      "bytes": 5891
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/missing-product-not-certified-red.xml",
+      "sha256": "b2fe21ac6146528d00eafa2b6da265ba019a6b607e9683d12230e43b3980811f",
+      "bytes": 8118
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/missing-product-not-certified.diff",
+      "sha256": "70b66eb50b707196180dcad741571a9e8c4d5adb07fba5bef32c1ae4b1fceff1",
+      "bytes": 594
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/nonmaterial-final-projection-green.log",
+      "sha256": "24031c3971153d462ef96056dc9250dcf9874f07955599d39c7a608edc0e1f26",
+      "bytes": 1112
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/nonmaterial-final-projection-green.xml",
+      "sha256": "2606a734f812cb9c5ba292b97ccc8a26ed98c4d35bf6646cb82ac8b26c73ddd4",
+      "bytes": 381
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/nonmaterial-final-projection-red.log",
+      "sha256": "3422dd157aa9e8a6e123245668603d2a1c0835c29bdb4b1df73064d708fb3948",
+      "bytes": 1974
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/nonmaterial-final-projection-red.xml",
+      "sha256": "1cd7cf51846224ef422f805ea3d454f07b97731256edd772d5d725b1f8abc9c8",
+      "bytes": 1264
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/nonmaterial-final-projection.diff",
+      "sha256": "799a704b87d613022502221ac566a5b7162019067dc3bbf14c601b25032d2655",
+      "bytes": 748
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/period-not-bag-of-numbers-green.log",
+      "sha256": "866fdcc52ec2604b090f28de4d8407b71983d67ea15516269de5616a2fb799f1",
+      "bytes": 1184
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/period-not-bag-of-numbers-green.xml",
+      "sha256": "ad86964c85b9ac97d92a823932d666dfcc17b7e62ee74ce417c3ee0857413020",
+      "bytes": 2178
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/period-not-bag-of-numbers-red.log",
+      "sha256": "8e54fe532f1dac883287024c48d887e648e7c3624f3351c02a58dd179b7ca140",
+      "bytes": 4345
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/period-not-bag-of-numbers-red.xml",
+      "sha256": "e6459e7204e07998afbd5057777e3290bbbeee9a6218585ab31e631db1010703",
+      "bytes": 4380
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/period-not-bag-of-numbers.diff",
+      "sha256": "923fbbeb6c0921fc94311d65925df85db595952a9891e8e89701dd777bb60508",
+      "bytes": 948
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-calculation-check-green.log",
+      "sha256": "82685437ecaf25701e1821feaaf3de1407178be3043d36347244c936215a58a6",
+      "bytes": 1191
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-calculation-check-green.xml",
+      "sha256": "d8bdd1fb4c8353a9fb1eb092daa23debad1174fe085817b63afa903a3989ced7",
+      "bytes": 899
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-calculation-check-red.log",
+      "sha256": "bc5cb0a16a310240a1d449c203445071cd403698bc74832c88601a730659ed97",
+      "bytes": 6261
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-calculation-check-red.xml",
+      "sha256": "01512be74834f2d4ced2e7956e980a8e25fd5f5386d75d41b8ab9b70e29079ef",
+      "bytes": 8369
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-calculation-check.diff",
+      "sha256": "3f59d2d4bd0527f6ee4c8af8e35250f739e3015358d4a3e4eba82a0aa5329bf3",
+      "bytes": 730
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-disclosure-check-green.log",
+      "sha256": "bdbf43229c3d16be7ffb239bcbe72c97a70c27bfdd4f661187eb0604c27ac723",
+      "bytes": 1173
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-disclosure-check-green.xml",
+      "sha256": "bd8045a069350c1641dd7a4b45920c42933c71c654f26897f7359ef23aa644f9",
+      "bytes": 1912
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-disclosure-check-red.log",
+      "sha256": "c331e71844573d7ca133a2de82333c179f352799e91614f06d196fc3dd1535fa",
+      "bytes": 10109
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-disclosure-check-red.xml",
+      "sha256": "c21eb6f84b7bcb119a7d9356fd74254c03eebaec5776785496f873c6eaa53c3f",
+      "bytes": 13541
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/public-disclosure-check.diff",
+      "sha256": "d6c558d3693d74712f91fcb53945e4ccfd867f9348a0dbe121f4333e01d118a2",
+      "bytes": 758
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/restored-full.log",
+      "sha256": "1549d8bb84df2210c20e1f910cf68059a0bfbd8c34a9af70034fec7442408e35",
+      "bytes": 1076
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/restored-full.xml",
+      "sha256": "4d65f7ed768881f5d9e2334261462727218698f9ad7eb449aa89f29e0165ead2",
+      "bytes": 21783
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/result-success-admission-green.log",
+      "sha256": "9c5613ffa6974df62e15963a96927620a7a752105ddc1db46a904a4ee82a68ae",
+      "bytes": 1175
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/result-success-admission-green.xml",
+      "sha256": "d09cdb3600b1afa3e00809c77b8494a9cdf7872927c418e8129b3fa6ca778cfc",
+      "bytes": 545
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/result-success-admission-red.log",
+      "sha256": "aebaec5ea5ad79bd9e595438b1d61a2292fb1115e7caca0b1c3905da60476e49",
+      "bytes": 3036
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/result-success-admission-red.xml",
+      "sha256": "47dea5d8258615cbfedd2ea4fb8156b85244db6f46cd397c2bc3397c0c33d9b3",
+      "bytes": 2972
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/result-success-admission.diff",
+      "sha256": "cb23bad6500b85b4fdfae7d492c5e1ed28a5223ee13c16390ce2f7ec8691655a",
+      "bytes": 570
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/results.json",
+      "sha256": "8fa271dc77e3792d8be9cd638b70778fccaee70d543a4f208251adc3544cc85d",
+      "bytes": 44559
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/retained-bound-citations-green.log",
+      "sha256": "02ae11ba14747af1d1c1311a8ea0f5b367f8206b97c0547eac267c8a064d45dc",
+      "bytes": 1204
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/retained-bound-citations-green.xml",
+      "sha256": "61b4ebff82a17be0e448024fc9b927246943e3a6997ed83c9888e8c79c138100",
+      "bytes": 7661
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/retained-bound-citations-red.log",
+      "sha256": "8095705b1eb00719ec0ae1c38c20977e5088ee6abf865e098af442cc1ec20340",
+      "bytes": 9773
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/retained-bound-citations-red.xml",
+      "sha256": "da109d41506f784382e9843770ae347afd60bd8e72ba1a223d1acb2a4d3b9af6",
+      "bytes": 15127
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/retained-bound-citations.diff",
+      "sha256": "7e0314ce7dd89fdd323600953eea6f65b3f5d633a6f2ce8c7717d9e58a4431b6",
+      "bytes": 754
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/same-turn-repair-note-green.log",
+      "sha256": "dfc19e2eed87064a85581e0c889843a6768419f05250066710f9b20eb0d726a2",
+      "bytes": 1119
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/same-turn-repair-note-green.xml",
+      "sha256": "fa69dd6b3719d385f2b2cc835cc4acff33a832141b0469df1b0dd5251395daef",
+      "bytes": 7492
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/same-turn-repair-note-red.log",
+      "sha256": "aa8d1e8c7832beaedf05e09eb07e679a6e5be5e56b8bae457af436d97f423f39",
+      "bytes": 8424
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/same-turn-repair-note-red.xml",
+      "sha256": "bd6da134a782a7c87ac20ffd50768be14390b8374501876a16ef0f79803b3011",
+      "bytes": 14153
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/same-turn-repair-note.diff",
+      "sha256": "0e23d90d568981bc3766bebac007c096f9df1457cc801d1a218b0167ad786249",
+      "bytes": 733
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/strict-table-width-green.log",
+      "sha256": "83e43465d535e78ea5901dd9fe0616dd70f9c879d12c9b4459d7814f4f9ad292",
+      "bytes": 1101
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/strict-table-width-green.xml",
+      "sha256": "9b38f75322aed7bb6b9836f72d63fd74a206a1a0a1d29d63e5a7f4a177dabba4",
+      "bytes": 3202
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/strict-table-width-red.log",
+      "sha256": "97b537292c5d28c6e054bcdc359d41881f98a4d053b55f8789b852f49de5631e",
+      "bytes": 1706
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/strict-table-width-red.xml",
+      "sha256": "b042fd168d6cba38f0deb1b78db66bc0e20535f0076c9ca19502a036c89aa93a",
+      "bytes": 3486
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/research-delivery-mutations-d06dc1e8/strict-table-width.diff",
+      "sha256": "8a2e84e7a958d3d96d0685f1770c51c03bd708da7b616c3813415af63401551f",
+      "bytes": 728
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/run_candidate_checks.py",
+      "sha256": "c419613f67a485ad5a28ee97908d4b80c0453345b59a55e470643cc5c5960c91",
+      "bytes": 3812
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/seal_receipts.py",
+      "sha256": "8f3761f37d524800bcba6af321043a52e69ded1288e80dcb18b62901019aac9a",
+      "bytes": 9464
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/seams-fixed-fixture.log",
+      "sha256": "788d57da95aaa5216d073a046990ddea59c28847bc4105d850d9f8887dbe4ba4",
+      "bytes": 185
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/transplant-baseline-red.log",
+      "sha256": "b4f43f02e396f1dccb35c51e7a411740b80ebebd2ccf51e0f86293e1298e8514",
+      "bytes": 6239
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/transplant-first.log",
+      "sha256": "f6aad681998df03b80a5526ae845729957c1b9090f2633f3c77e132ea0c766b2",
+      "bytes": 2548
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/vault-lint-after.log",
+      "sha256": "58710763053efdea08dbe055c6bb908d241a28d023ad56e4ae76ebfedd16fafa",
+      "bytes": 5345
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/vault-lint-before.log",
+      "sha256": "c8e63d9a9ca1f40253a087ca7caf2c94c7618494cee15730dc9fc63262931a9f",
+      "bytes": 5345
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/vault-lint-diff.json",
+      "sha256": "c3ad7df99732b7a25bdc32a473414b5f7d91570af2b759a28b16807d66e7aab6",
+      "bytes": 1701
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T165836Z-d06dc1e8.json",
+      "sha256": "91acd0c3b13e73a89373778ab1f0b0d05214e21637ecdb351394b83bababf116",
+      "bytes": 659
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T170550Z-d06dc1e8.json",
+      "sha256": "51a985ae9d27950d52f788c50a7fca321368883994d0a1033fbe86256e17dba5",
+      "bytes": 664
+    }
+  ],
+  "secret_scan": {
+    "scope": [
+      "private_key",
+      "github_token",
+      "api_key",
+      "bearer"
+    ],
+    "matches": [],
+    "universal_secret_certification": false
+  },
+  "display_copy_policy": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged",
+  "exclusions": [
+    "pytest-tmp/",
+    "isolated-users/",
+    "worktrees/",
+    "symlinks"
+  ],
+  "checksum_policy": "SHA256SUMS covers package files except itself; manifest does not self-hash."
+}

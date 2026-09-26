@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import selectors
 import subprocess
 import threading
@@ -14,6 +15,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from intelligence.services.kb_code_identity import code_identity
+from intelligence.services.rag_generation_identity import (
+    FrozenRagGeneration,
+    RagGenerationUnavailable,
+    capture_generation,
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +28,38 @@ class WorkerResponse:
     stdout: str
     stderr: str
     model_load_count: int = 0
+
+
+_STDERR_TAIL_BYTES = 4096
+_CHILD_ERROR_TYPES = frozenset({
+    "OSError", "FileNotFoundError", "PermissionError", "ModuleNotFoundError",
+    "ImportError", "RuntimeError", "ValueError", "TypeError", "MemoryError",
+    "TimeoutError", "ConnectionError", "EOFError", "SystemExit",
+    "LocalEntryNotFoundError", "HFValidationError",
+})
+
+
+def _child_error_type(stderr: str) -> str | None:
+    # Only fixed names may leave this boundary; arbitrary class names can be data.
+    names = re.findall(r"^([A-Za-z_][A-Za-z0-9_]*):(?: |$)", stderr, re.MULTILINE)
+    return next((name for name in reversed(names) if name in _CHILD_ERROR_TYPES), None)
+
+
+class WorkerExecutionError(RuntimeError):
+    """Safe child failure summary, without retaining raw stderr in the exception."""
+
+    def __init__(self, stage: str, reason: str, returncode: int | None, stderr: str):
+        self.diagnostic = {
+            "stage": stage,
+            "reason": reason,
+            "returncode": returncode,
+            "error_type": _child_error_type(stderr),
+        }
+        message = (
+            "rag worker exited without response" if stage == "process"
+            else "rag worker prewarm failed"
+        )
+        super().__init__(f"{message}: {json.dumps(self.diagnostic)}")
 
 
 class WorkerRequestAbandoned(TimeoutError):
@@ -74,9 +112,22 @@ def keepalive_timeout_seconds() -> float:
 
 
 def _process_rss_bytes(pid: int | None) -> int | None:
-    """子进程当前常驻集（bytes）。macOS/Linux 的 `ps -o rss=` 单位是 KiB。拿不到返回 None，不猜。"""
+    """子进程当前常驻集（bytes）；只走 /proc，status 不为观察而 spawn。"""
     if pid is None:
         return None
+    try:
+        values = (Path("/proc") / str(pid) / "statm").read_text().split()
+        resident_pages = int(values[1])
+        return resident_pages * os.sysconf("SC_PAGE_SIZE")
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _sample_process_rss_bytes(pid: int | None) -> int | None:
+    """查询完成时采一笔 RSS；status 只读缓存，不启动 `ps`。"""
+    direct = _process_rss_bytes(pid)
+    if direct is not None or pid is None:
+        return direct
     try:
         completed = subprocess.run(
             ["ps", "-o", "rss=", "-p", str(pid)],
@@ -87,27 +138,40 @@ def _process_rss_bytes(pid: int | None) -> int | None:
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    text = completed.stdout.strip()
-    if not text.isdigit():
-        return None
-    return int(text) * 1024
+    value = completed.stdout.strip()
+    return int(value) * 1024 if value.isdigit() else None
 
 
 class PersistentRagWorker:
     def __init__(
-        self, python: str, kb_root: Path, index_dir: Path, kb_wiki: Path | None = None,
+        self,
+        python: str,
+        kb_root: Path,
+        index_dir: Path,
+        kb_wiki: Path | None = None,
+        *,
+        generation_binding: FrozenRagGeneration | None = None,
     ) -> None:
         self.python = python
         self.kb_root = kb_root
         self.index_dir = index_dir
         self.kb_wiki = kb_wiki.resolve() if kb_wiki is not None else None
+        self._generation = generation_binding or capture_generation(
+            python, kb_root, index_dir, kb_wiki
+        )
         self._process: subprocess.Popen[str] | None = None
+        # stdout has exactly one reader: nonblocking os.read + explicit line framing.
+        # Keep partial bytes across an abandoned request, but never across processes.
+        self._response_process: subprocess.Popen[str] | None = None
+        self._response_buffer = bytearray()
+        self._stderr_tail = bytearray()
         self._code_identity = ""
         self._pycache: TemporaryDirectory | None = None
         self._lock = threading.Lock()
         self.model_load_count = 0
         self._state = "cold"
         self._last_error_type: str | None = None
+        self._last_error_diagnostic: dict[str, object] | None = None
         self._prewarm_latency_ms: int | None = None
         # 自愈配方：prewarm 时记下 argv/timeout，查询失败后按同样的口径重生。
         # 为什么不能靠「下次查询自然重启」：预热窗（240s）远大于查询窗（90s），
@@ -127,6 +191,7 @@ class PersistentRagWorker:
         self._abandoned: set[str] = set()
         self._consecutive_timeouts = 0
         self._last_latency_ms: int | None = None
+        self._rss_bytes: int | None = None
         # 上一次查询（含预热 / keepalive）**完成**的时刻；None = 还没服务过。
         # readiness 的 idle_seconds 从这里算——「多久没人碰它」正是它被换出的解释变量。
         self._last_query_finished_at: float | None = None
@@ -153,10 +218,16 @@ class PersistentRagWorker:
 
     def _serve(self, argv: list[str], timeout: float) -> WorkerResponse:
         """持锁调用。真实查询与 keepalive 共用同一套失败处置，不给 keepalive 开第二套规矩。"""
+        if self._closed:
+            raise RuntimeError("rag worker is closed")
         try:
+            self._generation.require_available()
             response = self._query_locked(argv, timeout, allow_abandon=True)
         except WorkerRequestAbandoned:
             # 进程还热着：不标 failed、不重生、状态不动。
+            raise
+        except RagGenerationUnavailable as exc:
+            self._mark_generation_unavailable(exc)
             raise
         except Exception as exc:
             self._mark_failed(exc)
@@ -165,20 +236,32 @@ class PersistentRagWorker:
         if response.returncode == 0 and response.model_load_count > 0:
             self._state = "ready"
             self._last_error_type = None
+            self._last_error_diagnostic = None
         return response
 
     def prewarm(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
-            self._recovery_argv = list(argv)
-            self._recovery_timeout = float(timeout)
-            self._state = "warming"
-            self._last_error_type = None
+            # Recovery can pass its first closed check before shutdown wins the lock.
+            if self._closed:
+                raise RuntimeError("rag worker is closed")
             started = time.monotonic()
             try:
+                self._generation.require_available()
+                self._recovery_argv, self._recovery_timeout = list(argv), float(timeout)
+                self._state = "warming"
+                self._last_error_type = None
+                self._last_error_diagnostic = None
                 # 预热不放弃：预热窗本来就是按模型加载给的，超了就是真失败。
                 response = self._query_locked(argv, timeout, allow_abandon=False)
                 if response.returncode != 0 or response.model_load_count < 1:
-                    raise RuntimeError("rag worker prewarm failed")
+                    raise WorkerExecutionError(
+                        "prewarm",
+                        "worker_returned_error" if response.returncode else "model_not_loaded",
+                        response.returncode,
+                        response.stderr,
+                    )
+                # Keepalive startup is part of prewarm; failure must not report ready.
+                self._start_keepalive()
             except Exception as exc:
                 self._prewarm_latency_ms = int(
                     (time.monotonic() - started) * 1000
@@ -190,8 +273,6 @@ class PersistentRagWorker:
             )
             self._state = "ready"
             self._last_error_type = None
-        # 预热成功才开 keepalive：冷 worker 没有「热」可保，那是预热/自愈的活。
-        self._start_keepalive()
         return response
 
     def idle_seconds(self) -> float | None:
@@ -200,20 +281,34 @@ class PersistentRagWorker:
         return max(0.0, time.monotonic() - self._last_query_finished_at)
 
     def status(self) -> dict[str, object]:
-        process = self._process
         idle = self.idle_seconds()
+        generation = self._generation.check()
+        state = self._state if generation.available else "failed"
+        active = self.healthy() and generation.available
+        diagnostic = self._last_error_diagnostic
         return {
-            "state": self._state,
-            "active": self.healthy(),
+            "state": state,
+            "active": active,
             "model_load_count": self.model_load_count,
             "prewarm_latency_ms": self._prewarm_latency_ms,
-            "last_error_type": self._last_error_type,
+            "last_error_type": (
+                self._last_error_type
+                if generation.available
+                else RagGenerationUnavailable.__name__
+            ),
+            "last_error_diagnostic": (
+                dict(diagnostic)
+                if generation.available and diagnostic is not None
+                else None
+            ),
+            "generation_status": generation.status,
+            "generation_reason": generation.reason,
             "last_latency_ms": self._last_latency_ms,
             "abandoned_in_flight": len(self._abandoned),
             "consecutive_timeouts": self._consecutive_timeouts,
-            # 常驻集与空闲时长并列：RSS 从几 GB 掉到几 MB 而 idle 很长 = 被换出了，
-            # 下一次查询的 last_latency_ms 会先付换入。这两个数以前只能现场 ps 才看得到。
-            "rss_bytes": _process_rss_bytes(process.pid if process is not None else None),
+            # RSS 是本进程首次完成查询后的单次采样缓存，不是 status 时刻的实时值；
+            # 进程停止即清空。status 本身不为观测启动 `ps`。
+            "rss_bytes": self._rss_bytes if self.healthy() else None,
             "idle_seconds": round(idle, 1) if idle is not None else None,
             "keepalive_interval_seconds": keepalive_interval_seconds(),
             "keepalive_thread_alive": bool(
@@ -257,7 +352,12 @@ class PersistentRagWorker:
 
     def keepalive_due(self, interval: float) -> bool:
         """现在该不该摸一下：worker 活着且热、离上次查询 ≥ interval。冷/死/刚服务过都不该。"""
-        if self._closed or not self.healthy() or self.model_load_count <= 0:
+        if (
+            self._closed
+            or not self._generation.check().available
+            or not self.healthy()
+            or self.model_load_count <= 0
+        ):
             return False
         idle = self.idle_seconds()
         return idle is not None and idle >= interval
@@ -300,6 +400,7 @@ class PersistentRagWorker:
                 continue
 
     def _ensure_process(self) -> subprocess.Popen[str]:
+        self._generation.require_available()
         identity = code_identity(self.kb_root)
         if self.healthy() and self._code_identity == identity:
             return self._process
@@ -315,7 +416,7 @@ class PersistentRagWorker:
         # 一次零收益的 HF Hub 往返），并静音 391 分片的 tqdm 进度条——否则进度条
         # 会被 redirect_stderr 收进 payload，让「stderr 非空」这个信号永远为真。
         # 这里用 setdefault，外部显式设置仍然优先。
-        env = dict(os.environ)
+        env = self._generation.child_environment() or dict(os.environ)
         if self.kb_wiki is not None:
             # Bind the actual data argument, not an unrelated ambient KB_VAULT.
             env["KB_VAULT"] = str(self.kb_wiki)
@@ -343,9 +444,9 @@ class PersistentRagWorker:
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            # 进程级 stderr 丢弃是有意的：真正的失败原因由 worker 在 JSON payload 的
-            # stderr 字段上报（含异常类型），这里丢的只是框架噪声。
-            stderr=subprocess.DEVNULL,
+            # Import/startup failures happen before the JSON protocol exists.
+            # Drain this pipe alongside stdout, retaining only a bounded private tail.
+            stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             env=env,
@@ -359,25 +460,72 @@ class PersistentRagWorker:
         request_id = uuid.uuid4().hex
         assert process.stdin is not None
         assert process.stdout is not None
-        process.stdin.write(
-            json.dumps({"id": request_id, "argv": argv}, ensure_ascii=False)
-            + "\n"
-        )
-        process.stdin.flush()
+        if self._response_process is not process:
+            os.set_blocking(process.stdin.fileno(), False)
+            os.set_blocking(process.stdout.fileno(), False)
+            if process.stderr is not None:
+                os.set_blocking(process.stderr.fileno(), False)
+            self._response_process = process
+            self._response_buffer = bytearray()
+            self._stderr_tail = bytearray()
+        # Local reference: close() may retire the process from another thread.
+        buffer = self._response_buffer
         started = time.monotonic()
         deadline = started + max(0.001, float(timeout))
+        request = (json.dumps({"id": request_id, "argv": argv}, ensure_ascii=False) + "\n").encode("utf-8")
+        sent = 0
         selector = selectors.DefaultSelector()
-        selector.register(process.stdout, selectors.EVENT_READ)
         try:
+            selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+            if process.stderr is not None:
+                selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+            selector.register(process.stdin, selectors.EVENT_WRITE, "stdin")
+            search_from = 0
             while True:
+                # A partial request would corrupt the next JSON frame; only a
+                # fully sent request may be abandoned on a still-warm process.
+                may_abandon = allow_abandon and sent == len(request)
                 remaining = deadline - time.monotonic()
-                if remaining <= 0 or not selector.select(max(0.001, remaining)):
-                    self._on_query_timeout(request_id, allow_abandon=allow_abandon)
-                line = process.stdout.readline()
-                if not line:
-                    self._stop_process()
-                    raise RuntimeError("rag worker exited without response")
-                payload = json.loads(line)
+                if remaining <= 0:
+                    self._on_query_timeout(request_id, allow_abandon=may_abandon)
+                # Drain complete buffered lines before asking the kernel for more.
+                # TextIO.readline() can prefetch a second reply behind select's back;
+                # it can also block past the deadline on a partial first line.
+                newline = buffer.find(b"\n", search_from) if sent == len(request) else -1
+                if newline < 0:
+                    if sent == len(request):
+                        search_from = len(buffer)
+                    events = selector.select(remaining)
+                    if not events:
+                        self._on_query_timeout(request_id, allow_abandon=may_abandon)
+                    for key, _ in events:
+                        if key.data == "stdin":
+                            try:
+                                sent += os.write(process.stdin.fileno(), request[sent:sent + 65536])
+                            except BlockingIOError:
+                                continue
+                            except BrokenPipeError:
+                                raise self._process_exit_error(process) from None
+                            if sent == len(request):
+                                selector.unregister(process.stdin)
+                            continue
+                        if key.data == "stderr":
+                            if not self._read_stderr(process):
+                                selector.unregister(key.fileobj)
+                            continue
+                        try:
+                            chunk = os.read(process.stdout.fileno(), 65536)
+                        except BlockingIOError:
+                            continue
+                        if not chunk:
+                            raise self._process_exit_error(process)
+                        buffer.extend(chunk)
+                    continue
+                line = bytes(buffer[:newline])
+                del buffer[:newline + 1]
+                search_from = 0
+                # Decode only a whole frame: a read may split a UTF-8 character.
+                payload = json.loads(line.decode("utf-8"))
                 response_id = payload.get("id")
                 if response_id in self._abandoned:
                     # 上一条被放弃请求的迟到响应：排掉，继续等自己的。
@@ -391,6 +539,7 @@ class PersistentRagWorker:
                         or code_identity(self.kb_root) != self._code_identity):
                     self._stop_process()
                     raise RuntimeError("rag worker code changed; discard response and restart")
+                self._generation.require_available()
                 break
         finally:
             selector.close()
@@ -403,9 +552,42 @@ class PersistentRagWorker:
         self.model_load_count = response.model_load_count
         self._last_latency_ms = int((time.monotonic() - started) * 1000)
         self._last_query_finished_at = time.monotonic()
+        if self._rss_bytes is None:
+            self._rss_bytes = _sample_process_rss_bytes(process.pid)
         self._consecutive_timeouts = 0
         self.counters["queries_served"] += 1
         return response
+
+    def _read_stderr(self, process: subprocess.Popen[str]) -> bool:
+        if process.stderr is None:
+            return False
+        try:
+            chunk = os.read(process.stderr.fileno(), 65536)
+        except BlockingIOError:
+            return True
+        except (ValueError, OSError):
+            # close() retires pipes before acquiring the in-flight query lock.
+            if process.stderr.closed:
+                return False
+            raise
+        self._stderr_tail.extend(chunk)
+        del self._stderr_tail[:-_STDERR_TAIL_BYTES]
+        return bool(chunk)
+
+    def _process_exit_error(self, process: subprocess.Popen[str]) -> WorkerExecutionError:
+        # stdout EOF can become readable just before waitpid observes process exit.
+        try:
+            process.wait(timeout=0.05)
+        except subprocess.TimeoutExpired:
+            pass
+        # Bounded nonblocking drain: stdout and stderr EOF may arrive together.
+        for _ in range(4):
+            if not self._read_stderr(process):
+                break
+        return WorkerExecutionError(
+            "process", "exited_without_response", process.poll(),
+            self._stderr_tail.decode("utf-8", errors="replace"),
+        )
 
     def _on_query_timeout(self, request_id: str, *, allow_abandon: bool) -> None:
         """超窗处置：热 worker 第一次放弃请求；冷 worker 或连续第二次才杀。"""
@@ -427,7 +609,13 @@ class PersistentRagWorker:
     def _mark_failed(self, exc: Exception) -> None:
         self._state = "failed"
         self._last_error_type = type(exc).__name__
+        self._last_error_diagnostic = (
+            dict(exc.diagnostic) if isinstance(exc, WorkerExecutionError) else None
+        )
         self._stop_process()
+
+    def _mark_generation_unavailable(self, exc: RagGenerationUnavailable) -> None:
+        self._mark_failed(exc)
 
     def ensure_recovery_if_dead(self) -> None:
         """探针侧自愈入口：进程死了且没在预热，就按配方调度重生。
@@ -439,6 +627,8 @@ class PersistentRagWorker:
         不依赖查询流量；单飞与冷却仍由 ``_schedule_recovery`` 统一把关，
         探针轮询不会打出重复预热。
         """
+        if not self._generation.check().available:
+            return
         if self.healthy():
             return
         if self._state == "warming":
@@ -479,7 +669,12 @@ class PersistentRagWorker:
     def _recover(self) -> None:
         argv = self._recovery_argv
         timeout = self._recovery_timeout
-        if argv is None or timeout is None or self._closed:
+        if (
+            argv is None
+            or timeout is None
+            or self._closed
+            or not self._generation.check().available
+        ):
             return
         self.counters["recoveries"] += 1
         try:
@@ -490,6 +685,11 @@ class PersistentRagWorker:
     def _stop_process(self) -> None:
         process = self._process
         self._process = None
+        self._rss_bytes = None
+        self._response_process = None
+        self._response_buffer = bytearray()
+        self._abandoned.clear()
+        self._consecutive_timeouts = 0
         if process is not None and process.poll() is None:
             process.terminate()
             try:
@@ -497,12 +697,15 @@ class PersistentRagWorker:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=2)
+        if process is not None and process.stderr is not None:
+            process.stderr.close()
+        self._stderr_tail = bytearray()
         pycache, self._pycache = self._pycache, None
         if pycache is not None:
             pycache.cleanup()
 
 
-_WORKERS: dict[tuple[str, str, str, str], PersistentRagWorker] = {}
+_WORKERS: dict[tuple[object, ...], PersistentRagWorker] = {}
 _WORKERS_LOCK = threading.Lock()
 _STARTUP_FAILURE_TYPE: str | None = None
 
@@ -522,12 +725,20 @@ def _worker_for(
     index_dir: Path,
     kb_wiki: Path | None = None,
 ) -> PersistentRagWorker:
+    generation = capture_generation(python, kb_root, index_dir, kb_wiki)
     key = (python, str(kb_root.resolve()), str(index_dir.resolve()),
-           str(kb_wiki.resolve()) if kb_wiki is not None else "")
+           str(kb_wiki.resolve()) if kb_wiki is not None else "",
+           *generation.pool_identity)
     with _WORKERS_LOCK:
         worker = _WORKERS.get(key)
         if worker is None:
-            worker = PersistentRagWorker(python, kb_root, index_dir, kb_wiki)
+            worker = PersistentRagWorker(
+                python,
+                kb_root,
+                index_dir,
+                kb_wiki,
+                generation_binding=generation,
+            )
             _WORKERS[key] = worker
     return worker
 
@@ -557,13 +768,17 @@ def prewarm(
     with _WORKERS_LOCK:
         _STARTUP_FAILURE_TYPE = None
     try:
-        return _worker_for(python, kb_root, index_dir, kb_wiki).prewarm(argv, timeout)
+        worker = _worker_for(python, kb_root, index_dir, kb_wiki)
     except Exception as exc:
         record_startup_failure(exc)
         raise
+    # Once registered, failure and recovery belong to the worker, not a second
+    # global latch that a successful background prewarm cannot clear.
+    return worker.prewarm(argv, timeout)
 
 
 def record_startup_failure(exc: Exception) -> None:
+    """Record configuration/construction failure before a worker can own it."""
     global _STARTUP_FAILURE_TYPE
     with _WORKERS_LOCK:
         _STARTUP_FAILURE_TYPE = type(exc).__name__
@@ -648,16 +863,20 @@ def status() -> dict[str, object]:
     return {
         "enabled": is_enabled,
         "state": state,
-        "active": sum(1 for worker in workers if worker.healthy()),
+        "active": sum(1 for item in worker_states if item["active"]),
         "configured_workers": len(workers),
         "model_load_count": sum(worker.model_load_count for worker in workers),
         "prewarm_latency_ms": prewarm_latency_ms,
         "last_error_type": last_error_type,
+        "last_error_diagnostic": next(
+            (item.get("last_error_diagnostic") for item in worker_states
+             if item.get("last_error_type")), None,
+        ),
         "lifecycle": "startup_prewarm",
         # 冷/热处置账：abandoned 多、killed 少 = 保活在起作用；killed 多 = worker 真在卡死。
         "counters": counters,
         "abandoned_in_flight": sum(int(item.get("abandoned_in_flight") or 0) for item in worker_states),
-        # 换出可观测：rss 从几 GB 掉到几 MB 且 idle 很长 = 模型/索引在盘上，下一次查询先付换入。
+        # 各进程首次完成查询后的 RSS 采样之和；不是 status 时刻的实时 RSS。
         "rss_bytes": sum(rss_values) if rss_values else None,
         "idle_seconds": round(max(idle_values), 1) if idle_values else None,
         "keepalive_interval_seconds": keepalive_interval_seconds(),

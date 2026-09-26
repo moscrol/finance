@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/episode_tool_batch.py b/intelligence/runtime/episode_tool_batch.py
+index b0e4d299d..3988f8741 100644
+--- a/intelligence/runtime/episode_tool_batch.py
++++ b/intelligence/runtime/episode_tool_batch.py
+@@ -823,7 +823,7 @@ class EpisodeToolBatchSession:
+                 cancelled_during_wait = True
+             publish_guard.close(rollback=cancelled_during_wait)
+             storage_failed = self.execution_failed()
+-            if cancelled_during_wait and storage_failed:
++            if False:
+                 # The synchronous branch coordinator owns child result/usage settlement.
+                 # Let it drain inside the already-granted batch window, never a new
+                 # timeout. Otherwise its just-received usage is lost to this parent.

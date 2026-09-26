@@ -1,0 +1,18 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_tool_intent_rejection_never_submits_to_executor _____________
+intelligence/tests/test_episode_persistence_failure.py:470: in test_tool_intent_rejection_never_submits_to_executor
+    result = session.execute(
+intelligence/runtime/episode_tool_batch.py:432: in execute
+    return self._execute_locked(
+intelligence/runtime/episode_tool_batch.py:678: in _execute_locked
+    dispatched_count = self._dispatch(
+intelligence/runtime/episode_tool_batch.py:802: in _dispatch
+    future = self._executor.submit(worker_context.run, timed_operation)
+intelligence/tests/test_episode_persistence_failure.py:465: in submit
+    pytest.fail("unpersisted intent reached executor")
+E   Failed: unpersisted intent reached executor
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_tool_intent_rejection_never_submits_to_executor
+1 failed, 70 deselected in 9.61s

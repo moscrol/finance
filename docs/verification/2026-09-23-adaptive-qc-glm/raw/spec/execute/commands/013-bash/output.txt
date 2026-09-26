@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/positive_control.py", line 1, in <module>
+    assert 1 == 2, "intentional probe_bug control"
+           ^^^^^^
+AssertionError: intentional probe_bug control
+EXIT_CODE=1

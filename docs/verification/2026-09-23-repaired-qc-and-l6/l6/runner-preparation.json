@@ -1,0 +1,16 @@
+{
+  "status": "PREPARED_NOT_EXECUTED",
+  "real_model_requests": 0,
+  "receipts_inherited": false,
+  "authorization_source": "caller protocol, validated",
+  "source_archive": "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate/docs/verification/2026-09-23-glm-qc-and-l6/l6",
+  "source_audit_seconds": 300,
+  "next_question_requires": "exact-Episode source audit PASS within deadline",
+  "inputs_sha256": {
+    "run_live_l6.py": "79e5cdd30b343dfa891bf1945138d2111edef2830f48cea6e243ed780ae6df41",
+    "glm_l6_shim.py": "e461da2adbfae6cc2648ffaca165c18b198ecca6bf4191f32362a58a1cd10616",
+    "check_proxy_offline.py": "74908fc17ecf55114a73638ee1b5cca4d9b1d28e555508fa12ac74c573062ef5",
+    "launcher-exports.sh": "13f635a6abd6f727c015695495ef9561cecf4a8b621705b352321b4c4b303adb",
+    "protocol-coherent.json": "49117271f8dbef0865519c1698ce73e3e2e97d76f9f3b78463b3cec7da388905"
+  }
+}

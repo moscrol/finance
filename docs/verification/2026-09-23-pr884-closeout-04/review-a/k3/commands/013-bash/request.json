@@ -1,0 +1,1 @@
+{"toolCallId":"bash_12_987b76f7","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -n 'io_effect|local_read|external_or_mixed|unknown' intelligence/runtime/continuous_turn_adapter.py intelligence/runtime/agent_episode.py | head -50"}}

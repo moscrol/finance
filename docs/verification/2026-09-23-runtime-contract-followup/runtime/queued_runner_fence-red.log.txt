@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_parallel_failure_keeps_received_result_and_fences_queued_runner _____
+intelligence/tests/test_episode_persistence_failure.py:517: in test_parallel_failure_keeps_received_result_and_fences_queued_runner
+    with pytest.raises(RuntimeError, match="cancelled before execution"):
+E   Failed: DID NOT RAISE <class 'RuntimeError'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_parallel_failure_keeps_received_result_and_fences_queued_runner
+1 failed, 70 deselected in 6.17s

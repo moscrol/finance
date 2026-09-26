@@ -1,0 +1,90 @@
+{
+  "purpose": "Root-session QC of the K3 independent Spec review; the reviewer's PASS is accepted only because every item below held.",
+  "reviewed_report": {
+    "path": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-k3/REPORT.md",
+    "sha256": "644ba90db91652a9f8aa77410b620a419bf7916b2994989c6f67bd8388b76f1e",
+    "verdict": "PASS"
+  },
+  "candidate": {
+    "tree": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-tree",
+    "revision": "d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2",
+    "status_porcelain": ""
+  },
+  "execution_receipt": {
+    "revision": "d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2",
+    "status": "",
+    "shared_refs_sha256": "394807943801de5338465489c079cf0cf95c375371940e4fc2afba48eb3307b7",
+    "author_tree": {
+      "revision": "be9e5db96c5f92bf8d97cc06cb77a2a5671595e5",
+      "status": ""
+    },
+    "vault": {
+      "revision": "cdacc11e1de2ef8f54597f3d4b18f8907b55ef84",
+      "dirty_count": 0
+    },
+    "exit_code": 0,
+    "timed_out": false,
+    "candidate_untouched": true,
+    "shared_refs_unchanged": true,
+    "author_tree_unchanged": true,
+    "vault_unchanged": true
+  },
+  "hash_claims_in_report_verified": {
+    "probe_a_stitch.py": "cc44cd8940f691778d49b3e9d542d5a31ef81f6c519cb1ca49cb87f0b1bbb22f",
+    "probe_b_child.py": "86380eda32d851e8af738f2d72af40d0b11a1e8145a9a437cd0b90a87071adc4",
+    "probe_a.log": "416ba860d7614b53406bc5c126bc7993c93c7b7e4db8577e4c5a162a9f9076c9",
+    "probe_b.log": "2279bca5e905edaf7843a6e9f56dc621de701fbfd0615744e5696980d6f43583",
+    "diff_34f49ce1...HEAD": "66d4230eaa6102f5b862b0a0736d312be6380c54302a14229efebedeeb6151be"
+  },
+  "source_location_claims_spot_checked": [
+    "sync_local_sector_members.py:465 pending_for_provider = changed+new+skipped+failed",
+    "sync_local_sector_members.py:58 DEFAULT_MAX_BASELINE_AGE_DAYS = 10 untouched",
+    "recover_local_review.py:76-82 recovery_stitch_command always --include-completed --max-baseline-age-days 180; --no-caps only history_day",
+    "recover_local_review.py:145-147 status.json written only after release gates + alignment",
+    "run_review_sync.py:407-411 daily stitch step carries no --include-completed"
+  ],
+  "probe_rerun_from_neutral_dir": {
+    "dir": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/qc-rerun",
+    "pythonpath": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-tree",
+    "probe_a": {
+      "pass": 27,
+      "fail": 0
+    },
+    "probe_b": {
+      "pass": 18,
+      "fail": 0
+    },
+    "check_names_and_verdicts_identical_to_reviewer_logs": true
+  },
+  "probe_bite_test_on_mutation_tree": {
+    "tree": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-mutation/finance-workspace-private",
+    "M1": {
+      "mutation": "cli.py gate reads audit_complete instead of refresh_complete",
+      "probe_a": {
+        "pass": 22,
+        "fail": 5
+      },
+      "failed_checks": [
+        "R1.expired_baseline_rc2",
+        "R1.expired_baseline_msg",
+        "R1.zero_cand[changed,True]",
+        "R1.zero_cand[new,True]",
+        "R1.writer_fail_rc2"
+      ]
+    },
+    "M2": {
+      "mutation": "recover_local_review.py treats every skip as optional",
+      "probe_b": {
+        "pass": 16,
+        "fail": 2
+      },
+      "failed_checks": [
+        "I1.required_skip_blocked",
+        "I1.required_skip_no_status"
+      ]
+    },
+    "tree_restored_clean": true
+  },
+  "first_attempt_discarded": "rc=127 on both reruns: zsh does not word-split an unquoted $VAR holding 'env -i ...'; rerun with an explicit env command. No conclusion was drawn from the 127s.",
+  "not_covered": "This QC does not re-derive the Spec matrix; it checks the reviewer's evidence is real, reproducible and defect-sensitive."
+}

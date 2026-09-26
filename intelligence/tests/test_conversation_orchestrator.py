@@ -3,7 +3,8 @@ import json
 import time
 import urllib.error
 from dataclasses import asdict, replace
-from threading import Event
+from threading import Event, current_thread
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,6 +43,7 @@ from intelligence.runtime.conversation_orchestrator import (
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services import research_contract as research_contract_service
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.research_policy import ResearchExecutionPolicy
 from intelligence.services.provider_observability import ProviderTrace
@@ -3158,6 +3160,8 @@ def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
     assert captured["decision"].lane == "knowledge"
     assert "当前视角" not in result.content
     assert "非投资建议" not in result.content
+    assert conversation_store.load_messages(conversation.conversation_id)[-1].degrades == []
+    assert run_store.load_run(run_id).degrades == []
 
 
 def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
@@ -3200,6 +3204,7 @@ def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
     assert "方法论分析" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.degrades == ["方法论回答生成暂时不可用"]
+    assert run_store.load_run(run_id).degrades == assistant.degrades
     controller = next(
         step
         for step in run_store.load_trace(run_id)
@@ -3539,10 +3544,14 @@ def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(
     assert captured[0].question_type_override == QUESTION_CONCEPT_DEFINITION
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.citations[0]["source"] == "百科来源"
+    warning = "自然语言生成暂时不可用，本轮正文未经综述"
+    assert assistant.degrades == [warning]
+    assert run_store.load_run(run_id).degrades == [warning]
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
+    assert report["warnings"] == [warning]
 
 
 def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
@@ -3585,12 +3594,14 @@ def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
     assert "未取得足够可靠的资料" in result.content
     assert "private diagnostic" not in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.degrades == ["一般知识检索暂时不可用"]
+    expected = ["一般知识检索暂时不可用", "自然语言生成暂时不可用，本轮正文未经综述"]
+    assert assistant.degrades == expected
+    assert run_store.load_run(run_id).degrades == expected
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
-    assert report["warnings"] == ["一般知识检索暂时不可用"]
+    assert report["warnings"] == expected
 
 
 def test_knowledge_follow_up_uses_bounded_conversation_context_without_retrieval(
@@ -5791,7 +5802,7 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5826,7 +5837,7 @@ def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> Non
         captured["payload"] = json.loads(request.data.decode("utf-8"))
         return _StreamingResponse(body)
 
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", fake_urlopen)
 
     result, reason = llm_refine.synthesize_messages_stream(
         [{"role": "user", "content": "question"}],
@@ -5849,7 +5860,7 @@ def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5878,7 +5889,7 @@ def test_synthesis_stream_output_too_long_fails_closed(monkeypatch) -> None:
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5908,7 +5919,7 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5958,7 +5969,7 @@ def test_openai_stream_closes_blocking_response_at_absolute_deadline(
 
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: BlockingResponse(),
     )
@@ -6273,8 +6284,20 @@ def test_market_forecast_head_route_does_not_enable_long_tail_agent(
     )
 
 
+@pytest.fixture
+def watchdog_clock(monkeypatch):
+    now = [1000.0]
+    # Replace only this module's clock; Event/Future timeouts stay on real time.
+    monkeypatch.setattr(
+        research_contract_service, "time", SimpleNamespace(monotonic=lambda: now[0])
+    )
+    return now
+
+
 def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     tmp_path,
+    monkeypatch,
+    watchdog_clock,
 ) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -6289,8 +6312,12 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     release_worker = Event()
     worker_started = Event()
     late_progress_sent = Event()
+    worker_threads = []
+    forwarded_deltas = []
+    watchdog_timings: dict[str, float] = {}
 
     def blocking_answer(options: AskOptions) -> AskResult:
+        worker_threads.append(current_thread())
         assert llm_refine.current_call_ledger() is not None
         assert options.progress_callback is not None
         assert options.stream_cancel_check is not None
@@ -6298,15 +6325,19 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
         assert not options.stream_cancel_check()
         options.progress_callback("agent_loop", "started", {"tool_count": 7})
         worker_started.set()
-        release_worker.wait(timeout=2)
+        assert options.deadline is not None
+        assert options.deadline.remaining() == pytest.approx(0.2)
+        # Expire the original absolute deadline only after the worker is ready.
+        watchdog_timings["expired"] = time.monotonic()
+        watchdog_clock[0] = options.deadline.expires_at
+        assert release_worker.wait(timeout=5), "test did not release the worker"
         assert options.stream_cancel_check()
         options.stream_text_delta("不应写入的迟到片段")
         options.progress_callback("agent_loop", "completed", {"tool_count": 7})
         late_progress_sent.set()
         return _ask_result(options.query)
 
-    started = time.monotonic()
-    result = TurnOrchestrator(
+    orchestrator = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
         run_store=run_store,
@@ -6320,6 +6351,103 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
             max_skill_calls=3,
             max_elapsed_seconds=0.2,
         ),
+    )
+    original_watchdog = orchestrator._run_answer_query_with_watchdog
+
+    def observe_forwarded_text(options, **kwargs):
+        original_delta = options.stream_text_delta
+        assert original_delta is not None
+
+        def capture_delta(delta):
+            forwarded_deltas.append(delta)
+            original_delta(delta)
+
+        answer_result = original_watchdog(
+            replace(options, stream_text_delta=capture_delta), **kwargs
+        )
+        watchdog_timings["returned"] = time.monotonic()
+        return answer_result
+
+    monkeypatch.setattr(
+        orchestrator, "_run_answer_query_with_watchdog", observe_forwarded_text
+    )
+    try:
+        result = orchestrator.run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            query=query,
+            skill_mode="auto",
+            selected_skill_ids=[],
+        )
+        assert worker_started.is_set()
+        assert watchdog_timings["returned"] - watchdog_timings["expired"] < 0.8
+        assert not release_worker.is_set()
+        assert result.status == "completed"
+        assert "截止时间" in result.content
+        trace_before_release = run_store.load_trace(run_id)
+        assert any(
+            step["name"] == "ask_stage_agent_loop" and step["status"] == "running"
+            for step in trace_before_release
+        )
+        timeout_step = next(
+            step for step in trace_before_release if step["name"] == "ask_root_timeout"
+        )
+        assert json.loads(timeout_step["output_summary"]) == {
+            "remaining_ms": 0,
+            "worker_started": True,
+            "task_may_continue": True,
+        }
+
+        release_worker.set()
+        assert late_progress_sent.wait(timeout=5)
+        assert forwarded_deltas == []
+        assert run_store.load_trace(run_id) == trace_before_release
+        assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+        assert assistant.content == result.content
+        assert "迟到片段" not in assistant.content
+    finally:
+        release_worker.set()
+        for worker in worker_threads:
+            worker.join(timeout=5)
+            assert not worker.is_alive()
+
+
+def test_ask_watchdog_does_not_start_worker_after_preparation_exhausts_deadline(
+    tmp_path,
+    watchdog_clock,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store, run_store, conversation.conversation_id, query
+    )
+    answer_calls = []
+
+    def slow_controller(query, **kwargs):
+        watchdog_clock[0] += 0.25
+        return _research_controller(query, **kwargs)
+
+    def unexpected_answer(options):
+        answer_calls.append(options.query)
+        return _ask_result(options.query)
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=unexpected_answer,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=slow_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=0.2,
+        ),
     ).run_turn(
         conversation_id=conversation.conversation_id,
         run_id=run_id,
@@ -6328,25 +6456,15 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
         skill_mode="auto",
         selected_skill_ids=[],
     )
-    elapsed = time.monotonic() - started
-
-    assert worker_started.is_set()
-    assert elapsed < 0.8
     assert result.status == "completed"
     assert "截止时间" in result.content
-    trace_before_release = run_store.load_trace(run_id)
-    assert any(
-        step["name"] == "ask_stage_agent_loop" and step["status"] == "running"
-        for step in trace_before_release
-    )
-    assert any(step["name"] == "ask_root_timeout" for step in trace_before_release)
-
-    release_worker.set()
-    assert late_progress_sent.wait(timeout=1)
-    assert run_store.load_trace(run_id) == trace_before_release
-    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.content == result.content
-    assert "迟到片段" not in assistant.content
+    assert answer_calls == []
+    trace = run_store.load_trace(run_id)
+    timeout_step = next(step for step in trace if step["name"] == "ask_root_timeout")
+    assert json.loads(timeout_step["output_summary"]) == {
+        "remaining_ms": 0,
+        "worker_started": False,
+    }
 
 
 def test_route_contract_and_verifier_share_rebound_task_frame(tmp_path) -> None:

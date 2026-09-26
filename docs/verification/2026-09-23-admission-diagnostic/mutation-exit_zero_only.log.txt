@@ -1,0 +1,135 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+______ test_exit_zero_without_a_valid_final_result_is_not_ready[events0] _______
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only/test_exit_zero_without_a_valid0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1069cbd40>
+events = []
+
+    @pytest.mark.parametrize("events", [
+        [], [{"event": "complete", "ready": False, "shape": [1, 512]}],
+        [{"event": "complete", "ready": True}],
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}] * 2,
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}, {"event": "failed"}],
+    ])
+    def test_exit_zero_without_a_valid_final_result_is_not_ready(tmp_path, monkeypatch, events):
+        kb, model, output = fixture_library(tmp_path, "")
+    
+        def run(command, **kwargs):
+            kwargs["stdout"].write(("noise\n" + "\n".join(json.dumps(event) for event in events)).encode())
+            return subprocess.CompletedProcess(command, 0)
+    
+        monkeypatch.setattr(preparation.subprocess, "run", run)
+        result = preparation.retrieval_probe(Path(sys.executable), kb, model, output)
+>       assert result["ready"] is False
+E       assert True is False
+
+tests/test_retrieval_readiness.py:79: AssertionError
+______ test_exit_zero_without_a_valid_final_result_is_not_ready[events1] _______
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only/test_exit_zero_without_a_valid1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1069cbe30>
+events = [{'event': 'complete', 'ready': False, 'shape': [1, 512]}]
+
+    @pytest.mark.parametrize("events", [
+        [], [{"event": "complete", "ready": False, "shape": [1, 512]}],
+        [{"event": "complete", "ready": True}],
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}] * 2,
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}, {"event": "failed"}],
+    ])
+    def test_exit_zero_without_a_valid_final_result_is_not_ready(tmp_path, monkeypatch, events):
+        kb, model, output = fixture_library(tmp_path, "")
+    
+        def run(command, **kwargs):
+            kwargs["stdout"].write(("noise\n" + "\n".join(json.dumps(event) for event in events)).encode())
+            return subprocess.CompletedProcess(command, 0)
+    
+        monkeypatch.setattr(preparation.subprocess, "run", run)
+        result = preparation.retrieval_probe(Path(sys.executable), kb, model, output)
+>       assert result["ready"] is False
+E       assert True is False
+
+tests/test_retrieval_readiness.py:79: AssertionError
+______ test_exit_zero_without_a_valid_final_result_is_not_ready[events2] _______
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only/test_exit_zero_without_a_valid2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106a13710>
+events = [{'event': 'complete', 'ready': True}]
+
+    @pytest.mark.parametrize("events", [
+        [], [{"event": "complete", "ready": False, "shape": [1, 512]}],
+        [{"event": "complete", "ready": True}],
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}] * 2,
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}, {"event": "failed"}],
+    ])
+    def test_exit_zero_without_a_valid_final_result_is_not_ready(tmp_path, monkeypatch, events):
+        kb, model, output = fixture_library(tmp_path, "")
+    
+        def run(command, **kwargs):
+            kwargs["stdout"].write(("noise\n" + "\n".join(json.dumps(event) for event in events)).encode())
+            return subprocess.CompletedProcess(command, 0)
+    
+        monkeypatch.setattr(preparation.subprocess, "run", run)
+        result = preparation.retrieval_probe(Path(sys.executable), kb, model, output)
+>       assert result["ready"] is False
+E       assert True is False
+
+tests/test_retrieval_readiness.py:79: AssertionError
+______ test_exit_zero_without_a_valid_final_result_is_not_ready[events3] _______
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only/test_exit_zero_without_a_valid3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106a12e10>
+events = [{'event': 'complete', 'ready': True, 'shape': [1, 1024]}, {'event': 'complete', 'ready': True, 'shape': [1, 1024]}]
+
+    @pytest.mark.parametrize("events", [
+        [], [{"event": "complete", "ready": False, "shape": [1, 512]}],
+        [{"event": "complete", "ready": True}],
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}] * 2,
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}, {"event": "failed"}],
+    ])
+    def test_exit_zero_without_a_valid_final_result_is_not_ready(tmp_path, monkeypatch, events):
+        kb, model, output = fixture_library(tmp_path, "")
+    
+        def run(command, **kwargs):
+            kwargs["stdout"].write(("noise\n" + "\n".join(json.dumps(event) for event in events)).encode())
+            return subprocess.CompletedProcess(command, 0)
+    
+        monkeypatch.setattr(preparation.subprocess, "run", run)
+        result = preparation.retrieval_probe(Path(sys.executable), kb, model, output)
+>       assert result["ready"] is False
+E       assert True is False
+
+tests/test_retrieval_readiness.py:79: AssertionError
+______ test_exit_zero_without_a_valid_final_result_is_not_ready[events4] _______
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only/test_exit_zero_without_a_valid4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106a11460>
+events = [{'event': 'complete', 'ready': True, 'shape': [1, 1024]}, {'event': 'failed'}]
+
+    @pytest.mark.parametrize("events", [
+        [], [{"event": "complete", "ready": False, "shape": [1, 512]}],
+        [{"event": "complete", "ready": True}],
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}] * 2,
+        [{"event": "complete", "ready": True, "shape": [1, 1024]}, {"event": "failed"}],
+    ])
+    def test_exit_zero_without_a_valid_final_result_is_not_ready(tmp_path, monkeypatch, events):
+        kb, model, output = fixture_library(tmp_path, "")
+    
+        def run(command, **kwargs):
+            kwargs["stdout"].write(("noise\n" + "\n".join(json.dumps(event) for event in events)).encode())
+            return subprocess.CompletedProcess(command, 0)
+    
+        monkeypatch.setattr(preparation.subprocess, "run", run)
+        result = preparation.retrieval_probe(Path(sys.executable), kb, model, output)
+>       assert result["ready"] is False
+E       assert True is False
+
+tests/test_retrieval_readiness.py:79: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only.xml -
+=========================== short test summary info ============================
+FAILED tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready[events0]
+FAILED tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready[events1]
+FAILED tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready[events2]
+FAILED tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready[events3]
+FAILED tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready[events4]
+5 failed in 0.14s

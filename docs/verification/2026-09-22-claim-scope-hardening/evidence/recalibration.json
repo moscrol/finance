@@ -1,0 +1,51 @@
+{
+  "purpose": "收紧限定词绑定后，对仓内已归档答案重校准（空证据上下文）",
+  "files_scanned": 6,
+  "sentences_scanned": 297,
+  "total_hits": 0,
+  "files": [
+    {
+      "file": "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/e2-evidence/t2-run_20260913_035722_162700/answer.md",
+      "sentences": 52,
+      "issue_count": 0,
+      "rules": [],
+      "quotes": []
+    },
+    {
+      "file": "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/e2-evidence/t3-run_20260913_041146_035132/answer.md",
+      "sentences": 55,
+      "issue_count": 0,
+      "rules": [],
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_answers/snapshots/stock_anchor.md",
+      "sentences": 61,
+      "issue_count": 0,
+      "rules": [],
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_answers/snapshots/theme_analysis.md",
+      "sentences": 69,
+      "issue_count": 0,
+      "rules": [],
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_answers/snapshots/theme_no_hits.md",
+      "sentences": 48,
+      "issue_count": 0,
+      "rules": [],
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_run/run_20260708_demo/answer.md",
+      "sentences": 12,
+      "issue_count": 0,
+      "rules": [],
+      "quotes": []
+    }
+  ],
+  "boundary": "空上下文下只有日期/资金流两条纯文本规则在跑；6 份不是统计样本，命中 0 ≠ 误报率 0"
+}

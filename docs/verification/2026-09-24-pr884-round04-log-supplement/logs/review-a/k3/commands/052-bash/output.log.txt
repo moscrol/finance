@@ -1,0 +1,40 @@
+        See the module's __doc__ string for more info.
+        """
+    
+        if memo is None:
+            memo = {}
+    
+        d = id(x)
+        y = memo.get(d, _nil)
+        if y is not _nil:
+            return y
+    
+        cls = type(x)
+    
+        copier = _deepcopy_dispatch.get(cls)
+        if copier is not None:
+            y = copier(x, memo)
+        else:
+            if issubclass(cls, type):
+                y = _deepcopy_atomic(x, memo)
+            else:
+                copier = getattr(x, "__deepcopy__", None)
+                if copier is not None:
+                    y = copier(memo)
+                else:
+                    reductor = dispatch_table.get(cls)
+                    if reductor:
+                        rv = reductor(x)
+                    else:
+                        reductor = getattr(x, "__reduce_ex__", None)
+                        if reductor is not None:
+>                           rv = reductor(4)
+E                           TypeError: cannot pickle 'mappingproxy' object
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/copy.py:151: TypeError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-a/k3/work/junit_probes.xml -
+=========================== short test summary info ============================
+FAILED ../review-a/k3/work/test_k3_c1.py::test_k3_c1_tree_fence_shared_between_parent_and_child
+FAILED ../review-a/k3/work/test_k3_c2.py::test_k3_c2_evidence_v3_roundtrip_and_tamper
+FAILED ../review-a/k3/work/test_k3_c2.py::test_k3_c2_evidence_legacy_v1_v2_conservative
+3 failed, 14 passed in 4.47s

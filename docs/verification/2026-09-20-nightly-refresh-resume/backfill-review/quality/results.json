@@ -1,0 +1,85 @@
+{
+  "changed_functions": [
+    "_is_num",
+    "_validate_receipt"
+  ],
+  "unchanged_main_and_data_checks": true,
+  "numeric_cases": [
+    {
+      "case": "int-zero",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "float-zero",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "negative-zero",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "min-subnormal",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "negative-min-subnormal",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "max-float",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "negative-max-float",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "max-float-as-int",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "negative-max-float-as-int",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "large-finite-int",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "negative-large-finite-int",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "case": "none",
+      "expected": false,
+      "actual": false
+    },
+    {
+      "case": "string",
+      "expected": false,
+      "actual": false
+    },
+    {
+      "case": "list",
+      "expected": false,
+      "actual": false
+    },
+    {
+      "case": "dict",
+      "expected": false,
+      "actual": false
+    }
+  ],
+  "pytest": ".                                                                        [100%]\n1 passed in 0.62s\n"
+}

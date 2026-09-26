@@ -1,0 +1,9 @@
+140:def http_transport_override(opener: Callable[..., object]):
+830:def call_ledger_scope(
+858:def _reserve_llm_call() -> None:
+1091:    _reserve_llm_call()
+1148:    _reserve_llm_call()
+1205:    _reserve_llm_call()
+1388:    _reserve_llm_call()
+1521:    _reserve_llm_call()
+2248:    _reserve_llm_call()

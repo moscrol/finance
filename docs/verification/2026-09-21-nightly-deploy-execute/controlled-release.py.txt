@@ -1,0 +1,291 @@
+"""One-window operator transcript around the reviewed installer; not a new install entry.
+
+Invocation only after exact-candidate gates/reviews and Gitea merge confirmation.
+No kickstart, data collection, 8792 switch, deletion, or automatic reattempt.
+Backups precede bootout. Both jobs are unloaded before the nontransactional cp
+installer. An exception restores ONLY the four files backed up by this process.
+"""
+from datetime import datetime, timedelta
+import hashlib
+import json
+import os
+from pathlib import Path
+import plistlib
+import re
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-nightly-deploy-closeout-0921')
+HOME = Path('/Users/a77')
+SHA = '2ea6c3db01a062b9c623498df1b60edfbafe582b'
+RUNTIME_SHA = 'adcda94b5e401158f1c3aa51f210e1e8d0f0b713'
+DOMAIN = f'gui/{os.getuid()}'
+JOBS = [f'com.financeworkspace.daily-full-review-{p}' for p in ('sync', 'finalize')]
+LOCK = HOME / 'finance-workspace-private/state/locks/daily-full-review.lock'
+DB = HOME / 'finance-workspace-private/db/market_feature_store.duckdb'
+SOURCES = {
+    HOME / '.local/bin/nightly_full_review.sh': TREE / 'skills/daily-full-review/scripts/nightly_full_review.sh',
+    HOME / '.local/bin/nightly-full-review-s7.sh': TREE / 'skills/daily-full-review/scripts/nightly_full_review_s7.sh',
+    **{HOME / f'Library/LaunchAgents/{j}.plist': TREE / f'intelligence/dream/{j}.plist' for j in JOBS},
+}
+OTHER_JOBS = ['com.financeworkspace.' + j for j in ('fidelity-daily-agent', 'fidelity-forward-acceptance', 'pit-snapshot', 'checkpoint-recheck')] + ['com.a77.finance-workbench']
+OUT = ROOT / 'deployment'
+record = {'revision': SHA, 'runtime_revision': RUNTIME_SHA, 'started_at': datetime.now().astimezone().isoformat(), 'commands': [], 'status': 'RESERVED', 'manual_collection': False, 'kickstart': False}
+
+
+def digest(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def save():
+    tmp = OUT / 'result.tmp'
+    tmp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+    tmp.replace(OUT / 'result.json')
+
+
+def command(args, check=True):
+    proc = subprocess.run(args, capture_output=True, text=True, timeout=90)
+    record['commands'].append({'argv': list(map(str, args)), 'exit_code': proc.returncode, 'stdout': proc.stdout, 'stderr': proc.stderr, 'at': datetime.now().astimezone().isoformat()})
+    save()
+    if check and proc.returncode:
+        raise RuntimeError(f'command failed: {args[:2]} rc={proc.returncode}')
+    return proc
+
+
+def git(*args, tree=TREE):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).rstrip('\n')
+
+
+def loaded(job):
+    return command(['launchctl', 'print', f'{DOMAIN}/{job}']).stdout
+
+
+def check_loaded(job, config, *, zero_runs=False):
+    text = loaded(job)
+    assert '\n\tstate = not running\n' in text, job
+    assert not re.search(r'^\tpid = \d+', text, re.M), job
+    assert '\n\tactive count = 0\n' in text, job
+    if zero_runs:
+        assert re.search(r'^\truns = 0$', text, re.M), text
+    for key, val in config['EnvironmentVariables'].items():
+        assert f'\n\t\t{key} => {val}\n' in text, (job, key)
+    args = re.search(r'^\targuments = \{\n(.*?)\n\t\}', text, re.M | re.S)
+    assert args and [x.strip() for x in args[1].splitlines()] == config['ProgramArguments']
+    for key, label in [('WorkingDirectory', 'working directory'), ('StandardOutPath', 'stdout path'), ('StandardErrorPath', 'stderr path')]:
+        assert f'\n\t{label} = {config[key]}\n' in text
+    for key, val in config['StartCalendarInterval'].items():
+        assert f'"{key}" => {val}' in text
+    assert 'keepalive = 0' in text
+    assert config['RunAtLoad'] is False
+    return text
+
+
+def fetch_health():
+    result = {}
+    for name in ('health', 'readiness'):
+        try:
+            response = urllib.request.urlopen('http://127.0.0.1:8792/api/' + name, timeout=20)
+        except urllib.error.HTTPError as exc:
+            response = exc
+        with response:
+            result[name] = {'http_status': response.code, 'body': json.load(response)}
+    return result
+
+
+def other_identity(job):
+    # Runtime counters and PIDs, not launchd's unrelated volatile bookkeeping.
+    text = loaded(job)
+    return {'plist_sha256': digest(HOME / f'Library/LaunchAgents/{job}.plist'),
+            'fields': re.findall(r'^\t(?:state|program|working directory|runs|pid|last exit code) = .*$', text, re.M),
+            'environment': re.search(r'^\tenvironment = \{\n(.*?)\n\t\}', text, re.M | re.S)[1]}
+
+
+def stat_db():
+    st = DB.stat()
+    return {'bytes': st.st_size, 'mtime_ns': st.st_mtime_ns, 'inode': st.st_ino}
+
+
+def roots():
+    result = {}
+    for role in ('sync', 'generation', 'l2'):
+        p = HOME / f'.finance-runtime/finance-{role}-adcda94b5e40'
+        rev = git('rev-parse', 'HEAD', tree=p)
+        status = git('status', '--porcelain', '--untracked-files=all', tree=p)
+        assert rev == RUNTIME_SHA and not status, (role, rev, status)
+        result[role] = {'path': str(p), 'revision': rev, 'status': status}
+    return result
+
+
+def preserved_roots():
+    old_sync = HOME / 'finance-workspace-sync'
+    old_l2 = HOME / '.finance-runtime/finance-l2-d433b90788c0'
+    new_l2 = HOME / '.finance-runtime/finance-l2-adcda94b5e40'
+    index = 'market_feature_store/sync/sync_akshare_index_daily.py'
+    assert digest(old_sync / index) == digest(HOME / '.finance-runtime/finance-sync-adcda94b5e40' / index)
+    files = git('ls-files', 'scripts/moneyflow', 'scripts/method_validation.py', tree=new_l2).splitlines()
+    assert len(files) == 18
+    for name in files:
+        assert digest(old_l2 / name) == digest(new_l2 / name), name
+    old_sync_files = git('ls-files', '--modified', '--others', '--exclude-standard', tree=old_sync).splitlines()
+    result = {'l2_files': {name: digest(old_l2 / name) for name in files},
+              'old_sync_modified_files': {name: digest(old_sync / name) for name in old_sync_files}}
+    for role, path in [('sync', old_sync), ('l2', old_l2), ('generation', HOME / '.finance-runtime/finance-generation-387028b846a2'), ('s7', HOME / '.finance-runtime/finance-s7-sync')]:
+        result[role] = {'revision': git('rev-parse', 'HEAD', tree=path), 'status': git('status', '--porcelain', tree=path)}
+    assert result['s7']['revision'] == '418515c0383334558a8dd44a0e741f39085115fa'
+    return result
+
+
+def verify_rollback(backups):
+    for dst, metadata in backups.items():
+        assert digest(Path(dst)) == metadata['sha256']
+        assert Path(dst).stat().st_mode & 0o777 == metadata['mode']
+    for job in JOBS:
+        config = plistlib.loads((HOME / f'Library/LaunchAgents/{job}.plist').read_bytes())
+        check_loaded(job, config, zero_runs=True)
+
+
+def restore(backups):
+    for job in JOBS:
+        command(['launchctl', 'bootout', f'{DOMAIN}/{job}'], check=False)
+    for dst, metadata in backups.items():
+        dst = Path(dst)
+        data = Path(metadata['backup']).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == metadata['sha256']
+        tmp = dst.with_name(dst.name + f'.rollback-{os.getpid()}')
+        with tmp.open('xb') as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        tmp.chmod(metadata['mode'])
+        os.replace(tmp, dst)
+    for job in JOBS:
+        command(['launchctl', 'bootstrap', DOMAIN, str(HOME / f'Library/LaunchAgents/{job}.plist')])
+    verify_rollback(backups)
+
+
+def main():
+    assert sys.argv[1:] == ['--apply-authorized'], 'explicit operator apply required'
+    os.umask(0o022)
+    OUT.mkdir(exist_ok=False)
+    save()
+    lock_owned = False
+    touched = False
+    backups = {}
+    try:
+        qc = json.loads((ROOT / 'final-gate-qc.json').read_text())
+        assert qc['revision'] == SHA and qc['status'] == 'PASS'
+        for axis in ('spec', 'quality'):
+            audit = json.loads((ROOT / f'{axis}-k3/qc.json').read_text())
+            assert audit['valid'] and audit['verdict'] == 'PASS' and audit['revision'] == SHA
+        token = subprocess.check_output(['security', 'find-generic-password', '-s', 'gitea-local', '-a', 'a77-token', '-w'], text=True).strip()
+        base = 'http://127.0.0.1:3300/api/v1/repos/a77/finance-workspace-private/'
+        values = []
+        for path in ('pulls/827', 'branches/main'):
+            with urllib.request.urlopen(urllib.request.Request(base + path, headers={'Authorization': 'token ' + token}), timeout=20) as r:
+                values.append(json.load(r))
+        del token
+        assert values[0]['merged'] and values[0]['head']['sha'] == SHA
+        assert values[1]['commit']['id'] == SHA, 'remote main drifted from tested candidate'
+        assert git('rev-parse', 'HEAD') == SHA and not git('status', '--porcelain')
+        record['roots_before'] = roots()
+        record['preservation_before'] = preserved_roots()
+        record['database_before'] = stat_db()
+        assert shutil.disk_usage(HOME).free > 2 * 1024 ** 3
+        now = datetime.now().astimezone()
+        for hour, minute in ((18, 30), (20, 40)):
+            upcoming = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if upcoming <= now:
+                upcoming += timedelta(days=1)
+            assert (upcoming - now).total_seconds() > 600, 'too close to scheduled execution'
+        before = json.loads((ROOT.parent / 'nightly-deploy-closeout-20260921/preflight.json').read_text())
+        for row in before['installed_files']:
+            assert digest(Path(row['path'])) == row['sha256'], row['path']
+        for job in JOBS:
+            check_loaded(job, plistlib.loads((HOME / f'Library/LaunchAgents/{job}.plist').read_bytes()))
+        assert not LOCK.exists(), 'nightly lock already owned'
+        assert subprocess.run(['lsof', '-t', str(DB)], capture_output=True).returncode == 1, 'database has an open handle or cannot establish idle'
+        record['other_before'] = {job: other_identity(job) for job in OTHER_JOBS}
+        record['service_before'] = fetch_health()
+        runtime = record['service_before']['health']['body']['runtime']
+        assert runtime['source_revision'] == RUNTIME_SHA and not runtime['source_dirty'] and runtime['code_matches_repo']
+        record['8792_link_before'] = str((HOME / 'finance-workspace-runtime').resolve())
+        backup_dir = OUT / 'backups'
+        backup_dir.mkdir()
+        for index, row in enumerate(before['installed_files']):
+            p = Path(row['path'])
+            backup = backup_dir / f'{index}-{p.name}'
+            shutil.copy2(p, backup)
+            assert digest(backup) == row['sha256'] == digest(p)
+            metadata = {'backup': str(backup), 'sha256': row['sha256'], 'mode': p.stat().st_mode & 0o777}
+            if p in SOURCES:
+                backups[str(p)] = metadata
+        record['backups'] = backups
+        save()
+        command(['/bin/zsh', str(TREE / 'scripts/install_eval_launchd.sh'), '--nightly-only', '--dry-run'])
+        LOCK.mkdir()  # Existing lock is never removed/reclaimed.
+        lock_owned = True
+        (LOCK / 'pid').write_text(str(os.getpid()) + '\n')
+        for row in before['installed_files']:
+            assert digest(Path(row['path'])) == row['sha256']
+        for job in JOBS:
+            check_loaded(job, plistlib.loads((HOME / f'Library/LaunchAgents/{job}.plist').read_bytes()))
+        record['status'] = 'CHANGING'
+        touched = True
+        save()
+        for job in JOBS:
+            command(['launchctl', 'bootout', f'{DOMAIN}/{job}'])
+        command(['/bin/zsh', str(TREE / 'scripts/install_eval_launchd.sh'), '--nightly-only'])
+        for dst, source in SOURCES.items():
+            assert digest(dst) == digest(source), str(dst)
+        record['loaded_after'] = {}
+        for job in JOBS:
+            config = plistlib.loads((TREE / f'intelligence/dream/{job}.plist').read_bytes())
+            record['loaded_after'][job] = check_loaded(job, config, zero_runs=True)
+        record['roots_after'] = roots()
+        record['preservation_after'] = preserved_roots()
+        assert record['preservation_after'] == record['preservation_before']
+        record['database_after'] = stat_db()
+        assert record['database_after'] == record['database_before']
+        record['other_after'] = {job: other_identity(job) for job in OTHER_JOBS}
+        assert record['other_after'] == record['other_before']
+        record['service_after'] = fetch_health()
+        after = record['service_after']['health']['body']['runtime']
+        for key in ('source_revision', 'source_dirty', 'code_matches_repo', 'loaded_code_root', 'loaded_tree_fingerprint'):
+            assert after[key] == runtime[key], key
+        assert str((HOME / 'finance-workspace-runtime').resolve()) == record['8792_link_before']
+        for row in before['installed_files']:
+            if Path(row['path']) not in SOURCES:
+                assert digest(Path(row['path'])) == row['sha256']
+        record['status'] = 'CONFIG_DEPLOYED_NOT_EXECUTED'
+    except Exception as exc:
+        record['error'] = f'{type(exc).__name__}: {exc}'
+        record['status'] = 'BLOCKED_BEFORE_CHANGE'
+        if touched:
+            try:
+                restore(backups)
+                record['status'] = 'ROLLED_BACK_VERIFIED'
+            except Exception as failure:
+                record['status'] = 'ROLLBACK_REQUIRES_OPERATOR'
+                record['rollback_error'] = f'{type(failure).__name__}: {failure}'
+    finally:
+        if lock_owned:
+            try:
+                assert (LOCK / 'pid').read_text().strip() == str(os.getpid())
+                (LOCK / 'pid').unlink()
+                LOCK.rmdir()
+                record['own_lock_released'] = True
+            except Exception as failure:
+                record['own_lock_released'] = False
+                record['lock_error'] = str(failure)
+        record['finished_at'] = datetime.now().astimezone().isoformat()
+        save()
+    print(json.dumps({k: record.get(k) for k in ('status', 'error', 'rollback_error', 'own_lock_released', 'finished_at')}, ensure_ascii=False))
+    return 0 if record['status'] == 'CONFIG_DEPLOYED_NOT_EXECUTED' and record.get('own_lock_released') else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,1 @@
+{"toolCallId":"bash_11","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -n 'def |writer|_control_lock|EpisodeWriterBusy|close|inbox' intelligence/runtime/agent_episode.py | head -80"}}

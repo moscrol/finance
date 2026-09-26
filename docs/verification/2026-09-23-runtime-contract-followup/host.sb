@@ -1,0 +1,6 @@
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs") (subpath "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/scratch") (literal "/dev/null"))
+(deny network*)
+(deny file-read* (subpath "/Users/a77/.claude") (subpath "/Users/a77/.pi") (subpath "/Users/a77/.ssh") (subpath "/Users/a77/Library/Keychains") (subpath "/Users/a77/Library/Application Support/mirasim-sidecar"))

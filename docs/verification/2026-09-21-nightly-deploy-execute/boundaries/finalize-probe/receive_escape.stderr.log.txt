@@ -1,0 +1,1 @@
+generation code/data root invalid: generation code escapes FINANCE_CODE_ROOT: /Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/boundaries/finalize-probe/receive_escape-8dcsvumd/code snapshot/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh; refusing workspace fallback

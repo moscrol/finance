@@ -1,0 +1,113 @@
+{
+  "expected_revision": "5d46e626abf4eec3f2f384747e3152959b3e2f90",
+  "identity_before": {
+    "revision": "5d46e626abf4eec3f2f384747e3152959b3e2f90",
+    "dirty": false,
+    "status": "",
+    "time": "2026-09-20T15:51:37.981762+00:00"
+  },
+  "runner_sha256": "455557343edd2147a885d646dd4b1888cdd3283ca1360556590c946e02d2da74",
+  "complete": true,
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.03,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/ruff.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "pytest",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "receipt_redirect",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 645.11,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/pytest.log.txt",
+      "sha256": "7724c9dd1fe1f40be379169818c5145fbe14d0ea0adeeaaa2f1a422fbe4ab477"
+    },
+    {
+      "name": "registry-parse",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.09,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/registry-parse.log.txt",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "name": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.08,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/registry-check.log.txt",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "name": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.08,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/registry-tables.log.txt",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/registry-views.log.txt",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.15,
+      "log": "/Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-20260920/broad-index-python-corrected/ledger-crosswalk.log.txt",
+      "sha256": "bd61ac89b8873200f505eb968a8b18bad63602b8836c96503ef5fc35b743f556"
+    }
+  ],
+  "identity_after": {
+    "revision": "5d46e626abf4eec3f2f384747e3152959b3e2f90",
+    "dirty": false,
+    "status": "",
+    "time": "2026-09-20T16:02:23.645358+00:00"
+  },
+  "identity_stable": true,
+  "exit_code": 0
+}

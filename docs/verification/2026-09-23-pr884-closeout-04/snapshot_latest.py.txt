@@ -1,0 +1,29 @@
+"""Record latest-main drift without reattributing old gate receipts."""
+import datetime
+import json
+from pathlib import Path
+import subprocess
+
+root = Path(__file__).resolve().parent
+tree = root / 'finance-workspace-private'
+base = 'b59d6eed0356ae093b52bd291ab328628de8790e'
+head = 'db2605d1b1a6a929d9bac468c84ef6aeaddce9ff'
+main = '917e15a8738dcb46cbbf57e4a06e2182fd5da405'
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+
+
+preview = subprocess.run(['git', '-C', str(tree), 'merge-tree', '--write-tree', main, head], capture_output=True, text=True)
+assert preview.returncode == 0
+changes = git('diff', '--name-only', base, main).splitlines()
+result = {'observed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'tested_revision': head,
+          'tested_base': base, 'base': main, 'head': head, 'clean': True, 'tree': preview.stdout.strip(),
+          'main_changes_since_tested_base': changes,
+          'non_document_changes': [p for p in changes if not p.startswith(('docs/', '.claude/'))],
+          'new_combination_tested': False, 'receipts_transferred': False}
+with (root / 'latest-main-preview.json').open('x') as stream:
+    json.dump(result, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+print(json.dumps({k: v for k, v in result.items() if k != 'main_changes_since_tested_base'}, ensure_ascii=False, indent=2))

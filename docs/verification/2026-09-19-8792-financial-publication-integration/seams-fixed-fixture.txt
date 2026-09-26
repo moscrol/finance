@@ -1,0 +1,3 @@
+....                                                                     [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T164734Z-0b16bc03.json
+
+4 passed in 2.50s

@@ -1,0 +1,77 @@
+"""Archive only this session's completed pytest scratch trees, verify bytes, then reclaim.
+
+Never handles a production DB, real worktree, another session or an active run.
+Archives stay outside git and preserve the disk-failure fixtures for inspection.
+"""
+from datetime import datetime
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tarfile
+
+ROOT = Path(__file__).resolve().parent
+allowed = {ROOT / 'python/tmp', ROOT.parent / 'nightly-deploy-closeout-20260921/python/tmp'}
+source = Path(sys.argv[1]).absolute()
+assert source in allowed and source.is_dir() and not source.is_symlink()
+assert not (source / '.git').exists(), 'not an actual worktree'
+run = json.loads((source.parent / 'run.json').read_text())
+assert run.get('finished_at') and 'active_pid' not in run
+check = subprocess.run(['lsof', '-nP', '+D', str(source)], capture_output=True, text=True, timeout=90)
+assert check.returncode == 1 and not check.stdout.strip(), 'open reference or lsof failed'
+archive = source.parent / 'pytest-temp-preserved.tar.gz'
+manifest = source.parent / 'pytest-temp-preserved-manifest.json'
+assert not archive.exists() and not manifest.exists()
+
+
+def hash_stream(stream):
+    sha = hashlib.sha256()
+    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+        sha.update(chunk)
+    return sha.hexdigest()
+
+
+before = shutil.disk_usage(source).free
+files = []
+for base, dirs, names in os.walk(source, followlinks=False):
+    for name in [*dirs, *names]:
+        p = Path(base) / name
+        row = {'path': str(p.relative_to(source)), 'mode': p.lstat().st_mode & 0o777}
+        if p.is_symlink():
+            row.update(type='symlink', target=os.readlink(p))
+        elif p.is_file():
+            with p.open('rb') as stream:
+                row.update(type='file', bytes=p.stat().st_size, sha256=hash_stream(stream))
+        elif p.is_dir():
+            row['type'] = 'directory'
+        else:
+            raise AssertionError(f'special file: {p}')
+        files.append(row)
+record = {'source': str(source), 'started_at': datetime.now().astimezone().isoformat(), 'files': files, 'free_before': before, 'state': 'INVENTORIED'}
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+with tarfile.open(archive, 'w:gz', compresslevel=1, dereference=False) as tar:
+    tar.add(source, arcname='tmp', recursive=True)
+with tarfile.open(archive, 'r:gz') as tar:
+    for row in files:
+        item = tar.getmember('tmp/' + row['path'])
+        assert item.mode == row['mode'], row['path']
+        if row['type'] == 'file':
+            assert item.isfile() or item.islnk()
+            with tar.extractfile(item) as stream:
+                assert hash_stream(stream) == row['sha256'], row['path']
+        elif row['type'] == 'symlink':
+            assert item.issym() and item.linkname == row['target']
+        else:
+            assert item.isdir()
+with archive.open('rb') as stream:
+    record['archive_sha256'] = hash_stream(stream)
+record.update(state='VERIFIED', archive_bytes=archive.stat().st_size)
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+# This exact run-owned pytest basetemp has no active process; never remove its parent.
+shutil.rmtree(source)
+record.update(state='ARCHIVED_AND_TEMP_RECLAIMED', free_after=shutil.disk_usage(archive).free, finished_at=datetime.now().astimezone().isoformat())
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+print(json.dumps({k: v for k, v in record.items() if k != 'files'}, ensure_ascii=False))

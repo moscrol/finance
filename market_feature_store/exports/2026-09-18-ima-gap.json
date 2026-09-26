@@ -1,0 +1,271 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-18",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "汽车芯片",
+    "数据中心",
+    "智能穿戴"
+  ],
+  "stock_run": [
+    "国民技术",
+    "长鑫科技",
+    "东微半导",
+    "云天励飞",
+    "华盛昌"
+  ],
+  "themes": [
+    {
+      "theme": "半导体",
+      "bucket": "today_do_ima",
+      "priority": 251.49,
+      "stocks": [
+        "长电科技",
+        "普冉股份",
+        "华天科技",
+        "华峰测控",
+        "兆易创新"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1632,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "集成电路",
+      "bucket": "today_do_ima",
+      "priority": 247.28,
+      "stocks": [
+        "普冉股份",
+        "兆易创新",
+        "星宸科技",
+        "国民技术",
+        "长鑫科技"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1176,
+      "action": "skip_have_l1",
+      "reason": "已有 L1（核心机制/产业链），不重复 IMA"
+    },
+    {
+      "theme": "汽车芯片",
+      "bucket": "today_do_ima",
+      "priority": 212.67,
+      "stocks": [
+        "长电科技",
+        "华天科技",
+        "兆易创新",
+        "星宸科技",
+        "国民技术"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 624,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "数据中心",
+      "bucket": "today_do_ima",
+      "priority": 181.5,
+      "stocks": [
+        "长电科技",
+        "新易盛",
+        "中际旭创",
+        "东微半导",
+        "一博科技"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 4219,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "智能穿戴",
+      "bucket": "today_do_ima",
+      "priority": 180.05,
+      "stocks": [
+        "长电科技",
+        "云天励飞",
+        "星宸科技",
+        "通富微电",
+        "华盛昌"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 714,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "半导体设备",
+      "bucket": "today_find_official_evidence",
+      "priority": 233.6,
+      "stocks": [
+        "华峰测控",
+        "中科飞测",
+        "长川科技",
+        "富创精密",
+        "京仪装备"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 16117,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "先进封装",
+      "bucket": "today_find_official_evidence",
+      "priority": 200.17,
+      "stocks": [
+        "长电科技",
+        "托伦斯",
+        "华天科技",
+        "中科飞测",
+        "通富微电"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 17481,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "存储芯片",
+      "bucket": "today_find_official_evidence",
+      "priority": 192.38,
+      "stocks": [
+        "长电科技",
+        "普冉股份",
+        "华天科技",
+        "兆易创新",
+        "中科飞测"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 26024,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "MCU芯片",
+      "bucket": "today_find_official_evidence",
+      "priority": 186.32,
+      "stocks": [
+        "普冉股份",
+        "兆易创新",
+        "国民技术",
+        "君正股份",
+        "芯原股份"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1372,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "长电科技",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "普冉股份",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "华天科技",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "华峰测控",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "兆易创新",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "星宸科技",
+      "theme": "集成电路",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "国民技术",
+      "theme": "集成电路",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "长鑫科技",
+      "theme": "集成电路",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "新易盛",
+      "theme": "数据中心",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "中际旭创",
+      "theme": "数据中心",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "东微半导",
+      "theme": "数据中心",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "一博科技",
+      "theme": "数据中心",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "云天励飞",
+      "theme": "智能穿戴",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "通富微电",
+      "theme": "智能穿戴",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "华盛昌",
+      "theme": "智能穿戴",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 3,
+    "stock_run": 5,
+    "themes": 9,
+    "stocks": 15
+  }
+}

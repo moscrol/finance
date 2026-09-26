@@ -647,6 +647,411 @@ def test_verifier_gap_reenters_same_session_without_second_runtime_run() -> None
     assert result.private_artifact["repair_cycles"] == 1
 
 
+@pytest.mark.parametrize("repair_budget", [True, False])
+@pytest.mark.parametrize("finding", ["numeric", "weekday"])
+def test_deleted_claim_feedback_reenters_same_session_with_original_text(repair_budget, finding) -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id=f"adapter-deleted-claim-{finding}-{repair_budget}",
+        capabilities=control.capabilities, timeout=120.0,
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=1,
+        hard_calls_cap=3 if repair_budget else 1,
+        initial_seconds=30.0, hard_seconds_cap=120.0 if repair_budget else 30.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="feedback-evidence",
+    )
+    rejected = (
+        "若成交额超过9万亿元则反弹成立；" if finding == "numeric"
+        else "2026年7月26日（周一）；"
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash, status="completed",
+        draft=rejected + "但上涨家数仍待改善。", evidence=(evidence,), traces=(),
+        gaps=("估值尚未核验",), stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {"draft": rejected}),
+        ),
+        bindings=(OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),),
+        usage=AgentUsage(1, 1, 0),
+    )
+    calls = {"start": 0, "resume": 0, "backfill": 0}
+
+    class Runtime:
+        def start(self, task_frame, *, context, registry):
+            calls["start"] += 1
+
+            def resume(previous, goal):
+                assert previous.draft == initial.draft
+                assert goal.episode_id == context.contract.task_id
+                events = (*previous.events, EpisodeEvent(
+                    len(previous.events) + 1, "model_turn", {"repair": True},
+                ))
+                if finding == "numeric":
+                    # Ignoring the diagnostic must not buy another repair round.
+                    feedback = json.loads(goal.unsupported_claims[0])
+                    assert feedback["sentence"] == rejected
+                    assert feedback["stage"] == "before_backfill"
+                    assert feedback["reasons"] == ["novel_numeric_condition"]
+                    calls["backfill"] += 1
+                    return replace(previous, events=events, usage=AgentUsage(2, 1, 0))
+                feedback = [json.loads(item) for item in goal.unsupported_claims]
+                assert feedback[0]["sentence"] == rejected
+                assert feedback[0]["reasons"] == ["calendar_weekday"]
+                assert not goal.reopen_tools
+                calls["resume"] += 1
+                return replace(
+                    previous, draft="上涨家数仍待改善，估值尚未核验。",
+                    events=events, usage=AgentUsage(3, 1, 0),
+                )
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id, outcome=initial, resume_callback=resume,
+            )
+
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(), semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    should_resume = repair_budget and finding == "weekday"
+    assert calls == {
+        "start": 1, "resume": int(should_resume),
+        "backfill": int(repair_budget and finding == "numeric"),
+    }
+    assert result.private_artifact["repair_cycles"] == int(should_resume)
+    assert len(requests) == 1 + int(should_resume)
+    assert requests[0]["declared_gaps"] == ["估值尚未核验"]
+    assert initial.draft == rejected + "但上涨家数仍待改善。"
+    if should_resume:
+        assert result.answer == "上涨家数仍待改善，估值尚未核验。"
+        assert result.private_artifact["outcome"]["usage"]["tool_calls"] == 1
+    else:
+        assert rejected not in result.answer
+
+
+@pytest.mark.parametrize("judge_mode", ["llm", "off"])
+@pytest.mark.parametrize("finding", ["weekday", "numeric"])
+@pytest.mark.parametrize("backend", ["glm", "sdk"])
+@pytest.mark.parametrize("repair_case", ["correct", "no_budget", "ignored"])
+def test_real_episode_receives_stage_anchored_review_in_same_history(
+    monkeypatch, judge_mode, finding, backend, repair_case,
+) -> None:
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id="adapter-real-review-feedback", capabilities=control.capabilities,
+        timeout=120.0, latest_data_date="2026-07-26",
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=2,
+        hard_calls_cap=2 if repair_case == "no_budget" else 3,
+        initial_seconds=60.0, hard_seconds_cap=120.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="real-feedback-evidence",
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="市场结构",
+        cost="local", freshness="current", runner=lambda *_args: (
+            [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
+        ),
+    ),))
+    rejected = "2026年7月26日（周一）；" if finding == "weekday" else "若成交额超过9万亿元则反弹成立；"
+    original = rejected + "但上涨家数仍待改善。"
+    corrected = "上涨家数仍待改善，来源覆盖范围尚未核验。"
+
+    def check_goal(goal):
+        feedback = json.loads(goal["unsupported_claims"][0])
+        assert feedback["sentence"] == rejected
+        assert feedback["stage"] == ("preflight" if finding == "weekday" else "before_backfill")
+        assert "不要只删前件留下后件" in goal["claim_revision_note"]
+
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(messages)
+            if len(self.calls) == 1:
+                return ModelTurn("", (ModelToolCall("market", "market_data", {"query": "市场结构"}),), "test", "")
+            if len(self.calls) == 3:
+                assert any(message.get("role") == "tool" for message in messages)
+                assert any(original in str(message.get("content")) for message in messages)
+                goals = [json.loads(message["content"]) for message in messages
+                         if message.get("role") == "user" and '"kind": "REPAIR_GOAL"' in str(message.get("content"))]
+                assert len(goals) == 1
+                check_goal(goals[0])
+            assert len(self.calls) <= 3
+            return ModelTurn(json.dumps({
+                "status": "completed", "draft": corrected if len(self.calls) == 3 and repair_case == "correct" else original,
+                "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
+                "gaps": ["来源覆盖范围尚未核验"],
+            }, ensure_ascii=False), (), "test", "")
+
+    model = Model()
+    sdk_requests = []
+    continuation = [{"role": "assistant", "content": original}]
+
+    def sdk_runner(request):
+        sdk_requests.append(request)
+        if len(sdk_requests) == 1:
+            request.tools[0].invoke("市场结构")
+        else:
+            assert request._continuation_input is continuation
+            check_goal(json.loads(request.input))
+        return AgentsSdkResult(json.dumps({
+            "status": "completed", "draft": corrected if len(sdk_requests) == 2 and repair_case == "correct" else original,
+            "bindings": [{"output_id": "direct_assessment", "evidence_hashes": [evidence.content_hash], "gap": ""}],
+            "gaps": ["来源覆盖范围尚未核验"],
+        }, ensure_ascii=False), 2 if len(sdk_requests) == 1 else 1, continuation_input=continuation)
+
+    runtime = GLMAgentRuntime(client=model) if backend == "glm" else OpenAIAgentsRuntime(
+        runner=sdk_runner, backend="sdk_glm", model_name="test",
+    )
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=runtime,
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm" if backend == "glm" else "sdk_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+    resumed = repair_case != "no_budget"
+    assert len(model.calls) == ((2 + int(resumed)) if backend == "glm" else 0)
+    assert len(sdk_requests) == ((1 + int(resumed)) if backend == "sdk" else 0)
+    terminal_repair = backend == "glm" and repair_case == "ignored" and finding == "weekday"
+    rejudged = finding == "weekday" and resumed and not terminal_repair
+    assert len(requests) == ((1 + int(rejudged)) if judge_mode == "llm" else 0)
+    if terminal_repair:
+        assert result.private_artifact["semantic_verifier_stale"] is True
+    notice = "部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。"
+    publication = result.private_artifact["publication_assessment"]
+    if repair_case == "correct":
+        assert result.answer == corrected
+        assert notice not in result.open_gaps
+        assert publication["max_status"] == "completed"
+    else:
+        assert result.status == "partial"
+        assert result.answer == "但上涨家数仍待改善。\n\n" + notice
+        assert result.open_gaps == (notice,)
+        assert publication["max_status"] == "partial"
+        assert publication["required_public_notices"] == [notice]
+        assert "来源覆盖范围尚未核验" not in result.answer
+        assert rejected not in result.answer
+        assert "preflight" not in result.answer
+    expected_repair_cycles = int(finding == "weekday" and resumed and not terminal_repair)
+    assert result.private_artifact["repair_cycles"] == expected_repair_cycles
+    assert result.private_artifact["backfill_turns"] == int(finding == "numeric")
+    assert result.private_artifact["outcome"]["usage"]["tool_calls"] == 1
+    assert result.private_artifact["outcome"]["usage"]["invalid_actions"] == 0
+    assert len(result.private_artifact["outcome"]["evidence"]) == 1
+    events = result.private_artifact["events"]
+    assert sum(event["kind"] == "repair_reentry" for event in events) == int(resumed)
+    assert result.private_artifact["outcome"]["usage"]["llm_calls"] == 2 + int(resumed)
+    if backend == "glm":
+        assert any(original in str(event["payload"]) for event in events if event["kind"] == "model_turn")
+    elif resumed:
+        assert sdk_requests[1]._continuation_input is continuation
+        check_goal(json.loads(sdk_requests[1].input))
+
+
+def test_terminal_repair_with_revised_draft_is_reverified_and_published(monkeypatch) -> None:
+    """无工具修复 + 模型如实自报 partial = 底座判「无进展」（repair_model_stop）。
+
+    2026-09-21 冒烟 2（run_20260921_120952_719744）实测：判官打回三句过度断言，模型
+    27 s 内全改对并诚实标 partial，适配器把 repair_model_stop 当终局、不对新稿重跑判官，
+    旧稿带着三句错句原样发布。终局修复只要真改了稿，就必须对新稿重跑判官；来不及
+    复核那一格由 with_unreviewed_revision_publication 压 partial 并告知。
+    """
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id="adapter-terminal-revision", capabilities=control.capabilities,
+        timeout=120.0, latest_data_date="2026-07-26",
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=2, hard_calls_cap=3,
+        initial_seconds=60.0, hard_seconds_cap=120.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="terminal-revision-evidence",
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="市场结构",
+        cost="local", freshness="current", runner=lambda *_args: (
+            [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
+        ),
+    ),))
+    overclaim = "换手率始终低于百分之一。"
+    original = overclaim + "上涨家数仍待改善。"
+    corrected = "换手率仅在可核验交易日低于百分之一。上涨家数仍待改善。"
+
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(messages)
+            if len(self.calls) == 1:
+                return ModelTurn("", (ModelToolCall("market", "market_data", {"query": "市场结构"}),), "test", "")
+            revised = len(self.calls) == 3
+            return ModelTurn(json.dumps({
+                "status": "partial" if revised else "completed",
+                "draft": corrected if revised else original,
+                "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
+                "gaps": ["换手率字段部分交易日缺失"] if revised else [],
+            }, ensure_ascii=False), (), "test", "")
+
+    model = Model()
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return {"passed": False, "rejected_sentence_indexes": [1], "issues": ["句1：『始终』超出已核验范围"]}
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=model),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+
+    assert len(model.calls) == 3
+    assert result.private_artifact["outcome"]["stop_reason"] == "repair_model_stop"
+    assert len(requests) == 2, "终局修复改了稿，必须对新稿重跑判官"
+    assert result.private_artifact["semantic_verifier_stale"] is False
+    assert result.answer == corrected
+    assert overclaim not in result.answer
+    publication = result.private_artifact["publication_assessment"]
+    assert publication["max_status"] == "completed"
+    assert publication["required_public_notices"] == []
+
+
+def test_terminal_repair_revision_that_cannot_be_reverified_is_capped_and_disclosed(
+    monkeypatch,
+) -> None:
+    """同上一格，但重跑判官前预算已到：公开的只能是旧稿，须压 partial 并公开告知。
+
+    截止用 ``ResearchDeadline.expired`` 的类属性在修复轮返回之后翻真来模拟（在
+    ``_repair_snapshot`` 看到 ``repair_model_stop`` 那一刻），不依赖真实时钟。
+    """
+    from intelligence.services.episode_semantic_verifier import UNREVIEWED_REVISION_NOTICE
+    from intelligence.services.research_contract import ResearchDeadline
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame, task_id="adapter-terminal-revision-expired", capabilities=control.capabilities,
+        timeout=120.0, latest_data_date="2026-07-26",
+    )
+    context = replace(context, root_budget=InMemoryRootBudgetLedger(
+        episode_id=context.contract.task_id, initial_calls=2, hard_calls_cap=3,
+        initial_seconds=60.0, hard_seconds_cap=120.0,
+    ))
+    evidence = AgentEvidence(
+        tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
+        source="本地行情", source_date="2026-07-26", content_hash="terminal-revision-expired-evidence",
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="市场结构",
+        cost="local", freshness="current", runner=lambda *_args: (
+            [evidence], evidence.detail, ProviderTrace("test:market", "market_data", "success"),
+        ),
+    ),))
+    overclaim = "换手率始终低于百分之一。"
+    original = overclaim + "上涨家数仍待改善。"
+    corrected = "换手率仅在可核验交易日低于百分之一。上涨家数仍待改善。"
+
+    class Model:
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, timeout):
+            self.calls.append(messages)
+            if len(self.calls) == 1:
+                return ModelTurn("", (ModelToolCall("market", "market_data", {"query": "市场结构"}),), "test", "")
+            revised = len(self.calls) == 3
+            return ModelTurn(json.dumps({
+                "status": "partial" if revised else "completed",
+                "draft": corrected if revised else original,
+                "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["E1"], "gap": ""}],
+                "gaps": ["换手率字段部分交易日缺失"] if revised else [],
+            }, ensure_ascii=False), (), "test", "")
+
+    expired = [False]
+    original_expired = ResearchDeadline.expired
+    monkeypatch.setattr(
+        ResearchDeadline, "expired",
+        property(lambda self: expired[0] or original_expired.fget(self)),
+    )
+    real_snapshot = adapter_module._repair_snapshot
+
+    def snapshot_then_expire(outcome, *args, **kwargs):
+        if outcome.stop_reason == "repair_model_stop":
+            expired[0] = True
+        return real_snapshot(outcome, *args, **kwargs)
+
+    monkeypatch.setattr(adapter_module, "_repair_snapshot", snapshot_then_expire)
+
+    model = Model()
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return {"passed": False, "rejected_sentence_indexes": [1], "issues": ["句1：『始终』超出已核验范围"]}
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = ContinuousTurnAdapter(
+        runtime=GLMAgentRuntime(client=model),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
+        runtime_name="continuous_glm", mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: registry,
+    ).handle(frame=frame, control=control)
+
+    assert len(model.calls) == 3
+    assert result.private_artifact["outcome"]["stop_reason"] == "repair_model_stop"
+    assert len(requests) == 1, "预算已到，不得再跑判官"
+    assert result.private_artifact["semantic_verifier_stale"] is True
+    assert result.status == "partial"
+    assert corrected not in result.answer, "未复核的新稿不得公开"
+    # 判官对必填块的句子是「降级为 issue、保留公开」而不是删句（与冒烟 2 同形），
+    # 所以旧稿原文照发；本测试钉的是「发的是旧稿 + 提示」，不是判官的删/降策略。
+    assert result.answer == original + "\n\n" + UNREVIEWED_REVISION_NOTICE
+    publication = result.private_artifact["publication_assessment"]
+    assert publication["max_status"] == "partial"
+    assert publication["required_public_notices"] == [UNREVIEWED_REVISION_NOTICE]
+    assert result.private_artifact["outcome"]["draft"] == corrected
+
+
 def test_private_artifact_carries_runtime_handle_receipt_and_log_version() -> None:
     """RuntimeHandle 收据落进 continuous-episode.json（运行底座 P2）。
 
@@ -1692,7 +2097,10 @@ def test_sdk_timeout_with_unbound_evidence_uses_tool_closed_delivery_repair(
         assert request.tools == ()
         assert request._continuation_input is None
         repair_input = json.loads(request.input)
-        assert repair_input["kind"] == "REPAIR_GOAL"
+        assert repair_input["kind"] == "REPAIR_CONTEXT"
+        goal = json.loads(repair_input["repair_goal_message"])
+        assert goal["kind"] == "REPAIR_GOAL"
+        assert "研究工具已关闭" in goal["instruction"]
         assert repair_input["evidence"][0]["content_hash"] == evidence_hash
         return AgentsSdkResult(
             json.dumps(
@@ -4243,6 +4651,24 @@ def test_public_projection_hides_control_plane_fields_and_private_tokens() -> No
     assert "[REDACTED]" in str(result.private_artifact)
 
 
+def test_public_projection_preserves_markdown_boundaries_while_redacting() -> None:
+    from intelligence.tests.test_premise_financial_calculation import compile_case
+    from intelligence.runtime.conversation_orchestrator import sanitize_conversation_answer
+
+    table = compile_case().table
+    body = table + "\n\n**几点解读：**\n这些信息不足以判断便宜。"
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer=body + "\n\nsystem_prompt=PRIVATE_PROMPT_SENTINEL",
+        evidence=(),
+        bindings=(),
+    )
+    assert result.answer == body
+    assert sanitize_conversation_answer(result.answer) == body
+    assert "| 20倍 |\n\n**几点解读：**" in result.answer
+    assert "PRIVATE_PROMPT_SENTINEL" not in result.answer
+
+
 def test_public_projection_removes_engineering_hash_keys_and_frame_hash() -> None:
     actual_frame_hash = _frame().task_frame_hash
     safe = AgentEvidence(
@@ -5498,8 +5924,9 @@ def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
     assert "3870点" in result.answer
 
 
-def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
-    """回填只许补证据或改写被阻断句，新增句子 fail closed。"""
+@pytest.mark.parametrize("persistence_failed", [False, True])
+def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed) -> None:
+    """回填只许补证据；即便候选被长度门拒绝，保存失败也必须传到产品终态。"""
 
     frame = _frame()
     control = _control(frame, capabilities=("market_data",))
@@ -5541,6 +5968,8 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
     bloated = replace(
         initial,
         draft=draft + "另外再给一个新结论。",
+        status="failed" if persistence_failed else initial.status,
+        persistence="failed" if persistence_failed else initial.persistence,
         events=(
             *initial_events,
             EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
@@ -5584,9 +6013,14 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
         repair_seconds_cap=30.0,
     ).handle(frame=frame, control=control)
 
-    assert result.private_artifact["backfill_turns"] == 1
+    if persistence_failed:
+        assert result.status == "failed"
+        assert result.private_artifact["failure"]["type"] == "storage_failed"
+        assert result.private_artifact["outcome"]["draft"] == bloated.draft
+    else:
+        assert result.private_artifact["backfill_turns"] == 1
+        assert result.private_artifact["outcome"]["draft"] == draft
     assert "另外再给一个新结论" not in result.answer
-    assert result.private_artifact["outcome"]["draft"] == draft
 
 
 def _company_numeric_frame() -> TaskFrame:

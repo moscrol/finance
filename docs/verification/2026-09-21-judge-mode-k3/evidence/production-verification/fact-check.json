@@ -1,0 +1,185 @@
+{
+  "database": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "read_only": true,
+  "latest_dates": {
+    "fact_stock_daily": "2026-09-18",
+    "fact_sector_daily": "2026-09-18",
+    "fact_sector_stock_daily": "2026-09-18",
+    "fact_market_daily": "2026-09-18"
+  },
+  "stock_rows": [
+    {
+      "trade_date": "2026-09-18",
+      "stock_ts_code": "600584.SH",
+      "close": 73.0,
+      "pre_close": 67.75,
+      "pct_chg": 7.75,
+      "amount": 114.9025,
+      "turnover": 9.0
+    },
+    {
+      "trade_date": "2026-09-17",
+      "stock_ts_code": "600584.SH",
+      "close": 67.75,
+      "pre_close": 69.55,
+      "pct_chg": -2.59,
+      "amount": 49.3146,
+      "turnover": 4.02
+    }
+  ],
+  "queried_sector_rows": [
+    {
+      "trade_date": "2026-09-18",
+      "sector_ts_code": "990123.FP",
+      "sector_name": "半导体封测",
+      "pct_chg": 4.08,
+      "amount": 411.197,
+      "diff_ratio": 72.6588
+    },
+    {
+      "trade_date": "2026-09-18",
+      "sector_ts_code": "990122.FP",
+      "sector_name": "半导体",
+      "pct_chg": 3.9664,
+      "amount": 3385.168,
+      "diff_ratio": 43.8703
+    },
+    {
+      "trade_date": "2026-09-18",
+      "sector_ts_code": "990068.FP",
+      "sector_name": "先进封装",
+      "pct_chg": 2.9504,
+      "amount": 3080.0643,
+      "diff_ratio": 22.3399
+    },
+    {
+      "trade_date": "2026-09-18",
+      "sector_ts_code": "990276.FP",
+      "sector_name": "电子",
+      "pct_chg": 2.7489,
+      "amount": 6499.1619,
+      "diff_ratio": 25.8813
+    },
+    {
+      "trade_date": "2026-09-18",
+      "sector_ts_code": "990325.FP",
+      "sector_name": "芯片",
+      "pct_chg": 2.6213,
+      "amount": 9277.2314,
+      "diff_ratio": 22.4316
+    }
+  ],
+  "available_memberships": [
+    {
+      "sector_ts_code": "990013.FP",
+      "sector_name": "CPO概念"
+    },
+    {
+      "sector_ts_code": "990048.FP",
+      "sector_name": "人工智能"
+    },
+    {
+      "sector_ts_code": "990068.FP",
+      "sector_name": "先进封装"
+    },
+    {
+      "sector_ts_code": "990122.FP",
+      "sector_name": "半导体"
+    },
+    {
+      "sector_ts_code": "990123.FP",
+      "sector_name": "半导体封测"
+    },
+    {
+      "sector_ts_code": "990127.FP",
+      "sector_name": "华为海思"
+    },
+    {
+      "sector_ts_code": "990159.FP",
+      "sector_name": "存储芯片"
+    },
+    {
+      "sector_ts_code": "990192.FP",
+      "sector_name": "数据中心"
+    },
+    {
+      "sector_ts_code": "990204.FP",
+      "sector_name": "无人驾驶"
+    },
+    {
+      "sector_ts_code": "990214.FP",
+      "sector_name": "智能穿戴"
+    },
+    {
+      "sector_ts_code": "990220.FP",
+      "sector_name": "机器人概念"
+    },
+    {
+      "sector_ts_code": "990228.FP",
+      "sector_name": "毫米波雷达"
+    },
+    {
+      "sector_ts_code": "990243.FP",
+      "sector_name": "汽车芯片"
+    },
+    {
+      "sector_ts_code": "990263.FP",
+      "sector_name": "物联网"
+    },
+    {
+      "sector_ts_code": "990269.FP",
+      "sector_name": "玻璃基板"
+    },
+    {
+      "sector_ts_code": "990276.FP",
+      "sector_name": "电子"
+    },
+    {
+      "sector_ts_code": "990305.FP",
+      "sector_name": "第三代半导体"
+    },
+    {
+      "sector_ts_code": "990314.FP",
+      "sector_name": "绿色电力"
+    },
+    {
+      "sector_ts_code": "990325.FP",
+      "sector_name": "芯片"
+    },
+    {
+      "sector_ts_code": "990327.FP",
+      "sector_name": "苹果概念"
+    }
+  ],
+  "market_row": [
+    {
+      "trade_date": "2026-09-18",
+      "total_amount": 20764.84,
+      "amount_vs_yesterday_pct": 13.92,
+      "advancers": 4234,
+      "limit_up": 79,
+      "limit_down": 0,
+      "sh_index_pct_chg": 0.9357767202222034
+    }
+  ],
+  "computed_amount_change_pct": 132.99894960113235,
+  "limited_numeric_checks_passed": true,
+  "answer_quality_accepted": false,
+  "findings": [
+    "材料两项计算正确（9/180=5%，50/180≈0.28），零工具；首个模型 finish 有 bad_claim_binding，原会话内第二轮修正，未重跑题目。",
+    "材料末句称未注明币种单位：币种未显式写明，但金额单位亿元已在题面给出，应拆开表述；不把所有边界文案签成正确。",
+    "行情原始数值与09-18事实库相符；09-18仅能称库内最新数据，不能从max日期推出最近一个已收盘交易日。",
+    "实际只查询5个核心板块的表现，不能扩成所有归属板块；membership名单不等于已比较过每个板块。",
+    "边际量和成交额增大不直接证明净资金流入；资金集中流入表述强于证据，本轮无资金流工具请求。",
+    "首笔裸代码600584查询为空，模型自行换600584.SH后取到值，不代表代码归一缺陷已修。",
+    "递归data_dates只有请求日期09-21，不能替代evidence.source_date和事实表日期。"
+  ],
+  "tool_requests": [
+    "market_data",
+    "finance_query",
+    "finance_query",
+    "finance_query",
+    "finance_query",
+    "derived_calculation"
+  ]
+}

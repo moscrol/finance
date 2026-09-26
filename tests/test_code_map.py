@@ -243,8 +243,13 @@ def test_worktree_dirty_code_true_for_scripts(tmp_path):
     scripts.mkdir()
     (scripts / "x.py").write_text("print(1)\n", encoding="utf-8")
     payload, code = _collect(root)
-    assert code == 0
+    assert code == 1
+    assert payload["status"] == "stale"
     assert payload["worktree_dirty_code"] is True
+    assert payload["worktree_coverage"] == "unverified_dirty"
+    assert "未提交代码未验覆盖" in payload["one_line"]
+    assert payload["scope"] == "checkout_only"
+    assert payload["production_verified"] is False
 
 
 def test_exports_do_not_count_as_code_dirty(tmp_path):
@@ -621,7 +626,8 @@ def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(["uvx"], 0, stdout, "")
 
     monkeypatch.setattr(cm, "run_crg_cli", fake)
-    hits = cm.search_graph("daily-full", root)
+    hits, unavailable_reason = cm.search_graph("daily-full", root)
+    assert unavailable_reason is None
     assert hits
     assert hits[0]["symbol"] == "cmd_daily_full"
     assert hits[0]["path"].endswith("market_feature_store/cli.py")
@@ -629,6 +635,124 @@ def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
     assert hits[1]["symbol"] is None
     assert hits[1]["path"].endswith("tests/test_daily_full_preflight.py")
     assert hits[1]["title"] == "test_daily_full_preflight.py"
+
+
+def test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup(
+    tmp_path, monkeypatch
+):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    calls = []
+    monkeypatch.setattr(cm, "STRUCTURE_HIT_CAP", 3)
+
+    def row(name, path, qualified):
+        return {"name": name, "file_path": str(root / path), "qualified_name": qualified}
+
+    responses = {
+        "daily-full": [
+            row("cmd_daily_full", "market_feature_store/cli.py", "original::cmd_daily_full"),
+            row("skill_daily_full", "skills/daily-full-review/SKILL.md", "original::skill_daily_full"),
+        ],
+        "daily_full": [
+            row("cmd_daily_full", "market_feature_store/cli.py", "alias::cmd_daily_full"),
+            row("run_daily_full", "market_feature_store/sync/sync_daily_full.py", "alias::run_daily_full"),
+            row("extra", "market_feature_store/extra.py", "alias::extra"),
+        ],
+    }
+
+    def fake(args, cwd):
+        calls.append(list(args))
+        return subprocess.CompletedProcess(
+            ["uvx"], 0, json.dumps({"status": "ok", "results": responses[args[1]]}), ""
+        )
+
+    monkeypatch.setattr(cm, "run_crg_cli", fake)
+    hits, unavailable_reason = cm.search_graph("daily-full", root)
+    assert unavailable_reason is None
+    assert calls == [["search", "daily-full"], ["search", "daily_full"]]
+    assert len(hits) == 3
+    assert hits[0]["excerpt"] == "original::cmd_daily_full"
+    assert [(hit["path"], hit["symbol"]) for hit in hits].count(
+        ("market_feature_store/cli.py", "cmd_daily_full")
+    ) == 1
+    assert any(hit["symbol"] == "run_daily_full" for hit in hits)
+    assert not any(hit["symbol"] == "extra" for hit in hits)
+
+
+@pytest.mark.parametrize("alias_fails", [False, True])
+def test_full_literal_batch_cannot_starve_alias(tmp_path, monkeypatch, alias_fails):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    monkeypatch.setattr(cm, "STRUCTURE_HIT_CAP", 3)
+    calls = []
+
+    def fake(args, cwd):
+        calls.append(args[1])
+        if args[1] == "daily_full":
+            if alias_fails:
+                return subprocess.CompletedProcess([], 1, "", "unavailable")
+            rows = [{"name": "cmd_daily_full", "file_path": "market_feature_store/cli.py"}]
+        else:
+            rows = [{"name": f"helper_{i}", "file_path": "skills/daily-full/tool.py"} for i in range(3)]
+        return subprocess.CompletedProcess([], 0, json.dumps({"results": rows}), "")
+
+    monkeypatch.setattr(cm, "run_crg_cli", fake)
+    hits, reason = cm.search_graph("daily-full", root)
+    assert calls == ["daily-full", "daily_full"]
+    assert len(hits) == 3
+    if alias_fails:
+        assert reason == "search_failed"
+        assert all(hit["symbol"].startswith("helper_") for hit in hits)
+    else:
+        assert reason is None
+        assert hits[1]["symbol"] == "cmd_daily_full"
+
+
+def test_search_graph_ordinary_query_is_dispatched_once(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    calls = []
+
+    def fake(args, cwd):
+        calls.append(list(args))
+        return subprocess.CompletedProcess(
+            ["uvx"], 0, json.dumps({"status": "ok", "results": []}), ""
+        )
+
+    monkeypatch.setattr(cm, "run_crg_cli", fake)
+    hits, unavailable_reason = cm.search_graph("rank_history", root)
+    assert hits == []
+    assert unavailable_reason is None
+    assert calls == [["search", "rank_history"]]
+
+
+def test_query_distinguishes_missing_structure_backend_from_zero_hits(tmp_path, monkeypatch):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    head = _git(root, "rev-parse", "HEAD")
+    _make_graph(root, n_nodes=1, git_head_sha=head)
+    (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
+    (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
+
+    monkeypatch.setattr(cm, "_uvx_path", lambda: None)
+    unavailable, code = cm.collect_query(root, "daily-full")
+    assert code == 0
+    assert unavailable["layers"]["structure"]["state"] == "unavailable"
+    assert unavailable["layers"]["structure"]["reason"] == "uvx_missing"
+    assert unavailable["completeness_claim"]["structure"] == "unavailable"
+
+    monkeypatch.setattr(
+        cm,
+        "run_crg_cli",
+        lambda args, cwd: subprocess.CompletedProcess(
+            ["uvx"], 0, json.dumps({"status": "ok", "results": []}), ""
+        ),
+    )
+    empty, code = cm.collect_query(root, "ordinary_query")
+    assert code == 0
+    assert empty["layers"]["structure"]["state"] == "missing"
+    assert empty["layers"]["structure"]["reason"] is None
+    assert empty["completeness_claim"]["structure"] == "missing"
 
 
 def test_code_map_skill_and_discovery_symlink():
@@ -706,7 +830,7 @@ def test_query_narrative_hits_steered_wiki_page(tmp_path, monkeypatch):
         "# 复盘写入正门\n\nquery: daily-full\n正门是 market_feature_store.cli\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
+    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
     payload, code = cm.collect_query(root, "daily-full")
     assert code == 0
     assert payload["layers"]["narrative"]["state"] == "ok"
@@ -726,7 +850,7 @@ def test_query_narrative_drift_sets_conflicts(tmp_path, monkeypatch):
     wiki = root / ".code-review-graph" / "wiki" / "doors"
     wiki.mkdir(parents=True)
     (wiki / "oops.md").write_text("继续用飞书 Bitable 写复盘\n", encoding="utf-8")
-    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
+    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
     monkeypatch.setattr(
         cm,
         "search_doors",
@@ -757,7 +881,7 @@ def test_ask_is_extractive_markdown(tmp_path, monkeypatch):
     root = _init_repo(tmp_path)
     (root / "AGENTS.md").write_text("daily-full 正门\n", encoding="utf-8")
     (root / "CLAUDE.md").write_text("daily-full 正门\n", encoding="utf-8")
-    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
+    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
     text, code = cm.collect_ask(root, "daily-full")
     assert code == 0
     assert text.startswith("# daily-full")
@@ -804,5 +928,3 @@ def test_full_build_writes_steering_door_pages(tmp_path, monkeypatch):
     assert "算法捆簇" in index
     assert "daily-review-door.md" in index
     assert payload.get("wiki_generated") is True
-
-

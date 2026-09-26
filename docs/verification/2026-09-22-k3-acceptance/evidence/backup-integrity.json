@@ -1,0 +1,36 @@
+{
+  "started_at": "2026-09-22T18:00:42.489031+08:00",
+  "finished_at": "2026-09-22T18:00:56.106638+08:00",
+  "path": "/Users/a77/backups/gitea-20260921-post830-guarded.tar.gz",
+  "stat_before": {
+    "size": 4465571840,
+    "mtime_ns": 1789989915898898916,
+    "inode": 201083413
+  },
+  "stat_after": {
+    "size": 4465571840,
+    "mtime_ns": 1789989915898898916,
+    "inode": 201083413
+  },
+  "stat_unchanged": true,
+  "expected_sha256": "9a5af3b3fecfae116033ed761beb9ad4c99d5d988462c0ca07f74f6e882c9fbd",
+  "actual_sha256": "9a5af3b3fecfae116033ed761beb9ad4c99d5d988462c0ca07f74f6e882c9fbd",
+  "sha256_matches_original_receipt": true,
+  "gzip_full_stream_crc_passed": true,
+  "gzip_uncompressed_bytes": 4643376128,
+  "tar_traversal_passed": true,
+  "tar_entries": 18123,
+  "tar_types": {
+    "directory": 2374,
+    "regular": 15749
+  },
+  "regular_file_declared_bytes": 4611287782,
+  "sqlite_header_count": 1,
+  "non_gitea_prefix_entry_count": 0,
+  "extracted_files": 0,
+  "gitea_stopped": false,
+  "restored_service_started": false,
+  "database_integrity_check": "not_run",
+  "restore_accepted": false,
+  "boundary": "transport/archive readability only; original online capture transaction consistency and actual service restoration are unverified"
+}

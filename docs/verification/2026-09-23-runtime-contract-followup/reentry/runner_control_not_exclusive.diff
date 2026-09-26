@@ -1,0 +1,17 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..b4efd56ac 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -1271,8 +1271,10 @@ class ContinuousAgentEpisode:
+ 
+     @contextmanager
+     def _control_writer(self, episode_id: str) -> Iterator[None]:
+-        if not self._control_lock.acquire(blocking=False):
+-            raise EpisodeWriterBusy("episode runner already controls a task")
++        if self._control_lock.locked():
++            yield
++            return
++        self._control_lock.acquire()
+         try:
+             with episode_writer(self._store, episode_id):
+                 yield

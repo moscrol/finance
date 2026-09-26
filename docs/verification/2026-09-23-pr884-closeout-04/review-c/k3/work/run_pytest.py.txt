@@ -1,0 +1,15 @@
+"""Pytest wrapper: pin userspace dir outside production before loading conftest."""
+import sys
+from pathlib import Path
+
+WORK = Path("/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-c/k3/work")
+
+import intelligence.userspace as u  # noqa: E402
+
+u.USERS_DIR = WORK / "users"
+(WORK / "users").mkdir(parents=True, exist_ok=True)
+
+import pytest  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(pytest.main(sys.argv[1:]))

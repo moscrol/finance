@@ -1,0 +1,8 @@
+chunks=0 err=deadline elapsed=1.50
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c1_stream_deadline.py", line 93, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c1_stream_deadline.py", line 83, in main
+    assert resp.process.poll() is not None, "worker still alive after failure"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: worker still alive after failure

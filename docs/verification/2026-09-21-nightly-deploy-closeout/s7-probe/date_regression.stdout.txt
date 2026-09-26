@@ -1,0 +1,4 @@
+[staging] 克隆生产库 -> market.duckdb.staging (clonefile, 0.004s, 3420160 bytes)
+[staging] 子进程同步 pid=24451 (写锁只落在 staging, 生产库无锁)
+candidate_db=/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/db.py
+[staging] 校验失败: staging 交易日覆盖 2026-09-01 倒退于生产 2026-09-18, 不换名

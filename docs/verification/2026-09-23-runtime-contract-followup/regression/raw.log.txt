@@ -1,0 +1,5 @@
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+..................................                                       [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression.xml -
+178 passed in 17.15s

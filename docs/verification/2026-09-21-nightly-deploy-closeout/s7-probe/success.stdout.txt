@@ -1,0 +1,6 @@
+[staging] 克隆生产库 -> market.duckdb.staging (clonefile, 0.005s, 3420160 bytes)
+[staging] 子进程同步 pid=24426 (写锁只落在 staging, 生产库无锁)
+candidate_db=/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/db.py
+[staging] 校验通过: 表 69>=69, fact_market_daily 覆盖到 2026-09-21
+[staging] 原子换名完成 (0.0s), 收据 run_id=f80e877c0379
+{"swapped": true, "run_id": "f80e877c0379", "rc": 0}

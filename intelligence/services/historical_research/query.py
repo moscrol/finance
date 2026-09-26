@@ -30,12 +30,25 @@ from intelligence.services.historical_research.features import (
 SCHEMA_VERSION = "historical-research-v1"
 MAX_INPUT_ROWS = 100_000
 MAX_WINDOWS = 5_000
-OPERATIONS = ("inspect_history", "compute_history", "find_analogues", "compare_cases")
+OPERATIONS = ("inspect_history", "compute_history", "find_analogues", "compare_cases", "trace_history", "rank_history")
 _ENTITY_FIELDS = {
     "sector": ("fact_sector_daily", "sector_ts_code", "sector_name"),
     "stock": ("fact_stock_daily", "stock_ts_code", "stock_name"),
+    "market": ("fact_market_daily", "entity_code", "entity_name"),
 }
-_STOCK_FEATURES = {"return_pct", "amount_ratio", "market_relative_return_pct"}
+_PRICE_FEATURES = {"return_pct", "amount_ratio", "max_drawdown_pct", "up_day_share", "amount_vs_prior_mean"}
+_MARKET_ONLY = {"advancers_mean", "limit_up_mean", "limit_down_mean"}
+_STOCK_FEATURES = _PRICE_FEATURES | {"market_relative_return_pct"}
+_MARKET_FEATURES = _PRICE_FEATURES | _MARKET_ONLY
+
+
+def _entity_rows(reader, kind, start, end, codes):
+    table, code_field, _ = _ENTITY_FIELDS[kind]
+    if kind == "market":
+        return [dict(row, entity_code="000001.SH", entity_name="上证价格与全市场环境",
+                     pct_chg=row.get("sh_index_pct_chg"), amount=row.get("total_amount"))
+                for row in reader.read(table, start, end)]
+    return reader.read(table, start, end, codes=codes, code_field=code_field)
 
 
 class HistoryQueryError(ValueError):
@@ -104,9 +117,13 @@ class HistoryQuerySpec:
     outcome: dict[str, Any] | None = None
     preview_limit: int = 25
     reference_code: str | None = None
+    window_ref: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return _json(asdict(self))
+        result = _json(asdict(self))
+        if self.window_ref is None:
+            result.pop("window_ref")  # Unbound requests retain their existing query identity.
+        return result
 
     @classmethod
     def from_arguments(cls, arguments: Mapping[str, object]) -> HistoryQuerySpec:
@@ -119,7 +136,7 @@ class HistoryQuerySpec:
             raise HistoryQueryError("unsupported operation")
         entity_kind = arguments.get("entity_kind", "sector")
         if not isinstance(entity_kind, str) or entity_kind not in _ENTITY_FIELDS:
-            raise HistoryQueryError("entity_kind must be sector or stock")
+            raise HistoryQueryError("entity_kind must be sector, stock or market")
         start, end = (
             _date(arguments.get("start"), "start"),
             _date(arguments.get("end"), "end"),
@@ -135,6 +152,17 @@ class HistoryQuerySpec:
             )
         ):
             raise HistoryQueryError("entity_codes requires at most 20 exact codes")
+        if entity_kind != "market" and "000001.SH" in codes:
+            raise HistoryQueryError(
+                "entity_kind/code mismatch: 000001.SH is the market environment anchor; "
+                "retry with entity_kind='market' and entity_codes=['000001.SH'] "
+                "for market research, or supply exact codes for the declared sector/stock. "
+                "Omitted entity_kind defaults to sector; no automatic kind conversion."
+            )
+        if entity_kind == "market" and codes and tuple(codes) != ("000001.SH",):
+            raise HistoryQueryError("market requires entity_codes=['000001.SH']; price=Shanghai, counts/amount=whole market")
+        if operation == "trace_history" and entity_kind == "market":
+            raise HistoryQueryError("trace_history requires sector or stock; inspect market stages separately")
         query = arguments.get("query", "")
         if not isinstance(query, str) or len(query) > 200:
             raise HistoryQueryError("query must be at most 200 characters")
@@ -147,8 +175,15 @@ class HistoryQuerySpec:
             )
         ):
             raise HistoryQueryError("unsupported_definition: unknown built-in feature")
-        if operation != "inspect_history" and not codes:
-            raise HistoryQueryError("exact entity_codes required for computation")
+        if operation == "rank_history" and entity_kind == "market":
+            raise HistoryQueryError("rank_history requires sector or stock")
+        if operation not in {"inspect_history", "rank_history"} and not codes:
+            raise HistoryQueryError(
+                "exact entity_codes required for computation; declare entity_kind explicitly "
+                "(omitted defaults to sector). For market environment use "
+                "entity_kind='market', entity_codes=['000001.SH']; "
+                "for sector/stock inspect exact codes first. No name-based inference."
+            )
         search_start = (
             _date(arguments["search_start"], "search_start")
             if arguments.get("search_start") is not None
@@ -187,7 +222,32 @@ class HistoryQuerySpec:
         condition = arguments.get("condition")
         outcome = arguments.get("outcome")
         if condition is not None:
-            if (
+            from intelligence.services.historical_research.anatomy import (
+                LAUNCH_RULE,
+                WARMUP,
+            )
+
+            if isinstance(condition, dict) and set(condition) == {"rule"}:
+                # 规则型条件：X 是「当时是否按同一套规则启动」，不是某个特征过线。
+                if condition["rule"] != LAUNCH_RULE:
+                    raise HistoryQueryError(
+                        f"unsupported_definition: the only rule condition is {LAUNCH_RULE}"
+                    )
+                if operation != "compare_cases":
+                    raise HistoryQueryError(
+                        "unsupported_definition: the launch rule condition belongs to compare_cases; "
+                        "trace_history already dates the launch of declared entities"
+                    )
+                if entity_kind == "market":
+                    raise HistoryQueryError(
+                        "unsupported_definition: the launch rule applies to sector/stock, not market"
+                    )
+                if _integer(arguments.get("window_days", 20), "window_days", 2, 60) <= WARMUP:
+                    raise HistoryQueryError(
+                        "unsupported_definition: the launch rule needs window_days greater than the "
+                        f"{WARMUP} warmup dates inside each candidate window"
+                    )
+            elif (
                 not isinstance(condition, dict)
                 or set(condition) != {"feature", "op", "value"}
                 or not isinstance(condition.get("feature"), str)
@@ -198,7 +258,8 @@ class HistoryQuerySpec:
                 or not math.isfinite(condition["value"])
             ):
                 raise HistoryQueryError(
-                    "unsupported_definition: condition requires one built-in feature, gte/lte, and numeric value"
+                    "unsupported_definition: condition requires one built-in feature with gte/lte and a "
+                    f'numeric value, or {{"rule": "{LAUNCH_RULE}"}}'
                 )
         if outcome is not None:
             if (
@@ -213,13 +274,44 @@ class HistoryQuerySpec:
             _integer(outcome["horizon_days"], "horizon_days", 1, 60)
         if operation == "compare_cases" and (condition is None or outcome is None):
             raise HistoryQueryError("condition and outcome required for comparison")
+        if operation == "rank_history" and (
+            "return_pct" not in features or query or condition is not None
+            or outcome is not None or search_start is not None
+        ):
+            raise HistoryQueryError("rank_history requires return_pct; no name prefilter, conditions or search window")
+        if operation == "trace_history" and (
+            tuple(features) != ("return_pct",) or condition is not None or outcome is not None
+            or search_start is not None or query or arguments.get("reference_code") not in (None, *codes)
+        ):
+            raise HistoryQueryError("trace_history has fixed versioned features; use compute_history/compare_cases for custom requests")
         selected_features = set(features) | (
-            {condition["feature"]} if condition else set()
+            {condition["feature"]} if condition and "feature" in condition else set()
         )
-        if entity_kind == "stock" and selected_features - _STOCK_FEATURES:
+        allowed = _MARKET_FEATURES if entity_kind == "market" else _STOCK_FEATURES if entity_kind == "stock" else set(FEATURES) - _MARKET_ONLY
+        if selected_features - allowed:
             raise HistoryQueryError(
-                "unsupported_definition: stock supports only return_pct, amount_ratio, market_relative_return_pct"
+                "unsupported_definition: features do not apply to entity_kind="
+                f"{entity_kind}; incompatible={','.join(sorted(selected_features - allowed))}; "
+                f"supported={','.join(sorted(allowed))}. "
+                "advancers_mean/limit_up_mean/limit_down_mean require entity_kind='market'; "
+                "check the declared kind, not global tool availability."
             )
+        window_ref = arguments.get("window_ref")
+        if window_ref is not None:
+            if (
+                operation not in {"rank_history", "trace_history", "compute_history"}
+                or not isinstance(window_ref, Mapping)
+                or set(window_ref) - {"result_ref", "sample_id"}
+                or not isinstance(window_ref.get("result_ref"), str)
+                or not 1 <= len(window_ref["result_ref"]) <= 300
+                or ("sample_id" in window_ref and (
+                    not isinstance(window_ref["sample_id"], str)
+                    or len(window_ref["sample_id"]) != 64
+                    or any(c not in "0123456789abcdef" for c in window_ref["sample_id"])
+                ))
+            ):
+                raise HistoryQueryError("invalid window_ref: use result_ref and optional candidate sample_id")
+            window_ref = dict(window_ref)
         return cls(
             operation=str(operation),
             start=start,
@@ -238,6 +330,7 @@ class HistoryQuerySpec:
             condition=condition,
             outcome=outcome,
             reference_code=reference,
+            window_ref=window_ref,
             preview_limit=_integer(
                 arguments.get("preview_limit", 25), "preview_limit", 1, 100
             ),
@@ -250,12 +343,12 @@ def history_query_parameters() -> dict[str, Any]:
         "additionalProperties": False,
         "required": ["operation", "start", "end"],
         "properties": {
-            "operation": {"type": "string", "enum": list(OPERATIONS)},
+            "operation": {"type": "string", "enum": list(OPERATIONS), "description": "inspect_history: catalog/day facts; rank_history: retrospective all-observed sector/stock return ranking (missing unranked, universe retained); compute_history: comparable features; find_analogues: explicit historical windows; compare_cases: full success/failure population; trace_history: sector/stock launch signal, normalized daily path, retrospective peak and drawdown confirmation, launch-day member leaders and candidate sector succession. Uses ONLY start..end; first 5 dates are warmup. Narrow dates/codes and paginate originals. Not predictive or causal."},
             "entity_kind": {
                 "type": "string",
-                "enum": ["sector", "stock"],
+                "enum": ["sector", "stock", "market"],
                 "default": "sector",
-                "description": "Exact canonical entity family. Stock supports return_pct, amount_ratio, market_relative_return_pct; sector-only definitions fail explicitly.",
+                "description": "market uses code 000001.SH: Shanghai returns plus whole-market amount/advancers/limit counts; inspect exposes source-labelled stages, find_analogues compares numeric environment, never equates market and theme stages. trace_history supports sector/stock only.",
             },
             "start": {
                 "type": "string",
@@ -271,7 +364,15 @@ def history_query_parameters() -> dict[str, Any]:
                 "type": "array",
                 "items": {"type": "string"},
                 "maxItems": 20,
-                "description": "Exact stock or sector codes, never joined by name; explicit fixed universe for computation. Omit only for inspect catalog discovery.",
+                "description": "Exact codes, never joined by name. Omit for inspect catalog or rank_history's ALL observed entities in the declared window (posthoc winners; 100000 input-row cap; overflow is a gap, not permission to shorten the chosen window or replace the population with winners). Other computations require fixed exact codes.",
+            },
+            "window_ref": {
+                "type": "object", "additionalProperties": False, "required": ["result_ref"],
+                "properties": {
+                    "result_ref": {"type": "string", "maxLength": 300},
+                    "sample_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                },
+                "description": "For rank/trace/compute: bind to a scope-checked original read this turn. Analogue source requires its candidate sample_id (not reference or preview ordinal); prior rank/trace/compute uses its declared observation window. start/end must match. Only user-authorized trace observation may extend end; never shorten dates or rerank on another window after overflow.",
             },
             "query": {"type": "string", "maxLength": 200},
             "features": {
@@ -319,11 +420,15 @@ def history_query_parameters() -> dict[str, Any]:
             "condition": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["feature", "op", "value"],
+                "description": "两种写法二选一，不得混写：{feature,op,value} 是特征阀值条件；"
+                               "{rule:'launch_signal'} 按与 trace_history 同版本的启动规则判定每个候选窗当时是否启动，"
+                               "未启动窗口就是控制组，缺数/历史不足的窗口保留在分母里且不算未启动；"
+                               "该写法要求 entity_kind 为 sector/stock 且 window_days 大于 5 天预热。",
                 "properties": {
                     "feature": {"type": "string", "enum": list(FEATURES)},
                     "op": {"type": "string", "enum": ["gte", "lte"]},
                     "value": {"type": "number"},
+                    "rule": {"type": "string", "enum": ["launch_signal"]},
                 },
             },
             "outcome": {
@@ -364,7 +469,18 @@ _FIELDS = {
         "limit_down",
         "sh_index_pct_chg",
         "sh_index_close",
+        "sh_deviation_pct",
+        "cycle_stage",
+        "cycle_stage_source",
+        "cycle_stage_updated_at",
         "market_stage",
+        "market_stage_source",
+        "market_stage_confidence",
+        "stage_day",
+        "sh_week_ma",
+        "sh_week_ma_source",
+        "amount_ma20",
+        "volume_ratio",
         "volume_state",
         "concentration_state",
         "source",
@@ -520,7 +636,7 @@ class _Reader:
             self.input_rows += len(batch)
             if self.input_rows > MAX_INPUT_ROWS:
                 raise HistoryQueryError(
-                    "input row limit exceeded; narrow the explicit scope"
+                    "input row limit exceeded; requested population not computed. Report the gap; do not shorten the chosen window or replace all-market with winners"
                 )
             for row in batch:
                 data = dict(zip(fields, row))
@@ -565,6 +681,7 @@ class HistoryQuery:
         information_cutoff: InformationCutoff,
         deadline: ResearchDeadline,
         is_cancelled: Callable[[], bool] | None = None,
+        window_binding: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         cancelled = is_cancelled or (lambda: False)
         expires = time.monotonic() + deadline.stage_timeout(30.0)
@@ -577,6 +694,13 @@ class HistoryQuery:
 
         check()
         spec = HistoryQuerySpec.from_arguments(spec.to_dict())
+        if spec.window_ref is not None and (
+            window_binding is None
+            or window_binding.get("source_reference") != spec.window_ref
+            or window_binding.get("start") != spec.start.isoformat()
+            or window_binding.get("end") != spec.end.isoformat()
+        ):
+            raise HistoryQueryError("history_window_unresolved: resolve window_ref through the authorized Episode session")
         if max(spec.end, spec.search_end or spec.end) > information_cutoff.as_of_date:
             raise HistoryQueryError("window exceeds information cutoff")
         if not self.db_path.is_file():
@@ -619,19 +743,36 @@ class HistoryQuery:
             dict.fromkeys(
                 (
                     *spec.features,
-                    *((spec.condition["feature"],) if spec.condition else ()),
+                    *(
+                        (spec.condition["feature"],)
+                        if spec.condition and "feature" in spec.condition
+                        else ()
+                    ),
                     *(("return_pct",) if spec.operation == "compare_cases" else ()),
                 )
             )
         )
+        if spec.operation == "trace_history":
+            from intelligence.services.historical_research.anatomy import TRACE_FEATURES
+
+            selected_features = TRACE_FEATURES if spec.entity_kind == "sector" else TRACE_FEATURES[:5]
         definitions = {
             name: {
                 **FEATURES[name],
-                "version": FEATURE_VERSION,
+                "version": FEATURES[name].get("version", FEATURE_VERSION),
                 "entity_kind": spec.entity_kind,
             }
             for name in selected_features
         }
+        if spec.entity_kind == "market":
+            for definition in definitions.values():
+                definition["input_mapping"] = {"pct_chg": "fact_market_daily.sh_index_pct_chg", "amount": "fact_market_daily.total_amount"}
+        if spec.operation == "trace_history":
+            definitions["trace_history"] = extra["analysis_definition"]
+        elif "analysis_definition" in extra:
+            # The rule that labelled X travels with the artifact, like a feature
+            # definition, so a later reader cannot relabel what "launch" meant.
+            definitions[extra["analysis_definition"]["name"]] = extra["analysis_definition"]
         coverage["calendar"] = {
             "basis": "union of canonical stock and market fact dates; not inferred from selected sector",
             "reads": reader.calendars,
@@ -687,11 +828,12 @@ class HistoryQuery:
                 "definition_refs": [
                     SCHEMA_VERSION,
                     FEATURE_VERSION,
-                    *(f"{name}@{FEATURE_VERSION}" for name in selected_features),
+                    *(f"{name}@{definition['version']}" for name, definition in definitions.items()),
                 ],
                 "feature_definitions": definitions,
                 "gaps": list(dict.fromkeys(reader.gaps)),
                 **extra,
+                **({"window_binding": dict(window_binding)} if window_binding is not None else {}),
             }
         )
         check()
@@ -706,13 +848,16 @@ class HistoryQuery:
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         if spec.operation in {"find_analogues", "compare_cases"}:
             return self._windows(spec, reader, check, cutoff)
+        if spec.operation == "trace_history":
+            from intelligence.services.historical_research.anatomy import trace_history
+
+            return trace_history(spec, reader, check)
         table, code_field, _ = _ENTITY_FIELDS[spec.entity_kind]
-        source_rows = reader.read(
-            table, spec.start, spec.end, codes=spec.entity_codes, code_field=code_field
-        )
-        if not spec.entity_codes:
+        source_rows = _entity_rows(reader, spec.entity_kind, spec.start, spec.end, spec.entity_codes)
+        if not spec.entity_codes and spec.operation != "rank_history":
             return self._catalog(source_rows, spec.query, spec.entity_kind), {}
-        market = reader.read("fact_market_daily", spec.start, spec.end)
+        selected_codes = spec.entity_codes or tuple(sorted({r[code_field] for r in source_rows if r[code_field]}))
+        market = reader.tables[table] if spec.entity_kind == "market" else reader.read("fact_market_daily", spec.start, spec.end)
         days = reader.calendar(spec.start, spec.end, market)
         reader.validate_calendar(
             days, source_rows, strict=spec.operation != "inspect_history"
@@ -721,7 +866,7 @@ class HistoryQuery:
             reader.gaps.append("trading_calendar_unavailable")
         members = (
             reader.read(
-                "fact_sector_stock_daily", spec.start, spec.end, codes=spec.entity_codes
+                "fact_sector_stock_daily", spec.start, spec.end, codes=selected_codes
             )
             if spec.entity_kind == "sector"
             and (
@@ -738,7 +883,7 @@ class HistoryQuery:
                 "fact_theme_limit_heat_daily",
                 spec.start,
                 spec.end,
-                codes=spec.entity_codes,
+                codes=selected_codes,
             )
             if spec.entity_kind == "sector"
             and (
@@ -746,16 +891,23 @@ class HistoryQuery:
             )
             else []
         )
-        if spec.operation == "compute_history":
+        if spec.operation in {"compute_history", "rank_history"}:
             rows = []
-            for code in spec.entity_codes:
+            source_groups, member_groups, heat_groups = defaultdict(list), defaultdict(list), defaultdict(list)
+            for row in source_rows:
+                source_groups[row[code_field]].append(row)
+            for row in members:
+                member_groups[row["sector_ts_code"]].append(row)
+            for row in heat:
+                heat_groups[row["sector_ts_code"]].append(row)
+            for code in selected_codes:
                 check()
                 values, coverage = compute_features(
                     spec.features,
                     days,
-                    [r for r in source_rows if r[code_field] == code],
-                    members=[r for r in members if r["sector_ts_code"] == code],
-                    heat=[r for r in heat if r["sector_ts_code"] == code],
+                    source_groups[code],
+                    members=member_groups[code],
+                    heat=heat_groups[code],
                     market=market,
                 )
                 rows.append(
@@ -768,11 +920,34 @@ class HistoryQuery:
                         "feature_coverage": coverage,
                     }
                 )
+            if spec.operation == "rank_history":
+                rows.sort(key=lambda r: (r["features"]["return_pct"] is None,
+                                        -(r["features"]["return_pct"] or 0), r["entity_code"]))
+                for i, row in enumerate(rows):
+                    row.update(rank=i + 1 if row["features"]["return_pct"] is not None else None,
+                               selection_mode="posthoc_ranked_observed_universe", population_count=len(rows))
+                return rows, {"universe": {"entity_kind": spec.entity_kind, "entity_codes": selected_codes,
+                    "start": spec.start, "end": spec.end, "enumerated": len(rows),
+                    "selection": "all observed canonical codes in window" if not spec.entity_codes else "declared codes only",
+                    "missing_unranked": sum(r["rank"] is None for r in rows),
+                    "bias": "posthoc ranking; observed universe is not a complete historical listing/delisting universe"},
+                    "matching_use": "posthoc_discovery_not_forecast"}
             return rows, {}
         if spec.operation != "inspect_history":
             raise HistoryQueryError(
                 "unsupported_definition: operation is not implemented"
             )
+        if spec.entity_kind == "market":
+            if not market:
+                reader.gaps.append("market_observations_missing")
+            for field in ("market_stage", "market_stage_source", "cycle_stage", "cycle_stage_source"):
+                if any(row.get(field) is None for row in market):
+                    reader.gaps.append(f"market_stage_field:{field}:missing")
+            return [{"entity_code": "000001.SH", "entity_kind": "market",
+                     "trade_date": row["trade_date"], "market": row,
+                     "stage_semantics": "market_stage看专属source，confidence非校准准确率；cycle_stage=供应商内层。Not theme lifecycle or teaching index_stage",
+                     "market_units": "价格=上证；total_amount/amount_ma20=全市场亿元；volume_ratio=成交额/MA20×100，非倍数；家数非占比"}
+                    for row in market], {}
         if spec.entity_kind == "stock":
             return self._inspect_stock(spec, source_rows, market, reader, check)
         stocks = (
@@ -914,15 +1089,17 @@ class HistoryQuery:
             dict.fromkeys(
                 (
                     *spec.features,
-                    *((spec.condition["feature"],) if spec.condition else ()),
+                    *(
+                        (spec.condition["feature"],)
+                        if spec.condition and "feature" in spec.condition
+                        else ()
+                    ),
                 )
             )
         )
         table, code_field, _ = _ENTITY_FIELDS[spec.entity_kind]
-        entity_rows = reader.read(
-            table, start, end, codes=spec.entity_codes, code_field=code_field
-        )
-        market = reader.read("fact_market_daily", start, end)
+        entity_rows = _entity_rows(reader, spec.entity_kind, start, end, spec.entity_codes)
+        market = reader.tables[table] if spec.entity_kind == "market" else reader.read("fact_market_daily", start, end)
         members = (
             reader.read("fact_sector_stock_daily", start, end, codes=spec.entity_codes)
             if any(name in {"advancer_share", "first_surge_lag"} for name in names)
@@ -986,7 +1163,10 @@ class HistoryQuery:
                     feature_row(code, search_days[i - spec.window_days + 1 : i + 1])
                 )
         if spec.operation == "compare_cases":
-            return self._compare(spec, reader, check, cutoff, candidates)
+            return self._compare(
+                spec, reader, check, cutoff, candidates,
+                calendar_days=days, entity_rows=entity_rows,
+            )
         reference_days = [d for d in days if spec.start <= d <= spec.end]
         if len(reference_days) != spec.window_days:
             raise HistoryQueryError(
@@ -1044,8 +1224,16 @@ class HistoryQuery:
                 }
             )
         rows.sort(key=lambda r: (r["distance"], r["entity_code"], r["start"]))
+        # Nearby winning windows are still one episode, not independent evidence.
+        cluster, cluster_end = 0, None
+        for row in sorted(rows, key=lambda r: (r["start"], r["end"], r["entity_code"])):
+            if cluster_end is None or row["start"] > cluster_end:
+                cluster += 1
+            cluster_end = max(cluster_end or row["end"], row["end"])
+            row["overlap_cluster"] = f"overlap-{cluster}"
         return rows, {
             "reference": reference,
+            "independence_policy": "overlapping candidate windows share clusters; not independent evidence or predictive odds",
             "excluded_candidates": excluded,
             "matching_use": "retrospective_full_path_discovery"
             if spec.match_mode == "full_path"
@@ -1069,7 +1257,17 @@ class HistoryQuery:
         check: Callable[[], None],
         cutoff: InformationCutoff,
         candidates: list[dict[str, Any]],
+        *,
+        calendar_days: list[date] | None = None,
+        entity_rows: list[dict[str, Any]] | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        from intelligence.services.historical_research.anatomy import (
+            LAUNCHED_STATES,
+            LAUNCH_RULE,
+            LAUNCH_RULE_DEFINITION,
+            launch_state,
+        )
+
         assert (
             spec.condition is not None
             and spec.outcome is not None
@@ -1077,8 +1275,38 @@ class HistoryQuery:
         )
         condition, outcome = spec.condition, spec.outcome
         table, code_field, _ = _ENTITY_FIELDS[spec.entity_kind]
+        by_rule = condition.get("rule") == LAUNCH_RULE
+        launch_states: dict[str, int] = {}
         frozen = []
         for row in candidates:
+            check()
+            if by_rule:
+                assert calendar_days is not None and entity_rows is not None
+                window = [d for d in calendar_days if row["start"] <= d <= row["end"]]
+                chosen = set(window)
+                judged = launch_state(
+                    spec.entity_kind,
+                    window,
+                    [
+                        r
+                        for r in entity_rows
+                        if r[code_field] == row["entity_code"]
+                        and r["trade_date"] in chosen
+                    ],
+                    check,
+                )
+                status = judged["launch_state"]
+                launch_states[status] = launch_states.get(status, 0) + 1
+                # Undecidable stays undecidable: it is not evidence of no launch.
+                x = (
+                    True
+                    if status in LAUNCHED_STATES
+                    else False
+                    if status == "not_observed"
+                    else None
+                )
+                frozen.append({**row, **judged, "x": x})
+                continue
             value = row["features"][condition["feature"]]
             x = (
                 None
@@ -1092,7 +1320,10 @@ class HistoryQuery:
             frozen.append({**row, "x": x})
         # Freeze the entire declared population and all X labels before any Y
         # calculation. Preview/ranking cannot remove negative or unknown cases.
-        selection_fingerprint = _hash([frozen, condition, FEATURE_VERSION])
+        selection_fingerprint = _hash(
+            [frozen, condition, FEATURE_VERSION]
+            + ([LAUNCH_RULE_DEFINITION["version"]] if by_rule else [])
+        )
         horizon = outcome["horizon_days"]
         future_end = min(
             cutoff.as_of_date, spec.search_end + timedelta(days=3 * horizon + 14)
@@ -1102,14 +1333,8 @@ class HistoryQuery:
         ) + timedelta(days=1)
         future_market, future_entities = [], []
         if future_start <= future_end:
-            future_market = reader.read("fact_market_daily", future_start, future_end)
-            future_entities = reader.read(
-                table,
-                future_start,
-                future_end,
-                codes=spec.entity_codes,
-                code_field=code_field,
-            )
+            future_entities = _entity_rows(reader, spec.entity_kind, future_start, future_end, spec.entity_codes)
+            future_market = future_entities if spec.entity_kind == "market" else reader.read("fact_market_daily", future_start, future_end)
         future_days = (
             reader.calendar(future_start, future_end, future_market)
             if future_start <= future_end
@@ -1176,6 +1401,7 @@ class HistoryQuery:
         return rows, {
             "selection_fingerprint": selection_fingerprint,
             "execution_phases": ["features_read", "selection_frozen", "outcomes_read"],
+            **({"analysis_definition": LAUNCH_RULE_DEFINITION} if by_rule else {}),
             "comparison": {
                 "four_cells": cells,
                 "missing": missing,
@@ -1184,6 +1410,11 @@ class HistoryQuery:
                 "overlap_clusters": cluster,
                 "independence_status": "not_established",
                 "certification_eligible": False,
+                # 控制组分母显式留痕：未启动与不可判定分开计数，不得合并。
+                **({"launch_states": dict(sorted(launch_states.items())),
+                    "x_definition": f"x=true launched by {LAUNCH_RULE}; x=false control (no launch in that window); "
+                                    "x=null undecidable and excluded from the four cells but kept in enumerated"}
+                   if by_rule else {}),
             },
             "universe": {
                 "entity_kind": spec.entity_kind,

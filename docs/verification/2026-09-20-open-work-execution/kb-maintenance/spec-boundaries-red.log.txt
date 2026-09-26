@@ -1,0 +1,189 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+__ test_managed_query_requires_binding_even_through_aliases[none-unapproved] ___
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_qu...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi0/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi0')
+state = 'unapproved', alias = 'none'
+
+    @pytest.mark.parametrize("state", ["unapproved", "retired"])
+    @pytest.mark.parametrize("alias", ["none", "index", "parent"])
+    def test_managed_query_requires_binding_even_through_aliases(case, tmp_path, state, alias):
+        manifest = ready(case) if state == "unapproved" else published(case)
+        if state == "retired":
+            published(case, "two")
+        target = manifest.parent / "standard"
+        if alias != "none":
+            link = tmp_path / "alias"
+            link.symlink_to(target if alias == "index" else target.parent, target_is_directory=True)
+            target = link if alias == "index" else link / "standard"
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))}
+        env.update(RAG_INDEX_DIR=str(target), KB_VAULT=str(case["vault"]), PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, str(manifest.parent / "code/scripts/rag_index.py"),
+                                 "query", "alpha", "--mode", "bm25", "--json"],
+                                env=env, text=True, capture_output=True, timeout=20)
+>       assert result.returncode != 0 and "managed index requires" in result.stderr
+E       assert (0 != 0)
+E        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6r...],\n    "evidence_char_budget": 1200,\n    "index_format_version": 2,\n    "applied_filters": {}\n  }\n]\n', stderr='').returncode
+
+skills/lib/rag/tests/test_guarded_maintenance.py:526: AssertionError
+____ test_managed_query_requires_binding_even_through_aliases[none-retired] ____
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_qu...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi1/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi1')
+state = 'retired', alias = 'none'
+
+    @pytest.mark.parametrize("state", ["unapproved", "retired"])
+    @pytest.mark.parametrize("alias", ["none", "index", "parent"])
+    def test_managed_query_requires_binding_even_through_aliases(case, tmp_path, state, alias):
+        manifest = ready(case) if state == "unapproved" else published(case)
+        if state == "retired":
+            published(case, "two")
+        target = manifest.parent / "standard"
+        if alias != "none":
+            link = tmp_path / "alias"
+            link.symlink_to(target if alias == "index" else target.parent, target_is_directory=True)
+            target = link if alias == "index" else link / "standard"
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))}
+        env.update(RAG_INDEX_DIR=str(target), KB_VAULT=str(case["vault"]), PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, str(manifest.parent / "code/scripts/rag_index.py"),
+                                 "query", "alpha", "--mode", "bm25", "--json"],
+                                env=env, text=True, capture_output=True, timeout=20)
+>       assert result.returncode != 0 and "managed index requires" in result.stderr
+E       assert (0 != 0)
+E        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6r...],\n    "evidence_char_budget": 1200,\n    "index_format_version": 2,\n    "applied_filters": {}\n  }\n]\n', stderr='').returncode
+
+skills/lib/rag/tests/test_guarded_maintenance.py:526: AssertionError
+__ test_managed_query_requires_binding_even_through_aliases[index-unapproved] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_qu...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi2/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi2')
+state = 'unapproved', alias = 'index'
+
+    @pytest.mark.parametrize("state", ["unapproved", "retired"])
+    @pytest.mark.parametrize("alias", ["none", "index", "parent"])
+    def test_managed_query_requires_binding_even_through_aliases(case, tmp_path, state, alias):
+        manifest = ready(case) if state == "unapproved" else published(case)
+        if state == "retired":
+            published(case, "two")
+        target = manifest.parent / "standard"
+        if alias != "none":
+            link = tmp_path / "alias"
+            link.symlink_to(target if alias == "index" else target.parent, target_is_directory=True)
+            target = link if alias == "index" else link / "standard"
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))}
+        env.update(RAG_INDEX_DIR=str(target), KB_VAULT=str(case["vault"]), PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, str(manifest.parent / "code/scripts/rag_index.py"),
+                                 "query", "alpha", "--mode", "bm25", "--json"],
+                                env=env, text=True, capture_output=True, timeout=20)
+>       assert result.returncode != 0 and "managed index requires" in result.stderr
+E       assert (0 != 0)
+E        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6r...],\n    "evidence_char_budget": 1200,\n    "index_format_version": 2,\n    "applied_filters": {}\n  }\n]\n', stderr='').returncode
+
+skills/lib/rag/tests/test_guarded_maintenance.py:526: AssertionError
+___ test_managed_query_requires_binding_even_through_aliases[index-retired] ____
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_qu...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi3/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi3')
+state = 'retired', alias = 'index'
+
+    @pytest.mark.parametrize("state", ["unapproved", "retired"])
+    @pytest.mark.parametrize("alias", ["none", "index", "parent"])
+    def test_managed_query_requires_binding_even_through_aliases(case, tmp_path, state, alias):
+        manifest = ready(case) if state == "unapproved" else published(case)
+        if state == "retired":
+            published(case, "two")
+        target = manifest.parent / "standard"
+        if alias != "none":
+            link = tmp_path / "alias"
+            link.symlink_to(target if alias == "index" else target.parent, target_is_directory=True)
+            target = link if alias == "index" else link / "standard"
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))}
+        env.update(RAG_INDEX_DIR=str(target), KB_VAULT=str(case["vault"]), PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, str(manifest.parent / "code/scripts/rag_index.py"),
+                                 "query", "alpha", "--mode", "bm25", "--json"],
+                                env=env, text=True, capture_output=True, timeout=20)
+>       assert result.returncode != 0 and "managed index requires" in result.stderr
+E       assert (0 != 0)
+E        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6r...],\n    "evidence_char_budget": 1200,\n    "index_format_version": 2,\n    "applied_filters": {}\n  }\n]\n', stderr='').returncode
+
+skills/lib/rag/tests/test_guarded_maintenance.py:526: AssertionError
+_ test_managed_query_requires_binding_even_through_aliases[parent-unapproved] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_qu...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi4/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi4')
+state = 'unapproved', alias = 'parent'
+
+    @pytest.mark.parametrize("state", ["unapproved", "retired"])
+    @pytest.mark.parametrize("alias", ["none", "index", "parent"])
+    def test_managed_query_requires_binding_even_through_aliases(case, tmp_path, state, alias):
+        manifest = ready(case) if state == "unapproved" else published(case)
+        if state == "retired":
+            published(case, "two")
+        target = manifest.parent / "standard"
+        if alias != "none":
+            link = tmp_path / "alias"
+            link.symlink_to(target if alias == "index" else target.parent, target_is_directory=True)
+            target = link if alias == "index" else link / "standard"
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))}
+        env.update(RAG_INDEX_DIR=str(target), KB_VAULT=str(case["vault"]), PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, str(manifest.parent / "code/scripts/rag_index.py"),
+                                 "query", "alpha", "--mode", "bm25", "--json"],
+                                env=env, text=True, capture_output=True, timeout=20)
+>       assert result.returncode != 0 and "managed index requires" in result.stderr
+E       assert (0 != 0)
+E        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6r...],\n    "evidence_char_budget": 1200,\n    "index_format_version": 2,\n    "applied_filters": {}\n  }\n]\n', stderr='').returncode
+
+skills/lib/rag/tests/test_guarded_maintenance.py:526: AssertionError
+___ test_managed_query_requires_binding_even_through_aliases[parent-retired] ___
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_qu...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi5/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_managed_query_requires_bi5')
+state = 'retired', alias = 'parent'
+
+    @pytest.mark.parametrize("state", ["unapproved", "retired"])
+    @pytest.mark.parametrize("alias", ["none", "index", "parent"])
+    def test_managed_query_requires_binding_even_through_aliases(case, tmp_path, state, alias):
+        manifest = ready(case) if state == "unapproved" else published(case)
+        if state == "retired":
+            published(case, "two")
+        target = manifest.parent / "standard"
+        if alias != "none":
+            link = tmp_path / "alias"
+            link.symlink_to(target if alias == "index" else target.parent, target_is_directory=True)
+            target = link if alias == "index" else link / "standard"
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("RAG_", "KB_RAG_"))}
+        env.update(RAG_INDEX_DIR=str(target), KB_VAULT=str(case["vault"]), PYTHONDONTWRITEBYTECODE="1")
+        result = subprocess.run([sys.executable, str(manifest.parent / "code/scripts/rag_index.py"),
+                                 "query", "alpha", "--mode", "bm25", "--json"],
+                                env=env, text=True, capture_output=True, timeout=20)
+>       assert result.returncode != 0 and "managed index requires" in result.stderr
+E       assert (0 != 0)
+E        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6r...],\n    "evidence_char_budget": 1200,\n    "index_format_version": 2,\n    "applied_filters": {}\n  }\n]\n', stderr='').returncode
+
+skills/lib/rag/tests/test_guarded_maintenance.py:526: AssertionError
+_________ test_library_save_requires_explicit_argument_or_environment __________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_library_sa...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_library_save_requires_exp0/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2904/test_library_save_requires_exp0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2c33b0>
+
+    def test_library_save_requires_explicit_argument_or_environment(case, tmp_path, monkeypatch):
+        from rag import config
+        fallback = tmp_path / "old-code/.rag_index"
+        monkeypatch.setattr(config, "index_dir", lambda: fallback)
+        monkeypatch.delenv("RAG_INDEX_DIR", raising=False)
+        store = RagStore.load(case["standard"])
+>       with pytest.raises(MaintenanceError, match="explicit scratch index"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:540: Failed
+=========================== short test summary info ============================
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_managed_query_requires_binding_even_through_aliases[none-unapproved]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_managed_query_requires_binding_even_through_aliases[none-retired]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_managed_query_requires_binding_even_through_aliases[index-unapproved]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_managed_query_requires_binding_even_through_aliases[index-retired]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_managed_query_requires_binding_even_through_aliases[parent-unapproved]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_managed_query_requires_binding_even_through_aliases[parent-retired]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_library_save_requires_explicit_argument_or_environment
+7 failed, 38 deselected in 5.47s

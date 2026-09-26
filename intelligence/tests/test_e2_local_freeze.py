@@ -18,13 +18,13 @@ from intelligence.services.research_contract import ResearchContractError, Resea
 from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec, UnknownResearchTool
 
 
-def local_frame():
-    return understand_query("不要联网。今天市场怎么样？").task_frame
+def local_frame(query="不要联网。今天市场怎么样？"):
+    return understand_query(query).task_frame
 
 
-def local_context():
+def local_context(query="不要联网。今天市场怎么样？"):
     return build_episode_context(
-        local_frame(), task_id=f"local-read-{uuid4().hex}", capabilities=tuple(sorted(LOCAL_READ_CAPABILITIES)) + (
+        local_frame(query), task_id=f"local-read-{uuid4().hex}", capabilities=tuple(sorted(LOCAL_READ_CAPABILITIES)) + (
             "market_data", "financial_data", "news_search", "web_search", "kb_search", "evidence_search", "graph_lookup",
         ), today="2026-07-24", latest_data_date="2026-07-24", timeout=30, synthesis_reserve=0,
     )
@@ -99,8 +99,12 @@ def test_registry_clones_preserve_ceiling_and_unknown_additions_are_not_visible(
     assert registry.with_read_scope("material_only").with_read_scope("full").read_scope == "material_only"
 
 
+@pytest.mark.parametrize("query", [
+    "不要联网。今天市场怎么样？",
+    "只用本地已有资料，判断中际旭创最近是否存在已确认的重大风险；没有查到的部分请单独列出。",
+])
 @pytest.mark.parametrize("source_state", ["current", "missing", "empty", "stale"])
-def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monkeypatch, source_state):
+def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monkeypatch, source_state, query):
     finance = tmp_path / "finance"
     db = finance / "db" / "market_feature_store.duckdb"
     db.parent.mkdir(parents=True)
@@ -148,7 +152,7 @@ def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monk
     monkeypatch.setattr(episode_tools.evidence_search, "default_semantic_judge", fail_external)
     monkeypatch.setattr(episode_tools, "_opening_prefetch_evidence", fail_external)
     monkeypatch.setattr(episode_tools, "_calc_loader_for", fail_external)
-    frame, context = local_frame(), local_context()
+    frame, context = local_frame(query), local_context(query)
     registry = episode_tools.build_episode_registry(
         frame, context, finance_root=finance, knowledge_wiki=wiki, memory_users_root=users,
         l3_runner=fail_external, sub_research_runner=fail_external, derived_calculation_runner=fail_external,
@@ -212,18 +216,17 @@ def test_local_factory_does_not_run_unclassified_static_precheck(monkeypatch):
     assert context.contract.material_contract.data_scope == "local_only"
 
 
-def test_local_history_does_not_readd_uncertified_tools_or_output_producers(tmp_path, monkeypatch):
-    from intelligence.services.historical_research import episode as history_episode
-
-    monkeypatch.setattr(history_episode, "history_tool_specs", fail_external)
+def test_local_history_adds_only_audited_readers_not_case_writer(tmp_path, monkeypatch):
+    from intelligence.services.material_permissions import LOCAL_EVIDENCE_PRODUCERS
     frame = understand_query("不要联网。这一波农业是怎么走出来的？").task_frame
     assert frame.history_intent is not None
     context = build_episode_context(frame, task_id="local-history", today="2026-07-24")
     registry = episode_tools.build_episode_registry(frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki")
     assert "finance_query" in registry.names()
-    assert not {"history_query", "read_history_result", "save_history_research"} & set(registry.names())
-    assert all(set(output.evidence_types) <= set(context.contract.allowed_capabilities) for output in context.contract.required_outputs)
-    # Retain the time restriction used by finance_query; no new history tool permission.
+    assert "history_query" in registry.names()
+    assert "save_history_research" not in registry.names()
+    assert all({LOCAL_EVIDENCE_PRODUCERS.get(p, p) for p in output.evidence_types} <= set(context.contract.allowed_capabilities) for output in context.contract.required_outputs)
+    # Evidence producer aliases do not grant new capabilities or unknown IO.
     assert context.history_intent == frame.history_intent
     assert ResearchTaskContract.from_dict(context.contract.to_dict()) == context.contract
 

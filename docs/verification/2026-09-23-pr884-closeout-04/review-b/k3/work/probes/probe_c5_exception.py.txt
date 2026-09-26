@@ -1,0 +1,49 @@
+"""K3 independent probe C5 (exception cleanup + sequential reuse), split out."""
+from pathlib import Path
+
+import pytest
+
+WORK = Path('/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-b/k3/work')
+import intelligence.userspace as u
+u.USERS_DIR = WORK / 'users'
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_store import MemoryEpisodeStore
+from intelligence.tests.conformance.fixtures import (
+    ScenarioProbe, make_context, make_frame, make_registry,
+)
+from intelligence.tests.conformance.races._drive import build_rig
+
+
+def test_exception_cleans_up_and_runner_is_sequentially_reusable():
+    store = MemoryEpisodeStore()
+    probe = ScenarioProbe()
+    frame = make_frame()
+    # Contract hash belongs to a *different* frame: the loop raises before any
+    # model request. This exercises the generator's BaseException cleanup.
+    other = make_frame("另一个问题")
+    ctx = make_context(other, task_id="k3-c5-boom")
+    episode = ContinuousAgentEpisode(ScenarioProbeModel(), store=store)
+    inbox_after = None
+    with pytest.raises(ValueError):
+        drive = episode.manual_drive(task_frame=frame, context=ctx, registry=make_registry(probe))
+        try:
+            drive.step()
+        finally:
+            inbox_after = episode.inbox
+    # ASSERT:C5-7 the failed drive's inbox is released/closed for late input
+    assert inbox_after is None or inbox_after.closed
+    # ASSERT:C5-8 control lock released: a fresh task on the same runner runs to done
+    rig2 = build_rig("k3-c5-reuse")
+    episode2 = ContinuousAgentEpisode(rig2.model._inner, store=store)
+    outcome = episode2.run(task_frame=rig2.frame, context=rig2.context, registry=rig2.registry)
+    assert outcome.status == "completed"
+    _events, state = store.load("k3-c5-reuse")
+    assert state is not None and state.terminal
+
+
+class ScenarioProbeModel:
+    """A model that must never be called on the exception path."""
+
+    def complete(self, **kwargs):  # pragma: no cover - assert not reached
+        raise AssertionError("model must not be reached")

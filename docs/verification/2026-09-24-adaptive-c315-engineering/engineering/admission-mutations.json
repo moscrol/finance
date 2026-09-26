@@ -1,0 +1,58 @@
+{
+  "scope": "author in-memory negative controls, not independent review",
+  "source_sha256": "6fd8f7875a4247a1fc24a55b1b9673234d93da52e8c5587cd284d5581513a5ad",
+  "source_unchanged": true,
+  "runs": [
+    {
+      "mode": "coverage",
+      "exit_code": 1,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/mutation-tmp-coverage",
+        "-p",
+        "l6_gate_mutant",
+        "tests/test_l6_deadline_admission.py"
+      ]
+    },
+    {
+      "mode": "wiring",
+      "exit_code": 1,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/mutation-tmp-wiring",
+        "-p",
+        "l6_gate_mutant",
+        "tests/test_adaptive_l6_audit.py::test_fresh_runner_wires_source_audit_and_inherits_no_receipts"
+      ]
+    },
+    {
+      "mode": "restored",
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/mutation-tmp-restored",
+        "tests/test_l6_deadline_admission.py",
+        "tests/test_adaptive_l6_audit.py::test_fresh_runner_wires_source_audit_and_inherits_no_receipts"
+      ]
+    }
+  ],
+  "real_model_requests": 0
+}

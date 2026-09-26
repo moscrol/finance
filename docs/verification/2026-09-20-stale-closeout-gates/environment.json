@@ -1,0 +1,21 @@
+{
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "umask": "022",
+  "launcher": "env -i",
+  "initial_path": "/Users/a77/finance-workspace-private/.venv-workbench/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "corrected_broad_path": "/Users/a77/finance-workspace-private/.venv-workbench/bin:/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "home": "/Users/a77",
+  "lang": "en_US.UTF-8",
+  "python_runner": "python-runner.py.txt",
+  "receipt_plugin": "receipt-redirect.py.txt",
+  "python_runner_input": "Each Python evidence directory contains target.json; TMPDIR is its external tmp directory, KNOWLEDGE_WIKI is the pinned knowledge-base-private/wiki symlink. The runner adds only PYTHONDONTWRITEBYTECODE, PYTHONPATH, FWP_GATE_TREE and FWP_TEST_RECEIPT_DIR.",
+  "python_runner_source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/gate_python_registry.py",
+  "knowledge_base_revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+  "research_site_revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+  "frontend_runner": "scripts/run_frontend_gate.py from each tested revision",
+  "frontend_ports": {"broad": [19281, 19284], "generation": [19381, 19384]},
+  "frontend_tmpdir": "/tmp",
+  "diagnostic_scope": "Same single test and revision; only PATH differs. No graph deletion or assertion changes.",
+  "independent_review": false,
+  "production_actions": false
+}

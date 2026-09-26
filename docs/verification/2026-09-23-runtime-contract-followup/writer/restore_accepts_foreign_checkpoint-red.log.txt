@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_restore_refuses_checkpoint_for_another_episode_even_when_terminal ____
+intelligence/tests/test_episode_writer.py:330: in test_restore_refuses_checkpoint_for_another_episode_even_when_terminal
+    with pytest.raises(RestoreUnavailable, match="identity mismatch"):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_restore_refuses_checkpoint_for_another_episode_even_when_terminal
+1 failed, 22 deselected in 3.13s

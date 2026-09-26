@@ -1,0 +1,53 @@
+133:    finish_reason: str | None = None
+144:        if self.finish_reason is not None and not isinstance(self.finish_reason, str):
+145:            raise ValueError("finish_reason must be a string or None")
+168:        if self.finish_reason is not None:
+169:            reason = self.finish_reason.strip().lower()
+170:            object.__setattr__(self, "finish_reason", reason or None)
+171:            if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
+189:        if self.finish_reason is not None:
+190:            payload["finish_reason"] = self.finish_reason
+===
+test_akshare_runtime_assets.py
+test_analog_as_of_truncation.py
+test_answer_stream.py
+test_boundary_partial_delivery.py
+test_calculation_result_delivery.py
+test_continuous_turn_adapter.py
+test_daily_report_projection.py
+test_draft_stream.py
+test_draft_stream_end_to_end.py
+test_draft_stream_no_duplicate_body.py
+test_e2_material_delivery.py
+test_e2_material_turn_delivery.py
+test_episode_event_lanes.py
+test_episode_projection.py
+test_finance_query_truncation.py
+test_financial_delivery_integration.py
+test_financial_publication_integration.py
+test_finish_json_criterion.py
+test_frozen_research_delivery.py
+test_judge_evidence_projection.py
+test_judgment_maintenance_adapters.py
+test_judgment_maintenance_assess.py
+test_knowledge_adapter.py
+test_lane_generation.py
+test_llm_refine_tool_stream.py
+test_market_watch_delivery_gate.py
+test_midterm_as_of_truncation.py
+test_public_delivery_gate.py
+test_public_delivery_gate_live_products.py
+test_publication_qc_off_table.py
+test_publication_view_deepen.py
+test_registry_truncation_notice.py
+test_repair_carry_just_written_finish.py
+test_research_delivery_checks.py
+test_research_delivery_repair.py
+test_research_diagnostics_adapters.py
+test_research_priority_adapters.py
+test_river_projection.py
+test_session_projection.py
+test_status_projection.py
+test_stream_event_registry.py
+test_stream_stall_observation.py
+test_upstream_task_protocol.py

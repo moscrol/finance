@@ -1,0 +1,11 @@
+        worker.start()
+        # wait until the model call is genuinely in flight
+        for _ in range(1000):
+            if rig.model.calls == 1:
+                break
+>       assert rig.model.calls == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10babdf40>.calls
+E        +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10babdf40> = Rig(task_id='k3-c5-mutex', oracle=WriteOrderOracle(inner=<intelligence.services.episode_store.MemoryEpisodeStore objec...isode object at 0x10b93acf0>, drive=<intelligence.runtime.agent_episode.EpisodeDrive object at 0x10babe300>, points=[]).model
+
+probe_c5_reentry.py:70: AssertionError

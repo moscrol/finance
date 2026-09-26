@@ -1,0 +1,48 @@
+"""Seal blocked L6 preflight. No question or model request was submitted."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate')
+def load(name):
+    return json.loads((ROOT / name).read_text())
+strict = load('strict-deadline.json')
+preflight = load('preparation/audit.json')
+closure = load('preparation/closure.json')
+assert strict['deadline_violations'] == ['body_stall']
+assert preflight['verdict'] == 'BLOCKED_RETRIEVAL_DEPENDENCY'
+assert preflight['new_model_requests'] == preflight['financial_submissions'] == 0
+assert closure['frozen_data_unchanged'] and closure['code_identity_unchanged']
+assert all(closure['production_identity_unchanged'].values())
+assert not (ROOT / 'live').exists()
+ports = {str(port): subprocess.run(['/usr/sbin/lsof', '-nP', f'-iTCP:{port}', '-sTCP:LISTEN'], capture_output=True).returncode == 1
+         for port in (19897, 19898)}
+assert all(ports.values())
+assert not Path('/tmp/finance-l6-natural-19897.lock').exists()
+assert not subprocess.check_output(['git', '-C', str(TREE), 'status', '--porcelain'], text=True).strip()
+body = next(case for case in strict['cases'] if case['scenario'] == 'body_stall')
+report = {'record_kind': 'host_preflight_closure_not_financial_verdict',
+    'status': 'BLOCKED_PREFLIGHT', 'candidate': preflight['revision'],
+    'blockers': ['strict_deadline_overrun', 'retrieval_readiness_timeout'],
+    'strict_scenarios': len(strict['cases']), 'deadline_violations': strict['deadline_violations'],
+    'strict_failure': body, 'retrieval_probe': load('preparation/retrieval-probe.json'),
+    'model_requests': 0, 'financial_submissions': {'L6-R1': 0, 'L6-R2': 0, 'L6-R3': 0},
+    'resubmissions': 0, 'followups': 0, 'sidecars_started': 0,
+    'ports_free': ports, 'production_identity_unchanged': closure['production_identity_unchanged'],
+    'frozen_data_unchanged': True, 'frozen_files': len(load('preparation/frozen-data-manifest.json')),
+    'candidate_unchanged': True, 'source_regression': load('source-regression.json')['status'],
+    'synthetic_proxy_preflight': load('proxy-offline-check.json')['status'],
+    'natural_quality_verdict': 'NOT_EXERCISED', 'historical_failure_unchanged': True,
+    'strict_case_interpretation': 'No loopback HTTP request reached the body_stall endpoint. Wall-clock limit still exceeded; no causal attribution to scheduling or upstream behavior is established.',
+    'retries': 0, 'budgets_raised': False, 'merged': False, 'deployed': False,
+    'closed_at': datetime.now(timezone.utc).isoformat()}
+with (ROOT / 'report.json').open('x') as stream:
+    json.dump(report, stream, ensure_ascii=False, indent=2)
+manifest = {str(p.relative_to(ROOT)): {'sha256': hashlib.sha256(p.read_bytes()).hexdigest(), 'bytes': p.stat().st_size}
+            for p in ROOT.rglob('*') if p.is_file() and not p.is_symlink() and not {'data', 'pycache', '__pycache__'}.intersection(p.relative_to(ROOT).parts)}
+with (ROOT / 'closure-manifest.json').open('x') as stream:
+    json.dump(manifest, stream, indent=2)
+print(json.dumps({'status': report['status'], 'financial_submissions': report['financial_submissions'], 'model_requests': 0, 'frozen_files': report['frozen_files']}))

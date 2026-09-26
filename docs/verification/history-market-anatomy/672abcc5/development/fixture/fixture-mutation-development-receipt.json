@@ -1,0 +1,21 @@
+{
+  "revision": "f9afb4a0029224ed13dd3b3bb16d0a76e7c0f2e8",
+  "dirty": true,
+  "source_sha256": {
+    "intelligence/tests/fixtures/run_supervisor.py": "2a4bac5be3c0fd3332c1b309efb094552bef6310213f467542367a48fe91e926",
+    "intelligence/tests/test_api_fixture_lifecycle.py": "968a414b0f89bf1ee805cc253ea8df618483b7c053d03e65bece35abb086bd23",
+    "intelligence/tests/test_api_quota.py": "9b60751795685f1851a8a9395f8396c899641224cc137528bdc74b49a7816bf7",
+    "intelligence/tests/test_api_credits.py": "10fb16120265bbcc443e65fccdd3a759c80d14e6e8dc2753ef134b37abbf7f96",
+    "intelligence/tests/test_api_run_admission.py": "202ec156232bcd57b69d444598eec61ab19c69152df014ac896f59a691bb32c9"
+  },
+  "source_unchanged": true,
+  "intentional_failure_exit": 1,
+  "caught_for_owners": [
+    "quota",
+    "credits",
+    "admission"
+  ],
+  "log_sha256": "5ae8356768db0fc0c9734520840592f26f35e3d4e84334afe95656e1a5a52266",
+  "scope": "development in-memory mutation, not full CI",
+  "earlier_setup_failure": "fixture-missing-join-mutation.txt: NameError on postponed annotation; not counted"
+}

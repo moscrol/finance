@@ -1,0 +1,33 @@
+{
+  "observed_at": "2026-09-22T18:02:48.040638+08:00",
+  "method": "GET only; token held in memory, not persisted",
+  "pull_requests": [
+    {
+      "number": 830,
+      "state": "closed",
+      "title": "fix(llm): K3 写手兼容与无判官独立性统计",
+      "merged": true,
+      "merge_commit_sha": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+      "head_sha": "292bd55785d223aab0c1eeda658a83fbb8f5075e",
+      "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/830"
+    },
+    {
+      "number": 840,
+      "state": "open",
+      "title": "WIP: docs: #830 K3 无判官首跑与回滚终态",
+      "merged": false,
+      "merge_commit_sha": null,
+      "head_sha": "c04959639d4220c304cb4b91e4639f807268298b",
+      "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/840"
+    },
+    {
+      "number": 844,
+      "state": "open",
+      "title": "WIP: fix(rag): readiness 探针耗时与安全失败分类",
+      "merged": false,
+      "merge_commit_sha": null,
+      "head_sha": "18c6215791e5b7cede3f228d2abfbe15e1b1a4d2",
+      "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/844"
+    }
+  ]
+}

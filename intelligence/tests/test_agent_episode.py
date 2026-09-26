@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import replace
 import json
+from pathlib import Path
 from threading import Event, Lock
 
 import pytest
@@ -396,6 +397,63 @@ def test_tool_result_events_share_request_call_id_even_for_same_tool() -> None:
     assert sorted(request_ids) == ["call-a", "call-b"]
     # 同名工具两次调用：配对键是 call_id 而非 name/顺序，一对一各自闭合。
     assert sorted(result_ids) == ["call-a", "call-b"]
+
+
+def test_episode_empty_query_identities_reach_semantic_judge() -> None:
+    from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+    from intelligence.services.episode_verifier import verify_episode_outcome
+    from intelligence.services.finance_query import FinanceQuerySpec
+
+    def parse(arguments):
+        return FinanceQuerySpec.from_arguments(arguments), json.dumps(arguments, sort_keys=True)
+
+    def empty_runner(spec, _context):
+        assert isinstance(spec, FinanceQuerySpec)
+        return [], "没有交付证据，不能排除风险", ProviderTrace(
+            provider="private:query", capability="finance_query", status="empty",
+        )
+
+    queries = [
+        {"dataset": dataset, "dimensions": ["stock_code"],
+         "filters": [{"field": "stock_code", "op": "eq", "value": code}],
+         "time_range": {"start": "2026-07-01", "end": "2026-07-21"}}
+        for dataset, code in (("regulation_event_daily", "300308"), ("stock_daily", "300308.SZ"))
+    ]
+    frame = _frame()
+    context = _context(frame, max_steps=6, allowed_capabilities=("market_data", "finance_query"))
+    model = ScriptedModel([
+        ModelTurn("", (
+            ModelToolCall("regulation", "finance_query", queries[0]),
+            ModelToolCall("stock", "finance_query", queries[1]),
+            ModelToolCall("market", "market_data", {"query": "当前市场"}),
+        ), "scripted", ""),
+        _finish_turn(draft="上涨家数增加，成交保持活跃。"),
+    ])
+    registry = _market_registry(_successful_runner).with_specs(ToolSpec(
+        name="finance_query", capability="finance_query", description="本地结构化查询",
+        cost="local", freshness="current", runner=empty_runner, parse_arguments=parse,
+    ))
+    outcome = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+    requests = []
+
+    def judge(request):
+        requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=verify_episode_outcome(context.contract, outcome),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert len(requests) == 1
+    calls = {row["call_id"]: row for row in requests[0]["tool_status_registry"] if row.get("call_id")}
+    assert set(calls) == {"regulation", "stock", "market"}
+    for call_id, query in zip(("regulation", "stock"), queries):
+        assert calls[call_id]["requested_query"] == query
+        assert calls[call_id]["delivered_evidence_count"] == 0
+    assert len(outcome.evidence) == len(requests[0]["evidence_registry"]) == 1
+    assert outcome.usage.tool_calls == 3
+    assert outcome.usage.llm_calls == 2
+    assert outcome.usage.invalid_actions == 0
 
 
 def test_tool_error_event_carries_request_call_id() -> None:
@@ -2259,6 +2317,76 @@ def test_malformed_plan_gets_one_same_episode_repair_without_tool_use() -> None:
     assert outcome.usage.invalid_actions == 1
 
 
+@pytest.mark.parametrize("repair_plan", [False, True])
+def test_live_untagged_plan_gets_plan_steering_then_can_research(repair_plan: bool) -> None:
+    """Replay the real first response; later turns/tools are offline scripted controls."""
+    raw = (Path(__file__).parent / "fixtures" / "k3_missing_plan_kind.json").read_text(
+        encoding="utf-8"
+    )
+    turns = [ModelTurn(raw, (), "scripted", "")]
+    if repair_plan:
+        corrected = {"kind": "PLAN", **json.loads(raw)}
+        turns.append(ModelTurn(json.dumps(corrected), (), "scripted", ""))
+    turns.extend([_tool_turn("A股 最新行情"), _finish_turn()])
+    model = ScriptedModel(turns)
+    frame = _frame()
+    runner_calls = []
+
+    def runner(query, context):
+        runner_calls.append(query)
+        return _successful_runner(query, context)
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(runner),
+    )
+
+    repair_message = model.calls[1]["messages"][-1]
+    assert repair_message["role"] == "user"
+    assert "上一条 PLAN 无效" in repair_message["content"]
+    assert "missing plan fields: kind" in repair_message["content"]
+    assert "直接调用已授权工具" in repair_message["content"]
+    assert "FINAL_JSON" not in repair_message["content"]
+    assert model.calls[1]["tools"], "format repair must leave the authorized menu open"
+    assert model.calls[1]["messages"][-2]["content"] == raw
+    assert outcome.status == "completed"
+    assert outcome.usage.invalid_actions == 1
+    assert outcome.usage.llm_calls == 3 + int(repair_plan)
+    assert outcome.usage.tool_calls == 1
+    assert runner_calls == ["A股 最新行情"], "candidate_actions must not execute tools"
+    assert outcome.bindings[0].evidence_hashes == ("evidence-1",)
+    assert (outcome.plan is not None) is repair_plan
+    if outcome.plan is not None:
+        assert outcome.plan.revision == 1
+    sources = [e.payload.get("source") for e in outcome.events if e.kind == "model_input"]
+    assert sources.count("steering_invalid_plan") == 1
+    assert "steering_invalid_finish" not in sources
+
+
+def test_untagged_plan_does_not_get_unbounded_format_repairs() -> None:
+    raw = (Path(__file__).parent / "fixtures" / "k3_missing_plan_kind.json").read_text(
+        encoding="utf-8"
+    )
+    bad = ModelTurn(raw, (), "scripted", "")
+    model = ScriptedModel([
+        bad, bad,
+        _finish_turn(status="partial", hashes=(), gap="未取得证据"),
+    ])
+    frame = _frame()
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+    sources = [e.payload.get("source") for e in outcome.events if e.kind == "model_input"]
+    assert sources.count("steering_invalid_plan") == 1
+    assert outcome.plan is None
+    assert outcome.usage.tool_calls == 0
+    assert outcome.usage.llm_calls == 3
+    assert outcome.status == "partial"
+
+
 def test_initial_plan_can_express_answer_elements_without_contract_ids() -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -3868,6 +3996,35 @@ def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
     ) == 1
 
 
+def test_malformed_finish_recovery_keeps_late_cited_evidence() -> None:
+    def runner(query, context):
+        evidence, observation, trace = _successful_runner(query, context)
+        evidence.extend(
+            replace(evidence[0], content_hash=f"evidence-{i}", detail=f"rank-data-{i}")
+            for i in range(2, 35)
+        )
+        return evidence, observation, trace
+
+    broken = replace(
+        _finish_turn(draft="Review [E1] [E28] [E29] [E30] [E999]"),
+        content=_finish_turn(draft="Review [E1] [E28] [E29] [E30] [E999]").content + "]",
+    )
+    model = ScriptedModel([_tool_turn("snapshot"), broken, broken, _finish_turn()])
+    frame = _frame()
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=_context(frame), registry=_market_registry(runner),
+    )
+    assert outcome.stop_reason == "finalization_recovered"
+    assert outcome.usage.invalid_actions == 2
+    assert len(model.calls) == 4
+    recovery = json.loads(model.calls[-1]["messages"][1]["content"])
+    ids = {item["evidence_id"] for item in recovery["evidence"]}
+    assert {"E1", "E28", "E29", "E30"} <= ids
+    assert "E999" not in ids
+    assert len(ids) == 12
+    assert "Review" not in json.dumps(recovery)
+
+
 def test_last_planning_round_invalid_gets_repair_before_compact_recovery() -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -3948,12 +4105,20 @@ def test_tool_call_after_finalization_closed_uses_compact_recovery() -> None:
     assert model.calls[2]["tools"] == []
 
 
-def test_plan_after_finalization_enters_terminal_recovery_instead_of_being_accepted() -> None:
+@pytest.mark.parametrize("missing_kind", [False, True])
+def test_plan_after_finalization_enters_terminal_recovery_instead_of_being_accepted(
+    missing_kind: bool,
+) -> None:
     frame = _frame()
+    plan = _plan_turn()
+    if missing_kind:
+        payload = json.loads(plan.content)
+        del payload["kind"]
+        plan = replace(plan, content=json.dumps(payload))
     model = ScriptedModel(
         [
             _tool_turn("A股 最新行情", call_id="research-call"),
-            _plan_turn(),
+            plan,
             _finish_turn(),
         ]
     )

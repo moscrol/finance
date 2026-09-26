@@ -1,0 +1,126 @@
+"""Pin a fresh independent batch, preserving historical receipts verbatim."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415')
+TREE = Path(__file__).resolve().parent / 'candidate'
+REV = 'e7a6cb412865fdd189cf51a17f93622fa3d4fe55'
+BASE = '3bb81b9638f97b4773ce0f338df3a505b7c0162f'
+assert subprocess.check_output(['git','-C',str(TREE),'rev-parse','HEAD'],text=True).strip() == REV
+assert not subprocess.check_output(['git','-C',str(TREE),'status','--porcelain'],text=True).strip()
+assert not (ROOT/'authorization.json').exists()
+for axis in ('spec','quality'):
+    folder = ROOT/axis
+    old = json.loads((folder/'config.json').read_text())
+    for path in folder.rglob('*'):
+        if not path.is_file() or 'inputs' in path.relative_to(folder).parts:
+            continue
+        text = path.read_text()
+        for before, after in ((old['tree'],str(TREE)),(old['author'],str(TREE)),(old['revision'],REV),(old['baseline'],BASE)):
+            text = text.replace(before,after)
+        path.write_text(text)
+    controller = folder/'run_control.py'
+    body = controller.read_text()
+    before = 'Then use write exactly once to copy those contents into {echo}.'
+    assert body.count(before) == 1
+    body = body.replace(before, 'Then use write exactly once to copy those contents into {echo}. The fixture ends with one LF newline: preserve it byte-for-byte in the write content, encoded as a newline escape in JSON. Do not trim any whitespace.')
+    body = body.replace("limit = 4 if args.stage == 'gateway' else 24", "limit = {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1}[args.stage]")
+    controller.write_text(body)
+    runner = folder/'run_stage.py'
+    body = runner.read_text().replace("'max_requests': 24,", "'max_requests': {'explore': 17, 'execute': 17, 'report': 1}[STAGE],")
+    runner.write_text(body)
+    sandbox = folder/'tools.sb'
+    metadata = '\n(allow file-read-metadata ' + ' '.join('(literal '+json.dumps(str(p))+')' for p in (*TREE.parents,ROOT)) + ' (subpath '+json.dumps(str(TREE))+'))\n'
+    sandbox.write_text(sandbox.read_text()+metadata+'\n(deny process-exec (literal "/usr/bin/security"))\n')
+    preflight = folder/'sandbox_preflight.mjs'
+    body = preflight.read_text()
+    body = body.replace('const probe = `import errno, os, socket', 'const probe = `import errno, os, socket, subprocess')
+    anchor = "assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)"
+    assert body.count(anchor) == 1
+    body = body.replace(anchor, "try: subprocess.run(['/usr/bin/security','help'],capture_output=True,text=True,timeout=5)\nexcept PermissionError as e: assert e.errno in (errno.EPERM,errno.EACCES),e\nelse: raise AssertionError('security executable allowed')\n"+anchor)
+    body = body.replace("'credential read denied',", "'credential read denied', 'security executable denied (help only)',")
+    preflight.write_text(body)
+    current = Path(__file__).resolve().parent
+    prior = Path('/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205')
+    engineering = {
+        'candidate': REV,
+        'current_gates': json.loads((current/'gates.json').read_text()),
+        'current_python': json.loads((current/'python-receipts/gate-Pq59hxEb/pytest.json').read_text()),
+        'historical_python': json.loads((prior/'python-receipts/gate-C61dBEV0/pytest.json').read_text()),
+        'historical_prefix': json.loads((prior/'rag-prefix-result.json').read_text()),
+        'historical_prefix_output': (prior/'rag-prefix.log.txt').read_text(),
+        'scope': 'Author engineering observations only. Current code change persists full logs; no RAG/coverage root-cause repair is claimed. Do not relabel prior failures or count author runs as independent reviewer execution.',
+    }
+    (folder/'inputs/engineering-history.json').write_text(json.dumps(engineering,indent=2)+'\n')
+    claims = (folder/'inputs/claims.md').read_text().replace(old['revision'],REV)
+    lines = []
+    for line in claims.splitlines():
+        if line.startswith('- C7:'):
+            line = '- C7: Each engineering receipt belongs only to its recorded clean revision. The current e7 candidate has its own full engineering receipt in engineering-history.json; earlier c315 failures and prefix coverage failure remain separate. Current delta only persists logs and guards evidence storage; no RAG/coverage root-cause fix is claimed. Author runs cannot be relabeled as independent reviewer test counts.'
+        line = line.replace('Later audit/preflight tooling added after the candidate is outside this frozen review.', 'Additional repaired-candidate scope below is in scope for findings.')
+        lines.append(line)
+    lines += ['', 'Additional correctness scope, not additional C claim IDs:',
+        '- Currency field units in episode_semantic_verifier.py: equivalent rounding accepted; wrong currency scale, non-money fields and unbound evidence rejected.',
+        '- Controller owns stage/axis/revision/baseline in pi_review_protocol.mjs and prepare_pi_review_repair.py; any reviewer identity injection is forbidden.',
+        '- adaptive_l6_batch.py and prepare_adaptive_l6_runner.py require exact-Episode source audit PASS before next question. Missing, late, failing or malformed audit stops.',
+        '- diagnose_llm_timeout.py must fail strict checks if target request/response phase is not reached, even when wall time is under budget. Transport stage events include process spawn and request send.',
+        '- prepare_adaptive_l6.py and retrieval_readiness_worker.py require valid unique final model/encoding result, shape (1,1024), not just exit 0. Offline and 120s budget unchanged.',
+        '- probe_stalled_cancellation.py now arms its 0.3s cancellation timer only after headers; verifies read duration <1s and cancel-to-stop <0.7s, while original request deadline remains 10s. Review this test-fixture change separately from production transport.',
+        '- Cancellation waits for __enter__ on the lazy response context, not construction of the context manager; the slow-opener regression delays context entry.',
+        '- prepare_adaptive_l6_runner.validate_deadline_admission recomputes every strict scenario for timing and target coverage, binds clean current candidate identity, and rejects wrong/missing budgets before sidecar creation.',
+        '- Sandbox protected-content restrictions stay fixed; metadata-only access permits pytest collection on the original candidate. Literal /usr/bin/security execution is now also denied and tested with help only. No copied source/test runs count as candidate tests.',
+        '- run_main_gate.sh persists full pytest output in the unique receipt directory, rejects tee/tail failure or missing output, and refuses receipt storage within disposable basetemp. It must not hide pytest failure behind successful logging.',
+        '- Historical RAG and shared-window coverage failures are disclosed in engineering-history.json. A fresh complete author run is not proof that their unknown root causes were fixed. Independently assess the remaining risk.',
+        'Keep reviewer behavioral probes small: explicitly cover C3 late judge, C5 exhausted root and subwindow, C6 startup time inclusion, C2 each of five call paths, and actual cancellation. Report missing coverage honestly. Do not inherit prior reviewer conclusions.',
+    ]
+    (folder/'inputs/claims.md').write_text('\n'.join(lines)+'\n')
+    index_path = folder/'inputs/source-index.json'
+    names = [row['file'] for row in json.loads(index_path.read_text())]
+    names += ['scripts/review_probes/adaptive_l6_batch.py','scripts/review_probes/prepare_adaptive_l6_runner.py','scripts/review_probes/prepare_pi_review_repair.py','scripts/review_probes/pi_review_protocol.mjs','tests/test_adaptive_l6_audit.py','tests/test_pi_review_repair.py','scripts/review_probes/prepare_adaptive_l6.py','scripts/review_probes/retrieval_readiness_worker.py','tests/test_retrieval_readiness.py']
+    names += ['scripts/review_probes/probe_stalled_cancellation.py','tests/test_stalled_cancellation_probe.py','tests/test_l6_deadline_admission.py','scripts/run_main_gate.sh','tests/test_main_gate_receipt.py']
+    index=[]
+    for name in dict.fromkeys(names):
+        path=TREE/name
+        text=path.read_text()
+        row={'file':name,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'lines':len(text.splitlines()),'symbols':[]}
+        if path.suffix == '.py':
+            row['symbols']=[{'name':n.name,'start':n.lineno,'end':n.end_lineno} for n in ast.walk(ast.parse(text)) if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))]
+        index.append(row)
+    index_path.write_text(json.dumps(index,indent=2)+'\n')
+    selections = {
+        'scripts/review_probes/prepare_adaptive_l6_runner.py': {'validate_deadline_admission'},
+        'scripts/review_probes/probe_stalled_cancellation.py': {'run_case'},
+        'intelligence/services/llm_http_transport.py': None,
+        'intelligence/services/llm_refine.py': {'LLMProvider','Deadline','_open_deadline_http_response','_post_chat','_post_chat_synthesis','_post_chat_message','_post_chat_message_stream','_post_chat_stream','_post_chat_stream_raw','complete','call_ledger_scope'},
+        'intelligence/services/episode_semantic_verifier.py': {'_run_judge_once','semantic_judge_window_seconds','judge_attempt_seconds','_JudgeCall'},
+    }
+    excerpts=['# Raw candidate source excerpts, not host findings\n']
+    for name, symbols in selections.items():
+        source=(TREE/name).read_text()
+        lines_source=source.splitlines()
+        if symbols is None:
+            excerpts += ['\n## '+name+'\n```python\n'+source+'\n```\n']
+            continue
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node,(ast.FunctionDef,ast.ClassDef)) and node.name in symbols:
+                excerpts += ['\n## '+name+':'+str(node.lineno)+' '+node.name+'\n```python\n'+'\n'.join(lines_source[node.lineno-1:node.end_lineno])+'\n```\n']
+    (folder/'inputs/source-api.md').write_text('\n'.join(excerpts))
+    diff=subprocess.check_output(['git','-C',str(TREE),'diff','--stat','7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16',REV],text=True)
+    (folder/'inputs/code-tip-to-candidate.diffstat.txt').write_text(diff)
+    for stage in ('explore','execute','report'):
+        path=folder/f'prompt-{stage}.md'
+        text = path.read_text().replace('Budget: 24 requests maximum,', 'Budget: '+str({'explore':17,'execute':17,'report':1}[stage])+' requests maximum,')
+        text += '\nCurrent candidate includes all additional correctness scope in claims.md; historical author receipts do NOT cover it. No prior reviewer verdict is supplied.\n'
+        text += '\nThe shell tool already provides PYTHONPATH='+str(TREE)+'. Import intelligence.services.*, never services.*. Do not infer a relative candidate location or copy any source/tests. Use the original absolute candidate paths. Ancestor and excluded-directory metadata is allowed, but protected file contents remain forbidden.\n'
+        if stage == 'explore':
+            text += '\nRaw API bodies and signatures extracted by AST are in '+str(folder/'inputs/source-api.md')+'. Read this small source packet first, then any extra exact ranges you need. Limit your independently authored executable probes to three small scripts so they all fit the next execution stage. Each probe must validate its own endpoint framing and actual trigger; library iteration is line-oriented, not byte-chunk-oriented.\n'
+        if stage == 'execute':
+            text += '\nThe exact second command (no env prefix, no copied files) is: '+old['python']+' -B -m pytest -q -p no:cacheprovider '+str(TREE/'intelligence/tests/test_llm_timeout_diagnostic.py')+' '+str(TREE/'tests/test_main_gate_receipt.py')+" -k 'violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard or retains_complete_output or output_pipeline_failure or receipts_inside_disposable' --basetemp="+str(folder/'work/pytest-tmp')+' --junitxml='+str(folder/'work/author-tests.xml')+'\nRun each independently authored probe once before spending remaining calls debugging one failure. One corrected file per failed probe maximum; retain every original.\n'
+        path.write_text(text)
+record={'schema':'pr868-qc-current-main/v1','authorization':{'approved':True,'quote':'继续推进直到可以合并','scope':'New bounded independent review; no push/main merge/deployment'},'candidate':REV,'baseline':BASE,'old_batches_resumed':False,'prior_failed_gateway':{'root':'/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0015','requests':3,'cause':'provider omitted final LF during exact copy','verdict':'BLOCKED_PROVIDER_OR_ROUNDTRIP','preserved':True},'cumulative_request_cap_including_prior_batches':152,'prior_batches_charged':74,'this_batch_request_cap':78,'phase_limits':{'gateway':4,'explore':17,'execute':17,'report':1},'infra_amendments':['candidate/ancestor metadata only; protected content denied','original candidate tests only; exact command and import identity','raw source packet, not host conclusions'],'previous_complete_batch':'/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024','gateway_prompt_amendment':'explicit byte-for-byte LF preservation; strict protocol unchanged','stage_request_max':17,'stage_seconds':600,'request_seconds':120,'automatic_retries':0,'normal_request_limit':16,'closeout_seconds':420,'paid_batches_serial':True,'real_model_requests':0,'inputs_sha256':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in ROOT.rglob('*') if p.is_file()}}
+with (ROOT/'authorization.json').open('x') as f:
+    json.dump(record,f,ensure_ascii=False,indent=2)
+print(json.dumps({'status':'PREPARED','revision':REV,'files':len(record['inputs_sha256'])}))

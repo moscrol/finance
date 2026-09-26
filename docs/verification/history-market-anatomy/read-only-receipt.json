@@ -1,0 +1,1186 @@
+{
+  "recipe_sha256": "7275f21c60218443b2761f84152c74b3641a97a3c678aa5a7292e5b30cea183e",
+  "artifact_root": "/Users/a77/.finance-runtime/history-market-anatomy-candidate-20260917",
+  "db_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "information_cutoff": "2026-09-17",
+  "read_only": true,
+  "entry": "HistoryQuery service + model projection; NOT live LLM/Workbench E2E or independent arithmetic",
+  "code_sha256": {
+    "intelligence/services/historical_research/__init__.py": "0c2aaf9ca5236ec1966d2d9d8d82a9de89945dd6b72cc70958577e503cf5fb4a",
+    "intelligence/services/historical_research/anatomy.py": "145ffa25ec09fc750ba350d121c3920d8d29c84dc4f199eb9dbc2a11e47d3753",
+    "intelligence/services/historical_research/episode.py": "24ee27c3bb5407f9358aa221363adc3420ea4daa7b67ec99533ec444fbccce91",
+    "intelligence/services/historical_research/features.py": "447442ca4a004b603a86eac94095099e96803f45d552427cf2373f50ab5feb12",
+    "intelligence/services/historical_research/intent.py": "99b0a302d99f392defb7e6b782b56e2d7d6d4e43ea639cf991d4bc1e4652db7d",
+    "intelligence/services/historical_research/methodology.py": "5bed6255db342fa0a6c0c48778ab232680ba9d99f05a1f3f2e812b67faa4cc03",
+    "intelligence/services/historical_research/query.py": "f0a5003f1bd44e2634171d924d990467bd533736e48f1d860e4dc0ef7e872a4e",
+    "intelligence/services/historical_research/recovery.py": "7bfb71e5de42fbe657def6f1f7f19103a3c6f4917ee9888a9d9756648b5a4f0b",
+    "intelligence/services/historical_research/research.py": "f3aa5370702d0585d3d72f4ba3af4f9da4b14a84fd34eaa61048de30715a250e"
+  },
+  "results": {
+    "market": {
+      "query_id": "5edaa8c0a20dcb07a7b9fa114509b6e010aa4aee8e06077d0d797666768a883e",
+      "artifact_sha256": "27d3522276594f21a9c644aa34e208a5dc55c7212525d4b661763ac6e31f1f4a",
+      "matched": 1,
+      "preview_count": 1,
+      "model_blocks": 11,
+      "model_omissions": [],
+      "gaps": [
+        "market_stage_field:cycle_stage:missing",
+        "market_stage_field:cycle_stage_source:missing"
+      ],
+      "universe": {},
+      "preview": [
+        {
+          "entity_code": "000001.SH",
+          "entity_kind": "market",
+          "trade_date": "2026-09-15",
+          "market": {
+            "trade_date": "2026-09-15",
+            "total_amount": 16122.28,
+            "advancers": 1120,
+            "limit_up": 32,
+            "limit_down": 28,
+            "sh_index_pct_chg": -0.5418840547258164,
+            "sh_index_close": 3864.279,
+            "sh_deviation_pct": -1.04,
+            "cycle_stage": null,
+            "cycle_stage_source": null,
+            "cycle_stage_updated_at": null,
+            "market_stage": "下跌阶段",
+            "market_stage_source": "local:stage-lr-v1",
+            "market_stage_confidence": 0.961,
+            "stage_day": 8,
+            "sh_week_ma": 3904.73,
+            "sh_week_ma_source": "ma_recompute",
+            "amount_ma20": 19351.08,
+            "volume_ratio": 83.31,
+            "volume_state": "缩量观望",
+            "concentration_state": "正常",
+            "source": "local:overview",
+            "updated_at": "2026-09-15T18:34:52.697993"
+          },
+          "stage_semantics": "market_stage看专属source，confidence非校准准确率；cycle_stage=供应商内层。Not theme lifecycle or teaching index_stage",
+          "market_units": "价格=上证；total_amount/amount_ma20=全市场亿元；volume_ratio=成交额/MA20×100，非倍数；家数非占比"
+        }
+      ]
+    },
+    "analogues": {
+      "query_id": "faf8db95fd3cc592d38cfae66fe460fe898bdc09913ba6faec4ca57f5b7f58f4",
+      "artifact_sha256": "c431b759ca5a8be9d48c23d00a747f7e3ae052609864638c564da5ae21cbee8d",
+      "matched": 30,
+      "preview_count": 3,
+      "model_blocks": 49,
+      "model_omissions": [],
+      "gaps": [],
+      "universe": {
+        "entity_kind": "market",
+        "start": "2026-01-01",
+        "end": "2026-08-31",
+        "window_days": 11,
+        "step_days": 5,
+        "enumerated": 30
+      },
+      "preview": [
+        {
+          "entity_code": "000001.SH",
+          "entity_kind": "market",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "feature_cutoff": "2026-06-01",
+          "features": {
+            "return_pct": -1.8776710002372132,
+            "amount_vs_prior_mean": 0.9254193575279892,
+            "max_drawdown_pct": 2.6813042596085968,
+            "advancers_mean": 2268.181818181818,
+            "limit_up_mean": 77.18181818181819,
+            "limit_down_mean": 18.90909090909091
+          },
+          "sample_id": "21a0f98846ee3579816731a3b4b53228f5f732e909b8f5d9318ba0fccd0d4253",
+          "distance": 0.2944649537171876,
+          "feature_differences": {
+            "return_pct": 1.1832893193374994,
+            "amount_vs_prior_mean": 0.05936425488301089,
+            "max_drawdown_pct": -0.37965605996611584,
+            "advancers_mean": 138.4545454545455,
+            "limit_up_mean": 23.090909090909093,
+            "limit_down_mean": 7.818181818181818
+          },
+          "shared_features": [
+            "return_pct",
+            "amount_vs_prior_mean",
+            "max_drawdown_pct",
+            "advancers_mean",
+            "limit_up_mean",
+            "limit_down_mean"
+          ],
+          "missing_features": [],
+          "overlap_cluster": "overlap-1"
+        },
+        {
+          "entity_code": "000001.SH",
+          "entity_kind": "market",
+          "start": "2026-08-11",
+          "end": "2026-08-25",
+          "feature_cutoff": "2026-08-25",
+          "features": {
+            "return_pct": -1.9390749669082052,
+            "amount_vs_prior_mean": 0.816614034389235,
+            "max_drawdown_pct": 2.7081314677167456,
+            "advancers_mean": 2581.7272727272725,
+            "limit_up_mean": 67.18181818181819,
+            "limit_down_mean": 20.0
+          },
+          "sample_id": "6cff8da961cb25a819c72ccac702f94db307c717fdee710bf8adb9982dc21640",
+          "distance": 0.29812530999950954,
+          "feature_differences": {
+            "return_pct": 1.1218853526665074,
+            "amount_vs_prior_mean": -0.04944106825574335,
+            "max_drawdown_pct": -0.352828851857967,
+            "advancers_mean": 452.0,
+            "limit_up_mean": 13.090909090909093,
+            "limit_down_mean": 8.909090909090908
+          },
+          "shared_features": [
+            "return_pct",
+            "amount_vs_prior_mean",
+            "max_drawdown_pct",
+            "advancers_mean",
+            "limit_up_mean",
+            "limit_down_mean"
+          ],
+          "missing_features": [],
+          "overlap_cluster": "overlap-1"
+        },
+        {
+          "entity_code": "000001.SH",
+          "entity_kind": "market",
+          "start": "2026-05-11",
+          "end": "2026-05-25",
+          "feature_cutoff": "2026-05-25",
+          "features": {
+            "return_pct": -0.6551032164962556,
+            "amount_vs_prior_mean": 1.0065932535144742,
+            "max_drawdown_pct": 3.896103589992117,
+            "advancers_mean": 2260.4545454545455,
+            "limit_up_mean": 78.0,
+            "limit_down_mean": 12.454545454545455
+          },
+          "sample_id": "87c8fbf55a682630d4fe39a4211654b68e99dc3517a03110de44a13068dc793b",
+          "distance": 0.3042843505284906,
+          "feature_differences": {
+            "return_pct": 2.405857103078457,
+            "amount_vs_prior_mean": 0.14053815086949584,
+            "max_drawdown_pct": 0.8351432704174044,
+            "advancers_mean": 130.72727272727298,
+            "limit_up_mean": 23.909090909090907,
+            "limit_down_mean": 1.3636363636363633
+          },
+          "shared_features": [
+            "return_pct",
+            "amount_vs_prior_mean",
+            "max_drawdown_pct",
+            "advancers_mean",
+            "limit_up_mean",
+            "limit_down_mean"
+          ],
+          "missing_features": [],
+          "overlap_cluster": "overlap-1"
+        }
+      ]
+    },
+    "sector_rank": {
+      "query_id": "c924f022dc5e9f45ff855d26d42cd0c5bf7487c7e89f4c5c8778b3eeceac59a4",
+      "artifact_sha256": "627f02d05d6a87215a55fc70c9b90bfde1b94f14165113822701210016ad060b",
+      "matched": 226,
+      "preview_count": 5,
+      "model_blocks": 24,
+      "model_omissions": [],
+      "gaps": [
+        "feature:return_pct:missing",
+        "feature:max_drawdown_pct:missing",
+        "feature:up_day_share:missing"
+      ],
+      "universe": {
+        "entity_kind": "sector",
+        "start": "2026-05-18",
+        "end": "2026-06-01",
+        "enumerated": 226,
+        "selection": "all observed canonical codes in window",
+        "missing_unranked": 2,
+        "bias": "posthoc ranking; observed universe is not a complete historical listing/delisting universe"
+      },
+      "preview": [
+        {
+          "entity_code": "990001.FP",
+          "entity_kind": "sector",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 21.289619627089372,
+            "max_drawdown_pct": 2.146634000000003,
+            "up_day_share": 0.6363636363636364
+          },
+          "rank": 1,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 226
+        },
+        {
+          "entity_code": "881270.TI",
+          "entity_kind": "sector",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 11.261511395887002,
+            "max_drawdown_pct": 4.909579999999991,
+            "up_day_share": 0.6363636363636364
+          },
+          "rank": 2,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 226
+        },
+        {
+          "entity_code": "881105.TI",
+          "entity_kind": "sector",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 10.234948268484256,
+            "max_drawdown_pct": 5.518779039999999,
+            "up_day_share": 0.6363636363636364
+          },
+          "rank": 3,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 226
+        },
+        {
+          "entity_code": "885886.TI",
+          "entity_kind": "sector",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 9.154613654146626,
+            "max_drawdown_pct": 3.310000000000013,
+            "up_day_share": 0.7272727272727273
+          },
+          "rank": 4,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 226
+        },
+        {
+          "entity_code": "881145.TI",
+          "entity_kind": "sector",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 6.804624294927408,
+            "max_drawdown_pct": 6.854520999999991,
+            "up_day_share": 0.7272727272727273
+          },
+          "rank": 5,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 226
+        }
+      ]
+    },
+    "stock_rank": {
+      "query_id": "38442cba300e38dccc7a39dcc504f009a0d3caf57c930040f9e86a7b149fdb81",
+      "artifact_sha256": "a1236c598c30aac96c16f67e0f9fe6339568d28718922e965cccd4ebeb665a0d",
+      "matched": 5197,
+      "preview_count": 5,
+      "model_blocks": 23,
+      "model_omissions": [],
+      "gaps": [
+        "feature:return_pct:missing",
+        "feature:max_drawdown_pct:missing",
+        "feature:up_day_share:missing"
+      ],
+      "universe": {
+        "entity_kind": "stock",
+        "start": "2026-05-18",
+        "end": "2026-06-01",
+        "enumerated": 5197,
+        "selection": "all observed canonical codes in window",
+        "missing_unranked": 30,
+        "bias": "posthoc ranking; observed universe is not a complete historical listing/delisting universe"
+      },
+      "preview": [
+        {
+          "entity_code": "300212.SZ",
+          "entity_kind": "stock",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 104.00998191742077,
+            "max_drawdown_pct": 7.335609999999992,
+            "up_day_share": 0.7272727272727273
+          },
+          "rank": 1,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 5197
+        },
+        {
+          "entity_code": "000636.SZ",
+          "entity_kind": "stock",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 103.89847346107426,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 2,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 5197
+        },
+        {
+          "entity_code": "002552.SZ",
+          "entity_kind": "stock",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 80.28500383244275,
+            "max_drawdown_pct": 6.868662000000015,
+            "up_day_share": 0.8181818181818182
+          },
+          "rank": 3,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 5197
+        },
+        {
+          "entity_code": "300975.SZ",
+          "entity_kind": "stock",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 73.47729189640863,
+            "max_drawdown_pct": 9.309068185600001,
+            "up_day_share": 0.6363636363636364
+          },
+          "rank": 4,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 5197
+        },
+        {
+          "entity_code": "688260.SH",
+          "entity_kind": "stock",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "features": {
+            "return_pct": 69.17062242758007,
+            "max_drawdown_pct": 13.586065000000003,
+            "up_day_share": 0.7272727272727273
+          },
+          "rank": 5,
+          "selection_mode": "posthoc_ranked_observed_universe",
+          "population_count": 5197
+        }
+      ]
+    },
+    "ranked_stock_trace": {
+      "query_id": "6cf6ac9418e691788678a85be2a7894183e9325657794059d4c61cd9444c179a",
+      "artifact_sha256": "8cea08fb3b879ac042ece6fb10227ff3c86de2f54561706175717b364be40682",
+      "matched": 5,
+      "preview_count": 5,
+      "model_blocks": 42,
+      "model_omissions": [],
+      "gaps": [
+        "launch:002552.SZ:not_observed"
+      ],
+      "universe": {
+        "entity_kind": "stock",
+        "start": "2026-05-18",
+        "end": "2026-06-01",
+        "record_counts": {
+          "launch_signal": 3,
+          "price_path": 2,
+          "member_leader": 0,
+          "sector_succession": 0
+        },
+        "selection": "declared codes; first signal after in-window warmup; no winner prefilter",
+        "membership": "sector signal-date snapshot only, never current membership"
+      },
+      "preview": [
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "stock",
+          "entity_code": "300212.SZ",
+          "entity_name": "*ST易录\u0000",
+          "start": "2026-05-22",
+          "end": "2026-05-29",
+          "signal_date": "2026-05-29",
+          "signal_known_as_of": "2026-05-29",
+          "signal_status": "observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-05-18",
+            "2026-05-19",
+            "2026-05-20",
+            "2026-05-21",
+            "2026-05-22"
+          ],
+          "features": {
+            "return_pct": 38.378881158249236,
+            "amount_vs_prior_mean": 1.5376568507758321,
+            "max_drawdown_pct": 3.0200000000000005,
+            "up_day_share": 0.8333333333333334,
+            "market_relative_return_pct": 38.59245507044601
+          }
+        },
+        {
+          "record_kind": "price_path",
+          "entity_kind": "stock",
+          "entity_code": "300212.SZ",
+          "entity_name": "*ST易录\u0000",
+          "start": "2026-05-29",
+          "end": "2026-06-01",
+          "signal_date": "2026-05-29",
+          "signal_status": "observed",
+          "sector_snapshot_id": null,
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-06-01",
+          "peak_gain_pct": 27.124468000000014,
+          "days_to_peak": 1,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 0.0
+        },
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "stock",
+          "entity_code": "000636.SZ",
+          "entity_name": "风华高科",
+          "start": "2026-05-22",
+          "end": "2026-05-29",
+          "signal_date": "2026-05-29",
+          "signal_known_as_of": "2026-05-29",
+          "signal_status": "observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-05-18",
+            "2026-05-19",
+            "2026-05-20",
+            "2026-05-21",
+            "2026-05-22"
+          ],
+          "features": {
+            "return_pct": 55.05492386123312,
+            "amount_vs_prior_mean": 2.046162220375291,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0,
+            "market_relative_return_pct": 55.26849777342989
+          }
+        },
+        {
+          "record_kind": "price_path",
+          "entity_kind": "stock",
+          "entity_code": "000636.SZ",
+          "entity_name": "风华高科",
+          "start": "2026-05-29",
+          "end": "2026-06-01",
+          "signal_date": "2026-05-29",
+          "signal_status": "observed",
+          "sector_snapshot_id": null,
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-06-01",
+          "peak_gain_pct": 13.184043,
+          "days_to_peak": 1,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 0.0
+        },
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "stock",
+          "entity_code": "002552.SZ",
+          "entity_name": "宝鼎科技",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "signal_date": null,
+          "signal_known_as_of": null,
+          "signal_status": "not_observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-05-18",
+            "2026-05-19",
+            "2026-05-20",
+            "2026-05-21",
+            "2026-05-22"
+          ],
+          "features": {}
+        }
+      ]
+    },
+    "ranked_sector_trace": {
+      "query_id": "5dca5350a537cee5f4f30cc0c9390704723c22a1142ac098648d16515c03fece",
+      "artifact_sha256": "e697f6b9dbaf362572486b38445060960e6879a094ca6e5ad3a3e5395680e1e8",
+      "matched": 114,
+      "preview_count": 12,
+      "model_blocks": 97,
+      "model_omissions": [],
+      "gaps": [
+        "launch:881105.TI:not_observed",
+        "member_path:990001.FP:920128.BJ:missing",
+        "member_path:881270.TI:920060.BJ:missing",
+        "member_path:881270.TI:920128.BJ:missing",
+        "member_path:881270.TI:920641.BJ:missing",
+        "member_path:881270.TI:920821.BJ:missing",
+        "member_path:881270.TI:920981.BJ:missing",
+        "feature:return_pct:missing",
+        "feature:max_drawdown_pct:missing",
+        "feature:up_day_share:missing"
+      ],
+      "universe": {
+        "entity_kind": "sector",
+        "start": "2026-05-18",
+        "end": "2026-06-01",
+        "record_counts": {
+          "launch_signal": 3,
+          "price_path": 2,
+          "member_leader": 105,
+          "sector_succession": 4
+        },
+        "selection": "declared codes; first signal after in-window warmup; no winner prefilter",
+        "membership": "sector signal-date snapshot only, never current membership"
+      },
+      "preview": [
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "sector",
+          "entity_code": "990001.FP",
+          "entity_name": "MLCC",
+          "start": "2026-05-18",
+          "end": "2026-05-25",
+          "signal_date": "2026-05-25",
+          "signal_known_as_of": "2026-05-25",
+          "signal_status": "observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-05-18",
+            "2026-05-19",
+            "2026-05-20",
+            "2026-05-21",
+            "2026-05-22"
+          ],
+          "sector_snapshot_id": "legacy",
+          "features": {
+            "return_pct": 17.069758733401198,
+            "amount_vs_prior_mean": 1.6475188717196336,
+            "max_drawdown_pct": 2.0199999999999996,
+            "up_day_share": 0.8333333333333334,
+            "market_relative_return_pct": 16.65432018578208,
+            "advancer_share": 0.6281838316722038,
+            "amount_share_change_pp": 1.24433330210731
+          }
+        },
+        {
+          "record_kind": "price_path",
+          "entity_kind": "sector",
+          "entity_code": "990001.FP",
+          "entity_name": "MLCC",
+          "start": "2026-05-25",
+          "end": "2026-06-01",
+          "signal_date": "2026-05-25",
+          "signal_status": "observed",
+          "sector_snapshot_id": "legacy",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-05-28",
+          "peak_gain_pct": 9.69954219745144,
+          "days_to_peak": 3,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 2.1466339999999917
+        },
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "sector",
+          "entity_code": "881270.TI",
+          "entity_name": "元件",
+          "start": "2026-05-19",
+          "end": "2026-05-26",
+          "signal_date": "2026-05-26",
+          "signal_known_as_of": "2026-05-26",
+          "signal_status": "observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-05-18",
+            "2026-05-19",
+            "2026-05-20",
+            "2026-05-21",
+            "2026-05-22"
+          ],
+          "sector_snapshot_id": "legacy",
+          "features": {
+            "return_pct": 11.94642291990502,
+            "amount_vs_prior_mean": 1.3541987471992811,
+            "max_drawdown_pct": 2.610000000000001,
+            "up_day_share": 0.8333333333333334,
+            "market_relative_return_pct": 11.611316876813937,
+            "advancer_share": 0.5940860215053764,
+            "amount_share_change_pp": 1.909430825409328
+          }
+        },
+        {
+          "record_kind": "price_path",
+          "entity_kind": "sector",
+          "entity_code": "881270.TI",
+          "entity_name": "元件",
+          "start": "2026-05-26",
+          "end": "2026-06-01",
+          "signal_date": "2026-05-26",
+          "signal_status": "observed",
+          "sector_snapshot_id": "legacy",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-05-28",
+          "peak_gain_pct": 3.342977799999991,
+          "days_to_peak": 2,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 4.909580000000002
+        },
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "sector",
+          "entity_code": "881105.TI",
+          "entity_name": "煤炭开采加工",
+          "start": "2026-05-18",
+          "end": "2026-06-01",
+          "signal_date": null,
+          "signal_known_as_of": null,
+          "signal_status": "not_observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-05-18",
+            "2026-05-19",
+            "2026-05-20",
+            "2026-05-21",
+            "2026-05-22"
+          ],
+          "features": {}
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "881270.TI",
+          "source_sector": "990001.FP",
+          "anchor_peak_date": "2026-05-28",
+          "start": "2026-05-29",
+          "end": "2026-06-01",
+          "source_peak_status": "window_peak_unconfirmed",
+          "source_peak_confirmation_date": null,
+          "succession_known_as_of": "2026-06-01",
+          "target_signal_date": "2026-05-26",
+          "lag_trading_days": null,
+          "succession_status": "immature",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "881105.TI",
+          "source_sector": "990001.FP",
+          "anchor_peak_date": "2026-05-28",
+          "start": "2026-05-29",
+          "end": "2026-06-01",
+          "source_peak_status": "window_peak_unconfirmed",
+          "source_peak_confirmation_date": null,
+          "succession_known_as_of": "2026-06-01",
+          "target_signal_date": null,
+          "lag_trading_days": null,
+          "succession_status": "immature",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "990001.FP",
+          "source_sector": "881270.TI",
+          "anchor_peak_date": "2026-05-28",
+          "start": "2026-05-29",
+          "end": "2026-06-01",
+          "source_peak_status": "window_peak_unconfirmed",
+          "source_peak_confirmation_date": null,
+          "succession_known_as_of": "2026-06-01",
+          "target_signal_date": "2026-05-25",
+          "lag_trading_days": null,
+          "succession_status": "immature",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "881105.TI",
+          "source_sector": "881270.TI",
+          "anchor_peak_date": "2026-05-28",
+          "start": "2026-05-29",
+          "end": "2026-06-01",
+          "source_peak_status": "window_peak_unconfirmed",
+          "source_peak_confirmation_date": null,
+          "succession_known_as_of": "2026-06-01",
+          "target_signal_date": null,
+          "lag_trading_days": null,
+          "succession_status": "immature",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "member_leader",
+          "entity_kind": "stock",
+          "entity_code": "002579.SZ",
+          "entity_name": "中京电子",
+          "parent_sector": "881270.TI",
+          "membership_date": "2026-05-26",
+          "membership_snapshot_id": "legacy",
+          "start": "2026-05-26",
+          "end": "2026-05-28",
+          "features": {
+            "return_pct": 33.06369560120002,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 1,
+          "selection_mode": "posthoc_launch_members_only",
+          "population_count": 62,
+          "membership_status": "observed",
+          "path_anchor": "sector_signal_not_stock_launch",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-06-01",
+          "peak_gain_pct": 38.035333169756356,
+          "days_to_peak": 4,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 0.0,
+          "path_end": "2026-06-01"
+        },
+        {
+          "record_kind": "member_leader",
+          "entity_kind": "stock",
+          "entity_code": "300975.SZ",
+          "entity_name": "商络电子",
+          "parent_sector": "990001.FP",
+          "membership_date": "2026-05-25",
+          "membership_snapshot_id": "legacy",
+          "start": "2026-05-25",
+          "end": "2026-05-28",
+          "features": {
+            "return_pct": 64.69307547524,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 1,
+          "selection_mode": "posthoc_launch_members_only",
+          "population_count": 43,
+          "membership_status": "observed",
+          "path_anchor": "sector_signal_not_stock_launch",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-06-01",
+          "peak_gain_pct": 68.89903194068798,
+          "days_to_peak": 5,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 0.0,
+          "path_end": "2026-06-01"
+        },
+        {
+          "record_kind": "member_leader",
+          "entity_kind": "stock",
+          "entity_code": "002552.SZ",
+          "entity_name": "宝鼎科技",
+          "parent_sector": "881270.TI",
+          "membership_date": "2026-05-26",
+          "membership_snapshot_id": "legacy",
+          "start": "2026-05-26",
+          "end": "2026-05-28",
+          "features": {
+            "return_pct": 26.893263200000007,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 2,
+          "selection_mode": "posthoc_launch_members_only",
+          "population_count": 62,
+          "membership_status": "observed",
+          "path_anchor": "sector_signal_not_stock_launch",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-06-01",
+          "peak_gain_pct": 32.2548081140317,
+          "days_to_peak": 4,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-06-01",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 0.0,
+          "path_end": "2026-06-01"
+        }
+      ]
+    },
+    "trace": {
+      "query_id": "cae052af4c4c9786b70f5b264f4ba1a18fafddb940311b27c4b04f665325bd6c",
+      "artifact_sha256": "b8958082ff33017f5659bda7a5e48e76c25a2110a2694390064bcb1c6249e823",
+      "matched": 413,
+      "preview_count": 12,
+      "model_blocks": 105,
+      "model_omissions": [],
+      "gaps": [
+        "launch:990219.FP:not_observed",
+        "member_path:990306.FP:300472.SZ:missing",
+        "member_path:990306.FP:301139.SZ:missing",
+        "member_path:990122.FP:688432.SH:missing",
+        "feature:return_pct:missing",
+        "feature:max_drawdown_pct:missing",
+        "feature:up_day_share:missing"
+      ],
+      "universe": {
+        "entity_kind": "sector",
+        "start": "2026-08-03",
+        "end": "2026-09-15",
+        "record_counts": {
+          "launch_signal": 3,
+          "price_path": 2,
+          "member_leader": 404,
+          "sector_succession": 4
+        },
+        "selection": "declared codes; first signal after in-window warmup; no winner prefilter",
+        "membership": "sector signal-date snapshot only, never current membership"
+      },
+      "preview": [
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "sector",
+          "entity_code": "990219.FP",
+          "entity_name": "机器人",
+          "start": "2026-08-03",
+          "end": "2026-09-15",
+          "signal_date": null,
+          "signal_known_as_of": null,
+          "signal_status": "not_observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-08-03",
+            "2026-08-04",
+            "2026-08-05",
+            "2026-08-06",
+            "2026-08-07"
+          ],
+          "features": {}
+        },
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "sector",
+          "entity_code": "990306.FP",
+          "entity_name": "算力租赁",
+          "start": "2026-08-20",
+          "end": "2026-08-27",
+          "signal_date": "2026-08-27",
+          "signal_known_as_of": "2026-08-27",
+          "signal_status": "observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-08-03",
+            "2026-08-04",
+            "2026-08-05",
+            "2026-08-06",
+            "2026-08-07"
+          ],
+          "sector_snapshot_id": "ae1cfcaf8c1ec24dcc2bd6571784c43fd14241156d5f9a24ea7d85f7828b5448",
+          "features": {
+            "return_pct": 2.6521240860585493,
+            "amount_vs_prior_mean": 1.121631434726964,
+            "max_drawdown_pct": 1.7199999999999993,
+            "up_day_share": 0.8333333333333334,
+            "market_relative_return_pct": 1.050171262118127,
+            "advancer_share": 0.5673076923076923,
+            "amount_share_change_pp": -0.18900697693899626
+          }
+        },
+        {
+          "record_kind": "price_path",
+          "entity_kind": "sector",
+          "entity_code": "990306.FP",
+          "entity_name": "算力租赁",
+          "start": "2026-08-27",
+          "end": "2026-09-15",
+          "signal_date": "2026-08-27",
+          "signal_status": "observed",
+          "sector_snapshot_id": "ae1cfcaf8c1ec24dcc2bd6571784c43fd14241156d5f9a24ea7d85f7828b5448",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-09-01",
+          "peak_gain_pct": 4.323232721455983,
+          "days_to_peak": 3,
+          "confirmation_date": null,
+          "peak_status": "window_peak_unconfirmed",
+          "peak_known_as_of": "2026-09-15",
+          "confirmation_known_as_of": null,
+          "end_drawdown_from_peak_pct": 5.3564535233914246
+        },
+        {
+          "record_kind": "launch_signal",
+          "entity_kind": "sector",
+          "entity_code": "990122.FP",
+          "entity_name": "半导体",
+          "start": "2026-08-10",
+          "end": "2026-08-17",
+          "signal_date": "2026-08-17",
+          "signal_known_as_of": "2026-08-17",
+          "signal_status": "observed",
+          "earlier_signal_gap_dates": [],
+          "warmup_dates": [
+            "2026-08-03",
+            "2026-08-04",
+            "2026-08-05",
+            "2026-08-06",
+            "2026-08-07"
+          ],
+          "sector_snapshot_id": "fc4ab49168f5366a2090429f05e93ad9b1702ee95588afd65be489c77fef83f9",
+          "features": {
+            "return_pct": 5.033339275543969,
+            "amount_vs_prior_mean": 1.2037844054894802,
+            "max_drawdown_pct": 1.4900000000000024,
+            "up_day_share": 0.5,
+            "market_relative_return_pct": 3.9516996868802057,
+            "advancer_share": 0.5891562208639801,
+            "amount_share_change_pp": 2.2712993421859062
+          }
+        },
+        {
+          "record_kind": "price_path",
+          "entity_kind": "sector",
+          "entity_code": "990122.FP",
+          "entity_name": "半导体",
+          "start": "2026-08-17",
+          "end": "2026-09-15",
+          "signal_date": "2026-08-17",
+          "signal_status": "observed",
+          "sector_snapshot_id": "fc4ab49168f5366a2090429f05e93ad9b1702ee95588afd65be489c77fef83f9",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-08-18",
+          "peak_gain_pct": 5.293653999999992,
+          "days_to_peak": 1,
+          "confirmation_date": "2026-08-24",
+          "peak_status": "drawdown_confirmed_retrospectively",
+          "peak_known_as_of": "2026-09-15",
+          "confirmation_known_as_of": "2026-09-15",
+          "end_drawdown_from_peak_pct": 13.469345110617725
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "990219.FP",
+          "source_sector": "990306.FP",
+          "anchor_peak_date": "2026-09-01",
+          "start": "2026-09-02",
+          "end": "2026-09-08",
+          "source_peak_status": "window_peak_unconfirmed",
+          "source_peak_confirmation_date": null,
+          "succession_known_as_of": "2026-09-15",
+          "target_signal_date": null,
+          "lag_trading_days": null,
+          "succession_status": "not_observed",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "990122.FP",
+          "source_sector": "990306.FP",
+          "anchor_peak_date": "2026-09-01",
+          "start": "2026-09-02",
+          "end": "2026-09-08",
+          "source_peak_status": "window_peak_unconfirmed",
+          "source_peak_confirmation_date": null,
+          "succession_known_as_of": "2026-09-15",
+          "target_signal_date": "2026-08-17",
+          "lag_trading_days": null,
+          "succession_status": "outside_succession_window",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "990219.FP",
+          "source_sector": "990122.FP",
+          "anchor_peak_date": "2026-08-18",
+          "start": "2026-08-19",
+          "end": "2026-08-25",
+          "source_peak_status": "drawdown_confirmed_retrospectively",
+          "source_peak_confirmation_date": "2026-08-24",
+          "succession_known_as_of": "2026-09-15",
+          "target_signal_date": null,
+          "lag_trading_days": null,
+          "succession_status": "not_observed",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "sector_succession",
+          "entity_kind": "sector",
+          "entity_code": "990306.FP",
+          "source_sector": "990122.FP",
+          "anchor_peak_date": "2026-08-18",
+          "start": "2026-08-19",
+          "end": "2026-08-25",
+          "source_peak_status": "drawdown_confirmed_retrospectively",
+          "source_peak_confirmation_date": "2026-08-24",
+          "succession_known_as_of": "2026-09-15",
+          "target_signal_date": "2026-08-27",
+          "lag_trading_days": null,
+          "succession_status": "outside_succession_window",
+          "evidence": {
+            "source_return_pct": null,
+            "target_return_pct": null,
+            "target_relative_return_pct": null
+          },
+          "causal_status": "not_established"
+        },
+        {
+          "record_kind": "member_leader",
+          "entity_kind": "stock",
+          "entity_code": "688432.SH",
+          "entity_name": "有研硅",
+          "parent_sector": "990122.FP",
+          "membership_date": "2026-08-17",
+          "membership_snapshot_id": "fc4ab49168f5366a2090429f05e93ad9b1702ee95588afd65be489c77fef83f9",
+          "start": "2026-08-17",
+          "end": "2026-08-18",
+          "features": {
+            "return_pct": 20.67817700000001,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 1,
+          "selection_mode": "posthoc_launch_members_only",
+          "population_count": 196,
+          "membership_status": "observed",
+          "path_anchor": "sector_signal_not_stock_launch",
+          "path_status": "missing",
+          "missing_dates": [
+            "2026-09-03",
+            "2026-09-04",
+            "2026-09-08"
+          ],
+          "peak_date": null,
+          "peak_status": "unverifiable",
+          "confirmation_date": null,
+          "path_end": "2026-09-15"
+        },
+        {
+          "record_kind": "member_leader",
+          "entity_kind": "stock",
+          "entity_code": "000712.SZ",
+          "entity_name": "锦龙股份",
+          "parent_sector": "990306.FP",
+          "membership_date": "2026-08-27",
+          "membership_snapshot_id": "ae1cfcaf8c1ec24dcc2bd6571784c43fd14241156d5f9a24ea7d85f7828b5448",
+          "start": "2026-08-27",
+          "end": "2026-09-01",
+          "features": {
+            "return_pct": 38.462463258349985,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 1,
+          "selection_mode": "posthoc_launch_members_only",
+          "population_count": 208,
+          "membership_status": "observed",
+          "path_anchor": "sector_signal_not_stock_launch",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-09-01",
+          "peak_gain_pct": 38.462463258349985,
+          "days_to_peak": 3,
+          "confirmation_date": "2026-09-08",
+          "peak_status": "drawdown_confirmed_retrospectively",
+          "peak_known_as_of": "2026-09-15",
+          "confirmation_known_as_of": "2026-09-15",
+          "end_drawdown_from_peak_pct": 27.414423968427492,
+          "path_end": "2026-09-15"
+        },
+        {
+          "record_kind": "member_leader",
+          "entity_kind": "stock",
+          "entity_code": "688807.SH",
+          "entity_name": "优迅股份",
+          "parent_sector": "990122.FP",
+          "membership_date": "2026-08-17",
+          "membership_snapshot_id": "fc4ab49168f5366a2090429f05e93ad9b1702ee95588afd65be489c77fef83f9",
+          "start": "2026-08-17",
+          "end": "2026-08-18",
+          "features": {
+            "return_pct": 18.433940999999997,
+            "max_drawdown_pct": 0.0,
+            "up_day_share": 1.0
+          },
+          "rank": 2,
+          "selection_mode": "posthoc_launch_members_only",
+          "population_count": 196,
+          "membership_status": "observed",
+          "path_anchor": "sector_signal_not_stock_launch",
+          "path_status": "complete",
+          "missing_dates": [],
+          "peak_date": "2026-08-27",
+          "peak_gain_pct": 26.366855159297597,
+          "days_to_peak": 8,
+          "confirmation_date": "2026-09-01",
+          "peak_status": "drawdown_confirmed_retrospectively",
+          "peak_known_as_of": "2026-09-15",
+          "confirmation_known_as_of": "2026-09-15",
+          "end_drawdown_from_peak_pct": 8.042541693671424,
+          "path_end": "2026-09-15"
+        }
+      ]
+    }
+  }
+}

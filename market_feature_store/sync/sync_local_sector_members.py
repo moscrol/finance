@@ -177,7 +177,7 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
     rows = con.execute(
         f"""
         WITH hist AS (
-            SELECT stock_ts_code, trade_date, close, pct_chg, amount, source,
+            SELECT stock_ts_code, trade_date, stock_name, close, pct_chg, amount, source,
                    LAG(close, 3)  OVER w AS c3,
                    LAG(close, 5)  OVER w AS c5,
                    LAG(close, 10) OVER w AS c10,
@@ -186,7 +186,7 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
             WHERE trade_date >= ? AND trade_date <= ?
             WINDOW w AS (PARTITION BY stock_ts_code ORDER BY trade_date)
         )
-        SELECT stock_ts_code, close, pct_chg, amount, c3, c5, c10, c20
+        SELECT stock_ts_code, close, pct_chg, amount, c3, c5, c10, c20, stock_name
         FROM hist
         WHERE ({like_clauses}) AND trade_date = ?
           AND close IS NOT NULL AND pct_chg IS NOT NULL AND amount IS NOT NULL
@@ -200,8 +200,9 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
         return round((float(close) / float(base) - 1.0) * 100.0, 4)
 
     out: dict[str, dict] = {}
-    for code, close, pct, amt, c3, c5, c10, c20 in rows:
+    for code, close, pct, amt, c3, c5, c10, c20, name in rows:
         out[code] = {
+            "stock_name": name,
             "price": float(close),
             "pct_chg": float(pct),
             "amount": float(amt),
@@ -336,7 +337,9 @@ def build_rows(
         rows.append(
             {
                 "ts_code": code,
-                "name": m.get("stock_name"),
+                # Identity baselines can be months old. Prefer the same-day
+                # provider display name (including ST/IPO/ex-date prefixes).
+                "name": v.get("stock_name") or m.get("stock_name"),
                 "price": v["price"],
                 "pct_chg": v["pct_chg"],
                 "amount": v["amount"],
@@ -376,7 +379,9 @@ def stitch_sector_members(
     """对 identity 未动且尚未完成的板块做本地拼接。返回可进 runlog 的摘要。
 
     ``dry_run`` 只算不写，摘要里带 ``rows``（按板块）供对账；``include_completed``
-    连已 success 的板块也算（仅供在历史快照上回测拼接精度，生产路径不用）。
+    连已 success 的板块也算（历史回测，或 staging 恢复中底行情修正后的重建；日更默认不用）。
+    ``refresh_complete`` 只证明本轮显式刷新已写完且审计完整；普通日更为 None，
+    dry-run 即使算出了所有行也为 False，旧 success 不能替未完成的刷新作证。
     """
     td = _as_date(trade_date)
     own = con is None
@@ -477,6 +482,15 @@ def stitch_sector_members(
         "caps_fetched": len(caps),
         "audit": audit.brief() if audit is not None else None,
         "audit_complete": bool(audit.complete) if audit is not None else None,
+        "refresh_complete": (
+            not dry_run
+            and len(stitched) == len(candidates)
+            and not skipped_count
+            and not failed
+            and pending_for_provider == 0
+            and audit is not None
+            and bool(audit.complete)
+        ) if include_completed else None,
         "dry_run": dry_run,
     }
     if dry_run:

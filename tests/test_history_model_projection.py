@@ -176,7 +176,113 @@ def test_all_preview_samples_survive_without_equating_cards_to_returned_rows():
     assert any(row.get("returned_count") == 25 and row.get("total_matched") == 40 for row in details)
     assert "projected_evidence_count" in model["observation"]
     assert "read_history_result" in model["observation"]
-    assert "缩窄" in model["observation"]
+    assert "保持所选窗口" in model["observation"]
+    assert "缩窄日期" not in model["observation"]
+
+
+@pytest.mark.parametrize("offset,limit,next_offset", [
+    (0, 1, 1), (0, 25, None), (1, 1, None), (1, 25, None), (2, 1, None), (9, 2, None),
+])
+def test_query_pages_keep_absolute_sample_coordinates_and_navigation(
+    tmp_path, offset, limit, next_offset
+):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    original = session.read(ref)
+    page = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": offset, "limit": limit},
+        context=context, step_id=f"read-{offset}",
+    )
+    model, details = _project(page)
+    samples = {row["sample"] for row in details if "entity_code" in row}
+    assert samples == set(range(offset, min(offset + limit, 2)))
+    scope = next(row for row in details if "total_matched" in row)
+    assert scope["total_matched"] == 2
+    assert scope["returned_count"] == len(samples)
+    assert scope["offset"] == offset
+    assert scope["next_offset"] == next_offset
+    # A last page is still only part of the complete result, even with no next page.
+    assert scope["truncated"] is (len(samples) < 2)
+    assert page.telemetry["offset"] == offset
+    assert page.telemetry["next_offset"] == next_offset
+    assert f'"offset":{offset}' in model["observation"]
+    assert f'"next_offset":{next_offset if next_offset is not None else "null"}' in model["observation"]
+    assert session.read(ref) == original
+    assert all(item.internal_locator == ref for item in page.evidence)
+    assert {item.independent_key for item in page.evidence} == {first.telemetry["query_id"]}
+
+
+def test_query_initial_preview_advertises_the_next_page(tmp_path):
+    registry, context, _session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    model, details = _project(first)
+    scope = next(row for row in details if "total_matched" in row)
+    assert (scope["offset"], scope["next_offset"]) == (0, 1)
+    assert '"next_offset":1' in model["observation"]
+
+
+def test_overlapping_query_pages_refer_to_the_same_source_row(tmp_path):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"]},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    _model, before = _project(first)
+    page = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+        context=context, step_id="overlap",
+    )
+    _model, after = _project(page)
+    before_row = [row for row in before if row.get("trade_date") == "2026-08-04"]
+    after_row = [row for row in after if row.get("trade_date") == "2026-08-04"]
+    assert before_row and before_row == after_row
+    assert {row["sample"] for row in after_row} == {1}
+    assert len(session.read(ref)["rows"]) == 2
+
+
+@pytest.mark.parametrize("operation", ["compute_history", "find_analogues", "compare_cases"])
+def test_page_coordinates_preserve_reference_and_complete_comparison(operation):
+    rows = [
+        {"entity_code": "A.FP", "start": "2026-08-03", "end": "2026-08-04",
+         "features": {"return_pct": value}}
+        for value in range(3)
+    ]
+    payload = _payload(rows, operation=operation)
+    payload.update(reference=rows[0], comparison={"enumerated": 3, "missing": 1})
+    original = deepcopy(payload)
+    page = dict(payload, preview=rows[2:], returned_count=1, truncated=True)
+    _model, details = _project(_result(page, result_ref=REF, offset=2))
+    candidates = [row for row in details if row.get("role") == "candidate"]
+    references = [row for row in details if row.get("role") == "reference"]
+    assert candidates and {row["sample"] for row in candidates} == {2}
+    assert references and {row["sample"] for row in references} == {"reference"}
+    assert next(row["enumerated"] for row in details if "enumerated" in row) == 3
+    assert next(row["missing"] for row in details if "missing" in row) == 1
+    assert payload == original
+
+
+def test_empty_query_result_has_no_next_page():
+    model, details = _project(_result(_payload([]), result_ref=REF))
+    scope = next(row for row in details if "total_matched" in row)
+    assert scope["offset"] == 0
+    assert scope["next_offset"] is None
+    assert scope["total_matched"] == scope["returned_count"] == 0
+    assert scope["truncated"] is False
+    assert '"next_offset":null' in model["observation"]
 
 
 def test_oversized_field_is_explicitly_omitted_without_clipping_json():

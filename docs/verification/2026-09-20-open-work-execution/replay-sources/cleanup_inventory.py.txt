@@ -1,0 +1,84 @@
+from pathlib import Path
+import subprocess,json,os,hashlib,re,datetime,sys
+ROOT=Path('/Users/a77/finance-workspace-private');OUT=Path('/Users/a77/.finance-runtime/open-work-execution-20260920')
+def run(args,cwd=ROOT,timeout=120):return subprocess.run(args,cwd=cwd,capture_output=True,text=True,timeout=timeout)
+def git(*args):return run(['git',*args])
+def dump(p,x):p.write_text(json.dumps(x,ensure_ascii=False,indent=2)+'\n')
+raw=git('worktree','list','--porcelain').stdout;(OUT/'worktrees-current.txt').write_text(raw)
+rows=[]
+for block in raw.strip().split('\n\n'):
+ d=dict(line.split(' ',1) if ' ' in line else (line,True) for line in block.splitlines());rows.append({'path':d['worktree'],'head':d['HEAD'],'branch':d.get('branch'),'detached':bool(d.get('detached'))})
+remote=git('ls-remote','--heads','gitea');assert remote.returncode==0
+refs=[line.split() for line in remote.stdout.splitlines()];dump(OUT/'gitea-heads.json',[{'sha':r[0],'ref':r[1]} for r in refs])
+r=subprocess.run(['git','rev-list','--stdin'],input='\n'.join({r[0] for r in refs})+'\n',cwd=ROOT,capture_output=True,text=True);assert r.returncode==0
+reachable=set(r.stdout.splitlines());main=next(r[0] for r in refs if r[1]=='refs/heads/main');main_anc=set(git('rev-list',main).stdout.splitlines())
+patterns={}
+for row in rows:
+ p=row['path'];variants={p,str(Path(p).resolve())}
+ if p.startswith(str(Path.home())+'/'):variants.add('~/'+p[len(str(Path.home()))+1:])
+ for v in variants:patterns.setdefault(v,[]).append(p)
+pattern_file=OUT/'tree-reference-patterns.txt';pattern_file.write_text('\n'.join(patterns)+'\n')
+def matches(text):
+ found=set()
+ for p,trees in patterns.items():
+  if p in text:found.update(trees)
+ return found
+refs_by_tree={r['path']:[] for r in rows};active_by_tree={r['path']:[] for r in rows};ledger_by_tree={r['path']:[] for r in rows}
+sys.path.insert(0,str(ROOT))
+from scripts import gitea_pr
+open_prs=gitea_pr._api('GET','/pulls?state=open&limit=100')
+dump(OUT/'cleanup-open-prs.json',[{'number':p['number'],'head':p['head']['sha'],'branch':p['head']['ref'],'url':p['html_url']} for p in open_prs])
+# Inspect actual launchctl jobs; retain only labels and matching tree paths, never raw environments.
+labels=[ln.split()[-1] for ln in run(['launchctl','list']).stdout.splitlines()[1:] if re.search('finance|workbench|review|rag|publish',ln,re.I)]
+for label in labels:
+ data=run(['launchctl','print',f'gui/{os.getuid()}/{label}'],timeout=15)
+ for p in matches(data.stdout):active_by_tree[p].append({'kind':'launchctl','label':label})
+for alias in [Path.home()/'finance-workspace-runtime',Path.home()/'finance-workspace-sync']:
+ if alias.exists():
+  for p in matches(str(alias.resolve())):active_by_tree[p].append({'kind':'runtime_alias','path':str(alias)})
+for line in run(['ps','-axo','pid=,command=']).stdout.splitlines():
+ for p in matches(line):active_by_tree[p].append({'kind':'process','pid':line.strip().split()[0]})
+ledger=Path.home()/'.finance-runtime/deploy-ledger.jsonl'
+if ledger.exists():
+ for i,line in enumerate(ledger.read_text().splitlines(),1):
+  for p in matches(line):ledger_by_tree[p].append({'file':str(ledger),'line':i})
+# Exact path search in all registered finance worktrees' docs: handoffs, receipts, manifests and verification.
+docs=[str(Path(r['path'])/'docs') for r in rows if (Path(r['path'])/'docs').is_dir()]
+q=run(['rg','--no-ignore','--hidden','-l','-F','-f',str(pattern_file),'-g','*.md','-g','*.json','-g','*.jsonl',*docs],timeout=300)
+assert q.returncode in (0,1),q.stderr[:500]
+for name in q.stdout.splitlines():
+ try:text=Path(name).read_text(errors='replace')
+ except OSError:continue
+ for p in matches(text):refs_by_tree[p].append(name)
+# Runtime manifests/receipts outside registered code checkouts, preserving rollback and original artifact references.
+registered={str(Path(r['path']).resolve()) for r in rows};external_count=0
+for folder,dirs,files in os.walk(Path.home()/'.finance-runtime'):
+ dirs[:]=[n for n in dirs if n not in {'node_modules','.git','.venv','__pycache__','.cache','untracked'} and str((Path(folder)/n).resolve()) not in registered and (Path(folder)/n)!=OUT]
+ for name in files:
+  if not (('manifest' in name.lower() or 'receipt' in name.lower()) and name.endswith(('.json','.jsonl','.txt'))):continue
+  file=Path(folder)/name
+  if file.is_symlink() or file.stat().st_size>20*1024*1024:continue
+  try:text=file.read_text(errors='replace')
+  except OSError:continue
+  external_count+=1
+  for p in matches(text):refs_by_tree[p].append(str(file))
+for row in rows:
+ p=row['path'];status=run(['git','-C',p,'status','--porcelain=v1','--untracked-files=all'],timeout=20)
+ row.update(status_available=status.returncode==0,dirty=bool(status.stdout) if status.returncode==0 else None,remote_reconstructible=row['head'] in reachable,ancestor_of_main=row['head'] in main_anc,active_references=active_by_tree[p],deployment_references=ledger_by_tree[p],document_references=sorted(set(refs_by_tree[p])))
+ reasons=[]
+ if status.returncode:reasons.append('git metadata unavailable')
+ if status.stdout:reasons.append('uncommitted changes')
+ if not row['detached']:reasons.append('named branch needs owner decision')
+ if not row['remote_reconstructible']:reasons.append('SHA absent from actual Gitea reachable history')
+ if active_by_tree[p]:reasons.append('active process/launchctl/runtime alias')
+ if ledger_by_tree[p]:reasons.append('deployment/rollback ledger reference')
+ if refs_by_tree[p]:reasons.append('handoff/receipt/manifest path reference')
+ row['pull_request_references']=[{'number':pr['number'],'url':pr['html_url']} for pr in open_prs if pr['head']['sha']==row['head'] or row['branch']=='refs/heads/'+pr['head']['ref']]
+ if row['pull_request_references']:reasons.append('open pull request head/branch')
+ if Path(p).is_relative_to(OUT):reasons.append('current execution frozen verification source')
+ row.update(owner_claim='pending',action='retain',blocking_reasons=reasons+['no per-tree deletion claim/approval'],eligible_for_owner_review=not reasons)
+summary={'captured_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'remote_main':main,'registered_trees':len(rows),'dirty_trees':sum(r['dirty'] is True for r in rows),'unavailable':sum(not r['status_available'] for r in rows),'not_remotely_reconstructible':sum(not r['remote_reconstructible'] for r in rows),'no_reference_candidates':sum(r['eligible_for_owner_review'] for r in rows),'external_manifests_and_receipts_scanned':external_count,'deleted':0,'scan_limit':'Only explicit path references are recognizable; dynamic/computed paths and an owner claim remain a required manual check.'}
+dump(OUT/'cleanup-manifest.json',{'summary':summary,'trees':rows})
+lines=['# 工作树清理审查清单','',f'采样 {summary["captured_at"]}；{len(rows)} 棵。已删除：0。以下都是保留决定，待逐树认领；可重建不等于可删除。','', '| 路径 | SHA | 脏 | 远端可重建 | 活跃/部署/文档引用数 | 决定 |','|---|---|---|---|---|---|']
+for r in rows:lines.append(f'| `{r["path"]}` | `{r["head"][:12]}` | {r["dirty"]} | {r["remote_reconstructible"]} | {len(r["active_references"])}/{len(r["deployment_references"])}/{len(r["document_references"])} | 保留；待认领 |')
+(OUT/'cleanup-review.md').write_text('\n'.join(lines)+'\n');print(json.dumps(summary,ensure_ascii=False),flush=True)

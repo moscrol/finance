@@ -1,0 +1,432 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_overlapping_generation_root_is_rejected_before_any_side_effect[standard] _
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro0/legacy-standard'), ...}
+target = 'standard'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+        with pytest.raises(MaintenanceError, match="generation root"):
+>           maintenance.prepare(**dict(case, root=root), generation="overlap")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:487: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro0/legacy-standard')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        embedder = get_embedder(contract["model"])
+                        store, stats = update(embedder, frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        if store.dense.ndim != 2 or store.dense.shape[1] != embedder.dim:
+                            raise MaintenanceError(f"{name}: model/vector dimension mismatch")
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+>                   raise MaintenanceError("input index changed during maintenance")
+E                   rag.maintenance_io.MaintenanceError: input index changed during maintenance
+
+skills/lib/rag/maintenance.py:127: MaintenanceError
+
+During handling of the above exception, another exception occurred:
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro0/legacy-standard'), ...}
+target = 'standard'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'generation root'
+E        Input: 'input index changed during maintenance'
+
+skills/lib/rag/tests/test_guarded_maintenance.py:486: AssertionError
+_ test_overlapping_generation_root_is_rejected_before_any_side_effect[standard/nested] _
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro1/legacy-standard'), ...}
+target = 'standard/nested'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+        with pytest.raises(MaintenanceError, match="generation root"):
+>           maintenance.prepare(**dict(case, root=root), generation="overlap")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:487: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro1/legacy-standard/nested')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        embedder = get_embedder(contract["model"])
+                        store, stats = update(embedder, frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        if store.dense.ndim != 2 or store.dense.shape[1] != embedder.dim:
+                            raise MaintenanceError(f"{name}: model/vector dimension mismatch")
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+>                   raise MaintenanceError("input index changed during maintenance")
+E                   rag.maintenance_io.MaintenanceError: input index changed during maintenance
+
+skills/lib/rag/maintenance.py:127: MaintenanceError
+
+During handling of the above exception, another exception occurred:
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro1/legacy-standard'), ...}
+target = 'standard/nested'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'generation root'
+E        Input: 'input index changed during maintenance'
+
+skills/lib/rag/tests/test_guarded_maintenance.py:486: AssertionError
+__ test_overlapping_generation_root_is_rejected_before_any_side_effect[full] ___
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro2/legacy-standard'), ...}
+target = 'full'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+        with pytest.raises(MaintenanceError, match="generation root"):
+>           maintenance.prepare(**dict(case, root=root), generation="overlap")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:487: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro2/legacy-full')
+
+    def prepare(root: Path, *, generation: str, vault: Path, standard: Path, full: Path,
+                probes: dict, quarantine: dict[str, str] | None = None,
+                allowed_issues: dict[str, list[str]] | None = None) -> Path:
+        root = generation_root(root, create=True)
+        vault = canonical(vault)
+        inputs = {"standard": canonical(standard), "full": canonical(full)}
+        if inputs["standard"] == inputs["full"]:
+            raise MaintenanceError("two distinct source indexes required")
+        quarantine = quarantine or {}
+        allowed_issues = allowed_issues or {"standard": [], "full": []}
+        candidate = generation_path(root, generation)
+        with writer_lock(root):
+            if candidate.exists():
+                raise MaintenanceError("generation already exists; preserve it and choose a new id")
+            candidate.parent.mkdir(exist_ok=True)
+            candidate.mkdir()
+            atomic_json(candidate / MARKER, {"root": str(root), "generation": generation})
+            try:
+                requests = [p.stem for p in sorted((root / "requests").glob("*.json"))
+                            if read_json(p).get("wiki") == str(vault)]
+                contracts = {name: settings(path, name == "full") for name, path in inputs.items()}
+                input_hashes = {name: file_manifest(path) for name, path in inputs.items()}
+                runtime = runtime_identity()
+                code = _freeze_code(candidate / "code")
+                sources = freeze_sources(vault, candidate / "source", contracts)
+                conflicts = {rel: item["sha256"] for rel, item in sources["files"].items() if item["conflict"]}
+                if conflicts != quarantine:
+                    raise MaintenanceError("quarantine must exactly match all conflicting source paths and bytes")
+                frozen_vault = candidate / "source" / vault.name
+                indexes = {}
+                with candidate_writes(root, candidate):
+                    for name, source_index in inputs.items():
+                        assert_writer(root)
+                        target = candidate / name
+                        contract = contracts[name]
+                        embedder = get_embedder(contract["model"])
+                        store, stats = update(embedder, frozen_vault,
+                                              RagStore.load(source_index),
+                                              include_raw=contract["include_raw"], max_files=contract["max_files"])
+                        if store.dense.ndim != 2 or store.dense.shape[1] != embedder.dim:
+                            raise MaintenanceError(f"{name}: model/vector dimension mismatch")
+                        # Check source/code/path changes before any index write, too.
+                        verify_source_snapshot(candidate / "source", sources)
+                        _verify_code_origin(code)
+                        store.save(target)
+                        validation = validate_index(target, frozen_vault, contract, sources, name,
+                                                    quarantine, allowed_issues.get(name, []))
+                        indexes[name] = {"path": str(target), "settings": contract, "update": stats,
+                                         "validation": validation, "files": file_manifest(target)}
+                if selected_sources(vault, contracts) != sources["files"]:
+                    raise MaintenanceError("source set changed while indexes were being built")
+                if any(file_manifest(path) != input_hashes[name] for name, path in inputs.items()):
+>                   raise MaintenanceError("input index changed during maintenance")
+E                   rag.maintenance_io.MaintenanceError: input index changed during maintenance
+
+skills/lib/rag/maintenance.py:127: MaintenanceError
+
+During handling of the above exception, another exception occurred:
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro2/legacy-standard'), ...}
+target = 'full'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'generation root'
+E        Input: 'input index changed during maintenance'
+
+skills/lib/rag/tests/test_guarded_maintenance.py:486: AssertionError
+__ test_overlapping_generation_root_is_rejected_before_any_side_effect[wiki] ___
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro3/legacy-standard'), ...}
+target = 'wiki'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:486: Failed
+_ test_overlapping_generation_root_is_rejected_before_any_side_effect[wiki/nested] _
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro4/legacy-standard'), ...}
+target = 'wiki/nested'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:486: Failed
+_ test_overlapping_generation_root_is_rejected_before_any_side_effect[raw/nested] _
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro5/legacy-standard'), ...}
+target = 'raw/nested'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+        with pytest.raises(MaintenanceError, match="generation root"):
+>           maintenance.prepare(**dict(case, root=root), generation="overlap")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:487: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/maintenance.py:99: in prepare
+    sources = freeze_sources(vault, candidate / "source", contracts)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+vault = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro5/source/wiki')
+dest = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro5/source/raw/nested/generations/overlap/source')
+contracts = {'full': {'include_raw': True, 'max_files': 0, 'model': 'hash'}, 'standard': {'include_raw': False, 'max_files': 0, 'model': 'hash'}}
+
+    def freeze_sources(vault: Path, dest: Path, contracts: dict) -> dict:
+        before = selected_sources(vault, contracts)
+        if not before:
+            raise MaintenanceError("no allowed source files; refusing an empty generation")
+        dest.mkdir()
+        for rel, entry in before.items():
+            data = stable_read(vault.parent / rel)
+            if digest(data) != entry["sha256"]:
+                raise MaintenanceError(f"source changed during freeze: {rel}")
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        if selected_sources(vault, contracts) != before:
+>           raise MaintenanceError("source set changed during freeze")
+E           rag.maintenance_io.MaintenanceError: source set changed during freeze
+
+skills/lib/rag/maintenance_validation.py:90: MaintenanceError
+
+During handling of the above exception, another exception occurred:
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlappin...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_overlapping_generation_ro5/legacy-standard'), ...}
+target = 'raw/nested'
+
+    @pytest.mark.parametrize("target", ["standard", "standard/nested", "full", "wiki", "wiki/nested", "raw/nested"])
+    def test_overlapping_generation_root_is_rejected_before_any_side_effect(case, target):
+        roots = {"standard": case["standard"], "full": case["full"], "wiki": case["vault"],
+                 "raw": case["vault"].parent / "raw"}
+        name, _, suffix = target.partition("/")
+        root = roots[name] / suffix
+        before = file_manifest(roots[name])
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'generation root'
+E        Input: 'source set changed during freeze'
+
+skills/lib/rag/tests/test_guarded_maintenance.py:486: AssertionError
+_____ test_queue_rejects_source_overlap_before_creating_lock_or_directory ______
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_queue_reje...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_queue_rejects_source_over0/legacy-standard'), ...}
+
+    def test_queue_rejects_source_overlap_before_creating_lock_or_directory(case):
+        root = case["vault"] / "requests-in-source"
+>       with pytest.raises(MaintenanceError, match="generation root"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:495: Failed
+_____ test_existing_generation_can_feed_new_generation_in_same_outer_root ______
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_existing_g...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_existing_generation_can_f0/legacy-standard'), ...}
+
+    def test_existing_generation_can_feed_new_generation_in_same_outer_root(case):
+        old = published(case)
+        manifest = maintenance.prepare(**dict(case, standard=old.parent / "standard", full=old.parent / "full"),
+                                       generation="next")
+        assert verify_manifest(manifest, approved=False)["generation"] == "next"
+        with pytest.raises(MaintenanceError, match="generation root"):
+>           maintenance.request_refresh(old.parent / "unexpected", vault=case["vault"], reason="unsafe root")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:506: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/maintenance_io.py:227: in request_refresh
+    root = generation_root(root, create=True)
+skills/lib/rag/maintenance_io.py:134: in generation_root
+    root.mkdir(parents=True, exist_ok=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_existing_generation_can_f0/generations-root/generations/one/unexpected')
+mode = 511, parents = True, exist_ok = True
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           PermissionError: [Errno 13] Permission denied: '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2903/test_existing_generation_can_f0/generations-root/generations/one/unexpected'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: PermissionError
+=========================== short test summary info ============================
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_overlapping_generation_root_is_rejected_before_any_side_effect[standard]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_overlapping_generation_root_is_rejected_before_any_side_effect[standard/nested]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_overlapping_generation_root_is_rejected_before_any_side_effect[full]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_overlapping_generation_root_is_rejected_before_any_side_effect[wiki]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_overlapping_generation_root_is_rejected_before_any_side_effect[wiki/nested]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_overlapping_generation_root_is_rejected_before_any_side_effect[raw/nested]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_queue_rejects_source_overlap_before_creating_lock_or_directory
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_existing_generation_can_feed_new_generation_in_same_outer_root
+8 failed, 30 deselected in 2.88s

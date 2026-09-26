@@ -301,6 +301,7 @@ def cmd_sync_index_daily(args) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         symbol=args.symbol,
+        allow_fupanhui_fallback=not args.no_fupanhui_fallback,
     )
     print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
     print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
@@ -682,6 +683,7 @@ def cmd_stitch_sector_stocks(args) -> int:
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        include_completed=getattr(args, 'include_completed', False),
         **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
@@ -697,6 +699,14 @@ def cmd_stitch_sector_stocks(args) -> int:
     if s.get("audit"):
         print(f"完成度审计: {s['audit']}")
     print(brief(s))
+    if getattr(args, "include_completed", False):
+        if args.dry_run:
+            print("刷新预览：未写入，不认证本轮刷新完成")
+        elif s.get("refresh_complete") is not True:
+            print("刷新未完成：本轮候选未全部写入、仍有待补或审计不完整；旧成功记录不能替代本轮刷新")
+            return 2
+        else:
+            print(f"刷新完成：本轮写入 {s['stitched']} 个板块，无待补且审计完整")
     return 0
 
 
@@ -1010,21 +1020,29 @@ def cmd_sync_limit_advance_range(args) -> int:
 
 
 def cmd_sync_stock_daily(args) -> int:
+    from .mootdx_source import MootdxSourceUnavailable
     from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
 
-    stats = sync_fact_stock_daily(
-        start_date=args.start_date,
-        offset=args.offset,
-        limit=args.limit,
-        only_missing=not args.refresh,
-        sleep=args.sleep,
-        qfq=args.qfq,
-        timeout=args.timeout,
-        progress_every=args.progress_every,
-        end_date=args.end_date,
-        ohlc_only=args.ohlc_only,
-        skip=args.skip,
-    )
+    try:
+        stats = sync_fact_stock_daily(
+            start_date=args.start_date,
+            offset=args.offset,
+            limit=args.limit,
+            only_missing=not args.refresh,
+            sleep=args.sleep,
+            qfq=args.qfq,
+            timeout=args.timeout,
+            progress_every=args.progress_every,
+            end_date=args.end_date,
+            ohlc_only=args.ohlc_only,
+            skip=args.skip,
+        )
+    except MootdxSourceUnavailable as exc:
+        # 源不可用必须退非零码: 以前无论写了多少行都 return 0,
+        # 夜跑编排看不到红灯, 断供两周无人发现。
+        print(f"源不可用, 未写入(或已部分写入后中止): {exc}")
+        print(f"诊断: {json.dumps(exc.health.as_dict(), ensure_ascii=False)}")
+        return 2
     mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
     print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
@@ -1033,7 +1051,24 @@ def cmd_sync_stock_daily(args) -> int:
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
     if stats["failures"]:
         print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+        print(f"失败分类: {stats['failure_kinds']}")
     return 0
+
+
+def cmd_bridge_stock_daily(args) -> int:
+    from .sync.bridge_hithink_stock_daily import BridgeRefused
+    from .sync.sync_daily_full import run_bridge_stock_daily_step
+
+    refused = _refuse_production_write(False)
+    if refused is not None:
+        return refused
+    try:
+        stats = run_bridge_stock_daily_step(args.trade_date, skip_existing=False)
+    except BridgeRefused as exc:
+        print(f"同花顺日线桥拒绝写入: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False, default=str))
+    return 0 if stats.get("written_rows", 0) > 0 else 1
 
 
 def cmd_fill_stock_daily_fallback(args) -> int:
@@ -1053,18 +1088,34 @@ def cmd_fill_stock_daily_fallback(args) -> int:
         print(f"提示: {stats['note']}")
     return 0 if stats["stock_rows"] else 1
 def cmd_sync_stock_daily_snapshot(args) -> int:
-    from .sync.sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
+    from .sync import sync_eastmoney_stock_snapshot as eastmoney_snapshot
 
-    stats = sync_fact_stock_daily_snapshot(
-        trade_date=args.trade_date,
-        page_size=args.page_size,
-        allow_misdated=args.allow_misdated,
-    )
+    eastmoney_snapshot.reset_transport_request_counts()
+    try:
+        stats = eastmoney_snapshot.sync_fact_stock_daily_snapshot(
+            trade_date=args.trade_date,
+            page_size=args.page_size,
+            allow_misdated=args.allow_misdated,
+        )
+    except Exception:
+        # 失败也保留本次传输尝试数；不计熔断跳过，含连接阶段失败。
+        print(
+            "东财请求计数: "
+            + json.dumps(eastmoney_snapshot.transport_request_counts(), ensure_ascii=False, sort_keys=True),
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
     print(f"交易日: {stats['trade_date']} | 快照实际日期: {stats['snapshot_trade_date']} | 来源: {stats['source']}")
     print(f"快照拉取: {stats['fetched']} 行 | 写入: {stats['rows_written']} | 跳过: {stats['skipped']}")
     print(f"当日入库: {stats['day_rows']} 股")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(
+        "东财请求计数: "
+        + json.dumps(stats["transport_requests"], ensure_ascii=False, sort_keys=True)
+        + f" | total={stats['transport_request_total']}"
+    )
     return 0
 
 
@@ -1258,6 +1309,29 @@ def cmd_sync_hithink_dragon_auction(args) -> int:
         print("wrote sidecar (production db locked)")
     print(f"fingerprint={stats['fingerprint']}")
     return 0
+
+
+def cmd_sync_hithink_research(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_research import (
+        PARTIAL_EXIT_CODE,
+        HithinkResearchError,
+        sync_hithink_research,
+    )
+
+    try:
+        stats = sync_hithink_research(
+            end_date=_date.fromisoformat(args.end_date) if args.end_date else None,
+            codes=args.thscodes.split(",") if args.thscodes is not None else None,
+            lookback_days=args.lookback_days,
+            history_only=args.history_only,
+        )
+    except (HithinkResearchError, ValueError) as exc:
+        print(f"hithink-research: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False))
+    return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
 
 
 def _daily_preflight_or_exit() -> int | None:
@@ -2153,6 +2227,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
     p_idx.set_defaults(func=cmd_sync_index_daily)
 
     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
@@ -2288,6 +2363,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--include-completed", action="store_true",
+                      help="底行情修正后重建已完成板块；恢复任务仅在 staging 中使用")
     p_st.add_argument("--max-baseline-age-days", type=int, default=None,
                       help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)
@@ -2415,6 +2492,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--progress-every", type=int, default=200, help="每处理多少只打一行心跳进度, 默认200; 0=关闭")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
 
+    p_bridge = sub.add_parser(
+        "bridge-stock-daily", help="同花顺日线补 canonical 当日缺口（仅副本，拒绝覆盖已有日线）",
+    )
+    p_bridge.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_bridge.set_defaults(func=cmd_bridge_stock_daily)
+
     p_fsf = sub.add_parser("fill-stock-daily-fallback",
                            help="当日兜底: 用 fact_sector_stock_daily 行情聚合补 fact_stock_daily(标 fallback)")
     p_fsf.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
@@ -2507,6 +2590,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="不拉竞价终态（全市场约 56 次）",
     )
     p_htd.set_defaults(func=cmd_sync_hithink_dragon_auction)
+
+    p_htr = sub.add_parser(
+        "sync-hithink-research",
+        help="同花顺异动、热度轨迹、估值观察值；仅 staging/隔离库，非历史估值回填",
+    )
+    p_htr.add_argument("--end-date", default=None, help="自然日窗口末日，默认上海今天")
+    p_htr.add_argument("--thscodes", default=None, help="显式代码，逗号分隔；默认目标日热榜前30")
+    p_htr.add_argument("--lookback-days", type=int, default=30, help="热度自然日窗口，1..365")
+    p_htr.add_argument("--history-only", action="store_true", help="只取可回溯的热度，不取最新快照")
+    p_htr.set_defaults(func=cmd_sync_hithink_research)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")

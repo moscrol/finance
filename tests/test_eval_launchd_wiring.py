@@ -39,7 +39,7 @@ BUILD_PLIST = (
 )
 CLT_PYTHON = "/usr/bin/python3"
 RUNTIME = "/Users/a77/finance-workspace-runtime"  # path-literal-ok: 本机 launchd 树指针契约
-SYNC_CODE_ROOT = "/Users/a77/finance-workspace-sync"  # path-literal-ok: 本机 sync 专用代码根契约
+SYNC_CODE_ROOT = "/Users/a77/.finance-runtime/finance-sync-fe9fdbfd70a6"  # path-literal-ok: 本机 sync 固定代码根契约
 VENV_PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"  # path-literal-ok: 本机 workbench venv 契约
 LOCAL_BIN = "/Users/a77/.local/bin"  # path-literal-ok: 本机 wrapper 安装落点
 
@@ -494,8 +494,9 @@ def test_generation_failure_is_not_reported_as_complete(tmp_path: Path) -> None:
 def test_finalize_template_pins_generation_separately_from_l2() -> None:
     with SPLIT_REVIEW_PLISTS[1].open("rb") as handle:
         env = plistlib.load(handle)["EnvironmentVariables"]
-    assert env["FINANCE_CODE_ROOT"].endswith("/finance-l2-d433b90788c0")
-    assert env["FINANCE_GENERATION_CODE_ROOT"].endswith("/finance-generation-387028b846a2")
+    assert env["FINANCE_CODE_ROOT"].endswith("/finance-l2-adcda94b5e40")
+    assert env["FINANCE_GENERATION_CODE_ROOT"].endswith("/finance-generation-adcda94b5e40")
+    assert env["FINANCE_SYNC_CODE_ROOT"] == SYNC_CODE_ROOT
     assert len({env[key] for key in ("FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT", "FINANCE_DATA_ROOT")}) == 3
 
 
@@ -526,14 +527,16 @@ def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:
     夜跑 09-10~09-11 连着三次 `unknown plan 'local'` rc=2，09-11 整个交易日没进库。
     缺省值在代码里，所以只有 plist 显式给值才挡得住；这条钉住它别再被删。
 
-    也不能指回 FINANCE_CODE_ROOT（运行快照）：那是部分 rsync，缺 L2 与题材资金源。
+    不能指回 8792 可变软链或数据树。sync 的 FINANCE_CODE_ROOT 也指同一完整检出，
+    但 S7 clone/swap 实现仍由原 FINANCE_S7_ROOT 提供，不在本次切换范围。
     """
     with SPLIT_REVIEW_PLISTS[0].open("rb") as handle:
         plist = plistlib.load(handle)
     env = plist["EnvironmentVariables"]
     assert env.get("FINANCE_SYNC_CODE_ROOT") == SYNC_CODE_ROOT
     assert env["FINANCE_SYNC_CODE_ROOT"] != env.get("FINANCE_DATA_ROOT")
-    assert env["FINANCE_SYNC_CODE_ROOT"] != env.get("FINANCE_CODE_ROOT")
+    assert env["FINANCE_SYNC_CODE_ROOT"] == env["FINANCE_CODE_ROOT"]
+    assert env["FINANCE_SYNC_CODE_ROOT"] != RUNTIME
 
 
 def test_checkpoint_installer_defaults_to_venv_and_runtime() -> None:

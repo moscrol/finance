@@ -87,9 +87,14 @@ def apply_static_chain_mapping_precheck(
 
 
 def evidence_required_output_ids(contract: ResearchTaskContract) -> frozenset[str]:
-    from intelligence.services.material_delivery import material_question_outputs
+    from intelligence.services.material_delivery import material_input_output_ids
 
-    material_ids = {item.output_id for item in material_question_outputs(contract)}
+    material_ids = set(material_input_output_ids(contract))
+    # A financial input/calculation obligation cannot become optional just
+    # because tools closed. Rebind already acquired periods, or disclose a
+    # local partial; budget exhaustion is not evidence of task completion.
+    if contract.question_type == "financial_analysis":
+        material_ids.add("metric_evidence")
     # 无工具不等于无法交付材料题：仍能逐题解释缺什么。D5 的 missing
     # 不能降 optional，否则 repair 跳过没写的一题就会伪装成 completed。
     return frozenset(

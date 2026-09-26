@@ -1,0 +1,1210 @@
+{
+  "scope": "Selected raw evidence only; not a claim of complete model or experiment archives",
+  "files": {
+    "runtime/accepted-audit.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/host-audit-v2.json",
+      "sha256": "8b1cdcecf4703963761327c88f9b084f70b381eb16612a660351ff099c7b0925",
+      "bytes": 15044
+    },
+    "runtime/original-audit-rejected.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/host-audit.json",
+      "sha256": "b84af4e76e6f45ec4bb3b786fff3b14538ebd675cfd748453ab39641ec092262",
+      "bytes": 817
+    },
+    "runtime/results.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/results.json",
+      "sha256": "d7715ea57aa4553fae84640ac9d499702b91bd29cbde4d3e82151f1845ec184f",
+      "bytes": 24079
+    },
+    "runtime/definitions.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/definitions.json",
+      "sha256": "c03ff006cbc68285c1f2f5b7a0db2db565860fb1738002948f83f703fab8da2e",
+      "bytes": 4462
+    },
+    "runtime/baseline.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/baseline.xml",
+      "sha256": "e22b1bbcc117be81b7c2d9ce3308b3b6bc22fbf700e5b01b27dbde67d734574d",
+      "bytes": 12132
+    },
+    "runtime/restored-full.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/restored-full.xml",
+      "sha256": "d3628a1d24af43942dbbb6b80fc3d4729fffdd40e41f36de6aa59c91a0cb3789",
+      "bytes": 12132
+    },
+    "runtime/assembly_cancel_propagation.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation.diff",
+      "sha256": "4a99e243f4225992cc7e279963d882b7528b0ef03ec935eb899512c9c1dfbcc3",
+      "bytes": 540
+    },
+    "runtime/inbox_flush_before_ack.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_flush_before_ack.diff",
+      "sha256": "73cec7e10d5e02bc727daf2c1b099f6c61910a1cd75244f4ed309f2c78c35a34",
+      "bytes": 670
+    },
+    "runtime/inbox_no_false_ack.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack.diff",
+      "sha256": "a16973ed881ad08b0d0c89237431bf18f87cc55bc5b4e1c0d17ae870d7b40e73",
+      "bytes": 599
+    },
+    "runtime/neutral_completion_boundary.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary.diff",
+      "sha256": "a0bdaa3b4a24bac1d73a07fde7931ebe5840342e1417ab8b95d7ee0e95c0c2f7",
+      "bytes": 781
+    },
+    "runtime/nonstream_finish_reason.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason.diff",
+      "sha256": "b5044f9a7b17672051ddf5ec73930561d050a1c6c9c0464a4561577872268f4a",
+      "bytes": 622
+    },
+    "runtime/pre_model_dispatch_fence.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence.diff",
+      "sha256": "a8b64fb733edd3270be8cfb36753bb59a2ceca0eeb973ccfdf9ee81ba187be4d",
+      "bytes": 642
+    },
+    "runtime/provider_no_hidden_retry.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry.diff",
+      "sha256": "3caf4f80874260d127b8a0e5c671c8bda9b7c00d5822ea692eb22c13960939be",
+      "bytes": 700
+    },
+    "runtime/queued_runner_fence.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence.diff",
+      "sha256": "e8159b6f49af70e663fd2a68f0ef87c3b70800940370021c39990e6fc3ef6f15",
+      "bytes": 929
+    },
+    "runtime/received_tool_result_retention.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention.diff",
+      "sha256": "ea522205c0ad50f8bbdc6838d7169174ee9d3b0a8d67a01b81491829f88e9b5a",
+      "bytes": 791
+    },
+    "runtime/sse_terminal_delivery_race.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race.diff",
+      "sha256": "cdfa30eb87b974e26ff431a564aeebf1d7c750f76dc8379884910c54f2501aa6",
+      "bytes": 628
+    },
+    "runtime/terminal_completion_fence.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_completion_fence.diff",
+      "sha256": "ed8546dee2008afd8d02b72b2d3088c71a596fab6bbeb5f0986eb7fa7525dfd7",
+      "bytes": 708
+    },
+    "runtime/terminal_flush.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_flush.diff",
+      "sha256": "af7924e8526796b74717e23427b8332b8d630e39a2b49f05ae8c3be02c3b4c82",
+      "bytes": 678
+    },
+    "runtime/tool_intent_fence.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence.diff",
+      "sha256": "491f4f6d38a5b3a291a9ae4fd3263df60995081fd7aad34f3a96e8a24201f5c7",
+      "bytes": 629
+    },
+    "runtime/assembly_cancel_propagation-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation-red.xml",
+      "sha256": "8b799562cccad67bf6f579961d7059a94f6679c7deb9c71509568fdc1eb8143b",
+      "bytes": 1300
+    },
+    "runtime/inbox_flush_before_ack-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_flush_before_ack-red.xml",
+      "sha256": "f8577e1c1e0af3ca4b4e674d8a37de6f155aeb1207551b9e89bcbc13a7ac64f7",
+      "bytes": 1151
+    },
+    "runtime/inbox_no_false_ack-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack-red.xml",
+      "sha256": "4197f1c75d69010d4bfc842031102cd3eab701bd7208362077b5b1e3a1c51db4",
+      "bytes": 2702
+    },
+    "runtime/neutral_completion_boundary-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary-red.xml",
+      "sha256": "aa375c648a1d71ac884e5f50b991ce70bbb90a6b0728ad1efb660a630678455e",
+      "bytes": 4457
+    },
+    "runtime/nonstream_finish_reason-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason-red.xml",
+      "sha256": "ae9f07b75ead9d54fcd72fbc2796fe06bc08b1d723380cf542db39591dc5687c",
+      "bytes": 787
+    },
+    "runtime/pre_model_dispatch_fence-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red.xml",
+      "sha256": "ab2911aeadaf493b70f0c58b0412bef037022a9362e0563a6f95999258edb330",
+      "bytes": 4415
+    },
+    "runtime/provider_no_hidden_retry-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry-red.xml",
+      "sha256": "ea515a0e20339affc8825e9b88ee64fdd2ec154a6b347c3659e557ca1af64ab4",
+      "bytes": 4811
+    },
+    "runtime/queued_runner_fence-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence-red.xml",
+      "sha256": "aba7d7f7c7b773567a61fef5f1706efa14563385eebf562912c20c1c095a55b2",
+      "bytes": 751
+    },
+    "runtime/received_tool_result_retention-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention-red.xml",
+      "sha256": "582fb336c0ffc91ee8492261a730836d675ec9356582da16f06856e4b6c08863",
+      "bytes": 1401
+    },
+    "runtime/sse_terminal_delivery_race-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race-red.xml",
+      "sha256": "9a5b61ce2db7517449a6d9f1fd9a06df2f16394e843b6c75d9afd8bb40b934e7",
+      "bytes": 1569
+    },
+    "runtime/terminal_completion_fence-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_completion_fence-red.xml",
+      "sha256": "cddcff7d3e850e9fd8e701c8a9aa32b84bdc86c2f94d30cf6da6bf8f82bfb06c",
+      "bytes": 6220
+    },
+    "runtime/terminal_flush-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_flush-red.xml",
+      "sha256": "b4194e9af6804add8701e6a6b437246a98489feffbf3419a61d8089f630d3069",
+      "bytes": 1179
+    },
+    "runtime/tool_intent_fence-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence-red.xml",
+      "sha256": "7af882bdc9ca7eae10139f621a324ffac99fac4fb164ee904b2cc50448ff802a",
+      "bytes": 1117
+    },
+    "runtime/assembly_cancel_propagation-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation-green/raw.log",
+      "sha256": "c1648a452df2c1fd0b7ab5d376684db16632da949b9ccd06b9549277c6083393",
+      "bytes": 275
+    },
+    "runtime/assembly_cancel_propagation-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation-green/process.json",
+      "sha256": "424d40b82926a30aaca161d17cdff9a315d154a2c417ebd1517dcc8046236d2a",
+      "bytes": 2829
+    },
+    "runtime/assembly_cancel_propagation-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation-red/raw.log",
+      "sha256": "9c8292e890f9f7748395aaabcee160c0f892fb20d294bed1a9490e68217c6d10",
+      "bytes": 1168
+    },
+    "runtime/assembly_cancel_propagation-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation-red/process.json",
+      "sha256": "815740a8ce4ace8b45e86447810dd7e12bf023e9d3ff1a68cd138524ddc3c788",
+      "bytes": 2817
+    },
+    "runtime/baseline.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/baseline/raw.log",
+      "sha256": "eff5b93aa12e1d9ef4bd25cb69fdd90c738e20aff58db6f860b994f12ed200fc",
+      "bytes": 237
+    },
+    "runtime/baseline-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/baseline/process.json",
+      "sha256": "10e7c32434ab08e22bb148dd41815bc950f9bbebed26fd385c560086db6946c6",
+      "bytes": 2602
+    },
+    "runtime/inbox_flush_before_ack-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_flush_before_ack-green/raw.log",
+      "sha256": "46d2a9262ef35bfb5613501224d0ee4d7a6473c8d1c8c19a0ebf155ca83ef3ca",
+      "bytes": 271
+    },
+    "runtime/inbox_flush_before_ack-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_flush_before_ack-green/process.json",
+      "sha256": "358bd6018dc7c32b0c029c755c8768e73783c15ccd456b32becad548f5d6a89f",
+      "bytes": 2791
+    },
+    "runtime/inbox_flush_before_ack-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_flush_before_ack-red/raw.log",
+      "sha256": "ae7a9f50d37c3aa0e2b733d24727c43491ebc0d9f9e42e73d4980d53b756661f",
+      "bytes": 1057
+    },
+    "runtime/inbox_flush_before_ack-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_flush_before_ack-red/process.json",
+      "sha256": "b4ac135d76b1a3f33c4ab36e3f6fb34d19027000d608ced007d63e152e2a21ac",
+      "bytes": 2779
+    },
+    "runtime/inbox_no_false_ack-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack-green/raw.log",
+      "sha256": "f41335c8212b40fa992bd10247d3614a7313e321ae8cf678f2988c6c5fb495c4",
+      "bytes": 266
+    },
+    "runtime/inbox_no_false_ack-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack-green/process.json",
+      "sha256": "e6f096e97b1d947bfd8d91f94e86c60f057b0016b7fb9617a775294affac2f70",
+      "bytes": 2770
+    },
+    "runtime/inbox_no_false_ack-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack-red/raw.log",
+      "sha256": "0ed20ed65b7360dd7320ce419c45af41dea6bd7715725fe563b5b8bece886539",
+      "bytes": 2028
+    },
+    "runtime/inbox_no_false_ack-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack-red/process.json",
+      "sha256": "cf390613f14f437900a9a87382f17264c89e256766e8febaabf7f0837a4c6510",
+      "bytes": 2758
+    },
+    "runtime/neutral_completion_boundary-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary-green/raw.log",
+      "sha256": "e7a76ba7408f8ea65da3df8bb8aeb10826a4239d743a005660e4180f7feca103",
+      "bytes": 276
+    },
+    "runtime/neutral_completion_boundary-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary-green/process.json",
+      "sha256": "5e032c3a04d42d0b0f75c6da31b567bcb6014f0efdd92b6c7cf4341046b608ea",
+      "bytes": 2886
+    },
+    "runtime/neutral_completion_boundary-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary-red/raw.log",
+      "sha256": "8e03bbc7e7e550902fc61b63d3875ae2f3abc1cb03b6a2de01246105a929e349",
+      "bytes": 2991
+    },
+    "runtime/neutral_completion_boundary-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary-red/process.json",
+      "sha256": "83b73fd97cade39a347464435e5de59e3c11d5e3f47828497337bafd1751e9b7",
+      "bytes": 2874
+    },
+    "runtime/nonstream_finish_reason-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason-green/raw.log",
+      "sha256": "6244146b7aad8c5039a55eb2ac82902cba8431a66324a908786e143dffd09ee6",
+      "bytes": 272
+    },
+    "runtime/nonstream_finish_reason-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason-green/process.json",
+      "sha256": "bdf0c3550449d04f2bbf7635b22cab49d392d07768f2bf7ca128687f86f04b93",
+      "bytes": 2788
+    },
+    "runtime/nonstream_finish_reason-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason-red/raw.log",
+      "sha256": "6f93fd36602b4b5c60592648fdc33f998f5346fe9c946bbc9916197d0ebb0790",
+      "bytes": 827
+    },
+    "runtime/nonstream_finish_reason-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason-red/process.json",
+      "sha256": "1a52d5dcf1348501f128da8608bef10d8f36f249857b8b5040518963dc280f99",
+      "bytes": 2776
+    },
+    "runtime/pre_model_dispatch_fence-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-green/raw.log",
+      "sha256": "ca129c7eb283fb538a5ddebd9abee86f470bb3c41f7b626265a6481dee78704c",
+      "bytes": 273
+    },
+    "runtime/pre_model_dispatch_fence-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-green/process.json",
+      "sha256": "3c0fed8f2b2fede6eab25a53dc975033cb0e705bbdeef1d0e0e5155e1e5a5460",
+      "bytes": 2787
+    },
+    "runtime/pre_model_dispatch_fence-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/raw.log",
+      "sha256": "799798e43dfc22c043b2e012e8407f729f95473a55b8a19c574c080d6c976966",
+      "bytes": 2113
+    },
+    "runtime/pre_model_dispatch_fence-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/process.json",
+      "sha256": "0751d54bebf4a7145433ab508302c0b5129aa503727fed91654a31a20c0ab9bb",
+      "bytes": 2775
+    },
+    "runtime/provider_no_hidden_retry-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry-green/raw.log",
+      "sha256": "41d9060f07176ae84f519854b59658f3f474e2cc71097ad929b8810591f7b6e1",
+      "bytes": 272
+    },
+    "runtime/provider_no_hidden_retry-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry-green/process.json",
+      "sha256": "02916a7422ce3499034771e05d21543598d0e22b387d8eb9013215edc20d9f89",
+      "bytes": 2812
+    },
+    "runtime/provider_no_hidden_retry-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry-red/raw.log",
+      "sha256": "149bf6fc7d7abfa506b00d3469facfe02aec954e74ac192ee4abcf781dfc7125",
+      "bytes": 3238
+    },
+    "runtime/provider_no_hidden_retry-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry-red/process.json",
+      "sha256": "f48207f85f499f7781f26e8720a53c12c5e2854d888d84dfb398008cc5e3ba93",
+      "bytes": 2800
+    },
+    "runtime/queued_runner_fence-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence-green/raw.log",
+      "sha256": "4cd95c67abcef99062aaa0a1162bb9329d3dc02d34ce66ebdd656d44094a738d",
+      "bytes": 267
+    },
+    "runtime/queued_runner_fence-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence-green/process.json",
+      "sha256": "fba0ba5486618862a322cdb900e7ec13394e90470b2b7dacff07b1e888f3945e",
+      "bytes": 2790
+    },
+    "runtime/queued_runner_fence-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence-red/raw.log",
+      "sha256": "2b135aa30db79160897f08018177efc35e5acad32ce39c5e9e6ead02fea358f6",
+      "bytes": 895
+    },
+    "runtime/queued_runner_fence-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/queued_runner_fence-red/process.json",
+      "sha256": "f216a6567b607e20ca8c21fae7acf46587210fa4a853cb18c105d1defa426024",
+      "bytes": 2778
+    },
+    "runtime/received_tool_result_retention-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention-green/raw.log",
+      "sha256": "5bd37838bd1607043fbf4fac8145a8cb3ba75b895845c5309defc88a2fc5632a",
+      "bytes": 278
+    },
+    "runtime/received_tool_result_retention-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention-green/process.json",
+      "sha256": "fa0db4c286508d443761e0d9061910bc6e9aded808afa70bd10c9277f624ab98",
+      "bytes": 2856
+    },
+    "runtime/received_tool_result_retention-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention-red/raw.log",
+      "sha256": "e6a20cc1ecabace11beae6f758931a4444b0993237508ca0e4238827452602b7",
+      "bytes": 1237
+    },
+    "runtime/received_tool_result_retention-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention-red/process.json",
+      "sha256": "caa3771fd8be9ac9efb34b072792649af565516ef26b5e74d2433a01194a4470",
+      "bytes": 2844
+    },
+    "runtime/restored-full.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/restored-full/raw.log",
+      "sha256": "b7009cf46026ef923bd74af2f3732bd0cff9166f37888f7306805cd012f90141",
+      "bytes": 242
+    },
+    "runtime/restored-full-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/restored-full/process.json",
+      "sha256": "3994a20321a273c58c22c4ac0fdab33c9e9e84d8c7ae2131e8559cfc35ab9acc",
+      "bytes": 2632
+    },
+    "runtime/sse_terminal_delivery_race-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race-green/raw.log",
+      "sha256": "60b30af9ce0b62600e25faae87407df047b15d45e27e51dfbc718bf1800f7774",
+      "bytes": 274
+    },
+    "runtime/sse_terminal_delivery_race-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race-green/process.json",
+      "sha256": "e6799ca153d8d77144199eca0219f446fbe3d7568a0303da36e78ee48f5f2601",
+      "bytes": 2818
+    },
+    "runtime/sse_terminal_delivery_race-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race-red/raw.log",
+      "sha256": "634cb176137ca2625b12ef0024c5c9410f4d887a5469d5ed3feaa7a47933f75e",
+      "bytes": 1206
+    },
+    "runtime/sse_terminal_delivery_race-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race-red/process.json",
+      "sha256": "e0e0d026b27c299365a03dcd2aba6c1243758ee1bdb9e410659c705d4f2bc08e",
+      "bytes": 2806
+    },
+    "runtime/terminal_completion_fence-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_completion_fence-green/raw.log",
+      "sha256": "0aa9711639659a932fbedba16f259ee7abba0c966f83a1165d74624aab767c20",
+      "bytes": 274
+    },
+    "runtime/terminal_completion_fence-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_completion_fence-green/process.json",
+      "sha256": "ca637dc77478b52435eaf02ca69a5594d03203faa9bca0990e9eaf6d63d678ac",
+      "bytes": 2793
+    },
+    "runtime/terminal_completion_fence-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_completion_fence-red/raw.log",
+      "sha256": "e9d3e5f37dfd513eadcf4a1e865df59c67b34f9d530e26413c0f839cf70b8cf1",
+      "bytes": 5543
+    },
+    "runtime/terminal_completion_fence-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_completion_fence-red/process.json",
+      "sha256": "697b8c2d9696038d040664c344051fa1ab087ae89deac12544a3ad17005fe373",
+      "bytes": 2781
+    },
+    "runtime/terminal_flush-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_flush-green/raw.log",
+      "sha256": "66db2d892a9276a70136795f2a28038b321cd723b032eb45d01be7a441765e0b",
+      "bytes": 263
+    },
+    "runtime/terminal_flush-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_flush-green/process.json",
+      "sha256": "64b2e6c63cc1e8a868abe0c504edd3b75f0f14b04beccc15747a3d3cda0d8e28",
+      "bytes": 2750
+    },
+    "runtime/terminal_flush-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_flush-red/raw.log",
+      "sha256": "cd234f32a84e7f137a247b2ae6aec53ded37656a72d7bf84d093a5dd9f6e9281",
+      "bytes": 1077
+    },
+    "runtime/terminal_flush-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/terminal_flush-red/process.json",
+      "sha256": "e4129e4b9f8423436fb41ba4c880dd3b8d26d282426c2d91c087ede465b3ee2a",
+      "bytes": 2738
+    },
+    "runtime/tool_intent_fence-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence-green/raw.log",
+      "sha256": "363069e6543174acf1bd832b2ea1e7c5a63e34603c4fecd713af36eb47818fc1",
+      "bytes": 265
+    },
+    "runtime/tool_intent_fence-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence-green/process.json",
+      "sha256": "2d819efcf19775169ab617317c284d075b647933d5cad775dfd6dc126dd8b565",
+      "bytes": 2762
+    },
+    "runtime/tool_intent_fence-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence-red/raw.log",
+      "sha256": "b2b536e277fd4e9f08a35610ccfa255cf4be0b1632b5d216b47a442135a41ddf",
+      "bytes": 1272
+    },
+    "runtime/tool_intent_fence-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/tool_intent_fence-red/process.json",
+      "sha256": "9a0c441a512a7197dbe2562f7f5f6a0a081a91cba17afdec94acdba2d702397e",
+      "bytes": 2750
+    },
+    "writer/accepted-audit.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/host-audit.json",
+      "sha256": "5337984215bd1a4365791356cfa3817a6a198c83ae06419387faf13ccc1f73d1",
+      "bytes": 4990
+    },
+    "writer/results.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/results.json",
+      "sha256": "8a6bbba3c8b65d2b429cb8c17db3722600ef37567b24c04a130bb26c2014381b",
+      "bytes": 11149
+    },
+    "writer/definitions.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/definitions.json",
+      "sha256": "496e0d038c7d7ab58c94969c346e2d7eb5033c2825068cec1e5e35f7f37edbcf",
+      "bytes": 3093
+    },
+    "writer/baseline.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/baseline.xml",
+      "sha256": "2cc5887f6f0506512dba4eb901afc7973304058924e607b1ed825782e3fef14b",
+      "bytes": 3615
+    },
+    "writer/restored-full.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restored-full.xml",
+      "sha256": "1117456e32eff9b4dfa7d4761ace5019bfaff7f596d53dfa96efe7fa45fc7754",
+      "bytes": 3615
+    },
+    "writer/disk_writer_not_exclusive.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive.diff",
+      "sha256": "f63666ad0e3d9cf41dffc94e0944ab05e3d94670671c157c64075d66da73ad81",
+      "bytes": 614
+    },
+    "writer/drive_bypasses_writer.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer.diff",
+      "sha256": "54ff00fa726fb9b0779ba0498caa2aa8d805468aab2155329d049ae3a4a739e2",
+      "bytes": 696
+    },
+    "writer/inbox_suspend_does_not_drain_delivery.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery.diff",
+      "sha256": "d8234010cc9d16693f660186960a750c87a139041411dff15b7e40e29912c192",
+      "bytes": 683
+    },
+    "writer/new_run_restarts_existing_log.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log.diff",
+      "sha256": "666c72e69fb53e7b09236643d0000bdefcea08f35fd419bda6dc1a9075a0275b",
+      "bytes": 675
+    },
+    "writer/repair_accepts_stale_prefix.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix.diff",
+      "sha256": "09afc45cc78072d0dfd8ac1e7c6bcd99c8afbabb3761631934efd7d7515f2ce7",
+      "bytes": 745
+    },
+    "writer/repair_bypasses_writer.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer.diff",
+      "sha256": "c8e789d4c2a0ad0185d28e25341b29860b5158a9667927323c1b2fe03031f7a6",
+      "bytes": 802
+    },
+    "writer/repair_locks_foreign_store.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store.diff",
+      "sha256": "3c9545e837775de659332c32a93149cb24cc236558a9793e170e189964a1c79a",
+      "bytes": 658
+    },
+    "writer/restore_accepts_foreign_checkpoint.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint.diff",
+      "sha256": "28b0f8d682569f86af9da45463386dcd4cff8ab591d2b3972c9239fb1d22887c",
+      "bytes": 673
+    },
+    "writer/restore_bypasses_writer.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_bypasses_writer.diff",
+      "sha256": "edd9d75dacee39019df916095aecd2e0af7c3f5545e9c8484bc159fdfaee432e",
+      "bytes": 596
+    },
+    "writer/disk_writer_not_exclusive-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive-red.xml",
+      "sha256": "e24f0143f5e5aed96f6b0a7934b99e0a84c0efe1c464ffa5c7d046fe74d2d06f",
+      "bytes": 1408
+    },
+    "writer/drive_bypasses_writer-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer-red.xml",
+      "sha256": "d3f10959355619a2441b69b70cf545a52cdcb86ffa07afb8caf7aa3116c9450a",
+      "bytes": 770
+    },
+    "writer/inbox_suspend_does_not_drain_delivery-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery-red.xml",
+      "sha256": "2e39e9806704ecfd159f94b460fc7d318bee6595965a66aac6f5a0754a0451e6",
+      "bytes": 672
+    },
+    "writer/new_run_restarts_existing_log-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-red.xml",
+      "sha256": "c4655cb07776ae61d1911ecb64b17016f1caa6852058c70584672e607ca60278",
+      "bytes": 797
+    },
+    "writer/repair_accepts_stale_prefix-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix-red.xml",
+      "sha256": "c9cf5456f42a7b66a16d75261753637b457d71d16d9eb3087ebc778526001526",
+      "bytes": 1309
+    },
+    "writer/repair_bypasses_writer-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-red.xml",
+      "sha256": "1f1cda1bd6b30606e94201fd1560253b71003ec8a23b6e65111f68a5aeba9e1e",
+      "bytes": 758
+    },
+    "writer/repair_locks_foreign_store-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store-red.xml",
+      "sha256": "0c8ee960bacb0bc2468085e1b21bf0313b4602bcef72da7a3a10cc9469d0a636",
+      "bytes": 1252
+    },
+    "writer/restore_accepts_foreign_checkpoint-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint-red.xml",
+      "sha256": "9033c7a63a236e7a2f27b73cb25cde03b34f2c673f12fa69a90d2b8ae14271bb",
+      "bytes": 814
+    },
+    "writer/restore_bypasses_writer-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_bypasses_writer-red.xml",
+      "sha256": "558af44522362d1f0f5a9c8c6a6a9af430dae744e0736e1ba46acc8a80484e20",
+      "bytes": 1408
+    },
+    "writer/baseline.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/baseline/raw.log",
+      "sha256": "30d15189c82483d0ab0c2be2a02bab184a6acbb6f8c53e777ed2f98295ef3491",
+      "bytes": 236
+    },
+    "writer/baseline-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/baseline/process.json",
+      "sha256": "5428e547a7fcbc4322ea5895359ad0df167939968fd08b8e143970c36b0b3b18",
+      "bytes": 2411
+    },
+    "writer/disk_writer_not_exclusive-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive-green/raw.log",
+      "sha256": "de40249396413166feca07f3fb874555efa98379651540e1932ee70506afe67b",
+      "bytes": 273
+    },
+    "writer/disk_writer_not_exclusive-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive-green/process.json",
+      "sha256": "c638e792098c6ce1125ea2927fcb4def436e5cc244f66e4f2e5249851000d2ed",
+      "bytes": 2624
+    },
+    "writer/disk_writer_not_exclusive-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive-red/raw.log",
+      "sha256": "bd17f0c8d1b76dd51be9d24c55397c1781f8485bab453696bb787ddd3a312f13",
+      "bytes": 1204
+    },
+    "writer/disk_writer_not_exclusive-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive-red/process.json",
+      "sha256": "571995fad819e7ca0bf6cdc2ac15de0587ef063318d6150b6e0812e7f579d9b7",
+      "bytes": 2612
+    },
+    "writer/drive_bypasses_writer-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer-green/raw.log",
+      "sha256": "66a7bc333cf55f88748ebfa0cb3b6fb7ed3bf1a4ef27b01472bfe49d3529ec7d",
+      "bytes": 268
+    },
+    "writer/drive_bypasses_writer-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer-green/process.json",
+      "sha256": "4f58451bebf80def51c12747375e3960bc894f940d9e80a9b3c3f9c8879d475f",
+      "bytes": 2608
+    },
+    "writer/drive_bypasses_writer-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer-red/raw.log",
+      "sha256": "02082f7c067804ed7799022de0095b3ca4af18cbd052ec824a3fe54812e5c626",
+      "bytes": 874
+    },
+    "writer/drive_bypasses_writer-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer-red/process.json",
+      "sha256": "302da8d5b961a9658164a061af2991169b3538cc63e7c1f6dda56015690f4dab",
+      "bytes": 2596
+    },
+    "writer/inbox_suspend_does_not_drain_delivery-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery-green/raw.log",
+      "sha256": "18afb41bdf026b8af1eda7297e6cbbdf20527a441bfc62e1131b5ce2bc11a3f2",
+      "bytes": 284
+    },
+    "writer/inbox_suspend_does_not_drain_delivery-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery-green/process.json",
+      "sha256": "7c6cedba6a3a888c9b049b7f70c7d3a6291f232095185f5aa10afeaaf9de382b",
+      "bytes": 2698
+    },
+    "writer/inbox_suspend_does_not_drain_delivery-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery-red/raw.log",
+      "sha256": "14904449110e431ab83be9141a5784bd20707f927f69578e957303caf7d80ead",
+      "bytes": 833
+    },
+    "writer/inbox_suspend_does_not_drain_delivery-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery-red/process.json",
+      "sha256": "78b560ba3a9254d6d06084f254a4b7ec1ae9c7578fb3c079b665493cc40bb642",
+      "bytes": 2686
+    },
+    "writer/new_run_restarts_existing_log-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/raw.log",
+      "sha256": "b1d7323d17a98368d503b800ce09e54e421b892d59aa6b3496f4675f56072a7e",
+      "bytes": 276
+    },
+    "writer/new_run_restarts_existing_log-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/process.json",
+      "sha256": "c91300aff926d4c8d239609bc8e4cff338e7dff82ede8d39d1f00d7c1c201a58",
+      "bytes": 2653
+    },
+    "writer/new_run_restarts_existing_log-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-red/raw.log",
+      "sha256": "2377477d2ecac3bb683852ba05d9090b0ccad3558adaf3e9c2f0a243c8341eb9",
+      "bytes": 906
+    },
+    "writer/new_run_restarts_existing_log-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-red/process.json",
+      "sha256": "728f67251ba9d4ddc43032fc37a70037b03591ae6bc213366e97189c55f5e9a3",
+      "bytes": 2641
+    },
+    "writer/repair_accepts_stale_prefix-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix-green/raw.log",
+      "sha256": "50f2906bf55c35652b74215184cca3d52b2a91b72d7d342fc6134f7cc1966b46",
+      "bytes": 274
+    },
+    "writer/repair_accepts_stale_prefix-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix-green/process.json",
+      "sha256": "fc3bc4274530c6e4155f973ddbf18d4f8be0c50a3dcceed4aea11e5126a797c2",
+      "bytes": 2625
+    },
+    "writer/repair_accepts_stale_prefix-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix-red/raw.log",
+      "sha256": "7a11844eda5959fa1fd8ac1c7493c21d0a60ada71fdd445ba43c8aee56ad13c3",
+      "bytes": 1326
+    },
+    "writer/repair_accepts_stale_prefix-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix-red/process.json",
+      "sha256": "ffed5f3124260173c7f0031729745268f32e2dbd4f4694e0fa1eeb24bd468634",
+      "bytes": 2613
+    },
+    "writer/repair_bypasses_writer-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-green/raw.log",
+      "sha256": "8b04eca27df27d02d20d0b1f0bc78d47935d4256ca1eab7dd1f41ab5661b09f7",
+      "bytes": 269
+    },
+    "writer/repair_bypasses_writer-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-green/process.json",
+      "sha256": "7a0a0a33f87b911976d4c4a51ecc2556d3166fa83e27a8d9ebcf0902e2b0959c",
+      "bytes": 2608
+    },
+    "writer/repair_bypasses_writer-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-red/raw.log",
+      "sha256": "c038e15703b4f6eea52cf70091155d53baee7364d6fcdd42c94773d976263d17",
+      "bytes": 863
+    },
+    "writer/repair_bypasses_writer-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-red/process.json",
+      "sha256": "a148e25299673eb8f319e49309b0279d486debd3452b8abdaa5475d13a083263",
+      "bytes": 2596
+    },
+    "writer/repair_locks_foreign_store-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store-green/raw.log",
+      "sha256": "a2fbd4006cc335198aaaa3b3c91692187b93f71ba85e60056bd562d0aaa82568",
+      "bytes": 273
+    },
+    "writer/repair_locks_foreign_store-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store-green/process.json",
+      "sha256": "93480a7eda70dafe3733ff4f2e2a741f96ccab683f8deebb1f51e6c61591cf65",
+      "bytes": 2632
+    },
+    "writer/repair_locks_foreign_store-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store-red/raw.log",
+      "sha256": "0d4d7d5c2cbc863f720c5432eb2c8e17857cdc4070b317ccaa406a67a57891d3",
+      "bytes": 915
+    },
+    "writer/repair_locks_foreign_store-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store-red/process.json",
+      "sha256": "24024312dddc2815fb6736345c652acd6c9600146bad14f2a07d28490f9928a0",
+      "bytes": 2620
+    },
+    "writer/restore_accepts_foreign_checkpoint-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint-green/raw.log",
+      "sha256": "ee2c147a121b3f84940d6fbb83ad53d522908b4073677d351e9034dd8fad4f78",
+      "bytes": 281
+    },
+    "writer/restore_accepts_foreign_checkpoint-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint-green/process.json",
+      "sha256": "6e213ce8dbaea4efffb0be41faf84e073bfd0b087d2d215e59bb59d81b2716af",
+      "bytes": 2691
+    },
+    "writer/restore_accepts_foreign_checkpoint-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint-red/raw.log",
+      "sha256": "ce37ee4a2987bc8e2779703a1de71b7db847f1fb3447a8e6f933dec31eb97dad",
+      "bytes": 928
+    },
+    "writer/restore_accepts_foreign_checkpoint-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_accepts_foreign_checkpoint-red/process.json",
+      "sha256": "e87a9555390c25c3c0307d50fdcac8ef07474eda91ac1665d0f1bcd498de75f2",
+      "bytes": 2679
+    },
+    "writer/restore_bypasses_writer-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_bypasses_writer-green/raw.log",
+      "sha256": "002d95e243f577fce7e3f9741b7bbc5f4ae109228bb112ef54ba89c47d41eb9e",
+      "bytes": 271
+    },
+    "writer/restore_bypasses_writer-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_bypasses_writer-green/process.json",
+      "sha256": "31661ca640e6d3233ebeaaabe25bcacc839824aae1b651c5c0ed7f74cad4f220",
+      "bytes": 2612
+    },
+    "writer/restore_bypasses_writer-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_bypasses_writer-red/raw.log",
+      "sha256": "d8527ba759e2e39b0c5f982ef1207a6cb1c5a01db84822c6a0a8611c814ae695",
+      "bytes": 1202
+    },
+    "writer/restore_bypasses_writer-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restore_bypasses_writer-red/process.json",
+      "sha256": "1d916d7bf791f37bbba75a572353796d996925b23a95919a960cdcf873b76d6f",
+      "bytes": 2600
+    },
+    "writer/restored-full.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restored-full/raw.log",
+      "sha256": "2e057415b166c0b98fa61380ae1384593cb1ea0b37f46cbcf152c747a09425a8",
+      "bytes": 241
+    },
+    "writer/restored-full-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/restored-full/process.json",
+      "sha256": "50d39abd35df485c6ee6a75f51b6ca36f609f354b2a869f1d65261db17126182",
+      "bytes": 2441
+    },
+    "reentry/accepted-audit.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/host-audit.json",
+      "sha256": "bd5190814e9dca5204944b3c92f8d35f11965e02a4a15aa5d40c43b0a03464ea",
+      "bytes": 3316
+    },
+    "reentry/results.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/results.json",
+      "sha256": "ca9b3140074a76a07239e838596d8dd932ffbf972f76b63a4c3b2dbe83c825b3",
+      "bytes": 6887
+    },
+    "reentry/definitions.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/definitions.json",
+      "sha256": "1d7a5b5dfa449502a3b1fff71c156c93a77eadbfb613bb186429cc839275659c",
+      "bytes": 2501
+    },
+    "reentry/baseline.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/baseline.xml",
+      "sha256": "579b225a423c1e0da67925d8103cd9609a79d7534533ba14a406fe967bad860d",
+      "bytes": 2110
+    },
+    "reentry/restored-full.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/restored-full.xml",
+      "sha256": "96962a72bdf551fd370533365cb29da0a16d824a089de8ced7bb66e6389ed2bd",
+      "bytes": 2110
+    },
+    "reentry/rejected_close_marks_finished.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished.diff",
+      "sha256": "b332450809fd332446b6b9986874c7d638d80a26826a4f9886cc78ed3e59694b",
+      "bytes": 572
+    },
+    "reentry/rejected_step_marks_finished.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished.diff",
+      "sha256": "4725c66efab366425c8c447232fec8d76e001aa4389f7641b18e43fef03a386f",
+      "bytes": 513
+    },
+    "reentry/repair_bypasses_instance_owner.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/repair_bypasses_instance_owner.diff",
+      "sha256": "550c70657ac6d299c6c4043e3c05f7566b25e0f9a9eb1c0a0a96ce5afb2da89b",
+      "bytes": 809
+    },
+    "reentry/run_bypasses_instance_owner.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner.diff",
+      "sha256": "798834cb09a5abf806d94fb6ddd8802176d223f65ad1f8711532cbd2fb73c38c",
+      "bytes": 703
+    },
+    "reentry/runner_control_not_exclusive.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive.diff",
+      "sha256": "8e571c5edefa735acf7d5986266156af5d01c22df5c3d0eba52959ef69719b0d",
+      "bytes": 709
+    },
+    "reentry/rejected_close_marks_finished-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished-red.xml",
+      "sha256": "e65acd952b4426de3909e9aebb104a2f118d064c87634483753ae0c3e166b9cd",
+      "bytes": 1008
+    },
+    "reentry/rejected_step_marks_finished-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red.xml",
+      "sha256": "c6026fbe2c81dec94550200868123f70463df9f35d1672986340fc293f3f8f5b",
+      "bytes": 1008
+    },
+    "reentry/repair_bypasses_instance_owner-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/repair_bypasses_instance_owner-red.xml",
+      "sha256": "70949e8ad0e932f35958e173df92cb24fe4bdedbf279ad0e589088856dd009e2",
+      "bytes": 771
+    },
+    "reentry/run_bypasses_instance_owner-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner-red.xml",
+      "sha256": "28408768a22dac0c98abde4fc78ef503a013ea58c78329bdc28c3c052174e08a",
+      "bytes": 1001
+    },
+    "reentry/runner_control_not_exclusive-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive-red.xml",
+      "sha256": "115e7baf3caccbbef2721a955f295fb20fbb83adbed4a3276561c18c41c7c47d",
+      "bytes": 1930
+    },
+    "reentry/baseline.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/baseline/raw.log",
+      "sha256": "c27c3c337c26c835c4d65e5ca62aff9edf315fe09af55d8f6c57fdc5f8ea003f",
+      "bytes": 236
+    },
+    "reentry/baseline-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/baseline/process.json",
+      "sha256": "4e4dfc70afe90b023eb60b6daaa2175aa0b73ba0ac742831f1afdc0de5ca68eb",
+      "bytes": 2428
+    },
+    "reentry/rejected_close_marks_finished-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished-green/raw.log",
+      "sha256": "58af9607260f1c0e982aa459353c2684ff3958b1b7a75c9626c29d32fc6e6cc0",
+      "bytes": 277
+    },
+    "reentry/rejected_close_marks_finished-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished-green/process.json",
+      "sha256": "6f82de787a7f51a1d59d88b704d0544080687d7cf156aeab193b0857582c61a4",
+      "bytes": 2665
+    },
+    "reentry/rejected_close_marks_finished-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished-red/raw.log",
+      "sha256": "b702aea9e563b2888ddb0dc2d925e2521dbe1d3e58dc2231e0c84cc18135869b",
+      "bytes": 942
+    },
+    "reentry/rejected_close_marks_finished-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished-red/process.json",
+      "sha256": "be2bbce1b8f73569303b6b21a89a663ad43d603ea5504ff86e29c71d86079e72",
+      "bytes": 2653
+    },
+    "reentry/rejected_step_marks_finished-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-green/raw.log",
+      "sha256": "86a8969884a02bcd5e978b7a8be648b0f420e73144f729be8e78885591d1a98a",
+      "bytes": 276
+    },
+    "reentry/rejected_step_marks_finished-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-green/process.json",
+      "sha256": "7c23d2a0257cadb011097187e30a6368dfecdaa17644c8662004c1afd840e058",
+      "bytes": 2659
+    },
+    "reentry/rejected_step_marks_finished-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/raw.log",
+      "sha256": "f93097c94d6e8f3896dfec3610df035d0c3f3f9e9b020d55f0fa96e6c7819e8f",
+      "bytes": 940
+    },
+    "reentry/rejected_step_marks_finished-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/process.json",
+      "sha256": "a1533601179768263d39d481af13e0d286dc18fabef0ca920397b04bfd6ea5d8",
+      "bytes": 2647
+    },
+    "reentry/repair_bypasses_instance_owner-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/repair_bypasses_instance_owner-green/raw.log",
+      "sha256": "b3ceb8224759af55157410306d1152b11cff92543a7af6385864e0eb9535ce00",
+      "bytes": 278
+    },
+    "reentry/repair_bypasses_instance_owner-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/repair_bypasses_instance_owner-green/process.json",
+      "sha256": "e711d8f34d92effc8e9aa821b665ecc9837e1bd5a21bbde6296da2842fd257ee",
+      "bytes": 2672
+    },
+    "reentry/repair_bypasses_instance_owner-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/repair_bypasses_instance_owner-red/raw.log",
+      "sha256": "f71de574e51199d1bed4ea1fc24729fd200079cc3f3742fab715c460cb331931",
+      "bytes": 885
+    },
+    "reentry/repair_bypasses_instance_owner-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/repair_bypasses_instance_owner-red/process.json",
+      "sha256": "71e2543f71493b1f9a621fbdbe3836e98b55ea15221c2987d0f151bb5b9731d2",
+      "bytes": 2660
+    },
+    "reentry/restored-full.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/restored-full/raw.log",
+      "sha256": "b73be8bb9e5476694a902ed6bde09f9a90bbf15bc2104da0ac372badbda04a2a",
+      "bytes": 241
+    },
+    "reentry/restored-full-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/restored-full/process.json",
+      "sha256": "fbcd75810c22ad41fbb444262e2e431ba4179635c5c8690ded0c8291b142c885",
+      "bytes": 2458
+    },
+    "reentry/run_bypasses_instance_owner-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner-green/raw.log",
+      "sha256": "8f9672de111173f93f199905814653289add12cdf2060fddb725c4739a38385a",
+      "bytes": 275
+    },
+    "reentry/run_bypasses_instance_owner-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner-green/process.json",
+      "sha256": "9913b67a28e5b34a4a19ecf91dedbc252d92256660e3f0c0a710be9503618f31",
+      "bytes": 2644
+    },
+    "reentry/run_bypasses_instance_owner-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner-red/raw.log",
+      "sha256": "6fd206397a591741a8b5c7cd302372ef87b926588e66a752a45a69857438b822",
+      "bytes": 1112
+    },
+    "reentry/run_bypasses_instance_owner-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner-red/process.json",
+      "sha256": "31f96a2a9d9de06882f097f4be6f4047eebec9c42c0157c58c66195c430957e9",
+      "bytes": 2632
+    },
+    "reentry/runner_control_not_exclusive-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive-green/raw.log",
+      "sha256": "878c7b9af9bf3802dea34b231a2481a22982f040bf7a8fa3ecc8401a4a0a9069",
+      "bytes": 275
+    },
+    "reentry/runner_control_not_exclusive-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive-green/process.json",
+      "sha256": "f44af122b4ba785e5884e894d58c347ad89472418625981a921c4a6e167700b4",
+      "bytes": 2671
+    },
+    "reentry/runner_control_not_exclusive-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive-red/raw.log",
+      "sha256": "fe849b7378308119fda32c9e4451955b6b065e3ee47b73d0313b7fe71675995e",
+      "bytes": 1872
+    },
+    "reentry/runner_control_not_exclusive-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive-red/process.json",
+      "sha256": "51355ea64f6bcc697e0c35227b8f62157121b646291d007fc72ed8f4c3dd6ae2",
+      "bytes": 2659
+    },
+    "inbox/accepted-audit.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/host-audit.json",
+      "sha256": "0fb313d6f08acde44749fc2c7052f4010468a575deb49caa2dcb122bc91671b7",
+      "bytes": 1660
+    },
+    "inbox/results.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/results.json",
+      "sha256": "48385b062dc37521a64849c76b9b14bd73224f7307c8b83ff8356ccd7e4e6b9a",
+      "bytes": 2643
+    },
+    "inbox/definitions.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/definitions.json",
+      "sha256": "554241f9c470e40a70b276251f8139a1b1c725a5622eabe19a348d5bfc3e1d8b",
+      "bytes": 356
+    },
+    "inbox/baseline.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/baseline.xml",
+      "sha256": "d04b647ca93d839b0d9835f52f621fa6cb5af02a896b3868bafc36fbd0e2a4f7",
+      "bytes": 1274
+    },
+    "inbox/restored-full.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/restored-full.xml",
+      "sha256": "dea2d82cea4a028d7a96a10ebdddabc263e6461a2ac46922cc639e2cf96d64a4",
+      "bytes": 1274
+    },
+    "inbox/inbox_storage_failure_deletes_spool.diff": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool.diff",
+      "sha256": "ec249689ea087f7725cc7ed34513d2cbcf28e13d662373c1a3981835003dc994",
+      "bytes": 712
+    },
+    "inbox/inbox_storage_failure_deletes_spool-red.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-red.xml",
+      "sha256": "e22cca79bca0d9d325254b168379bd411fb62c3342f04ace0878ce69e22a1e46",
+      "bytes": 2035
+    },
+    "inbox/baseline.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/baseline/raw.log",
+      "sha256": "69dcc82827dc073e67152b31c7d1eb93fa247532237031d99de907dab71b6e91",
+      "bytes": 233
+    },
+    "inbox/baseline-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/baseline/process.json",
+      "sha256": "48538bfbf706f4813a84c98e1743aeea14204070c7ba2daa6a150404a96a346b",
+      "bytes": 2429
+    },
+    "inbox/inbox_storage_failure_deletes_spool-green.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-green/raw.log",
+      "sha256": "ee96fb968da282194ff3be1092e2305373a9b4330b851b1159a2af260692570c",
+      "bytes": 280
+    },
+    "inbox/inbox_storage_failure_deletes_spool-green-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-green/process.json",
+      "sha256": "56c9339caed42079c86c54ed6c557b9c6e8032515661823f9b723e0acafb2d5a",
+      "bytes": 2700
+    },
+    "inbox/inbox_storage_failure_deletes_spool-red.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-red/raw.log",
+      "sha256": "0357b2a841058cd3d446cae764f688a22bea22e3c7764ae2e30c964f3a7dcee2",
+      "bytes": 1797
+    },
+    "inbox/inbox_storage_failure_deletes_spool-red-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-red/process.json",
+      "sha256": "655e5e9ac57ffb8c7cd4b0ba17b650a96cdd2c526372d9a96966249eb658b7bc",
+      "bytes": 2688
+    },
+    "inbox/restored-full.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/restored-full/raw.log",
+      "sha256": "d849d9f76fe867b6646fbfabcb70f32abe9437719c90460a31859cd49abcf254",
+      "bytes": 238
+    },
+    "inbox/restored-full-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/restored-full/process.json",
+      "sha256": "a40a57ee3cab72565bcb79857ec658d9f916f352494c8ad6573141d4f091172d",
+      "bytes": 2459
+    },
+    "k3-writer/execution.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/execution.json",
+      "sha256": "589f3be87370643c8122d229bd236b2c3b3c1e388cfc7641b6ab5e8a45ec932d",
+      "bytes": 15627
+    },
+    "k3-writer/controller-receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/controller-receipt.json",
+      "sha256": "c95e125b93ef0132472310cb9e4abffd61e441bcaf4d3ab58f5f4cbfdcea0bf9",
+      "bytes": 198
+    },
+    "k3-writer/request-admissions.jsonl": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/request-admissions.jsonl",
+      "sha256": "aa73904231b4b48ac059ec0aa72a28cde976aea6897125ddb1cd3d40c519c43f",
+      "bytes": 2468
+    },
+    "k3-writer/authorization.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/authorization.json",
+      "sha256": "6291cc0d469e52eebc492773fa25d912db05d70a4cf45bdef12e41621ddeea35",
+      "bytes": 499
+    },
+    "k3-writer/prompt.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/prompt.md",
+      "sha256": "253a2cadc77326f176c7c589eb763004b273bd9b108f332b8402250d0c750590",
+      "bytes": 2245
+    },
+    "k3-writer/config.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/config.json",
+      "sha256": "e9aede5ad1589e67042065a8700fc0dcf4739e8fb63caa88cbc5b5db9e2824e2",
+      "bytes": 561
+    },
+    "k3-writer/round1-attempt0-testbug.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/logs/round1-attempt0-testbug.log",
+      "sha256": "f2ebc0ca3abff7ea0f740a0446fe9fe3a41ab14901c3054b8e19cd39120ee40d",
+      "bytes": 4842
+    },
+    "k3-writer/round1-baseline.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/logs/round1-baseline.log",
+      "sha256": "cc11b21496b3b3f7237ec4e1b5070eb8cd7f4307daee580c3857400a1aa4495e",
+      "bytes": 1126
+    },
+    "k3-writer/junit-round1-attempt0.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/logs/junit-round1-attempt0.xml",
+      "sha256": "c60d1094a2a38ae7d87a7155a3235f3c280ff9bde2d74fd7acba82569a063b00",
+      "bytes": 3985
+    },
+    "k3-writer/junit-round1.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/logs/junit-round1.xml",
+      "sha256": "a3670c081b5b31fa8f777816a12c598a64bdd3749cd3c2ee37f3ce28a670e471",
+      "bytes": 956
+    },
+    "k3-host/receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/receipt.json",
+      "sha256": "b0a31ea0d7fe6c57bbb0c76355ed7c13877d9e4389260095b523a71274fd1cf7",
+      "bytes": 1537
+    },
+    "k3-host/baseline.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/baseline.xml",
+      "sha256": "bba77666b369548e2e216a3b67ef9e5624180fd9ba51ca020517a64a779f4099",
+      "bytes": 1220
+    },
+    "k3-host/shadow.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow.xml",
+      "sha256": "946ad8e85a893d93babf91a6965e2638ff5efb709bc99c1234a4087bfd6b8a8b",
+      "bytes": 5642
+    },
+    "k3-host/restored.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored.xml",
+      "sha256": "e959e1a88f6227072bb49d0b613306cdb1b33a258ba0106bb824b1e0aed7ac37",
+      "bytes": 1220
+    },
+    "k3-host/baseline-raw.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/baseline/raw.log",
+      "sha256": "bf2054077fa4258750d5674bb83cc84120f6abb5f9eb820d991413d3e9a01c4e",
+      "bytes": 230
+    },
+    "k3-host/baseline-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/baseline/process.json",
+      "sha256": "589917612c63849c4d0f6e802d2e397cef5d3b2abe20dc05c23cff32a1eaa48d",
+      "bytes": 1651
+    },
+    "k3-host/shadow-raw.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow/raw.log",
+      "sha256": "e4642d6d83ec2cb933f95291ed5745a8c4e3a0a48748d387eda5ee0484e16daa",
+      "bytes": 4757
+    },
+    "k3-host/shadow-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow/process.json",
+      "sha256": "1d505f50640f16956ea49f076208d930e415d6b1908e846eff8f638aea483fcc",
+      "bytes": 1639
+    },
+    "k3-host/restored-raw.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/raw.log",
+      "sha256": "b9b533d579c6b0a2e066b6bbdc4091a58e8d49f88c8b89a972e6c63532bfeaeb",
+      "bytes": 230
+    },
+    "k3-host/restored-process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/process.json",
+      "sha256": "ecce6e39f6ceb8fb059419bcc690709d8b4b0e7d96bb0771019ef7f4ff03def7",
+      "bytes": 1651
+    },
+    "k3-host/acceptance-driver.py.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/accept_k3_inbox.py",
+      "sha256": "fbf319d5cccdae244d78f8b073e1c7e42fa6e2d0e2deedbc7b9d3ee8959714fb",
+      "bytes": 2879
+    },
+    "regression/receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/receipt.json",
+      "sha256": "a07a69561560e31be4bae23f584a2b99b247f8992a8ca02357b87b4e291f40a0",
+      "bytes": 618
+    },
+    "regression/regression.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression.xml",
+      "sha256": "2e2e70105adcafae3c1dc9d949522e2da7c90e21a3e52b252996f19a9e0b0c79",
+      "bytes": 28445
+    },
+    "regression/raw.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/raw.log",
+      "sha256": "8afd0f5b2ff7ab8b3e7c34f4a5748917fee716550118ddb0f3255fb8784e507c",
+      "bytes": 398
+    },
+    "regression/process.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/process.json",
+      "sha256": "cb592e933777d68df1823bda17ecbfc6fc5f7de477c00f85b87c278195953439",
+      "bytes": 1987
+    },
+    "regression/driver.py.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/remaining_regressions.py",
+      "sha256": "39379882c6319d33459fe0da4e74556da47507fa2736f3797c1804cf86f13e96",
+      "bytes": 1967
+    },
+    "runner-unit.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/unit-inbox.xml",
+      "sha256": "a2165ff7458df38f99c3f0e16c83f2f600ae0791c862908153fc99364fa7933d",
+      "bytes": 5641
+    },
+    "identity-effects-receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/receipt.json",
+      "sha256": "4713efba8e03b9e01b4649257db33d8370740cedb0d42d8a595f6fa26530ba2a",
+      "bytes": 20313
+    },
+    "first-red/runtime-01.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/runtime-01-host-audit.json",
+      "sha256": "0eaa7186cc6e60a25d323cb108c84980e580ac02085da06336642ca34ef66906",
+      "bytes": 351
+    },
+    "first-red/writer-01.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/writer-01-host-audit.json",
+      "sha256": "fa0ff3984dafe49db5ea723222f91ddb111665c2625383f2cb04b1f974b38dc0",
+      "bytes": 817
+    },
+    "first-red/reentry-01.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/reentry-01-host-audit.json",
+      "sha256": "b79084e3d2f2345373e1121eff6ea37b83cb9cac048601d916d59dad5ffab16d",
+      "bytes": 558
+    },
+    "first-red/runtime-02.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/runtime-02-host-audit.json",
+      "sha256": "dcece7f56d16df407ddf41b5de7bb9eb6dd0b32f4a2ffe8e1bb18fa6703718f9",
+      "bytes": 350
+    },
+    "first-red/lock-hook-only.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/writer-01/inbox_suspend_does_not_drain_delivery-red.xml",
+      "sha256": "e12f0f35083df332984f111a554dc517cba51c56d9bb6d3ffe2373d17c146473",
+      "bytes": 805
+    },
+    "first-red/replay-first.py.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/replay-first.py",
+      "sha256": "7d3fba551693fbaeaeee484fb2723eda5676b40ac8419ec328849f11c2dc7f1f",
+      "bytes": 6126
+    },
+    "first-red/replay-repaired.py.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/replay.py",
+      "sha256": "3f36b841023d90ed536cdc79b35290a82ca698112ba4047e2dbc11329cf4b3db",
+      "bytes": 6539
+    },
+    "host.sb": {
+      "source": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/host.sb",
+      "sha256": "5bcdb2f2c30d12391391764cd634370bdc6766dab8dd67dfa543271c6e2739c0",
+      "bytes": 496
+    }
+  }
+}

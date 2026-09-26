@@ -71,10 +71,8 @@ repos:
       # 抓的是「声明了但生产装配够不着」——工具在测试注册表里跑得好好的，
       # 生产装配少接一根线，于是它在生产里从来没被调起过，而单元测试全绿。
       #
-      # ⚠️ entry 与上面几条**不同**：必须用主树 venv 解释器的绝对路径。
-      # 本脚本 import 生产模块（build_episode_registry），不是纯 stdlib，
-      # 宿主 python3 跑不了。这与仓内其它绝对路径依赖是同一现实：
-      # 新机没有该 venv 时本 hook 会挂，属预期。
+      # 该脚本 import 生产模块；由共享解析器选择本树/公共检出树 venv，
+      # 宿主 python3 只启动标准库解析器，不拿它运行生产模块。
       #
       # 实测 0.89~1.09s（3 次），与 path-literals 同量级，故可入链。
       # 注意别沿用早期记的 0.2s——那是初版恒真式的数：当时判据取自声明本身，
@@ -82,21 +80,35 @@ repos:
       - id: tool-reachability
         name: "工具可达性：声明了的工具生产装配必须够得着"
         language: system
-        entry: /Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/audit_tool_reachability.py
+        entry: python3 scripts/workspace_env.py --run scripts/audit_tool_reachability.py
         pass_filenames: false
         always_run: true
         verbose: true
       # 第 12 道（运行底座 P4 / 工单 #31 第 4 条）：docs/runtime/{events,tools,harness-seams}.md
       # 是从 DURABLE_EVENT_KINDS / _TOOL_CONTRACTS / ResearchHarness 签名生成的目录；改了源码
       # 不重生成，读目录的人（和 test_runtime_catalog）看到的就是上一版。pytest 侧早有保鲜钉，
-      # 这里把它前移到提交时——门禁 100% 到达，提醒不是。与 tool-reachability 同理用 venv
-      # 绝对路径：脚本 import 生产模块。只在改到源头或目录本身时跑（files 正则），实测 <1s。
+      # 这里把它前移到提交时——门禁 100% 到达，提醒不是。与 tool-reachability 共用
+      # 解释器解析器。只在改到源头或目录本身时跑（files 正则），实测 <1s。
       - id: runtime-catalog-fresh
         name: "运行时目录保鲜：events / tools / harness-seams 与源码一致"
         language: system
-        entry: /Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/gen_runtime_catalog.py --check
+        entry: python3 scripts/workspace_env.py --run scripts/gen_runtime_catalog.py --check
         pass_filenames: false
         files: '^(docs/runtime/(events|tools|harness-seams)\.md|scripts/gen_runtime_catalog\.py|intelligence/.*\.py)$'
+        verbose: true
+      # 棘轮门禁：inflight 交接 ≤3K 字节。落地当天 104 份里 53 份超标，故只拦
+      # 「新增」与「比 HEAD 更大」，存量免检——一刀切会让一半交接提交失败，
+      # 一周内就会被 --no-verify 绕过去，然后永远绿着。
+      # 抳的是：session_facts.sh 注入时从尾部截断，先被砍的正是「下一步」与「踩过的坑」。
+      # 读侧已在指针行声明字节数（截断不静默），但声明只是止损：成本转嫁给下一个
+      # agent。这里把同一件事挪到写侧。只用 stdlib，宿主 python3 可跑；只在改到
+      # inflight 时跑（files 正则），实测 <0.1s。
+      - id: handoff-budget
+        name: "交接预算：inflight 不得新增 / 加重超 3K 字节"
+        language: system
+        entry: python3 scripts/check_handoff_budget.py
+        pass_filenames: false
+        files: '^docs/handoffs/inflight/.*\.md$'
         verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"

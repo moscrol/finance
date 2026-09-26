@@ -1,0 +1,622 @@
+{
+  "recorded_at": "2026-09-21T19:10:47.036619+00:00",
+  "scope": "author branch verification; not independent review, merge or deployment acceptance",
+  "finance_revision": "6de192c616a2c7401b15ebd5ea2943a2160de794",
+  "kb_base_revision": "e386f57e4",
+  "targeted": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-sellside-consumption-0922",
+    "revision": "e82717d9a7c3dfa811a4538bd44985b61258355a",
+    "branch": "fix/sellside-consumption-0922",
+    "dirty": true,
+    "dirty_paths": [
+      "intelligence/services/catalyst_attribution.py",
+      "intelligence/services/event_pricing/event_calendar.py",
+      "intelligence/services/event_pricing/narrative.py",
+      "intelligence/services/opinion_events.py",
+      "intelligence/services/teaching_framework/narrative.py",
+      "intelligence/services/workbench_overview.py",
+      "intelligence/tests/test_catalyst_attribution.py",
+      "intelligence/tests/test_event_pricing.py",
+      "intelligence/tests/test_opinion_events.py",
+      "intelligence/tests/test_teaching_framework_narrative.py",
+      "scripts/audit_opinion_projection.py",
+      "scripts/prepare_miracle_review.py",
+      "scripts/review_opinion_events.py",
+      "scripts/teaching_framework.py",
+      "tests/test_workbench_overview.py"
+    ],
+    "worktree_dirty_total": 20,
+    "dependency_gate_bypassed": false,
+    "target": "intelligence/tests/test_opinion_events.py intelligence/tests/test_catalyst_attribution.py intelligence/tests/test_event_pricing.py intelligence/tests/test_teaching_framework_narrative.py intelligence/tests/test_teaching_framework_cli.py tests/test_workbench_overview.py tests/test_daily_agent.py",
+    "counts": {
+      "passed": 107,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-21T18:48:04+00:00"
+  },
+  "finance_full": {
+    "started_at": "2026-09-21T18:49:03.261671+00:00",
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--maxfail=1",
+      "--basetemp=/tmp/sellside-validation-0922/isolated/tmp",
+      "--junitxml=/tmp/sellside-validation-0922/isolated/junit.xml"
+    ],
+    "cwd": "/Users/a77/fwp-wt-sellside-consumption-0922",
+    "revision": "e82717d9a7c3dfa811a4538bd44985b61258355a",
+    "code_hashes": {
+      "intelligence/services/opinion_events.py": "5570a9a27652458add67287f530c8ea6e7682f8c3994d9f63802e2caaba8f037",
+      "intelligence/tests/test_opinion_events.py": "91205204cd933b77a362e35b99f4264a50493b3b84f1659d32328aa34b266066",
+      "scripts/audit_opinion_projection.py": "ab7002aa249b847563fa20c5c3e62fa36035f2ca96fc6b262a5e9b4bfabc8293",
+      "scripts/prepare_miracle_review.py": "972a865015e7af119650cb8a185def69b69ac0a8059d98c310a15834c45e0a44",
+      "scripts/review_opinion_events.py": "b14bdbc421a61480c58edf7b682de62ea8f3ded1192eef2ac80cc7b5fbbb825b",
+      "intelligence/services/catalyst_attribution.py": "c043928162449dc23f44177f8ef740dc16592d5cd6d7c12681e1ef50f64b517d",
+      "intelligence/services/event_pricing/event_calendar.py": "fe1347dff3256c497a98006a015a5dee6278d8dec594e1d9ba99567c9cb26ef4",
+      "intelligence/services/event_pricing/narrative.py": "a96c32695d010713a3f34ce2780458b0d91be36fc510af8605bc9d5e6f0d91b9",
+      "intelligence/services/teaching_framework/narrative.py": "89d42d2288f4ed6eb96b51f90e854b01edf7b3d7e39d632813e1b86833e30166",
+      "intelligence/services/workbench_overview.py": "29e3289ae58acb6e8f294ad7116c74b469ca7403e1fd2764bff27ac8a9b72bf3",
+      "intelligence/tests/test_catalyst_attribution.py": "ab902e823b8a78e0b14085fd792c8d7c7febbbc2e0d84a47a375337b86826587",
+      "intelligence/tests/test_event_pricing.py": "4536cebfa1a5c30a0af2ed6c8ca993e6faf332259d91f7b839ee22b9882b4fdf",
+      "intelligence/tests/test_teaching_framework_narrative.py": "7dd9143107b11e0cb3f63d15ad9b5dbe7cc85708b061ebaabf7eda4a4d10bd88",
+      "scripts/teaching_framework.py": "f6a560cd5494aa0f0f69444eb7f3a1973b11541f8d15cb8c2835481fd79b43aa",
+      "tests/test_workbench_overview.py": "4c0749ac8b122bf0585a51cbc74eb6d2018de6bf2c9a5b1e0c03c354a16ef6d7"
+    },
+    "scope": "working-tree Python suite; not deployment or merge acceptance",
+    "returncode": 0,
+    "completed_at": "2026-09-21T19:08:45.456379+00:00",
+    "log_sha256": "7f471b39120abd94dbe0ea99bc231281905ac42821bc79f294d2ede8e4ede775",
+    "output_tail": "  /Users/a77/fwp-wt-sellside-consumption-0922/market_feature_store/models/market_stage.py:157: RuntimeWarning: invalid value encountered in matmul\n    S = Z @ W\n\ntests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent\ntests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent\ntests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]\ntests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]\ntests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]\ntests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing\n  /Users/a77/fwp-wt-sellside-consumption-0922/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    now = datetime.utcnow().isoformat()\n\ntests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]\ntests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]\n  /Users/a77/fwp-wt-sellside-consumption-0922/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n    now = datetime.utcnow().isoformat()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n----- generated xml file: /tmp/sellside-validation-0922/isolated/junit.xml -----\n12547 passed, 85 skipped, 2 xfailed, 17 warnings in 1180.04s (0:19:40)",
+    "source_hashes_match_committed_revision": "6de192c616a2c7401b15ebd5ea2943a2160de794",
+    "junit_suites": [
+      {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "87",
+        "tests": "12634",
+        "time": "1179.132",
+        "timestamp": "2026-09-22T02:49:03.609240+08:00",
+        "hostname": "77deMacBook-Air.local"
+      }
+    ],
+    "durable_log": "/Users/a77/.finance-runtime/reviews/sellside-consumption-6de192c61-20260922/isolated/pytest.txt"
+  },
+  "prior_failed_attempts": [
+    {
+      "log": "/Users/a77/.finance-runtime/reviews/sellside-consumption-6de192c61-20260922/finance-pytest.txt",
+      "sha256": "857b4c82a96213c8cd6e51e109bd2c76d7b8bd177c0665453ec0bcf6cf4999ca",
+      "summary": "12468 passed, 85 skipped, 2 xfailed, 17 warnings, 69 errors in 881.64s (0:14:41)",
+      "reason": "Errno 28 during temporary snapshot copies; not a passing suite"
+    },
+    {
+      "log": "/Users/a77/.finance-runtime/reviews/sellside-consumption-6de192c61-20260922/final/pytest.txt",
+      "sha256": "e0b57aa7725a5c8709542d75057a094f99c9d5dfd666c649774527570e3db5d3",
+      "summary": "1 failed, 9628 passed, 80 skipped, 2 xfailed, 9 warnings, 2922 errors in 905.64s (0:15:05)",
+      "reason": "temporary root disappeared; FileNotFoundError cascaded; not a passing suite"
+    }
+  ],
+  "checks": [
+    {
+      "name": "kb-pytest-final",
+      "cwd": "/Users/a77/kb-wt-sellside-miracle-0818",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "tests",
+        "-q",
+        "--basetemp=/tmp/sellside-validation-0922/kb-receipt-tmp"
+      ],
+      "returncode": 1,
+      "output": "........................................................................ [ 13%]\n........................................................................ [ 27%]\n........................................................................ [ 40%]\n........................................................................ [ 54%]\n........................................................................ [ 68%]\n........................................................................ [ 81%]\n........................F............................................... [ 95%]\n........................                                                 [100%]\n=================================== FAILURES ===================================\n_______ CommittedBaselineTest.test_repo_baseline_matches_current_metrics _______\n\nself = <tests.test_quality_gate.CommittedBaselineTest testMethod=test_repo_baseline_matches_current_metrics>\n\n    def test_repo_baseline_matches_current_metrics(self):\n        \"\"\"committed baseline 必须与当前仓库指标一致：不允许悄悄回归。\"\"\"\n        # 显式锁定到真实仓库 wiki，避免其他用例污染 KB_VAULT。\n        os.environ[\"KB_VAULT\"] = str(ROOT / \"wiki\")\n        gate = load_gate()\n        baseline = gate.load_baseline(gate.DEFAULT_BASELINE)\n        self.assertIsNotNone(baseline, \"缺少 committed baseline\")\n        metrics = gate.compute_metrics()\n        ok, results = gate.evaluate(metrics, baseline)\n>       self.assertTrue(ok, f\"质量闸门相对 committed baseline 出现回归：{results}\")\nE       AssertionError: False is not true : 质量闸门相对 committed baseline 出现回归：{'missing_provenance': {'current': 3135, 'baseline': 3135, 'status': 'unchanged'}, 'unknown_enum': {'current': 5622, 'baseline': 5622, 'status': 'unchanged'}, 'core_l1_graph_only': {'current': 6, 'baseline': 6, 'status': 'unchanged'}, 'overlimit_raw': {'current': 7, 'baseline': 7, 'status': 'unchanged'}, 'missing_wikilinks': {'current': 3407, 'baseline': 3326, 'status': 'regressed'}, 'annual_fragment_claims': {'current': 109, 'baseline': 109, 'status': 'unchanged'}, 'annual_risk_boilerplate_claims': {'current': 0, 'baseline': 0, 'status': 'unchanged'}, 'annual_metric_misattr_pages': {'current': 0, 'baseline': 0, 'status': 'unchanged'}}\n\ntests/test_quality_gate.py:165: AssertionError\n=============================== warnings summary ===============================\ntests/test_security_fixes.py::SafeExtractallTests::test_extracts_safe_members\n  /Users/a77/kb-wt-sellside-miracle-0818/scripts/fetch_rag_index.py:61: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.\n    tf.extractall(dest)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/test_quality_gate.py::CommittedBaselineTest::test_repo_baseline_matches_current_metrics\n1 failed, 527 passed, 1 warning in 12.71s\n"
+    },
+    {
+      "name": "kb-strict-final",
+      "cwd": "/Users/a77/kb-wt-sellside-miracle-0818",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/ingest.py",
+        "check",
+        "--strict-vocab"
+      ],
+      "returncode": 0,
+      "output": "[info] skipped 27 synthetic provenance sources (baseline/apply-batch/IMA/theme-radar/disc/info-pool/DeepDive)\n[warn] catalyst_calendar.json 条数与 meta 不一致: meta=155 实际=288\n[warn] entity_exposures 有 28 条链接缺 evidence_layer（0.1%）\n[warn] entity_exposures 有 28 条链接缺 fact_hardness（0.1%）\n检查完成: 0 错误 / 3 告警 (vault=/Users/a77/kb-wt-sellside-miracle-0818/wiki)\n"
+    },
+    {
+      "name": "kb-quality-final",
+      "cwd": "/Users/a77/kb-wt-sellside-miracle-0818",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/quality_gate.py",
+        "--quiet"
+      ],
+      "returncode": 1,
+      "output": "\nQUALITY GATE FAILED：新增恶化 ['missing_wikilinks']\n{\n  \"generated\": \"2026-09-22\",\n  \"passed\": false,\n  \"quality_status\": \"regressed\",\n  \"quality_claim\": \"质量回归\",\n  \"baseline_policy\": \"no_regression\",\n  \"historical_debt\": {\n    \"missing_provenance\": 3135,\n    \"unknown_enum\": 5622,\n    \"core_l1_graph_only\": 6,\n    \"overlimit_raw\": 7,\n    \"missing_wikilinks\": 3407,\n    \"annual_fragment_claims\": 109\n  },\n  \"config_error\": false,\n  \"missing_baseline_keys\": [],\n  \"metrics\": {\n    \"missing_provenance\": 3135,\n    \"unknown_enum\": 5622,\n    \"core_l1_graph_only\": 6,\n    \"overlimit_raw\": 7,\n    \"missing_wikilinks\": 3407,\n    \"annual_fragment_claims\": 109,\n    \"annual_risk_boilerplate_claims\": 0,\n    \"annual_metric_misattr_pages\": 0\n  },\n  \"baseline\": {\n    \"missing_provenance\": 3135,\n    \"unknown_enum\": 5622,\n    \"core_l1_graph_only\": 6,\n    \"overlimit_raw\": 7,\n    \"missing_wikilinks\": 3326,\n    \"annual_fragment_claims\": 109,\n    \"annual_risk_boilerplate_claims\": 0,\n    \"annual_metric_misattr_pages\": 0\n  },\n  \"results\": {\n    \"missing_provenance\": {\n      \"current\": 3135,\n      \"baseline\": 3135,\n      \"status\": \"unchanged\"\n    },\n    \"unknown_enum\": {\n      \"current\": 5622,\n      \"baseline\": 5622,\n      \"status\": \"unchanged\"\n    },\n    \"core_l1_graph_only\": {\n      \"current\": 6,\n      \"baseline\": 6,\n      \"status\": \"unchanged\"\n    },\n    \"overlimit_raw\": {\n      \"current\": 7,\n      \"baseline\": 7,\n      \"status\": \"unchanged\"\n    },\n    \"missing_wikilinks\": {\n      \"current\": 3407,\n      \"baseline\": 3326,\n      \"status\": \"regressed\"\n    },\n    \"annual_fragment_claims\": {\n      \"current\": 109,\n      \"baseline\": 109,\n      \"status\": \"unchanged\"\n    },\n    \"annual_risk_boilerplate_claims\": {\n      \"current\": 0,\n      \"baseline\": 0,\n      \"status\": \"unchanged\"\n    },\n    \"annual_metric_misattr_pages\": {\n      \"current\": 0,\n      \"baseline\": 0,\n      \"status\": \"unchanged\"\n    }\n  },\n  \"gated_metrics\": [\n    \"missing_provenance\",\n    \"unknown_enum\",\n    \"core_l1_graph_only\",\n    \"overlimit_raw\",\n    \"missing_wikilinks\",\n    \"annual_fragment_claims\",\n    \"annual_risk_boilerplate_claims\",\n    \"annual_metric_misattr_pages\"\n  ]\n}\n"
+    },
+    {
+      "name": "kb-size-final",
+      "cwd": "/Users/a77/kb-wt-sellside-miracle-0818",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_tracked_file_sizes.py"
+      ],
+      "returncode": 1,
+      "output": "✗ 白名单文件超过 cap（存量继续恶化）：\n       7.8MB / cap 7.7MB  wiki/raw/theme-radar/opinion-store/opinion-events.jsonl\n  处理：迁出 git，或显式抬 cap（改 baseline 文件，PR 里说明理由）。\n"
+    },
+    {
+      "name": "kb-log-final",
+      "cwd": "/Users/a77/kb-wt-sellside-miracle-0818",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_log_integrity.py"
+      ],
+      "returncode": 0,
+      "output": "日志追加式防改写审计（MR-6）：wiki/log.md\n  条目总数 6804，ID 区间 #1–#6895\n------------------------------------------------------------\n  ✅ T1 追加式完整性：纯追加（新增 1121 字节）\n  I1 重复 ID：0\n  I2 缺号：91 例 [148, 149, 150, 151, 152, 153, 154, 155, 352, 362]\n  I3 顺序回退：41 例 [(3835, 83), (3833, 99), (133, 132), (140, 134), (141, 138)]\n\n  注：I1–I3 为流水健康度软信息（手工补录/合并常见），非防改写违例。\n"
+    },
+    {
+      "name": "finance-ruff-final",
+      "cwd": "/Users/a77/fwp-wt-sellside-consumption-0922",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "returncode": 0,
+      "output": "All checks passed!\n"
+    },
+    {
+      "name": "finance-diff-final",
+      "cwd": "/Users/a77/fwp-wt-sellside-consumption-0922",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "output": ""
+    },
+    {
+      "name": "kb-diff-final",
+      "cwd": "/Users/a77/kb-wt-sellside-miracle-0818",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "output": ""
+    }
+  ],
+  "ledger_unchanged_from_kb_base": true,
+  "ledger_sha256": "6376356652f42292c0a648ff47745a3897e4600f3992070332729fe5af37738c",
+  "log_append_only_from_kb_base": true,
+  "projection_receipt": "wiki/raw/sellside/reviews/2026-09-22-opinion-projection-6de192c61.json",
+  "projection_receipt_sha256": "0b5c65af6be1ce13021c9227ff6dcca5627903f8a8cc6244bd8b21f9d50a25bb",
+  "paste_audit": {
+    "scope": "selected user messages only; not fact verification",
+    "normalization": "whitespace, #, curly quotes only",
+    "verbatim_count": 17,
+    "results": [
+      {
+        "report_date": "2026-08-18",
+        "message_id": "3d3146d6",
+        "formatted_path": "raw/sellside/2026-08-18-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-18-调研纪要miracle.txt",
+        "original_sha256": "f87c0e4f567015c84cc32bd1d3416405e549e21256beb56ac4ce96412977ebe5",
+        "original_chars": 14589,
+        "formatted_chars": 14991,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "Anthropic",
+            "before": "板对应近600亿规模市场，高端光模块PCB对应200亿规模市场。天风电子团队李双亮/冯浩凡",
+            "after": "Anthropic重新对齐预期，AnthropicARR拆解（0818）@华泰计算机从海外"
+          },
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "宇树",
+            "before": "商业模式的机器人公司。明年70-80亿收入，20-30亿利润。宇树、上纬、优必选/锋龙宇树",
+            "after": "彭博社：宇树科技加密货币期货首日涨幅超300%追踪中国仿人机器人企业宇树科技的加密货币期货"
+          },
+          {
+            "kind": "delete",
+            "original": "按照之前的标准处理",
+            "formatted": "",
+            "before": "技等。风险提示：技术和产品迭代，政策进展不及预期，市场竞争加剧详情欢迎联系：孙行臻/王心悦",
+            "after": ""
+          }
+        ],
+        "lost_or_replaced_chars": 9
+      },
+      {
+        "report_date": "2026-08-19",
+        "message_id": "b0b9f5d5",
+        "formatted_path": "raw/sellside/2026-08-19-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-19-调研纪要miracle.txt",
+        "original_sha256": "89dc9d01ce5f655a5fc93f0ee4227bf3749e484d517d31521276457445963cff",
+        "original_chars": 9042,
+        "formatted_chars": 9465,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "一段",
+            "formatted": "",
+            "before": "放节奏不及预期；模型商业化进展不及预期行业观点更新欢迎联系国联民生海外组孔蓉/樊程安吉大跌",
+            "after": "点评AI大跌点评，供参考：2026-08-19市场仍对7月的大跌PTSD，所以两个边际变化"
+          },
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "成品油",
+            "before": "平煤股份动力煤：昊华能源、晋控煤业、广汇能源、兖矿能源、陕西煤业、潞安环能、山煤国际成品油",
+            "after": "裂解价差创新高伊朗战事爆发前，霍尔木兹海峡原油日均通行量约2000万桶/天，包括约1500"
+          }
+        ],
+        "lost_or_replaced_chars": 2
+      },
+      {
+        "report_date": "2026-08-20",
+        "message_id": "28e9d7fb",
+        "formatted_path": "raw/sellside/2026-08-20-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-20-调研纪要miracle.txt",
+        "original_sha256": "384275e325eeace174cb9d36650968883711e13761438e2119cdf7902b10ff17",
+        "original_chars": 23985,
+        "formatted_chars": 24943,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "CXL",
+            "formatted": "",
+            "before": "，弹性巨大，短期看1200亿（明年订单12x），终局估值看2000-2500e。坚定推荐！",
+            "after": "功率半导体【浙商电子】功率半导体：第三波涨价窗口开启，AI驱动景气向利润端传导1、涨价由国"
+          },
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "t链",
+            "before": "份、峰岹科技、安培龙、柯力传感、汉威科技、福莱新材、日盈电子等风险提示：AI发展不及预期等",
+            "after": "t链利空已过，积极备战t链：1国产本体上市对t链的负面影响已明显消除；2第一条全自动化量产"
+          }
+        ],
+        "lost_or_replaced_chars": 3
+      },
+      {
+        "report_date": "2026-08-21",
+        "message_id": "e44cf5af",
+        "formatted_path": "raw/sellside/2026-08-21-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-21-调研纪要miracle.txt",
+        "original_sha256": "e45e99a1c8fe985243c62ac8baf136d6645cf373f3afec0240f7cf0a7682f31b",
+        "original_chars": 8243,
+        "formatted_chars": 8810,
+        "verbatim_verified": true,
+        "changes": [],
+        "lost_or_replaced_chars": 0
+      },
+      {
+        "report_date": "2026-08-22",
+        "message_id": "f1778fa1",
+        "formatted_path": "raw/sellside/2026-08-22-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-22-调研纪要miracle.txt",
+        "original_sha256": "61d6d016f24182004182478c8471a18c2ebfa690b7c98cf24664075ddd684554",
+        "original_chars": 7781,
+        "formatted_chars": 8348,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "t链",
+            "before": "、华创、中微、京仪、广钢、华海等，长存有望实现0-1突破的重点推荐精测+芯源微！3.机器人",
+            "after": "一段自动化线爬坡，9月EDI产量继续上修，坚定看好机器人行业拐点！自动化线8月中调试完成，"
+          }
+        ],
+        "lost_or_replaced_chars": 0
+      },
+      {
+        "report_date": "2026-08-23",
+        "message_id": "984fe06c",
+        "formatted_path": "raw/sellside/2026-08-23-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-23-调研纪要miracle.txt",
+        "original_sha256": "2600ad5cbf2021d699d34de7528d0559eb004d33ed7a51a158c37dc3f10bfd9d",
+        "original_chars": 7927,
+        "formatted_chars": 8496,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "正从钨转向钼",
+            "formatted": "",
+            "before": "率47%。团队深度覆盖硅微粉行业超6年风险提示：需求不及预期，行业竞争加剧等。NAND制造",
+            "after": "SemiAnalysis：NAND制造正从钨转向钼（Mo）NAND制造正从钨转向钼（Mo）"
+          },
+          {
+            "kind": "replace",
+            "original": "薄",
+            "formatted": "磨",
+            "before": "、盛美上海（电镀机）、芯源微（涂胶显影+键合机）、迈为股份（切磨抛+键合机）、晶盛机电（减",
+            "after": "机）。【东吴机械】周尔双/李文意/谈沂鑫/柴悅茹【开源电子】近期半导体行业核心变化梳理&观"
+          }
+        ],
+        "lost_or_replaced_chars": 7
+      },
+      {
+        "report_date": "2026-08-24",
+        "message_id": "816e6e9d",
+        "formatted_path": "raw/sellside/2026-08-24-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-24-调研纪要miracle.txt",
+        "original_sha256": "abea4334f5f85878b41744f402b655e46d368682289545549cc5f39912084740",
+        "original_chars": 10465,
+        "formatted_chars": 10985,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "综合投资收益覆盖率（5年）分母=负债资金成本，含分红险保户红利、万能结算成本→可调。公司指标承压时可以直接下调分红实现率和结算利率来达标。",
+            "formatted": "",
+            "before": "分红险保户红利、万能结算成本→可调。公司指标承压时可以直接下调分红实现率和结算利率来达标。",
+            "after": "净投资收益覆盖率（3年）分母=负债保证成本，即预定利率/最低保证利率对应成本→刚性，只能靠"
+          }
+        ],
+        "lost_or_replaced_chars": 69
+      },
+      {
+        "report_date": "2026-08-25",
+        "message_id": "70b0c063",
+        "formatted_path": "raw/sellside/2026-08-25-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-25-调研纪要miracle.txt",
+        "original_sha256": "db924dd3e63898ddd8b8276784b1f316c687fedeb995738cd9310b9a3d1818bc",
+        "original_chars": 12226,
+        "formatted_chars": 12897,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "replace",
+            "original": "一段",
+            "formatted": "美伊",
+            "before": "。4）丝杠厂商【北特科技+浙江荣泰】，大小丝杠核心供应商，订单指引匹配客户量产节奏3.宏观",
+            "after": "据沙特媒体哈达斯：华盛顿提出停止海上封锁和解除对伊朗的制裁，以换取开放霍尔木兹海峡。（注："
+          },
+          {
+            "kind": "delete",
+            "original": "美伊",
+            "formatted": "",
+            "before": "海上封锁和解除对伊朗的制裁，以换取开放霍尔木兹海峡。（注：该消息暂未得到其它主流媒体验证）",
+            "after": "据纽约时报：一份内部文件显示，美国此前撤离的外交官员最早可能于本周开始返回中东各自岗位，这"
+          }
+        ],
+        "lost_or_replaced_chars": 4
+      },
+      {
+        "report_date": "2026-08-26",
+        "message_id": "0b9aa568",
+        "formatted_path": "raw/sellside/2026-08-26-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-26-调研纪要miracle.txt",
+        "original_sha256": "8448f27fc44d0b5fe4e47e5b40d1e82f2034402eecbdb4f4c5781703cdf2e01c",
+        "original_chars": 13920,
+        "formatted_chars": 14577,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "对",
+            "formatted": "",
+            "before": "达\"预计仍存在较多新增产线需求\"。风险提示：硅光、CPO/OCS等渗透率不及预期等bofa",
+            "after": "TAM的测算美银（bofa）的AI总体潜在市场规模（TAM）大规模扩张：全球数据中心系统T"
+          },
+          {
+            "kind": "delete",
+            "original": "的测算",
+            "formatted": "",
+            "before": "仍存在较多新增产线需求\"。风险提示：硅光、CPO/OCS等渗透率不及预期等bofa对TAM",
+            "after": "美银（bofa）的AI总体潜在市场规模（TAM）大规模扩张：全球数据中心系统TAM预计将从"
+          }
+        ],
+        "lost_or_replaced_chars": 4
+      },
+      {
+        "report_date": "2026-08-27",
+        "message_id": "a5801740",
+        "formatted_path": "raw/sellside/2026-08-27-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-27-调研纪要miracle.txt",
+        "original_sha256": "d841d4c42407e112b157d8b93152275593621b53416d6db806901a5fd1aa7401",
+        "original_chars": 15742,
+        "formatted_chars": 16587,
+        "verbatim_verified": true,
+        "changes": [],
+        "lost_or_replaced_chars": 0
+      },
+      {
+        "report_date": "2026-08-28",
+        "message_id": "a2a7f728",
+        "formatted_path": "raw/sellside/2026-08-28-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-28-调研纪要miracle.txt",
+        "original_sha256": "396ecb5ae90f2dc46bccbd1629d6812445b7d54e776a18384d2dfc55b697bded",
+        "original_chars": 7186,
+        "formatted_chars": 7720,
+        "verbatim_verified": true,
+        "changes": [],
+        "lost_or_replaced_chars": 0
+      },
+      {
+        "report_date": "2026-08-29",
+        "message_id": "7757d1d4",
+        "formatted_path": "raw/sellside/2026-08-29-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-29-调研纪要miracle.txt",
+        "original_sha256": "92e5cb607b5ef3c8ec8e03aa4f0483968cb9255428c831f38da13b5d8ea01e88",
+        "original_chars": 8231,
+        "formatted_chars": 8675,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "关于",
+            "formatted": "",
+            "before": "10亿以上中型客户下沉（交付周期缩短）、出海（算法可出境、数据不出境）及并购扩张Jukan",
+            "after": "内存的一段内存将走向何方？Jukan当我从消息源听说RubinUltra可能被降级为HBM"
+          },
+          {
+            "kind": "delete",
+            "original": "的一段",
+            "formatted": "",
+            "before": "上中型客户下沉（交付周期缩短）、出海（算法可出境、数据不出境）及并购扩张Jukan关于内存",
+            "after": "内存将走向何方？Jukan当我从消息源听说RubinUltra可能被降级为HBM4，或者从"
+          }
+        ],
+        "lost_or_replaced_chars": 5
+      },
+      {
+        "report_date": "2026-08-30",
+        "message_id": "03d8b950",
+        "formatted_path": "raw/sellside/2026-08-30-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-08-30-调研纪要miracle.txt",
+        "original_sha256": "868d004ecaa791f9e18e48b75ee737391edbd97106dbe2926049e7f588b0e5ae",
+        "original_chars": 6197,
+        "formatted_chars": 6690,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "delete",
+            "original": "一段",
+            "formatted": "",
+            "before": "业链更新数据参考，实际请持续跟踪产业实际进展，PCB产业链ZJ纪要更新至22（核心看）材料",
+            "after": "AI材料观点-PTFE成强主线，边际上气体板块基本面继续走强202608301、PCB材料"
+          }
+        ],
+        "lost_or_replaced_chars": 2
+      },
+      {
+        "report_date": "2026-09-01",
+        "message_id": "1596be0e",
+        "formatted_path": "raw/sellside/2026-09-01-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-09-01-调研纪要miracle.txt",
+        "original_sha256": "7fd2f3bdc856d76bc34190f0e54091129b1cca34aabc1e73b59121d988e29666",
+        "original_chars": 4996,
+        "formatted_chars": 5417,
+        "verbatim_verified": true,
+        "changes": [],
+        "lost_or_replaced_chars": 0
+      },
+      {
+        "report_date": "2026-09-09",
+        "message_id": "88945d99",
+        "formatted_path": "raw/sellside/2026-09-09-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-09-09-调研纪要miracle.txt",
+        "original_sha256": "1ef69f95e42460b3543a1a8d7dec0481493f25095f1b950ebdaf6eefa2005616",
+        "original_chars": 11168,
+        "formatted_chars": 11734,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "沃尔德",
+            "before": "订单处于即将签约阶段；ALI等企业已在测试金刚石散热片在交换机等场景的应用效果。Byzyy",
+            "after": "沃尔德调研更新20260908：AI算力核心耗材+金刚石散热双轮驱动，27年有望进入业绩释"
+          },
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "新益昌",
+            "before": "预计到2030年算力投入将达到约7500亿美元，但公司仍然深感算力严重不足。2.半导体设备",
+            "after": "【新益昌】固晶设备龙头，半导体设备拐点已现半导体后道：固晶单点走向平台化，国产替代空间广阔"
+          },
+          {
+            "kind": "delete",
+            "original": "这是9.9的",
+            "formatted": "",
+            "before": "执行机构，拥有民用核安全设备资质，配套华龙一号、霞浦快堆，核电设备受益于全球核电建设浪潮。",
+            "after": ""
+          }
+        ],
+        "lost_or_replaced_chars": 6
+      },
+      {
+        "report_date": "2026-09-10",
+        "message_id": "08c3a499",
+        "formatted_path": "raw/sellside/2026-09-10-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-09-10-调研纪要miracle.txt",
+        "original_sha256": "c069ce77402ba3dba7eb28c8cc521bd2df52907aac2706e743363881b8730495",
+        "original_chars": 15701,
+        "formatted_chars": 15997,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "光博会核心变化",
+            "before": ".3与欧盟CRA出海合规双重硬性约束，具备综合能力的高安全光互联MCU迎来显著增量窗口期。",
+            "after": "【光博会核心变化】NPO去\"DSP\"加速落地，TIA/Driver迎价值重估NPO/LPO"
+          },
+          {
+            "kind": "delete",
+            "original": "二线光【广发通信】剑桥科技：物料兑现预期高，继续推荐公司在8/27进入我们重点推荐列表后，股价表现优异。但市场对于公司上涨原因仍有分歧，我们重申观点：我们观点的变化，最重要的原因是公司物料准备在二线公司中较为领先：1光源由多家国产供应商供应，剑桥基本为这几家供应商最重要的客户，保供力度大；2硅光调制器芯片由国内最大的第三方供应商供应，基本做到保供；3DSP由海外客户帮助协调，在除一线龙头两家之外，剑桥的优先级较高；海外客户在分配DSP时会考虑其他物料的齐套性，这点剑桥有优势；另外，公司北美客户扩圈，包含大csp在内的、有DSP分获权的优质客户陆续给公司订单，明后年需求无需担心总体看行业，明年缺货的物料种类在减少，但关键物料仍然较紧张、行业仍是\"得物料者得天下\"。每家公司的需求一定超越物料供应，上市公司业绩兑现关键看物料。我们认为，剑桥的物料供应和齐套性较好、业绩兑现度较高，目前市值远远无法反映未来几年公司的真实价值。继续推荐风险提示：产业发展不及预期",
+            "formatted": "",
+            "before": "设不及预期、客户认证不及预期、新业务需求不及预期、市场竞争加剧与价格压力、原材料价格波动。",
+            "after": "台积电【华泰海外科技】台积电8月营收环比增长10.1%、同比增长53.3%，7–8月合计同"
+          },
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "美债",
+            "before": "NVIDIA大举加价包下主流测试界面业者的探针卡（ProbeCard）及测试座产能3.宏观",
+            "after": "美债收益率创新高【美国30年期国债收益率创2007年以来新高升至5.34%】9月10日电，"
+          }
+        ],
+        "lost_or_replaced_chars": 431
+      },
+      {
+        "report_date": "2026-09-11",
+        "message_id": "7e4c2d6f",
+        "formatted_path": "raw/sellside/2026-09-11-调研纪要miracle.md",
+        "verbatim_path": "raw/sellside/original-pastes/2026-09-11-调研纪要miracle.txt",
+        "date_status": "inferred_unconfirmed",
+        "original_sha256": "bd134be1e0db7aa632b957ecd5d9a9eda5f72ca0385850378bfb7e3fc2d479c8",
+        "original_chars": 10132,
+        "formatted_chars": 10683,
+        "verbatim_verified": true,
+        "changes": [
+          {
+            "kind": "insert",
+            "original": "",
+            "formatted": "1.AI",
+            "before": "",
+            "after": "大光【东财通信】FCC扰动阶段性出清，产业基本面支撑估值修复FCC规则落地，将通信设备整机"
+          }
+        ],
+        "lost_or_replaced_chars": 0
+      }
+    ]
+  },
+  "real_batch_republish": {
+    "created": false,
+    "batch_id": "20260922-miracle-consumption-review-v1"
+  },
+  "graph_audit": {
+    "returncode": 0,
+    "output": "审计对象（exit 0 只对这些 revision 成立）：\n  agent-memory: main@cd5b5867 dirty\n  finance-workspace-private: HEAD@b4a35fa2c dirty\n  knowledge-base-private: main@8a413cde5 dirty\n\nPENDING 卖方观点追加订正与日终读取（分支候选，未合未部署） → finance-workspace-private/intelligence/services/opinion_events.py::load_events@fix/sellside-consumption-0922：仅存在于分支 fix/sellside-consumption-0922，未进当前工作树\nPENDING 卖方观点追加订正与日终读取（分支候选，未合未部署） → finance-workspace-private/scripts/review_opinion_events.py::publish@fix/sellside-consumption-0922：仅存在于分支 fix/sellside-consumption-0922，未进当前工作树\nPENDING 卖方观点追加订正与日终读取（分支候选，未合未部署） → finance-workspace-private/scripts/audit_opinion_projection.py::probe@fix/sellside-consumption-0922：仅存在于分支 fix/sellside-consumption-0922，未进当前工作树\nPENDING 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/services/user_task.py::_request_checklist_ranges@fix/research-contract-citations-0921：仅存在于分支 fix/research-contract-citations-0921，未进当前工作树\nMERGED 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/services/episode_protocol.py::build_episode_input@fix/research-contract-citations-0921：当前工作树已具备，可去掉 @fix/research-contract-citations-0921 提升为常规行\nPENDING 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/services/research_requirement_review.py::reconcile_requirement_checks@fix/research-contract-citations-0921：仅存在于分支 fix/research-contract-citations-0921，未进当前工作树\nMERGED 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_public_citation_projection@fix/research-contract-citations-0921：当前工作树已具备，可去掉 @fix/research-contract-citations-0921 提升为常规行\nUNVERIFIED 题设计算/行情口径/恢复投影修复候选（验收阻塞，未合/部署） → finance-workspace-private/intelligence/services/material_contract.py::compile_material_contract@fix/8792-premise-market-contracts（分支或文件不在本地，未校验）\nUNVERIFIED 题设计算/行情口径/恢复投影修复候选（验收阻塞，未合/部署） → finance-workspace-private/intelligence/services/finance_query.py@fix/8792-premise-market-contracts（分支或文件不在本地，未校验）\nUNVERIFIED 题设计算/行情口径/恢复投影修复候选（验收阻塞，未合/部署） → finance-workspace-private/intelligence/services/research_harness.py::recovery_evidence_priority@fix/8792-premise-market-contracts（分支或文件不在本地，未校验）\nMERGED 生成失败留痕（待验收，未合/部署） → finance-workspace-private/intelligence/runtime/conversation_orchestrator.py::_run_turn_ledgered@fix/generation-degrade-closeout-0920：当前工作树已具备，可去掉 @fix/generation-degrade-closeout-0920 提升为常规行\nPENDING FinArena 邀请评测（独立本机试用，未合 main） → finance-workspace-private/intelligence/arena/app.py::create_app@feat/finance-arena：仅存在于分支 feat/finance-arena，未进当前工作树\nPENDING FinArena 邀请评测（独立本机试用，未合 main） → finance-workspace-private/intelligence/arena/runner.py::run_pair@feat/finance-arena：仅存在于分支 feat/finance-arena，未进当前工作树\nPENDING FinArena 邀请评测（独立本机试用，未合 main） → finance-workspace-private/intelligence/arena/store.py::ArenaStore@feat/finance-arena：仅存在于分支 feat/finance-arena，未进当前工作树\nUNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::prepare@feat/mechanism-research-pilot（分支或文件不在本地，未校验）\nUNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::run@feat/mechanism-research-pilot（分支或文件不在本地，未校验）\nUNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::report@feat/mechanism-research-pilot（分支或文件不在本地，未校验）\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_history@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_capture@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_recheck@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_daily@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/store.py::read_record@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/flywheel.py::derive_standing@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/flywheel.py::recall_for_query@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/checkpoint_resolvers.py::MethodValidationResolver@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺研究观察值（候选未部署） → finance-workspace-private/market_feature_store/sync/sync_hithink_research.py::sync_hithink_research@feat/hithink-research-data：仅存在于分支 feat/hithink-research-data，未进当前工作树\nPENDING 同花顺研究观察值（候选未部署） → finance-workspace-private/market_feature_store/cli.py::cmd_sync_hithink_research@feat/hithink-research-data：仅存在于分支 feat/hithink-research-data，未进当前工作树\nPENDING 同花顺研究观察值（候选未部署） → finance-workspace-private/scripts/audit_hithink_runtime.py::audit@feat/hithink-research-data：仅存在于分支 feat/hithink-research-data，未进当前工作树\nMERGED 同花顺研究观察值（候选未部署） → finance-workspace-private/market_feature_store/write_path.py::is_canonical_production@feat/hithink-research-data：当前工作树已具备，可去掉 @feat/hithink-research-data 提升为常规行\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_client.py@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_stock_daily.py::sync_hithink_stock_daily@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::sync_hithink_sector_kline@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_limit_pools.py::sync_hithink_limit_pools@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_dragon_auction.py::sync_hithink_dragon_auction@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/intelligence/services/teaching_framework/source_views.py::attach_teaching_sources@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/skills/daily-full-review/scripts/run_review_sync.py::sync_hithink_step@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::_flush_constituents@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_preview.py::preview_sector_calculation@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/cli.py::cmd_hithink_sector_preview@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::SectorCapture@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::audit_capture@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::capture_inputs@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_stock_preview.py::preview_stock_calculation@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/cli.py::cmd_hithink_stock_preview@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::sync_hithink_sector_kline@fix/broad-index-closeout-0920：仅存在于分支 fix/broad-index-closeout-0920，未进当前工作树\nPENDING 两参数计算表格（候选，独立验收通过，未合/未部署） → finance-workspace-private/intelligence/services/sandbox_fincalc.py::_infer_table_columns@fix/fincalc-row-snapshot-0921：仅存在于分支 fix/fincalc-row-snapshot-0921，未进当前工作树\nPENDING 两参数计算表格（候选，独立验收通过，未合/未部署） → finance-workspace-private/intelligence/tests/test_derived_calculation.py::test_table_environment_has_distinct_calc_identity_from_prior_versions@fix/fincalc-row-snapshot-0921：仅存在于分支 fix/fincalc-row-snapshot-0921，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/market_financials.py::observations_by_line@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/episode_tools.py::attach_financial_observations@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/sandbox_fincalc.py::to_single_quarter@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/derived_calculation_artifacts.py::publish_calculation_artifacts@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/derived_calculation.py::load_calculation_record@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/judgment_maintenance/assess.py::assess@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_priority/ranker.py::prioritize@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_validation/service.py::freeze_study@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_diagnostics/report.py::diagnose@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/product_value/measure.py::measure_pair@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_evolution/facade.py::ResearchEvolutionService@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_evolution/store.py::EvolutionStore@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/api/research_evolution.py::build_router@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 飞书 IM 入口（已退役） → finance-workspace-private/intelligence/cli.py::build_parser@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/episode_tools.py::_structured_as_of@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/agent_research.py::block_lines_to_evidence@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/episode_tools.py::_asof_prefetch_text@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/market_snapshot_reconcile.py::reconcile_snapshot_with_market_db@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/honesty_gates.py::requested_information_cutoff@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nPENDING 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/local_market_snapshot.py::read_snapshot_evidence@fix/market-date-advisory-0921：仅存在于分支 fix/market-date-advisory-0921，未进当前工作树\nPENDING 数字条件门引用隔离（在途组合候选） → finance-workspace-private/intelligence/services/episode_protocol.py::strip_evidence_ordinals@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/market_capital.py::capital_bundle_for_llm@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/episode_tools.py::capital_data_runner@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/provider_observability.py::provider_gap_messages@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/derived_calculation_artifacts.py::result_contract_errors@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_recheck_research_delivery@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/research_delivery_checks.py::_rejected_assertion_spans@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/research_delivery_checks.py::_prose_value_finding@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/scripts/recover_local_review.py::main@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/scripts/recover_local_review.py::recovery_stitch_command@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nMERGED local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/market_feature_store/sync/sync_local_sector_members.py::stitch_sector_members@fix/nightly-refresh-resume-0920：当前工作树已具备，可去掉 @fix/nightly-refresh-resume-0920 提升为常规行\nMERGED local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/market_feature_store/cli.py::cmd_stitch_sector_stocks@fix/nightly-refresh-resume-0920：当前工作树已具备，可去掉 @fix/nightly-refresh-resume-0920 提升为常规行\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py::cmd_fetch@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/tests/test_recovery_refresh_integration.py::test_real_refresh_cli_failure_prevents_child_success@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nPENDING 日报计划契约对齐（在途） → finance-workspace-private/market_feature_store/consumption_registry.py::resolve_plan@fix/local-plan-gate-alignment：仅存在于分支 fix/local-plan-gate-alignment，未进当前工作树\nMERGED 日报计划契约对齐（在途） → finance-workspace-private/intelligence/workflows/daily_review.py::DailyReviewOptions@fix/local-plan-gate-alignment：当前工作树已具备，可去掉 @fix/local-plan-gate-alignment 提升为常规行\nMERGED 日报计划契约对齐（在途） → finance-workspace-private/market_feature_store/quality.py::check_daily@fix/local-plan-gate-alignment：当前工作树已具备，可去掉 @fix/local-plan-gate-alignment 提升为常规行\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/scripts/run_daily_generation.py::main@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/intelligence/workflows/generation_paths.py::validate_generation_paths@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/scripts/notify_ops.py::_append_log@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/tests/test_eval_launchd_wiring.py::test_generation_failure_stops_receive_and_fallback_log@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 确定性门模式：无 LLM 判官（main支持；8792启用验收未过、已回滚；工单 #55） → finance-workspace-private/intelligence/services/judge_mode.py::semantic_judge_mode@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 确定性门模式：无 LLM 判官（main支持；8792启用验收未过、已回滚；工单 #55） → finance-workspace-private/intelligence/services/gate_receipt.py::episode_public_correlated_judge@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED 确定性门模式：无 LLM 判官（main支持；8792启用验收未过、已回滚；工单 #55） → finance-workspace-private/intelligence/eval/variance_baseline.py::score_distribution@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::financial_claim_mismatches@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_report_contract.py::report_document_binding_gaps@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_with_financial_repair_debt@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_recheck_research_delivery@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nMERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@fix/8792-financial-r6-repair：当前工作树已具备，可去掉 @fix/8792-financial-r6-repair 提升为常规行\nMERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/rag_worker.py::_query_locked@fix/8792-financial-r6-repair：当前工作树已具备，可去掉 @fix/8792-financial-r6-repair 提升为常规行\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/financial-ratio-units-0920：仅存在于分支 fix/financial-ratio-units-0920，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/financial-forward-0921：仅存在于分支 fix/financial-forward-0921，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_with_financial_repair_debt@fix/financial-forward-0921：仅存在于分支 fix/financial-forward-0921，未进当前工作树\nMERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@fix/financial-forward-0921：当前工作树已具备，可去掉 @fix/financial-forward-0921 提升为常规行\nPENDING 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/financial_report_contract.py::select_reports@fix/8792-financial-contracts-r5：仅存在于分支 fix/8792-financial-contracts-r5，未进当前工作树\nMERGED 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/episode_verifier.py::verify_episode_outcome@fix/8792-financial-contracts-r5：当前工作树已具备，可去掉 @fix/8792-financial-contracts-r5 提升为常规行\nPENDING 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/derived_calculation.py::bind_derived_calculation_tool@fix/8792-financial-contracts-r5：仅存在于分支 fix/8792-financial-contracts-r5，未进当前工作树\nMERGED 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/mandatory_satisfiability.py::evidence_required_output_ids@fix/8792-financial-contracts-r5：当前工作树已具备，可去掉 @fix/8792-financial-contracts-r5 提升为常规行\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/finish_candidate.py::retain_finish_candidate@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/finish_candidate.py::merge_finish_candidates@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/research_public_prose.py::sanitize_public_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_review_preserving_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nMERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/ask_synthesis.py::synthesize_shadow_grounded_answer@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_preserve_repair_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/runtime/research_progress.py::_mapping_for_json@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nMERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行\nMERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/rag_worker.py::_query_locked@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/evidence_claim_review.py::review_evidence_claims@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::semantic_repair_feedback@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/track_contract.py::persistence_opt_out@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/user_task.py::split_user_message@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_asserted_source_dates@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/runtime/research_progress.py::normalize_query@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_with_semantic_contract_gaps@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/eval/judge_validity.py::validate_judging_batch@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/eval/judge_validity.py::new_manifest@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/services/llm_refine.py::call_provenance_scope@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/run_quality_ablation.py::finish_judging@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/run_quality_ablation.py::batch_coverage@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/rejudge_quality_ablation.py::new_batch_artifact@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/call_identity.py::IDENTITY_REPORTED@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 受管 RAG 热进程退役（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_generation_identity.py::FrozenRagGeneration@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 受管 RAG 热进程退役（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_worker.py::PersistentRagWorker@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/evidence.py::matches_filters@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/agent.py::get_page@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/health.py@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_filter_receipt.py::parse_receipt@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_code_identity.py::code_identity@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_rag.py::retrieve@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB v4正文保全与隔离迁移（已合 main，未部署） → knowledge-base-private/skills/lib/rag/chunking.py::_parse_frontmatter@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB v4正文保全与隔离迁移（已合 main，未部署） → knowledge-base-private/skills/lib/rag/config.py@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_rag.py::retrieve@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_worker.py@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/api/app.py::RunSupervisor@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/scripts/rag_maintenance.py::main@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树\nPENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/skills/lib/rag/generation.py::guard_query_generation@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树\nPENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/scripts/publish_rag_index.py::publish_generation@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树\nPENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/agent_episode.py::_fail_store@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_storage_failed_result@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/glm_agent_runtime.py::_settle_cancelled_response@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/sub_research.py::BranchRun@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nMERGED 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/continuous_sub_research.py::ContinuousSubResearchWorker@fix/runtime-contracts-0918：当前工作树已具备，可去掉 @fix/runtime-contracts-0918 提升为常规行\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_store.py::FencedEpisodeStore@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_restore.py::restore_episode@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/research_contract.py::restore_root_budget@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_authorization.py::validate_current_authorization@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_evidence.py::EpisodeEvidenceSnapshot@fix/runtime-evidence-closeout-0920：仅存在于分支 fix/runtime-evidence-closeout-0920，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_evidence.py::EpisodeEvidenceSnapshot@fix/runtime-forward-0921：仅存在于分支 fix/runtime-forward-0921，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/agent_episode.py::_seed_prior_evidence@fix/runtime-forward-0921：仅存在于分支 fix/runtime-forward-0921，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_restore.py::restore_episode@fix/runtime-closeout-0921：仅存在于分支 fix/runtime-closeout-0921，未进当前工作树\nPENDING 实际工具菜单公开投影 → finance-workspace-private/intelligence/services/episode_progress.py::_tool_menu_message@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 实际工具菜单公开投影 → finance-workspace-private/intelligence/services/episode_progress.py::is_public_progress_message@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 实际工具菜单公开投影 → finance-workspace-private/intelligence/runtime/agent_episode.py::_available_tool_definitions@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/material_permissions.py::restrict_read_capabilities@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::authorization_denial@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::for_context@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nMERGED 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/runtime/conversation_orchestrator.py::_run_turn_ledgered@fix/e2-boundary-closeout：当前工作树已具备，可去掉 @fix/e2-boundary-closeout 提升为常规行\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/conversation_materials.py::collect_conversation_materials@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::freeze_material_grounding@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::binding_source_errors@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::ClaimSourceBinding@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_without_deleted_claims@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::io_effect@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nUNVERIFIED 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::render_material_claims@fix/e2-material-closeout（分支或文件不在本地，未校验）\nUNVERIFIED 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_claim_review.py::reconcile_claim_checks@fix/e2-material-closeout（分支或文件不在本地，未校验）\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/historical_research/query.py::HistoryQuery@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/historical_research/episode.py::HistorySession@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/historical_research/methodology.py::prepare_methodology_candidate@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/agent_research.py::HistoricalEvidenceProvenance@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/prior_evidence.py::_original_atom@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/episode_verifier.py::_valid_history_identity@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/run_store.py::read_history_artifact@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/anatomy.py::trace_history@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/scripts/probe_history_queries.py::main@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/scripts/audit_historical_research_artifacts.py::audit_artifact@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/window_binding.py::WindowSelection@fix/history-closeout-0920：仅存在于分支 fix/history-closeout-0920，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/window_binding.py::WindowSelection@fix/history-forward-0921：仅存在于分支 fix/history-forward-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/user_task.py::split_user_message@fix/history-forward-0921：仅存在于分支 fix/history-forward-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/user_task.py::top_level_message_text@fix/history-forward-boundary-0921：仅存在于分支 fix/history-forward-boundary-0921，未进当前工作树\nMERGED 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/research_contract.py::is_contextual_follow_up@fix/history-forward-boundary-0921：当前工作树已具备，可去掉 @fix/history-forward-boundary-0921 提升为常规行\nMERGED 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/honesty_gates.py::requested_information_cutoff@fix/history-forward-boundary-0921：当前工作树已具备，可去掉 @fix/history-forward-boundary-0921 提升为常规行\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/conversation_materials.py::compile_contract@fix/history-forward-boundary-0921：仅存在于分支 fix/history-forward-boundary-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/conversation_materials.py::collect_material_turn_history@fix/history-forward-boundary-0921：仅存在于分支 fix/history-forward-boundary-0921，未进当前工作树\nMERGED 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/query_resolution.py::classify_reference@fix/history-forward-boundary-0921：当前工作树已具备，可去掉 @fix/history-forward-boundary-0921 提升为常规行\nMERGED Agent 检索工具 → finance-workspace-private/intelligence/services/agent_research.py::build_graph_tools@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/user_task.py::conversation_context_material_unrecoverable@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/user_task.py::rebind_material_from_text@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/task_frame.py::MATERIAL_OUT_OF_WINDOW_AMBIGUITY@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/episode_factory.py::assemble_input_understanding_context@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/research_project.py::prior_for_turn@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/research_project.py::load_project@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/followups.py::followup_kind@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nUNVERIFIED 研究求证提示（在途实验，默认关；非已验收推理能力） → finance-workspace-private/intelligence/services/research_reasoning.py::guidance@feat/research-reasoning-awareness（分支或文件不在本地，未校验）\nUNVERIFIED 研究求证提示（在途实验，默认关；非已验收推理能力） → finance-workspace-private/intelligence/services/research_reasoning.py::observation_guidance@feat/research-reasoning-awareness（分支或文件不在本地，未校验）\nUNVERIFIED 研究求证提示（在途实验，默认关；非已验收推理能力） → finance-workspace-private/intelligence/services/prior_evidence.py::load_previous_evidence@feat/research-reasoning-awareness（分支或文件不在本地，未校验）\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/research_plan.py::ResearchPerspective@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/adaptive_research.py::perspective_progress@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/runtime/research_progress.py::ResearchProgressTracker@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::semantic_repair_feedback@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::numeric_condition_repair_feedback@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::with_unresolved_review_publication@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::last_dispatched_failure@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/finance_query.py::amount_mean@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/finance_query.py::result_has_date_axis@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 研究进展账与停滞收口（已合 main；效果未证明提升） → finance-workspace-private/intelligence/runtime/research_progress.py::ResearchProgressTracker@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进展账与停滞收口（已合 main；效果未证明提升） → finance-workspace-private/intelligence/runtime/agent_episode.py::_research_progress_view@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/tool_hunger.py::record_window_uncovered@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::build_requests@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::check_request@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::execute_resume@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::parse_ranking_intent@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::apply_scenario@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::ingest_flip_conditions@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/judgment_delta.py::classify_material@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/judgment_delta.py::counter_evidence_floor_order@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/evidence_window.py::counter_evidence_floor_order@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/pricing_split.py::parse_pricing_split_intent@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/pricing_split.py::pricing_split_receipt@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/market_midterm.py::is_pricing_state_query@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 参与者约束检索步骤（在途试用，Knevo q17 Q6 回灌） → finance-workspace-private/intelligence/services/research_task_planner.py::detect_decision_surface@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 专项研究纪律（Knevo 15-28 轮增量，已合 main `c67413c7`，默认工作树未更新） → finance-workspace-private/intelligence/services/research_workflow_guidance.py::workflow_guidance@gitea/main：仅存在于分支 gitea/main，未进当前工作树\n\nOK: 节点清单 95 行、断言 280 条无漂移（0 行因 repo 不在本地跳过，229 条在途/未校验见上）。\n"
+  },
+  "merge_ready": false,
+  "deployed": false,
+  "not_run": [
+    "frontend lint/typecheck/test/build/e2e",
+    "independent acceptance",
+    "production river bridge"
+  ]
+}

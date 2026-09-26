@@ -1,0 +1,28 @@
+{
+  "valid": true,
+  "verdict": "PASS",
+  "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+  "report_sha256": "9860e2e01fee8ab749ce9bc1207f9dfd01f6b214adc97eb96868536e1c8c5420",
+  "verdict_sha256": "0352fe8eba2276ac6084767b8660dde3945664cfa67602214d87aeac28de63f6",
+  "requests": 24,
+  "existing_tests": 53,
+  "independent_assertions": 62,
+  "root_replay": {
+    "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+    "assertions": 62,
+    "exit": 0,
+    "log": "qc-quality-replay/log.txt",
+    "sha256": "8c5326c6f4fd4d5f9040e34cfacef5d265a1bead763261b33f29b1fb8e558ac2"
+  },
+  "accepted_low_issues": [
+    "QUALITY-827-01",
+    "QUALITY-827-02"
+  ],
+  "limitations": [
+    "Spec signature stays at 2ea6; quality stays at b0cf; scoped applicability separate, no signature transplant.",
+    "Rig uses stub launchctl whose loaded-state file tracks plist path, not OS loaded payload. Exact live loaded verification and operator rollback checks still mandatory.",
+    "First rig log overwritten by reviewer, history retained in original event stream. Later replay does not erase that history.",
+    "Vault changed externally while reviewer ran. Candidate and review inputs unchanged; do not claim vault untouched."
+  ],
+  "concurrent_vault_commits": "ae615900 linxiaoqi5111-del docs(knowledge): preserve mandatory-identity and per-block citation audit lessons\nbf953df2 kowishiki auto-sync: local edits 2026-09-21 17:28:57\n"
+}

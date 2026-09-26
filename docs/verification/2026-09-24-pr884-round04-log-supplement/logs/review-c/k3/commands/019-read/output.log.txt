@@ -1,0 +1,82 @@
+            if message is None:
+                trace.append(
+                    _provider_trace_entry(
+                        effective_provider,
+                        status="failed",
+                        reason=reason_text or "model_unavailable",
+                    )
+                )
+                last_reason = reason_text or "model_unavailable"
+                if (
+                    self._retry_single_real_provider
+                    and transient_retries_used < 3
+                    and _is_transient_provider_error(reason_text)
+                ):
+                    # cockpit gateway round-robin 可能连续打到坏账号，
+                    # 1 次重试不够。3 次上限仍远低于 LLM_TIMEOUT，不影响 deadline。
+                    transient_retries_used += 1
+                    continue
+                provider_index += 1
+                continue
+
+            turn, parse_error = _turn_from_message(
+                message,
+                provider_name,
+                attempts,
+            )
+            if parse_error:
+                trace.append(
+                    _provider_trace_entry(
+                        effective_provider,
+                        status="failed",
+                        reason=parse_error,
+                    )
+                )
+                if turn.error.startswith("incomplete_model_response:"):
+                    # Not a transport outage. Keep usage/stop reason and let the
+                    # episode make a budgeted recovery decision, not a hidden retry.
+                    return self._with_provider_trace(turn, tuple(trace))
+                last_reason = parse_error
+                provider_index += 1
+                continue
+
+            trace.append(
+                _provider_trace_entry(
+                    effective_provider,
+                    status="success",
+                    reason="",
+                )
+            )
+            return self._with_provider_trace(turn, tuple(trace))
+
+        return self._with_provider_trace(
+            ModelTurn(
+                "",
+                (),
+                _provider_name(last_provider),
+                last_reason,
+                provider_attempts=attempts,
+            ),
+            tuple(trace),
+        )
+
+    def _settle_cancelled_response(
+        self, message: object, provider_name: str, attempts: int,
+    ) -> ModelTurn:
+        """A cancellation fences effects, not usage/response already received.
+
+        A storage-failure hook leaves the response intact for the ledger's private
+        salvage path; the ledger owns that fence and will never dispatch its calls.
+        """
+        if message is None:
+            return ModelTurn("", (), provider_name, "cancelled", provider_attempts=attempts)
+        turn, _error = _turn_from_message(message, provider_name, attempts, reject_empty=False)
+        signal = self._is_cancelled
+        if isinstance(signal, CancelSignal) and signal.cause == "hook" and signal.detail == "storage_failed":
+            return turn
+        return replace(turn, tool_calls=(), error="cancelled")
+
+    def _with_provider_trace(
+        self,
+
+[truncated; total lines=884, selected=400:479; request a later offset]

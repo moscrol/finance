@@ -1,0 +1,80 @@
+"""Shared local fake OpenAI-compatible HTTP server for reviewer probes.
+
+Binds 127.0.0.1 on a FIXED port in 26001-26008 (never ephemeral port 0).
+Modes:
+  fast_json    -> immediate complete JSON chat response
+  slow_json    -> sleeps `delay` then full JSON response (late payload)
+  trickle_sse  -> sends headers + SSE chunks every `interval` forever
+  slow_open    -> accepts, sleeps `delay` before writing headers
+"""
+import json
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+class _Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    stats = None  # set per server: dict(connections, requests, bodies)
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        self.stats["connections"] += 1
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length)
+        self.stats["requests"] += 1
+        self.stats["bodies"].append(body)
+        mode = self.server.mode
+        if mode == "slow_json":
+            time.sleep(self.server.delay)
+            self._json()
+        elif mode == "slow_open":
+            time.sleep(self.server.delay)
+            self._json()
+        elif mode == "trickle_sse":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            i = 0
+            while True:
+                chunk = (
+                    b"data: "
+                    + json.dumps({"choices": [{"delta": {"content": "x"}, "finish_reason": None}]}).encode()
+                    + b"\n\n"
+                )
+                self.wfile.write(b"%x\r\n" % len(chunk) + chunk + b"\r\n")
+                self.wfile.flush()
+                self.stats["chunks"] = self.stats.get("chunks", 0) + 1
+                time.sleep(self.server.interval)
+                i += 1
+        else:  # fast_json
+            self._json()
+
+    def _json(self):
+        payload = json.dumps(
+            {
+                "choices": [
+                    {"message": {"content": "ok"}, "finish_reason": "stop"}
+                ],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+            }
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+
+def start(port, mode="fast_json", delay=0.0, interval=0.05):
+    srv = ThreadingHTTPServer(("127.0.0.1", port), _Handler)
+    srv.mode = mode
+    srv.delay = delay
+    srv.interval = interval
+    srv.stats = {"connections": 0, "requests": 0, "bodies": []}
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    return srv

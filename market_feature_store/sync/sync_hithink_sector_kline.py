@@ -41,7 +41,11 @@ INDEX_CODES = (
     "000300.SH",
     "000905.SH",
     "000852.SH",
+    "000688.SH",
+    "000016.SH",
 )
+# These indices are not supplied by the .TI catalogs. Do not add unsupported 899050.BJ.
+INDEX_NAMES = {"000688.SH": "科创50", "000016.SH": "上证50"}
 # 闭区间天数。1500 是上游静默空的实测线，请求必须严格小于它。
 MAX_WINDOW_DAYS = 1500
 FULL_WINDOW_DAYS = 1499
@@ -164,7 +168,7 @@ def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> i
             (sector_ts_code, sector_name, category, source, updated_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (sector_ts_code) DO UPDATE SET
-            sector_name = excluded.sector_name,
+            sector_name = COALESCE(excluded.sector_name, dim_sector_hithink.sector_name),
             category = excluded.category,
             source = excluded.source,
             updated_at = excluded.updated_at
@@ -581,7 +585,7 @@ def sync_hithink_sector_kline(
         member_codes = capture.plan_members() if not skip_constituents else []
         for code in INDEX_CODES:
             catalog_rows.append(
-                {"thscode": code, "name": None, "category": "index"}
+                {"thscode": code, "name": INDEX_NAMES.get(code), "category": "index"}
             )
         dim_n = _upsert_dim(con, catalog_rows)
 

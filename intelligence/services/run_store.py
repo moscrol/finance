@@ -542,24 +542,65 @@ class RunStore:
                 self._write_run(run)
                 return artifact
 
-    def read_history_artifact(self, run_id: str, filename: str) -> dict[str, Any]:
-        """Read only a registered, public original owned by this store's user."""
+    def read_history_artifact(
+        self,
+        run_id: str,
+        filename: str,
+        *,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Read one registered public original with optional conversation binding.
+
+        The conversation check belongs in this same read transaction as the
+        registration and byte-integrity checks. Callers that need a
+        conversation-scoped reference must pass ``conversation_id``; the
+        legacy direct-reader contract remains user-scoped when it is omitted.
+        """
+        with self._state_lock:
+            # Validate the directory before opening its lock, then reload under it.
+            self._history_run(run_id, conversation_id=conversation_id)
+            with self._run_state_lock(run_id):
+                run, run_dir = self._history_run(run_id, conversation_id=conversation_id)
+                path = self._history_path(run_dir, filename)
+                registered = [a for a in run.artifacts if a.get("path") == filename]
+                if len(registered) > 1:
+                    raise ValueError("history artifact integrity: duplicate registration")
+                if (
+                    not registered
+                    or artifact_visibility(registered[0]) != "public"
+                    or registered[0].get("downloadable", True) is not True
+                ):
+                    raise FileNotFoundError(f"history artifact not available: {filename}")
+                data = self._verified_history_bytes(path, registered[0])
+                payload = json.loads(data)
+                self._history_json_bytes(payload)
+                return payload
+
+    def read_episode_artifact(self, run_id: str, *, conversation_id: str) -> tuple[dict[str, Any], str]:
+        """Read one owned, registered private original; never follow caller paths."""
         with self._state_lock:
             run, run_dir = self._history_run(run_id)
-            path = self._history_path(run_dir, filename)
+            if run.session_id != conversation_id or run.status != STATUS_COMPLETED:
+                raise ValueError("episode source is not a completed run in this conversation")
+            filename = "continuous-episode.json"
             registered = [a for a in run.artifacts if a.get("path") == filename]
-            if len(registered) > 1:
-                raise ValueError("history artifact integrity: duplicate registration")
-            if (
-                not registered
-                or artifact_visibility(registered[0]) != "public"
-                or registered[0].get("downloadable", True) is not True
-            ):
-                raise FileNotFoundError(f"history artifact not available: {filename}")
-            data = self._verified_history_bytes(path, registered[0])
+            if len(registered) != 1 or artifact_visibility(registered[0]) != "internal":
+                raise ValueError("episode artifact registration missing or ambiguous")
+            artifact = registered[0]
+            path = run_dir / filename
+            if path.is_symlink() or path.resolve().parent != run_dir.resolve():
+                raise ValueError("invalid episode artifact path")
+            limit = 16 * 1024 * 1024
+            with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb") as fh:
+                data = fh.read(limit + 1)
+            digest = hashlib.sha256(data).hexdigest()
+            if (len(data) > limit or artifact.get("sha256") != digest
+                    or type(artifact.get("bytes")) is not int
+                    or artifact["bytes"] != len(data) or artifact.get("renderer") != "json"):
+                raise ValueError("episode artifact integrity check failed")
             payload = json.loads(data)
             self._history_json_bytes(payload)
-            return payload
+            return payload, digest
 
     @contextmanager
     def history_case_transaction(
@@ -589,7 +630,9 @@ class RunStore:
         with _file_transaction_lock(path):
             yield
 
-    def _history_run(self, run_id: str) -> tuple[Run, Path]:
+    def _history_run(
+        self, run_id: str, *, conversation_id: str | None = None,
+    ) -> tuple[Run, Path]:
         if not isinstance(run_id, str) or not run_id:
             raise ValueError("invalid history run path")
         run_dir = self.run_dir(run_id)
@@ -599,8 +642,14 @@ class RunStore:
         if run_path.is_symlink():
             raise ValueError("invalid history run metadata path")
         if not run_path.is_file():
+            if conversation_id is not None:
+                raise ValueError("history artifact is outside this conversation")
             raise FileNotFoundError(f"run not found: {run_id}")
         run = self.load_run(run_id)
+        if conversation_id is not None and (
+            run.user != self.user_id or run.session_id != conversation_id
+        ):
+            raise ValueError("history artifact is outside this conversation")
         if run.user != self.user_id:
             raise PermissionError("history artifact belongs to another user")
         if run.run_id != run_id:

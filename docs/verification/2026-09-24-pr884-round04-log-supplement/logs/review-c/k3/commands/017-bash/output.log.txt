@@ -1,0 +1,6 @@
+intelligence/services/llm_refine.py:1436:        "" if finish_reason else "incomplete_model_response:missing_finish_reason",
+intelligence/runtime/glm_agent_runtime.py:434:                if turn.error.startswith("incomplete_model_response:"):
+intelligence/services/agent_runtime.py:175:                object.__setattr__(self, "error", "incomplete_model_response:" + reason)
+intelligence/tests/test_draft_stream_end_to_end.py:101:    assert turn.error == ("" if complete else "incomplete_model_response:missing_finish_reason")
+intelligence/tests/test_model_turn_completion_boundary.py:130:        assert event.payload["error"] == "incomplete_model_response:missing_finish_reason"
+intelligence/tests/test_model_turn_completion_boundary.py:171:    assert last_model.payload["error"] == "incomplete_model_response:max_tokens"

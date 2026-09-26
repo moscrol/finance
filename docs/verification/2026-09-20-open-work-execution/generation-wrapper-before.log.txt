@@ -1,0 +1,249 @@
+FFFFFF...F                                                               [100%]
+=================================== FAILURES ===================================
+___ test_real_cli_log_respects_both_code_roots[file-link-FINANCE_CODE_ROOT] ____
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_real_cli_log_respects_bot0')
+root_env = 'FINANCE_CODE_ROOT', layout = 'file-link'
+
+    @pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+    @pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+    def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+        code = tmp_path / "code"
+        code.mkdir()
+        home = code if layout == "home-in-code" else tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        log = home / ".finance-runtime" / "alerts.log"
+        if layout == "directory-link":
+            log.parent.symlink_to(code, target_is_directory=True)
+        else:
+            log.parent.mkdir()
+            if layout == "file-link":
+                log.symlink_to(code / "alert-target.log")
+        before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+        env.update(HOME=str(home), **{root_env: str(code)})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+            env=env, capture_output=True, text=True, check=False,
+        )
+        if layout == "external":
+            assert result.returncode == 0, result.stderr
+            assert "isolated boundary probe" in log.read_text()
+        else:
+>           assert result.returncode == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-generation-alert-guard-0920/scripts/notify_ops.py', '--no-desktop', 'isolated boundary probe'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_notify_ops.py:118: AssertionError
+_ test_real_cli_log_respects_both_code_roots[file-link-FINANCE_GENERATION_CODE_ROOT] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_real_cli_log_respects_bot1')
+root_env = 'FINANCE_GENERATION_CODE_ROOT', layout = 'file-link'
+
+    @pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+    @pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+    def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+        code = tmp_path / "code"
+        code.mkdir()
+        home = code if layout == "home-in-code" else tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        log = home / ".finance-runtime" / "alerts.log"
+        if layout == "directory-link":
+            log.parent.symlink_to(code, target_is_directory=True)
+        else:
+            log.parent.mkdir()
+            if layout == "file-link":
+                log.symlink_to(code / "alert-target.log")
+        before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+        env.update(HOME=str(home), **{root_env: str(code)})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+            env=env, capture_output=True, text=True, check=False,
+        )
+        if layout == "external":
+            assert result.returncode == 0, result.stderr
+            assert "isolated boundary probe" in log.read_text()
+        else:
+>           assert result.returncode == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-generation-alert-guard-0920/scripts/notify_ops.py', '--no-desktop', 'isolated boundary probe'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_notify_ops.py:118: AssertionError
+_ test_real_cli_log_respects_both_code_roots[directory-link-FINANCE_CODE_ROOT] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_real_cli_log_respects_bot2')
+root_env = 'FINANCE_CODE_ROOT', layout = 'directory-link'
+
+    @pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+    @pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+    def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+        code = tmp_path / "code"
+        code.mkdir()
+        home = code if layout == "home-in-code" else tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        log = home / ".finance-runtime" / "alerts.log"
+        if layout == "directory-link":
+            log.parent.symlink_to(code, target_is_directory=True)
+        else:
+            log.parent.mkdir()
+            if layout == "file-link":
+                log.symlink_to(code / "alert-target.log")
+        before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+        env.update(HOME=str(home), **{root_env: str(code)})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+            env=env, capture_output=True, text=True, check=False,
+        )
+        if layout == "external":
+            assert result.returncode == 0, result.stderr
+            assert "isolated boundary probe" in log.read_text()
+        else:
+>           assert result.returncode == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-generation-alert-guard-0920/scripts/notify_ops.py', '--no-desktop', 'isolated boundary probe'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_notify_ops.py:118: AssertionError
+_ test_real_cli_log_respects_both_code_roots[directory-link-FINANCE_GENERATION_CODE_ROOT] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_real_cli_log_respects_bot3')
+root_env = 'FINANCE_GENERATION_CODE_ROOT', layout = 'directory-link'
+
+    @pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+    @pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+    def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+        code = tmp_path / "code"
+        code.mkdir()
+        home = code if layout == "home-in-code" else tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        log = home / ".finance-runtime" / "alerts.log"
+        if layout == "directory-link":
+            log.parent.symlink_to(code, target_is_directory=True)
+        else:
+            log.parent.mkdir()
+            if layout == "file-link":
+                log.symlink_to(code / "alert-target.log")
+        before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+        env.update(HOME=str(home), **{root_env: str(code)})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+            env=env, capture_output=True, text=True, check=False,
+        )
+        if layout == "external":
+            assert result.returncode == 0, result.stderr
+            assert "isolated boundary probe" in log.read_text()
+        else:
+>           assert result.returncode == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-generation-alert-guard-0920/scripts/notify_ops.py', '--no-desktop', 'isolated boundary probe'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_notify_ops.py:118: AssertionError
+__ test_real_cli_log_respects_both_code_roots[home-in-code-FINANCE_CODE_ROOT] __
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_real_cli_log_respects_bot4')
+root_env = 'FINANCE_CODE_ROOT', layout = 'home-in-code'
+
+    @pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+    @pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+    def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+        code = tmp_path / "code"
+        code.mkdir()
+        home = code if layout == "home-in-code" else tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        log = home / ".finance-runtime" / "alerts.log"
+        if layout == "directory-link":
+            log.parent.symlink_to(code, target_is_directory=True)
+        else:
+            log.parent.mkdir()
+            if layout == "file-link":
+                log.symlink_to(code / "alert-target.log")
+        before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+        env.update(HOME=str(home), **{root_env: str(code)})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+            env=env, capture_output=True, text=True, check=False,
+        )
+        if layout == "external":
+            assert result.returncode == 0, result.stderr
+            assert "isolated boundary probe" in log.read_text()
+        else:
+>           assert result.returncode == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-generation-alert-guard-0920/scripts/notify_ops.py', '--no-desktop', 'isolated boundary probe'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_notify_ops.py:118: AssertionError
+_ test_real_cli_log_respects_both_code_roots[home-in-code-FINANCE_GENERATION_CODE_ROOT] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_real_cli_log_respects_bot5')
+root_env = 'FINANCE_GENERATION_CODE_ROOT', layout = 'home-in-code'
+
+    @pytest.mark.parametrize("root_env", ["FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"])
+    @pytest.mark.parametrize("layout", ["file-link", "directory-link", "home-in-code", "external"])
+    def test_real_cli_log_respects_both_code_roots(tmp_path, root_env, layout):
+        code = tmp_path / "code"
+        code.mkdir()
+        home = code if layout == "home-in-code" else tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        log = home / ".finance-runtime" / "alerts.log"
+        if layout == "directory-link":
+            log.parent.symlink_to(code, target_is_directory=True)
+        else:
+            log.parent.mkdir()
+            if layout == "file-link":
+                log.symlink_to(code / "alert-target.log")
+        before = sorted(str(p.relative_to(code)) for p in code.rglob("*"))
+        env = {k: v for k, v in os.environ.items()
+               if k not in {"FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT"}}
+        env.update(HOME=str(home), **{root_env: str(code)})
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--no-desktop", "isolated boundary probe"],
+            env=env, capture_output=True, text=True, check=False,
+        )
+        if layout == "external":
+            assert result.returncode == 0, result.stderr
+            assert "isolated boundary probe" in log.read_text()
+        else:
+>           assert result.returncode == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-generation-alert-guard-0920/scripts/notify_ops.py', '--no-desktop', 'isolated boundary probe'], returncode=0, stdout='', stderr='').returncode
+
+tests/test_notify_ops.py:118: AssertionError
+__________ test_generation_failure_stops_receive_and_fallback_log[2] ___________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_generation_failure_stops_1')
+generation_rc = 2
+
+    @pytest.mark.parametrize("generation_rc", [0, 2])
+    def test_generation_failure_stops_receive_and_fallback_log(tmp_path, generation_rc):
+        proc, calls, _ = _run_nightly_finalize(
+            tmp_path, generation_rc=generation_rc, receive=True,
+        )
+        assert proc.returncode == generation_rc, proc.stderr
+        if generation_rc:
+            assert "生成段失败 rc=2" in proc.stdout + proc.stderr
+>           assert "receive-marker" not in calls
+E           AssertionError: assert 'receive-marker' not in 'moneyflow 2...ench/users\n'
+E             
+E             'receive-marker' is contained here:
+E               nch/users
+E               receive-marker
+E               python /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_generation_failure_stops_1/code/scripts/notify_ops.py --no-desktop ⚠️ 全量复盘 2026-09-11 生成段失败 rc=2（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log | code=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_generation_failure_stops_1/code data=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2891/test_generation_failure_stops_1/data users=/Users/a77/.local/share/finance-workbench/users
+
+tests/test_eval_launchd_wiring.py:191: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_notify_ops.py::test_real_cli_log_respects_both_code_roots[file-link-FINANCE_CODE_ROOT]
+FAILED tests/test_notify_ops.py::test_real_cli_log_respects_both_code_roots[file-link-FINANCE_GENERATION_CODE_ROOT]
+FAILED tests/test_notify_ops.py::test_real_cli_log_respects_both_code_roots[directory-link-FINANCE_CODE_ROOT]
+FAILED tests/test_notify_ops.py::test_real_cli_log_respects_both_code_roots[directory-link-FINANCE_GENERATION_CODE_ROOT]
+FAILED tests/test_notify_ops.py::test_real_cli_log_respects_both_code_roots[home-in-code-FINANCE_CODE_ROOT]
+FAILED tests/test_notify_ops.py::test_real_cli_log_respects_both_code_roots[home-in-code-FINANCE_GENERATION_CODE_ROOT]
+FAILED tests/test_eval_launchd_wiring.py::test_generation_failure_stops_receive_and_fallback_log[2]
+7 failed, 3 passed in 1.24s

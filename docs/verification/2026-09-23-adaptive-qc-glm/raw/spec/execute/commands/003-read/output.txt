@@ -1,0 +1,15 @@
+# PR #868 / #72 Claim Set
+
+Source: PR #868 description C1-C7, frozen for candidate 31f1b40dd788d36c71da249d59fb769c50d7cd30. These are author assertions to verify, not reviewer findings.
+
+- C1: llm_http_transport.urlopen(request, timeout, deadline, is_cancelled) applies a monotonic absolute deadline to an entire HTTP call including streaming reads. Parent read/write checks and worker Timer -> os._exit(124) enforce termination even with slow/trickling input or a stalled parent.
+- C2: All five llm_refine HTTP call sites use _open_deadline_http_response, passing deadline and, on streaming paths, cancellation. No bypass. Examine upstream origins of timeout and shared deadline separately; same-valued fixture parameters cannot prove forwarding. Deadline has no asserted slice() API.
+- C3: A late semantic judge payload (0.8s budget, upstream roughly 2.9s) is recorded failed/timeout, report_received=False, unavailable=True; payload is not accepted, root remaining time reflects elapsed wall clock.
+- C4: Wrapper forwards the shared research deadline, not only the per-call timeout. A 10s slice and 0.5s shared deadline must stop before the roughly 2.9s fixture finishes. Missing forwarding must be detectable by a behavioral probe.
+- C5: Zero budget means no HTTP request and no reservation; distinguish exhausted root from exhausted judge subwindow.
+- C6: Each HTTP call starts an isolated Python subprocess; startup is part of the granted budget. Historical startup durations are observations, not a performance guarantee. Verify inclusion, not those benchmark numbers.
+- C7: Historical engineering receipts belong to clean revision 7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16. Its diff to this frozen candidate is docs only. They do not cover later tooling heads or a joint latest-main tree. The supplied receipts are author evidence, not independent reviewer test counts.
+
+Scope limits: broader adaptive-loop behavior and financial answer correctness are not claims covered by #72. The previous L6 natural acceptance did not pass, and this engineering review cannot promote it. Later audit/preflight tooling added after the candidate is outside this frozen review. No merge/deployment authority.
+
+Inputs alongside this file: author-summary.json and author-pytest-receipt.json are unmodified copies from the historical gate; code-tip-to-candidate.diffstat.txt is host-generated git evidence. Do not treat their existence as proving C1-C6.

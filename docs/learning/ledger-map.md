@@ -4,18 +4,22 @@
 > 按日期命名分区；每个台账文件只有一个写入者；需要 git 历史的进仓，缓存/超大生成物落仓外 `~/kb_work/`。
 > 新增任何台账，必须先在这张表登记。
 
+用户态路径以 `intelligence/userspace.py::users_dir/user_space` 为准：`FORESIGHT_USERS_DIR` 优先，未配置时源码仍回退到仓内 `intelligence/users/`。该回退是代码兼容行为，不是写入冻结存档的授权；正常运行须显式绑定外置用户根，离线测试使用临时根。下表以解析器表达落点，不硬编码本机目录。保鲜诊断是带日期的历史证据，不是当前覆盖率。
+
 | 台账 | canonical 路径 | 格式 | 唯一写入者 | 提交? | 渲染物 |
 |---|---|---|---|---|---|
+| 部署与启动归属 | `deploy_ledger.resolve_ledger_path()`（默认 `~/.finance-runtime/deploy-ledger.jsonl`，显式路径或 `FINANCE_DEPLOY_LEDGER` 优先） | JSONL，startup / switch；`startup_port_attribution` 仅追加对无端口 startup 的归属，绑定原行规范化 SHA256、启动日志与 health 原件哈希。证据改变或冲突即不采信，不重排原事件 | `intelligence/runtime/deploy_ledger.py`；lifespan 自报、`audit_deploy_ledger.py record`，归属补记 `attribute-startup --apply`（默认 dry-run） | 否（机器状态）；证据须保留在稳定树外目录 | `audit_deploy_ledger.py check/homes`；`worktree_board` 仍只读 switch，归属补记不产生切换 |
 | 方法验证实验（固定三组、当日前瞻观察、到期回检） | `userspace.user_space(user).root/method_validation/<protocol_id>/protocol.json`；`history/<记录日>/<hash>.json`、`capture/<D0>/<hash>.json`、`recheck/<记录日>/<hash>.json`（`FORESIGHT_USERS_DIR` 优先；CLI `--root` 可明确指定离线研究目录）。派生缓存 `standing/<输入指纹>.json`（立场摘要，可重算、可替换，不是真源）；草稿 `<root>/candidates/<hash>.json`（匹不上固定方法的自然语言方法，不编译） | JSON，不可覆盖；协议/每次输入/结果均有内容摘要 | `scripts/method_validation.py register/history/capture/recheck/daily`（`status --refresh` 只重算摘要）；夜间 `checkpoint recheck` 经 `MethodValidationResolver` 到期写 recheck 收据；主实验 R 号仍由 claim_ledger_id 领取并在 prediction-ledger 索引。有信号的 D0 观察**登记进既有 `checkpoints.jsonl`**（`object_type=method_observation`、`metric.type=method_validation`），不另开台账 | 否（私人研究应用态）；方法代码与工作流文档提交 | `report --record` → Markdown；`status` → 立场摘要；日报「方法信号与待验对象」段与 `[M]` / `memory_lookup` 只读摘要；当前全部 research_only，不进入 lifecycle/画像/参数推广 |
 | 同花顺目录/成员采集审计 | 所选 DuckDB（遵循 `MARKET_FEATURE_STORE_DB`）中的 `ops_hithink_sector_capture`、`ops_hithink_sector_request`；schema 以 `market_feature_store/schema.sql` 为准 | DuckDB：批次头＋逐逻辑请求的计划/结果；终态不可覆盖，成功响应仅保留白名单字段 JSON 与指纹，不存密钥/原始错误正文 | `market_feature_store/hithink_sector_capture.py::SectorCapture`，由既有 `sync_hithink_sector_kline` 调用；不另建生产写入口 | 否（数据库应用态） | 指定 capture_id 的只读预览；请求完成度与供应商完整性分列，后者无独立分母时为 unverified；不代表 canonical 发布或行情覆盖 |
+| 同花顺研究观察请求 | 所选 DuckDB（`MARKET_FEATURE_STORE_DB`）中的 `ops_hithink_research_request` | DuckDB，逐请求 UUID：IO 前 pending，结果 ok/empty/partial/failed；范围、供应商时间、上海采集时间、原始成功响应；不存凭证或错误正文 | `market_feature_store/sync/sync_hithink_research.py::_capture`，经既有 daily-full staging；拒绝直写生产 | 否（数据库应用态） | CLI 请求摘要；三个 fact 读口由 `finance_query` 消费，事实是最后观察值不是历史 PIT 版本 |
 | 每日市场复盘（正式日报） | `market_feature_store/exports/<date>-daily-review.json`（schema `daily-review/v1`：核心看板 + `facts` 口径字段 + 15 节 `sections[].blocks[]`） | JSON | `market_feature_store.cli daily-review`（`reports/daily_review.py::build_daily_review`，全量入口 `intelligence.cli daily` 的 `daily-review` 步） | 是（几十 KB/天） | 同名 `.md`（不提交，`render_daily_review_markdown`）→ `复盘/daily/<date>/<date>-daily-review.html`（`render_daily_review_briefing.py`）；Workbench 产物库投影 `project_daily_review_json`；框架解读 `load_facts_digest` |
 | 复盘输入冻结 | `docs/learning/forecast-review-ledger/<date>.manifest.json` | JSON | `dual_blind_forecast.py manifest`（**夜跑已退役**，仅手动） | 是 | — |
 | 复盘答卷 | `docs/learning/forecast-review-ledger/<date>.answer.<agent>.json` | JSON | `dual_blind_forecast.py validate`（校验；**夜跑已退役**） | 是 | `<date>.md` |
 | 复盘验证 | `docs/learning/forecast-review-ledger/<date>.verdict.json` | JSON | `dual_blind_forecast.py verdict`（**夜跑已退役**，仅手动） | 是 | `index.md` 状态表（`index` 子命令） |
-| 回答评分 | `intelligence/users/<id>/answer_scores.jsonl` | JSONL | auto_eval | 否（用户态） | — |
-| 个人判断回检 | `intelligence/users/<id>/checkpoints.jsonl` + `verdicts.jsonl` | JSONL（`checkpoints` 每行可选字段 `rule_id / rule_verdict / rule_receipt / bias_flags`：引用的方法论规则、登记当时该规则最近收据的四态与路径、偏差目录命中 code 列表——2026-09-05 INDEX #24，读者 `calibrate.by_rule` / `render_report` / `checkpoint bias-scan`） | foresight checkpoint | 否（用户态） | — |
+| 回答评分 | `userspace.user_space(user).answer_scores_path` | JSONL | auto_eval | 否（用户态） | — |
+| 个人判断回检 | `userspace.user_space(user).checkpoints_path` + `verdicts_path` | JSONL（`checkpoints` 每行可选字段 `rule_id / rule_verdict / rule_receipt / bias_flags`：引用的方法论规则、登记当时该规则最近收据的四态与路径、偏差目录命中 code 列表——2026-09-05 INDEX #24，读者 `calibrate.by_rule` / `render_report` / `checkpoint bias-scan`） | foresight checkpoint | 否（用户态） | — |
 | 情景树（多步推演，#37 / G-15） | `userspace.user_space(user).root/scenario_trees.jsonl`（`FORESIGHT_USERS_DIR` 优先） | JSONL，append-only；登记须带 `projection_hash / model_id / framework_version`，`realized_path` 只由 `river.slice(T+k, C=T+k)` 判定 | `intelligence/services/scenario_trees.py::register / resolve`（无独立 CLI；每日复盘钩子 `daily_review_hook` 默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑）；登记同时进 `checkpoints.jsonl`（`object_type=scenario_tree`） | 否（用户态） | 三项回检（覆盖 / 沿路剧本 / 规则样本）；到达节点剧本按 G-03 登记 |
-| 记忆候选留档 | `intelligence/users/<id>/memory_candidates.jsonl` | JSONL | `run_memory_candidate_loop.py` | 否（用户态） | `trace` 子命令（归因反查）；生命周期见 `memory-candidate-lifecycle.md` |
+| 记忆候选留档 | `userspace.user_space(user).root/memory_candidates.jsonl` | JSONL | `run_memory_candidate_loop.py` | 否（用户态） | `trace` 子命令（归因反查）；生命周期见 `memory-candidate-lifecycle.md` |
 | 双盲错因反思候选 | `docs/learning/forecast-lessons/reflections/<date>.reflection.<agent>.<source>.json` | JSON | `forecast_learning_loop sync-reflections` | 是 | Workbench / 人工审批 |
 | 双盲已批准 lessons | `docs/learning/forecast-lessons/lessons.jsonl` | JSONL | `forecast_learning_loop approve-reflection` | 是 | 次日答卷 prompt |
 | 双盲批注规则候选 | `docs/learning/forecast-lessons/rule_candidates.jsonl` | JSONL 事件流 | `forecast_learning_loop sync-annotations/approve-rule/reject-rule` | 是 | 次日答卷 prompt（仅 approved） |
@@ -25,16 +29,17 @@
 | 晨汇原料 | 知识库仓 `wiki/raw/briefings/<date>/` | 原文 | morning-briefing | 是 | — |
 | 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router（表定）/ 近月实写 sellside-coverage-cross | 是 | — |
 | 卖方观点事件 | 知识库仓 `wiki/raw/theme-radar/opinion-store/opinion-events.jsonl` | JSONL | opinion-cross | 是 | `复盘/winrate/*.html`（不提交） |
+| 卖方事件更正 | 知识库仓 `wiki/raw/theme-radar/opinion-store/corrections/<batch_id>.json` | 不可覆盖 JSON，逐事件绑定原记录哈希、前一修订、原文字符锚点；时间由写入者盖章 | 金融仓 `scripts/review_opinion_events.py`（校验整批后加锁发布，重放同批幂等）；不改原事件 | 是 | `intelligence.services.opinion_events` 按知识截止投影；接催化归因、Workbench 卖方流及教学/事件定价研究构建入口；后两者为事后聚合，不等于严格PIT或 river 目录同步 |
 | 晨汇 Tier 事件（晨汇正文 Tier 1 / 2 / 3 条目的确定性投影：维度 / 是否盘面共振 / 主题 / 信号 / 映射标的 / 双链 / 材料日 / 最早可知日 / 写成日；一条条目一行，全量重建、可复现） | 知识库仓 `wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl` | JSONL | 知识库 `skills/morning-briefing/scripts/extract_tier_events.py`（morning-briefing Stage 4.5；`--check` 作收尾门禁） | 是 | 金融仓 `build-labels --kb-wiki` → `tf.briefing_*` / 河对象 `teaching_briefing` / 带读「消息面」一行 |
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
-| 工作台 Run | `intelligence/users/<id>/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
+| 工作台 Run | `userspace.user_space(user).root/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
 | 历史研究查询 / 案例 / 假设原件 | `userspace.user_space(user).root/runs/<run_id>/history-{query,case,hypothesis}-<sha256>.json`（用户根由 `FORESIGHT_USERS_DIR` 解析；登记在同 run 的 `run.json`，不写冻结的 `intelligence/users/`） | 内容寻址 JSON，不可覆盖 | `RunStore.add_history_artifact`；案例修订在 `history_case_transaction` 内核对当前 head | 否（用户态） | Workbench 既有 JSON 产物查看器；Agent `read_history_result` 同用户同会话、截止及范围核验后读取 |
 | 工具饥饿 | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/tool_hunger.jsonl` | JSONL | episode/inline 运行时（fail-open） | 否（用户态） | `python -m intelligence.eval.tool_hunger` → `intelligence/eval/measurements/tool-hunger-YYYY-MM-DD.{json,md}` |
-| 工作台会话 | `intelligence/users/<id>/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
+| 工作台会话 | `userspace.user_space(user).root/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
 | Fidelity 前向验收 | `/Users/a77/fidelity-runtime/forward-acceptance/records/<date>/*.json` | JSON | `fidelity_forward_acceptance.py record` | 仓外 | `latest/<date>.json` + `summary` 子命令 |
 | 观测台薄账 | `docs/roadmap.md` | md（例外：md 即 canonical，不是渲染物） | 检阅方 | 是 | Phase 1 起 `var/observatory/index.html`（gitignored）；L2/曲线由生成器投影 |
-| 视角考卷（已知题/边题） | `intelligence/users/<id>/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
+| 视角考卷（已知题/边题） | `userspace.user_space(user).root/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
 | 自用摩擦台账 | `docs/learning/self-use-ledger/<date>.jsonl` | JSONL | `scripts/self_use_ledger.py add`（只记真人使用，探针/评测不进账） | 是 | `summary` 子命令（Self-use Gate 读数，见目录 README） |
 | 预测/假设台账（R-号，实验立案与预注册裁决） | `docs/prediction-ledger.md` | md（例外：md 即 canonical） | 号由 `scripts/claim_ledger_id.py claim` 原子预占（禁手工 max+1）；行由立案会话写入 | 是 | —（实验原始收据在 `~/.finance-runtime/<实验名>/`，本表行是唯一住址索引） |
 | IMA 缺口清单（该跑 DeepDive 的题材 / 该补逻辑卡的个股） | `market_feature_store/exports/<date>-ima-gap.json`（`schema_version` 字段） | JSON | 全量入口 `intelligence.cli daily` 的 `ima-gap-report` 步（只出清单，不自动问 IMA） | 是 | 同名 `.md` |
@@ -73,7 +78,7 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 
 | 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
 |---|---|---|---|---|---|
-| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 库内缺 08-21 起。IMA 侧已有 08-21/22 合刊、0823–0825、0826–0828 | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab。默认检索词是「路演调研日报 / 全量复盘 / 全量总结」 | 上游 PDF 还在；本地最后一次拉到 `~/Downloads/ima-briefings` 是 08-22。新文件改名「全市场路演调研…」，默认词搜不到；今晚 bridge `connected=false`（IMA 未开/插件未心跳），OpenAPI 能搜不能下 | `#5400` 来源写「IMA 浑水调研《路演调研全日汇总 0820.pdf》」；`ima-fetch search --kb 浑水调研 全市场路演` 命中 0828/0827/0826 等 |
+| 晨汇 / 晨汇原料（本行 2026-09-21 二次复核重写） | `wiki/briefings/2026-09-18.md`（`#6892`，2026-09-21 入库）；9 月已连续：09-01 / 03 / 06 / 07 / 08 / 14 / 15 / 18 | **当前无缺档**。09-15、09-18 于 2026-09-21 回填入库（`#6891`/`#6892`，知识库仓 PR #156）；09-16 / 09-17 / 09-19 上游确无 PDF（五词交叉验证：路演 / 预期差 / 复盘 / 汇总 / 总结） | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab | 2026-09-21 实测推翻 08-28 的「OpenAPI 能搜不能下 / 待打开 IMA 再拉」：`status` 仍报 `IMA_BRIDGE_OFFLINE`，但 `get --media-id` **能正常下载**（status 与下载走不同通道，不必先开 IMA）。两个真实的坑：①**单关键词会漏**——09-18 那份标题是「电话会 总结」，默认词「路演」搜不到；②**IMA 文件名的日期会错**——`20260902_路演调研全量总结.pdf` 正文自称 2026-09-03，早已作为 `2026-09-03.md` 入库（`#6837`），按文件名判缺档会重复入库 | 09-21 实拉 `20260915_路演调研_预期差.pdf`(4.3MB)、`20260918_电话会_总结.pdf`(1.3MB) 均 `ok:true`；管线收据见知识库仓 PR #156（matcher 31/3/137 与 37/4/271、`extract_tier_events --check` exit 0、974 项测试通过）；08-28 原始诊断见本文件 git 历史 |
 | 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
 
 卖方自动源（2026-08-28 实测）：
@@ -85,7 +90,23 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 | wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
 | wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
 
-状态标签：**晨汇 = 上游仍有货、抓取词表/会话断了，待打开 IMA 再拉；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」——IMA 里有 PDF，只是还没拉进仓；卖方缺档仍是「无原文，禁止编造」。
+状态标签（2026-09-21 二次复核）：**晨汇 = 已补齐、无缺档；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇原料能自动拉（bridge `status` 报 offline 不影响 `get --media-id`），09-15 / 09-18 已于 2026-09-21 入库，9 月序列连续；卖方缺档仍是「无原文，禁止编造」。
+
+## IMA 缺口清单断档与回填（2026-09-21）
+
+`ima-gap-report` 自 2026-09-03 起静默停产，产物断在 `2026-09-02`。**断因不是脚本失败，是代码从没合进 main**：
+09-03 主检出树前移到 `gitea/main` 时，`intelligence/services/ima_gap_report.py` + 测试连同 `cli.py` /
+`daily_review.py` 的接线一起被保管进 `wip/mainline-move-footprints-20260903`（该 handoff 明写「不合 main，
+归属者认领后自己决定」），无人认领，主树切到 main 后这一步随之消失。上表照登记着它——**台账说有、代码里没有**，
+断了 19 天无人发现，下游一直吃 09-02 的旧清单（知识库仓 09-15 的入库提交仍写着「ima-gap 0902 积压」）。
+
+回填口径（`fix/restore-ima-gap-report`）：接线移植回 main 后补跑 **09-07 / 09-09 / 09-14～09-18 共 7 天**。
+
+- **回填清单不是当日快照**。`ima-gap-report` 拿当日 `research-queue.json` 去比**当前**知识库状态，补出来的是
+  「以今天的 wiki 看，那天的队列里还缺什么」。对「现在该去 IMA 跑什么」这个用途口径是对的（已入库的会正确判成
+  `skip_have_deepdive`），但**不能当作「当时该跑什么」的历史证据**。
+- **09-03～09-06 / 09-08 / 09-10～09-13 永久补不了**：这些日期没有 `<date>-research-queue.json`，缺的是上游
+  日报线，不是本步。
 
 ## 边界约定（去重复）
 

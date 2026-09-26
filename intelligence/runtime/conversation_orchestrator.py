@@ -23,6 +23,7 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     render_daily_review_answer,
     upsert_report_module,
+    worse_status,
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
@@ -37,6 +38,10 @@ from intelligence.services.outlook_delivery_gate import (
     apply_market_watch_delivery_gate,
     apply_outlook_delivery_gate,
     evidence_grid_text,
+)
+from intelligence.services.public_delivery_gate import (
+    contract_output_descriptions,
+    review_public_delivery,
 )
 from intelligence.services.reading_direction_gate import (
     apply_reading_direction_gate,
@@ -85,6 +90,7 @@ from intelligence.services.watchlist_digest_pack import (
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.historical_research.intent import HistoryIntent, inherit_history_followup
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
@@ -1945,16 +1951,18 @@ class TurnOrchestrator:
             # Recover state only from complete persisted user messages in the
             # same bounded window; summary/assistant prose is never authority.
             parts = split_user_message(str(query or "").strip())
+            history_continuation = inherit_history_followup(
+                query, inherited_intent.history_intent if inherited_intent is not None else None,
+            ) is not None
             material_contract = compile_material_contract(parts.regions) if parts.regions else None
             material_history = None
-            if material_contract and material_contract.continuation_requested:
+            if history_continuation or (material_contract and material_contract.continuation_requested):
                 material_history = collect_material_turn_history(
                     context.material_messages or (),
                     unavailable=context.material_history_unavailable,
                 )
-                material_contract = compile_material_contract(
-                    parts.regions, source_turn=material_history.source_turn,
-                    inherited_contract=material_history.base_contract,
+                material_contract = material_history.compile_contract(
+                    parts.regions, history_continuation=history_continuation,
                 )
             elif material_contract and material_contract.data_scope == "material_only":
                 material_history = (
@@ -1966,18 +1974,21 @@ class TurnOrchestrator:
                 )
             elif material_contract and material_contract.needs_clarification:
                 material_history = ConversationMaterials(unavailable=True)
+            elif material_contract and material_contract.premise_calculation:
+                material_history = ConversationMaterials()
             # Known absence must reach the default controller: dropping it
             # would reopen resolver/model and pending-frame recovery. Legacy
             # injected controllers keep their pre-existing keyword contract.
             if not material_contract or (
                 material_contract.data_scope != "material_only"
+                and not history_continuation
                 and not self._uses_default_turn_controller
             ):
                 material_history = None
             restricted_history = bool(
                 material_contract
                 and material_history is not None
-                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
+                and (history_continuation or material_contract.data_scope == "material_only" or material_contract.needs_clarification)
             )
             # Keep the established controller context contract byte-compatible.
             # The typed projection is an additional authority input; the model
@@ -2028,6 +2039,7 @@ class TurnOrchestrator:
                     query,
                     legacy_envelope,
                     conversation_materials=material_history,
+                    history_continuation=history_continuation,
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
@@ -2045,7 +2057,10 @@ class TurnOrchestrator:
             if restricted_history and not self._uses_default_turn_controller:
                 # Injected controllers may supply stale/full frames. Recompile
                 # the source-aware contract, not just replace its permission bit.
-                decision = decide_turn(query, conversation_materials=material_history)
+                decision = decide_turn(
+                    query, conversation_materials=material_history,
+                    previous_intent=inherited_intent, previous_turn_id=inherited_turn_id,
+                )
                 task_frame = decision.task_frame
                 assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)
@@ -2243,6 +2258,23 @@ class TurnOrchestrator:
                     continuous_control = replace(
                         continuous_control, stance_pack=stance_pack
                     )
+                if material_only and continuous_control.terminal_kind == "research":
+                    from intelligence.services.prior_evidence import load_previous_evidence
+
+                    try:
+                        prior_evidence = load_previous_evidence(
+                            task_frame, messages=context.material_messages or (),
+                            store=self.run_store, conversation_id=conversation_id,
+                            current_run_id=run_id,
+                            history_unavailable=context.material_history_unavailable,
+                        )
+                    except (OSError, ValueError, TypeError, OverflowError) as exc:
+                        # Missing originals never authorize a fresh query or old-answer evidence.
+                        warning = f"prior_evidence_unavailable:{type(exc).__name__}"
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+                    else:
+                        continuous_control = replace(continuous_control, prior_evidence=prior_evidence)
                 with bind_run_hunger(
                     self.run_store.run_dir(run_id), run_id=run_id
                 ):
@@ -2389,12 +2421,15 @@ class TurnOrchestrator:
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
-                if (
-                    decision.question_type == QUESTION_METHODOLOGY
-                    and lane_answer.fallback_reason
-                ):
-                    warning = "方法论回答生成暂时不可用"
-                    lane_warnings.append(warning)
+                # Retrieval fallback does not repair a failed generation attempt.
+                if lane_answer.fallback_reason:
+                    warning = (
+                        "方法论回答生成暂时不可用"
+                        if decision.question_type == QUESTION_METHODOLOGY
+                        else "自然语言生成暂时不可用，本轮正文未经综述"
+                    )
+                    if warning not in lane_warnings:
+                        lane_warnings.append(warning)
                     self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
@@ -3368,6 +3403,7 @@ class TurnOrchestrator:
                 as_of=getattr(result, "trade_date", None),
                 theme=getattr(result, "matched_theme", None),
                 session_id=run_id,
+                history_intent=task_frame.history_intent,
             )
             has_answer_snapshot = result.answer_spec is not None and decision.lane in {
                 "research",
@@ -4475,6 +4511,36 @@ class TurnOrchestrator:
             "context_growth",
             growth,
         )
+        # 最终交付门（services/public_delivery_gate）。放在这里而不是 adapter 里：
+        # adapter 返回之后正文还会被视角头、复核意见、outlook / market_watch 删句闸
+        # 和未验证网格改写，只有这一行之后的 answer_text 才是用户真正读到的那段。
+        # 判定本体是 services 侧纯函数，runtime 只接线、不持有词表。
+        delivery = review_public_delivery(
+            answer_text,
+            required_outputs=task_frame.required_outputs,
+            descriptions=contract_output_descriptions(
+                private_artifact.get("contract")
+            ),
+        )
+        answer_status = projected.report_business
+        if delivery.applied:
+            answer_text = delivery.text
+            # 取更差而不是覆盖：业务状态已是 gap / blocked 时，门判 partial 不得把
+            # answer_status 字段抬回 partial（complete_report 的 status 本来就取更差，
+            # 这里让字段本身也如实；排序与 complete_report 共用同一张 STATUS_RANK）。
+            answer_status = worse_status(answer_status, delivery.answer_status)
+            warning = f"public_delivery_gate:{delivery.verdict}"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+        report["public_delivery_gate"] = delivery.to_dict()
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "continuous:public_delivery_gate",
+            "public_delivery_gate",
+            delivery.to_dict(),
+        )
         complete_report(
             report,
             as_of=result.as_of,
@@ -4482,9 +4548,10 @@ class TurnOrchestrator:
             llm_provider=result.llm_provider,
             llm_model=self.llm_model,
             business_status=projected.report_business,
-            # 刻意保持不变：本轮只加观测，不让 coverage 判定影响交付状态。
-            # 见 _continuous_answer_coverage 的 docstring 与路线图 Phase 1「先量后改」。
-            answer_status=projected.report_business,
+            # marker coverage 仍是观测（见 _continuous_answer_coverage 的 docstring）。
+            # 会动交付状态的只有上面那道确定性交付门：它要求「形态 + 覆盖」两把
+            # 钥匙同时命中，单独缺措辞标记不足以降级。
+            answer_status=answer_status,
         )
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
@@ -4669,6 +4736,7 @@ class TurnOrchestrator:
             as_of=result.as_of,
             theme=task_frame.subject,
             session_id=run_id,
+            history_intent=task_frame.history_intent,
         )
         return TurnResult(
             status=projected.run,
@@ -5459,8 +5527,11 @@ class TurnOrchestrator:
         as_of: str | None,
         theme: str | None,
         session_id: str,
+        history_intent: HistoryIntent | None = None,
     ) -> None:
-        """跟踪题下期关注 / 排序题改判条件写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        """前向跟踪/排序才写 checkpoint；历史回溯不自动登记，失败不挡回答。"""
+        if history_intent is not None:
+            return
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
         user_id = self.run_store.user_id

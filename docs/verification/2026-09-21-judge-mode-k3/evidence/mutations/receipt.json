@@ -1,0 +1,27 @@
+{
+  "mutations": [
+    {
+      "case": "public_projection",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "case": "legacy_mode_extraction",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "case": "replay_mode_bucket",
+      "exit_code": 1,
+      "killed": true
+    },
+    {
+      "case": "k3_wire_parameter",
+      "exit_code": 1,
+      "killed": true
+    }
+  ],
+  "restored_exit": 0,
+  "status": "",
+  "ok": true
+}

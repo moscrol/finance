@@ -25,6 +25,8 @@ from typing import Any
 
 import re
 
+from intelligence.services.historical_research.intent import HistoryIntent
+
 # 跟踪类词面：持续性 + 增量性表述。刻意不收「最近怎么样」这类泛化问法——
 # 它们既可能是跟踪也可能是首次全景，由 route/question_type 判定兜底。
 _TRACK_TERMS = (
@@ -53,14 +55,69 @@ _OPT_OUT_NEGATION = (
     r"不(?=[登记录建入存写纳做作列设]))"
 )
 _OPT_OUT_VERB = r"(?:登记|记录|记进|建档|建立|入库|存档|写入|写进|加进|纳入|列为|设为|做|作为)"
-_OPT_OUT_OBJECT = r"(?:长期|持续)?(?:跟踪|追踪|回检|复核|观察项|关注清单|checkpoint)"
-# 间隔里不许出现「忘 / 漏 / 遗 / 只」：「别忘了登记跟踪」「请勿遗漏登记」是双重否定 = 要登记，
-# 「不要只登记跟踪」是补充要求。这些字一出现，整句就不再是退出声明。
-_GAP = r"(?:(?![忘漏遗只])[^，,。；;!！?？\n]){0,8}?"
-_OPT_OUT_RE = re.compile(
-    rf"{_OPT_OUT_NEGATION}{_GAP}"
-    rf"(?:{_OPT_OUT_VERB}{_GAP}{_OPT_OUT_OBJECT}|{_OPT_OUT_OBJECT}{_GAP}{_OPT_OUT_VERB})"
+_OPT_OUT_OBJECT = (
+    r"(?:长期|持续)?(?:跟踪|追踪|回检|复核|观察项|关注清单|checkpoint)"
+    r"(?:观察项|清单|记录|任务)?"
 )
+# 按小句扫描词元，不用多个无限 GAP 做回溯：长宾语不能截断，重复「登记」也不能
+# 让一次漏判变成二次方扫描。换行是边界。限定语必须修饰否定/登记动作，不能因
+# 宾语里有「一百只」「遗漏指标」「仅供参考」就把明确的拒绝登记取消。
+_OPT_OUT_TOKENS = re.compile(
+    rf"(?P<negation>{_OPT_OUT_NEGATION})|(?P<verb>{_OPT_OUT_VERB})"
+    rf"|(?P<object>{_OPT_OUT_OBJECT})"
+    r"|(?P<qualifier>忘记|忘了|遗忘|遗漏|漏掉|忘|漏|仅仅|仅|只)"
+)
+_PREPOSED_OBJECT_TAIL = re.compile(r"(?:项|观察项|清单|记录|任务)?(?:本次|这次|此次)?")
+_QUALIFIER_LINK = re.compile(r"(?:再三|再|又|也|还|千万)*")
+_REMINDER_BEFORE_ACTION = re.compile(rf"(?:了)?{_OPT_OUT_VERB}")
+_POSTPOSED_REMINDER = re.compile(
+    r"(?:的时候|时|过程中)(?:再|又|也)?(?:忘记|忘了|遗忘|遗漏|漏掉|忘|漏)"
+)
+
+
+def _opt_out_spans(text: str) -> tuple[tuple[int, int], ...]:
+    spans: list[tuple[int, int]] = []
+    for clause in re.finditer(r"[^，,。；;!！?？\r\n]+", text):
+        body = clause.group()
+        start: int | None = None
+        qualifier_position = -1
+        has_verb = has_object = False
+        previous_object: re.Match[str] | None = None
+        for token in _OPT_OUT_TOKENS.finditer(body):
+            kind = token.lastgroup
+            if kind == "negation":
+                # 「长期跟踪不用登记」的前置对象只认紧邻形态，不能吞掉前面的
+                # 「跟踪一下中际旭创但……」正面研究诉求。
+                has_object = bool(previous_object and _PREPOSED_OBJECT_TAIL.fullmatch(
+                    body[previous_object.end():token.start()]
+                ))
+                start = previous_object.start() if has_object else token.start()
+                # 每个否定只扫一次副词前缀。若对每个「只」重扫长串「再……」，
+                # 正确的量词判定也会退化为重复的二次方工作。
+                link = _QUALIFIER_LINK.match(body, token.end())
+                qualifier_position = link.end() if link is not None else token.end()
+                has_verb = False
+            elif kind == "qualifier":
+                modifies_negation = token.start() == qualifier_position
+                modifies_action = (
+                    token.group() not in {"仅仅", "仅", "只"}
+                    and _REMINDER_BEFORE_ACTION.match(body, token.end())
+                )
+                if start is not None and (modifies_negation or modifies_action):
+                    start = None  # 别忘/请勿遗漏/不要只：不是退出持久化
+                    previous_object = None
+            elif kind == "object":
+                previous_object = token
+                has_object = True
+            elif kind == "verb":
+                has_verb = True
+            if start is not None and has_verb and has_object:
+                # 「不要登记为跟踪时漏掉到期日」是在提醒登记细节，不是取消登记。
+                if not _POSTPOSED_REMINDER.match(body, token.end()):
+                    spans.append((clause.start() + start, clause.start() + token.end()))
+                start = None
+                previous_object = None
+    return tuple(spans)
 
 
 def persistence_opt_out(query: str) -> bool:
@@ -72,13 +129,15 @@ def persistence_opt_out(query: str) -> bool:
     调用方在写之前判断，所以判据取**用户问题**，不取模型答案（模型说了不算）。
     """
 
-    text = re.sub(r"\s+", "", str(query or ""))
+    text = re.sub(r"[^\S\r\n]+", "", str(query or ""))
     if not text:
         return False
-    return _OPT_OUT_RE.search(text) is not None
+    return bool(_opt_out_spans(text))
 
 
-def parse_track_intent(query: str, question_type: str | None = None) -> bool:
+def parse_track_intent(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> bool:
     """问题类型为 theme_track，或命中跟踪/增量词面即触发。
 
     否定句里的「跟踪」不算跟踪意图：「不登记长期跟踪」整句被抠掉后再匹配词面，
@@ -86,12 +145,22 @@ def parse_track_intent(query: str, question_type: str | None = None) -> bool:
     正面跟踪诉求时（「跟踪一下液冷，但别登记为长期跟踪」）仍然路由，只是后面
     不落盘——表达纪律和持久化是两件事，别合成一个开关。
     """
+    # 历史路径追踪不是前向持续跟踪。用可信任务状态（含续轮），不由答案或关键词撤销。
+    if history_intent is not None:
+        return False
     if question_type == "theme_track":
         return True
-    text = re.sub(r"\s+", "", str(query or ""))
+    text = re.sub(r"[^\S\r\n]+", "", str(query or ""))
     if not text:
         return False
-    scrubbed = _OPT_OUT_RE.sub("", text)
+    spans = _opt_out_spans(text)
+    kept: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        kept.append(text[cursor:start])
+        cursor = end
+    kept.append(text[cursor:])
+    scrubbed = "".join(kept)
     return any(term in scrubbed for term in _TRACK_TERMS)
 
 
@@ -149,16 +218,20 @@ def build_track_guidance_for_episode() -> str:
     )
 
 
-def track_guidance_for_query(query: str, question_type: str | None = None) -> str:
+def track_guidance_for_query(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> str:
     """命中意图返回表达契约，否则空串（不注入，行为不变）。"""
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ""
     return build_track_guidance()
 
 
-def episode_track_rule(query: str, question_type: str | None = None) -> str:
+def episode_track_rule(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> str:
     """episode 指令的条件注入口：命中跟踪意图返回 episode 版契约，否则空串。"""
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ""
     return build_track_guidance_for_episode()
 
@@ -167,14 +240,14 @@ def episode_track_rule(query: str, question_type: str | None = None) -> str:
 # 不覆盖模型已写的正文——与 ensure_forecast_scenarios_visible 同一形状。
 _QUAD_MARKERS = ("削弱", "无变化", "信息不足", "四态")
 _TTL_MARKERS = ("复核期限", "valid_until")
-_WATCH_MARKERS = ("下期关注",)
 _BASELINE_MARKERS = ("无上期基线",)
 CONTRACT_STUB_HEADING = "## 跟踪契约补全（模型未按强制结构输出的段落）"
 
 
 def missing_contract_elements(answer: str) -> tuple[str, ...]:
     """扫描回答里缺了契约的哪几件。非跟踪题的调用方应先自己判断是否要查。"""
-    text = str(answer or "")
+    # 补全提示是在报告缺件，不是缺件已被模型补好；不能让它自己满足契约。
+    text = str(answer or "").split(CONTRACT_STUB_HEADING, 1)[0]
     missing: list[str] = []
     has_baseline_decl = any(m in text for m in _BASELINE_MARKERS)
     has_quad = any(m in text for m in _QUAD_MARKERS) or ("支持 /" in text) or ("判定：支持" in text)
@@ -182,7 +255,8 @@ def missing_contract_elements(answer: str) -> tuple[str, ...]:
         missing.append("quad_or_baseline")
     if not any(m in text for m in _TTL_MARKERS):
         missing.append("ttl")
-    if not any(m in text for m in _WATCH_MARKERS):
+    claims = _split_watch_claims(_watch_section_body(text))
+    if not claims or not all(_is_registerable_watch(claim) for claim in claims):
         missing.append("next_watch")
     return tuple(missing)
 
@@ -211,6 +285,9 @@ def append_contract_stub(answer: str, missing: tuple[str, ...]) -> str:
     lines.extend(_STUB_LINES[key] for key in missing if key in _STUB_LINES)
     stub = "\n".join(lines)
     body = str(answer or "").rstrip()
+    if CONTRACT_STUB_HEADING in body:
+        # 重复投影不叠加；旧提示也不参与 missing_contract_elements 的完成度核对。
+        return body
     if not body:
         return stub
     disclaimer = "（非投资建议）"
@@ -241,6 +318,13 @@ _VALID_UNTIL_RE = re.compile(
 )
 EXPIRED_MARK = "已过期，待复核"
 _EXPIRED_SUFFIX = "（已过期，待复核）"
+# 同一条结论被写上两个不同有效期：F1 原件把用户指定的复查日填进「复核期限」
+# （2026-10-22），尾句又按契约默认 30 天自述「本结论……（至2026-10-17）未复核」。
+# 只认**自指本结论**的重述，且只在与已声明期限都不一致时报冲突——契约本来就允许
+# 每条结论各标有效期（跟踪级 30 天 / 框架级 90 天），把全文日期强行拉平才是错的。
+_RESTATED_TTL_RE = re.compile(
+    r"(?:本|本期|该|上述)结论[^。；;\n]{0,24}?至\s*(20\d{2}-\d{2}-\d{2})[^。；;\n]{0,12}?未复核"
+)
 
 
 def contract_missing_outputs(
@@ -248,13 +332,14 @@ def contract_missing_outputs(
     *,
     query: str = "",
     question_type: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
     """程序核对：跟踪题的契约缺件 → missing_outputs 词表输出项 id。
 
     非跟踪意图恒返回空元组（普通问答零改动）。返回值形状与
     ``repair_coordinator.build_repair_goal(missing_outputs=...)`` 兼容。
     """
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ()
     return tuple(
         TRACK_CONTRACT_OUTPUT_IDS[key]
@@ -269,10 +354,11 @@ def merge_track_missing_outputs(
     *,
     query: str = "",
     question_type: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
     """把跟踪契约缺件并入 repair 用的 missing_outputs。非跟踪题原样返回。"""
     extra = contract_missing_outputs(
-        answer, query=query, question_type=question_type
+        answer, query=query, question_type=question_type, history_intent=history_intent
     )
     return tuple(dict.fromkeys((*tuple(existing or ()), *extra)))
 
@@ -309,6 +395,27 @@ def parse_valid_until(answer: str) -> str | None:
     if found:
         return found.group(1)
     return None
+
+
+def conclusion_ttl_conflicts(answer: str) -> tuple[str, ...]:
+    """同一条结论标了互相矛盾的有效期时报冲突；不改写正文、不统一日期。
+
+    只比同一种角色的两种写法：显式「复核期限/valid_until」与自指本结论的重述。
+    披露截止日、复查进度日、下期关注的时间节点是**别的角色**，不参与比较——R4 已按
+    「先判日期角色再取值」修过 watch due，这里不能反过来把角色不同的日期凑成一致。
+    一个声明都没有属于缺件（由 :func:`missing_contract_elements` 报 ttl），不是冲突。
+    """
+    text = str(answer or "").split(CONTRACT_STUB_HEADING, 1)[0]
+    declared = [match.group(1) for match in _VALID_UNTIL_RE.finditer(text)]
+    if not declared:
+        return ()
+    conflicts = [
+        f"结论有效期自相矛盾：正文声明「复核期限：{declared[0]}」，"
+        f"同一条结论又写明至 {match.group(1)} 未复核即视为待复核"
+        for match in _RESTATED_TTL_RE.finditer(text)
+        if match.group(1) not in declared
+    ]
+    return tuple(dict.fromkeys(conflicts))
 
 
 def ttl_status(valid_until: str | None, *, as_of: str | None = None) -> str:
@@ -360,15 +467,16 @@ def contract_receipt(
     query: str = "",
     question_type: str | None = None,
     as_of: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> dict[str, object]:
     """EVAL 可读收据：``missing_outputs`` 字段恒在场（空列表 = 契约齐/非跟踪题）。
 
     只含 JSON 原生类型，可直接落 ledger/trace/eval 载荷；``track_intent``
     区分「契约齐」与「本题不适用契约」两种空缺件。
     """
-    track_intent = parse_track_intent(query, question_type)
+    track_intent = parse_track_intent(query, question_type, history_intent=history_intent)
     missing = contract_missing_outputs(
-        answer, query=query, question_type=question_type
+        answer, query=query, question_type=question_type, history_intent=history_intent
     )
     body = str(answer or "")
     valid = parse_valid_until(body) if track_intent else None
@@ -380,6 +488,8 @@ def contract_receipt(
         "prior_verdict_check": verdict,
         "valid_until": valid,
         "ttl_status": ttl_status(valid, as_of=as_of) if track_intent else "missing",
+        # 冲突与过期是两回事：过期说明该复核了，冲突说明这条结论的期限本身对不上。
+        "ttl_conflicts": list(conclusion_ttl_conflicts(body)) if track_intent else [],
         "baseline_declared": bool(
             track_intent and any(marker in body for marker in _BASELINE_MARKERS)
         ),
@@ -404,12 +514,53 @@ _BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、）])\s+(.+)$")
 # live 模型常写成「下期关注清单：1）…。2）…」或标题行内联若干「若/则」。
 # lookbehind 定长：行首 / 句号 / 分号之后的项目符号或 1. 1) 1、1）
 _ITEM_START = re.compile(
-    r"(?:(?<=^)|(?<=[\n。；;]))\s*(?:[-*•]|\d+[.)、）])\s*"
+    r"(?:(?<=^)|(?<=[\n。；;]))\s*(?:[-•]|\*(?!\*)|\d+[.)、）])\s*"
 )
-_WATCH_HEADINGS = ("## 下期关注清单", "## 下期关注", "下期关注清单", "下期关注")
-_SECTION_STOP_PREFIXES = ("证据边界",)
-_FALSIFIABLE_MARKERS = ("若", "则", "低于", "高于", "<", ">", "跌破", "突破", "到期")
+_WATCH_HEADING_RE = re.compile(
+    r"(?:#{1,6}\s+)?(?:\*\*|__)?下期关注(?:清单)?"
+    r"(?:[（(][^）)\n]*[）)])?(?:\*\*|__)?[：: \t]*(?:\*\*|__)?"
+)
+_SECTION_STOP_PREFIXES = (
+    "证据边界", "缺口", "证据缺口", "数据缺口", "信息缺口", "风险提示",
+    "补充说明", "来源", "资料来源", "参考来源", "免责声明",
+)
+# 日期/到期只说明「何时看」，不说明「看到什么才改判」。这里只查条件形状，
+# 不代替数字/引用/事实核验。中报/周度等可沿用既有隐式时间节点与默认到期日。
+_FALSIFIABLE_MARKERS = ("若", "如果", "则", "低于", "高于", "<", ">", "≤", "≥", "≦", "≧", "跌破", "突破")
+_WATCH_FIELD_RE = re.compile(r"^(?:指标(?:/事件)?|事项|事件|时间节点|时间|触发条件|可证伪触发条件|条件)\s*(?:[：:=]|——)")
+_WATCH_NEW_SUBJECT_RE = re.compile(r"^(?:指标(?:/事件)?|事项|事件)\s*(?:[：:=]|——)")
+# Only whole metadata sentences are ignored, never a prefix carrying real fields.
+_WATCH_DISCLAIMER_RE = re.compile(
+    r"(?:单季口径为推算值[，,]非官方披露|"
+    r"(?:以上为跟踪分析[，,])?不构成(?:买卖|投资)建议(?:[，,]本次研究不登记为长期跟踪、不写入投资观点)?)"
+    r"[。]?"
+)
 _VAGUE_WATCH = ("持续关注市场情绪", "持续关注", "继续观察")
+# A standalone receipt describes a side effect, not an additional watch item.
+# Match the whole sentence only: a receipt prefix cannot excuse missing fields.
+_WATCH_RECEIPT_RE = re.compile(
+    r"(?:^|(?<=。))\s*[（(]?(?:本条|本项|该事项|上述事项|本次研究|本次)"
+    r"(?:已|已经|未|不)(?:登记|纳入|写入)(?:为)?(?:长期|持续)?(?:跟踪|关注清单)"
+    r"(?:。[）)]?|[）)]。?|。?)\s*$"
+)
+_WATCH_TTL_METADATA_RE = re.compile(
+    r"[（(]?\s*(?:复核期限|valid_until)\s*[：:=]\s*20\d{2}-\d{2}-\d{2}\s*[）)]?[。]?"
+)
+_ARROW_CONDITION_RE = re.compile(
+    r"(?:上升|下降|走平|增长|减少|恶化|改善|不及预期|未达预期)[^。；;→]*→\s*[^。；;\s]+"
+)
+# Date roles precede date order. A report period or a publication deadline must
+# not win merely because it occurs before the user's review appointment.
+_DUE_TOKEN = r"(?:20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)"
+_REVIEW_DATE_RE = re.compile(
+    r"(?:复查|复核|回检|核查)(?:日期|时间|日|期限)?\s*(?:[：:=]|为|定于|安排在)?\s*(?P<before>"
+    + _DUE_TOKEN + r")|(?P<after>" + _DUE_TOKEN + r")\s*(?:前|后)?(?:复查|复核|回检|核查)"
+)
+_WATCH_TIME_FIELD_RE = re.compile(r"(?:^|[；;。\n])\s*(?:时间节点|时间)\s*[：:=]([^；;。\n]*)")
+_REPORT_PERIOD_DATE_RE = re.compile(
+    r"(?:截至|报告期(?:为|截至)?\s*[：:=]?)\s*" + _DUE_TOKEN
+    + r"|" + _DUE_TOKEN + r"(?=\s*报告期)"
+)
 
 
 @dataclass(frozen=True)
@@ -460,21 +611,44 @@ def chinese_full_date(text: str) -> str | None:
         return None
 
 
-def _item_due(line: str, as_of: str | None) -> str:
-    found = _DATE_RE.search(line)
+def _due_in_text(text: str, as_of: str | None) -> str | None:
+    found = _DATE_RE.search(text)
     if found:
-        return found.group(1)
-    cn_due = chinese_full_date(line)
+        try:
+            return date.fromisoformat(found.group(1)).isoformat()
+        except ValueError:
+            return None
+    cn_due = chinese_full_date(text)
     if cn_due:
         return cn_due
-    month_due = calendar_month_due(line)
+    month_due = calendar_month_due(text)
     if month_due:
         return month_due
-    base = _as_of_date(as_of)
-    days = _DAYS_RE.search(line)
+    days = _DAYS_RE.search(text)
     if days:
-        return (base + timedelta(days=int(days.group(1)))).isoformat()
-    return (base + timedelta(days=30)).isoformat()
+        return (_as_of_date(as_of) + timedelta(days=int(days.group(1)))).isoformat()
+    return None
+
+
+def _review_dates(line: str) -> tuple[str | None, ...]:
+    plain = str(line).replace("**", "").replace("__", "")
+    return tuple(
+        _due_in_text(match.group("before") or match.group("after"), None)
+        for match in _REVIEW_DATE_RE.finditer(plain)
+    )
+
+
+def _item_due(line: str, as_of: str | None) -> str:
+    plain = str(line).replace("**", "").replace("__", "")
+    # Strongest role: a named review date, including a date after a disclosure
+    # deadline within the same time field. Never rewrite the preserved claim.
+    reviews = _review_dates(plain)
+    if reviews and len(set(reviews)) == 1 and reviews[0] is not None:
+        return reviews[0]
+    time_field = _WATCH_TIME_FIELD_RE.search(plain)
+    candidate = time_field.group(1) if time_field else plain
+    candidate = _REPORT_PERIOD_DATE_RE.sub("", candidate)
+    return _due_in_text(candidate, as_of) or (_as_of_date(as_of) + timedelta(days=30)).isoformat()
 
 
 def _is_registerable_watch(line: str) -> bool:
@@ -483,44 +657,37 @@ def _is_registerable_watch(line: str) -> bool:
         return False
     if any(vague in text and "则" not in text for vague in _VAGUE_WATCH):
         return False
-    return any(marker in text for marker in _FALSIFIABLE_MARKERS) or bool(
-        _DATE_RE.search(text)
+    reviews = _review_dates(text)
+    if reviews and (None in reviews or len(set(reviews)) != 1):
+        return False
+    return any(marker in text for marker in _FALSIFIABLE_MARKERS) or bool(_ARROW_CONDITION_RE.search(text))
+
+
+def _watch_section_end(line: str) -> bool:
+    stripped = line.strip()
+    if re.match(r"^#{1,6}\s", stripped) or re.fullmatch(r"(?:[-*_]\s*){3,}", stripped):
+        return True
+    plain = stripped.replace("**", "").replace("__", "")
+    if any(
+        re.match(rf"^{re.escape(prefix)}(?:\s*[：:]|\s*$)", plain)
+        for prefix in _SECTION_STOP_PREFIXES
+    ):
+        return True
+    # 无 # 的独立粗体标题也是章节边界；指标/时间/条件等项内字段不是。
+    return bool(
+        re.match(r"^(?:\*\*|__)[^\n：:。；;!?！？]+?(?:\*\*|__)(?:\s*[：:]|\s*$)", stripped)
+        and not _WATCH_FIELD_RE.match(plain)
     )
 
 
-def _strip_watch_heading(line: str) -> str:
-    text = str(line or "")
-    for marker in _WATCH_HEADINGS:
-        found = text.find(marker)
-        if found >= 0:
-            return text[found + len(marker) :].lstrip("：: \t")
-    return text
-
-
 def _watch_section_body(answer: str) -> str:
-    text = str(answer or "")
-    if CONTRACT_STUB_HEADING in text:
-        text = text.split(CONTRACT_STUB_HEADING, 1)[0]
-    start = -1
-    for marker in _WATCH_HEADINGS:
-        found = text.find(marker)
-        if found >= 0:
-            start = found
-            break
-    if start < 0:
+    text = str(answer or "").split(CONTRACT_STUB_HEADING, 1)[0]
+    heading = _WATCH_HEADING_RE.search(text)
+    if heading is None:
         return ""
-    lines = text[start:].splitlines()
     kept: list[str] = []
-    for index, line in enumerate(lines):
-        if index == 0:
-            rest = _strip_watch_heading(line).strip()
-            if rest:
-                kept.append(rest)
-            continue
-        stripped = line.strip()
-        if line.startswith("## ") and "下期关注" not in line:
-            break
-        if any(stripped.startswith(prefix) for prefix in _SECTION_STOP_PREFIXES):
+    for line in text[heading.end():].splitlines():
+        if _watch_section_end(line):
             break
         kept.append(line)
     return "\n".join(kept)
@@ -528,9 +695,34 @@ def _watch_section_body(answer: str) -> str:
 
 def _split_watch_claims(body: str) -> tuple[str, ...]:
     chunks: list[str] = []
+    explicit_list = False
     for raw_line in str(body or "").splitlines():
-        line = raw_line.strip()
+        line = "".join(
+            part for part in re.split(r"(?<=。)", raw_line.strip())
+            if not _WATCH_DISCLAIMER_RE.fullmatch(part.strip().strip("（）()"))
+        )
+        line = _WATCH_RECEIPT_RE.sub("", line).strip()
         if not line:
+            continue
+        plain = line.replace("**", "").replace("__", "")
+        if _WATCH_TTL_METADATA_RE.fullmatch(plain):
+            continue
+        starts_item = _ITEM_START.match(line) is not None
+        is_field = _WATCH_FIELD_RE.match(plain) is not None
+        if (
+            explicit_list and not starts_item and not is_field
+            and not raw_line[:1].isspace()
+        ):
+            # A marked list ends before unindented prose. Don't whitelist the
+            # prose's wording or let its own 「若」 turn it into a checkpoint.
+            break
+        explicit_list = explicit_list or starts_item
+        new_subject = _WATCH_NEW_SUBJECT_RE.match(plain) is not None
+        if chunks and not starts_item and not new_subject and (
+            raw_line[:1].isspace() or is_field
+            or (not _is_registerable_watch(chunks[-1]) and _is_registerable_watch(line))
+        ):
+            chunks[-1] += " " + line
             continue
         parts = [part.strip(" \t；;") for part in _ITEM_START.split(line)]
         parts = [part.strip(" 。；;") for part in parts if part.strip(" 。；;")]
@@ -572,6 +764,7 @@ def ingest_next_watch(
     as_of: str | None = None,
     theme: str | None = None,
     session_id: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> list[dict[str, Any]]:
     """把可证伪的下期关注登记进 checkpoints.jsonl。非跟踪题 / 无条目时空操作。"""
     from intelligence.services.checkpoints import (
@@ -584,7 +777,7 @@ def ingest_next_watch(
         # 用户说了不登记就一条都不写。放在最前面：意图判定、条目解析都还没跑，
         # 没有任何「先算出来再决定要不要写」的中间态可以被后面某一层重新用上。
         return []
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return []
     items = parse_next_watch_items(answer, as_of=as_of)
     if not items:

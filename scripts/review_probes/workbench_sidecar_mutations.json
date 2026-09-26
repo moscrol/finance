@@ -1,0 +1,16 @@
+[
+  {
+    "id": "episode-store-isolation-missing",
+    "path": "scripts/launch_workbench_sidecar.sh",
+    "old": "export FORESIGHT_EPISODE_STORE=\"$USERS/.episodes\"",
+    "new": ": # episode store isolation removed",
+    "targets": ["sidecar_isolates_episode_store"]
+  },
+  {
+    "id": "production-episode-store-inherited",
+    "path": "scripts/launch_workbench_sidecar.sh",
+    "old": "export FORESIGHT_EPISODE_STORE=\"$USERS/.episodes\"",
+    "new": "export FORESIGHT_EPISODE_STORE=\"${FORESIGHT_EPISODE_STORE:-$USERS/.episodes}\"",
+    "targets": ["sidecar_isolates_episode_store"]
+  }
+]

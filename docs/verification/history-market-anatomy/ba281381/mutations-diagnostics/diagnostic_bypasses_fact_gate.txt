@@ -1,0 +1,41 @@
+FF.FF                                                                    [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T082054Z-ba281381.json
+
+=================================== FAILURES ===================================
+__ test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates0] __
+tests/test_history_tool_diagnostics.py:142: in test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose
+    assert "forbidden" not in result.observation
+E   AssertionError: assert 'forbidden' not in 'forbidden-p...询，逐次观察结果后再汇总'
+E     
+E     'forbidden' is contained here:
+E       forbidden-prose；工具诊断（非市场事实）[invalid_query]：结构化查询参数无效：not a metric: stage_day；重试提示：当前 dataset=market_daily；字段归属：stage_day→market_daily.dimension；一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，逐次观察结果后再汇总
+E     ? +++++++++
+__ test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates1] __
+tests/test_history_tool_diagnostics.py:142: in test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose
+    assert "forbidden" not in result.observation
+E   AssertionError: assert 'forbidden' not in 'forbidden-p...询，逐次观察结果后再汇总'
+E     
+E     'forbidden' is contained here:
+E       forbidden-prose；工具诊断（非市场事实）[invalid_query]：结构化查询参数无效：not a metric: stage_day；重试提示：当前 dataset=market_daily；字段归属：stage_day→market_daily.dimension；一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，逐次观察结果后再汇总
+E     ? +++++++++
+__ test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates3] __
+tests/test_history_tool_diagnostics.py:142: in test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose
+    assert "forbidden" not in result.observation
+E   AssertionError: assert 'forbidden' not in 'forbidden-p...询，逐次观察结果后再汇总'
+E     
+E     'forbidden' is contained here:
+E       forbidden-prose；工具诊断（非市场事实）[invalid_query]：结构化查询参数无效：not a metric: stage_day；重试提示：当前 dataset=market_daily；字段归属：stage_day→market_daily.dimension；一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，逐次观察结果后再汇总
+E     ? +++++++++
+__ test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates4] __
+tests/test_history_tool_diagnostics.py:142: in test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose
+    assert "forbidden" not in result.observation
+E   AssertionError: assert 'forbidden' not in 'allowed：all...询，逐次观察结果后再汇总'
+E     
+E     'forbidden' is contained here:
+E       allowed：allowed-body；forbidden：forbidden-body；工具诊断（非市场事实）[invalid_query]：结构化查询参数无效：not a metric: stage_day；重试提示：当前 dataset=market_daily；字段归属：stage_day→market_daily.dimension；一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，逐次观察结果后再汇总
+E     ?                      +++++++++
+=========================== short test summary info ============================
+FAILED tests/test_history_tool_diagnostics.py::test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates0]
+FAILED tests/test_history_tool_diagnostics.py::test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates1]
+FAILED tests/test_history_tool_diagnostics.py::test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates3]
+FAILED tests/test_history_tool_diagnostics.py::test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates4]
+4 failed, 1 passed in 0.84s

@@ -15,9 +15,11 @@ dsh 追加式 ``SessionEvent`` 日志。搬的是不变量，不搬 SQLite 事�
   恢复只读它，再按它记下的预留 id 去事件流里**点查**结算有没有落下——点查是合法的，
   重放推断不是。
 
-写序纪律（效果三明治，INV-R2）：意图事件（``INTENT_KINDS``）append 后 ``fsync``，结算不
-``fsync``。崩溃能留下的唯一不确定是「意图有、结算无」；丢结算 = 落回不确定窗口，恢复策略
-表能处理；丢意图则「外部效果发生过但没人知道」，那是不允许存在的形状。
+写序纪律（效果三明治，INV-R2）：意图事件（``INTENT_KINDS``）append 后 ``fsync``；
+普通结算可批量冲刷，``finish`` 必须 ``fsync`` 冲刷此前结算，再写 done checkpoint，
+两步成功后才向进度出口报完成。关键保存失败停止新效果，内存保留草稿/费用但返回失败。
+崩溃仍可能留下「意图有、结算无」的不确定窗口；磁盘未记下结果不证明没有执行或计费。
+保存不下故障时，内存失败收据不能保证下次重启可见，自动续跑不得忽略这项不确定性。
 
 撕裂末行：单写者顺序 append，崩溃只可能撕坏最后一行。读到末行解不出 JSON 就整行丢弃；
 **非末行**坏了不是撕裂而是损坏，抛 ``EpisodeLogCorrupt``，不猜。
@@ -25,9 +27,11 @@ dsh 追加式 ``SessionEvent`` 日志。搬的是不变量，不搬 SQLite 事�
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -37,8 +41,16 @@ import threading
 from types import MappingProxyType
 from typing import Literal, Protocol
 
-from intelligence.services.agent_runtime import EpisodeEvent, _json_copy
+from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
+from intelligence.services.episode_authorization import EpisodeAuthorizationSnapshot
+from intelligence.services.episode_effects import (
+    merge_unknown_effects,
+    unknown_effects_from_payload,
+)
+from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
+from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+from intelligence.services.research_contract import InMemoryRootBudgetLedger
 
 __all__ = [
     "EPISODE_LOG_VERSION",
@@ -48,6 +60,10 @@ __all__ = [
     "EpisodePhase",
     "EpisodeState",
     "EpisodeStore",
+    "FencedEpisodeStore",
+    "EpisodeStoreFailed",
+    "EpisodeWriterBusy",
+    "episode_writer",
     "INTENT_KINDS",
     "JsonlEpisodeStore",
     "MemoryEpisodeStore",
@@ -70,7 +86,7 @@ EPISODE_PHASES: frozenset[str] = frozenset(
 
 # 意图类事件：外部效果（模型请求 / 工具执行 / 兜底合成）之前落下的那一条。append 后 fsync。
 INTENT_KINDS: frozenset[str] = frozenset(
-    {"model_intent", "tool_request", "finalization_recovery_started"}
+    {"model_intent", "tool_request", "finalization_recovery_started", "branch_started"}
 )
 
 EPISODE_STORE_ENV = "FORESIGHT_EPISODE_STORE"
@@ -113,6 +129,22 @@ class EpisodeState:
       几次。写在状态里而不是恢复时现算：策略是当时的决定，不该被以后的代码改写。
     - ``contract_snapshot``：``configure`` 事件同源的快照（哈希与标量，不抄文本）。
     - ``cancel``：``CancelSignal.snapshot()``；非空即「取消已 durable」（INV-R4 的存储侧）。
+    - ``budget_snapshot``：当前检查点的根预算余额与授予/升档去重记录。None表示旧日志或
+      未支持的预算类型，不能从policy猜余额；有快照也不代表其后的未知效果已对账。
+    - ``budget_snapshot_sequence``：捕获预算时的事件前缀位置。恢复仅合成结算时保留旧位置，
+      不把旧余额伪装成已对账到新的 ``last_sequence``。
+    - ``authorization_snapshot``：完整任务合同、当前策略/信息截止与实际工具声明；不是授权
+      来源。None仍可load诊断，但非终态restore必须拒绝，不能降级为只信configure。
+    - ``evidence_snapshot`` / ``evidence_snapshot_sequence``：完整私有证据账及独立模型引用顺序、
+      捕获前缀；不等于完整执行现场，也不证明前缀后收到的工具原件/费用已经归齐。
+    - ``entry_identity``：这一轮是从哪个入口、属于哪个用户/会话/run 起的。**不是**身份证明，
+      是当时的记录：恢复由入口重新提供同一身份并精确比对才算同一主人。None = 起跑时没有
+      可信入口（离线/CLI/测试），它只能与同样未绑定的入口对上，不能被任何一扇门接管。
+    - ``unreconciled_effects``：崩溃窗口里「意图已落、结算未落」的外部效果凭证
+      （``episode_effects.UnknownEffect``）。那次请求是否已执行、是否已计费，在本进程里
+      答不出来，所以持久化的是**问题本身**而不是某个方便的假设。非空 = 这份
+      ``budget_snapshot`` 尚未对账，``restore_root_budget`` 据此拒绝放行；对账（扣账 +
+      清空）是一次原子跃迁，清单本身就是去重凭证，因此重复恢复不会重复扣费。
     """
 
     episode_id: str
@@ -127,6 +159,21 @@ class EpisodeState:
     log_version: int = EPISODE_LOG_VERSION
     last_sequence: int = 0
     updated_at: str = ""
+    budget_snapshot: Mapping[str, object] | None = None
+    budget_snapshot_sequence: int | None = None
+    # Full recovery authority, not configure's diagnostic hashes. Missing on old
+    # logs: never derive permissions/default policy from that absence.
+    authorization_snapshot: Mapping[str, object] | None = None
+    # Private original atoms, coverage/owners and the distinct model-visible
+    # citation order. Capture position is not an effects reconciliation mark.
+    evidence_snapshot: Mapping[str, object] | None = None
+    evidence_snapshot_sequence: int | None = None
+    # Who this episode belongs to, as recorded by the entry point that started
+    # it. Saved identity is a record, not a credential: recovery re-asks the door.
+    entry_identity: Mapping[str, object] | None = None
+    # In-flight external effects whose settlement never landed. Empty is a claim
+    # ("nothing outstanding"), not a default: only reconciliation may empty it.
+    unreconciled_effects: tuple[Mapping[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -154,6 +201,47 @@ class EpisodeState:
         )
         if self.cancel is not None:
             object.__setattr__(self, "cancel", _frozen_mapping(self.cancel, path="cancel"))
+        if self.budget_snapshot is None:
+            if self.budget_snapshot_sequence is not None:
+                raise ValueError("budget snapshot sequence requires a snapshot")
+        else:
+            if (
+                type(self.budget_snapshot_sequence) is not int
+                or not 0 <= self.budget_snapshot_sequence <= self.last_sequence
+            ):
+                raise ValueError("budget snapshot sequence must be within the checkpoint prefix")
+            copied = _json_copy(self.budget_snapshot, path="budget_snapshot")
+            # Validation must not register a live root or allocate any budget.
+            InMemoryRootBudgetLedger.from_snapshot(copied, episode_id=episode_id)
+            object.__setattr__(self, "budget_snapshot", _json_freeze(copied, path="budget_snapshot"))
+        if self.authorization_snapshot is not None:
+            validated = EpisodeAuthorizationSnapshot.from_dict(self.authorization_snapshot, episode_id=episode_id)
+            object.__setattr__(self, "authorization_snapshot", _json_freeze(validated.to_dict(), path="authorization_snapshot"))
+
+        if self.evidence_snapshot is None:
+            if self.evidence_snapshot_sequence is not None:
+                raise ValueError("evidence snapshot sequence requires a snapshot")
+        else:
+            if (type(self.evidence_snapshot_sequence) is not int
+                    or not 0 <= self.evidence_snapshot_sequence <= self.last_sequence):
+                raise ValueError("evidence snapshot sequence must be within the checkpoint prefix")
+            validated = EpisodeEvidenceSnapshot.from_dict(self.evidence_snapshot, episode_id=episode_id)
+            object.__setattr__(self, "evidence_snapshot", _json_freeze(validated.to_dict(), path="evidence_snapshot"))
+
+        if self.entry_identity is not None:
+            identity = EpisodeEntryIdentity.from_dict(self.entry_identity, episode_id=episode_id)
+            object.__setattr__(self, "entry_identity", _json_freeze(identity.to_dict(), path="entry_identity"))
+
+        # Validate-and-canonicalize: a damaged receipt must fail loudly here, not
+        # be skipped later. Merge also dedups, so restoring twice cannot inflate.
+        effects = merge_unknown_effects(
+            unknown_effects_from_payload(list(self.unreconciled_effects)), ()
+        )
+        object.__setattr__(
+            self,
+            "unreconciled_effects",
+            tuple(_json_freeze(item.to_dict(), path="unreconciled_effects") for item in effects),
+        )
 
     @property
     def terminal(self) -> bool:
@@ -173,6 +261,15 @@ class EpisodeState:
             "log_version": self.log_version,
             "last_sequence": self.last_sequence,
             "updated_at": self.updated_at,
+            "budget_snapshot": _json_copy(self.budget_snapshot, path="budget_snapshot"),
+            "budget_snapshot_sequence": self.budget_snapshot_sequence,
+            "authorization_snapshot": _json_copy(self.authorization_snapshot, path="authorization_snapshot"),
+            "evidence_snapshot": _json_copy(self.evidence_snapshot, path="evidence_snapshot"),
+            "evidence_snapshot_sequence": self.evidence_snapshot_sequence,
+            "entry_identity": _json_copy(self.entry_identity, path="entry_identity"),
+            "unreconciled_effects": [
+                _json_copy(item, path="unreconciled_effects") for item in self.unreconciled_effects
+            ],
         }
 
     @classmethod
@@ -193,11 +290,24 @@ class EpisodeState:
             log_version=int(payload.get("log_version") or 0),
             last_sequence=int(payload.get("last_sequence") or 0),
             updated_at=str(payload.get("updated_at") or ""),
+            budget_snapshot=payload.get("budget_snapshot"),  # type: ignore[arg-type]
+            budget_snapshot_sequence=payload.get("budget_snapshot_sequence"),  # type: ignore[arg-type]
+            authorization_snapshot=payload.get("authorization_snapshot"),  # type: ignore[arg-type]
+            evidence_snapshot=payload.get("evidence_snapshot"),  # type: ignore[arg-type]
+            evidence_snapshot_sequence=payload.get("evidence_snapshot_sequence"),  # type: ignore[arg-type]
+            entry_identity=payload.get("entry_identity"),  # type: ignore[arg-type]
+            unreconciled_effects=tuple(payload.get("unreconciled_effects") or ()),  # type: ignore[arg-type]
         )
 
 
 class EpisodeStore(Protocol):
-    """四个动作，够 loop 落账、够 restore 读回。多进程写者 / 跨机复制是非目标。"""
+    """日志/检查点与控制入口的独占写者；不支持跨机复制。
+
+    ``writer`` 覆盖读取、判定、效果与写入的整个控制操作。低层 append/put_state
+    仍供导入及测试使用，不自行取得/释放所有权；生产调用方必须走受保护的入口。
+    """
+
+    def writer(self, episode_id: str) -> AbstractContextManager[None]: ...
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
@@ -208,6 +318,115 @@ class EpisodeStore(Protocol):
     def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]: ...
 
     def list_open(self) -> tuple[str, ...]: ...
+
+
+class EpisodeStoreFailed(RuntimeError):
+    """A related episode lost write acknowledgement; no more writes are safe."""
+
+
+class EpisodeWriterBusy(RuntimeError):
+    """Another run, repair or recovery currently owns this episode."""
+
+
+@contextmanager
+def episode_writer(store: EpisodeStore | None, episode_id: str) -> Iterator[None]:
+    """No store means ephemeral; an unsupported durable store must not bypass ownership."""
+    if store is None:
+        yield
+        return
+    with store.writer(episode_id):
+        yield
+
+
+class FencedEpisodeStore:
+    """One live parent/child tree shares a fail-closed write boundary.
+
+    The lock serializes only storage operations, never model/tool IO. Failure
+    callbacks run after releasing it and must not acquire episode-ledger locks.
+    Reads remain available for diagnosis. The per-episode writer guard delegates
+    to the backend, without holding this tree-wide lock across model/tool IO.
+    This fence is not a durable failure receipt: ACK loss is uncertain on disk.
+    """
+
+    def __init__(self, store: EpisodeStore) -> None:
+        self._store = store
+        self._lock = threading.RLock()
+        self._failure = ""
+        self._callbacks: list[Callable[[], None]] = []
+
+    def __getattr__(self, name: str) -> object:
+        # Forward just this optional capability, including late-bound test stores.
+        # A memory store still has no episode_dir and cannot acquire a disk spool.
+        if name == "episode_dir":
+            return getattr(self._store, name)
+        raise AttributeError(name)
+
+    @property
+    def failure(self) -> str:
+        with self._lock:
+            return self._failure
+
+    def on_failure(self, callback: Callable[[], None]) -> None:
+        with self._lock:
+            self._callbacks.append(callback)
+            failed = bool(self._failure)
+        if failed:
+            callback()
+
+    @staticmethod
+    def _notify_failure(callbacks: Sequence[Callable[[], None]]) -> None:
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                # A broken observer cannot hide failure or starve other signals.
+                continue
+
+    def fail(self, episode_id: str, boundary: str, error: Exception) -> None:
+        """Latch a required checkpoint's encoding failure, before storage IO.
+
+        Invalid snapshots must fence siblings too, not silently become a valid
+        checkpoint without a budget. Notifications use the same lock discipline
+        as an append/put_state failure.
+        """
+        with self._lock:
+            if self._failure:
+                return
+            self._failure = f"{episode_id}:{boundary}:{type(error).__name__}"
+            callbacks = tuple(self._callbacks)
+        self._notify_failure(callbacks)
+
+    def _write(self, episode_id: str, boundary: str, write: Callable[[], None]) -> None:
+        callbacks: tuple[Callable[[], None], ...] = ()
+        try:
+            with self._lock:
+                if self._failure:
+                    raise EpisodeStoreFailed(self._failure)
+                try:
+                    write()
+                except Exception as exc:
+                    self._failure = f"{episode_id}:{boundary}:{type(exc).__name__}"
+                    callbacks = tuple(self._callbacks)
+                    raise
+        finally:
+            self._notify_failure(callbacks)
+
+    def append(
+        self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
+    ) -> None:
+        self._write(episode_id, "append", lambda: self._store.append(episode_id, events, sync=sync))
+
+    def put_state(self, episode_id: str, state: EpisodeState) -> None:
+        self._write(episode_id, f"state:{state.phase}", lambda: self._store.put_state(episode_id, state))
+
+    def writer(self, episode_id: str) -> AbstractContextManager[None]:
+        return self._store.writer(episode_id)
+
+    def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
+        return self._store.load(episode_id)
+
+    def list_open(self) -> tuple[str, ...]:
+        return self._store.list_open()
 
 
 def require_known_kinds(events: Iterable[EpisodeEvent]) -> None:
@@ -255,6 +474,7 @@ class MemoryEpisodeStore:
         self._lock = threading.RLock()
         self._events: dict[str, list[EpisodeEvent]] = {}
         self._states: dict[str, EpisodeState] = {}
+        self._writers: set[str] = set()
         # 写序 oracle 与「意图 fsync、结算不 fsync」的断言靶：记录每次 append 的 sync 标记。
         self.append_log: list[tuple[str, tuple[int, ...], bool]] = []
 
@@ -293,6 +513,18 @@ class MemoryEpisodeStore:
                 )
             )
 
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        with self._lock:
+            if episode_id in self._writers:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active")
+            self._writers.add(episode_id)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._writers.remove(episode_id)
+
     def truncate(self, episode_id: str, *, keep: int) -> None:
         """测试用：模拟崩溃——只保留前 ``keep`` 条事件（状态另由测试决定保留哪份）。"""
 
@@ -328,7 +560,38 @@ class JsonlEpisodeStore:
         self._lock = threading.RLock()
 
     def episode_dir(self, episode_id: str) -> Path:
-        return self.root / _directory_name(str(episode_id))
+        name = _directory_name(str(episode_id))
+        if name in {"", ".", ".."}:
+            raise ValueError("episode_id must name a child directory")
+        return self.root / name
+
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        """Local POSIX single-writer guard, held even while a drive is paused.
+
+        Never unlink/replace the lock inode: that would let a second process
+        lock a different inode for the same episode. Kernel ownership, not file
+        contents or elapsed time, decides when takeover is possible. This is
+        advisory: all runtime/recovery entry points must cooperate; raw imports
+        and older processes are not fenced. No network-filesystem guarantee.
+        """
+        directory = self.episode_dir(episode_id)
+        directory.mkdir(parents=True, exist_ok=True)
+        fd = os.open(directory / ".writer.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        acquired = False
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active") from exc
+            acquired = True
+            yield
+        finally:
+            try:
+                if acquired:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False

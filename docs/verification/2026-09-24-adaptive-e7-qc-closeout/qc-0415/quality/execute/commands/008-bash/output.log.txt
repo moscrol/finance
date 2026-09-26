@@ -1,0 +1,6 @@
+/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py:14:  ``/chat/completions`` endpoint, so it works for DeepSeek / Moonshot(Kimi) /
+/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py:1149:    url = provider.base_url.rstrip("/") + "/chat/completions"
+/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py:1206:    url = provider.base_url.rstrip("/") + "/chat/completions"
+/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py:1389:    url = provider.base_url.rstrip("/") + "/chat/completions"
+/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py:1522:    url = provider.base_url.rstrip("/") + "/chat/completions"
+/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py:2290:    url = provider.base_url.rstrip("/") + "/chat/completions"

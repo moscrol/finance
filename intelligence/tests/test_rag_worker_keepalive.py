@@ -58,7 +58,10 @@ def test_keepalive_touches_an_idle_warm_worker_without_reloading(
         worker.prewarm(["query", "warmup", "--json"], timeout=2)
         pid = worker._process.pid  # type: ignore[union-attr]
         assert worker.status()["keepalive_thread_alive"] is True
-        assert _wait_until(lambda: worker.counters["keepalive_sent"] >= 2)
+        assert _wait_until(
+            lambda: worker.counters["keepalive_sent"] >= 2
+            and worker.counters["queries_served"] >= 3
+        )
         status = worker.status()
         assert worker._process.pid == pid  # type: ignore[union-attr]
     finally:

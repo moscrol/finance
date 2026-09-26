@@ -1,0 +1,37 @@
+[
+  {
+    "id": "recovery_plan_advances_unexecuted_phase",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                phase=state.phase,\n                turn_index=state.turn_index,\n                reserved_ids=state.reserved_ids,",
+    "new": "                phase=plan.phase,\n                turn_index=state.turn_index,\n                reserved_ids=state.reserved_ids,",
+    "targets": ["test_retry_after_lost_ack_keeps_one_settlement_and_the_same_plan"]
+  },
+  {
+    "id": "recovery_plan_drops_lookup_ids",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                reserved_ids=state.reserved_ids,",
+    "new": "                reserved_ids=(),",
+    "targets": ["test_retry_after_lost_ack_keeps_one_settlement_and_the_same_plan"]
+  },
+  {
+    "id": "recovery_repeats_application_settlement",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        ) is not None:\n            continue\n        _settle_tool_interrupted(",
+    "new": "        ) is False:\n            continue\n        _settle_tool_interrupted(",
+    "targets": ["test_undispatched_application_call_is_settled_only_once"]
+  },
+  {
+    "id": "recovery_refreshes_unreconciled_evidence_prefix",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "                evidence_snapshot_sequence=state.evidence_snapshot_sequence,",
+    "new": "                evidence_snapshot_sequence=len(events),",
+    "targets": ["test_fresh_processes_keep_synthesized_plan_snapshots_and_current_authority"]
+  },
+  {
+    "id": "recovery_checkpoint_ack_failure_hidden",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            store.put_state(episode_id, state_after)",
+    "new": "            try:\n                store.put_state(episode_id, state_after)\n            except OSError:\n                pass",
+    "targets": ["test_retry_after_lost_ack_keeps_one_settlement_and_the_same_plan"]
+  }
+]

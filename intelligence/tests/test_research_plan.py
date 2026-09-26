@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from intelligence.services.research_plan import (
+    parse_plan_candidate,
     parse_research_plan,
     plan_to_public_dict,
     validate_plan_revision,
@@ -55,6 +57,103 @@ def test_parse_research_plan_returns_bounded_deduplicated_public_contract() -> N
         "revision": 1,
         "branch_goals": [],
     }
+
+
+@pytest.mark.parametrize("language", ["json", "JSON", ""])
+def test_plan_accepts_one_complete_json_code_fence(language: str) -> None:
+    raw = _plan_json()
+    fenced = f"```{language}\n{raw}\n```"
+    expected = parse_research_plan(raw)
+    assert parse_research_plan(fenced) == expected
+    assert parse_plan_candidate(fenced).plan == expected
+
+
+@pytest.mark.parametrize("wrap", [
+    "Explanation\\n```json\\n%s\\n```",
+    "```json\\n%s\\n```\\n```json\\n{}\\n```",
+    "```json\\n%s\\n",
+    "```python\\n%s\\n```",
+    "%s\\n{}",
+    "%s\\ntrue",
+    "%s\\n2",
+    "%s\\n\"second\"",
+])
+def test_plan_fence_support_does_not_extract_embedded_objects(wrap: str) -> None:
+    raw = (wrap % _plan_json()).replace("\\n", "\n")
+    result = parse_plan_candidate(raw)
+    assert result.plan is None and result.error
+    with pytest.raises(ValueError):
+        parse_research_plan(raw)
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_plan_allows_plain_suffix_without_changing_validated_payload(fenced: bool) -> None:
+    raw = _plan_json()
+    content = f"```json\n{raw}\n```" if fenced else raw
+    result = parse_plan_candidate(content + "\n\nPLAN repaired; continue collecting evidence.")
+    assert result.plan == parse_research_plan(raw) and not result.error
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_complete_plan_without_kind_is_rejected_as_plan_not_finish(fenced: bool) -> None:
+    payload = json.loads(_plan_json())
+    del payload["kind"]
+    raw = json.dumps(payload)
+    content = f"```json\n{raw}\n```" if fenced else raw
+
+    result = parse_plan_candidate(content)
+
+    assert result.plan is None, "recognition must not silently admit the plan"
+    assert result.error == "missing plan fields: kind"
+    with pytest.raises(ValueError, match="missing plan fields: kind"):
+        parse_research_plan(content)
+
+
+def test_live_k3_missing_kind_response_uses_plan_validation() -> None:
+    # run_20260921_192812_245529, model_turn sequence=6; exact content bytes.
+    content = (Path(__file__).parent / "fixtures" / "k3_missing_plan_kind.json").read_text(
+        encoding="utf-8"
+    )
+    result = parse_plan_candidate(content)
+    assert result.plan is None
+    assert result.error == "missing plan fields: kind"
+
+
+@pytest.mark.parametrize("field", ["budget", "tool", "evidence_hashes"])
+def test_missing_kind_does_not_hide_unknown_plan_fields(field: str) -> None:
+    payload = json.loads(_plan_json())
+    del payload["kind"]
+    payload[field] = "not authorized"
+    result = parse_plan_candidate(json.dumps(payload))
+    assert result.plan is None
+    assert result.error == f"unknown plan fields: {field}"
+
+
+@pytest.mark.parametrize("field", ["status", "draft", "gaps", "bindings", "render_from_claims"])
+def test_untagged_plan_shaped_payload_with_finish_fields_stays_in_finish_lane(field: str) -> None:
+    payload = json.loads(_plan_json())
+    del payload["kind"]
+    payload[field] = None  # Even an invalid terminal value is terminal intent.
+    result = parse_plan_candidate(json.dumps(payload))
+    assert result.plan is None
+    assert result.error == ""
+
+
+@pytest.mark.parametrize("content", [
+    "", "null", "[]", "not JSON", "{}",
+    '{"task_summary":"ordinary response"}',
+    '{"requested_mode":"quick","revision":1}',
+    '{"status":"partial","draft":"not enough evidence","gaps":[],"bindings":[]}',
+])
+def test_non_plan_output_is_not_inferred_from_text_or_partial_shape(content: str) -> None:
+    result = parse_plan_candidate(content)
+    assert result.plan is None
+    assert result.error == ""
+
+
+def test_fenced_plan_still_rejects_authoritative_fields() -> None:
+    result = parse_plan_candidate("```json\n" + _plan_json(budget=999) + "\n```")
+    assert result.plan is None and "unknown plan fields" in result.error
 
 
 def test_research_plan_accepts_at_most_three_explicit_branch_goals() -> None:

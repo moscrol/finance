@@ -1,0 +1,8 @@
+33:def test_incomplete_envelope_is_not_executed_or_silently_retried(reason, providers):
+51:def test_direct_model_turn_cannot_bypass_completion_boundary(has_tools, reason):
+74:def test_complete_and_legacy_envelopes_keep_calls(reason):
+83:def test_stream_completion_is_required_before_dispatch_or_final_publication(tail, has_tools):
+136:def test_transport_preserves_truncation_reason(stream):
+150:def test_truncated_finalizer_cannot_publish_parseable_finish():
+===
+77:def test_financial_partial_publication_preserves_debt_citations_and_safe_answer(

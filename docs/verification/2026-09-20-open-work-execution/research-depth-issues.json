@@ -1,0 +1,27 @@
+[
+  {
+    "number": 790,
+    "title": "研究深度 1/5：查询报错后的有界修正闭环",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/790"
+  },
+  {
+    "number": 791,
+    "title": "研究深度 2/5：集合聚合与历史排序忠实",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/791"
+  },
+  {
+    "number": 792,
+    "title": "研究深度 3/5：方法论卡与观测卡分离",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/792"
+  },
+  {
+    "number": 793,
+    "title": "研究深度 4/5：板块比较合同与假设槽",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/793"
+  },
+  {
+    "number": 794,
+    "title": "研究深度 5/5：预览按需展开并保留证据身份",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/794"
+  }
+]

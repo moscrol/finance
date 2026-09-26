@@ -1,0 +1,81 @@
+        "truncated": len(open_ids) > _OPEN_EPISODES_LIST_CAP,
+    }
+
+
+def _build_continuous_turn_adapter(
+    *,
+    providers: tuple[LLMProvider, ...],
+    run_id: str,
+    assistant_message_id: str,
+    run_store: RunStore | None = None,
+    conversation_id: str = "",
+    event_id_prefix: str = "",
+    is_cancelled: Callable[[], bool] | None = None,
+    timeout: float = 90.0,
+    deadline_expires_at: float | None = None,
+    memory_user: str | None = None,
+    perspective_ids: tuple[str, ...] = (),
+    perspective_mode: str = "neutral",
+) -> ContinuousTurnAdapter:
+    """Compose one provider chain into a shared continuous research kernel.
+
+    ``memory_user`` is the one identity ``memory_lookup`` needs.  It is bound
+    here rather than threaded through ``ContinuousTurnAdapter`` because the
+    adapter has no other reason to know who the user is, and because a new
+    keyword on ``registry_factory``'s call site would break every fixed-arity
+    test double (``test_continuous_turn_adapter.py:1262`` is
+    ``lambda frame, context:``).  Binding it into the factory keeps both the
+    adapter and those doubles unchanged.
+
+    Passing ``None`` is a real configuration, not a placeholder: without an
+    identity ``build_episode_registry`` refuses to register the tool rather
+    than falling back to ``resolve_user_id(None)`` -- see the precondition in
+    ``episode_tools``.
+    """
+
+    entry_identity: EntryIdentity | None = None
+    if run_store is not None:
+        # 入口身份在这里盖章，而且只能在这里：服务端已存的 run 记录说了算，调用方
+        # 传什么不算。跨用户、跨会话的组合在这一步就被拒，而不是等到恢复时才发现。
+        run = run_store.load_run(run_id)
+        if run.user != run_store.user_id:
+            raise ValueError("run belongs to another user")
+        if (run.session_id or "") != conversation_id:
+            raise ValueError("run belongs to another conversation")
+        entry_identity = EntryIdentity(
+            entry="workbench_conversation",
+            user_id=run_store.user_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+        )
+
+    progress_publisher = None
+    if run_store is not None:
+        if not conversation_id.strip():
+            raise ValueError("conversation_id is required with a progress RunStore")
+        progress_publisher = RunEpisodeProgressPublisher(
+            run_store=run_store,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            message_id=assistant_message_id,
+            is_cancelled=is_cancelled,
+            event_id_prefix=event_id_prefix,
+        )
+    elif conversation_id.strip():
+        raise ValueError("progress RunStore is required with conversation_id")
+
+    def publish_episode_event(event) -> None:
+        if progress_publisher is None:
+            return
+        progress = project_episode_progress(event)
+        if progress is not None:
+            progress_publisher.publish(progress)
+
+    def publish_public_progress(progress: EpisodeProgress) -> None:
+        if progress_publisher is None:
+            return
+        # The controller already emits the one public "understanding" stage
+        # before the adapter starts. Do not show a second identical milestone
+        # merely because the adapter also has an internal phase hook.
+        if progress.key == "adapter:understanding":

@@ -1,0 +1,83 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_refresh_cannot_borrow_old_success_when_baseline_expired _________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10adb1f30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a3e9250>
+capsys = <_pytest.capture.CaptureFixture object at 0x10a4e1220>
+
+    def test_refresh_cannot_borrow_old_success_when_baseline_expired(completed, monkeypatch, capsys):
+        rc, summary = call_cli(completed, monkeypatch)
+        assert summary["audit_complete"] is True  # Old, truthful audit is not rewritten.
+        assert summary["skipped"] == {"no_baseline": 3}
+        assert summary["stitched"] == 0
+        assert member_price(completed) == 10.0  # Base quote is 12; recovery must stop.
+>       assert rc == 2
+E       assert 0 == 2
+
+tests/test_stitch_refresh_completion.py:89: AssertionError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[no_baseline] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[no_baseline=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+刷新完成：本轮写入 0 个板块，无待补且审计完整
+_____________ test_real_refresh_cli_failure_prevents_child_success _____________
+
+child_runner = (<function child_runner.<locals>.run at 0x1104de0c0>, PosixPath('/private/tmp/pytest-of-a77/pytest-1253/test_real_refr...workbench/bin/python', '-m', 'market_feature_store.cli', 'sync-sw-l1-daily', '--trade-date', '2026-09-16', ...]), ...])
+completed = <_duckdb.DuckDBPyConnection object at 0x11058a2b0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d18a5a0>
+
+    def test_real_refresh_cli_failure_prevents_child_success(child_runner, completed, monkeypatch):
+        run, target, _, calls = child_runner
+        original = stitch.stitch_sector_members
+    
+        def expired_baseline(*args, **kwargs):
+            # Isolate the exact R1 fixture; other child leaves use a separate tiny DB.
+            kwargs["fetch_caps"] = False
+            return original("2026-09-17", con=completed, **kwargs)
+    
+        monkeypatch.setattr(stitch, "stitch_sector_members", expired_baseline)
+>       with pytest.raises(RuntimeError, match="stitch-sector-stocks failed; no publish"):
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+tests/test_recovery_refresh_integration.py:87: Failed
+----------------------------- Captured stdout call -----------------------------
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[no_baseline] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[no_baseline=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+刷新完成：本轮写入 0 个板块，无待补且审计完整
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[no_baseline] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[no_baseline=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+刷新完成：本轮写入 0 个板块，无待补且审计完整
+
+[runlog] appended -> /private/tmp/pytest-of-a77/pytest-1253/test_real_refresh_cli_failure_0/skills/daily-full-review/state/runlog.md
+=========================== short test summary info ============================
+FAILED tests/test_stitch_refresh_completion.py::test_refresh_cannot_borrow_old_success_when_baseline_expired
+FAILED tests/test_recovery_refresh_integration.py::test_real_refresh_cli_failure_prevents_child_success
+2 failed in 0.64s

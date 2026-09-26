@@ -1,0 +1,3 @@
+/opt/homebrew/bin/python3
+ls: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+ls: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private/.venv-workbench/bin/python: No such file or directory

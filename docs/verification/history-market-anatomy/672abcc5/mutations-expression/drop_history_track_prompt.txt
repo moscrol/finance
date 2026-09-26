@@ -1,0 +1,15 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_original_four_turn_prompts_use_history_not_forward_contracts _______
+tests/test_history_expression_contract_boundary.py:85: in test_original_four_turn_prompts_use_history_not_forward_contracts
+    assert heading not in system + user, (n + 1, heading)
+E   AssertionError: (2, '【跟踪表达契约】')
+E   assert '【跟踪表达契约】' not in '你是连续运行的金融研究...ble": false}'
+E     
+E     '【跟踪表达契约】' is contained here:
+E       ": "\n\n\n【跟踪表达契约】本题为持续跟踪类问题，draft 必须按此结构组织：\n1. delta-only 纪律：以上期基线为锚只报有信息量的变化；上期结论仍成立的项写一句「无变化」即可，禁止重跑全景模板凑字数。上期基线只能来自 memory_lookup 召回的用户既有判断或 conversation_context 里的先前结论；两处都无相关记录时，draft 开头显式声明「无上期基线，本期建立基线」，禁止虚构或臆测上期说过什么。\n2. 观点四态对照：对每条召回的既有判断给显式判定——「支持 / 削弱 / 无变化 / 信息不足」四态之一；判定必须由本轮 evidence 支撑并进入对应 binding，没有证据支撑的判定只能写「信息不足」。\n3. 结论 TTL：本期每条新结论标注「复核期限：YYYY-MM-DD」——跟踪级默认 30 天、框架级默认 90 天；到期未复核视为待复核，不得当作已验证事实引用。\n4. 下期关注清单（draft 结尾必给）：每项 = 指标/事件 + 时间节点 + 触发条件（可观察、可证伪，如「若 X 月中报毛利率 <Y% 则削弱扩产逻辑」）；禁止「持续关注市场情绪」这类不可证伪表述。\n5. 跟踪不改变证据纪律：变化必须来自本轮工具证据，不得由「距上次隔了很久」...
+E     
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_original_four_turn_prompts_use_history_not_forward_contracts
+1 failed in 0.41s

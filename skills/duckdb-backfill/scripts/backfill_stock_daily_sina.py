@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from datetime import date, datetime, timedelta
@@ -37,6 +38,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 SOURCE = "sina:stock_zh_a_daily"
+CDR_SOURCE = "sina:stock_zh_a_cdr_daily"
+SOURCES = (SOURCE, CDR_SOURCE)
 _PREFIX = {"SH": "sh", "SZ": "sz", "BJ": "bj"}
 
 
@@ -61,6 +64,19 @@ def _neighbours(con, d: date) -> tuple[str, str]:
     return str(prev), str(nxt) if nxt else str(prev)
 
 
+def _ipo_reference(ak, code: str, trade_date: str) -> dict:
+    """No prior bar is not proof of IPO: require the provider's exact listing day."""
+    info = ak.stock_ipo_info(stock=code.split('.')[0])
+    values = {str(r['item']): str(r['value']) for r in info.to_dict('records')}
+    if values.get('上市日期') != trade_date:
+        raise ValueError(f'{code}: missing previous close and listing day is not {trade_date}')
+    price = float(values.get('发行价(元)', 'nan'))
+    if not math.isfinite(price) or price <= 0:
+        raise ValueError(f'{code}: missing verified issue price')
+    return {'pre_close_source': 'sina:stock_ipo_info', 'listing_date': trade_date,
+            'issue_price': price, 'provider_fields': values}
+
+
 def cmd_fetch(args) -> int:
     import akshare as ak
     import duckdb
@@ -82,19 +98,53 @@ def cmd_fetch(args) -> int:
         ).fetchall()
     finally:
         con.close()
-    print(f"[fetch] 宇宙取自 {prev} ∪ {nxt}，待抓 {len(uni)} 只", file=sys.stderr, flush=True)
+    # 恢复断档时库里还没有 next day，允许用日期已核验的原始快照扩展股票身份，
+    # 只借代码/名称；价格仍逐只从历史日线取，绝不把快照行情贴到历史日。
+    snapshot_path = getattr(args, 'universe_snapshot', None)
+    if snapshot_path:
+        from market_feature_store.sync.sync_eastmoney_stock_snapshot import (
+            A_SHARE_PREFIXES, _num, _ts_code, snapshot_trade_date,
+        )
+        raw = json.loads(Path(snapshot_path).read_text(encoding='utf-8'))
+        snapshot_day = snapshot_trade_date(raw)
+        if snapshot_day is None or date.fromisoformat(snapshot_day) <= d:
+            raise ValueError('universe snapshot must have a verified later trade date')
+        universe = dict(uni)
+        for item in raw:
+            code = str(item.get('f12') or '')
+            price = _num(item.get('f2'))
+            # Raw clist also contains retired/unlisted placeholders; these are not
+            # extra active identities. This price is only a filter, never history.
+            if code.startswith(A_SHARE_PREFIXES) and price is not None and math.isfinite(price) and price > 0:
+                universe.setdefault(_ts_code(code), str(item.get('f14') or ''))
+        uni = sorted(universe.items())
+    resume = getattr(args, 'resume', False)
+    existing = set()
+    if resume and out.exists():
+        for line in out.read_text(encoding='utf-8').splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if row.get('trade_date') != args.trade_date or row.get('source') not in SOURCES:
+                raise ValueError('resume input date/source mismatch')
+            existing.add(row['stock_ts_code'])
+        uni = [(c, n) for c, n in uni if c not in existing]
+    print(f"[fetch] 宇宙取自 {prev} ∪ {nxt}，已有 {len(existing)}，待抓 {len(uni)} 只", file=sys.stderr, flush=True)
 
     win_start = (d - timedelta(days=10)).strftime("%Y%m%d")
     win_end = d.strftime("%Y%m%d")
     ok = suspended = 0
     fails: list[tuple[str, str]] = []
     t0 = time.time()
-    with out.open("w", encoding="utf-8") as fh:
+    with out.open("a" if resume else "w", encoding="utf-8") as fh:
         for i, (code, name) in enumerate(uni, start=1):
             num, ex = code.split(".")
             try:
-                df = ak.stock_zh_a_daily(symbol=_PREFIX[ex] + num, start_date=win_start,
-                                         end_date=win_end, adjust="")
+                is_cdr = ex == 'SH' and num.startswith('689')
+                fetch = ak.stock_zh_a_cdr_daily if is_cdr else ak.stock_zh_a_daily
+                kwargs = {} if is_cdr else {'adjust': ''}
+                df = fetch(symbol=_PREFIX[ex] + num, start_date=win_start,
+                           end_date=win_end, **kwargs)
                 recs = df.to_dict("records") if df is not None else []
                 target = prev_close = None
                 for j, r in enumerate(recs):
@@ -105,6 +155,12 @@ def cmd_fetch(args) -> int:
                 if target is None:
                     suspended += 1
                     continue
+                reference = {}
+                if prev_close is None:
+                    reference = _ipo_reference(ak, code, args.trade_date)
+                    prev_close = reference['issue_price']
+                    # IPO exclusion downstream uses N/C names; a later-day identity may have lost N.
+                    name = 'N' + str(name).removeprefix('N').removeprefix('C')
                 close = float(target["close"])
                 fh.write(json.dumps({
                     "trade_date": args.trade_date, "stock_ts_code": code, "stock_name": name,
@@ -112,12 +168,13 @@ def cmd_fetch(args) -> int:
                     "pre_close": round(prev_close, 3) if prev_close else None,
                     "pct_chg": round((close / prev_close - 1) * 100, 4) if prev_close else None,
                     "amount": round(float(target["amount"]) / 1e8, 4),
-                    "turnover": round(float(target["turnover"]) * 100, 4),
-                    "source": SOURCE,
+                    "turnover": round(float(target["turnover"]) * 100, 4) if not is_cdr else None,
+                    "source": CDR_SOURCE if is_cdr else SOURCE,
                     "open": round(float(target["open"]), 3),
                     "high": round(float(target["high"]), 3),
                     "low": round(float(target["low"]), 3),
                     "volume": round(float(target["volume"]) / 100, 1),
+                    **({'ipo_reference': reference} if reference else {}),
                 }, ensure_ascii=False) + "\n")
                 ok += 1
             except Exception as e:  # noqa: BLE001
@@ -233,6 +290,9 @@ def main() -> int:
         sp.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
         sp.add_argument("--rows" if name != "fetch" else "--out", default=None,
                         help="JSONL 路径，默认 /tmp/backfill-sina-<D>.jsonl")
+        if name == 'fetch':
+            sp.add_argument('--resume', action='store_true', help='验证现有 JSONL 日期/出处后只补缺失代码')
+            sp.add_argument('--universe-snapshot', default=None, help='已核验的后日东财原始 JSON，仅扩展代码/名字，行情仍抓历史')
         sp.set_defaults(func=fn)
     args = p.parse_args()
     return args.func(args)

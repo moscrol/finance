@@ -1,0 +1,15 @@
+{
+  "baseUrl": "http://127.0.0.1:19899/v1",
+  "api": "openai-completions",
+  "models": [{
+    "id": "kimi-k3",
+    "name": "Mirasim Kimi K3",
+    "reasoning": true,
+    "thinkingLevelMap": {"xhigh": "xhigh", "max": "max"},
+    "input": ["text"],
+    "contextWindow": 200000,
+    "maxTokens": 16384,
+    "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+    "compat": {"supportsDeveloperRole": false, "supportsReasoningEffort": true}
+  }]
+}

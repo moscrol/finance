@@ -1,0 +1,10 @@
+{
+  "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048",
+  "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/tests/test_repair_backfill_stock_history.py": "a0c0ecd6a825e6a172bbda49e822c553cf0bdbee694d6688440b94b67795e645",
+  "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/review_checks.py": "cc33aeb98c69ebb353973ddaf4c51e950f258bbe7e69baf7e670f6c068935ac5",
+  "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/results.json": "3d5e609ec4c2e98523de7afbd964307dadfeb9e49222a9e763ae726c4f83839c",
+  "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/commands.json": "b983342f758caa52ab3f7f7909d4d5523f143c6cd084979ad5a51a4624d9c1fe",
+  "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/identity-before.json": "b1a6c4120931ac72477a59139af4712b0fd5b9ef079e0e0bd97d82d2280959c9",
+  "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/identity-after.json": "b1a6c4120931ac72477a59139af4712b0fd5b9ef079e0e0bd97d82d2280959c9",
+  "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/pytest-selected.log": "0234d51de03c8da96792f0ed8d0043697c9f1b2888dbf66e9cf6b5620819903b"
+}

@@ -1,0 +1,20 @@
+"""v2 of probe_transport.py: fixes P4 (uses llm_refine.Deadline directly instead
+of the broken dynamic import in v1). Same boundaries P1-P6; run this version.
+Run: python probe_transport_v2.py
+"""
+import http.server, json, sys, threading, time, socketserver
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate")
+from intelligence.services import llm_http_transport as T
+from intelligence.services import llm_refine
+import urllib.request
+
+PORT = 26001
+hits = {"n": 0}
+lock = threading.Lock()
+
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def log_message(self, *a): pass
+    def do_POST(self):
+        with lock: hits["n"] += 1
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))

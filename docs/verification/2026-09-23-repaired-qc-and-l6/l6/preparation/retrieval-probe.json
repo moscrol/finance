@@ -1,0 +1,13 @@
+{
+  "ready": false,
+  "exit_code": 124,
+  "model_path": "/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181",
+  "offline": true,
+  "downloads": false,
+  "paid_model_requests": 0,
+  "model_weights_present": true,
+  "log": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

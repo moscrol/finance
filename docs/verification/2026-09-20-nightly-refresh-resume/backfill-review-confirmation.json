@@ -1,0 +1,94 @@
+{
+  "candidate": {
+    "revision": "1fd34dc7ab06d54882a5643b4b985fa5ca291b7c",
+    "status": ""
+  },
+  "checked_hashes": [
+    {
+      "axis": "spec",
+      "path": "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py",
+      "sha256": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/tests/test_repair_backfill_stock_history.py",
+      "sha256": "a0c0ecd6a825e6a172bbda49e822c553cf0bdbee694d6688440b94b67795e645"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/boundary_review.py",
+      "sha256": "bc8f102cdb4408e9becd121f6df7287ab024ad4f74aa8766596f70a34113c8ae"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/mutant-no-code-guard.py",
+      "sha256": "db34b289d947bcdb862d254698523663a41707c63a0f8062fbb6bbc795a9a002"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/mutant-no-overflow-guard.py",
+      "sha256": "07dc5dba88b2e6c94e1c5b4b45d8d25461b075b1c43dea9a905aaf1e3593d1e0"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/boundary-results.json",
+      "sha256": "fbd157f4b8d5995fb3a4a4c1aa4ff809b4a306211c88b4a735d294769dbd6958"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/commands.json",
+      "sha256": "407d346d1a6e08cb9d9e5adad4c8dfb3bad68db54a225c446bab3eb58ddb1c61"
+    },
+    {
+      "axis": "spec",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/REPORT.md",
+      "sha256": "bde0f5ce05f09896ccd1695734d24dd0794fa778b297e278c3cbe8713f7034e1"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py",
+      "sha256": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/tests/test_repair_backfill_stock_history.py",
+      "sha256": "a0c0ecd6a825e6a172bbda49e822c553cf0bdbee694d6688440b94b67795e645"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/review_checks.py",
+      "sha256": "cc33aeb98c69ebb353973ddaf4c51e950f258bbe7e69baf7e670f6c068935ac5"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/results.json",
+      "sha256": "3d5e609ec4c2e98523de7afbd964307dadfeb9e49222a9e763ae726c4f83839c"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/commands.json",
+      "sha256": "b983342f758caa52ab3f7f7909d4d5523f143c6cd084979ad5a51a4624d9c1fe"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/identity-before.json",
+      "sha256": "b1a6c4120931ac72477a59139af4712b0fd5b9ef079e0e0bd97d82d2280959c9"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/identity-after.json",
+      "sha256": "b1a6c4120931ac72477a59139af4712b0fd5b9ef079e0e0bd97d82d2280959c9"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/pytest-selected.log",
+      "sha256": "0234d51de03c8da96792f0ed8d0043697c9f1b2888dbf66e9cf6b5620819903b"
+    },
+    {
+      "axis": "quality",
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/quality/REPORT.md",
+      "sha256": "138e05d8086d5a771f83ae265b6928afb25b571bf714020a34ada0888ed46dca"
+    }
+  ],
+  "note": "Existing independent reviews verified; this is not a new independent review or main integration gate."
+}

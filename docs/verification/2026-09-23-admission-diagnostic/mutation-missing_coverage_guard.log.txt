@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_strict_mode_rejects_missing_coverage_even_inside_deadline ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107f6bec0>
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard/test_strict_mode_rejects_missi0')
+
+    def test_strict_mode_rejects_missing_coverage_even_inside_deadline(monkeypatch, tmp_path):
+        output = tmp_path / "receipt.json"
+        monkeypatch.setattr(probe, "SCENARIOS", ("body_stall",))
+        monkeypatch.setattr(probe, "JUDGE_SCENARIOS", ())
+        monkeypatch.setattr(probe, "source_identity", lambda: {"revision": "fixed"})
+        monkeypatch.setattr(probe, "run_case", lambda name, budget: {
+            "scenario": name, "timeout_input_seconds": budget, "wall_elapsed_seconds": 0.8,
+            "request_count": 0, "attempts": [{}],
+        })
+        monkeypatch.setattr(sys, "argv", ["probe", "--output", str(output), "--assert-deadline"])
+>       assert probe.main() == 1
+E       assert 0 == 1
+E        +  where 0 = <function main at 0x107b509a0>()
+E        +    where <function main at 0x107b509a0> = probe.main
+
+intelligence/tests/test_llm_timeout_diagnostic.py:223: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"receipt": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard/test_strict_mode_rejects_missi0/receipt.json", "deadline_violations": [], "coverage_gaps": []}
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_llm_timeout_diagnostic.py::test_strict_mode_rejects_missing_coverage_even_inside_deadline
+1 failed in 0.19s

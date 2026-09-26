@@ -1,0 +1,71 @@
+{
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "start": {
+    "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "status": ""
+  },
+  "finish": {
+    "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "status": ""
+  },
+  "identity_stable": true,
+  "steps": [
+    {
+      "name": "registry-parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.11,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "name": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.21,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "name": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.11,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.08,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "registry-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.3,
+      "sha256": "309e7ec9f01af60468bdc31f7e4c8bd5b31e1ff3cab436e32f9ddbcdf973d66d"
+    }
+  ],
+  "ok": true
+}

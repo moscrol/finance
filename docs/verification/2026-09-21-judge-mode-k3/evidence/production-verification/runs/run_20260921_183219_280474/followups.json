@@ -1,0 +1,37 @@
+{
+  "followups": [
+    {
+      "question": "该问题目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+      "type": "evidence",
+      "rationale": "完整结论也打最薄一层证据核验",
+      "type_label": "证据加深",
+      "source": "",
+      "label": "核对最硬证据",
+      "full_prompt": "该问题目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+      "angle": "A",
+      "kind": "gap_fill",
+      "kind_label": "补关键缺口",
+      "inherits": {
+        "question_type": "general_finance_qa"
+      }
+    },
+    {
+      "question": "出现哪些反证应下调对该问题的判断？",
+      "type": "counter",
+      "rationale": "完整答案的默认证伪件",
+      "type_label": "反证验证",
+      "source": "",
+      "label": "证伪条件",
+      "full_prompt": "出现哪些反证应下调对该问题的判断？",
+      "angle": "D",
+      "kind": "condition_test",
+      "kind_label": "检验条件",
+      "inherits": {
+        "question_type": "general_finance_qa"
+      }
+    }
+  ],
+  "llm_used": false,
+  "llm_provider": null,
+  "warnings": []
+}

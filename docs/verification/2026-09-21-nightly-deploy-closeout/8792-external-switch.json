@@ -1,0 +1,23 @@
+{
+  "ts": "2026-09-21T07:35:49.109460Z",
+  "unix": 1789976149.1094599,
+  "rev": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "snapshot_path": "/Users/a77/.finance-runtime/finance-workspace-adcda94b5e40",
+  "port": 8792,
+  "pid": 8053,
+  "argv": [
+    "/Users/a77/.finance-runtime/finance-workspace-adcda94b5e40/scripts/audit_deploy_ledger.py",
+    "record",
+    "--action",
+    "switch",
+    "--rev",
+    "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+    "--snapshot-path",
+    "/Users/a77/.finance-runtime/finance-workspace-adcda94b5e40",
+    "--port",
+    "8792",
+    "--ledger",
+    "/Users/a77/.finance-runtime/deploy-ledger.jsonl"
+  ],
+  "action": "switch"
+}
