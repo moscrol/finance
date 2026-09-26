@@ -58,6 +58,7 @@ CLAIM_CHECK_RULE = (
     " 本轮必须额外返回 material_claim_checks 数组，逐项覆盖 material_claims 的 claim_id，不能遗漏或重复。"
     "每项仅含 claim_id、supported(boolean)、reason(非空的具体判断依据)、support_kind、anchor_indexes。"
     "support_kind=bound_material 时，anchor_indexes 列出本条 material_anchors 从1开始的序号，"
+    "即所引锚点的 anchor_index（每条 claim 各自从1计数，与 sentence_index 无关），"
     "supported=true 必须有真实存在的序号；本条锚点为空就不能声称材料支持，不得捏造序号或借邻句的序号。"
     "historical_quote 只用于已绑定历史旧答；nonfactual 只用于确实不含事实或计算的句子；"
     "unsupported 表示无有效支持，必须 supported=false，且 anchor_indexes=[]；historical_quote 与 nonfactual 也一律 anchor_indexes=[]。"

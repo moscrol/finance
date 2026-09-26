@@ -46,8 +46,12 @@ def _request():
 
 
 def _expand(wire):
+    """Undo the two wire-only projections: claim_ids references and anchor ordinal labels."""
     expanded = deepcopy(wire)
-    by_id = {row["claim_id"]: row for row in wire["material_claims"]}
+    for row in expanded.get("material_claims", []):
+        for anchor in row.get("material_anchors", []):
+            anchor.pop("anchor_index", None)
+    by_id = {row["claim_id"]: row for row in expanded["material_claims"]}
     for binding in expanded["output_bindings"]:
         if "claim_ids" in binding and "claims" not in binding:
             binding["claims"] = [
@@ -133,3 +137,31 @@ def test_real_judge_dispatch_projects_wire_but_keeps_canonical_request(monkeypat
     assert "claims" not in wire["output_bindings"][0]
     assert _expand(wire) == compact_judge_payload(request)
     assert request == original
+
+
+def test_wire_labels_each_claims_own_anchor_ordinals_without_relaxing_the_check():
+    """L8 live 2026-09-26: 44/47 flash checks copied sentence_index into anchor_indexes."""
+    from intelligence.services.material_claim_review import CLAIM_CHECK_RULE, reconcile_claim_checks
+
+    request = _request()
+    request["material_claims"][0]["material_anchors"].append({"material_id": "m1", "quote": "Revenue"})
+    original = deepcopy(request)
+    wire = json.loads(dumps_judge_request(request))
+    anchors = {row["claim_id"]: row.get("material_anchors", []) for row in wire["material_claims"]}
+    assert [anchor["anchor_index"] for anchor in anchors["c1"]] == [1, 2]
+    assert all(not rows for claim, rows in anchors.items() if claim != "c1")
+    assert request == original and "anchor_index" not in json.dumps(request)
+    assert dumps_judge_request(wire) == dumps_judge_request(request)
+    assert "anchor_index" in CLAIM_CHECK_RULE and "sentence_index" in CLAIM_CHECK_RULE
+
+    def report(indexes):
+        checks = [{"claim_id": "c1", "supported": True, "reason": "quote matches", "support_kind": "bound_material",
+                   "anchor_indexes": indexes}]
+        checks += [{"claim_id": row["claim_id"], "supported": True, "reason": "declared premise",
+                    "support_kind": "nonfactual", "anchor_indexes": []} for row in request["material_claims"][1:2]]
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": [], "material_claim_checks": checks}
+
+    claims = request["material_claims"][:2]
+    assert reconcile_claim_checks(report([1]), claims) is not None
+    # The label is guidance only: a sentence index outside the claim's own anchors stays refused.
+    assert reconcile_claim_checks(report([claims[0]["sentence_index"] + 1]), claims) is None

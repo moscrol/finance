@@ -728,11 +728,38 @@ def _deduplicate_material_bindings(payload: dict[str, object]) -> dict[str, obje
     return {**payload, "output_bindings": projected}
 
 
+def _label_material_anchor_ordinals(payload: dict[str, object]) -> dict[str, object]:
+    """Wire-only: print each claim's own 1-based anchor ordinal beside the anchor.
+
+    ``anchor_indexes`` point into the claim's own ``material_anchors`` list. Unlabeled
+    anchors next to an integer ``sentence_index`` let a judge copy the wrong integer
+    (L8 live 2026-09-26: 44 of 47 glm-5.3-flash checks returned the sentence index and
+    the whole report was refused). The canonical request and the strict validator are
+    unchanged; labels are list positions, so labelling a wire twice is idempotent.
+    """
+
+    claims = payload.get("material_claims")
+    if not isinstance(claims, list):
+        return payload
+    labeled: list[object] = []
+    for row in claims:
+        anchors = row.get("material_anchors") if isinstance(row, dict) else None
+        if not isinstance(anchors, list) or not all(isinstance(item, dict) for item in anchors):
+            labeled.append(row)
+            continue
+        labeled.append({**row, "material_anchors": [
+            {"anchor_index": position, **{key: value for key, value in anchor.items() if key != "anchor_index"}}
+            for position, anchor in enumerate(anchors, 1)
+        ]})
+    return {**payload, "material_claims": labeled}
+
+
 def dumps_judge_request(request: Mapping[str, object]) -> str:
-    """Wire JSON only: compact defaults and losslessly reference duplicate claims."""
+    """Wire JSON only: compact defaults, losslessly reference duplicate claims, label anchors."""
 
     payload = cast(dict[str, object], compact_judge_payload(dict(request)))
     payload = _deduplicate_material_bindings(payload)
+    payload = _label_material_anchor_ordinals(payload)
     return json.dumps(payload, ensure_ascii=False, separators=_JUDGE_JSON_SEPARATORS)
 
 
