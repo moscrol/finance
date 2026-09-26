@@ -268,6 +268,34 @@ def test_opening_memory_does_not_use_undated_legacy_note_for_explicit_cutoff(fra
     assert "无日期记忆" not in opening[0].detail
 
 
+@pytest.mark.parametrize("source", ["runtime_default", "latest_available"])
+def test_opening_memory_keeps_undated_legacy_note_for_current_cutoff(frame, source):
+    # The undated withhold is only for an explicitly requested cutoff; widening it
+    # would silently drop legacy priors from every current research question.
+    context = build_episode_context(
+        frame,
+        task_id=f"opening-undated-{source}",
+        capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), source),
+    )
+    undated = AgentEvidence(
+        tool="memory_lookup",
+        title="无日期记忆",
+        detail="旧笔记仍是当前先验",
+        source="private-ledger",
+        source_date=None,
+        evidence_tier="user_memory",
+    )
+
+    opening = memory_prefetch.collect_opening_memory(
+        lambda _query, _tool_context: _scripted_memory_result(undated),
+        query=frame.raw_question,
+        context=context,
+    )
+
+    assert [(item.title, item.evidence_tier) for item in opening] == [("无日期记忆", "user_memory")]
+
+
 def test_worker_exception_does_not_abort_opening(tmp_path, frame, monkeypatch):
     def failed(*args, **kwargs):
         raise OSError("private-path private-text")
