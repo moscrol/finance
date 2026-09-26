@@ -1,0 +1,25 @@
+{"label": "receipt-check", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "scripts/check_test_receipt.py", "/Users/a77/.finance-runtime/reviews/pr910-911-forward-20260925/910/pytest.json", "--expect-revision", "4ad2cb42b0c58d9b3997a435568eea5e549bccdb", "--base-drift-max", "0", "--main-ref", "1751e21e0fd30642e0b223604b64b30e38c46f41", "--require-target", "tests/test_pi_review_repair.py::test_content_binding_rejects_malformed_or_forged_submissions"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "4ad2cb42b0c58d9b3997a435568eea5e549bccdb", "started_at": "2026-09-25T04:32:39.651078+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/reviews/pr910-911-forward-20260925/910/pytest.json
+  产生于   2026-09-25T04:32:39+00:00
+  来自树   /Users/a77/fwp-wt-pr910-main-0925
+  目标     tests/test_pi_review_repair.py::test_content_binding_rejects_malformed_or_forged_submissions tests/test_pi_review_repair.py::test_probe_validation_checks_canonical_files_without_rewriting tests/test_pi_review_repair.py::test_prepare_preserves_sealed_inputs_and_refuses_reuse tests/test_pi_review_repair.py::test_prepare_fails_closed_on_changed_archive
+  读数     passed=4 failed=0 error=0 skipped=0
+
+  ✓ 执行读数 4 条（passed+failed+error）
+  ✓ 收集面未被收窄（collected=4）
+  ✓ 收执对账平：collected=4 == 读数合计=4
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == 4ad2cb42b0c5
+  ✓ 基座漂移 0 ≤ 0
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。
+
+EXIT=0 STATUS=completed

@@ -1,0 +1,5 @@
+{"label": "registry-tables", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "scripts/build_registry.py", "backfill-tables", "--check"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "167c9ffac1b428164e7906861438eb1757895dc5", "started_at": "2026-09-25T05:36:05.081161+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+[backfill] 无变化：finance-workspace-private/AGENTS.md
+[backfill --check] 文档 skill 表与注册表一致。
+
+EXIT=0 STATUS=completed
