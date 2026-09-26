@@ -1,0 +1,128 @@
+EEEEEEEE.                                                                [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T051450Z-e0f2a5c7.json
+
+==================================== ERRORS ====================================
+_ ERROR at setup of test_source_identity_scope_and_cutoff_are_checked_before_query _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+_ ERROR at setup of test_immutable_original_recovery_checks_dependencies_and_lineage_without_live_db _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+_ ERROR at setup of test_overflow_does_not_shrink_window_or_population_and_failed_reservation_releases _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+_ ERROR at setup of test_concurrent_incompatible_selection_is_rejected_before_second_db_read _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+_ ERROR at setup of test_worker_completion_or_projection_without_message_does_not_attest_consumption _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+_ ERROR at setup of test_extended_trace_cannot_launder_new_rank_interval_in_later_turn _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+____ ERROR at setup of test_bound_original_cannot_hide_wider_ancestor_scope ____
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+_ ERROR at setup of test_cancel_and_deadline_leave_no_binding_or_saved_calculation _
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError
+==================================== PASSES ====================================
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries.junit.xml -
+=========================== short test summary info ============================
+PASSED tests/test_code_map.py::test_structure_probe_daily_full
+ERROR tests/test_history_window_binding.py::test_source_identity_scope_and_cutoff_are_checked_before_query
+ERROR tests/test_history_window_binding.py::test_immutable_original_recovery_checks_dependencies_and_lineage_without_live_db
+ERROR tests/test_history_window_binding.py::test_overflow_does_not_shrink_window_or_population_and_failed_reservation_releases
+ERROR tests/test_history_window_binding.py::test_concurrent_incompatible_selection_is_rejected_before_second_db_read
+ERROR tests/test_history_window_binding.py::test_worker_completion_or_projection_without_message_does_not_attest_consumption
+ERROR tests/test_history_window_binding.py::test_extended_trace_cannot_launder_new_rank_interval_in_later_turn
+ERROR tests/test_history_window_binding.py::test_bound_original_cannot_hide_wider_ancestor_scope
+ERROR tests/test_history_window_binding.py::test_cancel_and_deadline_leave_no_binding_or_saved_calculation
+1 passed, 8 errors in 1.01s

@@ -1,0 +1,36 @@
+"""Wait at most ten minutes for one new offline gate attempt; no retries after launch."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+from scripts.review_probes.gate_resources import observe  # noqa: E402
+
+records = []
+deadline = time.monotonic() + 600
+while True:
+    record = observe(Path('/Users/a77/fwp-wt-pr910-main-0925'), minimum_free=20 * 1024**3)
+    records.append(record)
+    (ROOT / 'wait-observations.json').write_text(json.dumps(records, indent=2) + '\n')
+    if record['admitted']:
+        target = ROOT / 'attempt02'
+        target.mkdir(exist_ok=False)
+        shutil.copyfile(ROOT / 'run_gates.py', target / 'run_gates.py')
+        with (target / 'supervisor.log').open('xb', buffering=0) as stream:
+            result = subprocess.run([sys.executable, '-B', str(target / 'run_gates.py')],
+                                    stdout=stream, stderr=subprocess.STDOUT,
+                                    cwd='/Users/a77/fwp-wt-pr910-main-0925')
+        status = {'status': 'ATTEMPT_FINISHED', 'exit': result.returncode}
+        break
+    if time.monotonic() >= deadline:
+        status = {'status': 'RESOURCE_WAIT_EXPIRED', 'attempt_started': False}
+        break
+    time.sleep(min(30, max(0, deadline - time.monotonic())))
+status['finished_at'] = datetime.now(timezone.utc).isoformat()
+(ROOT / 'wait-result.json').write_text(json.dumps(status, indent=2) + '\n')
+print(json.dumps(status), flush=True)

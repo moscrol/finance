@@ -1,0 +1,131 @@
+"""Focused regressions and non-Python-full leaves on the gap-fix revision."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+
+from run_checks import OUT, ROOT, PY, WEB, PROFILE, MIN_FREE, now, save
+
+SHA = '442476f7def1013f1fadebaf6594971921147edc'
+FROZEN = OUT / 'frozen-gap-fix'
+OLD = OUT.parent / 'history-source-partition-03'
+GROUPS = ('history-controller', 'conversation-delivery', 'partition-neighbors', 'history-assembly', 'e2-extra')
+MUTATIONS = {
+    'partition': 'boundary', 'history-infer': 'boundary', 'follow-up': 'boundary',
+    'resolution-hint': 'boundary', 'cutoff': 'boundary',
+    'history-contract': 'inheritance', 'history-replay': 'inheritance',
+    'history-authority': 'inheritance', 'history-delivery': 'inheritance', 'history-backfill': 'inheritance',
+    'material-mask': 'source', 'unclosed-quote': 'source', 'frame-source': 'source',
+    'followup-source': 'source', 'gap-projection': 'gap',
+}
+
+
+def identity():
+    result = {name: subprocess.check_output(['git', '-C', str(ROOT), *args], timeout=20).decode()
+              for name, args in {'head': ['rev-parse', 'HEAD'], 'status': ['status', '--porcelain=v1', '--untracked-files=all'],
+                                 'index': ['ls-files', '-s']}.items()}
+    result['head'] = result['head'].strip()
+    result['index_sha256'] = hashlib.sha256(result.pop('index').encode()).hexdigest()
+    result['sha256'] = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in
+                       ('intelligence/services/query_resolution.py', 'intelligence/services/research_contract.py',
+                        'intelligence/services/user_task.py', 'intelligence/services/turn_controller.py',
+                        'intelligence/services/task_frame.py', 'intelligence/services/conversation_materials.py',
+                        'tests/test_gap_followup_projection.py', 'scripts/probe_history_control_boundary.py',
+                        'docs/agent-product-door.md')}
+    return result
+
+
+def main():
+    FROZEN.mkdir(exist_ok=False)
+    original = identity()
+    assert original['head'] == SHA and not original['status']
+    env = json.loads((OUT / 'start.json').read_text())['env']
+    env['RE06_E2E_URL'] = 'http://127.0.0.1:19854'
+    env['PYTHONUNBUFFERED'] = '1'
+    save(FROZEN / 'start.json', {'identity': original, 'env': env, 'at': now(), 'min_free_bytes': MIN_FREE,
+                                'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()})
+    stages = []
+    seen = set()
+    for group in GROUPS:
+        old = json.loads((OLD / f'frozen-{group}/receipt.json').read_text())['command']
+        files = [p for p in old if p.endswith('.py')]
+        assert not seen.intersection(files)
+        seen.update(files)
+        command = [PY, '-m', 'pytest', '-q', '--tb=short', '-p', 'no:cacheprovider',
+                   '--basetemp', str(FROZEN / f'{group}-tmp'), '--junitxml', str(FROZEN / f'{group}.xml'), *files]
+        stages.append((group, command, ROOT, 120))
+    extras = ['tests/test_gap_followup_projection.py', 'intelligence/tests/test_forecast_residual_followup.py']
+    assert not seen.intersection(extras)
+    stages.append(('gap-neighbors', [PY, '-m', 'pytest', '-q', '--tb=short', '-p', 'no:cacheprovider',
+                   '--basetemp', str(FROZEN / 'gap-neighbors-tmp'), '--junitxml', str(FROZEN / 'gap-neighbors.xml'), *extras], ROOT, 120))
+    for mode, suite in {'normal': 'all', **MUTATIONS}.items():
+        stages.append(('probe-' + mode, [PY, 'scripts/probe_history_control_boundary.py', mode, '--suite', suite,
+                       '--output', str(FROZEN / ('probe-' + mode))], ROOT, 120))
+    stages.append(('ruff', [PY, '-m', 'ruff', 'check', '.'], ROOT, 120))
+    for name, args in [('registry-parse', ['check-parseability']), ('registry-check', ['check']),
+                       ('registry-tables', ['backfill-tables', '--check']), ('registry-views', ['generate-views', '--check'])]:
+        stages.append((name, [PY, 'scripts/build_registry.py', *args], ROOT, 90))
+    stages.append(('ledger-crosswalk', [PY, 'scripts/audit_ledger_spec_crosswalk.py'], ROOT, 90))
+    for name in ('lint', 'typecheck', 'test', 'build'):
+        stages.append(('frontend-' + name, ['pnpm', name], WEB, 180))
+    stages.append(('e2e', ['pnpm', 'test:e2e'], WEB, 480))
+    records = []
+    for name, command, cwd, seconds in stages:
+        before = identity()
+        assert before == original, before
+        if shutil.disk_usage(OUT).free < MIN_FREE:
+            save(FROZEN / 'space-stop.json', {'at': now(), 'stage': name})
+            break
+        began = time.monotonic()
+        record = {'stage': name, 'command': command, 'cwd': str(cwd), 'seconds': seconds,
+                  'before': before, 'started_at': now(), 'signals': []}
+        save(FROZEN / f'{name}.start.json', record)
+        print(now(), 'START', name, flush=True)
+        reason = None
+        with (FROZEN / f'{name}.log').open('x') as log:
+            proc = subprocess.Popen(['/usr/bin/sandbox-exec', '-p', PROFILE, *command], cwd=cwd,
+                                    env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            while proc.poll() is None:
+                if shutil.disk_usage(OUT).free < MIN_FREE:
+                    reason = 'disk-space-floor'
+                elif time.monotonic() - began >= seconds:
+                    reason = 'timeout'
+                if reason:
+                    for sig, grace in ((signal.SIGINT, 20), (signal.SIGTERM, 8), (signal.SIGKILL, 5)):
+                        try:
+                            os.killpg(proc.pid, sig)
+                            record['signals'].append(sig.name)
+                        except ProcessLookupError:
+                            break
+                        try:
+                            proc.wait(timeout=grace)
+                            break
+                        except subprocess.TimeoutExpired:
+                            pass
+                    break
+                time.sleep(0.5)
+            rc = proc.wait(timeout=5)
+        record.update({'exit_code': rc, 'stop_reason': reason, 'after': identity(),
+                       'finished_at': now(), 'elapsed_seconds': time.monotonic() - began,
+                       'log_sha256': hashlib.sha256((FROZEN / f'{name}.log').read_bytes()).hexdigest()})
+        xml = FROZEN / f'{name}.xml'
+        if xml.exists():
+            record['junit_suites'] = [s.attrib for s in ET.parse(xml).iter('testsuite')]
+        save(FROZEN / f'{name}.json', record)
+        records.append(record)
+        print(now(), 'END', name, rc, reason, flush=True)
+        if reason == 'disk-space-floor':
+            break
+    save(FROZEN / 'complete.json', {'identity': identity(), 'at': now(), 'stages': records,
+                                    'planned': len(stages), 'completed': len(records),
+                                    'full_python_suite': 'NOT_RUN_ON_THIS_REVISION',
+                                    'all_requested_checks_passed': len(records) == len(stages) and all(r['exit_code'] == 0 and not r['stop_reason'] and r['before'] == r['after'] for r in records)})
+
+
+if __name__ == '__main__':
+    main()

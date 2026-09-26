@@ -2148,6 +2148,46 @@ def test_local_gate_accepts_units_the_model_attaches_to_structured_observations(
     assert "1800 亿" not in result.public_answer
 
 
+def test_local_gate_keeps_sector_timeline_caliber_units_and_counts() -> None:
+    """2026-09-25 L6-T3（低空经济）：双红时间轴证据的口径是裸数 ``amount>500``（单位只在
+    逐日行列名 ``成交额亿`` 里），逐日恰 N 行、其中 K 行双红。模型写「amount>500亿」与
+    「本期 N 日 K 天」都是对证据的转述，却被数字门判「证据里没有的数量」整句删。证据由
+    生产方（asof_prefetch）补写单位与计数后应保留；越界的新数（501亿、N+1 日）仍须删。"""
+
+    from intelligence.services.asof_prefetch import (
+        format_sector_timeline,
+        sector_timeline_observations,
+    )
+
+    rows = [
+        {"trade_date": "2026-09-14", "pct_chg": 0.4, "amount": 620.5, "diff_ratio": 12.5},
+        {"trade_date": "2026-09-15", "pct_chg": -0.3, "amount": 480.2, "diff_ratio": 3.2},
+        {"trade_date": "2026-09-16", "pct_chg": 1.2, "amount": 655.1, "diff_ratio": 15.4},
+        {"trade_date": "2026-09-17", "pct_chg": 0.8, "amount": 470.3, "diff_ratio": 11.2},
+        {"trade_date": "2026-09-18", "pct_chg": -1.1, "amount": 530.6, "diff_ratio": -4.4},
+    ]
+    window = {"sector_name": "低空经济", "start": "2026-09-14", "end": "2026-09-18"}
+    frame, structural = _structural(
+        "若板块再现双红（amount>500亿，E1）并形成连日序列，则交易面升级。"
+        "若双红继续零星（本期 5 日 2 天，E1），则维持震荡发酵判断。"
+        "若板块成交额跌回 amount>501亿（E1）以下，则交易面降级。"
+        "若本期 6 日内双红不再出现，则逻辑失效。",
+        detail=format_sector_timeline(rows, **window),
+        observations=sector_timeline_observations(rows, **window),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert "若板块再现双红（amount>500亿，E1）并形成连日序列" in result.public_answer
+    assert "若双红继续零星（本期 5 日 2 天，E1）" in result.public_answer
+    assert "amount>501亿" not in result.public_answer
+    assert "若本期 6 日内双红不再出现" not in result.public_answer
+
+
 @pytest.mark.parametrize(
     ("detail", "quantity", "supported"),
     [
@@ -2200,6 +2240,77 @@ def test_local_gate_keeps_natural_l6_currency_condition():
     )
     assert condition in result.public_answer
     assert result.judge_status == "passed"
+
+
+# 2026-09-25 零额度重放（~/.finance-runtime/reviews/l6-numeric-replay-20260925/）：
+# 09-23 L6-N1 句 13 不引证据，却被预检以 novel_numeric_condition 整句删除。触发
+# token 是从型号 ``CPU1000`` 里抠出的 1000 和单独的月份 ``10月``，两个都不是阈值。
+_L6_N1_WATCH_ITEM = (
+    "**下期关注清单**：① 10月前公告/互动易是否披露CPU1000客户或订单——无则叙事降级；"
+)
+
+
+def test_local_gate_keeps_l6_watch_item_but_still_redacts_real_threshold() -> None:
+    frame, structural = _structural(
+        f"海光信息事件驱动逻辑仍在。\n{_L6_N1_WATCH_ITEM}\n若指数跌破3870点则失效。"
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert "是否披露CPU1000客户或订单——无则叙事降级" in result.public_answer
+    assert "3870点" not in result.public_answer
+
+
+@pytest.mark.parametrize("model", ["CPU1000", "H100", "A100", "RTX4090", "iPhone15"])
+def test_numeric_gate_does_not_read_model_numbers_as_thresholds(model: str) -> None:
+    _, structural = _structural(f"若{model}订单落地不及预期，则叙事降级。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+@pytest.mark.parametrize(
+    "when", ["10月前", "10月底", "11月中旬", "2026年10月前", "9-10月"],
+)
+def test_numeric_gate_does_not_read_month_time_points_as_thresholds(when: str) -> None:
+    _, structural = _structural(f"若{when}仍未公告大客户订单，则叙事降级。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "若10月前指数跌破3870点，则反弹失效。",
+        "若H100订单落地后成交额仍跌破100亿元，则量能失效。",
+        "若估值回落至PE20倍以下，则逻辑失效。",
+        "若估值跌回PE20附近，则逻辑失效。",
+    ],
+)
+def test_numeric_gate_still_rejects_thresholds_beside_months_and_model_numbers(
+    draft: str,
+) -> None:
+    """只掩月份与型号本身；同句里证据没有的真阈值照删，估值缩写后的数仍是取值。"""
+    _, structural = _structural(draft)
+    assert numeric_condition_unsupported(structural) is True
+
+
+@pytest.mark.parametrize("columns", ["10月 | 11月", "H100 | A100"])
+def test_numeric_gate_month_or_model_header_does_not_hide_table_thresholds(
+    columns: str,
+) -> None:
+    """月份与型号只在抽数时掩：带它们的列头不能被认成条件表头、把数据行阈值筛掉。"""
+    _, structural = _structural(
+        f"**改判条件**\n| 条件 | {columns} |\n|---|---|---|\n| 成交额跌破 | 100亿 | 80亿 |"
+    )
+    feedback = [json.loads(item) for item in numeric_condition_repair_feedback(structural)]
+    assert [item["sentence"] for item in feedback] == ["| 成交额跌破 | 100亿 | 80亿 |"]
+
+
+def test_numeric_gate_model_number_in_evidence_does_not_authorize_threshold() -> None:
+    """证据侧用同一张数量视图：证据里的 ``H100`` 不给答案里的 100 背书。"""
+    _, structural = _structural(
+        "若股价跌破100元，则逻辑失效。", detail="公司推出H100替代方案",
+    )
+    assert numeric_condition_unsupported(structural) is True
 
 
 @pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])

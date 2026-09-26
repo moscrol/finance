@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+import pytest
+
+from intelligence.services.rag_worker import PersistentRagWorker
+from intelligence.tests.test_rag_worker_generation import (
+    _activate,
+    _bind,
+    _managed_generation,
+    _write_json,
+)
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="rag-quality-") as directory:
+        root = Path(directory)
+        binding = _managed_generation(root, "alpha")
+        entry = root / "venv" / "bin" / "python"
+        middle = root / "venv" / "bin" / "python3"
+        entry.parent.mkdir(parents=True)
+        entry.symlink_to(middle)
+        middle.symlink_to(Path(sys.executable).resolve())
+
+        binding["python"] = str(entry)
+        manifest_path = Path(binding["manifest"])
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["runtime"]["executable"] = str(entry)
+        _write_json(manifest_path, manifest)
+        binding["sha"] = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        _activate(binding)
+
+        monkeypatch = pytest.MonkeyPatch()
+        try:
+            _bind(monkeypatch, binding)
+            worker = PersistentRagWorker(
+                binding["python"],
+                Path(binding["code"]),
+                Path(binding["standard"]),
+                Path(binding["wiki"]),
+            )
+            original_entry_identity = entry.lstat().st_ino
+            middle.unlink()
+            middle.symlink_to(middle)
+            assert entry.lstat().st_ino == original_entry_identity
+            try:
+                payload = worker.status()
+            except Exception as exc:
+                print(
+                    json.dumps(
+                        {
+                            "outcome": "exception",
+                            "type": type(exc).__name__,
+                            "message": str(exc),
+                        },
+                        sort_keys=True,
+                    )
+                )
+                return 2
+            print(json.dumps({"outcome": "status", "payload": payload}, sort_keys=True))
+            return 0
+        finally:
+            monkeypatch.undo()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

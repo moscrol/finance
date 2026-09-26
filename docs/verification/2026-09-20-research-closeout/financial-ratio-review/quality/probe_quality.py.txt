@@ -1,0 +1,118 @@
+"""Small, offline quality invariants; not a replacement for the Spec matrix."""
+from __future__ import annotations
+
+import argparse
+from dataclasses import replace
+import hashlib
+import itertools
+import json
+from pathlib import Path
+import socket
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--root", required=True)
+args = parser.parse_args()
+root = Path(args.root).resolve()
+sys.path.insert(0, str(root))
+
+
+def deny_network(*args, **kwargs):
+    raise AssertionError("Quality probe attempted network IO")
+
+
+socket.socket.connect = deny_network
+socket.socket.connect_ex = deny_network
+socket.create_connection = deny_network
+
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+from intelligence.services.financial_claim_checks import calculation_ratio_gaps, financial_claim_mismatches
+from intelligence.services.research_delivery_checks import calculation_copy_findings, remove_findings
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+
+    files = (
+        "intelligence/services/financial_claim_checks.py",
+        "intelligence/services/research_delivery_checks.py",
+        "intelligence/tests/test_financial_r6_regressions.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_financial_delivery_integration.py",
+    )
+    return {
+        "sha": git("rev-parse", "HEAD"),
+        "status": git("status", "--porcelain=v1"),
+        "source_hashes": {f: hashlib.sha256((root / f).read_bytes()).hexdigest() for f in files},
+    }
+
+
+before = identity()
+rows = []
+
+
+def check(name, actual, expected):
+    rows.append({"name": name, "actual": actual, "expected": expected, "passed": actual == expected})
+
+
+source = AgentEvidence(
+    "financial_data", "600519 财报", "本地固定输入", "fixture", content_hash="input",
+    observations=(
+        StructuredObservation("600519.SH", "2026-06-30", "ocf_cum_yi", 706.91),
+        StructuredObservation("600519.SH", "2026-06-30", "net_profit_cum_yi", 445.17),
+    ),
+)
+good = AgentEvidence(
+    "derived_calculation", "财务比例", "本地固定产物", "sandbox:0123456789abcdef",
+    content_hash="good", derived_from=(source.content_hash,),
+    observations=(StructuredObservation("计算任务", "2026-08-01", "现金流.含金量[2026中报]", 1.588),),
+)
+invalid = replace(good, content_hash="invalid", observations=(replace(
+    good.observations[0], metric="现金流.含金量(BPS)[2026中报]",
+),))
+claim = "2026中报含金量为1.588。"
+
+
+def codes(text, evidence):
+    return [finding.code for finding in calculation_copy_findings(text, evidence)]
+
+
+for index, order in enumerate(itertools.permutations((source, good, invalid))):
+    check(f"invalid_product_order_{index}", codes(claim, order), ["calculation_value_unverified"])
+
+unbound = replace(invalid, derived_from=())
+check("unbound_invalid_product_does_not_poison", codes(claim, (source, good, unbound)), [])
+prior = replace(invalid, observations=(replace(invalid.observations[0], metric="现金流.含金量(bp)[2025中报]"),))
+check("invalid_product_does_not_poison_other_period", codes(claim, (source, good, prior)), [])
+title = replace(good, observations=(replace(good.observations[0], metric="bp差值参考.含金量[2026中报]"),))
+check("unit_in_table_name_not_column", codes(claim, (source, title)), [])
+
+for value, unit, expected in (("1.59", "倍", []), ("1.58", "倍", ["calculation_value_mismatch"]),
+                               ("158.8", "百分比", []), ("158.7", "%", ["calculation_value_mismatch"]),
+                               ("1." + "0" * 80, "倍", ["calculation_value_mismatch"])):
+    check(f"display_{value}_{unit}", codes(f"2026中报含金量为{value}{unit}。", (source, good)), expected)
+
+table = "|报告期|含金量(bp)|含金量(%)|\n|---|---|---|\n|2026中报|1.588倍|158.8|\n"
+findings = calculation_copy_findings(table, (source, good))
+check("two_ratio_columns_exact_span", remove_findings(table, findings), table.replace("|1.588倍|", "| 待核对 |").strip())
+
+negative = replace(source, observations=(source.observations[0], replace(source.observations[1], value=-445.17)))
+check("negative_ratio_precision", financial_claim_mismatches(
+    [{"index": 0, "text": "2026中报含金量为-158.8%。"}], (negative,), ("input",), subject="600519.SH",
+), ())
+zero = replace(source, observations=(source.observations[0], replace(source.observations[1], value=0.0)))
+check("zero_denominator_does_not_raise", calculation_ratio_gaps((zero, invalid), ("invalid",), subject="600519.SH"), ())
+nonfinite = replace(good, observations=(replace(good.observations[0], value=float("nan")),))
+check("nonfinite_alias_product_is_a_gap", bool(calculation_ratio_gaps((source, nonfinite), ("good",), subject="600519.SH")), True)
+check("overprecise_claim_fails_closed", financial_claim_mismatches(
+    [{"index": 0, "text": "2026中报含金量为1." + "0" * 80 + "倍。"}], (source,), ("input",), subject="600519.SH",
+), (0,))
+
+after = identity()
+check("same_clean_candidate", before == after and not before["status"], True)
+result = {"root": str(root), "interpreter": sys.executable, "before": before, "after": after,
+          "passed": sum(row["passed"] for row in rows), "failed": sum(not row["passed"] for row in rows), "cases": rows}
+print(json.dumps(result, ensure_ascii=False, indent=2))
+raise SystemExit(bool(result["failed"]))

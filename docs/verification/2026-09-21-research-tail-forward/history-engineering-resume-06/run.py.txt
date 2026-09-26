@@ -1,0 +1,123 @@
+"""Run a predeclared complete test partition; preserve every original attempt."""
+from __future__ import annotations
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import shutil
+import subprocess
+import time
+from datetime import datetime, timezone
+
+ROOT = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+OUT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SHA = '442476f7def1013f1fadebaf6594971921147edc'
+MIN_FREE = 2 * 1024**3
+PROFILE = '''(version 1)
+(allow default)
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+(deny file-write* (subpath "/Users/a77/finance-workspace-private"))
+(deny file-write* (subpath "/Users/a77/agent-memory"))
+'''
+PLUGIN = OUT / 'coverage_plugin7.py'
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(ROOT), *args], text=True, timeout=20)
+
+
+def ident():
+    return {'head': git('rev-parse', 'HEAD').strip(),
+            'status': git('status', '--porcelain=v1', '--untracked-files=all'),
+            'index_sha256': hashlib.sha256(git('ls-files', '-s').encode()).hexdigest()}
+
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def main():
+    before = ident()
+    assert before['head'] == SHA and not before['status']
+    runner_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    plugin_hash = hashlib.sha256(PLUGIN.read_bytes()).hexdigest()
+    results = []
+    plan = {'started_at': now(), 'identity': before, 'source_revision': SHA,
+            'runner_sha256': runner_hash, 'plugin_sha256': plugin_hash,
+            'partition': 'ordinary plus the seven exact environmental IDs in plugin; no assertion changes',
+            'limits': {'ordinary_seconds': 2400, 'environmental_seconds': 120, 'min_free_bytes': MIN_FREE},
+            'official_receipt': False, 'prior_attempt': '05 retained unchanged; no result reuse'}
+    save(OUT / 'plan.json', plan)
+    for mode in ('environmental', 'ordinary'):
+        folder = OUT / mode
+        folder.mkdir(exist_ok=False)
+        assert ident() == before
+        assert hashlib.sha256(PLUGIN.read_bytes()).hexdigest() == plugin_hash
+        assert shutil.disk_usage(OUT).free >= MIN_FREE
+        env = {'HOME': '/Users/a77', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+               'LANG': 'en_US.UTF-8', 'TMPDIR': '/tmp', 'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0',
+               'PYTHONPATH': str(OUT) + os.pathsep + str(ROOT),
+               'HISTORY_CHECK_OUTPUT': str(folder), 'HISTORY_CHECK_MODE': mode}
+        cmd = [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', '--tb=short', '-p', 'coverage_plugin7',
+               '--basetemp', str(folder / 'tmp'), '--junitxml', str(folder / 'junit.xml')]
+        if mode == 'environmental':
+            cmd.extend(['intelligence/tests/test_calculation_sandbox.py',
+                        'intelligence/tests/test_codex_headless_runtime.py',
+                        'intelligence/tests/test_rag_worker_keepalive.py'])
+        limit = 2400 if mode == 'ordinary' else 120
+        prefix = ['/usr/bin/sandbox-exec', '-p', PROFILE] if mode == 'ordinary' else []
+        record = {'mode': mode, 'command': cmd, 'env': env, 'before': ident(), 'started_at': now(),
+                  'outer_sandbox': bool(prefix), 'sandbox_profile': PROFILE if prefix else None,
+                  'timeout_seconds': limit, 'min_free_bytes': MIN_FREE, 'plugin_sha256': plugin_hash, 'signals': []}
+        print(now(), 'START', mode, flush=True)
+        save(folder / 'start.json', record)
+        start = time.monotonic()
+        reason = None
+        with (folder / 'pytest.log').open('x') as log:
+            proc = subprocess.Popen([*prefix, *cmd], cwd=ROOT, env=env, stdout=log,
+                                    stderr=subprocess.STDOUT, start_new_session=True)
+            save(folder / 'process.json', {'pid': proc.pid, 'started_at': now()})
+            while proc.poll() is None:
+                if shutil.disk_usage(OUT).free < MIN_FREE:
+                    reason = 'disk-space-floor'
+                elif time.monotonic() - start >= limit:
+                    reason = 'timeout'
+                if reason:
+                    for sig, grace in ((signal.SIGINT, 20), (signal.SIGTERM, 8), (signal.SIGKILL, 5)):
+                        try:
+                            os.killpg(proc.pid, sig)
+                            record['signals'].append(sig.name)
+                        except ProcessLookupError:
+                            break
+                        try:
+                            proc.wait(timeout=grace)
+                            break
+                        except subprocess.TimeoutExpired:
+                            pass
+                    break
+                time.sleep(1)
+            rc = proc.wait(timeout=5)
+        record.update({'finished_at': now(), 'elapsed_seconds': time.monotonic() - start,
+                       'exit_code': rc, 'stop_reason': reason, 'after': ident(),
+                       'log_sha256': hashlib.sha256((folder / 'pytest.log').read_bytes()).hexdigest()})
+        save(folder / 'result.json', record)
+        results.append(record)
+        print(now(), 'END', mode, rc, reason, flush=True)
+        if reason or record['after'] != before or (mode == 'environmental' and rc != 0):
+            break
+    save(OUT / 'complete.json', {'before': before, 'after': ident(), 'plugin_sha256': plugin_hash,
+                                'runner_sha256': runner_hash, 'results': results, 'source_sha': SHA})
+    print(json.dumps({'exits': {r['mode']: r['exit_code'] for r in results}, 'clean': before == ident()}))
+
+
+if __name__ == '__main__':
+    main()

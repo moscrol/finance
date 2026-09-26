@@ -1,0 +1,24 @@
+#!/bin/bash
+set -u
+umask 022
+ROOT=/Users/a77/fwp-wt-history-forward-0921
+OUT=/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+export HOME=/Users/a77 PATH=/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin LANG=en_US.UTF-8 TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1
+export FWP_TEST_RECEIPT_DIR="$OUT/history-python-receipts"
+cd "$ROOT" || exit 2
+[ "$(git rev-parse HEAD)" = 7edfe24e76afbd5c365fbf97dd2414847b086f88 ] || exit 2
+git rev-parse HEAD > "$OUT/history-identity-before.txt"
+git status --porcelain=v1 >> "$OUT/history-identity-before.txt"
+bash scripts/run_main_gate.sh > "$OUT/history-main-gate.log" 2>&1
+printf '%s\n' "$?" > "$OUT/history-main-gate.rc"
+for cmd in 'check-parseability' 'check' 'backfill-tables --check' 'generate-views --check'; do
+  name=${cmd// /_}
+  "$PY" scripts/build_registry.py $cmd > "$OUT/history-registry-$name.txt" 2>&1
+  printf '%s\n' "$?" > "$OUT/history-registry-$name.rc"
+done
+"$PY" scripts/audit_ledger_spec_crosswalk.py > "$OUT/history-crosswalk.txt" 2>&1
+printf '%s\n' "$?" > "$OUT/history-crosswalk.rc"
+git rev-parse HEAD > "$OUT/history-identity-after.txt"
+git status --porcelain=v1 >> "$OUT/history-identity-after.txt"
+printf 'complete\n' > "$OUT/history-gates.done"

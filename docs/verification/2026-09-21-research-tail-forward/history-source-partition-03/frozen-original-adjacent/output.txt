@@ -1,0 +1,9 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_unresolved_input_container_cannot_restore_history[\u6750\u6599\u5982\u4e0b\uff1a\n\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+../.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/test_adjacent_input_boundary.py:25: in test_unresolved_input_container_cannot_restore_history
+    "data_scope": context.contract.material_contract.data_scope,
+E   AttributeError: 'NoneType' object has no attribute 'data_scope'
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/test_adjacent_input_boundary.py::test_unresolved_input_container_cannot_restore_history[\u6750\u6599\u5982\u4e0b\uff1a\n\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f]
+1 failed, 1 passed in 0.89s

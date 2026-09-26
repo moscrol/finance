@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+  "branch": "fix/pr910-main-0925",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-pr910-main-0925",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 16309
+  },
+  "counts": {
+    "passed": 16232,
+    "failed": 0,
+    "error": 0,
+    "skipped": 75,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-25T09:49:56+00:00"
+}

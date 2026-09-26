@@ -1,0 +1,76 @@
+{
+  "revision": "332b50782b6b0843e7a16d3333c0368c753dea11",
+  "suite": "research-delivery",
+  "groups": 61,
+  "red_then_green": 61,
+  "baseline": {
+    "executed": 708,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "restored_full": {
+    "executed": 708,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "disclosure_groups": {
+    "absence-is-negator-times-noun": {
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    "absence-noun-class-not-one-word": {
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    "attribution-not-only-by-venue-list": {
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    "citation-must-come-from-the-channel": {
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    "disclosure-connective-free-residue": {
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    "disclosure-explicit-venue-retention": {
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    "disclosure-extra-joiners": {
+      "red_failures": 9,
+      "green_failures": 0
+    },
+    "disclosure-keep-sentence-context": {
+      "red_failures": 7,
+      "green_failures": 0
+    },
+    "disclosure-narrow-edit-span": {
+      "red_failures": 19,
+      "green_failures": 0
+    },
+    "disclosure-new-announcement-wording": {
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    "disclosure-no-residual-conclusion": {
+      "red_failures": 11,
+      "green_failures": 0
+    },
+    "disclosure-nonadjacent-dependent": {
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    "disclosure-stranded-connective": {
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    "public-disclosure-check": {
+      "red_failures": 10,
+      "green_failures": 0
+    }
+  }
+}

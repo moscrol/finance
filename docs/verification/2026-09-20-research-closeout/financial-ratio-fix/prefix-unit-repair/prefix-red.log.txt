@@ -1,0 +1,423 @@
+FF.F.FFFFFFFF......FF........                                            [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T040258Z-7149e236.json
+
+=================================== FAILURES ===================================
+_ test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\uff0c\u542b\u91d1\u91cf(\u500d)\uff1a2025\u4e2d\u62a50.289\u3002] _
+
+draft = '含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。'
+
+    @pytest.mark.parametrize("draft", [
+        "含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。",
+        "含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。",
+        "含金量：2026中报1.588，2025中报0.289。",
+        "含金量(%)：2026中报158.8，2025中报28.9。",
+        "含金量(bp)需要另行核验。含金量：2026中报1.588。",
+    ])
+    def test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence(draft):
+>       assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E       AssertionError: assert (DeliveryFind...lacement=''),) == ()
+E         
+E         Left contains one more item: DeliveryFinding(start=0, end=38, code='calculation_value_mismatch', replacement='')
+E         Use -v to get more diff
+
+intelligence/tests/test_research_delivery_checks.py:188: AssertionError
+_ test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence[\u542b\u91d1\u91cf(\u500d)\uff1a2026\u4e2d\u62a51.588\uff0c\u542b\u91d1\u91cf(%)\uff1a2025\u4e2d\u62a528.9\u3002] _
+
+draft = '含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。'
+
+    @pytest.mark.parametrize("draft", [
+        "含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。",
+        "含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。",
+        "含金量：2026中报1.588，2025中报0.289。",
+        "含金量(%)：2026中报158.8，2025中报28.9。",
+        "含金量(bp)需要另行核验。含金量：2026中报1.588。",
+    ])
+    def test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence(draft):
+>       assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E       AssertionError: assert (DeliveryFind...lacement=''),) == ()
+E         
+E         Left contains one more item: DeliveryFinding(start=0, end=37, code='calculation_value_mismatch', replacement='')
+E         Use -v to get more diff
+
+intelligence/tests/test_research_delivery_checks.py:188: AssertionError
+_ test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\uff0c2025\u4e2d\u62a528.9\u3002] _
+
+draft = '含金量(%)：2026中报158.8，2025中报28.9。'
+
+    @pytest.mark.parametrize("draft", [
+        "含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。",
+        "含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。",
+        "含金量：2026中报1.588，2025中报0.289。",
+        "含金量(%)：2026中报158.8，2025中报28.9。",
+        "含金量(bp)需要另行核验。含金量：2026中报1.588。",
+    ])
+    def test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence(draft):
+>       assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E       AssertionError: assert (DeliveryFind...lacement=''),) == ()
+E         
+E         Left contains one more item: DeliveryFinding(start=0, end=30, code='calculation_value_mismatch', replacement='')
+E         Use -v to get more diff
+
+intelligence/tests/test_research_delivery_checks.py:188: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u3002-True-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a15b0e0>
+mode = 'off', claim = '含金量(bp)：2026中报1.588。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(bp)：2026中报1.588。' not in '应收账款明细尚未取得，...2026中报1.588。'
+E         
+E         '含金量(bp)：2026中报1.588。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量(bp)：2026中报1.588。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u3002-True-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1da0c0>
+mode = 'llm', claim = '含金量(bp)：2026中报1.588。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(bp)：2026中报1.588。' not in '应收账款明细尚未取得，...2026中报1.588。'
+E         
+E         '含金量(bp)：2026中报1.588。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量(bp)：2026中报1.588。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09\uff1a2026\u4e2d\u62a51.588\u3002-True-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1f01d0>
+mode = 'off', claim = '含金量（基点）：2026中报1.588。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量（基点）：2026中报1.588。' not in '应收账款明细尚未取得，...2026中报1.588。'
+E         
+E         '含金量（基点）：2026中报1.588。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量（基点）：2026中报1.588。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09\uff1a2026\u4e2d\u62a51.588\u3002-True-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109bb6060>
+mode = 'llm', claim = '含金量（基点）：2026中报1.588。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量（基点）：2026中报1.588。' not in '应收账款明细尚未取得，...2026中报1.588。'
+E         
+E         '含金量（基点）：2026中报1.588。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量（基点）：2026中报1.588。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)\uff1a2026\u4e2d\u62a51.588\u3002-True-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1f0a40>
+mode = 'off', claim = '含金量(百分点)：2026中报1.588。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(百分点)：2026中报1.588。' not in '应收账款明细尚未取得，...2026中报1.588。'
+E         
+E         '含金量(百分点)：2026中报1.588。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量(百分点)：2026中报1.588。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)\uff1a2026\u4e2d\u62a51.588\u3002-True-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1dae70>
+mode = 'llm', claim = '含金量(百分点)：2026中报1.588。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(百分点)：2026中报1.588。' not in '应收账款明细尚未取得，...2026中报1.588。'
+E         
+E         '含金量(百分点)：2026中报1.588。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量(百分点)：2026中报1.588。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u500d\u3002-True-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a15ba10>
+mode = 'off', claim = '含金量(bp)：2026中报1.588倍。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(bp)：2026中报1.588倍。' not in '应收账款明细尚未取得，...026中报1.588倍。'
+E         
+E         '含金量(bp)：2026中报1.588倍。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量(bp)：2026中报1.588倍。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u500d\u3002-True-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1f2930>
+mode = 'llm', claim = '含金量(bp)：2026中报1.588倍。', rejected = True
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(bp)：2026中报1.588倍。' not in '应收账款明细尚未取得，...026中报1.588倍。'
+E         
+E         '含金量(bp)：2026中报1.588倍。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           含金量(bp)：2026中报1.588倍。) == True
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\u3002-False-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1f3e90>
+mode = 'off', claim = '含金量(%)：2026中报158.8。', rejected = False
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(%)：2026中报158.8。' not in '应收账款明细尚未取得，...数据；对应比率仍需核对。'
+E         
+E         '含金量(%)：2026中报158.8。' is contained here:
+E           据；对应比率仍需核对。) == False
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+_ test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\u3002-False-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a1e7050>
+mode = 'llm', claim = '含金量(%)：2026中报158.8。', rejected = False
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("claim,rejected", [
+        ("含金量(bp)：2026中报1.588。", True),
+        ("含金量（基点）：2026中报1.588。", True),
+        ("含金量(百分点)：2026中报1.588。", True),
+        ("含金量(bp)：2026中报1.588倍。", True),
+        ("含金量：2026中报1.588。", False),
+        ("含金量：2026中报9.999。", True),
+        ("含金量(倍)：2026中报1.588。", False),
+        ("含金量(%)：2026中报158.8。", False),
+        ("含金量同比增长(bp)：2026中报9.999。", False),
+        ("含金量环比变化(基点)：2026中报9.999。", False),
+        ("利差以bp计。含金量：2026中报1.588。", False),
+        ("含金量：2024中报9.999。", False),
+    ])
+    def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = SAFE + "[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+>       assert (claim not in result.public_answer) == rejected
+E       AssertionError: assert ('含金量(%)：2026中报158.8。' not in '应收账款明细尚未取得，...数据；对应比率仍需核对。'
+E         
+E         '含金量(%)：2026中报158.8。' is contained here:
+E           据；对应比率仍需核对。) == False
+
+intelligence/tests/test_financial_delivery_integration.py:136: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\uff0c\u542b\u91d1\u91cf(\u500d)\uff1a2025\u4e2d\u62a50.289\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence[\u542b\u91d1\u91cf(\u500d)\uff1a2026\u4e2d\u62a51.588\uff0c\u542b\u91d1\u91cf(%)\uff1a2025\u4e2d\u62a528.9\u3002]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\uff0c2025\u4e2d\u62a528.9\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u3002-True-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u3002-True-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09\uff1a2026\u4e2d\u62a51.588\u3002-True-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09\uff1a2026\u4e2d\u62a51.588\u3002-True-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)\uff1a2026\u4e2d\u62a51.588\u3002-True-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)\uff1a2026\u4e2d\u62a51.588\u3002-True-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u500d\u3002-True-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(bp)\uff1a2026\u4e2d\u62a51.588\u500d\u3002-True-llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\u3002-False-off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_ratio_prefix_unit_reaches_real_exit_without_widening_scope[\u542b\u91d1\u91cf(%)\uff1a2026\u4e2d\u62a5158.8\u3002-False-llm]
+13 failed, 16 passed, 105 deselected in 0.48s

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="5" time="1.025" timestamp="2026-09-19T15:30:48.106221+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_repair" name="test_adapter_rechecks_nonmaterial_final_projection[\u3002]" time="0.091"><failure message="AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}&#10;assert 'completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed">intelligence/tests/test_research_delivery_repair.py:312: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_repair" name="test_adapter_rechecks_nonmaterial_final_projection[\uff0c]" time="0.001"><failure message="AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}&#10;assert 'completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed">intelligence/tests/test_research_delivery_repair.py:312: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_repair" name="test_adapter_rechecks_nonmaterial_final_projection[\u4f46]" time="0.001"><failure message="AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}&#10;assert 'completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed">intelligence/tests/test_research_delivery_repair.py:312: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_repair" name="test_adapter_rechecks_nonmaterial_final_projection[\u2014\u2014]" time="0.001"><failure message="AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}&#10;assert 'completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed">intelligence/tests/test_research_delivery_repair.py:312: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_repair" name="test_adapter_rechecks_nonmaterial_final_projection[ ]" time="0.001"><failure message="AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}&#10;assert 'completed' == 'partial'&#10;  &#10;  - partial&#10;  + completed">intelligence/tests/test_research_delivery_repair.py:312: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed</failure></testcase></testsuite></testsuites>

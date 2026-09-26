@@ -1,0 +1,177 @@
+审计对象（exit 0 只对这些 revision 成立）：
+  agent-memory: main@e7777981 dirty
+  finance-workspace-private: HEAD@b4a35fa2 dirty
+  knowledge-base-private: main@8a413cde5 dirty
+
+UNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::prepare@feat/mechanism-research-pilot（分支或文件不在本地，未校验）
+UNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::run@feat/mechanism-research-pilot（分支或文件不在本地，未校验）
+UNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::report@feat/mechanism-research-pilot（分支或文件不在本地，未校验）
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_history@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_capture@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_recheck@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_daily@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/store.py::read_record@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/flywheel.py::derive_standing@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/flywheel.py::recall_for_query@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/checkpoint_resolvers.py::MethodValidationResolver@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_client.py@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_stock_daily.py::sync_hithink_stock_daily@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::sync_hithink_sector_kline@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_limit_pools.py::sync_hithink_limit_pools@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_dragon_auction.py::sync_hithink_dragon_auction@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/intelligence/services/teaching_framework/source_views.py::attach_teaching_sources@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/skills/daily-full-review/scripts/run_review_sync.py::sync_hithink_step@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::_flush_constituents@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_preview.py::preview_sector_calculation@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/cli.py::cmd_hithink_sector_preview@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::SectorCapture@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::audit_capture@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::capture_inputs@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_stock_preview.py::preview_stock_calculation@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/cli.py::cmd_hithink_stock_preview@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树
+PENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/market_financials.py::observations_by_line@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/episode_tools.py::attach_financial_observations@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/sandbox_fincalc.py::to_single_quarter@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/derived_calculation_artifacts.py::publish_calculation_artifacts@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/derived_calculation.py::load_calculation_record@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/judgment_maintenance/assess.py::assess@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_priority/ranker.py::prioritize@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_validation/service.py::freeze_study@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_diagnostics/report.py::diagnose@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/product_value/measure.py::measure_pair@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_evolution/facade.py::ResearchEvolutionService@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_evolution/store.py::EvolutionStore@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/api/research_evolution.py::build_router@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+MERGED 飞书 IM 入口（已退役） → finance-workspace-private/intelligence/cli.py::build_parser@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+PENDING 数字条件门引用隔离（在途组合候选） → finance-workspace-private/intelligence/services/episode_protocol.py::strip_evidence_ordinals@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/market_capital.py::capital_bundle_for_llm@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/episode_tools.py::capital_data_runner@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/provider_observability.py::provider_gap_messages@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/derived_calculation_artifacts.py::result_contract_errors@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_recheck_research_delivery@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/research_delivery_checks.py::_rejected_assertion_spans@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/research_delivery_checks.py::_prose_value_finding@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树
+PENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/scripts/recover_local_review.py::main@fix/nightly-review-0917：仅存在于分支 fix/nightly-review-0917，未进当前工作树
+PENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/scripts/recover_local_review.py::recovery_stitch_command@fix/nightly-review-0917：仅存在于分支 fix/nightly-review-0917，未进当前工作树
+PENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py::cmd_fetch@fix/nightly-review-0917：仅存在于分支 fix/nightly-review-0917，未进当前工作树
+PENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/tests/test_index_local_fallback_boundary.py::test_local_refuses_fallback_without_network@fix/nightly-review-0917：仅存在于分支 fix/nightly-review-0917，未进当前工作树
+PENDING 日报计划契约对齐（在途） → finance-workspace-private/market_feature_store/consumption_registry.py::resolve_plan@fix/local-plan-gate-alignment：仅存在于分支 fix/local-plan-gate-alignment，未进当前工作树
+MERGED 日报计划契约对齐（在途） → finance-workspace-private/intelligence/workflows/daily_review.py::DailyReviewOptions@fix/local-plan-gate-alignment：当前工作树已具备，可去掉 @fix/local-plan-gate-alignment 提升为常规行
+MERGED 日报计划契约对齐（在途） → finance-workspace-private/market_feature_store/quality.py::check_daily@fix/local-plan-gate-alignment：当前工作树已具备，可去掉 @fix/local-plan-gate-alignment 提升为常规行
+PENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/scripts/run_daily_generation.py::main@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/intelligence/workflows/generation_paths.py::validate_generation_paths@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/scripts/notify_ops.py::_append_log@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/tests/test_eval_launchd_wiring.py::test_generation_failure_stops_receive_and_fallback_log@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 确定性门模式：无 LLM 判官（代码已合已部署，模式未启用；工单 #55） → finance-workspace-private/intelligence/services/judge_mode.py::semantic_judge_mode@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 确定性门模式：无 LLM 判官（代码已合已部署，模式未启用；工单 #55） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_mismatched_evidence_date_indexes@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 确定性门模式：无 LLM 判官（代码已合已部署，模式未启用；工单 #55） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_cited_outside_slot_binding_indexes@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::financial_claim_mismatches@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树
+PENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树
+PENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_report_contract.py::report_document_binding_gaps@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树
+PENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_with_financial_repair_debt@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树
+PENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_recheck_research_delivery@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树
+MERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@fix/8792-financial-r6-repair：当前工作树已具备，可去掉 @fix/8792-financial-r6-repair 提升为常规行
+MERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/rag_worker.py::_query_locked@fix/8792-financial-r6-repair：当前工作树已具备，可去掉 @fix/8792-financial-r6-repair 提升为常规行
+PENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/financial-ratio-units-0920：仅存在于分支 fix/financial-ratio-units-0920，未进当前工作树
+PENDING 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/financial_report_contract.py::select_reports@fix/8792-financial-contracts-r5：仅存在于分支 fix/8792-financial-contracts-r5，未进当前工作树
+MERGED 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/episode_verifier.py::verify_episode_outcome@fix/8792-financial-contracts-r5：当前工作树已具备，可去掉 @fix/8792-financial-contracts-r5 提升为常规行
+PENDING 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/derived_calculation.py::bind_derived_calculation_tool@fix/8792-financial-contracts-r5：仅存在于分支 fix/8792-financial-contracts-r5，未进当前工作树
+MERGED 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/mandatory_satisfiability.py::evidence_required_output_ids@fix/8792-financial-contracts-r5：当前工作树已具备，可去掉 @fix/8792-financial-contracts-r5 提升为常规行
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/finish_candidate.py::retain_finish_candidate@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/finish_candidate.py::merge_finish_candidates@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/research_public_prose.py::sanitize_public_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_review_preserving_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+MERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/ask_synthesis.py::synthesize_shadow_grounded_answer@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_preserve_repair_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/runtime/research_progress.py::_mapping_for_json@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+MERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行
+MERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/rag_worker.py::_query_locked@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/evidence_claim_review.py::review_evidence_claims@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+PENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::semantic_repair_feedback@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树
+PENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/track_contract.py::persistence_opt_out@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树
+PENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/user_task.py::split_user_message@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树
+PENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_asserted_source_dates@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树
+PENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/runtime/research_progress.py::normalize_query@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树
+PENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_with_semantic_contract_gaps@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/eval/judge_validity.py::validate_judging_batch@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/eval/judge_validity.py::new_manifest@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/services/llm_refine.py::call_provenance_scope@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/run_quality_ablation.py::finish_judging@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/run_quality_ablation.py::batch_coverage@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/rejudge_quality_ablation.py::new_batch_artifact@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/call_identity.py::IDENTITY_REPORTED@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 受管 RAG 热进程退役（候选，未合未部署） → finance-workspace-private/intelligence/services/rag_generation_identity.py::FrozenRagGeneration@fix/rag-retirement-main-ready-0920：仅存在于分支 fix/rag-retirement-main-ready-0920，未进当前工作树
+MERGED 受管 RAG 热进程退役（候选，未合未部署） → finance-workspace-private/intelligence/services/rag_worker.py::PersistentRagWorker@fix/rag-retirement-main-ready-0920：当前工作树已具备，可去掉 @fix/rag-retirement-main-ready-0920 提升为常规行
+PENDING 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/evidence.py::matches_filters@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+MERGED 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/agent.py::get_page@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+PENDING 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/health.py@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_filter_receipt.py::parse_receipt@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_code_identity.py::code_identity@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+MERGED KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_rag.py::retrieve@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+MERGED KB v4正文保全与隔离迁移（已合 main，未部署） → knowledge-base-private/skills/lib/rag/chunking.py::_parse_frontmatter@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+MERGED KB v4正文保全与隔离迁移（已合 main，未部署） → knowledge-base-private/skills/lib/rag/config.py@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+MERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_rag.py::retrieve@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+MERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_worker.py@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+MERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/api/app.py::RunSupervisor@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+PENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/scripts/rag_maintenance.py::main@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树
+PENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/skills/lib/rag/generation.py::guard_query_generation@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树
+PENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/scripts/publish_rag_index.py::publish_generation@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树
+PENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/agent_episode.py::_fail_store@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_storage_failed_result@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/glm_agent_runtime.py::_settle_cancelled_response@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/sub_research.py::BranchRun@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+MERGED 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/continuous_sub_research.py::ContinuousSubResearchWorker@fix/runtime-contracts-0918：当前工作树已具备，可去掉 @fix/runtime-contracts-0918 提升为常规行
+PENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_store.py::FencedEpisodeStore@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_restore.py::restore_episode@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/research_contract.py::restore_root_budget@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_authorization.py::validate_current_authorization@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树
+PENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_evidence.py::EpisodeEvidenceSnapshot@fix/runtime-evidence-closeout-0920：仅存在于分支 fix/runtime-evidence-closeout-0920，未进当前工作树
+PENDING 实际工具菜单公开投影 → finance-workspace-private/intelligence/services/episode_progress.py::_tool_menu_message@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 实际工具菜单公开投影 → finance-workspace-private/intelligence/services/episode_progress.py::is_public_progress_message@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+MERGED 实际工具菜单公开投影 → finance-workspace-private/intelligence/runtime/agent_episode.py::_available_tool_definitions@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+PENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/material_permissions.py::restrict_read_capabilities@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树
+PENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::authorization_denial@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树
+PENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::for_context@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树
+MERGED 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/runtime/conversation_orchestrator.py::_run_turn_ledgered@fix/e2-boundary-closeout：当前工作树已具备，可去掉 @fix/e2-boundary-closeout 提升为常规行
+PENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/conversation_materials.py::collect_conversation_materials@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::freeze_material_grounding@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::binding_source_errors@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::ClaimSourceBinding@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_without_deleted_claims@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::io_effect@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::render_material_claims@fix/e2-material-closeout：仅存在于分支 fix/e2-material-closeout，未进当前工作树
+PENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_claim_review.py::reconcile_claim_checks@fix/e2-material-closeout：仅存在于分支 fix/e2-material-closeout，未进当前工作树
+PENDING 历史发现与条件比较（已合 main；研究用途受限） → finance-workspace-private/intelligence/services/historical_research/query.py::HistoryQuery@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 历史发现与条件比较（已合 main；研究用途受限） → finance-workspace-private/intelligence/services/historical_research/episode.py::HistorySession@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 历史发现与条件比较（已合 main；研究用途受限） → finance-workspace-private/intelligence/services/historical_research/methodology.py::prepare_methodology_candidate@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/anatomy.py::trace_history@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树
+PENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/scripts/probe_history_queries.py::main@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树
+PENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/scripts/audit_historical_research_artifacts.py::audit_artifact@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树
+PENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/window_binding.py::WindowSelection@fix/history-closeout-0920：仅存在于分支 fix/history-closeout-0920，未进当前工作树
+MERGED Agent 检索工具 → finance-workspace-private/intelligence/services/agent_research.py::build_graph_tools@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行
+PENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/user_task.py::conversation_context_material_unrecoverable@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/user_task.py::rebind_material_from_text@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/task_frame.py::MATERIAL_OUT_OF_WINDOW_AMBIGUITY@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/episode_factory.py::assemble_input_understanding_context@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/research_project.py::prior_for_turn@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/research_project.py::load_project@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/followups.py::followup_kind@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进展账与停滞收口（已合 main；效果未证明提升） → finance-workspace-private/intelligence/runtime/research_progress.py::ResearchProgressTracker@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 研究进展账与停滞收口（已合 main；效果未证明提升） → finance-workspace-private/intelligence/runtime/agent_episode.py::_research_progress_view@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/tool_hunger.py::record_window_uncovered@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::build_requests@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::check_request@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::execute_resume@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::parse_ranking_intent@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::apply_scenario@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::ingest_flip_conditions@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/judgment_delta.py::classify_material@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/judgment_delta.py::counter_evidence_floor_order@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/evidence_window.py::counter_evidence_floor_order@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/pricing_split.py::parse_pricing_split_intent@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/pricing_split.py::pricing_split_receipt@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/market_midterm.py::is_pricing_state_query@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 参与者约束检索步骤（在途试用，Knevo q17 Q6 回灌） → finance-workspace-private/intelligence/services/research_task_planner.py::detect_decision_surface@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+PENDING 专项研究纪律（Knevo 15-28 轮增量，已合 main `c67413c7`，默认工作树未更新） → finance-workspace-private/intelligence/services/research_workflow_guidance.py::workflow_guidance@gitea/main：仅存在于分支 gitea/main，未进当前工作树
+
+OK: 节点清单 85 行、断言 221 条无漂移（0 行因 repo 不在本地跳过，170 条在途/未校验见上）。

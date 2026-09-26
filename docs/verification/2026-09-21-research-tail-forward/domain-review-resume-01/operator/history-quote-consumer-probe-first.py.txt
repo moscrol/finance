@@ -1,0 +1,125 @@
+"""Operator reproduction after the independent reviewer was capacity-blocked.
+
+Not an independent-review continuation or report. Uses actual typed material
+history -> decide_turn -> Episode contract -> history tool registration. Records
+raw observations and expected contract assertions separately. No tool is run,
+no market database is opened, no model or network request is allowed. The missing
+DB path and absent HistorySession are intentional: this probes menu authority,
+not query execution or cross-user artifact access. Exit 1 denotes reproduced
+assertion violations, not a broken launcher. Source checkout remains unchanged.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict
+import json
+from pathlib import Path
+import socket
+from unittest.mock import patch
+
+from intelligence.services.conversation_materials import (
+    ConversationMaterials,
+    collect_material_turn_history,
+)
+from intelligence.services.conversation_store import Message
+from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.historical_research.episode import history_tool_specs
+from intelligence.services.research_contract import TurnIntent
+from intelligence.services.turn_controller import decide_turn
+from intelligence.services.user_task import _visible_lines, split_user_message
+
+BASE = (
+    "以2026年9月10日为信息截止日，只研究2026年1月1日至9月15日的本地历史数据，"
+    "不联网补数；复盘这波农业怎么走出来的。"
+)
+QUERIES = {
+    "plain_continuation": "范围与截止日继续不变。",
+    "closed_quote": "解释这句话：「范围与截止日继续不变。」",
+    "markdown_quote": "> 范围与截止日继续不变。",
+    "fenced_text": "```text\n范围与截止日继续不变。\n```",
+    "assistant_label": "助手旧答：范围与截止日继续不变。",
+    "summary_label": "摘要：仍沿用上一轮信息截止和研究范围。",
+    "new_concept_question": "市盈率是什么？",
+    "explicit_cancel": "不再做历史研究，市盈率是什么？",
+    "material_only_control": "不要查询，只依据以下材料解释这句话：\n\n> 范围与截止日继续不变。",
+}
+
+
+class OfflineKnowledge:
+    def load_relation(self, _name):
+        return {"found": False}
+
+    def get_exposure_matches(self, *_args, **_kwargs):
+        raise AssertionError("No real knowledge lookup is expected")
+
+
+def no_model(*_args, **_kwargs):
+    return None, None, "operator offline probe"
+
+
+def deny_network(*_args, **_kwargs):
+    raise AssertionError("Network is forbidden in the operator reproduction")
+
+
+missing_db = Path(__file__).with_name("never-created-market.duckdb")
+assert not missing_db.exists()
+rows = []
+with patch.object(socket, "create_connection", deny_network), patch.object(socket.socket, "connect", deny_network):
+    first = decide_turn(BASE, conversation_materials=ConversationMaterials(), llm_complete=no_model)
+    previous = TurnIntent.from_dict(first.turn_intent.to_dict())
+    history = collect_material_turn_history([
+        Message("base-user", "offline-conversation", "user", BASE, "2026-09-21", "completed"),
+        Message("base-answer", "offline-conversation", "assistant", "待核验历史结论。", "2026-09-21", "completed"),
+    ])
+    for has_previous in (True, False):
+        for name, text in QUERIES.items():
+            decision = decide_turn(
+                text, previous_intent=previous if has_previous else None,
+                previous_turn_id="base-turn" if has_previous else None,
+                conversation_materials=history if has_previous else ConversationMaterials(),
+                llm_complete=no_model,
+            )
+            frame = decision.task_frame
+            context = build_episode_context(
+                frame, task_id=f"quote-probe-{has_previous}-{name}", today="2026-09-21",
+                knowledge=OfflineKnowledge(),
+            )
+            specs = history_tool_specs(frame, context, missing_db, None)
+            visible, uncertain = _visible_lines(text.splitlines())
+            rows.append({
+                "case": name, "has_trusted_previous": has_previous, "query": text,
+                "mode": decision.mode,
+                "frame_history": None if frame.history_intent is None else frame.history_intent.to_dict(),
+                "context_history": None if context.history_intent is None else context.history_intent.to_dict(),
+                "inherited_from_turn": decision.turn_intent.inherited_from_turn,
+                "material": None if frame.material_contract is None else asdict(frame.material_contract),
+                "capabilities": list(context.contract.allowed_capabilities),
+                "cutoff": context.information_cutoff.as_of_date.isoformat(),
+                "history_tools": [spec.name for spec in specs],
+                "protected_visible": visible, "uncertain": uncertain,
+                "question_only": split_user_message(text).question,
+            })
+by_case = {(row["has_trusted_previous"], row["case"]): row for row in rows}
+checks = []
+
+
+def check(name, condition):
+    checks.append({"name": name, "passed": bool(condition)})
+
+
+positive = by_case[True, "plain_continuation"]
+check("genuine_continuation_keeps_context_and_tool", positive["context_history"] is not None and "history_query" in positive["history_tools"])
+check("genuine_continuation_keeps_cutoff_and_local_only", positive["cutoff"] == "2026-09-10" and "web_search" not in positive["capabilities"])
+for name in ("closed_quote", "markdown_quote", "fenced_text"):
+    row = by_case[True, name]
+    check(f"protected_{name}_must_not_inherit_history", row["frame_history"] is None and row["context_history"] is None and not row["history_tools"])
+    control = by_case[False, name]
+    check(f"without_prior_{name}_does_not_mint_history", control["frame_history"] is None and not control["history_tools"])
+for name in ("new_concept_question", "explicit_cancel"):
+    row = by_case[True, name]
+    check(f"{name}_does_not_inherit_history", row["frame_history"] is None and not row["history_tools"])
+material_only = by_case[True, "material_only_control"]
+check("explicit_material_only_still_blocks_history_tools", material_only["context_history"] is None and not material_only["history_tools"] and not material_only["capabilities"])
+print(json.dumps({"rows": rows, "checks": checks, "scope": "actual typed consumers and tool registration only; no tools executed or data fetched"}, ensure_ascii=False, indent=2))
+failed = [item["name"] for item in checks if not item["passed"]]
+print(json.dumps({"passed": len(checks) - len(failed), "failed": failed}, ensure_ascii=False))
+raise SystemExit(1 if failed else 0)

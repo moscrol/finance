@@ -38,6 +38,7 @@ from intelligence.services.agent_research import (
     describe_lost_observation,
     grounded_values_in_text,
 )
+from intelligence.services.provider_observability import provider_gap_messages
 from intelligence.services.degraded_fallback import (
     gap_transparency,
     is_model_service_unavailable,
@@ -302,6 +303,14 @@ _DATE_TOKEN_RE = re.compile(
     r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
+# 单独的月份是时间点不是数量：``10月前``、``2026年10月``、``9-10月``。2026-09-25
+# L6-N1 重放：``10月前公告…`` 的 10月 被当成证据里没有的阈值，整句删除。``6月以上``
+# 是时长门槛，照旧受审。只在抽数时掩、不并进上面的 _DATE_TOKEN_RE：那一步也喂表头
+# 识别，早掩会让 ``| 条件 | 10月 | 11月 |`` 被认成表头，数据行里的阈值就被筛掉了。
+_MONTH_TOKEN_RE = re.compile(
+    r"(?:20\d{2}年)?(?<![\d.])(?:0?[1-9]|1[0-2])"
+    r"(?:\s*(?:至|到|-|~|～|—)\s*(?:0?[1-9]|1[0-2]))?月(?!\s*(?:以上|以下))"
+)
 # 证据序号与季度标签不是数量：``（E6）``、``E47–E52``、``Q3/Q4``、``2026Q4``。
 # 2026-09-21 冒烟 3（run_20260921_123745_556321）：``E6``→6、``Q3``→3 被当成
 # 证据里没有的阈值，整句连坐删除。逐个 E 号剥，不剥分隔符——``E1，118 家`` 里的
@@ -309,6 +318,21 @@ _DATE_TOKEN_RE = re.compile(
 _QUARTER_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:20\d{2})?(?:Q[1-4]|[1-4]Q)(?![0-9])"
     r"|(?<!\d)[一二三四1-4]季度"
+)
+# 字母紧贴数字的代号是名字不是数量：型号 ``CPU1000``/``H100``/``RTX4090``、指标周期
+# ``MA20``、版本 ``V3.1``。2026-09-25 L6-N1 重放：``CPU1000`` 的 1000 被当成证据里
+# 没有的阈值，整句删除。三类仍按数量审：估值 / 宏观缩写后紧贴的数是取值（``PE20``、
+# ``PMI49.8``；引用语法同样把 ``PE10`` 认作估值倍数）；单个 ``E`` 是引用号段，合法
+# 引用已由 strip_evidence_ordinals 剥掉，畸形的 ``E0``/``E1000`` 留给本门兜底；数字后
+# 紧跟单位或「以上/以下」的也是数量（``ROE15%``、``EPS1.2元``、``H100以上``）。中文
+# 前缀的 ``麒麟9000`` 与 ``成交额9000`` 在字面上分不开，不在此列。分段写死字母 / 数字
+# 交替，避免回溯爆炸。
+_ALNUM_IDENTIFIER_RE = re.compile(
+    r"(?<![A-Za-z0-9])"
+    r"(?!(?:PEG|PE|PB|PS|ROE|ROA|ROIC|EPS|BPS|PMI|CPI|PPI|GDP|[Ee])\d)"
+    r"[A-Za-z]+\d+(?:\.\d+)?(?:[A-Za-z]+\d+(?:\.\d+)?)*[A-Za-z]*"
+    r"(?!\.?\d|\s*(?:万亿元|万亿|亿元|万元|亿|元|个百分点|%|点|家|只|个|天|日|周|月|年"
+    r"|倍|成|以上|以下))"
 )
 _SHORT_DATE_HEADING_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?:\*\*)?[\"“「‘]?"
@@ -1028,7 +1052,7 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> 
         public = outcome.public_answer
         before = outcome.verified
     findings = (
-        *disclosure_absence_findings(public, before.outcome.traces),
+        *disclosure_absence_findings(public, before.outcome.traces, before.outcome.evidence),
         *calculation_copy_findings(
             public, before.outcome.evidence,
             calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),
@@ -1058,11 +1082,14 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> 
     if "calculation_value_mismatch" in codes:
         notices.append("部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。")
         repair_notes.append("按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。")
+    if "calculation_value_unlocated" in codes:
+        notices.append("部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。")
+        repair_notes.append("按报告期及比率列重新对账本次计算产物，明确报告期与数值对应关系；不得把年数或比较倍数当本期比率，无法对应则明确留缺口。")
     if "calculation_value_unverified" in codes:
-        notices.append("部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。")
-        repair_notes.append("所称计算结果缺少或冲突，不得声称已核算；按原权限补齐或明确留缺口，不手填结果。")
+        notices.append("部分逐期比率缺少可核对的计算结果（缺失、冲突或单位不适用），已保留其他数据；对应比率仍需核对。")
+        repair_notes.append("所称计算结果缺少、冲突或单位不适用，不得声称已核算；按报告期及比率列重新对账，按原权限补齐或明确留缺口，不手填结果。")
     repaired = remove_findings(public, findings)
-    repaired = "\n\n".join((repaired, *notices)).strip()
+    repaired = "\n\n".join((repaired, *(notice for notice in notices if notice not in repaired))).strip()
     retained = _retained_delivery_hashes(outcome, repaired)
     issues = tuple(f"code={code} :: delivered research claim failed local check" for code in codes)
     # Do not replace archived draft/evidence or mark the whole slot's facts as
@@ -4158,7 +4185,8 @@ class SemanticEpisodeVerifier:
             if status_by_id.get(item.output_id) == "fulfilled"
             and bound_counts.get(item.output_id)
         )
-        parts: list[str] = []
+        provider_gaps = provider_gap_messages(verified.outcome.traces)
+        parts: list[str] = list(provider_gaps)
         if cause != CAUSE_VERIFICATION_INCOMPLETE and labels:
             parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
         if kept:
@@ -4169,7 +4197,7 @@ class SemanticEpisodeVerifier:
                 )
                 + "。"
             )
-        elif verified.outcome.evidence:
+        elif verified.outcome.evidence and not provider_gaps:
             # LLM 超时 / deadline 打断时常见的形状：检索已完成、证据在手，
             # 但没走到 FINAL_JSON，一条都没绑定（08-12 A5 实测：25 条证据、
             # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
@@ -4179,7 +4207,14 @@ class SemanticEpisodeVerifier:
                 f"本轮已取得 {len(verified.outcome.evidence)} 条证据，"
                 "但未完成核验绑定，暂不能引用；可直接重试。"
             )
-        window = _latest_evidence_date(verified.outcome.evidence)
+        # 明确数据失败时，无关检索材料的日期不能冒充本题已核验的截止日。
+        dated_evidence = verified.outcome.evidence
+        if provider_gaps:
+            kept_ids = {item.output_id for item in required if status_by_id.get(item.output_id) == "fulfilled"}
+            kept_hashes = {digest for binding in verified.outcome.bindings if binding.output_id in kept_ids
+                           for digest in binding.evidence_hashes}
+            dated_evidence = tuple(item for item in dated_evidence if item.content_hash in kept_hashes)
+        window = _latest_evidence_date(dated_evidence)
         if window:
             parts.append(f"证据数据截至 {window}；缺口补齐后可复验。")
         # ASK_DEGRADED_FALLBACK（默认 off）：knevo q13 七项里的「尝试过什么 /
@@ -5183,6 +5218,10 @@ def _novel_numeric_condition_indexes(
             if labelled or condition_section:
                 start = 0
             candidate = candidate[start:]
+        # Month time points and names such as CPU1000 are masked for extraction
+        # only: they must not change which rows count as table headers or
+        # labelled conditions.
+        candidate = _ALNUM_IDENTIFIER_RE.sub(" ", _MONTH_TOKEN_RE.sub(" ", candidate))
         quantities = (
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),
@@ -5679,8 +5718,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
             )
         )
     # Evidence prose can cite other cards too: E27 must not authorize a real
-    # threshold of 27 in the answer. Match the answer-side quantity view.
-    corpus = strip_evidence_ordinals(" ".join(fields))
+    # threshold of 27 in the answer. Match the answer-side quantity view; the
+    # same holds for model numbers (evidence H100 must not authorize 100).
+    corpus = _ALNUM_IDENTIFIER_RE.sub(" ", strip_evidence_ordinals(" ".join(fields)))
     quantities = {
         _normalize_quantity(quantity)
         for quantity in (

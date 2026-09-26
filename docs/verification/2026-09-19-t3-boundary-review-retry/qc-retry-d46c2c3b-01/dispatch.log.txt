@@ -1,0 +1,3 @@
+Preparing worktree (detached HEAD d46c2c3b)
+HEAD is now at d46c2c3b fix(research): distinguish ratio roles units and continuation boundaries
+{"review_id": "ARL-0005", "commit": "d46c2c3b10221483c811426e99ad379314289871", "adapter_exit": 0, "seconds": 1312.493, "dispatch": "explicit operations target; original queue not modified", "status": "INVALID_VERDICT", "errors": ["check_manifest"], "authority": "none"}

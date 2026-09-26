@@ -1,0 +1,21 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-financial-forward-0921/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-financial-forward-0921/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 7ms
+ ✓ src/api.test.ts (3 tests) 12ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 7ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 231ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 357ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 257ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 503ms
+ ✓ src/components/components.test.tsx (79 tests) 4173ms
+
+ Test Files  8 passed (8)
+      Tests  118 passed (118)
+   Start at  17:29:02
+   Duration  6.85s (transform 1.31s, setup 3.58s, collect 2.96s, tests 5.55s, environment 5.78s, prepare 1.15s)
+

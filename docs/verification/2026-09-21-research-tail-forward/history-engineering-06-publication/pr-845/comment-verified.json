@@ -1,0 +1,7 @@
+{
+  "id": 5562,
+  "body": "<!-- history-engineering-06:3fd631017b4b40eec4926024f68af0976161da8f -->\n## 最新接替：完整 Python 预声明分组通过，整体仍未验收\n\n#845源码仍固定`442476f7def1013f1fadebaf6594971921147edc`，全程clean；本轮未改产品代码或测试断言。原#833 `7edfe24e76afbd5c365fbf97dd2414847b086f88`未移动。下方旧正文保留各次尝试，不覆盖05原失败。\n\n- 06启动前固定七个环境相关测试ID：五个自身启动系统沙箱的用例，加上两个需原生`/bin/ps`的RSS观察用例。先跑环境组，再跑从完整收集面排除且仅排除这七条的普通组；普通组保持外网/共享目录写入隔离。\n- 环境组**7P / 49 deselected，exit0，2.01秒**；普通组**12802P / 87S / 2X / 7 deselected，exit0，1306.09秒**。两组完整合计**12809P / 87S / 2X，零失败**。X为既有预期失败，不算通过。\n- 精确覆盖全部**12898 ID**，交集0、漏项0；collection、逐阶段报告、JUnit及原退出码对账通过，无collection/setup/teardown错误、无中止或重试。与05的完整ID及skip/xfail名单相同，只有两条RSS由05失败变为06通过，未新增skip。\n- 这是一次新的**预声明两组完整运行**，不是把05定向2P拼回原全量，也不是单进程未分组`pytest -q`或#814正式收据。05原`12807P/2F/87S/2X`及exit1、外层2F/原生2P配对均保留。\n- 06未重跑其他工程叶；同SHA的04定向1014P/4S、十五有效变异、Ruff/registry/台账/前端lint/typecheck/110P/build及05 E2E34P/2S仍分别绑定原尝试，不移签文档tip或后来main。Node26与workflow Node22差异仍在。\n\n永久证据：#838固定提交`3fd631017b4b40eec4926024f68af0976161da8f`，`docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-06/`。06新增33个清单成员、28份整件原件及2份无损分片来源；九包825成员Git对象核验通过，旧八包与57f187de9完全一致。记录器八种坏副本全部拒绝，只算作者记录器自检，不加进产品测试数。后续发布/记忆回执放冻结包外。\n\n**整体仍CHANGES_REQUIRED / 未验收**：完整Python分组通过已补齐，#814正式门禁、三领域独立终审、历史原四自然题仍欠；财务R6/R3旧not_passed及runtime跨进程恢复边界不翻。新main/#841/联合树未签。本轮进程已退出；未续模型审核、未合并、未部署8792、未生产回填、未删除工作树。不接管#814或其他领域邻线。",
+  "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845#issuecomment-5562",
+  "created_at": "2026-09-22T03:14:38+08:00",
+  "updated_at": "2026-09-22T03:14:38+08:00"
+}

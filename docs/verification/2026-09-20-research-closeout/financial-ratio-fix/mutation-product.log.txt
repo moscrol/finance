@@ -1,0 +1,157 @@
+FFFFFFFF                                                                 [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T034834Z-d8d6196b.json
+
+=================================== FAILURES ===================================
+___________ test_delta_unit_product_cannot_certify_a_level[False-bp] ___________
+
+unit = 'bp', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[False-BP] ___________
+
+unit = 'BP', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+______ test_delta_unit_product_cannot_certify_a_level[False-\u57fa\u70b9] ______
+
+unit = '基点', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___ test_delta_unit_product_cannot_certify_a_level[False-\u767e\u5206\u70b9] ___
+
+unit = '百分点', with_valid_product = False
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[True-bp] ____________
+
+unit = 'bp', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___________ test_delta_unit_product_cannot_certify_a_level[True-BP] ____________
+
+unit = 'BP', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+______ test_delta_unit_product_cannot_certify_a_level[True-\u57fa\u70b9] _______
+
+unit = '基点', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+___ test_delta_unit_product_cannot_certify_a_level[True-\u767e\u5206\u70b9] ____
+
+unit = '百分点', with_valid_product = True
+
+    @pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
+    @pytest.mark.parametrize("with_valid_product", [False, True])
+    def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
+        source, calc = _financial_evidence()
+        invalid = replace(calc, content_hash="delta-calc", observations=(replace(
+            calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
+        ),))
+        evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:189: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-bp]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-BP]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[False-\u767e\u5206\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-bp]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-BP]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_delta_unit_product_cannot_certify_a_level[True-\u767e\u5206\u70b9]
+8 failed, 63 deselected in 0.30s

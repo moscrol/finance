@@ -1,0 +1,71 @@
+{
+  "stage": "gap-neighbors",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/frozen-gap-fix/gap-neighbors-tmp",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/frozen-gap-fix/gap-neighbors.xml",
+    "tests/test_gap_followup_projection.py",
+    "intelligence/tests/test_forecast_residual_followup.py"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+  "seconds": 120,
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f",
+    "sha256": {
+      "intelligence/services/query_resolution.py": "c342a5f4c98bebbf52a9be990cc9a9834c4a29871f646eb41a2d101a400f11af",
+      "intelligence/services/research_contract.py": "f53621032050826887805ecf9b60689bcd725f2d095c28961a65069485a552d4",
+      "intelligence/services/user_task.py": "62ff216749854b98b0030f20870c587de4ff129a8d14cf2bcefa30f11b9f6544",
+      "intelligence/services/turn_controller.py": "d58fce3f0b0f29fc237f037dd2dd9bf15d387fbe403adf416ce7264430328921",
+      "intelligence/services/task_frame.py": "0691bd2d29590de2df6410616a70e140fd2a3527105f4e5acf711f285b3d78fa",
+      "intelligence/services/conversation_materials.py": "2f45557a033aeaf92cf7b7bfcfd0fbc4b64a27cc3ece0fcf8da1f5cf90263fc4",
+      "tests/test_gap_followup_projection.py": "92b79524d72e45648733da87d5b21951dc5f2e6fa20c05cef8683ad17a0840ff",
+      "scripts/probe_history_control_boundary.py": "5e23c5d5745bc93975103422506a7377e1a8721513e64098563c62f577dc6a08",
+      "docs/agent-product-door.md": "32d5e8e754f6c666df655e43c7f03ccbce473d070628aa1578084b669cedd437"
+    }
+  },
+  "started_at": "2026-09-21T17:12:05.739074+00:00",
+  "signals": [],
+  "exit_code": 0,
+  "stop_reason": null,
+  "after": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f",
+    "sha256": {
+      "intelligence/services/query_resolution.py": "c342a5f4c98bebbf52a9be990cc9a9834c4a29871f646eb41a2d101a400f11af",
+      "intelligence/services/research_contract.py": "f53621032050826887805ecf9b60689bcd725f2d095c28961a65069485a552d4",
+      "intelligence/services/user_task.py": "62ff216749854b98b0030f20870c587de4ff129a8d14cf2bcefa30f11b9f6544",
+      "intelligence/services/turn_controller.py": "d58fce3f0b0f29fc237f037dd2dd9bf15d387fbe403adf416ce7264430328921",
+      "intelligence/services/task_frame.py": "0691bd2d29590de2df6410616a70e140fd2a3527105f4e5acf711f285b3d78fa",
+      "intelligence/services/conversation_materials.py": "2f45557a033aeaf92cf7b7bfcfd0fbc4b64a27cc3ece0fcf8da1f5cf90263fc4",
+      "tests/test_gap_followup_projection.py": "92b79524d72e45648733da87d5b21951dc5f2e6fa20c05cef8683ad17a0840ff",
+      "scripts/probe_history_control_boundary.py": "5e23c5d5745bc93975103422506a7377e1a8721513e64098563c62f577dc6a08",
+      "docs/agent-product-door.md": "32d5e8e754f6c666df655e43c7f03ccbce473d070628aa1578084b669cedd437"
+    }
+  },
+  "finished_at": "2026-09-21T17:12:07.359677+00:00",
+  "elapsed_seconds": 1.6206212921533734,
+  "log_sha256": "5abfae5a226102b0aa2f9489b22d128788323c01d86f7d93e4f9c50652264e8d",
+  "junit_suites": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "29",
+      "time": "0.865",
+      "timestamp": "2026-09-22T01:12:06.003294+08:00",
+      "hostname": "77deMacBook-Air.local"
+    }
+  ]
+}

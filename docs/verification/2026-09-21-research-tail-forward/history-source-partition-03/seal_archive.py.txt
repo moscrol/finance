@@ -1,0 +1,53 @@
+"""Freeze explicit H-03 evidence bytes and their source mapping; refuse replacement."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+SOURCE = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+CODE = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+RELATIVE = Path('docs/verification/2026-09-21-research-tail-forward/history-source-partition-03')
+ARCHIVE = REPO / RELATIVE
+REVISION = 'b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16'
+PARENT = '7c99f389e9c72668663449dedeacd7fe4830cbdd'
+
+
+def main():
+    assert subprocess.check_output(['git', '-C', str(CODE), 'rev-parse', 'HEAD']).decode().strip() == REVISION
+    assert not subprocess.check_output(['git', '-C', str(CODE), 'status', '--porcelain'])
+    ARCHIVE.mkdir(parents=True, exist_ok=False)
+    mappings = [(SOURCE / name, name + ('.txt' if name.endswith('.py') else '')) for name in
+                ['README.md', 'check.py', 'test_adjacent_input_boundary_diagnostic.py', 'seal_archive.py']]
+    mappings.append((SOURCE.parent / 'history-permission-repair-02/test_adjacent_input_boundary.py',
+                     'legacy-adjacent-input.py.txt'))
+    for pattern in ('before-*', 'dirty-*', 'frozen-*'):
+        for directory in sorted(SOURCE.glob(pattern)):
+            if directory.is_dir():
+                mappings.extend((p, p.relative_to(SOURCE).as_posix()) for p in sorted(directory.iterdir())
+                                if p.is_file() and p.suffix in {'.txt', '.json'})
+    records = []
+    for origin, name in mappings:
+        target = ARCHIVE / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        assert not target.exists()
+        shutil.copyfile(origin, target)
+        content = target.read_bytes()
+        assert content == origin.read_bytes()
+        records.append({'source': str(origin), 'target': target.relative_to(REPO).as_posix(),
+                        'bytes': len(content), 'sha256': hashlib.sha256(content).hexdigest()})
+    (ARCHIVE / 'candidate.patch').write_bytes(subprocess.check_output([
+        'git', '-C', str(CODE), 'diff', PARENT, REVISION], timeout=15))
+    (ARCHIVE / 'sources.json').write_text(json.dumps({
+        'source_revision': REVISION, 'parent_revision': PARENT, 'files': records,
+        'generated': ['candidate.patch', 'sources.json', 'sha256-manifest.txt'],
+    }, ensure_ascii=False, indent=2) + '\n')
+    lines = [hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.relative_to(REPO).as_posix()
+             for p in sorted(ARCHIVE.rglob('*')) if p.is_file()]
+    (ARCHIVE / 'sha256-manifest.txt').write_text('\n'.join(lines) + '\n')
+    print(json.dumps({'archive': str(ARCHIVE), 'members': len(lines), 'source_files': len(records)}))
+
+
+if __name__ == '__main__':
+    main()

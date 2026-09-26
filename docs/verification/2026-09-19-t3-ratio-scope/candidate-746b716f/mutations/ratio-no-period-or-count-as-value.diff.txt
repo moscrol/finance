@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 07f48a5e..ee84dba0 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -238,7 +238,7 @@ def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
+     number = _PROSE_NUMBER.match(value, start)
+     if number is None:
+         return None
+-    if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):
++    if False:
+         return None
+     if number[2] == "倍" and re.match(r"\s*(?:于|高于|低于|多于|少于)", value[number.end():]):
+         return None

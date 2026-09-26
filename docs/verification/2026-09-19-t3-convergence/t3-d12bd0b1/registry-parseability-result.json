@@ -1,0 +1,13 @@
+{
+  "name": "registry-parseability",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/build_registry.py",
+    "check-parseability"
+  ],
+  "cwd": "/Users/a77/fwp-q-research-data-readiness",
+  "exit_code": 0,
+  "seconds": 0.09,
+  "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+  "finished_at": "2026-09-19T03:23:55.120013+00:00"
+}

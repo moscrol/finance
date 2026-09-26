@@ -1,0 +1,31 @@
+"""Archive main643 static-only evidence; do not infer dynamic results from plans."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+for pr in ('910', '911'):
+    source = ROOT / pr
+    summary = json.loads((source / 'summary.json').read_text())
+    assert summary['status'] == 'STATIC_PASS_DYNAMIC_NOT_STARTED'
+    assert not summary['resource_admission']['admitted']
+    tree = Path(summary['tree'])
+    archive = tree / 'docs/verification' / f'2026-09-25-pr{pr}-main643-static'
+    archive.mkdir(exist_ok=False)
+    records = []
+    for path in sorted([*ROOT.glob('*.py'), *source.iterdir()]):
+        assert path.is_file() and not path.is_symlink()
+        target = archive / 'raw' / path.relative_to(ROOT)
+        if target.suffix in ('.py', '.log'):
+            target = target.with_name(target.name + '.txt')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        raw = path.read_bytes()
+        assert raw == target.read_bytes()
+        records.append({'source': str(path), 'path': target.relative_to(archive).as_posix(),
+                        'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)})
+    (archive / 'manifest.json').write_text(json.dumps({'pr': pr, 'revision': summary['revision'],
+        'baseline': summary['baseline'], 'files': records, 'dynamic_attempt_started': False,
+        'paid_model_requests': 0, 'independent_review': False}, indent=2) + '\n')
+    print(json.dumps({'pr': pr, 'originals': len(records), 'archive': str(archive)}))

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/file_tool.py", line 16, in <module>
+    raise PermissionError('only review work is writable')
+PermissionError: only review work is writable

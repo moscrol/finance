@@ -1,0 +1,18 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/ratio-no-period-or-count-as-value-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_ratio_does_not_revoke_qualifiers_or_other_metrics or test_review_ratio_locates_value_not_year_or_period"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-porli7ba/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+.......F....                                                             [100%]
+=================================== FAILURES ===================================
+_ test_review_ratio_does_not_revoke_qualifiers_or_other_metrics[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:139: in test_review_ratio_does_not_revoke_qualifiers_or_other_metrics
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E   AssertionError: assert (DeliveryFind...ement='待核对'),) == ()
+E     
+E     Left contains one more item: DeliveryFinding(start=9, end=10, code='calculation_value_mismatch', replacement='待核对')
+E     Use -v to get more diff
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/ratio-no-period-or-count-as-value-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_does_not_revoke_qualifiers_or_other_metrics[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\u3002]
+1 failed, 11 passed, 404 deselected in 0.96s
+
+STDERR:
+
+EXIT=1

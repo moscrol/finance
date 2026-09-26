@@ -1,0 +1,157 @@
+{
+  "history_parent_pair_and_boundaries": {
+    "status": "PASS",
+    "details": {
+      "bindings": [
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "d561b950a7ee463d3f52c7848dac655be5762aea78ed5d45d982c5afabafdbee",
+          "source_reference": {
+            "result_ref": "run_20260920_131956_908145/history-query-df1993b3e8d86c91a5f8dfca505ffa1fe7b29d4f6deff5714c9670f4cd3d827a.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "extended_observation",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-22",
+          "source_query_id": "b13edf6988005126cf28ee87a0abbdcd1cb77357af18e31cef08dea9c3875ea1",
+          "source_reference": {
+            "result_ref": "run_20260920_131956_885890/history-query-0e1d88a851803aa4950a1fa2eeae2169e8eb831f8b4e222eb2242d26a4dc9a12.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "d561b950a7ee463d3f52c7848dac655be5762aea78ed5d45d982c5afabafdbee",
+          "source_reference": {
+            "result_ref": "run_20260920_131956_908145/history-query-df1993b3e8d86c91a5f8dfca505ffa1fe7b29d4f6deff5714c9670f4cd3d827a.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        }
+      ],
+      "rejected": {
+        "different_observation": "history_window_observation_conflict: trace comparisons in this turn must use the same observation endpoint",
+        "earlier_start": "history_window_mismatch: start/end must equal the selected saved window; do not shorten or replace it after overflow. Only an explicitly authorized trace may extend end",
+        "outside_scope": "historical_window_outside_authorized_scope: 用户明确限定了研究日期",
+        "undelivered_parent": "history_window_source_not_read: first read_history_result on the referenced original in this turn",
+        "unauthorized_extension": "history_window_mismatch: start/end must equal the selected saved window; do not shorten or replace it after overflow. Only an explicitly authorized trace may extend end"
+      },
+      "synthetic_db_unchanged": true,
+      "source_artifact_unchanged": true,
+      "read_then_retry": "success"
+    }
+  },
+  "history_concurrent_mixed_parents": {
+    "status": "PASS",
+    "details": {
+      "both_published": true,
+      "db_reads": [
+        "sector",
+        "stock"
+      ],
+      "bindings": [
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "extended_observation",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-22",
+          "source_query_id": "cf95fe533b74b3f8ac544053a98ac749e94d081288142199bfa6e41e2475255e",
+          "source_reference": {
+            "result_ref": "run_20260920_131957_067620/history-query-8d4d54af09c49e639a698430bd09b41bc571f5e3dd8c8fb13cbeb27c288fcecb.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "63623a5173ecf8c068d07fafa7d8b5c71c5f41f9f06f7fd640056c2db0db76cb",
+          "source_reference": {
+            "result_ref": "run_20260920_131957_088639/history-query-4a3694ee542760b471a5ff5331f008179ce2aa9694a01805f3be7dfd187c6ce7.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        }
+      ]
+    }
+  },
+  "history_other_root_and_forged_ranking": {
+    "status": "FAIL",
+    "error": "window extension requires a prior analysis",
+    "traceback": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py\", line 280, in main\n    details = function()\n              ^^^^^^^^^^\n  File \"/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py\", line 185, in history_other_root_and_forged_ranking\n    standalone = replace(values['frame'], history_intent=replace(\n                                                         ^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/dataclasses.py\", line 1588, in replace\n    return obj.__class__(**changes)\n           ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<string>\", line 12, in __init__\n  File \"/Users/a77/fwp-wt-history-closeout-0920/intelligence/services/historical_research/intent.py\", line 59, in __post_init__\n    raise ValueError(\"window extension requires a prior analysis\")\nValueError: window extension requires a prior analysis\n"
+  },
+  "graph_alias_bound_and_failure_pair": {
+    "status": "PASS",
+    "details": {
+      "alias_calls": [
+        [
+          "search",
+          "review-command second-name"
+        ],
+        [
+          "search",
+          "review_command second_name"
+        ]
+      ],
+      "returned_count": 20,
+      "ordinary_query_calls": [
+        [
+          "search",
+          "rank_history"
+        ]
+      ],
+      "missing_vs_unavailable": [
+        {
+          "state": "missing",
+          "reason": null,
+          "hits": []
+        },
+        {
+          "state": "unavailable",
+          "reason": "uvx_missing",
+          "hits": []
+        }
+      ],
+      "doors_and_narrative_independent": true,
+      "backend_failures": {
+        "nonzero_exit": "search_failed",
+        "blank_stdout": "empty_response",
+        "invalid_json": "invalid_response",
+        "missing_results": "invalid_response"
+      }
+    }
+  }
+}

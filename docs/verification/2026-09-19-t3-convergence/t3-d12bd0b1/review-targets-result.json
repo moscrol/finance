@@ -1,0 +1,22 @@
+{
+  "name": "review-targets",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "intelligence/tests/test_research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_repair.py",
+    "intelligence/tests/test_frozen_research_delivery.py",
+    "intelligence/tests/test_calculation_result_delivery.py",
+    "intelligence/tests/test_capital_data_safety.py",
+    "intelligence/tests/test_capital_episode_tool.py",
+    "intelligence/tests/test_research_data_boundaries.py"
+  ],
+  "cwd": "/Users/a77/fwp-q-research-data-readiness",
+  "exit_code": 0,
+  "seconds": 2.99,
+  "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+  "finished_at": "2026-09-19T03:23:58.223755+00:00"
+}

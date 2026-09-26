@@ -1,0 +1,73 @@
+"""Run the bounded review without writing candidate or global test receipts."""
+from pathlib import Path
+import datetime
+import hashlib
+import json
+import os
+import subprocess
+import sys
+
+ROOT = Path('/Users/a77/fwp-wt-history-closeout-0920')
+OUT = Path(__file__).resolve().parent
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SHA = 'e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7'
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+
+
+def digest(path):
+    if not path.is_file():
+        return None
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def protected_snapshot():
+    paths = [ROOT / '.code-review-graph' / name for name in ('graph.db', 'graph.db-wal', 'graph.db-shm', 'status.json')]
+    paths.append(Path('/Users/a77/.finance-runtime/test-receipts/latest.json'))
+    return {str(path): digest(path) for path in paths}
+
+
+def identity():
+    files = git('diff', '--name-only', 'c9bd82ff2e25fe2727347329706f7aeb98444ee8...HEAD').splitlines()
+    return {'at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'root': str(ROOT), 'head': git('rev-parse', 'HEAD'),
+            'status': git('status', '--porcelain=v1', '--untracked-files=all'),
+            'files': {name: digest(ROOT / name) for name in files}}
+
+
+before = identity()
+assert before['head'] == SHA and before['status'] == ''
+protected_before = protected_snapshot()
+(OUT / 'protected-before.json').write_text(json.dumps(protected_before, indent=2) + '\n')
+env = os.environ.copy()
+env.update({'FWP_TEST_RECEIPT': '0', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(ROOT)})
+escape_var = json.loads((ROOT / 'test-environment.json').read_text()).get('escape_env_var', 'FWP_ALLOW_ANY_PYTHON')
+env.pop(escape_var, None)
+command = [PYTHON, '-B', '-m', 'pytest', '-vv', '-s',
+           '--rootdir', str(ROOT), '--confcutdir', str(ROOT),
+           '--basetemp', str(OUT / 'pytest-tmp'), '-o', 'cache_dir=' + str(OUT / '.pytest_cache'),
+           str(OUT / 'test_quality_boundaries.py'),
+           'tests/test_history_window_binding.py::test_cancel_and_deadline_leave_no_binding_or_saved_calculation']
+record = {'argv': command, 'cwd': str(ROOT), 'environment_overrides': {
+    key: env[key] for key in ('FWP_TEST_RECEIPT', 'PYTHONDONTWRITEBYTECODE', 'PYTHONPATH')},
+    'dependency_escape_absent': escape_var not in env, 'before': before,
+    'probe_sha256': digest(OUT / 'test_quality_boundaries.py')}
+(OUT / 'command.json').write_text(json.dumps(record, indent=2) + '\n')
+proc = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+(OUT / 'pytest.log').write_text(proc.stdout + proc.stderr)
+after = identity()
+protected_after = protected_snapshot()
+(OUT / 'protected-after.json').write_text(json.dumps(protected_after, indent=2) + '\n')
+(OUT / 'identity-after.json').write_text(json.dumps(after, indent=2) + '\n')
+record.update({'exit_code': proc.returncode, 'after': after,
+               'protected_unchanged': protected_before == protected_after,
+               'candidate_unchanged': before['files'] == after['files'] and after['head'] == SHA and after['status'] == ''})
+(OUT / 'execution.json').write_text(json.dumps(record, indent=2) + '\n')
+print(proc.stdout + proc.stderr)
+print(json.dumps({'exit_code': proc.returncode, 'candidate_unchanged': record['candidate_unchanged'], 'protected_unchanged': record['protected_unchanged']}))
+assert record['candidate_unchanged']
+assert record['protected_unchanged']
+sys.exit(proc.returncode)

@@ -1,0 +1,8 @@
+START_SHA b860ecc8c02c92b77f41bf5d896d732414bbcc6a
+env -i HOME PATH LANG TMPDIR FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=<worktree> <workbench-python> -m pytest -p no:cacheprovider -q intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker_keepalive.py
+........................................................................ [ 83%]
+..............                                                           [100%]
+86 passed in 5.23s
+env -i HOME PATH LANG TMPDIR FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=<worktree> <workbench-python> -m ruff check intelligence/services/rag_generation_identity.py intelligence/services/rag_worker.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker_keepalive.py
+All checks passed!
+END_SHA b860ecc8c02c92b77f41bf5d896d732414bbcc6a

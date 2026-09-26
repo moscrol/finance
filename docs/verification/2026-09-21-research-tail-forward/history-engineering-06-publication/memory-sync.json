@@ -1,0 +1,12 @@
+{
+  "memory_revision": "9d692cbddea614df03e54649bdc8f12870e774ef",
+  "commit_authority": "Existing agent-memory auto-sync process committed and pushed the two edited files before the manual pathspec commit completed.",
+  "manual_commit_exit_code": 1,
+  "manual_commit_result": "nothing to commit, working tree clean",
+  "files": [
+    "20_projects/finance-workspace-private.md",
+    "10_knowledge/finance-agent-capability-graph.md"
+  ],
+  "head_matches_gitea_tracking_ref": true,
+  "scope": "Memory bookkeeping only; not independent acceptance or an official test receipt. No duplicate commit or push needed."
+}

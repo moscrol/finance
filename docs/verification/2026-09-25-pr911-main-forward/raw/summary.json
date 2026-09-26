@@ -1,0 +1,99 @@
+{
+  "tree": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "86da22fda1f8fa02c71cd5d8759ee55a65e6fd37",
+  "preview_tree": "c7ceec198d114f108e9a22b726fcc00f9a418872",
+  "targets": [
+    "intelligence/tests/conformance/test_research_chain.py",
+    "intelligence/tests/test_workbench_research_chain.py"
+  ],
+  "baseline": "1751e21e0fd30642e0b223604b64b30e38c46f41",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "steps": [
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ruff",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "targeted",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "receipt-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "model_requests": 0,
+  "full_scope_executed": false,
+  "resource_observation": {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 66075,
+        "pgid": 65981,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pi-session-inventory-20260924/truthup6/basetemp"
+      },
+      {
+        "pid": 74556,
+        "pgid": 71736,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/agent-foundation-0924/deploy/authorized-data-06/pytest-tmp"
+      },
+      {
+        "pid": 76575,
+        "pgid": 76556,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/pytest.xml --durations=20"
+      }
+    ],
+    "disk_free_bytes": 50792648704,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T04:32:40.919988+00:00"
+  },
+  "counts": {
+    "executed": 56,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "dirty_after": "",
+  "status": "SCOPED_CHECKS_COMPLETE_NOT_RELEASE_READY"
+}

@@ -1,0 +1,606 @@
+{
+  "artifacts": [
+    "calc-8c6f21288d723235.json",
+    "calc-8c6f21288d723235.html",
+    "calc-8c6f21288d723235-t1.csv"
+  ],
+  "as_of": "2025-04-30",
+  "base_calc_id": null,
+  "calc_id": "8c6f21288d723235",
+  "db_fingerprint": "",
+  "duration_ms": 151,
+  "enforcement": "seatbelt+process",
+  "exit_code": 0,
+  "input_evidence_hashes": [
+    "8de42006eb6e081d",
+    "4c171d03df0bee34",
+    "7dbfe3c57e8ff3ad",
+    "5a7fba864408d9af",
+    "d63d4a2ccc4d8d2a",
+    "6392aec2cf73a5b8",
+    "b6628d18eaa82fa2",
+    "87b6e2212104ecd6",
+    "fac7451d192eb853",
+    "04b0022c74aae729",
+    "5ddce839c72e3abb",
+    "f338a169bc18e713"
+  ],
+  "input_refs": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6",
+    "E7",
+    "E8",
+    "E9",
+    "E10",
+    "E11",
+    "E12"
+  ],
+  "inputs": [
+    {
+      "as_of": "2026-08-15",
+      "hash": "8de42006eb6e081d",
+      "observations": [
+        {
+          "as_of": "2026-06-30",
+          "metric": "revenue_cum_yi",
+          "subject": "600519.SH",
+          "value": 922.78
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "revenue_yoy_pct",
+          "subject": "600519.SH",
+          "value": 1.3
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "net_profit_cum_yi",
+          "subject": "600519.SH",
+          "value": 445.17
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "net_profit_yoy_pct",
+          "subject": "600519.SH",
+          "value": -1.95
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "gross_margin_pct",
+          "subject": "600519.SH",
+          "value": 89.56
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "net_margin_pct",
+          "subject": "600519.SH",
+          "value": 50.75
+        }
+      ],
+      "ref": "E1",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2026-06-30",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2026-08-15",
+      "hash": "4c171d03df0bee34",
+      "observations": [
+        {
+          "as_of": "2026-06-30",
+          "metric": "ocf_cum_yi",
+          "subject": "600519.SH",
+          "value": 706.91
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "contract_liability_yi",
+          "subject": "600519.SH",
+          "value": 31.78
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "inventory_yi",
+          "subject": "600519.SH",
+          "value": 613.17
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "holder_num",
+          "subject": "600519.SH",
+          "value": 296404.0
+        },
+        {
+          "as_of": "2026-06-30",
+          "metric": "holder_change_pct",
+          "subject": "600519.SH",
+          "value": 21.9
+        }
+      ],
+      "ref": "E2",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2026-06-30",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2026-04-25",
+      "hash": "7dbfe3c57e8ff3ad",
+      "observations": [
+        {
+          "as_of": "2026-03-31",
+          "metric": "revenue_cum_yi",
+          "subject": "600519.SH",
+          "value": 547.03
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "revenue_yoy_pct",
+          "subject": "600519.SH",
+          "value": 6.34
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "net_profit_cum_yi",
+          "subject": "600519.SH",
+          "value": 272.43
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "net_profit_yoy_pct",
+          "subject": "600519.SH",
+          "value": 1.47
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "gross_margin_pct",
+          "subject": "600519.SH",
+          "value": 89.76
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "net_margin_pct",
+          "subject": "600519.SH",
+          "value": 52.22
+        }
+      ],
+      "ref": "E3",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2026-03-31",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2026-04-25",
+      "hash": "5a7fba864408d9af",
+      "observations": [
+        {
+          "as_of": "2026-03-31",
+          "metric": "ocf_cum_yi",
+          "subject": "600519.SH",
+          "value": 269.1
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "contract_liability_yi",
+          "subject": "600519.SH",
+          "value": 30.27
+        },
+        {
+          "as_of": "2026-03-31",
+          "metric": "inventory_yi",
+          "subject": "600519.SH",
+          "value": 606.92
+        }
+      ],
+      "ref": "E4",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2026-03-31",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2026-04-17",
+      "hash": "d63d4a2ccc4d8d2a",
+      "observations": [
+        {
+          "as_of": "2025-12-31",
+          "metric": "revenue_cum_yi",
+          "subject": "600519.SH",
+          "value": 1720.54
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "revenue_yoy_pct",
+          "subject": "600519.SH",
+          "value": -1.2
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "net_profit_cum_yi",
+          "subject": "600519.SH",
+          "value": 823.2
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "net_profit_yoy_pct",
+          "subject": "600519.SH",
+          "value": -4.53
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "gross_margin_pct",
+          "subject": "600519.SH",
+          "value": 91.18
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "net_margin_pct",
+          "subject": "600519.SH",
+          "value": 50.53
+        }
+      ],
+      "ref": "E5",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-12-31",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2026-04-17",
+      "hash": "6392aec2cf73a5b8",
+      "observations": [
+        {
+          "as_of": "2025-12-31",
+          "metric": "ocf_cum_yi",
+          "subject": "600519.SH",
+          "value": 615.22
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "contract_liability_yi",
+          "subject": "600519.SH",
+          "value": 80.07
+        },
+        {
+          "as_of": "2025-12-31",
+          "metric": "inventory_yi",
+          "subject": "600519.SH",
+          "value": 614.27
+        }
+      ],
+      "ref": "E6",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-12-31",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2025-10-30",
+      "hash": "b6628d18eaa82fa2",
+      "observations": [
+        {
+          "as_of": "2025-09-30",
+          "metric": "revenue_cum_yi",
+          "subject": "600519.SH",
+          "value": 1309.04
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "revenue_yoy_pct",
+          "subject": "600519.SH",
+          "value": 6.32
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "net_profit_cum_yi",
+          "subject": "600519.SH",
+          "value": 646.27
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "net_profit_yoy_pct",
+          "subject": "600519.SH",
+          "value": 6.25
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "gross_margin_pct",
+          "subject": "600519.SH",
+          "value": 91.29
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "net_margin_pct",
+          "subject": "600519.SH",
+          "value": 52.08
+        }
+      ],
+      "ref": "E7",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-09-30",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2025-10-30",
+      "hash": "87b6e2212104ecd6",
+      "observations": [
+        {
+          "as_of": "2025-09-30",
+          "metric": "ocf_cum_yi",
+          "subject": "600519.SH",
+          "value": 381.97
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "contract_liability_yi",
+          "subject": "600519.SH",
+          "value": 77.49
+        },
+        {
+          "as_of": "2025-09-30",
+          "metric": "inventory_yi",
+          "subject": "600519.SH",
+          "value": 558.59
+        }
+      ],
+      "ref": "E8",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-09-30",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2025-08-13",
+      "hash": "fac7451d192eb853",
+      "observations": [
+        {
+          "as_of": "2025-06-30",
+          "metric": "revenue_cum_yi",
+          "subject": "600519.SH",
+          "value": 910.94
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "revenue_yoy_pct",
+          "subject": "600519.SH",
+          "value": 9.16
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "net_profit_cum_yi",
+          "subject": "600519.SH",
+          "value": 454.03
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "net_profit_yoy_pct",
+          "subject": "600519.SH",
+          "value": 8.89
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "gross_margin_pct",
+          "subject": "600519.SH",
+          "value": 91.3
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "net_margin_pct",
+          "subject": "600519.SH",
+          "value": 52.56
+        }
+      ],
+      "ref": "E9",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-06-30",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2025-08-13",
+      "hash": "04b0022c74aae729",
+      "observations": [
+        {
+          "as_of": "2025-06-30",
+          "metric": "ocf_cum_yi",
+          "subject": "600519.SH",
+          "value": 131.19
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "contract_liability_yi",
+          "subject": "600519.SH",
+          "value": 55.07
+        },
+        {
+          "as_of": "2025-06-30",
+          "metric": "inventory_yi",
+          "subject": "600519.SH",
+          "value": 549.72
+        }
+      ],
+      "ref": "E10",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-06-30",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2025-04-30",
+      "hash": "5ddce839c72e3abb",
+      "observations": [
+        {
+          "as_of": "2025-03-31",
+          "metric": "revenue_cum_yi",
+          "subject": "600519.SH",
+          "value": 514.43
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "revenue_yoy_pct",
+          "subject": "600519.SH",
+          "value": 10.67
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "net_profit_cum_yi",
+          "subject": "600519.SH",
+          "value": 268.47
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "net_profit_yoy_pct",
+          "subject": "600519.SH",
+          "value": 11.56
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "gross_margin_pct",
+          "subject": "600519.SH",
+          "value": 91.97
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "net_margin_pct",
+          "subject": "600519.SH",
+          "value": 54.89
+        }
+      ],
+      "ref": "E11",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-03-31",
+      "tool": "financial_data"
+    },
+    {
+      "as_of": "2025-04-30",
+      "hash": "f338a169bc18e713",
+      "observations": [
+        {
+          "as_of": "2025-03-31",
+          "metric": "ocf_cum_yi",
+          "subject": "600519.SH",
+          "value": 88.09
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "contract_liability_yi",
+          "subject": "600519.SH",
+          "value": 87.88
+        },
+        {
+          "as_of": "2025-03-31",
+          "metric": "inventory_yi",
+          "subject": "600519.SH",
+          "value": 547.98
+        }
+      ],
+      "ref": "E12",
+      "source": "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报",
+      "tier": "L2_structured",
+      "title": "贵州茅台（600519.SH）报告期 2025-03-31",
+      "tool": "financial_data"
+    }
+  ],
+  "notes": [],
+  "params": {},
+  "purpose": "核算贵州茅台最近六期累计经营现金流净额与归母净利润比值（利润含金量）",
+  "result": {
+    "charts": [],
+    "formulas": [
+      "OCF/归母净利润 = 累计经营活动现金流量净额 ÷ 累计归母净利润"
+    ],
+    "notes": [
+      "两项均为报告期累计口径，同一报告期相除；缺值不填0不外推"
+    ],
+    "params": {},
+    "schema": "derived_calculation.result/v1",
+    "summary": {
+      "六期平均OCF/归母净利润": 0.7552,
+      "最低比值期": "2025中报",
+      "最高比值期": "2026中报",
+      "期数": 6
+    },
+    "tables": [
+      {
+        "columns": [
+          "报告期",
+          "报告期截止日",
+          "披露日",
+          "累计经营现金流净额（亿元）",
+          "累计归母净利润（亿元）",
+          "OCF/归母净利润"
+        ],
+        "name": "茅台六期现金流含金量",
+        "note": null,
+        "rows": [
+          [
+            "2025一季报",
+            "2025-03-31",
+            "2025-04-30",
+            88.09,
+            268.47,
+            0.3281
+          ],
+          [
+            "2025中报",
+            "2025-06-30",
+            "2025-08-13",
+            131.19,
+            454.03,
+            0.2889
+          ],
+          [
+            "2025三季报",
+            "2025-09-30",
+            "2025-10-30",
+            381.97,
+            646.27,
+            0.591
+          ],
+          [
+            "2025年报",
+            "2025-12-31",
+            "2026-04-17",
+            615.22,
+            823.2,
+            0.7474
+          ],
+          [
+            "2026一季报",
+            "2026-03-31",
+            "2026-04-25",
+            269.1,
+            272.43,
+            0.9878
+          ],
+          [
+            "2026中报",
+            "2026-06-30",
+            "2026-08-15",
+            706.91,
+            445.17,
+            1.588
+          ]
+        ],
+        "unit": "亿元"
+      }
+    ]
+  },
+  "runtime": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "platform": "Darwin",
+    "prelude_version": "2",
+    "python": "3.12.13"
+  },
+  "script": "sub = '600519.SH'\nocf = {x['as_of']: x['value'] for x in series(sub, 'ocf_cum_yi')}\nnp_ = {x['as_of']: x['value'] for x in series(sub, 'net_profit_cum_yi')}\nperiods = sorted(set(ocf) & set(np_))\nlabel = {'2025-03-31':'2025一季报','2025-06-30':'2025中报','2025-09-30':'2025三季报','2025-12-31':'2025年报','2026-03-31':'2026一季报','2026-06-30':'2026中报'}\ndisclose = {'2025-03-31':'2025-04-30','2025-06-30':'2025-08-13','2025-09-30':'2025-10-30','2025-12-31':'2026-04-17','2026-03-31':'2026-04-25','2026-06-30':'2026-08-15'}\nrows = []\nfor p in periods:\n    o, n = ocf[p], np_[p]\n    r = safe_div(o, n)\n    rows.append({'报告期': label.get(p, p), '报告期截止日': p, '披露日': disclose.get(p),\n                 '累计经营现金流净额（亿元）': o, '累计归母净利润（亿元）': n,\n                 'OCF/归母净利润': round(r, 4) if r is not None else None})\nratios = [row['OCF/归母净利润'] for row in rows if row['OCF/归母净利润'] is not None]\navg_ratio = sum(ratios)/len(ratios) if ratios else None\nemit_result(\n    summary={'期数': len(rows), '六期平均OCF/归母净利润': round(avg_ratio, 4) if avg_ratio is not None else None,\n             '最低比值期': min(rows, key=lambda r: r['OCF/归母净利润'])['报告期'] if ratios else None,\n             '最高比值期': max(rows, key=lambda r: r['OCF/归母净利润'])['报告期'] if ratios else None},\n    tables=[table('茅台六期现金流含金量', ['报告期','报告期截止日','披露日','累计经营现金流净额（亿元）','累计归母净利润（亿元）','OCF/归母净利润'], rows, unit='亿元')],\n    formulas=['OCF/归母净利润 = 累计经营活动现金流量净额 ÷ 累计归母净利润'],\n    notes=['两项均为报告期累计口径，同一报告期相除；缺值不填0不外推'])",
+  "stderr_tail": "",
+  "stdout_tail": ""
+}

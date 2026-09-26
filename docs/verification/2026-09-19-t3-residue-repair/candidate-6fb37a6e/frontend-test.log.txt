@@ -1,0 +1,21 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-q-research-data-readiness/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-q-research-data-readiness/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 4ms
+ ✓ src/api.test.ts (3 tests) 7ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 3ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 69ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 172ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 171ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 98ms
+ ✓ src/components/components.test.tsx (71 tests) 1565ms
+
+ Test Files  8 passed (8)
+      Tests  110 passed (110)
+   Start at  22:47:03
+   Duration  2.63s (transform 509ms, setup 1.45s, collect 1.24s, tests 2.09s, environment 2.16s, prepare 357ms)
+

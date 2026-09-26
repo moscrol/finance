@@ -12,6 +12,7 @@ from dataclasses import replace
 import pytest
 
 from intelligence.services.agent_runtime import OutputEvidenceBinding
+from intelligence.services.episode_protocol import cited_evidence_ordinals
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
     numeric_condition_unsupported,
@@ -131,7 +132,20 @@ def test_evidence_citation_cannot_authorize_a_real_threshold(field, citation):
     assert result.public_answer == "市场仍需观察。"
 
 
-@pytest.mark.parametrize("token", ["PE10", "1.5E8", "CE4", "E0", "E027", "E1000"])
+@pytest.mark.parametrize("token", ["PE10", "1.5E8", "E0", "E027", "E1000"])
 def test_non_citation_numeric_tokens_are_not_exempted(token):
     _, structural = _structural(f"若指标达到{token}则降级。")
     assert numeric_condition_unsupported(structural) is True
+
+
+def test_letter_prefixed_e_token_is_a_name_not_a_citation():
+    """``CE4`` 是认证名：既不是引用 E4，也不是阈值 4。
+
+    原先与 PE10 同列「不豁免」，那时数字门只有「剥成引用」一种豁免。2026-09-25 起
+    字母紧贴数字的代号（CPU1000、H100）按名字掩掉，CE4 同类；引用语法左界仍由上面的
+    PE10 钉住，这里直接钉 CE4 不被读成 E4。
+    """
+    draft = "若指标达到CE4则降级。"
+    assert cited_evidence_ordinals(draft) == ()
+    _, structural = _structural(draft)
+    assert numeric_condition_unsupported(structural) is False

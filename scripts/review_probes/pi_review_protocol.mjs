@@ -23,6 +23,33 @@ export function bindStageResult(raw, { stage, axis, revision, baseline }) {
   return { ...body, stage, axis, revision, baseline, complete: true };
 }
 
+// Validate paths while the reviewer can still correct them; never repair its output.
+export function validateExploreProbes(data, work) {
+  if (!Array.isArray(data.probe_files) || !data.probe_files.length) {
+    throw new Error('probe_files must be a nonempty array of absolute file paths');
+  }
+  const root = path.join(fs.realpathSync(work), 'probes');
+  if (fs.realpathSync(root) !== root) throw new Error('probe directory must not be redirected');
+  for (const [index, file] of data.probe_files.entries()) {
+    const error = () => new Error(`probe_files[${index}] must name an existing regular file under ${root}`);
+    if (typeof file !== 'string' || !path.isAbsolute(file)) throw error();
+    let resolved;
+    try {
+      resolved = fs.realpathSync(file);
+      if (!fs.statSync(resolved).isFile()) throw error();
+    } catch {
+      throw error();
+    }
+    const relative = path.relative(root, resolved);
+    if (!relative || relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
+      throw error();
+    }
+  }
+  if (!fs.readdirSync(root, { withFileTypes: true }).some(entry => entry.isFile() && entry.name.endsWith('.py'))) {
+    throw new Error(`at least one regular Python probe must exist directly under ${root}`);
+  }
+}
+
 // Check the actual CLI allowlist before any provider request, not just registration.
 export function installStageGuard(pi, { out, stage, tools, terminate = code => process.exit(code) }) {
   let failed = false;

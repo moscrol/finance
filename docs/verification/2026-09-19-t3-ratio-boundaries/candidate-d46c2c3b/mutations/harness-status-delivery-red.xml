@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.011" timestamp="2026-09-19T18:58:58.246115+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_checks" name="test_actual_failure_flag_reaches_model_and_audit_not_transport_ok" time="0.000"><failure message="assert (True is False)">intelligence/tests/test_research_delivery_checks.py:353: in test_actual_failure_flag_reaches_model_and_audit_not_transport_ok
+    assert projection.audit_payload["ok"] is False and model["ok"] is False
+E   assert (True is False)</failure></testcase></testsuite></testsuites>

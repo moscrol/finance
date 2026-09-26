@@ -1,0 +1,53 @@
+52e4e662e73923d930f3472cfe8c32dd5b3b9c8e
+100644 af948f523b10a0275c90803c4d99032b320b8ee7 1	docs/agent-product-door.md
+100644 78764f0a73dab5bbe0753b9da38bb3a860923f3f 2	docs/agent-product-door.md
+100644 369a307a8332fb97c9c24253c07fd704219f7045 3	docs/agent-product-door.md
+100644 eec438517167aa08bbc8d90ce87452572e958b06 1	intelligence/api/app.py
+100644 35d89f8ea9c9bbee0524a7e84229e185a8d67b16 2	intelligence/api/app.py
+100644 d97db38e168e6515491bdc1bb11129aae1ca548e 3	intelligence/api/app.py
+100644 d0debff737c7558260148e58268f3491be90bb2f 1	intelligence/runtime/agent_episode.py
+100644 a254b9643605c87eda72655b664d3336340af3b7 2	intelligence/runtime/agent_episode.py
+100644 8f7c05a8988bd875f93ef62a81b71f554ab8b44d 3	intelligence/runtime/agent_episode.py
+100644 e6fbf34d452419962d8ddbfcc312215e2ca00d70 2	intelligence/tests/fixtures/run_supervisor.py
+100644 9dc82b62d7950c6f7a194d3d52425ab3dfc6014b 3	intelligence/tests/fixtures/run_supervisor.py
+100644 d3ddc20cfed66d816db46e9f2d9e5e18feb27efc 1	intelligence/tests/test_api_credits.py
+100644 780c15efcad9c5e91d52d89f0c8ea032c9cf0fad 2	intelligence/tests/test_api_credits.py
+100644 77b8a9770401aafec23ae1f1394d53735c000793 3	intelligence/tests/test_api_credits.py
+100644 d7044c5ae08b6eeef3a2d359b02989e004443aa1 2	intelligence/tests/test_api_fixture_lifecycle.py
+100644 7a6a970db79a38134055d43f36a6f564e41737b7 3	intelligence/tests/test_api_fixture_lifecycle.py
+100644 58571288f5dd0b4d2981b837dff888b3b8fd3027 1	intelligence/tests/test_api_quota.py
+100644 6b24c63c53cee8348039285de0cc4d2674b11ad6 2	intelligence/tests/test_api_quota.py
+100644 02b3215665a8a0e7ad30bfa93a6a78722f17374e 3	intelligence/tests/test_api_quota.py
+100644 d733c000ad2fa9e197c93085c0439d708422b5b2 1	intelligence/tests/test_api_run_admission.py
+100644 f0c8fa991ae1fab0fdc5c6832500b4f9ab81f540 2	intelligence/tests/test_api_run_admission.py
+100644 49e9d0b5b82135fe31fa85f905cb094a2af8315e 3	intelligence/tests/test_api_run_admission.py
+100644 802f50ade7e6d100fce8a3e50b75a9c4f0a2fb83 1	intelligence/tests/test_workbench_api.py
+100644 126517b5968e651cd2333345cff9e252d2b7fb5c 2	intelligence/tests/test_workbench_api.py
+100644 5bc5b0d56fd4d968803d509c303dc385f80243ad 3	intelligence/tests/test_workbench_api.py
+
+Auto-merging UBIQUITOUS_LANGUAGE.md
+Auto-merging docs/agent-product-door.md
+CONFLICT (content): Merge conflict in docs/agent-product-door.md
+Auto-merging intelligence/api/app.py
+CONFLICT (content): Merge conflict in intelligence/api/app.py
+Auto-merging intelligence/runtime/agent_episode.py
+CONFLICT (content): Merge conflict in intelligence/runtime/agent_episode.py
+Auto-merging intelligence/runtime/continuous_turn_adapter.py
+Auto-merging intelligence/services/agent_runtime.py
+Auto-merging intelligence/services/episode_progress.py
+Auto-merging intelligence/services/research_contract.py
+Auto-merging intelligence/services/research_tool_registry.py
+Auto-merging intelligence/tests/fixtures/run_supervisor.py
+CONFLICT (add/add): Merge conflict in intelligence/tests/fixtures/run_supervisor.py
+Auto-merging intelligence/tests/test_api_credits.py
+CONFLICT (content): Merge conflict in intelligence/tests/test_api_credits.py
+Auto-merging intelligence/tests/test_api_fixture_lifecycle.py
+CONFLICT (add/add): Merge conflict in intelligence/tests/test_api_fixture_lifecycle.py
+Auto-merging intelligence/tests/test_api_quota.py
+CONFLICT (content): Merge conflict in intelligence/tests/test_api_quota.py
+Auto-merging intelligence/tests/test_api_run_admission.py
+CONFLICT (content): Merge conflict in intelligence/tests/test_api_run_admission.py
+Auto-merging intelligence/tests/test_continuous_turn_adapter.py
+Auto-merging intelligence/tests/test_research_harness.py
+Auto-merging intelligence/tests/test_workbench_api.py
+CONFLICT (content): Merge conflict in intelligence/tests/test_workbench_api.py

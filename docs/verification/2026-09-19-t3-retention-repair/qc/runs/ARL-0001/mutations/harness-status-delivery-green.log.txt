@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_actual_failure_flag_reaches_model_and_audit_not_transport_ok"], "cwd": "/private/tmp/extraction-closeout-mutations-aly7f2j1/tree", "revision": "a2a3301963d11a073f511e1552b53daee7ecd704"}
+.                                                                        [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-green.xml -
+1 passed, 181 deselected in 0.82s
+
+STDERR:
+
+EXIT=0

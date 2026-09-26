@@ -953,7 +953,7 @@ def test_customer_fact_check_stops_after_mandatory_l3_gap(
     assert result.answer_spec is not None
     assert result.answer_spec.presentation_kind == "evidence_gap"
     assert result.provider_traces[0].provider == "agent:l3_lookup"
-    assert result.provider_traces[0].status == "empty"
+    assert result.provider_traces[0].status == "not_attempted"  # stub 未执行任何来源查询
     assert len(result.answer_spec.gaps) == 1
     assert "缺少证据不等于合作不存在" in result.answer_spec.gaps[0].text
 

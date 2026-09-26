@@ -1,0 +1,8 @@
+{
+  "valid": true,
+  "authority": "external",
+  "errors": [],
+  "status": "CHANGES_REQUIRED",
+  "review_id": "ARL-0002",
+  "commit": "64984b33e6f38eccc50c004b7b79120f1f45a775"
+}

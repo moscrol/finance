@@ -1,0 +1,5 @@
+command=/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+finance_head=7b23e8f15a77270a36087047b8b1fa061c76d3d7 finance_dirty=0
+{"passed": true, "real_worker_rows": 13, "closed_workers": 8, "evidence": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-7b23e8f1/results.json"}
+final_probe_sha256 76850dc91e498b4c920a6f1fa94cc0695adbd95b81f2a12b9980fc4ef67ed498  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+final_results_sha256 b4fc251a807dcf412d0918ab200304ca585b029aaf7b914ad8bc220a1ca08709  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-7b23e8f1/results.json

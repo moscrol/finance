@@ -1,5 +1,6 @@
 {
   "ambient_ids": [
+    "capital_data",
     "derived_calculation",
     "evidence_lookup",
     "evidence_search",

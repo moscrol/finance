@@ -1,0 +1,9 @@
+command=/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+finance_head=fb805b649ce07471559222c699188575943edc7b finance_dirty=0
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py", line 122, in <module>
+    assert rag_worker.status()['state'] == 'ready' and rag_worker.status()['active'] == 2
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+fixed_probe_sha256 f04419894eb9dcf6eaaaa3fc78f1235b8cc582fce7c3d53a438c93f82860f608  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+fixed_results_sha256 sha256sum: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed-fb805b64/results.json: No such file or directory

@@ -1,0 +1,9 @@
+{
+  "attempt": 1,
+  "failure_kind": "transport",
+  "next_retry_at": 1789795733.9182706,
+  "review_id": "ARL-0001",
+  "schema_version": 1,
+  "status": "REVIEWER_INACTIVE",
+  "updated_at": 1789795673.9182706
+}

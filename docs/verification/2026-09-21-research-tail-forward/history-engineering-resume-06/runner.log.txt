@@ -1,0 +1,5 @@
+2026-09-21T18:44:29.402310+00:00 START environmental
+2026-09-21T18:44:31.500706+00:00 END environmental 0 None
+2026-09-21T18:44:31.673354+00:00 START ordinary
+2026-09-21T19:06:17.942051+00:00 END ordinary 0 None
+{"exits": {"environmental": 0, "ordinary": 0}, "clean": true}

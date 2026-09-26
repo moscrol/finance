@@ -1,0 +1,26 @@
+#!/bin/bash
+set -u
+umask 022
+ROOT=/Users/a77/fwp-wt-financial-forward-0921
+OUT=/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+export HOME=/Users/a77 PATH=/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin LANG=en_US.UTF-8 TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1
+cd "$ROOT" || exit 2
+[ "$(git rev-parse HEAD)" = d82cb16b5ef31d23339a1bef7084a0dcb8221e15 ] || exit 2
+[ -z "$(git status --porcelain=v1)" ] || exit 2
+git rev-parse HEAD > "$OUT/financial-identity-before.txt"
+git status --porcelain=v1 >> "$OUT/financial-identity-before.txt"
+"$PY" -m ruff check . > "$OUT/financial-ruff-frozen.log" 2>&1
+printf '%s\n' "$?" > "$OUT/financial-ruff.rc"
+"$PY" -m pytest -q -p no:cacheprovider > "$OUT/financial-pytest.log" 2>&1
+printf '%s\n' "$?" > "$OUT/financial-pytest.rc"
+for cmd in 'check-parseability' 'check' 'backfill-tables --check' 'generate-views --check'; do
+  name=${cmd// /_}
+  "$PY" scripts/build_registry.py $cmd > "$OUT/financial-registry-$name.txt" 2>&1
+  printf '%s\n' "$?" > "$OUT/financial-registry-$name.rc"
+done
+"$PY" scripts/audit_ledger_spec_crosswalk.py > "$OUT/financial-crosswalk.txt" 2>&1
+printf '%s\n' "$?" > "$OUT/financial-crosswalk.rc"
+git rev-parse HEAD > "$OUT/financial-identity-after.txt"
+git status --porcelain=v1 >> "$OUT/financial-identity-after.txt"
+printf 'complete\n' > "$OUT/financial-gates.done"

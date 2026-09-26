@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "pr": "911",
+  "revision": "a52a3a9759a1d1d33fc5e19c86e35576394dd546",
+  "baseline": "64847b7a173bfb7191012638e8ec044ea31e0513",
+  "created_at": "2026-09-25T10:03:25.913481+00:00",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/audit_results.py",
+      "sha256": "a656d50c3bf0974c46c7c4a631bd4928e6ce93cb8fb37ebbd191428007dccdbf",
+      "bytes": 4252,
+      "path": "raw/audit_results.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/audited-results.json",
+      "sha256": "94e854756f43cb256b61dd72f215e382f622a59aca161daea5bb2638765d55b9",
+      "bytes": 33092,
+      "path": "raw/audited-results.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/baseline-drift.json",
+      "sha256": "ce463057cf58afa4db0052bcb6716b9491f7b98f8c828180f24dd7edd5bbed53",
+      "bytes": 879,
+      "path": "raw/baseline-drift.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/continue_remaining.py",
+      "sha256": "bce304036cde525b46a36df62cfe1a10dd35c9e15d48c6729e7202fe8685e8ab",
+      "bytes": 6981,
+      "path": "raw/continue_remaining.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/diff-check.log",
+      "sha256": "91140b5a5f8d6890ffaeb1700e6da8ff2c43442c246b37579d902bc763871796",
+      "bytes": 532,
+      "path": "raw/remaining-01/911/diff-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/diff-check.process.json",
+      "sha256": "6cf39353cf1ec5351a4a084f78beab82340843dd5a169884bc59b027bf8c7a51",
+      "bytes": 737,
+      "path": "raw/remaining-01/911/diff-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/doctor.log",
+      "sha256": "0a918dfb669f1a5a961d32d0f8b5b5991cce72ece50fa5a508d7cf49e8bf7a19",
+      "bytes": 5124,
+      "path": "raw/remaining-01/911/doctor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/doctor.process.json",
+      "sha256": "6d132511977ae98496e341604577f1f8f95f2bd7b2f30ee25bd463f3b53451e4",
+      "bytes": 746,
+      "path": "raw/remaining-01/911/doctor.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/ledger-crosswalk.log",
+      "sha256": "3243a3959ceb79235fbf6605557f6ea75b9ce20744b7fa0dd097eecc1e59a8a0",
+      "bytes": 2568,
+      "path": "raw/remaining-01/911/ledger-crosswalk.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/ledger-crosswalk.process.json",
+      "sha256": "c93965530f0c5196c15bd46b8ea3542e576ae20d4bda6a63fe8c64be2721dc88",
+      "bytes": 760,
+      "path": "raw/remaining-01/911/ledger-crosswalk.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-check.log",
+      "sha256": "11f4a45af7b811c122519d0d0d46c1f396449b435f9bdf1bc61349a0f2469003",
+      "bytes": 590,
+      "path": "raw/remaining-01/911/registry-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-check.process.json",
+      "sha256": "6fdca71f7a995d3b08d7988a8c785b07cf19b67ad093209ba3c849fffd40af65",
+      "bytes": 759,
+      "path": "raw/remaining-01/911/registry-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-parse.log",
+      "sha256": "f5009b90dabd062ab3b8bcb68c201fc06fa47d9a0436535ec8e8d0ae96ef7893",
+      "bytes": 665,
+      "path": "raw/remaining-01/911/registry-parse.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-parse.process.json",
+      "sha256": "22dbb6fa5b164371341cbf5b83280e982821dc1ab7ebc72f2d55ea17692d5e56",
+      "bytes": 771,
+      "path": "raw/remaining-01/911/registry-parse.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-tables.log",
+      "sha256": "3e0aa1ef633249f3d4fa489e5147099df05c17f359dfbfcced9f713a1b38cc1b",
+      "bytes": 695,
+      "path": "raw/remaining-01/911/registry-tables.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-tables.process.json",
+      "sha256": "252151e18875a2194f9b629b1dfa1730198a243ce44203b1f08a82d2631d573f",
+      "bytes": 784,
+      "path": "raw/remaining-01/911/registry-tables.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-views.log",
+      "sha256": "45a4e2e17d54d41fd1d87a4cfce3823afd39a74292c1211868ea64e584bd6200",
+      "bytes": 645,
+      "path": "raw/remaining-01/911/registry-views.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/registry-views.process.json",
+      "sha256": "d933e3945a8fed73ed2716b39484d9f8a20e901e0b8b3e4a4cf182edc78a2d93",
+      "bytes": 782,
+      "path": "raw/remaining-01/911/registry-views.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/ruff.log",
+      "sha256": "f747b59ea85cf8e725309b359e83310fd918f0c60faccb8f98a9edc7a2d04312",
+      "bytes": 556,
+      "path": "raw/remaining-01/911/ruff.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/911/ruff.process.json",
+      "sha256": "6cafab7f018053745dad7d345aec85785020d77e1b9c5a70e9c8a9f4c2494526",
+      "bytes": 747,
+      "path": "raw/remaining-01/911/ruff.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-01/summary.json",
+      "sha256": "04726fea9f3d94e3569617783c6b1fe10abdde547133358272b6eb81c50cdd52",
+      "bytes": 2124,
+      "path": "raw/remaining-01/summary.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/remaining-supervisor.log",
+      "sha256": "0c7e33d4b8b7fd364e8021759a1a2afe49a440613191a967314bd378f8729c77",
+      "bytes": 666,
+      "path": "raw/remaining-supervisor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/run_gates.py",
+      "sha256": "f9d5883f0eb0b8ecc67e03fa21cc59c0bc0a78108d4e40365a35927350bc848f",
+      "bytes": 6750,
+      "path": "raw/run_gates.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/seal_results.py",
+      "sha256": "022ed87120c1a711cb98ee7d4927e5d95f69e2467368259bed4b47138754bb2f",
+      "bytes": 3655,
+      "path": "raw/seal_results.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/started.json",
+      "sha256": "25eded92309ce3854c7b149484c4d46caf398501c3bdbb3790f0cdd14987a2de",
+      "bytes": 178,
+      "path": "raw/started.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/supervisor.log",
+      "sha256": "8af72ae3326a3bfa675803b5016ae52b5eb4e52fb84b73c2d1a6abceffd9f19a",
+      "bytes": 1169,
+      "path": "raw/supervisor.log.txt",
+      "storage": "git-original"
+    }
+  ],
+  "scope": "per-candidate engineering originals; common audit files explicitly identify both PRs",
+  "independent_review": false,
+  "paid_model_requests": 0,
+  "excluded": "disposable fixtures except selected nested author evidence; previous-run receipts"
+}

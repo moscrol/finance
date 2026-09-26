@@ -1,0 +1,36 @@
+{
+  "stage": "python",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/pytest-temp",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/python.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+  "started_at": "2026-09-21T16:41:17.992501+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5584707584
+  },
+  "timeout_seconds": 900,
+  "finished_at": "2026-09-21T16:53:39.928117+00:00",
+  "elapsed_seconds": 741.9353420417756,
+  "exit_code": -15,
+  "stop_reason": null,
+  "min_observed_free_bytes": 3407880192,
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 3449757696
+  },
+  "log_sha256": "05d7e2efe250fc04b8d41cec9f52fbfeef5f0851bd7abf0287abc36ca2e4203c"
+}

@@ -1,0 +1,51 @@
+{
+  "scope": "H-01 focused operator check; not independent acceptance",
+  "mode": "cutoff",
+  "mutation": {
+    "module": "honesty_gates",
+    "function": "requested_information_cutoff",
+    "old": "visible_query, _uncertain = top_level_message_text(str(query or \"\"))",
+    "new": "visible_query = str(query or \"\")"
+  },
+  "started": "2026-09-21T13:39:20.567827+00:00",
+  "finished": "2026-09-21T13:39:21.824031+00:00",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python": "3.12.13 (main, Mar  3 2026, 12:39:30) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "before": {
+    "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "status": " M intelligence/services/historical_research/intent.py\n M intelligence/services/honesty_gates.py\n M intelligence/services/research_contract.py\n M intelligence/services/user_task.py\n?? scripts/probe_history_control_boundary.py\n?? tests/test_history_control_boundary.py\n",
+    "sha256": {
+      "intelligence/services/user_task.py": "7f40468ceec08ea32d93a8b24ba1c06ecccf8a9ed5c95972f141e7d7b6bf6ad6",
+      "intelligence/services/historical_research/intent.py": "f0a4bc79e6e41bca05b3fa5eb77720a39d94c70776de6a315b5b7372ce0df888",
+      "intelligence/services/research_contract.py": "410949aed534e62cdac2f5433af894afa6441bb28a6bc057978617b7bb5fdf0f",
+      "intelligence/services/honesty_gates.py": "3e7fb0ee4f71aa3e71cdebf19a70e23a4075ac29961b4bae2d3a640ec528b292",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "scripts/probe_history_control_boundary.py": "1d2f703cbf5ee2405e9e7326a1b0e732c3f13c67ad752d0470ac0b9a332d462e"
+    }
+  },
+  "after": {
+    "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "status": " M intelligence/services/historical_research/intent.py\n M intelligence/services/honesty_gates.py\n M intelligence/services/research_contract.py\n M intelligence/services/user_task.py\n?? scripts/probe_history_control_boundary.py\n?? tests/test_history_control_boundary.py\n",
+    "sha256": {
+      "intelligence/services/user_task.py": "7f40468ceec08ea32d93a8b24ba1c06ecccf8a9ed5c95972f141e7d7b6bf6ad6",
+      "intelligence/services/historical_research/intent.py": "f0a4bc79e6e41bca05b3fa5eb77720a39d94c70776de6a315b5b7372ce0df888",
+      "intelligence/services/research_contract.py": "410949aed534e62cdac2f5433af894afa6441bb28a6bc057978617b7bb5fdf0f",
+      "intelligence/services/honesty_gates.py": "3e7fb0ee4f71aa3e71cdebf19a70e23a4075ac29961b4bae2d3a640ec528b292",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "scripts/probe_history_control_boundary.py": "1d2f703cbf5ee2405e9e7326a1b0e732c3f13c67ad752d0470ac0b9a332d462e"
+    }
+  },
+  "pytest_exit": 1,
+  "outcomes": {
+    "passed": 37,
+    "failed": [
+      "tests/test_history_control_boundary.py::test_real_continuation_keeps_scope_cutoff_and_read_ceiling[\\u7ee7\\u7eed\\u7814\\u7a76\\u3002\\u89e3\\u91ca\\u8fd9\\u53e5\\u8bdd\\uff1a\\u300c\\u7ad9\\u57282026\\u5e749\\u67081\\u65e5\\u6536\\u76d8\\u3002\\u300d]",
+      "tests/test_history_control_boundary.py::test_all_history_readers_use_protected_regions[\\u89e3\\u91ca\\u8fd9\\u53e5\\u8bdd\\uff1a\\u300c{text}\\u300d]",
+      "tests/test_history_control_boundary.py::test_all_history_readers_use_protected_regions[> {text}]",
+      "tests/test_history_control_boundary.py::test_all_history_readers_use_protected_regions[```text\\n{text}\\n```]"
+    ],
+    "errors": [],
+    "collected": 41
+  },
+  "expected_outcome_observed": true
+}

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+from datetime import date
+from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -17,6 +19,12 @@ try:
     import duckdb
 except Exception:  # pragma: no cover
     duckdb = None
+
+
+class _ReplayDate(date):
+    @classmethod
+    def today(cls):
+        return cls(2026, 8, 18)
 
 
 class ParseCapitalIntentTests(unittest.TestCase):
@@ -103,6 +111,7 @@ class CapitalBlockTests(unittest.TestCase):
             self.assertIn("2011.29", block)
             self.assertNotIn("融资余额", block)
 
+    @patch("intelligence.services.market_capital.date", new=_ReplayDate)
     def test_cssc_unlock_matches_eastmoney(self) -> None:
         # 东财 RPT_LIFT_STAGE 600072，取数日 2026-08-18：FREE_DATE=2026-08-18
         # 定向增发机构配售股份 CURRENT_FREE_SHARES=22999.1878 FREE_RATIO=0.212299414599
@@ -125,7 +134,8 @@ class CapitalBlockTests(unittest.TestCase):
             self.assertIn("21.23", block)
             self.assertIn("未来 90 天", block)
 
-    def test_unlock_empty_window_declares_none(self) -> None:
+    @patch("intelligence.services.market_capital.date", new=_ReplayDate)
+    def test_unlock_empty_window_is_source_scoped(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
             self._make_db(db)
@@ -137,7 +147,8 @@ class CapitalBlockTests(unittest.TestCase):
                 block_fetcher=lambda *a, **k: [],
                 unlock_fetcher=lambda *a, **k: [],
             )
-            self.assertIn("未来 90 天无待解禁", block)
+            self.assertIn("本次查询未返回解禁记录", block)
+            self.assertNotIn("未来 90 天无待解禁", block)
             self.assertIn("[D12]", block)
 
     def test_no_stock_returns_empty(self) -> None:
