@@ -1333,3 +1333,36 @@ def test_acceptance_db_mutation_fails(e2e_art, tmp_path, case, sqls,
     out = tmp_path / "out.json"
     res = _run_acceptance(clone, e2e_art, out)
     _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
+
+
+def test_cli_child_refuses_canonical_production_target(tmp_path, monkeypatch):
+    """新增执行点回归：`--child --db <canonical 生产库>` 必须 rc=2 且零写入。
+
+    `_refuse_production_write_direct` 是 main 既有的共享闸门，本单在
+    `cmd_repair_backfill_302132` 上新增了一个调用点。共享闸门自身的单测
+    （`tests/test_write_path_guard.py`）覆盖的是 daily-update / daily-full-exec
+    两条旧链路，不会断言本命令是否真的把它接上了——把闸门返回值改成 None
+    这一处变异在本单原有 118 条定向用例下全绿。本例锁住这个执行点。
+    """
+    from market_feature_store import cli
+
+    canonical = tmp_path / "canonical-production.duckdb"
+    canonical.write_bytes(b"production witness bytes")
+    before = canonical.read_bytes()
+    pq = tmp_path / "tail.parquet"
+    pq.write_bytes(b"child must be refused before any source access")
+
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(canonical))
+    monkeypatch.setattr(mod, "BackfillSpec", lambda: object())
+
+    def _must_not_run(*args, **kwargs):  # pragma: no cover - 触发即失败
+        raise AssertionError("闸门失效：子进程在 canonical 生产库上执行了回填")
+
+    monkeypatch.setattr(mod, "run_backfill_child", _must_not_run)
+
+    from types import SimpleNamespace
+    args = SimpleNamespace(parquet=str(pq), child=True, db=str(canonical),
+                           report_path=None)
+    assert cli.cmd_repair_backfill_302132(args) == 2
+    assert canonical.read_bytes() == before
+    assert not (tmp_path / "canonical-production.duckdb.status.json").exists()
