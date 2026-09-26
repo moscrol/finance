@@ -161,6 +161,16 @@ def test_receipt_scope_defects_are_refused_even_when_quotes_parse(tmp_path, capt
     assert names(db) == {"301686.SZ": None}
 
 
+def test_pinned_receipt_hash_must_match(tmp_path, capture):
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL])
+    with pytest.raises(ValueError, match="pinned"):
+        mod.run(DAY, capture, tmp_path / "r.json", db_path=db, expect_receipt_sha256="0" * 64)
+    assert names(db) == {"301686.SZ": None}
+    pinned = hashlib.sha256((capture / "receipt.json").read_bytes()).hexdigest()
+    mod.run(DAY, capture, tmp_path / "r2.json", db_path=db, expect_receipt_sha256=pinned)
+    assert names(db) == {"301686.SZ": "C中塑股份"}
+
+
 def test_dry_run_and_existing_receipt_write_nothing(tmp_path, capture):
     db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL])
     result = mod.run(DAY, capture, tmp_path / "dry.json", db_path=db, dry_run=True)
