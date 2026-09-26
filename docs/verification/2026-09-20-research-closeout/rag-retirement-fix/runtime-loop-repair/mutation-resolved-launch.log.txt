@@ -1,0 +1,40 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_managed_launch_uses_frozen_environment_despite_ambient_rewrite ______
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1240/test_managed_launch_uses_froze0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a5cbfb0>
+
+    def test_managed_launch_uses_frozen_environment_despite_ambient_rewrite(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        entry, _ = _replace_managed_interpreter_with_chain(alpha, tmp_path)
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        assert worker.python == alpha["python"], "venv 入口本身是解释器身份的一部分"
+        _bind(monkeypatch, beta)
+    
+        payload = worker.status()
+        assert payload["state"] == "cold"
+        assert payload["generation_status"] == "current"
+        with mock.patch.object(rag_worker.subprocess, "Popen") as spawn:
+            process = mock.Mock()
+            process.poll.return_value = 0
+            spawn.return_value = process
+            worker._ensure_process()
+        launched_argv = spawn.call_args.args[0]
+>       assert launched_argv[0] == str(entry)
+E       AssertionError: assert '/opt/homebre...in/python3.12' == '/private/tmp...nv/bin/python'
+E         
+E         - /private/tmp/pytest-of-a77/pytest-1240/test_managed_launch_uses_froze0/managed-venv/bin/python
+E         + /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+
+intelligence/tests/test_rag_worker_generation.py:238: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_generation.py::test_managed_launch_uses_frozen_environment_despite_ambient_rewrite
+1 failed in 0.08s

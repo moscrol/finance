@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_repair_owns_entire_operation_and_releases_on_exception __________
+intelligence/tests/test_episode_writer.py:391: in test_repair_owns_entire_operation_and_releases_on_exception
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_repair_owns_entire_operation_and_releases_on_exception
+1 failed, 22 deselected in 3.73s

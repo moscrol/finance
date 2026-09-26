@@ -1,0 +1,1013 @@
+diff --git a/.claude/lessons_learned.md b/.claude/lessons_learned.md
+index b30e7212..9e4a80b2 100644
+--- a/.claude/lessons_learned.md
++++ b/.claude/lessons_learned.md
+@@ -2,6 +2,16 @@
+ 
+ > 格式：`[日期] 错误 → 根因 → 正确做法`
+ 
++## 夜跑恢复与完成凭证
++
++- **[2026-09-17] 股票事实补全，但已完成板块仍缺新增成员，质量门照样绿。**
++  根因：stitch 按身份快照的 success 跳过，未反映行情输入变化；覆盖率/非空率不能证明依赖一致。
++  做法：恢复入口在 staging 显式 `--include-completed`，复用原 writer 重建，再按日重算下游；抽查新增身份和板块合计/边际量。删刷新分支的变异 1F，恢复后 114P。不能外推为全链自动失效机制；详见 `docs/handoffs/2026-09-17-local-review-recovery.md`。
++
++- **[2026-09-17] 旧数据树没有 local 被误读成机器不支持 local，装机计划被改 auto。**
++  根因：代码能力、模板配置和 launchd 实际装载环境不是同一个事实源。
++  做法：三态逐项核对，修配置只改目标键并保留 L2 根；local 的子模块也必须拒绝隐藏复盘会回退，不能只跳登录预检。
++
+ ## 异步消息可见性
+ 
+ - **[2026-09-16] 全量绿后文档收尾再现三轮会话消息pending，定向复验也红。**
+diff --git a/docs/handoffs/2026-09-17-local-review-recovery.md b/docs/handoffs/2026-09-17-local-review-recovery.md
+new file mode 100644
+index 00000000..4074d2cb
+--- /dev/null
++++ b/docs/handoffs/2026-09-17-local-review-recovery.md
+@@ -0,0 +1,119 @@
++# 2026-09-16/17 local 复盘恢复与分层验收
++
++记录于 2026-09-17。**两日复盘主链已恢复；不等于后续自动夜跑部署、方法前向实验或真实模型会话验收完成。**
++
++## 背景与归属
++
++09-15 另一会话从旧数据树推断机器不支持 local，把两个装机任务的 `REVIEW_SYNC_PLAN` 改成 auto。09-17 18:30 实际选 cheap，在复盘会/CDP 预检失败；staging 未发布。20:40 finalize 下载了 L2 日包，但股票行情缺失使 top100=0，L2/报告守卫继续失败。修复方向是恢复配置和日期化行情，不是重新登录已风控停抓的复盘会。
++
++- 数据根：`/Users/a77/finance-workspace-private`，detached `b4a35fa2`，有他人文件和运行产物，本轮不整理/提交。
++- 修复树：`/Users/a77/fwp-wt-nightly-review-0917`，`fix/nightly-review-0917`，基于 `gitea/main@0a1cb8c4`；代码终点 `5204bb32`。
++- 实际同步树：`/Users/a77/finance-workspace-sync@6382c13b`；只覆盖指数防回退模块。
++- L2 冻结根：`/Users/a77/.finance-runtime/finance-l2-d433b90788c0`，保留原装机根。
++- 一次性生成根：`/Users/a77/fwp-wt-generation-root-guards-validation@387028b8`；没有部署该分支。
++- 证据根（下称 RUN）：`/Users/a77/.finance-runtime/review-recovery-20260917/`。
++
++## 发现顺序与决定
++
++| 发现/方案 | 选择 | 否决及理由 |
++|---|---|---|
++| 模板本来 local，装机与生效环境为 auto | 备份后只改两个 plist 的目标变量，bootout/bootstrap，并比对模板/装机/launchctl 三态 | 不整份回滚 plist，避免倒退 L2 根；不凭旧 checkout 宣称能力不存在 |
++| local 指数模块仍可隐式请求复盘会 | 参数与环境双边界拒绝 fallback；实际同步树最小覆盖该模块，验证主源空时 fallback 调用0次 | 不因跳过登录预检就宣称没有外呼；不整体替换运行树 |
++| 历史日不能直接跑今天快照 | 09-17东财原始响应固定日期；09-16逐股取真实日期化Sina历史，再staging恢复 | 不改快照日期、不用 allow_misdated、不手写生产SQL补数 |
++| 续抓缺身份且原始快照含空价占位 | 仅借后日正有限价行的身份；续抓保留已有有效行 | 不把后日价格当历史价格，不把退市/未上市占位当活跃全集 |
++| 无前一根bar的两只IPO | 核对精确上市日和发行价，保留来源；恢复历史N名 | 不把一切无前收当IPO，不用后日收盘假造前收 |
++| 689009.SH普通接口报JSON错误 | CDR专用历史API，独立source，缺turnover留NULL | 不强套普通A股API或补零 |
++| 底表补回CDR，已success板块仍缺11条成分 | 恢复在staging显式 `--include-completed`，复用原代际writer，09-16→17顺序重算 | 不把旧success/rc=0视为输入未变；不另建删除/写入链，不修改常规默认skip |
++| 历史拼接会拉今天腾讯市值 | 09-16始终 `--no-caps` | 不把现值市值混入历史 |
++| 旧finalize存在生成代码/数据根错配 | 固定387028b8 launcher与canonical数据根，用户态保持外置 | 不把一次性成功当正式部署，不扩大L2变更范围 |
++| agent-daily先于整轮summary落盘 | 整轮PASS后从agent-daily正式刷新，另存post-recovery摘要 | 不手删“仅作预览”警告，不覆盖原收据来伪装首次完整 |
++| 方法daily rc=0但capture refused | 保留旧协议，记录v3/v6不兼容与拒绝 | 不改旧协议、不回拨时钟、不宣称登记了前向观察 |
++| L3只有滚动days、无历史as-of | 只查09-17，dry-run；09-16不混入未来证据 | 不apply他人脏知识库，不把无公司回答的提问当公司事实 |
++
++## 代码提交与生产动作
++
++代码依次：`679007b3`（指数边界/受控恢复）、`5c04d5da`（身份续抓）、`307701d3`（IPO）、`8709ad7a`（CDR/身份过滤）、`5204bb32`（已完成成分刷新）。未push/合并。
++
++`recover_local_review.py` 复用 `run_daily_full_staged()`：旧夜跑目录锁、数据库mutex、child限定 `.staging` 与run_id、两日质量/跨日/基线检查、成功状态绑定run_id、换库前可读备份。先装09-17股票作历史次日锚，再按日派生。原失败staging另存取证，不恢复退役链。
++
++三轮均 `swapped=true, rc=0`，每轮备份都保留在数据根 `db/`：
++
++| 收据 | run_id | 备份后缀 |
++|---|---|---|
++| `recovery-receipt.json` | `3e92a484e7a4` | `.bak-20260917T214501-3e92a484e7a4` |
++| `recovery-cdr-receipt.json` | `6ed28b9c7542` | `.bak-20260917T215303-6ed28b9c7542` |
++| `recovery-final-receipt.json` | `cca104bedc85` | `.bak-20260917T215917-cca104bedc85` |
++
++最终备份3676319744 bytes、66表只读可打开，SHA256 `a855e472ca97f46a7f533f3388d51d3909fb31facb47338d95ccd3ce91ed6e4d`。这是第三轮换库前状态，不是最初故障库。回滚需先协调全部读写者、校验对应收据，不能随手复制或清WAL。
++
++主管曾因刷新成分协调而暂停，21:59:42已恢复；finish与closeout均已结束、目录锁已释放。**不要照旧摘要再次SIGCONT、清锁或并行重跑。**
++
++## 主链验收
++
++| 项目 | 09-16 | 09-17 |
++|---|---:|---:|
++| 股票日线 | 5549 | 5553 |
++| 板块日线 / 成分行 | 403 / 52748 | 403 / 52769 |
++| CDR成分 | 11条、价额非空 | 11条、价额非空 |
++| local数据/报告/L2总门 | COMPLETE | COMPLETE |
++| 跨日门 | PASS | PASS |
++| limitup处理/失败 | 33/0 | 89/0 |
++| top100处理/失败 | 100/0 | 100/0 |
++| quant处理/失败、结果数 | 100/0、60 | 100/0、43 |
++| 首次生成 | 19步骤PASS | 19步骤PASS |
++| 队列刷新 | 10步骤PASS | 10步骤PASS |
++
++口径：`--phase all --plan local` 查19/20张事实/特征表，**不是full计划全部表**；没有L2暂停/全空豁免。量化簇结果60/43不是漏处理，分母均为100个候选。
++
++额外只读验证（不靠rc或行数替代依赖验证）：
++- 两日各403板块：成员合计金额、相邻日边际变化、适用等权涨幅，与日表一致；0不匹配。证据 `derived-consistency-verified.log`。
++- 两日L2实际股票集合与当前canonical候选集合一致；涨幅按真实writer的 `round(pct_chg, 2)` 一致；quant是top100子集。证据 `l2-input-consistency-rounded.log`。无需force-rescan。
++- 09-17唯一空amount：`688496.SH *ST清越`（close=0.58、pct=0，volume亦NULL），保留缺口，不填0。
++- 09-16前收链5547可比、0不符；次日锚5549可比、22不符；收益/量纲检查0异常。历史除权除息口径差异保留。
++- 最终快照22:03:23发布，requested/served/source_data_date均09-17，provider=duckdb_exact、quality=complete、fresh。
++- 22:22:20真实8792 `/api/readiness`：ready；market_database与snapshot均09-17且consistent。此证明服务读到新鲜数据，不是模型问答验收。
++
++全股票sum(amount)为18521.3932/18362.6209亿元；市场表total_amount为18386.22/18227.57亿元。两者分母不同，不混写。
++
++## 产物及不可变证据
++
++两日 `复盘/daily/<D>/<D>-daily-review.html`、daily-review JSON/Markdown/MA5 PNG、题材候选、研究队列、策略一/三/四矩阵、工作台与 `复盘/index.html` 均产出；报告JSON日期正确、warnings为空，HTML/矩阵有目标日，PNG签名与实物非空已验。未做真人浏览器视觉验收；策略一仍是机械初稿待人工复核。
++
++队列刷新后market_review ledger为PASS/missing=0，过期“先补齐daily workflow”提示消失。晨汇WARN仍真实存在，是有源才跑的旁支，不伪造补齐。KB本轮刷新接收文件为：
++`/Users/a77/knowledge-base-private/wiki/raw/cross-repo-ingest-queue/<D>/<D>-kb-ingest-queue-2.json`，分别7/9个任务；只received，不等于apply。语义RAG本轮关闭，不以接收成功宣称检索/知识质量通过。
++
++**共享产物会被后来任务覆盖**：收尾观察到09-17 canonical workflow summary已变为22:34:35–22:37:04的新一轮，KB也多出queue-3；不认领该轮。已从本轮独立日志抽取完整原摘要：
++- `generation-2026-09-16-summary-frozen.json`：22:00:31–22:01:55。
++- `generation-2026-09-17-summary-frozen.json`：22:01:56–22:03:23。
++- `agent-refresh-<D>-summary-frozen.json`：22:21:54–22:22:17范围内。
++
++`closeout-evidence-manifest.json` 哈希绑定上述原摘要、质量门、发布/配置收据、当前实物与知识库本轮接收文件。现场日志/大库不提交Git。
++
++## 旧方案对齐能证明什么
++
++只读对账08-14至09-02的14个干净交易日，10类指标全部达到既定阈值：成交额/量能三项/前三行业顺序14/14；涨家数13/14在±10内；逐板块涨停数一致97.9%，明细召回99.7%；连板181条、龙头高度14日全部一致。核心成交额前50历史覆盖20213/20250（405日），未命中37条均缺日线。
++
++**达阈值不是完全复刻**：跌停只有85.7%交易日在±6内（门80%）；08-17涨家数复盘会4248、自算4334；20日新高数量相对误差中位11.8%；强度状态13/14一致。local还沿用最近真实成员身份，缺官方板块payload时涨幅为等权均值；主线/阶段是自家框架推断。旧资金流1d/5d字段两日全NULL，L2不自动填充它们。没有完整网络审计，不能把已封住的指数fallback推广为全链绝无复盘会请求的证明。
++
++## 旁支状态与剩余边界
++
++1. 方法：active绑定unset（rc4为允许默认study的状态），daily重建labels/outcomes水位到09-17，capture因旧v3协议/当前v6标签拒绝；recheck=nothing_due。历史2个共同日不足min_n20，standing为降权观察，不出胜率。须另走新协议登记与active切换，不改旧实验。
++2. L3：09-17例行池9只、agent代码缺口0，dry-run1候选，是300112投资者问MFC量产、无公司答复；未apply。09-16未执行无as-of的滚动查询。知识库有他人WIP/UU，不碰。
++3. 框架checkpoint新建与回检是两批；manual/unverifiable不是命中。未验真实Workbench `run_turn`、模型网关响应或episode合同。
++4. 装机两plan已local，指数最小覆盖已验；**已安装finalize仍用旧的生成调用，生成根正式修复未部署**。下一次无人值守成功尚待该独立部署及运行验收。
++5. 本枝无全仓pytest/前端/E2E/registry四叶验收、无独立QC，不满足合并凭证；用户未授权合main。既有pip依赖冲突未修，不推断与本路径无关即全环境健康。
++
++## 测试、误诊与沉淀
++
++- 5204bb32：全仓Ruff、diff检查、7文件定向114P；最新收据 `~/.finance-runtime/test-receipts/20260917T142352Z-5204bb32.json`，日志 `tests-closeout-5204bb32.log`。这不是全仓pytest。
++- 将include_completed判断在独立进程内存中移除，刷新回归按预期1F；磁盘未改。恢复原实现定向重跑通过。`member-refresh-mutation.log` 的红是刻意反例，不是未修测试。
++- 保留错误量具：首次派生诊断最后误用ts_code（正确stock_ts_code）；首次L2诊断忽略writer两位小数。这两次rc1均不算通过；分别有修正后的完整rc0收据，未调业务门槛。
++- 可复用原则写入 agent-memory `gate-covers-only-its-return-value.md` 的“成功凭证必须绑定输入”；能力图谱/项目索引已回写，graph_audit rc0（其他分支UNVERIFIED不被本轮冒认）。原指数函数名早就存在，图谱改钉新增行为测试，防止符号存在被误读成修复已合。
++- 可重用恢复逻辑与回归已进仓，不把runtime主管当第二条常驻链。一次性身份抽验/证据归档只留RUN；本次没有另造跨项目通用检查框架。KIT已有该方法论笔记索引；harness-reference/BUILD.md有他人782行删除WIP，本轮未改KIT/BUILD/TOOLKIT，若要抽通用工具另树处理。
++
++## 接手顺序
++
++1. 先看inflight和RUN不可变原摘要；不要从已覆盖的canonical摘要认领本轮结果。
++2. 优先走生成根分支的独立复核/正式部署，保留L2根；同时另办方法协议版本迁移。
++3. 本枝准备合并时按固定revision跑四叶本机门禁，取得用户确认；产物JSON、数据库/备份和他人改动不入提交。
++4. 未来任何底行情修订都要证明受影响派生/候选已刷新；本次显式重建不是全链自动输入指纹机制。
+diff --git a/docs/handoffs/inflight/fix-nightly-review-0917.md b/docs/handoffs/inflight/fix-nightly-review-0917.md
+new file mode 100644
+index 00000000..70dbf8f0
+--- /dev/null
++++ b/docs/handoffs/inflight/fix-nightly-review-0917.md
+@@ -0,0 +1,36 @@
++# 09-16/17 local复盘恢复
++
++## 这个分支做什么
++恢复两日真实行情→staging验收发布→L2→报告/快照，封住指数隐藏复盘会回退。
++
++## 决策与被否方案
++- 模板/装机/生效三态核对；只改local，否整份回滚以保留L2根。
++- 历史取Sina、核实IPO/CDR；否改今天快照日期。
++- staging显式include-completed重算，否信旧success；历史no-caps。
++- 生成固定387028b8根，否盲跑旧finalize；仅一次性调用。
++- 背景/被否方案/完整证据：`docs/handoffs/2026-09-17-local-review-recovery.md`。
++
++## 当前状态
++树`/Users/a77/fwp-wt-nightly-review-0917`；代码5204bb32，日期文档617ecc7b。两日主链已恢复；本枝未push/合并。plan已local，同步树仅覆盖指数模块，L2根未改。主管结束、锁已释放，勿再SIGCONT。两个未跟踪quality-09-16/17.json是产物，不提交。
++证据根RUN=`/Users/a77/.finance-runtime/review-recovery-20260917/`；最终发布run_id=cca104bedc85，有换库前备份及SHA收据。
++
++## 未验证 / 已知边界
++- 已安装finalize仍是旧生成调用；本轮一次性成功≠正式部署/下次无人值守成功。
++- 方法labels/outcomes到09-17，但旧v3协议对v6标签capture refused；rc0≠前向登记完成。
++- L3仅09-17 dry-run，唯一候选是投资者问题无公司回答，未apply；09-16无as-of不补滚动查询。KB receive≠apply，晨汇WARN保留。
++- 未验Workbench模型episode/浏览器视觉；manual/unverifiable不是命中。本枝全仓pytest/前端/E2E/registry及独立QC未跑，不满足合并准入。
++- local沿用成员身份、部分板块等权涨幅；旧资金流字段NULL、09-17清越amount空保留。未做全链网络审计。
++
++## 下一步
++1. 先推进生成根分支正式验收/部署，保留L2根；方法协议迁移另走新登记/active切换，不改旧协议。
++2. 本枝合并另跑固定revision四叶检查，等用户确认。
++3. 读RUN冻结摘要与closeout-evidence-manifest.json；09-17 canonical摘要后来被22:34–22:37别轮覆盖，不认领它。
++
++## 踩过的坑
++旧success只证明旧输入；重试会跳过。L2涨幅两位，完成标记无输入指纹。产物/库不入Git。通用经验入vault；KIT/BUILD另树a75b1ba（docs/recovery-receipt-inputs-0917）已推未合，主树他人WIP未碰。
++
++## 已验证
++- 两日local数据/报告/L2门COMPLETE（19/20表，非full）；跨日PASS。股票5549/5553，各403板块金额/边际量/适用等权涨幅重算0差；CDR各11成分。
++- L2三步均complete/失败0；当前名单及两位涨幅与结果一致，quant处理100、结果60/43。
++- 原生成19步、队列刷新10步均PASS；报告/矩阵/KB接收实物验过。快照served=09-17；8792 readiness确认DB/快照同日。
++- Ruff/定向114P；收据20260917T142352Z-5204bb32；删刷新分支变异1F后恢复通过。14日历史对账达阈值≠完全复刻。能力图谱audit rc0，记忆已回写。
+diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py
+index 9cccbc74..027514fa 100644
+--- a/market_feature_store/cli.py
++++ b/market_feature_store/cli.py
+@@ -230,6 +230,7 @@ def cmd_sync_index_daily(args) -> int:
+         start_date=args.start_date,
+         end_date=args.end_date,
+         symbol=args.symbol,
++        allow_fupanhui_fallback=not args.no_fupanhui_fallback,
+     )
+     print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
+     print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
+@@ -611,6 +612,7 @@ def cmd_stitch_sector_stocks(args) -> int:
+         args.trade_date,
+         fetch_caps=not args.no_caps,
+         dry_run=args.dry_run,
++        include_completed=getattr(args, 'include_completed', False),
+         **kwargs,
+     )
+     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
+@@ -2042,6 +2044,7 @@ def build_parser() -> argparse.ArgumentParser:
+     p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
+     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
+     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
++    p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
+     p_idx.set_defaults(func=cmd_sync_index_daily)
+ 
+     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
+@@ -2177,6 +2180,8 @@ def build_parser() -> argparse.ArgumentParser:
+     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
+     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
+     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
++    p_st.add_argument("--include-completed", action="store_true",
++                      help="底行情修正后重建已完成板块；恢复任务仅在 staging 中使用")
+     p_st.add_argument("--max-baseline-age-days", type=int, default=None,
+                       help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
+     p_st.set_defaults(func=cmd_stitch_sector_stocks)
+diff --git a/market_feature_store/sync/sync_akshare_index_daily.py b/market_feature_store/sync/sync_akshare_index_daily.py
+index 827843bd..4d7e84ab 100644
+--- a/market_feature_store/sync/sync_akshare_index_daily.py
++++ b/market_feature_store/sync/sync_akshare_index_daily.py
+@@ -1,6 +1,7 @@
+ """同步指数日线到 fact_market_daily。"""
+ from __future__ import annotations
+ 
++import os
+ from datetime import datetime, timedelta
+ 
+ from ..db import connect, init_db
+@@ -117,6 +118,7 @@ def sync_akshare_index_daily(
+     start_date: str | None = None,
+     end_date: str | None = None,
+     symbol: str = "sh000001",
++    allow_fupanhui_fallback: bool = True,
+ ) -> dict:
+     init_db()
+     con = connect()
+@@ -146,6 +148,12 @@ def sync_akshare_index_daily(
+             records = []
+             akshare_error = exc
+         if not records and trade_date:
++            # local 是请求边界，不能只在 preflight 跳过登录探测后又偷偷访问复盘会。
++            if not allow_fupanhui_fallback or os.environ.get("REVIEW_SYNC_PLAN") == "local":
++                raise RuntimeError(
++                    f"AkShare 未返回指数数据: {symbol} {start}~{end}; "
++                    "local/no-fupanhui-fallback 禁止请求复盘会，保留缺口、不降级换源"
++                ) from akshare_error
+             # akshare 两条路径(新浪/东财)可同时被本机代理掐 SSL(2026-08-21/08-24 实测)。
+             # 兜底只覆盖请求日单日; 多日回填仍依赖 akshare, 缺口如实抛。
+             fallback = _fetch_fph_index(trade_date)
+diff --git a/market_feature_store/sync/sync_local_sector_members.py b/market_feature_store/sync/sync_local_sector_members.py
+index 9ac01ac7..732dbcc7 100644
+--- a/market_feature_store/sync/sync_local_sector_members.py
++++ b/market_feature_store/sync/sync_local_sector_members.py
+@@ -376,7 +376,7 @@ def stitch_sector_members(
+     """对 identity 未动且尚未完成的板块做本地拼接。返回可进 runlog 的摘要。
+ 
+     ``dry_run`` 只算不写，摘要里带 ``rows``（按板块）供对账；``include_completed``
+-    连已 success 的板块也算（仅供在历史快照上回测拼接精度，生产路径不用）。
++    连已 success 的板块也算（历史回测，或 staging 恢复中底行情修正后的重建；日更默认不用）。
+     """
+     td = _as_date(trade_date)
+     own = con is None
+diff --git a/scripts/recover_local_review.py b/scripts/recover_local_review.py
+new file mode 100644
+index 00000000..0199abd8
+--- /dev/null
++++ b/scripts/recover_local_review.py
+@@ -0,0 +1,175 @@
++"""Recover dated local reviews through the existing guarded staging publisher.
++
++Never substitute a live snapshot for a historical day. Capture the latest raw
++Eastmoney snapshot and validated Sina JSONL first. All writes happen in a child
++on MARKET_FEATURE_STORE_DB=.staging; only a fully successful, run-bound status
++allows run_daily_full_staged to publish. Reuses the local plan and both gates.
++The stock anchor for the later day is loaded first, but derived days are ordered.
++"""
++from __future__ import annotations
++
++import argparse
++import importlib.util
++import json
++import math
++import os
++import sys
++from contextlib import contextmanager
++from pathlib import Path
++from unittest.mock import patch
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT))
++
++
++def load_script(relative: str):
++    spec = importlib.util.spec_from_file_location(Path(relative).stem, ROOT / relative)
++    assert spec is not None and spec.loader is not None
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++def validate_inputs(history_day: str, snapshot_day: str, history: Path, snapshot: Path):
++    from market_feature_store.sync.sync_eastmoney_stock_snapshot import snapshot_trade_date
++
++    if history_day >= snapshot_day:
++        raise ValueError("history must precede snapshot")
++    raw = json.loads(snapshot.read_text())
++    if snapshot_trade_date(raw) != snapshot_day:
++        raise ValueError("snapshot actual date differs from requested date")
++    rows = [json.loads(line) for line in history.read_text().splitlines() if line.strip()]
++    if not rows or any(r.get("trade_date") != history_day for r in rows):
++        raise ValueError("empty or misdated historical input")
++    codes = [r.get("stock_ts_code") for r in rows]
++    if len(codes) != len(set(codes)):
++        raise ValueError("duplicate historical stocks")
++    if any(r.get("source") not in ("sina:stock_zh_a_daily", "sina:stock_zh_a_cdr_daily") for r in rows):
++        raise ValueError("historical provenance mismatch")
++    for r in rows:
++        if any(not isinstance(r.get(k), (int, float)) or not math.isfinite(r[k])
++               for k in ("close", "pre_close", "pct_chg", "amount", "open", "high", "low", "volume")):
++            raise ValueError(f"missing/non-finite historical value: {r['stock_ts_code']}")
++        if r['close'] <= 0 or r['pre_close'] <= 0 or r['amount'] < 0 or r['volume'] < 0:
++            raise ValueError(f"invalid historical price/amount: {r['stock_ts_code']}")
++    return raw, rows
++
++
++@contextmanager
++def nightly_lock():
++    """Coordinate with installed S7/finalize, which predate the DB run mutex."""
++    root = Path(os.environ['FINANCE_WS']).resolve()
++    lock = Path(os.environ.get('FINANCE_LOCK_DIR', str(root / 'state/locks'))) / 'daily-full-review.lock'
++    lock.parent.mkdir(parents=True, exist_ok=True)
++    lock.mkdir()  # Existing lock is a refusal; never remove someone else's lock.
++    try:
++        (lock / 'pid').write_text(str(os.getpid()) + '\n')
++        yield
++    finally:
++        (lock / 'pid').unlink(missing_ok=True)
++        lock.rmdir()
++
++
++def recovery_stitch_command(sync, day: str, history_day: str) -> list[str]:
++    # Recovery replaces base facts: an old success receipt is not proof that
++    # materialized member rows still match those facts.
++    command = sync.CLI + ['stitch-sector-stocks', '--trade-date', day,
++                          '--max-baseline-age-days', '180', '--include-completed']
++    if day == history_day:
++        command.append('--no-caps')
++    return command
++
++
++def child(args) -> int:
++    from market_feature_store import db
++    from market_feature_store.sync import sync_eastmoney_stock_snapshot as snapshot_module
++
++    if not str(db.DB_PATH).endswith('.staging') or not os.environ.get('MARKET_FEATURE_STORE_RUN_ID'):
++        raise RuntimeError('child requires the staging publisher, not a direct write')
++    raw, rows = validate_inputs(args.history_day, args.snapshot_day, args.history, args.snapshot)
++    # Replay captured official bytes through the unchanged parser and date gate.
++    with patch.object(snapshot_module, 'fetch_snapshot', return_value=raw):
++        result = snapshot_module.sync_fact_stock_daily_snapshot(args.snapshot_day)
++    print('snapshot replay:', result, flush=True)
++    con = db.connect(read_only=True)
++    try:
++        anchor_count = con.execute(
++            'SELECT count(*) FROM fact_stock_daily WHERE trade_date=? AND amount>0',
++            [args.snapshot_day],
++        ).fetchone()[0]
++    finally:
++        con.close()
++    if len(rows) < anchor_count * 0.99:
++        raise RuntimeError(f'history coverage {len(rows)}/{anchor_count} below 99%')
++    history_module = load_script('skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py')
++    hist_args = argparse.Namespace(trade_date=args.history_day, rows=str(args.history))
++    if history_module.cmd_validate(hist_args):
++        raise RuntimeError('historical adjacent-day/units validation failed')
++    history_module.cmd_write(hist_args)
++
++    sync = load_script('skills/daily-full-review/scripts/run_review_sync.py')
++    data_root = Path(os.environ['FINANCE_WS']).resolve()
++    sync.RUNLOG = data_root / 'skills/daily-full-review/state/runlog.md'
++    os.environ['DUCKDB_SNAPSHOT_OUT_ROOT'] = str(data_root / 'db/snapshots')
++    results = []
++    for day in (args.history_day, args.snapshot_day):
++        plan = sync.build_plan(day, timeout=300, heavy_timeout=600, plan='local')
++        for name, action in plan:
++            if name in {'db-lock', 'stock-daily'}:
++                continue  # Already verified local capture inputs, not live snapshot.
++            if name == 'stitch-sector-stocks':
++                result = sync.run_step(name, recovery_stitch_command(sync, day, args.history_day), 600)
++            else:
++                result = action()
++            results.append({'date': day, **result})
++            if result['status'] != 'ok':
++                raise RuntimeError(f'{day} {name} failed; no publish')
++    # Cross-day gate sees BOTH dates fully derived; no partially-created calendar row.
++    for day in (args.history_day, args.snapshot_day):
++        checks, ok = sync.run_release_steps(day, 300, plan='local')
++        results.extend({'date': day, **r} for r in checks)
++        if not ok:
++            raise RuntimeError(f'{day} quality gates failed; no publish')
++    alignment = sync.run_step('backfill-alignment', [sys.executable,
++        str(ROOT / 'skills/duckdb-backfill/scripts/qa_backfill_align.py'),
++        args.history_day, args.snapshot_day, '--plan', 'local',
++        '--json', str(args.receipt.with_suffix('.alignment.json'))], 300)
++    results.append(alignment)
++    if alignment['status'] != 'ok':
++        raise RuntimeError('baseline alignment failed; no publish')
++    sync.write_runlog(args.snapshot_day, results, True, plan='local')
++    status = {'run_id': os.environ['MARKET_FEATURE_STORE_RUN_ID'],
++              'trade_date': args.snapshot_day, 'ok': True, 'steps': results}
++    Path(str(db.DB_PATH) + '.status.json').write_text(json.dumps(status, ensure_ascii=False))
++    return 0
++
++
++def main(argv=None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--history-day', required=True)
++    parser.add_argument('--snapshot-day', required=True)
++    parser.add_argument('--history', type=Path, required=True)
++    parser.add_argument('--snapshot', type=Path, required=True)
++    parser.add_argument('--receipt', type=Path, required=True)
++    parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
++    args = parser.parse_args(argv)
++    os.environ['REVIEW_SYNC_PLAN'] = 'local'
++    validate_inputs(args.history_day, args.snapshot_day, args.history, args.snapshot)
++    if args.child:
++        return child(args)
++    from market_feature_store import db
++    from market_feature_store.sync.sync_daily_full import run_daily_full_staged
++
++    target = Path(os.environ['MARKET_FEATURE_STORE_DB']).resolve(strict=True)
++    if target != db.DB_PATH.resolve() or str(target).endswith('.staging'):
++        raise RuntimeError('parent requires the explicit existing canonical database')
++    command = [sys.executable, '-u', str(Path(__file__).resolve()), *(argv or sys.argv[1:]), '--child']
++    with nightly_lock():
++        result = run_daily_full_staged(args.snapshot_day, child_argv=command,
++                                       kind='local-review-recovery', pre_swap_backup=True)
++    args.receipt.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str))
++    return result['rc']
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/skills/daily-full-review/references/ops-pitfalls.md b/skills/daily-full-review/references/ops-pitfalls.md
+index 7d082b28..e2a84e40 100644
+--- a/skills/daily-full-review/references/ops-pitfalls.md
++++ b/skills/daily-full-review/references/ops-pitfalls.md
+@@ -2,6 +2,15 @@
+ 
+ ### 关键防坑点（顺/坑 速查）
+ 
++- **档位要验运行态三件套**：仓内模板、`~/Library/LaunchAgents/` 装机 plist、`launchctl print`
++  生效环境逐个对照。2026-09-15 有会话根据旧数据树误判 `local` 不存在，将装机值改成 `auto`，
++  导致 09-16/17 仍去探复盘会；模板正确不能证明机器正确。恢复时只改目标键并保留现有 L2 代码根。
++  `local` 的子模块请求边界另见 `skills/duckdb-backfill/references/backfill-runbook.md` 坑⑧。
++
++- **补跑收尾分层验收**（2026-09-17）：数据/报告/L2 过门且快照达到目标日，才说明复盘主链恢复；方法飞轮 `daily` 即使 rc=0，也要读 `capture.status`（旧协议 v3 对新标签 v6 可被拒绝），不能宣称已登记前向观察。协议迁移另走登记/切换，不改旧协议或回拨时钟。
++- **首次生成的研究队列可留过期预览警告**：`agent-daily` 读取整轮 summary 时，summary 尚未落盘。先核对仅缺该文件且整轮已 PASS，再经同一固定代码根从 `--from-step agent-daily` 刷新队列及后续驾驶台，另存补跑 summary、保留原全流程收据；不手删警告。
++- **L3 的 `--date` 不冻结外部查询日期**：现有 lookup 只有滚动 `--days` 窗口，历史补跑不能冒充当时证据；当日 dry-run 后逐条看原文。只有投资者问题、没有公司回答的关键词命中不是公司事实；不要 apply。
++
+ - **limit-heat 被 PIPE 吞进度 = 看起来挂死**：通过子脚本 `backfill_review_hot_data.py`
+   跑时 stdout 被 PIPE 缓冲，看不到 chunk 进度会误判挂起。**直跑 `sync-limit-heat`
+   继承 stdout** 就能看到 `detail chunk i/N`，2026-06-16 验证 25 个 chunk 顺利跑完。
+diff --git a/skills/daily-full-review/scripts/run_review_sync.py b/skills/daily-full-review/scripts/run_review_sync.py
+index 3b5f204b..a5b5c90a 100644
+--- a/skills/daily-full-review/scripts/run_review_sync.py
++++ b/skills/daily-full-review/scripts/run_review_sync.py
+@@ -372,7 +372,7 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
+     return [
+         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
+         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
+-        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
++        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
+         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
+         ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
+         ("stitch-sector-stocks", lambda: run_step(
+diff --git a/skills/duckdb-backfill/references/backfill-runbook.md b/skills/duckdb-backfill/references/backfill-runbook.md
+index be699095..1b329e80 100644
+--- a/skills/duckdb-backfill/references/backfill-runbook.md
++++ b/skills/duckdb-backfill/references/backfill-runbook.md
+@@ -54,6 +54,13 @@
+    `sector-daily-local` / `mainline` / `core-leader` / `features` 才连坐报「403 个板块无成分行」。
+    辨识特征：输出里 **`基线日期分布: {}`** 且 `市值现值 N 只` 正常（基线取到了、当日真值没认出来）。
+    新增独立外部供应商源时要同步加进白名单；**绝不可为了过门把行的 `source` 改成已在白名单的名字**（伪造出处）。
++⑧ **`local` 预检不请求复盘会，不代表子模块也不请求**（2026-09-17 排查）：
++   旧 `sync-index-daily` 在 AkShare 失败/空返回时仍会调用复盘会兜底。停抓期的 local 计划须显式传
++   `--no-fupanhui-fallback`，底层也服从 `REVIEW_SYNC_PLAN=local`；两者均先于网络兜底检查。
++   主源失败保留缺口并拒绝发布，不能以「兜底」为由突破请求边界。上线核对实际同步代码根，不只看模板。
++
++⑨ **补底行情后，旧 success 不证明派生仍新鲜**（2026-09-17）：stitch 默认跳过已完成板块；补回九号公司后，股票表多了真值但 11 个板块仍缺它。恢复任务须在 staging 用 `stitch-sector-stocks --include-completed`，再按日重算板块日线和下游（后日边际量依赖前日金额）；历史日保持 `--no-caps`。验收抽查新增身份已进入应属的板块，而不只看模块 rc=0。
++
+ ## local 计划实跑记录（2026-09-07，生产库）
+ 
+ | 日 | 结果 | 备注 |
+@@ -135,6 +142,9 @@ python3 $S validate --trade-date 2026-09-08   # 四条只读对账，必须 PASS
+ python3 $S write    --trade-date 2026-09-08   # 单次短事务 upsert + 回读
+ ```
+ 
++- 断点续抓：`fetch --resume --universe-snapshot <已核验后日原始快照>`，只借有效行情行的代码/名字；空价退市占位不扩宇宙，行情仍按历史日期取。先等旧进程结束，避免两进程追加同一 JSONL。
++- 首日无前收：仅当新浪发行资料的上市日恰等于目标日、发行价为正有限数，才以发行价计算首日收益，保存 `ipo_reference` 原始字段并标 N 名；无前一根不自动等于 IPO。
++- `689*.SH` 存托凭证用新浪 `stock_zh_a_cdr_daily`，普通 `stock_zh_a_daily` 会在复权处理报 JSON 错；保留独立 source，缺失的 turnover 留 NULL。09-17 补 09-16 时实测九号公司历史 OHLCV/amount 可用。
+ - 覆盖北交所：`bj{code}` 前缀可用，解掉了 mootdx「北交所只回 ~150/340 只」的老缺口（09-08 实得 343 只）。
+ - 量纲（三方对账定的，勿凭记忆改）：`amount` 元 ÷1e8→亿元；`volume` 股 ÷100→手；`turnover` 小数 ×100→%。
+ - `pre_close` 是**裸价前收**（与 mootdx 同基，非东财的除息调整基）→ 次日锚天然有 0.1~0.3% 的除息股对不上，属坑③同类差异，`validate` 的门槛设在 2%。
+diff --git a/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py b/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py
+index dfd2f576..3a31b382 100644
+--- a/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py
++++ b/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py
+@@ -28,6 +28,7 @@ from __future__ import annotations
+ 
+ import argparse
+ import json
++import math
+ import sys
+ import time
+ from datetime import date, datetime, timedelta
+@@ -37,6 +38,8 @@ ROOT = Path(__file__).resolve().parents[3]
+ sys.path.insert(0, str(ROOT))
+ 
+ SOURCE = "sina:stock_zh_a_daily"
++CDR_SOURCE = "sina:stock_zh_a_cdr_daily"
++SOURCES = (SOURCE, CDR_SOURCE)
+ _PREFIX = {"SH": "sh", "SZ": "sz", "BJ": "bj"}
+ 
+ 
+@@ -61,6 +64,19 @@ def _neighbours(con, d: date) -> tuple[str, str]:
+     return str(prev), str(nxt) if nxt else str(prev)
+ 
+ 
++def _ipo_reference(ak, code: str, trade_date: str) -> dict:
++    """No prior bar is not proof of IPO: require the provider's exact listing day."""
++    info = ak.stock_ipo_info(stock=code.split('.')[0])
++    values = {str(r['item']): str(r['value']) for r in info.to_dict('records')}
++    if values.get('上市日期') != trade_date:
++        raise ValueError(f'{code}: missing previous close and listing day is not {trade_date}')
++    price = float(values.get('发行价(元)', 'nan'))
++    if not math.isfinite(price) or price <= 0:
++        raise ValueError(f'{code}: missing verified issue price')
++    return {'pre_close_source': 'sina:stock_ipo_info', 'listing_date': trade_date,
++            'issue_price': price, 'provider_fields': values}
++
++
+ def cmd_fetch(args) -> int:
+     import akshare as ak
+     import duckdb
+@@ -82,19 +98,53 @@ def cmd_fetch(args) -> int:
+         ).fetchall()
+     finally:
+         con.close()
+-    print(f"[fetch] 宇宙取自 {prev} ∪ {nxt}，待抓 {len(uni)} 只", file=sys.stderr, flush=True)
++    # 恢复断档时库里还没有 next day，允许用日期已核验的原始快照扩展股票身份，
++    # 只借代码/名称；价格仍逐只从历史日线取，绝不把快照行情贴到历史日。
++    snapshot_path = getattr(args, 'universe_snapshot', None)
++    if snapshot_path:
++        from market_feature_store.sync.sync_eastmoney_stock_snapshot import (
++            A_SHARE_PREFIXES, _num, _ts_code, snapshot_trade_date,
++        )
++        raw = json.loads(Path(snapshot_path).read_text(encoding='utf-8'))
++        snapshot_day = snapshot_trade_date(raw)
++        if snapshot_day is None or date.fromisoformat(snapshot_day) <= d:
++            raise ValueError('universe snapshot must have a verified later trade date')
++        universe = dict(uni)
++        for item in raw:
++            code = str(item.get('f12') or '')
++            price = _num(item.get('f2'))
++            # Raw clist also contains retired/unlisted placeholders; these are not
++            # extra active identities. This price is only a filter, never history.
++            if code.startswith(A_SHARE_PREFIXES) and price is not None and math.isfinite(price) and price > 0:
++                universe.setdefault(_ts_code(code), str(item.get('f14') or ''))
++        uni = sorted(universe.items())
++    resume = getattr(args, 'resume', False)
++    existing = set()
++    if resume and out.exists():
++        for line in out.read_text(encoding='utf-8').splitlines():
++            if not line.strip():
++                continue
++            row = json.loads(line)
++            if row.get('trade_date') != args.trade_date or row.get('source') not in SOURCES:
++                raise ValueError('resume input date/source mismatch')
++            existing.add(row['stock_ts_code'])
++        uni = [(c, n) for c, n in uni if c not in existing]
++    print(f"[fetch] 宇宙取自 {prev} ∪ {nxt}，已有 {len(existing)}，待抓 {len(uni)} 只", file=sys.stderr, flush=True)
+ 
+     win_start = (d - timedelta(days=10)).strftime("%Y%m%d")
+     win_end = d.strftime("%Y%m%d")
+     ok = suspended = 0
+     fails: list[tuple[str, str]] = []
+     t0 = time.time()
+-    with out.open("w", encoding="utf-8") as fh:
++    with out.open("a" if resume else "w", encoding="utf-8") as fh:
+         for i, (code, name) in enumerate(uni, start=1):
+             num, ex = code.split(".")
+             try:
+-                df = ak.stock_zh_a_daily(symbol=_PREFIX[ex] + num, start_date=win_start,
+-                                         end_date=win_end, adjust="")
++                is_cdr = ex == 'SH' and num.startswith('689')
++                fetch = ak.stock_zh_a_cdr_daily if is_cdr else ak.stock_zh_a_daily
++                kwargs = {} if is_cdr else {'adjust': ''}
++                df = fetch(symbol=_PREFIX[ex] + num, start_date=win_start,
++                           end_date=win_end, **kwargs)
+                 recs = df.to_dict("records") if df is not None else []
+                 target = prev_close = None
+                 for j, r in enumerate(recs):
+@@ -105,6 +155,12 @@ def cmd_fetch(args) -> int:
+                 if target is None:
+                     suspended += 1
+                     continue
++                reference = {}
++                if prev_close is None:
++                    reference = _ipo_reference(ak, code, args.trade_date)
++                    prev_close = reference['issue_price']
++                    # IPO exclusion downstream uses N/C names; a later-day identity may have lost N.
++                    name = 'N' + str(name).removeprefix('N').removeprefix('C')
+                 close = float(target["close"])
+                 fh.write(json.dumps({
+                     "trade_date": args.trade_date, "stock_ts_code": code, "stock_name": name,
+@@ -112,12 +168,13 @@ def cmd_fetch(args) -> int:
+                     "pre_close": round(prev_close, 3) if prev_close else None,
+                     "pct_chg": round((close / prev_close - 1) * 100, 4) if prev_close else None,
+                     "amount": round(float(target["amount"]) / 1e8, 4),
+-                    "turnover": round(float(target["turnover"]) * 100, 4),
+-                    "source": SOURCE,
++                    "turnover": round(float(target["turnover"]) * 100, 4) if not is_cdr else None,
++                    "source": CDR_SOURCE if is_cdr else SOURCE,
+                     "open": round(float(target["open"]), 3),
+                     "high": round(float(target["high"]), 3),
+                     "low": round(float(target["low"]), 3),
+                     "volume": round(float(target["volume"]) / 100, 1),
++                    **({'ipo_reference': reference} if reference else {}),
+                 }, ensure_ascii=False) + "\n")
+                 ok += 1
+             except Exception as e:  # noqa: BLE001
+@@ -233,6 +290,9 @@ def main() -> int:
+         sp.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+         sp.add_argument("--rows" if name != "fetch" else "--out", default=None,
+                         help="JSONL 路径，默认 /tmp/backfill-sina-<D>.jsonl")
++        if name == 'fetch':
++            sp.add_argument('--resume', action='store_true', help='验证现有 JSONL 日期/出处后只补缺失代码')
++            sp.add_argument('--universe-snapshot', default=None, help='已核验的后日东财原始 JSON，仅扩展代码/名字，行情仍抓历史')
+         sp.set_defaults(func=fn)
+     args = p.parse_args()
+     return args.func(args)
+diff --git a/tests/test_backfill_sina_resume.py b/tests/test_backfill_sina_resume.py
+new file mode 100644
+index 00000000..9ba879e4
+--- /dev/null
++++ b/tests/test_backfill_sina_resume.py
+@@ -0,0 +1,131 @@
++"""Resume borrows only identities from a verified later snapshot, never prices."""
++from __future__ import annotations
++
++import argparse
++import importlib.util
++import json
++import sys
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import Mock
++
++import duckdb
++import pandas as pd
++import pytest
++
++
++@pytest.fixture()
++def capture(tmp_path, monkeypatch):
++    script = Path(__file__).resolve().parents[1] / 'skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py'
++    spec = importlib.util.spec_from_file_location('sina_resume_test', script)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    db = tmp_path / 'db.duckdb'
++    with duckdb.connect(str(db)) as con:
++        con.execute('CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code TEXT, stock_name TEXT)')
++        con.execute("INSERT INTO fact_stock_daily VALUES ('2026-09-15', '000001.SZ', '旧股')")
++    monkeypatch.setattr(module, '_db_path', lambda: str(db))
++    api = Mock(return_value=pd.DataFrame([
++        {'date': '2026-09-15', 'close': 10.0},
++        {'date': '2026-09-16', 'close': 11.0, 'amount': 1e8, 'turnover': .1,
++         'open': 10.0, 'high': 11.1, 'low': 9.9, 'volume': 1e7},
++    ]))
++    monkeypatch.setitem(sys.modules, 'akshare', SimpleNamespace(stock_zh_a_daily=api))
++    out = tmp_path / 'rows.jsonl'
++    old = {'trade_date': '2026-09-16', 'stock_ts_code': '000001.SZ', 'source': module.SOURCE}
++    out.write_text(json.dumps(old) + '\n')
++    snapshot = tmp_path / 'snapshot.json'
++    snapshot.write_text(json.dumps([{'f12': '600001', 'f14': '新身份', 'f297': 20260917, 'f2': 999.0}]))
++    args = argparse.Namespace(trade_date='2026-09-16', out=str(out), resume=True,
++                              universe_snapshot=str(snapshot))
++    return module, api, out, snapshot, args
++
++
++def test_resume_preserves_existing_and_fetches_history_for_new_identity(capture):
++    module, api, out, _, args = capture
++    before = out.read_text()
++    assert module.cmd_fetch(args) == 0
++    assert out.read_text().startswith(before)
++    rows = [json.loads(s) for s in out.read_text().splitlines()]
++    assert len(rows) == 2
++    assert rows[-1]['close'] == 11.0  # Never 999 from today's snapshot.
++    assert rows[-1]['stock_ts_code'] == '600001.SH'
++    assert api.call_args.kwargs['symbol'] == 'sh600001'
++
++
++def test_resume_rejects_wrong_source_before_network_or_write(capture):
++    module, api, out, _, args = capture
++    out.write_text(json.dumps({'trade_date': '2026-09-16', 'source': 'wrong'}) + '\n')
++    before = out.read_bytes()
++    with pytest.raises(ValueError, match='date/source'):
++        module.cmd_fetch(args)
++    api.assert_not_called()
++    assert out.read_bytes() == before
++
++
++def test_ipo_reference_requires_exact_listing_day_and_positive_price(capture):
++    module, _, _, _, _ = capture
++    api = SimpleNamespace(stock_ipo_info=Mock(return_value=pd.DataFrame([
++        {'item': '上市日期', 'value': '2026-09-16'},
++        {'item': '发行价(元)', 'value': '27.60'},
++    ])))
++    assert module._ipo_reference(api, '688837.SH', '2026-09-16')['issue_price'] == 27.60
++    with pytest.raises(ValueError, match='listing day'):
++        module._ipo_reference(api, '688837.SH', '2026-09-15')
++    api.stock_ipo_info.return_value.loc[1, 'value'] = 'nan'
++    with pytest.raises(ValueError, match='issue price'):
++        module._ipo_reference(api, '688837.SH', '2026-09-16')
++
++
++def test_ipo_capture_retains_reference_and_exclusion_name(capture):
++    module, api, out, _, args = capture
++    api.return_value = api.return_value.iloc[1:]
++    sys.modules['akshare'].stock_ipo_info = Mock(return_value=pd.DataFrame([
++        {'item': '上市日期', 'value': '2026-09-16'},
++        {'item': '发行价(元)', 'value': '5.00'},
++    ]))
++    assert module.cmd_fetch(args) == 0
++    row = json.loads(out.read_text().splitlines()[-1])
++    assert row['pre_close'] == 5.0
++    assert row['pct_chg'] == 120.0
++    assert row['stock_name'] == 'N新身份'
++    assert row['ipo_reference']['pre_close_source'] == 'sina:stock_ipo_info'
++
++
++def test_resume_does_not_fetch_retired_snapshot_placeholders(capture):
++    module, api, out, snapshot, args = capture
++    raw = json.loads(snapshot.read_text())
++    raw.extend({'f12': f'00000{i}', 'f14': '占位', 'f297': 20260917, 'f2': price}
++               for i, price in enumerate(('-', None, 0, float('nan')), start=2))
++    snapshot.write_text(json.dumps(raw))
++    assert module.cmd_fetch(args) == 0
++    assert api.call_count == 1
++    assert len(out.read_text().splitlines()) == 2
++
++
++def test_cdr_uses_dedicated_dated_source_without_fabricating_turnover(capture):
++    module, api, out, snapshot, args = capture
++    snapshot.write_text(json.dumps([{'f12': '689009', 'f14': '九号公司', 'f297': 20260917, 'f2': 999.0}]))
++    cdr = Mock(return_value=api.return_value.drop(columns=['turnover']))
++    sys.modules['akshare'].stock_zh_a_cdr_daily = cdr
++    assert module.cmd_fetch(args) == 0
++    row = json.loads(out.read_text().splitlines()[-1])
++    assert row['source'] == module.CDR_SOURCE
++    assert row['turnover'] is None
++    assert row['close'] == 11.0
++    assert row['volume'] == 100000.0
++    assert row['amount'] == 1.0
++    assert cdr.call_args.kwargs == {'symbol': 'sh689009', 'start_date': '20260906', 'end_date': '20260916'}
++    api.assert_not_called()
++    assert module.cmd_fetch(args) == 0
++    assert cdr.call_count == 1  # Correct provenance is also accepted by resume.
++
++
++def test_resume_rejects_unverified_snapshot(capture):
++    module, api, out, snapshot, args = capture
++    snapshot.write_text('[{"f12":"600001"}]')
++    before = out.read_bytes()
++    with pytest.raises(ValueError, match='verified later'):
++        module.cmd_fetch(args)
++    api.assert_not_called()
++    assert out.read_bytes() == before
+diff --git a/tests/test_index_local_fallback_boundary.py b/tests/test_index_local_fallback_boundary.py
+new file mode 100644
+index 00000000..9a8e1627
+--- /dev/null
++++ b/tests/test_index_local_fallback_boundary.py
+@@ -0,0 +1,63 @@
++"""local must not contact fupanhui even when the upstream is empty/broken."""
++from __future__ import annotations
++
++import importlib.util
++from datetime import date
++from pathlib import Path
++from unittest.mock import Mock
++
++import duckdb
++import pytest
++
++from market_feature_store.sync import sync_akshare_index_daily as index
++
++
++@pytest.fixture()
++def index_db(tmp_path, monkeypatch):
++    path = tmp_path / 'index.duckdb'
++    with duckdb.connect(str(path)) as con:
++        con.execute('CREATE TABLE fact_market_daily (trade_date DATE PRIMARY KEY)')
++    monkeypatch.setattr(index, 'init_db', lambda: None)
++    monkeypatch.setattr(index, 'connect', lambda: duckdb.connect(str(path)))
++    monkeypatch.delenv('REVIEW_SYNC_PLAN', raising=False)
++    return path
++
++
++@pytest.mark.parametrize('upstream_error', [False, True])
++@pytest.mark.parametrize('boundary', ['flag', 'environment'])
++def test_local_refuses_fallback_without_network(index_db, monkeypatch, upstream_error, boundary):
++    upstream = Mock(return_value=[], side_effect=RuntimeError('unavailable') if upstream_error else None)
++    fallback = Mock(side_effect=AssertionError('forbidden network'))
++    monkeypatch.setattr(index, '_fetch_akshare_index', upstream)
++    monkeypatch.setattr(index, '_fetch_fph_index', fallback)
++    if boundary == 'environment':
++        monkeypatch.setenv('REVIEW_SYNC_PLAN', 'local')
++    with pytest.raises(RuntimeError, match='禁止请求复盘会'):
++        index.sync_akshare_index_daily('2026-09-17', allow_fupanhui_fallback=boundary != 'flag')
++    fallback.assert_not_called()
++    with duckdb.connect(str(index_db), read_only=True) as con:
++        assert con.execute('SELECT count(*) FROM fact_market_daily').fetchone()[0] == 0
++
++
++def test_legacy_explicit_nonlocal_path_retains_fallback(index_db, monkeypatch):
++    monkeypatch.setattr(index, '_fetch_akshare_index', lambda **kw: [])
++    fallback = Mock(return_value=[{
++        'trade_date': date(2026, 9, 17), 'close': 3000.0, 'pct_chg': 1.0,
++        'open': None, 'high': None, 'low': None, 'volume': None, 'amount': None,
++        'source': 'fupanhui:test',
++    }])
++    monkeypatch.setattr(index, '_fetch_fph_index', fallback)
++    assert index.sync_akshare_index_daily('2026-09-17')['rows_written'] == 1
++    fallback.assert_called_once_with('2026-09-17')
++
++
++def test_local_plan_passes_request_boundary_explicitly(monkeypatch):
++    path = Path(__file__).resolve().parents[1] / 'skills/daily-full-review/scripts/run_review_sync.py'
++    spec = importlib.util.spec_from_file_location('local_index_plan', path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    run = Mock(return_value={'status': 'ok'})
++    monkeypatch.setattr(module, 'run_step', run)
++    plan = dict(module.build_plan('2026-09-17', 300, 600, plan='local'))
++    plan['index-daily']()
++    assert '--no-fupanhui-fallback' in run.call_args.args[1]
+diff --git a/tests/test_recover_local_review.py b/tests/test_recover_local_review.py
+new file mode 100644
+index 00000000..8fa03cca
+--- /dev/null
++++ b/tests/test_recover_local_review.py
+@@ -0,0 +1,121 @@
++"""Recovery input proof precedes clone/write/publish; staging child is compulsory."""
++from __future__ import annotations
++
++import argparse
++import json
++from unittest.mock import Mock
++
++import pytest
++
++from scripts import recover_local_review as recovery
++
++
++@pytest.fixture()
++def captured_inputs(tmp_path):
++    history = tmp_path / 'history.jsonl'
++    snapshot = tmp_path / 'snapshot.json'
++    row = {
++        'trade_date': '2026-09-16', 'stock_ts_code': '000001.SZ',
++        'source': 'sina:stock_zh_a_daily', 'close': 10.0, 'pre_close': 9.9,
++        'pct_chg': 1.01, 'amount': 1.0, 'open': 9.9, 'high': 10.1,
++        'low': 9.8, 'volume': 100000.0,
++    }
++    history.write_text(json.dumps(row) + '\n')
++    snapshot.write_text(json.dumps([{'f297': 20260917}]))
++    return history, snapshot, row
++
++
++def validate(inputs):
++    history, snapshot, _ = inputs
++    return recovery.validate_inputs('2026-09-16', '2026-09-17', history, snapshot)
++
++
++def test_valid_dates_and_provenance(captured_inputs):
++    raw, rows = validate(captured_inputs)
++    assert raw[0]['f297'] == 20260917
++    assert rows[0]['trade_date'] == '2026-09-16'
++
++
++@pytest.mark.parametrize('changes', [
++    {'trade_date': '2026-09-17'}, {'source': 'eastmoney:snapshot'},
++    {'amount': None}, {'close': float('nan')}, {'pre_close': 0}, {'volume': -1},
++])
++def test_rejects_unproven_or_invalid_history(captured_inputs, changes):
++    history, _, row = captured_inputs
++    history.write_text(json.dumps(row | changes) + '\n')
++    with pytest.raises(ValueError):
++        validate(captured_inputs)
++
++
++def test_accepts_explicit_sina_cdr_provenance(captured_inputs):
++    history, _, row = captured_inputs
++    history.write_text(json.dumps(row | {'source': 'sina:stock_zh_a_cdr_daily', 'turnover': None}) + '\n')
++    assert validate(captured_inputs)[1][0]['source'] == 'sina:stock_zh_a_cdr_daily'
++
++
++def test_rejects_duplicate_history(captured_inputs):
++    history, _, row = captured_inputs
++    history.write_text((json.dumps(row) + '\n') * 2)
++    with pytest.raises(ValueError, match='duplicate'):
++        validate(captured_inputs)
++
++
++def test_rejects_wrong_snapshot_date(captured_inputs):
++    _, snapshot, _ = captured_inputs
++    snapshot.write_text(json.dumps([{'f297': 20260916}]))
++    with pytest.raises(ValueError, match='snapshot actual date'):
++        validate(captured_inputs)
++
++
++def test_rejects_direct_production_write(monkeypatch, tmp_path):
++    from market_feature_store import db
++
++    monkeypatch.setattr(db, 'DB_PATH', tmp_path / 'production.duckdb')
++    monkeypatch.setenv('MARKET_FEATURE_STORE_RUN_ID', 'does-not-authorize-production')
++    with pytest.raises(RuntimeError, match='staging publisher'):
++        recovery.child(argparse.Namespace())
++
++
++def test_parent_uses_guarded_publisher_and_backup(captured_inputs, monkeypatch, tmp_path):
++    from market_feature_store import db
++    from market_feature_store.sync import sync_daily_full
++
++    target = tmp_path / 'canonical.duckdb'
++    target.touch()
++    monkeypatch.setenv('FINANCE_WS', str(tmp_path))
++    monkeypatch.setenv('MARKET_FEATURE_STORE_DB', str(target))
++    monkeypatch.setattr(db, 'DB_PATH', target)
++    history, snapshot, _ = captured_inputs
++    receipt = tmp_path / 'receipt.json'
++    publish = Mock(return_value={'rc': 2, 'swapped': False})
++    monkeypatch.setattr(sync_daily_full, 'run_daily_full_staged', publish)
++    assert recovery.main([
++        '--history-day', '2026-09-16', '--snapshot-day', '2026-09-17',
++        '--history', str(history), '--snapshot', str(snapshot), '--receipt', str(receipt),
++    ]) == 2
++    assert publish.call_args.kwargs['pre_swap_backup'] is True
++    assert publish.call_args.kwargs['child_argv'][-1] == '--child'
++    assert json.loads(receipt.read_text())['swapped'] is False
++    assert not (tmp_path / 'state/locks/daily-full-review.lock').exists()
++
++
++@pytest.mark.parametrize('day', ['2026-09-16', '2026-09-17'])
++def test_recovery_refreshes_successful_members_and_never_uses_live_caps_for_history(day):
++    sync = Mock(CLI=['python', '-m', 'market_feature_store.cli'])
++    command = recovery.recovery_stitch_command(sync, day, '2026-09-16')
++    assert '--include-completed' in command
++    assert ('--no-caps' in command) == (day == '2026-09-16')
++    from market_feature_store.cli import build_parser
++    args = build_parser().parse_args(command[3:])
++    assert args.include_completed is True
++    assert args.trade_date == day
++
++
++def test_existing_nightly_lock_is_not_removed(monkeypatch, tmp_path):
++    monkeypatch.setenv('FINANCE_WS', str(tmp_path))
++    lock = tmp_path / 'state/locks/daily-full-review.lock'
++    lock.mkdir(parents=True)
++    (lock / 'pid').write_text('other-run')
++    with pytest.raises(FileExistsError), recovery.nightly_lock():
++        pytest.fail('must not start')
++    assert (lock / 'pid').read_text() == 'other-run'
+diff --git a/tests/test_tiered_sync_local.py b/tests/test_tiered_sync_local.py
+index 0637a3e4..1fba34c2 100644
+--- a/tests/test_tiered_sync_local.py
++++ b/tests/test_tiered_sync_local.py
+@@ -151,6 +151,24 @@ def test_stitch_writes_true_values_drops_missing_and_leaves_changed_pending(con)
+     assert shortfall == 1  # 缺口记录在台账上，不是静默丢
+ 
+ 
++def test_refresh_completed_members_after_base_quote_repair(con):
++    _seed_day1(con)
++    _publish(con, D2, [('990001.FP', 'MLCC', 3), ('990002.FP', '6G', 2), ('990003.FP', '机器人', 2)])
++    _eastmoney(con, D2, [(c, 10.0, 1.0, 2.0) for c in
++                         ('000001.SZ', '000002.SZ', '600000.SH', '600001.SH', '300001.SZ', '300002.SZ')])
++    assert stitch.stitch_sector_members(D2, con=con, fetch_caps=False)['stitched'] == 3
++    _eastmoney(con, D2, [('000003.SZ', 12.0, 20.0, 4.0)])
++    assert stitch.stitch_sector_members(D2, con=con, fetch_caps=False)['stitched'] == 0
++    refreshed = stitch.stitch_sector_members(D2, con=con, fetch_caps=False, include_completed=True)
++    assert refreshed['stitched'] == 3
++    assert refreshed['dropped_members'] == 0
++    assert con.execute('SELECT price, pct_chg, amount FROM fact_sector_stock_daily '
++                       'WHERE trade_date=? AND stock_ts_code=?', [D2, '000003.SZ']).fetchone() == (12.0, 20.0, 4.0)
++    local_daily.sync_sector_daily_local(D2, con=con)
++    assert con.execute('SELECT amount FROM fact_sector_daily WHERE trade_date=? AND sector_ts_code=?',
++                       [D2, '990001.FP']).fetchone()[0] == 8.0
++
++
+ def test_stitch_rejects_fallback_value_source(con):
+     _seed_day1(con)
+     _publish(con, D2, [("990001.FP", "MLCC", 3), ("990002.FP", "6G", 2), ("990003.FP", "机器人", 2)])

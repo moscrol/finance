@@ -1,0 +1,28 @@
+{
+  "label": "supplement-diff",
+  "command": [
+    "git",
+    "diff",
+    "--check",
+    "9d5b9800a...HEAD"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "8dec2a856b76cec21fae6daae1ed7505fb838dcc",
+  "started_at": "2026-09-25T05:43:31.503206+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 62928,
+  "process_group": 62928,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T05:43:31.542853+00:00",
+  "elapsed_seconds": 0.03927829093299806
+}

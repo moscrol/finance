@@ -1,0 +1,19 @@
+{
+  "mutation": {
+    "mutation": "accept only the initial identity, ignoring final dirty and HEAD",
+    "exit_code": 1,
+    "expected_counterexamples_failed": 2,
+    "original_tests_unchanged": true,
+    "candidate_unchanged": true,
+    "log_sha256": "1d44d27ca324730d42ec46c826cfee3452a2cdad566c899fe461aa2940cf8462",
+    "temporary_copy": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-mutant-vaoiva48"
+  },
+  "live_pr": {
+    "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-pr789.json",
+    "head_equals_reviewed_sha": true
+  },
+  "authorization": {
+    "attachment_hash_matches": true,
+    "quoted_step_present_in_attachment": true
+  }
+}

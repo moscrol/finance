@@ -1,0 +1,4 @@
+{"batch": "review-a", "requests": 32, "report": true, "verdict": "BLOCKED"}
+{"batch": "review-b", "requests": 33, "report": true, "verdict": "BLOCKED"}
+{"batch": "review-c", "requests": 18, "report": false, "verdict": null}
+Review batch blocked; no automatic retry or additional model requests.

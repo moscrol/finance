@@ -1,0 +1,9 @@
+...                                                                      [100%]读数收据: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/receipts/candidate-and-window/20260920T051958Z-e0f2a5c7.json
+
+==================================== PASSES ====================================
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/candidate-and-window.junit.xml -
+=========================== short test summary info ============================
+PASSED tests/test_history_window_binding.py::test_another_candidate_cannot_replace_the_selected_reference_mid_turn
+PASSED tests/test_history_window_binding.py::test_changed_window_is_rejected_before_db_and_not_silently_rewritten[change0]
+PASSED tests/test_history_window_binding.py::test_changed_window_is_rejected_before_db_and_not_silently_rewritten[change1]
+3 passed in 0.77s

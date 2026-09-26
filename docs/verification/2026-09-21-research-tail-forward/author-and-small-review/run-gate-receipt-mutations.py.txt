@@ -1,0 +1,43 @@
+"""Withdraw one receipt guard in isolated scratch copies; never edit the frozen tree."""
+from pathlib import Path
+import json
+import os
+import shutil
+import subprocess
+
+ROOT = Path('/Users/a77/fwp-wt-gate-receipt-selection-0921')
+OUT = Path('/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations')
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+BASE = ROOT.joinpath('scripts/run_main_gate.sh').read_text()
+TEST = ROOT.joinpath('tests/test_run_main_gate.py').read_text()
+MUTATIONS = {
+    'global-latest': ('if [ ! -f "$LATEST" ]; then', 'LATEST="$HOME/.finance-runtime/test-receipts/latest.json"\nif [ ! -f "$LATEST" ]; then'),
+    'archive-exit-green': ('pytest_exit = latest.get("exit_status")', 'pytest_exit = latest.get("exit_status") if measured_exit else 0'),
+    'skip-run-identity': ('if latest.get("revision") != revision or latest.get("tree") != repo:', 'if False:'),
+    'skip-exit-agreement': ('if pytest_exit != int(measured_exit):', 'if False:'),
+    'dirty-is-green': ('if latest.get("dirty") is not False and allow_dirty != "1":', 'if False:'),
+    'hide-interrupted': ('if pytest_exit not in (0, 1):', 'if False:'),
+}
+OUT.mkdir(exist_ok=False)
+env = {'HOME': '/Users/a77', 'PATH': os.environ['PATH'], 'LANG': 'en_US.UTF-8', 'TMPDIR': '/tmp', 'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0'}
+results = []
+for name in ('baseline', *MUTATIONS, 'restored'):
+    root = OUT / name
+    (root / 'scripts').mkdir(parents=True)
+    (root / 'tests').mkdir()
+    text = BASE
+    if name in MUTATIONS:
+        old, new = MUTATIONS[name]
+        assert text.count(old) == 1, name
+        text = text.replace(old, new)
+    (root / 'scripts/run_main_gate.sh').write_text(text)
+    (root / 'tests/test_run_main_gate.py').write_text(TEST)
+    command = [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', '--confcutdir', str(root), str(root / 'tests/test_run_main_gate.py')]
+    with (root / 'pytest.log').open('w') as log:
+        run = subprocess.run(command, cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=60)
+    log = (root / 'pytest.log').read_text()
+    results.append({'name': name, 'exit_code': run.returncode, 'assertion_failure': 'AssertionError' in log, 'collection_error': 'ERROR collecting' in log})
+    print(results[-1], flush=True)
+(OUT / 'results.json').write_text(json.dumps({'revision': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(), 'cases': results}, indent=2)+'\n')
+assert all(r['exit_code'] == 0 for r in results if r['name'] in ('baseline', 'restored'))
+assert all(r['exit_code'] == 1 and r['assertion_failure'] and not r['collection_error'] for r in results if r['name'] in MUTATIONS)

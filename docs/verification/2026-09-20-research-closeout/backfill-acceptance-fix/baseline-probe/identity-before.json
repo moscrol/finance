@@ -1,0 +1,8 @@
+{
+  "head": "3736d5bfa9978dfa0a264bb2e44795c4bc29b27d",
+  "code": "00d64e373e04366b6bdb7602c5ce4397759adefd",
+  "main": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "status": "",
+  "diff": "git diff 4ace5ec2...3736d5bfa997",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+}

@@ -1,0 +1,27 @@
+{
+  "scope": "T3 fact-retention repair, not deployment or natural-answer acceptance",
+  "revision": "a2a3301963d11a073f511e1552b53daee7ecd704",
+  "engineering_gates_passed": true,
+  "original_unchanged_probe": {"passed": 6, "failed": 0},
+  "research_delivery_mutations": {"count": 17, "all_detected_and_restored": true},
+  "external_review": {
+    "state_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc",
+    "review_id": "ARL-0001",
+    "status": "REVIEWER_INACTIVE",
+    "worker_failure_kind": "transport",
+    "observed_failure": "qc_once.py subprocess.run raised TimeoutExpired after 600 seconds",
+    "requested_model": "sonnet",
+    "cli_attempts": 1,
+    "provider_request_count": null,
+    "response_model_identity": null,
+    "usage_and_cost": null,
+    "valid_verdict": false,
+    "automatic_retry": false,
+    "preflight": "159 targeted tests passed, original six-case probe passed, 17 mutations detected and restored; preflight is not an independent model verdict"
+  },
+  "natural_model_conversations": 0,
+  "new_market_data_fetches": 0,
+  "main_merged": false,
+  "production_switched": false,
+  "disposition": "hold: independent code-review verdict missing; natural-answer quality separately remains not_passed"
+}

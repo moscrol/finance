@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 9709e54a..a765e514 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -242,7 +242,7 @@ _CONTINUATION_LABEL = r"(?:实际|该值|本期|该比率|比率)为"
+ _VALUE_PREFIX = rf"\s*(?:{_CONTINUATION_LABEL}|分别为|为|是|=|：|:)?\s*"
+ _PROSE_NUMBER = re.compile(rf"{_VALUE_PREFIX}({_NUMBER})\s*({_RATIO_UNIT})?")
+ _WITHHELD_SLOT = re.compile(rf"{_VALUE_PREFIX}待核对")
+-_VALUE_CONTINUATION = re.compile(rf"\s*[,，；;]\s*(?={_CONTINUATION_LABEL})")
++_VALUE_CONTINUATION = re.compile(rf"\s*[,，]\s*(?={_CONTINUATION_LABEL})")
+ # Only explicit same-ratio continuations inherit across a semicolon. Do not
+ # widen disclosure detection or join independent sentences/paragraphs.
+ _RATIO_CLAUSE = re.compile(rf"[^。！？；;\n]+(?:[；;]\s*(?=[*`]*{_CONTINUATION_LABEL})[^。！？；;\n]+)*[。！？；;]?")

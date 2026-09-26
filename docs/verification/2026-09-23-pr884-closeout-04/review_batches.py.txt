@@ -1,0 +1,128 @@
+"""Run each independent contract review once, preserving every original artifact."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+NODE = ROOT.parent / 'pr884-toolchain-20260923/node_modules/.bin/node'
+PI = Path('/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js')
+
+
+def save(path, obj):
+    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + '\n')
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def identity(tree):
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain')}
+
+
+def execute(cmd, folder, env, prefix, timeout):
+    started = time.monotonic()
+    record = {'command': cmd[:-1] + ['<prompt.md>'] if prefix == 'model' else cmd,
+              'started_at': datetime.now(timezone.utc).isoformat(), 'timeout_seconds': timeout}
+    with (folder / (prefix + '.stdout.log')).open('xb') as out, (folder / (prefix + '.stderr.log')).open('xb') as err:
+        process = subprocess.Popen(cmd, cwd=env['PYTHONPATH'], env=env, stdin=subprocess.DEVNULL,
+                                   stdout=out, stderr=err, start_new_session=True)
+        record['pid'] = process.pid
+        save(folder / (prefix + '-execution.json'), record)
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            record['timed_out'] = True
+        finally:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+                time.sleep(0.5)
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=10)
+    record.update(exit_code=process.returncode, elapsed_seconds=round(time.monotonic() - started, 3),
+                  stdout_sha256=digest(folder / (prefix + '.stdout.log')),
+                  stderr_sha256=digest(folder / (prefix + '.stderr.log')))
+    save(folder / (prefix + '-execution.json'), record)
+    return record
+
+
+def review(name):
+    folder = ROOT / name
+    config = json.loads((folder / 'config.json').read_text())
+    tree = Path(config['tree'])
+    before = identity(tree)
+    assert before == {'revision': config['revision'], 'status': ''}, before
+    out = folder / 'k3'
+    out.mkdir(exist_ok=False)
+    for directory in ('work', 'work/tmp', 'work/users', 'commands'):
+        (out / directory).mkdir()
+    pi_config = folder / 'pi-config'
+    pi_config.mkdir(exist_ok=False)
+    for filename in ('auth.json', 'models.json'):
+        save(pi_config / filename, {})
+    save(pi_config / 'settings.json', {'retry': {'enabled': False, 'maxRetries': 0, 'provider': {'timeoutMs': 300000, 'maxRetries': 0, 'maxRetryDelayMs': 1000}}, 'compaction': {'enabled': False}, 'enableInstallTelemetry': False, 'enableAnalytics': False, 'defaultProjectTrust': 'never', 'packages': [], 'extensions': [], 'skills': [], 'prompts': [], 'themes': []})
+    watched = [folder / name for name in ('review.mjs', 'file_tool.py', 'preflight.mjs', 'provider-template.json', 'tools.sb', 'prompt.md', 'config.json')] + list(pi_config.iterdir())
+    inputs = {str(p.relative_to(folder)): digest(p) for p in watched}
+    env = {'HOME': '/Users/a77', 'PATH': str(NODE.parent) + ':/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+           'LANG': 'C.UTF-8', 'TMPDIR': str(out / 'work/tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+           'PYTHONPATH': str(tree), 'GIT_OPTIONAL_LOCKS': '0', 'PI_CODING_AGENT_DIR': str(pi_config),
+           'PI_OFFLINE': '1', 'PI_TELEMETRY': '0', 'REVIEW_OUTPUT_DIR': str(out)}
+    preflight = execute([str(NODE), str(folder / 'preflight.mjs')], folder, env, 'preflight-run', 180)
+    receipt = folder / 'preflight/receipt.json'
+    if preflight['exit_code'] != 0 or not receipt.exists() or json.loads(receipt.read_text()).get('status') != 'PASS':
+        save(folder / 'summary.json', {'status': 'BLOCKED', 'reason': 'preflight', 'model_requests': 0})
+        return False
+    command = [str(NODE), str(PI), '--provider', 'mirasim-kimi', '--model', 'kimi-k3', '--thinking', 'medium', '--models', 'mirasim-kimi/kimi-k3', '--no-session', '--no-extensions', '-e', str(folder / 'review.mjs'), '--no-skills', '--no-prompt-templates', '--no-context-files', '--no-themes', '--no-approve', '--offline', '--tools', 'read,bash,write', '--mode', 'json', '-p', '--', (folder / 'prompt.md').read_text()]
+    execution = execute(command, folder, env, 'model', 1200)
+    report = out / 'REPORT.md'
+    parsed = None
+    if report.exists():
+        for body in re.findall(r'```json\s*(.*?)```', report.read_text(), flags=re.S):
+            try:
+                obj = json.loads(body)
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and obj.get('revision') == config['revision']:
+                parsed = obj
+    if parsed:
+        save(out / 'parsed-verdict.json', parsed)
+    admissions = out / 'request-admissions.jsonl'
+    rows = [json.loads(line) for line in admissions.read_text().splitlines()] if admissions.exists() else []
+    messages = []
+    for line in (folder / 'model.stdout.log').read_text().splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if event.get('type') == 'message_end' and event.get('message', {}).get('role') == 'assistant':
+            messages.append(event['message'])
+    structural = bool(parsed and parsed.get('complete') is True and parsed.get('baseline') == config['baseline'] and {c.get('id') for c in parsed.get('checks', [])} == {f'C{i}' for i in range(1, 9)})
+    summary = {'revision': config['revision'], 'baseline': config['baseline'], 'contracts': config['contracts'], 'role': 'independent reviewer',
+               'identity_before': before, 'identity_after': identity(tree), 'inputs_unchanged': inputs == {str(p.relative_to(folder)): digest(p) for p in watched},
+               'inputs_sha256': inputs, 'provider_requests': len(rows), 'max_requests': 33,
+               'report_structurally_complete': structural, 'reviewer_verdict': parsed.get('verdict') if parsed else None,
+               'execution': execution, 'model_identities': sorted({str(m.get('provider')) + '/' + str(m.get('model')) for m in messages}),
+               'model_errors': [m.get('errorMessage', m.get('stopReason')) for m in messages if m.get('stopReason') in ('error', 'aborted')],
+               'usage': {key: sum(m.get('usage', {}).get(key, 0) or 0 for m in messages) for key in ('input', 'output', 'cacheRead', 'cacheWrite', 'totalTokens')},
+               'host_evidence_acceptance': 'PENDING' if structural else 'BLOCKED', 'report_sha256': digest(report) if report.exists() else None}
+    assert len(rows) <= 33
+    save(folder / 'summary.json', summary)
+    print(json.dumps({'batch': name, 'requests': len(rows), 'report': structural, 'verdict': summary['reviewer_verdict']}), flush=True)
+    return structural and not summary['model_errors'] and summary['inputs_unchanged'] and before == summary['identity_after']
+
+
+if __name__ == '__main__':
+    for name in sys.argv[1:] or ['review-a', 'review-b', 'review-c']:
+        if not review(name):
+            raise SystemExit('Review batch blocked; no automatic retry or additional model requests.')

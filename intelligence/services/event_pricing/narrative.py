@@ -13,17 +13,19 @@
 反应日按类的 ``reaction_rule``（晚间研报 → 次一交易日）。板块代码按**反应日当天有价格序列**的那个代码取（07-27 板块宇宙
 从 ``.TI`` 换成 ``.FP``，同名两套代码；都覆盖时取历史更长的那套），当天哪套都没有 → 缺口 ``no_sector_series_on_day``。
 ``ingested_at`` 是我们入库的日子，普遍滞后报告日一周以上：写进日历行的 ``title_sample`` 与构建元数据（``ingest_lag_days``），
-回放时按需过滤；锚点日本身按报告日算——研报当晚就公开了，滞后的是我们。
+锚点日本身按报告日算。读层遵守构建日终知识截止和追加订正；这不证明报告当晚公开，也不证明反应日系统已知，
+产物只供事后研究，不能签严格历史可得性验收。
 """
 
 from __future__ import annotations
 
-import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
+
+from intelligence.services.opinion_events import OpinionDataError, load_events
 
 from .classify import ClassifiedEvent, ClassifyGap
 from .params import EventParams
@@ -64,42 +66,33 @@ class SectorSeries:
 SectorResolver = Callable[[str, date], str | None]
 
 
-def load_opinion_events(kb_wiki: str | Path, relpath: str) -> tuple[list[OpinionRow], list[ClassifyGap]]:
-    """读事件文件；缺 ``report_date`` / ``concept`` 的行记 ``row_unusable``，不猜。文件不存在返回空列表（调用方记 source_absent）。"""
-    path = Path(kb_wiki).expanduser() / relpath
-    if not path.is_file():
-        return [], []
+def load_opinion_events(
+    kb_wiki: str | Path, relpath: str, *, as_of: str | None = None,
+) -> tuple[list[OpinionRow], list[ClassifyGap]]:
+    """Apply reviews at the build cutoff, not at each historical reaction day.
+
+    This remains an ex-post research calendar, not a point-in-time backtest.
+    """
+    warnings: list[str] = []
+    try:
+        originals = load_events(
+            Path(kb_wiki).expanduser(), as_of=as_of or date.today().isoformat(),
+            warnings=warnings, store_relpath=Path(relpath),
+        )
+    except (OpinionDataError, OSError, UnicodeError) as exc:
+        return [], [ClassifyGap("kb_wiki", "", GAP_ROW_UNUSABLE, str(exc))]
+    gaps = [ClassifyGap("kb_wiki", "", GAP_ROW_UNUSABLE, warning) for warning in warnings]
     rows: list[OpinionRow] = []
-    gaps: list[ClassifyGap] = []
-    with path.open(encoding="utf-8") as fh:
-        for n, line in enumerate(fh, 1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                raw = json.loads(line)
-            except ValueError:
-                gaps.append(ClassifyGap(f"line:{n}", "", GAP_ROW_UNUSABLE, "not json"))
-                continue
-            rd = str(raw.get("report_date") or "").strip()
-            concept = str(raw.get("concept") or "").strip()
-            try:
-                date.fromisoformat(rd)
-            except ValueError:
-                rd = ""
-            if not rd or not concept:
-                gaps.append(ClassifyGap(str(raw.get("event_id") or f"line:{n}"), rd, GAP_ROW_UNUSABLE, "missing report_date or concept"))
-                continue
-            rows.append(
-                OpinionRow(
-                    event_id=str(raw.get("event_id") or f"line:{n}"),
-                    report_date=rd,
-                    ingested_at=(str(raw["ingested_at"]) if raw.get("ingested_at") else None),
-                    concept=concept,
-                    hardness=(str(raw["hardness"]) if raw.get("hardness") else None),
-                    stance=(str(raw["stance"]) if raw.get("stance") else None),
-                )
-            )
+    for raw in originals:
+        concept = str(raw.get("concept") or "").strip()
+        if not concept:
+            gaps.append(ClassifyGap(raw["event_id"], raw["report_date"], GAP_ROW_UNUSABLE, "missing concept"))
+            continue
+        rows.append(OpinionRow(
+            event_id=raw.get("revision_id") or raw["event_id"],
+            report_date=raw["report_date"], ingested_at=raw["ingested_at"], concept=concept,
+            hardness=raw.get("hardness"), stance=raw.get("stance"),
+        ))
     return rows, gaps
 
 

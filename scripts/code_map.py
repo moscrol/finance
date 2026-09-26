@@ -14,6 +14,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ CODE_DIRTY_PREFIXES = (
     "ruff.toml",
     "test-environment.json",
     "requirements-consumer.lock",
+    "requirements-dev.lock",
 )
 CODE_DIRTY_EXCLUDE_PREFIXES = ("market_feature_store/exports/",)
 
@@ -52,6 +54,7 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         check=False,
+        timeout=10,
     )
 
 
@@ -197,8 +200,14 @@ def collect_status(root: Path) -> tuple[dict[str, Any], int]:
             stale_weight=stale_weight,
             missing_sha=missing_sha,
         )
+        if dirty and status in {"ready", "stale"}:
+            status, exit_code = "stale", EXIT_STALE
+            one = _clip_one_line("代码地图: stale 未提交代码未验覆盖；提交后重建 ← 勿当当前架构")
         body = {
             "status": status,
+            "scope": "checkout_only",
+            "worktree_coverage": "unverified_dirty" if dirty else "committed_only",
+            "production_verified": False,
             "node_count": 0 if node_count is None and status == "empty" else node_count,
             "git_head_sha": git_head_sha,
             "head_sha": head_sha,
@@ -569,25 +578,34 @@ def search_graph(
 ) -> tuple[list[dict[str, Any]], str | None]:
     """Search literal text then one Python-symbol alias; report backend failure."""
     root = cwd or repo_root()
-    hits: list[dict[str, Any]] = []
-    seen: set[tuple[str, str | None]] = set()
+    batches: list[list[dict[str, Any]]] = []
+    unavailable_reason = None
     for query in _structure_queries(question):
         try:
             proc = run_crg_cli(["search", query], root)
         except UvxMissing:
-            return hits, "uvx_missing"
+            unavailable_reason = "uvx_missing"
+            break
         query_hits, unavailable_reason = _graph_hits(proc, root)
         if unavailable_reason is not None:
-            return hits, unavailable_reason
-        for hit in query_hits:
+            break
+        batches.append(query_hits)
+
+    # A full literal-path batch must not starve the command's symbol alias.
+    hits: list[dict[str, Any]] = []
+    seen: set[tuple[str, str | None]] = set()
+    for group in zip_longest(*batches):
+        for hit in group:
+            if hit is None:
+                continue
             identity = (str(hit.get("path") or ""), hit.get("symbol"))
             if identity in seen:
                 continue
             seen.add(identity)
             hits.append(hit)
             if len(hits) >= STRUCTURE_HIT_CAP:
-                return hits, None
-    return hits, None
+                return hits, unavailable_reason
+    return hits, unavailable_reason
 
 
 def detect_conflicts(

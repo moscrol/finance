@@ -1,0 +1,39 @@
+{
+  "authorization": "User correction: K3 unavailable may switch to GLM; both can be writers. Applies to this isolated review, not deployment.",
+  "model": "glm-5.3",
+  "provider": "glm-direct-review",
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "credential_source": "existing launcher Keychain command; memory only",
+  "local_fomo": "configured but no listener at 54340; no request issued; not restarted",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "candidate_tree": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private",
+  "request_seconds": 120,
+  "stage_seconds": 600,
+  "max_requests_per_stage": 24,
+  "gateway_requests_per_axis_max": 4,
+  "max_batch_requests": 152,
+  "concurrency": 1,
+  "pi_thinking": "off per existing GLM model metadata, not a claim that server-side reasoning is disabled",
+  "max_output_tokens": 8192,
+  "shim": "19899 private listener -> official HTTPS, unchanged payload, no automatic retry",
+  "sandbox_network": "only own fake services localhost 26001-26008",
+  "sandbox_writes": "own axis/work",
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "stages": [
+    "explore",
+    "execute",
+    "report"
+  ],
+  "fresh_sessions": true,
+  "old_k3_outputs_not_given_to_glm": true,
+  "independent_probes_separate_from_author_tests": true,
+  "automatic_retries": 0,
+  "natural_finance_requests": 0,
+  "merged": false,
+  "deployed": false,
+  "historical_l6": "NOT_PASSED unchanged; this correction allows future model fallback, not rewriting old verdicts"
+}

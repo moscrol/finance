@@ -1,0 +1,10 @@
+{
+  "status": "no_verdict",
+  "detail": "CLI local Prompt is too long; synthetic error, not code review",
+  "api_duration_ms": 0,
+  "reported_input_tokens": 0,
+  "reported_output_tokens": 0,
+  "reported_cost_usd": 0,
+  "next_attempt_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01",
+  "request_unchanged": true
+}

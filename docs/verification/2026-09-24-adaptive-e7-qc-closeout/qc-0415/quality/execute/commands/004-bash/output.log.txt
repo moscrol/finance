@@ -1,0 +1,4 @@
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe1_transport.py", line 83
+    def case(name, mode, timeout, deadline=None, cancel_after=None, expect, max_elapsed):
+                                                                    ^^^^^^
+SyntaxError: parameter without a default follows parameter with a default

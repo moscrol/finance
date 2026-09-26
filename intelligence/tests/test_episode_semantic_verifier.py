@@ -8,7 +8,7 @@ import pytest
 
 from intelligence.services import answer_model, llm_refine
 import intelligence.services.research_contract as research_contract_module
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -32,6 +32,7 @@ from intelligence.services.episode_semantic_verifier import (
     complete_judge_attempt_seconds,
     dumps_judge_request,
     leftover_window_blocks_complete_attempt,
+    numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     semantic_judge_window_seconds,
     _numbered_sentences,
@@ -80,6 +81,7 @@ def _structural(
     traces: tuple[ProviderTrace, ...] = (),
     required_outputs: tuple[RequiredOutput, ...] | None = None,
     research_tier: str = "standard",
+    observations: tuple[StructuredObservation, ...] = (),
 ):
     frame = _frame()
     evidence = AgentEvidence(
@@ -89,6 +91,7 @@ def _structural(
         source=source,
         source_date="2026-07-22",
         content_hash="HASH_PRIVATE_SENTINEL",
+        observations=observations,
     )
     if required_outputs is None:
         required_outputs = (
@@ -136,6 +139,193 @@ def _structural(
         usage=AgentUsage(llm_calls=1, tool_calls=1),
     )
     return frame, verify_episode_outcome(contract, outcome)
+
+
+def test_declared_research_gaps_reach_judge_without_public_copy() -> None:
+    gaps = ("当前估值时点未核验", "PRIVATE_SOURCE_DIAGNOSTIC")
+    frame, structural = _structural("当前市场成交仍活跃。", gaps=gaps)
+    judge = _judge(True)
+    requests = judge.calls
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert requests[0]["declared_gaps"] == list(gaps)
+    assert result.verified.outcome.gaps == gaps
+    assert "PRIVATE_SOURCE_DIAGNOSTIC" not in result.public_answer
+    assert "当前估值时点未核验" not in result.public_answer
+
+
+def test_semantic_repair_feedback_uses_verdict_text_before_renumbering() -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    original = "若成交额超过9万亿元则反弹成立；"
+    survivor = "但上涨家数仍待改善。"
+    frame, structural = _structural(original + survivor)
+    judge = _judge(True)
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert result.sentence_verdicts[0]["sentence"] == original
+    assert original not in result.verified.outcome.draft
+    feedback = module.semantic_repair_feedback(result)
+    record = json.loads(feedback[0])
+    assert record["sentence"] == original
+    assert record["stage"] == "preflight"
+    assert record["reasons"] == ["novel_numeric_condition"]
+    assert survivor not in feedback[0]
+    assert "bound_evidence_hashes" not in feedback[0]
+
+
+def test_semantic_repair_feedback_respects_lifts_and_stage_identity() -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    _, structural = _structural("当前成交活跃。")
+    records = (
+        {"stage": "preflight", "sentence_index": 1, "sentence": "原稿前件。",
+         "decision": "deleted", "reasons": ["novel_numeric_condition"]},
+        {"stage": "judge", "sentence_index": 1, "sentence": "另一个版本的句子。",
+         "decision": "demoted_to_issue", "reasons": ["judge"],
+         "judge_issues": ["句1：缺少支持"]},
+        {"stage": "census", "sentence_index": 1, "sentence": "原稿前件。",
+         "decision": "kept", "reasons": ["cited_outside_slot_binding"]},
+        {"stage": "guided_rejudge", "sentence_index": 1, "sentence": "另一个版本的句子。",
+         "decision": "lifted", "reasons": ["guided_retrieval_evidence"]},
+    )
+    result = module.SemanticEpisodeOutcome(
+        verified=structural, status="partial", public_answer="当前成交活跃。",
+        judge_status="repaired", sentence_verdicts=records,
+    )
+    feedback = module.semantic_repair_feedback(result)
+    assert len(feedback) == 1
+    assert json.loads(feedback[0])["sentence"] == "原稿前件。"
+    assert result.sentence_verdicts == records
+
+
+def test_semantic_repair_feedback_lift_does_not_clear_mechanical_finding() -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    _, structural = _structural("同一句仍有数值问题。")
+    result = module.SemanticEpisodeOutcome(
+        verified=structural, status="partial", public_answer="", judge_status="repaired",
+        sentence_verdicts=(
+            {"stage": "judge", "sentence_index": 1, "sentence": "同一句仍有数值问题。",
+             "decision": "demoted_to_issue", "reasons": ["novel_numeric_condition"]},
+            {"stage": "guided_rejudge", "sentence_index": 1, "sentence": "同一句仍有数值问题。",
+             "decision": "lifted", "reasons": ["guided_retrieval_evidence"]},
+        ),
+        rejected_claim_indexes=(1, 0),
+    )
+    feedback = module.semantic_repair_feedback(result)
+    assert len(feedback) == 2
+    assert json.loads(feedback[0])["reasons"] == ["novel_numeric_condition"]
+    assert feedback[1] == "claim_index:0"
+    assert module.semantic_repair_feedback(replace(
+        result, sentence_verdicts=(), rejected_claim_indexes=(),
+    )) == ()
+
+
+@pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
+@pytest.mark.parametrize("finding", ["deleted", "unresolved_deleted", "resolved_deleted", "demoted", "lifted", "mechanical_lift", "census", "legacy", "clean"])
+def test_final_publication_uses_pending_review_without_mutating_review_or_private_copy(existing_ceiling, finding):
+    from intelligence.services import episode_semantic_verifier as module
+    from intelligence.services.research_harness import PublicationAssessment
+
+    _, structural = _structural(
+        "私有被拒原句。" if finding == "unresolved_deleted" else "保留的市场观察。",
+        gaps=("私有估值缺口",),
+    )
+    row = {
+        "stage": "judge", "sentence_index": 1, "sentence": "私有被拒原句。",
+        "decision": "demoted_to_issue", "reasons": ["judge"],
+        "judge_issues": ["私有诊断详情"],
+    }
+    records = (row,)
+    if finding in {"deleted", "unresolved_deleted"}:
+        records = ({**row, "stage": "preflight", "decision": "deleted"},)
+    elif finding == "resolved_deleted":
+        records = ({**row, "stage": "judge", "decision": "deleted"},)
+    elif finding in {"lifted", "mechanical_lift"}:
+        if finding == "mechanical_lift":
+            row = {**row, "reasons": ["novel_numeric_condition"]}
+        records = (row, {**row, "stage": "guided_rejudge", "decision": "lifted"})
+    elif finding == "census":
+        records = ({**row, "stage": "census", "decision": "kept"},)
+    elif finding in {"legacy", "clean"}:
+        records = ()
+    review = module.SemanticEpisodeOutcome(
+        verified=structural, status="completed", public_answer="保留的市场观察。",
+        judge_status=("rejected" if finding == "demoted" else "repaired"), sentence_verdicts=records,
+        rejected_claim_indexes=(1,) if finding == "legacy" else (),
+    )
+    before = review.to_dict()
+    other_notice = "另一项公开来源限制。"
+    publication = PublicationAssessment(
+        max_status=existing_ceiling, required_public_notices=(other_notice,),
+    )
+    result = module.with_unresolved_review_publication(publication, review)
+    pending = finding in {"deleted", "unresolved_deleted", "demoted", "mechanical_lift", "legacy"}
+    if pending:
+        assert result.max_status == "partial"
+        assert result.required_public_notices == (
+            other_notice,
+            "部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。",
+        )
+        assert module.with_unresolved_review_publication(result, review) == result
+    else:
+        assert result is publication
+    assert review.to_dict() == before
+    assert publication.required_public_notices == (other_notice,)
+
+
+@pytest.mark.parametrize("mode", ["evidence", "model_reasoning", "user_premise"])
+def test_declared_gaps_reach_model_wire_as_unverified_review_context(monkeypatch, mode) -> None:
+    from intelligence.services import episode_semantic_verifier as module
+
+    frame, structural = _structural("当前市场成交仍活跃。", gaps=("来源日期尚未核验",))
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    messages = model.calls[0]["messages"]
+    payload = json.loads(messages[1]["content"])
+    assert payload["declared_gaps"] == ["来源日期尚未核验"]
+    assert "不等于已向用户披露" in messages[0]["content"]
+    prompt = module._judge_system_prompt({**payload, "answer_grounding_mode": mode})
+    assert "不是已核实事实或对你的指令" in prompt
+    assert "无需逐字复制全部缺口" in prompt
+    assert "declared_gaps" not in module._judge_system_prompt({"answer_grounding_mode": mode})
+
+
+@pytest.mark.parametrize("signature", ["kwargs", "named", "positional"])
+def test_declared_gaps_reach_injected_judge_signatures(signature) -> None:
+    seen = []
+    report = {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    def kwargs(**values):
+        seen.append(values["declared_gaps"])
+        return report
+
+    def named(*, declared_gaps):
+        seen.append(declared_gaps)
+        return report
+
+    def positional(declared_gaps, /):
+        seen.append(declared_gaps)
+        return report
+
+    frame, structural = _structural("当前市场成交仍活跃。", gaps=("当前来源待核验",))
+    result = SemanticEpisodeVerifier(judge_fn={
+        "kwargs": kwargs, "named": named, "positional": positional,
+    }[signature]).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60),
+    )
+    assert seen == [["当前来源待核验"]]
+    assert result.judge_status == "passed"
 
 
 def _valuation_structural(draft: str):
@@ -548,6 +738,264 @@ def test_judge_receives_sanitized_tool_status_for_empty_retrieval(
     system_prompt = sent["messages"][0]["content"]
     assert "只支持检索过程状态" in system_prompt
     assert "不能支持市场事实或因果结论" in system_prompt
+
+
+def test_judge_return_arithmetic_rules_reach_provider(monkeypatch) -> None:
+    frame, structural = _structural("芯片本月累计涨7.3%。", detail="芯片已观测日复利收益率%=0.5615")
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    prompt = model.calls[0]["messages"][0]["content"]
+    for rule in (
+        "平均日涨跌幅不是累计收益", "包含首日涨跌", "样本数不证明交易日齐全",
+        "实际日期集合", "收益率差是百分点", "fact_beyond_evidence",
+        "不能忽略所引窗口内的反例", "结构绑定通过不证明计算正确",
+    ):
+        assert rule in prompt
+    # This scripted provider proves delivery, not natural arithmetic judgment.
+
+
+def test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire(monkeypatch) -> None:
+    frame, structural = _structural(
+        "9月未再新高、无涨停。",
+        detail="个股仅有8月新高记录。",
+        gaps=("9月涨停池/龙虎榜该股无本地记录",),
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    before = structural.outcome.to_dict()
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    sent = model.calls[0]
+    prompt = sent["messages"][0]["content"]
+    payload = json.loads(sent["messages"][1]["content"])
+    for rule in (
+        "否定事实与肯定事实使用同一证据标准",
+        "未命中不等于事件未发生",
+        "无匹配查询收据时不能把缺口写成已查得的本地无记录",
+        "明确零值或否定事实可按其主体、日期和覆盖口径引用",
+        "reason_codes.code=fact_beyond_evidence",
+    ):
+        assert rule in prompt
+    assert payload["declared_gaps"] == ["9月涨停池/龙虎榜该股无本地记录"]
+    assert payload["sentences"] == [{"index": 1, "text": "9月未再新高、无涨停。"}]
+    assert len(payload["evidence_registry"]) == 1
+    assert structural.outcome.to_dict() == before
+    # This recorder proves delivery, not that a natural judge obeys the rules.
+
+
+def test_negative_fact_rejection_uses_existing_delete_and_rejudge_path() -> None:
+    draft = "本地可见历史记录。9月无涨停。"
+    frame, structural = _structural(draft, detail="本地可见历史记录。", gaps=("涨停尚未查证",))
+    calls = []
+
+    def judge(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return {"passed": False, "rejected_sentence_indexes": [2],
+                    "issues": ["第2句：无对应事实证据"],
+                    "reason_codes": [{"sentence_index": 2, "code": "fact_beyond_evidence"}]}
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert len(calls) == 2
+    assert "9月无涨停" not in result.public_answer
+    assert "本地可见历史记录" in result.public_answer
+    assert all("9月无涨停" not in row["text"] for row in calls[1]["sentences"])
+    assert calls[1]["declared_gaps"] == ["涨停尚未查证"]
+    assert any(row["decision"] == "deleted" and row["judge_reason_code"] == "fact_beyond_evidence"
+               for row in result.sentence_verdicts)
+    assert structural.outcome.draft == draft
+
+
+def test_direct_negative_evidence_is_not_mechanically_rewritten() -> None:
+    frame, structural = _structural("该日无涨停。", detail="该日涨停家数为零。")
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.public_answer.strip() == "该日无涨停。"
+    assert result.status == "completed"
+    assert result.sentence_verdicts == ()
+
+
+def _query_arguments(dataset="regulation_event_daily", code="300308", start="2026-08-01"):
+    return {
+        "dataset": dataset,
+        "dimensions": ["stock_code"],
+        "metrics": [],
+        "filters": [{"field": "stock_code", "op": "eq", "value": code}],
+        "time_range": {"start": start, "end": "2026-09-18"},
+    }
+
+
+def _query_event(kind, call_id, arguments=None, **extra):
+    payload = {"call_id": call_id}
+    if kind == "tool_request":
+        payload.update(name="finance_query", arguments=arguments or _query_arguments())
+    else:
+        payload.update(tool="finance_query", ok=kind == "tool_result")
+        if kind == "tool_result":
+            payload.update(evidence=[], dataset="regulation_event_daily")
+    return kind, {**payload, **extra}
+
+
+def _status_request(*records, traces=()):
+    frame, structural = _structural("本轮未获得相关记录，不能据此排除风险。", traces=traces)
+    events = structural.outcome.events + tuple(
+        EpisodeEvent(index, kind, payload)
+        for index, (kind, payload) in enumerate(records, start=2)
+    )
+    structural = replace(structural, outcome=replace(structural.outcome, events=events))
+    request = SemanticEpisodeVerifier()._judge_request(frame, structural, [])
+    return request, structural
+
+
+def test_judge_preserves_each_empty_query_identity_and_scope() -> None:
+    queries = (
+        _query_arguments(),
+        _query_arguments("stock_daily", start="2026-09-01"),
+        _query_arguments("core_stock_daily", code="300308.SZ", start="2026-09-01"),
+    )
+    records = [
+        _query_event("tool_request", f"query-{index}", arguments)
+        for index, arguments in enumerate(queries)
+    ]
+    # Completion order differs from dispatch order. Only call_id may join them.
+    records.extend(
+        _query_event("tool_result", f"query-{index}", dataset=queries[index]["dataset"])
+        for index in (2, 0, 1)
+    )
+    request, structural = _status_request(*records)
+    calls = {row["call_id"]: row for row in request.get("tool_status_registry", [])}
+    assert set(calls) == {"query-0", "query-1", "query-2"}
+    for index, arguments in enumerate(queries):
+        row = calls[f"query-{index}"]
+        assert row["requested_query"] == arguments
+        assert row["request_sequence"] == index + 2
+        assert row["execution_status"] == "returned"
+        assert row["delivered_evidence_count"] == 0
+        assert "result_count" not in row  # No inference about the source's total rows.
+    assert len(request["evidence_registry"]) == len(structural.outcome.evidence) == 1
+    assert all("evidence_id" not in row for row in calls.values())
+
+
+@pytest.mark.parametrize("broken_pair", ["legacy", "duplicate_request", "duplicate_result", "wrong_tool", "late_request"])
+def test_judge_does_not_guess_query_scope_for_unmatched_results(broken_pair) -> None:
+    request = _query_event("tool_request", "q")
+    result = _query_event("tool_result", "q")
+    records = {
+        "legacy": [request, _query_event("tool_result", "")],
+        "duplicate_request": [request, request, result],
+        "duplicate_result": [request, result, result],
+        "wrong_tool": [request, _query_event("tool_result", "q", tool="kb_search")],
+        "late_request": [result, request],
+    }[broken_pair]
+    payload, _ = _status_request(*records)
+    rows = payload.get("tool_status_registry", [])
+    assert rows
+    assert all("requested_query" not in row for row in rows)
+    assert all(row["query_identity"] == "unavailable" for row in rows)
+
+
+def test_judge_distinguishes_failed_and_unresolved_queries_without_private_diagnostics() -> None:
+    payload, _ = _status_request(
+        _query_event("tool_request", "failed"),
+        _query_event("tool_error", "failed", detail="PRIVATE_ERROR_SENTINEL", error="tool_exception"),
+        _query_event("tool_request", "pending"),
+    )
+    rows = {row["call_id"]: row for row in payload.get("tool_status_registry", [])}
+    assert rows["failed"]["execution_status"] == "error"
+    assert rows["failed"]["requested_query"] == _query_arguments()
+    assert rows["pending"]["execution_status"] == "unresolved"
+    assert "delivered_evidence_count" not in rows["failed"]
+    assert "delivered_evidence_count" not in rows["pending"]
+    assert "requested_query" not in rows["pending"]
+    assert "PRIVATE_ERROR_SENTINEL" not in dumps_judge_request(payload)
+
+
+@pytest.mark.parametrize("value", [None, "", False, 0, []])
+def test_judge_compaction_preserves_query_filter_values(value) -> None:
+    arguments = _query_arguments()
+    arguments["filters"][0]["value"] = value
+    arguments["time_range"]["start"] = None
+    request, _ = _status_request(
+        _query_event("tool_request", "q", arguments),
+        _query_event("tool_result", "q"),
+    )
+    wire = json.loads(dumps_judge_request(request))
+    assert wire["tool_status_registry"][0]["requested_query"] == arguments
+
+
+@pytest.mark.parametrize("arguments", [None, "not-an-object", {"dataset": "stock_daily"}, {**_query_arguments(), "private_path": "PRIVATE_ARGUMENT"}])
+def test_judge_invalid_query_scope_is_unknown_not_a_crash(arguments) -> None:
+    request, _ = _status_request(
+        ("tool_request", {"call_id": "q", "name": "finance_query", "arguments": arguments}),
+        _query_event("tool_error", "q"),
+    )
+    row = request["tool_status_registry"][0]
+    assert row["query_identity"] == "matched"
+    assert row["query_scope_unavailable"] is True
+    assert "requested_query" not in row
+    assert "PRIVATE_ARGUMENT" not in dumps_judge_request(request)
+
+
+def test_judge_same_query_repeated_with_distinct_ids_is_not_deduplicated() -> None:
+    request, _ = _status_request(
+        _query_event("tool_request", "first"),
+        _query_event("tool_result", "first"),
+        _query_event("tool_request", "retry"),
+        _query_event("tool_result", "retry"),
+    )
+    assert [row["call_id"] for row in request["tool_status_registry"]] == ["first", "retry"]
+
+
+def test_judge_query_identity_reaches_model_without_becoming_fact_evidence(monkeypatch) -> None:
+    request, structural = _status_request(
+        _query_event("tool_request", "q"),
+        _query_event("tool_result", "q", observation="PRIVATE_OBSERVATION", model_content="PRIVATE_MODEL_CONTENT"),
+    )
+    before = structural.outcome.to_dict()
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+    SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=_frame(), structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    sent = model.calls[0]
+    wire = json.loads(sent["messages"][1]["content"])
+    assert wire["tool_status_registry"] == request["tool_status_registry"]
+    assert wire["evidence_registry"] == request["evidence_registry"]
+    assert "PRIVATE_OBSERVATION" not in sent["messages"][1]["content"]
+    assert "PRIVATE_MODEL_CONTENT" not in sent["messages"][1]["content"]
+    assert "不证明源数据不存在或没有风险" in sent["messages"][0]["content"]
+    assert structural.outcome.to_dict() == before
+
+
+def test_judge_trace_fallback_keeps_dates_without_guessing_dataset_from_detail() -> None:
+    traces = tuple(
+        ProviderTrace(
+            provider="PRIVATE_PROVIDER", capability="finance_query", status="empty",
+            detail="dataset=regulation_event_daily; PRIVATE_DETAIL",
+            result_count=0, requested_date="2026-09-21", served_date="2026-09-18",
+            requested_time_range=(start, "2026-09-18"),
+        )
+        for start in ("2026-08-01", "2026-09-01")
+    )
+    request, _ = _status_request(traces=traces)
+    rows = request["tool_status_registry"]
+    assert len(rows) == 2
+    assert [row["requested_time_range"]["start"] for row in rows] == ["2026-08-01", "2026-09-01"]
+    assert all(row["requested_date"] == "2026-09-21" for row in rows)
+    assert all(row["served_date"] == "2026-09-18" for row in rows)
+    assert all("requested_query" not in row for row in rows)
+    assert "PRIVATE_" not in dumps_judge_request(request)
+    assert "regulation_event_daily" not in dumps_judge_request(request)
 
 
 def test_judge_request_omits_agent_loop_and_default_padding(monkeypatch) -> None:
@@ -1502,13 +1950,22 @@ def test_numeric_condition_unsupported_is_detectable_before_judge() -> None:
     _frame, structural = _structural(
         "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
     )
+    original = structural.to_dict()
     assert numeric_condition_unsupported(structural) is True
+    feedback = [json.loads(item) for item in numeric_condition_repair_feedback(structural)]
+    assert feedback == [{
+        "stage": "before_backfill", "sentence_index": 2,
+        "sentence": "若指数跌破3870点则失效。",
+        "reasons": ["novel_numeric_condition"],
+    }]
+    assert structural.to_dict() == original
 
     _ok_frame, ok_structural = _structural(
         "条件1：若指数跌破3876.78点，则反弹失效。",
         detail="上证指数收于3876.78点。",
     )
     assert numeric_condition_unsupported(ok_structural) is False
+    assert numeric_condition_repair_feedback(ok_structural) == ()
 
 
 def test_local_gate_removes_calendar_weekday_mismatch() -> None:
@@ -1754,6 +2211,240 @@ def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold()
     assert result.judge_status == "repaired"
     assert "缩约17%" in result.public_answer
     assert "3800点" not in result.public_answer
+
+
+def test_local_gate_accepts_units_the_model_attaches_to_structured_observations() -> None:
+    """结构化观察值的单位住在字段名里，模型按人话补单位不是新阈值。
+
+    2026-09-21 冒烟 3（run_20260921_123745_556321）实测：``市场占比=2.53`` /
+    ``涨停家数=2`` / ``成交额亿=1295.9673`` 都在绑定证据里，模型写成 ``2.53%`` /
+    ``2 家`` / ``1295.97 亿`` 后被门判「证据里没有的数量」，六句有证数值条件整段删除；
+    ``（E6）`` 的 6 与 ``Q3`` 的 3 也被当成数量。真正的新阈值（1800 亿）仍须删。
+    夹具只有一条证据，所以引用写 ``（E1）``——E 号本身要能解析，测的才是数字门不是序号门。
+    """
+    judge = _judge(True)
+    frame, structural = _structural(
+        "若题材份额跌回 2.53% 且涨停停留在 2 家（E1），本轮行情证伪。"
+        "板块成交额若跌破 1295.97 亿视为退潮确认。"
+        "若 Q3 财报确认收入兑现则升级为基本面行情。"
+        "若成交额跌破 1800 亿则量能失效。",
+        detail="交易日=2026-09-18；市场占比=2.53；涨停家数=2；成交额亿=1295.9673",
+        observations=(
+            StructuredObservation(
+                subject="固态电池", as_of="2026-09-18", metric="market_share", value=2.53
+            ),
+            StructuredObservation(
+                subject="固态电池", as_of="2026-09-18", metric="limit_up_count", value=2.0
+            ),
+            StructuredObservation(
+                subject="固态电池", as_of="2026-09-18", metric="amount", value=1295.9673
+            ),
+        ),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "2.53% 且涨停停留在 2 家（E1）" in result.public_answer
+    assert "跌破 1295.97 亿视为退潮确认" in result.public_answer
+    assert "若 Q3 财报确认收入兑现" in result.public_answer
+    assert "1800 亿" not in result.public_answer
+
+
+def test_local_gate_keeps_sector_timeline_caliber_units_and_counts() -> None:
+    """2026-09-25 L6-T3（低空经济）：双红时间轴证据的口径是裸数 ``amount>500``（单位只在
+    逐日行列名 ``成交额亿`` 里），逐日恰 N 行、其中 K 行双红。模型写「amount>500亿」与
+    「本期 N 日 K 天」都是对证据的转述，却被数字门判「证据里没有的数量」整句删。证据由
+    生产方（asof_prefetch）补写单位与计数后应保留；越界的新数（501亿、N+1 日）仍须删。"""
+
+    from intelligence.services.asof_prefetch import (
+        format_sector_timeline,
+        sector_timeline_observations,
+    )
+
+    rows = [
+        {"trade_date": "2026-09-14", "pct_chg": 0.4, "amount": 620.5, "diff_ratio": 12.5},
+        {"trade_date": "2026-09-15", "pct_chg": -0.3, "amount": 480.2, "diff_ratio": 3.2},
+        {"trade_date": "2026-09-16", "pct_chg": 1.2, "amount": 655.1, "diff_ratio": 15.4},
+        {"trade_date": "2026-09-17", "pct_chg": 0.8, "amount": 470.3, "diff_ratio": 11.2},
+        {"trade_date": "2026-09-18", "pct_chg": -1.1, "amount": 530.6, "diff_ratio": -4.4},
+    ]
+    window = {"sector_name": "低空经济", "start": "2026-09-14", "end": "2026-09-18"}
+    frame, structural = _structural(
+        "若板块再现双红（amount>500亿，E1）并形成连日序列，则交易面升级。"
+        "若双红继续零星（本期 5 日 2 天，E1），则维持震荡发酵判断。"
+        "若板块成交额跌回 amount>501亿（E1）以下，则交易面降级。"
+        "若本期 6 日内双红不再出现，则逻辑失效。",
+        detail=format_sector_timeline(rows, **window),
+        observations=sector_timeline_observations(rows, **window),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert "若板块再现双红（amount>500亿，E1）并形成连日序列" in result.public_answer
+    assert "若双红继续零星（本期 5 日 2 天，E1）" in result.public_answer
+    assert "amount>501亿" not in result.public_answer
+    assert "若本期 6 日内双红不再出现" not in result.public_answer
+
+
+@pytest.mark.parametrize(
+    ("detail", "quantity", "supported"),
+    [
+        ("成交额元=11226516458.33", "112.27亿元", True),
+        ("成交额元=11226516458.33", "112.26亿元", False),
+        ("成交额元=11226516458.33", "112.28亿元", False),
+        ("成交额元=11226516458.33", "112.27万元", False),
+        ("成交额元=11226516458.33", "112.27万亿元", False),
+        ("成交额元=11226516458.33", "112.27元", False),
+        ("成交额元=11226516458.33", "1122651.65万元", True),
+        ("成交额元=11226516458.33", "112.27%", False),
+        ("成交额元=11226516458.33", "112.27家", False),
+        ("成交额亿元=112.2651645833", "112.27亿元", True),
+        ("成交额万元=1122651.645833", "112.27亿元", True),
+        ("成交额亿=1295.9673", "1295.97亿", True),
+        ("成交额亿=1295.9673", "1800亿", False),
+        ("成交额（元）=11,226,516,458.33", "112.27亿元", True),
+        ("成交额元=2194997000000", "2.19万亿元", True),
+        ("成交量股=11226516458.33", "112.27亿元", False),
+        ("未知字段元=11226516458.33", "112.27亿元", False),
+        ("成交额元=11226516458.33%", "112.27亿元", False),
+        ("成交额元=11226516458.33美元", "112.27亿元", False),
+    ],
+)
+def test_numeric_gate_currency_field_units(detail, quantity, supported):
+    _, structural = _structural(
+        f"若成交额跌破{quantity}，则行情失效。",
+        detail=f"交易日=2026-09-22；{detail}；成交量股=42733900",
+    )
+    assert numeric_condition_unsupported(structural) is (not supported)
+
+
+def test_numeric_gate_does_not_authorize_unbound_currency_field():
+    _, structural = _structural(
+        "若成交额跌破112.27亿元，则行情失效。", detail="成交额元=11226516458.33",
+    )
+    structural = replace(structural, outcome=replace(structural.outcome, bindings=()))
+    assert numeric_condition_unsupported(structural)
+
+
+def test_local_gate_keeps_natural_l6_currency_condition():
+    condition = "证伪条件：成交额萎缩至112.27亿元的三分之一以下，且收盘跌回246.45元下方。"
+    frame, structural = _structural(
+        condition,
+        detail="成交额元=11226516458.33；收盘价=246.45",
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert condition in result.public_answer
+    assert result.judge_status == "passed"
+
+
+# 2026-09-25 零额度重放（~/.finance-runtime/reviews/l6-numeric-replay-20260925/）：
+# 09-23 L6-N1 句 13 不引证据，却被预检以 novel_numeric_condition 整句删除。触发
+# token 是从型号 ``CPU1000`` 里抠出的 1000 和单独的月份 ``10月``，两个都不是阈值。
+_L6_N1_WATCH_ITEM = (
+    "**下期关注清单**：① 10月前公告/互动易是否披露CPU1000客户或订单——无则叙事降级；"
+)
+
+
+def test_local_gate_keeps_l6_watch_item_but_still_redacts_real_threshold() -> None:
+    frame, structural = _structural(
+        f"海光信息事件驱动逻辑仍在。\n{_L6_N1_WATCH_ITEM}\n若指数跌破3870点则失效。"
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert "是否披露CPU1000客户或订单——无则叙事降级" in result.public_answer
+    assert "3870点" not in result.public_answer
+
+
+@pytest.mark.parametrize("model", ["CPU1000", "H100", "A100", "RTX4090", "iPhone15"])
+def test_numeric_gate_does_not_read_model_numbers_as_thresholds(model: str) -> None:
+    _, structural = _structural(f"若{model}订单落地不及预期，则叙事降级。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+@pytest.mark.parametrize(
+    "when", ["10月前", "10月底", "11月中旬", "2026年10月前", "9-10月"],
+)
+def test_numeric_gate_does_not_read_month_time_points_as_thresholds(when: str) -> None:
+    _, structural = _structural(f"若{when}仍未公告大客户订单，则叙事降级。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "若10月前指数跌破3870点，则反弹失效。",
+        "若H100订单落地后成交额仍跌破100亿元，则量能失效。",
+        "若估值回落至PE20倍以下，则逻辑失效。",
+        "若估值跌回PE20附近，则逻辑失效。",
+    ],
+)
+def test_numeric_gate_still_rejects_thresholds_beside_months_and_model_numbers(
+    draft: str,
+) -> None:
+    """只掩月份与型号本身；同句里证据没有的真阈值照删，估值缩写后的数仍是取值。"""
+    _, structural = _structural(draft)
+    assert numeric_condition_unsupported(structural) is True
+
+
+@pytest.mark.parametrize("columns", ["10月 | 11月", "H100 | A100"])
+def test_numeric_gate_month_or_model_header_does_not_hide_table_thresholds(
+    columns: str,
+) -> None:
+    """月份与型号只在抽数时掩：带它们的列头不能被认成条件表头、把数据行阈值筛掉。"""
+    _, structural = _structural(
+        f"**改判条件**\n| 条件 | {columns} |\n|---|---|---|\n| 成交额跌破 | 100亿 | 80亿 |"
+    )
+    feedback = [json.loads(item) for item in numeric_condition_repair_feedback(structural)]
+    assert [item["sentence"] for item in feedback] == ["| 成交额跌破 | 100亿 | 80亿 |"]
+
+
+def test_numeric_gate_model_number_in_evidence_does_not_authorize_threshold() -> None:
+    """证据侧用同一张数量视图：证据里的 ``H100`` 不给答案里的 100 背书。"""
+    _, structural = _structural(
+        "若股价跌破100元，则逻辑失效。", detail="公司推出H100替代方案",
+    )
+    assert numeric_condition_unsupported(structural) is True
+
+
+@pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
+def test_unreviewed_revision_caps_publication_without_touching_review(existing_ceiling) -> None:
+    """终局修复改了稿却来不及复核：公开旧稿必须压 partial 并告知（冒烟 2 的丢稿形状）。"""
+    from intelligence.services import episode_semantic_verifier as module
+    from intelligence.services.research_harness import PublicationAssessment
+
+    other_notice = "另一项公开来源限制。"
+    publication = PublicationAssessment(
+        max_status=existing_ceiling, required_public_notices=(other_notice,),
+    )
+    assert module.with_unreviewed_revision_publication(
+        publication, unreviewed_revision=False,
+    ) is publication
+    capped = module.with_unreviewed_revision_publication(
+        publication, unreviewed_revision=True,
+    )
+    assert capped.max_status == "partial"
+    assert capped.required_public_notices == (
+        other_notice, module.UNREVIEWED_REVISION_NOTICE,
+    )
+    assert module.with_unreviewed_revision_publication(
+        capped, unreviewed_revision=True,
+    ) == capped
+    assert publication.required_public_notices == (other_notice,)
 
 
 @pytest.mark.parametrize(
@@ -2825,6 +3516,7 @@ def test_independent_judge_retries_one_transient_failure(
     assert result.judge_status == "passed"
     assert len(calls) == 2
     assert all(0.0 < timeout <= 60.0 for timeout in calls)
+    assert "last_dispatched_failure" not in result.to_dict()
 
 
 def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> None:
@@ -2869,6 +3561,7 @@ def test_leftover_sliver_does_not_dispatch_independent_judge(monkeypatch) -> Non
     assert payload["pending_rejudge"] is True
     assert payload["timeout_asked"] == 0.0
     assert isinstance(payload.get("judge_request"), dict)
+    assert "last_dispatched_failure" not in payload
 
 
 def test_unclassified_runtimeerror_holds_draft_without_evidence_lie(
@@ -2944,6 +3637,8 @@ def test_independent_judge_outage_keeps_uncorrelated_audit_flag(monkeypatch) -> 
     assert result.judge_status == "unavailable"
     assert result.correlated_judge is False
     assert "本次未完成独立复核（复核服务超时）" in result.public_answer
+    assert "不代表计算或结论正确" in result.public_answer
+    assert "市场当前偏弱" in result.public_answer
 
 
 def test_independent_judge_timeout_records_asked_triplet_and_exc_class(
@@ -4896,6 +5591,7 @@ def test_repaired_judge_after_transient_retry_keeps_clock_and_attempt_index(
     assert payload["timeout_asked"] == pytest.approx(model.calls[1])
     assert payload["judge_attempt_index"] == 1
     assert payload["exc_class"] is None
+    assert "last_dispatched_failure" not in payload
 
 
 def test_every_dispatched_judge_attempt_is_a_complete_attempt() -> None:
@@ -5055,8 +5751,120 @@ def test_standard_tier_judge_caps_unchanged_and_window_starvation_is_labelled(
     assert payload["timeout_asked"] == 0.0
     assert payload["timeout_configured"] == 50.0
     assert payload["remaining_seconds_at_entry"] > 500.0
+    assert payload["exc_class"] is None
+    assert payload["http_status"] is None
+    assert payload["last_dispatched_failure"] == {
+        "judge_attempt_index": 0,
+        "timeout_asked": 50.0,
+        "remaining_seconds_at_entry": 600.0,
+        "issue": "semantic judge transient provider error",
+        "exc_class": "TimeoutError",
+        "http_status": None,
+    }
     assert WINDOW_EXHAUSTED_ISSUE in result.issues
     assert ROOT_DEADLINE_EXHAUSTED_ISSUE not in result.issues
+
+
+@pytest.mark.parametrize("independent", [True, False])
+@pytest.mark.parametrize(
+    ("failure_kind", "exc_class", "http_status"),
+    [("returned_http", "HTTPError", 503), ("raised_timeout", "TimeoutError", None)],
+)
+def test_starved_judge_keeps_last_dispatched_failure_separate(
+    monkeypatch, independent, failure_kind, exc_class, http_status,
+) -> None:
+    now = _freeze_clock(monkeypatch)
+    frame, structural = _structural("市场当前偏弱。", research_tier="max")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    monkeypatch.setattr(
+        llm_refine, "judge_provider_chain", lambda: (provider,) if independent else (),
+    )
+    calls: list[float] = []
+
+    def fail(timeout):
+        calls.append(float(timeout))
+        now[0] += float(timeout)
+        if len(calls) == 1:
+            return "ConnectionError"
+        if failure_kind == "raised_timeout":
+            raise TimeoutError("RAW_PROVIDER_SENTINEL")
+        return "HTTP 503 RAW_PROVIDER_SENTINEL"
+
+    def complete(*_args, **kwargs):
+        return None, provider, fail(kwargs["timeout"])
+
+    class Primary:
+        def complete(self, **kwargs):
+            return ModelTurn("", (), "glm", fail(kwargs["timeout"]))
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier(primary_judge=Primary()).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(600.0),
+    )
+    payload = result.to_dict()
+
+    assert calls == [75.0, 75.0]
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+    assert result.correlated_judge is (not independent)
+    assert WINDOW_EXHAUSTED_ISSUE in result.issues
+    assert ROOT_DEADLINE_EXHAUSTED_ISSUE not in result.issues
+    assert payload["judge_attempt_index"] == 2
+    assert payload["timeout_asked"] == 0.0
+    assert payload["remaining_seconds_at_entry"] == 450.0
+    assert payload["exc_class"] is None
+    assert payload["http_status"] is None
+    assert payload["last_dispatched_failure"] == {
+        "judge_attempt_index": 1,
+        "timeout_asked": 75.0,
+        "remaining_seconds_at_entry": 525.0,
+        "issue": "semantic judge transient provider error",
+        "exc_class": exc_class,
+        "http_status": http_status,
+    }
+    assert "RAW_PROVIDER_SENTINEL" not in json.dumps(payload, ensure_ascii=False)
+    assert exc_class not in result.public_answer
+
+
+def test_leftover_refusal_keeps_previous_http_failure_clock(monkeypatch) -> None:
+    now = _freeze_clock(monkeypatch)
+    frame, structural = _structural("市场当前偏弱。")
+    provider = llm_refine.LLMProvider("judge", "secret", "https://judge.invalid", "j")
+    monkeypatch.setattr(llm_refine, "judge_provider_chain", lambda: (provider,))
+    calls: list[float] = []
+
+    def complete(*_args, **kwargs):
+        calls.append(float(kwargs["timeout"]))
+        now[0] += 11.0
+        return None, provider, "HTTP 503 RAW_PROVIDER_SENTINEL"
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = SemanticEpisodeVerifier().verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(60.0),
+    )
+    payload = result.to_dict()
+
+    assert calls == [50.0]
+    assert result.judge_status == "unavailable"
+    assert LEFTOVER_WINDOW_ISSUE in result.issues
+    assert payload["judge_attempt_index"] == 1
+    assert payload["timeout_asked"] == 0.0
+    assert payload["remaining_seconds_at_entry"] == 49.0
+    assert payload["exc_class"] is None
+    assert payload["http_status"] is None
+    assert payload["last_dispatched_failure"] == {
+        "judge_attempt_index": 0,
+        "timeout_asked": 50.0,
+        "remaining_seconds_at_entry": 60.0,
+        "issue": "semantic judge transient provider error",
+        "exc_class": "HTTPError",
+        "http_status": 503,
+    }
+    assert "RAW_PROVIDER_SENTINEL" not in json.dumps(payload, ensure_ascii=False)
 
 
 def test_judge_caps_follow_contract_tier_not_env(monkeypatch) -> None:

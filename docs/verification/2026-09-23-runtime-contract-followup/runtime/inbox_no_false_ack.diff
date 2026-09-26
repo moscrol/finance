@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..f857dd4b1 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -1479,7 +1479,7 @@ class ContinuousAgentEpisode:
+             ledger,
+             admit=self._harness.admit_inbox_message,
+             spool=spool_dir_for(self._store, ledger.episode_id),
+-            persistence_failed=lambda: bool(ledger.store_failures),
++            persistence_failed=lambda: False,
+         )
+         ledger.inbox = inbox
+         self._active_inbox = inbox

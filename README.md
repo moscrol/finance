@@ -41,10 +41,12 @@ Workbench 是可恢复的多轮研究对话界面：每轮重新检索当前证�
 本机回环地址或部署在受控私网，不能作为公开互联网服务**。
 
 ```bash
-# Python 3.10+；推荐独立虚拟环境
-python3 -m venv .venv-workbench
+# Python 版本由 test-environment.json 声明；--python 指向匹配的基础解释器。
+# 默认仅展示计划；--install 才下载依赖并创建本树 venv，不覆盖已有环境。
+python3 scripts/workspace.py bootstrap --python python3.12 --install
+python3 scripts/workspace.py doctor
+python3 scripts/workspace.py smoke
 source .venv-workbench/bin/activate
-python -m pip install -r intelligence/api/requirements.txt PyYAML "duckdb==1.4.3"
 
 # Node.js 22 + pnpm 10.12.1；构建结果写入 FastAPI 静态目录
 cd intelligence/webapp
@@ -76,8 +78,7 @@ fupanhui.com API ──(CDP proxy)──→ daily-full ──→ db/market_featu
 
 ## 环境要求
 
-- Python 3.9+ (duckdb)
-- Chrome（fupanhui 登录态）
-- CDP Proxy（`node ~/.claude/skills/web-access/scripts/check-deps.mjs`）
-- 飞书应用凭证（`~/.claude/shared/feishu_config.json`）
-- 本地软链 `shared`（首次克隆后创建，不入库）：`ln -s ~/.claude/shared shared`
+- 开发基线：`test-environment.json` + `requirements-dev.lock`；前端版本由 `intelligence/webapp/package.json` 声明，依赖用 pnpm 锁文件。
+- 新工作树、换机器或搭建 Agent：走[开发基线](docs/workflows/agent-foundation.md)，六图来源与维护合同见 `docs/agent-maps.json`。
+- 离线样例不需要 Chrome、市场数据库、模型密钥或个人用户目录；通过不代表生产或全量测试通过。
+- 采集任务另需 Chrome 登录态与 CDP Proxy，按对应 skill 配置。飞书应用、凭证与 IM 已退役，不再作为搭建前置。

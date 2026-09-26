@@ -1,0 +1,29 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-parallel-binding-survives-marker-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_parallel_list_binding_survives_a_local_uncertainty_marker or test_located_or_parallel_value_does_not_exempt_residual_numbers"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+....FF                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.588\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:97: in test_located_or_parallel_value_does_not_exempt_residual_numbers
+    assert remove_findings(kept, calculation_copy_findings(kept, _financial_evidence())) == kept
+E   AssertionError: assert '含金量对照：2026中报...289，实际为1.587。' == '含金量对照：2026中报...289，实际为1.587。'
+E     
+E     - 含金量对照：2026中报 〔比率对应关系待核对〕2025中报分别为1.588与0.289，实际为1.587。
+E     ?                                  ^^^^^
+E     + 含金量对照：2026中报 〔比率对应关系待核对〕2025中报分别为待核对与0.289，实际为1.587。
+E     ?                                  ^^^
+________ test_parallel_list_binding_survives_a_local_uncertainty_marker ________
+intelligence/tests/test_research_delivery_ratio_scope.py:113: in test_parallel_list_binding_survives_a_local_uncertainty_marker
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   AssertionError: assert ((DeliveryFinding(start=33, end=38, code='calculation_value_mismatch', replacement='待核对'), DeliveryFinding(start=24, end=24, code='calculation_value_unlocated', replacement='')) and {'calculation...ue_unlocated'} == {'calculation...ue_unlocated'}
+E     
+E     Extra items in the left set:
+E     'calculation_value_mismatch'
+E     Use -v to get more diff)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-parallel-binding-survives-marker-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.588\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_parallel_list_binding_survives_a_local_uncertainty_marker
+2 failed, 4 passed, 681 deselected in 1.02s
+
+STDERR:
+
+EXIT=1

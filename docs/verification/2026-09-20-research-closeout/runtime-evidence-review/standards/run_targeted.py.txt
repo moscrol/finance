@@ -1,0 +1,34 @@
+from pathlib import Path
+import json
+import os
+import subprocess
+import time
+
+ROOT = Path('/Users/a77/fwp-wt-runtime-contracts-0918')
+OUT = Path(__file__).resolve().parent
+EXPECTED = 'a7f5cc06c087c2d9db896450bb6033851e8e5789'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+
+before = {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--short')}
+assert before == {'revision': EXPECTED, 'status': ''}, before
+(OUT / 'before.json').write_text(json.dumps(before, indent=2) + '\n')
+command = [PYTHON, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+           '--basetemp', str(OUT / 'pytest-temp'),
+           'intelligence/tests/test_episode_evidence_snapshot.py',
+           'intelligence/tests/test_api_fixture_lifecycle.py',
+           'intelligence/tests/test_sub_research_persistence.py::test_linked_nonterminal_restore_refuses_without_mutating_logs']
+env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0')
+started = time.time()
+with (OUT / 'targeted.log').open('w') as log:
+    result = subprocess.run(command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=180)
+after = {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--short')}
+receipt = {'before': before, 'after': after, 'command': command, 'exit_code': result.returncode,
+           'elapsed_seconds': round(time.time() - started, 3), 'external_models': 0}
+(OUT / 'targeted-receipt.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(receipt, ensure_ascii=False, indent=2))
+print((OUT / 'targeted.log').read_text())
+assert after == before, after
+raise SystemExit(result.returncode)

@@ -1,0 +1,48 @@
+"""Preserve one trailing-space raw log with a reversible archive representation."""
+import base64
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+DEST = TREE / 'docs/verification/2026-09-24-pr884-closeout-05'
+path = DEST / 'SOURCE-MAP.json'
+manifest = json.loads(path.read_text())
+item = next(i for i in manifest['artifacts'] if i['source'] == 'admission-tests-initial.log.txt')
+original = ROOT / item['source']
+raw = original.read_bytes()
+old_path = DEST / item['archived_path']
+assert old_path.read_bytes() == raw
+assert hashlib.sha256(raw).hexdigest() == item['sha256']
+encoded = base64.b64encode(raw) + b'\n'
+new_path = DEST / (item['archived_path'] + '.b64')
+with new_path.open('xb') as stream:
+    stream.write(encoded)
+assert base64.b64decode(new_path.read_bytes(), validate=False) == raw
+item.update(archived_path=new_path.name, encoding='base64',
+            archived_sha256=hashlib.sha256(encoded).hexdigest())
+# Only our uncommitted archive copy changes; original and initial Git preview stay.
+old_path.unlink()
+for source in (ROOT / 'round05-diff-check-initial.log.txt', Path(__file__)):
+    name = source.name + '.txt' if source.suffix == '.py' else source.name
+    payload = source.read_bytes()
+    entry = {'source': source.name, 'archived_path': name,
+             'bytes': len(payload), 'sha256': hashlib.sha256(payload).hexdigest()}
+    if any(line.rstrip(b' \t') != line for line in payload.splitlines()):
+        entry.update(archived_path=name + '.b64', encoding='base64')
+        (DEST / entry['archived_path']).write_bytes(base64.b64encode(payload) + b'\n')
+    else:
+        shutil.copyfile(source, DEST / name)
+    manifest['artifacts'].append(entry)
+manifest['files'] = len(manifest['artifacts'])
+manifest['bytes'] = sum(i['bytes'] for i in manifest['artifacts'])
+manifest['representation_note'] = 'Raw logs with trailing spaces use base64; original bytes and first preview remain; decode before checking source hash'
+path.write_text(json.dumps(manifest, indent=2) + '\n')
+paths = sorted(p for p in DEST.iterdir() if p.is_file() and p.name != 'sha256-manifest.txt')
+(DEST / 'sha256-manifest.txt').write_text(''.join(
+    hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.relative_to(TREE).as_posix() + '\n'
+    for p in paths))
+print(json.dumps({'source_files': manifest['files'], 'manifest_members': len(paths),
+                  'encoded_original': original.name, 'roundtrip_exact': True}))

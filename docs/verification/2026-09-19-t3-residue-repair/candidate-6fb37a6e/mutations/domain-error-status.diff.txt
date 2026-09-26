@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index 2ee9325f..dee7e206 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -899,7 +899,7 @@ class ToolObservation:
+         """R5/dfd7b4ff: domain failure is not transport success; empty is distinct."""
+         error = self.telemetry.get("calculation_error")
+         if self.tool == "derived_calculation" and isinstance(error, Mapping):
+-            return {"ok": False, "error": str(error["code"]), "status": self.trace.status}
++            return {"ok": True}
+         failed = self.trace.status in {
+             "error", "timeout", "request_error", "parse_error", "proxy_unavailable",
+             "fallback_failed", "disabled", "not_attempted",

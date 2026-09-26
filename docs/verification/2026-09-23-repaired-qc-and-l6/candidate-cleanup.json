@@ -1,0 +1,11 @@
+{
+  "removed_clean_candidate": "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate",
+  "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "removed_passed_test_basetemp": "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/pytest",
+  "receipt_preserved": true,
+  "pytest_log_preserved": true,
+  "failed_batch_data_removed": false,
+  "candidate_exists_after": false,
+  "basetemp_exists_after": false,
+  "closed_at": "2026-09-23T13:47:51.781149+00:00"
+}

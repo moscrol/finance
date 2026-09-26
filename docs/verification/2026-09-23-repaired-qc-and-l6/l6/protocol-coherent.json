@@ -1,0 +1,130 @@
+{
+  "schema": "adaptive-l6-natural-live/v3",
+  "state": "AUTHORIZED_PREPARATION",
+  "workorder": "#76 L6",
+  "candidate_pr": 868,
+  "authorization": {
+    "approved": true,
+    "quote": "执行",
+    "scope": "Three repairs and new bounded #75/L6 verification. No main merge, deploy or old-batch resumption."
+  },
+  "baseline": {
+    "amendment_approved": true,
+    "premerge_candidate_revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+    "engineering_revision": null,
+    "require_exclusive_detached_checkout": true,
+    "require_health_revision_and_fingerprint_match": true,
+    "targeted_receipt": "/Users/a77/.finance-runtime/test-receipts/20260923T131130Z-ac11027f-57f31ba6b077.json"
+  },
+  "limits": {
+    "question_count": 3,
+    "initial_submissions_per_question": 1,
+    "resubmissions": 0,
+    "followups": 0,
+    "concurrency": 1,
+    "root_seconds": 900,
+    "episode_research_seconds": 600,
+    "single_call_cap_seconds": 75,
+    "repair_seconds": 30,
+    "judge_shared_window_seconds_per_verification": 150,
+    "gateway_preflight_requests_max": 1,
+    "all_model_requests_max": 100,
+    "proxy_lifetime_seconds": 3300,
+    "failure_stops_batch": true,
+    "gateway_http_400_or_429": "stop batch; no fallback model or retry",
+    "merge_main": false,
+    "deploy": false,
+    "change_production": false,
+    "source_audit_seconds": 300,
+    "next_question_requires": "exact-Episode source audit PASS before absolute audit deadline; all non-PASS states stop"
+  },
+  "models": {
+    "writer": "glm-5.3",
+    "judge": "glm-5.3-flash",
+    "upstream": "https://open.bigmodel.cn/api/coding/paas/v4",
+    "semantic_judge_mode": "llm",
+    "evidence_judge_mode": "auto",
+    "remember_credentials": false,
+    "credentials_in_files": false,
+    "payload_unchanged_by_proxy": true,
+    "server_thinking_disabled_claimed": false
+  },
+  "entrypoint": {
+    "engine": "Workbench Episode",
+    "routes": [
+      "POST /api/conversations",
+      "POST /api/conversations/{id}/messages"
+    ],
+    "skill_mode": "hybrid",
+    "perspective_mode": "neutral",
+    "adaptive_arm": "off",
+    "workbench_port": 19897,
+    "shim_port": 19898,
+    "forbidden_port_range_inclusive": [
+      8780,
+      8830
+    ],
+    "user": "adaptive-l6-repaired-20260923-2118"
+  },
+  "data": {
+    "source_root": "/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/preparation-coherent/data",
+    "freeze": "Independent copy-on-write canonical DuckDB and market snapshots; read-only manifest checked before and after",
+    "kb_inputs_frozen": false,
+    "external_inputs_frozen": false,
+    "source_manifest_sha256": "5796a9b742eb44b779ed44d94f6ece23ff243e203e7f980e524263b1d1085bbb",
+    "as_of": "2026-09-22",
+    "known_sector_cutoff": "2026-09-18"
+  },
+  "questions": [
+    {
+      "id": "L6-R1",
+      "text": "中际旭创(300308.SZ)截至2026年9月22日这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。",
+      "requested_capability_mode": "full_read_only",
+      "text_sha256": "1a1135c34732ad1e41d27e065581a161ca9ffcdcb934e75b61b33fc7b7a56efb",
+      "mode": "full_read_only"
+    },
+    {
+      "id": "L6-R2",
+      "text": "只用本地已有资料，不联网：沪电股份(002463.SZ)2026年9月1日至9月22日的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。",
+      "requested_capability_mode": "local_only_four_read_only_capabilities",
+      "text_sha256": "cf00e27e700e2bef1b83425640f45ce2f5199906f61fe99bf7e43ec37ce18225",
+      "mode": "local_only_four_read_only_capabilities"
+    },
+    {
+      "id": "L6-R3",
+      "text": "固态电池题材截至2026年9月22日这轮行情发酵到哪一步了？给我一组可证伪的跟踪条件，每个数值标明来源和日期。",
+      "requested_capability_mode": "theme_track_full_read_only",
+      "text_sha256": "6a53c762a7add7ea5fce1299cd30058816bf5cc527c9ad3d0cc5fd6df651f8b9",
+      "mode": "theme_track_full_read_only"
+    }
+  ],
+  "amendments": [
+    "Candidate-first validation remains authorized; the main merge was into the feature branch only.",
+    "Candidate is repaired ac11027fa; 328 targeted tests are not a full engineering gate.",
+    "New question identities preserve the three capability classes. No old failed or unsubmitted question is resent.",
+    "Independent APFS clone of the sealed coherent 2026-09-22 dataset; no old outputs or verdicts inherited. Sector cutoff remains 2026-09-18.",
+    "Previous source misdeletion remains NOT_PASSED. The repaired candidate has a separate original/wrong-unit/restored mechanical regression.",
+    "Serial admission now awaits exact-Episode content review; no host side intervention is needed to stop next-question submission on non-PASS.",
+    "Models, request/time limits, zero resubmissions/followups and no production changes remain unchanged.",
+    "Same-provider writer/judge does not constitute independent financial QC. No claim of disabled server thinking."
+  ],
+  "adjudication": {
+    "allowed_verdicts": [
+      "PASS",
+      "NOT_PASSED",
+      "NOT_EXERCISED",
+      "BLOCKED_<reason>"
+    ],
+    "criteria": [
+      "strict deadline probe has zero violations",
+      "at least one actual model revision with changed draft",
+      "zero erroneous deletion of evidence-supported numeric conditions",
+      "zero adoption of late judge reports"
+    ],
+    "unexercised_is_not_pass": true,
+    "judge_unavailable_is_not_financial_quality": true,
+    "source_claim_review_required": true,
+    "historical_positive_control_expected": "NOT_PASSED",
+    "source_regression_expected": "PASS on repaired candidate; original episode and historical failed verdict remain sealed"
+  }
+}

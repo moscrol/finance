@@ -1,0 +1,124 @@
+                reason="storage_failed" if self._persistence_failed() else "rejected_by_harness",
+            )
+        entry = _Entry(
+            message_id=message_id, message=message, target=target_key, wakeup=bool(wakeup)
+        )
+        with self._lock:
+            if self._closed:
+                # 落账与入队之间被收口了：按收口丢弃，事实不留空洞。
+                should_discard = True
+            else:
+                self._queues[target_key].append(entry)
+                should_discard = False
+        if should_discard:
+            self._discard(entry, reason="episode_finished")
+            return InboxReceipt(
+                message_id=message_id, accepted=False,
+                reason="storage_failed" if self._persistence_failed() else "inbox_closed",
+            )
+        if self._persistence_failed():
+            return InboxReceipt(message_id=message_id, accepted=False, reason="storage_failed")
+        return InboxReceipt(message_id=message_id, accepted=True)
+
+    # ── 认领 / 丢弃 ─────────────────────────────────────────────────────
+
+    def claim(self, target: InboxTarget) -> list[EpisodeMessage]:
+        """取出该队列全部消息并逐条落 ``inbox_claimed``。调用方随即把返回的消息 append 进
+        ``messages``——两步之间没有别的模型可见改动，派生才能逐字节相等。"""
+
+        target_key = self._check_target(target)
+        self.ingest_spool()
+        if self._persistence_failed():
+            return []
+        with self._lock:
+            entries = list(self._queues[target_key])
+            self._queues[target_key].clear()
+        ledger = self._ledger
+        for index, entry in enumerate(entries):
+            ledger.add(
+                "inbox_claimed",
+                {
+                    "message_id": entry.message_id,
+                    "target": entry.target,
+                    "source": str(entry.message.source or ""),
+                },
+            )
+            if self._persistence_failed():
+                with self._lock:
+                    self._queues[target_key][0:0] = entries[index:]
+                return []
+        return [entry.message for entry in entries]
+
+    def discard_all(self, *, reason: InboxDiscardReason) -> int:
+        """清箱并逐条落 ``inbox_discarded{reason}``。``reason=cancelled`` 且 ``keep_on_cancel``
+        时不清（消息留在箱里、事件流里仍是 inserted 未决）。收口 / 取消后箱子关闭：
+        之后的 ``send`` 只回 ``inbox_closed``，不再落账。"""
+
+        if reason not in INBOX_DISCARD_REASONS:
+            raise ValueError(f"未知丢弃原因: {reason!r}")
+        if self._persistence_failed():
+            # 不能可靠记丢弃，不伪造送达；保留内存队列及运输副本供诊断/恢复对账。
+            with self._lock:
+                self._closed = True
+            return 0
+        # 关箱前最后吞一次槽：收口前到的话与进程内 send 同命——inserted 落了、随即 discarded，
+        # 事件流说得清「到了但没送到」，而不是让文件在槽里烂成无迹可查。
+        self.ingest_spool()
+        with self._lock:
+            keep = self._persistence_failed() or (reason == "cancelled" and self.keep_on_cancel)
+            if keep:
+                entries: list[_Entry] = []
+            else:
+                entries = [entry for queue in self._queues.values() for entry in queue]
+                for queue in self._queues.values():
+                    queue.clear()
+            self._closed = True
+        for index, entry in enumerate(entries):
+            self._discard(entry, reason=reason)
+            if self._persistence_failed():
+                with self._lock:
+                    for pending in entries[index:]:
+                        self._queues[pending.target].append(pending)
+                return index
+        return len(entries)
+
+    def suspend(self) -> None:
+        """Drain in-flight sends and close without changing pending message facts."""
+        with self._spool_lock:
+            with self._lock:
+                self._closed = True
+
+    def reopen(self) -> None:
+        """修复轮（``resume``）重开箱子：``finish`` 之后 episode 又活了，外部输入面随之恢复。
+        收口时已丢弃的不回来——事件流里它们的命运已经写死。"""
+
+        with self._lock:
+            self._closed = False
+
+    # ── 内部 ─────────────────────────────────────────────────────────────
+
+    def _discard(self, entry: _Entry, *, reason: str) -> None:
+        ledger = self._ledger
+        ledger.add(
+            "inbox_discarded",
+            {
+                "message_id": entry.message_id,
+                "target": entry.target,
+                "source": str(entry.message.source or ""),
+                "reason": reason,
+            },
+        )
+
+    def _admitted(self, message: EpisodeMessage) -> tuple[bool, str]:
+        if self._admit is None:
+            return True, ""
+        try:
+            return bool(self._admit(message)), ""
+        except Exception as exc:  # noqa: BLE001 - 领域判定坏了按拒收处理，不让递话方把 loop 打断
+            return False, f"admit_error:{type(exc).__name__}"
+
+    @staticmethod
+    def _check_target(target: str) -> str:
+        if target not in INBOX_TARGETS:
+            raise ValueError(f"未知收件箱队列: {target!r}（只有 next_turn / next_step）")
+        return str(target)

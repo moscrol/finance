@@ -1,0 +1,178 @@
+FFF                                                                      [100%]读数收据: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/history-mutation-red/20260920T050150Z-c9bd82ff.json
+
+=================================== FAILURES ===================================
+______ test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff ______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2945/test_explicit_extension_is_not0')
+anatomy_db = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2945/test_explicit_extension_is_not0/anatomy.duckdb')
+
+    def test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff(tmp_path, anatomy_db):
+        tools, context, session, original, ref, store, conv, decision = _scenario(tmp_path, anatomy_db)
+        _read(tools, context, ref)
+        ranked = _execute(tools, context, **_args(original, ref))
+        rank_ref = ranked.telemetry["result_ref"]
+        follow = _decide(store, conv, FOLLOWUPS[1], decision.turn_intent, 2)
+        run = session.store.create_run(FOLLOWUPS[1], "ask", session_id=session.conversation_id)
+        next_session = HistorySession(session.store, run.run_id, session.conversation_id)
+        next_context = _context(follow.task_frame)
+        next_tools = _tools(follow.task_frame, next_context, anatomy_db, next_session)
+        _read(next_tools, next_context, rank_ref)
+        args = _args(original, ref, operation="trace_history", entity_codes=["A.FP", "B.FP"],
+                     window_ref={"result_ref": rank_ref}, end="2026-01-29")
+        extended = _execute(next_tools, next_context, **args)
+        trace_ref = extended.telemetry["result_ref"]
+        binding = next_session.read(trace_ref)["window_binding"]
+        assert binding["relation"] == "extended_observation"
+        assert binding["source_end"] == original["rows"][0]["end"]
+        assert binding["end"] == "2026-01-29"
+        # The delivered extended trace is a valid direct parent for another analysis
+        # on the same root ranking window. Its source window is wider than the rank
+        # original, but that direct-edge detail must not look like a root-window swap.
+        # Read the saved trace original as the next direct parent, matching the
+        # cross-turn workflow even though this direct test also delivered its query.
+        _read(next_tools, next_context, trace_ref)
+>       continued = _execute(next_tools, next_context, **dict(
+            args, entity_kind="stock", window_ref={"result_ref": trace_ref}))
+
+tests/test_history_window_binding.py:243: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_history_window_binding.py:53: in _execute
+    return _deliver(registry.execute("history_query", args, context=context, step_id=uuid4().hex), context)
+intelligence/services/research_tool_registry.py:1508: in execute
+    return ledger_call()
+intelligence/services/query_ledger.py:390: in executed
+    return fetch()
+intelligence/services/research_tool_registry.py:1293: in fetch
+    run_result = spec.runner(
+intelligence/services/research_tool_registry.py:834: in __call__
+    raw = agent_research._run_tool(self._runner, value, context)
+intelligence/services/agent_research.py:2084: in _run_tool
+    return runner(query, context)
+intelligence/services/historical_research/episode.py:650: in run
+    with selection.reserve(
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.historical_research.window_binding.WindowSelection object at 0x10f5162d0>
+binding = {'end': '2026-01-29', 'ranking_end': '2026-01-22', 'ranking_start': '2026-01-17', 'relation': 'same_window', ...}
+
+    @contextmanager
+    def reserve(self, binding: Mapping | None, *, observation: bool = False):
+        if binding is None:
+            yield
+            return
+        # Direct parents may be a rank original or one of its extended trace
+        # descendants. The stable selection is the root candidate and original
+        # ranking interval; direct-edge source windows are validated separately.
+        key = tuple(binding.get(k) for k in (
+            "root_query_id", "root_sample_id", "source_start", "source_end",
+        ))
+        with self._lock:
+            if self._key is not None and self._key != key:
+>               raise ValueError("history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window")
+E               ValueError: history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window
+
+intelligence/services/historical_research/window_binding.py:124: ValueError
+__ test_window_selection_uses_root_ranking_identity_and_observation_endpoint ___
+
+    def test_window_selection_uses_root_ranking_identity_and_observation_endpoint():
+        from intelligence.services.historical_research.window_binding import WindowSelection
+    
+        base = {
+            "root_query_id": "root-a", "root_sample_id": "sample-a",
+            "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
+            "source_start": "2026-01-17", "source_end": "2026-01-22",
+            "start": "2026-01-17", "end": "2026-01-29",
+        }
+        mixed_parent = dict(base, source_start="2026-01-17", source_end="2026-01-29")
+        selection = WindowSelection()
+        with selection.reserve(base, observation=True):
+>           with selection.reserve(mixed_parent, observation=True):
+
+tests/test_history_window_binding.py:284: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.historical_research.window_binding.WindowSelection object at 0x105ea3380>
+binding = {'end': '2026-01-29', 'ranking_end': '2026-01-22', 'ranking_start': '2026-01-17', 'root_query_id': 'root-a', ...}
+
+    @contextmanager
+    def reserve(self, binding: Mapping | None, *, observation: bool = False):
+        if binding is None:
+            yield
+            return
+        # Direct parents may be a rank original or one of its extended trace
+        # descendants. The stable selection is the root candidate and original
+        # ranking interval; direct-edge source windows are validated separately.
+        key = tuple(binding.get(k) for k in (
+            "root_query_id", "root_sample_id", "source_start", "source_end",
+        ))
+        with self._lock:
+            if self._key is not None and self._key != key:
+>               raise ValueError("history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window")
+E               ValueError: history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window
+
+intelligence/services/historical_research/window_binding.py:124: ValueError
+____ test_window_selection_allows_parallel_same_root_mixed_parent_siblings _____
+
+    def test_window_selection_allows_parallel_same_root_mixed_parent_siblings():
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Event
+    
+        from intelligence.services.historical_research.window_binding import WindowSelection
+    
+        base = {
+            "root_query_id": "root-a", "root_sample_id": "sample-a",
+            "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
+            "source_start": "2026-01-17", "source_end": "2026-01-22",
+            "start": "2026-01-17", "end": "2026-01-29",
+        }
+        sibling = dict(base, source_end="2026-01-29")
+        entered, release = Event(), Event()
+        selection = WindowSelection()
+    
+        def hold_first():
+            with selection.reserve(base, observation=True):
+                entered.set()
+                assert release.wait(5)
+    
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            first = pool.submit(hold_first)
+            try:
+                assert entered.wait(3)
+>               with selection.reserve(sibling, observation=True):
+
+tests/test_history_window_binding.py:325: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.historical_research.window_binding.WindowSelection object at 0x10f5773b0>
+binding = {'end': '2026-01-29', 'ranking_end': '2026-01-22', 'ranking_start': '2026-01-17', 'root_query_id': 'root-a', ...}
+
+    @contextmanager
+    def reserve(self, binding: Mapping | None, *, observation: bool = False):
+        if binding is None:
+            yield
+            return
+        # Direct parents may be a rank original or one of its extended trace
+        # descendants. The stable selection is the root candidate and original
+        # ranking interval; direct-edge source windows are validated separately.
+        key = tuple(binding.get(k) for k in (
+            "root_query_id", "root_sample_id", "source_start", "source_end",
+        ))
+        with self._lock:
+            if self._key is not None and self._key != key:
+>               raise ValueError("history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window")
+E               ValueError: history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window
+
+intelligence/services/historical_research/window_binding.py:124: ValueError
+=========================== short test summary info ============================
+FAILED tests/test_history_window_binding.py::test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff
+FAILED tests/test_history_window_binding.py::test_window_selection_uses_root_ranking_identity_and_observation_endpoint
+FAILED tests/test_history_window_binding.py::test_window_selection_allows_parallel_same_root_mixed_parent_siblings
+3 failed, 35 deselected in 0.71s

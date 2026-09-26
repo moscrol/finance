@@ -1,0 +1,1 @@
+{"result": "PASS", "original_date_preserved": true, "excluded_from_facts_and_coverage": true, "invalid_current_unbounded_unknown_text_path_suffix_refused": true, "same_hash_body_replacement_refused": true, "resigned_invalid_date_refused": true}

@@ -1,0 +1,15 @@
+{
+  "head": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+  "status_porcelain": "",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "original_artifact_sha256": {
+    "probe_ratio_label_scope.py": "8030d56f6f421aaa00192aa78db6962a3f9f7a4b207495aaf9a01b14a30461f7",
+    "probe_ratio_spec.py": "528da29e627d69f8ca9e584da4471ba0068313a82821a76d13b451d5aaca0fc1",
+    "original-probe-result.json": "8666a4ce950cb2fc8d792e9a70f480bd503ff8a62a456a0641cd55d241803fe1",
+    "label-scope-result.json": "58fd9b5be2995eddfa1a868f2e85a136690a85df23dc7c753b41ae7c9dfc3c16",
+    "independent-probe-result.json": "1483f41e7a796ee396ce913caeeb9d566f76ad9d38f97b16553a63cb6a69532c",
+    "REVIEW.md": "a9961e1849f5b9bed789017649d0c7439125b9b6fafd3640bca1c6a9a2fe1195",
+    "selected-pytest.log": "d403f343c6f61c39ad35deff262de7037482637eba499e9d896ade14d3f6ce5f",
+    "review-manifest.json": "4e144f1932e9023a9335b2500bd444a8a2b0da0e04b96147df57e72f8ec417c4"
+  }
+}

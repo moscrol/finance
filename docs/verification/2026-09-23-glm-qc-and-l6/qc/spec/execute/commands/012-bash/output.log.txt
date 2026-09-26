@@ -1,0 +1,6 @@
+PASS B1_via_wrapper_no_bypass 
+PASS B1_shared_deadline_forwarded timeout=10.0 expires_at_delta=0.500
+PASS B1_slice_distinct timeout=10.0
+PASS B2_shared_deadline_behavior elapsed=0.50s (须早于2.9s)
+PASS B3_control_success content=ok elapsed=2.96s
+SUMMARY probe_b: 5/5 passed

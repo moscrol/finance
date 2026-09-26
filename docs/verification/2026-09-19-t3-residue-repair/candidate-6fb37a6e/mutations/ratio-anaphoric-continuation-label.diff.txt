@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 9709e54a..3d5b0e55 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -238,7 +238,7 @@ def _prose_value_finding(
+ 
+ # One finite list of same-ratio continuation labels; the value prefix and the
+ # clause joiner derive from it so "该比率为" cannot be joined but not consumed.
+-_CONTINUATION_LABEL = r"(?:实际|该值|本期|该比率|比率)为"
++_CONTINUATION_LABEL = r"(?:实际|该值|本期|比率)为"
+ _VALUE_PREFIX = rf"\s*(?:{_CONTINUATION_LABEL}|分别为|为|是|=|：|:)?\s*"
+ _PROSE_NUMBER = re.compile(rf"{_VALUE_PREFIX}({_NUMBER})\s*({_RATIO_UNIT})?")
+ _WITHHELD_SLOT = re.compile(rf"{_VALUE_PREFIX}待核对")

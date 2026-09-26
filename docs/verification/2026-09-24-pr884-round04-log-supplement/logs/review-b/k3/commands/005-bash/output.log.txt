@@ -1,0 +1,35 @@
+28:| 研究跑到一半插一句话 | `python3 -m intelligence.cli steer <episode_id> "<文本>"` | 运行底座 P3 收件箱（INV-R5）的跨进程门：写 durable 目录投递槽 `<episode_dir>/inbox-spool/`，loop 下一次模型请求前认领；`--list` 看在跑的、`--wait N` 等回执。store 根必须与 Workbench 进程同一套 `FINANCE_WS` / `FORESIGHT_EPISODE_STORE`，否则是另一个家（CLI 会拒投并打出看过的路径）。Workbench 端点等 Alpha（母单 §12 第 4 题） |
+109:恢复判定的合成结算现逐条同步保存，检查点确认后才返回 plan/closed；任一保存异常直接
+115:restore 入口：JSONL 按 episode 持有非阻塞 POSIX flock，Memory 按对象/episode 互斥；
+116:恢复在 load 前取得所有权，活驱动即使暂停也拒绝第二个控制者。锁随正常返回/异常/显式
+117:drive.close 或进程退出释放，不按时间抢占，不删锁文件；不同运行器的不同 episode 与
+118:只读诊断互不阻塞。同一运行器实例的 run/manual_drive/resume 另共用非阻塞控制锁，
+120:单步驱动的 step/close 也互斥，执行中的竞争抛 EpisodeWriterBusy，不把活驱动标成结束；
+121:调用方须等当前 step 返回后再 close，不能把 close 当在飞模型调用的取消/排空接口。
+122:新 run 拒绝已有日志/检查点，同进程修订核对存储/任务身份，重新取锁并核对原日志与
+125:该锁是合作式本机控制，不覆盖旧版进程、直接 append/put_state、跨机共享文件系统、
+126:已逃逸的子线程/外部请求，亦不把调用效果或费用的未知状态变成已对账。缺 writer 的持久
+127:store 拒绝进入控制操作，不以空锁静默兼容；任务目录的 checkpoint 身份不匹配亦拒绝。
+128:这仍是恢复**判定**，返回 plan 时锁已释放，不是执行器或后续执行许可，
+143:来源日期/截止状态及分支持久owner；单锁捕获账本。v2另外保存精确展示原件与模型E号顺序：
+163:`restore_episode` 的 close()/resumable() 重建状态时透传身份，恢复一次不丢主人。它只证「同一扇门
+174:的执行者：非空清单意味着 episode 停下等能付钱的人，是有意的 fail closed；`replay="safe"` 是效果
+190:前向合流保留主干 `delivery_pending`：精确发布证明与同进程 writer 收尾是两份独立条件。
+210:不是在线KB效果或自然研究验收。排锁/请求写入预算、消息大小策略、整枝保稿及runtime恢复不在本片。
+365:SSE 同时等精确发布证明与 writer 收尾，并补发两次读取之间的新事件，不以固定等待
+400:获同型号独立上下文复核通过，均仅限本片；[完整报告与原失败证据](verification/e2-boundary-closeout/qc-301dcd9e/README.md)
+408:报告与日志见 [P3d 独立归档](verification/e2-boundary-closeout/p3d-1f6ebc5d-independent-qc-20260915/)。
+416:[本片收据与覆盖限制](verification/e2-boundary-closeout/p3e-query-resolver-20260915/README.md)。
+422:当前应用未增加这道闸，新增正例只锁住兼容行为；不是历史来源过滤或可信续轮已经完成。
+423:[候选原件、反例与撤回对照](verification/e2-boundary-closeout/p3f-rejected-history-clear-20260915/README.md)。
+433:**尚无独立 QC，不代表 P3/E2 完成**；[范围与完整作者证据](verification/e2-boundary-closeout/p3f1-source-binding-20260915/README.md)。
+435:[中断原件](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc-blocked/README.md)保留，未自动重试。
+438:[第二次原件与终态](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc2-blocked/README.md)单独归档。
+439:用户再授权的[第三次有界复核](verification/e2-boundary-closeout/p3f1-a819ecde-independent-qc3-blocked/README.md)
+483:收窄执行）；orchestrator 掉落总闸在 skill 路由/Ask 管线之前 fail-closed（诚实降级+
+493:P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：原题号保持
+507:P5/P6 候选在 `fix/e2-material-closeout` 集成：跨轮前提按内容与作用范围去重，
+540:钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
+545:不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
+547:及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
+670:同轮选择在查库前预约（锁不包慢 IO），成功后固定参照；失败且无成功者释放。用户明确允许时只有 trace 可延长终点，同轮路径比较终点一致；扩窗血缘保留原排名区间，后续读扩窗原件也不能借此重排排名。超限报告该声明窗总体未算完，不缩窗/换近期/取赢家冒充全市场；尚未自动分片完成大窗全市场。完成门对没有已交付绑定分析的本轮保留 partial；有一份绑定不证明所有对象/子问题齐全。默认无依赖合同的独立研究和旧原件只读兼容，确定性词面识别不是穷尽自然语言保证。此片不修个股自身启动/成员路径混淆、各自启动特征对齐或完整控制组，也未改变最近真实四题失败裁决。

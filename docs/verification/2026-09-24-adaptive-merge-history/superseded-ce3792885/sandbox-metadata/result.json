@@ -1,0 +1,53 @@
+{
+  "scope": "host sandbox diagnosis only, not independent reviewer tests",
+  "runs": [
+    {
+      "phase": "before",
+      "exit_code": 2,
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/before.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/candidate/intelligence/tests/test_llm_timeout_diagnostic.py",
+        "-k",
+        "violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/work/before"
+      ]
+    },
+    {
+      "phase": "after",
+      "exit_code": 4,
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/after.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/candidate/intelligence/tests/test_llm_timeout_diagnostic.py",
+        "-k",
+        "violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/work/after"
+      ]
+    }
+  ],
+  "metadata_only_paths": [
+    "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135",
+    "/Users/a77/.finance-runtime/reviews",
+    "/Users/a77/.finance-runtime",
+    "/Users/a77",
+    "/Users",
+    "/"
+  ]
+}

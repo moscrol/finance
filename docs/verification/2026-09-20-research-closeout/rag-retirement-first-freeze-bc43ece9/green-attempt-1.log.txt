@@ -1,0 +1,62 @@
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_rag_worker_keepalive.py
+head=4ace5ec2e9b7735d90eb15bc2351fa193c1120b8 dirty=4
+......................................................................FF [100%]
+=================================== FAILURES ===================================
+_______________________ test_status_exposes_rss_and_idle _______________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2953/test_status_exposes_rss_and_id0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108a10e30>
+
+    def test_status_exposes_rss_and_idle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("RAG_WORKER_KEEPALIVE_SECONDS", raising=False)
+        worker = _worker(tmp_path)
+        try:
+            before = worker.status()
+            worker.prewarm(["query", "warmup", "--json"], timeout=2)
+            time.sleep(0.05)
+            after = worker.status()
+        finally:
+            worker.close()
+        closed = worker.status()
+    
+        assert before["rss_bytes"] is None and before["idle_seconds"] is None
+>       assert isinstance(after["rss_bytes"], int) and after["rss_bytes"] > 0
+E       assert (False)
+E        +  where False = isinstance(None, int)
+
+intelligence/tests/test_rag_worker_keepalive.py:180: AssertionError
+________ test_module_status_aggregates_rss_idle_and_keepalive_counters _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2953/test_module_status_aggregates_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108a3a3c0>
+
+    def test_module_status_aggregates_rss_idle_and_keepalive_counters(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+        monkeypatch.setenv("RAG_WORKER_KEEPALIVE_SECONDS", "0")
+        _write_fake_rag(tmp_path)
+        index = tmp_path / ".rag_index"
+        index.mkdir()
+        rag_worker.close_all()
+        try:
+            rag_worker.prewarm(
+                python=sys.executable,
+                kb_root=tmp_path,
+                index_dir=index,
+                argv=["query", "warmup", "--json"],
+                timeout=2,
+            )
+            payload = rag_worker.status()
+        finally:
+            rag_worker.close_all()
+    
+>       assert isinstance(payload["rss_bytes"], int) and payload["rss_bytes"] > 0
+E       assert (False)
+E        +  where False = isinstance(None, int)
+
+intelligence/tests/test_rag_worker_keepalive.py:206: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters
+2 failed, 70 passed in 4.80s

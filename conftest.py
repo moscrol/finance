@@ -55,6 +55,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.workspace_env import python_path
+
 REPO = Path(__file__).resolve().parent
 
 # 唯一真本源。初版把清单硬编码在这里、并在 docstring 里写「与
@@ -75,11 +77,7 @@ def _spec() -> dict[str, object]:
 
 
 _SPEC = _spec()
-EXPECTED_PY = Path(
-    str(_SPEC.get("interpreter"))
-    if _SPEC.get("interpreter")
-    else REPO / ".venv-workbench" / "bin" / "python"
-)
+EXPECTED_PY = python_path(REPO)
 REQUIRED: tuple[str, ...] = tuple(_SPEC.get("required_modules") or ())
 _ESCAPE = str(_SPEC.get("escape_env_var") or "FWP_ALLOW_ANY_PYTHON")
 
@@ -277,14 +275,15 @@ def _dependency_fingerprint() -> str:
     """
 
     names = tuple(_SPEC.get("required_modules") or ())
-    lock = REPO / "requirements-consumer.lock"
-    if lock.is_file():
-        pinned = [
-            line.split("==")[0].strip()
-            for line in lock.read_text(encoding="utf-8").splitlines()
-            if "==" in line and not line.startswith("#")
-        ]
-        names = tuple(sorted({*names, *pinned}))
+    for lock in (REPO / "requirements-consumer.lock",
+                 REPO / str(_SPEC.get("development_lock", "requirements-dev.lock"))):
+        if lock.is_file():
+            pinned = [
+                line.split("==")[0].strip()
+                for line in lock.read_text(encoding="utf-8").splitlines()
+                if "==" in line and not line.startswith("#")
+            ]
+            names = tuple(sorted({*names, *pinned}))
     parts = []
     for name in names:
         try:

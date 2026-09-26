@@ -1,0 +1,6 @@
+{
+  "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/qc_repair_once.py",
+  "source_sha256": "f021bf20a158bf3bceda455f3c408cb7a396c86639aee5b2636778ddd492a005",
+  "new_sha256": "793012a09d80af83d0d68635e0a705a454921d24c4744c3e64dc54693c1693dd",
+  "queue_override": "explicit ARL-0005 operation, no worker or validator edits; ARL-0004 remains quarantined"
+}

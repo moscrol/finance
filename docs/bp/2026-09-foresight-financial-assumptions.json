@@ -1,0 +1,94 @@
+{
+  "version": "v0.9",
+  "date": "2026-09-05",
+  "monthly_price": 199,
+  "annual_price": 1999,
+  "monthly_revenue_per_payer": 180,
+  "paid_inference_per_month": 20,
+  "free_inference_allocation_per_payer": 22,
+  "fixed_monthly_cost": 1000,
+  "compliance_monthly_budget": 2000,
+  "data_monthly_low": 0,
+  "data_monthly_high": 2000,
+  "founder_pretax_monthly_target": 15000,
+  "months": [
+    {
+      "month": 1,
+      "stage": "V1",
+      "test_users": 10,
+      "payers": 0
+    },
+    {
+      "month": 2,
+      "stage": "V1",
+      "test_users": 10,
+      "payers": 0
+    },
+    {
+      "month": 3,
+      "stage": "V1",
+      "test_users": 10,
+      "payers": 0
+    },
+    {
+      "month": 4,
+      "stage": "V2",
+      "test_users": 50,
+      "payers": 5
+    },
+    {
+      "month": 5,
+      "stage": "V2",
+      "test_users": 100,
+      "payers": 10
+    },
+    {
+      "month": 6,
+      "stage": "V2",
+      "test_users": 200,
+      "payers": 20
+    },
+    {
+      "month": 7,
+      "stage": "V3",
+      "test_users": 0,
+      "payers": 30
+    },
+    {
+      "month": 8,
+      "stage": "V3",
+      "test_users": 0,
+      "payers": 50
+    },
+    {
+      "month": 9,
+      "stage": "V3",
+      "test_users": 0,
+      "payers": 75
+    },
+    {
+      "month": 10,
+      "stage": "V3",
+      "test_users": 0,
+      "payers": 100
+    },
+    {
+      "month": 11,
+      "stage": "V3",
+      "test_users": 0,
+      "payers": 130
+    },
+    {
+      "month": 12,
+      "stage": "V3",
+      "test_users": 0,
+      "payers": 150
+    }
+  ],
+  "scope": "全部为测试预算和条件情景，不是已发生收入、供应商报价或已落实资金。开发投入前高后低：前3个月暂留每月2000元预算额度，并非固定月费；第4月起仅以0–1000元/月区间测敏感性，尚非创始人确认的稳态支出。现金表按月收款等价计算，不使用年付预收款改善跑道；不包含创始人生活提款、税费、支付费用、商业保险和未报价的新增服务。第4月起以专业评估与数据等外部成本合计2000元作条件预算，本阶段不申请金融合规支持。V2测试推理覆盖全部测试者，不重复摊免费层；V3按每付费用户20元付费推理加22元免费层分摊。月12的150人只作现金情景输入，不是已验证的可持续线。",
+  "development_early_monthly_budget": 2000,
+  "development_later_monthly_low": 0,
+  "development_later_monthly_high": 1000,
+  "illustrative_month12_payers": 150,
+  "buffer_percent": 30
+}

@@ -1,0 +1,99 @@
+"""Publish one bounded update; preserve prior bodies and never retry an uncertain POST."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import urllib.error
+import urllib.request
+
+OUT = Path(__file__).resolve().parent
+API = 'http://127.0.0.1:3300/api/v1/repos/a77/finance-workspace-private'
+CODE = '442476f7def1013f1fadebaf6594971921147edc'
+
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def project(pr):
+    return {**{k: pr[k] for k in ('number', 'title', 'body', 'state', 'merged', 'draft', 'updated_at', 'html_url')},
+            'head': {'sha': pr['head']['sha'], 'ref': pr['head']['ref']}}
+
+
+def main(number, archive):
+    assert len(archive) == 40 and all(c in '0123456789abcdef' for c in archive)
+    expected_head = CODE if number == 845 else archive
+    marker = '<!-- history-engineering-06:' + archive + ' -->'
+    section = (OUT / 'section.md').read_text().strip()
+    assert CODE in section and archive in section and 'CHANGES_REQUIRED' in section
+    addition = marker + '\n' + section
+    folder = OUT / f'pr-{number}'
+    folder.mkdir(exist_ok=False)
+    token = subprocess.check_output(['security', 'find-generic-password', '-s', 'gitea-local', '-a', 'a77-token', '-w'], timeout=15).decode().strip()
+    def api(path, payload=None, method=None):
+        req = urllib.request.Request(API + path, method=method,
+            headers={'Authorization': 'token ' + token, 'Content-Type': 'application/json'},
+            data=json.dumps(payload).encode() if payload is not None else None)
+        with urllib.request.urlopen(req, timeout=15) as response:
+            return json.load(response)
+    def comments():
+        items = []
+        for page in range(1, 7):
+            batch = api(f'/issues/{number}/comments?limit=50&page={page}')
+            items.extend(batch)
+            if len(batch) < 50:
+                return items
+        raise RuntimeError('Pagination limit; no write')
+    before = api(f'/pulls/{number}')
+    assert before['head']['sha'] == expected_head and before['state'] == 'open' and not before['merged']
+    assert before['title'].lower().startswith('wip')
+    save(folder / 'before.json', project(before))
+    matches = [i for i in comments() if marker in i['body']]
+    assert len(matches) <= 1
+    assert not matches or matches[0]['body'] == addition
+    body = before['body'] if marker in before['body'] else addition + '\n\n---\n\n' + before['body']
+    assert body.startswith(addition)
+    title = 'WIP: fix(history) 补格续问已修，完整Python分组通过，待独立验收' if number == 845 else before['title']
+    assert project(api(f'/pulls/{number}')) == project(before), 'PR changed during preflight'
+    errors = []
+    if body != before['body'] or title != before['title']:
+        try:
+            api(f'/pulls/{number}', {'body': body, 'title': title}, 'PATCH')
+        except (TimeoutError, urllib.error.URLError) as exc:
+            errors.append({'operation': 'PATCH', 'exception': type(exc).__name__})
+    after = api(f'/pulls/{number}')
+    assert after['body'] == body and after['title'] == title and after['head']['sha'] == expected_head
+    assert after['state'] == 'open' and not after['merged']
+    save(folder / 'body-verified.json', project(after))
+    if matches:
+        comment = matches[0]
+    else:
+        try:
+            comment = api(f'/issues/{number}/comments', {'body': addition}, 'POST')
+        except (TimeoutError, urllib.error.URLError) as exc:
+            errors.append({'operation': 'POST', 'exception': type(exc).__name__})
+            found = [i for i in comments() if i['body'] == addition]
+            assert len(found) == 1, 'Uncertain POST; do not retry'
+            comment = found[0]
+    checked = api(f'/issues/comments/{comment["id"]}')
+    assert checked['body'] == addition
+    save(folder / 'comment-verified.json', {k: checked[k] for k in ('id', 'body', 'html_url', 'created_at', 'updated_at')})
+    result = {'recorded_at': datetime.now(timezone.utc).isoformat(), 'number': number, 'source_revision': CODE,
+              'archive_revision': archive, 'head_at_publication': expected_head,
+              'body_sha256': hashlib.sha256(body.encode()).hexdigest(),
+              'comment_id': checked['id'], 'url': checked['html_url'], 'write_errors_readback_resolved': errors,
+              'overall': 'CHANGES_REQUIRED', 'independent_review': 'NOT_RESTARTED', 'merge_deploy_production': 'NOT_PERFORMED'}
+    save(folder / 'result.json', result)
+    print(json.dumps(result, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('number', type=int, choices=(838, 845))
+    parser.add_argument('--archive', required=True)
+    args = parser.parse_args()
+    main(args.number, args.archive)

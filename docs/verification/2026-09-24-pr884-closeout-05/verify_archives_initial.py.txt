@@ -1,0 +1,64 @@
+"""Check historical selected archives against the frozen commit, not their verdicts."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+REV = 'ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea'
+archives = []
+blobs = []
+for name in ('2026-09-23-runtime-contract-followup', '2026-09-23-pr884-gates',
+             '2026-09-23-pr884-closeout-04'):
+    directory = TREE / 'docs/verification' / name
+    manifest_path = directory / 'MANIFEST.json'
+    raw_manifest = manifest_path.read_bytes()
+    manifest = json.loads(raw_manifest)
+    entries = (list(manifest['files'].items()) if isinstance(manifest.get('files'), dict)
+               else [(item['archived_path'], item) for item in manifest['artifacts']])
+    total_bytes = 0
+    for relative, entry in entries:
+        path = directory / relative
+        raw = path.read_bytes()
+        assert len(raw) == entry['bytes'], path
+        assert hashlib.sha256(raw).hexdigest() == entry['sha256'], path
+        blobs.append((path.relative_to(TREE).as_posix(), raw))
+        total_bytes += len(raw)
+    blobs.append((manifest_path.relative_to(TREE).as_posix(), raw_manifest))
+    if name.endswith('closeout-04'):
+        original = ROOT.parent / 'pr884-closeout-20260923-04'
+        assert (original / 'MANIFEST.json').read_bytes() == raw_manifest
+        for item in manifest['artifacts']:
+            raw = (original / item['path']).read_bytes()
+            assert len(raw) == item['bytes']
+            assert hashlib.sha256(raw).hexdigest() == item['sha256']
+        actual = {p.relative_to(directory).as_posix() for p in directory.rglob('*') if p.is_file()}
+        assert actual == {'MANIFEST.json', *(relative for relative, _ in entries)}
+    archives.append({'path': str(directory.relative_to(TREE)), 'files': len(entries),
+                     'bytes': total_bytes, 'manifest_sha256': hashlib.sha256(raw_manifest).hexdigest()})
+
+# One Git batch avoids hundreds of process starts while preserving exact blob checks.
+requests = ''.join(f'{REV}:{relative}\n' for relative, _ in blobs).encode()
+process = subprocess.run(['git', 'cat-file', '--batch'], cwd=TREE, input=requests,
+                         capture_output=True, check=True, timeout=60)
+offset = 0
+for relative, expected in blobs:
+    end = process.stdout.index(b'\n', offset)
+    header = process.stdout[offset:end].split()
+    assert len(header) == 3 and header[1] == b'blob', (relative, header)
+    size = int(header[2])
+    start = end + 1
+    assert process.stdout[start:start + size] == expected, relative
+    assert process.stdout[start + size:start + size + 1] == b'\n'
+    offset = start + size + 1
+assert offset == len(process.stdout)
+assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=TREE, text=True).strip() == REV
+assert not subprocess.check_output(['git', 'status', '--porcelain'], cwd=TREE, text=True).strip()
+result = {'accepted': True, 'revision': REV, 'archives': archives,
+          'verified_blobs_including_manifests': len(blobs),
+          'kind': 'historical selected evidence integrity only; no verdict transferred'}
+with (ROOT / 'archive-verification.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(result, indent=2))

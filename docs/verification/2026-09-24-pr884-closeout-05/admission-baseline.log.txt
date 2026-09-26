@@ -1,0 +1,14 @@
+test_ambiguous_python_with_pytest_is_not_admitted (resource_tests.GateResourceTests.test_ambiguous_python_with_pytest_is_not_admitted) ... ok
+test_disk_threshold_is_not_rounded_down (resource_tests.GateResourceTests.test_disk_threshold_is_not_rounded_down) ... ok
+test_exited_zombie_is_not_live_work (resource_tests.GateResourceTests.test_exited_zombie_is_not_live_work) ... ok
+test_malformed_snapshot_fails_closed (resource_tests.GateResourceTests.test_malformed_snapshot_fails_closed) ... ok
+test_observer_uses_complete_process_output (resource_tests.GateResourceTests.test_observer_uses_complete_process_output) ... ok
+test_owned_group_not_root_substring_is_excluded (resource_tests.GateResourceTests.test_owned_group_not_root_substring_is_excluded) ... ok
+test_process_search_and_other_python_do_not_block (resource_tests.GateResourceTests.test_process_search_and_other_python_do_not_block) ... ok
+test_pytest_variants_block (resource_tests.GateResourceTests.test_pytest_variants_block) ... ok
+test_pytest_without_report_option_blocks (resource_tests.GateResourceTests.test_pytest_without_report_option_blocks) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.006s
+
+OK

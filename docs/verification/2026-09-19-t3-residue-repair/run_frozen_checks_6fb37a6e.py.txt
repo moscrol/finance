@@ -1,0 +1,109 @@
+"""One frozen T3 residue-repair run (ARL-0005 leads); no deploy, model calls or target edits."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import time
+
+ROOT = Path('/Users/a77/fwp-q-research-data-readiness')
+REV = '6fb37a6e191185daef832369677af15b0d56afb2'
+OUT = Path(__file__).parent / ('candidate-' + REV[:8])
+OUT.mkdir(exist_ok=False)
+PY = Path('/Users/a77/finance-workspace-private/.venv-workbench/bin/python')
+ENV = {k: os.environ[k] for k in ('HOME', 'PATH', 'LANG', 'TMPDIR') if k in os.environ}
+ENV['FORESIGHT_LLM_KEYCHAIN'] = '0'
+os.umask(0o022)
+
+
+def git(root, *args):
+    return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
+
+
+def state(root=ROOT):
+    return {'revision': git(root, 'rev-parse', 'HEAD'), 'status': git(root, 'status', '--porcelain')}
+
+
+assert state() == {'revision': REV, 'status': ''}
+result = {'before': state(), 'checks': [], 'live_model_calls': 0, 'finished': False}
+
+
+def save():
+    (OUT / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def check(name, args, *, cwd=ROOT, timeout=1200, extra=None):
+    started = time.monotonic()
+    with (OUT / (name + '.log')).open('w') as log:
+        try:
+            rc = subprocess.run([str(a) for a in args], cwd=cwd, env=ENV | (extra or {}), stdout=log,
+                                stderr=subprocess.STDOUT, timeout=timeout).returncode
+        except subprocess.TimeoutExpired:
+            rc = 124
+    row = {'name': name, 'command': [str(a) for a in args], 'cwd': str(cwd), 'exit_code': rc,
+           'seconds': round(time.monotonic() - started, 2), 'revision': REV,
+           'finished_at': datetime.now(timezone.utc).isoformat()}
+    result['checks'].append(row)
+    save()
+    print(json.dumps(row, ensure_ascii=False), flush=True)
+    return row
+
+
+save()
+check('ruff', [PY, '-m', 'ruff', 'check', '.'])
+check('pytest-full', [PY, '-m', 'pytest', '-q'], timeout=1500)
+receipts = re.findall(r'读数收据: (\S+\.json)', (OUT / 'pytest-full.log').read_text())
+if len(receipts) == 1:
+    receipt = Path(receipts[0])
+    shutil.copyfile(receipt, OUT / 'full-python-receipt.json')
+    result['full_python_receipt'] = str(receipt)
+    check('receipt-validation', [PY, 'scripts/check_test_receipt.py', receipt,
+          '--expect-revision', REV, '--require-target', ROOT, '--base-drift-max', '0'])
+else:
+    result['receipt_error'] = 'missing or non-unique full receipt'
+
+for step in ('lint', 'typecheck', 'test', 'build'):
+    check('frontend-' + step, ['pnpm', step], cwd=ROOT / 'intelligence/webapp')
+check('e2e', ['pnpm', 'test:e2e'], cwd=ROOT / 'intelligence/webapp', extra={
+    'WORKBENCH_PYTHON': str(PY), 'WORKBENCH_E2E_PORT': '8914', 'RE06_E2E_PORT': '8915',
+    'RE06_E2E_URL': 'http://127.0.0.1:8915', 'FINANCE_DEPLOY_LEDGER': str(OUT / 'e2e-deploy-ledger.jsonl'),
+})
+
+layout = OUT / 'registry-pinned'
+layout.mkdir()
+subprocess.run(['git', 'worktree', 'add', '--detach', str(layout / 'finance-workspace-private'), REV], cwd=ROOT, check=True)
+siblings = {
+    'knowledge-base-private': (Path('/Users/a77/.finance-runtime/kb-v4-merge-20260919/closeout/knowledge-base-private'), '1254224be89e2c4974350b7f3e985dbedb5dc043'),
+    'finance-research-site': (Path('/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-research-site'), 'f606583867fe1cad8de96b06be1dd6cfe2b57e51'),
+}
+for name, (path, revision) in siblings.items():
+    assert state(path) == {'revision': revision, 'status': ''}
+    (layout / name).symlink_to(path, target_is_directory=True)
+result['registry_before'] = {name: state(layout / name) for name in ('finance-workspace-private', *siblings)}
+for name, args in (
+    ('parseability', ['scripts/build_registry.py', 'check-parseability']),
+    ('check', ['scripts/build_registry.py', 'check']),
+    ('tables', ['scripts/build_registry.py', 'backfill-tables', '--check']),
+    ('views', ['scripts/build_registry.py', 'generate-views', '--check']),
+    ('ledger', ['scripts/audit_ledger_spec_crosswalk.py']),
+):
+    check('registry-' + name, [PY, *args], cwd=layout / 'finance-workspace-private')
+result['registry_after'] = {name: state(layout / name) for name in result['registry_before']}
+for name, filename in (
+    ('original-fact-retention-probe', 'check_delivery_fact_retention.py'),
+    ('original-ratio-hedge-probe', 'check_ratio_hedge_delivery.py'),
+    ('original-ratio-boundary-probe', 'check_ratio_scope_boundaries.py'),
+    ('residue-review-lead-probe', 'check_ratio_review_residue.py'),
+):
+    check(name, [PY, 'scripts/review_probes/' + filename, '--code-root', ROOT, '--expect-revision', REV])
+check('research-delivery-mutations', [PY, 'scripts/review_probes/run_extraction_mutations.py',
+      '--suite', 'research-delivery', '--revision', REV, '--output', OUT / 'mutations'], timeout=900)
+result.update(after=state(), finished=True)
+result['passed'] = (result['before'] == result['after']
+                    and result['registry_before'] == result['registry_after']
+                    and not result.get('receipt_error')
+                    and all(c['exit_code'] == 0 for c in result['checks']))
+save()
+raise SystemExit(0 if result['passed'] else 1)

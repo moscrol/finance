@@ -1,0 +1,10 @@
+{
+  "valid": false,
+  "authority": "none",
+  "errors": [
+    "check_manifest"
+  ],
+  "status": "CHANGES_REQUIRED",
+  "review_id": "ARL-0005",
+  "commit": "d46c2c3b10221483c811426e99ad379314289871"
+}

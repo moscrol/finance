@@ -1,0 +1,28 @@
+import base64
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+TREE=Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+REL='docs/verification/2026-09-24-adaptive-c315-engineering'
+manifest=json.loads((TREE/REL/'archive-manifest.json').read_text())
+results=[]
+for name,row in manifest.items():
+ stored=(TREE/REL/name).read_bytes()
+ git_bytes=subprocess.check_output(['git','-C',str(TREE),'show',f'HEAD:{REL}/{name}'])
+ raw=stored
+ if row['encoding']!='raw':
+  payload=json.loads(stored)
+  assert payload['encoding']==row['encoding']
+  raw=base64.b64decode(payload['data'],validate=True)
+  if row['encoding']=='gzip-base64-json': raw=gzip.decompress(raw)
+ source=Path(row['source']).read_bytes()
+ assert stored==git_bytes
+ assert len(stored)==row['stored_bytes'] and hashlib.sha256(stored).hexdigest()==row['stored_sha256']
+ assert raw==source and len(raw)==row['source_bytes'] and hashlib.sha256(raw).hexdigest()==row['source_sha256']
+ results.append(name)
+result={'archive_revision':subprocess.check_output(['git','-C',str(TREE),'rev-parse','HEAD'],text=True).strip(),'verified_original_local_and_git':len(results),'mismatches':0,'files':results}
+Path(__file__).with_name('c315-archive-git-verification.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k!='files'}))

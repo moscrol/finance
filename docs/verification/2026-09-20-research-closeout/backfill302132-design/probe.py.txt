@@ -1,0 +1,53 @@
+"""Bounded read-only candidate review; all mutable data are tiny local fixtures."""
+import argparse
+import importlib.util
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+ap = argparse.ArgumentParser()
+ap.add_argument('--output', type=Path, default=Path(__file__).resolve().parent)
+ap.add_argument('--tree', type=Path, default=Path('/Users/a77/fwp-wt-backfill-302132'))
+args = ap.parse_args()
+ROOT, TREE = args.output.resolve(), args.tree.resolve()
+ROOT.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(TREE))
+sp = importlib.util.spec_from_file_location('review_fixture', TREE / 'tests/test_repair_backfill_stock_history.py')
+tf = importlib.util.module_from_spec(sp)
+sp.loader.exec_module(tf)
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+identity = {'head': git('rev-parse', 'HEAD'), 'code': git('rev-parse', '00d64e37'), 'main': git('rev-parse', '4ace5ec2'), 'status': git('status', '--short'), 'diff': 'git diff 4ace5ec2...3736d5bfa997', 'interpreter': sys.executable}
+(ROOT / 'identity-before.json').write_text(json.dumps(identity, indent=2) + '\n')
+base = ROOT / 'fixture'
+base.mkdir()
+art = tf._build_e2e_artifacts(base)
+results = []
+
+def run(name, mutate):
+    directory = ROOT / name
+    directory.mkdir()
+    clone = tf._install(directory, art, mutate)
+    out = directory / 'acceptance.json'
+    result = tf._run_acceptance(clone, art, out)
+    (directory / 'stdout.txt').write_text(result.stdout)
+    (directory / 'stderr.txt').write_text(result.stderr)
+    payload = json.loads(out.read_text()) if out.exists() else {}
+    row = {'case': name, 'rc': result.returncode, 'verdict': payload.get('verdict'), 'failed': payload.get('failed'), 'output_exists': out.exists(), 'checks': len(payload.get('checks', [])), 'stderr_tail': result.stderr[-1200:]}
+    results.append(row)
+    print(json.dumps(row, ensure_ascii=False), flush=True)
+
+run('control', lambda m, r: None)
+
+def other_code(mode, receipt):
+    receipt['spec']['code'] = '000001.SZ'
+    receipt['child_report']['code'] = '000001.SZ'
+
+run('spec_other_code', other_code)
+run('huge_numeric_pin', lambda m, r: r['spec']['pinned_technical_0911'].update(ma26=10**400))
+
+(ROOT / 'probe-results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
+(ROOT / 'identity-after-probe.json').write_text(json.dumps({'head': git('rev-parse', 'HEAD'), 'status': git('status', '--short')}, indent=2) + '\n')

@@ -1,0 +1,1496 @@
+{
+  "artifact_tests": {
+    ".claude/lessons_learned.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/agent-product-door.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/handoffs/2026-09-19-t3-retention-repair.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/handoffs/inflight/q-research-data-readiness.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/README.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/after-first.exit": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/after-first.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/archive_receipts.py.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/before.exit": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/before.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/e2e-deploy-ledger.jsonl": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/e2e.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-build.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-lint.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-test.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-typecheck.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/full-python-receipt.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/baseline.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/baseline.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/definitions.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/restored-full.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/restored-full.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/results.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/original-fact-retention-probe.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/pytest-full.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/receipt-validation.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-check.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-ledger.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-parseability.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-tables.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-views.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/research-delivery-mutations.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/result.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/ruff.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/frozen-driver.exit": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/frozen-driver.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/manifest.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/outcome.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc-worker.exit": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc-worker.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/claims/ARL-0001.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/requests/ARL-0001.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/artifact-tests.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/claimed-request.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/git-diff-check.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/baseline.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/baseline.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/definitions.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/restored-full.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/restored-full.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/results.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-green.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-green.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-red.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-red.xml": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width.diff.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/original-fact-retention-probe.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/preflight.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/research-delivery-mutations.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/reviewer.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc/state/external-review.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/qc_once.py.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/run_frozen_checks.py.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/targeted.exit": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "docs/verification/2026-09-19-t3-retention-repair/targeted.log.txt": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "intelligence/services/episode_semantic_verifier.py": [
+      "intelligence/tests/test_agent_episode_ab.py",
+      "intelligence/tests/test_ceiling_required_block_degrade.py",
+      "intelligence/tests/test_continuous_turn_adapter.py",
+      "intelligence/tests/test_data_gap_delivery.py",
+      "intelligence/tests/test_degraded_fallback.py",
+      "intelligence/tests/test_e2_material_delivery.py",
+      "intelligence/tests/test_episode_answer_hygiene.py",
+      "intelligence/tests/test_episode_issues.py",
+      "intelligence/tests/test_episode_semantic_verifier.py",
+      "intelligence/tests/test_forecast_residual_budget.py",
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_gap_answer_middle_tier.py",
+      "intelligence/tests/test_grok_cli_judge.py",
+      "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+      "intelligence/tests/test_judge_evidence_projection.py",
+      "intelligence/tests/test_judge_mode_off.py",
+      "intelligence/tests/test_judge_sentence_verdicts.py",
+      "intelligence/tests/test_judge_source_recheck.py",
+      "intelligence/tests/test_kb_gap_proof.py",
+      "intelligence/tests/test_llm_call_ledger_usage.py",
+      "intelligence/tests/test_longtail_baseline.py",
+      "intelligence/tests/test_optional_forward_slots.py",
+      "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+      "intelligence/tests/test_publication_qc_off_table.py",
+      "intelligence/tests/test_publication_view_deepen.py",
+      "intelligence/tests/test_research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py",
+      "intelligence/tests/test_run_agent_runtime_benchmark.py",
+      "intelligence/tests/test_runtime_fault_matrix.py",
+      "intelligence/tests/test_stage_caps.py",
+      "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+      "intelligence/tests/test_v11_judge_guided_retrieval.py",
+      "intelligence/tests/test_v8_semantic_deletion_rights.py",
+      "tests/test_historical_evidence_contract.py"
+    ],
+    "intelligence/services/research_delivery_checks.py": [
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "intelligence/tests/test_research_delivery_repair.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "intelligence/tests/test_research_delivery_retention.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "intelligence/tests/test_research_delivery_review_regressions.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "scripts/review_probes/research_delivery_mutations.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ],
+    "scripts/review_probes/run_extraction_mutations.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py"
+    ]
+  },
+  "artifacts": [
+    ".claude/lessons_learned.md",
+    "docs/agent-product-door.md",
+    "docs/handoffs/2026-09-19-t3-retention-repair.md",
+    "docs/handoffs/inflight/q-research-data-readiness.md",
+    "docs/verification/2026-09-19-t3-retention-repair/README.md",
+    "docs/verification/2026-09-19-t3-retention-repair/after-first.exit",
+    "docs/verification/2026-09-19-t3-retention-repair/after-first.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/archive_receipts.py.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/before.exit",
+    "docs/verification/2026-09-19-t3-retention-repair/before.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/e2e-deploy-ledger.jsonl",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/e2e.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-build.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-lint.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-test.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-typecheck.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/full-python-receipt.json",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/baseline.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/baseline.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/cell-local-preservation.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/definitions.json",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-keep-sentence-context.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/disclosure-narrow-edit-span.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/domain-error-status.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/harness-status-delivery.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/restored-full.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/restored-full.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/result-success-admission.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/results.json",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/same-turn-repair-note.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/strict-table-width.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/original-fact-retention-probe.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/pytest-full.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/receipt-validation.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-check.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-ledger.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-parseability.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-tables.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/registry-views.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/research-delivery-mutations.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/result.json",
+    "docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/ruff.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/frozen-driver.exit",
+    "docs/verification/2026-09-19-t3-retention-repair/frozen-driver.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/manifest.json",
+    "docs/verification/2026-09-19-t3-retention-repair/outcome.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc-worker.exit",
+    "docs/verification/2026-09-19-t3-retention-repair/qc-worker.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/claims/ARL-0001.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/requests/ARL-0001.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/artifact-tests.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/claimed-request.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/git-diff-check.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/baseline.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/baseline.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/cell-local-preservation.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/definitions.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-keep-sentence-context.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/disclosure-narrow-edit-span.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/domain-error-status.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/harness-status-delivery.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/restored-full.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/restored-full.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/result-success-admission.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/results.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/same-turn-repair-note.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-green.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-green.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-red.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width-red.xml",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/strict-table-width.diff.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/original-fact-retention-probe.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/preflight.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/research-delivery-mutations.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/reviewer.log.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/qc/state/external-review.json",
+    "docs/verification/2026-09-19-t3-retention-repair/qc_once.py.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/run_frozen_checks.py.txt",
+    "docs/verification/2026-09-19-t3-retention-repair/targeted.exit",
+    "docs/verification/2026-09-19-t3-retention-repair/targeted.log.txt",
+    "intelligence/services/episode_semantic_verifier.py",
+    "intelligence/services/research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_repair.py",
+    "intelligence/tests/test_research_delivery_retention.py",
+    "intelligence/tests/test_research_delivery_review_regressions.py",
+    "scripts/review_probes/research_delivery_mutations.json",
+    "scripts/review_probes/run_extraction_mutations.py"
+  ],
+  "branch": "q/research-data-readiness",
+  "commit": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+  "created_at": "2026-09-19T15:21:31.579310+08:00",
+  "depends_on": [
+    "ARL-0002"
+  ],
+  "intensity": "milestone",
+  "parent_commit": "d38dab3fea578f957794249a39d6b880d52f71f2",
+  "producer": "codex:producer",
+  "required_checks": [
+    "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases",
+    "scripts/review_probes/run_extraction_mutations.py:research-delivery",
+    "reject_false_inference_and_retain_independent_fact",
+    "keep_raw_markdown_coordinates_and_ratio_neighbors",
+    "same_turn_repair_and_final_projection",
+    "no_gate_weakening_no_natural_quality_overclaim",
+    "review_counterexamples_reproduced_and_resolved",
+    "no_count_or_period_substitution_no_false_residue",
+    "immutable_archives_preserved",
+    "repair:ARL-0002",
+    "unlocated_ratio_is_explicit_unknown_not_pass"
+  ],
+  "review_id": "ARL-0003",
+  "schema_version": 3,
+  "scope": "Repair ARL-0002: unresolved numeric-role mapping must be explicit unknown, retain source text, trigger partial/gap/same-turn repair, no silent pass and no whole-clause deletion; also source-attribution and dependency boundaries. Cumulative diff; not live financial acceptance or release.",
+  "status": "ready",
+  "supersedes": "ARL-0002"
+}

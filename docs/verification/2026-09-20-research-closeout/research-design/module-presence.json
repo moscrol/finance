@@ -1,0 +1,32 @@
+[
+  {
+    "sha": "4ace5ec2",
+    "modules": []
+  },
+  {
+    "sha": "493824bb",
+    "modules": [
+      "intelligence/services/research_delivery_checks.py"
+    ]
+  },
+  {
+    "sha": "ce673a9f",
+    "modules": [
+      "intelligence/services/evidence_claim_review.py",
+      "intelligence/services/finish_candidate.py"
+    ]
+  },
+  {
+    "sha": "d8d6196b",
+    "modules": [
+      "intelligence/services/financial_claim_checks.py",
+      "intelligence/services/research_delivery_checks.py"
+    ]
+  },
+  {
+    "sha": "b1c1c29f",
+    "modules": [
+      "intelligence/services/material_grounding.py"
+    ]
+  }
+]

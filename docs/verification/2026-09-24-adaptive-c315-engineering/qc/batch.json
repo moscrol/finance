@@ -1,0 +1,8 @@
+{
+  "status": "BLOCKED_NO_RETRY",
+  "stages": [],
+  "automatic_retries": 0,
+  "prior_batches_requests": 74,
+  "cumulative_request_cap": 152,
+  "error": "Engineering gate is red; no paid batch admitted"
+}

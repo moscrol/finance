@@ -1,0 +1,41 @@
+{
+  "mode": "ordinary",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "-p",
+    "coverage_plugin7",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/ordinary/tmp",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/ordinary/junit.xml"
+  ],
+  "env": {
+    "HOME": "/Users/a77",
+    "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06:/Users/a77/fwp-wt-history-forward-boundary-0921",
+    "HISTORY_CHECK_OUTPUT": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/ordinary",
+    "HISTORY_CHECK_MODE": "ordinary"
+  },
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "started_at": "2026-09-21T18:44:31.673292+00:00",
+  "outer_sandbox": true,
+  "sandbox_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n(deny file-write* (subpath \"/Users/a77/finance-workspace-private\"))\n(deny file-write* (subpath \"/Users/a77/agent-memory\"))\n",
+  "timeout_seconds": 2400,
+  "min_free_bytes": 2147483648,
+  "plugin_sha256": "e35a9e750b43d6ccd4193c7f2f9beb07a917b1197e3fa6e5382c20bb8f722f69",
+  "signals": []
+}

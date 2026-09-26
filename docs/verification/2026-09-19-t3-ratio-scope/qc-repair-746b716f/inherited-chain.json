@@ -1,0 +1,47 @@
+[
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/requests/ARL-0001.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/requests/ARL-0001.json",
+    "sha256": "f788d85a8717eb73aa5d33476317ea4e9ae85def9fc1084213908fb9c69646be"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/requests/ARL-0002.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/requests/ARL-0002.json",
+    "sha256": "18e1ee2b6e6d564b8e2c71a4ebb74e13c109ae0fbbf04782d02b584ab41e3e0a"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/requests/ARL-0003.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/requests/ARL-0003.json",
+    "sha256": "c08e93ed354460983e2fc2c55f3c535a815189a28a07b16662689046427c6c79"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/claims/ARL-0001.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/claims/ARL-0001.json",
+    "sha256": "36c87d88038fea7b6fe8f8f8ac025f5ea3ec78364dca995be4c6e3b9469aeb0f"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/claims/ARL-0002.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/claims/ARL-0002.json",
+    "sha256": "cbb03622a69df8d1a45a7e2e4cebd7ac04079dedb0be4518e5e1d9b92b928957"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/claims/ARL-0003.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/claims/ARL-0003.json",
+    "sha256": "35ba5efaeec5eba4f04053db4ee1269ce1d920b0f4ec047e10de1ea27e7b7a86"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/verdicts/ARL-0001.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/verdicts/ARL-0001.json",
+    "sha256": "05ce4de4fde48733f265fbb4cd63633764c60ccfef06a3fca6ade1542d416b45"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/verdicts/ARL-0002.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/verdicts/ARL-0002.json",
+    "sha256": "0550354959bcd6c670abb0e6cb2dce44dcd28d60cf3b6eca0af0ab8c0d309cb0"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/verdicts/ARL-0003.json",
+    "copy": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/verdicts/ARL-0003.json",
+    "sha256": "b3f66af590510095b4c1ec2438bd00d00242643ef67dc03978aeaf4eb4463ab3"
+  }
+]

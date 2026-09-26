@@ -1,0 +1,57 @@
+{
+  "status": "healthy",
+  "timestamp": "2026-09-23T19:49:45+08:00",
+  "dependencies": {
+    "repo_root": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_runtime": true,
+    "market_snapshot": true,
+    "frontend_built": true
+  },
+  "runtime": {
+    "source_revision": "3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4",
+    "source_dirty": false,
+    "code_root": "/Users/a77/.finance-runtime/finance-workspace-3b7e473575b0",
+    "loaded_code_root": "/Users/a77/.finance-runtime/finance-workspace-3b7e473575b0/intelligence",
+    "loaded_tree_fingerprint": "bf03bc93e80a682ab0d1646c633852a82678e447900c5a04db685722e536ac8b",
+    "loaded_module_count": 1182,
+    "repo_tree_fingerprint": "bf03bc93e80a682ab0d1646c633852a82678e447900c5a04db685722e536ac8b",
+    "repo_module_count": 1182,
+    "code_matches_repo": true,
+    "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+    "python_version": "3.12.13",
+    "python_prefix": "/Users/a77/finance-workspace-private/.venv-workbench",
+    "dependency_fingerprint": "5806597184587c866b1bc17fcd6bb01492cab03727d32ab9197f85a182ad2bb6",
+    "dependencies": {
+      "fastapi": "0.139.0",
+      "pydantic": "2.13.4",
+      "httpx": "0.25.2",
+      "duckdb": "1.5.4",
+      "pytest": "8.3.5"
+    },
+    "finance_root": "/Users/a77/finance-workspace-private",
+    "continuous_agent": {
+      "mode": "on",
+      "canary_id": "",
+      "source_revision": "3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4"
+    },
+    "auth_mode": "off",
+    "credits": {
+      "enabled": false,
+      "signup_gift": 0,
+      "pricing_source": "builtin-default",
+      "hold_points": 100
+    },
+    "agent_runtime": {
+      "backend": "continuous_glm",
+      "ready": true,
+      "reason": "ready",
+      "model": "glm-5.3-flash",
+      "credential_available": true,
+      "benchmark_only": false
+    },
+    "users_dir": "/Users/a77/.local/share/finance-workbench/users"
+  }
+}

@@ -34,14 +34,15 @@ if str(REPO_ROOT) not in sys.path:
 
 from intelligence.runtime.deploy_ledger import (  # noqa: E402
     LEDGER_NAME,
+    attribute_startup_port,
     check_against_health,
     health_revision,
     infer_port,
     legacy_ledger_candidates,
     merge_ledgers,
-    read_rows,
     record_event,
     resolve_ledger_path,
+    resolved_rows,
 )
 
 DEFAULT_HEALTH_URL = "http://127.0.0.1:8792/api/health"
@@ -116,7 +117,7 @@ def _legacy_paths(home: Path, extra: Sequence[str]) -> list[Path]:
 
 
 def _summarize(path: Path, port: int | None) -> dict[str, Any]:
-    rows = read_rows(path)
+    rows = resolved_rows(path)
 
     def last(action: str) -> dict[str, Any] | None:
         chosen: dict[str, Any] | None = None
@@ -162,6 +163,20 @@ def _cmd_migrate_homes(args: argparse.Namespace) -> int:
     report["mode"] = "apply" if args.apply else "dry_run"
     print(json.dumps(report, ensure_ascii=False))
     return 1 if report.get("aborted") else 0
+
+
+def _cmd_attribute_startup(args: argparse.Namespace) -> int:
+    report = attribute_startup_port(
+        ledger_path=resolve_ledger_path(None, ledger_path=args.ledger or None),
+        target_sha256=args.target_sha256, port=args.port,
+        server_log={"path": str(Path(args.server_log).expanduser().absolute()),
+                    "sha256": args.server_log_sha256},
+        health_snapshot={"path": str(Path(args.health_snapshot).expanduser().absolute()),
+                         "sha256": args.health_sha256},
+        reason=args.reason, apply=args.apply,
+    )
+    print(json.dumps(report, ensure_ascii=False))
+    return 0
 
 
 def _cmd_record(args: argparse.Namespace) -> int:
@@ -241,6 +256,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="覆盖路径；等价于环境变量 FINANCE_DEPLOY_LEDGER",
     )
     record.set_defaults(handler=_cmd_record)
+
+    attribute = sub.add_parser("attribute-startup", help="有证据的无端口 startup 归属补记；默认只读")
+    attribute.add_argument("--ledger", default="")
+    attribute.add_argument("--target-sha256", required=True, help="原行规范化 JSON 的 SHA256")
+    attribute.add_argument("--port", type=int, required=True)
+    attribute.add_argument("--server-log", required=True, help="单进程 Uvicorn 原始启动日志")
+    attribute.add_argument("--server-log-sha256", required=True)
+    attribute.add_argument("--health-snapshot", required=True, help="启动后五分钟内的原始 health JSON")
+    attribute.add_argument("--health-sha256", required=True)
+    attribute.add_argument("--reason", required=True)
+    attribute.add_argument("--apply", action="store_true", help="只追加归属事件，不改原行或服务")
+    attribute.set_defaults(handler=_cmd_attribute_startup)
 
     check = sub.add_parser("check", help="账本尾行 vs health rev，不一致 exit 1")
     check.add_argument("--url", default=DEFAULT_HEALTH_URL)

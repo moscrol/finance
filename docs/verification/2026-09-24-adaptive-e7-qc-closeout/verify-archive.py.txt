@@ -1,0 +1,34 @@
+"""Verify source, stored envelope and optionally immutable committed Git blobs."""
+import argparse
+import base64
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+parser=argparse.ArgumentParser()
+parser.add_argument('--git',action='store_true')
+args=parser.parse_args()
+TREE=Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+REL='docs/verification/2026-09-24-adaptive-e7-qc-closeout'
+manifest_path=TREE/REL/'archive-manifest.json'
+manifest=json.loads(manifest_path.read_text())
+revision=subprocess.check_output(['git','-C',str(TREE),'rev-parse','HEAD'],text=True).strip() if args.git else None
+for name,row in manifest.items():
+ stored=(TREE/REL/name).read_bytes()
+ if revision:
+  assert stored==subprocess.check_output(['git','-C',str(TREE),'show',f'{revision}:{REL}/{name}']),name
+ decoded=stored
+ if row['encoding']!='raw':
+  envelope=json.loads(stored)
+  assert envelope['encoding']==row['encoding']
+  decoded=base64.b64decode(envelope['data'],validate=True)
+  if row['encoding']=='gzip-base64-json': decoded=gzip.decompress(decoded)
+ assert len(stored)==row['stored_bytes'] and hashlib.sha256(stored).hexdigest()==row['stored_sha256'],name
+ assert decoded==Path(row['source']).read_bytes(),name
+ assert len(decoded)==row['source_bytes'] and hashlib.sha256(decoded).hexdigest()==row['source_sha256'],name
+record={'artifact_revision':revision,'candidate_revision':'e7a6cb412865fdd189cf51a17f93622fa3d4fe55','archive_manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest(),'verified_files':len(manifest),'source_and_local_verified':True,'git_blobs_verified':bool(revision),'mismatches':0,'verdict_override':False}
+name='e7-archive-git-verification.json' if args.git else 'e7-archive-local-verification.json'
+with Path(__file__).with_name(name).open('x') as out: json.dump(record,out,indent=2)
+print(json.dumps(record))

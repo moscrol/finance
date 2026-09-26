@@ -1,0 +1,77 @@
+def synthesis_thinking_disabled() -> bool:
+def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
+def _stable_finish_reason(value: object) -> str | None:
+def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
+def _complete_cli_judge(
+def _chat_payload(
+def _post_chat(
+def _post_chat_synthesis(
+def complete(
+    def __init__(self) -> None:
+    def add(self, fragments: object) -> None:
+    def assembled(self) -> list[dict[str, object]]:
+def _post_chat_message_stream(
+def _post_chat_message(
+def _served_model_from_body(body: Mapping[str, object] | None) -> str:
+def chat_with_tools(
+def _extract_json(text: str) -> dict | None:
+def _as_lines(value: object) -> list[str]:
+def refine(
+def refine_or_reason(
+def _build_synthesis_prompt(
+def build_synthesis_messages(
+def _required_outputs_block(required_outputs: tuple[str, ...]) -> str:
+def _registry_document(registry_block: str) -> str:
+def build_decision_brief_messages(
+def build_grounded_composer_messages(
+def build_grounding_judge_messages(
+def followup_user_content(question: str) -> str:
+def synthesize_messages(
+def _post_chat_stream(
+def _post_chat_stream_raw(
+---
+    )
+    # 对外仍是纯 str：``complete()`` 的 ``(content, provider, reason)`` 契约不动。
+    return str(content)
+
+
+def _chat_payload(
+    provider: LLMProvider, messages: list[dict], temperature: float, **extra: object
+) -> dict:
+    """Shared wire options: K3 rejects temperature, other models keep it.
+
+    Omit rather than retry an invalid request or silently switch writers.
+    Match the exact model, not the provider slot (managed K3 is named zhipu).
+    """
+    payload = {"model": provider.model, "messages": messages, **extra}
+    if provider.model.strip().lower() != "kimi-k3":
+        payload["temperature"] = temperature
+    return payload
+
+
+def _post_chat(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float = 0.2,
+    max_tokens: int | None = None,
+    *,
+    deadline: Deadline | None = None,
+) -> str:
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(provider, messages, temperature)
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    _apply_thinking_controls(
+        payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
+---
+129:_PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
+133:_HTTP_TRANSPORT_OVERRIDE: ContextVar[Callable[..., object] | None] = ContextVar(
+147:    token = _HTTP_TRANSPORT_OVERRIDE.set(opener)
+151:        _HTTP_TRANSPORT_OVERRIDE.reset(token)
+220:    opener = _HTTP_TRANSPORT_OVERRIDE.get() or llm_http_transport.urlopen
+234:    configured = _PROVIDER_OVERRIDE.get()
+476:    token = _PROVIDER_OVERRIDE.set(provider)
+480:        _PROVIDER_OVERRIDE.reset(token)
+877:# 与 ``_PROVIDER_OVERRIDE`` 同一套机制：跨线程由调用方 ``copy_context()`` 传播。

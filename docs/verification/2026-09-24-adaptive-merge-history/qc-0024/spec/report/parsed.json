@@ -1,0 +1,80 @@
+{
+  "complete": true,
+  "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+  "claims": [
+    {
+      "id": "C1",
+      "status": "not_verified",
+      "evidence": "探针 probe_transport_v2.py T1-T4 设计覆盖 trickle 死线/取消流/停滞父进程 Timer 124 回收，但脚本三次调用均因 ModuleNotFoundError ('services'/'intelligence') 在 import 层退出(exit 1, commands 012/014/015)，无行为证据。"
+    },
+    {
+      "id": "C2",
+      "status": "not_verified",
+      "evidence": "probe_wrapper.py W1-W5 设计覆盖五个调用路径，但该探针因同结构问题未运行，无行为证据；亦无静态逐点调用点核验记录。"
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "evidence": "W6 设计验证迟到载荷拒绝+台账 reason，未运行；episode 级字段 report_received=False/unavailable=True 本就无探针断言(explore/parsed.json limits)。"
+    },
+    {
+      "id": "C4",
+      "status": "not_verified",
+      "evidence": "T6b/W1 设计覆盖 10s 片+0.5s 共享死线，探针未运行，无行为证据。"
+    },
+    {
+      "id": "C5",
+      "status": "not_verified",
+      "evidence": "W7/W8 设计覆盖零预算无 HTTP/无预留，未运行。"
+    },
+    {
+      "id": "C6",
+      "status": "not_verified",
+      "evidence": "T5/T6a 设计覆盖 spawn 计入预算，未运行。"
+    },
+    {
+      "id": "C7",
+      "status": "verified",
+      "evidence": "声明性归属主张：本次审查确实未将历史 receipt(author-pytest-receipt.json, rev 7ad61a0d) 当作当前测试计数；本次实际作者测试为复制品路径上 10 passed/25 deselected(command 010)，与历史 receipt 区分。归属约束被遵守。"
+    }
+  ],
+  "findings": [],
+  "author_tests": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "deselected": 25,
+    "command": "env FWX_TEST_RECEIPT=0 pytest -k 'violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard' candidate_copy_intelligence/tests/test_llm_timeout_diagnostic.py (via work/run_author_tests.py)",
+    "note": "仅在 cp -R 复制的 intelligence 目录上运行，非原 candidate 树"
+  },
+  "reviewer_probes": {
+    "passed": 0,
+    "failed": 3,
+    "detail": "probe_transport_v2.py 三次调用均 import 失败(No module named 'services'，随后 No module named 'intelligence')，未达到任何行为断言；probe_wrapper.py 与 probe_judge_window.py 因同结构问题未运行"
+  },
+  "intentional_control": {
+    "observed_failed": true,
+    "detail": "positive_control.py -> AssertionError 'intentional probe_bug control', exit 1，符合预期"
+  },
+  "failures": [
+    {
+      "type": "environment_block",
+      "detail": "pytest 直接对 candidate 绝对路径两次收集失败：PermissionError stat candidate 目录 (exit 2)；cp -R 部分目录(users/.git/docs 等)被拒"
+    },
+    {
+      "type": "probe_bug",
+      "detail": "探针 ROOT 路径上溯5级解析到错误目录，且未注入可用的 candidate 路径；两次 PYTHONPATH 修正仍因 llm_refine 绝对导入 'intelligence' 包失败，按预算不再重试"
+    }
+  ],
+  "limits": [
+    "C1-C6 行为覆盖全部缺失，静态探针设计不构成验证",
+    "作者测试仅覆盖诊断相关用例子集，不覆盖 C1-C6 行为",
+    "C3 的 episode 级字段(report_received/unavailable)与额外修复范围(currency 单位、adaptive_l6 审计门、diagnose 严格检查、embedding 形状校验等)均无证据",
+    "运行环境为复制品 intelligence 目录，部分源目录不可访问",
+    "自然 L6 仍为 NOT_PASSED，latest-head/main 门与合并部署均在本审查之外"
+  ],
+  "stage": "report",
+  "axis": "spec",
+  "revision": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "baseline": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+}

@@ -1,0 +1,21 @@
+{
+  "scope": "focused operator check, not independent or full CI",
+  "name": "diff-check",
+  "command": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "started": "2026-09-21T15:07:32.444196+00:00",
+  "finished": "2026-09-21T15:07:32.755345+00:00",
+  "before": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "after": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "exit": 0,
+  "expected_failure": false
+}

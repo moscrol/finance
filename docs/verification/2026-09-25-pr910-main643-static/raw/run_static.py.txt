@@ -1,0 +1,67 @@
+"""Record static gates and dynamic admission for frozen main643 candidates, without waiting."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+BASE = '643a2888ea14079035bc8b080129e3e4145d5685'
+REVISIONS = {'910': 'a8cea541422d006c1aa0c022db8a652a2792886e',
+             '911': 'eb59c4a2fb4dbe77a349bd8545b942aa4df8db14'}
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+helpers = importlib.import_module('scripts.review_probes.run_extraction_mutations')
+observe = importlib.import_module('scripts.review_probes.gate_resources').observe
+fingerprint = importlib.import_module('scripts.check_test_receipt')._fingerprint
+assert sys.executable == PY and fingerprint() == '66726d345bf37ce5'
+for pr, revision in REVISIONS.items():
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert helpers.git(tree, 'rev-parse', 'HEAD') == revision
+    assert not helpers.git(tree, 'status', '--porcelain')
+    out = ROOT / pr
+    out.mkdir(exist_ok=False)
+    report = {'pr': pr, 'tree': str(tree), 'revision': revision, 'baseline': BASE,
+              'tree_oid': helpers.git(tree, 'rev-parse', 'HEAD^{tree}'),
+              'python': PY, 'dependency_fingerprint': fingerprint(),
+              'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              'started_at': datetime.now(timezone.utc).isoformat(), 'steps': [],
+              'dynamic_attempt_started': False, 'paid_model_requests': 0,
+              'independent_review': False, 'status': 'RUNNING'}
+    def save():
+        (out / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
+    save()
+    env = {k: os.environ[k] for k in ('PATH', 'HOME', 'LANG', 'TMPDIR') if k in os.environ}
+    env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(tree), PYTHONDONTWRITEBYTECODE='1')
+    try:
+        commands = [
+            ('doctor', [PY, 'scripts/workspace.py', 'doctor']),
+            ('ruff', [PY, '-m', 'ruff', 'check', '.']),
+            ('registry-parse', [PY, 'scripts/build_registry.py', 'check-parseability']),
+            ('registry-check', [PY, 'scripts/build_registry.py', 'check']),
+            ('registry-tables', [PY, 'scripts/build_registry.py', 'backfill-tables', '--check']),
+            ('registry-views', [PY, 'scripts/build_registry.py', 'generate-views', '--check']),
+            ('ledger-crosswalk', [PY, 'scripts/audit_ledger_spec_crosswalk.py']),
+            ('diff-check', ['git', 'diff', '--check', BASE + '...HEAD']),
+            ('code-map', [PY, 'scripts/code_map.py', 'build']),
+        ]
+        for label, command in commands:
+            result = helpers._run_logged_command(tree, out, label, command, env, timeout=180)
+            report['steps'].append({'label': label, 'exit': result['exit'], 'status': result['status']})
+            save()
+            print(json.dumps({'pr': pr, **report['steps'][-1]}), flush=True)
+        report['resource_admission'] = observe(tree, minimum_free=20 * 1024**3)
+        report['status'] = 'STATIC_PASS_DYNAMIC_NOT_STARTED' if all(
+            row['exit'] == 0 and row['status'] == 'completed' for row in report['steps']) else 'STATIC_FAILED'
+        report['dynamic_blocker'] = None if report['resource_admission']['admitted'] else 'foreign pytest or insufficient disk'
+        assert helpers.git(tree, 'rev-parse', 'HEAD') == revision
+        assert not helpers.git(tree, 'status', '--porcelain')
+    except Exception as exc:
+        report.update(status='ERROR', error=str(exc))
+        raise
+    finally:
+        report['finished_at'] = datetime.now(timezone.utc).isoformat()
+        save()
+    print(json.dumps({'pr': pr, 'status': report['status'], 'resource_admission': report['resource_admission']}), flush=True)

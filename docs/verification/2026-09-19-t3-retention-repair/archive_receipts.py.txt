@@ -1,0 +1,35 @@
+"""Copy this run's text evidence byte-for-byte; exclude frozen worktrees and lock files."""
+from pathlib import Path
+import hashlib
+import json
+import re
+
+SRC = Path(__file__).parent
+DEST = Path('/Users/a77/fwp-q-research-data-readiness/docs/verification/2026-09-19-t3-retention-repair')
+DEST.mkdir(exist_ok=False)
+files = []
+selected = [p for p in SRC.iterdir() if p.is_file()]
+for directory in (SRC / 'candidate-a2a33019', SRC / 'qc'):
+    selected.extend(p for p in directory.rglob('*') if p.is_file()
+                    and not {'registry-pinned', 'locks', 'worktrees'} & set(p.relative_to(directory).parts))
+for path in sorted(selected):
+    content = path.read_bytes()
+    text = content.decode('utf-8')
+    if re.search(r'(?:sk-[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY-----|Authorization:\s*Bearer\s+[A-Za-z0-9_-]{16,})', text):
+        raise ValueError('secret-like content in ' + str(path))
+    relative = path.relative_to(SRC)
+    if path.suffix in {'.py', '.log', '.diff'}:
+        relative = relative.with_name(relative.name + '.txt')
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+    files.append({'source': str(path), 'archive': str(relative), 'bytes': len(content),
+                  'sha256': hashlib.sha256(content).hexdigest()})
+manifest = {'scope': 'T3 repair engineering PASS, external reviewer timeout/no verdict, natural answers unvalidated',
+            'revision': 'a2a3301963d11a073f511e1552b53daee7ecd704',
+            'files': files}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+for row in files:
+    content = (DEST / row['archive']).read_bytes()
+    assert len(content) == row['bytes'] and hashlib.sha256(content).hexdigest() == row['sha256']
+print(json.dumps({'files': len(files), 'bytes': sum(r['bytes'] for r in files), 'verified': True}))

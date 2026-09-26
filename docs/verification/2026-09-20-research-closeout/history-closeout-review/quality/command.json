@@ -1,0 +1,42 @@
+{
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-vv",
+    "-s",
+    "--rootdir",
+    "/Users/a77/fwp-wt-history-closeout-0920",
+    "--confcutdir",
+    "/Users/a77/fwp-wt-history-closeout-0920",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/pytest-tmp",
+    "-o",
+    "cache_dir=/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/.pytest_cache",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/quality/test_quality_boundaries.py",
+    "tests/test_history_window_binding.py::test_cancel_and_deadline_leave_no_binding_or_saved_calculation"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-closeout-0920",
+  "environment_overrides": {
+    "FWP_TEST_RECEIPT": "0",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "/Users/a77/fwp-wt-history-closeout-0920"
+  },
+  "dependency_escape_absent": true,
+  "before": {
+    "at": "2026-09-20T05:28:50.715335+00:00",
+    "root": "/Users/a77/fwp-wt-history-closeout-0920",
+    "head": "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+    "status": "",
+    "files": {
+      "docs/handoffs/2026-09-20-history-closeout-fixes.md": "5aa84d7dad977955a5e6c6dadab523ff95052627f62281a2e119dcc3ddf0aeed",
+      "docs/handoffs/inflight/fix-history-closeout-0920.md": "73e1791d5db6baa62345217b582590d03e401742813e339c0a03bc42f9cfdb5a",
+      "intelligence/services/historical_research/window_binding.py": "73d754c7d6a7061471e32d76c80694370f236ab3fa769a9762210c8db7dbb905",
+      "scripts/code_map.py": "af835e4e98087ffc702332c6f2e089f1238a2ffb37ffe20ab6f812e272601142",
+      "tests/test_code_map.py": "dfc00062889f206cb7bba232aaf612d73157d8fb8fd714cb0a486b535e38ff1b",
+      "tests/test_history_window_binding.py": "9a42459be59031537c6e11b42b9c0b14e93000c4c2a440efc8af803ef38de9d5"
+    }
+  },
+  "probe_sha256": "fcac2b8acd456477f7b2129780519eefc7f80f217391a0f729849e597c8ab231"
+}

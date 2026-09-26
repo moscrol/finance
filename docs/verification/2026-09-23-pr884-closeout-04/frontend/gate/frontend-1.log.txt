@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/intelligence/webapp
+> eslint .
+

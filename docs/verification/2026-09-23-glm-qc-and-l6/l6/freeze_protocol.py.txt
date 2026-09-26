@@ -1,0 +1,17 @@
+"""Freeze new question identities before any paid L6 request."""
+import hashlib
+import json
+from pathlib import Path
+
+root = Path(__file__).resolve().parent
+protocol = json.loads((root / "protocol.json").read_text())
+old = json.loads(Path("/Users/a77/.finance-runtime/reviews/pr868-l6-natural-20260923-1455/live-r2/protocol.json").read_text())
+old_hashes = {hashlib.sha256(q["text"].encode()).hexdigest() for q in old["questions"]}
+for question in protocol["questions"]:
+    question["text_sha256"] = hashlib.sha256(question["text"].encode()).hexdigest()
+    assert question["text_sha256"] not in old_hashes
+    question["mode"] = question["requested_capability_mode"]
+with (root / "protocol-frozen.json").open("x") as stream:
+    json.dump(protocol, stream, ensure_ascii=False, indent=2)
+    stream.write("\n")
+print(json.dumps({"questions": len(protocol["questions"]), "old_questions_reused": 0, "model_requests": 0}))

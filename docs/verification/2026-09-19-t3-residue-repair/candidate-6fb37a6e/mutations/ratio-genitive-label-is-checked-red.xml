@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="8" skipped="0" tests="16" time="1.098" timestamp="2026-09-19T22:49:55.168603+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff0c-1.588-0.289]" time="0.001" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff0c-1.587-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff0c-1.588-0.288]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为1.588，**2025中报**的含金量为待核对[E1]。&#10;  ?                                    ^^^&#10;  + **2026中报**含金量为1.588，**2025中报**的含金量为0.288[E1]。&#10;  ?                                    ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588，**2025中报**的含金量为待核对[E1]。
+E     ?                                    ^^^
+E     + **2026中报**含金量为1.588，**2025中报**的含金量为0.288[E1]。
+E     ?                                    ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff0c-0.289-1.588]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为待核对，**2025中报**的含金量为待核对[E1]。&#10;  ?                                  ^^^&#10;  + **2026中报**含金量为待核对，**2025中报**的含金量为1.588[E1]。&#10;  ?                                  ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对，**2025中报**的含金量为待核对[E1]。
+E     ?                                  ^^^
+E     + **2026中报**含金量为待核对，**2025中报**的含金量为1.588[E1]。
+E     ?                                  ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff1b-1.588-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff1b-1.587-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff1b-1.588-0.288]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为1.588；**2025中报**的含金量为待核对[E1]。&#10;  ?                                    ^^^&#10;  + **2026中报**含金量为1.588；**2025中报**的含金量为0.288[E1]。&#10;  ?                                    ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588；**2025中报**的含金量为待核对[E1]。
+E     ?                                    ^^^
+E     + **2026中报**含金量为1.588；**2025中报**的含金量为0.288[E1]。
+E     ?                                    ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[\uff1b-0.289-1.588]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为待核对；**2025中报**的含金量为待核对[E1]。&#10;  ?                                  ^^^&#10;  + **2026中报**含金量为待核对；**2025中报**的含金量为1.588[E1]。&#10;  ?                                  ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对；**2025中报**的含金量为待核对[E1]。
+E     ?                                  ^^^
+E     + **2026中报**含金量为待核对；**2025中报**的含金量为1.588[E1]。
+E     ?                                  ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[;-1.588-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[;-1.587-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[;-1.588-0.288]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为1.588;**2025中报**的含金量为待核对[E1]。&#10;  ?                                    ^^^&#10;  + **2026中报**含金量为1.588;**2025中报**的含金量为0.288[E1]。&#10;  ?                                    ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588;**2025中报**的含金量为待核对[E1]。
+E     ?                                    ^^^
+E     + **2026中报**含金量为1.588;**2025中报**的含金量为0.288[E1]。
+E     ?                                    ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[;-0.289-1.588]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为待核对;**2025中报**的含金量为待核对[E1]。&#10;  ?                                  ^^^&#10;  + **2026中报**含金量为待核对;**2025中报**的含金量为1.588[E1]。&#10;  ?                                  ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对;**2025中报**的含金量为待核对[E1]。
+E     ?                                  ^^^
+E     + **2026中报**含金量为待核对;**2025中报**的含金量为1.588[E1]。
+E     ?                                  ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[ vs -1.588-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[ vs -1.587-0.289]" time="0.000" /><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[ vs -1.588-0.288]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为1.588 vs **2025中报**的含金量为待核对[E1]。&#10;  ?                                       ^^^&#10;  + **2026中报**含金量为1.588 vs **2025中报**的含金量为0.288[E1]。&#10;  ?                                       ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588 vs **2025中报**的含金量为待核对[E1]。
+E     ?                                       ^^^
+E     + **2026中报**含金量为1.588 vs **2025中报**的含金量为0.288[E1]。
+E     ?                                       ^^^^^</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_boundaries" name="test_genitive_neighbor_binds_its_own_value[ vs -0.289-1.588]" time="0.000"><failure message="AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'&#10;  &#10;  - **2026中报**含金量为待核对 vs **2025中报**的含金量为待核对[E1]。&#10;  ?                                     ^^^&#10;  + **2026中报**含金量为待核对 vs **2025中报**的含金量为1.588[E1]。&#10;  ?                                     ^^^^^">intelligence/tests/test_research_delivery_ratio_boundaries.py:204: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对 vs **2025中报**的含金量为待核对[E1]。
+E     ?                                     ^^^
+E     + **2026中报**含金量为待核对 vs **2025中报**的含金量为1.588[E1]。
+E     ?                                     ^^^^^</failure></testcase></testsuite></testsuites>

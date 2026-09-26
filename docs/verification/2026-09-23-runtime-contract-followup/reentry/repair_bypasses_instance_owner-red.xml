@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="3.853" timestamp="2026-09-23T13:38:38.799261+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_writer_reentry" name="test_live_run_blocks_repair_of_another_task_on_same_runner" time="0.200"><failure message="Failed: DID NOT RAISE &lt;class 'intelligence.services.episode_store.EpisodeWriterBusy'&gt;">intelligence/tests/test_episode_writer_reentry.py:58: in test_live_run_blocks_repair_of_another_task_on_same_runner
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE &lt;class 'intelligence.services.episode_store.EpisodeWriterBusy'&gt;</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/inspect_cancel.py", line 3, in <module>
+    import intelligence.llm_http_transport as T
+ModuleNotFoundError: No module named 'intelligence.llm_http_transport'

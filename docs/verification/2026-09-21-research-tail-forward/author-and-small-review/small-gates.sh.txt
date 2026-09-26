@@ -1,0 +1,26 @@
+#!/bin/bash
+set -u
+umask 022
+ROOT=/Users/a77/fwp-wt-research-tail-integration-0921
+OUT=/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+export HOME=/Users/a77 PATH=/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin LANG=en_US.UTF-8 TMPDIR=/tmp PYTHONDONTWRITEBYTECODE=1
+cd "$ROOT" || exit 2
+git rev-parse HEAD > "$OUT/small-identity-before.txt"
+git status --porcelain=v1 >> "$OUT/small-identity-before.txt"
+"$PY" scripts/code_map.py build > "$OUT/small-map-build.txt" 2>&1
+printf '%s\n' "$?" > "$OUT/small-map-build.rc"
+"$PY" -m ruff check . > "$OUT/small-ruff.txt" 2>&1
+printf '%s\n' "$?" > "$OUT/small-ruff.rc"
+"$PY" -m pytest -q > "$OUT/small-pytest.log" 2>&1
+printf '%s\n' "$?" > "$OUT/small-pytest.rc"
+for cmd in 'check-parseability' 'check' 'backfill-tables --check' 'generate-views --check'; do
+  name=${cmd// /_}
+  "$PY" scripts/build_registry.py $cmd > "$OUT/small-registry-$name.txt" 2>&1
+  printf '%s\n' "$?" > "$OUT/small-registry-$name.rc"
+done
+"$PY" scripts/audit_ledger_spec_crosswalk.py > "$OUT/small-crosswalk.txt" 2>&1
+printf '%s\n' "$?" > "$OUT/small-crosswalk.rc"
+git rev-parse HEAD > "$OUT/small-identity-after.txt"
+git status --porcelain=v1 >> "$OUT/small-identity-after.txt"
+printf 'complete\n' > "$OUT/small-gates.done"

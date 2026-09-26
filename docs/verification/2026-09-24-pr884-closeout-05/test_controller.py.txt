@@ -1,0 +1,65 @@
+"""Controller tests do not launch pytest, model calls, or gate subprocesses."""
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('gate_controller', Path(__file__).with_name('run.py'))
+controller = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(controller)
+
+
+class ControllerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        root_patch = patch.object(controller, 'ROOT', self.root)
+        root_patch.start()
+        self.addCleanup(root_patch.stop)
+
+    def test_wait_denies_foreign_until_clear(self):
+        with patch.object(controller, 'observe', side_effect=[{'admitted': False}, {'admitted': True}]):
+            with patch.object(controller.time, 'sleep') as sleep:
+                controller.wait_admission('python-native', 30)
+        history = [json.loads(line) for line in (self.root / 'admission-history.jsonl').read_text().splitlines()]
+        self.assertEqual([row['admitted'] for row in history], [False, True])
+        sleep.assert_called_once()
+
+    def test_timeout_runs_no_leaf(self):
+        with patch.object(controller.sys, 'argv', ['run.py', 'start']):
+            with patch.object(controller, 'identity', return_value={'revision': controller.REV, 'status': ''}):
+                with patch.object(controller, 'wait_admission', side_effect=RuntimeError('resource timeout')):
+                    with patch.object(controller.subprocess, 'Popen') as spawn:
+                        self.assertEqual(controller.main(), 1)
+        spawn.assert_not_called()
+        result = json.loads((self.root / 'controller-result.json').read_text())
+        self.assertEqual(result['status'], 'BLOCKED_RESOURCE_OR_CONTROLLER')
+        self.assertEqual(result['leaves'], [])
+        self.assertEqual(result['model_requests'], 0)
+
+    def test_zero_wait_does_not_launch_or_sleep(self):
+        with patch.object(controller, 'observe', return_value={'admitted': False}):
+            with patch.object(controller.time, 'sleep') as sleep:
+                with self.assertRaisesRegex(RuntimeError, 'leaf not launched'):
+                    controller.wait_admission('registry', 0)
+        sleep.assert_not_called()
+
+    def test_process_observation_failure_is_not_admission(self):
+        with patch.object(controller, 'observe', side_effect=ValueError('bad process snapshot')):
+            with self.assertRaises(ValueError):
+                controller.wait_admission('registry', 0)
+
+    def test_repeat_start_does_not_overwrite(self):
+        marker = self.root / 'started.json'
+        marker.write_text('preserve')
+        with patch.object(controller.sys, 'argv', ['run.py', 'start']):
+            with self.assertRaises(FileExistsError):
+                controller.main()
+        self.assertEqual(marker.read_text(), 'preserve')
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
