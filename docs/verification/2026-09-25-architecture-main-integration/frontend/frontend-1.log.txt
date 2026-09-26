@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/fwp-wt-architecture-audit-0924/intelligence/webapp
+> eslint .
+

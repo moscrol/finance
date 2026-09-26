@@ -1,0 +1,26 @@
+{
+  "status": "isolated_candidate",
+  "perspective_id": "sptfei",
+  "proposal_sha256": "6f627694b119109156d3cbdf52fe32382cdd52ec50ee2f3cbcee6e06d456e933",
+  "profile_sha256": "01611ea02994286031603f5ecf126b937cbee69a4ddb70afbdf5c8b39e88b8da",
+  "basis": "delegated_acceptance_design; not_original_author_quote_or_production_apply_approval",
+  "entries": [
+    {
+      "patch_id": "pp-ed109ca9f818",
+      "patch_sha256": "9ae86ce19276d87eb58930e2293850b70c004e64866df59db05a9a3ac6eefd81",
+      "source_refs": ["pa-af47be9c26e3"],
+      "rule": {
+        "field": "opportunity_preferences",
+        "value_sha256": "114166bebb2f39c9259fa9347b59d93ab3885f39f131f1930e2b7b84788540e4",
+        "all_of": [
+          ["容量板块", "容量方向"],
+          ["分歧后修复", "分歧后的修复"],
+          ["逻辑更清晰", "逻辑性更强"],
+          ["逆势表现", "逆势走强"],
+          ["主动性更强", "主动性增强"]
+        ],
+        "none_of": ["承接转弱", "承接不足", "主动性减弱", "主动性消失", "逆势表现消失", "逻辑被证伪"]
+      }
+    }
+  ]
+}

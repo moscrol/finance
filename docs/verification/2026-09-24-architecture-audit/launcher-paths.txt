@@ -1,0 +1,6 @@
+12:export FINANCE_WS="/Users/a77/finance-workspace-private"
+13:export FORESIGHT_USERS_DIR="/Users/a77/.local/share/finance-workbench/users"
+16:export FORESIGHT_USER="linxiaoqi5111"
+129:export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
+130:export KB_RAG_PYTHON="/Users/a77/knowledge-base-private/.rag_venv/bin/python"
+131:export RAG_INDEX_DIR="/Users/a77/knowledge-base-private/.rag_index"

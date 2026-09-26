@@ -18,6 +18,7 @@ from intelligence.services.evidence_capabilities import (
     EvidenceRequirement,
     resolve_evidence_plan,
     runtime_capabilities_for_frame,
+    needs_opening_memory,
 )
 from intelligence.services.mandatory_satisfiability import (
     apply_static_chain_mapping_precheck,
@@ -438,7 +439,7 @@ def _with_prior_recall(
     """Add the prior_recall slot only when the tool that fills it is authorized.
 
     这个判据里的 `memory_lookup in capabilities` 不是防御性冗余。`prior_recall`
-    的注入条件只看题型与措辞，而 `memory_lookup` 的授权来自另一条路
+    的注入条件看有主体的研究题或显式回忆措辞，而 `memory_lookup` 的授权来自另一条路
     （`evidence_capabilities.py` 的 evidence policy），两者可以不同步：
 
     - 调用方显式传 `capabilities` 且其中没有 `memory_lookup`；
@@ -451,7 +452,7 @@ def _with_prior_recall(
     产出一个填不满的契约。所以把「有工具」变成注入的前置条件。
     """
 
-    if not _references_prior_judgement(frame):
+    if not (_references_prior_judgement(frame) or needs_opening_memory(frame)):
         return output_ids
     if "memory_lookup" not in capabilities:
         return output_ids

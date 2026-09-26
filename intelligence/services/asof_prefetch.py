@@ -1369,9 +1369,18 @@ def format_opening_prefetch_message(items: tuple[PrefetchItem, ...] | tuple[Agen
         digest = str(getattr(item, "content_hash", "") or "").strip()
         eid = table.get(digest)
         head = f"[{eid}] {item.title}" if eid else item.title
-        blocks.append(f"{head}\n{item.detail}")
+        if item.tool == "memory_lookup":
+            blocks.append(f"{head}\n{item.source}\n{item.detail}")
+        else:
+            blocks.append(f"{head}\n{item.detail}")
+    memory_rule = (
+        "用户记忆只作历史先验，不是市场事实；价格、订单、产能等须以本轮硬数据为准。"
+        "记忆缺口不是用户判断，禁止据此编造‘你此前认为’。\n"
+        if any(item.tool == "memory_lookup" for item in items) else ""
+    )
     return (
-        "问句日预取（harness 进场事实，不是工具调用；"
-        "下列 [E 号] 与证据注册表同号，写结论时可直接引用）：\n"
+        "问句日预取（harness 进场观察，不是工具调用；"
+        "下列 [E 号] 与证据注册表同号，引用须遵守各项来源与证据等级）：\n"
+        + memory_rule
         + "\n\n".join(blocks)
     )

@@ -1,0 +1,93 @@
+{
+  "status": "FAIL",
+  "revision": "8ca4dc4c3a40374e2fa662695cd623107f35c90d",
+  "scope": "same_author_adversarial_review_not_independent_or_holdout",
+  "passed": 4,
+  "failed": 8,
+  "cases": [
+    {
+      "id": "single-subject-positive",
+      "category": "positive_control",
+      "expected_match": true,
+      "actual_match": true,
+      "facts_sha256": "2e314326e0717ef404a6bea16d5fecdaee21cd957098a248aa9236bbc859f04d"
+    },
+    {
+      "id": "same-sentence-different-subjects",
+      "category": "subject_mixing",
+      "expected_match": false,
+      "actual_match": true,
+      "facts_sha256": "6ab65b7d8258558d88ba86fb1e854b48bd9c2cc55d12b655b01e5662c3b351be"
+    },
+    {
+      "id": "different-time-windows",
+      "category": "time_mixing",
+      "expected_match": false,
+      "actual_match": true,
+      "facts_sha256": "72fe184f6b7949fb0e387619f6ec3e22ba26de7890cba76109ab3acdb9c6c4ae"
+    },
+    {
+      "id": "unverified-observations",
+      "category": "unverified",
+      "expected_match": false,
+      "actual_match": true,
+      "facts_sha256": "6c884bfe0f895ba8c593768023db5f69e7fbd042bbbe4e5cfbbcaefba50b8f6a"
+    },
+    {
+      "id": "criteria-not-observations",
+      "category": "criteria_only",
+      "expected_match": false,
+      "actual_match": true,
+      "facts_sha256": "039d1f5601ea94ad3c0e1846d28e8cadc453e27bd41bb779744a266e87375ac7"
+    },
+    {
+      "id": "denial-by-reference",
+      "category": "negated_reference",
+      "expected_match": false,
+      "actual_match": true,
+      "facts_sha256": "594e7f9c514043b2027f534bf80ccf29cd30b9df3f928f7ec172e10cedcb3113"
+    },
+    {
+      "id": "withdrawal-by-reference",
+      "category": "withdrawn",
+      "expected_match": false,
+      "actual_match": true,
+      "facts_sha256": "25c5447c856a3d037f07595672f3203f820ba522e21a5c02b24b237ef7144fbb"
+    },
+    {
+      "id": "local-negation-control",
+      "category": "negative_control",
+      "expected_match": false,
+      "actual_match": false,
+      "facts_sha256": "5c38b660d759610761143bcb031163037d0d8e498766ce4aae7546c51c8899d1"
+    },
+    {
+      "id": "unrelated-negative-control",
+      "category": "positive_control",
+      "expected_match": true,
+      "actual_match": true,
+      "facts_sha256": "42811eda385e2b7077e16ecb66910aca1e1d6aa95fe24c74d14d26e6307ecfe0"
+    },
+    {
+      "id": "future-uncertainty-not-current-denial",
+      "category": "future_uncertainty",
+      "expected_match": true,
+      "actual_match": false,
+      "facts_sha256": "3743ae9ac372795b3fb085a0c2a542bac54a3767b0144543916aa1665efbcd0d"
+    },
+    {
+      "id": "quoted-label-not-quoted-claim",
+      "category": "quoted_label",
+      "expected_match": true,
+      "actual_match": false,
+      "facts_sha256": "1b4e5bab0280f26396ce7cde9fd3b7ae80aaa30fdcbeec7234bb0874460812e9"
+    },
+    {
+      "id": "separate-sentences-control",
+      "category": "negative_control",
+      "expected_match": false,
+      "actual_match": false,
+      "facts_sha256": "108367e252178b2b31213dd8120f3a21c692f0d08daa2ff7c7f7efe3da1770c4"
+    }
+  ]
+}

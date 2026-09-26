@@ -1,0 +1,26 @@
+{
+  "scope": "existing_artifact_observation_only; not_current_acceptance_or_independent_quality",
+  "run_id": "run_20260819_152316_348138",
+  "user": "linxiaoqi5111",
+  "created_at": "2026-08-19T15:23:16+08:00",
+  "status": "completed",
+  "source_sha256": {
+    "run.json": "85c225d8a7003a0c32035bfe8a9b78c6734e02fa596c6d02286f1c2c1f0a47c0",
+    "continuous-episode.json": "6a3613b8a5ca15b4780aa5c1aa150ef824d399c30e26fcd4e4bf115e8f228474",
+    "answer.md": "06efa082f808a4e1265d2edeb8aee22e672fc4e9df903ddc7b45289fdcb15adc"
+  },
+  "runtime_backend": "continuous_glm",
+  "research_context_fields": [
+    "information_cutoff",
+    "latest_data_date",
+    "today",
+    "trace_parent_id"
+  ],
+  "perspective_input_saved": false,
+  "structural_status": "completed",
+  "semantic_status": "partial",
+  "judge_status": "unavailable",
+  "evidence_count": 40,
+  "answer_has_perspective_header": true,
+  "files_unchanged": true
+}

@@ -1,0 +1,22 @@
+{
+  "day": "2026-09-15",
+  "expected": {
+    "briefing_tier1_items": 0,
+    "briefing_tier2_items": 6,
+    "briefing_tier3_items": 4,
+    "briefing_market_confirmed": null,
+    "briefing_dimensions": 2,
+    "briefing_hit_rps5_pct": 33.333333333333336,
+    "briefing_lag_days": 0,
+    "recorded_at": "2026-09-15"
+  },
+  "actual": {
+    "tf.briefing_tier1_items": 0.0,
+    "tf.briefing_tier2_items": 6.0,
+    "tf.briefing_tier3_items": 4.0,
+    "tf.briefing_market_confirmed": null,
+    "tf.briefing_dimensions": 2.0,
+    "tf.briefing_hit_rps5_pct": 33.333333,
+    "tf.briefing_lag_days": 0.0
+  }
+}

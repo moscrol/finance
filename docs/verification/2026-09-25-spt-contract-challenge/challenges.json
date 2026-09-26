@@ -1,0 +1,20 @@
+{
+  "scope": "same_author_adversarial_review_not_independent_or_holdout",
+  "candidate_sha256": "80559b4f9efb094fa29683d35978b8d210b3014186e7d487620252ceeae8eb4a",
+  "rule_field": "opportunity_preferences",
+  "rule_value_sha256": "114166bebb2f39c9259fa9347b59d93ab3885f39f131f1930e2b7b84788540e4",
+  "cases": [
+    {"id": "single-subject-positive", "expected_match": true, "category": "positive_control", "facts": "容量方向正在分歧后修复，逻辑更清晰，逆势表现与主动性更强，尚需观察后续承接。"},
+    {"id": "same-sentence-different-subjects", "expected_match": false, "category": "subject_mixing", "facts": "甲板块是容量方向且正在分歧后修复、逻辑更清晰，而乙板块有逆势表现与主动性更强的特征。"},
+    {"id": "different-time-windows", "expected_match": false, "category": "time_mixing", "facts": "去年容量方向处于分歧后修复且逻辑更清晰，今年观察仅涉及逆势表现与主动性更强这两点。"},
+    {"id": "unverified-observations", "expected_match": false, "category": "unverified", "facts": "容量方向处于分歧后修复、逻辑更清晰、逆势表现与主动性更强，以上均是待核实信息。"},
+    {"id": "criteria-not-observations", "expected_match": false, "category": "criteria_only", "facts": "条件清单包括容量方向、分歧后修复、逻辑更清晰、逆势表现与主动性更强；实际情况尚待核查。"},
+    {"id": "denial-by-reference", "expected_match": false, "category": "negated_reference", "facts": "容量方向正在分歧后修复，逻辑更清晰，逆势表现与主动性更强。上述内容均不属实。"},
+    {"id": "withdrawal-by-reference", "expected_match": false, "category": "withdrawn", "facts": "容量方向正在分歧后修复，逻辑更清晰，逆势表现与主动性更强，这些观察已经撤回。"},
+    {"id": "local-negation-control", "expected_match": false, "category": "negative_control", "facts": "容量方向正在分歧后修复，逻辑更清晰，但没有逆势表现，主动性更强。"},
+    {"id": "unrelated-negative-control", "expected_match": true, "category": "positive_control", "facts": "容量方向正在分歧后修复，逻辑更清晰，逆势表现与主动性更强；无关方向尚未企稳。"},
+    {"id": "future-uncertainty-not-current-denial", "expected_match": true, "category": "future_uncertainty", "facts": "容量方向正在分歧后修复，逻辑更清晰，逆势表现与主动性更强；明天是否延续尚待跟踪。"},
+    {"id": "quoted-label-not-quoted-claim", "expected_match": true, "category": "quoted_label", "facts": "“容量方向”正在分歧后修复，逻辑更清晰，逆势表现与主动性更强。"},
+    {"id": "separate-sentences-control", "expected_match": false, "category": "negative_control", "facts": "甲板块是容量方向且正在分歧后修复。乙板块逻辑更清晰，逆势表现与主动性更强。"}
+  ]
+}

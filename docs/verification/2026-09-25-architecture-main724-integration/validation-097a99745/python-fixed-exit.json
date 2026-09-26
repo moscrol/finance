@@ -1,0 +1,23 @@
+{
+  "revision": "097a9974543a5a17e312d149fcbfe5d1b6a65f72",
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider --basetemp=/tmp/architecture-full-097a99745.DYk89M/pytest-fixed-temp"
+  ],
+  "environment": {
+    "HOME": "/Users/a77",
+    "PATH": "/Users/a77/finance-workspace-private/.venv-workbench/bin:/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "FORESIGHT_USERS_DIR": "/tmp/architecture-full-097a99745.DYk89M/fixed-users",
+    "FORESIGHT_EPISODE_STORE": "/tmp/architecture-full-097a99745.DYk89M/fixed-episodes",
+    "FINANCE_DEPLOY_LEDGER": "/tmp/architecture-full-097a99745.DYk89M/fixed-deploy-ledger.jsonl",
+    "FWP_TEST_RECEIPT_DIR": "/tmp/architecture-full-097a99745.DYk89M/python-fixed"
+  },
+  "umask": "022",
+  "started_at": "2026-09-25T15:49:12.724425+00:00",
+  "pid": 49193,
+  "complete": true,
+  "exit_code": 0,
+  "finished_at": "2026-09-25T16:52:10.109377+00:00"
+}

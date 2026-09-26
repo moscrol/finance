@@ -1,0 +1,317 @@
+{
+  "scope": "isolated_sidecar_diagnostic",
+  "market_rows": [
+    {
+      "trade_date": "2026-09-15",
+      "market_stage": "下跌阶段",
+      "stage_day": 8,
+      "ice_point": "{\"is_eligible\": null, \"is_ice_point\": true, \"level\": \"接近冰点\", \"confidence\": \"rule\", \"ice_point_day\": 2, \"vol_ratio_ma20\": 83.31, \"reason\": \"vol_ratio_ma20=83.31%：<78 极冰 / [78,85) 接近冰点 / [85,95) 偏冷 / 其余正常；本地规则只判量能分区，不做周期阶段资格判断（周期阶段未建模）\", \"source\": \"local:ice-rule\"}",
+      "total_amount": 16122.28,
+      "amount_vs_yesterday_pct": -0.99,
+      "amount_ma20": 19351.08,
+      "volume_ratio": 83.31,
+      "volume_state": "缩量观望",
+      "advancers": 1120,
+      "limit_up": 32,
+      "limit_down": 28,
+      "sh_week_ma": 3904.73,
+      "sh_deviation_pct": -1.04,
+      "top3_industry_ratio": 43.4,
+      "concentration_state": "正常",
+      "industry_1": "电子",
+      "industry_1_ratio": 27.5,
+      "industry_2": "电力设备",
+      "industry_2_ratio": 8.1,
+      "industry_3": "通信",
+      "industry_3_ratio": 7.8,
+      "note": null,
+      "source": "local:overview",
+      "updated_at": "2026-09-15 18:34:52.697993",
+      "strength_avg_pct": 5.65,
+      "strength_amount_pct": 17.47,
+      "strength_amount": 2816.98,
+      "strength_marginal_pct": 60.7,
+      "strength_yesterday_avg_pct": 8.49,
+      "strength_ma5_avg_pct": 6.61,
+      "strength_ma20_avg_pct": 7.4,
+      "strength_status": "强势",
+      "strength_source": "local:top5pct",
+      "strength_updated_at": "2026-09-15 18:34:52.697993",
+      "stock_high_count_history": null,
+      "stock_high_count_3y": 9,
+      "stock_high_count_2y": 11,
+      "stock_high_count_1y": 13,
+      "stock_high_count_120d": 25,
+      "stock_high_count_60d": 67,
+      "stock_high_count_20d": 186,
+      "stock_high_source": "local:high-ohlc",
+      "stock_high_updated_at": "2026-09-15 18:34:51.844307",
+      "sh_index_close": 3864.279,
+      "sh_index_pct_chg": -0.5418840547258164,
+      "sh_index_open": 3879.726,
+      "sh_index_high": 3891.62,
+      "sh_index_low": 3858.15,
+      "sh_index_volume": 44090776600.0,
+      "sh_index_amount": null,
+      "sh_index_source": "akshare:stock_zh_index_daily:sh000001",
+      "sh_index_updated_at": "2026-09-15 18:30:24.047347",
+      "summary_keywords": null,
+      "sh_week_ma_source": "ma_recompute",
+      "market_stage_source": "local:stage-lr-v1",
+      "market_stage_confidence": 0.961,
+      "cycle_stage": null,
+      "cycle_stage_source": null,
+      "cycle_stage_updated_at": null
+    },
+    {
+      "trade_date": "2026-09-22",
+      "market_stage": null,
+      "stage_day": null,
+      "ice_point": null,
+      "total_amount": null,
+      "amount_vs_yesterday_pct": null,
+      "amount_ma20": null,
+      "volume_ratio": null,
+      "volume_state": null,
+      "advancers": null,
+      "limit_up": null,
+      "limit_down": null,
+      "sh_week_ma": null,
+      "sh_deviation_pct": null,
+      "top3_industry_ratio": null,
+      "concentration_state": null,
+      "industry_1": null,
+      "industry_1_ratio": null,
+      "industry_2": null,
+      "industry_2_ratio": null,
+      "industry_3": null,
+      "industry_3_ratio": null,
+      "note": null,
+      "source": null,
+      "updated_at": null,
+      "strength_avg_pct": null,
+      "strength_amount_pct": null,
+      "strength_amount": null,
+      "strength_marginal_pct": null,
+      "strength_yesterday_avg_pct": null,
+      "strength_ma5_avg_pct": null,
+      "strength_ma20_avg_pct": null,
+      "strength_status": null,
+      "strength_source": null,
+      "strength_updated_at": null,
+      "stock_high_count_history": null,
+      "stock_high_count_3y": null,
+      "stock_high_count_2y": null,
+      "stock_high_count_1y": null,
+      "stock_high_count_120d": null,
+      "stock_high_count_60d": null,
+      "stock_high_count_20d": null,
+      "stock_high_source": null,
+      "stock_high_updated_at": null,
+      "sh_index_close": 3952.128,
+      "sh_index_pct_chg": 0.05622917197798394,
+      "sh_index_open": 3963.807,
+      "sh_index_high": 3967.681,
+      "sh_index_low": 3945.417,
+      "sh_index_volume": 50614836900.0,
+      "sh_index_amount": null,
+      "sh_index_source": "akshare:stock_zh_index_daily:sh000001",
+      "sh_index_updated_at": "2026-09-22 19:37:15.279932",
+      "summary_keywords": null,
+      "sh_week_ma_source": null,
+      "market_stage_source": null,
+      "market_stage_confidence": null,
+      "cycle_stage": null,
+      "cycle_stage_source": null,
+      "cycle_stage_updated_at": null
+    }
+  ],
+  "gaps": [
+    [
+      "2026-09-22",
+      "market_input",
+      "[\"sh_week_ma\", \"sh_deviation_pct\", \"total_amount\", \"amount_ma20\", \"amount_vs_yesterday_pct\", \"top3_industry_ratio\"]",
+      "required_market_field_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.auction_zt_amount",
+      null,
+      "auction_zt_amount_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.auction_zt_pct_median",
+      null,
+      "auction_zt_pct_median_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.auction_zt_positive_share_pct",
+      null,
+      "auction_zt_positive_share_pct_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.briefing_market_confirmed",
+      null,
+      "briefing_no_market_input"
+    ],
+    [
+      "2026-09-15",
+      "tf.dragon_buy_sell_ratio",
+      null,
+      "dragon_buy_sell_ratio_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.dragon_buy_sell_ratio_ma5",
+      null,
+      "dragon_buy_sell_ratio_ma5_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.dragon_count",
+      null,
+      "dragon_count_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.dragon_net_amount",
+      null,
+      "dragon_net_amount_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.dragon_net_amount_ratio_pm",
+      null,
+      "dragon_net_amount_ratio_pm_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.dragon_net_amount_ratio_pm_ma5",
+      null,
+      "dragon_net_amount_ratio_pm_ma5_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_premium_flips_5d",
+      null,
+      "limit_premium_flips_5d_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_premium_ma5_pct",
+      null,
+      "limit_premium_ma5_pct_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_premium_neg_5d",
+      null,
+      "limit_premium_neg_5d_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_premium_pct",
+      null,
+      "limit_premium_pct_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_seal_amount_median_wan",
+      null,
+      "limit_seal_amount_median_wan_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_seal_mv_ratio_median",
+      null,
+      "limit_seal_mv_ratio_median_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.limit_thick_seal_share_pct",
+      null,
+      "limit_thick_seal_share_pct_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.max_boards",
+      null,
+      "limit_rows_absent"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_bull_share_pct",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_concepts",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_cover_rps5_pct",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_events",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_events_ratio_ma20_pct",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_hard_share_pct",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_new_concept_share_pct",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_new_concepts",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.narrative_top3_share_pct",
+      null,
+      "narrative_source_missing"
+    ],
+    [
+      "2026-09-15",
+      "tf.promotion_rate_total",
+      null,
+      "prev_day_limit_rows_absent"
+    ],
+    [
+      "2026-09-15",
+      "tf.sector_pct_chg_median",
+      null,
+      "sector_pct_chg_median_null"
+    ],
+    [
+      "2026-09-15",
+      "tf.sector_up_ratio_pct",
+      null,
+      "sector_up_ratio_pct_null"
+    ]
+  ]
+}

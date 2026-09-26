@@ -150,6 +150,15 @@ store 拒绝进入控制操作，不以空锁静默兼容；任务目录的 chec
 v1/v2 读回保持原版本、摘要和语义，缺失的来源标记只取 unknown，不猜本地读取权限。
 新捕获写 v3，摘要覆盖来源标记、展示原件和分类；账本与展示不得借同一 hash 改写来源标记。
 上一轮可信原件与本轮预取均先播种，再保存第一次检查点，随后才派发模型。
+用户纠偏开口读侧（`feat/architecture-audit-0924`，审计分支候选，未合入/部署）：
+Workbench 写侧从被纠正的 completed assistant 的 turn_intent 透传主体，不猜新主题。
+有明确公司/题材主体的研究题，合同授权 memory_lookup 且身份已解析时，装配层复用该工具
+runner 自动加入 opening_prefetch，首请求前进入证据账本；提供可选 prior_recall 先验槽，
+不要求模型再主动调用工具。1 秒子期限与根研究期限/合成保留预算取交集；最多两项并发读取，
+无排队，迟到结果不发布。空命中、超时、失败、繁忙分别标为 user_memory_gap；无身份不回落
+默认用户。命中仍为 user_memory，不能绑定市场事实；缺口不能绑定判断，消息不含台账路径。
+material_only/local_only 保持既有不预取上限。离线定向收据见
+`docs/verification/2026-09-25-workbench-correction-ingest/README.md`；不证明真实模型采用或金融质量。
 模型引用不用并行到账顺序重新编号。摘要不是私有原件，既有content_hash不是全字段签名；新摘要校验绑定整份快照但
 不证明来源真实性。仅数据重建不执行工具、不对外发布；恢复合成保留原捕获位置，不冒充
 后续工具结算已归齐。缺证据快照的非终态（含过期闭合）拒绝，截止须与重新确认的context一致；
@@ -1041,7 +1050,7 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 - `ResearchToolRegistry`：授权、参数规范化、同 key 只跑一次、截止日期过滤。不是 `{name: runner}` 字典。超时/重试在 Episode 批次循环，不要搬进注册表（`services/` 不得 import `runtime/`）。
 - `llm_refine`：传输（重试/流式/预算）+ 任务提示词焊在一个文件。不要合成万能 `generate(task_type)`。
-- `perspective_lab.active_runtime_prompt`：视角注入门。模块里还有路径 helper，不要把整文件当成四方法闭环。
+- `perspective_lab.active_runtime_prompt`：视角注入门。模块里还有路径 helper，不要把整文件当成四方法闭环。`evaluate_role` 是确定性评分积木，不是模型质量判官。审计分支的 `signal_match_rules` 候选经反例复核已否决：同句不能保证同主体/时点，词面命中不能判语义成立。正式评分/画像保存拒绝该字段；实验仅留 `scripts/perspective_signal_candidate.py` 重放失败，未配置画像和模型提示不改。见 [反例复核](verification/2026-09-25-spt-contract-challenge/README.md)，旧 [候选合同](superpowers/specs/2026-09-25-perspective-signal-contract.md) 仅为历史设计。
 - 数据块（D0/D6/D9…）：意图门控在块自己的 `applies()`。调用方若要关某一块，只传 `AskOptions.enabled_providers`（或 `evidence_registry.without_providers(...)`）。**不要**再给每个块一个 `include_*_block`。
 
 `force_moneyflow_block` 是「日报强制取 L2」，不是允许开关，仍留在 `AskOptions`。

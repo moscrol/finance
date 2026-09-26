@@ -1,0 +1,9 @@
+{
+  "admitted": true,
+  "foreign_pytest": [],
+  "disk_free_bytes": 43077033984,
+  "minimum_free_bytes": 12884901888,
+  "excluded_groups": [],
+  "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+  "observed_at": "2026-09-25T15:45:10.260262+00:00"
+}
