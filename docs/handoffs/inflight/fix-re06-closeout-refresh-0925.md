@@ -1,22 +1,19 @@
-# RE06 QC09 资源拒绝在途
-
-## 这个分支做什么
-#73固定a30e7e4594ac/base03352758c的本地工程/独审。R=`~/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked`，Q=`R/qc-evidence-isolated-09`。工具修补不改变产品候选。
+# RE06 接手收尾（L6，09-27）
 
 ## 当前状态
-09-26 00:51新Q09真实预检过：Python9P/1故意F，UI1P/1故意F，作者collect-only109（执行0）。00:52 gateway2请求过。00:53 E2启动前load1=8.974>8，exit75；E2目录/模型/探针均未启动，拒绝即停，无重试/后台。累计188/218余30；本切片11已用2，最多再9。529件归档e72745965源/归档/Git全等。快照`2026-09-26-re06-qc09-resource-refusal.md`。
-
-## 决策与被否方案
-不把控制/gateway通过算独审。不等待重试/抬阈值。新授权可在绑定不变时续同Q09，新宿主尝试收据保留本次拒绝，不重复gateway耗额度；源码/身份变则另批。Q06/07/08原件不动。timer/consent未准入。
-
-## 未验证 / 已知边界
-E2 execute/report和模型下收据完整性未验，三组C1-C10、C2语义、timer C7、consent C6、#76自然验收欠缺。未固定/验新main，旧工程绿不移签。不push/PR/合main/部署，不接管邻线。
+工单 #73：E2 local_only 原题号交付、同意折叠共用、TOCTOU 锁内复核、计时独立 scope（B）。已前向 main `339676bfe`（合并 `114247663` 重建 bundle 为 `index-BA_Tz2HK.js`；`ed0aa08d1` 无冲突）。代码头 `1e6fca1dc`，之后只有本交接。WIP PR 待合。未部署，8792 仍是旧计时控件：停计时会撤回自用测量。
 
 ## 下一步
-先R/inspect_status.py核188及进程、候选干净a30e；复核Q内execution/IO预检source_sha256、冻结execution-manifest和gateway原件。用户重新准入后，用新宿主尝试路径调用同一run_stage_v3 execute e2；原run_qc09_step execute-e2目录已存在会拒绝，不覆盖或修改旧启动器/收据，不再次prepare/freeze/gateway。新资源准入成功才E2→check_execution_v3 e2→stage_admission_v3 report e2；任一拒绝即停。Python用R/candidate/.venv-workbench/bin/python。
-
-## 踩过的坑
-collect-only109不是109P；预期红须核失败身份/JUnit；exit75不是业务红。Q09新授权后资源台账可append，旧归档不变，以旧字节前缀验，不改旧manifest。QC08的缺父目录修补已在Q09实跑验证，不再是当前阻塞。
+1. 协调者在合并预览上跑四叶（Python 全量、前端含 build/e2e、registry），通过后去掉 WIP 合入。
+2. 部署 8792 需用户另行授权，走链切五步（`docs/workflows/acceptance-workflow.md` §3–§4）。RE06 没有 launchd 或定时组件，「装计时器」指的就是部署这个版本。计时控件默认关闭，台账不迁移。回滚：链回上一快照；用过 v2 计时的 owner，回滚后自用测量会被旧门关掉（旧 T08 规则）。
+3. #76 P7 自然金融验收（真实模型，需要额度授权）。
 
 ## 已验证
-冻结前prepare_evidence_groups接线；离线13命令含39项unittest/9组SDK写边界过。真实三控制及2请求gateway过；候选树干净，原Q08的507件归档及源均未改。529件证据已提交，凭据元数据仅留本地hash。历史a30e工程只签旧候选。
+- 定向 33 文件 1215P（`1e6fca1dc`，收据 `~/.finance-runtime/test-receipts/20260926T234554Z-1e6fca1d-7f2a5e270519.json`）；vitest 9P；ruff 通过。
+- bundle 确定性：同一工具链能从各自源码逐字节重建 main 与本线旧 bundle。
+- 范围化复核 PASS_WITH_LIMITS：C1–C10 共 34 个撤保护探针全红，失败身份逐个核过。原先存活的 7 个是测试缺口（C3×2、C4×3、C9、C10），已补 7 条测试（`c2e82bdcd`、`1e6fca1dc`）。证据在 `~/.finance-runtime/reviews/unclosed-inventory-20260926/takeover/L6/review.md`。
+
+## 未验证
+- 真实模型交付、跨进程并发、浏览器 e2e、生产台账里旧 v1 记录的重算影响。
+- K3 独审（QC09）停用，未续跑。Pi 旧证据根 `~/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/` 只签旧候选 a30e。
+- 分支带约 7.3 MB 的 QC 过程证据（`docs/handoffs/evidence/2026-09-2x-re06-*`），是否随合入待协调者定。
