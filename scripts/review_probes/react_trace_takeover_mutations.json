@@ -1,0 +1,55 @@
+[
+  {
+    "id": "c3_failed_query_resets_prior_evidence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            new_evidence = 0\n            for item in observation.evidence:\n",
+    "new": "            new_evidence = 0\n            if not observation.evidence:\n                self.evidence.clear()\n            for item in observation.evidence:\n",
+    "targets": [
+      "test_repair_after_valid_query_keeps_prior_evidence_in_the_same_episode",
+      "test_cancel_after_feedback_keeps_prior_evidence_and_skips_repair",
+      "test_repair_after_valid_query_spends_an_ordinary_step"
+    ]
+  },
+  {
+    "id": "c3_validation_feedback_loses_field_hint",
+    "path": "intelligence/services/episode_tools.py",
+    "old": "        observation = finance_query.validation_diagnostic(spec, error)\n",
+    "new": "        observation = \"结构化查询条件无效\"\n",
+    "targets": [
+      "test_repair_after_valid_query_keeps_prior_evidence_in_the_same_episode",
+      "test_episode_delivers_feedback_and_executes_only_requested_queries"
+    ]
+  },
+  {
+    "id": "c3_cancel_not_checked_before_repair_dispatch",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                    carried_bindings=carried_bindings,\n                )\n            if self._is_cancelled():\n",
+    "new": "                    carried_bindings=carried_bindings,\n                )\n            if False:\n",
+    "targets": [
+      "test_cancel_after_feedback_keeps_prior_evidence_and_skips_repair",
+      "test_cancellation_after_feedback_prevents_repair_dispatch"
+    ]
+  },
+  {
+    "id": "c6_dangling_count_repair_not_called",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "        draft = _repair_dangling_condition_references(\n            draft,\n            before=original.draft,\n            rejected_sentence_indexes=rejected_sentence_indexes,\n        )\n",
+    "new": "        # mutation: dangling condition-count repair disabled\n",
+    "targets": [
+      "test_list_definition_deletion_reaches_public_answer",
+      "test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion",
+      "test_deleted_condition_definition_cannot_leave_a_count_backreference"
+    ]
+  },
+  {
+    "id": "c6_numbered_definition_prefix_not_recognised",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    r\"^\\s*(?:(?:[-*+•]|\\d+[.)）、]|[一二三四五六七八九十]+[.)）、]|\"\n    r\"[(（]\\d{1,2}[)）]|[①-⑩])\\s*)?(?:\\*{2})?\"\n",
+    "new": "    r\"^\\s*(?:[-*+•]\\s*)?(?:\\*{2})?\"\n",
+    "targets": [
+      "test_deleted_list_definition_removes_only_its_count",
+      "test_surviving_list_definition_preserves_its_count",
+      "test_list_definition_deletion_reaches_public_answer"
+    ]
+  }
+]

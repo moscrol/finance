@@ -202,3 +202,92 @@ def test_no_extra_tool_slot_is_minted_for_query_repair(tmp_path):
     assert result.usage.tool_calls == 1
     assert not result.evidence
     assert len([event for event in result.events if event.kind == "tool_result"]) == 1
+
+
+class _EvidenceFirstRepairConsumer:
+    """C3 in the order the review asked for: valid evidence, local failure, repair.
+
+    The failure-first consumer above cannot show that a rejected query leaves the
+    evidence already gathered in the same Episode untouched.
+    """
+
+    def __init__(self, *, cancel=None):
+        self.cancel = cancel
+        self.transcripts = []
+
+    def complete(self, *, messages, tools, timeout):
+        observed = [json.loads(m["content"]) for m in messages if m.get("role") == "tool"]
+        self.transcripts.append(observed)
+        if not observed:
+            arguments = _request(metrics=["index_return_pct"])
+        elif len(observed) == 1:
+            assert observed[0]["evidence"]
+            arguments = _request()
+        elif len(observed) == 2:
+            # The feedback lands in the transcript that still carries the first
+            # query's evidence; nothing was reset or re-opened.
+            assert observed[0]["evidence"]
+            assert "stage_day→market_daily.dimension" in observed[1]["observation"]
+            assert "重试提示" in observed[1]["observation"]
+            assert not observed[1]["evidence"]
+            arguments = _request(
+                dimensions=["trade_date", "stage_day"], metrics=["index_return_pct"],
+            )
+            if self.cancel is not None:
+                self.cancel.set()
+        else:
+            assert observed[0]["evidence"] and observed[2]["evidence"]
+            return _finish_turn(
+                status="partial", draft="Only diagnostic delivery is exercised.",
+                hashes=(), gap="Full research quality is not exercised.",
+            )
+        return ModelTurn(
+            "", (ModelToolCall(f"query-{len(observed)}", "finance_query", arguments),),
+            "scripted-feedback", "",
+        )
+
+
+def _tool_results(result):
+    return [event for event in result.events if event.kind == "tool_result"]
+
+
+def test_repair_after_valid_query_keeps_prior_evidence_in_the_same_episode(tmp_path):
+    frame, context, registry, path = _setup(tmp_path)
+    before = path.read_bytes()
+    model = _EvidenceFirstRepairConsumer()
+    result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+    assert result.stop_reason == "model_finish"
+    assert result.usage.tool_calls == 3
+    # One Episode transcript: each later turn still sees every earlier tool result.
+    assert [len(seen) for seen in model.transcripts] == [0, 1, 2, 3]
+    first, failed, repaired = _tool_results(result)
+    assert "stage_day→market_daily.dimension" in failed.payload["model_content"]
+    assert not failed.payload["evidence_hashes"]
+    kept = [item.content_hash for item in result.evidence]
+    assert kept == [*first.payload["evidence_hashes"], *repaired.payload["evidence_hashes"]]
+    assert len(set(kept)) == 2
+    assert path.read_bytes() == before
+
+
+def test_cancel_after_feedback_keeps_prior_evidence_and_skips_repair(tmp_path):
+    frame, context, registry, _ = _setup(tmp_path)
+    cancelled = Event()
+    model = _EvidenceFirstRepairConsumer(cancel=cancelled)
+    result = ContinuousAgentEpisode(model, is_cancelled=cancelled.is_set).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert result.stop_reason == "cancelled"
+    assert result.usage.tool_calls == 2
+    first, _failed = _tool_results(result)
+    assert first.payload["evidence_hashes"]
+    assert [item.content_hash for item in result.evidence] == list(first.payload["evidence_hashes"])
+
+
+def test_repair_after_valid_query_spends_an_ordinary_step(tmp_path):
+    frame, context, registry, _ = _setup(tmp_path, max_steps=2)
+    model = _EvidenceFirstRepairConsumer()
+    result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+    assert result.usage.tool_calls == 2
+    first, _failed = _tool_results(result)
+    assert first.payload["evidence_hashes"]
+    assert [item.content_hash for item in result.evidence] == list(first.payload["evidence_hashes"])
