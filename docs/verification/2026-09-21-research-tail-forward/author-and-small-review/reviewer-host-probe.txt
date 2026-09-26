@@ -1,0 +1,24 @@
+Reading additional input from stdin...
+OpenAI Codex v0.155.0-alpha.9.2
+--------
+workdir: /Users/a77/fwp-wt-research-tail-integration-0921
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 01a0c341-8120-7d22-a90c-0cce6c2fde25
+--------
+user
+请只用命令工具运行 git rev-parse HEAD 并报告结果；禁止其他操作。
+warning: Code Mode is unavailable because code-mode host is disabled. Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.
+codex
+我会只运行指定命令并报告结果。
+
+2026-09-21T09:17:34.484347Z ERROR codex_core::tools::router: error=code-mode host is disabled
+codex
+未能执行：命令工具返回 `code-mode host is disabled`，因此无法获取 HEAD。未进行其他操作。
+tokens used
+13,991
+未能执行：命令工具返回 `code-mode host is disabled`，因此无法获取 HEAD。未进行其他操作。

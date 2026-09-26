@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Bounded operator checks for a frozen candidate; not an official gate receipt."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import time
+from datetime import datetime, timezone
+
+ROOT = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+OUT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SHA = 'b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16'
+MIN_FREE = 2 * 1024**3
+WEB = ROOT / 'intelligence/webapp'
+PROFILE = '''(version 1)
+(allow default)
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+(deny file-write* (subpath "/Users/a77/finance-workspace-private"))
+(deny file-write* (subpath "/Users/a77/agent-memory"))
+'''
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(ROOT), *args], text=True, timeout=20)
+
+
+def identity():
+    return {'head': git('rev-parse', 'HEAD').strip(),
+            'status': git('status', '--porcelain=v1', '--untracked-files=all'),
+            'index_sha256': hashlib.sha256(git('ls-files', '-s').encode()).hexdigest(),
+            'free_bytes': shutil.disk_usage(OUT).free}
+
+
+def stop_group(proc):
+    for sig, grace in ((signal.SIGTERM, 8), (signal.SIGKILL, 5)):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError:
+            break
+        try:
+            proc.wait(timeout=grace)
+            break
+        except subprocess.TimeoutExpired:
+            pass
+    return proc.wait(timeout=5)
+
+
+def main():
+    env = {'HOME': '/Users/a77',
+           'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+           'LANG': 'en_US.UTF-8', 'TMPDIR': '/tmp',
+           'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0',
+           'WORKBENCH_PYTHON': PY, 'WORKBENCH_E2E_PORT': '19851',
+           'RE06_E2E_PORT': '19854', 'CI': '1', 'NO_COLOR': '1'}
+    start = identity()
+    assert start['head'] == SHA and not start['status'], start
+    save(OUT / 'start.json', {'at': now(), 'identity': start, 'env': env,
+                              'sandbox_profile': PROFILE, 'min_free_bytes': MIN_FREE,
+                              'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                              'dependency_source': '/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend/intelligence/webapp/node_modules',
+                              'dependencies': 'APFS cloned directory; tracked package.json and pnpm-lock.yaml identical to ea5c3a94; no install/download',
+                              'not_official_gate_receipt': True})
+    stages = [
+        ('ruff', [PY, '-m', 'ruff', 'check', '.'], ROOT, 120),
+        ('python', [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', '--basetemp', str(OUT / 'pytest-temp'), '--junitxml', str(OUT / 'python.xml')], ROOT, 900),
+        ('registry-parse', [PY, 'scripts/build_registry.py', 'check-parseability'], ROOT, 90),
+        ('registry-check', [PY, 'scripts/build_registry.py', 'check'], ROOT, 90),
+        ('registry-tables', [PY, 'scripts/build_registry.py', 'backfill-tables', '--check'], ROOT, 90),
+        ('registry-views', [PY, 'scripts/build_registry.py', 'generate-views', '--check'], ROOT, 90),
+        ('ledger-crosswalk', [PY, 'scripts/audit_ledger_spec_crosswalk.py'], ROOT, 90),
+        ('frontend-lint', ['pnpm', 'lint'], WEB, 180),
+        ('frontend-typecheck', ['pnpm', 'typecheck'], WEB, 180),
+        ('frontend-test', ['pnpm', 'test'], WEB, 240),
+        ('frontend-build', ['pnpm', 'build'], WEB, 240),
+        ('e2e', ['pnpm', 'test:e2e'], WEB, 900),
+    ]
+    results = []
+    for name, command, cwd, limit in stages:
+        before = identity()
+        if before['head'] != SHA or before['status'] or before['index_sha256'] != start['index_sha256']:
+            save(OUT / 'identity-stop.json', {'at': now(), 'stage': name, 'identity': before})
+            break
+        if before['free_bytes'] < MIN_FREE:
+            save(OUT / 'space-stop.json', {'at': now(), 'stage': name, 'identity': before})
+            break
+        record = {'stage': name, 'command': command, 'cwd': str(cwd),
+                  'started_at': now(), 'before': before, 'timeout_seconds': limit}
+        save(OUT / (name + '.start.json'), record)
+        print(now(), 'START', name, flush=True)
+        began = time.monotonic()
+        reason = None
+        min_observed = before['free_bytes']
+        with (OUT / (name + '.log')).open('x') as log:
+            proc = subprocess.Popen(['/usr/bin/sandbox-exec', '-p', PROFILE, *command],
+                                    cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT,
+                                    start_new_session=True)
+            while proc.poll() is None:
+                free = shutil.disk_usage(OUT).free
+                min_observed = min(min_observed, free)
+                if free < MIN_FREE:
+                    reason = 'disk-space-floor'
+                elif time.monotonic() - began >= limit:
+                    reason = 'timeout'
+                if reason:
+                    stop_group(proc)
+                    break
+                time.sleep(1)
+        record.update({'finished_at': now(), 'elapsed_seconds': time.monotonic() - began,
+                       'exit_code': proc.returncode, 'stop_reason': reason,
+                       'min_observed_free_bytes': min_observed, 'after': identity(),
+                       'log_sha256': hashlib.sha256((OUT / (name + '.log')).read_bytes()).hexdigest()})
+        save(OUT / (name + '.json'), record)
+        results.append(record)
+        print(now(), 'END', name, proc.returncode, reason, flush=True)
+        if reason == 'disk-space-floor':
+            break
+    save(OUT / 'complete.json', {'at': now(), 'identity': identity(), 'stages': results,
+                                 'planned_stages': len(stages), 'completed_stages': len(results),
+                                 'all_passed': len(results) == len(stages) and all(r['exit_code'] == 0 and not r['stop_reason'] for r in results)})
+
+
+if __name__ == '__main__':
+    main()

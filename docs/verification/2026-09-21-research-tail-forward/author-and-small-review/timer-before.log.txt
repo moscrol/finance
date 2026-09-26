@@ -1,0 +1,341 @@
+...FFF                                                                   [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T081640Z-f783f19c.json
+
+=================================== FAILURES ===================================
+_ test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env[quota] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1352/test_fixture_waits_for_fired_t0')
+owner = 'quota'
+
+    @pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
+    def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
+        entered = threading.Event()
+        release = threading.Event()
+        worker_release = threading.Event()
+        forgotten = threading.Event()
+        joining = threading.Event()
+        teardown_observed = threading.Event()
+        teardown_done = threading.Event()
+        callback_done = threading.Event()
+        unrelated_release = threading.Event()
+        unrelated = threading.Timer(0, unrelated_release.wait)
+        unrelated.start()
+        observed = []
+        timers = []
+        errors = []
+        fixture = client = teardown_thread = None
+        with pytest.MonkeyPatch.context() as patch:
+            original_claim = RunStore.claim_failed_run
+    
+            def parked_claim(store, *args, **kwargs):
+                value = original_claim(store, *args, **kwargs)
+                if kwargs.get("error") == "executor_timeout":
+                    assert value[1]
+                    timers.append(threading.current_thread())
+                    entered.set()
+                    try:
+                        if not release.wait(5):
+                            raise RuntimeError("test did not release its timer")
+                        observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
+                    finally:
+                        callback_done.set()
+                return value
+    
+            patch.setattr(RunStore, "claim_failed_run", parked_claim)
+            factory = {
+                "quota": test_api_quota.quota_client,
+                "credits": test_api_credits.api,
+                "admission": test_api_run_admission.harness,
+            }[owner]
+            try:
+                fixture = factory.__wrapped__(tmp_path, patch)
+                value = next(fixture)
+                if owner == "quota":
+                    client = value
+                elif owner == "credits":
+                    client = value(CreditStore(enabled=False))
+                else:
+                    client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
+                    value.gate.release.set()
+                supervisor = client.app.state.supervisor
+                supervisor.timeout_sec = 0
+                fake_runner = api_module._run_ask
+                forget = supervisor._forget
+    
+                def gated_runner(*args, **kwargs):
+                    if not worker_release.wait(5):
+                        raise RuntimeError("test did not release its worker")
+                    return fake_runner(*args, **kwargs)
+    
+                def observed_forget(*args, **kwargs):
+                    try:
+                        return forget(*args, **kwargs)
+                    finally:
+                        forgotten.set()
+    
+                patch.setattr(api_module, "_run_ask", gated_runner)
+                patch.setattr(supervisor, "_forget", observed_forget)
+                response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+                assert response.status_code == 200
+                assert entered.wait(5)
+                fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
+                worker_release.set()
+                assert forgotten.wait(5)
+                assert not supervisor._timers and supervisor.active_count() == 0
+                timer = timers[0]
+                join = timer.join
+    
+                def observed_join(*args, **kwargs):
+                    joining.set()
+                    teardown_observed.set()
+                    return join(*args, **kwargs)
+    
+                patch.setattr(timer, "join", observed_join)
+    
+                def teardown():
+                    try:
+                        next(fixture)
+                    except StopIteration:
+                        pass
+                    except BaseException as exc:
+                        errors.append(exc)
+                    finally:
+                        teardown_done.set()
+                        teardown_observed.set()
+    
+                teardown_thread = threading.Thread(target=teardown)
+                teardown_thread.start()
+                assert teardown_observed.wait(5)
+>               assert joining.is_set(), "fixture exited without joining its already-fired timer"
+E               AssertionError: fixture exited without joining its already-fired timer
+E               assert False
+E                +  where False = is_set()
+E                +    where is_set = <threading.Event at 0x10d76af60: unset>.is_set
+
+intelligence/tests/test_api_fixture_lifecycle.py:184: AssertionError
+_ test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env[credits] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1352/test_fixture_waits_for_fired_t1')
+owner = 'credits'
+
+    @pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
+    def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
+        entered = threading.Event()
+        release = threading.Event()
+        worker_release = threading.Event()
+        forgotten = threading.Event()
+        joining = threading.Event()
+        teardown_observed = threading.Event()
+        teardown_done = threading.Event()
+        callback_done = threading.Event()
+        unrelated_release = threading.Event()
+        unrelated = threading.Timer(0, unrelated_release.wait)
+        unrelated.start()
+        observed = []
+        timers = []
+        errors = []
+        fixture = client = teardown_thread = None
+        with pytest.MonkeyPatch.context() as patch:
+            original_claim = RunStore.claim_failed_run
+    
+            def parked_claim(store, *args, **kwargs):
+                value = original_claim(store, *args, **kwargs)
+                if kwargs.get("error") == "executor_timeout":
+                    assert value[1]
+                    timers.append(threading.current_thread())
+                    entered.set()
+                    try:
+                        if not release.wait(5):
+                            raise RuntimeError("test did not release its timer")
+                        observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
+                    finally:
+                        callback_done.set()
+                return value
+    
+            patch.setattr(RunStore, "claim_failed_run", parked_claim)
+            factory = {
+                "quota": test_api_quota.quota_client,
+                "credits": test_api_credits.api,
+                "admission": test_api_run_admission.harness,
+            }[owner]
+            try:
+                fixture = factory.__wrapped__(tmp_path, patch)
+                value = next(fixture)
+                if owner == "quota":
+                    client = value
+                elif owner == "credits":
+                    client = value(CreditStore(enabled=False))
+                else:
+                    client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
+                    value.gate.release.set()
+                supervisor = client.app.state.supervisor
+                supervisor.timeout_sec = 0
+                fake_runner = api_module._run_ask
+                forget = supervisor._forget
+    
+                def gated_runner(*args, **kwargs):
+                    if not worker_release.wait(5):
+                        raise RuntimeError("test did not release its worker")
+                    return fake_runner(*args, **kwargs)
+    
+                def observed_forget(*args, **kwargs):
+                    try:
+                        return forget(*args, **kwargs)
+                    finally:
+                        forgotten.set()
+    
+                patch.setattr(api_module, "_run_ask", gated_runner)
+                patch.setattr(supervisor, "_forget", observed_forget)
+                response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+                assert response.status_code == 200
+                assert entered.wait(5)
+                fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
+                worker_release.set()
+                assert forgotten.wait(5)
+                assert not supervisor._timers and supervisor.active_count() == 0
+                timer = timers[0]
+                join = timer.join
+    
+                def observed_join(*args, **kwargs):
+                    joining.set()
+                    teardown_observed.set()
+                    return join(*args, **kwargs)
+    
+                patch.setattr(timer, "join", observed_join)
+    
+                def teardown():
+                    try:
+                        next(fixture)
+                    except StopIteration:
+                        pass
+                    except BaseException as exc:
+                        errors.append(exc)
+                    finally:
+                        teardown_done.set()
+                        teardown_observed.set()
+    
+                teardown_thread = threading.Thread(target=teardown)
+                teardown_thread.start()
+                assert teardown_observed.wait(5)
+>               assert joining.is_set(), "fixture exited without joining its already-fired timer"
+E               AssertionError: fixture exited without joining its already-fired timer
+E               assert False
+E                +  where False = is_set()
+E                +    where is_set = <threading.Event at 0x10d765eb0: unset>.is_set
+
+intelligence/tests/test_api_fixture_lifecycle.py:184: AssertionError
+_ test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env[admission] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1352/test_fixture_waits_for_fired_t2')
+owner = 'admission'
+
+    @pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
+    def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
+        entered = threading.Event()
+        release = threading.Event()
+        worker_release = threading.Event()
+        forgotten = threading.Event()
+        joining = threading.Event()
+        teardown_observed = threading.Event()
+        teardown_done = threading.Event()
+        callback_done = threading.Event()
+        unrelated_release = threading.Event()
+        unrelated = threading.Timer(0, unrelated_release.wait)
+        unrelated.start()
+        observed = []
+        timers = []
+        errors = []
+        fixture = client = teardown_thread = None
+        with pytest.MonkeyPatch.context() as patch:
+            original_claim = RunStore.claim_failed_run
+    
+            def parked_claim(store, *args, **kwargs):
+                value = original_claim(store, *args, **kwargs)
+                if kwargs.get("error") == "executor_timeout":
+                    assert value[1]
+                    timers.append(threading.current_thread())
+                    entered.set()
+                    try:
+                        if not release.wait(5):
+                            raise RuntimeError("test did not release its timer")
+                        observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
+                    finally:
+                        callback_done.set()
+                return value
+    
+            patch.setattr(RunStore, "claim_failed_run", parked_claim)
+            factory = {
+                "quota": test_api_quota.quota_client,
+                "credits": test_api_credits.api,
+                "admission": test_api_run_admission.harness,
+            }[owner]
+            try:
+                fixture = factory.__wrapped__(tmp_path, patch)
+                value = next(fixture)
+                if owner == "quota":
+                    client = value
+                elif owner == "credits":
+                    client = value(CreditStore(enabled=False))
+                else:
+                    client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
+                    value.gate.release.set()
+                supervisor = client.app.state.supervisor
+                supervisor.timeout_sec = 0
+                fake_runner = api_module._run_ask
+                forget = supervisor._forget
+    
+                def gated_runner(*args, **kwargs):
+                    if not worker_release.wait(5):
+                        raise RuntimeError("test did not release its worker")
+                    return fake_runner(*args, **kwargs)
+    
+                def observed_forget(*args, **kwargs):
+                    try:
+                        return forget(*args, **kwargs)
+                    finally:
+                        forgotten.set()
+    
+                patch.setattr(api_module, "_run_ask", gated_runner)
+                patch.setattr(supervisor, "_forget", observed_forget)
+                response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+                assert response.status_code == 200
+                assert entered.wait(5)
+                fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
+                worker_release.set()
+                assert forgotten.wait(5)
+                assert not supervisor._timers and supervisor.active_count() == 0
+                timer = timers[0]
+                join = timer.join
+    
+                def observed_join(*args, **kwargs):
+                    joining.set()
+                    teardown_observed.set()
+                    return join(*args, **kwargs)
+    
+                patch.setattr(timer, "join", observed_join)
+    
+                def teardown():
+                    try:
+                        next(fixture)
+                    except StopIteration:
+                        pass
+                    except BaseException as exc:
+                        errors.append(exc)
+                    finally:
+                        teardown_done.set()
+                        teardown_observed.set()
+    
+                teardown_thread = threading.Thread(target=teardown)
+                teardown_thread.start()
+                assert teardown_observed.wait(5)
+>               assert joining.is_set(), "fixture exited without joining its already-fired timer"
+E               AssertionError: fixture exited without joining its already-fired timer
+E               assert False
+E                +  where False = is_set()
+E                +    where is_set = <threading.Event at 0x10dc17080: unset>.is_set
+
+intelligence/tests/test_api_fixture_lifecycle.py:184: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_api_fixture_lifecycle.py::test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env[quota]
+FAILED intelligence/tests/test_api_fixture_lifecycle.py::test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env[credits]
+FAILED intelligence/tests/test_api_fixture_lifecycle.py::test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env[admission]
+3 failed, 3 passed in 2.05s

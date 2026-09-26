@@ -1,0 +1,29 @@
+{
+  "command": [
+    "pnpm",
+    "test:e2e"
+  ],
+  "started_at": "2026-09-21T17:01:51.561825+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5559775232
+  },
+  "timeout_seconds": 480,
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+  "signals": [],
+  "outer_sandbox": true,
+  "RE06_E2E_URL": "http://127.0.0.1:19854",
+  "finished_at": "2026-09-21T17:03:31.199840+00:00",
+  "elapsed_seconds": 99.63711025007069,
+  "exit_code": 0,
+  "stop_reason": null,
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5399506944
+  },
+  "log_sha256": "51eb4c59cf26b0e787b184886ac5e86f3c0d2b936fe13403cf1c5e0a62b58bbf"
+}

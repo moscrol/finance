@@ -1,0 +1,38 @@
+{
+  "baseline": "accepted",
+  "fault_cases": [
+    {
+      "fault": "missing_report",
+      "rejected": true
+    },
+    {
+      "fault": "duplicate_phase",
+      "rejected": true
+    },
+    {
+      "fault": "missing_call",
+      "rejected": true
+    },
+    {
+      "fault": "failed_teardown",
+      "rejected": true
+    },
+    {
+      "fault": "exit_one",
+      "rejected": true
+    },
+    {
+      "fault": "incomplete_selection",
+      "rejected": true
+    },
+    {
+      "fault": "changed_log",
+      "rejected": true
+    },
+    {
+      "fault": "junit_error",
+      "rejected": true
+    }
+  ],
+  "scope": "Evidence-validator self-checks only; not product tests or independent review."
+}

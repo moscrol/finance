@@ -1,0 +1,4 @@
+........................................................................ [ 55%]
+..........................................................               [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/frozen-gap-fix/e2-extra.xml -
+130 passed in 7.60s

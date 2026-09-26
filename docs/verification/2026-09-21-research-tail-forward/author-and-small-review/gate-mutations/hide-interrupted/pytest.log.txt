@@ -1,0 +1,88 @@
+........FFFF...                                                          [100%]
+=================================== FAILURES ===================================
+_________ test_baseline_cannot_hide_an_interrupted_or_broken_runner[2] _________
+
+gate = (<function gate.<locals>.run at 0x1089082c0>, PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_h...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0')
+exit_status = 2
+
+    @pytest.mark.parametrize("exit_status", [2, 3, 4, 5])
+    def test_baseline_cannot_hide_an_interrupted_or_broken_runner(gate, tmp_path, exit_status):
+        run, receipt, data = gate
+        baseline = tmp_path / "baseline.json"
+        shutil.copyfile(receipt, baseline)
+        receipt.write_text(json.dumps({**data, "exit_status": exit_status}))
+>       assert run("--receipt", str(receipt), "--baseline", str(baseline)).returncode == exit_status
+E       AssertionError: assert 0 == 2
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/repo/run_m...seline.json (revision=b7f089b2365a, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/repo/run_m...seline.json (revision=b7f089b2365a, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='') = <function gate.<locals>.run at 0x1089082c0>('--receipt', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/this-run.json', '--baseline', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/baseline.json')
+E        +      where '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/this-run.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/this-run.json'))
+E        +      and   '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/baseline.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i0/baseline.json'))
+
+tests/test_run_main_gate.py:131: AssertionError
+_________ test_baseline_cannot_hide_an_interrupted_or_broken_runner[3] _________
+
+gate = (<function gate.<locals>.run at 0x1088abe20>, PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_h...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1')
+exit_status = 3
+
+    @pytest.mark.parametrize("exit_status", [2, 3, 4, 5])
+    def test_baseline_cannot_hide_an_interrupted_or_broken_runner(gate, tmp_path, exit_status):
+        run, receipt, data = gate
+        baseline = tmp_path / "baseline.json"
+        shutil.copyfile(receipt, baseline)
+        receipt.write_text(json.dumps({**data, "exit_status": exit_status}))
+>       assert run("--receipt", str(receipt), "--baseline", str(baseline)).returncode == exit_status
+E       AssertionError: assert 0 == 3
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/repo/run_m...seline.json (revision=a3f505175433, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/repo/run_m...seline.json (revision=a3f505175433, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='') = <function gate.<locals>.run at 0x1088abe20>('--receipt', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/this-run.json', '--baseline', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/baseline.json')
+E        +      where '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/this-run.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/this-run.json'))
+E        +      and   '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/baseline.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i1/baseline.json'))
+
+tests/test_run_main_gate.py:131: AssertionError
+_________ test_baseline_cannot_hide_an_interrupted_or_broken_runner[4] _________
+
+gate = (<function gate.<locals>.run at 0x1088ab880>, PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_h...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2')
+exit_status = 4
+
+    @pytest.mark.parametrize("exit_status", [2, 3, 4, 5])
+    def test_baseline_cannot_hide_an_interrupted_or_broken_runner(gate, tmp_path, exit_status):
+        run, receipt, data = gate
+        baseline = tmp_path / "baseline.json"
+        shutil.copyfile(receipt, baseline)
+        receipt.write_text(json.dumps({**data, "exit_status": exit_status}))
+>       assert run("--receipt", str(receipt), "--baseline", str(baseline)).returncode == exit_status
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/repo/run_m...seline.json (revision=d50d0d3181e4, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/repo/run_m...seline.json (revision=d50d0d3181e4, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='') = <function gate.<locals>.run at 0x1088ab880>('--receipt', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/this-run.json', '--baseline', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/baseline.json')
+E        +      where '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/this-run.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/this-run.json'))
+E        +      and   '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/baseline.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i2/baseline.json'))
+
+tests/test_run_main_gate.py:131: AssertionError
+_________ test_baseline_cannot_hide_an_interrupted_or_broken_runner[5] _________
+
+gate = (<function gate.<locals>.run at 0x1088ab240>, PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_h...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3')
+exit_status = 5
+
+    @pytest.mark.parametrize("exit_status", [2, 3, 4, 5])
+    def test_baseline_cannot_hide_an_interrupted_or_broken_runner(gate, tmp_path, exit_status):
+        run, receipt, data = gate
+        baseline = tmp_path / "baseline.json"
+        shutil.copyfile(receipt, baseline)
+        receipt.write_text(json.dumps({**data, "exit_status": exit_status}))
+>       assert run("--receipt", str(receipt), "--baseline", str(baseline)).returncode == exit_status
+E       AssertionError: assert 0 == 5
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/repo/run_m...seline.json (revision=68a0f2743631, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/repo/run_m...seline.json (revision=68a0f2743631, passed=3, failed=0)\n   same_red_set=True passed_non_decreasing=True\n', stderr='') = <function gate.<locals>.run at 0x1088ab240>('--receipt', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/this-run.json', '--baseline', '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/baseline.json')
+E        +      where '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/this-run.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/this-run.json'))
+E        +      and   '/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/baseline.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1388/test_baseline_cannot_hide_an_i3/baseline.json'))
+
+tests/test_run_main_gate.py:131: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_main_gate.py::test_baseline_cannot_hide_an_interrupted_or_broken_runner[2]
+FAILED tests/test_run_main_gate.py::test_baseline_cannot_hide_an_interrupted_or_broken_runner[3]
+FAILED tests/test_run_main_gate.py::test_baseline_cannot_hide_an_interrupted_or_broken_runner[4]
+FAILED tests/test_run_main_gate.py::test_baseline_cannot_hide_an_interrupted_or_broken_runner[5]
+4 failed, 11 passed in 7.75s

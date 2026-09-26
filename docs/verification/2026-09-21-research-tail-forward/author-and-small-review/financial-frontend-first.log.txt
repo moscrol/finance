@@ -1,0 +1,457 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-financial-forward-0921/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-financial-forward-0921/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 9ms
+ ✓ src/api.test.ts (3 tests) 18ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 11ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 433ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 404ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 564ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 1150ms
+   ✓ ResearchEvolutionPanel > 哈希与内部版本只在详情里出现，不上主屏  322ms
+ ❯ src/components/components.test.tsx (79 tests | 1 failed) 9051ms
+   ✓ Workbench components > starts a workflow preset and submits from the unified composer 254ms
+   ✓ Workbench components > keeps degraded state, evidence and followups visible 104ms
+   ✓ Workbench components > translates internal failures and stages into user-facing language 4ms
+   ✓ Workbench components > counts only evidence records bound to verifiable citations 23ms
+   ✓ Workbench components > keeps structured modules behind the explicit run inspector 153ms
+   ✓ Workbench components > sanitizes markdown before rendering an artifact 19ms
+   ✓ Workbench components > shows a readable artifact date and source before technical metadata 34ms
+   ✓ Workbench components > keeps workflow summaries in their native JSON viewer 14ms
+   ✓ Workbench components > filters the artifact registry by date 77ms
+   ✓ Workbench components > keeps internal tool names out of the user-facing trace 64ms
+   ✓ Workbench components > shows the structured report inside the explicit run inspector 68ms
+   ✓ Workbench components > shows report degradation warnings and the bound KB snapshot 37ms
+   ✓ Workbench components > shows only allowlisted provider and model metadata 7ms
+   ✓ Workbench components > hides credential-shaped provider and model metadata 5ms
+   ✓ Workbench components > shows aggregate self-use maturity without private event details 28ms
+   ✓ Workbench components > does not start final self-use judgement during the demo stage 14ms
+   ✓ Chat-first conversation components > restores, switches and archives conversations in the mobile drawer 132ms
+   ✓ Chat-first conversation components > filters conversation history without changing the active conversation 72ms
+   ✓ Chat-first conversation components > starts a guided research workflow from the empty conversation 30ms
+   ✓ Chat-first conversation components > selects and removes product skills while keeping hybrid as default 70ms
+   ✓ Chat-first conversation components > switches from data neutral to a selected KOL perspective 45ms
+   ✓ Chat-first conversation components > distinguishes manual skills from automatically invoked skills 2ms
+   ✓ Chat-first conversation components > offers stop while a message is running 15ms
+   ✓ Chat-first conversation components > marks template answers and regenerates without hiding the old answer 37ms
+   ✓ Chat-first conversation components > warns when a completed ask answer has no verifiable evidence 18ms
+   ✓ Chat-first conversation components > warns when a completed research answer has no verifiable evidence 16ms
+   ✓ Chat-first conversation components > warns when a completed workflow answer has no verifiable evidence 17ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for an index technical answer 14ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for chat answers 12ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for meta answers 11ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for clarify answers 15ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for static knowledge answers 20ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for fresh knowledge answers 15ms
+   ✓ Chat-first conversation components > replaces loading with a persistent cancelled message 10ms
+   ✓ Chat-first conversation components > shows the latest real Episode progress while the answer is pending 9ms
+   ✓ Chat-first conversation components > shows every episode milestone, not only the newest one 15ms
+   ✓ Chat-first conversation components > shows the actual tool menu before any call, including on a failed run 13ms
+   ✓ Chat-first conversation components > keeps the timeline available after the answer lands 12ms
+   ✓ Chat-first conversation components > replays and upserts public trace steps in live message state 1ms
+   ✓ Chat-first conversation components > applies identity-checked deltas, module upserts and replay deduplication 1ms
+   ✓ Chat-first conversation components > applies answer snapshots with monotonic overwrite semantics 2ms
+   ✓ Chat-first conversation components > shows the verified_draft answer phase 17ms
+   ✓ Chat-first conversation components > shows the validated_synthesis answer phase 26ms
+   ✓ Chat-first conversation components > shows the verified_fallback answer phase 17ms
+   ✓ Chat-first conversation components > shows the decision_brief_fallback answer phase 14ms
+   ✓ Chat-first conversation components > shows the evidence_gap_fallback answer phase 15ms
+   ✓ Chat-first conversation components > loads and displays the selected owner workflow 9ms
+   ✓ Chat-first conversation components > tracks skill results and ends loading on complete or cancel 1ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  440ms
+   ✓ Workbench navigation reliability > restores the latest conversation and submits in hybrid mode  344ms
+   ✓ Workbench navigation reliability > seeds the credits line from bootstrap and refreshes it once a question is accepted 248ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  327ms
+   ✓ Workbench navigation reliability > restores the perspective picker from the latest user message 82ms
+   ✓ Workbench navigation reliability > regenerates with the original user message perspective 150ms
+   ✓ Workbench navigation reliability > keeps polling a completed run until its exact message publication is visible  357ms
+   ✓ Workbench navigation reliability > keeps polling a failed run until its exact message publication is visible  476ms
+   ✓ Workbench navigation reliability > keeps polling a cancelled run until its exact message publication is visible  396ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is missing-marker 281ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is wrong-message 234ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is wrong-conversation 211ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is load-failed 258ms
+   ✓ Workbench navigation reliability > reconnects on reload when a terminal message is still awaiting publication 134ms
+   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects 298ms
+   ✓ Workbench navigation reliability > keeps polling while terminal ownership precedes report delivery  322ms
+   ✓ Workbench navigation reliability > reconnects a restored completed message whose artifacts are still being delivered 54ms
+   × Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn 1115ms
+     → expected "spy" to be called 2 times, but got 1 times
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"app-shell chat-first-shell inspector-closed"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33maria-label[39m=[32m"会话列表"[39m
+          [33mclass[39m=[32m"conversation-list "[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"conversation-list-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"brand"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-mark"[39m
+              [36m>[39m
+                [0mF[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-copy"[39m
+              [36m>[39m
+                [36m<strong>[39m
+                  [0mForesight[0m
+                [36m</strong>[39m
+                [36m<span>[39m
+                  [0mResearch Agent[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"关闭会话列表"[39m
+              [33mclass[39m=[32m"icon-button conversation-close"[39m
+              [33mtitle[39m=[32m"关闭会话列表"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-panel-left-close"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"18"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"18"[39m
+                  [33mx[39m=[32m"3"[39m
+                  [33my[39m=[32m"3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M9 3v18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m16 15-3-3 3-3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</header>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"当前研究工作区"[39m
+            [33mclass[39m=[32m"workspace-module"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"workspace-module-icon"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"lucide lucide-boxes"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"16"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"16"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m7 16.5 5-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M7 16.5v5.17"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m17 16.5-5-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m17 16.5 4.74-2.85"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M17 16.5v5.17"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 8 7.26 5.15"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m12 8 4.74-2.85"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 13.5V8"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"workspace-module-copy"[39m
+            [36m>[39m
+              [36m<small>[39m
+                [0m工作区[0m
+              [36m</small>[39m
+              [36m<strong>[39m
+                [0m市场研究[0m
+              [36m</strong>[39m
+            [36m</span>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-chevron-right"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m9 18 6-6-6-6"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</div>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"工作台一级导航"[39m
+            [33mclass[39m=[32m"output-navigation"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-calendar-days"[39m
+           ...
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state 285ms
+   ✓ Workbench navigation reliability > closes the event stream and polling timer when unmounted 161ms
+   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key 281ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it 232ms
+   ✓ Workbench navigation reliability > regenerates as a new message without replacing the old answer 114ms
+   ✓ Workbench navigation reliability > upserts replayed report modules by module_id 1ms
+   ✓ Workbench navigation reliability > does not let a late conversation response replace the current thread 162ms
+   ✓ Workbench navigation reliability > does not let a late artifact response replace the current selection  366ms
+   ✓ Workbench navigation reliability > upserts replayed trace steps by step_id 28ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > exposes the snapshot as a clickable read-only evidence page 33ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > stays absent when the report has no digest snapshot 9ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > fails closed when only the redacted path string key is present 8ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > shows remaining credits only for metered users and warns at zero 38ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/components.test.tsx > Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn
+AssertionError: expected "spy" to be called 2 times, but got 1 times
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"app-shell chat-first-shell inspector-closed"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33maria-label[39m=[32m"会话列表"[39m
+          [33mclass[39m=[32m"conversation-list "[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"conversation-list-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"brand"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-mark"[39m
+              [36m>[39m
+                [0mF[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"brand-copy"[39m
+              [36m>[39m
+                [36m<strong>[39m
+                  [0mForesight[0m
+                [36m</strong>[39m
+                [36m<span>[39m
+                  [0mResearch Agent[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"关闭会话列表"[39m
+              [33mclass[39m=[32m"icon-button conversation-close"[39m
+              [33mtitle[39m=[32m"关闭会话列表"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-panel-left-close"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<rect[39m
+                  [33mheight[39m=[32m"18"[39m
+                  [33mrx[39m=[32m"2"[39m
+                  [33mwidth[39m=[32m"18"[39m
+                  [33mx[39m=[32m"3"[39m
+                  [33my[39m=[32m"3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M9 3v18"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m16 15-3-3 3-3"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</header>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"当前研究工作区"[39m
+            [33mclass[39m=[32m"workspace-module"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"workspace-module-icon"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"lucide lucide-boxes"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"16"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"16"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m7 16.5 5-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M7 16.5v5.17"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m17 16.5-5-3"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m17 16.5 4.74-2.85"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M17 16.5v5.17"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 8 7.26 5.15"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m12 8 4.74-2.85"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 13.5V8"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"workspace-module-copy"[39m
+            [36m>[39m
+              [36m<small>[39m
+                [0m工作区[0m
+              [36m</small>[39m
+              [36m<strong>[39m
+                [0m市场研究[0m
+              [36m</strong>[39m
+            [36m</span>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-chevron-right"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m9 18 6-6-6-6"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</div>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"工作台一级导航"[39m
+            [33mclass[39m=[32m"output-navigation"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-calendar-days"[39m
+           ...
+ ❯ src/components/components.test.tsx:2342:51
+    2340|       ...bundle.run, run_id: "run_old", status: "completed",
+    2341|     }));
+    2342|     await waitFor(() => expect(apiMocks.getTrace).toHaveBeenCalledTime…
+       |                                                   ^
+    2343|     await user.type(screen.getByLabelText("输入研究问题"), "紧接着追问");
+    2344|     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 7 passed (8)
+      Tests  1 failed | 117 passed (118)
+   Start at  17:14:04
+   Duration  13.27s (transform 1.79s, setup 4.60s, collect 3.99s, tests 11.64s, environment 10.81s, prepare 2.10s)
+
+ ELIFECYCLE  Test failed. See above for more details.

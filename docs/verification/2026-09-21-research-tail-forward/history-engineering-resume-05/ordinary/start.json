@@ -1,0 +1,28 @@
+{
+  "mode": "ordinary",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "-p",
+    "coverage_plugin",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/tmp",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/junit.xml"
+  ],
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "started_at": "2026-09-21T17:57:58.539289+00:00",
+  "outer_sandbox": true,
+  "timeout_seconds": 2400,
+  "min_free_bytes": 2147483648,
+  "plugin_sha256": "5b6025d79ee6bc78e6cc935568d8cd3096b87f2f33bacc52ebe48da2d79c7a89"
+}

@@ -1,0 +1,10 @@
+== gate @ fix/gate-receipt-selection-0921 c35f61d37  tree=/Users/a77/fwp-wt-gate-receipt-selection-0921  dirty=0  py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider tests/test_run_main_gate.py
+...............                                                          [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T094233Z-c35f61d3.json
+
+15 passed in 6.31s
+== receipt /Users/a77/.finance-runtime/test-receipts/20260921T094233Z-c35f61d3.json
+   revision=c35f61d37db3 dirty=False target=tests/test_run_main_gate.py
+   passed=15 failed=0 error=0 skipped=0

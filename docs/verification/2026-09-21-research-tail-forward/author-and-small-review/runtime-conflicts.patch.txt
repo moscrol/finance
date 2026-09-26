@@ -1,0 +1,291 @@
+diff --cc docs/agent-product-door.md
+index 78764f0a7,369a307a8..000000000
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@@ -29,53 -29,61 +29,109 @@@
+  | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
+  | 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
+  
+ +夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
+ +生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
+ +L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用户态不迁移。
+ +部署/回滚及验收边界见 [09-17 生成接线](handoffs/2026-09-17-nightly-generation-deployment.md)。
+ +
+  编码任务「仓库里有没有现成实现」走 `python3 scripts/code_map.py query "<问题>"`，不是本页，也不是问答门。空图不得写成架构结论。
+  
+++<<<<<<< HEAD
+ +### 夜跑日报生成（代码与数据分根）
+ +
+ +收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
+ +`$FINANCE_GENERATION_CODE_ROOT/scripts/run_daily_generation.py`（未配置生成根时回退
+ +`FINANCE_CODE_ROOT`），验证实际 import 位置后调用现有
+ +`intelligence.cli daily`。子步骤继承同一解释器与固定代码搜索路径，脚本用代码根绝对路径；
+ +工作目录、DuckDB、exports 和复盘 HTML 留在数据根。缺代码根/包、写入位置落进代码根时拒绝生成。
+ +生成启动器失败后外层立即返回，KB 接收只在成功后运行；拒绝后的提示使用现有进程输出与桌面通知。
+ +运维告警写入前会解析最终日志路径，拒绝写入配置的 L2 代码根和生成代码根（含文件、父目录软链接）。
+ +
+ +已配置的 `FORESIGHT_USERS_DIR` / `FORESIGHT_EPISODE_STORE` / 数据库覆盖保持原位，不迁移存量；
+ +相对覆盖统一按 `FINANCE_DATA_ROOT` 解析。生成启动器不改变独立 L2 分支的环境或同步守卫。
+ +启动器在导入项目模块前核验代码面及嵌套脚本软链的真实归属；摘要等参数只由原 CLI 完整解析一次，
+ +校验与执行共享同一解析结果。运行前检查已启用告警的真实日志目标、用户实例、日期目录、质量状态、增量归档及具体输出文件，
+ +已有子目录/文件软链指入代码根也拒绝；合法外置用户态软链不迁移。目录检查只读元数据，不读文件正文。
+ +
+ +这层是启动前的静态路径校验，不是 OS 沙箱：不防运行期间恶意换链、不认证未枚举的新增写入或外部 KB
+ +接收器代码。它不保证当天数据齐全、模型网关可用或生产已经部署；不改变其他直接 daily 调用的合同。
+ +
+ +### Workbench 终态与交付
+ +
+ +`Run.status` 是终态仲裁结果，不保证随后写入的报告已齐。单进程执行器在
+ +`GET /api/runs` / `GET /api/runs/{id}` 投影 `delivery_pending`：已 completed
+ +但执行器仍在收尾时为 true；UI 继续轮询/接收 SSE（服务器推送事件），恢复会话亦然。
+ +执行器退出后再取 run 快照，SSE 排空尾部事件才发最终 `run`。取消/失败不等待
+ +不合作的 worker。它不修改持久化状态机，不是跨进程交付协议；多 worker 前须替换。
+ +同会话新消息也使旧加载代际失效，迟到的上一轮快照不得抹掉新追问。
+ +
+ +直答车道的生成器返回 `fallback_reason` 时，即使一般知识检索兜底拿到了引用，
+ +本轮消息、Run 与报告仍保留生成降级记录；检索失败与生成失败分别记账。
+ +`completed` 只表示回合已结束，不能据此把资料摘要当作正常生成的综述。
+ +正常生成和确定性回复不因此增加降级标记；本规则不增加重试、调用或检索权限。
+ +
+ +### 计算表格的两参形式
+ +
+ +`fincalc.table(name, rows)` 在一次迭代中逐行保存当时的键和值，包括嵌套 JSON 值。
+ +生成器复用同一个行对象时，后续赋值不会覆盖早先行；字典列仍按首次出现顺序取并集，
+ +序列按最大宽度补 `None`，不补零。显式列名的三参形式保持原行为。
+ +沙箱内置辅助代码版本 `PRELUDE_VERSION = "5"` 进入 `calc_id`，不复用初版 v4 的计算身份。
+ +这只保证本地计算及产物一致性，不证明输入行情或公司财务事实真实。
+++=======
++ ### 连续运行保存与截断边界（OPT-08，候选分支）
++ 
++ `fix/runtime-contracts-0918` 的 P0 区分普通进度通知与必需恢复记录：后者写失败后
++ 停止新模型/工具/修复派发，Workbench 交付 `failed/storage_failed`，原稿及已收到的
++ 结果/费用只保留在私有工件，不作为完整学习样本。开始时无 store 的临时运行标
++ `ephemeral`；写到一半失败标 `failed`，不能静默降为临时模式。`finish` 冲刷日志与
++ `done` 检查点均确认后才广播完成；收件箱确认前冲刷 inserted，失败不删投递副本。
++ 在途线程不强杀：已收到结果保留，未决调用标结果不确定，旧查询缓存发布守卫仍生效。
++ 生产装配共享执行取消信号，但不把内部保存失败伪装成用户取消。
++ 
++ 供应商明确 `length/max_tokens/content_filter` 时，即使工具参数或 FINAL_JSON
++ 可解析也不得执行；停止原因和 usage 保留，不暗中切 provider 重跑。缺失停止元数据
++ 保留兼容，不补造 `stop`。其他 SDK 后端不能据此声明同等保存合同。
++ 
++ 这是活进程故障隔离，不是崩溃续跑：写后确认丢失仍不确定，磁盘可能留已完成前缀；
++ P1a 前置切片已接子研究独立日志、父子双向引用及整棵运行树的保存故障隔离：
++ `branch-1` 仅是显示号，每次调用有唯一持久身份；PLAN/工具路径都在启动前确认父记录。
++ 子回复留私有日志，GLMModelClient 的子稿流式出口按调用作用域关闭，不修改共享客户端。
++ 父工具等待窗内可收回子分支已有费用；窗外关闭父事件/证据交付，线程晚归不冒充已停止。
++ 子研究 `replay=never`，非终态关联日志恢复先拒绝，等待父子对账 driver；不能各自重跑。
++ 其他 SDK 或自带发布出口的注入 client 不自动获得此合同。
++ 恢复判定的合成结算现逐条同步保存，检查点确认后才返回 plan/closed；任一保存异常直接
++ 传播，不广告下一动作。只见 finish、或 done 与日志尾不一致时拒绝猜终态；同进程修复
++ 已有更新检查点时按其位置判定，不再被上一轮 finish 遮住。这仍是恢复**判定**，不是执行器，
++ 也不证明原调用方收到过保存确认或公开交付；闭合结果尚不重建完整草稿/证据/费用现场。
++ 根预算另有版本化快照：余额、累计分配、初始/当前硬帽及已用 grant/promotion 身份一并
++ 校验、深冻结并随当前检查点保存；旧摘要或子预算视图不补铸成独立根额度池。恢复工厂与
++ 新建工厂共用进程内唯一根登记，但不是跨进程单写者许可。恢复合成保留原预算前缀位置，
++ 不把新补的中断记录冒充已对账的新余额；生成/校验快照失败同样阻断整树新效果。
++ 工具结果发布结算步点、正常/修复检查点前先扣账，秒数超支也不退还已执行调用的槽位。
++ 授权另存完整任务合同、当前策略/信息截止、trace父身份及实际装配后的工具声明，独立
++ 版本化、严格校验并深冻结；声明摘要不是runner/parser代码签名，也不证明用户绑定。
++ 非终态恢复（含过期闭合）必须由入口重新提供context/registry，精确匹配后才补写/给计划；
++ 缺快照的旧日志仍可load诊断，但不猜权限、不自动迁移。权限收紧或声明改变也拒绝；
++ 确认完成态仍只读返回，不重发答案。升档检查点先于PLAN子研究启动，同时保留原执行位置和
++ 预留回合，不能丢掉该回复中待派发的工具；修复跟随当前合同及重绑定注册表。授权编码失败
++ 共享整树保存fence，不省字段后继续执行。
++ 证据检查点另存完整私有AgentEvidence条目（含结构化观察、派生输入链、内部定位）、覆盖/缺口、
++ 来源日期/截止状态及分支持久owner；单锁捕获账本。v2另外保存精确展示原件与模型E号顺序：
++ 已入账的展示仅允许请求级supports/contradicts不同，其他字段必须与首写原件一致；展示关联
++ 不改账本targets/coverage。仅可完整解析且晚于固定截止日的材料允许以future_of_cutoff分类
++ 单独展示，原日期提示保留，恢复后仍不能进入事实或覆盖；不凭标题放行未知原件。
++ v1读回保留原版本、摘要和语义，新捕获才写v2；两版都严格校验，v2摘要覆盖展示原件和分类。
++ 模型引用不用并行到账顺序重新编号。摘要不是私有原件，既有content_hash不是全字段签名；新摘要校验绑定整份快照但
++ 不证明来源真实性。仅数据重建不执行工具、不对外发布；恢复合成保留原捕获位置，不冒充
++ 后续工具结算已归齐。缺证据快照的非终态（含过期闭合）拒绝，截止须与重新确认的context一致；
++ 完成态仍只读查询。编码失败同样共享整树fence，预取在首次检查点保存，修复沿用并更新证据。
++ 这里的原件仅指工具已交给运行时的条目，不等于完整网页/PDF；检查点后的私有结果、完整查询/
++ 消息/进展现场尚未对账，不能用公开tool_result反推丢失字段。
++ 仍须入口身份绑定、单写者与未知效果对账、查询/消息等剩余现场，才可驱动续跑；
++ 真正恢复driver、压缩原文回读及Workbench插话仍未实现，本切片不是P1整体完成。
++ 进度 SSE 也会补发两次读取之间新到的终态事件，再关闭连接。验证与当前阶段见
++ [执行计划](superpowers/plans/2026-09-18-runtime-contracts.md)；未合并、未部署，无质量胜出声明。
+++>>>>>>> fix/runtime-evidence-closeout-0920
+  
+  ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
+  
+diff --cc intelligence/api/app.py
+index 35d89f8ea,d97db38e1..000000000
+--- a/intelligence/api/app.py
++++ b/intelligence/api/app.py
+@@@ -3319,13 -3306,14 +3328,22 @@@ def create_app
+                      rs.STATUS_FAILED,
+                      rs.STATUS_CANCELLED,
+                  ):
+++<<<<<<< HEAD
+ +                    # A writer may have finished between this iteration's event
+ +                    # snapshot and terminal check. Drain that tail before closing.
+ +                    if store.load_stream_events(run_id, after=current_cursor):
+ +                        continue
+ +                    terminal_message_missing = run_payload["session_id"] and not any(
+++=======
++                     terminal_snapshot = store.load_stream_events(run_id)
++                     if any(event["seq"] > current_cursor for event in terminal_snapshot):
++                         # A terminal message may arrive between the first read and
++                         # this check. Seeing it on disk is not delivering it to SSE.
++                         continue
++                     terminal_message_missing = run.session_id and not any(
+++>>>>>>> fix/runtime-evidence-closeout-0920
+                          event["event_type"] in {"message.complete", "message.error"}
+-                         for event in store.load_stream_events(run_id)
++                         for event in terminal_snapshot
+                      )
+                      if terminal_message_missing:
+                          terminal_event_deadline = (
+diff --cc intelligence/runtime/agent_episode.py
+index a254b9643,8f7c05a89..000000000
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@@ -1293,8 -1404,11 +1451,15 @@@ class ContinuousAgentEpisode
+              harness=self._harness,
+              progress=progress,
+          )
+++<<<<<<< HEAD
+ +        _seed_prior_evidence(accumulator, messages, context)
+++=======
++         ledger.active_evidence_ledger = evidence_ledger
++         ledger.presented_evidence = accumulator.evidence
+++>>>>>>> fix/runtime-evidence-closeout-0920
+          _seed_opening_prefetch(accumulator, messages, registry)
++         # First checkpoint includes opening evidence before any model effect.
++         ledger.put_state(phase="planning", context=context)
+          continuation_state: _EpisodeContinuationState | None = None
+          if _continuation_sink is not None:
+              continuation_state = _EpisodeContinuationState(
+diff --cc intelligence/tests/test_workbench_api.py
+index 126517b59,5bc5b0d56..000000000
+--- a/intelligence/tests/test_workbench_api.py
++++ b/intelligence/tests/test_workbench_api.py
+@@@ -2936,97 -2936,30 +2936,124 @@@ def test_sse_canonical_cursor_and_termi
+      assert "report:module:new" not in numeric
+  
+  
+++<<<<<<< HEAD
+ +def test_completed_run_waits_for_artifact_delivery_without_blocking_cancel(
+ +    client: TestClient,
+ +) -> None:
+ +    store = RunStore()
+ +    supervisor = client.app.state.supervisor
+ +    claimed = threading.Event()
+ +    release = threading.Event()
+ +    run = store.create_run("delayed delivery", "ask")
+ +
+ +    def runner(_signal) -> None:
+ +        store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+ +        claimed.set()
+ +        assert release.wait(5), "test did not release artifact writer"
+ +        store.add_artifact(
+ +            run.run_id, "report.json", '{}',
+ +            renderer="structured_report", title="结构化对话报告",
+ +        )
+ +        store.append_stream_event(
+ +            run.run_id, event_id="report:complete", event_type="report.complete",
+ +            payload={"report": {"status": "completed"}},
+ +        )
+ +
+ +    supervisor._submit(store, run.run_id, runner)
+ +    with supervisor._lock:
+ +        future = supervisor._futures[(store.user_id, run.run_id)]
+ +    try:
+ +        assert claimed.wait(5)
+ +        pending = client.get(f"/api/runs/{run.run_id}").json()
+ +        assert pending["status"] == "completed"
+ +        assert pending.get("delivery_pending") is True
+ +        assert pending["artifacts"] == []
+ +        # No other user's/run's delivery flag may leak into this run.
+ +        other = store.create_run("already done", "ask")
+ +        store.finish_run(other.run_id, rs.STATUS_COMPLETED)
+ +        assert client.get(f"/api/runs/{other.run_id}").json()["delivery_pending"] is False
+ +    finally:
+ +        release.set()
+ +        future.result(timeout=5)
+ +    ready = client.get(f"/api/runs/{run.run_id}").json()
+ +    assert ready["delivery_pending"] is False
+ +    assert [a["path"] for a in ready["artifacts"]] == ["report.json"]
+ +
+ +    cancelled = store.create_run("cancel while worker blocked", "ask")
+ +    started = threading.Event()
+ +    unblock = threading.Event()
+ +
+ +    def blocked(_signal) -> None:
+ +        started.set()
+ +        assert unblock.wait(5)
+ +
+ +    supervisor._submit(store, cancelled.run_id, blocked)
+ +    with supervisor._lock:
+ +        future = supervisor._futures[(store.user_id, cancelled.run_id)]
+ +    try:
+ +        assert started.wait(5)
+ +        supervisor.cancel(store, cancelled.run_id)
+ +        payload = client.get(f"/api/runs/{cancelled.run_id}").json()
+ +        assert payload["status"] == "cancelled"
+ +        assert payload["delivery_pending"] is False
+ +    finally:
+ +        unblock.set()
+ +        future.result(timeout=5)
+ +
+ +
+ +def test_sse_drains_delivery_events_before_terminal_run(
+ +    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+ +) -> None:
+ +    store = RunStore()
+ +    run = store.create_run("delivery crossing poll boundary", "ask")
+ +    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+ +    original = RunStore.load_stream_events
+ +    calls = 0
+ +
+ +    def events_then_publish(self, run_id, *, after=0):
+ +        nonlocal calls
+ +        events = original(self, run_id, after=after)
+ +        if run_id == run.run_id:
+ +            calls += 1
+ +            if calls == 1:
+ +                # Writer finishes AFTER this poll's event snapshot, BEFORE load_run.
+ +                self.append_stream_event(
+ +                    run_id, event_id="report:complete", event_type="report.complete",
+ +                    payload={"report": {"status": "completed"}},
+ +                )
+ +        return events
+ +
+ +    monkeypatch.setattr(RunStore, "load_stream_events", events_then_publish)
+ +    body = client.get(f"/api/runs/{run.run_id}/events").text
+ +    assert "event: report.complete" in body
+ +    assert body.index("event: report.complete") < body.index("event: run\n")
+ +    assert body.count("event: run\n") == 1
+++=======
++ def test_sse_emits_terminal_message_arriving_between_reads(
++     client: TestClient, monkeypatch: pytest.MonkeyPatch,
++ ) -> None:
++     store = RunStore()
++     run = store.create_run("terminal race", "ask", session_id="conversation-race")
++     store.finish_run(run.run_id, rs.STATUS_FAILED)
++     load = RunStore.load_stream_events
++     first_read = True
++ 
++     def load_then_append(self, run_id, *args, **kwargs):
++         nonlocal first_read
++         snapshot = load(self, run_id, *args, **kwargs)
++         if run_id == run.run_id and first_read:
++             first_read = False
++             self.append_stream_event(
++                 run_id, event_id="message:error:race", event_type="message.error",
++                 payload={"message": {"status": "failed", "content": "保存失败"}},
++             )
++         return snapshot
++ 
++     monkeypatch.setattr(RunStore, "load_stream_events", load_then_append)
++     body = client.get(f"/api/runs/{run.run_id}/events").text
++     assert body.count("event: message.error") == 1
++     assert body.index("event: message.error") < body.index("event: run\n")
+++>>>>>>> fix/runtime-evidence-closeout-0920
+  
+  
+  def test_sse_rejects_negative_after(client: TestClient) -> None:

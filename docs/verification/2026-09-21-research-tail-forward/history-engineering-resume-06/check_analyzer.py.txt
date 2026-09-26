@@ -1,0 +1,75 @@
+"""Fault-inject only disposable evidence copies; never change source or run records."""
+import json
+from pathlib import Path
+import shutil
+import tempfile
+
+import analyze
+from run import OUT, ident, save
+
+
+def write(path, data):
+    path.write_text(json.dumps(data) + '\n')
+
+
+def main():
+    identity = ident()
+    original = OUT / 'environmental'
+    passed, _, _ = analyze.group('environmental', identity)
+    assert passed['outcomes'] == {'passed': 7}
+    cases = []
+    for mode in ('missing_report', 'duplicate_phase', 'missing_call', 'failed_teardown',
+                 'exit_one', 'incomplete_selection', 'changed_log', 'junit_error'):
+        with tempfile.TemporaryDirectory(prefix='history-06-audit-') as temporary:
+            root = Path(temporary)
+            folder = root / 'environmental'
+            folder.mkdir()
+            for source in original.iterdir():
+                if source.is_file():
+                    shutil.copyfile(source, folder / source.name)
+            reports = [json.loads(line) for line in (folder / 'reports.jsonl').read_text().splitlines()]
+            if mode in ('missing_report', 'duplicate_phase', 'missing_call', 'failed_teardown'):
+                first = reports[0]['nodeid']
+                if mode == 'missing_report':
+                    reports = [r for r in reports if r['nodeid'] != first]
+                elif mode == 'duplicate_phase':
+                    reports.append(reports[0])
+                elif mode == 'missing_call':
+                    reports = [r for r in reports if not (r['nodeid'] == first and r['when'] == 'call')]
+                else:
+                    next(r for r in reports if r['when'] == 'teardown')['outcome'] = 'failed'
+                (folder / 'reports.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in reports))
+            elif mode == 'exit_one':
+                result = analyze.load(folder / 'result.json')
+                result['exit_code'] = 1
+                write(folder / 'result.json', result)
+            elif mode == 'incomplete_selection':
+                collection = analyze.load(folder / 'collection.json')
+                collection['selected'].pop()
+                write(folder / 'collection.json', collection)
+            elif mode == 'changed_log':
+                with (folder / 'pytest.log').open('a') as stream:
+                    stream.write('changed only in this disposable copy\n')
+            else:
+                tree = analyze.ET.parse(folder / 'junit.xml')
+                next(tree.iter('testsuite')).set('errors', '1')
+                tree.write(folder / 'junit.xml')
+            saved = analyze.OUT
+            analyze.OUT = root
+            try:
+                try:
+                    analyze.group('environmental', identity)
+                except AssertionError:
+                    cases.append({'fault': mode, 'rejected': True})
+                else:
+                    raise RuntimeError('Validator accepted faulty evidence: ' + mode)
+            finally:
+                analyze.OUT = saved
+    result = {'baseline': 'accepted', 'fault_cases': cases,
+              'scope': 'Evidence-validator self-checks only; not product tests or independent review.'}
+    save(OUT / 'analyzer-selfcheck.json', result)
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == '__main__':
+    main()

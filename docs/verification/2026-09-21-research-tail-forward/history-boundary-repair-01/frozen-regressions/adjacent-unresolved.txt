@@ -1,0 +1,16 @@
+{"query": "那它们见顶后谁接力？", "history": {"purpose": "retrospective_discovery", "requested_start": "2026-01-01", "requested_end": "2026-09-15", "scope": "historical_research", "strict_window": true, "window_error": null, "information_cutoff": "2026-09-10", "analysis_window_source": "none", "allow_window_extension": false}, "material_scope": null, "allowed": ["kb_search", "graph_lookup", "news_search", "web_search", "memory_lookup", "finance_query", "web_fetch", "evidence_search"], "history_tools": ["history_query"]}
+F{"query": "以前有没有类似，失败案例也看看", "history": {"purpose": "historical_comparison", "requested_start": "2026-01-01", "requested_end": "2026-09-15", "scope": "historical_research", "strict_window": true, "window_error": null, "information_cutoff": "2026-09-10", "analysis_window_source": "none", "allow_window_extension": false}, "material_scope": null, "allowed": ["kb_search", "graph_lookup", "evidence_lookup", "web_search", "finance_query", "web_fetch", "evidence_search"], "history_tools": ["history_query"]}
+F
+=================================== FAILURES ===================================
+_ test_elliptical_history_continuation_keeps_local_only[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+../.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/test_adjacent_unresolved.py:28: in test_elliptical_history_continuation_keeps_local_only
+    assert material is not None and material.data_scope == "local_only"
+E   assert (None is not None)
+_ test_elliptical_history_continuation_keeps_local_only[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b] _
+../.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/test_adjacent_unresolved.py:28: in test_elliptical_history_continuation_keeps_local_only
+    assert material is not None and material.data_scope == "local_only"
+E   assert (None is not None)
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/test_adjacent_unresolved.py::test_elliptical_history_continuation_keeps_local_only[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f]
+FAILED ../.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/test_adjacent_unresolved.py::test_elliptical_history_continuation_keeps_local_only[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b]
+2 failed in 0.48s
