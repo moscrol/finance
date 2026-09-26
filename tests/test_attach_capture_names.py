@@ -147,6 +147,20 @@ def test_capture_must_be_from_the_trade_date_and_untampered(tmp_path, capture):
     assert names(db) == {"301686.SZ": None}
 
 
+@pytest.mark.parametrize("mutation", [
+    {"target_date": "2026-09-24"},          # receipt claims another day; quotes still dated DAY
+    {"captured_code_count": 3},             # receipt scope disagrees with its own codes
+])
+def test_receipt_scope_defects_are_refused_even_when_quotes_parse(tmp_path, capture, mutation):
+    receipt = json.loads((capture / "receipt.json").read_text())
+    receipt.update(mutation)
+    (capture / "receipt.json").write_text(json.dumps(receipt))
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL])
+    with pytest.raises(ValueError):
+        mod.run(DAY, capture, tmp_path / "r.json", db_path=db)
+    assert names(db) == {"301686.SZ": None}
+
+
 def test_dry_run_and_existing_receipt_write_nothing(tmp_path, capture):
     db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL])
     result = mod.run(DAY, capture, tmp_path / "dry.json", db_path=db, dry_run=True)
