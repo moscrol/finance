@@ -494,6 +494,49 @@ def _unlocated_ratio_finding(raw: str, period_start: int, *, offset: int) -> Del
                            "" if marked else _UNLOCATED_RATIO_MARK)
 
 
+_TABLE_CELL = re.compile(r"(?<=\|)[^|]*(?=\|)")
+
+
+def _label_free_table_findings(
+    line: str, cells: Sequence[str], header: Sequence[str],
+    products: dict[str, set[float]], *, offset: int,
+) -> list[DeliveryFinding]:
+    """A table row whose ratio column carries the writer's own header.
+
+    The writer names its table columns just as the script names its own; pasting
+    the live product table keeps '现金流/净利润', which is in no word list. So a
+    header list cannot gate a table any more than it gates the product. Same
+    numeric identity as label-free prose: the row must state exactly one report
+    period that has a product, that product must be single, and only a last-digit
+    neighbour of it is a claim about it. Amounts, dates and correctly rounded
+    values in the same row are other facts and stay.
+    """
+    periods = {
+        period for cell in cells for match in _claim_periods(cell)
+        if (period := _period(match.group())) in products
+    }
+    if len(periods) != 1:
+        return []  # no period, or a row comparing periods: abstain
+    values = products[periods.pop()]
+    if len(values) != 1:
+        return []  # conflicting or inapplicable products are not certified here
+    product = next(iter(values))
+    raw_cells = list(_TABLE_CELL.finditer(line))
+    found = []
+    for index, cell in enumerate(cells):
+        number = _NUMBER_CELL.fullmatch(cell)
+        if number is None or index >= len(raw_cells):
+            continue
+        unit = _ratio_unit(number[2] or (header[index] if index < len(header) else ""))
+        if _display_matches(number[1], product, unit) or not _near_miss(number[1], unit, product):
+            continue
+        span = raw_cells[index]
+        found.append(DeliveryFinding(
+            offset + span.start(), offset + span.end(), "calculation_value_mismatch", " 待核对 ",
+        ))
+    return found
+
+
 def calculation_copy_findings(
     text: str, evidence: Sequence[AgentEvidence], *, calculation_required: bool = False,
 ) -> tuple[DeliveryFinding, ...]:
@@ -523,10 +566,13 @@ def calculation_copy_findings(
     findings: list[DeliveryFinding] = []
     ratio_columns: tuple[tuple[int, str], ...] = ()
     period_column: int | None = None
+    table_header: list[str] | None = None
     offset = 0
     for line in text.splitlines(keepends=True):
         if line.lstrip().startswith("|"):
             cells = [re.sub(r"[*`]+", "", c.strip()) for c in line.strip().strip("|").split("|")]
+            if table_header is None:
+                table_header = cells
             headers = tuple((i, _ratio_unit(c))
                             for i, c in enumerate(cells) if _absolute_ratio_label(c))
             if headers:
@@ -549,8 +595,12 @@ def calculation_copy_findings(
                                 offset + cell.start(), offset + cell.end(),
                                 code, " 待核对 ",
                             ))
+            else:
+                # No ratio word in this table's header, or no period column the
+                # header list knows: bind the row by its period and the product.
+                findings.extend(_label_free_table_findings(line, cells, table_header, products, offset=offset))
         else:
-            ratio_columns, period_column = (), None
+            ratio_columns, period_column, table_header = (), None, None
             # Prose needs an explicit ratio label locally. Broader semantic
             # matching (e.g. ambiguous bare 1.588) stays with the existing judge.
             for clause in _RATIO_CLAUSE.finditer(line):

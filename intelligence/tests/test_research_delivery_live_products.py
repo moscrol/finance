@@ -161,6 +161,66 @@ def test_structurally_bound_delta_column_cannot_certify_a_level(unit, with_valid
     assert [f.code for f in findings] == ["calculation_value_unverified"]
 
 
+def _live_table(annual_ratio: str, *, ratio_header: str = "现金流/净利润", rows=None) -> str:
+    """The sandbox's own table as a writer would paste it: its columns, its rows.
+
+    Only the 2025 annual ratio cell is set, e.g. to the value the live draft
+    printed. The header is the script's name for the column unless overridden.
+    """
+    table = _record()["result"]["tables"][0]
+    ratio_at = table["columns"].index("现金流/净利润")
+    columns = [ratio_header if i == ratio_at else name for i, name in enumerate(table["columns"])]
+    body = []
+    for row in rows if rows is not None else table["rows"]:
+        cells = [str(value) for value in row]
+        if cells[0] == "2025年报":
+            cells[ratio_at] = annual_ratio
+        body.append(cells)
+    return "\n".join(
+        "| " + " | ".join(cells) + " |" for cells in (columns, ["---"] * len(columns), *body)
+    ) + "\n"
+
+
+def test_live_table_under_the_scripts_own_header_is_checked():
+    """现金流/净利润 is the writer's header too: no header word list may gate it."""
+    evidence, _ = _evidence()
+    draft = _live_table(PUBLISHED_2025_ANNUAL)
+    findings = calculation_copy_findings(draft, evidence, calculation_required=True)
+    assert [f.code for f in findings] == ["calculation_value_mismatch"]
+    assert draft[findings[0].start:findings[0].end].strip() == PUBLISHED_2025_ANNUAL
+    kept = remove_findings(draft, findings)
+    assert PUBLISHED_2025_ANNUAL not in kept
+    # The same row's amounts and dates are other facts; no guessed number.
+    for retained in ("615.22", "823.2", "2026-04-17", "1.588"):
+        assert retained in kept
+    assert str(RECORDED_2025_ANNUAL) not in kept
+
+
+@pytest.mark.parametrize("annual_ratio", [str(RECORDED_2025_ANNUAL), "0.75", "0.747"])
+def test_live_table_with_recorded_or_rounded_values_is_clean(annual_ratio):
+    evidence, _ = _evidence()
+    draft = _live_table(annual_ratio)
+    assert calculation_copy_findings(draft, evidence, calculation_required=True) == ()
+
+
+@pytest.mark.parametrize("header,cell,expected", [
+    ("现金流/净利润(%)", "74.73", "calculation_value_mismatch"),
+    ("现金流/净利润(%)", "74.74", None),
+    ("现金流/净利润(bp)", PUBLISHED_2025_ANNUAL, None),
+])
+def test_label_free_table_reads_the_unit_from_its_own_header(header, cell, expected):
+    evidence, _ = _evidence()
+    findings = calculation_copy_findings(_live_table(cell, ratio_header=header), evidence)
+    assert [f.code for f in findings] == ([expected] if expected else [])
+
+
+def test_label_free_table_row_comparing_two_periods_abstains():
+    """A row that names two report periods binds neither: not a bag of numbers."""
+    evidence, _ = _evidence()
+    rows = [["2025年报 vs 2026中报", "", "", "", "", PUBLISHED_2025_ANNUAL]]
+    assert calculation_copy_findings(_live_table("", rows=rows), evidence) == ()
+
+
 @pytest.mark.parametrize("draft,expected", [
     ("含金量(%)：2025年报74.74，2026中报158.8。", None),
     ("2025年报含金量(%)为74.74；实际为74.73。", "calculation_value_mismatch"),

@@ -618,5 +618,43 @@
     "targets": [
       "test_ratio_delta_units_are_unverified_at_either_table_location"
     ]
+  },
+  {
+    "id": "table-ratio-column-not-gated-by-writer-header",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                findings.extend(_label_free_table_findings(line, cells, table_header, products, offset=offset))",
+    "new": "                findings.extend(())",
+    "targets": [
+      "test_live_table_under_the_scripts_own_header_is_checked",
+      "test_label_free_table_reads_the_unit_from_its_own_header"
+    ]
+  },
+  {
+    "id": "table-correct-rounding-is-not-a-miscopy",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if _display_matches(number[1], product, unit) or not _near_miss(number[1], unit, product):",
+    "new": "        if not _near_miss(number[1], unit, product):",
+    "targets": [
+      "test_live_table_with_recorded_or_rounded_values_is_clean",
+      "test_label_free_table_reads_the_unit_from_its_own_header"
+    ]
+  },
+  {
+    "id": "table-row-period-must-have-a-product",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if (period := _period(match.group())) in products",
+    "new": "        if (period := _period(match.group())) is not None",
+    "targets": [
+      "test_live_table_under_the_scripts_own_header_is_checked"
+    ]
+  },
+  {
+    "id": "table-header-unit-applies-to-cell",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        unit = _ratio_unit(number[2] or (header[index] if index < len(header) else \"\"))",
+    "new": "        unit = _ratio_unit(number[2] or \"\")",
+    "targets": [
+      "test_label_free_table_reads_the_unit_from_its_own_header"
+    ]
   }
 ]
