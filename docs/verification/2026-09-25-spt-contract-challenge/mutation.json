@@ -1,0 +1,13 @@
+{
+  "revision_on_disk": "fa82a73cadb784ba2cb457d8384bb56a549ef0f6",
+  "scope": "in_process_fault_injection_only; disk_source_unchanged; not_baseline_failure",
+  "change": "replace perspective_lab._reject_experimental_signal_rules with a no-op",
+  "target": "intelligence/tests/test_perspective_candidate_quarantine.py",
+  "failed": 21,
+  "passed": 5,
+  "exit_status": 1,
+  "receipt": "20260924T174307Z-fa82a73c-571c28ec4608.json",
+  "restored_clean_run": "clean-targeted-receipt.json",
+  "restored_passed": 636,
+  "restored_failed": 0
+}

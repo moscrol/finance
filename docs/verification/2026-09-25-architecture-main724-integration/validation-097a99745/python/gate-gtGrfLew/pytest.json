@@ -1,0 +1,36 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/fwp-wt-architecture-audit-0924",
+  "revision": "097a9974543a5a17e312d149fcbfe5d1b6a65f72",
+  "branch": "feat/architecture-audit-0924",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-architecture-audit-0924",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 16520
+  },
+  "counts": {
+    "passed": 16443,
+    "failed": 1,
+    "error": 0,
+    "skipped": 74,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "tests/test_code_map.py::test_structure_probe_daily_full"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-25T15:42:21+00:00"
+}

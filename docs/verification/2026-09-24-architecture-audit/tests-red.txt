@@ -1,0 +1,105 @@
+.F.FFF..FF                                                               [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260924T124551Z-a54fed0d-5781da57b85b.json
+
+=================================== FAILURES ===================================
+________ DailyOpsLedgerTest.test_directory_does_not_satisfy_file_check _________
+
+self = <tests.test_daily_ops_ledger.DailyOpsLedgerTest testMethod=test_directory_does_not_satisfy_file_check>
+
+    def test_directory_does_not_satisfy_file_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+>           self.assertFalse(FileCheck("report", Path(tmp)).as_dict()["exists"])
+E           AssertionError: True is not false
+
+tests/test_daily_ops_ledger.py:93: AssertionError
+_________ DailyOpsLedgerTest.test_invalid_audits_warn_without_crashing _________
+
+self = <tests.test_daily_ops_ledger.DailyOpsLedgerTest testMethod=test_invalid_audits_warn_without_crashing>
+
+    def test_invalid_audits_warn_without_crashing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            cases = (
+                ("theme-radar/missing-concept-audit.json", "missing_concepts", "missing_concepts", "count"),
+                ("theme-radar/missing-evidence-source-audit.json", "missing_sources", "missing_sources", "count"),
+                ("ima-stock/audits/entity-stock-ima-coverage-2026-06-21.json", "missing", "ima_stock_coverage", "missing_count"),
+            )
+            for name, key, section, count_key in cases:
+                invalid = ["{", "null", "[]", "{}", json.dumps({key: None}), json.dumps({key: ""}), json.dumps({key: {}})]
+                for text in invalid:
+                    with self.subTest(name=name, text=text):
+                        self.write_debt_audits(paths)
+                        (paths.knowledge_wiki / "raw" / name).write_text(text, encoding="utf-8")
+                        debt = scan_debts(paths)
+>                       self.assertEqual(debt["status"], "WARN")
+E                       AssertionError: 'PASS' != 'WARN'
+E                       - PASS
+E                       + WARN
+
+tests/test_daily_ops_ledger.py:75: AssertionError
+_______ DailyOpsLedgerTest.test_missing_audits_are_unknown_not_zero_debt _______
+
+self = <tests.test_daily_ops_ledger.DailyOpsLedgerTest testMethod=test_missing_audits_are_unknown_not_zero_debt>
+
+    def test_missing_audits_are_unknown_not_zero_debt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            debt = scan_debts(paths)
+>           self.assertEqual(debt["status"], "WARN")
+E           AssertionError: 'PASS' != 'WARN'
+E           - PASS
+E           + WARN
+
+tests/test_daily_ops_ledger.py:44: AssertionError
+______ DailyOpsLedgerTest.test_missing_ima_folders_are_not_an_empty_queue ______
+
+self = <tests.test_daily_ops_ledger.DailyOpsLedgerTest testMethod=test_missing_ima_folders_are_not_an_empty_queue>
+
+    def test_missing_ima_folders_are_not_an_empty_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            result = scan_ima_stock(paths, "2026-06-21")
+>           self.assertEqual(result["status"], "WARN")
+E           AssertionError: 'PASS' != 'WARN'
+E           - PASS
+E           + WARN
+
+tests/test_daily_ops_ledger.py:83: AssertionError
+________ DailyOpsLedgerTest.test_scope_is_visible_in_json_and_markdown _________
+
+self = <tests.test_daily_ops_ledger.DailyOpsLedgerTest testMethod=test_scope_is_visible_in_json_and_markdown>
+
+    def test_scope_is_visible_in_json_and_markdown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = build_ledger("2026-06-21", self.make_paths(Path(tmp)))
+>           self.assertEqual(ledger["scope"], "file_inventory_only")
+E           KeyError: 'scope'
+
+tests/test_daily_ops_ledger.py:118: KeyError
+__ DailyOpsLedgerTest.test_warn_sections_cannot_emit_complete_surface_action ___
+
+self = <tests.test_daily_ops_ledger.DailyOpsLedgerTest testMethod=test_warn_sections_cannot_emit_complete_surface_action>
+
+    def test_warn_sections_cannot_emit_complete_surface_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            self.write_debt_audits(paths)
+            for folder in ("未入库", "已入库", "待人工确认"):
+                (paths.knowledge_wiki.parent / folder).mkdir()
+            for check in expected_market_outputs(paths, "2026-06-21"):
+                check.path.parent.mkdir(parents=True, exist_ok=True)
+                check.path.write_text("fixture", encoding="utf-8")
+            (paths.knowledge_wiki / "briefings" / "2026-06-21.md").write_text("fixture", encoding="utf-8")
+            ledger = build_ledger("2026-06-21", paths)
+            self.assertEqual(ledger["status"], "WARN")
+>           self.assertTrue(any("relation" in action for action in ledger["next_actions"]))
+E           AssertionError: False is not true
+
+tests/test_daily_ops_ledger.py:107: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_daily_ops_ledger.py::DailyOpsLedgerTest::test_directory_does_not_satisfy_file_check
+FAILED tests/test_daily_ops_ledger.py::DailyOpsLedgerTest::test_invalid_audits_warn_without_crashing
+FAILED tests/test_daily_ops_ledger.py::DailyOpsLedgerTest::test_missing_audits_are_unknown_not_zero_debt
+FAILED tests/test_daily_ops_ledger.py::DailyOpsLedgerTest::test_missing_ima_folders_are_not_an_empty_queue
+FAILED tests/test_daily_ops_ledger.py::DailyOpsLedgerTest::test_scope_is_visible_in_json_and_markdown
+FAILED tests/test_daily_ops_ledger.py::DailyOpsLedgerTest::test_warn_sections_cannot_emit_complete_surface_action
+6 failed, 4 passed in 0.25s

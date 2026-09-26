@@ -35,7 +35,7 @@ class FileCheck:
         return {
             "name": self.name,
             "path": str(self.path),
-            "exists": self.path.exists(),
+            "exists": self.path.is_file(),
         }
 
 
@@ -127,7 +127,9 @@ def scan_ima_stock(paths: ProjectPaths, date: str) -> dict[str, Any]:
     review = knowledge_root / "待人工确认"
     inbox_count = count_files(inbox, "*.md")
     review_count = count_files(review, "*.md")
-    status = STATUS_PASS if inbox_count == 0 and review_count == 0 else STATUS_WARN
+    folders = {"inbox": str(inbox), "done": str(done), "manual_review": str(review)}
+    missing_folders = [name for name, path in folders.items() if not Path(path).is_dir()]
+    status = STATUS_PASS if inbox_count == 0 and review_count == 0 and not missing_folders else STATUS_WARN
     return {
         "status": status,
         "raw_root": str(raw_root),
@@ -135,11 +137,8 @@ def scan_ima_stock(paths: ProjectPaths, date: str) -> dict[str, Any]:
         "incoming_uningested_md_count": inbox_count,
         "done_folder_md_count": count_files(done, "**/*.md") if done.exists() else 0,
         "manual_review_md_count": review_count,
-        "folders": {
-            "inbox": str(inbox),
-            "done": str(done),
-            "manual_review": str(review),
-        },
+        "folders": folders,
+        "missing_folders": missing_folders,
     }
 
 
@@ -163,21 +162,28 @@ def scan_relations(paths: ProjectPaths) -> dict[str, Any]:
     }
 
 
+def _audit_count(path: Path | None, key: str) -> tuple[int | None, str | None]:
+    payload, error = load_json(path) if path is not None else (None, "missing")
+    if error:
+        return None, error
+    if not isinstance(payload, dict):
+        return None, "expected object"
+    if not isinstance(payload.get(key), list):
+        return None, f"expected list: {key}"
+    return len(payload[key]), None
+
+
 def scan_debts(paths: ProjectPaths) -> dict[str, Any]:
     raw = paths.knowledge_wiki / "raw"
     theme = raw / "theme-radar"
     ima_audits = raw / "ima-stock" / "audits"
-    missing_concepts, concept_error = load_json(theme / "missing-concept-audit.json")
-    missing_sources, source_error = load_json(theme / "missing-evidence-source-audit.json")
+    concept_count, concept_error = _audit_count(theme / "missing-concept-audit.json", "missing_concepts")
+    source_count, source_error = _audit_count(theme / "missing-evidence-source-audit.json", "missing_sources")
     latest_ima_path = latest_file(ima_audits, "entity-stock-ima-coverage-*.json")
-    ima_coverage, ima_error = load_json(latest_ima_path) if latest_ima_path else (None, "missing")
-
-    concept_count = len((missing_concepts or {}).get("missing_concepts", [])) if isinstance(missing_concepts, dict) else None
-    source_count = len((missing_sources or {}).get("missing_sources", [])) if isinstance(missing_sources, dict) else None
-    ima_missing_count = len((ima_coverage or {}).get("missing", [])) if isinstance(ima_coverage, dict) else None
+    ima_missing_count, ima_error = _audit_count(latest_ima_path, "missing")
 
     return {
-        "status": STATUS_WARN if any(count for count in (concept_count, source_count, ima_missing_count)) else STATUS_PASS,
+        "status": STATUS_PASS if all(count == 0 for count in (concept_count, source_count, ima_missing_count)) else STATUS_WARN,
         "missing_concepts": {
             "count": concept_count,
             "path": str(theme / "missing-concept-audit.json"),
@@ -205,11 +211,17 @@ def build_next_actions(ledger: dict[str, Any]) -> list[str]:
     if morning["count"] == 0:
         actions.append("Ingest or render the morning briefing into wiki/briefings for this date.")
     ima = ledger["sections"]["ima_stock"]
+    if ima["missing_folders"]:
+        actions.append("Verify IMA inventory folder paths; missing folders do not prove the queues are empty.")
     if ima["incoming_uningested_md_count"]:
         actions.append(f"Run IMA stock-card ingest for {ima['incoming_uningested_md_count']} files in 未入库.")
     if ima["manual_review_md_count"]:
         actions.append(f"Review {ima['manual_review_md_count']} files in 待人工确认 before bulk ingest.")
+    if ledger["sections"]["relations"]["missing"]:
+        actions.append("Verify missing relation files and their registered producers before using the graph.")
     debts = ledger["debts"]
+    if any(debts[name]["error"] for name in ("missing_concepts", "missing_sources", "ima_stock_coverage")):
+        actions.append("Restore or validate missing/invalid audit reports; debt counts are unknown, not zero.")
     if debts["missing_sources"]["count"]:
         actions.append("Backfill source manifests for missing evidence sources before trusting traceability metrics.")
     if debts["missing_concepts"]["count"]:
@@ -217,7 +229,7 @@ def build_next_actions(ledger: dict[str, Any]) -> list[str]:
     if debts["ima_stock_coverage"]["missing_count"]:
         actions.append("Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically.")
     if not actions:
-        actions.append("Daily operational surface is complete; next step is logic-market matching and performance scoring.")
+        actions.append("File inventory checks passed; freshness, content quality and runtime consumption remain unverified.")
     return actions
 
 
@@ -236,6 +248,7 @@ def build_ledger(date: str, paths: ProjectPaths | None = None) -> dict[str, Any]
     paths = paths or default_paths()
     ledger = {
         "date": date,
+        "scope": "file_inventory_only",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "paths": {
             "finance_root": str(paths.finance_root),
@@ -261,6 +274,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         f"# Daily Ops Ledger - {date}",
         "",
         f"- Status: {ledger['status']}",
+        f"- Scope: {ledger['scope']} (not a freshness, quality or runtime-consumption verdict)",
         f"- Generated: {ledger['generated_at']}",
         f"- Finance repo: `{ledger['paths']['finance_root']}`",
         f"- Knowledge wiki: `{ledger['paths']['knowledge_wiki']}`",
@@ -291,6 +305,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         f"- 未入库 MD: {ima['incoming_uningested_md_count']}",
         f"- 待人工确认 MD: {ima['manual_review_md_count']}",
         f"- 已入库 MD total: {ima['done_folder_md_count']}",
+        f"- Missing inventory folders: {', '.join(ima['missing_folders']) or 'none'}",
     ])
 
     relations = ledger["sections"]["relations"]
@@ -311,6 +326,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         f"- Missing concepts: {debts['missing_concepts']['count']}",
         f"- Missing evidence sources: {debts['missing_sources']['count']}",
         f"- Stock entities without IMA card: {debts['ima_stock_coverage']['missing_count']}",
+        f"- Audit errors: {json.dumps({name: debts[name]['error'] for name in ('missing_concepts', 'missing_sources', 'ima_stock_coverage') if debts[name]['error']}, ensure_ascii=False)}",
         "",
         "## Next Actions",
         "",

@@ -1,0 +1,6 @@
+c2aa873d5888d0ec969c9b5f8226c3bf2a1684ec081be03a233b364614fad1d9  /Users/a77/fwp-wt-architecture-audit-0924/intelligence/services/perspective_lab.py
+c2aa873d5888d0ec969c9b5f8226c3bf2a1684ec081be03a233b364614fad1d9  /Users/a77/.finance-runtime/finance-workspace-3b7e473575b0/intelligence/services/perspective_lab.py
+2832c8f6977e2820af8b563df07355d59577ea943917637eddd95629faab0226  /Users/a77/fwp-wt-architecture-audit-0924/intelligence/services/perspective_learning.py
+2832c8f6977e2820af8b563df07355d59577ea943917637eddd95629faab0226  /Users/a77/.finance-runtime/finance-workspace-3b7e473575b0/intelligence/services/perspective_learning.py
+df57e54eb785780b645f335d8bf6b77a334fc9e1d5e35b80c711ae1d1b6f99a8  /Users/a77/fwp-wt-architecture-audit-0924/intelligence/userspace.py
+df57e54eb785780b645f335d8bf6b77a334fc9e1d5e35b80c711ae1d1b6f99a8  /Users/a77/.finance-runtime/finance-workspace-3b7e473575b0/intelligence/userspace.py
