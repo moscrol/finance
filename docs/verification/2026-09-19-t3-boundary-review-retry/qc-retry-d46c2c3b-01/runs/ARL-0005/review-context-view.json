@@ -1,0 +1,501 @@
+{
+  "request_view": {
+    "branch": "q/research-data-readiness",
+    "commit": "d46c2c3b10221483c811426e99ad379314289871",
+    "created_at": "2026-09-19T18:52:58.783075+08:00",
+    "depends_on": [
+      "ARL-0004"
+    ],
+    "intensity": "milestone",
+    "parent_commit": "d38dab3fea578f957794249a39d6b880d52f71f2",
+    "producer": "codex:producer",
+    "required_checks": [
+      "repair:ARL-0004",
+      "scripts/review_probes/check_ratio_scope_boundaries.py:16-unchanged-cases",
+      "independent_ordinals_grouped_amounts_and_genitive_periods_retained",
+      "explicit_compound_units_and_points_dimension_checked",
+      "semicolon_continuation_and_markdown_preserve_narrow_scope",
+      "all_prior_valid_findings_and_invalid_verdict_leads_engaged",
+      "scripts/review_probes/check_ratio_hedge_delivery.py:4-unchanged-cases",
+      "withheld_slot_not_period_waiver",
+      "period_local_marker_and_residual_scope",
+      "ordered_binding_and_recheck_idempotence",
+      "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases",
+      "scripts/review_probes/run_extraction_mutations.py:research-delivery",
+      "reject_false_inference_and_retain_independent_fact",
+      "keep_raw_markdown_coordinates_and_ratio_neighbors",
+      "same_turn_repair_and_final_projection",
+      "no_gate_weakening_no_natural_quality_overclaim",
+      "review_counterexamples_reproduced_and_resolved",
+      "no_count_or_period_substitution_no_false_residue",
+      "immutable_archives_preserved",
+      "unlocated_ratio_is_explicit_unknown_not_pass"
+    ],
+    "review_id": "ARL-0005",
+    "schema_version": 3,
+    "scope": "Cumulative T3 repair: original six ARL-0004 role/unit/genitive/semicolon boundary cases, independent fact retention, slots and original bounded repair. ARL-0004 remains invalid, not an approval.",
+    "status": "ready",
+    "supersedes": "ARL-0004",
+    "business_artifacts": [
+      ".claude/lessons_learned.md",
+      "docs/agent-product-door.md",
+      "docs/handoffs/2026-09-19-t3-ratio-scope-review.md",
+      "docs/handoffs/2026-09-19-t3-retention-repair.md",
+      "docs/handoffs/2026-09-19-t3-review-counterexamples.md",
+      "docs/handoffs/inflight/q-research-data-readiness.md",
+      "intelligence/services/episode_semantic_verifier.py",
+      "intelligence/services/research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+      "intelligence/tests/test_research_delivery_ratio_scope.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py",
+      "scripts/review_probes/check_ratio_hedge_delivery.py",
+      "scripts/review_probes/check_ratio_scope_boundaries.py",
+      "scripts/review_probes/research_delivery_mutations.json",
+      "scripts/review_probes/run_extraction_mutations.py"
+    ],
+    "business_artifact_tests": {
+      ".claude/lessons_learned.md": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "docs/agent-product-door.md": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "docs/handoffs/2026-09-19-t3-ratio-scope-review.md": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "docs/handoffs/2026-09-19-t3-retention-repair.md": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "docs/handoffs/2026-09-19-t3-review-counterexamples.md": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "docs/handoffs/inflight/q-research-data-readiness.md": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "intelligence/services/episode_semantic_verifier.py": [
+        "intelligence/tests/test_agent_episode_ab.py",
+        "intelligence/tests/test_ceiling_required_block_degrade.py",
+        "intelligence/tests/test_continuous_turn_adapter.py",
+        "intelligence/tests/test_data_gap_delivery.py",
+        "intelligence/tests/test_degraded_fallback.py",
+        "intelligence/tests/test_e2_material_delivery.py",
+        "intelligence/tests/test_episode_answer_hygiene.py",
+        "intelligence/tests/test_episode_issues.py",
+        "intelligence/tests/test_episode_semantic_verifier.py",
+        "intelligence/tests/test_forecast_residual_budget.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+        "intelligence/tests/test_gap_answer_middle_tier.py",
+        "intelligence/tests/test_grok_cli_judge.py",
+        "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+        "intelligence/tests/test_judge_evidence_projection.py",
+        "intelligence/tests/test_judge_mode_off.py",
+        "intelligence/tests/test_judge_sentence_verdicts.py",
+        "intelligence/tests/test_judge_source_recheck.py",
+        "intelligence/tests/test_kb_gap_proof.py",
+        "intelligence/tests/test_llm_call_ledger_usage.py",
+        "intelligence/tests/test_longtail_baseline.py",
+        "intelligence/tests/test_optional_forward_slots.py",
+        "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+        "intelligence/tests/test_publication_qc_off_table.py",
+        "intelligence/tests/test_publication_view_deepen.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py",
+        "intelligence/tests/test_run_agent_runtime_benchmark.py",
+        "intelligence/tests/test_runtime_fault_matrix.py",
+        "intelligence/tests/test_stage_caps.py",
+        "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+        "intelligence/tests/test_v11_judge_guided_retrieval.py",
+        "intelligence/tests/test_v8_semantic_deletion_rights.py",
+        "tests/test_historical_evidence_contract.py"
+      ],
+      "intelligence/services/research_delivery_checks.py": [
+        "intelligence/tests/test_frozen_research_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "intelligence/tests/test_research_delivery_ratio_boundaries.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "intelligence/tests/test_research_delivery_ratio_scope.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "intelligence/tests/test_research_delivery_repair.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "intelligence/tests/test_research_delivery_retention.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "intelligence/tests/test_research_delivery_review_regressions.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "scripts/review_probes/check_ratio_hedge_delivery.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "scripts/review_probes/check_ratio_scope_boundaries.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "scripts/review_probes/research_delivery_mutations.json": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ],
+      "scripts/review_probes/run_extraction_mutations.py": [
+        "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+        "intelligence/tests/test_research_delivery_ratio_scope.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py",
+        "intelligence/tests/test_research_delivery_review_regressions.py"
+      ]
+    },
+    "all_unique_artifact_tests": [
+      "intelligence/tests/test_agent_episode_ab.py",
+      "intelligence/tests/test_ceiling_required_block_degrade.py",
+      "intelligence/tests/test_continuous_turn_adapter.py",
+      "intelligence/tests/test_data_gap_delivery.py",
+      "intelligence/tests/test_degraded_fallback.py",
+      "intelligence/tests/test_e2_material_delivery.py",
+      "intelligence/tests/test_episode_answer_hygiene.py",
+      "intelligence/tests/test_episode_issues.py",
+      "intelligence/tests/test_episode_semantic_verifier.py",
+      "intelligence/tests/test_forecast_residual_budget.py",
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_gap_answer_middle_tier.py",
+      "intelligence/tests/test_grok_cli_judge.py",
+      "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+      "intelligence/tests/test_judge_evidence_projection.py",
+      "intelligence/tests/test_judge_mode_off.py",
+      "intelligence/tests/test_judge_sentence_verdicts.py",
+      "intelligence/tests/test_judge_source_recheck.py",
+      "intelligence/tests/test_kb_gap_proof.py",
+      "intelligence/tests/test_llm_call_ledger_usage.py",
+      "intelligence/tests/test_longtail_baseline.py",
+      "intelligence/tests/test_optional_forward_slots.py",
+      "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+      "intelligence/tests/test_publication_qc_off_table.py",
+      "intelligence/tests/test_publication_view_deepen.py",
+      "intelligence/tests/test_research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+      "intelligence/tests/test_research_delivery_ratio_scope.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py",
+      "intelligence/tests/test_run_agent_runtime_benchmark.py",
+      "intelligence/tests/test_runtime_fault_matrix.py",
+      "intelligence/tests/test_stage_caps.py",
+      "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+      "intelligence/tests/test_v11_judge_guided_retrieval.py",
+      "intelligence/tests/test_v8_semantic_deletion_rights.py",
+      "tests/test_historical_evidence_contract.py"
+    ],
+    "full_artifact_count": 1725,
+    "full_request_sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6",
+    "archive_mappings": [
+      {
+        "root": "docs/verification/2026-09-19-t3-retention-repair",
+        "count": 227,
+        "artifact_paths_sha256": "76c885114cd8a1ab01d17be00221fd4ca70bdb7bf86031be7a0687cb0032c4c6",
+        "all_unique_tests": [
+          "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+          "intelligence/tests/test_research_delivery_ratio_scope.py",
+          "intelligence/tests/test_research_delivery_repair.py",
+          "intelligence/tests/test_research_delivery_retention.py",
+          "intelligence/tests/test_research_delivery_review_regressions.py"
+        ]
+      },
+      {
+        "root": "docs/verification/2026-09-19-t3-review-counterexamples",
+        "count": 798,
+        "artifact_paths_sha256": "8c7ebdbc0c3b7d1d996e5bccabdcf4dd60fab48f3d6c5759b85982f7139fd545",
+        "all_unique_tests": [
+          "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+          "intelligence/tests/test_research_delivery_ratio_scope.py",
+          "intelligence/tests/test_research_delivery_repair.py",
+          "intelligence/tests/test_research_delivery_retention.py",
+          "intelligence/tests/test_research_delivery_review_regressions.py"
+        ]
+      },
+      {
+        "root": "docs/verification/2026-09-19-t3-ratio-scope",
+        "count": 683,
+        "artifact_paths_sha256": "d4e07c4663daf692681a27c49e6de1aea9683ad9889fd37f7aa036a4dd1ba2f9",
+        "all_unique_tests": [
+          "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+          "intelligence/tests/test_research_delivery_ratio_scope.py",
+          "intelligence/tests/test_research_delivery_repair.py",
+          "intelligence/tests/test_research_delivery_retention.py",
+          "intelligence/tests/test_research_delivery_review_regressions.py"
+        ]
+      }
+    ]
+  },
+  "preflight_view": {
+    "revision": "d46c2c3b10221483c811426e99ad379314289871",
+    "request_sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6",
+    "tests": [
+      "intelligence/tests/test_agent_episode_ab.py",
+      "intelligence/tests/test_ceiling_required_block_degrade.py",
+      "intelligence/tests/test_continuous_turn_adapter.py",
+      "intelligence/tests/test_data_gap_delivery.py",
+      "intelligence/tests/test_degraded_fallback.py",
+      "intelligence/tests/test_e2_material_delivery.py",
+      "intelligence/tests/test_episode_answer_hygiene.py",
+      "intelligence/tests/test_episode_issues.py",
+      "intelligence/tests/test_episode_semantic_verifier.py",
+      "intelligence/tests/test_forecast_residual_budget.py",
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_gap_answer_middle_tier.py",
+      "intelligence/tests/test_grok_cli_judge.py",
+      "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+      "intelligence/tests/test_judge_evidence_projection.py",
+      "intelligence/tests/test_judge_mode_off.py",
+      "intelligence/tests/test_judge_sentence_verdicts.py",
+      "intelligence/tests/test_judge_source_recheck.py",
+      "intelligence/tests/test_kb_gap_proof.py",
+      "intelligence/tests/test_llm_call_ledger_usage.py",
+      "intelligence/tests/test_longtail_baseline.py",
+      "intelligence/tests/test_optional_forward_slots.py",
+      "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+      "intelligence/tests/test_publication_qc_off_table.py",
+      "intelligence/tests/test_publication_view_deepen.py",
+      "intelligence/tests/test_research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+      "intelligence/tests/test_research_delivery_ratio_scope.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py",
+      "intelligence/tests/test_research_delivery_review_regressions.py",
+      "intelligence/tests/test_run_agent_runtime_benchmark.py",
+      "intelligence/tests/test_runtime_fault_matrix.py",
+      "intelligence/tests/test_stage_caps.py",
+      "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+      "intelligence/tests/test_v11_judge_guided_retrieval.py",
+      "intelligence/tests/test_v8_semantic_deletion_rights.py",
+      "tests/test_historical_evidence_contract.py"
+    ],
+    "checks": {
+      "artifact-tests": {
+        "exit_code": 0,
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_agent_episode_ab.py",
+          "intelligence/tests/test_ceiling_required_block_degrade.py",
+          "intelligence/tests/test_continuous_turn_adapter.py",
+          "intelligence/tests/test_data_gap_delivery.py",
+          "intelligence/tests/test_degraded_fallback.py",
+          "intelligence/tests/test_e2_material_delivery.py",
+          "intelligence/tests/test_episode_answer_hygiene.py",
+          "intelligence/tests/test_episode_issues.py",
+          "intelligence/tests/test_episode_semantic_verifier.py",
+          "intelligence/tests/test_forecast_residual_budget.py",
+          "intelligence/tests/test_frozen_research_delivery.py",
+          "intelligence/tests/test_gap_answer_middle_tier.py",
+          "intelligence/tests/test_grok_cli_judge.py",
+          "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+          "intelligence/tests/test_judge_evidence_projection.py",
+          "intelligence/tests/test_judge_mode_off.py",
+          "intelligence/tests/test_judge_sentence_verdicts.py",
+          "intelligence/tests/test_judge_source_recheck.py",
+          "intelligence/tests/test_kb_gap_proof.py",
+          "intelligence/tests/test_llm_call_ledger_usage.py",
+          "intelligence/tests/test_longtail_baseline.py",
+          "intelligence/tests/test_optional_forward_slots.py",
+          "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+          "intelligence/tests/test_publication_qc_off_table.py",
+          "intelligence/tests/test_publication_view_deepen.py",
+          "intelligence/tests/test_research_delivery_checks.py",
+          "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+          "intelligence/tests/test_research_delivery_ratio_scope.py",
+          "intelligence/tests/test_research_delivery_repair.py",
+          "intelligence/tests/test_research_delivery_retention.py",
+          "intelligence/tests/test_research_delivery_review_regressions.py",
+          "intelligence/tests/test_run_agent_runtime_benchmark.py",
+          "intelligence/tests/test_runtime_fault_matrix.py",
+          "intelligence/tests/test_stage_caps.py",
+          "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+          "intelligence/tests/test_v11_judge_guided_retrieval.py",
+          "intelligence/tests/test_v8_semantic_deletion_rights.py",
+          "tests/test_historical_evidence_contract.py"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/worktrees/review-ARL-0005",
+        "output_tail": "........................................................................ [  5%]\n........................................................................ [ 11%]\n........................................................................ [ 16%]\n........................................................................ [ 22%]\n........................................................................ [ 27%]\n........................................................................ [ 33%]\n........................................................................ [ 38%]\n........................................................................ [ 44%]\n........................................................................ [ 49%]\n........................................................................ [ 55%]\n........................................................................ [ 60%]\n........................................................................ [ 66%]\n........................................................................ [ 71%]\n........................................................................ [ 77%]\n........................................................................ [ 83%]\n........................................................................ [ 88%]\n........................................................................ [ 94%]\n........................................................................ [ 99%]\n.....                                                                    [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T120946Z-d46c2c3b.json\n\n1301 passed in 6.86s\n"
+      },
+      "git-diff-check-all": {
+        "exit_code": 2,
+        "command": [
+          "git",
+          "diff",
+          "--check",
+          "d38dab3fea578f957794249a39d6b880d52f71f2..d46c2c3b10221483c811426e99ad379314289871"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/worktrees/review-ARL-0005",
+        "output_tail": "L-0001/mutations/retained-bound-citations-red.xml:111: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/mutations/retained-bound-citations-red.xml:117: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/mutations/retained-bound-citations-red.xml:123: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/mutations/retained-bound-citations-red.xml:129: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/mutations/retained-bound-citations-red.xml:135: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/mutations/retained-bound-citations-red.xml:141: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/mutations/retained-bound-citations-red.xml:147: trailing whitespace.\n+E     \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:176: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:178: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:180: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:200: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:220: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:224: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:232: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:241: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:247: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:255: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:261: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:314: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:315: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:318: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:342: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:343: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:350: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:351: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:370: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:401: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:402: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:409: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:410: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:426: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:429: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:449: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:500: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:501: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:511: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:794: trailing whitespace.\n+ \ndocs/verification/2026-09-19-t3-review-counterexamples/qc-retry-01/runs/ARL-0001/review-prompt.txt:1728: new blank line at EOF.\n"
+      },
+      "git-diff-check-fresh": {
+        "exit_code": 0,
+        "command": [
+          "git",
+          "diff",
+          "--check",
+          "d38dab3fea578f957794249a39d6b880d52f71f2..d46c2c3b10221483c811426e99ad379314289871",
+          "--",
+          ".",
+          ":!docs/verification/2026-09-19-t3-retention-repair",
+          ":!docs/verification/2026-09-19-t3-review-counterexamples",
+          ":!docs/verification/2026-09-19-t3-ratio-scope"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/worktrees/review-ARL-0005",
+        "output_tail": ""
+      },
+      "git-diff-check-archive-docs": {
+        "exit_code": 0,
+        "command": [
+          "git",
+          "diff",
+          "--check",
+          "d38dab3fea578f957794249a39d6b880d52f71f2..d46c2c3b10221483c811426e99ad379314289871",
+          "--",
+          "docs/verification/2026-09-19-t3-retention-repair/README.md",
+          "docs/verification/2026-09-19-t3-retention-repair/manifest.json",
+          "docs/verification/2026-09-19-t3-review-counterexamples/README.md",
+          "docs/verification/2026-09-19-t3-review-counterexamples/manifest.json",
+          "docs/verification/2026-09-19-t3-ratio-scope/README.md",
+          "docs/verification/2026-09-19-t3-ratio-scope/manifest.json"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/worktrees/review-ARL-0005",
+        "output_tail": ""
+      },
+      "original-fact-retention-probe": {
+        "exit_code": 0,
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/review_probes/check_delivery_fact_retention.py",
+          "--code-root",
+          "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+          "--expect-revision",
+          "d46c2c3b10221483c811426e99ad379314289871"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+        "output_tail": "-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private\",\n    \"revision\": \"d46c2c3b10221483c811426e99ad379314289871\",\n    \"status\": \"\",\n    \"source_sha256\": {\n      \"intelligence/services/research_delivery_checks.py\": \"661894ce18ae0835fc1297303569f5fd279b5526448b7fbffc17608ba498ce80\",\n      \"intelligence/services/episode_semantic_verifier.py\": \"ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e\",\n      \"intelligence/tests/test_episode_semantic_verifier.py\": \"68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff\"\n    }\n  },\n  \"target_unchanged\": true,\n  \"cases\": [\n    {\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"separator\": \"。\",\n      \"draft\": \"中报原文披露了收入[E1]。但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]。但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"separator\": \"；\",\n      \"draft\": \"中报原文披露了收入[E1]；但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]；但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"separator\": \"，\",\n      \"draft\": \"中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]，但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"separator\": \"。\",\n      \"draft\": \"中报原文披露了收入[E1]。但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]。但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"separator\": \"；\",\n      \"draft\": \"中报原文披露了收入[E1]；但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]；但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"separator\": \"，\",\n      \"draft\": \"中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]，但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    }\n  ],\n  \"status\": \"passed\",\n  \"passed\": 6,\n  \"failed\": 0\n}\n"
+      },
+      "original-ratio-hedge-probe": {
+        "exit_code": 0,
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/review_probes/check_ratio_hedge_delivery.py",
+          "--code-root",
+          "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+          "--expect-revision",
+          "d46c2c3b10221483c811426e99ad379314289871"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+        "output_tail": "{\n  \"scope\": \"ARL-0003 finite real-exit counterexample; not natural QA\",\n  \"model_calls\": 0,\n  \"probe_sha256\": \"a967a1a96438c19e6a23d4b056bdcf80255930a672d224127b1e7c78b5703c9c\",\n  \"before\": {\n    \"code_root\": \"/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private\",\n    \"revision\": \"d46c2c3b10221483c811426e99ad379314289871\",\n    \"status\": \"\",\n    \"source_sha256\": {\n      \"intelligence/services/research_delivery_checks.py\": \"661894ce18ae0835fc1297303569f5fd279b5526448b7fbffc17608ba498ce80\",\n      \"intelligence/services/episode_semantic_verifier.py\": \"ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e\",\n      \"intelligence/tests/test_episode_semantic_verifier.py\": \"68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff\"\n    }\n  },\n  \"financial_fixture_sha256\": \"74cc6f1788cd5443713cc007b59ac5fc2a8290a942719200d3f94fdd79956e91\",\n  \"after\": {\n    \"code_root\": \"/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private\",\n    \"revision\": \"d46c2c3b10221483c811426e99ad379314289871\",\n    \"status\": \"\",\n    \"source_sha256\": {\n      \"intelligence/services/research_delivery_checks.py\": \"661894ce18ae0835fc1297303569f5fd279b5526448b7fbffc17608ba498ce80\",\n      \"intelligence/services/episode_semantic_verifier.py\": \"ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e\",\n      \"intelligence/tests/test_episode_semantic_verifier.py\": \"68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff\"\n    }\n  },\n  \"target_unchanged\": true,\n  \"cases\": [\n    {\n      \"draft\": \"收入可核[E1]，2026中报含金量待核对，实际为1.587。\",\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"public_answer\": \"收入可核[E1]，2026中报含金量待核对，实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true,\n        \"fact_and_citation_retained\": true,\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"draft\": \"收入可核[E1]，2026中报含金量为待核对，实际为1.587。\",\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"public_answer\": \"收入可核[E1]，2026中报含金量为待核对，实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true,\n        \"fact_and_citation_retained\": true,\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"draft\": \"收入可核[E1]，2026中报含金量待核对，实际为1.587。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"public_answer\": \"收入可核[E1]，2026中报含金量待核对，实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true,\n        \"fact_and_citation_retained\": true,\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"draft\": \"收入可核[E1]，2026中报含金量为待核对，实际为1.587。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"public_answer\": \"收入可核[E1]，2026中报含金量为待核对，实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true,\n        \"fact_and_citation_retained\": true,\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    }\n  ],\n  \"passed\": 4,\n  \"failed\": 0,\n  \"status\": \"passed\"\n}\n"
+      },
+      "original-ratio-boundary-probe": {
+        "exit_code": 0,
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/review_probes/check_ratio_scope_boundaries.py",
+          "--code-root",
+          "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+          "--expect-revision",
+          "d46c2c3b10221483c811426e99ad379314289871"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+        "output_tail": "l_gap\": true,\n        \"no_false_partial\": true,\n        \"independent_content_unchanged\": true,\n        \"no_unnecessary_repair\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"name\": \"neighbor-genitive-period\",\n      \"control\": false,\n      \"draft\": \"2026中报含金量为1.588，2025中报的含金量为0.289。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"local_codes\": [],\n      \"public_answer\": \"2026中报含金量为1.588，2025中报的含金量为0.289。\",\n      \"status\": \"completed\",\n      \"gap_output_ids\": [],\n      \"repair_output_ids\": [],\n      \"checks\": {\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true,\n        \"explicit_citation_retained\": true,\n        \"no_false_local_gap\": true,\n        \"no_false_partial\": true,\n        \"independent_content_unchanged\": true,\n        \"no_unnecessary_repair\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"name\": \"explicit-ratio-currency-unit\",\n      \"control\": false,\n      \"draft\": \"2026中报含金量为1.587元/元。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"local_codes\": [\n        \"calculation_value_mismatch\"\n      ],\n      \"public_answer\": \"2026中报含金量为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"gap_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"repair_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"checks\": {\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true,\n        \"explicit_citation_retained\": true,\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"name\": \"explicit-ratio-points-unit\",\n      \"control\": false,\n      \"draft\": \"2026中报含金量实际为158.7个百分点。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"local_codes\": [\n        \"calculation_value_mismatch\"\n      ],\n      \"public_answer\": \"2026中报含金量实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"gap_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"repair_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"checks\": {\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true,\n        \"explicit_citation_retained\": true,\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"name\": \"hedge-semicolon\",\n      \"control\": false,\n      \"draft\": \"收入可核[E1]，2026中报含金量待核对；实际为1.587。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"local_codes\": [\n        \"calculation_value_mismatch\"\n      ],\n      \"public_answer\": \"收入可核[E1]，2026中报含金量待核对；实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"gap_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"repair_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"checks\": {\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true,\n        \"explicit_citation_retained\": true,\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"name\": \"matching-ratio\",\n      \"control\": true,\n      \"draft\": \"2026中报含金量为1.588。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"local_codes\": [],\n      \"public_answer\": \"2026中报含金量为1.588。\",\n      \"status\": \"completed\",\n      \"gap_output_ids\": [],\n      \"repair_output_ids\": [],\n      \"checks\": {\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true,\n        \"explicit_citation_retained\": true,\n        \"no_false_local_gap\": true,\n        \"no_false_partial\": true,\n        \"independent_content_unchanged\": true,\n        \"no_unnecessary_repair\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"name\": \"repaired-comma-hedge\",\n      \"control\": true,\n      \"draft\": \"收入可核[E1]，2026中报含金量待核对，实际为1.587。\",\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"local_codes\": [\n        \"calculation_value_mismatch\"\n      ],\n      \"public_answer\": \"收入可核[E1]，2026中报含金量待核对，实际为待核对。\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\",\n      \"status\": \"partial\",\n      \"gap_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"repair_output_ids\": [\n        \"direct_assessment\"\n      ],\n      \"checks\": {\n        \"draft_and_evidence_unchanged\": true,\n        \"final_recheck_idempotent\": true,\n        \"explicit_citation_retained\": true,\n        \"local_check_exercised\": true,\n        \"unverified_not_completed\": true,\n        \"same_turn_repair_requested\": true,\n        \"wrong_value_withheld_or_explicitly_unverified\": true\n      },\n      \"passed\": true\n    }\n  ],\n  \"passed\": 16,\n  \"failed\": 0,\n  \"status\": \"passed\"\n}\n"
+      },
+      "research-delivery-mutations": {
+        "exit_code": 0,
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/review_probes/run_extraction_mutations.py",
+          "--suite",
+          "research-delivery",
+          "--revision",
+          "d46c2c3b10221483c811426e99ad379314289871",
+          "--output",
+          "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations"
+        ],
+        "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/worktrees/review-ARL-0005",
+        "output_tail": "  收入可核[E1]，〔比率对应关系待核对〕2026中报含金量待核对；实际为1.587。\\n  ?                                     +++++\\n    \\n    部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_explicit_continuation_checks_each_slot_across_punctuation[\\\\u5f85\\\\u6838\\\\u5bf9-\\\\uff1b]\", \"message\": \"AssertionError: assert (1 == 2)\\n +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_explicit_continuation_checks_each_slot_across_punctuation[\\\\u5f85\\\\u6838\\\\u5bf9-;]\", \"message\": \"AssertionError: assert (1 == 2)\\n +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_explicit_continuation_checks_each_slot_across_punctuation[\\\\u4e3a**\\\\u5f85\\\\u6838\\\\u5bf9**-\\\\uff1b]\", \"message\": \"AssertionError: assert (1 == 2)\\n +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_explicit_continuation_checks_each_slot_across_punctuation[\\\\u4e3a**\\\\u5f85\\\\u6838\\\\u5bf9**-;]\", \"message\": \"AssertionError: assert (1 == 2)\\n +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_explicit_continuation_checks_each_slot_across_punctuation[\\\\u4e3a1.588-\\\\uff1b]\", \"message\": \"AssertionError: assert (1 == 2)\\n +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_explicit_continuation_checks_each_slot_across_punctuation[\\\\u4e3a1.588-;]\", \"message\": \"AssertionError: assert (1 == 2)\\n +  where 1 = len((DeliveryFinding(start=9, end=9, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\"}]}\n{\"label\": \"ratio-semicolon-value-not-just-unknown-green\", \"exit\": 0, \"executed\": 24, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\n{\"label\": \"ratio-residual-unit-not-blind-waiver-red\", \"exit\": 1, \"executed\": 5, \"failures\": 2, \"errors\": 0, \"skipped\": 0, \"failed_cases\": [{\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_ambiguous_residue_still_unknown_without_deleting_independent_text[2026\\\\u4e2d\\\\u62a5\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a1.588\\\\uff0c\\\\u53e6\\\\u67091.587\\\\u5143/\\\\u5143\\\\u3002]\", \"message\": \"assert (())\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_ambiguous_residue_still_unknown_without_deleting_independent_text[2026\\\\u4e2d\\\\u62a5\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a1.588\\\\uff0c\\\\u53e6\\\\u6709158.7\\\\u4e2a\\\\u767e\\\\u5206\\\\u70b9\\\\u3002]\", \"message\": \"assert (())\"}]}\n{\"label\": \"ratio-residual-unit-not-blind-waiver-green\", \"exit\": 0, \"executed\": 5, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\n{\"label\": \"ratio-independent-delta-not-absolute-red\", \"exit\": 1, \"executed\": 36, \"failures\": 3, \"errors\": 0, \"skipped\": 0, \"failed_cases\": [{\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_independent_numeric_roles_survive_without_waiving_ratio[\\\\u4e3a1.588-\\\\u540c\\\\u6bd4\\\\u589e\\\\u52a0158.7\\\\u4e2a\\\\u767e\\\\u5206\\\\u70b9[E1]]\", \"message\": \"AssertionError: assert True == ('为1.588' == '为1.587'\\n +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\\n  \\n  - 为1.587\\n  ?      ^\\n  + 为1.588\\n  ?      ^)\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_independent_numeric_roles_survive_without_waiving_ratio[\\\\u4e3a\\\\u5f85\\\\u6838\\\\u5bf9-\\\\u540c\\\\u6bd4\\\\u589e\\\\u52a0158.7\\\\u4e2a\\\\u767e\\\\u5206\\\\u70b9[E1]]\", \"message\": \"AssertionError: assert True == ('为待核对' == '为1.587'\\n +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))\\n  \\n  - 为1.587\\n  + 为待核对)\"}, {\"class\": \"intelligence.tests.test_research_delivery_ratio_boundaries\", \"name\": \"test_independent_numeric_roles_survive_without_waiving_ratio[\\\\u4e3a1.587-\\\\u540c\\\\u6bd4\\\\u589e\\\\u52a0158.7\\\\u4e2a\\\\u767e\\\\u5206\\\\u70b9[E1]]\", \"message\": \"AssertionError: assert '〔比率对应关系待核对〕2...58.7个百分点[E1]。' == '2026中报含金量为待核...58.7个百分点[E1]。'\\n  \\n  - 2026中报含金量为待核对，同比增加158.7个百分点[E1]。\\n  + 〔比率对应关系待核对〕2026中报含金量为待核对，同比增加158.7个百分点[E1]。\\n  ? +++++++++++\"}]}\n{\"label\": \"ratio-independent-delta-not-absolute-green\", \"exit\": 0, \"executed\": 36, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\n{\"label\": \"restored-full\", \"exit\": 0, \"executed\": 601, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\nPreparing worktree (detached HEAD d46c2c3b)\n"
+      }
+    },
+    "forbidden_paths": [],
+    "created_at": "2026-09-19T12:11:42.102490+00:00",
+    "changed_paths_equal_request_artifacts": true,
+    "archive_integrity": {
+      "files": 1702,
+      "sha256_bytes_verified": true,
+      "original_diff_check_exit": 2,
+      "policy": "No raw evidence cleaning; all fresh paths and archive README/manifest separately checked.",
+      "raw_whitespace_issue_count": 6821,
+      "all_issue_paths_verified_in_manifest": true,
+      "full_diff_check_log_sha256": "85b4ce547f26df0af8f5461e6eb75015efee2ada3b3bc5a0924948ca86817c05"
+    }
+  }
+}

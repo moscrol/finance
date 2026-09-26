@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/runs/ARL-0001/mutations/same-turn-repair-note-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"], "cwd": "/private/tmp/extraction-closeout-mutations-g20g0z2l/tree", "revision": "a2a3301963d11a073f511e1552b53daee7ecd704"}
+........................................................................ [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/runs/ARL-0001/mutations/same-turn-repair-note-green.xml -
+72 passed, 110 deselected in 1.52s
+
+STDERR:
+
+EXIT=0

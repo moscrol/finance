@@ -1,0 +1,46 @@
+"""Build one operational adapter from the archived adapter; never rewrite the old run."""
+from pathlib import Path
+import hashlib
+import json
+
+BASE = Path('/Users/a77/.finance-runtime/convergence-20260919/retention-repair')
+STATE = BASE / 'qc-repair-d46c2c3b'
+source = BASE / 'qc-retry-746b716f-01/qc_repair_once.py'
+s = source.read_text()
+s = s.replace("archive_names = ('2026-09-19-t3-retention-repair', '2026-09-19-t3-review-counterexamples')", "archive_names = ('2026-09-19-t3-retention-repair', '2026-09-19-t3-review-counterexamples', '2026-09-19-t3-ratio-scope')")
+s = s.replace("run('research-delivery-mutations',", "run('original-ratio-boundary-probe', [PY, 'scripts/review_probes/check_ratio_scope_boundaries.py',\n    '--code-root', str(clean_root), '--expect-revision', revision], cwd=clean_root)\nrun('research-delivery-mutations',")
+s = s.replace("'candidate-746b716f/result.json'", "'candidate-d46c2c3b/result.json'")
+s = s.replace("engineering = json.loads((STATE.parent / 'candidate-d46c2c3b/result.json').read_text())", "engineering = json.loads((STATE.parent / 'candidate-d46c2c3b/result.json').read_text())\nassert engineering['passed'] and engineering['before']['revision'] == revision\nprior_invalid = json.loads((STATE / 'prior-invalid/invalid-verdict.json').read_text())")
+s = s.replace("    'hedge_before_this_repair':", "    'boundary_before_this_repair': json.loads((STATE.parent / 'boundary-repair-01/original-before.json').read_text()),\n    'hedge_before_this_repair':")
+s = s.replace("    ('intelligence/tests/test_research_delivery_ratio_scope.py', None),", "    ('intelligence/tests/test_research_delivery_ratio_scope.py', None),\n    ('intelligence/tests/test_research_delivery_ratio_boundaries.py', None),")
+start = s.index("prompt = f'''You are")
+end = s.index("PREVIOUS EXTERNAL VERDICT:", start)
+s = s[:start] + """prompt = f'''You are claude:independent-reviewer, an external code falsification reviewer, NOT the producer.
+Review exact commit {revision}, parent {request['parent_commit']}. You have no tools and cannot edit anything.
+An isolated detached worker ran the mechanical preflight below. Do not claim you yourself ran tools.
+Inspect the COMPLETE cumulative business diff and relevant current source context, not just green test counts.
+This is a finite research delivery repair, not general Chinese grammar parsing, review-loop redesign, release, deployment, or natural model-answer acceptance.
+
+Prior ARL-0001/0002/0003 are valid CHANGES_REQUIRED. ARL-0004 emitted raw PASS but five required checks PARTIAL; the unchanged validator quarantined it as INVALID_VERDICT/authority none. It is NOT an approval or a fourth valid CR. Its six original counterexamples were reproduced (4P12F on 746/d402, two controls and both judge modes included). All original verdicts and that invalid output are supplied below, not edited. This ARL-0005 depends on/supersedes ARL-0004 and carries the complete cumulative parent range, all artifacts and nonrepair required checks. Do not bypass earlier findings.
+
+This candidate adds complete grouped-decimal tokens, finite ordinal-role masking, period genitive declarations distinct from numeric multiple references, compound 元/元 units before scalar 元, explicit percentage-point dimensional rejection for absolute ratios (separately stated deltas retained), and semicolon continuation only with explicit actual/this-value/current-period/ratio copulas. Markdown continuations have paired tests. Original 6 cases are unchanged in the read-only probe and public-exit pytest. Try to falsify both false-negative and false-positive cases, neighboring independent facts/periods, exact numeric spans, Markdown idempotence, and original same-turn budget repair. Do not reward merely adding regression counts.
+The previous repairs preserve sentence context but narrow edits, avoid guessed corrected numbers, retain independent cited facts, inspect values after a withheld slot, keep unknown markers local and idempotent, and bind explicitly ordered periods across inserted markers. Correct numbers in unsupported mapping syntax may remain explicit unknown/partial; that documented limitation does not permit silently passing wrong values or collateral deletion.
+The independent raw fixture inputs and role/unit boundaries matter. A label like low/nonblocking does not make a failed required semantic contract pass. Conversely do not claim finite syntax is universal NLP. If evidence is insufficient, mark the exact required check PARTIAL and overall CHANGES_REQUIRED rather than fabricating PASS.
+
+Authority contract: PASS requires EVERY required check and EVERY unique artifact test and baseline check to be PASS, plus no high-severity finding. ANY PARTIAL or FAIL required check makes overall PASS invalid. Return CHANGES_REQUIRED for ordinary defects or incomplete proof, not BLOCKED (reserved for architecture conflict). Include concrete original input and whether introduced or pre-existing for each finding. Unknown correspondence may be preserved with an explicit marker/notice and same-turn repair instead of erasing the whole sentence.
+
+One bounded external CLI call for THIS NEW revision/request (no retry on invalid output/timeout). The normal queue still sees unresolved ARL-0004: this request is explicitly targeted by an operations runner in a new exclusive root, then evaluated with the unchanged validate_verdict_file; no queue/validator code is modified, no fabricated verdict is inserted for 0004. This dispatch is not a worker --once selection or development gate approval.
+Full immutable request/claim are retained. Request below is a compact view: all business mappings/all unique tests retained; inert historic archives summarized by per-manifest SHA/hash count after every byte is verified. Do not claim to have read omitted transcripts. Full nonarchive business diff/source and complete prior verdicts are present. Original trailing whitespace is preserved in verified archive files: all-path diff --check is nonzero, separate fresh code/docs and archive README/manifest checks must pass. No raw-byte cleaning is authorized.
+The handoff snapshots and inflight in the candidate describe the preceding hold; the product door states current implementation is pending frozen evidence and independent review. New frozen evidence was generated after the business commit, not retroactively approval. No merge, deployment, new finance model conversation, market fetch, or budget changes. judge=llm tests use a deterministic success stub and do not count as natural quality.
+Return one schema-2 verdict using supplied schema. Include every exact string in request.required_checks and all_unique_artifact_tests plus git_diff_check, artifact_hygiene, canonical_safety. Semantic check names are not executable commands; reason about code. Reviewed time may use preflight.created_at. Do not invent test counts.
+
+PRIOR INVALID OUTPUT (read only as leads, no authority):\\n{json.dumps(prior_invalid, ensure_ascii=False, indent=2)}
+""" + s[end:]
+s = s.replace("'cli_attempt': 2, 'prior_attempts_same_request': 1, 'prior_attempts_previous_requests': 4", "'cli_attempt': 1, 'prior_attempts_same_request': 0, 'prior_attempts_previous_requests': 6")
+s = s.replace("(RUN / 'review-prompt.txt').write_text(prompt)", "(RUN / 'review-prompt.txt').write_text(prompt)\nassert len(prompt.encode()) < 550000, 'context_preflight_stop_no_model_dispatch'")
+p = STATE / 'qc_repair_once.py'
+assert not p.exists()
+compile(s, str(p), 'exec')
+p.write_text(s)
+(STATE / 'adapter-provenance.json').write_text(json.dumps({'source':str(source),'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'new_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'queue_override':'explicit ARL-0005 operation, no worker or validator edits; ARL-0004 remains quarantined'},indent=2)+'\n')
+print(str(p))

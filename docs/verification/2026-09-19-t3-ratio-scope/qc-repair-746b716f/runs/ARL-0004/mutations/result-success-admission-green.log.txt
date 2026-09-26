@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/runs/ARL-0004/mutations/result-success-admission-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_frozen_nested_summary_is_not_success_or_derived_evidence or test_original_script_no_longer_claims_renderable_success"], "cwd": "/private/tmp/extraction-closeout-mutations-a1ybj3vq/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+..                                                                       [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/runs/ARL-0004/mutations/result-success-admission-green.xml -
+2 passed, 414 deselected in 1.03s
+
+STDERR:
+
+EXIT=0

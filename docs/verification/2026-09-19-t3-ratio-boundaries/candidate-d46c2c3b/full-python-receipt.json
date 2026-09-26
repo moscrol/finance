@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-q-research-data-readiness",
+  "revision": "d46c2c3b10221483c811426e99ad379314289871",
+  "branch": "q/research-data-readiness",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-q-research-data-readiness",
+  "counts": {
+    "passed": 12173,
+    "failed": 0,
+    "error": 0,
+    "skipped": 87
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-19T10:57:30+00:00"
+}

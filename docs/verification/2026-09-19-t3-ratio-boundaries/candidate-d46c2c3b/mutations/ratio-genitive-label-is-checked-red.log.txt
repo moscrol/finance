@@ -1,0 +1,90 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/ratio-genitive-label-is-checked-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_genitive_neighbor_binds_its_own_value"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-yckwbe8x/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+..FF..FF..FF..FF                                                         [100%]
+=================================== FAILURES ===================================
+________ test_genitive_neighbor_binds_its_own_value[\uff0c-1.588-0.288] ________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588，**2025中报**的含金量为待核对[E1]。
+E     ?                                    ^^^
+E     + **2026中报**含金量为1.588，**2025中报**的含金量为0.288[E1]。
+E     ?                                    ^^^^^
+________ test_genitive_neighbor_binds_its_own_value[\uff0c-0.289-1.588] ________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对，**2025中报**的含金量为待核对[E1]。
+E     ?                                  ^^^
+E     + **2026中报**含金量为待核对，**2025中报**的含金量为1.588[E1]。
+E     ?                                  ^^^^^
+________ test_genitive_neighbor_binds_its_own_value[\uff1b-1.588-0.288] ________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588；**2025中报**的含金量为待核对[E1]。
+E     ?                                    ^^^
+E     + **2026中报**含金量为1.588；**2025中报**的含金量为0.288[E1]。
+E     ?                                    ^^^^^
+________ test_genitive_neighbor_binds_its_own_value[\uff1b-0.289-1.588] ________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对；**2025中报**的含金量为待核对[E1]。
+E     ?                                  ^^^
+E     + **2026中报**含金量为待核对；**2025中报**的含金量为1.588[E1]。
+E     ?                                  ^^^^^
+__________ test_genitive_neighbor_binds_its_own_value[;-1.588-0.288] ___________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588;**2025中报**的含金量为待核对[E1]。
+E     ?                                    ^^^
+E     + **2026中报**含金量为1.588;**2025中报**的含金量为0.288[E1]。
+E     ?                                    ^^^^^
+__________ test_genitive_neighbor_binds_its_own_value[;-0.289-1.588] ___________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对;**2025中报**的含金量为待核对[E1]。
+E     ?                                  ^^^
+E     + **2026中报**含金量为待核对;**2025中报**的含金量为1.588[E1]。
+E     ?                                  ^^^^^
+_________ test_genitive_neighbor_binds_its_own_value[ vs -1.588-0.288] _________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为0.288[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为1.588 vs **2025中报**的含金量为待核对[E1]。
+E     ?                                       ^^^
+E     + **2026中报**含金量为1.588 vs **2025中报**的含金量为0.288[E1]。
+E     ?                                       ^^^^^
+_________ test_genitive_neighbor_binds_its_own_value[ vs -0.289-1.588] _________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:97: in test_genitive_neighbor_binds_its_own_value
+    assert remove_findings(draft, findings) == expected
+E   AssertionError: assert '**2026中报**含金...金量为1.588[E1]。' == '**2026中报**含金...的含金量为待核对[E1]。'
+E     
+E     - **2026中报**含金量为待核对 vs **2025中报**的含金量为待核对[E1]。
+E     ?                                     ^^^
+E     + **2026中报**含金量为待核对 vs **2025中报**的含金量为1.588[E1]。
+E     ?                                     ^^^^^
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/ratio-genitive-label-is-checked-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[\uff0c-1.588-0.288]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[\uff0c-0.289-1.588]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[\uff1b-1.588-0.288]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[\uff1b-0.289-1.588]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[;-1.588-0.288]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[;-0.289-1.588]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[ vs -1.588-0.288]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_genitive_neighbor_binds_its_own_value[ vs -0.289-1.588]
+8 failed, 8 passed, 585 deselected in 1.04s
+
+STDERR:
+
+EXIT=1

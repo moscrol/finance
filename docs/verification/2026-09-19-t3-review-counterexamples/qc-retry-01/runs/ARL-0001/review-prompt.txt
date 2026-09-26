@@ -1,0 +1,1728 @@
+You are claude:independent-reviewer, an external code falsification reviewer, NOT the producer.
+Review exact commit a2a3301963d11a073f511e1552b53daee7ecd704, parent d38dab3fea578f957794249a39d6b880d52f71f2. You have no tools and cannot edit anything.
+An isolated worker verified request identity and independently ran the mechanical checks below.
+The request is a finite research-delivery repair, not a review-loop implementation or a release to production.
+Inspect the COMPLETE changed diff and relevant unchanged call path context, not just test results.
+
+Problem: rejecting a false 'empty search -> no company disclosures' inference used to delete an independently sourced fact and citation if connected with a comma. This patch separates sentence-wide detection context from the rejected assertion spans; ratio prose similarly marks only bad numbers/units as unverified.
+Try to falsify: independent fact/citation retention with different punctuation and conjunctions; false inferences still rejected; honest qualifiers/conditional hypotheses remain; raw Markdown coordinate mapping; multi-findings merging; same-turn repair unchanged/timeout/budget exhausted/final projection; no tests or gates weakened merely to pass. Describe concrete input/path for any issue and whether introduced or pre-existing. Do not assume finite Chinese regex is a general grammar parser. A semantic counterexample may block even if the tests pass.
+
+Scope honesty: this is static code review plus independently executed scripted checks, NOT real model-answer acceptance. The judge=llm tests use a deterministic success stub. No model-backed finance conversation is in these receipts. Neither a PASS nor these receipts grants deployment or broader T3 natural-quality acceptance.
+Return one schema-2 verdict using the supplied schema. Include every exact string in request.required_checks and every unique artifact test path plus git_diff_check, artifact_hygiene, canonical_safety. The first two required check names with scripts refer to independently executed probes; other semantic check names must be judged from code, not claimed to be commands. PASS only if all required checks are justified and no high severity issue exists. Ordinary defects => CHANGES_REQUIRED; do not use BLOCKED for ordinary defects. Reviewed time can use preflight.created_at (timezone-aware). Do not invent test counts. Findings can include lower-severity limitations without hiding them.
+
+REQUEST:
+{
+  "artifact_tests": {
+    ".claude/lessons_learned.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "docs/agent-product-door.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "docs/handoffs/inflight/q-research-data-readiness.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "intelligence/services/research_delivery_checks.py": [
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "intelligence/tests/test_research_delivery_repair.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "intelligence/tests/test_research_delivery_retention.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "scripts/review_probes/research_delivery_mutations.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "scripts/review_probes/run_extraction_mutations.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ]
+  },
+  "artifacts": [
+    ".claude/lessons_learned.md",
+    "docs/agent-product-door.md",
+    "docs/handoffs/inflight/q-research-data-readiness.md",
+    "intelligence/services/research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_repair.py",
+    "intelligence/tests/test_research_delivery_retention.py",
+    "scripts/review_probes/research_delivery_mutations.json",
+    "scripts/review_probes/run_extraction_mutations.py"
+  ],
+  "branch": "q/research-data-readiness",
+  "commit": "a2a3301963d11a073f511e1552b53daee7ecd704",
+  "created_at": "2026-09-19T13:16:31.863558+08:00",
+  "depends_on": [],
+  "intensity": "milestone",
+  "parent_commit": "d38dab3fea578f957794249a39d6b880d52f71f2",
+  "producer": "codex:producer",
+  "required_checks": [
+    "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases",
+    "scripts/review_probes/run_extraction_mutations.py:research-delivery",
+    "reject_false_inference_and_retain_independent_fact",
+    "keep_raw_markdown_coordinates_and_ratio_neighbors",
+    "same_turn_repair_and_final_projection",
+    "no_gate_weakening_no_natural_quality_overclaim"
+  ],
+  "review_id": "ARL-0001",
+  "schema_version": 3,
+  "scope": "T3 finite repair: sentence-context detection and narrow rejected-claim edits; preserve independently sourced facts/citations and ratio prose neighbors. Not natural model-answer acceptance, not deployment.",
+  "status": "ready",
+  "supersedes": null
+}
+CLAIM:
+{
+  "commit": "a2a3301963d11a073f511e1552b53daee7ecd704",
+  "producer": "codex:producer",
+  "request_sha256": "f788d85a8717eb73aa5d33476317ea4e9ae85def9fc1084213908fb9c69646be",
+  "review_id": "ARL-0001",
+  "schema_version": 1,
+  "submitted_at": "2026-09-19T13:16:31.863558+08:00"
+}
+INDEPENDENT PREFLIGHT:
+{
+  "revision": "a2a3301963d11a073f511e1552b53daee7ecd704",
+  "request_sha256": "f788d85a8717eb73aa5d33476317ea4e9ae85def9fc1084213908fb9c69646be",
+  "tests": [
+    "intelligence/tests/test_frozen_research_delivery.py",
+    "intelligence/tests/test_research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_repair.py",
+    "intelligence/tests/test_research_delivery_retention.py"
+  ],
+  "checks": {
+    "artifact-tests": {
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_frozen_research_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_research_delivery_retention.py"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/worktrees/review-ARL-0001",
+      "output_tail": "........................................................................ [ 45%]\n........................................................................ [ 90%]\n...............                                                          [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T062225Z-a2a33019.json\n\n159 passed in 2.00s\n"
+    },
+    "git-diff-check": {
+      "exit_code": 0,
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "d38dab3fea578f957794249a39d6b880d52f71f2..a2a3301963d11a073f511e1552b53daee7ecd704"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/worktrees/review-ARL-0001",
+      "output_tail": ""
+    },
+    "original-fact-retention-probe": {
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/check_delivery_fact_retention.py",
+        "--code-root",
+        "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/registry-pinned/finance-workspace-private",
+        "--expect-revision",
+        "a2a3301963d11a073f511e1552b53daee7ecd704"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/registry-pinned/finance-workspace-private",
+      "output_tail": "-repair/candidate-a2a33019/registry-pinned/finance-workspace-private\",\n    \"revision\": \"a2a3301963d11a073f511e1552b53daee7ecd704\",\n    \"status\": \"\",\n    \"source_sha256\": {\n      \"intelligence/services/research_delivery_checks.py\": \"b50152bf2f2af6d0996a31cd135b865539365ef2cdedfca0b1dd2d87f64c3b96\",\n      \"intelligence/services/episode_semantic_verifier.py\": \"45b148646faad0fc323a47b5bbb1647bdd955a47ae863e9537902a7d9f14d888\",\n      \"intelligence/tests/test_episode_semantic_verifier.py\": \"68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff\"\n    }\n  },\n  \"target_unchanged\": true,\n  \"cases\": [\n    {\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"separator\": \"。\",\n      \"draft\": \"中报原文披露了收入[E1]。但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]。但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"separator\": \"；\",\n      \"draft\": \"中报原文披露了收入[E1]；但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]；但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"off\",\n      \"judge_stubbed\": false,\n      \"separator\": \"，\",\n      \"draft\": \"中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]，但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"separator\": \"。\",\n      \"draft\": \"中报原文披露了收入[E1]。但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]。但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"separator\": \"；\",\n      \"draft\": \"中报原文披露了收入[E1]；但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]；但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    },\n    {\n      \"judge_mode\": \"llm\",\n      \"judge_stubbed\": true,\n      \"separator\": \"，\",\n      \"draft\": \"中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。\",\n      \"public_answer\": \"中报原文披露了收入[E1]，但查询返回空白。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\",\n      \"status\": \"partial\",\n      \"checks\": {\n        \"fixture_structurally_complete\": true,\n        \"false_inference_rejected\": true,\n        \"independent_fact_retained\": true,\n        \"explicit_citation_retained\": true,\n        \"bound_evidence_retained\": true,\n        \"original_evidence_unchanged\": true,\n        \"coverage_gap_explained\": true,\n        \"failure_not_upgraded\": true,\n        \"local_check_exercised\": true,\n        \"final_recheck_idempotent\": true\n      },\n      \"passed\": true\n    }\n  ],\n  \"status\": \"passed\",\n  \"passed\": 6,\n  \"failed\": 0\n}\n"
+    },
+    "research-delivery-mutations": {
+      "exit_code": 0,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/run_extraction_mutations.py",
+        "--suite",
+        "research-delivery",
+        "--revision",
+        "a2a3301963d11a073f511e1552b53daee7ecd704",
+        "--output",
+        "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/runs/ARL-0001/mutations"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/worktrees/review-ARL-0001",
+      "output_tail": "very_retention\", \"name\": \"test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b**\\\\u91d1\\\\u91cf**\\\\u4e3a1.587\\\\u3002\\\\n\\\\u5176\\\\u4ed6\\\\u4e8b\\\\u5b9e\\\\u53ef\\\\u6838[E2]\\\\u3002-\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b**\\\\u91d1\\\\u91cf**\\\\u4e3a\\\\u5f85\\\\u6838\\\\u5bf9\\\\u3002\\\\n\\\\u5176\\\\u4ed6\\\\u4e8b\\\\u5b9e\\\\u53ef\\\\u6838[E2]\\\\u3002]\", \"message\": \"AssertionError: assert '其他事实可核[E2]。' == '收入可核[E1]，202...\\\\n其他事实可核[E2]。'\\n  \\n  - 收入可核[E1]，2026中报含**金量**为待核对。\\n    其他事实可核[E2]。\"}, {\"class\": \"intelligence.tests.test_research_delivery_retention\", \"name\": \"test_ratio_prose_retention_reaches_verifier_exit[off]\", \"message\": \"AssertionError: assert '收入可核[E1]' in '部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。'\\n +  where '部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer\"}, {\"class\": \"intelligence.tests.test_research_delivery_retention\", \"name\": \"test_ratio_prose_retention_reaches_verifier_exit[llm]\", \"message\": \"AssertionError: assert '收入可核[E1]' in '部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。'\\n +  where '部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer\"}]}\n{\"label\": \"ratio-prose-local-value-green\", \"exit\": 0, \"executed\": 9, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\n{\"label\": \"ratio-prose-raw-coordinates-red\", \"exit\": 1, \"executed\": 7, \"failures\": 4, \"errors\": 0, \"skipped\": 0, \"failed_cases\": [{\"class\": \"intelligence.tests.test_research_delivery_retention\", \"name\": \"test_ratio_prose_replaces_only_bad_value_not_its_neighbors[**\\\\u6536\\\\u5165\\\\u53ef\\\\u6838**[E1]\\\\uff0c**2026\\\\u4e2d\\\\u62a5**\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a**1.587**\\\\uff0c\\\\u5229\\\\u6da6\\\\u53ef\\\\u6838[E2]\\\\u3002-**\\\\u6536\\\\u5165\\\\u53ef\\\\u6838**[E1]\\\\uff0c**2026\\\\u4e2d\\\\u62a5**\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a**\\\\u5f85\\\\u6838\\\\u5bf9**\\\\uff0c\\\\u5229\\\\u6da6\\\\u53ef\\\\u6838[E2]\\\\u3002]\", \"message\": \"AssertionError: assert '**收入可核**[E1]...7**，利润可核[E2]。' == '**收入可核**[E1]...对**，利润可核[E2]。'\\n  \\n  - **收入可核**[E1]，**2026中报**含金量为**待核对**，利润可核[E2]。\\n  ?                    ^^  -     ^^^\\n  + **收入可核**[E1]，**2026待核对**金量为**1.587**，利润可核[E2]。\\n  ?                    ^^^       ^^^^^\"}, {\"class\": \"intelligence.tests.test_research_delivery_retention\", \"name\": \"test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a**158.7**%\\\\uff0c\\\\u5229\\\\u6da6\\\\u53ef\\\\u6838[E2]\\\\u3002-\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a**\\\\u5f85\\\\u6838\\\\u5bf9**\\\\uff0c\\\\u5229\\\\u6da6\\\\u53ef\\\\u6838[E2]\\\\u3002]\", \"message\": \"AssertionError: assert '收入可核[E1]，202...**%，利润可核[E2]。' == '收入可核[E1]，202...对**，利润可核[E2]。'\\n  \\n  - 收入可核[E1]，2026中报含金量为**待核对**，利润可核[E2]。\\n  ?                    --\\n  + 收入可核[E1]，2026中报含金量为待核对**7**%，利润可核[E2]。\\n  ?                         ++++\"}, {\"class\": \"intelligence.tests.test_research_delivery_retention\", \"name\": \"test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a`1.587\\\\u500d`\\\\uff0c\\\\u5229\\\\u6da6\\\\u53ef\\\\u6838[E2]\\\\u3002-\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b\\\\u91d1\\\\u91cf\\\\u4e3a`\\\\u5f85\\\\u6838\\\\u5bf9`\\\\uff0c\\\\u5229\\\\u6da6\\\\u53ef\\\\u6838[E2]\\\\u3002]\", \"message\": \"AssertionError: assert '收入可核[E1]，202...`倍`，利润可核[E2]。' == '收入可核[E1]，202...核对`，利润可核[E2]。'\\n  \\n  - 收入可核[E1]，2026中报含金量为`待核对`，利润可核[E2]。\\n  ?                    -\\n  + 收入可核[E1]，2026中报含金量为待核对`倍`，利润可核[E2]。\\n  ?                       ++\"}, {\"class\": \"intelligence.tests.test_research_delivery_retention\", \"name\": \"test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b**\\\\u91d1\\\\u91cf**\\\\u4e3a1.587\\\\u3002\\\\n\\\\u5176\\\\u4ed6\\\\u4e8b\\\\u5b9e\\\\u53ef\\\\u6838[E2]\\\\u3002-\\\\u6536\\\\u5165\\\\u53ef\\\\u6838[E1]\\\\uff0c2026\\\\u4e2d\\\\u62a5\\\\u542b**\\\\u91d1\\\\u91cf**\\\\u4e3a\\\\u5f85\\\\u6838\\\\u5bf9\\\\u3002\\\\n\\\\u5176\\\\u4ed6\\\\u4e8b\\\\u5b9e\\\\u53ef\\\\u6838[E2]\\\\u3002]\", \"message\": \"AssertionError: assert '收入可核[E1]，202...\\\\n其他事实可核[E2]。' == '收入可核[E1]，202...\\\\n其他事实可核[E2]。'\\n  \\n  - 收入可核[E1]，2026中报含**金量**为待核对。\\n  ?                    ----\\n  + 收入可核[E1]，2026中报含**金待核对**.587。\\n  ?                       ++++++\\n    其他事实可核[E2]。\"}]}\n{\"label\": \"ratio-prose-raw-coordinates-green\", \"exit\": 0, \"executed\": 7, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\n{\"label\": \"restored-full\", \"exit\": 0, \"executed\": 182, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"failed_cases\": []}\nPreparing worktree (detached HEAD a2a33019)\n"
+    }
+  },
+  "changed_paths": [
+    ".claude/lessons_learned.md",
+    "docs/agent-product-door.md",
+    "docs/handoffs/inflight/q-research-data-readiness.md",
+    "intelligence/services/research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_repair.py",
+    "intelligence/tests/test_research_delivery_retention.py",
+    "scripts/review_probes/research_delivery_mutations.json",
+    "scripts/review_probes/run_extraction_mutations.py"
+  ],
+  "forbidden_paths": [],
+  "created_at": "2026-09-19T06:23:08.103886+00:00"
+}
+FULL DIFF:
+diff --git a/.claude/lessons_learned.md b/.claude/lessons_learned.md
+index a99ff922..a8b9b6b2 100644
+--- a/.claude/lessons_learned.md
++++ b/.claude/lessons_learned.md
+@@ -2,10 +2,16 @@
+ 
+ > 格式：`[日期] 错误 → 根因 → 正确做法`
+ 
+ ## 研究数据送达
+ 
++- **[2026-09-19] T3原工程全绿，但逗号把可信事实与错误推断连成一句后，局部门删掉整句和引用。**
++  根因：判断使用整句上下文，执行删除也错误复用了整句坐标；句号夹具遮住了失败。
++  做法：检测窗口与修改范围分开；公告推断只删错误分句，比例正文只将错值/单位标待核对，保持原文坐标与Markdown。
++  同样输入只换标点，成对验坏推断被拒/好事实与引用保留，再压同会话续修、超时、额度耗尽与末次投影；私有原件还在不等于用户收到了。
++  首轮新增回归49F/61P先留红，修复后重验；收据与最终范围见本枝后续交接，不用旧11681P替新代码签字。
++
+ - **[2026-09-18] 财报工具报12条成功，实为6条数据加表头；现金流已取但进不了计算器。**
+   根因：按展示行计额度；补真行后模型又看不到机器字段，只剩裸数字。
+   做法：同批结构化行选证据、指标词典补主体/口径/单位，经过真实预算投影测试；财报期名也保留。
+   日期、行额度、字段送达三处撤保护分别5F/1F/1F，固定d77383ac全量11522P。
+   真模型仍把产物1.588抄成1.587，嵌套summary也未展示：数据可消费不等于答案可靠，未上线。
+diff --git a/docs/agent-product-door.md b/docs/agent-product-door.md
+index db868342..35e0df2a 100644
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@ -66,12 +66,14 @@
+ 检查摘要标量、表格行列、图序列和可展示内容；嵌套摘要、丢单元格或空产物返回
+ `invalid_result_contract`，不铸派生证据。错误同时进入模型观察与审计（限定复用
+ R5 `dfd7b4ff` 的状态投影，不代表已整合 R5 财报选期及其祖先修复）。旧失败原件不改写。
+ 
+ 公开答案出口再做有限的确定性检查：有公告查询记录时，显式“查询失败/空白→没有公告”
+-推断移除并留缺口，可信邻句保留；单公司、明确报告期/指标的现金流净利比率与实际产物
+-逐格对账，错格标“待核对”，不删同一行的现金流/利润，也不替模型改写成正确数。
++推断移除并留缺口：整句仅供判断上下文，删除限于错误分句，逗号/转折连接的独立事实及引用
++也保留。单公司、明确报告期/指标的现金流净利比率与实际产物逐格对账，错格标“待核对”；
++正文只替换错误数值及其单位，保留原期别、格式、其他数值与引用，不删同一行的现金流/利润，
++也不替模型改写成正确数。这是有限显式断言的定位修补，不代表任意自然句法都已识别。
+ 缺少所称计算产物时不认证比率；现有回合修复与原预算继续生效，judge off 也不跳过。
+ 修复请求附固定错因；有原预算余量且获准才续修，耗尽仍带缺口交付，不扩大额度。
+ 同一槽内保留正文仍引用且原已绑定的证据卡，不把局部缺口扩成整槽引用丢失；最终
+ 公开投影再检查，不将旧草稿或修复超时恢复成未经检查的答案。
+ 这些有限句式/表格检查不是通用语义裁判：跨公司、隐含期别、公式正确性、任意脚本实际
+diff --git a/docs/handoffs/inflight/q-research-data-readiness.md b/docs/handoffs/inflight/q-research-data-readiness.md
+index abe9d51b..eda29c3b 100644
+--- a/docs/handoffs/inflight/q-research-data-readiness.md
++++ b/docs/handoffs/inflight/q-research-data-readiness.md
+@@ -1,30 +1,31 @@
+-# T3 合流 QC · 2026-09-19
++# T3 合流返修 · 2026-09-19
+ 
+ ## 这个分支做什么
+-接续已有T3整合候选，不另开热点实现线。用户授权执行：先保全shim，全部门禁通过才合；红项即停。
++接续已有T3整合线修QC发现的误删，不另开热点实现线。全部门禁通过才合；部署另办。
+ 
+ ## 当前状态
+-**blocked，未合main/未部署。** 被审业务d12bd0b1，已含基线b22ddf8b；本轮只增加QC探针/证据/交接，不改业务。shim已在Gitea `salvage/opc-shims-20260919@1cc7fb14`按原字节封存，不合该枝。
+-**P1反例**：`中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。` 误删可信事实和引用；换句号/分号则保留。真实verifier出口6例4P/2F、exit1（judge off与成功替身均中招）。
+-详情：`docs/handoffs/2026-09-19-t3-convergence-qc.md`；证据：`docs/verification/2026-09-19-t3-convergence/`。
++用户“继续”后已修局部删除：整句用于上下文判断，仅删错误公告分句；比率正文只将错值/单位标待核对并保原文坐标、格式与邻值。未合main/未部署。
++当前提交冻结修复与回归，**完整门禁/撤保护复验待跑**，旧收据不得替新代码签字。
++首个QC证据d38dab3f、被审旧业务d12含main b22；档案 `docs/verification/2026-09-19-t3-convergence/` 保持原字节。shim封存枝不动。
+ 
+ ## 决策与被否方案
+-- 原字节档案封存shim，否覆盖源码，防把旧备份装成实现；不清原树。
+-- registry钉三仓版本，否旧KB扫描覆盖新登记；保留首红。
+-- 行为反例红即停合，否用全量绿替未覆盖行为签字；本轮不代修。
++- 否直接按逗号切检测窗口：会丢查询空白→错误结论的跨分句上下文。
++- 识别与修改范围分离；比率只标待核对，否删整句/静默填正确数字。
++- 扩原回归与变异runner，不造第二预算/判官/取数链。
++- registry钉三仓，否用旧KB重扫覆盖；历史首红不翻写。
+ 
+ ## 未验证 / 已知边界
+-自然回答仍not_passed，本轮0模型/0新取数；没有真实conversations续修、金融完整性或部署验收。GLM flash/5.3兜底已获较新授权，别沿旧handoff等待GPT Keychain。
+-比率正文同类误删未出结论；T4/T2公共保稿行为未裁决。8792、夜跑、KB防写均未动，T5/T1等未继续。
++自然回答仍not_passed，本轮0模型/0新取数。有限显式句式/单公司期别比率检查不是通用句法或事实证明；T4/T2公共保稿行为未裁决。
++8792、夜跑、KB防写均未动，T5/T1未继续。GLM flash/5.3兜底已有较新授权，别等待旧GPT Keychain。
+ 
+ ## 下一步
+-1. 在本整合线修错误断言删除粒度，同时保正文/引用；别只换反例标点、放宽条件或xfail。
+-2. `scripts/review_probes/check_delivery_fact_retention.py --code-root <干净修复树> --expect-revision <完整SHA>` 须从2F转全绿，再验既有反例/同会话续修/最终投影。
+-3. 新业务SHA重新完整门禁与QC。旧收据不为新提交或main作保；全部通过才按授权合入，部署另办。
++1. 在干净冻结SHA跑全量Python/Ruff、前端四项、E2E、固定三仓registry/crosswalk；新旧反例及research-delivery17组撤保护复验。
++2. 原 `check_delivery_fact_retention.py --code-root <干净树> --expect-revision <完整SHA>` 不改题/断言，应6P。
++3. 通过后回写真实收据，独立复核与固定条件自然回答另验。无结论不合；生产切换另授权。
+ 
+ ## 已验证
+-已有d12干净Python全量11681P/85S/2x与Ruff0：收据20260919T025205Z-d12bd0b1.json已核身份/依赖/漂移0，非本轮重跑。
+-本轮定向174P、前端110P与lint/typecheck/build0，E2E34P/2S；固定finance d12/KB1254224be/site f606583三仓registry四项+crosswalk0，前后干净。原宿主registry1因旧rag-query保留不翻写。反例脚本ruff通过、行为exit1。
++返修前新增回归49F/61P；初修157P，扩大定向546P，补转折前缀边界后局部152P。均为本地脏树迭代，不作冻结全量收据。Ruff与diff检查通过。
++旧QC：d12已有11681P/85S/2x，前端110P/E2E34P2S、定向174P，固定三仓registry通过；逗号反例4P/2F阻合。旧数字不认证本次代码。
+ 
+ ## 踩过的坑
+-默认registry扫同级仓；KB旧主树不等于gitea/main。最新174P收据是定向非全量。`_CLAUSE`不切逗号，判错尾部却删整句；私有证据仍在不等于公开正文交付仍在。
++错误检测用的上下文不是可删范围；格式移除后的坐标不能用于原文。私有证据尚存≠公开事实/引用尚存。默认registry读同级旧仓；测试receipt latest可能是定向或并发别树，按精确路径/SHA核。
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 40139282..51473cbf 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -33,10 +33,49 @@ _SEARCH_GAP = re.compile(
+ )
+ _ABSENCE = re.compile(r"(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告|(?:新增)?官方信息差|尚未兑现|没有兑现")
+ _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
+ _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
+ _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
++# Keep raw offsets: deleting formatting before locating edits corrupts spans.
++_ASSERTION_PART = re.compile(r"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)")
++
++
++def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
++    """Sentence context establishes the inference; only its bad parts are removed.
++
++    Merge adjacent rejected parts before choosing one separator to remove. Keep
++    the separator between surviving parts and the original sentence terminator.
++    Formatting/citations in a surviving part are never reconstructed.
++    """
++    parts = list(_ASSERTION_PART.finditer(raw))
++    rejected = []
++    for part in parts:
++        value = re.sub(r"[*_`]+", "", part.group("claim"))
++        rejected.append(bool(
++            _ABSENCE.search(value) and _INFERENCE.search(value) and not _UNKNOWN.search(value)
++        ))
++    spans = []
++    i = 0
++    while i < len(parts):
++        if not rejected[i]:
++            i += 1
++            continue
++        first = i
++        while i + 1 < len(parts) and rejected[i + 1]:
++            i += 1
++        start, end = parts[first].start("claim"), parts[i].end("claim")
++        if i + 1 < len(parts):
++            end = parts[i + 1].start("claim")  # also remove the following separator
++        elif first:
++            start = parts[first - 1].end("claim")  # final run: remove preceding separator
++            if raw[-1:] in {"。", "！", "？", "；", ";"}:
++                end -= 1
++        if first == 0:
++            start = 0  # include any leading conjunction of the rejected run
++        spans.append((start, end))
++        i += 1
++    return tuple(spans)
+ 
+ 
+ def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> tuple[DeliveryFinding, ...]:
+     """Flag explicit inference from a search gap, not all negative prose.
+ 
+@@ -52,20 +91,19 @@ def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> t
+     findings = []
+     for clause in _CLAUSE.finditer(text):
+         value = re.sub(r"[*_`]+", "", clause.group())
+         if not _ABSENCE.search(value) or not _INFERENCE.search(value):
+             continue
+-        # Scope disclaimers to their own comma clause, not the whole sentence.
+-        # '不能查全，但无公告即...' must not inherit the first clause's exemption.
+-        tails = re.split(r"[,，]|但是|但", value)
+-        assertions = [p for p in tails if _ABSENCE.search(p) and _INFERENCE.search(p)]
+-        if not assertions or all(_UNKNOWN.search(p) for p in assertions):
+-            continue
++        # Search context may live in a different comma part. Do not split the
++        # detection window, but don't revoke independent neighbors when editing.
+         search_claim = bool(_SEARCH_GAP.search(value))
+         collapsed_gap = incomplete and bool(re.search(r"(?:窗口|期间|期内|本期).*无.*公告.*即无", value))
+         if search_claim or collapsed_gap:
+-            findings.append(DeliveryFinding(clause.start(), clause.end(), "disclosure_absence_inference"))
++            findings.extend(
++                DeliveryFinding(clause.start() + start, clause.start() + end, "disclosure_absence_inference")
++                for start, end in _rejected_assertion_spans(clause.group())
++            )
+     return tuple(findings)
+ 
+ 
+ _PERIOD = re.compile(
+     r"20\d{2}-\d{2}-\d{2}|20\d{2}\s*年?\s*(?:半年度报告|年度报告|半年报|一季报|三季报|"
+@@ -135,10 +173,24 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
+                 ratio = obs.value / 100 if "%" in column or "百分比" in column else obs.value
+                 products.setdefault(period, set()).add(ratio)
+     return products
+ 
+ 
++def _prose_value_finding(
++    raw: str, start: int, end: int, *, offset: int, code: str,
++) -> DeliveryFinding:
++    """Map an unformatted numeric token back to raw text, retaining Markdown.
++
++    Exclude a trailing percent/multiple unit too. Formatting that wraps the
++    value (possibly inside the unit) is preserved, not rebuilt from plain text.
++    """
++    positions = [i for i, char in enumerate(raw) if char not in "*`"]
++    raw_start, raw_end = positions[start], positions[end - 1] + 1
++    marks = "".join(char for char in raw[raw_start:raw_end] if char in "*`")
++    return DeliveryFinding(offset + raw_start, offset + raw_end, code, "待核对" + marks)
++
++
+ def calculation_copy_findings(
+     text: str, evidence: Sequence[AgentEvidence], *, calculation_required: bool = False,
+ ) -> tuple[DeliveryFinding, ...]:
+     """Compare explicit period+ratio cells/prose to that period's actual product.
+ 
+@@ -197,24 +249,29 @@ def calculation_copy_findings(
+                 value = re.sub(r"[*`]+", "", clause.group())
+                 for period_match in _PERIOD.finditer(value):
+                     tail = value[period_match.end():]
+                     ratio = _RATIO_NAME.match(tail.lstrip())
+                     if ratio is not None:
+-                        remainder = tail.lstrip()[ratio.end():]
++                        remainder_start = period_match.end() + len(tail) - len(tail.lstrip()) + ratio.end()
++                        remainder = value[remainder_start:]
+                     elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
+                           and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value[:period_match.start()])):
+                         # Explicitly labeled same-clause comparison, e.g.
+                         # '比率同期对照：2026中报1.588 vs 2025中报0.289'.
++                        remainder_start = period_match.end()
+                         remainder = tail
+                     else:
+                         continue
+                     number = re.match(rf"\s*(?:为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?", remainder)
+                     values = products.get(_period(period_match.group()) or "", set())
+                     code = failure_code(values, number[1], number[2] or "") if number else ""
+                     if code:
+-                        findings.append(DeliveryFinding(offset + clause.start(), offset + clause.end(), code))
+-                        break
++                        findings.append(_prose_value_finding(
++                            clause.group(), remainder_start + number.start(1),
++                            remainder_start + number.end(2 if number[2] else 1),
++                            offset=offset + clause.start(), code=code,
++                        ))
+         offset += len(line)
+     return tuple(findings)
+ 
+ 
+ def remove_findings(text: str, findings: Sequence[DeliveryFinding]) -> str:
+diff --git a/intelligence/tests/test_research_delivery_repair.py b/intelligence/tests/test_research_delivery_repair.py
+index 0dec175c..1ac13ad3 100644
+--- a/intelligence/tests/test_research_delivery_repair.py
++++ b/intelligence/tests/test_research_delivery_repair.py
+@@ -26,11 +26,11 @@ from intelligence.tests.test_research_delivery_checks import TABLE, _financial_e
+ 
+ 
+ @pytest.mark.parametrize("mode", ["off", "llm"])
+ @pytest.mark.parametrize("repair_result", ["unchanged", "corrected", "timeout"])
+ @pytest.mark.parametrize("window", ["reserved", "exhausted", "root_expired"])
+-@pytest.mark.parametrize("case", ["disclosure", "calculation"])
++@pytest.mark.parametrize("case", ["disclosure", "disclosure_comma", "calculation", "calculation_prose"])
+ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+     monkeypatch, mode, repair_result, window, case
+ ):
+     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+     reserve = window != "exhausted"
+@@ -66,11 +66,11 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+         source="fixture",
+         source_date="2026-09-17",
+         content_hash="repair-input",
+     )
+ 
+-    inputs = (evidence,) if case == "disclosure" else (evidence, *_financial_evidence())
++    inputs = (evidence,) if case.startswith("disclosure") else (evidence, *_financial_evidence())
+ 
+     def fetch(query, _context):
+         fetched.append(query)
+         return (
+             list(inputs),
+@@ -92,13 +92,18 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+     )
+     requests = []
+     repair_inputs = []
+     bad = "已核实中报收入。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。"
+     good = "已核实中报收入。[E1]。公告来源仅部分返回，不能据此断言公司没有公告。"
+-    if case == "calculation":
++    if case == "disclosure_comma":
++        bad = "已核实中报收入[E1]，但查询返回空白，因此公司没有公告。"
++    elif case == "calculation":
+         bad = "已核实中报收入。[E1]。\n" + TABLE
+         good = bad.replace("1.587", "1.588")
++    elif case == "calculation_prose":
++        bad = "已核实中报收入[E1]，2026中报含金量为1.587，2025中报含金量为0.289。"
++        good = bad.replace("1.587", "1.588")
+ 
+     def run(request):
+         requests.append(request)
+         if len(requests) == 1:
+             request.tools[0].invoke("fixture")
+@@ -158,11 +163,11 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+     )
+     if can_repair:
+         assert len(repair_inputs) == 1
+         expected_note = (
+             "查询失败或空白不能推出没有公告"
+-            if case == "disclosure"
++            if case.startswith("disclosure")
+             else "按报告期及比率列重新对账"
+         )
+         assert any(
+             expected_note in note for note in repair_inputs[0]["unsupported_claims"]
+         )
+@@ -170,10 +175,11 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+         3 if reserve else 1
+     )
+     assert budget.allocated_calls == 1
+     assert budget.allocated_seconds <= budget.hard_seconds_cap
+     assert "窗口内无新公告即" not in result.answer
++    assert "因此公司没有公告" not in result.answer
+     assert "1.587" not in result.answer
+     if window == "root_expired":
+         # The root expires BEFORE any semantic verification. No trusted answer
+         # exists yet; do not silently authenticate the unverified first draft.
+         assert result.status == "degraded" and "核验未完成" in result.answer
+@@ -182,13 +188,13 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+         return
+     assert result.private_artifact["runtime_handle"]["state"] == "closed"
+     assert "已核实中报收入" in result.answer
+     assert "[E1]" in result.answer
+     assert {c["title"] for c in result.citations} == {evidence.title}
+-    if case == "calculation":
+-        assert "1.587" not in result.answer
+-        assert "706.91" in result.answer and "445.17" in result.answer
++    if case.startswith("calculation"):
++        if case == "calculation":
++            assert "706.91" in result.answer and "445.17" in result.answer
+         assert "0.289" in result.answer
+         assert (
+             "1.588" if can_repair and repair_result == "corrected" else "待核对"
+         ) in result.answer
+     assert result.status == (
+@@ -198,11 +204,12 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
+     # The preserved draft stays private on failed repair; it cannot be replayed
+     # directly to the user. No provider diagnostics belong in the public text.
+     assert "scripted repair failure" not in result.answer
+ 
+ 
+-def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch):
++@pytest.mark.parametrize("separator", ["。", "，", "但"])
++def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch, separator):
+     from intelligence.runtime import continuous_turn_adapter as adapter
+     from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
+     from intelligence.services.episode_session import CallbackEpisodeSession
+     from intelligence.services.agent_runtime import (
+         AgentOutcome,
+@@ -262,11 +269,11 @@ def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch):
+ 
+     # Adversarial seam injection, not a natural calendar/model behavior.
+     monkeypatch.setattr(
+         adapter,
+         "_with_calendar_disclosure",
+-        lambda text, frame: text + "窗口内无新公告即无新增官方信息差。",
++        lambda text, frame: text.rstrip("。") + separator + "窗口内无新公告即无新增官方信息差。",
+     )
+     result = ContinuousTurnAdapter(
+         runtime=Runtime(),
+         runtime_name="sdk_gpt",
+         mode="on",
+diff --git a/intelligence/tests/test_research_delivery_retention.py b/intelligence/tests/test_research_delivery_retention.py
+new file mode 100644
+index 00000000..07abbafd
+--- /dev/null
++++ b/intelligence/tests/test_research_delivery_retention.py
+@@ -0,0 +1,210 @@
++"""Deletion is narrower than detection context; real exits must retain good claims."""
++
++from dataclasses import replace
++
++import pytest
++
++from intelligence.services.episode_semantic_verifier import (
++    SemanticEpisodeVerifier,
++    recheck_material_public_delivery,
++)
++from intelligence.services.research_contract import ResearchDeadline
++from intelligence.services.research_delivery_checks import (
++    calculation_copy_findings,
++    disclosure_absence_findings,
++    remove_findings,
++)
++from intelligence.tests.test_episode_semantic_verifier import _structural
++from intelligence.tests.test_research_delivery_checks import TRACE, _financial_evidence
++
++
++@pytest.mark.parametrize(
++    "draft,good,bad",
++    [
++        (
++            "中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。",
++            ("中报原文披露了收入[E1]", "查询返回空白"),
++            ("因此公司没有公告",),
++        ),
++        (
++            "收入已披露[E1],但查询为空,所以公司没有公告,利润可核[E2]。",
++            ("收入已披露[E1]", "查询为空", "利润可核[E2]"),
++            ("所以公司没有公告",),
++        ),
++        (
++            "查询空白因此没有公告[E9]，收入已披露[E1]。",
++            ("收入已披露[E1]",),
++            ("没有公告", "[E9]"),
++        ),
++        (
++            "收入已披露[E1]但窗口内无新公告即无新增官方信息差。",
++            ("收入已披露[E1]",),
++            ("窗口内无新公告",),
++        ),
++        (
++            "收入已披露[E1]但是窗口内无新公告即无新增官方信息差。",
++            ("收入已披露[E1]",),
++            ("窗口内无新公告",),
++        ),
++        (
++            "但查询空白因此没有公告[E9]。",
++            (),
++            ("但", "没有公告", "[E9]", "。"),
++        ),
++        (
++            "但是窗口内无新公告即无新增官方信息差，利润可核[E1]。",
++            ("利润可核[E1]",),
++            ("窗口内无新公告", "是利润"),
++        ),
++        (
++            "**收入**已披露[E1]，查询空白，因此__公司没有公告__[E9]，利润仍可核[E2]。",
++            ("**收入**已披露[E1]", "利润仍可核[E2]"),
++            ("公司没有公告", "[E9]", "__"),
++        ),
++        (
++            "收入可核[E1]，查询空白，因此没有公告，所以尚未兑现。",
++            ("收入可核[E1]", "查询空白"),
++            ("因此没有公告", "所以尚未兑现"),
++        ),
++        (
++            "因此没有公告，查询空白，所以尚未兑现，利润可核[E2]。",
++            ("查询空白", "利润可核[E2]"),
++            ("因此没有公告", "所以尚未兑现"),
++        ),
++        (
++            "无法完整查询，但窗口内无新公告即无新增官方信息差，利润可核[E1]。",
++            ("无法完整查询", "利润可核[E1]"),
++            ("窗口内无新公告即",),
++        ),
++        (
++            "查询空白，因此没有公告，不能据此证明尚未兑现。",
++            ("查询空白", "不能据此证明尚未兑现"),
++            ("因此没有公告",),
++        ),
++    ],
++)
++def test_disclosure_edit_spans_preserve_unrelated_raw_text(draft, good, bad):
++    findings = disclosure_absence_findings(draft, (TRACE,))
++    assert findings
++    kept = remove_findings(draft, findings)
++    assert all(item in kept for item in good)
++    assert all(item not in kept for item in bad)
++    assert not kept.endswith(("，", ",", "但", "但是"))
++    assert disclosure_absence_findings(kept, (TRACE,)) == ()
++    # Only spans reported by the detector are ever changed.
++    assert all(0 <= f.start < f.end <= len(draft) for f in findings)
++
++
++@pytest.mark.parametrize(
++    "draft",
++    [
++        "收入已披露[E1]，查询为空，但不能证明公司没有公告。",
++        "‘查询空白即可证明没有公告’是错误推断，不成立。",
++        "若公司确实无新公告，则研究重点转向已披露信息。",
++        "收入已披露[E1]，无法完整查询，不能据此断言公司尚未兑现。",
++    ],
++)
++def test_honest_qualifiers_still_survive(draft):
++    assert disclosure_absence_findings(draft, (TRACE,)) == ()
++    assert remove_findings(draft, ()) == draft
++
++
++@pytest.mark.parametrize("separator", ["。", "；", "，", ",", "但", "但是"])
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation(
++    monkeypatch, separator, mode
++):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = f"中报原文披露了收入[E1]{separator}窗口内无新公告即无新增官方信息差。"
++    frame, structural = _structural(
++        draft, detail="中报原文披露了收入。", traces=(TRACE,)
++    )
++    result = SemanticEpisodeVerifier(
++        judge_fn=lambda request: {
++            "passed": True, "rejected_sentence_indexes": [], "issues": [],
++        }
++    ).verify(
++        frame=frame, structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(10),
++    )
++    assert "中报原文披露了收入[E1]" in result.public_answer
++    assert "窗口内无新公告即" not in result.public_answer
++    assert result.status == "partial" and result.gap_output_ids
++    assert result.delivery_retained_evidence_hashes == (
++        structural.outcome.evidence[0].content_hash,
++    )
++    assert result.verified.outcome.draft == draft
++    assert result.verified.outcome.evidence == structural.outcome.evidence
++    assert recheck_material_public_delivery(result) == result
++
++
++@pytest.mark.parametrize(
++    "draft,expected",
++    [
++        (
++            "收入可核[E1]，2026中报含金量为1.587，2025中报含金量为0.289。",
++            "收入可核[E1]，2026中报含金量为待核对，2025中报含金量为0.289。",
++        ),
++        (
++            "**收入可核**[E1]，**2026中报**含金量为**1.587**，利润可核[E2]。",
++            "**收入可核**[E1]，**2026中报**含金量为**待核对**，利润可核[E2]。",
++        ),
++        (
++            "收入可核[E1]，2026中报含金量为**158.7**%，利润可核[E2]。",
++            "收入可核[E1]，2026中报含金量为**待核对**，利润可核[E2]。",
++        ),
++        (
++            "收入可核[E1]，2026中报含金量为`1.587倍`，利润可核[E2]。",
++            "收入可核[E1]，2026中报含金量为`待核对`，利润可核[E2]。",
++        ),
++        (
++            "比率同期对照：2026中报1.587 vs 2025中报0.289，收入可核[E1]。",
++            "比率同期对照：2026中报待核对 vs 2025中报0.289，收入可核[E1]。",
++        ),
++        (
++            "比率同期对照：2026中报1.587 vs 2025中报0.288，收入可核[E1]。",
++            "比率同期对照：2026中报待核对 vs 2025中报待核对，收入可核[E1]。",
++        ),
++        (
++            "收入可核[E1]，2026中报含**金量**为1.587。\n其他事实可核[E2]。",
++            "收入可核[E1]，2026中报含**金量**为待核对。\n其他事实可核[E2]。",
++        ),
++    ],
++)
++def test_ratio_prose_replaces_only_bad_value_not_its_neighbors(draft, expected):
++    findings = calculation_copy_findings(draft, _financial_evidence())
++    assert findings
++    kept = remove_findings(draft, findings)
++    assert kept == expected
++    assert calculation_copy_findings(kept, _financial_evidence()) == ()
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_ratio_prose_retention_reaches_verifier_exit(monkeypatch, mode):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = "收入可核[E1]，2026中报含金量为1.587，2025中报含金量为0.289。"
++    frame, structural = _structural(draft)
++    structural = replace(
++        structural,
++        outcome=replace(
++            structural.outcome,
++            evidence=(*structural.outcome.evidence, *_financial_evidence()),
++        ),
++    )
++    result = SemanticEpisodeVerifier(
++        judge_fn=lambda request: {
++            "passed": True, "rejected_sentence_indexes": [], "issues": [],
++        }
++    ).verify(
++        frame=frame, structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(10),
++    )
++    assert "收入可核[E1]" in result.public_answer
++    assert "2025中报含金量为0.289" in result.public_answer
++    assert "待核对" in result.public_answer and "1.587" not in result.public_answer
++    assert result.status == "partial" and result.gap_output_ids
++    assert result.delivery_retained_evidence_hashes == (
++        structural.outcome.evidence[0].content_hash,
++    )
++    assert result.verified.outcome.evidence == structural.outcome.evidence
++    assert recheck_material_public_delivery(result) == result
+diff --git a/scripts/review_probes/research_delivery_mutations.json b/scripts/review_probes/research_delivery_mutations.json
+index 99ab345a..42a1b564 100644
+--- a/scripts/review_probes/research_delivery_mutations.json
++++ b/scripts/review_probes/research_delivery_mutations.json
+@@ -87,7 +87,35 @@
+     "id": "missing-product-not-certified",
+     "path": "intelligence/services/research_delivery_checks.py",
+     "old": "    require_product = calculation_required or bool(re.search(r\"计算编号\\s*[0-9a-f]{16}\", text))",
+     "new": "    require_product = False",
+     "targets": ["test_missing_and_conflicting_products_are_not_certified_by_numeric_presence", "test_old_empty_product_cannot_support_claimed_calculator_ratios"]
++  },
++  {
++    "id": "disclosure-narrow-edit-span",
++    "path": "intelligence/services/research_delivery_checks.py",
++    "old": "DeliveryFinding(clause.start() + start, clause.start() + end, \"disclosure_absence_inference\")",
++    "new": "DeliveryFinding(clause.start(), clause.end(), \"disclosure_absence_inference\")",
++    "targets": ["test_disclosure_edit_spans_preserve_unrelated_raw_text", "test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation"]
++  },
++  {
++    "id": "disclosure-keep-sentence-context",
++    "path": "intelligence/services/research_delivery_checks.py",
++    "old": "        search_claim = bool(_SEARCH_GAP.search(value))",
++    "new": "        search_claim = bool(_SEARCH_GAP.search(re.split(r'[,，]', value)[-1]))",
++    "targets": ["test_disclosure_edit_spans_preserve_unrelated_raw_text"]
++  },
++  {
++    "id": "ratio-prose-local-value",
++    "path": "intelligence/services/research_delivery_checks.py",
++    "old": "return DeliveryFinding(offset + raw_start, offset + raw_end, code, \"待核对\" + marks)",
++    "new": "return DeliveryFinding(offset, offset + len(raw), code)",
++    "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors", "test_ratio_prose_retention_reaches_verifier_exit"]
++  },
++  {
++    "id": "ratio-prose-raw-coordinates",
++    "path": "intelligence/services/research_delivery_checks.py",
++    "old": "    raw_start, raw_end = positions[start], positions[end - 1] + 1",
++    "new": "    raw_start, raw_end = start, end",
++    "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors"]
+   }
+ ]
+diff --git a/scripts/review_probes/run_extraction_mutations.py b/scripts/review_probes/run_extraction_mutations.py
+index 0ed2f7d5..617f8bcd 100644
+--- a/scripts/review_probes/run_extraction_mutations.py
++++ b/scripts/review_probes/run_extraction_mutations.py
+@@ -35,10 +35,11 @@ DEFINITIONS = "scripts/review_probes/extraction_mutations.json"
+ SUITES = {
+     "extraction": (TESTS, DEFINITIONS),
+     "research-delivery": ([
+         "intelligence/tests/test_calculation_result_delivery.py",
+         "intelligence/tests/test_research_delivery_checks.py",
++        "intelligence/tests/test_research_delivery_retention.py",
+         "intelligence/tests/test_research_delivery_repair.py",
+         "intelligence/tests/test_frozen_research_delivery.py",
+     ], "scripts/review_probes/research_delivery_mutations.json"),
+ }
+ 
+
+SOURCE CONTEXT:
+{
+  "intelligence/services/research_delivery_checks.py": "\"\"\"Finite, deterministic checks at the *delivered-text* boundary.\n\nNot a general semantic judge: catches explicit absence-from-search inferences\nand period-labeled OCF/net-profit ratio transcription. Never fetches, executes\nscripts, rewrites numbers or infers source completeness. A match withholds its\nclause or replaces its bad cell with a gap; unrelated facts survive.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom collections.abc import Sequence\nfrom dataclasses import dataclass\nfrom datetime import date\nfrom decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN\n\nfrom intelligence.services.agent_research import AgentEvidence\nfrom intelligence.services.provider_observability import ProviderTrace, provider_trace_tool_name\n\n\n@dataclass(frozen=True)\nclass DeliveryFinding:\n    start: int\n    end: int\n    code: str\n    replacement: str = \"\"\n\n\n# The search outcome is NOT an assertion about the company's real-world state.\n# A failure elsewhere does not revoke an independently sourced company statement.\n_SEARCH_GAP = re.compile(\n    r\"(?:查询|检索|搜索|接口|返回|清单|列表|抓取).{0,32}\"\n    r\"(?:失败|空白|为空|无结果|无记录|未返回|不完整|空集|未找到|查不到|没有结果)\"\n)\n_ABSENCE = re.compile(r\"(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告|(?:新增)?官方信息差|尚未兑现|没有兑现\")\n_INFERENCE = re.compile(r\"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无\")\n_UNKNOWN = re.compile(r\"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断\")\n_CLAUSE = re.compile(r\"[^。！？；;\\n]+[。！？；;]?\")\n# Keep raw offsets: deleting formatting before locating edits corrupts spans.\n_ASSERTION_PART = re.compile(r\"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)\")\n\n\ndef _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:\n    \"\"\"Sentence context establishes the inference; only its bad parts are removed.\n\n    Merge adjacent rejected parts before choosing one separator to remove. Keep\n    the separator between surviving parts and the original sentence terminator.\n    Formatting/citations in a surviving part are never reconstructed.\n    \"\"\"\n    parts = list(_ASSERTION_PART.finditer(raw))\n    rejected = []\n    for part in parts:\n        value = re.sub(r\"[*_`]+\", \"\", part.group(\"claim\"))\n        rejected.append(bool(\n            _ABSENCE.search(value) and _INFERENCE.search(value) and not _UNKNOWN.search(value)\n        ))\n    spans = []\n    i = 0\n    while i < len(parts):\n        if not rejected[i]:\n            i += 1\n            continue\n        first = i\n        while i + 1 < len(parts) and rejected[i + 1]:\n            i += 1\n        start, end = parts[first].start(\"claim\"), parts[i].end(\"claim\")\n        if i + 1 < len(parts):\n            end = parts[i + 1].start(\"claim\")  # also remove the following separator\n        elif first:\n            start = parts[first - 1].end(\"claim\")  # final run: remove preceding separator\n            if raw[-1:] in {\"。\", \"！\", \"？\", \"；\", \";\"}:\n                end -= 1\n        if first == 0:\n            start = 0  # include any leading conjunction of the rejected run\n        spans.append((start, end))\n        i += 1\n    return tuple(spans)\n\n\ndef disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> tuple[DeliveryFinding, ...]:\n    \"\"\"Flag explicit inference from a search gap, not all negative prose.\n\n    Conditional 'if a query is empty, it proves no disclosure' is still an\n    invalid inference. 'If the company has no disclosures, then...' without a\n    query claim remains a hypothesis. Successful L3 lookups are not universe\n    completeness certificates either.\n    \"\"\"\n    disclosure_traces = [t for t in traces if provider_trace_tool_name(t) == \"l3_lookup\"]\n    if not disclosure_traces:\n        return ()  # not a blanket ban on examples in a methodology/critique answer\n    incomplete = any(t.status not in {\"success\", \"fallback_success\"} for t in disclosure_traces)\n    findings = []\n    for clause in _CLAUSE.finditer(text):\n        value = re.sub(r\"[*_`]+\", \"\", clause.group())\n        if not _ABSENCE.search(value) or not _INFERENCE.search(value):\n            continue\n        # Search context may live in a different comma part. Do not split the\n        # detection window, but don't revoke independent neighbors when editing.\n        search_claim = bool(_SEARCH_GAP.search(value))\n        collapsed_gap = incomplete and bool(re.search(r\"(?:窗口|期间|期内|本期).*无.*公告.*即无\", value))\n        if search_claim or collapsed_gap:\n            findings.extend(\n                DeliveryFinding(clause.start() + start, clause.start() + end, \"disclosure_absence_inference\")\n                for start, end in _rejected_assertion_spans(clause.group())\n            )\n    return tuple(findings)\n\n\n_PERIOD = re.compile(\n    r\"20\\d{2}-\\d{2}-\\d{2}|20\\d{2}\\s*年?\\s*(?:半年度报告|年度报告|半年报|一季报|三季报|\"\n    r\"一季度|二季度|三季度|四季度|中报|年报|上半年|前三季|H1|FY|Q[1-4])\", re.I,\n)\n_RATIO_NAME = re.compile(\n    r\"含金量|净现比|(?:OCF|经营(?:活动)?现金流(?:量)?(?:净额)?)[\\s_/(（÷]*\"\n    r\"(?:除以|对)?[\\s_]*(?:归母)?(?:净利(?:润)?|net[_ ]?profit)\", re.I,\n)\n_NUMBER = r\"[-+]?\\d+(?:\\.\\d+)?\"\n_NUMBER_CELL = re.compile(rf\"^\\s*({_NUMBER})\\s*(%|倍)?\\s*$\")\n\n\ndef _absolute_ratio_label(value: str) -> bool:\n    return bool(_RATIO_NAME.search(value)) and not re.search(r\"同比|环比|增速|变化|变动|差额|增量\", value)\n\n\ndef _period(value: str) -> str | None:\n    match = _PERIOD.search(value)\n    if not match:\n        return None\n    token = match.group()\n    try:\n        return date.fromisoformat(token).isoformat()\n    except ValueError:\n        from intelligence.services.market_financials import target_report_end_from_query\n        parsed = target_report_end_from_query(token)\n        return parsed.isoformat() if parsed else None\n\n\ndef _display_matches(raw: str, value: float, unit: str = \"\") -> bool:\n    \"\"\"Only declared precision rounding; not a tolerance over arbitrary numbers.\"\"\"\n    try:\n        displayed = Decimal(raw)\n        expected = Decimal(str(value)) * (100 if unit == \"%\" else 1)\n        return displayed == expected.quantize(Decimal(1).scaleb(displayed.as_tuple().exponent), rounding=ROUND_HALF_EVEN)\n    except (InvalidOperation, ValueError):\n        return False\n\n\ndef _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:\n    by_hash = {e.content_hash: e for e in evidence}\n    # Multiple companies need an explicit subject-bearing result contract; do\n    # not certify or reject one company's number using another company's set.\n    subjects = {o.subject for e in evidence for o in e.observations\n                if o.metric in {\"ocf_cum_yi\", \"net_profit_cum_yi\"}}\n    if len(subjects) != 1:\n        return {}\n    products: dict[str, set[float]] = {}\n    for item in evidence:\n        if item.tool != \"derived_calculation\" or not item.derived_from:\n            continue\n        inputs = [by_hash[h] for h in item.derived_from if h in by_hash]\n        metrics = {o.metric for e in inputs for o in e.observations}\n        if not {\"ocf_cum_yi\", \"net_profit_cum_yi\"} <= metrics:\n            continue\n        for obs in item.observations:\n            # For tables inspect the COLUMN, not a 'cash ratio' purpose/table\n            # name covering unrelated revenue columns. Row label supplies time.\n            column = obs.metric.rsplit(\".\", 1)[-1].split(\"[\", 1)[0]\n            if not _absolute_ratio_label(column):\n                continue\n            # A year in the table name must not override the row's report period.\n            label = obs.metric.rsplit(\"[\", 1)[-1].rstrip(\"]\") if \"[\" in obs.metric else obs.metric\n            period = _period(label)\n            if period and Decimal(str(obs.value)).is_finite():\n                ratio = obs.value / 100 if \"%\" in column or \"百分比\" in column else obs.value\n                products.setdefault(period, set()).add(ratio)\n    return products\n\n\ndef _prose_value_finding(\n    raw: str, start: int, end: int, *, offset: int, code: str,\n) -> DeliveryFinding:\n    \"\"\"Map an unformatted numeric token back to raw text, retaining Markdown.\n\n    Exclude a trailing percent/multiple unit too. Formatting that wraps the\n    value (possibly inside the unit) is preserved, not rebuilt from plain text.\n    \"\"\"\n    positions = [i for i, char in enumerate(raw) if char not in \"*`\"]\n    raw_start, raw_end = positions[start], positions[end - 1] + 1\n    marks = \"\".join(char for char in raw[raw_start:raw_end] if char in \"*`\")\n    return DeliveryFinding(offset + raw_start, offset + raw_end, code, \"待核对\" + marks)\n\n\ndef calculation_copy_findings(\n    text: str, evidence: Sequence[AgentEvidence], *, calculation_required: bool = False,\n) -> tuple[DeliveryFinding, ...]:\n    \"\"\"Compare explicit period+ratio cells/prose to that period's actual product.\n\n    Does not prove the product's formula or that its script read the inputs.\n    Conflicting products remain unverifiable. No bag-of-numbers matching: the\n    same numeric token in another period/metric cannot certify this claim.\n    \"\"\"\n    subjects = {o.subject for e in evidence for o in e.observations\n                if o.metric in {\"ocf_cum_yi\", \"net_profit_cum_yi\"}}\n    if len(subjects) != 1:\n        return ()\n    products = _ratio_products(evidence)\n    require_product = calculation_required or bool(re.search(r\"计算编号\\s*[0-9a-f]{16}\", text))\n    if not products and not require_product:\n        return ()\n\n    def failure_code(values: set[float], raw: str, unit: str) -> str:\n        if len(values) != 1:\n            return \"calculation_value_unverified\" if require_product or values else \"\"\n        return \"\" if _display_matches(raw, next(iter(values)), unit) else \"calculation_value_mismatch\"\n\n    findings: list[DeliveryFinding] = []\n    ratio_columns: tuple[tuple[int, str], ...] = ()\n    period_column: int | None = None\n    offset = 0\n    for line in text.splitlines(keepends=True):\n        if line.lstrip().startswith(\"|\"):\n            cells = [re.sub(r\"[*`]+\", \"\", c.strip()) for c in line.strip().strip(\"|\").split(\"|\")]\n            headers = tuple((i, \"%\" if \"%\" in c or \"百分比\" in c else \"\")\n                            for i, c in enumerate(cells) if _absolute_ratio_label(c))\n            if headers:\n                ratio_columns = headers\n                period_column = next((i for i, c in enumerate(cells) if c in {\"报告期\", \"期间\", \"期别\"}), None)\n            elif period_column is not None and period_column < len(cells):\n                period = _period(cells[period_column])\n                values = products.get(period or \"\", set())\n                for index, header_unit in ratio_columns:\n                    match = _NUMBER_CELL.fullmatch(cells[index]) if index < len(cells) else None\n                    code = failure_code(values, match[1], match[2] or header_unit) if match and period else \"\"\n                    if code:\n                        # Remove only the incorrect cell, not the independent\n                        # OCF/profit facts in the same row. Never write a guessed\n                        # replacement number, even when a product exists.\n                        raw_cells = list(re.finditer(r\"(?<=\\|)[^|]*(?=\\|)\", line))\n                        if index < len(raw_cells):\n                            cell = raw_cells[index]\n                            findings.append(DeliveryFinding(\n                                offset + cell.start(), offset + cell.end(),\n                                code, \" 待核对 \",\n                            ))\n        else:\n            ratio_columns, period_column = (), None\n            # Prose needs an explicit ratio label locally. Broader semantic\n            # matching (e.g. ambiguous bare 1.588) stays with the existing judge.\n            for clause in _CLAUSE.finditer(line):\n                value = re.sub(r\"[*`]+\", \"\", clause.group())\n                for period_match in _PERIOD.finditer(value):\n                    tail = value[period_match.end():]\n                    ratio = _RATIO_NAME.match(tail.lstrip())\n                    if ratio is not None:\n                        remainder_start = period_match.end() + len(tail) - len(tail.lstrip()) + ratio.end()\n                        remainder = value[remainder_start:]\n                    elif (re.search(r\"(?:比率|净现比|含金量)[^。；;]*[:：]\", value[:period_match.start()])\n                          and not re.search(r\"同比|环比|增速|变化|变动|差额|增量\", value[:period_match.start()])):\n                        # Explicitly labeled same-clause comparison, e.g.\n                        # '比率同期对照：2026中报1.588 vs 2025中报0.289'.\n                        remainder_start = period_match.end()\n                        remainder = tail\n                    else:\n                        continue\n                    number = re.match(rf\"\\s*(?:为|是|=|：|:)?\\s*({_NUMBER})\\s*(%|倍)?\", remainder)\n                    values = products.get(_period(period_match.group()) or \"\", set())\n                    code = failure_code(values, number[1], number[2] or \"\") if number else \"\"\n                    if code:\n                        findings.append(_prose_value_finding(\n                            clause.group(), remainder_start + number.start(1),\n                            remainder_start + number.end(2 if number[2] else 1),\n                            offset=offset + clause.start(), code=code,\n                        ))\n        offset += len(line)\n    return tuple(findings)\n\n\ndef remove_findings(text: str, findings: Sequence[DeliveryFinding]) -> str:\n    \"\"\"Exact spans, not global replacements; no computed numbers are inserted.\"\"\"\n    spans: list[tuple[int, int, str]] = []\n    for f in sorted(set(findings), key=lambda f: (f.start, f.end)):\n        if spans and f.start < spans[-1][1]:\n            # Overlap may mix clause and cell checks. Conservatively omit the\n            # union rather than inserting one cell's label into unrelated prose.\n            spans[-1] = (spans[-1][0], max(spans[-1][1], f.end), \"\")\n        else:\n            spans.append((f.start, f.end, f.replacement))\n    for start, end, replacement in reversed(spans):\n        text = text[:start] + replacement + text[end:]\n    return text.strip()\n",
+  "intelligence/services/episode_semantic_verifier.py": "681: def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> SemanticEpisodeOutcome:\n682:     \"\"\"Final local checks also cover judge-off, rollback and retained answers.\n683: \n684:     Keep independently verified neighbors; feed local gaps to the EXISTING\n685:     bounded repair loop. This is not a second model, source or budget.\n686:     \"\"\"\n687:     from intelligence.services.research_delivery_checks import (\n688:         calculation_copy_findings, disclosure_absence_findings, remove_findings,\n689:     )\n690: \n691:     before = outcome.verified\n692:     contract = before.contract\n693:     if contract is None:\n694:         return outcome\n695:     findings = (\n696:         *disclosure_absence_findings(public, before.outcome.traces),\n697:         *calculation_copy_findings(\n698:             public, before.outcome.evidence,\n699:             calculation_required=bool(re.search(r\"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)\", contract.question)),\n700:         ),\n701:     )\n702:     if not findings:\n703:         return outcome\n704:     codes = tuple(dict.fromkeys(f.code for f in findings))\n705:     target_ids: set[str] = set()\n706:     if any(code.startswith(\"calculation_value_\") for code in codes):\n707:         target_ids.update((\"metric_evidence\", \"supporting_evidence\"))\n708:     if \"disclosure_absence_inference\" in codes:\n709:         target_ids.update((\"event_facts\", \"fact_value\", \"supporting_evidence\"))\n710:     evidence_ids = tuple(\n711:         item.output_id for item in contract.required_outputs\n712:         if item.required and item.grounding_mode == \"evidence\"\n713:     )\n714:     gap_ids = tuple(i for i in evidence_ids if i in target_ids)\n715:     if not gap_ids:\n716:         gap_ids = evidence_ids[:1]  # custom one-slot contracts; not every slot\n717:     # No model draft/provider diagnostics in these notices.\n718:     notices: list[str] = []\n719:     repair_notes: list[str] = []\n720:     if \"disclosure_absence_inference\" in codes:\n721:         notices.append(\"公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。\")\n722:         repair_notes.append(\"查询失败或空白不能推出没有公告、无新增信息或尚未兑现；删除此推断，保留已核实事实并说明覆盖缺口。\")\n723:     if \"calculation_value_mismatch\" in codes:\n724:         notices.append(\"部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。\")\n725:         repair_notes.append(\"按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。\")\n726:     if \"calculation_value_unverified\" in codes:\n727:         notices.append(\"部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。\")\n728:         repair_notes.append(\"所称计算结果缺少或冲突，不得声称已核算；按原权限补齐或明确留缺口，不手填结果。\")\n729:     repaired = remove_findings(public, findings)\n730:     repaired = \"\\n\\n\".join((repaired, *notices)).strip()\n731:     # Do not resurrect citations from earlier rejected slots. Only the slots\n732:     # newly gapped here may keep their bound, still explicitly cited evidence.\n733:     eligible_slots = {\n734:         item.output_id for item in before.completion.outputs\n735:         if item.status == \"fulfilled\" and item.output_id not in outcome.gap_output_ids\n736:     }\n737:     bound = {\n738:         h for binding in before.outcome.bindings if binding.output_id in eligible_slots\n739:         for h in binding.evidence_hashes\n740:     }\n741:     cited = set(cited_evidence_ordinals(repaired))\n742:     ordinals = evidence_ordinal_table(before.outcome.evidence)\n743:     retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)\n744:     issues = tuple(f\"code={code} :: delivered research claim failed local check\" for code in codes)\n745:     # Do not replace archived draft/evidence or mark the whole slot's facts as\n746:     # false. Public text + gap IDs carry the repair need, and status cannot rise.\n747:     return replace(\n748:         outcome,\n749:         public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=repaired)),\n750:         status=\"partial\" if outcome.status == \"completed\" else outcome.status,\n751:         judge_status=\"repaired\" if outcome.judge_status == \"passed\" else outcome.judge_status,\n752:         issues=tuple(dict.fromkeys((*outcome.issues, *issues))),\n753:         gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *gap_ids))),\n754:         repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *gap_ids))),\n755:         delivery_retained_evidence_hashes=tuple(dict.fromkeys((*outcome.delivery_retained_evidence_hashes, *retained))),\n756:         delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, *repair_notes))),\n757:     )\n\n760: def recheck_material_public_delivery(\n761:     outcome: SemanticEpisodeOutcome,\n762:     *,\n763:     projected: str | None = None,\n764: ) -> SemanticEpisodeOutcome:\n765:     \"\"\"Recheck actual delivery after every public projection, without upgrades.\n766: \n767:     A rollback may restore rejected prose; structural re-parsing cannot revoke\n768:     an earlier semantic rejection or an integrity issue. Full contracts keep\n769:     their existing presentation behavior.\n770: \n771:     ``projected`` is the caller's already-rendered public text (for example the\n772:     adapter's sanitized projection); the outcome's ``public_answer`` is only ever\n773:     re-emitted through ``view()``, the single public-text outlet.\n774:     \"\"\"\n775:     from intelligence.services.material_delivery import material_question_outputs, with_all_material_gaps_notice\n776: \n777:     public = outcome.public_answer if projected is None else projected\n778:     checked = _recheck_research_delivery(outcome, public)\n779:     # If the local check changed public text, don't restore the rejected caller\n780:     # projection below. Otherwise preserve the material sanitizer's input.\n781:     if checked is not outcome:\n782:         public = checked.public_answer\n783:     outcome = checked\n784:     before = outcome.verified\n785:     contract = before.contract\n786:     if contract is None or not material_question_outputs(contract):\n787:         if public == outcome.public_answer:\n788:             return outcome\n789:         ordinals = evidence_ordinal_table(before.outcome.evidence)\n790:         cited = set(cited_evidence_ordinals(public))\n791:         return replace(\n792:             outcome,\n793:             public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),\n794:             delivery_retained_evidence_hashes=tuple(\n795:                 h for h in outcome.delivery_retained_evidence_hashes if ordinals.get(h) in cited\n796:             ),\n797:         )\n798:     if outcome.judge_status == \"unavailable\":\n799:         # A review outage/structural early exit deliberately withholds the draft.\n800:         # That is not a writer omission: preserve its existing repair targets,\n801:         # retain pending_rejudge, and do not spend a rewrite to fix an outage.\n802:         return replace(\n803:             outcome,\n804:             public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),\n805:         )\n806:     verified = verify_episode_outcome(contract, replace(before.outcome, draft=public))\n807:     prior_missing = frozenset((*before.missing_outputs, *outcome.gap_output_ids))\n808:     prior_by_id = {item.output_id: item for item in before.completion.outputs}\n809:     outputs = tuple(\n810:         replace(item, status=\"missing\", evidence_ids=(), gap=prior_by_id[item.output_id].gap)\n811:         if item.output_id in prior_missing and item.output_id in prior_by_id\n812:         else item\n813:         for item in verified.completion.outputs\n814:     )\n815:     missing = tuple(dict.fromkeys((*before.missing_outputs, *verified.missing_outputs, *outcome.gap_output_ids)))\n816:     issues = tuple(dict.fromkeys((*before.issue_items, *verified.issue_items)))\n817:     verified = replace(\n818:         verified, issue_items=issues, missing_outputs=missing,\n819:         verified_status=(before.verified_status if before.verified_status != \"completed\" else verified.verified_status),\n820:         completion=replace(verified.completion, outputs=outputs),\n821:     )\n822:     if missing:\n823:         verified = replace(\n824:             verified, verified_status=\"failed\" if before.verified_status == \"failed\" else \"partial\",\n825:             completion=replace(verified.completion, status=\"partial\", factual_grounding=\"partial\", task_coverage=\"partial\", business_status=\"partial\"),\n826:         )\n827:     # Unsettled or rejected gaps must not keep a previously attached all-gap notice.\n828:     notice_bindings = verified.outcome.bindings if not missing and not issues else ()\n829:     public = with_all_material_gaps_notice(contract, public, notice_bindings)\n830:     return replace(\n831:         outcome, verified=verified,\n832:         public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),\n833:         status=\"partial\" if outcome.status == \"completed\" and not _contract_slots_all_fulfilled(verified) else outcome.status,\n834:         repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *missing))),\n835:         issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),\n836:     )",
+  "intelligence/tests/test_research_delivery_retention.py": "\"\"\"Deletion is narrower than detection context; real exits must retain good claims.\"\"\"\n\nfrom dataclasses import replace\n\nimport pytest\n\nfrom intelligence.services.episode_semantic_verifier import (\n    SemanticEpisodeVerifier,\n    recheck_material_public_delivery,\n)\nfrom intelligence.services.research_contract import ResearchDeadline\nfrom intelligence.services.research_delivery_checks import (\n    calculation_copy_findings,\n    disclosure_absence_findings,\n    remove_findings,\n)\nfrom intelligence.tests.test_episode_semantic_verifier import _structural\nfrom intelligence.tests.test_research_delivery_checks import TRACE, _financial_evidence\n\n\n@pytest.mark.parametrize(\n    \"draft,good,bad\",\n    [\n        (\n            \"中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。\",\n            (\"中报原文披露了收入[E1]\", \"查询返回空白\"),\n            (\"因此公司没有公告\",),\n        ),\n        (\n            \"收入已披露[E1],但查询为空,所以公司没有公告,利润可核[E2]。\",\n            (\"收入已披露[E1]\", \"查询为空\", \"利润可核[E2]\"),\n            (\"所以公司没有公告\",),\n        ),\n        (\n            \"查询空白因此没有公告[E9]，收入已披露[E1]。\",\n            (\"收入已披露[E1]\",),\n            (\"没有公告\", \"[E9]\"),\n        ),\n        (\n            \"收入已披露[E1]但窗口内无新公告即无新增官方信息差。\",\n            (\"收入已披露[E1]\",),\n            (\"窗口内无新公告\",),\n        ),\n        (\n            \"收入已披露[E1]但是窗口内无新公告即无新增官方信息差。\",\n            (\"收入已披露[E1]\",),\n            (\"窗口内无新公告\",),\n        ),\n        (\n            \"但查询空白因此没有公告[E9]。\",\n            (),\n            (\"但\", \"没有公告\", \"[E9]\", \"。\"),\n        ),\n        (\n            \"但是窗口内无新公告即无新增官方信息差，利润可核[E1]。\",\n            (\"利润可核[E1]\",),\n            (\"窗口内无新公告\", \"是利润\"),\n        ),\n        (\n            \"**收入**已披露[E1]，查询空白，因此__公司没有公告__[E9]，利润仍可核[E2]。\",\n            (\"**收入**已披露[E1]\", \"利润仍可核[E2]\"),\n            (\"公司没有公告\", \"[E9]\", \"__\"),\n        ),\n        (\n            \"收入可核[E1]，查询空白，因此没有公告，所以尚未兑现。\",\n            (\"收入可核[E1]\", \"查询空白\"),\n            (\"因此没有公告\", \"所以尚未兑现\"),\n        ),\n        (\n            \"因此没有公告，查询空白，所以尚未兑现，利润可核[E2]。\",\n            (\"查询空白\", \"利润可核[E2]\"),\n            (\"因此没有公告\", \"所以尚未兑现\"),\n        ),\n        (\n            \"无法完整查询，但窗口内无新公告即无新增官方信息差，利润可核[E1]。\",\n            (\"无法完整查询\", \"利润可核[E1]\"),\n            (\"窗口内无新公告即\",),\n        ),\n        (\n            \"查询空白，因此没有公告，不能据此证明尚未兑现。\",\n            (\"查询空白\", \"不能据此证明尚未兑现\"),\n            (\"因此没有公告\",),\n        ),\n    ],\n)\ndef test_disclosure_edit_spans_preserve_unrelated_raw_text(draft, good, bad):\n    findings = disclosure_absence_findings(draft, (TRACE,))\n    assert findings\n    kept = remove_findings(draft, findings)\n    assert all(item in kept for item in good)\n    assert all(item not in kept for item in bad)\n    assert not kept.endswith((\"，\", \",\", \"但\", \"但是\"))\n    assert disclosure_absence_findings(kept, (TRACE,)) == ()\n    # Only spans reported by the detector are ever changed.\n    assert all(0 <= f.start < f.end <= len(draft) for f in findings)\n\n\n@pytest.mark.parametrize(\n    \"draft\",\n    [\n        \"收入已披露[E1]，查询为空，但不能证明公司没有公告。\",\n        \"‘查询空白即可证明没有公告’是错误推断，不成立。\",\n        \"若公司确实无新公告，则研究重点转向已披露信息。\",\n        \"收入已披露[E1]，无法完整查询，不能据此断言公司尚未兑现。\",\n    ],\n)\ndef test_honest_qualifiers_still_survive(draft):\n    assert disclosure_absence_findings(draft, (TRACE,)) == ()\n    assert remove_findings(draft, ()) == draft\n\n\n@pytest.mark.parametrize(\"separator\", [\"。\", \"；\", \"，\", \",\", \"但\", \"但是\"])\n@pytest.mark.parametrize(\"mode\", [\"off\", \"llm\"])\ndef test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation(\n    monkeypatch, separator, mode\n):\n    monkeypatch.setenv(\"ASK_SEMANTIC_JUDGE\", mode)\n    draft = f\"中报原文披露了收入[E1]{separator}窗口内无新公告即无新增官方信息差。\"\n    frame, structural = _structural(\n        draft, detail=\"中报原文披露了收入。\", traces=(TRACE,)\n    )\n    result = SemanticEpisodeVerifier(\n        judge_fn=lambda request: {\n            \"passed\": True, \"rejected_sentence_indexes\": [], \"issues\": [],\n        }\n    ).verify(\n        frame=frame, structurally_verified=structural,\n        deadline=ResearchDeadline.from_timeout(10),\n    )\n    assert \"中报原文披露了收入[E1]\" in result.public_answer\n    assert \"窗口内无新公告即\" not in result.public_answer\n    assert result.status == \"partial\" and result.gap_output_ids\n    assert result.delivery_retained_evidence_hashes == (\n        structural.outcome.evidence[0].content_hash,\n    )\n    assert result.verified.outcome.draft == draft\n    assert result.verified.outcome.evidence == structural.outcome.evidence\n    assert recheck_material_public_delivery(result) == result\n\n\n@pytest.mark.parametrize(\n    \"draft,expected\",\n    [\n        (\n            \"收入可核[E1]，2026中报含金量为1.587，2025中报含金量为0.289。\",\n            \"收入可核[E1]，2026中报含金量为待核对，2025中报含金量为0.289。\",\n        ),\n        (\n            \"**收入可核**[E1]，**2026中报**含金量为**1.587**，利润可核[E2]。\",\n            \"**收入可核**[E1]，**2026中报**含金量为**待核对**，利润可核[E2]。\",\n        ),\n        (\n            \"收入可核[E1]，2026中报含金量为**158.7**%，利润可核[E2]。\",\n            \"收入可核[E1]，2026中报含金量为**待核对**，利润可核[E2]。\",\n        ),\n        (\n            \"收入可核[E1]，2026中报含金量为`1.587倍`，利润可核[E2]。\",\n            \"收入可核[E1]，2026中报含金量为`待核对`，利润可核[E2]。\",\n        ),\n        (\n            \"比率同期对照：2026中报1.587 vs 2025中报0.289，收入可核[E1]。\",\n            \"比率同期对照：2026中报待核对 vs 2025中报0.289，收入可核[E1]。\",\n        ),\n        (\n            \"比率同期对照：2026中报1.587 vs 2025中报0.288，收入可核[E1]。\",\n            \"比率同期对照：2026中报待核对 vs 2025中报待核对，收入可核[E1]。\",\n        ),\n        (\n            \"收入可核[E1]，2026中报含**金量**为1.587。\\n其他事实可核[E2]。\",\n            \"收入可核[E1]，2026中报含**金量**为待核对。\\n其他事实可核[E2]。\",\n        ),\n    ],\n)\ndef test_ratio_prose_replaces_only_bad_value_not_its_neighbors(draft, expected):\n    findings = calculation_copy_findings(draft, _financial_evidence())\n    assert findings\n    kept = remove_findings(draft, findings)\n    assert kept == expected\n    assert calculation_copy_findings(kept, _financial_evidence()) == ()\n\n\n@pytest.mark.parametrize(\"mode\", [\"off\", \"llm\"])\ndef test_ratio_prose_retention_reaches_verifier_exit(monkeypatch, mode):\n    monkeypatch.setenv(\"ASK_SEMANTIC_JUDGE\", mode)\n    draft = \"收入可核[E1]，2026中报含金量为1.587，2025中报含金量为0.289。\"\n    frame, structural = _structural(draft)\n    structural = replace(\n        structural,\n        outcome=replace(\n            structural.outcome,\n            evidence=(*structural.outcome.evidence, *_financial_evidence()),\n        ),\n    )\n    result = SemanticEpisodeVerifier(\n        judge_fn=lambda request: {\n            \"passed\": True, \"rejected_sentence_indexes\": [], \"issues\": [],\n        }\n    ).verify(\n        frame=frame, structurally_verified=structural,\n        deadline=ResearchDeadline.from_timeout(10),\n    )\n    assert \"收入可核[E1]\" in result.public_answer\n    assert \"2025中报含金量为0.289\" in result.public_answer\n    assert \"待核对\" in result.public_answer and \"1.587\" not in result.public_answer\n    assert result.status == \"partial\" and result.gap_output_ids\n    assert result.delivery_retained_evidence_hashes == (\n        structural.outcome.evidence[0].content_hash,\n    )\n    assert result.verified.outcome.evidence == structural.outcome.evidence\n    assert recheck_material_public_delivery(result) == result\n",
+  "intelligence/tests/test_research_delivery_repair.py": "\"\"\"Scripted SDK run through the existing adapter/repair budget, no network/model.\n\nNot a natural model success: confirms local delivery failures reopen the same\nturn and can't reappear through rollback when repair doesn't fix them.\n\"\"\"\n\nfrom dataclasses import replace\nimport json\nfrom uuid import uuid4\n\nimport pytest\n\nfrom intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter\nfrom intelligence.runtime.openai_agents_runtime import (\n    AgentsSdkResult,\n    OpenAIAgentsRuntime,\n)\nfrom intelligence.services.agent_research import AgentEvidence\nfrom intelligence.services.episode_factory import build_episode_context\nfrom intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier\nfrom intelligence.services.provider_observability import ProviderTrace\nfrom intelligence.services.research_contract import InMemoryRootBudgetLedger\nfrom intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec\nfrom intelligence.tests.test_continuous_turn_adapter import _control, _frame\nfrom intelligence.tests.test_research_delivery_checks import TABLE, _financial_evidence\n\n\n@pytest.mark.parametrize(\"mode\", [\"off\", \"llm\"])\n@pytest.mark.parametrize(\"repair_result\", [\"unchanged\", \"corrected\", \"timeout\"])\n@pytest.mark.parametrize(\"window\", [\"reserved\", \"exhausted\", \"root_expired\"])\n@pytest.mark.parametrize(\"case\", [\"disclosure\", \"disclosure_comma\", \"calculation\", \"calculation_prose\"])\ndef test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(\n    monkeypatch, mode, repair_result, window, case\n):\n    monkeypatch.setenv(\"ASK_SEMANTIC_JUDGE\", mode)\n    reserve = window != \"exhausted\"\n    can_repair = window == \"reserved\"\n    clock = {\"now\": 0.0}\n    monkeypatch.setattr(\n        \"intelligence.services.research_contract.time.monotonic\", lambda: clock[\"now\"]\n    )\n    monkeypatch.setattr(\n        \"intelligence.runtime.openai_agents_runtime.monotonic\", lambda: 0.0\n    )\n    frame = _frame()\n    control = _control(frame)\n    context = build_episode_context(\n        frame,\n        task_id=f\"delivery-repair-{uuid4().hex}\",\n        capabilities=control.capabilities,\n        timeout=30,\n    )\n    budget = InMemoryRootBudgetLedger(\n        episode_id=context.contract.task_id,\n        initial_calls=1,\n        hard_calls_cap=1,\n        initial_seconds=1,\n        hard_seconds_cap=3 if reserve else 1,\n    )\n    context = replace(context, root_budget=budget)\n    fetched = []\n    evidence = AgentEvidence(\n        tool=\"market_data\",\n        title=\"已取得的独立事实\",\n        detail=\"已核实中报收入，公告窗口覆盖仍不完整。\",\n        source=\"fixture\",\n        source_date=\"2026-09-17\",\n        content_hash=\"repair-input\",\n    )\n\n    inputs = (evidence,) if case.startswith(\"disclosure\") else (evidence, *_financial_evidence())\n\n    def fetch(query, _context):\n        fetched.append(query)\n        return (\n            list(inputs),\n            evidence.detail,\n            ProviderTrace(\"l3_lookup\", \"l3_lookup\", \"partial\", result_count=1),\n        )\n\n    registry = ResearchToolRegistry(\n        (\n            ToolSpec(\n                name=\"market_data\",\n                capability=\"market_data\",\n                description=\"fixture\",\n                cost=\"local\",\n                freshness=\"current\",\n                runner=fetch,\n            ),\n        )\n    )\n    requests = []\n    repair_inputs = []\n    bad = \"已核实中报收入。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\"\n    good = \"已核实中报收入。[E1]。公告来源仅部分返回，不能据此断言公司没有公告。\"\n    if case == \"disclosure_comma\":\n        bad = \"已核实中报收入[E1]，但查询返回空白，因此公司没有公告。\"\n    elif case == \"calculation\":\n        bad = \"已核实中报收入。[E1]。\\n\" + TABLE\n        good = bad.replace(\"1.587\", \"1.588\")\n    elif case == \"calculation_prose\":\n        bad = \"已核实中报收入[E1]，2026中报含金量为1.587，2025中报含金量为0.289。\"\n        good = bad.replace(\"1.587\", \"1.588\")\n\n    def run(request):\n        requests.append(request)\n        if len(requests) == 1:\n            request.tools[0].invoke(\"fixture\")\n            budget.consume_seconds(seconds=budget.remaining_seconds)\n            clock[\"now\"] = 121.0 if window == \"root_expired\" else 31.0\n        else:\n            assert request.tools == ()  # no extra lookup / tool grant\n            repair_input = json.loads(request.input)\n            assert repair_input[\"kind\"] == \"REPAIR_GOAL\"\n            assert repair_input[\"episode_id\"] == context.contract.task_id\n            assert repair_input[\"evidence\"][0][\"content_hash\"] == evidence.content_hash\n            assert repair_input[\"remaining_calls\"] == 0\n            repair_inputs.append(repair_input)\n            if repair_result == \"timeout\":\n                raise TimeoutError(\"scripted repair failure\")\n        return AgentsSdkResult(\n            json.dumps(\n                {\n                    \"status\": \"completed\",\n                    \"draft\": good\n                    if len(requests) > 1 and repair_result == \"corrected\"\n                    else bad,\n                    \"gaps\": [],\n                    \"bindings\": [\n                        {\n                            \"output_id\": \"direct_assessment\",\n                            \"evidence_hashes\": [evidence.content_hash],\n                            \"gap\": \"\",\n                        }\n                    ],\n                },\n                ensure_ascii=False,\n            ),\n            1,\n        )\n\n    result = ContinuousTurnAdapter(\n        runtime=OpenAIAgentsRuntime(\n            runner=run, backend=\"sdk_gpt\", model_name=\"scripted-test\"\n        ),\n        runtime_name=\"sdk_gpt\",\n        mode=\"on\",\n        timeout=120,\n        context_factory=lambda *a, **kw: context,\n        registry_factory=lambda *a, **kw: registry,\n        semantic_verifier=SemanticEpisodeVerifier(\n            judge_fn=lambda request: {\n                \"passed\": True,\n                \"rejected_sentence_indexes\": [],\n                \"issues\": [],\n            }\n        ),\n    ).handle(frame=frame, control=control)\n    assert len(fetched) == 1\n    assert len(requests) == (2 if can_repair else 1), result.private_artifact.get(\n        \"error\"\n    )\n    if can_repair:\n        assert len(repair_inputs) == 1\n        expected_note = (\n            \"查询失败或空白不能推出没有公告\"\n            if case.startswith(\"disclosure\")\n            else \"按报告期及比率列重新对账\"\n        )\n        assert any(\n            expected_note in note for note in repair_inputs[0][\"unsupported_claims\"]\n        )\n    assert budget.hard_calls_cap == 1 and budget.hard_seconds_cap == (\n        3 if reserve else 1\n    )\n    assert budget.allocated_calls == 1\n    assert budget.allocated_seconds <= budget.hard_seconds_cap\n    assert \"窗口内无新公告即\" not in result.answer\n    assert \"因此公司没有公告\" not in result.answer\n    assert \"1.587\" not in result.answer\n    if window == \"root_expired\":\n        # The root expires BEFORE any semantic verification. No trusted answer\n        # exists yet; do not silently authenticate the unverified first draft.\n        assert result.status == \"degraded\" and \"核验未完成\" in result.answer\n        assert result.private_artifact[\"repair_attempts\"] == 0\n        assert result.private_artifact[\"outcome\"][\"evidence\"]\n        return\n    assert result.private_artifact[\"runtime_handle\"][\"state\"] == \"closed\"\n    assert \"已核实中报收入\" in result.answer\n    assert \"[E1]\" in result.answer\n    assert {c[\"title\"] for c in result.citations} == {evidence.title}\n    if case.startswith(\"calculation\"):\n        if case == \"calculation\":\n            assert \"706.91\" in result.answer and \"445.17\" in result.answer\n        assert \"0.289\" in result.answer\n        assert (\n            \"1.588\" if can_repair and repair_result == \"corrected\" else \"待核对\"\n        ) in result.answer\n    assert result.status == (\n        \"completed\" if can_repair and repair_result == \"corrected\" else \"partial\"\n    )\n    assert result.private_artifact[\"repair_attempts\"] == int(can_repair)\n    # The preserved draft stays private on failed repair; it cannot be replayed\n    # directly to the user. No provider diagnostics belong in the public text.\n    assert \"scripted repair failure\" not in result.answer\n\n\n@pytest.mark.parametrize(\"separator\", [\"。\", \"，\", \"但\"])\ndef test_adapter_rechecks_nonmaterial_final_projection(monkeypatch, separator):\n    from intelligence.runtime import continuous_turn_adapter as adapter\n    from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome\n    from intelligence.services.episode_session import CallbackEpisodeSession\n    from intelligence.services.agent_runtime import (\n        AgentOutcome,\n        AgentUsage,\n        EpisodeEvent,\n        OutputEvidenceBinding,\n    )\n\n    frame = _frame()\n    control = _control(frame)\n    context = build_episode_context(\n        frame,\n        task_id=f\"delivery-projection-{uuid4().hex}\",\n        capabilities=control.capabilities,\n        timeout=30,\n    )\n    source = AgentEvidence(\n        tool=\"market_data\",\n        title=\"可信事实\",\n        detail=\"已核实中报收入。\",\n        source=\"fixture\",\n        content_hash=\"projection-input\",\n    )\n    outcome = AgentOutcome(\n        task_frame_hash=frame.task_frame_hash,\n        status=\"completed\",\n        draft=\"已核实中报收入。[E1]。\",\n        evidence=(source,),\n        traces=(ProviderTrace(\"l3_lookup\", \"l3_lookup\", \"partial\"),),\n        gaps=(),\n        stop_reason=\"model_finish\",\n        events=(EpisodeEvent(1, \"task\", {\"task_frame_hash\": frame.task_frame_hash}),),\n        bindings=(\n            OutputEvidenceBinding(\"direct_assessment\", (source.content_hash,), \"\"),\n        ),\n        usage=AgentUsage(),\n    )\n\n    class Runtime:\n        def start(self, frame, **kwargs):\n            return CallbackEpisodeSession(\n                episode_id=context.contract.task_id,\n                outcome=outcome,\n                resume_callback=lambda previous, goal: pytest.fail(\n                    \"no repair expected before final projection\"\n                ),\n            )\n\n    class Verifier:\n        def verify(self, *, structurally_verified, **kwargs):\n            return SemanticEpisodeOutcome(\n                verified=structurally_verified,\n                status=\"completed\",\n                public_answer=outcome.draft,\n                judge_status=\"passed\",\n            )\n\n    # Adversarial seam injection, not a natural calendar/model behavior.\n    monkeypatch.setattr(\n        adapter,\n        \"_with_calendar_disclosure\",\n        lambda text, frame: text.rstrip(\"。\") + separator + \"窗口内无新公告即无新增官方信息差。\",\n    )\n    result = ContinuousTurnAdapter(\n        runtime=Runtime(),\n        runtime_name=\"sdk_gpt\",\n        mode=\"on\",\n        context_factory=lambda *args, **kwargs: context,\n        registry_factory=lambda *args, **kwargs: ResearchToolRegistry(()),\n        semantic_verifier=Verifier(),\n    ).handle(frame=frame, control=control)\n    assert result.status == \"partial\", result.private_artifact\n    assert \"窗口内无新公告即\" not in result.answer\n    assert \"已核实中报收入\" in result.answer and result.citations\n"
+}
+REVIEW PROTOCOL (reference material, not a request to implement the plan):
+# Dual-Lane Producer/Reviewer Loop Design
+
+Date: 2026-07-26
+Status: approved direction; implementation pending
+Scope: local Finance Agent Runtime development only
+
+## 1. Objective
+
+Codex is the only code Producer. Claude is the preferred independent Reviewer.
+The loop must keep development moving when Claude is temporarily unavailable
+without letting Codex's self-review masquerade as independent approval.
+
+The design separates three authorities:
+
+1. **development authority**: permission to implement another bounded slice;
+2. **slice sealing authority**: independent confirmation that a slice is sound;
+3. **release authority**: permission to merge, cut over runtime, or publish.
+
+Producer self-review may provide the first authority only. External Claude
+review is required for the second and third.
+
+## 2. Non-goals
+
+- The loop does not merge `main`, switch canonical 8792, or push a release.
+- It does not weaken finance truth, verifier, task-fulfillment, benchmark, or
+  invalid-action gates.
+- It does not let a shell-only checker count as an LLM architecture review.
+- It does not make Claude and Codex edit the same worktree.
+- It does not run the frozen live benchmark except for `release` requests.
+- It does not make old, self-signed verdicts retroactively independent.
+
+## 3. Review states
+
+Each request has exactly one effective gate state:
+
+| State | Meaning | May develop next slice | May seal slice | May release |
+|---|---|---:|---:|---:|
+| `WAITING_EXTERNAL` | valid request, no valid verdict | no until SLA expires | no | no |
+| `EXTERNAL_PASS` | whitelisted independent PASS | yes | yes | only if release gate also passes |
+| `CHANGES_REQUIRED` | valid external findings | no | no | no |
+| `PROVISIONAL_PASS` | Producer fallback self-review | yes, bounded | no | no |
+| `BLOCKED` | same architecture conflict survives two repair reviews | no | no | no |
+| `INVALID` | provenance/schema/ancestry failure | no | no | no |
+
+`PROVISIONAL_PASS` is stored separately from official verdicts. It can never be
+upcast to `EXTERNAL_PASS` by renaming a field or copying a file.
+
+## 4. Identities and provenance
+
+### 4.1 Producer
+
+The Producer identity is `codex:producer`. Codex and all Codex subagents belong
+to the same independence class. A Codex subagent verdict is therefore a
+Producer self-review, not an external verdict.
+
+### 4.2 External reviewer whitelist
+
+The first whitelist contains only:
+
+```text
+claude:independent-reviewer
+```
+
+Adding an identity requires a separate protocol-only review. Reviewer labels
+that merely contain `claude` are not accepted; the exact configured identity
+must match.
+
+### 4.3 Commit ancestry
+
+A verdict is effective only when all conditions hold:
+
+- verdict review ID matches the request;
+- verdict commit exactly matches the immutable request commit;
+- the request commit exists;
+- the request commit is an ancestor of the current Producer branch tip;
+- the request file hash still equals the hash recorded when the worker claimed
+  it;
+- the reviewer identity is allowed for the requested authority.
+
+A PASS for an abandoned commit is retained as historical evidence but grants no
+current development, sealing, or release authority.
+
+## 5. Request contract
+
+The first machine-generated requests use schema version 2. After the first
+external falsification cycle, new requests use schema version 3 with the same
+public fields plus a stricter invariant: `artifacts` must cover every path in
+`parent_commit..commit`. Existing schema-2 history remains valid and immutable.
+An artifact may exist at either end of that review range, so deleted files are
+declared and reviewable instead of making the contract unsatisfiable.
+
+The request shape is:
+
+```json
+{
+  "schema_version": 2,
+  "review_id": "ARL-0016",
+  "commit": "full sha",
+  "parent_commit": "full sha",
+  "branch": "feat/agent-runtime-backends-verify",
+  "producer": "codex:producer",
+  "scope": "one independently testable slice",
+  "artifacts": ["..."],
+  "artifact_tests": {"path/to/x.py": ["path/to/test_x.py"]},
+  "required_checks": ["..."],
+  "depends_on": ["ARL-0015"],
+  "supersedes": null,
+  "intensity": "light|milestone|release",
+  "created_at": "ISO-8601",
+  "status": "ready"
+}
+```
+
+The submitter writes through one helper. The helper resolves the commit,
+discovers required tests, validates dependencies, writes atomically, and stores
+the request SHA-256. Hand-written schema-2 requests are rejected by the gate if
+the mechanical fields do not match recomputation.
+
+For a superseding repair, the helper follows the complete `supersedes` chain
+to its first failed request. The repair's `parent_commit` is that root
+request's parent, not the latest dependency commit. Its artifact union covers
+every request from the root finding through the latest dependency. Therefore
+the external reviewer sees the complete tainted diff, including intermediate
+requests that were developed provisionally. A later repair of a failed repair
+retains the same review root.
+The helper also carries the union of all non-`repair:*` required checks in that
+range. A combined repair PASS can seal only slices whose artifacts and checks
+were both present in the external review manifest.
+
+## 6. Mechanical artifact-to-test coverage
+
+For every Python artifact, the submit helper and reviewer independently search:
+
+1. `intelligence/services/X.py -> intelligence/tests/test_X.py`;
+2. `package/X.py -> package/tests/test_X.py`;
+3. tests importing the changed module, discovered with exact `rg` import hits;
+4. test files changed in `parent_commit..commit`.
+
+Every existing direct test must appear in `artifact_tests` and the reviewer run
+manifest. Missing tests make the request `INVALID`; they cannot be waived by
+omitting them from `required_checks`.
+
+Nonstandard mappings require an explicit waiver containing a reason and a
+Reviewer finding. Waivers are forbidden for gate/verifier/budget/session
+modules.
+
+## 7. External reviewer worker
+
+The worker:
+
+1. acquires a single-instance lock;
+2. selects the oldest valid frontier request;
+3. freezes the request file hash;
+4. verifies the commit is on the current Producer branch;
+5. creates a detached worktree at the exact commit;
+6. invokes `claude -p` with read-only repository tools and write access only to
+   the verdict destination;
+7. runs mechanical artifact tests plus request checks;
+8. validates the returned JSON before publishing it atomically;
+9. removes the detached worktree;
+10. records success, inactivity, budget exhaustion, or transport failure.
+
+Budget exhaustion is not retried immediately. The worker applies exponential
+backoff and emits `REVIEWER_INACTIVE`. This prevents the existing infinite
+`Exceeded USD budget` retry loop.
+
+## 8. Producer fallback lane
+
+### 8.1 Entry
+
+Fallback is eligible when no valid external verdict exists and one of these is
+observable:
+
+- Claude exits with a budget, authentication, transport, or usage-limit error;
+- the worker is inactive;
+- the external-review SLA expires.
+
+Initial SLA: 15 minutes for `light`, 30 minutes for `milestone`. Release requests
+have no fallback SLA and always wait for external review.
+
+### 8.2 Self-review
+
+The Producer runs a separate Codex invocation in a detached worktree. It must
+run the same mechanical tests and falsification checklist as Claude. The result
+is stored under `provisional-verdicts/` with reviewer class
+`producer_fallback`.
+
+### 8.3 Speculation limit
+
+At most two unsealed slices may exist after the latest externally sealed
+commit. A third request is denied until Claude catches up. This bounds repair
+debt while keeping work moving through short outages.
+
+If Claude later returns `CHANGES_REQUIRED` for a provisionally passed ancestor:
+
+- Producer stops creating new slices;
+- descendants are marked `TAINTED_BY_ANCESTOR_FINDING`;
+- Producer fixes forward without rewriting published request/verdict history;
+- all tainted descendants require new external review.
+
+## 9. Producer gate
+
+Before editing the next slice, the Producer runs one gate command. The command
+returns a machine-readable decision containing:
+
+- current branch and tip;
+- latest valid external sealed commit;
+- pending request;
+- external/provisional verdict status;
+- provisional depth;
+- allowed next action: `WAIT`, `FIX`, `IMPLEMENT_NEXT`, or `RELEASE_CHECK`;
+- reasons and invalid provenance records.
+
+The Producer must not infer authority by checking whether a file merely exists.
+Only this validated decision controls progression.
+
+## 10. Release gate
+
+Release remains impossible unless:
+
+- provisional depth is zero;
+- every reachable milestone slice is covered by an external PASS, either on
+  its own request or on a superseding repair whose reviewed
+  `parent_commit..commit` range and artifact union include that slice;
+- the current tip has an external `milestone` or `release` verdict;
+- deterministic full regressions pass on the exact tip;
+- a release request runs the frozen live benchmark once;
+- no unresolved `CHANGES_REQUIRED`, `BLOCKED`, `INVALID`, or tainted descendant
+  exists;
+- the user separately authorizes `main` merge and canonical runtime cutover.
+
+## 11. Legacy migration
+
+Existing request and verdict files remain immutable. They are classified:
+
+- Codex/subagent verdicts: `LEGACY_SELF_REVIEW`;
+- verdicts for non-ancestor commits: `LEGACY_ABANDONED_COMMIT`;
+- missing verdicts whose commits are superseded by a reviewed descendant:
+  `LEGACY_SUPERSEDED_UNSEALED`;
+- `ARL-0014`: first valid external review;
+- `ARL-0015`: bootstrap provisional result because Claude exhausted its review
+  budget; it grants development authority only.
+
+The first schema-2 request receives a new review ID. Legacy files are never
+edited to fabricate compliance.
+
+## 12. Files and ownership
+
+Versioned implementation lives in the Producer repository:
+
+```text
+scripts/agent_review/contract.py
+scripts/agent_review/submit.py
+scripts/agent_review/gate.py
+scripts/agent_review/validate_verdict.py
+scripts/agent_review/reviewer_worker.sh
+scripts/agent_review/producer_fallback.py
+intelligence/tests/test_agent_review_contract.py
+intelligence/tests/test_agent_review_gate.py
+```
+
+Mutable runtime state stays outside Git:
+
+```text
+/Users/a77/.finance-runtime/agent-review-loop/
+  requests/
+  verdicts/
+  provisional-verdicts/
+  runs/
+  locks/
+  state/
+```
+
+The versioned worker is the source of truth; runtime copies include its commit
+and checksum in logs.
+
+## 13. Failure handling
+
+- malformed request: `INVALID`, no model call;
+- request mutation after claim: discard review and mark invalid;
+- stale/wrong commit verdict: quarantine, never consume;
+- non-whitelisted PASS: record as provisional at most, never official;
+- Claude budget failure: backoff, allow bounded provisional lane;
+- duplicate workers: filesystem lock lets one continue;
+- worker crash: idempotent restart from request/verdict state;
+- tests fail: `CHANGES_REQUIRED`, never PASS;
+- external verdict conflicts with provisional verdict: external verdict governs;
+- two consecutive external reviews report the same architecture conflict:
+  `BLOCKED` and user escalation.
+
+## 14. Acceptance tests
+
+Deterministic tests must prove:
+
+1. Codex/subagent PASS is rejected as external approval.
+2. Exact reviewer whitelist is enforced.
+3. Wrong/stale verdict commit is rejected.
+4. A verdict for a non-ancestor commit grants no authority.
+5. A mutated request is rejected after claim.
+6. Missing `test_X.py` coverage makes a request invalid.
+7. Claude timeout permits one provisional slice.
+8. Two provisional slices are allowed; the third is denied.
+9. External `CHANGES_REQUIRED` taints provisional descendants.
+10. External PASS clears the corresponding provisional debt.
+11. Release is denied while any provisional debt remains.
+12. Worker budget failure backs off instead of immediate retry.
+13. Duplicate worker lock prevents concurrent claims.
+14. Legacy verdicts are classified without mutation.
+
+No acceptance test requires a live Claude or Codex call. Worker integration has
+one local smoke using fake reviewer executables; real model calls are a separate
+operational smoke after deterministic tests pass.
+
+## 15. Success criterion
+
+The loop is considered active only when:
+
+- gate status is machine-readable;
+- one worker instance is healthy or explicitly inactive;
+- a new request is automatically consumed;
+- Producer can progress through a bounded outage using provisional state;
+- external review catches up and seals commits;
+- no internal review can authorize release;
+- the user does not need to copy findings between sessions.
+
+# Dual-Lane Agent Review Loop Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build a machine-enforced Codex Producer + Claude external Reviewer loop that keeps development moving through bounded reviewer outages without allowing self-review to seal or release code.
+
+**Architecture:** Versioned Python commands own contracts, provenance validation, request submission, and Producer authority; the shell worker only performs process orchestration. Mutable requests, claims, verdicts, backoff, and locks remain outside Git under one configurable runtime root. External and provisional verdicts are separate authorities, and every decision is recomputed from immutable Git ancestry plus request hashes.
+
+**Tech Stack:** Python 3.11 standard library, Git CLI, pytest, POSIX/zsh worker wrapper, Claude Code headless reviewer, Codex headless fallback reviewer.
+
+---
+
+## File Map
+
+- `scripts/agent_review/contract.py`: schema-2 values, JSON loading, Git ancestry, request hashing, legacy classification, and artifact-test discovery.
+- `scripts/agent_review/submit.py`: the only schema-2 request writer; recomputes mechanical fields and writes request plus claim hash atomically.
+- `scripts/agent_review/validate_verdict.py`: validates external/provisional verdict identity, commit, hash, ancestry, checks, and authority.
+- `scripts/agent_review/gate.py`: reduces all requests/verdicts into one machine-readable Producer decision and release decision.
+- `scripts/agent_review/worker.py`: selects the valid frontier, owns lock/backoff/claim/worktree lifecycle, and invokes a configured reviewer executable.
+- `scripts/agent_review/reviewer_worker.sh`: small source-of-truth wrapper around `worker.py`.
+- `scripts/agent_review/producer_fallback.py`: runs the same review manifest in a detached worktree and writes only provisional verdicts.
+- `intelligence/tests/test_agent_review_contract.py`: schema, discovery, hash, hygiene, and legacy tests.
+- `intelligence/tests/test_agent_review_gate.py`: authority, speculative depth, taint, and release tests.
+- `intelligence/tests/test_agent_review_worker.py`: lock, backoff, fake-reviewer, claim mutation, and fallback integration tests.
+
+Mutable state is configurable with `AGENT_REVIEW_ROOT` and defaults to
+`/Users/a77/.finance-runtime/agent-review-loop`. Tests always use `tmp_path`.
+
+---
+
+### Task 1: Add strict schema-2 contracts and legacy classification
+
+**Files:**
+- Create: `scripts/agent_review/__init__.py`
+- Create: `scripts/agent_review/contract.py`
+- Create: `intelligence/tests/test_agent_review_contract.py`
+
+- [ ] **Step 1: Write failing contract tests**
+
+```python
+def test_schema2_request_rejects_unknown_identity_and_missing_mapping(repo):
+    raw = request_dict(
+        producer="codex:subagent",
+        artifacts=["intelligence/services/evidence_ledger.py"],
+        artifact_tests={},
+    )
+    result = validate_request(raw, repo=repo)
+    assert "producer_identity" in result.errors
+    assert "artifact_test_coverage" in result.errors
+
+
+def test_legacy_verdicts_are_classified_without_mutation(repo, state_root):
+    before = sha256_file(state_root / "verdicts/ARL-0001.json")
+    classification = classify_legacy_records(state_root, repo=repo)
+    assert classification["ARL-0001"].state == "LEGACY_SELF_REVIEW"
+    assert sha256_file(state_root / "verdicts/ARL-0001.json") == before
+```
+
+Also cover malformed JSON, path traversal, forbidden artifacts, invalid review
+IDs, duplicate artifacts/tests, unsupported intensity, a missing commit, and a
+request commit that is not a descendant of `parent_commit`.
+
+- [ ] **Step 2: Run the tests and verify RED**
+
+Run:
+
+```bash
+env -u FORESIGHT_USERS_DIR -u FORESIGHT_USER -u SUBCONSCIOUS_VAULT \
+  -u AGENT_MEMORY_VAULT \
+  /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py
+```
+
+Expected: import failure for `scripts.agent_review.contract`.
+
+- [ ] **Step 3: Implement frozen values and deterministic validators**
+
+```python
+class GateState(str, Enum):
+    WAITING_EXTERNAL = "WAITING_EXTERNAL"
+    EXTERNAL_PASS = "EXTERNAL_PASS"
+    CHANGES_REQUIRED = "CHANGES_REQUIRED"
+    PROVISIONAL_PASS = "PROVISIONAL_PASS"
+    BLOCKED = "BLOCKED"
+    INVALID = "INVALID"
+
+
+@dataclass(frozen=True)
+class ReviewRequest:
+    schema_version: int
+    review_id: str
+    commit: str
+    parent_commit: str
+    branch: str
+    producer: str
+    scope: str
+    artifacts: tuple[str, ...]
+    artifact_tests: Mapping[str, tuple[str, ...]]
+    required_checks: tuple[str, ...]
+    depends_on: tuple[str, ...]
+    supersedes: str | None
+    intensity: str
+    created_at: str
+    status: str
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    valid: bool
+    errors: tuple[str, ...]
+```
+
+Use exact allowlists: producer `codex:producer`, external reviewer
+`claude:independent-reviewer`, intensities `light|milestone|release`, and
+statuses defined by the design. Resolve every path under the repository before
+reading it. `classify_legacy_records()` returns derived classifications and
+never modifies old JSON.
+
+- [ ] **Step 4: Run tests and commit**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py
+git add scripts/agent_review/__init__.py scripts/agent_review/contract.py \
+  intelligence/tests/test_agent_review_contract.py
+git commit -m "feat: define agent review contracts"
+```
+
+Expected: all contract tests pass.
+
+---
+
+### Task 2: Make request submission mechanical and immutable
+
+**Files:**
+- Modify: `scripts/agent_review/contract.py`
+- Create: `scripts/agent_review/submit.py`
+- Modify: `intelligence/tests/test_agent_review_contract.py`
+
+- [ ] **Step 1: Write failing discovery and submission tests**
+
+```python
+def test_submit_discovers_all_existing_direct_tests(repo, state_root):
+    request = submit_request(
+        repo=repo,
+        state_root=state_root,
+        scope="evidence ledger slice",
+        artifacts=("intelligence/services/evidence_ledger.py",),
+        required_checks=("run focused tests",),
+        intensity="light",
+    )
+    assert request.artifact_tests["intelligence/services/evidence_ledger.py"] == (
+        "intelligence/tests/test_evidence_ledger.py",
+    )
+    claim = json.loads((state_root / "claims" / f"{request.review_id}.json").read_text())
+    assert claim["request_sha256"] == sha256_file(
+        state_root / "requests" / f"{request.review_id}.json"
+    )
+```
+
+Add fixtures for conventional `test_X.py`, exact import hits, tests changed in
+`parent..commit`, concurrent IDs, atomic rename, and a forbidden waiver for a
+gate/verifier/budget/session artifact.
+
+- [ ] **Step 2: Run the targeted tests and verify RED**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py -k 'discover or submit or claim'
+```
+
+Expected: missing `discover_artifact_tests` and `submit_request`.
+
+- [ ] **Step 3: Implement discovery and the only writer**
+
+`discover_artifact_tests(repo, artifacts, parent_commit, commit)` searches:
+
+```python
+candidate_paths = {
+    Path("intelligence/tests") / f"test_{artifact.stem}.py",
+    artifact.parent / "tests" / f"test_{artifact.stem}.py",
+}
+```
+
+Then it adds exact import hits and changed test files from
+`git diff --name-only parent..commit`. `submit_request()` takes the repository
+lock, allocates the next ID, reads the exact current branch/tip/parent, validates
+dependencies, serializes sorted JSON to a temporary file, atomically renames
+it, and writes a separate claim containing the request SHA-256. The CLI accepts
+repeatable `--artifact` and `--required-check`; callers cannot provide
+`artifact_tests`, commit, producer, hash, or branch.
+
+- [ ] **Step 4: Verify CLI output and commit**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python \
+  -m scripts.agent_review.submit --help
+git add scripts/agent_review/contract.py scripts/agent_review/submit.py \
+  intelligence/tests/test_agent_review_contract.py
+git commit -m "feat: submit immutable review requests"
+```
+
+Expected: tests pass and help exits zero without writing state.
+
+---
+
+### Task 3: Validate verdict provenance and authority
+
+**Files:**
+- Create: `scripts/agent_review/validate_verdict.py`
+- Modify: `intelligence/tests/test_agent_review_contract.py`
+
+- [ ] **Step 1: Write failing falsification tests**
+
+```python
+@pytest.mark.parametrize("reviewer", ["codex:producer", "codex:subagent", "claude"])
+def test_non_whitelisted_pass_never_grants_external_authority(review_case, reviewer):
+    verdict = verdict_dict(reviewer=reviewer, status="PASS")
+    result = validate_verdict(verdict, request=review_case.request, authority="external")
+    assert not result.valid
+    assert "reviewer_identity" in result.errors
+
+
+def test_mutated_request_invalidates_verdict(review_case):
+    review_case.request_path.write_text(review_case.request_path.read_text() + "\n")
+    result = validate_verdict_file(review_case.verdict_path, context=review_case.context)
+    assert "request_hash_mismatch" in result.errors
+```
+
+Also test exact commit mismatch, review ID mismatch, non-ancestor commit, missing
+artifact test in `checks`, invalid finding shape, provisional output placed in
+the official directory, and an official verdict placed in provisional state.
+
+- [ ] **Step 2: Verify RED and implement**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py -k 'verdict or whitelist or mutated'
+```
+
+`validate_verdict()` must return authority explicitly:
+
+```python
+@dataclass(frozen=True)
+class VerdictValidation:
+    valid: bool
+    authority: Literal["external", "provisional", "none"]
+    errors: tuple[str, ...]
+    status: str
+```
+
+It recomputes request hash, verifies commit existence and ancestry against the
+current branch tip, and requires all discovered artifact tests plus requested
+checks in the verdict's run manifest. A producer fallback verdict may be valid
+only with provisional authority and never with external authority.
+
+- [ ] **Step 3: Run contract tests and commit**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py
+git add scripts/agent_review/validate_verdict.py \
+  intelligence/tests/test_agent_review_contract.py
+git commit -m "feat: validate review verdict provenance"
+```
+
+---
+
+### Task 4: Enforce Producer progression and release gates
+
+**Files:**
+- Create: `scripts/agent_review/gate.py`
+- Create: `intelligence/tests/test_agent_review_gate.py`
+
+- [ ] **Step 1: Write the state-machine tests**
+
+```python
+def test_two_provisional_slices_allowed_but_third_denied(case):
+    case.external_pass("ARL-0020")
+    case.provisional_pass("ARL-0021")
+    assert case.decision_at("ARL-0021").allowed_next_action == "IMPLEMENT_NEXT"
+    case.provisional_pass("ARL-0022")
+    decision = case.decision_at("ARL-0022")
+    assert decision.provisional_depth == 2
+    assert decision.allowed_next_action == "WAIT"
+
+
+def test_external_finding_taints_provisional_descendants(case):
+    case.provisional_pass("ARL-0021")
+    case.provisional_pass("ARL-0022")
+    case.external_changes_required("ARL-0021")
+    decision = case.decision_at("ARL-0022")
+    assert decision.allowed_next_action == "FIX"
+    assert decision.tainted_review_ids == ("ARL-0022",)
+
+
+def test_release_denied_until_provisional_debt_is_zero(case):
+    case.provisional_pass("ARL-0021", intensity="milestone")
+    assert not case.decision_at("ARL-0021", release=True).release_allowed
+```
+
+Cover `WAITING_EXTERNAL`, external PASS, `CHANGES_REQUIRED`, invalid
+provenance, abandoned commit, dependency mismatch, SLA eligibility for light
+and milestone, no fallback for release, duplicate architecture conflicts, and
+full-regression/live-benchmark release prerequisites.
+
+- [ ] **Step 2: Run and verify RED**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_gate.py
+```
+
+- [ ] **Step 3: Implement one reducer and JSON CLI**
+
+```python
+@dataclass(frozen=True)
+class GateDecision:
+    branch: str
+    tip: str
+    gate_state: str
+    latest_external_sealed_commit: str | None
+    pending_review_id: str | None
+    provisional_depth: int
+    tainted_review_ids: tuple[str, ...]
+    allowed_next_action: Literal["WAIT", "FIX", "IMPLEMENT_NEXT", "RELEASE_CHECK"]
+    release_allowed: bool
+    reasons: tuple[str, ...]
+    invalid_records: tuple[str, ...]
+```
+
+`compute_gate()` consumes only validated records. It derives debt from Git
+ancestry after the latest externally sealed commit; external PASS clears the
+matching provisional item, while an ancestor finding taints descendants. The
+CLI prints only sorted JSON to stdout and uses nonzero exit codes for
+`WAIT|FIX|INVALID`, enabling Producer and workers to share the same authority.
+
+- [ ] **Step 4: Run tests and commit**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py \
+  intelligence/tests/test_agent_review_gate.py
+git add scripts/agent_review/gate.py intelligence/tests/test_agent_review_gate.py
+git commit -m "feat: enforce producer review gates"
+```
+
+---
+
+### Task 5: Replace the retrying shell loop with a locked, backoff-aware worker
+
+**Files:**
+- Create: `scripts/agent_review/worker.py`
+- Create: `scripts/agent_review/reviewer_worker.sh`
+- Create: `intelligence/tests/test_agent_review_worker.py`
+
+- [ ] **Step 1: Write fake-reviewer worker tests**
+
+```python
+def test_duplicate_worker_cannot_claim_same_request(worker_case):
+    first = worker_case.start_fake_reviewer(block=True)
+    second = worker_case.run_once()
+    assert second.status == "LOCKED"
+    first.release()
+
+
+def test_budget_failure_sets_backoff_and_does_not_retry(worker_case):
+    worker_case.fake_reviewer(exit_code=1, stderr="Exceeded USD budget")
+    first = worker_case.run_once(now=1000)
+    second = worker_case.run_once(now=1001)
+    assert first.status == "REVIEWER_INACTIVE"
+    assert second.status == "BACKOFF"
+    assert worker_case.invocations == 1
+```
+
+Also test frontier selection, exact detached commit, request mutation after
+claim, invalid produced JSON quarantine, atomic verdict publication, worktree
+cleanup after failure, and runtime-source checksum logging.
+
+- [ ] **Step 2: Verify RED and implement worker lifecycle**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_worker.py -k 'lock or backoff or mutation'
+```
+
+`worker.py --once` acquires `locks/external-review.lock` with `fcntl.flock`,
+asks the contract layer for the oldest valid frontier, freezes its request
+hash, creates a detached worktree, builds a run manifest, invokes the configured
+reviewer command, validates the output before `os.replace`, and always removes
+the worktree. Backoff state stores `failure_kind`, `attempt`, `next_retry_at`,
+and exponential delays capped at one hour. The wrapper contains only:
+
+```zsh
+#!/bin/zsh
+set -euo pipefail
+exec /Users/a77/finance-workspace-private/.venv-workbench/bin/python \
+  -m scripts.agent_review.worker --poll-seconds "${1:-20}"
+```
+
+- [ ] **Step 3: Run tests and commit**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_worker.py
+git add scripts/agent_review/worker.py scripts/agent_review/reviewer_worker.sh \
+  intelligence/tests/test_agent_review_worker.py
+git commit -m "feat: run independent reviews with bounded backoff"
+```
+
+---
+
+### Task 6: Add bounded Producer fallback without release authority
+
+**Files:**
+- Create: `scripts/agent_review/producer_fallback.py`
+- Modify: `scripts/agent_review/worker.py`
+- Modify: `intelligence/tests/test_agent_review_worker.py`
+- Modify: `intelligence/tests/test_agent_review_gate.py`
+
+- [ ] **Step 1: Write failing fallback tests**
+
+```python
+def test_inactive_external_worker_can_create_provisional_only(worker_case):
+    worker_case.mark_external_inactive("budget")
+    result = worker_case.run_fallback_once()
+    assert result.authority == "provisional"
+    assert not (worker_case.state_root / "verdicts" / f"{result.review_id}.json").exists()
+
+
+def test_fallback_refuses_release_and_third_speculative_slice(worker_case):
+    worker_case.add_two_provisional_slices()
+    assert worker_case.run_fallback_once().status == "WAIT"
+    worker_case.pending.intensity = "release"
+    assert worker_case.run_fallback_once().status == "WAIT_EXTERNAL"
+```
+
+Ensure the fake Codex reviewer runs the exact mechanical test manifest and that
+a failing test produces `CHANGES_REQUIRED` provisional evidence, not a pass.
+
+- [ ] **Step 2: Implement fallback lane**
+
+`producer_fallback.py --once` first consumes `compute_gate()`. It is eligible
+only after observable external inactivity/SLA expiry, creates its own detached
+worktree, runs every mechanical check, optionally calls the configured Codex
+review command for falsification, and writes to `provisional-verdicts/` with:
+
+```json
+{
+  "reviewer": "codex:producer-fallback",
+  "reviewer_class": "producer_fallback",
+  "authority": "provisional"
+}
+```
+
+It cannot write official verdicts, cannot handle release intensity, and cannot
+override external `CHANGES_REQUIRED`.
+
+- [ ] **Step 3: Verify combined state machine and commit**
+
+```bash
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py \
+  intelligence/tests/test_agent_review_gate.py \
+  intelligence/tests/test_agent_review_worker.py
+git add scripts/agent_review/producer_fallback.py scripts/agent_review/worker.py \
+  intelligence/tests/test_agent_review_worker.py \
+  intelligence/tests/test_agent_review_gate.py
+git commit -m "feat: bound provisional review fallback"
+```
+
+---
+
+### Task 7: Prove the loop end to end and activate it
+
+**Files:**
+- Modify: `scripts/agent_review/REVIEWER_PROMPT.md`
+- Create: `scripts/agent_review/bootstrap_runtime.sh`
+- Create: `docs/verification/dual-lane-agent-review-loop-2026-07-26.md`
+- Modify: `intelligence/tests/test_agent_review_worker.py`
+
+- [ ] **Step 1: Add the deterministic fake-reviewer acceptance scenario**
+
+One test must create three commits in a temporary Git repository and prove this
+event sequence without a live model:
+
+```text
+submit A -> fake Claude budget failure -> provisional PASS A
+submit B -> provisional PASS B -> submit C denied
+external CHANGES_REQUIRED A -> B tainted -> FIX
+repair D -> external PASS D -> debt zero -> IMPLEMENT_NEXT
+release request -> external PASS + full regression manifest -> RELEASE_CHECK
+```
+
+The same test asserts no self-signed output appears under `verdicts/`, no
+request is mutated, and the second worker never acquires the lock.
+
+- [ ] **Step 2: Run deterministic acceptance and full clean regression**
+
+```bash
+env -u FORESIGHT_USERS_DIR -u FORESIGHT_USER -u SUBCONSCIOUS_VAULT \
+  -u AGENT_MEMORY_VAULT \
+  /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_agent_review_contract.py \
+  intelligence/tests/test_agent_review_gate.py \
+  intelligence/tests/test_agent_review_worker.py
+
+env -u FORESIGHT_USERS_DIR -u FORESIGHT_USER -u SUBCONSCIOUS_VAULT \
+  -u AGENT_MEMORY_VAULT \
+  /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests
+```
+
+Expected: both suites pass; no live Claude/Codex call or live benchmark runs.
+
+- [ ] **Step 3: Bootstrap mutable state without rewriting legacy files**
+
+`bootstrap_runtime.sh` creates missing state directories, copies the versioned
+prompt/worker with source commit and checksum metadata, classifies legacy
+records into a derived report, and leaves old requests/verdicts byte-identical.
+Run it against `/Users/a77/.finance-runtime/agent-review-loop` and verify the
+classification includes Codex self-reviews, abandoned commits, ARL-0014 as the
+first external review, and ARL-0015 as bootstrap provisional.
+
+- [ ] **Step 4: Submit the schema-2 milestone request and run a fake smoke**
+
+Use `submit.py` for the exact implementation commit. First run `worker.py
+--once` with a fake reviewer executable that writes a valid external PASS; then
+delete only the fake verdict for the new request, preserving its smoke log.
+Confirm `gate.py` returns `IMPLEMENT_NEXT` for the fake scenario and never
+returns `RELEASE_CHECK` from provisional state.
+
+- [ ] **Step 5: Start the real worker and record health**
+
+```bash
+tmux new-session -d -s finance-agent-review \
+  'cd /Users/a77/.finance-runtime/agent-runtime-backends-c4673667 && \
+   scripts/agent_review/reviewer_worker.sh 20'
+```
+
+Record PID/session, versioned source checksum, current request ID, gate JSON,
+and no-canonical-impact proof in the verification document. Do not wait for
+human relay; if Claude is inactive, the bounded fallback may authorize at most
+two later development slices.
+
+- [ ] **Step 6: Commit documentation and request external milestone review**
+
+```bash
+git add scripts/agent_review/REVIEWER_PROMPT.md \
+  scripts/agent_review/bootstrap_runtime.sh \
+  docs/verification/dual-lane-agent-review-loop-2026-07-26.md \
+  intelligence/tests/test_agent_review_worker.py
+git commit -m "test: verify dual lane agent review loop"
+```
+
+The request intensity is `milestone`. Release remains blocked until the exact
+tip receives a valid external PASS and provisional debt is zero.
+
+---
+
+## Post-Loop Runtime Sequence
+
+Once the loop gate returns `IMPLEMENT_NEXT`, continue the approved Adaptive
+Runtime plan in these independently reviewed slices:
+
+1. Wire `runtime.start -> verify -> RepairGoal -> same EpisodeSession.resume ->
+   new model-owned action -> reverify` without constructing a second history,
+   QueryLedger, EvidenceLedger, or RootBudgetLedger.
+2. Add typed `FinanceQuery + EvidenceSearch`; unrestricted SQL remains a
+   benchmark-only capability.
+3. Add `ModeGovernor` and dynamic budgets derived from unresolved answer and
+   evidence gaps.
+4. Add separability-gated deep branches; no default subagent fan-out.
+5. Integrate UI/SSE progress from runtime events without exposing control-plane
+   prompts, repair goals, or internal traces as answer prose.
+6. Run deterministic full regression, then one frozen live benchmark only at
+   release intensity.
+
+Each slice must call `gate.py` before editing, use `submit.py` after committing,
+and stop at provisional depth two. No step may merge `main`, switch canonical
+8792, or publish a release without explicit user authorization.
+
+---
+
+## Plan Self-Review
+
+- Every design requirement has an implementation task: provenance and schema
+  (Tasks 1-3), Producer authority and bounded debt (Task 4), lock/backoff
+  (Task 5), fallback (Task 6), deterministic/live operational proof (Task 7).
+- Release authority is never inferred from a file's presence and is never
+  granted by Codex self-review.
+- Mechanical artifact tests are independently recomputed by submitter,
+  validator, and worker.
+- Runtime files are isolated from Git; tests use temporary roots and fake
+  reviewers, so the suite has no model cost.
+- The plan contains no unrestricted SQL, default subagent spawning, relaxed
+  verifier thresholds, live benchmark loops, or canonical runtime mutation.
+

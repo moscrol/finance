@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.019" timestamp="2026-09-19T17:04:30.671420+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_resolved_value_does_not_silently_discard_existing_uncertainty_marker" time="0.001"><failure message="assert (())">intelligence/tests/test_research_delivery_ratio_scope.py:121: in test_resolved_value_does_not_silently_discard_existing_uncertainty_marker
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())</failure></testcase></testsuite></testsuites>

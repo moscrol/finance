@@ -1,0 +1,36 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/runs/ARL-0003/mutations/ratio-no-period-or-count-as-value-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_ratio_does_not_revoke_qualifiers_or_other_metrics or test_review_ratio_locates_value_not_year_or_period"], "cwd": "/private/tmp/extraction-closeout-mutations-8ggv84pb/tree", "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe"}
+F....F.F....                                                             [100%]
+=================================== FAILURES ===================================
+_ test_review_ratio_locates_value_not_year_or_period[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a1.587\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:125: in test_review_ratio_locates_value_not_year_or_period
+    assert kept == expected
+E   AssertionError: assert '收入可核[E1]，202...587，利润可核[E2]。' == '收入可核[E1]，202...待核对，利润可核[E2]。'
+E     
+E     - 收入可核[E1]，2026中报含金量3年新高，实际为待核对，利润可核[E2]。
+E     ?                   ^       ^^^
+E     + 收入可核[E1]，2026中报含金量待核对年新高，实际为1.587，利润可核[E2]。
+E     ?                   ^^^       ^^^^^
+_ test_review_ratio_does_not_revoke_qualifiers_or_other_metrics[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a1.588\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:139: in test_review_ratio_does_not_revoke_qualifiers_or_other_metrics
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E   AssertionError: assert (DeliveryFind...ement='待核对'),) == ()
+E     
+E     Left contains one more item: DeliveryFinding(start=9, end=10, code='calculation_value_mismatch', replacement='待核对')
+E     Use -v to get more diff
+_ test_review_ratio_does_not_revoke_qualifiers_or_other_metrics[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:139: in test_review_ratio_does_not_revoke_qualifiers_or_other_metrics
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E   AssertionError: assert (DeliveryFind...ement='待核对'),) == ()
+E     
+E     Left contains one more item: DeliveryFinding(start=9, end=10, code='calculation_value_mismatch', replacement='待核对')
+E     Use -v to get more diff
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348/runs/ARL-0003/mutations/ratio-no-period-or-count-as-value-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_locates_value_not_year_or_period[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a1.587\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_does_not_revoke_qualifiers_or_other_metrics[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a1.588\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_does_not_revoke_qualifiers_or_other_metrics[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\u3002]
+3 failed, 9 passed, 328 deselected in 1.02s
+
+STDERR:
+
+EXIT=1

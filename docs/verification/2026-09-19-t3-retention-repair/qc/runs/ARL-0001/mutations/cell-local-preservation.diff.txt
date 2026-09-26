@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 51473cbf..03aeb7c6 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -238,7 +238,7 @@ def calculation_copy_findings(
+                         if index < len(raw_cells):
+                             cell = raw_cells[index]
+                             findings.append(DeliveryFinding(
+-                                offset + cell.start(), offset + cell.end(),
++                                offset, offset + len(line),
+                                 code, " 待核对 ",
+                             ))
+         else:

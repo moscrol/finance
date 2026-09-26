@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..86676223 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -449,7 +449,7 @@ def calculation_copy_findings(
+                         numbers, consumed_end = _ratio_value_slots(value, slot_start, scope_end)
+                         residual = value[consumed_end:scope_end]
+                     values = products.get(_period(period_match.group()) or "", set())
+-                    marked = value[:period_match.start()].rstrip().endswith(_UNLOCATED_RATIO_MARK)
++                    marked = False
+                     unlocated = marked or bool((values or require_product) and _has_unlocated_ratio_number(residual))
+                     for number in numbers:
+                         code = failure_code(values, number[2], number[3])

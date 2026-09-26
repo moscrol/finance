@@ -1,0 +1,6 @@
+{
+  "root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33",
+  "manifest_sha256": "21c4e18d23494bee1c1054c8e3436926996ba747d795da112d4791fdee766158",
+  "authorization": "user: \u7ee7\u7eed; one bounded repair review; no fallback or retry",
+  "created_at": "2026-09-19T07:21:20.472883+00:00"
+}

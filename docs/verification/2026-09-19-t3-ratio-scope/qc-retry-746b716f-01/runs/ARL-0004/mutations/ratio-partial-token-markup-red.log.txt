@@ -1,0 +1,28 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/runs/ARL-0004/mutations/ratio-partial-token-markup-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_ratio_locates_value_not_year_or_period"], "cwd": "/private/tmp/extraction-closeout-mutations-y7e6b255/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+...FF                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_review_ratio_locates_value_not_year_or_period[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.**587**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:125: in test_review_ratio_locates_value_not_year_or_period
+    assert kept == expected
+E   AssertionError: assert '收入可核[E1]，202...***，利润可核[E2]。' == '收入可核[E1]，202...待核对，利润可核[E2]。'
+E     
+E     - 收入可核[E1]，2026中报含金量为待核对，利润可核[E2]。
+E     + 收入可核[E1]，2026中报含金量为待核对****，利润可核[E2]。
+E     ?                       ++++
+_ test_review_ratio_locates_value_not_year_or_period[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a**1.5**87\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:125: in test_review_ratio_locates_value_not_year_or_period
+    assert kept == expected
+E   AssertionError: assert '收入可核[E1]，202...对**，利润可核[E2]。' == '收入可核[E1]，202...待核对，利润可核[E2]。'
+E     
+E     - 收入可核[E1]，2026中报含金量为待核对，利润可核[E2]。
+E     + 收入可核[E1]，2026中报含金量为**待核对**，利润可核[E2]。
+E     ?                    ++   ++
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/runs/ARL-0004/mutations/ratio-partial-token-markup-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_locates_value_not_year_or_period[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.**587**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_locates_value_not_year_or_period[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a**1.5**87\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002]
+2 failed, 3 passed, 411 deselected in 1.08s
+
+STDERR:
+
+EXIT=1

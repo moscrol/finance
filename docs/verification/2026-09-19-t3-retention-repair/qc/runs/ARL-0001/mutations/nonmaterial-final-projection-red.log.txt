@@ -1,0 +1,37 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_adapter_rechecks_nonmaterial_final_projection"], "cwd": "/private/tmp/extraction-closeout-mutations-aly7f2j1/tree", "revision": "a2a3301963d11a073f511e1552b53daee7ecd704"}
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+__________ test_adapter_rechecks_nonmaterial_final_projection[\u3002] __________
+intelligence/tests/test_research_delivery_repair.py:284: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed
+__________ test_adapter_rechecks_nonmaterial_final_projection[\uff0c] __________
+intelligence/tests/test_research_delivery_repair.py:284: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed
+__________ test_adapter_rechecks_nonmaterial_final_projection[\u4f46] __________
+intelligence/tests/test_research_delivery_repair.py:284: in test_adapter_rechecks_nonmaterial_final_projection
+    assert result.status == "partial", result.private_artifact
+E   AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}
+E   assert 'completed' == 'partial'
+E     
+E     - partial
+E     + completed
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_repair.py::test_adapter_rechecks_nonmaterial_final_projection[\u3002]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_adapter_rechecks_nonmaterial_final_projection[\uff0c]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_adapter_rechecks_nonmaterial_final_projection[\u4f46]
+3 failed, 179 deselected in 0.93s
+
+STDERR:
+
+EXIT=1

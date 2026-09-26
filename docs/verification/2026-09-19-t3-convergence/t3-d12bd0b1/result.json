@@ -1,0 +1,184 @@
+{
+  "before": {
+    "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+    "status": ""
+  },
+  "after": {
+    "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "finished_at": "2026-09-19T03:25:09.278801+00:00",
+  "checks": [
+    {
+      "name": "frontend-lint",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 1.73,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:56.760040+00:00"
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 2.38,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:59.140400+00:00"
+    },
+    {
+      "name": "frontend-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 4.11,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:24:03.250504+00:00"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 3.04,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:24:06.292982+00:00"
+    },
+    {
+      "name": "e2e",
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 62.95,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:25:09.239285+00:00"
+    },
+    {
+      "name": "registry-parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.09,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:55.120013+00:00"
+    },
+    {
+      "name": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 1,
+      "seconds": 0.09,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:55.207110+00:00"
+    },
+    {
+      "name": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.08,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:55.290421+00:00"
+    },
+    {
+      "name": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.05,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:55.338276+00:00"
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.09,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:55.426874+00:00"
+    },
+    {
+      "name": "receipt-validation",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/prior-python-receipt.json",
+        "--expect-revision",
+        "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+        "--require-target",
+        "/Users/a77/fwp-q-research-data-readiness",
+        "--base-drift-max",
+        "0"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.2,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:55.233302+00:00"
+    },
+    {
+      "name": "review-targets",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+        "intelligence/tests/test_calculation_result_delivery.py",
+        "intelligence/tests/test_capital_data_safety.py",
+        "intelligence/tests/test_capital_episode_tool.py",
+        "intelligence/tests/test_research_data_boundaries.py"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 2.99,
+      "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+      "finished_at": "2026-09-19T03:23:58.223755+00:00"
+    }
+  ],
+  "all_passed": false,
+  "full_python": "prior-python-receipt.json (existing exact revision, not rerun by this script)",
+  "live_model_calls": 0
+}

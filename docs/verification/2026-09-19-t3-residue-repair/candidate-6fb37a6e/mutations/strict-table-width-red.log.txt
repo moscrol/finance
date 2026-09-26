@@ -1,0 +1,15 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/strict-table-width-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_invalid_result_has_stable_codes_without_private_values"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+........F.......                                                         [100%]
+=================================== FAILURES ===================================
+_ test_invalid_result_has_stable_codes_without_private_values[result8-table_row_width] _
+intelligence/tests/test_calculation_result_delivery.py:130: in test_invalid_result_has_stable_codes_without_private_values
+    assert code in errors
+E   AssertionError: assert 'table_row_width' in ()
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/strict-table-width-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_calculation_result_delivery.py::test_invalid_result_has_stable_codes_without_private_values[result8-table_row_width]
+1 failed, 15 passed, 671 deselected in 1.01s
+
+STDERR:
+
+EXIT=1

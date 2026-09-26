@@ -1,0 +1,553 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/same-turn-repair-note-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+FFFFFF............FFFFFF............FFFFFF............FFFFFF............ [ 26%]
+FFFFFF............FFFFFF............FFFFFF............FFFFFF............ [ 53%]
+FFFFFF............FFFFFF............FFFFFF............FFFFFF............ [ 80%]
+FFFFFF............FFFFFF............FFFFFF............                   [100%]
+=================================== FAILURES ===================================
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10ccbe670>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd972a0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd97510>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d6e90>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf4d2f0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10ad14d40>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf4e330>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd9aa80>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf44930>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd97370>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf35560>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf35ff0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd968e0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d7030>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf4e8e0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf34860>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf45080>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf47850>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1099e5970>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd96670>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf47780>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd9be00>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf4fb90>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10b3512f0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10ccbc110>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10c9eb440>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10ad14d40>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfacba0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d5490>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe1700>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d7b90>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1099e5970>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10ccbf9f0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cf460c0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe1490>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfae670>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10b351b10>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109a30fb0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe3c60>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfaedc0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109a31d80>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfb1a40>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfae810>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10b351080>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe2670>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfacd40>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfae260>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d01ab50>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109a31f20>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d5490>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfb31d0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe2dc0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfaf850>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe1f20>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109754ad0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109a33440>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe1080>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfaf100>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe12f0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cd941e0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d0fb0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe0520>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfaf850>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe0a00>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109757ac0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d021ff0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109756740>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d7b90>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfac5f0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d023780>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d17d0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d01b5e0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe12f0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfb31d0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d0a8450>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d020a00>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d0aa5a0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d01a330>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x1096d3ac0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe1f20>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d020d40>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d021a40>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d0a98a0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d0ab440>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-unchanged-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cfe13c0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-unchanged-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10b350930>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-corrected-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d15ee90>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-corrected-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x109756dc0>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-timeout-off] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10d020e10>)
+_ test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-timeout-llm] _
+intelligence/tests/test_research_delivery_repair.py:206: in test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference
+    assert any(
+E   assert False
+E    +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10b344930>)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/same-turn-repair-note-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_comma-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_residue-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure_dash-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_prose-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_ranking-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_periods-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_unlocated-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_hedge_copula-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_currency_unit-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_points_unit-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_semicolon-reserved-timeout-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-unchanged-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-unchanged-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-corrected-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-corrected-llm]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-timeout-off]
+FAILED intelligence/tests/test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation_boundary_neighbors-reserved-timeout-llm]
+90 failed, 180 passed, 417 deselected in 2.39s
+
+STDERR:
+
+EXIT=1

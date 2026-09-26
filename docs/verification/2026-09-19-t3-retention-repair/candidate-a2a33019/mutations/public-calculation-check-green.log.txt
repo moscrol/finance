@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/mutations/public-calculation-check-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts or test_old_empty_product_cannot_support_claimed_calculator_ratios"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-pe3y1sd2/tree", "revision": "a2a3301963d11a073f511e1552b53daee7ecd704"}
+....                                                                     [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/mutations/public-calculation-check-green.xml -
+4 passed, 178 deselected in 0.86s
+
+STDERR:
+
+EXIT=0

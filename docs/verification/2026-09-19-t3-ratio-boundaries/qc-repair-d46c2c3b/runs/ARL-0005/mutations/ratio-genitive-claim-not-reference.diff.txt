@@ -1,0 +1,12 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..86943750 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -288,7 +288,7 @@ def _parallel_ratio_values(value: str, periods: list[re.Match]) -> tuple[dict[in
+ def _ratio_scope_end(value: str, periods: list[re.Match], index: int) -> int:
+     """Stop at the next period claim, not a referenced '2025中报的1.2倍'."""
+     for following in periods[index + 1:]:
+-        if not re.match(rf"\s*的\s*{_NUMBER}\s*倍", value[following.end():]):
++        if not re.match(r"\s*的", value[following.end():]):
+             return following.start()
+     return len(value)

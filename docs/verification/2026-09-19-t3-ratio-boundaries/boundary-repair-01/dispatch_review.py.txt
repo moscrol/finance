@@ -1,0 +1,100 @@
+"""Explicit one-shot ARL-0005 dispatch; unchanged provenance validator decides.
+
+The normal queue targets unresolved 0004. Do not rerun it or fabricate a verdict:
+this bounded operations dispatch targets the new cumulative request, carrying
+0004's original request/claim and invalid leads. No gate/worker code is changed.
+"""
+from dataclasses import asdict
+from datetime import datetime, timezone
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+os.umask(0o022)
+ROOT = Path('/Users/a77/fwp-q-research-data-readiness')
+BASE = Path('/Users/a77/.finance-runtime/convergence-20260919/retention-repair')
+STATE = BASE / 'qc-repair-d46c2c3b'
+REV = 'd46c2c3b10221483c811426e99ad379314289871'
+RID = 'ARL-0005'
+RUN = STATE / 'runs' / RID
+TREE = STATE / 'worktrees' / ('review-' + RID)
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+sys.path.insert(0, str(ROOT))
+from scripts.agent_review.contract import validate_request
+from scripts.agent_review.validate_verdict import validate_verdict_file
+
+
+def dump(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2)+'\n')
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+
+
+assert json.loads((BASE / 'candidate-d46c2c3b/result.json').read_text())['passed']
+assert git('rev-parse','HEAD') == REV and not git('status','--porcelain')
+RUN.mkdir(parents=True, exist_ok=False)
+request = STATE / 'requests' / (RID+'.json')
+claim = STATE / 'claims' / (RID+'.json')
+h = hashlib.sha256(request.read_bytes()).hexdigest()
+assert json.loads(claim.read_text())['request_sha256'] == h
+validation = validate_request(json.loads(request.read_text()), repo=ROOT)
+assert validation.valid and validation.request.commit == REV
+(STATE / 'locks').mkdir(exist_ok=True)
+with (STATE / 'locks/external-review.lock').open('a+') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    TREE.parent.mkdir(exist_ok=True)
+    assert not TREE.exists()
+    subprocess.run(['git','worktree','add','--detach',str(TREE),REV],cwd=ROOT,check=True)
+    stage = RUN / 'candidate-verdict.json'
+    env = {k:os.environ[k] for k in ('HOME','PATH','LANG','TMPDIR') if k in os.environ}
+    env.update(FORESIGHT_LLM_KEYCHAIN='0', STATE_ROOT=str(STATE), REVIEW_WORKTREE=str(TREE),
+               REVIEW_ID=RID, COMMIT=REV, REQUEST_FILE=str(request), CLAIM_FILE=str(claim),
+               VERDICT_FILE=str(stage), CLEAN_REVIEW_TARGET=str(ROOT))
+    dump(RUN/'claimed-request.json', {'review_id':RID,'commit':REV,'request_sha256':h,
+         'claimed_at':datetime.now(timezone.utc).isoformat(),'dispatch':'explicit operations target, not queue selection'})
+    started=time.monotonic()
+    try:
+        with (RUN/'reviewer.log').open('w') as log:
+            proc=subprocess.Popen([PY,str(STATE/'qc_repair_once.py')],cwd=TREE,env=env,
+                                  stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            dump(RUN/'adapter-process.json',{'pid':proc.pid})
+            try:
+                rc=proc.wait(timeout=1500)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid,signal.SIGTERM)
+                try: proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid,signal.SIGKILL);proc.wait(timeout=5)
+                model_process=RUN/'process.json'
+                if model_process.exists():
+                    try: os.killpg(json.loads(model_process.read_text())['pid'],signal.SIGTERM)
+                    except ProcessLookupError: pass
+                rc=124
+        result={'review_id':RID,'commit':REV,'adapter_exit':rc,'seconds':round(time.monotonic()-started,3),
+                'dispatch':'explicit operations target; original queue not modified','status':'REVIEWER_INACTIVE'}
+        assert hashlib.sha256(request.read_bytes()).hexdigest()==h
+        if rc==0 and stage.exists():
+            verdict=validate_verdict_file(stage,state_root=STATE,repo=ROOT,authority='external',current_tip=REV,expected_review_id=RID)
+            dump(STATE/'verdict-validation.json',asdict(verdict))
+            (STATE/'verdict-validation.exit').write_text(('0' if verdict.valid else '1')+'\n')
+            if verdict.valid:
+                destination=STATE/'verdicts'/f'{RID}.json';assert not destination.exists()
+                stage.rename(destination);result.update(status='VERDICT_WRITTEN',verdict_status=verdict.status,authority=verdict.authority)
+            else:
+                stage.rename(RUN/'invalid-verdict.json');result.update(status='INVALID_VERDICT',errors=list(verdict.errors),authority='none')
+        dump(STATE/'state/external-review.json',result)
+        dump(STATE/'dispatch-result.json',result)
+        print(json.dumps(result,ensure_ascii=False),flush=True)
+    finally:
+        # Only our new detached tree, after saving all external evidence under RUN.
+        subprocess.run(['git','worktree','remove',str(TREE)],cwd=ROOT,check=True)
+    fcntl.flock(lock,fcntl.LOCK_UN)

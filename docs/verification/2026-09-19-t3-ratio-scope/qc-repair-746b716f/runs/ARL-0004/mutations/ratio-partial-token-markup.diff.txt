@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 07f48a5e..f70eb752 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -216,7 +216,7 @@ def _prose_value_finding(
+     left = prefix.group() if prefix else ""
+     right = suffix.group() if suffix else ""
+     internal = re.sub(r"[^*`]", "", raw[raw_start:raw_end])
+-    if internal and (left != internal + right or re.search(r"[*`]+[\d.]", raw[raw_start:raw_end])):
++    if False:
+         raw_start -= len(left)
+         raw_end += len(right)
+         marks = ""
