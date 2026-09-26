@@ -525,9 +525,12 @@ def _label_free_table_findings(
     found = []
     for index, cell in enumerate(cells):
         number = _NUMBER_CELL.fullmatch(cell)
+        role = header[index] if index < len(header) else ""
         if number is None or index >= len(raw_cells):
             continue
-        unit = _ratio_unit(number[2] or (header[index] if index < len(header) else ""))
+        if re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", role):
+            continue  # a change column is another quantity, never the level
+        unit = _ratio_unit(number[2] or role)
         if _display_matches(number[1], product, unit) or not _near_miss(number[1], unit, product):
             continue
         span = raw_cells[index]

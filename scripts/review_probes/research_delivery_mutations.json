@@ -651,10 +651,20 @@
   {
     "id": "table-header-unit-applies-to-cell",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "        unit = _ratio_unit(number[2] or (header[index] if index < len(header) else \"\"))",
+    "old": "        unit = _ratio_unit(number[2] or role)",
     "new": "        unit = _ratio_unit(number[2] or \"\")",
     "targets": [
       "test_label_free_table_reads_the_unit_from_its_own_header"
+    ]
+  },
+  {
+    "id": "table-change-column-is-not-the-level",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if re.search(r\"同比|环比|增长|增速|变化|变动|差额|增量\", role):",
+    "new": "        if False and re.search(r\"同比|环比|增长|增速|变化|变动|差额|增量\", role):",
+    "targets": [
+      "test_percent_units_period_labels_and_growth_are_not_conflated",
+      "test_label_free_table_skips_a_change_column"
     ]
   }
 ]

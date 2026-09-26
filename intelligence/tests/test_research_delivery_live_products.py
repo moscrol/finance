@@ -214,6 +214,14 @@ def test_label_free_table_reads_the_unit_from_its_own_header(header, cell, expec
     assert [f.code for f in findings] == ([expected] if expected else [])
 
 
+@pytest.mark.parametrize("header", ["现金流/净利润同比变化", "含金量环比增速", "比值增量"])
+def test_label_free_table_skips_a_change_column(header):
+    """A column that states a change is another quantity, never the level."""
+    evidence, _ = _evidence()
+    draft = _live_table(PUBLISHED_2025_ANNUAL, ratio_header=header)
+    assert calculation_copy_findings(draft, evidence, calculation_required=True) == ()
+
+
 def test_label_free_table_row_comparing_two_periods_abstains():
     """A row that names two report periods binds neither: not a bag of numbers."""
     evidence, _ = _evidence()
