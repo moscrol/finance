@@ -1,0 +1,35 @@
+"""Copy only hardened tooling to the other axis; then seal before model calls."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+FILES = ['review.mjs', 'file_tool.py', 'junit_summary.py', 'probe_inventory.py', 'sandbox_preflight.mjs',
+         'run_stage.py', 'run_control.py', 'pi-config/settings.json']
+if sys.argv[1] == 'copy':
+    for name in FILES:
+        shutil.copyfile(ROOT/'spec'/name, ROOT/'quality'/name)
+elif sys.argv[1] == 'seal':
+    for axis in ['spec', 'quality']:
+        assert json.loads((ROOT/axis/'sandbox-preflight/receipt.json').read_text())['status'] == 'PASS'
+        assert not list((ROOT/axis/'work/probes').iterdir())
+    subprocess.run(['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '-m', 'ruff', 'check',
+                    str(ROOT/'prepare.py'), str(ROOT/'finish_setup.py'), str(ROOT/'run_batch.py'),
+                    *[str(ROOT/'spec'/name) for name in FILES if name.endswith('.py')]], check=True)
+    for name in ['review.mjs', 'sandbox_preflight.mjs', 'gateway.mjs']:
+        subprocess.run(['node', '--check', str(ROOT/'spec'/name)], check=True)
+    paths = [ROOT/name for name in ['protocol.json', 'glm_review_shim.py', 'glm_credential.py', 'run_batch.py']]
+    for axis in ['spec', 'quality']:
+        paths.extend(ROOT/axis/name for name in FILES + ['config.json', 'tools.sb', 'gateway.mjs',
+                      'provider-template.json', 'inputs/claims.md', 'inputs/source.diff',
+                      'prompt-explore.md', 'prompt-execute.md', 'prompt-report.md', 'sandbox-preflight/receipt.json'])
+    result = {'files': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths},
+              'model_requests_before_seal': 0, 'scope': 'private fixed-candidate tooling; no production configuration changes'}
+    with (ROOT/'harness-lock.json').open('x') as stream:
+        json.dump(result, stream, indent=2)
+    print(json.dumps({'sealed_files': len(paths), 'model_requests': 0}))
+else:
+    raise SystemExit('copy or seal required')

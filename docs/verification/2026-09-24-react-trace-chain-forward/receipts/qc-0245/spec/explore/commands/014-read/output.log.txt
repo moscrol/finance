@@ -1,0 +1,72 @@
+class ToolCallDigest:
+    """一次工具调用相对「此前已有证据」的结果形状。"""
+
+    tool: str
+    query: str
+    status: CallStatus
+    new_evidence: int = 0
+    total_evidence: int = 0
+
+    def __post_init__(self) -> None:
+        if self.status not in {"new", *_NO_PROGRESS_STATUSES}:
+            raise ValueError(f"unknown call digest status: {self.status!r}")
+        object.__setattr__(self, "tool", str(self.tool or "").strip())
+        object.__setattr__(self, "query", normalize_query(self.query))
+        object.__setattr__(self, "new_evidence", max(0, int(self.new_evidence)))
+        object.__setattr__(self, "total_evidence", max(0, int(self.total_evidence)))
+
+    @property
+    def result_label(self) -> str:
+        if self.status == "new":
+            return f"new:{self.new_evidence}"
+        return self.status
+
+
+@dataclass(frozen=True)
+class BatchDigest:
+    index: int
+    calls: tuple[ToolCallDigest, ...]
+
+    @property
+    def new_evidence(self) -> int:
+        return sum(call.new_evidence for call in self.calls)
+
+    @property
+    def executed(self) -> int:
+        return sum(1 for call in self.calls if call.status != "rejected")
+
+
+@dataclass(frozen=True)
+class BranchDigest:
+    branch_id: str
+    goal: str
+    status: str
+    evidence: int
+    gaps: int
+    error: str = ""
+
+
+@dataclass
+class _QueryAttempts:
+    attempts: int = 0
+    last_new_evidence: int = 0
+
+
+class ResearchProgressTracker:
+    """按批累计的进展账。线程安全：分支回调在批执行器工作线程里记。"""
+
+    def __init__(self, *, stall_finalize_batches: int | None = None) -> None:
+        self._lock = RLock()
+        self._pending: list[ToolCallDigest] = []
+        self.batches: list[BatchDigest] = []
+        self.branches: list[BranchDigest] = []
+        self._branches_since_last_view = False
+        self._refused_reason = ""
+        self._query_attempts: dict[tuple[str, str], _QueryAttempts] = {}
+        self._tool_empty_streak: dict[str, int] = {}
+        self.stalled_batches = 0
+        self.evidence_total = 0
+        self._finalize_after = (
+            stall_finalize_batches
+
+[truncated; total lines=420, selected=93:162; next_offset=163]

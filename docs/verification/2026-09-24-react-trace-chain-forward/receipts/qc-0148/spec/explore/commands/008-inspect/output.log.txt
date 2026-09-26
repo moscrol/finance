@@ -1,0 +1,254 @@
+1148:GUIDED_SENTENCE_MAX_CHARS = 40
+1149-GUIDED_MAX_SENTENCES = 3
+1150-GUIDED_MAX_SUPPORT_EVIDENCE = 6
+1151-GUIDED_OUTCOMES = (
+1152-    "skipped",
+1153-    "retrieved_empty",
+1154-    "retrieved_no_rejudge",
+1155-    "lifted",
+1156-    "still_annotated",
+1157-)
+1158-_GUIDED_META_STOPWORDS = (
+1159-    "无据",
+1160-    "因果",
+1161-    "发明",
+1162-    "环节",
+1163-    "外部原因",
+1164-    "偷渡",
+1165-    "证明不了",
+1166-    "质量不够",
+1167-    "证据不足",
+1168-)
+1169-_GUIDED_META_TOKEN_RE = re.compile(r"第\s*\d+\s*句|句\s*\d+|code=\S+|subject=\S+|::")
+1170-_GUIDED_QUALITY_MARK_RE = re.compile(r"【质检[^】]*】")
+1171-_GUIDED_CJK_RUN_RE = re.compile(r"[一-鿿]{2,}")
+1172-_GUIDED_QUESTION_SPLIT_RE = re.compile(r"怎么看|怎么样|如何|为什么|吗")
+1173-_GUIDED_EDGE_PUNCT = "。，、；：！？.,;:!?「」『』\"' "
+1174-
+1175-GuidedRetrieveFn = Callable[[str, float], Sequence[AgentEvidence]]
+1176-
+1177-
+1178-def guided_retrieve_enabled() -> bool:
+1179-    """回滚闸。默认开。
+1180-
+1181-    V11 设计稿（§7.3）为 A/B 卫生写的是默认关；2026-09-09 判官修复 01 的范围合同明确
+1182-    「不能只接一个永远不开的开关」，改为默认开、保留环境变量作回滚。开火面本身已被
+1183-    三道闸收窄（纯语义早退 / ≥15s 余量 / 每 episode 一枪），简单题不会为此缴税。
+1184-    """
+1185-
+1186-    raw = str(os.environ.get(GUIDED_RETRIEVE_ENV, "1")).strip().lower()
+1187-    return raw not in {"0", "false", "off", "no"}
+1188-
+--
+1200:    （去【质检…】标、截 40 字、去首尾标点）+ issue 里不含元话语的 CJK 词（去重）；
+1201-    空白折叠、总长 80 字；空则退回「主体 问句」。
+1202-    """
+1203-
+1204-    head = str(subject or "").strip()
+1205-    question = str(raw_question or "").strip()
+1206-    if not head and question:
+1207-        prefix = _GUIDED_QUESTION_SPLIT_RE.split(question, maxsplit=1)[0].strip()
+1208-        head = prefix or question
+1209-    parts: list[str] = [head] if head else []
+1210-    for text in tuple(reject_texts)[:GUIDED_MAX_SENTENCES]:
+1211-        cleaned = _GUIDED_QUALITY_MARK_RE.sub("", str(text or "")).strip()
+1212-        cleaned = cleaned[:GUIDED_SENTENCE_MAX_CHARS].strip(_GUIDED_EDGE_PUNCT)
+1213-        if cleaned and cleaned not in parts:
+1214-            parts.append(cleaned)
+1215-    joined = " ".join(parts)
+1216-    extras: list[str] = []
+1217-    for issue in reject_issues:
+1218-        cleaned_issue = _GUIDED_META_TOKEN_RE.sub(" ", str(issue or ""))
+1219-        for token in _GUIDED_CJK_RUN_RE.findall(cleaned_issue):
+1220-            if any(stop in token for stop in _GUIDED_META_STOPWORDS):
+1221-                continue
+1222-            if token in joined or token in extras:
+1223-                continue
+1224-            extras.append(token)
+1225-    query = re.sub(r"\s+", " ", " ".join((*parts, *extras))).strip()
+1226-    query = query[:GUIDED_QUERY_MAX_CHARS].strip()
+1227-    if not query:
+1228-        fallback = re.sub(r"\s+", " ", f"{head} {question}").strip()
+1229-        query = (fallback or question)[:GUIDED_QUERY_MAX_CHARS].strip()
+1230-    return query
+1231-
+1232-
+1233-@dataclass(frozen=True)
+1234-class GuidedRetrievalTelemetry:
+1235-    """一次 verify 的 V11 账。缺 = None，不报 0（V11 §7.1）。"""
+1236-
+1237-    triggered: bool = False
+1238-    skip_reason: str | None = None
+1239-    query: str | None = None
+1240-    reserved_seconds: float | None = None
+--
+6031:        if not started and consumed_chars > 400:
+6032-            break
+6033-    return group_count if started else None
+6034-
+6035-
+6036-def _next_list_group_count(
+6037-    text: str,
+6038-    start: int,
+6039-    *,
+6040-    contiguous: bool = True,
+6041-) -> int | None:
+6042-    ordered = _next_ordered_group_count(
+6043-        text,
+6044-        start,
+6045-        contiguous=contiguous,
+6046-    )
+6047-    parenthesized = _next_parenthesized_group_count(
+6048-        text,
+6049-        start,
+6050-        contiguous=contiguous,
+6051-    )
+6052-    if ordered is None:
+6053-        return parenthesized
+6054-    if parenthesized is None:
+6055-        return ordered
+6056-    return max(ordered, parenthesized)
+6057-
+6058-
+6059-def _next_parenthesized_group_count(
+6060-    text: str,
+6061-    start: int,
+6062-    *,
+6063-    contiguous: bool = True,
+6064-) -> int | None:
+6065-    tail = text[start : start + 1200]
+6066-    matches = tuple(_PAREN_LIST_NUMBER_RE.finditer(tail))
+6067:    if not matches or matches[0].start() > 400:
+6068-        return None
+6069-    count = 1
+6070-    expected = int(matches[0].group("number")) + 1
+6071-    previous = matches[0]
+6072-    for match in matches[1:]:
+6073-        bridge = tail[previous.end() : match.start()]
+6074:        if len(bridge) > 400 or re.search(r"[。！？!?\n]", bridge):
+6075-            break
+6076-        if contiguous and int(match.group("number")) != expected:
+6077-            break
+6078-        count += 1
+6079-        expected = int(match.group("number")) + 1
+6080-        previous = match
+6081-    return count if count >= 2 else None
+6082-
+6083-
+6084-def _parse_small_count(value: str) -> int | None:
+6085-    if value.isdigit():
+6086-        parsed = int(value)
+6087-        return parsed if 1 <= parsed <= 20 else None
+6088-    digits = {
+6089-        "一": 1,
+6090-        "二": 2,
+6091-        "两": 2,
+6092-        "三": 3,
+6093-        "四": 4,
+6094-        "五": 5,
+6095-        "六": 6,
+6096-        "七": 7,
+6097-        "八": 8,
+6098-        "九": 9,
+6099-        "十": 10,
+6100-    }
+6101-    if value == "十":
+6102-        return 10
+6103-    if len(value) == 1:
+6104-        return digits.get(value)
+6105-    if len(value) == 2 and value[0] == "十" and value[1] in digits:
+6106-        return 10 + digits[value[1]]
+6107-    if len(value) == 2 and value[1] == "十" and value[0] in digits:
+6108-        return digits[value[0]] * 10
+6109-    return None
+6110-
+6111-
+6112-def _render_small_count(value: int, *, chinese: bool) -> str:
+6113-    if not chinese:
+6114-        return str(value)
+--
+6181:        if len(bridge) <= 400 and not re.search(r"[。！？!?\n]", bridge) and increasing:
+6182-            current.append(match)
+6183-            continue
+6184-        if len(current) >= 2:
+6185-            groups.append(current)
+6186-        current = [match]
+6187-    if len(current) >= 2:
+6188-        groups.append(current)
+6189-
+6190-    replacements: list[tuple[int, int, str]] = []
+6191-    for group in groups:
+6192-        numbers = [int(match.group("number")) for match in group]
+6193-        if numbers == list(range(1, len(group) + 1)):
+6194-            continue
+6195-        for index, match in enumerate(group, start=1):
+6196-            replacements.append(
+6197-                (
+6198-                    match.start(),
+6199-                    match.end(),
+6200-                    f"{match.group('open')}{index}{match.group('close')}",
+6201-                )
+6202-            )
+6203-    for start, end, replacement in reversed(replacements):
+6204-        source = f"{source[:start]}{replacement}{source[end:]}"
+6205-    return source
+6206-
+6207-
+6208-def _marker_loss_gap_sentence(
+6209-    *,
+6210-    labels: tuple[str, ...],
+6211-    context_prefix: str,
+6212-    all_were_fulfilled: bool,
+6213-) -> str:
+6214-    """按**丢失原因**给缺口文案分流，别把 harness 的问题甩锅给数据。
+6215-
+6216-    生产实测 `run_20260821_114642_385979`（诊断见
+6217-    `docs/verification/2026-08-21-judge-quantity-blindspot.md`）：
+6218-    `structural_verifier` 判四个必填格全部 `fulfilled`、零 gap，随后语义质检
+6219-    重写公开稿丢掉两格，用户看到的却是「**需补充直接证据**后再判断」——
+6220-    让人去补一份根本不缺的证据。归因错了，指引也就错了。
+6221-
+--
+6616:            "401",
+6617:            "402",
+6618:            "403",
+6619-            "authentication",
+6620-            "authorization",
+6621-            "api key",
+6622-            "未配置",
+6623-            "鉴权",
+6624-            "认证",
+6625-        )
+6626-    ):
+6627-        return "semantic judge configuration error", False, False
+6628-    if "budget" in normalized or "预算" in normalized:
+6629-        return "semantic judge call budget exhausted", False, False
+6630-    if "cancel" in normalized or "取消" in normalized:
+6631-        return "semantic judge cancelled", False, False
+6632-    # CLI judge 的故障要在通用分支之前判：`GrokCliInvalidJson` 含 "invalid"，
+6633-    # 会被下面那条 invalid 分支抢走并判成 retryable=False。
+6634-    #
+6635-    # ⚠ 这里匹配的是**类名**（`grokcli…`），不是异常消息。上游
+6636-    # `llm_refine.complete()` 产出的串是 `LLM 调用失败（{type(exc).__name__}）`，
+6637-    # **消息正文根本不进这个串**。第一版按消息里的 `grok_cli_empty` 写匹配，
+6638-    # 结果是一段永不触发的死代码——读起来像修好了，实测 retryable 仍为 False。
+6639-    #
+6640-    # 空输出 / 非零退出 / 坏 JSON 对一个子进程 CLI 都是**瞬时**故障：实测同一个
+6641-    # 二进制在琐碎提示上耗时 8.4~48.5s，抽风一次不代表下一次也抽。重试机制
+6642-    # （MAX_SEMANTIC_JUDGE_ATTEMPTS=3）本来就在，这里只是别再把它短路掉。
+6643-    if "grokcli" in normalized:
+6644-        if "emptyprompt" in normalized:
+6645-            # 提示词是空的属于调用方 bug，重试也还是空。刻意不放进瞬时档。
+6646-            return "semantic judge invalid provider response", False, False
+6647-        return "semantic judge transient provider error", True, False
+6648-    if any(
+6649-        marker in normalized
+6650-        for marker in (
+6651-            "empty_model_response",
+6652-            "invalid",
+6653-            "malformed",
+6654-            "model not found",
+6655-            "endpoint",
+6656-        )
+6657-    ):
+6658-        retryable = "empty_model_response" in normalized

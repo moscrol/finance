@@ -1,0 +1,30 @@
+108:                                "Episode ordinals E1..En from the observation, "
+171:        "必须至少包含一个 financial_data 证据序号（E1、E2…）；KB、公告或业务材料可以作为"
+347:        "事实判断必须绑定工具观察里的证据序号 E1、E2…；"
+362:        "binding 包含其直接证据序号（E1、E2…）；不能绑定就省略该数字。\n"
+391:        '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
+396:        "evidence_hashes 填观察里的序号 E1、E2…，不要誊抄 content_hash。\n"
+428:            "E1、E2等证据序号仅在本轮有效，旧回答的编号不能跨轮引用。"
+705:# E1..E999。上限挡住「e + 15 位数字」这种 16-hex 哈希被误读成超大序号。
+709:def evidence_ordinal_table(evidence: tuple[AgentEvidence, ...]) -> dict[str, str]:
+721:def parse_evidence_ordinal(token: str) -> int | None:
+722:    """``E1`` / ``e12`` → 序号；对不上则 ``None``（交给哈希路径）。"""
+735:def cited_evidence_ordinals(text: str) -> tuple[str, ...]:
+738:    数字语法与 ``_EVIDENCE_ORDINAL_RE`` 同一套（E1..E999、无前导零）。
+739:    左界排除字母数字（``PE10`` 估值倍数、``1.5E8`` 科学计数、``CE4`` 认证名
+740:    都不是引用），右界排除续位数字（``E41`` 不拆成 ``E4``）。
+750:def strip_evidence_ordinals(text: str) -> str:
+755:    public draft: consumers must still check unknown ordinals in the original.
+765:    """把绑定里的 E1..En（或精确哈希）解析成 ``content_hash``。
+767:    序号优先：``E1`` 永不按哈希解释。越界序号硬拒。精确哈希仍接受，
+772:    table = evidence_ordinal_table(evidence)
+782:        ordinal = parse_evidence_ordinal(token)
+783:        if ordinal is not None:
+784:            eid = f"E{ordinal}"
+789:                    f"unknown evidence ordinal: {eid}",
+797:def attach_evidence_ordinals(
+1023:                    + "; use the evidence ordinal (E1, E2, …) from the observation",
+1361:    "attach_evidence_ordinals",
+1362:    "evidence_ordinal_table",
+1365:    "parse_evidence_ordinal",
+1369:    "strip_evidence_ordinals",

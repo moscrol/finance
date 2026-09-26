@@ -1,0 +1,77 @@
+def grounded_values_in_text(
+    text: str,
+    evidence: tuple[AgentEvidence, ...] | list[AgentEvidence],
+) -> tuple[StructuredObservation, ...]:
+    """文本里出现过、且在证据结构化观察值里**有据**的那些数。
+
+    用途：判官删句之前问一句「这一刀会连坐掉哪些真值」。它**不阻止删除**——
+    删除决定仍归判官，绑在同一句里的编造照删（否则假话会拿真数当免死金牌）。
+    它只保证真值不随句子静默消失，好让下游按槽重新呈现。
+
+    这是「保下限不封上限」的落点：拦的是**信息丢失**，不是模型的表达。
+
+    刻意从严：只认与观察值逐字节相等的数字 token（``4.74`` 命中，``4.7``
+    与 ``约 4.74`` 不命中）。宁可少报几条（变笨）也不误报（变错）——
+    误报会把没被删的数当成缺口，反过来污染缺口统计。
+    """
+
+    tokens = {
+        float(match.group())
+        for match in _NUMBER_TOKEN_RE.finditer(str(text or ""))
+    }
+    if not tokens:
+        return ()
+    hits: list[StructuredObservation] = []
+    seen: set[tuple[str, str, str, float]] = set()
+    for item in evidence:
+        for obs in item.observations:
+            key = (obs.subject, obs.as_of, obs.metric, obs.value)
+            if key in seen or obs.value not in tokens:
+                continue
+            seen.add(key)
+            hits.append(obs)
+    return tuple(hits)
+
+
+def describe_lost_observation(obs: StructuredObservation) -> str:
+    """把连坐掉的观察值写成一条缺口，供 ``AgentOutcome.gaps`` 记账。"""
+
+    return (
+        f"删句连坐：{obs.subject} {obs.as_of} {obs.metric}={obs.value:g} "
+        "有据（预取观察值），随未通过核验的表述一并移除；"
+        "应按槽重新呈现，不得当作无数据。"
+    )
+
+
+def evidence_content_hash(item: AgentEvidence) -> str:
+    """Return the stable evidence identity shared by all presentation layers."""
+
+    payload = "|".join(
+        (item.tool, item.title.strip(), item.detail.strip(), item.source.strip())
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def evidence_display_text(item: AgentEvidence) -> str:
+    """Render one evidence item without repeating a title copied from its detail."""
+    title = item.title.strip()
+    detail = item.detail.strip()
+    if not title:
+        return detail
+    if not detail:
+        return title
+    normalized_title = re.sub(r"\s+", "", title).rstrip("：:；;。. ")
+    normalized_detail = re.sub(r"\s+", "", detail)
+    if normalized_detail.startswith(normalized_title):
+        return detail
+    return f"{title}：{detail}"
+
+
+CompleteFn = Callable[..., tuple[str | None, object, str]]
+
+def _system_prompt(tools: dict[str, ToolRunner]) -> str:
+    """按实际注册的工具动态生成 system prompt（宣传=注册，不会漂移）。"""
+    tool_lines = [
+        _TOOL_DESCRIPTIONS[name]
+
+[truncated; total lines=2536, selected=1942:2016; request a later offset]

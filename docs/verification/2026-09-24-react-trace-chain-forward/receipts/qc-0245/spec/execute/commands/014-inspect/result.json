@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "-e",
+    "def _model_projection",
+    "-e",
+    "def _result",
+    "-e",
+    "next_offset",
+    "candidate/finance-workspace-private/intelligence/services/historical_research/episode.py"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 17,
+  "output_sha256": "685a69a201bf5ab4808cbb28be8d2e850439e5939f10d194e0d01bb43c37222e"
+}

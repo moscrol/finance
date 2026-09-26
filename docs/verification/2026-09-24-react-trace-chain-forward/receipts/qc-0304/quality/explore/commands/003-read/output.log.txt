@@ -1,0 +1,402 @@
+             "coverage",
+             "definition_refs",
+             "gaps",
+@@ -422,9 +438,10 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
+         + _compact({"result_ref": result_ref, "query_id": query_id,
+                     "total_matched": payload.get("total_matched"), "returned_count": payload.get("returned_count"),
+                     "truncated": payload.get("truncated"),
++                    "offset": offset, "next_offset": payload["next_offset"],
+                     "projected_evidence_count": len(projection)})
+-        + "样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。"
+-        "大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。"
++        + "样本以完整JSON语义块展示，同result_ref内sample是原件行号（从0起），跨页不重置；特征定义卡给出真实rule/unit/version。"
++        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
+         "需未展示行请用read_history_result分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
+         trace=ProviderTrace(
+             provider="duckdb_history_query",
+@@ -732,11 +749,12 @@ def history_tool_specs(
+             )
+         rows = payload.get("rows", payload.get("cases", []))
+         if isinstance(rows, list):
++            page = rows[offset : offset + limit]
+             payload = dict(
+                 payload,
+-                preview=rows[offset : offset + limit],
+-                returned_count=len(rows[offset : offset + limit]),
+-                truncated=len(rows) > limit,
++                preview=page,
++                returned_count=len(page),
++                truncated=len(page) < len(rows),
+             )
+         metadata = {
+             key: payload.get(key)
+@@ -750,7 +768,7 @@ def history_tool_specs(
+                 "definition_refs",
+             )
+         }
+-        result = _result(payload, result_ref=ref, tool="read_history_result")
++        result = _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
+         context.history_results.append(
+             dict(metadata, result_ref=ref, execution_status="success",
+                  **({"window_binding": payload["window_binding"]} if "window_binding" in payload else {}))
+diff --git a/intelligence/tests/test_agent_episode_progress.py b/intelligence/tests/test_agent_episode_progress.py
+index c9e44d65d..37f952532 100644
+--- a/intelligence/tests/test_agent_episode_progress.py
++++ b/intelligence/tests/test_agent_episode_progress.py
+@@ -26,6 +26,8 @@ from intelligence.services.research_contract import (
+     ResearchRunContext,
+     ResearchTaskContract,
+ )
++from intelligence.services.historical_research.episode import history_tool_specs
++from intelligence.services.historical_research.intent import HistoryIntent
+ from intelligence.services.research_tool_registry import (
+     ResearchToolRegistry, ToolSpec, URL_TOOL_PARAMETERS, parse_url_arguments,
+ )
+@@ -380,6 +382,68 @@ def test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode(
+     assert progress["last_batch"][0]["result"] == ("error" if dispatched else "rejected")
+ 
+ 
++def test_missing_history_end_returns_feedback_without_losing_prior_evidence(
++    monkeypatch: pytest.MonkeyPatch, tmp_path,
++) -> None:
++    """真 parser + 真 loop；缺参仍拒绝，脚本模型可在同轮保留已有判断。"""
++    def denied(*_args, **_kwargs):
++        pytest.fail("invalid history arguments must not reach database or network")
++
++    monkeypatch.setattr("socket.socket.connect", denied)
++    monkeypatch.setattr("socket.create_connection", denied)
++    monkeypatch.setattr("intelligence.services.historical_research.query.HistoryQuery.run", denied)
++    monkeypatch.delenv("WORKBENCH_RESEARCH_PROGRESS", raising=False)
++    intent = HistoryIntent("historical_comparison")
++    frame = replace(_frame(), history_intent=intent)
++    base = _context(frame)
++    context = replace(base, history_intent=intent, contract=replace(
++        base.contract, allowed_capabilities=("market_data", "finance_query"),
++    ))
++    registry = ResearchToolRegistry((
++        _registry(_runner).resolve("market_data"),
++        *history_tool_specs(frame, context, tmp_path / "never-open.duckdb", None),
++    ))
++    # 2026-09-18 实际失败调用的参数形状：无 query、缺 end、嵌套 outcome。
++    call = ModelToolCall("history-missing-end", "history_query", {
++        "entity_codes": ["990089.FP"], "entity_kind": "sector",
++        "operation": "find_analogues", "outcome": {"horizon_days": 5, "threshold_pct": 3},
++        "search_start": "2025-03-01", "search_end": "2026-08-20",
++        "start": "2026-09-04", "window_days": 10,
++    })
++    before = call.to_dict()
++    finish = _finish_turn(("hash-q1",))
++    payload = json.loads(finish.content)
++    payload.update(status="partial", gaps=["历史查询缺结束日，尚未完成历史样本检验。"])
++    payload["history_research"] = {
++        "purpose": intent.purpose, "result_refs": [], "claim_level": "insufficient_evidence",
++        "research_only": True, "decision_eligible": False, "promotion_eligible": False,
++    }
++    model = ScriptedModel([
++        _tool_turn("q1", "c1"), ModelTurn("", (call,), "scripted"),
++        replace(finish, content=json.dumps(payload, ensure_ascii=False)),
++    ])
++    outcome = ContinuousAgentEpisode(model).run(
++        task_frame=frame, context=context, registry=registry,
++    )
++    assert outcome.status == "partial" and outcome.stop_reason == "model_finish"
++    assert payload["draft"] in outcome.draft
++    assert [item.content_hash for item in outcome.evidence] == ["hash-q1"]
++    assert outcome.bindings[0].evidence_hashes == ("hash-q1",)
++    assert len(model.calls) == 3 and outcome.usage.tool_calls == 1
++    assert context.history_results == [] and call.to_dict() == before
++    errors = [e for e in outcome.events if e.kind == "tool_error"]
++    assert len(errors) == 1 and errors[0].payload["error"] == "invalid_arguments"
++    feedback = next(
++        json.loads(m["content"]) for m in model.calls[-1]["messages"]
++        if m.get("role") == "tool" and m.get("tool_call_id") == call.call_id
++    )
++    assert feedback["ok"] is False and feedback["error"] == "invalid_arguments"
++    assert feedback["detail"] == "end requires ISO date"
++    progress = _budget_blocks(model)[-1]["research_progress"]
++    assert progress["last_batch"][0]["result"] == "rejected"
++    assert progress["evidence_total"] == 1 and progress["stalled_batches"] == 1
++
++
+ def test_tool_error_after_success_keeps_evidence_and_reports_error(monkeypatch: pytest.MonkeyPatch) -> None:
+     monkeypatch.delenv("WORKBENCH_RESEARCH_PROGRESS", raising=False)
+ 
+diff --git a/intelligence/tests/test_condition_reference_seams.py b/intelligence/tests/test_condition_reference_seams.py
+new file mode 100644
+index 000000000..dba0aed9c
+--- /dev/null
++++ b/intelligence/tests/test_condition_reference_seams.py
+@@ -0,0 +1,185 @@
++"""Independent examples of deleting a reference, not its surviving observations.
++
++These are offline prose/verification contracts, not a natural-model quality gate.
++"""
++
++from __future__ import annotations
++
++import pytest
++
++from intelligence.services.episode_semantic_verifier import (
++    SemanticEpisodeVerifier,
++    _drop_rejected_sentences,
++    _numbered_sentences,
++    _repair_dangling_condition_references,
++)
++from intelligence.services.research_contract import ResearchDeadline
++from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
++
++
++_DEFINITIONS = "升级条件：站稳20日线。降级条件：跌破前低。"
++
++
++def _repair(text: str) -> str:
++    return _repair_dangling_condition_references(
++        text, before=_DEFINITIONS, rejected_sentence_indexes=(1, 2)
++    )
++
++
++@pytest.mark.parametrize(
++    ("text", "expected"),
++    [
++        ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
++        ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
++        ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
++        ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
++        ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
++        ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
++        ("满足升级条件中的2条；量能配合。", "量能配合。"),
++        ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
++        ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
++        ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
++        ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
++        ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
++        ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
++        ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
++        ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
++        ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
++        ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
++        ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
++        ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
++        ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
++        ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
++        ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
++        ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
++        ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
++        ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
++        ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
++        ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
++        ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
++        ("1. 满足升级条件中的2条。", ""),
++        ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
++    ],
++)
++def test_removed_reference_heals_only_its_clause(text, expected):
++    assert _repair(text) == expected
++
++
++def test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions():
++    retained = "升级条件：量能改善。降级条件：风险可控。已满足降级条件中的1条。"
++    before = _DEFINITIONS + "\n" + retained
++    assert [item["index"] for item in _numbered_sentences(before)] == [1, 2, 3, 4, 5]
++    draft = _drop_rejected_sentences(before, (1, 2))
++    assert draft == retained
++    assert _repair_dangling_condition_references(
++        draft, before=before, rejected_sentence_indexes=(1, 2)
++    ) == retained
++
++
++def test_retained_label_count_does_not_hide_later_orphaned_label_count():
++    retained = "降级条件：风险可控。\n已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。"
++    assert _repair_dangling_condition_references(
++        retained, before=_DEFINITIONS + "\n" + retained, rejected_sentence_indexes=(1, 2)
++    ) == "降级条件：风险可控。\n已满足降级条件中的1条，需跟踪。"
++
++
++def test_untouched_lines_and_their_line_endings_are_preserved():
++    text = "# 观察\r\n\r\n该股放量上攻，满足升级条件中的2条。\r\n- **保留原文**\r\n"
++    assert _repair(text) == "# 观察\r\n\r\n该股放量上攻。\r\n- **保留原文**\r\n"
++
++
++@pytest.mark.parametrize(
++    "text",
++    [
++        "目前不满足升级条件中的2条，需观察。",
++        "**满足升级条件中的2条**，量能配合。",
++        "量能配合，满足升级条件中的2条。",
++    ],
++)
++def test_no_deleted_definition_means_no_prose_rewrite(text):
++    assert _repair_dangling_condition_references(
++        text, before=text, rejected_sentence_indexes=()
++    ) == text
++    assert _repair_dangling_condition_references(
++        text, before="普通条件：观察。" + text, rejected_sentence_indexes=(1,)
++    ) == text
++
++
++_DEFINITION_PREFIXES = (
++    "", "- ", "* ", "+ ", "• ", "1. ", "2) ", "3） ", "4、 ",
++    "一、", "(1) ", "（2）", "① ", "10. **",
++)
++
++
++@pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
++def test_deleted_list_definition_removes_only_its_count(prefix):
++    closing = "**" if prefix.endswith("**") else ""
++    before = f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
++    draft = "- 量能改善，满足升级条件中的2条。\r\n- 独立观察。\r\n"
++    assert _repair_dangling_condition_references(
++        draft, before=before + draft, rejected_sentence_indexes=(1,)
++    ) == "- 量能改善。\r\n- 独立观察。\r\n"
++
++
++@pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
++def test_surviving_list_definition_preserves_its_count(prefix):
++    closing = "**" if prefix.endswith("**") else ""
++    retained = (
++        f"{prefix}升级条件{closing}：量能改善。\n"
++        "已满足升级条件中的1条，需观察。"
++    )
++    before = "升级条件：若涨停60家以上，则升级。\n" + retained
++    assert _repair_dangling_condition_references(
++        retained, before=before, rejected_sentence_indexes=(1,)
++    ) == retained
++
++
++@pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
++def test_list_definition_deletion_reaches_public_answer(prefix):
++    closing = "**" if prefix.endswith("**") else ""
++    frame, structural = _structural(
++        f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
++        "该股放量上攻。目前尚未**满足升级条件中的2条**。"
++    )
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert result.judge_status == "repaired"
++    assert result.public_answer == "该股放量上攻。"
++    assert result.verified.outcome.draft == result.public_answer
++    assert any(
++        row["decision"] == "deleted" and "60家" in row["sentence"]
++        for row in result.sentence_verdicts
++    )
++
++
++@pytest.mark.parametrize("prefix", ["观察到", "2026-09-24 ", "1. 观察到", "普通条件："])
++def test_non_definition_prose_does_not_authorize_count_removal(prefix):
++    draft = "满足升级条件中的2条，需观察。"
++    assert _repair_dangling_condition_references(
++        draft, before=f"{prefix}升级条件：量能改善。", rejected_sentence_indexes=(1,)
++    ) == draft
++
++
++def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
++    judge = _judge(True)
++    frame, structural = _structural(
++        "升级条件：若涨停60家以上，则升级。\n"
++        "该股放量上攻。目前尚未**满足升级条件中的2条**。"
++    )
++    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert result.judge_status == "repaired"
++    assert result.public_answer == "该股放量上攻。"
++    assert result.verified.outcome.draft == result.public_answer
++    assert len(judge.calls) == 1
++    assert result.sentence_verdicts
++    assert any(
++        row["sentence"].startswith("升级条件") and row["decision"] == "deleted"
++        for row in result.sentence_verdicts
++    )
+diff --git a/intelligence/tests/test_episode_semantic_verifier.py b/intelligence/tests/test_episode_semantic_verifier.py
+index 635d41ac8..0e1571933 100644
+--- a/intelligence/tests/test_episode_semantic_verifier.py
++++ b/intelligence/tests/test_episode_semantic_verifier.py
+@@ -34,6 +34,8 @@ from intelligence.services.episode_semantic_verifier import (
+     leftover_window_blocks_complete_attempt,
+     numeric_condition_unsupported,
+     semantic_judge_window_seconds,
++    _numbered_sentences,
++    _repair_dangling_condition_references,
+ )
+ from intelligence.services.episode_verifier import verify_episode_outcome
+ from intelligence.services.evidence_capabilities import (
+@@ -1254,6 +1256,112 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
+     ]
+ 
+ 
++def test_deleted_condition_definition_cannot_leave_a_count_backreference() -> None:
++    judge = _judge(True)
++    frame, structural = _structural(
++        "- 升级条件：若半导体连续2日保持双红且涨停60家以上，则升级。"
++        "- 当前满足：双红各1天、量能主线抱团——**满足升级条件中的2条，双红连续性尚未确立**。"
++    )
++
++    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(5),
++    )
++
++    assert result.status == "completed"
++    assert result.judge_status == "repaired"
++    assert "升级条件：" not in result.public_answer
++    assert "满足升级条件中的2条" not in result.public_answer
++    assert "当前满足：双红各1天、量能主线抱团，双红连续性尚未确立。" in result.public_answer
++    assert "满足升级条件中的2条" not in result.verified.outcome.draft
++
++
++def test_condition_count_backreference_is_unchanged_without_a_deleted_definition() -> None:
++    draft = "升级条件：若连续两日放量，则升级。当前满足升级条件中的1条。"
++
++    assert (
++        _repair_dangling_condition_references(
++            draft,
++            before=draft,
++            rejected_sentence_indexes=(),
++        )
++        == draft
++    )
++
++
++# 两条定义都被上游删掉，两个标签同时失联——同一行里先后出现两种计数的现实形状。
++_BOTH_CONDITIONS_DELETED = "升级条件：站稳20日线。降级条件：跌破前低。当前观察如下。"
++
++
++def _repair_with_both_conditions_deleted(draft: str) -> str:
++    rejected = tuple(
++        int(item["index"])  # type: ignore[arg-type]
++        for item in _numbered_sentences(_BOTH_CONDITIONS_DELETED)
++        if str(item["text"]).startswith(("升级条件", "降级条件"))
++    )
++    # 固定桩要自证前提：两条定义都得真被认出来，否则下面的断言测的是空集。
++    assert rejected == (1, 2)
++    return _repair_dangling_condition_references(
++        draft,
++        before=_BOTH_CONDITIONS_DELETED,
++        rejected_sentence_indexes=rejected,
++    )
++
++
++def test_dangling_count_is_removed_even_after_another_label_on_the_same_line() -> None:
++    # 按标签逐个 search 会在第一个不匹配的计数上停下，后面那个就永远删不掉。
++    repaired = _repair_with_both_conditions_deleted(
++        "已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。"
++    )
++
++    assert "降级条件中的1条" not in repaired
++    assert "升级条件中的2条" not in repaired
++    assert repaired == "需跟踪。"
++
++
++def test_repair_drops_the_adverb_the_removed_count_left_stranded() -> None:
++    # 「尚未」的宾语就是那个计数，留着会读成「目前尚未，需继续观察」。
++    repaired = _repair_with_both_conditions_deleted(
++        "目前尚未满足升级条件中的3条，需继续观察。"
++    )
+
+[truncated; total lines=1109, selected=301:700; next_offset=701]

@@ -1,0 +1,31 @@
+"""Offline stage-schema correction; never resume or alter the sealed batch."""
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+SEED = ROOT.parent/'pr832-glm-qc-20260924-0304/spec'
+for variant in ['before','after']:
+    dest = ROOT/variant
+    dest.mkdir()
+    for name in ['review.mjs','config.json','provider-template.json']:
+        (dest/name).write_bytes((SEED/name).read_bytes())
+    (dest/'work/probes').mkdir(parents=True)
+source = (ROOT/'after/review.mjs').read_text()
+anchor = 'export const authorFiles = ['
+assert source.count(anchor) == 1
+source = source.replace(anchor,'''export function reportSchemaFor(stage) {
+  const verdicts = stage === 'report'
+    ? ['PASS', 'PASS_WITH_LIMITS', 'CHANGES_REQUIRED', 'BLOCKED']
+    : ['STAGE_COMPLETE', 'BLOCKED'];
+  return { ...reportSchema, properties: { ...reportSchema.properties,
+    verdict: Type.String({ enum: verdicts }),
+  } };
+}
+export const authorFiles = [''')
+source = source.replace("  const tree = fs.realpathSync(CONFIG.tree)","  const stageReportSchema = reportSchemaFor(stage);\n  const tree = fs.realpathSync(CONFIG.tree)")
+source = source.replace('parameters: reportSchema, execute:', 'parameters: stageReportSchema, execute:')
+source = source.replace('if (!Check(reportSchema,params)', 'if (!Check(stageReportSchema,params)')
+(ROOT/'after/review.mjs').write_text(source)
+manifest = {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in ROOT.glob('*/*') if p.is_file()}
+(ROOT/'source-hashes.json').write_text(json.dumps(manifest,indent=2)+'\n')

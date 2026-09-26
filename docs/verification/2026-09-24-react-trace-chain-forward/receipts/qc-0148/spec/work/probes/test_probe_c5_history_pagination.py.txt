@@ -1,0 +1,119 @@
+"""Independent C5 probe: history pages keep absolute row identity and safe failure exit.
+
+Borrows only the pre-existing `_registry` fixture; projections and assertions are
+derived from claims, not copied from the author's new tests.
+"""
+from __future__ import annotations
+
+import json
+from copy import deepcopy
+
+import pytest
+
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import ToolObservation
+from intelligence.tests.test_historical_research_episode import _registry
+
+_QUERY = {
+    "operation": "inspect_history",
+    "start": "2026-08-03",
+    "end": "2026-08-04",
+    "entity_codes": ["A.FP"],
+    "preview_limit": 1,
+}
+
+
+def _project(observation):
+    assert isinstance(observation, ToolObservation)
+    projected = FinanceResearchHarness().project_tool_result(
+        observation, evidence_so_far=observation.evidence, seen_prose=set()
+    )
+    model = json.loads(projected.model_content)
+    details = [json.loads(item["detail"]) for item in model["evidence"]]
+    return model, details
+
+
+def _scope(details):
+    return next(row for row in details if "total_matched" in row)
+
+
+def _rows(details):
+    return [row for row in details if row.get("sample") != "reference" and "entity_code" in row]
+
+
+def test_c5_absolute_row_identity_offset_next_offset_and_last_page_hint(tmp_path):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute("history_query", _QUERY, context=context, step_id="q0")
+    ref = first.telemetry["result_ref"]
+    stored = deepcopy(session.read(ref))
+    assert stored["total_matched"] == 2 and len(stored["rows"]) == 2
+
+    # First page advertises the next page without equating preview to the result.
+    model0, details0 = _project(first)
+    scope0 = _scope(details0)
+    assert scope0["offset"] == 0 and scope0["next_offset"] == 1
+    assert scope0["returned_count"] == 1 and scope0["truncated"] is True
+    assert '"offset":0' in model0["observation"] and '"next_offset":1' in model0["observation"]
+
+    # Page at offset=1: identity must be the absolute row index, not page position.
+    page = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+        context=context, step_id="p1",
+    )
+    model1, details1 = _project(page)
+    rows1 = _rows(details1)
+    assert {row["sample"] for row in rows1} == {1}
+    page_dates = {row["trade_date"] for row in rows1}
+    assert page_dates == {stored["rows"][1]["trade_date"]} == {"2026-08-04"}
+    scope1 = _scope(details1)
+    assert (scope1["offset"], scope1["returned_count"]) == (1, 1)
+    assert scope1["next_offset"] is None  # last page
+    assert scope1["truncated"] is True  # final page is still only part of the result
+    assert '"offset":1' in model1["observation"] and '"next_offset":null' in model1["observation"]
+    assert "next_offset" in model1["observation"] and "null表示已到末页" in model1["observation"]
+    assert page.telemetry["offset"] == 1 and page.telemetry["next_offset"] is None
+    assert {item.internal_locator for item in page.evidence} == {ref}
+    assert {item.independent_key for item in page.evidence} == {first.telemetry["query_id"]}
+
+    # Beyond-the-end page: empty, no next page, still flagged as partial.
+    far = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": 9, "limit": 2},
+        context=context, step_id="p9",
+    )
+    _model9, details9 = _project(far)
+    assert _rows(details9) == []
+    scope9 = _scope(details9)
+    assert scope9["offset"] == 9 and scope9["next_offset"] is None and scope9["returned_count"] == 0
+    assert scope9["truncated"] is True
+    assert session.read(ref) == stored  # paging never mutates the stored result
+
+
+def test_c5_projection_failure_does_not_register_a_successful_read(tmp_path, monkeypatch):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute("history_query", _QUERY, context=context, step_id="q0")
+    ref = first.telemetry["result_ref"]
+    stored = deepcopy(session.read(ref))
+    assert len(context.history_results) == 1  # the query itself registered once
+
+    # Control: a successful page read really does register.
+    ok = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+        context=context, step_id="ok-page",
+    )
+    assert ok.telemetry["offset"] == 1
+    assert len(context.history_results) == 2
+
+    def fail(*_args, **kwargs):
+        assert kwargs.get("offset") == 1 and kwargs.get("tool") == "read_history_result"
+        raise ValueError("projection failed")
+
+    monkeypatch.setattr("intelligence.services.historical_research.episode._result", fail)
+    before_failure = deepcopy(context.history_results)
+    with pytest.raises(ValueError, match="projection failed"):
+        registry.execute(
+            "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+            context=context, step_id="failed-page",
+        )
+    assert context.history_results == before_failure  # no success registered
+    assert len(context.history_results) == 2
+    assert session.read(ref) == stored

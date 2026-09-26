@@ -1,0 +1,32 @@
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/intelligence/tests/test_condition_reference_seams.py
+
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/intelligence/tests/test_episode_numeric_citations.py
+
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/intelligence/tests/test_episode_protocol.py
+
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/intelligence/tests/test_finance_query_repair_feedback.py
+
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/intelligence/tests/test_agent_episode_progress.py
+
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/intelligence/tests/test_research_progress.py
+
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/tests/test_history_model_projection.py
+
+
+==================================== ERRORS ====================================
+______________________________ ERROR collecting . ______________________________
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/main.py:421: in pytest_ignore_collect
+    if collection_path.is_dir():
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:875: in is_dir
+    return S_ISDIR(self.stat().st_mode)
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:840: in stat
+    return os.stat(self, follow_symlinks=follow_symlinks)
+E   PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private/.agents'
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-005-run_tests.xml -
+=========================== short test summary info ============================
+ERROR . - PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.fi...
+1 error in 0.13s

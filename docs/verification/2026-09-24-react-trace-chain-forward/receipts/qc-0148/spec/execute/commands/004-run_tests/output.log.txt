@@ -1,0 +1,337 @@
+F..FFFFFFFF.F.FFF......FFF......                                         [ 96%]
+=================================== FAILURES ===================================
+____________ test_c1_prose_e_refs_are_masked_without_joining_tokens ____________
+
+    def test_c1_prose_e_refs_are_masked_without_joining_tokens():
+        masked = strip_evidence_ordinals("如E1与E2、E12所示；参见e3。")
+>       assert masked == "如 与 、 、所示；参见 。"
+E       AssertionError: assert '如 与 、 所示；参见 。' == '如 与 、 、所示；参见 。'
+E         
+E         - 如 与 、 、所示；参见 。
+E         ?       -
+E         + 如 与 、 所示；参见 。
+
+../../spec/work/probes/test_probe_c1_evidence_ordinals.py:16: AssertionError
+________________ test_c2_unknown_validator_text_is_never_echoed ________________
+
+    def test_c2_unknown_validator_text_is_never_echoed():
+        result = _result(finance_query.FinanceQueryValidationError(_SECRET))
+>       assert "查询参数未通过校验" in result.observation
+E       AssertionError: assert '查询参数未通过校验' in ''
+E        +  where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...t_up,market_stage_confidence,strength_amount_pct,strength_return_pct,top3_industry_ratio,total_amount,volume_ratio'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:32: AssertionError
+_ test_c2_known_prefixes_render_identifier_only[unknown dataset: forbidden-prose secret/path future-fact-99%] _
+
+message = 'unknown dataset: forbidden-prose secret/path future-fact-99%'
+
+    @pytest.mark.parametrize("message", ["unknown dataset: " + _SECRET, "not a metric: " + _SECRET])
+    def test_c2_known_prefixes_render_identifier_only(message):
+        result = _result(finance_query.FinanceQueryValidationError(message))
+>       assert result.observation.startswith("结构化查询参数无效：")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x102eef1a8>('结构化查询参数无效：')
+E        +    where <built-in method startswith of str object at 0x102eef1a8> = ''.startswith
+E        +      where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...gh_daily,stock_technical_daily,stock_technical_snapshot,sw_l1_daily,theme_limit_heat_daily,theme_limit_stock_daily'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:47: AssertionError
+_ test_c2_known_prefixes_render_identifier_only[not a metric: forbidden-prose secret/path future-fact-99%] _
+
+message = 'not a metric: forbidden-prose secret/path future-fact-99%'
+
+    @pytest.mark.parametrize("message", ["unknown dataset: " + _SECRET, "not a metric: " + _SECRET])
+    def test_c2_known_prefixes_render_identifier_only(message):
+        result = _result(finance_query.FinanceQueryValidationError(message))
+>       assert result.observation.startswith("结构化查询参数无效：")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x102eef1a8>('结构化查询参数无效：')
+E        +    where <built-in method startswith of str object at 0x102eef1a8> = ''.startswith
+E        +      where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...t_up,market_stage_confidence,strength_amount_pct,strength_return_pct,top3_industry_ratio,total_amount,volume_ratio'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:47: AssertionError
+_ test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryTimedOut-\u7ed3\u6784\u5316\u67e5\u8be2\u8d85\u65f6] _
+
+error_type = <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+marker = '结构化查询超时'
+
+    @pytest.mark.parametrize(
+        ("error_type", "marker"),
+        [
+            (finance_query.FinanceQueryTimedOut, "结构化查询超时"),
+            (finance_query.FinanceQueryCancelled, "结构化查询已取消"),
+            (finance_query.FinanceQueryLimitExceeded, "结构化查询结果超过资源上限"),
+            (finance_query.FinanceQueryExecutionError, "结构化数据源暂不可用"),
+        ],
+    )
+    def test_c2_runtime_errors_use_fixed_safe_observations(error_type, marker):
+        result = _result(error_type("provider secret/path forbidden-provider-text 99%"))
+>       assert marker in result.observation
+E       AssertionError: assert '结构化查询超时' in ''
+E        +  where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...f96759b0da1f8786c6d55aa799f', telemetry={}, diagnostics=(ToolDiagnostic(code='timeout', message='结构化查询超时，未返回可发布的数据'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:65: AssertionError
+_ test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryCancelled-\u7ed3\u6784\u5316\u67e5\u8be2\u5df2\u53d6\u6d88] _
+
+error_type = <class 'intelligence.services.finance_query.FinanceQueryCancelled'>
+marker = '结构化查询已取消'
+
+    @pytest.mark.parametrize(
+        ("error_type", "marker"),
+        [
+            (finance_query.FinanceQueryTimedOut, "结构化查询超时"),
+            (finance_query.FinanceQueryCancelled, "结构化查询已取消"),
+            (finance_query.FinanceQueryLimitExceeded, "结构化查询结果超过资源上限"),
+            (finance_query.FinanceQueryExecutionError, "结构化数据源暂不可用"),
+        ],
+    )
+    def test_c2_runtime_errors_use_fixed_safe_observations(error_type, marker):
+        result = _result(error_type("provider secret/path forbidden-provider-text 99%"))
+>       assert marker in result.observation
+E       AssertionError: assert '结构化查询已取消' in ''
+E        +  where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...759b0da1f8786c6d55aa799f', telemetry={}, diagnostics=(ToolDiagnostic(code='cancelled', message='结构化查询已取消，未返回可发布的数据'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:65: AssertionError
+_ test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryLimitExceeded-\u7ed3\u6784\u5316\u67e5\u8be2\u7ed3\u679c\u8d85\u8fc7\u8d44\u6e90\u4e0a\u9650] _
+
+error_type = <class 'intelligence.services.finance_query.FinanceQueryLimitExceeded'>
+marker = '结构化查询结果超过资源上限'
+
+    @pytest.mark.parametrize(
+        ("error_type", "marker"),
+        [
+            (finance_query.FinanceQueryTimedOut, "结构化查询超时"),
+            (finance_query.FinanceQueryCancelled, "结构化查询已取消"),
+            (finance_query.FinanceQueryLimitExceeded, "结构化查询结果超过资源上限"),
+            (finance_query.FinanceQueryExecutionError, "结构化数据源暂不可用"),
+        ],
+    )
+    def test_c2_runtime_errors_use_fixed_safe_observations(error_type, marker):
+        result = _result(error_type("provider secret/path forbidden-provider-text 99%"))
+>       assert marker in result.observation
+E       AssertionError: assert '结构化查询结果超过资源上限' in ''
+E        +  where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...f8786c6d55aa799f', telemetry={}, diagnostics=(ToolDiagnostic(code='limit_exceeded', message='结构化查询结果超过资源上限，未返回截断数据'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:65: AssertionError
+_ test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryExecutionError-\u7ed3\u6784\u5316\u6570\u636e\u6e90\u6682\u4e0d\u53ef\u7528] _
+
+error_type = <class 'intelligence.services.finance_query.FinanceQueryExecutionError'>
+marker = '结构化数据源暂不可用'
+
+    @pytest.mark.parametrize(
+        ("error_type", "marker"),
+        [
+            (finance_query.FinanceQueryTimedOut, "结构化查询超时"),
+            (finance_query.FinanceQueryCancelled, "结构化查询已取消"),
+            (finance_query.FinanceQueryLimitExceeded, "结构化查询结果超过资源上限"),
+            (finance_query.FinanceQueryExecutionError, "结构化数据源暂不可用"),
+        ],
+    )
+    def test_c2_runtime_errors_use_fixed_safe_observations(error_type, marker):
+        result = _result(error_type("provider secret/path forbidden-provider-text 99%"))
+>       assert marker in result.observation
+E       AssertionError: assert '结构化数据源暂不可用' in ''
+E        +  where '' = ToolRunResult(evidence=(), observation='', trace=ProviderTrace(provider='duckdb_semantic_query', capability='finance_q...a1f8786c6d55aa799f', telemetry={}, diagnostics=(ToolDiagnostic(code='request_error', message='结构化数据源暂不可用，未返回可发布的数据'),)).observation
+
+../../spec/work/probes/test_probe_c2_finance_query_diagnostics.py:65: AssertionError
+__________ test_c3_feedback_stays_in_episode_and_keeps_prior_evidence __________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests/test_c3_feedback_stays_in_epis0')
+
+    def test_c3_feedback_stays_in_episode_and_keeps_prior_evidence(tmp_path):
+        frame, context, registry, path = _setup(tmp_path)
+        frozen = path.read_bytes()
+        model = _Scripted()
+        result = ContinuousAgentEpisode(model).run(
+            task_frame=frame, context=context, registry=registry,
+        )
+        assert result.stop_reason == "model_finish"
+        assert result.usage.tool_calls == 2  # no extra slot minted for the repair loop
+        feedback = [
+            json.loads(m["content"])
+            for m in model.turns[-1]
+            if m.get("role") == "tool" and m.get("tool_call_id") == "probe-bad"
+        ]
+        assert len(feedback) == 1
+        payload = feedback[0]
+        assert payload["ok"] is False
+        assert "结构化查询参数无效" in payload["observation"]
+        assert "重试提示" in payload["observation"]
+        assert not payload["evidence"]
+>       assert len(result.evidence) == 1  # the good query's evidence survived
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len((AgentEvidence(tool='market_data', title='先验周量能序列', detail='先验周 2026-07-21至2026-07-21 成交额— 量比— 双红— 末日主线无', source='本地 ...=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='local_read')))
+E        +    where (AgentEvidence(tool='market_data', title='先验周量能序列', detail='先验周 2026-07-21至2026-07-21 成交额— 量比— 双红— 末日主线无', source='本地 ...=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='local_read')) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='partial', dra...m_calls=3, tool_calls=2, invalid_actions=0, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').evidence
+
+../../spec/work/probes/test_probe_c3_repair_feedback.py:101: AssertionError
+_____________________ test_c3_budget_one_invalid_call_only _____________________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests/test_c3_budget_one_invalid_cal0')
+
+    def test_c3_budget_one_invalid_call_only(tmp_path):
+        frame, context, registry, _ = _setup(tmp_path, max_steps=1)
+        model = _InvalidFirst()
+>       result = ContinuousAgentEpisode(model).run(
+            task_frame=frame, context=context, registry=registry,
+        )
+
+../../spec/work/probes/test_probe_c3_repair_feedback.py:123: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/runtime/agent_episode.py:1367: in run
+    ).run_to_end()
+intelligence/runtime/agent_episode.py:1203: in run_to_end
+    self.step()
+intelligence/runtime/agent_episode.py:1166: in step
+    point = next(self._generator)
+intelligence/runtime/agent_episode.py:1415: in _drive_owned
+    return (yield from self._drive(
+intelligence/runtime/agent_episode.py:1687: in _drive
+    turn = ledger.model_complete(
+intelligence/runtime/agent_episode.py:406: in model_complete
+    return model.complete(**kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <test_probe_c3_repair_feedback._InvalidFirst object at 0x10a35db80>
+
+    def complete(self, *, messages, tools, timeout):
+        tool_messages = [m for m in messages if m.get("role") == "tool"]
+        if not tool_messages:
+            return ModelTurn(
+                "", (ModelToolCall("probe-bad", "finance_query", _INVALID),), "probe", ""
+            )
+        self.turns.append([dict(m) for m in messages])
+>       pytest.fail("no dispatch may follow once the tool budget is exhausted")
+E       Failed: no dispatch may follow once the tool budget is exhausted
+
+../../spec/work/probes/test_probe_c3_repair_feedback.py:117: Failed
+__________ test_c3_invalid_query_feeds_back_and_keeps_prior_evidence ___________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests/test_c3_invalid_query_feeds_ba0')
+
+    def test_c3_invalid_query_feeds_back_and_keeps_prior_evidence(tmp_path):
+        frame, context, registry, path = _setup(tmp_path)
+        frozen = path.read_bytes()
+        model = _Scripted()
+        result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+    
+        assert result.stop_reason == "model_finish"
+        assert result.usage.tool_calls == 2  # the repair loop mints no extra slot
+        feedback = _feedback_for(model, "probe-2")
+        assert len(feedback) == 1  # the diagnostic reached the model inside the same episode
+        payload = feedback[0]
+        assert "结构化查询参数无效" in payload["observation"]
+        assert "重试提示" in payload["observation"]
+        assert payload["evidence"] == []  # no fabricated observations on rejection
+>       assert "definitely_not_a_metric" not in payload["observation"]
+E       AssertionError: assert 'definitely_not_a_metric' not in '工具诊断（非市场事实）...volume_ratio'
+E         
+E         'definitely_not_a_metric' is contained here:
+E           wn field: definitely_not_a_metric；重试提示：当前 dataset=market_daily；字段归属：definitely_not_a_metric→未注册；一次查询只能使用一个 dataset；所需字段跨 dataset 时请拆成多个查询，逐次观察结果后再汇总；market_daily: dimensions=concentration_state,cycle_stage,cycle_stage_source,leading_industry_1,leading_industry_2,leading_industry_3,market_stage,market_stage_source,stage_day,trade_date,volume_state; metrics=advancers,amount_change_pct,amount_ma20,index_close,index_return_pct,limit_down,limit_up,market_stage_confidence,strength_amount_pct,strength_return_pct,top3_industry_ratio,total_amount,volume_ratio
+E         ?           +++++++++++++++++++++++
+
+../../spec/work/probes/test_probe_c3_repair_feedback_v2.py:100: AssertionError
+___ test_c3_exhausted_budget_still_delivers_feedback_without_second_dispatch ___
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests/test_c3_exhausted_budget_still0')
+
+    def test_c3_exhausted_budget_still_delivers_feedback_without_second_dispatch(tmp_path):
+        frame, context, registry, path = _setup(tmp_path, max_steps=1)
+        model = _Scripted()
+        result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+    
+        assert result.usage.tool_calls == 1  # budget not extended by the repair request
+>       assert not result.evidence
+E       AssertionError: assert not (AgentEvidence(tool='market_data', title='先验周量能序列', detail='先验周 2026-07-21至2026-07-21 成交额— 量比— 双红— 末日主线无', source='本地 ...=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='local_read'))
+E        +  where (AgentEvidence(tool='market_data', title='先验周量能序列', detail='先验周 2026-07-21至2026-07-21 成交额— 量比— 双红— 末日主线无', source='本地 ...=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='local_read')) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='partial', dra...m_calls=3, tool_calls=1, invalid_actions=2, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').evidence
+
+../../spec/work/probes/test_probe_c3_repair_feedback_v2.py:111: AssertionError
+____________ test_c3_cancellation_after_feedback_prevents_dispatch _____________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests/test_c3_cancellation_after_fee1')
+
+    def test_c3_cancellation_after_feedback_prevents_dispatch(tmp_path):
+        frame, context, registry, _ = _setup(tmp_path)
+        cancelled = Event()
+        model = _Scripted(cancel=cancelled)
+        result = ContinuousAgentEpisode(model, is_cancelled=cancelled.is_set).run(
+            task_frame=frame, context=context, registry=registry,
+        )
+        assert result.stop_reason == "cancelled"
+        assert result.usage.tool_calls == 1
+>       assert len(result.evidence) == 1
+E       AssertionError: assert 3 == 1
+E        +  where 3 = len((AgentEvidence(tool='market_data', title='先验周量能序列', detail='先验周 2026-07-21至2026-07-21 成交额— 量比— 双红— 末日主线无', source='本地 ...=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='local_read')))
+E        +    where (AgentEvidence(tool='market_data', title='先验周量能序列', detail='先验周 2026-07-21至2026-07-21 成交额— 量比— 双红— 末日主线无', source='本地 ...=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='local_read')) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...m_calls=2, tool_calls=1, invalid_actions=0, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').evidence
+
+../../spec/work/probes/test_probe_c3_repair_feedback_v2.py:127: AssertionError
+_ test_c6_real_exit_keeps_surviving_definition_and_strips_only_orphaned_count __
+
+    def test_c6_real_exit_keeps_surviving_definition_and_strips_only_orphaned_count():
+        draft = (
+            "升级条件：出现放量长阳才算成立。降级条件：跌破前低才算成立。\n"
+            "多头结构未破坏。当前已满足降级条件中的1条，且满足升级条件中的2条，量能配合。"
+        )
+        indexes = [item["index"] for item in _numbered_sentences(draft)]
+        assert indexes == [1, 2, 3, 4]  # precondition: sentence grammar sees all four
+        judge, result = _verify(draft, (1,))
+    
+        assert result.judge_status == "repaired"
+        # The surviving definition and its live count reference both stay visible.
+        assert "降级条件：跌破前低才算成立。" in result.public_answer
+>       assert "降级条件中的1条" in result.public_answer
+E       AssertionError: assert '降级条件中的1条' in '升级条件：出现放量长阳才算成立。降级条件：跌破前低才算成立。\n多头结构未破坏。'
+E        +  where '升级条件：出现放量长阳才算成立。降级条件：跌破前低才算成立。\n多头结构未破坏。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+../../spec/work/probes/test_probe_c6_condition_repair.py:44: AssertionError
+_____ test_c6_numeric_gate_still_redacts_novel_numbers_while_repair_fires ______
+
+    def test_c6_numeric_gate_still_redacts_novel_numbers_while_repair_fires():
+        draft = (
+            "升级条件：出现放量长阳才算成立。\n"
+            "若指数跌破3870点则失效，多头结构破坏。\n"
+            "当前满足升级条件中的2条，量能配合。"
+        )
+        judge, result = _verify(draft, (1,))
+    
+        # The local numeric gate still catches the unsupported comparator...
+        assert "3870点" not in result.public_answer
+        assert "3870点" not in result.verified.outcome.draft
+        assert all("3870点" not in str(item["text"]) for item in judge.calls[0]["sentences"])
+        # ...while the dangling-count repair removes its own target only.
+>       assert _ORPHAN not in result.public_answer
+E       AssertionError: assert '满足升级条件中的2条' not in '升级条件：出现放量长阳...条件中的2条，量能配合。'
+E         
+E         '满足升级条件中的2条' is contained here:
+E           升级条件：出现放量长阳才算成立。
+E           当前满足升级条件中的2条，量能配合。
+
+../../spec/work/probes/test_probe_c6_condition_repair.py:70: AssertionError
+____ test_c6_count_whose_only_content_was_the_line_is_dropped_via_real_exit ____
+
+    def test_c6_count_whose_only_content_was_the_line_is_dropped_via_real_exit():
+        judge, result = _verify("升级条件：站稳20日线。\n结论：满足升级条件中的2条。", (1,))
+>       assert result.judge_status == "repaired"
+E       AssertionError: assert 'rejected' == 'repaired'
+E         
+E         - repaired
+E         + rejected
+
+../../spec/work/probes/test_probe_c6_condition_repair.py:77: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests.xml -
+=========================== short test summary info ============================
+FAILED ::test_c1_prose_e_refs_are_masked_without_joining_tokens - AssertionEr...
+FAILED ::test_c2_unknown_validator_text_is_never_echoed - AssertionError: ass...
+FAILED ::test_c2_known_prefixes_render_identifier_only[unknown dataset: forbidden-prose secret/path future-fact-99%]
+FAILED ::test_c2_known_prefixes_render_identifier_only[not a metric: forbidden-prose secret/path future-fact-99%]
+FAILED ::test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryTimedOut-\u7ed3\u6784\u5316\u67e5\u8be2\u8d85\u65f6]
+FAILED ::test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryCancelled-\u7ed3\u6784\u5316\u67e5\u8be2\u5df2\u53d6\u6d88]
+FAILED ::test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryLimitExceeded-\u7ed3\u6784\u5316\u67e5\u8be2\u7ed3\u679c\u8d85\u8fc7\u8d44\u6e90\u4e0a\u9650]
+FAILED ::test_c2_runtime_errors_use_fixed_safe_observations[FinanceQueryExecutionError-\u7ed3\u6784\u5316\u6570\u636e\u6e90\u6682\u4e0d\u53ef\u7528]
+FAILED ::test_c3_feedback_stays_in_episode_and_keeps_prior_evidence - Asserti...
+FAILED ::test_c3_budget_one_invalid_call_only - Failed: no dispatch may follo...
+FAILED ::test_c3_invalid_query_feeds_back_and_keeps_prior_evidence - Assertio...
+FAILED ::test_c3_exhausted_budget_still_delivers_feedback_without_second_dispatch
+FAILED ::test_c3_cancellation_after_feedback_prevents_dispatch - AssertionErr...
+FAILED ::test_c6_real_exit_keeps_surviving_definition_and_strips_only_orphaned_count
+FAILED ::test_c6_numeric_gate_still_redacts_novel_numbers_while_repair_fires
+FAILED ::test_c6_count_whose_only_content_was_the_line_is_dropped_via_real_exit
+16 failed, 16 passed in 8.61s

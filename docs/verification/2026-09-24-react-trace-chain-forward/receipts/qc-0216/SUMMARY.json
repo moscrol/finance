@@ -1,0 +1,240 @@
+{
+  "recorded_at": "2026-09-23T18:48:12.487931+00:00",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "verdict": "BLOCKED_PROVIDER_STREAM_AND_INVALID_THINKING_ASSUMPTION",
+  "host_review": {
+    "recorded_at": "2026-09-23T18:46:41.109007+00:00",
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+    "verdict": "BLOCKED_PROVIDER_STREAM_AND_INVALID_THINKING_ASSUMPTION",
+    "model_requests_in_batch": 35,
+    "model_requests_added": 0,
+    "observed": [
+      "Gateway passed; explore produced six independent probe files.",
+      "Execute: intentional control exit1, independent probes 29 cases:20 passed/9 failed, seven author files 186 passed.",
+      "Execute stopped on a 120-second provider stream failure, without its required final delivery.",
+      "Spec report and all Quality phases never started.",
+      "Nominal thinking off was false as an effective-model claim: thinking deltas exist; GLM-5.3 cannot disable thinking."
+    ],
+    "classification_limits": [
+      "The nine independent failing assertions have not all been diagnosed by the reviewer; not automatically product defects or fixture errors.",
+      "No current independent Spec or Quality signoff; author greens and valid explore JSON do not substitute.",
+      "Official/SDK findings are host-only diagnosis; do not retroactively modify sealed controls or certify old model requests."
+    ],
+    "provider_diagnostic": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/provider-diagnostic.json",
+    "natural_finance_requests": 0,
+    "merged": false,
+    "deployed": false
+  },
+  "model_requests": 35,
+  "max_batch_requests": 152,
+  "stages": {
+    "spec": {
+      "gateway": {
+        "stage": "gateway",
+        "status": "COMPLETE",
+        "max_requests": 4,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 4,
+          "dispatched": 4,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 4,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 22.31186474999413,
+        "stage_status": "PASS",
+        "request_counts_agree": true
+      },
+      "explore": {
+        "stage": "explore",
+        "status": "COMPLETE",
+        "max_requests": 24,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "stage_runner_exit": 0,
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 19,
+          "dispatched": 19,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 19,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 358.36901004216634,
+        "stage_status": "STAGE_COMPLETE",
+        "request_counts_agree": true,
+        "delivery": {
+          "report_structural": true,
+          "errors": [],
+          "timed_out": false,
+          "requests": 19,
+          "elapsed_seconds": 356.047
+        },
+        "report": {
+          "claims": [
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c1_ordinals_not_numbers.py",
+                "candidate/intelligence/services/episode_protocol.py:705-766 (_EVIDENCE_ORDINAL_RE/_PROSE_EVIDENCE_REF_RE/strip_evidence_ordinals)"
+              ],
+              "id": "C1",
+              "note": "探针断言：strip 用空格掩码 E3/e12 不拼接；PE10/1.5E8/CE4/E1000/E01 原样保留；纯序号稿不触发 numeric_condition_unsupported；同句真实数字(涨停52家)仍触发门禁。本阶段未执行，execute 阶段验证。",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c2c3_finance_query_feedback.py",
+                "source.diff: test_finance_query_repair_feedback.py 新增作者测试形状"
+              ],
+              "id": "C2",
+              "note": "探针用真 duckdb 表走 registry.execute：parse_error 无证据不回显路径/无捏造行；直接调 _finance_query_failure_result 验证 diagnostics[0].code==invalid_query 且不泄露 secret/path/99.9%。未执行。",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c2c3_finance_query_feedback.py"
+              ],
+              "id": "C3",
+              "note": "脚本模型三回合（好查询→坏查询→finish）断言：同 Episode 第3轮仍见全history、tool_calls==2 不增发、首查证据在 outcome.evidence 幸存、坏调用返回映射提示+重试提示；取消路径只发1次。依赖借用的 _frame/_context/_finish_turn 夹具。未执行。",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c4_frozen_mapping_progress.py",
+                "source.diff: test_research_progress.py 的 TypeError 断言收紧"
+              ],
+              "id": "C4",
+              "note": "normalize_query 深层 MappingProxyType 归一为普通 dict 且与纯 dict 同一形状；归一后改结果不影响冻结原件；object()/set/frozenset 均 TypeError 且消息点名类型（防 default=str 漂白）。未执行。",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c5_history_pagination_identity.py",
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c5b_projection_failure_no_success.py",
+                "candidate/intelligence/services/historical_research/episode.py:205-460,600-660,749-775"
+              ],
+              "id": "C5",
+              "note": "探针断言：sample 为绝对行号(start=offset)跨页不重置；分母卡与 telemetry 暴露 offset/next_offset；末页/空页 next_offset=None 非0；observation 含分页与所选窗口提示；_result 在构造 ToolRunResult 前调用 _model_projection（失败即抛出无法产出 success 结果）；execute_query 中 append 在 _result 之后（源码顺序 643→645 行核实）。未执行。",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c6_condition_repair_exit.py",
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c6b_gate_exemption_scope.py",
+                "candidate/intelligence/services/episode_semantic_verifier.py:3707-3735 (_repair 次序),5699-5867"
+              ],
+              "id": "C6",
+              "note": "无条件断言：仅被删标签的计数被移除、幸存定义与其计数保留且出现在 verified.draft/public；全塌稿在 _restore_lost_observations 之前经 if not draft 早退（次序交互 3723-3726 行）；无删除即无改写；数字门禁仍对 novel 数字开火、N条豁免锚定幸存标签未扩大（C6b）。未执行。",
+              "status": "not_verified"
+            }
+          ],
+          "findings": [
+            "C6 真实出口已读源确认：_repair 中 _drop_rejected_sentences → _repair_dangling_condition_references → if not draft: return None → _apply_sentence_rewrites → _restore_lost_observations，修复先于真值补回且空稿在补回前退出（episode_semantic_verifier.py 3715-3735）。",
+            "C5 源码增量确认：_result 新增 offset/next_offset 注入（page_end<total_matched 才有 next_offset，否则 None）；_model_projection enumerate(start=payload offset) 使 sample 为原件绝对行号；read_history_result 页切片 truncated=len(page)<len(rows)；execute_query 的 history_results.append 位于 _result 成功返回之后。",
+            "作者 C5 分页/投影失败测试在仓库根 tests/test_history_model_projection.py（非 intelligence/tests/），初次按错误路径读取失败后已定位。",
+            "C1-C4 对 baseline 无产品 diff（与 claims.md 一致，diff 仅含 C5/C6 产品增量与测试），探针按新 head 行为独立验证而非移植旧结论。",
+            "数字门禁的 N条 计数引用豁免在 diff 中无改动（新增正则仅 _DANGLING_* 修复侧），行为豁免范围由 C6b 探针在幸存标签场景下反向验证。"
+          ],
+          "limits": [
+            "本阶段只允许读/搜索/写：7 份探针仅通过语法与实质断言资格检查，未执行任何 pytest；全部 claims 记 not_verified，待 execute 阶段 run_tests 实证。",
+            "C5『投影失败不登记成功读取』的 append 顺序为源码阅读核实（execute_query 中 _result 先于 append）；行为探针固定在 _result 层（monkeypatch _model_projection），未做 registry 级 e2e——作者套件 tests/test_history_model_projection.py::test_failed_page_projection_does_not_record_success 已覆盖该层，execute 阶段应一并运行。",
+            "C3 e2e 借用作者夹具（test_agent_episode 的 _frame/_context/_finish_turn、build_episode_registry 建库形状），断言为独立推导；脚本模型不验证真实模型质量（与作者声明一致）。",
+            "C6 判官侧使用 _judge(True) 全批准夹具，删除均来自本地机械门禁；语义判官交互与 _restore_lost_observations 的有据数值补回场景未在探针中 e2e（需证据绑定夹具）。",
+            "旧 refresh E2E 计时失败、性能、合并/部署权限均在范围外；无真实金融题结论。"
+          ],
+          "probe_files": [
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c1_ordinals_not_numbers.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c2c3_finance_query_feedback.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c4_frozen_mapping_progress.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c5_history_pagination_identity.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c5b_projection_failure_no_success.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c6_condition_repair_exit.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_c6b_gate_exemption_scope.py"
+          ],
+          "summary": "PR #832/#81 探索阶段完成：已读 claims.md、全量 source.diff 及关键源码（historical_research/episode.py 的 _model_projection/_result/execute_query/read_history_result；episode_semantic_verifier.py 的 _repair 出口与 _repair_dangling_condition_references/_restore_lost_observations；episode_protocol.py 的序号文法；research_progress 归一化路径），并落盘 7 份独立 pytest 探针覆盖全部六条主张。覆盖顺序按要求：先 C5（分页绝对行号身份、offset/next_offset 数学、末页/空页 null、observation 提示、投影失败无法产出 success 结果——append 晚于 _result 的顺序由源码 643→645 行核实）与 C6（真实修复出口：_drop_rejected_sentences→_repair_dangling→if not draft 早退→_restore_lost_observations 的次序、幸存定义与其活计数无条件保留、塌稿在补回前退出、数字门禁仍对 novel 数字开火、N条计数豁免锚定幸存标签未扩大），再以小探针覆盖 C1（E 序号是引用不是数字：strip 空格掩码不拼接、PE10/1.5E8/CE4/E1000/E01 不动、真实数字仍被查）、C2+C3（真 duckdb+真 registry：parse_error 安全结构化诊断不回显路径/不捏造观察；脚本模型三回合证明本地校验失败反馈回同一 Episode、既有证据幸存、tool_calls==2 不增发、取消后不再派发）、C4（冻结嵌套 MappingProxyType 无变异归一、未知对象仍以类型名 TypeError 拒绝）。借用作者夹具仅限管道（_judge/_structural、_frame/_context/_finish_turn、build_episode_registry 建库形状），测试预期全部由主张推导；断言无条件、不以 if 包裹。本阶段无执行权限，所有主张均未执行，一律记 not_verified，待 execute 阶段用 run_tests 实证后再定 verified/否。旧 refresh E2E 计时失败不在此轴范围。",
+          "verdict": "STAGE_COMPLETE",
+          "stage": "explore",
+          "axis": "spec",
+          "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+          "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+          "complete": true,
+          "delivery_gaps": [],
+          "test_runs": [],
+          "host_bound": true
+        }
+      },
+      "execute": {
+        "stage": "execute",
+        "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+        "max_requests": 24,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "stage_runner_exit": 0,
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 11,
+          "dispatched": 12,
+          "dropped_temperature": 0,
+          "failed": 1,
+          "requests": 12,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 413.51317425002344,
+        "stage_status": "BLOCKED_STAGE_OR_DELIVERY",
+        "request_counts_agree": true,
+        "delivery": {
+          "report_structural": false,
+          "errors": [
+            "terminated"
+          ],
+          "timed_out": false,
+          "requests": 12,
+          "elapsed_seconds": 412.679
+        }
+      },
+      "report": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      }
+    },
+    "quality": {
+      "gateway": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "explore": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "execute": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "report": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      }
+    }
+  },
+  "sealed_inputs_checked": 40,
+  "stage_artifact_hashes_checked": 162,
+  "automatic_retries": 0,
+  "natural_finance_requests": 0,
+  "merged": false,
+  "deployed": false
+}

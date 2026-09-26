@@ -1,0 +1,54 @@
+"""C6 probe (fixed): dangling condition count repair with 1-based indexes.
+
+Original probe passed rejected_sentence_indexes=[0]; the module's sentence
+grammar indexes numbered sentences 1-based (author seam tests use (1, 2)),
+so [0] never matched a definition and the repair was a no-op.
+"""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services.episode_semantic_verifier import (  # noqa: E402
+    _repair_dangling_condition_references,
+)
+
+
+def _repair(draft, before, rejected):
+    return _repair_dangling_condition_references(
+        draft, before=before, rejected_sentence_indexes=tuple(rejected)
+    )
+
+
+def test_orphaned_count_removed():
+    before = "1. 升级条件：a\n2. b\n3. 满足升级条件中的2条，需继续观察。"
+    draft = "1. b\n2. 满足升级条件中的2条，需继续观察。"
+    out = _repair(draft, before, [1])
+    assert "2条" not in out, out
+
+
+def test_surviving_definition_blocks_removal():
+    before = "1. 升级条件：a\n2. 满足升级条件中的2条，需继续观察。"
+    draft = "1. 升级条件：a\n2. 满足升级条件中的2条，需继续观察。"
+    out = _repair(draft, before, [1])
+    assert "2条" in out, out
+
+
+def test_unrelated_label_untouched():
+    # 降级条件 defined and deleted; 升级条件 reference must survive
+    before = "1. 降级条件：a\n2. 满足升级条件中的3条，观察。"
+    draft = "1. 满足升级条件中的3条，观察。"
+    out = _repair(draft, before, [1])
+    assert "3条" in out, out
+
+
+def test_unrelated_prose_preserved():
+    before = (
+        "1. 升级条件：a\n"
+        "2. 第一条观察。\n"
+        "3. 满足升级条件中的1条。\n"
+    )
+    draft = "1. 第一条观察。\n2. 满足升级条件中的1条。\n3. 另一条观察。\n"
+    out = _repair(draft, before, [1])
+    assert "第一条观察" in out, out

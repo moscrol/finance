@@ -1,0 +1,7 @@
+1452:            numeric=_novel_numeric_condition_indexes(sentences, verified),
+1861:        numeric_rejected = _novel_numeric_condition_indexes(
+4291:def _numbered_sentences(draft: str) -> list[dict[str, object]]:
+4444:    numeric = _novel_numeric_condition_indexes(sentences, verified)
+4497:            *_novel_numeric_condition_indexes(sentences, verified),
+4909:def _novel_numeric_condition_indexes(
+5054:        _novel_numeric_condition_indexes(

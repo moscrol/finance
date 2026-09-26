@@ -1,0 +1,72 @@
+"""Validate the recorded two-run control, not independent quality or causality.
+
+Usage: python check_control.py <directory containing pair.json>
+Reads receipts/resources and emits a JSON summary without changing evidence.
+"""
+import hashlib
+import json
+from pathlib import Path
+import re
+import statistics
+import sys
+
+root = Path(sys.argv[1])
+pair = json.loads((root / "pair.json").read_text())
+expected = {
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15",
+    "candidate": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+}
+commands = [
+    ["pnpm", "install", "--frozen-lockfile"], ["pnpm", "lint"],
+    ["pnpm", "typecheck"], ["pnpm", "test"], ["pnpm", "build"], ["pnpm", "test:e2e"],
+]
+assert pair["complete"] and len(pair["runs"]) == 2
+assert [run["name"] for run in pair["runs"]] == list(expected)
+receipts = []
+summary = {"schema": 1, "runs": [], "limitations": [
+    "One serial observation per revision, not randomized or a performance benchmark.",
+    "Resource samples describe the shared host, not isolated per-test consumption.",
+    "Previous two candidate failures remain valid history; their root cause is unproven.",
+    "No independent QC, natural-finance acceptance, merge or deployment authorization.",
+]}
+for run in pair["runs"]:
+    name = run["name"]
+    receipt = json.loads((root / name / "frontend.json").read_text())
+    assert run["revision"] == receipt["revision"] == expected[name]
+    assert run["exit_code"] == receipt["exit_code"] == 0
+    assert receipt["complete"] and receipt["identity_stable"] and not receipt["dirty"]
+    assert receipt["tree"] == run["tree"]
+    for key in ("identity_before", "identity_after"):
+        assert receipt[key]["revision"] == expected[name]
+        assert receipt[key]["dirty"] is False
+        assert receipt[key]["status_porcelain_z"] == ""
+    assert [check["command"] for check in receipt["checks"]] == commands
+    for check in receipt["checks"]:
+        data = (root / name / check["log"]).read_bytes()
+        assert check["exit_code"] == 0
+        assert len(data) == check["log_bytes"]
+        assert hashlib.sha256(data).hexdigest() == check["log_sha256"]
+    e2e = (root / name / "frontend-5.log.txt").read_text()
+    assert re.search(r"^\s+34 passed \(", e2e, re.M)
+    assert re.search(r"^\s+2 skipped$", e2e, re.M)
+    unit = (root / name / "frontend-3.log.txt").read_text()
+    unit = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", unit)
+    assert re.search(r"Tests\s+120 passed \(120\)", unit)
+    samples = [json.loads(line) for line in (root / f"{name}-resources.jsonl").read_text().splitlines()]
+    assert samples and {row["cpu_count"] for row in samples} == {10}
+    load = [row["load_average"][0] for row in samples]
+    summary["runs"].append({
+        "name": name, "revision": expected[name], "receipt": f"{name}/frontend.json",
+        "started_at": receipt["started_at"], "finished_at": receipt["finished_at"],
+        "checks": 6, "unit_passed": 120, "e2e_passed": 34, "e2e_skipped": 2,
+        "e2e_elapsed_seconds": receipt["checks"][-1]["elapsed_seconds"],
+        "resource_samples": len(samples), "cpu_count": 10,
+        "load_one_minute": {"min": min(load), "median": statistics.median(load), "max": max(load)},
+        "min_disk_free_bytes": min(row["disk_free_bytes"] for row in samples),
+    })
+    receipts.append(receipt)
+assert receipts[0]["finished_at"] < receipts[1]["started_at"]
+assert receipts[0]["runner_sha256"] == receipts[1]["runner_sha256"]
+summary["runner_sha256"] = receipts[0]["runner_sha256"]
+summary["verdict"] = "ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS"
+print(json.dumps(summary, indent=2))

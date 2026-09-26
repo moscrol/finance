@@ -1,0 +1,132 @@
+
+    def _emit_withheld_repair(
+        self,
+        frame: TaskFrame,
+        *,
+        source: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+        judge_issues: tuple[str, ...],
+        correlated_judge: bool,
+        call: _JudgeCall | None,
+        collapsed: bool,
+    ) -> SemanticEpisodeOutcome:
+        from intelligence.services.material_delivery import material_question_outputs
+
+        public_source, mode, extra_issues = self._withhold_public_source(
+            source.outcome.draft,
+            rejected_sentence_indexes,
+            preserve_numbering=bool(source.contract and material_question_outputs(source.contract)),
+        )
+        public = _sanitize_public_answer(
+            public_source,
+            source.outcome.evidence,
+            source.outcome.traces,
+        )
+        issues = tuple(dict.fromkeys((*judge_issues, *extra_issues)))
+        if not public:
+            outcome = SemanticEpisodeOutcome(
+                verified=source,
+                status="partial",
+                public_answer=self._gap_answer(frame, source),
+                judge_status="repaired",
+                issues=issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=(),
+                repair_withheld=True,
+                repair_collapsed_to_stub=collapsed,
+                repair_rollback_mode=mode,
+            )
+        else:
+            outcome = SemanticEpisodeOutcome(
+                verified=source,
+                status="partial",
+                public_answer=view(
+                    TerminalFacts(cause=CAUSE_VERIFIED, public=public)
+                ),
+                judge_status="repaired",
+                issues=issues,
+                correlated_judge=correlated_judge,
+                gap_output_ids=(),
+                repair_withheld=True,
+                repair_collapsed_to_stub=collapsed,
+                repair_rollback_mode=mode,
+            )
+        return self._finalize_outcome(
+            outcome,
+            call,
+            repair_collapsed_to_stub=collapsed,
+            repair_rollback_mode=mode,
+        )
+
+    def _repair(
+        self,
+        *,
+        frame: TaskFrame,
+        structural: VerifiedEpisodeOutcome,
+        rejected_sentence_indexes: tuple[int, ...],
+    ) -> tuple[VerifiedEpisodeOutcome, TaskFrame] | None:
+        contract = structural.contract
+        if contract is None:
+            return None
+        from intelligence.services.material_delivery import material_question_outputs
+
+        original = structural.outcome
+        # 改写账先取走再动稿：本函数任何一条早退都不能把它留给下一轮 ``_repair``。
+        rewrites = self._take_pending_rewrites()
+        draft = _drop_rejected_sentences(
+            original.draft,
+            rejected_sentence_indexes,
+            preserve_numbering=bool(material_question_outputs(contract)),
+        )
+        draft = _repair_dangling_condition_references(
+            draft,
+            before=original.draft,
+            rejected_sentence_indexes=rejected_sentence_indexes,
+        )
+        if not draft:
+            return None
+        draft = _apply_sentence_rewrites(draft, rewrites)
+        # 先按槽补回被连坐的真值，再算缺口。补回成功时缺口自然为空
+        # （真值已在稿里）；缺口这条留作兜底——补不回来时它仍会记账，
+        # 不让真值静默消失。
+        draft, _restored = _restore_lost_observations(
+            draft=draft,
+            before=original.draft,
+            evidence=original.evidence,
+        )
+        gaps = _gaps_with_lost_observations(
+            gaps=original.gaps,
+            before=original.draft,
+            after=draft,
+            evidence=original.evidence,
+        )
+        repaired_outcome = AgentOutcome(
+            task_frame_hash=original.task_frame_hash,
+            status=original.status,
+            draft=draft,
+            evidence=original.evidence,
+            traces=original.traces,
+            gaps=gaps,
+            stop_reason="semantic_repair",
+            events=original.events,
+            bindings=original.bindings,
+            usage=original.usage,
+        )
+        if repaired_outcome.task_frame_hash != frame.task_frame_hash:
+            return None
+        try:
+            verified = verify_episode_outcome(contract, repaired_outcome)
+        except Exception:
+            return None
+        return verified, frame
+
+    def _completed_public(
+        self,
+        frame: TaskFrame,
+        verified: VerifiedEpisodeOutcome,
+        *,
+        judge_status: Literal["passed", "repaired"],
+        judge_issues: tuple[str, ...] = (),
+        correlated_judge: bool = False,
+
+[truncated; total lines=6936, selected=3640:3769; next_offset=3770]

@@ -1,0 +1,42 @@
+import os
+
+d = "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/sqlrepro3"
+os.makedirs(d, exist_ok=True)
+
+for name, flags in [
+    ("O_RDWR|O_CREAT", os.O_RDWR | os.O_CREAT),
+    ("O_WRONLY|O_CREAT", os.O_WRONLY | os.O_CREAT),
+]:
+    p = os.path.join(d, name.replace("|", "_") + ".bin")
+    try:
+        fd = os.open(p, flags, 0o644)
+        os.write(fd, b"hi")
+        os.close(fd)
+        print(name, "OK")
+    except Exception as e:
+        print(name, "FAIL", type(e).__name__, e)
+
+# sqlite onto a pre-created file
+p = os.path.join(d, "pre.sqlite3")
+open(p, "a").close()
+import sqlite3
+
+try:
+    conn = sqlite3.connect(p, timeout=5)
+    conn.execute("CREATE TABLE t(x)")
+    conn.commit()
+    conn.close()
+    print("SQLITE_PRECREATED_OK")
+except Exception as e:
+    print("SQLITE_PRECREATED_FAIL", type(e).__name__, e)
+
+# sqlite with explicit uri journal_mode=off on precreated
+try:
+    conn = sqlite3.connect("file:" + p + "?mode=rw", uri=True, timeout=5)
+    conn.execute("PRAGMA journal_mode=OFF")
+    conn.execute("CREATE TABLE t2(x)")
+    conn.commit()
+    conn.close()
+    print("SQLITE_URI_RW_OK")
+except Exception as e:
+    print("SQLITE_URI_RW_FAIL", type(e).__name__, e)

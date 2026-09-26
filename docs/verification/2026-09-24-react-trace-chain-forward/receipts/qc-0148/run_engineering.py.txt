@@ -1,0 +1,116 @@
+"""Wait for bounded shared-resource admission, then run unchanged full gates."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT/'engineering'
+TREE = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+REV = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1', 'GIT_OPTIONAL_LOCKS': '0',
+       'FWP_TEST_RECEIPT_DIR': str(OUT/'receipts')}
+if sys.argv[1:] == ['--background']:
+    OUT.mkdir()
+    with (OUT/'controller.log.txt').open('xb') as stream:
+        process = subprocess.Popen([PY, '-B', __file__], env=ENV, stdout=stream, stderr=subprocess.STDOUT,
+                                   stdin=subprocess.DEVNULL, start_new_session=True)
+    print(json.dumps({'pid': process.pid, 'output': str(OUT/'status.json')}))
+    raise SystemExit(0)
+
+record = {'revision': REV, 'status': 'WAIT_RESOURCE', 'started_at': datetime.now(timezone.utc).isoformat(),
+          'steps': [], 'limits': 'Admission only, no global lock or resource isolation; no test scope/retry/timeout relaxation.'}
+
+
+def save():
+    (OUT/'status.json').write_text(json.dumps(record, indent=2)+'\n')
+
+
+def identity():
+    assert subprocess.check_output(['git', '-C', str(TREE), 'rev-parse', 'HEAD'], text=True).strip() == REV
+    assert not subprocess.check_output(['git', '-C', str(TREE), 'status', '--porcelain'])
+
+
+def run(label, argv, cwd=TREE):
+    record['status'] = 'RUNNING_'+label
+    save()
+    start = time.monotonic()
+    with (OUT/(label+'.log.txt')).open('xb') as stream:
+        result = subprocess.Popen(argv, cwd=cwd, env=ENV, stdout=stream, stderr=subprocess.STDOUT,
+                                  umask=0o022, start_new_session=True)
+        try:
+            result.wait(timeout=10800)
+        except subprocess.TimeoutExpired:
+            os.killpg(result.pid, signal.SIGTERM)
+            try:
+                result.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(result.pid, signal.SIGKILL)
+                result.wait()
+            record['status'] = 'BLOCKED_TIMEOUT_'+label
+            raise
+    record['steps'].append({'label': label, 'argv': argv, 'cwd': str(cwd), 'exit_code': result.returncode,
+                            'elapsed_seconds': time.monotonic()-start})
+    save()
+    if result.returncode:
+        record['status'] = 'BLOCKED_'+label
+        raise SystemExit(1)
+    identity()
+
+
+save()
+try:
+    deadline = time.monotonic()+3600
+    consecutive = 0
+    while time.monotonic() < deadline:
+        free = shutil.disk_usage(ROOT).free/1024**3
+        processes = subprocess.check_output(['ps', '-axo', 'pid=,args='], text=True, errors='replace')
+        tests = [line.strip() for line in processes.splitlines() if ' -m pytest ' in line and not line.lstrip().startswith(str(os.getpid())+' ')]
+        load = os.getloadavg()[0]
+        sample = {'time': datetime.now(timezone.utc).isoformat(), 'free_gib': free, 'load1': load,
+                  'active_pytest': tests, 'eligible': free >= 12 and load <= 18 and not tests}
+        with (OUT/'resource-admission.jsonl').open('a') as stream:
+            stream.write(json.dumps(sample)+'\n')
+        consecutive = consecutive+1 if sample['eligible'] else 0
+        if consecutive >= 2:
+            break
+        time.sleep(30)
+    else:
+        record['status'] = 'BLOCKED_RESOURCE_ADMISSION'
+        raise SystemExit(1)
+    identity()
+    run('python', ['bash', 'scripts/run_main_gate.sh', '--pytest-args', '-q -p no:cacheprovider --basetemp='+str(OUT/'python-basetemp')])
+    receipt, = (OUT/'receipts').glob('gate-*/pytest.json')
+    run('python-receipt', [PY, 'scripts/check_test_receipt.py', str(receipt), '--expect-revision', REV, '--require-full-scope'])
+    for label, argv in [('registry-parseability', [PY,'scripts/build_registry.py','check-parseability']),
+                        ('registry', [PY,'scripts/build_registry.py','check']),
+                        ('registry-tables',[PY,'scripts/build_registry.py','backfill-tables','--check']),
+                        ('registry-views',[PY,'scripts/build_registry.py','generate-views','--check']),
+                        ('crosswalk',[PY,'scripts/audit_ledger_spec_crosswalk.py'])]:
+        if Path(TREE/argv[1]).is_file():
+            run(label,argv)
+        else:
+            record['status'] = 'BLOCKED_REGISTRY_RECIPE'
+            record['missing_script'] = argv[1]
+            raise SystemExit(1)
+    frontend = ROOT/'frontend-candidate/finance-workspace-private'
+    run('frontend-checkout',['git','-C',str(TREE),'worktree','add','--detach',str(frontend),REV])
+    run('frontend',[PY,str(TREE/'scripts/run_frontend_gate.py'),'--tree',str(frontend),'--expect-revision',REV,
+                    '--output',str(OUT/'frontend'),'--python',PY,'--workbench-port','19381','--re06-port','19384'])
+    record['status'] = 'COMPLETE_PENDING_RECEIPT_CHECK'
+except Exception as exc:
+    record['exception'] = type(exc).__name__+': '+str(exc)
+    if not record['status'].startswith('BLOCKED'):
+        record['status'] = 'BLOCKED_CONTROLLER_EXCEPTION'
+    raise
+finally:
+    record['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save()
+    print(json.dumps(record), flush=True)

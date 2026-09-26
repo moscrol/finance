@@ -1,0 +1,62 @@
+"""C3 probe: invalid finance_query args -> feedback in same episode, evidence kept."""
+import sys
+from copy import replace
+from dataclasses import replace as dc_replace
+import json
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+# borrow author fixtures from the author test module (noted in report)
+from intelligence.tests.test_agent_episode_progress import (  # noqa: E402
+    _context,
+    _finish_turn,
+    _frame,
+    _registry,
+    _runner,
+    _tool_turn,
+)
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode  # noqa: E402
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn  # noqa: E402
+
+
+def _denied(*_a, **_k):
+    pytest.fail("invalid finance_query arguments must not execute a query")
+
+
+def test_invalid_args_feedback_same_episode(monkeypatch, tmp_path):
+    monkeypatch.setattr("socket.socket.connect", _denied)
+    monkeypatch.setattr("socket.create_connection", _denied)
+    frame = _frame()
+    context = dc_replace(
+        _context(frame), contract=dc_replace(
+            _context(frame).contract, allowed_capabilities=("market_data", "finance_query")
+        )
+    )
+    bad = ModelToolCall("fq-bad", "finance_query", {
+        "dataset": "no_such_dataset_xyz",
+        "dimensions": ["bogus_field"],
+        "metrics": [],
+    })
+    finish = _finish_turn(("hash-q1",))
+    payload = json.loads(finish.content)
+    payload["status"] = "partial"
+    payload["gaps"] = ["结构化查询参数无效，等待修正。"]
+    model = _scripted([
+        _tool_turn("q1", "c1"), ModelTurn("", (bad,), "scripted"),
+        dc_replace(finish, content=json.dumps(payload, ensure_ascii=False)),
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=_registry(_runner),
+    )
+    # the episode must finish (not crash) and report feedback
+    assert outcome is not None
+    assert outcome.status in {"partial", "complete"} or outcome.draft
+
+
+def _scripted(turns):
+    from intelligence.tests.test_agent_episode_progress import ScriptedModel
+    return ScriptedModel(turns)

@@ -1,0 +1,8 @@
+rg: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/candidate/finance-workspace-private/.git: Operation not permitted (os error 1)
+rg: intelligence/users: Operation not permitted (os error 1)
+intelligence/runtime/research_progress.py:73:def normalize_query(value: object) -> str:
+intelligence/services/episode_semantic_verifier.py:5045:def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+intelligence/services/episode_semantic_verifier.py:5697:def _repair_dangling_condition_references(
+intelligence/services/episode_semantic_verifier.py:5893:def _drop_rejected_sentences(
+intelligence/services/episode_protocol.py:750:def strip_evidence_ordinals(text: str) -> str:
+intelligence/services/query_ledger.py:33:def normalize_query(query: str) -> str:

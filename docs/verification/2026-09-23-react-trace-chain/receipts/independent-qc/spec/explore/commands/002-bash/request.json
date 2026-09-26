@@ -1,0 +1,1 @@
+{"toolCallId":"call_6181995df0ce45fbacbd2c09","params":{"command":"wc -l /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/inputs/source.diff; ls /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work 2>/dev/null || echo \"work dir missing\""}}

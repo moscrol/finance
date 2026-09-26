@@ -1,0 +1,20 @@
+intelligence/services/episode_semantic_verifier.py:1488:    def _project_semantic_quality_marks(
+intelligence/services/episode_semantic_verifier.py:4291:def _numbered_sentences(draft: str) -> list[dict[str, object]]:
+intelligence/services/episode_semantic_verifier.py:6336:def _project_semantic_evidence(
+intelligence/services/historical_research/episode.py:205:def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
+intelligence/services/historical_research/episode.py:364:def _result(
+intelligence/services/historical_research/episode.py:444:        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
+intelligence/services/historical_research/episode.py:445:        "需未展示行请用read_history_result分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
+intelligence/services/historical_research/episode.py:469:    if observation.tool not in {"history_query", "read_history_result"}:
+intelligence/services/historical_research/episode.py:506:def history_tool_specs(
+intelligence/services/historical_research/episode.py:654:            raise ValueError("history_window_reference_required: first read_history_result, then use window_ref; do not replace the requested historical reference with recent dates")
+intelligence/services/historical_research/episode.py:688:            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
+intelligence/services/historical_research/episode.py:771:        result = _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
+intelligence/services/historical_research/episode.py:780:            name="read_history_result",
+intelligence/services/historical_research/episode.py:783:            contract=_TOOL_CONTRACTS["read_history_result"],
+tests/test_history_model_projection.py:22:def _project(observation):
+tests/test_history_model_projection.py:178:    assert "read_history_result" in model["observation"]
+tests/test_history_model_projection.py:199:        "read_history_result", {"result_ref": ref, "offset": offset, "limit": limit},
+tests/test_history_model_projection.py:236:        assert (result_ref, tool, offset) == (ref, "read_history_result", 1)
+tests/test_history_model_projection.py:244:            "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+tests/test_history_model_projection.py:276:        "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},

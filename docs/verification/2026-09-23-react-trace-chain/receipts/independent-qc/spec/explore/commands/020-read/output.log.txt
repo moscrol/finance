@@ -1,0 +1,57 @@
+        )
+    return path
+
+
+def _registry(tmp_path, question="这一波农业是怎么走出来的？"):
+    from intelligence.services.run_store import RunStore
+    from intelligence.services.historical_research.episode import (
+        HistorySession,
+        history_tool_specs,
+    )
+    from intelligence.services.research_tool_registry import ResearchToolRegistry
+    from intelligence.services.research_contract import InformationCutoff
+    from datetime import date
+
+    path = _history_root(tmp_path)
+    store = RunStore("history-test", root=tmp_path / "runs")
+    run = store.create_run(question, "ask", session_id="conversation-history")
+    session = HistorySession(store, run.run_id, "conversation-history")
+    frame = understand_query(question).task_frame
+    context = build_episode_context(
+        frame,
+        task_id=run.run_id,
+        capabilities=("finance_query",),
+        information_cutoff=InformationCutoff(date(2026, 9, 7), "requested"),
+    )
+    registry = ResearchToolRegistry(
+        tuple(history_tool_specs(frame, context, path, session))
+    )
+    return registry, context, session
+
+
+def test_registered_query_persists_complete_result_and_reads_by_controlled_ref(
+    tmp_path,
+):
+    registry, context, session = _registry(tmp_path)
+    result = registry.execute(
+        "history_query",
+        {
+            "operation": "inspect_history",
+            "start": "2026-08-03",
+            "end": "2026-08-04",
+            "entity_codes": ["A.FP"],
+            "preview_limit": 1,
+        },
+        context=context,
+        step_id="query",
+    )
+    assert result.trace.status == "success"
+    ref = result.telemetry["result_ref"]
+    payload = session.read(ref)
+    assert len(payload["rows"]) == 2
+    assert payload["returned_count"] == 1
+    assert payload["pending_sources"][0]["status"] == "pending_sync"
+    second = registry.execute(
+        "read_history_result",
+
+[truncated; total lines=695, selected=100:154; request a later offset]

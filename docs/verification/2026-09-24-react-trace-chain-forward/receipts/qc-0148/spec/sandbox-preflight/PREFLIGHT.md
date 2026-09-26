@@ -1,0 +1,175 @@
+Offline harness control only.
+
+```json
+{
+  "verdict": "STAGE_COMPLETE",
+  "summary": "Offline harness control only.",
+  "claims": [
+    {
+      "id": "C1",
+      "status": "not_verified",
+      "evidence": [],
+      "note": "not a product review"
+    },
+    {
+      "id": "C2",
+      "status": "not_verified",
+      "evidence": [],
+      "note": "not a product review"
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "evidence": [],
+      "note": "not a product review"
+    },
+    {
+      "id": "C4",
+      "status": "not_verified",
+      "evidence": [],
+      "note": "not a product review"
+    },
+    {
+      "id": "C5",
+      "status": "not_verified",
+      "evidence": [],
+      "note": "not a product review"
+    },
+    {
+      "id": "C6",
+      "status": "not_verified",
+      "evidence": [],
+      "note": "not a product review"
+    }
+  ],
+  "findings": [],
+  "limits": [
+    "zero model; host-only admission"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_admission.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_misleading_output.py"
+  ],
+  "stage": "preflight",
+  "axis": "spec",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "complete": true,
+  "delivery_gaps": [],
+  "test_runs": [
+    {
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/tools.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_admission.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/preflight-004-run_tests",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/preflight-004-run_tests.xml"
+      ],
+      "shell": false,
+      "target_exit_code": 0,
+      "signal": null,
+      "killed": false,
+      "spawn_error": null,
+      "elapsed_ms": 1352,
+      "output_sha256": "bcb2501b17d90e45c2ee463d7331e1d1cdf02070c946cf228271a720ff42cc7f",
+      "suite": "probes",
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_admission.py"
+      ],
+      "counts": {
+        "tests": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 2
+      },
+      "input_sha256": {
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_admission.py": "b03f90d7d48b84d9a67fd8d037107e8a5bfca8df0fca183ac22c92335605dac2"
+      },
+      "inputs_unchanged": true,
+      "junit_sha256": "2816f418bf4373b75f4602c87ce05b438cd60845f8cd10d80f7ab82018bf5f69",
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/004-run_tests/result.json",
+      "output": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/004-run_tests/output.log"
+    },
+    {
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/tools.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-c",
+        "assert 1 == 2, \"intentional_positive_control\""
+      ],
+      "shell": false,
+      "target_exit_code": 1,
+      "signal": null,
+      "killed": false,
+      "spawn_error": null,
+      "elapsed_ms": 133,
+      "output_sha256": "c0441086a31b6eacefccdba15ddcb8f7496ecd7f7f468759cc3094e462a39d8c",
+      "suite": "control",
+      "files": [],
+      "counts": null,
+      "input_sha256": {},
+      "inputs_unchanged": true,
+      "junit_sha256": null,
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/005-run_tests/result.json",
+      "output": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/005-run_tests/output.log"
+    },
+    {
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/tools.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_misleading_output.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate/finance-workspace-private",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/preflight-007-run_tests",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/preflight-007-run_tests.xml"
+      ],
+      "shell": false,
+      "target_exit_code": 1,
+      "signal": null,
+      "killed": false,
+      "spawn_error": null,
+      "elapsed_ms": 2573,
+      "output_sha256": "d4840b4c43e461bf9f2fc8ee1ff4b63802f865884577d4b14256474ed733d096",
+      "suite": "probes",
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_misleading_output.py"
+      ],
+      "counts": {
+        "tests": 1,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "input_sha256": {
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_harness_misleading_output.py": "a6fdfd3940384131de1c79d7f34296ce94e85bbebd19582777ed08e1b61e74d9"
+      },
+      "inputs_unchanged": true,
+      "junit_sha256": "ed96c339701ab8694f2a65fb62fd398025271387169fc5035c31a899d0ce0254",
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/007-run_tests/result.json",
+      "output": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/007-run_tests/output.log"
+    }
+  ],
+  "host_bound": true
+}
+```

@@ -1,0 +1,8 @@
+{
+  "before/config.json": "0d514dd5a8280976718d1aca13d2d3b04144316a5c3b58021acaf8dcdfda2a01",
+  "before/provider-template.json": "d320be9d290c5e31d458ad8daa6e03901302e5070a03fc21908a5cfa8661aa02",
+  "before/review.mjs": "4657033dfe955ad92cecb6ef58086d22da15f981789ecb38f897fbe799113a43",
+  "after/config.json": "0d514dd5a8280976718d1aca13d2d3b04144316a5c3b58021acaf8dcdfda2a01",
+  "after/provider-template.json": "d320be9d290c5e31d458ad8daa6e03901302e5070a03fc21908a5cfa8661aa02",
+  "after/review.mjs": "1961d3e68341cea490595c4cfc8cba5d01f81c0f2f1aa0ae254b6a8fd3e5098f"
+}

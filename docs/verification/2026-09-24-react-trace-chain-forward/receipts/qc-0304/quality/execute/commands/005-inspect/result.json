@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "_registry|def registry|registry",
+    "intelligence/tests/test_agent_episode.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 133,
+  "output_sha256": "59b238ec0fa8580688ba9b2fa8c93f78c71aed66881f6d47d5cb9de32b23c331"
+}

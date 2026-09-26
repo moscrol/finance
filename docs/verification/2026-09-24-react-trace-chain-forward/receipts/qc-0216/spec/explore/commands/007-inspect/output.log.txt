@@ -1,0 +1,11 @@
+205:def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
+413:    projection = _model_projection(payload, result_ref)
+497:    for item in context.history_results:
+645:        context.history_results.append(metadata)
+661:            delivered = [item for item in context.history_results
+729:            context.history_results.append(
+772:        context.history_results.append(
+840:        context.history_results.append(metadata)
+874:            for item in context.history_results
+880:            for item in context.history_results
+887:        for item in context.history_results:

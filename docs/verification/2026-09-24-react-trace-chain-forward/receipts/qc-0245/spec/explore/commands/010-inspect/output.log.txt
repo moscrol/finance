@@ -1,0 +1,45 @@
+rg: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/candidate/finance-workspace-private/.git: Operation not permitted (os error 1)
+rg: intelligence/users: Operation not permitted (os error 1)
+intelligence/services/finance_query.py:29:    """Base class for typed structured-query failures."""
+intelligence/services/finance_query.py:32:class FinanceQueryValidationError(FinanceQueryError, ValueError):
+intelligence/services/finance_query.py:116:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:126:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:140:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:287:    evidence_tier: str = "L4_structured"
+intelligence/services/finance_query.py:1559:        except FinanceQueryValidationError:
+intelligence/services/finance_query.py:1838:def validation_diagnostic(spec: FinanceQuerySpec, error: FinanceQueryValidationError) -> str:
+intelligence/services/finance_query.py:1865:    error: FinanceQueryValidationError,
+intelligence/services/finance_query.py:2448:        raise FinanceQueryValidationError(f"unknown dataset: {spec.dataset}")
+intelligence/services/finance_query.py:2453:            raise FinanceQueryValidationError(f"unknown field: {name}")
+intelligence/services/finance_query.py:2455:            raise FinanceQueryValidationError(f"not a dimension: {name}")
+intelligence/services/finance_query.py:2459:            raise FinanceQueryValidationError(f"unknown field: {name}")
+intelligence/services/finance_query.py:2461:            raise FinanceQueryValidationError(f"not a metric: {name}")
+intelligence/services/finance_query.py:2464:        raise FinanceQueryValidationError("selected fields must be unique")
+intelligence/services/finance_query.py:2467:        raise FinanceQueryValidationError("group_by fields must be unique")
+intelligence/services/finance_query.py:2470:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2474:        raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2480:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2490:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2498:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2506:            raise FinanceQueryValidationError("time range start exceeds end")
+intelligence/services/finance_query.py:2508:        raise FinanceQueryValidationError("dataset has no time dimension")
+intelligence/services/finance_query.py:2519:                raise FinanceQueryValidationError(f"metric cannot be grouped: {name}")
+intelligence/services/finance_query.py:2573:            raise FinanceQueryValidationError(f"unknown field: {item.field}")
+intelligence/services/finance_query.py:2575:            raise FinanceQueryValidationError("date filters must use time_range")
+intelligence/services/finance_query.py:2633:        raise FinanceQueryValidationError(f"unsupported operator: {item.op}")
+intelligence/services/finance_query.py:2646:            raise FinanceQueryValidationError("in filter requires an array")
+intelligence/services/finance_query.py:2649:            raise FinanceQueryValidationError("in filter cannot be empty")
+intelligence/services/finance_query.py:2653:        raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2789:        raise FinanceQueryValidationError(f"{name} must be a non-empty string")
+intelligence/services/finance_query.py:2795:        raise FinanceQueryValidationError(f"{name} must be an array of strings")
+intelligence/services/finance_query.py:2798:        raise FinanceQueryValidationError(f"{name} values must be unique")
+intelligence/services/finance_query.py:2804:        raise FinanceQueryValidationError("filters must be an array")
+intelligence/services/finance_query.py:2808:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2814:            raise FinanceQueryValidationError(f"unsupported operator: {op}")
+intelligence/services/finance_query.py:2823:        raise FinanceQueryValidationError("time_range accepts only start and end")
+intelligence/services/finance_query.py:2832:        raise FinanceQueryValidationError("order_by must be an array")
+intelligence/services/finance_query.py:2836:            raise FinanceQueryValidationError("each order requires field and direction")
+intelligence/services/finance_query.py:2840:            raise FinanceQueryValidationError(
+intelligence/services/finance_query.py:2851:        raise FinanceQueryValidationError(f"{name} must be an ISO date")
+intelligence/services/finance_query.py:2855:        raise FinanceQueryValidationError(f"{name} must be an ISO date") from exc
+intelligence/services/finance_query.py:2901:    "FinanceQueryValidationError",

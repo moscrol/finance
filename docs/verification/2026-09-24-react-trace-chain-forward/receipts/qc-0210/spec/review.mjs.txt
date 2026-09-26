@@ -1,0 +1,221 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createReadTool, createWriteTool, truncateTail } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js';
+import { Type } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/index.mjs';
+import { Check } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/value/index.mjs';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+const hash = value => createHash('sha256').update(value).digest('hex');
+const strings = Type.Array(Type.String());
+export const reportSchema = Type.Object({
+  verdict: Type.String({ enum: ['STAGE_COMPLETE', 'PASS', 'PASS_WITH_LIMITS', 'CHANGES_REQUIRED', 'BLOCKED'] }),
+  summary: Type.String({ minLength: 1 }),
+  claims: Type.Array(Type.Object({ id: Type.String({ enum: ['C1','C2','C3','C4','C5','C6'] }), status: Type.String({ enum: ['verified','not_verified','out_of_scope'] }), evidence: strings, note: Type.String() }, { additionalProperties: false }), { minItems: 6, maxItems: 6 }),
+  findings: strings, limits: strings, probe_files: strings,
+  superseded_probes: Type.Optional(Type.Array(Type.Object({original:Type.String(),replacement:Type.String(),reason:Type.String({minLength:1})},{additionalProperties:false}))),
+}, { additionalProperties: false });
+export const authorFiles = [
+  'intelligence/tests/test_condition_reference_seams.py', 'intelligence/tests/test_episode_numeric_citations.py',
+  'intelligence/tests/test_episode_protocol.py', 'intelligence/tests/test_finance_query_repair_feedback.py',
+  'intelligence/tests/test_agent_episode_progress.py', 'intelligence/tests/test_research_progress.py',
+  'tests/test_history_model_projection.py',
+];
+export function phaseFor(admitted, elapsedMs) {
+  return admitted >= 22 || elapsedMs >= 450000 ? 'report' : 'explore';
+}
+export function progressGate(stage, admitted, probeCount, lastProbeAdmission, suites) {
+  if (stage === 'explore' && ((probeCount === 0 && admitted >= 6) || (probeCount > 0 && admitted - lastProbeAdmission >= 4))) return 'write_probe';
+  if (stage === 'execute' && admitted >= 3 && ['control','probes','author'].some(s => !suites.includes(s))) return 'run_tests';
+  return null;
+}
+export function reportPayload(payload) {
+  const tools = payload.tools?.filter(t => t.function?.name === 'submit_report');
+  if (tools?.length !== 1) throw new Error('missing submit_report schema');
+  return { ...payload, tools, tool_choice: { type: 'function', function: { name: 'submit_report' } }, messages: [...payload.messages, { role: 'user', content: 'Closeout now. Only submit_report is available. Submit actual evidence, including all missing work as BLOCKED. This is the single reserved request, not approval to claim unrun checks.' }] };
+}
+
+export function install(pi, { out, token, clock = Date.now, stage = process.env.REVIEW_PHASE, terminate = code => process.exit(code) }) {
+  if (!['gateway','explore','execute','report','preflight'].includes(stage)) throw new Error('unknown stage');
+  const tree = fs.realpathSync(CONFIG.tree), work = path.join(ROOT, 'work'), logs = path.join(out, 'commands');
+  const provider = JSON.parse(fs.readFileSync(path.join(ROOT, 'provider-template.json')));
+  if (provider.baseUrl !== 'http://127.0.0.1:19899/v1' || provider.api !== 'openai-completions' || provider.models?.length !== 1 || provider.models[0].id !== 'glm-5.3') throw new Error('route mismatch');
+  if (typeof token !== 'string' || token.length < 8 || /[\r\n]/.test(token)) throw new Error('credential shape');
+  fs.writeFileSync(path.join(out, 'credential.json'), JSON.stringify({ status: 'READY', auth_type: 'existing_api_key', token_sha256: hash(token), token_storage: 'host process memory only', prices_verified: false }), { flag: 'wx', mode: 0o600 });
+  pi.registerProvider('glm-direct-review', { ...provider, apiKey: token });
+  let admitted = 0, closeout = false, closeoutAdmitted = false, submitted = false, sequence = 0;
+  let queue = Promise.resolve();
+  const serialized = fn => (...args) => { const result = queue.then(() => fn(...args)); queue = result.catch(() => {}); return result; };
+  const started = clock();
+  const runs = [];
+  let probes = [], lastProbeAdmission = 0, milestone = null;
+  const scanProbes = () => JSON.parse(execFileSync(CONFIG.python, ['-B',path.join(ROOT,'probe_inventory.py'),path.join(work,'probes')], {encoding:'utf8',timeout:10000,env:{PATH:'/usr/bin:/bin',PYTHONDONTWRITEBYTECODE:'1'}}));
+  const qualified = () => probes.filter(p => p.milestone_qualified);
+  const toolEnv = { HOME: work, PATH: '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'C.UTF-8', TMPDIR: path.join(work, 'tmp'), PYTHONDONTWRITEBYTECODE: '1', PYTHONPATH: tree, FWP_TEST_RECEIPT: '0', GIT_OPTIONAL_LOCKS: '0', FORESIGHT_USERS_DIR: path.join(work, 'users'), REVIEW_PHASE: stage };
+  const append = (name, value) => fs.appendFileSync(path.join(out, name), JSON.stringify(value)+'\n', { mode: 0o600 });
+  const deny = reason => { fs.writeFileSync(path.join(out, 'controller-stop.json'), JSON.stringify({ reason, admitted })); terminate(75); throw new Error(reason); };
+  const allowed = name => {
+    if (submitted) return false;
+    if (closeout) return name === 'submit_report';
+    if (milestone && ['read','inspect'].includes(name)) return false;
+    if (name === 'read') return true;
+    if (name === 'inspect') return stage !== 'gateway';
+    if (name === 'submit_report') return stage !== 'gateway';
+    if (name === 'run_tests') return ['execute','preflight'].includes(stage);
+    return name === 'write' && ['gateway','explore','execute','preflight'].includes(stage);
+  };
+  const guard = name => { if (!allowed(name)) throw new Error('tool denied in stage: '+stage+'/'+name); };
+  pi.on('before_provider_request', (event, ctx) => {
+    if (ctx.model?.provider !== 'glm-direct-review' || ctx.model?.id !== 'glm-5.3' || ctx.model?.baseUrl !== provider.baseUrl || ctx.model?.api !== provider.api || event.payload?.model !== 'glm-5.3') return deny('route');
+    if (admitted >= 24 || clock()-started >= 600000 || closeoutAdmitted || submitted) return deny('budget_or_already_closed');
+    closeout = phaseFor(admitted, clock()-started) === 'report';
+    probes = scanProbes();
+    milestone = progressGate(stage, admitted, qualified().length, lastProbeAdmission, runs.map(r=>r.suite));
+    const progress = {stage, next_request:admitted+1, completed_requests:admitted, normal_requests_left:Math.max(0,22-admitted), elapsed_ms:clock()-started, qualified_probe_files:qualified().map(p=>p.path), suites_attempted:runs.map(r=>r.suite), required_action:milestone || 'continue', qualification:'syntax and nontrivial test assertion only; not proof of behavior or coverage'};
+    append('progress.jsonl',progress);
+    const instruction = 'HOST PROGRESS (authoritative, do not estimate): '+JSON.stringify(progress)+'. '+(milestone === 'write_probe' ? 'Reading is paused. Write a small new pytest probe with a meaningful test assertion now, or submit BLOCKED. New version only; not a placeholder. Tool access resumes after a qualified file is saved.' : milestone === 'run_tests' ? 'Reading is paused. Run the missing control/probes/author suites now, or submit BLOCKED. Original failures remain.' : 'Produce probe files incrementally. First file before request7; another new file after at most4 more model turns. Do not plan all files before writing.');
+    const payload = { ...event.payload, messages:[...event.payload.messages,{role:'user',content:instruction}], tools: event.payload.tools?.filter(t => allowed(t.function?.name)), ...(milestone ? {tool_choice:'required'} : {}) };
+    if (Object.hasOwn(payload, 'reasoning_effort')) return deny('unexpected_reasoning_effort');
+    append('request-admissions.jsonl', { admission: ++admitted, phase: closeout ? 'closeout' : stage, timestamp: new Date(clock()).toISOString(), provider: 'glm-direct-review', model: 'glm-5.3' });
+    append('payload-shapes.jsonl', { admission: admitted, stage, stream: payload.stream, model: payload.model, tools: payload.tools?.map(t => t.function?.name), temperature_removed: false, reasoning_effort: payload.reasoning_effort, max_tokens: payload.max_tokens, max_completion_tokens: payload.max_completion_tokens });
+    if (closeout) { closeoutAdmitted = true; return reportPayload(payload); }
+    return payload;
+  });
+  pi.on('after_provider_response', event => { append('responses.jsonl', { admission: admitted, status: event.status }); if ([400,429].includes(event.status)) deny('provider_http_'+event.status); });
+  pi.on('tool_call', event => allowed(event.toolName) ? undefined : { block: true, terminate: true, reason: 'Stage capability denied.' });
+  pi.on('message_end', event => {
+    const m = event.message;
+    if (m.role !== 'assistant') return;
+    if (['error','aborted','length'].includes(m.stopReason)) append('model-failures.jsonl', { stopReason: m.stopReason, admission: admitted });
+    const text = m.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+    if (text) append('assistant-text.jsonl', { admission: admitted, text });
+  });
+  const audit = (kind, id, params) => {
+    const dir = path.join(logs, String(++sequence).padStart(3,'0')+'-'+kind);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'request.json'), JSON.stringify({ toolCallId: id, params }));
+    return dir;
+  };
+  const execute = (dir, argv, signal, timeout = 120000, input) => new Promise((resolve, reject) => {
+    const command = ['/usr/bin/sandbox-exec', '-f', path.join(ROOT, 'tools.sb'), ...argv];
+    const start = clock();
+    let killed = false, errorName = null;
+    const fd = fs.openSync(path.join(dir, 'output.log'), 'wx');
+    const child = spawn(command[0], command.slice(1), { cwd: tree, env: toolEnv, detached: true, stdio: ['pipe','pipe','pipe'] });
+    const kill = () => { killed = true; if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } } };
+    const timer = setTimeout(kill, Math.max(1, Math.min(timeout, 600000-(clock()-started))));
+    signal?.addEventListener('abort', kill, { once: true });
+    if (signal?.aborted) kill();
+    child.stdout.on('data', data => fs.writeSync(fd, data));
+    child.stderr.on('data', data => fs.writeSync(fd, data));
+    child.on('error', error => { errorName = error.code || error.name; });
+    child.on('close', (code, childSignal) => {
+      clearTimeout(timer); signal?.removeEventListener('abort', kill); fs.closeSync(fd);
+      // sandbox-exec execs the target directly: no shell, echo, pipe, or wrapper status.
+      const record = { command, shell: false, target_exit_code: code, signal: childSignal, killed, spawn_error: errorName, elapsed_ms: clock()-start, output_sha256: hash(fs.readFileSync(path.join(dir,'output.log'))) };
+      fs.writeFileSync(path.join(dir,'result.json'), JSON.stringify(record,null,2)+'\n');
+      if (errorName) reject(new Error(errorName)); else resolve(record);
+    });
+    child.stdin.on('error', () => {}); child.stdin.end(input);
+  });
+  const content = (dir, record) => ({ content: [{ type: 'text', text: JSON.stringify({ receipt: path.join(dir,'result.json'), ...record })+'\n'+truncateTail(fs.readFileSync(path.join(dir,'output.log'),'utf8'), { maxLines: 350, maxBytes: 18000 }).content+'\nFull raw output: '+path.join(dir,'output.log') }], details: record });
+  for (const kind of ['read','write']) {
+    const template = kind === 'read' ? createReadTool(tree) : createWriteTool(tree);
+    pi.registerTool({ ...template, execute: serialized(async (id, params, signal) => {
+      guard(kind);
+      const dir = audit(kind,id,params);
+      const record = await execute(dir, [CONFIG.python,'-B',path.join(ROOT,'file_tool.py')], signal, 30000, JSON.stringify({ kind, params }));
+      if (record.target_exit_code !== 0) throw new Error(JSON.stringify(record)+'\n'+fs.readFileSync(path.join(dir,'output.log'),'utf8'));
+      if (kind === 'read') return { content: [{ type: 'text', text: fs.readFileSync(path.join(dir,'output.log'),'utf8') }], details: record };
+      const before = JSON.stringify(qualified());
+      probes = scanProbes();
+      if (JSON.stringify(qualified()) !== before) lastProbeAdmission = admitted;
+      milestone = progressGate(stage, admitted, qualified().length, lastProbeAdmission, runs.map(r=>r.suite));
+      return content(dir, record);
+    }) });
+  }
+  pi.registerTool({ name: 'inspect', label: 'Inspect', description: 'Run rg or ls directly with argument array, never a shell. Output truncated to 350 lines/18KB; complete raw output is archived.', parameters: Type.Object({ program: Type.String({ enum: ['rg','ls'] }), args: strings }, { additionalProperties: false }), execute: serialized(async (id, params, signal) => {
+    guard('inspect');
+    if (!['rg','ls'].includes(params.program) || !Array.isArray(params.args) || params.args.some(a => typeof a !== 'string' || a.includes('\0') || a === '--pre' || a.startsWith('--pre='))) throw new Error('invalid inspect argv');
+    const dir = audit('inspect',id,params);
+    return content(dir, await execute(dir, [params.program === 'rg' ? '/opt/homebrew/bin/rg' : '/bin/ls', ...params.args], signal, 30000));
+  }) });
+  pi.registerTool({ name: 'run_tests', label: 'Run Tests', description: 'Direct pytest child, no shell or user flags. suite=control is intentional exit1; suite=probes runs all work/probes/*.py unless files specified; suite=author runs all seven fixed regression files. Full output and real exit status archived separately.', parameters: Type.Object({ suite: Type.String({ enum: ['control','probes','author'] }), files: Type.Optional(strings) }, { additionalProperties: false }), execute: serialized(async (id, params, signal) => {
+    guard('run_tests');
+    if (!['control','probes','author'].includes(params.suite) || (params.files && params.suite !== 'probes')) throw new Error('invalid test suite');
+    const dir = audit('run_tests',id,params), label = path.basename(dir);
+    let files = [];
+    if (params.suite === 'author') files = authorFiles.map(p => path.join(tree,p));
+    if (params.suite === 'probes') {
+      files = params.files || fs.readdirSync(path.join(work,'probes')).filter(n => n.endsWith('.py')).map(n => path.join(work,'probes',n));
+      if (!files.length) throw new Error('no probe files');
+      for (const p of files) if (!path.isAbsolute(p) || !fs.realpathSync(p).startsWith(path.join(work,'probes')+'/') || !p.endsWith('.py')) throw new Error('probe path denied');
+    }
+    const inputs = Object.fromEntries(files.map(p => [p, hash(fs.readFileSync(p))]));
+    let argv;
+    const junit = path.join(work,'tmp',stage+'-'+label+'.xml');
+    if (params.suite === 'control') argv = [CONFIG.python, '-B', '-c', 'assert 1 == 2, "intentional_positive_control"'];
+    else argv = [CONFIG.python, '-B', '-m','pytest', ...files, '-q','-p','no:cacheprovider','--rootdir='+tree,'--basetemp='+path.join(work,'tmp',stage+'-'+label),'--junitxml='+junit];
+    const record = await execute(dir,argv,signal);
+    const counts = fs.existsSync(junit) ? JSON.parse(execFileSync(CONFIG.python, ['-B', path.join(ROOT,'junit_summary.py'), junit], { encoding:'utf8', env:toolEnv, timeout:10000 })) : null;
+    const row = { ...record, suite: params.suite, files, counts, input_sha256: inputs, inputs_unchanged: files.every(p => inputs[p] === hash(fs.readFileSync(p))), junit_sha256: fs.existsSync(junit) ? hash(fs.readFileSync(junit)) : null, receipt: path.join(dir,'result.json'), output: path.join(dir,'output.log') };
+    if (fs.existsSync(junit)) fs.copyFileSync(junit, path.join(dir,'junit.xml'));
+    fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify(row,null,2)+'\n');
+    runs.push(row); append('test-runs.jsonl',row);
+    milestone = progressGate(stage, admitted, qualified().length, lastProbeAdmission, runs.map(r=>r.suite));
+    return content(dir,row);
+  }) });
+  pi.registerTool({ name: 'submit_report', label: 'Submit Report', description: 'Submit typed final deliverable and end the session without another model request. Host writes REPORT.json, REPORT.md and the required work stage document. Missing mandatory execution or coverage blocks a passing verdict.', parameters: reportSchema, execute: serialized(async (id, params) => {
+    guard('submit_report');
+    const dir = audit('submit_report',id,params);
+    if (!Check(reportSchema,params) || new Set(params.claims.map(c => c.id)).size !== 6) throw new Error('report schema / C1-C6 incomplete');
+    if (stage !== 'report' && !['STAGE_COMPLETE','BLOCKED'].includes(params.verdict)) throw new Error('not a verdict stage');
+    if (stage === 'report' && params.verdict === 'STAGE_COMPLETE') throw new Error('final verdict required');
+    const probeRoot = path.join(work,'probes')+'/';
+    const probes = fs.readdirSync(path.join(work,'probes')).filter(n => n.endsWith('.py')).map(n => path.join(work,'probes',n));
+    for (const p of params.probe_files) if (!path.isAbsolute(p) || !fs.realpathSync(p).startsWith(probeRoot) || !p.endsWith('.py')) throw new Error('unwritten probe');
+    const gaps = [];
+    if (stage === 'explore' && (!probes.length || probes.some(p => !params.probe_files.includes(p)) || !scanProbes().some(p=>p.milestone_qualified))) gaps.push('missing complete probe manifest');
+    if (stage === 'execute') {
+      if (!runs.some(r => r.suite === 'control' && r.target_exit_code === 1 && fs.readFileSync(r.output,'utf8').includes('AssertionError: intentional_positive_control'))) gaps.push('positive control not observed');
+      if (!runs.some(r => r.suite === 'author' && r.files.length === authorFiles.length && [0,1].includes(r.target_exit_code) && r.junit_sha256 && r.inputs_unchanged)) gaps.push('author regressions incomplete');
+      const executed = p => runs.some(r => r.suite === 'probes' && r.files.includes(p) && [0,1].includes(r.target_exit_code) && r.junit_sha256 && r.counts?.tests > 0 && r.inputs_unchanged);
+      const replacements = params.superseded_probes || [];
+      for (const item of replacements) {
+        if (!probes.includes(item.original) || !probes.includes(item.replacement) || item.original === item.replacement || !runs.some(r=>r.suite === 'probes' && r.files.includes(item.original) && r.inputs_unchanged) || !executed(item.replacement) || !runs.some(r=>r.suite === 'probes' && r.files.includes(item.replacement) && r.target_exit_code === 0)) throw new Error('unproven probe replacement');
+      }
+      if (!probes.length || probes.some(p => !executed(p) && !replacements.some(r=>r.original === p))) gaps.push('probe execution incomplete');
+    }
+    if (stage === 'report' && ['PASS','PASS_WITH_LIMITS'].includes(params.verdict)) {
+      if (params.claims.some(c => c.status !== 'verified' || !c.evidence.length) || params.findings.length) gaps.push('unverified claims or findings');
+      const execution = JSON.parse(fs.readFileSync(path.join(ROOT,'execute','REPORT.json')));
+      if (execution.verdict !== 'STAGE_COMPLETE' || execution.delivery_gaps.length) gaps.push('execute not complete');
+    }
+    if (gaps.length && params.verdict !== 'BLOCKED') throw new Error('submit BLOCKED or complete missing work: '+gaps.join('; '));
+    const value = { ...params, stage, axis: CONFIG.axis, revision: CONFIG.revision, baseline: CONFIG.baseline, complete: true, delivery_gaps: gaps, test_runs: runs, host_bound: true };
+    const markdown = params.summary+'\n\n```json\n'+JSON.stringify(value,null,2)+'\n```\n';
+    const doc = stage === 'report' ? CONFIG.axis.toUpperCase()+'_REPORT.md' : stage.toUpperCase()+'.md';
+    fs.writeFileSync(path.join(out,'REPORT.json'),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
+    fs.writeFileSync(path.join(out,'REPORT.md'),markdown,{flag:'wx'});
+    fs.writeFileSync(path.join(work,doc),markdown,{flag:'wx'});
+    fs.writeFileSync(path.join(dir,'result.json'),JSON.stringify({ status:'DELIVERED', report_sha256: hash(fs.readFileSync(path.join(out,'REPORT.json'))) })+'\n');
+    submitted = true;
+    return { content:[{type:'text',text:'Structured report delivered. No further calls.'}], details:value, terminate:true };
+  }) });
+}
+
+export default function (pi) {
+  const out = fs.realpathSync(process.env.REVIEW_OUTPUT_DIR || '/invalid-output');
+  try {
+    if (path.dirname(out) !== ROOT) throw new Error('unexpected output');
+    fs.writeFileSync(path.join(out,'auth-reserved.json'),JSON.stringify({status:'RESERVED',model_requests:0}),{flag:'wx',mode:0o600});
+    const token = execFileSync(CONFIG.python,['-B',path.join(ROOT,'../glm_credential.py'),'--emit'],{encoding:'utf8',timeout:35000,maxBuffer:65536,env:{HOME:'/Users/a77',PATH:'/opt/homebrew/bin:/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe']}).trim();
+    install(pi,{out,token});
+  } catch {
+    fs.writeFileSync(path.join(out,'bootstrap-failure.json'),JSON.stringify({status:'BLOCKED',provider_requests:0}));
+    process.stderr.write('Credential or extension preflight blocked; no retry.\n'); process.exit(70);
+  }
+}

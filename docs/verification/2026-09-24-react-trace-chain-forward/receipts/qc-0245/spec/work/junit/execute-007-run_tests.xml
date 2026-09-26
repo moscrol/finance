@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="24" time="0.875" timestamp="2026-09-24T02:49:53.455648+08:00" hostname="77deMacBook-Air.local"><testcase classname="" name="test_e_ordinal_masked" time="0.001" /><testcase classname="" name="test_numeric_facts_survive" time="0.001" /><testcase classname="" name="test_lowercase_and_spacing" time="0.000" /><testcase classname="" name="test_unknown_dataset_is_sanitized" time="0.000" /><testcase classname="" name="test_known_message_passthrough" time="0.000" /><testcase classname="" name="test_valid_identifier_kept" time="0.000" /><testcase classname="" name="test_normalize_frozen_mapping_no_mutation" time="0.000" /><testcase classname="" name="test_tracker_records_frozen_mapping_call" time="0.000" /><testcase classname="" name="test_unknown_object_still_rejected" time="0.000" /><testcase classname="" name="test_unknown_object_raises_typeerror" time="0.000" /><testcase classname="" name="test_nested_frozen_mapping_accepted" time="0.000" /><testcase classname="" name="test_projection_row_identity_absolute" time="0.001"><failure message="AssertionError: []&#10;assert [] == [2, 3]&#10;  &#10;  Right contains 2 more items, first extra item: 2&#10;  Use -v to get more diff">def test_projection_row_identity_absolute():
+        rows = [{"i": i} for i in range(6)]
+        proj = _model_projection(_payload(rows, total=6, offset=2), "ref-1")
+        texts = [t for t in proj if isinstance(t[0], int)]
+        # second page rows should be numbered 2,3 not 0,1
+&gt;       assert [t[0] for t in texts] == [2, 3], texts
+E       AssertionError: []
+E       assert [] == [2, 3]
+E         
+E         Right contains 2 more items, first extra item: 2
+E         Use -v to get more diff
+
+../../spec/work/probes/test_c5_history_paging.py:32: AssertionError</failure></testcase><testcase classname="" name="test_result_metadata_carries_offsets" time="0.001"><failure message="AttributeError: 'ToolRunResult' object has no attribute 'metadata'">def test_result_metadata_carries_offsets():
+        rows = [{"i": i} for i in range(6)]
+        res = _result(_payload(rows, total=6), result_ref="ref-1", offset=2)
+&gt;       md = res.metadata
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../spec/work/probes/test_c5_history_paging.py:38: AttributeError</failure></testcase><testcase classname="" name="test_final_page_next_offset_none" time="0.000"><failure message="AttributeError: 'ToolRunResult' object has no attribute 'metadata'">def test_final_page_next_offset_none():
+        rows = [{"i": i} for i in range(3)]
+        res = _result(_payload(rows, total=3), result_ref="ref-1", offset=2)
+        # page 2 = rows[2:4] -&gt; returned 1, end=3 == total -&gt; None
+&gt;       assert res.metadata["next_offset"] is None
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../spec/work/probes/test_c5_history_paging.py:48: AttributeError</failure></testcase><testcase classname="" name="test_truncated_hint_on_page" time="0.000"><failure message="AttributeError: 'ToolRunResult' object has no attribute 'metadata'">def test_truncated_hint_on_page():
+        rows = [{"i": i} for i in range(6)]
+        res = _result(_payload(rows, total=6), result_ref="ref-1", offset=0)
+&gt;       assert res.metadata["truncated"] is False
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../spec/work/probes/test_c5_history_paging.py:54: AttributeError</failure></testcase><testcase classname="" name="test_orphaned_count_removed" time="0.001"><failure message="AssertionError: 1. b&#10;  2. 满足升级条件中的2条，需继续观察。&#10;assert '2条' not in '1. b\n2. 满足升级条件中的2条，需继续观察。'&#10;  &#10;  '2条' is contained here:&#10;    1. b&#10;    2. 满足升级条件中的2条，需继续观察。&#10;  ?            ++">def test_orphaned_count_removed():
+        before = "1. 升级条件：a\n2. b\n3. 满足升级条件中的2条，需继续观察。"
+        draft = "1. b\n2. 满足升级条件中的2条，需继续观察。"
+        out = _repair(draft, before, [0])
+&gt;       assert "2条" not in out, out
+E       AssertionError: 1. b
+E         2. 满足升级条件中的2条，需继续观察。
+E       assert '2条' not in '1. b\n2. 满足升级条件中的2条，需继续观察。'
+E         
+E         '2条' is contained here:
+E           1. b
+E           2. 满足升级条件中的2条，需继续观察。
+E         ?            ++
+
+../../spec/work/probes/test_c6_dangling_repair_basic.py:23: AssertionError</failure></testcase><testcase classname="" name="test_surviving_definition_blocks_removal" time="0.000" /><testcase classname="" name="test_no_rejected_indexes_is_noop" time="0.000" /><testcase classname="" name="test_unrelated_label_untouched" time="0.000" /><testcase classname="" name="test_unrelated_prose_and_linebreaks_preserved" time="0.000" /><testcase classname="" name="test_pipeline_removes_count_and_restores_number" time="0.001"><failure message="AssertionError: 1. 升级条件：&#10;  2. 2026-09-01 收盘价为 100.5 元。&#10;  3. 满足升级条件中的2条，继续观察。&#10;assert '2条' not in '1. 升级条件：\n2...条件中的2条，继续观察。'&#10;  &#10;  '2条' is contained here:&#10;    . 满足升级条件中的2条，继续观察。&#10;  ?           ++">def test_pipeline_removes_count_and_restores_number():
+        out, restored = _pipeline([0])
+&gt;       assert "2条" not in out, out
+E       AssertionError: 1. 升级条件：
+E         2. 2026-09-01 收盘价为 100.5 元。
+E         3. 满足升级条件中的2条，继续观察。
+E       assert '2条' not in '1. 升级条件：\n2...条件中的2条，继续观察。'
+E         
+E         '2条' is contained here:
+E           . 满足升级条件中的2条，继续观察。
+E         ?           ++
+
+../../spec/work/probes/test_c6_repair_pipeline_order.py:36: AssertionError</failure></testcase><testcase classname="" name="test_pipeline_without_deletion_keeps_everything" time="0.000" /><testcase classname="" name="test_regex_narrow_no_other_labels" time="0.000" /><testcase classname="" name="test_regex_only_upgrade_downgrade_labels" time="0.000" /></testsuite></testsuites>

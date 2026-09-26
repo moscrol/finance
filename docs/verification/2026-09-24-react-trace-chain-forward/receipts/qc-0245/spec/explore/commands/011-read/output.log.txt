@@ -1,0 +1,82 @@
+
+
+def _diagnostic_identifier(value: str) -> str:
+    # These are model-supplied schema identifiers, not source text. Do not echo
+    # arbitrary prose (possibly dated facts) into a trusted diagnostic channel.
+    return value if re.fullmatch(r"[a-z][a-z0-9_]{0,63}", value) else "[invalid identifier omitted]"
+
+
+def validation_diagnostic(spec: FinanceQuerySpec, error: FinanceQueryValidationError) -> str:
+    """Render only known validator messages and schema metadata, never raw IO errors."""
+    message = str(error)
+    safe_message = "查询参数未通过校验"
+    for prefix in (
+        "unknown dataset: ", "unknown field: ", "not a dimension: ",
+        "not a metric: ", "metric cannot be grouped: ", "order field must be selected: ",
+        "unsupported operator: ",
+    ):
+        if message.startswith(prefix):
+            safe_message = prefix + _diagnostic_identifier(message.removeprefix(prefix))
+            break
+    else:
+        if message in {
+            "date filters must use time_range", "selected fields must be unique",
+            "group_by fields must be unique", "group_by fields must be selected dimensions",
+            "all selected dimensions must appear in group_by", "time range conflicts with information cutoff",
+            "time range start exceeds end", "dataset has no time dimension",
+            "in filter requires an array", "in filter cannot be empty",
+            "contains filter requires a text field and string value",
+        }:
+            safe_message = message
+    return f"结构化查询参数无效：{safe_message}；重试提示：{validation_retry_hint(spec, error)}"
+
+
+def validation_retry_hint(
+    spec: FinanceQuerySpec,
+    error: FinanceQueryValidationError,
+) -> str:
+    """Point a rejected semantic field to its registered dataset and role."""
+
+    message = str(error)
+    if message.startswith("unknown dataset:"):
+        return "dataset 可选 " + ",".join(sorted(_DATASETS))
+    if message == "date filters must use time_range":
+        return "日期不要放入 filters；请改用 time_range.start/time_range.end"
+
+    requested_fields = tuple(
+        dict.fromkeys(
+            (
+                *spec.dimensions,
+                *spec.metrics,
+                *(item.field for item in spec.filters),
+                *spec.group_by,
+                *(item.field for item in spec.order_by),
+            )
+        )
+    )
+    current = _DATASETS.get(spec.dataset)
+    problem_fields = [
+        field
+        for field in requested_fields
+        if current is None or field not in current.fields
+    ]
+    for prefix in ("not a dimension:", "not a metric:", "metric cannot be grouped:"):
+        if message.startswith(prefix):
+            field = message.removeprefix(prefix).strip()
+            if field and field not in problem_fields:
+                problem_fields.append(field)
+
+    locations: list[str] = []
+    unsupported = False
+    for field in problem_fields:
+        owners: list[str] = []
+        for dataset_name, definition in sorted(_DATASETS.items()):
+            if field in definition.dimensions:
+                owners.append(f"{dataset_name}.dimension")
+            if field in definition.metrics:
+                owners.append(f"{dataset_name}.metric")
+        if owners:
+            locations.append(f"{_diagnostic_identifier(field)}→{'/'.join(owners)}")
+        else:
+
+[truncated; total lines=2908, selected=1830:1909; next_offset=1910]

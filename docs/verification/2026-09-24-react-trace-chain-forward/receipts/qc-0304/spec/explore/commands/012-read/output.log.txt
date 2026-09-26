@@ -1,0 +1,72 @@
+            perspective_mode=perspective_mode,
+        ),
+        # 与 memory_lookup 共用同一个身份输入：``derived_calculation`` 的
+        # ``inputs_from_calc``（改假设重算）要去「这一轮用户的 runs 目录」找上一次的
+        # 计算记录，而 episode 层刻意不认识用户。身份缺席时留 None = 沿用默认解析。
+        calc_loader=_calc_loader_for(memory_user),
+    )
+
+
+def _finance_query_failure_result(
+    spec: finance_query.FinanceQuerySpec,
+    error: finance_query.FinanceQueryError,
+) -> ToolRunResult:
+    if isinstance(error, finance_query.FinanceQueryValidationError):
+        failure_code = "invalid_query"
+        status = "parse_error"
+        observation = finance_query.validation_diagnostic(spec, error)
+        gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
+        from intelligence.services.tool_hunger import record_finance_query_rejected
+
+        record_finance_query_rejected(spec, failure_code)
+    elif isinstance(error, finance_query.FinanceQueryTimedOut):
+        failure_code = "timeout"
+        status = "request_error"
+        observation = "结构化查询超时，未返回可发布的数据"
+        gap = "结构化查询超时；请缩小时间范围、字段或结果数量后重试"
+    elif isinstance(error, finance_query.FinanceQueryCancelled):
+        failure_code = "cancelled"
+        status = "request_error"
+        observation = "结构化查询已取消，未返回可发布的数据"
+        gap = "结构化查询被取消；如任务仍需该数据，请重新发起更窄的查询"
+    elif isinstance(error, finance_query.FinanceQueryLimitExceeded):
+        failure_code = "limit_exceeded"
+        status = "request_error"
+        observation = "结构化查询结果超过资源上限，未返回截断数据"
+        gap = "结构化查询结果超过资源上限；请缩小时间范围、字段或结果数量后重试"
+    else:
+        failure_code = "request_error"
+        status = "request_error"
+        observation = "结构化数据源暂不可用，未返回可发布的数据"
+        gap = "结构化数据源暂不可用；当前答案仍缺少该查询对应的数据"
+    return ToolRunResult(
+        evidence=(),
+        observation="",
+        diagnostics=(ToolDiagnostic(code=failure_code, message=observation),),
+        trace=ProviderTrace(
+            provider="duckdb_semantic_query",
+            capability="finance_query",
+            status=status,
+            detail=f"dataset={spec.dataset}; failure={failure_code}",
+            result_count=0,
+        ),
+        gaps=(gap,),
+        **_finance_payload_kwargs(spec),
+    )
+
+
+def run_deterministic_fast_path(
+    frame: TaskFrame,
+    *,
+    timeout: float,
+    as_of: str | None = None,
+) -> dict[str, object]:
+    """Execute a preserved deterministic lane without entering AgentEpisode."""
+
+    started = time.monotonic()
+    if frame.question_type not in FAST_PATH_RUNNER_SUPPORTED_TYPES:
+        return {
+            "execution_kind": "deterministic_fast_path",
+            "status": "partial",
+
+[truncated; total lines=2171, selected=1990:2059; next_offset=2060]

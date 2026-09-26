@@ -1,0 +1,127 @@
+"""Independent C3 probe v2: local validation failure feeds back into the same episode.
+
+Supersedes v1 (which carried an empty stub test and a fragile "ok" key guess).
+Reuses pre-existing `_frame`/`_context`/`_finish_turn` fixtures plus a throwaway
+duckdb store; the good-query/invalid-query scenario is derived from the claims.
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import replace
+from threading import Event
+from uuid import uuid4
+
+import duckdb
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services import episode_tools
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.tests.test_agent_episode import _context, _finish_turn, _frame
+
+_GOOD = {
+    "dataset": "market_daily",
+    "dimensions": ["trade_date"],
+    "metrics": ["index_return_pct"],
+    "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+}
+_INVALID = dict(_GOOD, metrics=["definitely_not_a_metric"])
+
+
+def _setup(tmp_path, *, max_steps=3):
+    path = tmp_path / "db" / "market_feature_store.duckdb"
+    path.parent.mkdir()
+    with duckdb.connect(str(path)) as con:
+        con.execute(
+            "CREATE TABLE fact_market_daily "
+            "(trade_date DATE, stage_day INTEGER, sh_index_pct_chg DOUBLE)"
+        )
+        con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-21', 3, 1.25)")
+    frame = _frame()
+    context = replace(
+        _context(frame, max_steps=max_steps, allowed_capabilities=("finance_query",)),
+        trace_parent_id=uuid4().hex,
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+    )
+    return frame, context, registry, path
+
+
+class _Scripted:
+    """Good query, then an invalid query; optionally cancel before the 2nd dispatch."""
+
+    def __init__(self, *, cancel=None, invalid_first=False, allow_finish=True):
+        self.cancel = cancel
+        self.invalid_first = invalid_first
+        self.allow_finish = allow_finish
+        self.turns: list[list[dict]] = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.turns.append([dict(m) for m in messages])
+        seen = [m for m in messages if m.get("role") == "tool"]
+        if not seen:
+            first = _INVALID if self.invalid_first else _GOOD
+            return ModelTurn("", (ModelToolCall("probe-1", "finance_query", first),), "probe", "")
+        if self.cancel is not None:
+            self.cancel.set()
+        if len(seen) == 1:
+            second = _INVALID if not self.invalid_first else _GOOD
+            return ModelTurn("", (ModelToolCall("probe-2", "finance_query", second),), "probe", "")
+        assert self.allow_finish
+        return _finish_turn(
+            status="partial", draft="Evidence from the good query is retained.",
+            hashes=(), gap="Diagnostic delivery only.",
+        )
+
+
+def _feedback_for(model, call_id):
+    return [
+        json.loads(m["content"])
+        for turn in model.turns
+        for m in turn
+        if m.get("role") == "tool" and m.get("tool_call_id") == call_id
+    ]
+
+
+def test_c3_invalid_query_feeds_back_and_keeps_prior_evidence(tmp_path):
+    frame, context, registry, path = _setup(tmp_path)
+    frozen = path.read_bytes()
+    model = _Scripted()
+    result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+
+    assert result.stop_reason == "model_finish"
+    assert result.usage.tool_calls == 2  # the repair loop mints no extra slot
+    feedback = _feedback_for(model, "probe-2")
+    assert len(feedback) == 1  # the diagnostic reached the model inside the same episode
+    payload = feedback[0]
+    assert "结构化查询参数无效" in payload["observation"]
+    assert "重试提示" in payload["observation"]
+    assert payload["evidence"] == []  # no fabricated observations on rejection
+    assert "definitely_not_a_metric" not in payload["observation"]
+    assert len(result.evidence) == 1  # the good query's evidence survived the failure
+    assert path.read_bytes() == frozen  # a rejected query leaves the store untouched
+
+
+def test_c3_exhausted_budget_still_delivers_feedback_without_second_dispatch(tmp_path):
+    frame, context, registry, path = _setup(tmp_path, max_steps=1)
+    model = _Scripted()
+    result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
+
+    assert result.usage.tool_calls == 1  # budget not extended by the repair request
+    assert not result.evidence
+    feedback = _feedback_for(model, "probe-1")
+    assert len(feedback) == 1
+    assert "结构化查询参数无效" in feedback[0]["observation"]
+    assert len([m for turn in model.turns for m in turn if m.get("role") == "tool"]) == 1
+
+
+def test_c3_cancellation_after_feedback_prevents_dispatch(tmp_path):
+    frame, context, registry, _ = _setup(tmp_path)
+    cancelled = Event()
+    model = _Scripted(cancel=cancelled)
+    result = ContinuousAgentEpisode(model, is_cancelled=cancelled.is_set).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert result.stop_reason == "cancelled"
+    assert result.usage.tool_calls == 1
+    assert len(result.evidence) == 1

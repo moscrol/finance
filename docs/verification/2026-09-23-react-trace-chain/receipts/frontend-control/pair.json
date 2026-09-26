@@ -1,0 +1,49 @@
+{
+  "complete": true,
+  "runs": [
+    {
+      "name": "main",
+      "tree": "/Users/a77/fwp-wt-react-trace-main-control-0923",
+      "revision": "626d8a508c1c988ff094110b371987e6afdcdd15",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/fwp-wt-react-trace-main-control-0923",
+        "--expect-revision",
+        "626d8a508c1c988ff094110b371987e6afdcdd15",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/react-trace-chain-20260923/frontend-control-continue/main",
+        "--python",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "--workbench-port",
+        "19381",
+        "--re06-port",
+        "19384"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "candidate",
+      "tree": "/Users/a77/fwp-wt-react-trace-chain-0923",
+      "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/fwp-wt-react-trace-chain-0923",
+        "--expect-revision",
+        "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/react-trace-chain-20260923/frontend-control-continue/candidate",
+        "--python",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "--workbench-port",
+        "19381",
+        "--re06-port",
+        "19384"
+      ],
+      "exit_code": 0
+    }
+  ]
+}

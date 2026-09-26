@@ -1,0 +1,62 @@
+    for name, definition in payload.get("feature_definitions", {}).items():
+        add("历史特征严格定义", {"feature": name}, [
+            {key: definition[key]} for key in ("rule", "unit", "version", "input_mapping") if key in definition
+        ])
+
+    names: dict[str, set[str]] = {}
+    for rows in payload.get("inputs", {}).values():
+        for row in rows:
+            for prefix in ("sector", "stock"):
+                code, name = row.get(f"{prefix}_ts_code"), row.get(f"{prefix}_name")
+                if code and name:
+                    names.setdefault(code, set()).add(name)
+    preview = payload.get("preview", [])
+    # A sample is a row in the immutable result, not a position within this page.
+    records = list(enumerate(
+        preview[:25] if isinstance(preview, list) else [], start=payload.get("offset", 0)
+    ))
+    reference = payload.get("reference")
+    if isinstance(reference, dict):
+        records.insert(0, ("reference", reference))
+    for index, row in records:
+        if not isinstance(row, dict):
+            continue
+        if row.get("record_kind") == "sector_succession":
+            from .succession_projection import succession_atoms
+
+            # Pair identity on EVERY card; status/reason/counts are one atom.
+            # Do not pack status beside null confirmation/lag as unrelated keys.
+            identity = {"sample": index, "record_kind": "sector_succession",
+                        "source_sector": row.get("source_sector"), "entity_code": row.get("entity_code")}
+            for atom in succession_atoms(row, payload):
+                add(f"历史接力配对 {row.get('source_sector')}→{row.get('entity_code')}",
+                    identity, [atom], row.get("succession_known_as_of"))
+            continue
+        identity = {"sample": index, "entity_code": row.get("entity_code")}
+        if isinstance(reference, dict):
+            identity["role"] = "reference" if index == "reference" else "candidate"
+        for key in ("trade_date", "start", "end", "record_kind"):
+            if key in row:
+                identity[key] = row[key]
+        atoms = []
+        known = names.get(row.get("entity_code"), set())
+        name = row.get("entity_name") or (next(iter(known)) if len(known) == 1 else None)
+        if name:
+            atoms.append({"entity_name": name})
+        if "comparison_state" in row:
+            atoms.extend({key: row[key]} for key in (
+                "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
+            ) if key in row)
+        for name, value in row.get("features", {}).items():
+            atoms.append({
+                "features": {name: value},
+                "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
+            })
+        atoms.extend(
+            {"feature_differences": {name: value}}
+            for name, value in row.get("feature_differences", {}).items()
+        )
+        for kind in ("sector", "stock"):
+            values = row.get(kind)
+
+[truncated; total lines=971, selected=255:314; request a later offset]

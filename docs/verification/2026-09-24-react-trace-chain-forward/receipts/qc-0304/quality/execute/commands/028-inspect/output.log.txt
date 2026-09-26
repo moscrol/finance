@@ -1,0 +1,164 @@
+186:def _tool_turn(
+205:            return _tool_turn("不应执行")
+230:def _finish_turn(
+283:            _tool_turn("当前市场结构"),
+284:            _finish_turn(),
+334:            _tool_turn("当前市场结构"),
+335:            _finish_turn(),
+378:            _finish_turn(),
+409:        [_plan_turn(), _tool_turn("触发异常", call_id="call-err"), _finish_turn()]
+435:            [_plan_turn(), _tool_turn("当前市场结构"), _finish_turn()]
+499:            _tool_turn("钙钛矿链路", name="kb_search"),
+500:            _finish_turn(),
+544:            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+545:            _finish_turn(status="partial", hashes=(), gap="仍缺少行情证据"),
+613:            _tool_turn("当前市场结构"),
+614:            _finish_turn(draft="本轮反弹可以持续，因为风险偏好已经全面回升。"),
+615:            _finish_turn(draft="当前更像阶段性修复，持续性仍取决于量能。"),
+683:            _finish_turn(status="partial", hashes=(), gap="检索窗内未取得证据"),
+685:            _tool_turn("补齐市场结构证据", call_id="call-2"),
+686:            _finish_turn(draft="补检索后：当前更像阶段性修复。"),
+754:            _finish_turn(status="partial", hashes=(), gap="检索窗内未取得证据"),
+755:            _finish_turn(status="partial", hashes=(), gap="仍无证据"),
+790:            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+791:            _tool_turn("补齐行情证据", call_id="repair-call"),
+792:            _finish_turn(),
+846:            _tool_turn("今日市场结构"),
+847:            _finish_turn(status="partial", gap="缺少反方证据"),
+937:                _tool_turn("当前市场结构"),
+938:                _finish_turn(draft=draft),
+959:def test_deadline_after_tool_turn_does_not_invent_a_draft(
+995:        ScriptedModel([_tool_turn("本轮已发出的补查")])
+1056:        [_tool_turn("当前市场结构"), _finish_turn(draft=draft)],
+1101:        [_tool_turn("当前市场结构"), _finish_turn()],
+1118:def test_writing_grant_is_capped_by_headroom_and_tool_turns_never_draw(
+1140:        [_tool_turn("当前市场结构"), _finish_turn(draft=draft)],
+1178:            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+1180:            _tool_turn("补齐行情证据", call_id="repair-retry-call"),
+1181:            _finish_turn(),
+1226:    model = ScriptedModel([_tool_turn("最新行情"), _finish_turn()])
+1259:            _tool_turn("最新行情"),
+1261:            _finish_turn(),
+1296:            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+1343:                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+1348:                return _tool_turn("补齐行情证据", call_id="retry-after-burn")
+1349:            return _finish_turn()
+1473:                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+1478:                return _tool_turn("补齐行情证据", call_id="retry-after-double-burn")
+1479:            return _finish_turn()
+1625:                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+1630:                return _tool_turn("补齐行情证据", call_id="retry-after-overdraft")
+1631:            return _finish_turn()
+1704:            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+1706:            _tool_turn("补齐行情证据", call_id="retry-after-raise"),
+1707:            _finish_turn(),
+1754:                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+1756:            return _tool_turn("不得执行", call_id="late-repair-call")
+1815:                return _finish_turn(status="partial", hashes=(), gap="缺少行情证据")
+1818:                return _tool_turn("补齐行情证据", call_id="timed-repair-call")
+1820:            return _finish_turn()
+1888:                return _tool_turn("检查行情", call_id="initial-timed-call")
+1890:            return _finish_turn()
+1959:    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+1993:        [_plan_turn(), _tool_turn("A股 最新行情"), _finish_turn()]
+2017:        [_plan_turn(), _tool_turn("A股 最新行情"), _finish_turn()]
+2045:            _tool_turn("A股 最新行情"),
+2046:            _finish_turn(gap="新闻窗口未覆盖"),
+2073:            _tool_turn("A股 最新行情"),
+2074:            _finish_turn(status="partial", hashes=(), gap="缺少完整覆盖"),
+2131:            _tool_turn("A股 最新行情"),
+2132:            _finish_turn(status="partial", hashes=(), gap="缺少完整覆盖"),
+2185:        [_plan_turn(), _plan_turn(revision=2, open_gaps=[]), _finish_turn()]
+2212:            _finish_turn(
+2239:            _finish_turn(
+2267:            _finish_turn(
+2369:            _finish_turn(hashes=("market-evidence",)),
+2422:    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+2443:            _finish_turn(
+2467:            _finish_turn(
+2555:    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+2577:    finish = _finish_turn()
+2584:    model = ScriptedModel([_tool_turn("A股 最新行情"), fenced])
+2599:    first = json.loads(_finish_turn().content)
+2612:    model = ScriptedModel([_tool_turn("A股 最新行情"), noisy])
+2637:            _tool_turn("rm -rf /", name="shell_exec"),
+2638:            _finish_turn(
+2683:            _finish_turn(
+2732:            _tool_turn("A股 最新行情", call_id="call-1"),
+2733:            _tool_turn("  a股   最新行情 ", call_id="call-2"),
+2734:            _finish_turn(status="partial"),
+2757:            _tool_turn("A股 最新行情"),
+2758:            _finish_turn(
+2797:            _tool_turn("A股 最新行情"),
+2798:            _finish_turn(
+2959:            _tool_turn("A股 最新行情"),
+2960:            _finish_turn(
+2995:            _tool_turn("A股 最新行情"),
+2996:            _finish_turn(
+3036:            _tool_turn("A股 最新行情", call_id="first-run"),
+3037:            _finish_turn(),
+3038:            _tool_turn("A股 最新行情", call_id="second-run"),
+3039:            _finish_turn(),
+3074:    model = ScriptedModel([_tool_turn("A股 最新行情"), invalid_finish, _finish_turn()])
+3154:        [_tool_turn("瑞华泰估值快照"), empty_scenario, repaired_scenario]
+3257:            _tool_turn("A股 行情 1", call_id="call-1"),
+3258:            _tool_turn("A股 行情 2", call_id="call-2"),
+3259:            _tool_turn("A股 行情 3", call_id="call-3"),
+3260:            _finish_turn(),
+3296:    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+3384:            _finish_turn(),
+3432:            _tool_turn("最新行情"),
+3433:            _finish_turn(),
+3573:            _tool_turn("最新行情"),
+3574:            _finish_turn(
+3636:            _tool_turn("直接来源", name="web_search"),
+3637:            _finish_turn(hashes=("evidence-1",)),
+3716:            _tool_turn("主线板块", name="finance_query"),
+3717:            _finish_turn(
+3769:            _tool_turn("A股 最新行情"),
+3771:            _finish_turn(),
+3802:            _tool_turn("A股 最新行情"),
+3804:            _finish_turn(),
+3850:            _tool_turn("A股 最新行情"),
+3853:            _finish_turn(),
+3881:        _finish_turn(draft="Review [E1] [E28] [E29] [E30] [E999]"),
+3882:        content=_finish_turn(draft="Review [E1] [E28] [E29] [E30] [E999]").content + "]",
+3884:    model = ScriptedModel([_tool_turn("snapshot"), broken, broken, _finish_turn()])
+3904:            _tool_turn("A股 最新行情 1", call_id="research-call-1"),
+3905:            _tool_turn("A股 最新行情 2", call_id="research-call-2"),
+3908:            _finish_turn(),
+3936:            _tool_turn("A股 最新行情"),
+3938:            _finish_turn(),
+3959:            _tool_turn("A股 最新行情", call_id="research-call"),
+3960:            _tool_turn("不应执行", call_id="closed-call"),
+3961:            _finish_turn(),
+3984:            _tool_turn("A股 最新行情", call_id="research-call"),
+3986:            _finish_turn(),
+4021:            _tool_turn("A股 最新行情"),
+4023:            _finish_turn(),
+4061:            _tool_turn("A股 最新行情"),
+4063:            _finish_turn(),
+4104:    finish = _finish_turn()
+4114:            _tool_turn("A股 最新行情"),
+4134:            _tool_turn("A股 最新行情"),
+4160:    invalid_recovery = _finish_turn(hashes=("invented-hash",))
+4163:            _tool_turn("A股 最新行情"),
+4167:            _finish_turn(),
+4199:    finish = _finish_turn(
+4227:    finish = _finish_turn(
+4270:    model = ScriptedModel([batched_turn, _finish_turn()])
+4308:            _tool_turn(f"深度查询 {index}", call_id=f"deep-call-{index}")
+4311:        _finish_turn(hashes=("deep-evidence-7",)),
+4391:                _tool_turn(f"标准查询 {index}", call_id=f"quick-call-{index}")
+4482:            _finish_turn(hashes=("branch-evidence-1",)),
+4521:                _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+4554:            _finish_turn(
+4584:    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+4676:        model = ScriptedModel([_tool_turn("查当日行情"), _finish_turn()])
+4744:    model = ScriptedModel([_finish_turn(status="partial")])
+4867:            _tool_turn("当前市场结构"),
+4868:            _finish_turn(draft="当前更像阶段性修复。"),
+5097:            _finish_turn(status="partial", hashes=(), gap="分支未返回证据"),
+5164:            _finish_turn(status="partial", hashes=(), gap="分支未返回证据"),
+5206:            _tool_turn("A股 最新行情"),
+5207:            _finish_turn(

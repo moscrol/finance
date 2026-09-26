@@ -1,0 +1,82 @@
+
+            # Pair identity on EVERY card; status/reason/counts are one atom.
+            # Do not pack status beside null confirmation/lag as unrelated keys.
+            identity = {"sample": index, "record_kind": "sector_succession",
+                        "source_sector": row.get("source_sector"), "entity_code": row.get("entity_code")}
+            for atom in succession_atoms(row, payload):
+                add(f"历史接力配对 {row.get('source_sector')}→{row.get('entity_code')}",
+                    identity, [atom], row.get("succession_known_as_of"))
+            continue
+        identity = {"sample": index, "entity_code": row.get("entity_code")}
+        if isinstance(reference, dict):
+            identity["role"] = "reference" if index == "reference" else "candidate"
+        for key in ("trade_date", "start", "end", "record_kind"):
+            if key in row:
+                identity[key] = row[key]
+        atoms = []
+        known = names.get(row.get("entity_code"), set())
+        name = row.get("entity_name") or (next(iter(known)) if len(known) == 1 else None)
+        if name:
+            atoms.append({"entity_name": name})
+        if "comparison_state" in row:
+            atoms.extend({key: row[key]} for key in (
+                "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
+            ) if key in row)
+        for name, value in row.get("features", {}).items():
+            atoms.append({
+                "features": {name: value},
+                "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
+            })
+        atoms.extend(
+            {"feature_differences": {name: value}}
+            for name, value in row.get("feature_differences", {}).items()
+        )
+        for kind in ("sector", "stock"):
+            values = row.get(kind)
+            if isinstance(values, dict):
+                atoms.extend({kind: {key: values[key]}} for key in (
+                    "pct_chg", "amount", "diff_ratio", "price", "close", "turnover_rate"
+                ) if key in values)
+        for key in ("sample_id", "distance", "feature_cutoff", "first_date", "last_date", "observed_dates", "dates"):
+            if key in row:
+                atoms.append({key: row[key]})
+        for key in (
+            "overlap_cluster", "signal_date", "signal_known_as_of", "signal_status", "path_status",
+            "peak_date", "peak_status", "peak_known_as_of", "peak_gain_pct", "days_to_peak",
+            "confirmation_date", "confirmation_known_as_of", "end_drawdown_from_peak_pct", "path_anchor", "path_end",
+            "parent_sector", "membership_date", "membership_snapshot_id", "membership_status", "sector_snapshot_id",
+            "rank", "selection_mode", "population_count", "source_sector", "anchor_peak_date",
+            "source_peak_status", "source_peak_confirmation_date", "target_signal_date", "lag_trading_days",
+            "succession_status", "succession_known_as_of", "causal_status", "stage_semantics", "market_units",
+        ):
+            if key in row:
+                atoms.append({key: row[key]})
+        atoms.extend({"succession_evidence": {key: value}} for key, value in row.get("evidence", {}).items())
+        path = row.get("path", [])
+        if path:
+            # Keep a bounded shape sketch plus exact anchor dates. Full daily path
+            # remains in artifact; inspect_history exposes any omitted date.
+            indexes = {round(i * (len(path) - 1) / 7) for i in range(8)}
+            indexes.update(i for i, point in enumerate(path) if point["trade_date"] in
+                           (row.get("peak_date"), row.get("confirmation_date")))
+            atoms.append({"path_points_total": len(path), "path_points_shown": len(indexes),
+                          "path_projection": "sampled_NAV_only; inspect_history for omitted daily price/amount"})
+            atoms.extend({"path_sample": {str(path[i]["trade_date"]): path[i]["nav"]}}
+                         for i in sorted(indexes))
+        # Large members/events/coverage remain in the original. These counts
+        # distinguish an empty collection from a hidden detailed collection.
+        atoms.extend({f"{key}_count": len(row[key])} for key in (
+            "members", "sector_memberships", "events", "heat"
+        ) if isinstance(row.get(key), list))
+        if "market" in row:
+            atoms.append({"market_status": "missing_or_ambiguous" if row["market"] is None else "observed"})
+            if isinstance(row["market"], dict):
+                atoms.extend({"market": {key: row["market"][key]}} for key in (
+                    "sh_index_pct_chg", "sh_index_close", "sh_deviation_pct", "total_amount",
+                    "advancers", "limit_up", "limit_down", "market_stage", "market_stage_source", "market_stage_confidence", "cycle_stage", "stage_day", "sh_week_ma", "sh_week_ma_source", "amount_ma20", "volume_ratio",
+                    "cycle_stage_source", "cycle_stage_updated_at", "volume_state", "concentration_state", "source",
+                ) if key in row["market"])
+        date_value = str(row.get("succession_known_as_of", row.get("trade_date", row.get("path_end", row.get("end", ""))))) or None
+        sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
+
+[truncated; total lines=971, selected=280:359; next_offset=360]

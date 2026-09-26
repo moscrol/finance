@@ -1,0 +1,79 @@
+class RunStore:
+    """Run 目录的唯一写入者（单 writer 原则，同台账地图其它台账一致）。"""
+
+    def __init__(self, user_id: str | None = None, root: Path | None = None) -> None:
+        us = userspace.user_space(user_id)
+        self.user_id = us.user_id
+        if root is not None:
+            self.root = root
+            db_path = Path(root) / DB_FILENAME
+        else:
+            self.root = us.root / "runs"
+            db_path = us.root / DB_FILENAME
+        self.db = WorkbenchDB(db_path)
+        self._state_lock = threading.RLock()
+
+    # ---------- 写路径 ----------
+
+    def create_run(
+        self,
+        question: str,
+        task_type: str,
+    message_id      TEXT NOT NULL,
+    payload         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation
+    ON messages (conversation_id, record_id);
+"""
+
+
+class WorkbenchDB:
+    """``workbench.sqlite3`` 的薄封装：建表 + 各表的最小读写原语。"""
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self._connect() as conn:
+            conn.executescript(_SCHEMA)
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """事务 + 确定性关闭。
+
+        裸 ``with sqlite3.connect(...)`` 只管提交/回滚**不关连接**，连接对象
+        等周期 GC 兜底回收。轮询负载下分配快于 GC，fd 顶到 launchd 软上限
+        256 后 EMFILE 以「unable to open database file」形态间歇 500
+        （2026-08-26 生产事故，台账 R-20260826-03）。此处 finally close，
+        fd 生命周期与语句块严格一致，不依赖 GC 时机。
+        """
+
+        conn = sqlite3.connect(self.path, timeout=30)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+def _registry(tmp_path, question="这一波农业是怎么走出来的？"):
+    from intelligence.services.run_store import RunStore
+    from intelligence.services.historical_research.episode import (
+        HistorySession,
+        history_tool_specs,
+    )
+    from intelligence.services.research_tool_registry import ResearchToolRegistry
+    from intelligence.services.research_contract import InformationCutoff
+    from datetime import date
+
+    path = _history_root(tmp_path)
+    store = RunStore("history-test", root=tmp_path / "runs")
+    run = store.create_run(question, "ask", session_id="conversation-history")
+    session = HistorySession(store, run.run_id, "conversation-history")
+    frame = understand_query(question).task_frame
+    context = build_episode_context(
+        frame,
+        task_id=run.run_id,
+        capabilities=("finance_query",),
+        information_cutoff=InformationCutoff(date(2026, 9, 7), "requested"),
+    )
+    registry = ResearchToolRegistry(
+        tuple(history_tool_specs(frame, context, path, session))
+    )
+    return registry, context, session
+
+

@@ -1,0 +1,21 @@
+9:from __future__ import annotations
+11:from copy import deepcopy
+12:from dataclasses import replace
+13:import json
+15:import pytest
+17:from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+18:from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+19:from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+20:from intelligence.services.evidence_capabilities import EvidencePlan
+21:from intelligence.services.provider_observability import ProviderTrace
+22:from intelligence.services.research_contract import (
+29:from intelligence.services.historical_research.episode import history_tool_specs
+30:from intelligence.services.historical_research.intent import HistoryIntent
+31:from intelligence.services.research_tool_registry import (
+34:from intelligence.services.task_frame import TaskFrame
+52:def _frame() -> TaskFrame:
+70:def _context(frame: TaskFrame, *, max_steps: int = 8) -> ResearchRunContext:
+97:def _registry(runner) -> ResearchToolRegistry:
+125:def _runner(query: str, _context: AgentToolContext):
+139:def _tool_turn(query: str, call_id: str) -> ModelTurn:
+143:def _finish_turn(hashes: tuple[str, ...]) -> ModelTurn:

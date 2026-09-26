@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "class FinanceQuery.*Error|def from_arguments|重试提示|invalid_query|def _finance_query_failure_result|parse_error",
+    "intelligence/services/finance_query.py",
+    "intelligence/services/episode_tools.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 34,
+  "output_sha256": "19221e6a353942ea4741ce52ea11a3aca11457419f84476eb6c67a0057024bc9"
+}

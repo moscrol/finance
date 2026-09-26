@@ -1,0 +1,107 @@
+"""PR832 spec probe 2 (C6): dangling condition-count repair via the real exit.
+
+Borrows author fixtures (_judge/_structural) for plumbing only; expectations
+are derived from claims C6. All asserts unconditional.
+"""
+from __future__ import annotations
+
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeVerifier,
+    _drop_rejected_sentences,
+    _numbered_sentences,
+    _repair_dangling_condition_references,
+    numeric_condition_unsupported,
+)
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+
+
+def _rejected_for(text: str, prefixes: tuple[str, ...]) -> tuple[int, ...]:
+    rejected = tuple(
+        int(item["index"])
+        for item in _numbered_sentences(text)
+        if str(item["text"]).startswith(prefixes)
+    )
+    assert rejected, "fixture self-check: definition sentences must be recognized"
+    return rejected
+
+
+def test_surviving_definition_and_its_count_are_kept():
+    """Only the label whose definition died may lose its count."""
+    before = (
+        "升级条件：若涨停60家以上，则升级。\n"
+        "降级条件：跌破前低。\n"
+        "量能温和，满足升级条件中的2条，尚未满足降级条件中的1条，需跟踪。"
+    )
+    draft = _drop_rejected_sentences(before, (1,))
+    assert "降级条件：跌破前低。" in draft
+    repaired = _repair_dangling_condition_references(
+        draft, before=before, rejected_sentence_indexes=(1,)
+    )
+    assert "升级条件" not in repaired, repaired
+    assert "满足升级条件中的2条" not in repaired, repaired
+    # Unconditional: the surviving definition and its live count reference stay.
+    assert "降级条件：跌破前低。" in repaired
+    assert "尚未满足降级条件中的1条" in repaired
+    assert "量能温和" in repaired and "需跟踪。" in repaired
+
+
+def test_both_labels_orphaned_on_separate_lines_prose_and_breaks_kept():
+    before = (
+        "升级条件：若涨停60家以上，则升级。\r\n"
+        "降级条件：跌破前低。\r\n"
+        "- 缩量整理，满足升级条件中的3条，波动收敛。\r\n"
+        "- 未触及的独立观察保持原样。\r\n"
+    )
+    draft = _drop_rejected_sentences(before, (1, 2))
+    assert "升级条件" not in draft and "降级条件" not in draft
+    repaired = _repair_dangling_condition_references(
+        draft, before=before, rejected_sentence_indexes=(1, 2)
+    )
+    assert "3条" not in repaired and "升级条件" not in repaired
+    lines = repaired.splitlines(keepends=True)
+    assert len(lines) == 2, lines
+    assert lines[0] == "- 缩量整理，波动收敛。\r\n", lines
+    assert lines[1] == "- 未触及的独立观察保持原样。\r\n", lines
+
+
+def test_repair_exit_keeps_surviving_definition_and_live_count_end_to_end():
+    frame, structural = _structural(
+        "升级条件：若涨停60家以上，则升级。\n"
+        "降级条件：跌破前低。\n"
+        "量能温和，满足升级条件中的2条，尚未满足降级条件中的1条，需跟踪。"
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.judge_status == "repaired"
+    public = str(result.public_answer)
+    assert "满足升级条件中的2条" not in public
+    # Surviving definition really appears in the delivered draft and public answer.
+    assert "降级条件：跌破前低。" in result.verified.outcome.draft
+    assert "降级条件" in public
+    assert "尚未满足降级条件中的1条" in result.verified.outcome.draft
+    assert "量能温和" in public and "需跟踪" in public
+
+
+def test_fully_collapsed_draft_exits_before_restore_and_leaks_nothing():
+    frame, structural = _structural(
+        "升级条件：若涨停60家以上，则升级。\n满足升级条件中的2条。"
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.judge_status == "repaired"
+    assert "满足升级条件中的" not in str(result.public_answer)
+    assert "升级条件：" not in str(result.public_answer)
+
+
+def test_numeric_gate_still_fires_on_novel_numeric_definitions():
+    frame, structural = _structural("升级条件：若涨停60家以上，则升级。")
+    assert numeric_condition_unsupported(structural) is True
+    frame2, structural2 = _structural("缩量整理，波动收敛。")
+    assert numeric_condition_unsupported(structural2) is False

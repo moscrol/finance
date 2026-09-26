@@ -1,0 +1,26 @@
+162:def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
+163-    """Pack whole semantic fields into the real model-facing detail budget.
+164-
+165-    The artifact keeps every field. A single oversized value is explicitly
+166-    omitted here instead of producing a clipped JSON string or numeric prefix.
+167-    """
+168-    from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+169-
+170-    def encode(value):
+171-        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+172-
+173-    def merge(left, right):
+174-        result = dict(left)
+175-        for key, value in right.items():
+176-            result[key] = (
+177-                {**result[key], **value}
+178-                if isinstance(result.get(key), dict) and isinstance(value, dict)
+179-                else value
+180-            )
+181-        return result
+182-
+183-    blocks, current = [], dict(identity)
+184-    for atom in atoms:
+185-        candidate = merge(current, atom)
+186-        if len(encode(candidate)) <= MAX_EVIDENCE_DETAIL_CHARS:
+187-            current = candidate

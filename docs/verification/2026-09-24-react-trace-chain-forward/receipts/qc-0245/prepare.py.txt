@@ -1,0 +1,53 @@
+"""Fresh finite review with the GLM-5.3 native wire contract, not nominal off."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SEED = ROOT.parent/'pr832-glm-qc-20260924-0216'
+AUTHOR = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+TREE = ROOT/'candidate/finance-workspace-private'
+REV = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+assert subprocess.check_output(['git','-C',str(AUTHOR),'rev-parse','HEAD'],text=True).strip() == REV
+assert not subprocess.check_output(['git','-C',str(AUTHOR),'status','--porcelain'])
+subprocess.run(['git','-C',str(AUTHOR),'worktree','add','--detach',str(TREE),REV],check=True)
+lock = json.loads((SEED/'harness-lock.json').read_text())
+provenance = []
+for name, sha in lock['files'].items():
+    if '/sandbox-preflight/' in name:
+        continue
+    source = SEED/name
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == sha
+    dest = ROOT/name
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    dest.write_text(source.read_text().replace(str(SEED),str(ROOT)))
+    provenance.append({'source':str(source),'sha256':sha,'destination':name})
+(ROOT/'finish_setup.py').write_text((SEED/'finish_setup.py').read_text())
+for axis in ['spec','quality']:
+    for name in ['work/tmp','work/users','work/probes']:
+        (ROOT/axis/name).mkdir(parents=True)
+    config_path = ROOT/axis/'config.json'
+    config = json.loads(config_path.read_text())
+    config['thinking'] = 'low'
+    config_path.write_text(json.dumps(config,indent=2)+'\n')
+    provider_path = ROOT/axis/'provider-template.json'
+    provider = json.loads(provider_path.read_text())
+    model = provider['models'][0]
+    model['reasoning'] = True
+    model['thinkingLevelMap'] = {'off':None,'minimal':None,'low':'low','medium':None,'high':'high','xhigh':None,'max':'max'}
+    model['compat'] = {'supportsStore':False,'supportsDeveloperRole':False,'supportsReasoningEffort':True,
+                       'maxTokensField':'max_tokens','thinkingFormat':'zai','zaiToolStream':True}
+    provider_path.write_text(json.dumps(provider,indent=2)+'\n')
+protocol = json.loads((ROOT/'protocol.json').read_text())
+protocol.update(created_at=datetime.now(timezone.utc).isoformat(),candidate_tree=str(TREE),previous_batch=str(SEED),
+                continuation='One finite batch after correcting mandatory GLM-5.3 thinking and provider-native parameters. Same model, route, 8192-token ceiling, 120-second deadline and all request budgets. No retry of old batches.',
+                previous_requests_in_current_authorization=68,maximum_total_requests_with_this_batch=220,
+                reviewer_artifacts_copied=False,
+                actual_thinking='enabled, reasoning_effort=low; GLM-5.3 cannot disable thinking',
+                wire_contract={'thinking':{'type':'enabled','clear_thinking':False},'reasoning_effort':'low','max_tokens_ceiling':8192,'max_completion_tokens':'forbidden'},
+                sources=['https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3.md','https://docs.bigmodel.cn/cn/guide/start/migrate-to-glm-new.md'])
+(ROOT/'protocol.json').write_text(json.dumps(protocol,ensure_ascii=False,indent=2)+'\n')
+(ROOT/'tooling-provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
+print(json.dumps({'root':str(ROOT),'revision':REV,'model_requests':0}))
