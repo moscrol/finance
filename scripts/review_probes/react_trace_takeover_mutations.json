@@ -21,10 +21,10 @@
     ]
   },
   {
-    "id": "c3_cancel_not_checked_before_repair_dispatch",
+    "id": "c3_episode_ignores_cancellation",
     "path": "intelligence/runtime/agent_episode.py",
-    "old": "                    carried_bindings=carried_bindings,\n                )\n            if self._is_cancelled():\n",
-    "new": "                    carried_bindings=carried_bindings,\n                )\n            if False:\n",
+    "old": "        self._is_cancelled: Callable[[], bool] = self._cancel\n",
+    "new": "        self._is_cancelled: Callable[[], bool] = lambda: False\n",
     "targets": [
       "test_cancel_after_feedback_keeps_prior_evidence_and_skips_repair",
       "test_cancellation_after_feedback_prevents_repair_dispatch"
