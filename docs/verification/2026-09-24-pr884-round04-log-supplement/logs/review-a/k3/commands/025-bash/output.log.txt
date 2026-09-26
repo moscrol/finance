@@ -1,0 +1,13 @@
+53:AUTHORIZED_TOOL = "market_data"
+58:class ScriptedToolCall:
+64:class ScriptedTurn:
+84:class ScenarioProbe:
+103:def completed_finish(
+138:def make_frame(question: str = "目前市场怎么看") -> TaskFrame:
+156:def make_context(
+203:def make_registry(probe: ScenarioProbe) -> ResearchToolRegistry:
+212:        probe.executed.append((AUTHORIZED_TOOL, query))
+214:            tool=AUTHORIZED_TOOL,
+241:                name=AUTHORIZED_TOOL,
+280:class ScriptedModelClient:
+     556 intelligence/tests/conformance/fixtures.py

@@ -1,0 +1,1188 @@
+worktree /Users/a77/finance-workspace-private
+HEAD b4a35fa2c143d152f4a87162f5fc044325d566a8
+detached
+
+worktree /private/tmp/e2-p3d-qc-1f6ebc5d
+HEAD 1f6ebc5de9e906ccedf70c0377d45919fb5f7b34
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3e-guard-mutation-39af312f
+HEAD 39af312f51fa73f7a3db3b7f8c1fa8f8420213c9
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3e-qc-0b83e14f
+HEAD 0b83e14f5c6e664772d617f075a24911f16f7547
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3f1-frozen-a819ecde
+HEAD a819ecde6529784da06401e59152a476343f9011
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3f1-mutations-418f2bc9
+HEAD 418f2bc910c673820d0accdec42b46be5aaa5528
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3f1-qc-a819ecde
+HEAD a819ecde6529784da06401e59152a476343f9011
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3f1-qc2-a819ecde
+HEAD a819ecde6529784da06401e59152a476343f9011
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/e2-p3f1-qc3-a819ecde
+HEAD a819ecde6529784da06401e59152a476343f9011
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/finance-runtime-audit-bf662e93
+HEAD bf662e9310ff751a4c31763815ee78fb7d6d5122
+detached
+
+worktree /private/tmp/finance-runtime-audit-report-0918
+HEAD 83a681905ac21713a7ee7e3f0f87e3284ebb414c
+branch refs/heads/baseline/runtime-absorption-audit-0918
+
+worktree /private/tmp/fwp-kb-receipt-base-20260918
+HEAD 0a1cb8c44aaf2d19ae5f5809bf27119b709b8442
+detached
+
+worktree /private/tmp/knevo-answer-distill-0916
+HEAD d9bb278aa9a448912da75203368e713ece321934
+branch refs/heads/docs/knevo-answer-distill-0916
+
+worktree /private/tmp/knevo-fengyuan-distill-20260916
+HEAD 0ed7709d6e3c76837a998aaea1419aa86b21df4b
+branch refs/heads/docs/fengyuan-distill-0916
+
+worktree /private/tmp/local-plan-alignment-baseline-1fef3d27
+HEAD 1fef3d276d0e251158803fc09d5a81e60d79241b
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-baseline-before-batch
+HEAD 1fef3d276d0e251158803fc09d5a81e60d79241b
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-main-final
+HEAD 1bcb1ebc6a5b411752cacf30b801769711beb677
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-merge-sim
+HEAD 1bcb1ebc6a5b411752cacf30b801769711beb677
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-pr592
+HEAD 2a0fc382d6eb83598ff7ce82bcef0fdda3f1a771
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-pr593
+HEAD 916cb4b539f976087ed183b3c665bf5518a93500
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-pr673
+HEAD c9ed412f9a78a6dfb3fcce5dd7bf3ee611b71947
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/tmp/qc-pr746
+HEAD c50a3d847134083d49722a0ab8f634054db75989
+detached
+prunable gitdir file points to non-existent location
+
+worktree /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-p0j6308y/tree
+HEAD 7f6b201d028fa53dd9671f5841809d2383caccfb
+branch refs/heads/fix/runtime-child-fence-tests-0918
+
+worktree /Users/a77/.finance-runtime/continuous-research-09/code
+HEAD adcd4830ab322548e21e8c7d9ac8fa238b202c1f
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-workspace-private
+HEAD d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-64984b33/registry-pinned/finance-workspace-private
+HEAD 64984b33e6f38eccc50c004b7b79120f1f45a775
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/registry-pinned/finance-workspace-private
+HEAD 6fb37a6e191185daef832369677af15b0d56afb2
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/registry-pinned/finance-workspace-private
+HEAD 746b716ff95d40898697628e197fd266a9473bf6
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private
+HEAD 79dba348bb2f4e76aa6be0d692a34baae1b6ddbe
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/registry-pinned/finance-workspace-private
+HEAD a2a3301963d11a073f511e1552b53daee7ecd704
+detached
+
+worktree /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private
+HEAD d46c2c3b10221483c811426e99ad379314289871
+detached
+
+worktree /Users/a77/.finance-runtime/db-repair/hithink-20260911/tree
+HEAD 601db6dd4398bfab8f9e3adde933d8a187688159
+branch refs/heads/data-source/hithink-rewrite-0911
+
+worktree /Users/a77/.finance-runtime/finance-generation-387028b846a2
+HEAD 387028b846a21a1327d964af8c4b428367f88fcf
+detached
+
+worktree /Users/a77/.finance-runtime/finance-hosted-alpha
+HEAD 35e1b2912a5720e7df84deb8d4c5d87376f5bd81
+detached
+
+worktree /Users/a77/.finance-runtime/finance-l2-d433b90788c0
+HEAD d433b90788c0727d71043a992e69c20f34203257
+detached
+
+worktree /Users/a77/.finance-runtime/finance-s7-sync
+HEAD 418515c0383334558a8dd44a0e741f39085115fa
+branch refs/heads/spec/continuous-depth-gap-r1
+
+worktree /Users/a77/.finance-runtime/finance-workspace-0060da5c1a08
+HEAD 0060da5c1a0892f0b6d9a19838f26c7127c75164
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-0758a423d6c8
+HEAD 0758a423d6c82c2e25258f3fa33cd840c5ec97da
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-1010970acc85
+HEAD 1010970acc8560df3c8a84e57d1be5768785b361
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-2ee664fae9c4
+HEAD 2ee664fae9c46238ca55d58d22bb657345c41aef
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-2efdff46e251
+HEAD 2efdff46e2510a2f87f5bc245b524fb94724741a
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-3c3c1b1cf38f
+HEAD 3c3c1b1cf38fda608f077d5d2622db7237c5420e
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-40fd5a847c65
+HEAD 40fd5a847c65a0a392aaee848da0859b3c7bd7cb
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-6626f12fb694
+HEAD 6626f12fb694dfb70a19a1cf245d4312d1aad1c2
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-6e23dd57e965
+HEAD 6e23dd57e9656e1a0b78ac3b8339b11427187f99
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-7afe37be1913
+HEAD 7afe37be1913058f793c6e6ee44a201fc2fa264d
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-a26cec4d470d
+HEAD a26cec4d470d89bb7f0003602963ee567711e8bd
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-ac0132553aae
+HEAD ac0132553aae1a1fb1981fe198b6b65798822781
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-b594a5e7f8ae
+HEAD b594a5e7f8ae2b99e9cf38c5b3b1cdede20b2c36
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-bc2d01214158
+HEAD bc2d012141588dfbc9baf1f897d228e73422fbc0
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-bf662e9310ff
+HEAD bf662e9310ff751a4c31763815ee78fb7d6d5122
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-c7bbcb93e1ad
+HEAD c7bbcb93e1ada1e0afca984f541729b14f783656
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-ce0097185443
+HEAD ce0097185443b364ebc9475598b3eebb6bb1feba
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-d4cb64844ec6
+HEAD d4cb64844ec64c4a10db53f9078c9bfcf1582074
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-db2963d4fbaa
+HEAD db2963d4fbaa9e4a3f8c3958032b004ba31915a7
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-e480e6c7dc8d
+HEAD e480e6c7dc8d2450cc1281169b682f3991219d1b
+detached
+
+worktree /Users/a77/.finance-runtime/finance-workspace-f4c03b9ae610
+HEAD f4c03b9ae6107696062039ee0e7df8acd4ad1c68
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/daily-swap-candidate-20260913/finance-workspace-private
+HEAD 1fef3d276d0e251158803fc09d5a81e60d79241b
+branch refs/heads/integration/daily-swap-hithink-candidate-0913
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/hithink-review-wiring-dcee18f2/finance-workspace-private
+HEAD dcee18f2a23673dc482401013eea61f619ff1b25
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r2-20260912/finance-workspace-private
+HEAD 6935bcb387200c0abf443414d150c9bb5744d053
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r3-20260912/finance-workspace-private
+HEAD ecc05e09257081b013e0724d44a58b055d34464f
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r4-20260912/finance-workspace-private
+HEAD 31d82c39251bd6d48dfecb59abd9f6658be65471
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r5-20260913/finance-workspace-private
+HEAD 3d9c31027f279664311039e6a34fbbf2da6b6e0e
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/instruction-migration-clearance-20260912/finance-workspace-private
+HEAD 4427b48188eef17995326787dca4da65e4c1cd04
+detached
+
+worktree /Users/a77/.finance-runtime/gate-checkouts/post-merge-742-main-tip/finance-workspace-private
+HEAD 127fa51326ccd24daf1095d225ae70a030e62081
+detached
+
+worktree /Users/a77/.finance-runtime/kb-dual-index-20260918/before
+HEAD d32b8966237e1b8241dd5377e9a9a659423e212b
+detached
+
+worktree /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-058f76a3/finance-workspace-private
+HEAD 058f76a3bb7eb19ec2b0d67127aa698bc8b23518
+detached
+
+worktree /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-99fb9304/finance-workspace-private
+HEAD 99fb9304ae9611178274293de30a117d5d504566
+detached
+
+worktree /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private
+HEAD e9bb34c37101a21b0dfab80393bda1d5b8b4f548
+detached
+
+worktree /Users/a77/.finance-runtime/kb-dual-index-20260918/gate/finance-workspace-private
+HEAD d95d4921b0a774a2f0de3266e69d9bcd78e2cfc0
+detached
+
+worktree /Users/a77/.finance-runtime/kb-v4-merge-20260919/closeout/finance-workspace-private
+HEAD b22ddf8b0285a952de1e6e18c04db0f4abe448e7
+branch refs/heads/docs/kb-v4-merge-acceptance
+
+worktree /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private
+HEAD 2b4948a4015e53fd1fde5bb1e50147582abde2da
+detached
+
+worktree /Users/a77/.finance-runtime/open-work-execution-20260920/gate-788-frontend/finance-workspace-private
+HEAD becb68c0dd3105abbbcc1f92a917dbde224de24b
+detached
+
+worktree /Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/finance-workspace-private
+HEAD becb68c0dd3105abbbcc1f92a917dbde224de24b
+detached
+
+worktree /Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private
+HEAD 4ace5ec2e9b7735d90eb15bc2351fa193c1120b8
+detached
+
+worktree /Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation/finance-workspace-private
+HEAD dca1bd6e73f443ca09d08ef0a6c8b9b2bb0018a9
+detached
+
+worktree /Users/a77/.finance-runtime/open-work-execution-20260920/gate-hithink/finance-workspace-private
+HEAD ec92b31b5300bbbb4abc64e41f96854f1438aea0
+detached
+
+worktree /Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-final-f234
+HEAD f2342fda0d0ae9fb842cbcd0bdd6ee4cf5069bd1
+detached
+
+worktree /Users/a77/.finance-runtime/release-merge-20260916/finance-workspace-private
+HEAD 727b2611f79cee338739337a9153af459ae5fcf0
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/8792-boundary-live-20260918/code
+HEAD 3faf64fbadcfe45fdd0b306acd223d9e78c56525
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/8792-boundary-retest-20260918/code
+HEAD c481272e0d0198a44e028497a66c21d6d1d82973
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/code
+HEAD dfd7b4ff6c52f76f342b2abeecc24c9045589d79
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/8792-readiness-fixes-20260917/baseline
+HEAD 0a1cb8c44aaf2d19ae5f5809bf27119b709b8442
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/baseline/finance-workspace-private
+HEAD 1fef3d276d0e251158803fc09d5a81e60d79241b
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/gate/finance-workspace-private
+HEAD e20302a6f8df0e5cf4597011eab07e00d478fe5f
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/gate3/finance-workspace-private
+HEAD 3b0531b9832df571897c6a5e75c305b63f9623f2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/qc6/finance-workspace-private
+HEAD 37a4e7b75ea32b41e15deec5e52adbf79cd4f1b8
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-350b076d-qc/tree
+HEAD 350b076dc492341a3201d169e496912cc38c084d
+branch refs/heads/docs/qc-hithink-350b076d
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probe-target
+HEAD 48242bd4185ae8239bd1947f714c4e403d2d3ee9
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/tree
+HEAD 63f377da87dad9a8c76d66319907c7ddbbfd49d2
+branch refs/heads/docs/qc-hithink-48242bd4
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-8ac5a788-qc/tree
+HEAD 8ac5a78807d1c2580d85691985e3a6e164dc088e
+branch refs/heads/docs/qc-hithink-8ac5a788
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-9d73f01a-qc/tree
+HEAD c7696acb867e1cb5838849675ecd215efc1ad6b3
+branch refs/heads/docs/qc-hithink-9d73f01a
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-c85d0101-qc-20260915/finance-workspace-private
+HEAD c85d01017fa239aa3b2101b1585e8f5c07e005b3
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-cd7f6fa9-20260913/tree
+HEAD f647468710561cebe1c458aa161d5c6924d4b151
+branch refs/heads/codex/qc-hithink-cd7f6fa9
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-dcee18f2-qc-20260915/tree
+HEAD dcee18f2a23673dc482401013eea61f619ff1b25
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-efb274b8-qc/tree
+HEAD 5c86c31e88e116bec34877566275977e827552d9
+branch refs/heads/docs/qc-hithink-efb274b8
+
+worktree /Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/finance-workspace-private
+HEAD 40317d780d71de03ca6884c4c437b9accece0b49
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/finance-workspace-private
+HEAD d32b8966237e1b8241dd5377e9a9a659423e212b
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/l2-pct-chg-54248fa3/tree
+HEAD 79e856617cfd2d0b8154cbf4a72f744121118f5a
+branch refs/heads/docs/qc-l2-pct-chg-54248fa3
+
+worktree /Users/a77/.finance-runtime/reviews/pr742-3d9c3102-20260913/finance-workspace-private
+HEAD 3d9c31027f279664311039e6a34fbbf2da6b6e0e
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/pr742-b54fdf6a-20260913/finance-workspace-private
+HEAD b54fdf6a815d3264494a8d175385df1b500ec117
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/pr773-fix/before
+HEAD 2e2329ea22f50f19663e7946c614a9a9ddf59013
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/pr773-fix/finance-workspace-private
+HEAD d433b90788c0727d71043a992e69c20f34203257
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/pr773-qc/finance-workspace-private
+HEAD b6e09b66000f87f807b6191c0039c7859194118d
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/pr773-qc/report/finance-workspace-private
+HEAD 96b10ad2fd170d3b6d04c19fd4512ecfc02d49fc
+branch refs/heads/docs/qc-pr773-70811c7d
+
+worktree /Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/finance-workspace-private
+HEAD 728f327160bbd2485cb635e7ef09d040d718d7b5
+branch refs/heads/docs/pr803-merge-closeout-0920
+
+worktree /Users/a77/.finance-runtime/reviews/re06-9266407f-home
+HEAD 9266407fec9f9c3190a2d642dceff63342855f92
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/re06-merge-0bd11ece
+HEAD 86c87385c349ac0380e3796169bcbdeefa6870eb
+branch refs/heads/codex/review-re06-merge-0bd11ece
+
+worktree /Users/a77/.finance-runtime/reviews/re06-round8-fdb5f91d
+HEAD d51b5e6cba418b6ef86e74bad21621a5ef621c2f
+branch refs/heads/codex/review-re06-round8-fdb5f91d
+
+worktree /Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918/code
+HEAD 35ee8a5c05aa1a25498ab9c32cc548d0166bb5a7
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/finance-workspace-private
+HEAD 62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private
+HEAD c8dbd387ff2ddf28546a5a668296c762e0dd951a
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/finance-workspace-private
+HEAD e51c5157c9ea9aa86491c486663700e7d7696a6f
+branch refs/heads/fix/rag-retirement-main-ready-0920
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-frontend/finance-workspace-private
+HEAD d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private
+HEAD d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/spec-tree
+HEAD d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-mutation/finance-workspace-private
+HEAD d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/code
+HEAD 4d541a907e1207d9c72979ac909563bfba756e7c
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/final/code
+HEAD cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/final/mutation-code
+HEAD cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/mutation-code
+HEAD 4d541a907e1207d9c72979ac909563bfba756e7c
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/tree
+HEAD ba10747df0c440a3b3654e70240c919327e00007
+branch refs/heads/docs/qc-research-evolution-06-ba10747d
+
+worktree /Users/a77/.finance-runtime/reviews/research-evolution-repair-qc-20260913/05-before
+HEAD 46ea6cdd9986604ea0dcbd70bb107a19ae7391e3
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-progress-repair-20260918/code
+HEAD 365627fd1350d87a9e9858cf0fb2fbc9d036daae
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-publication-live-20260918/code
+HEAD 7a9380bd0656916d46b7d2f1f136808649e618c2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-publication-live-20260918/mutation-code
+HEAD 7a9380bd0656916d46b7d2f1f136808649e618c2
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-publication-repair-20260918/code
+HEAD 49fd8d726176a1e97eb43ed028bda93edc64f657
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919/code
+HEAD 20939b18bcb4a00f1eec9098dc52887ab1f71c02
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919/mutation-code
+HEAD 20939b18bcb4a00f1eec9098dc52887ab1f71c02
+detached
+
+worktree /Users/a77/.finance-runtime/reviews/river-contract-86d61d9e-20260915/tree
+HEAD 86d61d9e86e8522d673fb7c64b6abec92e07bd60
+branch refs/heads/codex/review-river-contract-86d61d9e
+
+worktree /Users/a77/.finance-runtime/reviews/workbench-probe-1b68dcd3-20260913/tree
+HEAD 6936178f965f476b42506036c34559483d54a5d7
+branch refs/heads/docs/qc-workbench-probe-1b68dcd3
+
+worktree /Users/a77/.finance-runtime/reviews/workbench-probe-a294a72e-20260913/tree
+HEAD 8cee0bd35dbb257c5125855be9c1385c256b0bf8
+branch refs/heads/docs/qc-workbench-probe-a294a72e
+
+worktree /Users/a77/.finance-runtime/reviews/workbench-probe-fd40b55b-20260913/tree
+HEAD b22197ae85ad0922b74bb536ae1135d737b71d84
+branch refs/heads/docs/qc-workbench-probe-fd40b55b
+
+worktree /Users/a77/agroup-build/finance-workspace-private
+HEAD b2d40776e80eb3743626e3231d1f367385428244
+branch refs/heads/feat/instruction-migration-agents-md
+
+worktree /Users/a77/finance-workspace-private/.claude/worktrees/daily-swap-race-condition-d0f557
+HEAD 32bff514501bf083af4f03d28896e5e8f20df891
+branch refs/heads/claude/foresight-copy-versions-33373d
+
+worktree /Users/a77/finance-workspace-private/.claude/worktrees/fix-trading-day-calendar
+HEAD 458db8926f7022b9e6faf1ecbb51b6ebfe380254
+branch refs/heads/fix/trading-day-calendar
+
+worktree /Users/a77/finance-workspace-private/.claude/worktrees/l2-pipeline-order-data-d9489d
+HEAD 4ace5ec2e9b7735d90eb15bc2351fa193c1120b8
+branch refs/heads/claude/household-allocation-sample-15c173
+
+worktree /Users/a77/finance-workspace-private/.claude/worktrees/tools-zip-review-d224e9
+HEAD 1fef3d276d0e251158803fc09d5a81e60d79241b
+detached
+
+worktree /Users/a77/finance-workspace-private/.claude/worktrees/workorder-index-reconciliation-1f4eb1
+HEAD 801d0fc21f0577d19615dc52943bebbd2b6e763e
+detached
+
+worktree /Users/a77/finance-workspace-sync
+HEAD 6382c13b7a869114727439a43f0004ab67bb36ef
+detached
+
+worktree /Users/a77/fwp-audit-optimization-status
+HEAD fee615a9ea5d53a396683b1266b6494293883018
+branch refs/heads/docs/optimization-status-audit-0916
+
+worktree /Users/a77/fwp-q-research-data-readiness
+HEAD 493824bb9a3e3341d408ec18354e9c00420b2e34
+branch refs/heads/q/research-data-readiness
+
+worktree /Users/a77/fwp-salvage-opc-shims-20260919
+HEAD be87b0262619fe0bb05ec9e4260de800c6259c4f
+branch refs/heads/salvage/opc-shims-20260919
+
+worktree /Users/a77/fwp-wt-8792-boundary-integration
+HEAD 068e2a4652d7b8e0250c9d046272e7889b15c5b9
+branch refs/heads/fix/8792-boundary-integration
+
+worktree /Users/a77/fwp-wt-8792-financial-contracts-r5
+HEAD 1fe2ead277a22509d53f06157993b8d016368991
+branch refs/heads/fix/8792-financial-contracts-r5
+
+worktree /Users/a77/fwp-wt-8792-financial-r6
+HEAD 0e368516efdf5d4e481574050456123649ad609e
+branch refs/heads/baseline/8792-financial-r6
+
+worktree /Users/a77/fwp-wt-8792-financial-r6-repair
+HEAD d8d6196baebdb1108a81ae01466e9df6397dc4fc
+branch refs/heads/fix/8792-financial-r6-repair
+
+worktree /Users/a77/fwp-wt-8792-integrate-0913
+HEAD 5fb13a8c26986e6a0a24eb2687a2635131426694
+branch refs/heads/fix/8792-integrate-routefix-tradingday
+
+worktree /Users/a77/fwp-wt-8792-qc-closeout-0913
+HEAD 1c251a3b2720c533823967520f698bf3c3b0d280
+branch refs/heads/fix/8792-qc-closeout-0913
+
+worktree /Users/a77/fwp-wt-8792-readiness-fixes
+HEAD c57633bb3b7b8a706e3433f4d4dbd73199024619
+branch refs/heads/fix/8792-readiness-boundaries
+
+worktree /Users/a77/fwp-wt-8792-sector-history-diag-0917
+HEAD 403214024fe4d1d3d8fea360b35710625b064386
+branch refs/heads/docs/8792-sector-history-diag-0917
+
+worktree /Users/a77/fwp-wt-ablation-noise-floor
+HEAD 1e4df5728595b0aaa14d2556d72480b5c3fb1727
+branch refs/heads/feat/ablation-judge-independence
+
+worktree /Users/a77/fwp-wt-acceptance-tests
+HEAD c50a3d847134083d49722a0ab8f634054db75989
+branch refs/heads/feat/acceptance-9-16-tests
+
+worktree /Users/a77/fwp-wt-adaptive-research-06
+HEAD 6273a89a41f37604057b146ae9e4074082d436d1
+branch refs/heads/feat/adaptive-research-06
+
+worktree /Users/a77/fwp-wt-agent-docs-audit-registry
+HEAD a6bc3d87eec803ed91fe39c7eb2e7959b077efbc
+branch refs/heads/fix/agent-docs-audit-registry
+
+worktree /Users/a77/fwp-wt-backfill-302132
+HEAD 3736d5bfa9978dfa0a264bb2e44795c4bc29b27d
+branch refs/heads/fix/backfill-302132-scoped
+
+worktree /Users/a77/fwp-wt-backfill-acceptance-closeout-0920
+HEAD 1fd34dc7ab06d54882a5643b4b985fa5ca291b7c
+branch refs/heads/fix/backfill-acceptance-closeout-0920
+
+worktree /Users/a77/fwp-wt-backfill-qa-gate
+HEAD 6c686c5490cc5d9c0b9a555b289c4d47790a24c5
+branch refs/heads/feat/stage-model-and-mainline-local
+
+worktree /Users/a77/fwp-wt-board-port
+HEAD ebfe086478fe0f1060c7f9c5427e1be9ace692d9
+branch refs/heads/fix/board-unattributed-switch
+
+worktree /Users/a77/fwp-wt-bp-v13
+HEAD 616c2121adce413d8bede1edb00a196e01a83b74
+branch refs/heads/docs/bp-v1.3-roadshow-align
+
+worktree /Users/a77/fwp-wt-branch-queue
+HEAD 051466ba2929c4176ff1d565a6dba4f68e268d37
+branch refs/heads/feat/branch-batch-queue-wait
+
+worktree /Users/a77/fwp-wt-branch-trace
+HEAD a9de87f7a3d859b8b20b7a0218cfa82a2245f0c4
+branch refs/heads/feat/lean-tool-observation
+
+worktree /Users/a77/fwp-wt-broad-index
+HEAD f450f4bb87339daec3f0f31d14eff6ec8f3fd22e
+branch refs/heads/data-source/broad-index-delta
+
+worktree /Users/a77/fwp-wt-calc-artifacts-04
+HEAD 246181194737d11587050b735250995038349d76
+branch refs/heads/feat/calc-artifacts-04
+
+worktree /Users/a77/fwp-wt-cap02-deep-read
+HEAD 63b7859a2603cc2c2bad4209833cec5c6efa7a5f
+branch refs/heads/feat/cap02-retrieval-deep-read
+
+worktree /Users/a77/fwp-wt-capability-benchmark-00
+HEAD 6bea3197136442c66334f24563a748ec51f778e1
+branch refs/heads/baseline/capability-benchmark-00
+
+worktree /Users/a77/fwp-wt-capability-i2
+HEAD 00673f6d878d08868a591d92d392cad15449b563
+branch refs/heads/feat/capability-i2
+
+worktree /Users/a77/fwp-wt-capability-integration
+HEAD 62e60990b1635acf185fc424a57b272a0fd081d5
+branch refs/heads/feat/capability-integration
+
+worktree /Users/a77/fwp-wt-capability-upgrade-plan
+HEAD d93d86738c09af72696037e594fe0ffebb276838
+branch refs/heads/codex/docs-capability-upgrade-plan
+
+worktree /Users/a77/fwp-wt-capability-wiring
+HEAD e8a63007b737033540c20eaedec5581a9ffd2473
+branch refs/heads/fix/capability-wiring-closeout
+
+worktree /Users/a77/fwp-wt-chat-idle
+HEAD 6d4a9df162e6db0725364398d04a1a706ec28010
+branch refs/heads/fix/chat-idle-no-git-ritual
+
+worktree /Users/a77/fwp-wt-checkpoint-bias
+HEAD 2a0fc382d6eb83598ff7ce82bcef0fdda3f1a771
+branch refs/heads/feat/checkpoint-rule-id-bias
+
+worktree /Users/a77/fwp-wt-checkpoint-bias-sync
+HEAD 9550a9313b7b3353c5f229629d3e56ac1126dff6
+branch refs/heads/fix/checkpoint-rule-id-bias-sync
+
+worktree /Users/a77/fwp-wt-citation-numeric-gate-0917
+HEAD 3c5f485a7760df67213304a26520ae72589a3992
+branch refs/heads/fix/citation-numeric-gate-0917
+
+worktree /Users/a77/fwp-wt-codex-isolation-interpreter
+HEAD 6d709cfdba9786021eba63c9001163a2864b0718
+branch refs/heads/fix/codex-isolation-interpreter
+
+worktree /Users/a77/fwp-wt-compaction
+HEAD bb82778e84f62bc347862ccdfb288a1037b5cc33
+branch refs/heads/feat/glm-reasoning-effort
+
+worktree /Users/a77/fwp-wt-continuous-research-09
+HEAD e480e6c7dc8d2450cc1281169b682f3991219d1b
+branch refs/heads/feat/continuous-research-09-live
+
+worktree /Users/a77/fwp-wt-core-stock
+HEAD 9604981e1cd89012d2d876a82f973c204d987ca2
+branch refs/heads/feat/core-stock-local
+
+worktree /Users/a77/fwp-wt-cutover-0908b
+HEAD 1674dfd2932de91e61f2fca72e3b1fc9e80661e6
+branch refs/heads/docs/cutover-0908b
+
+worktree /Users/a77/fwp-wt-data-holes
+HEAD e47583382b4af5cb94851b5553db9f6ee79ad547
+branch refs/heads/fix/data-holes-0817-20250919
+
+worktree /Users/a77/fwp-wt-deep-observable
+HEAD 52a12ad7174d11f5fc70a023dac40a7d37cdfee3
+branch refs/heads/feat/deep-observable-without-plan
+
+worktree /Users/a77/fwp-wt-demand-driven-data
+HEAD 3fdc11930f7e810a849bf7fcb5c4e09c521fc552
+branch refs/heads/feat/demand-driven-data-requests
+
+worktree /Users/a77/fwp-wt-e2-boundary-closeout
+HEAD 851e7886179cd20f215535913114f42f224dd283
+branch refs/heads/fix/e2-boundary-closeout
+
+worktree /Users/a77/fwp-wt-e2-closeout-qc
+HEAD e178bb57c751e97f9f1c231ce253221d0b892b58
+detached
+
+worktree /Users/a77/fwp-wt-e2-impl-p1
+HEAD 8bd55b26ca431c1c2a37c3c5782854ee52a75497
+branch refs/heads/feat/e2-material-contract-impl
+
+worktree /Users/a77/fwp-wt-e2-material-closeout
+HEAD b1c1c29f2910cc11692767f1810984ba90b616d2
+branch refs/heads/fix/e2-material-closeout
+
+worktree /Users/a77/fwp-wt-e2-material-contract-0913
+HEAD ec54ef556864fe48f1e74564c4343e156421701a
+branch refs/heads/feat/e2-material-contract-design
+
+worktree /Users/a77/fwp-wt-e2-p5-inheritance
+HEAD 8355cf8e9951712986d351f0d00f82c5914a1a96
+branch refs/heads/feat/e2-p5-cross-turn-inheritance
+
+worktree /Users/a77/fwp-wt-e2-p6-input
+HEAD d20982437ddf24b4124eb16cd560101b51670d9a
+branch refs/heads/feat/e2-p6-conditioned-input
+
+worktree /Users/a77/fwp-wt-event-pricing
+HEAD 8706c0e3d51252d05d547dee8a903783b942cc12
+branch refs/heads/feat/event-pricing-slice1
+
+worktree /Users/a77/fwp-wt-financial-ratio-units-0920
+HEAD b345975f65fbe17deb386c01676b70bb2bf2a258
+branch refs/heads/fix/financial-ratio-units-0920
+
+worktree /Users/a77/fwp-wt-full-dd7b6f74
+HEAD dd7b6f74f1570af53a65e716a851d5aedcf7d1fb
+detached
+
+worktree /Users/a77/fwp-wt-fupanhui-session-hygiene
+HEAD c06a66f388e049c78fcecff60880df28d4005125
+branch refs/heads/fix/fupanhui-session-hygiene
+
+worktree /Users/a77/fwp-wt-g05
+HEAD 51b95ea67a6040839df9d31fe05e09eeb9e0a3b6
+branch refs/heads/fix/g05-market-stage-normalize
+
+worktree /Users/a77/fwp-wt-gate-0903f
+HEAD 2d8eaea5bdf8b2f686f6738ef1b49ee0851e0d2d
+detached
+
+worktree /Users/a77/fwp-wt-generation-alert-guard-0920
+HEAD 4ace5ec2e9b7735d90eb15bc2351fa193c1120b8
+branch refs/heads/codex/generation-alert-guard-0920
+
+worktree /Users/a77/fwp-wt-generation-root-guards
+HEAD ada20cc8e545d20bea8b52a504c6fb04d69d0d4b
+branch refs/heads/fix/generation-root-boundary-guards
+
+worktree /Users/a77/fwp-wt-generation-root-guards-validation
+HEAD 387028b846a21a1327d964af8c4b428367f88fcf
+detached
+
+worktree /Users/a77/fwp-wt-generation-root-validation-0f6c2810
+HEAD 0f6c28101b92d654338e705c357778cf1d818a85
+detached
+
+worktree /Users/a77/fwp-wt-generation-stage-code-root
+HEAD 6e8c5a2a9818eb39fbaf1abf07ea0d78402d6b53
+branch refs/heads/fix/generation-stage-code-root
+
+worktree /Users/a77/fwp-wt-historical-discovery
+HEAD 57f9f17e2538a7a21da58bbd11e8c43812a66355
+branch refs/heads/codex/feat-historical-discovery
+
+worktree /Users/a77/fwp-wt-historical-discovery-spec
+HEAD da254cd34d6dd0cbb1f85913914d4c3c703a6703
+branch refs/heads/codex/docs-historical-discovery-spec
+
+worktree /Users/a77/fwp-wt-history-closeout-0920
+HEAD e4675eab28d83378016874c5396634fff5ab95ba
+branch refs/heads/fix/history-closeout-0920
+
+worktree /Users/a77/fwp-wt-history-market-anatomy
+HEAD c9bd82ff2e25fe2727347329706f7aeb98444ee8
+branch refs/heads/feat/history-market-anatomy
+
+worktree /Users/a77/fwp-wt-hithink-merge-0920
+HEAD ec92b31b5300bbbb4abc64e41f96854f1438aea0
+branch refs/heads/codex/hithink-merge-0920
+
+worktree /Users/a77/fwp-wt-hithink-review-wiring
+HEAD d4d0ee263f4c0922ea3818e3ee58f4a9ca98a241
+branch refs/heads/fix/hithink-review-wiring
+
+worktree /Users/a77/fwp-wt-hybrid-ledger-dependency
+HEAD 7d193f1c66ceef395a03672542c8e876b494f419
+branch refs/heads/docs/hybrid-ledger-dependency
+
+worktree /Users/a77/fwp-wt-i1-attribution
+HEAD 01de7e947a934acefa553456c207d5f4253bcb0c
+branch refs/heads/feat/i1-availability-attribution
+
+worktree /Users/a77/fwp-wt-judge-calibration
+HEAD 19ae9973af02a9c57ce467600c504a942f78687e
+branch refs/heads/feat/judge-calibration-validity
+
+worktree /Users/a77/fwp-wt-judge-recovery-01
+HEAD 95588d698eee7bfbde460150ec4ab8013d0b2f11
+branch refs/heads/fix/judge-recovery-01
+
+worktree /Users/a77/fwp-wt-judge-token-usage
+HEAD 916cb4b539f976087ed183b3c665bf5518a93500
+branch refs/heads/feat/judge-token-usage
+
+worktree /Users/a77/fwp-wt-judge-window
+HEAD b19d0c40c9e54e7779e56c6118930f613ef6cb66
+branch refs/heads/fix/judge-window-follows-tier
+
+worktree /Users/a77/fwp-wt-k3nj-00
+HEAD af50e4055c387074a3c9e1a67217dd9b7cdafc28
+branch refs/heads/eval/k3nj-compat-payload
+
+worktree /Users/a77/fwp-wt-kb-dual-index-deploy
+HEAD 2b4948a4015e53fd1fde5bb1e50147582abde2da
+branch refs/heads/fix/kb-dual-index-deploy
+
+worktree /Users/a77/fwp-wt-kb-filter-receipt
+HEAD d32b8966237e1b8241dd5377e9a9a659423e212b
+branch refs/heads/docs/kb-receipt-merge-0918
+
+worktree /Users/a77/fwp-wt-knevo-intake-0917
+HEAD 4a32f63aa33a3d85d5c9cdb808c21102f82da579
+branch refs/heads/docs/knevo-intake-20260917
+
+worktree /Users/a77/fwp-wt-knevo-tool-parity
+HEAD dc85e602e5c3f48724b621c7a0be64e20453be9d
+branch refs/heads/feat/knevo-tool-parity
+
+worktree /Users/a77/fwp-wt-l2-deploy-0916
+HEAD 9b77537fde07543f4f733d95890908f19b191310
+branch refs/heads/docs/l2-deploy-0916
+
+worktree /Users/a77/fwp-wt-l2-file-source-qc
+HEAD 8bcb88e3b0ee78008ce17d85144d04af6ec65fcc
+branch refs/heads/fix/l2-file-source-qc
+
+worktree /Users/a77/fwp-wt-l2-share-port-0916
+HEAD 70811c7d67da5db959b5af9b9d788dbc1fb8ebaa
+branch refs/heads/feat/l2-share-source-port-0916
+
+worktree /Users/a77/fwp-wt-l2-writeback
+HEAD 6bd1e2911a3b0c08e3f51353ace5acba0086428c
+branch refs/heads/docs/l2-independence-writeback
+
+worktree /Users/a77/fwp-wt-local-plan-alignment-validation
+HEAD 07d42891cb7bbc9436455130dcb5261a38e7b349
+detached
+
+worktree /Users/a77/fwp-wt-main-docs
+HEAD 4ace5ec2e9b7735d90eb15bc2351fa193c1120b8
+branch refs/heads/main
+
+worktree /Users/a77/fwp-wt-main-merge-0913
+HEAD d7e5380551ba92758935d268fdd0e6fbfdd51ce8
+detached
+
+worktree /Users/a77/fwp-wt-mechanism-pilot
+HEAD c29a64011da4a82ea94dbd16797639aca66c0158
+branch refs/heads/feat/mechanism-research-pilot
+
+worktree /Users/a77/fwp-wt-merge-01
+HEAD 6a35a683107b70ef618c53cf61d72e02dd212110
+branch refs/heads/feat/01-merge-prep
+
+worktree /Users/a77/fwp-wt-merge-02
+HEAD 287db836c665b4c0592a5ea2080719e55f62f1f9
+branch refs/heads/gate-main-287db836
+
+worktree /Users/a77/fwp-wt-merge-04
+HEAD 1332bed5bbc1fbc03dbf798c39f782d2d273df42
+branch refs/heads/feat/04-merge-prep
+
+worktree /Users/a77/fwp-wt-merge-08
+HEAD 9320a33235564aa94c4f7148bb963743e20de961
+branch refs/heads/feat/08-merge-prep
+
+worktree /Users/a77/fwp-wt-merge-10
+HEAD e4d476fa4aa526c691522f74664aad6f07b24f94
+branch refs/heads/feat/10-merge-prep
+
+worktree /Users/a77/fwp-wt-merge-hd
+HEAD 705c4bd4c153e148a0e38509383af9a457bf9bb4
+branch refs/heads/feat/hd-merge-prep
+
+worktree /Users/a77/fwp-wt-merge-i2
+HEAD 82f5f17fe5162b84c66c8eb52cf1009da67f8226
+branch refs/heads/feat/i2-merge-prep
+
+worktree /Users/a77/fwp-wt-merge-re06
+HEAD 0bd11ece5ad86dc172a3be47fc08db335f4f598e
+branch refs/heads/merge/research-evolution-06-main
+
+worktree /Users/a77/fwp-wt-methodology-backtest-p0
+HEAD 06a8c3ea1cd66cb7b2f00b59698b7084781f450c
+branch refs/heads/docs/p1-gate-writeback
+
+worktree /Users/a77/fwp-wt-methodology-backtest-p1b
+HEAD 5c7fe2ebeafc36750a778911288317f9977e9897
+branch refs/heads/docs/p1b-writeback
+
+worktree /Users/a77/fwp-wt-methodology-backtest-p1c
+HEAD 47a4fcdeb4a36677b2bb824af6d8c7673822512a
+branch refs/heads/docs/p1c-writeback
+
+worktree /Users/a77/fwp-wt-methodology-backtest-p1d
+HEAD 8cc32c986bcb1516ab1e86a9541ea836e80ff34f
+branch refs/heads/feat/methodology-backtest-p1-refuted
+
+worktree /Users/a77/fwp-wt-methodology-backtest-p1e
+HEAD 10beb788f3ffc4d2c35bdd6d992363be5d8883cd
+branch refs/heads/feat/methodology-backtest-p1-stage-baseline
+
+worktree /Users/a77/fwp-wt-money-effect-regime
+HEAD 47f69827a6227638654bcbfc755bdea8f3440030
+branch refs/heads/feat/money-effect-regime-rules
+
+worktree /Users/a77/fwp-wt-nightly-refresh-resume-0920
+HEAD 728f327160bbd2485cb635e7ef09d040d718d7b5
+branch refs/heads/fix/nightly-refresh-resume-0920
+
+worktree /Users/a77/fwp-wt-nightly-review-0917
+HEAD 6356ffd5e703b30948f687baaaf60102bf97f0a5
+branch refs/heads/fix/nightly-review-0917
+
+worktree /Users/a77/fwp-wt-open-work-spec
+HEAD 62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717
+branch refs/heads/docs/open-work-consolidation-0920
+
+worktree /Users/a77/fwp-wt-opinion-stage
+HEAD 0eb623feb3f43c894a4f607d904289bd1728c8da
+branch refs/heads/feat/opinion-lifecycle-stage
+
+worktree /Users/a77/fwp-wt-public-brief
+HEAD a7f501039f5370d3e64eaa7f71e0703f0da0687f
+branch refs/heads/feat/public-daily-brief
+
+worktree /Users/a77/fwp-wt-qc-0911
+HEAD 2efdff46e2510a2f87f5bc245b524fb94724741a
+detached
+
+worktree /Users/a77/fwp-wt-qc-8792-completed-0913
+HEAD 78e3263918b5751f296849622bb797d987a63d57
+branch refs/heads/docs/qc-8792-completed-0913
+
+worktree /Users/a77/fwp-wt-qc-8792-readiness-0917
+HEAD 0170b6cc9e690328f08baa3faab17d1eb4f426d2
+branch refs/heads/docs/qc-8792-readiness-0917
+
+worktree /Users/a77/fwp-wt-qc-closeout-0909b
+HEAD 3e87c6aa2ebb3b8a0d7ff25fc80acd96b192a5c9
+branch refs/heads/docs/qc-closeout-0909b
+
+worktree /Users/a77/fwp-wt-qc-conformance
+HEAD f40f878b2bac324d6ac05c74e391ab0934094039
+detached
+
+worktree /Users/a77/fwp-wt-qc-extraction-caba87c7
+HEAD 1d8d956738bdecadd6bbcbb6bc30d9055e3edc72
+branch refs/heads/codex/qc-extraction-caba87c7
+
+worktree /Users/a77/fwp-wt-qc-extraction-first-p0-b42dc9bf
+HEAD e7f6e8b7f189342a6b557174ff6d82793719a02a
+branch refs/heads/codex/qc-extraction-first-p0-b42dc9bf
+
+worktree /Users/a77/fwp-wt-qc-generation-root-0f6c2810
+HEAD 9b974691de91f13ae2af6a6a846cf03d66760a5c
+branch refs/heads/docs/qc-generation-root-0f6c2810
+
+worktree /Users/a77/fwp-wt-qc-method-29b07912
+HEAD fed8a3fe566e1c38743cfb803ee1088aa28004a2
+branch refs/heads/docs/qc-method-29b07912
+
+worktree /Users/a77/fwp-wt-qc-research-evolution-06
+HEAD 51c08288fcbd094718b3817cea4f8a1e5a2b819f
+branch refs/heads/docs/qc-research-evolution-06-0913
+
+worktree /Users/a77/fwp-wt-qc-research-evolution-repair
+HEAD f50ce52e594212ae29dab44e2243c7a0617f2b9e
+branch refs/heads/docs/qc-research-evolution-repair-0913
+
+worktree /Users/a77/fwp-wt-qc-route-600f2aa9
+HEAD 433951eda432811f5ffb50a28a604949dda6d02c
+branch refs/heads/docs/qc-route-gate-600f2aa9
+
+worktree /Users/a77/fwp-wt-rag-keepalive
+HEAD 3eb8dc40ba33c91be94358e6de4871a354d15c26
+branch refs/heads/feat/rag-worker-resident-keepalive
+
+worktree /Users/a77/fwp-wt-rag-retirement-closeout-0920
+HEAD 1931b3a32237489bcdf21f51bf8523d697398b92
+branch refs/heads/fix/rag-retirement-closeout-0920
+
+worktree /Users/a77/fwp-wt-rag-window
+HEAD 94f5daaedc4fd2b4dad93da7484e05a4bd09ec2a
+branch refs/heads/feat/rag-window-gate-and-worker-keepalive
+
+worktree /Users/a77/fwp-wt-ranking-scenarios-10
+HEAD 0dc0999db5d80575dd418cf880751774e173db44
+branch refs/heads/feat/ranking-scenarios-10
+
+worktree /Users/a77/fwp-wt-react-comparison-archive
+HEAD 87c719f89b816ddebd5bbeeffa90baf13b99cee5
+branch refs/heads/docs/react-components-comparison-0918
+
+worktree /Users/a77/fwp-wt-regime-live
+HEAD f80464cbebe8499b0938aa640dde0f277fd48956
+branch refs/heads/feat/money-effect-regime-live
+
+worktree /Users/a77/fwp-wt-release-gate-closeout
+HEAD 727b2611f79cee338739337a9153af459ae5fcf0
+branch refs/heads/fix/release-gate-closeout
+
+worktree /Users/a77/fwp-wt-research-answer-preservation
+HEAD ce673a9f4af4afd9995a8be779f98cdcf0a2249a
+branch refs/heads/feat/research-answer-preservation
+
+worktree /Users/a77/fwp-wt-research-closeout-0920
+HEAD b1bad144d1a273a26962c9f14f72aec1f3ee2990
+branch refs/heads/fix/research-closeout-0920
+
+worktree /Users/a77/fwp-wt-research-data-readiness
+HEAD b47577092fed5b8771d64b7bd0fa7735e683ea57
+branch refs/heads/feat/research-data-readiness
+
+worktree /Users/a77/fwp-wt-resume-specs-0905
+HEAD c6e702a6d8e3dae454e974000ae0aa2ea38571e0
+branch refs/heads/docs/resume-specs-0905
+
+worktree /Users/a77/fwp-wt-runtime-authority-pc-0918
+HEAD 6b70e54034b0fab736430d7e3d00d6f4f7fd617a
+branch refs/heads/fix/runtime-authority-pc-0918
+
+worktree /Users/a77/fwp-wt-runtime-base-p4
+HEAD 89be9b3f621a00eaf5e4c78745a1486b79b96306
+branch refs/heads/feat/runtime-base-p4-races-oracle
+
+worktree /Users/a77/fwp-wt-runtime-contracts-0918
+HEAD a7f5cc06c087c2d9db896450bb6033851e8e5789
+branch refs/heads/fix/runtime-contracts-0918
+
+worktree /Users/a77/fwp-wt-runtime-evidence-closeout-0920
+HEAD 12d0ea13cb506f407769d3265323eca978d9fc05
+branch refs/heads/fix/runtime-evidence-closeout-0920
+
+worktree /Users/a77/fwp-wt-runtime-evidence-probe-0918
+HEAD d0780df58e5871a00a748e96f365d2f3fc3d900a
+branch refs/heads/fix/runtime-evidence-probe-0918
+
+worktree /Users/a77/fwp-wt-sandbox-derived-calc
+HEAD 2ebbc04fe0d268ff5bce2b5423c1f4c6b82c706b
+branch refs/heads/feat/sandbox-derived-calculation
+
+worktree /Users/a77/fwp-wt-step-trajectory-qualification
+HEAD 52eba88009ff765f3f69bf9ff9ccf93207c81f14
+branch refs/heads/feat/step-trajectory-qualification
+
+worktree /Users/a77/fwp-wt-stock-daily-fix
+HEAD c8fc3d5c0041c05f7a03eaa4862065cea65bd721
+branch refs/heads/fix/stock-daily-misdated-snapshot
+
+worktree /Users/a77/fwp-wt-task-frame-clarify
+HEAD 2c3d4f5b5db11a1d90086b12ab6b4ccd959df7ec
+branch refs/heads/fix/task-frame-missing-material-clarify
+
+worktree /Users/a77/fwp-wt-teaching-framework-slice1
+HEAD 637b37fc790f7dbb0614381d757e9efb7feb683c
+branch refs/heads/feat/teaching-framework-slice1
+
+worktree /Users/a77/fwp-wt-teaching-slice2
+HEAD 86c97c171d3e2f11aed5f8659db4c601c996c8a0
+branch refs/heads/feat/teaching-framework-slice2
+
+worktree /Users/a77/fwp-wt-teaching-slice3
+HEAD 3a35d0ec6bcfb567fbf10aa0475fa20fa27cfdd3
+branch refs/heads/feat/teaching-framework-slice3-structure
+
+worktree /Users/a77/fwp-wt-technical-daily
+HEAD 6b6d9f36446d81b325c3d376da0857033d283e6a
+branch refs/heads/feat/finance-query-technical-daily
+
+worktree /Users/a77/fwp-wt-theme-stage
+HEAD c9ed412f9a78a6dfb3fcce5dd7bf3ee611b71947
+branch refs/heads/feat/methodology-backtest-p1-lifecycle-stage
+
+worktree /Users/a77/fwp-wt-theme-stage-vocab
+HEAD b80ba77d8926c7882d918b8e337aba620bd45f79
+branch refs/heads/feat/theme-stage-vocab-g04
+
+worktree /Users/a77/fwp-wt-tool-floors
+HEAD 3e5b087363e20479cc5142ffb97ddc9fa479270e
+branch refs/heads/feat/tool-window-floors
+
+worktree /Users/a77/fwp-wt-verify-8e1ea623
+HEAD 8e1ea62361ddfc1f37229c5910ad9f8c1bb1300a
+detached
+
+worktree /Users/a77/fwp-wt-webapp-beautiful-ui
+HEAD 78fb86396ec5d13ab8312e293ab08cec81bb5cb0
+branch refs/heads/fix/webapp-ime-enter-and-beautiful-ui
+
+worktree /Users/a77/fwp-wt-wiki-aperture-ablation
+HEAD cd94a1db4a19d334dcc739e7fd528398752d6dcf
+branch refs/heads/perf/wiki-hybrid-25s
+
+worktree /Users/a77/fwp-wt-workbench-research-journey
+HEAD 094daed115454a6cb5cbb4e41920ad631c5db761
+branch refs/heads/codex/feat-workbench-research-journey
+
+worktree /Users/a77/fwp-wt-workbench-tech-premium
+HEAD 717d243be866cd8cf1fb34a4220e6d81d5150bfb
+branch refs/heads/feat/workbench-tech-premium
+
+worktree /Users/a77/fwp-wt-worker-freshness
+HEAD 6f38ea8cbdc8f9abd6ad511cb01171957cdc8120
+branch refs/heads/fix/rag-worker-page-freshness
+
+worktree /Users/a77/fwp-wt-workorder-hithink
+HEAD df003bbec2cb969f94a4875142c1bba9e43204b5
+branch refs/heads/docs/workorder-41-hithink-ingest
+
+worktree /Users/a77/fwp-wt-writer-cost
+HEAD be41535536e1485f7558f9f893ee7f33180dcdf7
+branch refs/heads/feat/writer-cost-budget
+
+worktree /Users/a77/mirasim-worktrees/finance-workspace-private/spry-soaring-summit
+HEAD b4a35fa2c143d152f4a87162f5fc044325d566a8
+branch refs/heads/spry-soaring-summit
+
+worktree /Users/a77/worktrees/fix-duckdb-sector-conformance
+HEAD 1ce871bad36bc6ae55e420d8cf8aa30ab1a05bc8
+branch refs/heads/fix/duckdb-sector-conformance
+

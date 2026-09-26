@@ -1,0 +1,71 @@
+{
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "fixture": "temporary SQL/quality fixture; real CLI/runner/writers",
+  "cases": [
+    {
+      "case": "summary_full",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    },
+    {
+      "case": "summary_abbrev",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    },
+    {
+      "case": "user_subdir_symlink",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    },
+    {
+      "case": "html_day_symlink",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "passed": true
+    },
+    {
+      "case": "quality_state_symlink",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    },
+    {
+      "case": "direct_script_symlink_raises",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    },
+    {
+      "case": "direct_script_symlink_succeeds",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    }
+  ],
+  "passed": 7,
+  "failed": 0
+}

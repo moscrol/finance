@@ -1,0 +1,1 @@
+(version 1) (allow default) (deny network*) (allow network* (local ip "localhost:*") (remote ip "localhost:*")) (deny process-exec (literal "/usr/bin/security"))

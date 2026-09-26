@@ -1,0 +1,22 @@
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+HERE=Path(__file__).resolve().parent
+TREE=Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+format_result=subprocess.run(['git','-C',str(TREE),'diff','--check','gitea/main...HEAD'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+with (HERE/'whole-pr-format-final.log.txt').open('xb') as out: out.write(format_result.stdout)
+remote=subprocess.check_output(['git','-C',str(TREE),'ls-remote','--heads','gitea','main'],text=True).strip().split()
+assert len(remote)==2 and remote[1]=='refs/heads/main'
+expected_rag={'test_close_stops_keepalive_thread','test_keepalive_does_not_queue_behind_a_real_query','test_keepalive_is_off_by_default','test_keepalive_not_due_right_after_real_traffic','test_keepalive_touches_an_idle_warm_worker_without_reloading','test_module_status_aggregates_rss_idle_and_keepalive_counters','test_status_exposes_rss_and_idle'}
+observed=[]
+for case in ET.parse(HERE/'python.junit.xml').getroot().iter('testcase'):
+ cls,name=case.get('classname'),case.get('name')
+ if (cls.endswith('test_rag_worker_keepalive') and name in expected_rag) or (cls.endswith('test_llm_timeout_diagnostic') and name=='test_shared_window_zero_rejection_is_not_a_third_request'):
+  passed=all(case.find(tag) is None for tag in ('failure','error','skipped'))
+  observed.append({'id':cls+'::'+name,'passed_this_revision':passed})
+assert len(observed)==8 and all(row['passed_this_revision'] for row in observed)
+record={'artifact_head':subprocess.check_output(['git','-C',str(TREE),'rev-parse','HEAD'],text=True).strip(),'candidate_revision':subprocess.check_output(['git','-C',str(HERE/'candidate'),'rev-parse','HEAD'],text=True).strip(),'candidate_status':subprocess.check_output(['git','-C',str(HERE/'candidate'),'status','--porcelain'],text=True),'remote_main':remote[0],'whole_pr_diff_check':{'exit_code':format_result.returncode,'waived':False,'old_bytes_modified':False,'output':str(HERE/'whole-pr-format-final.log.txt')},'historical_failure_ids':observed,'historical_root_cause_established':False,'cumulative_model_requests':131,'natural_submissions':0,'push_merge_deploy_performed':False}
+with (HERE/'final-state.json').open('x') as out: json.dump(record,out,indent=2)
+print(json.dumps(record))

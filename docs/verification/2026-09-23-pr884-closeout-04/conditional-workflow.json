@@ -1,0 +1,17 @@
+{
+  "base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "workflow": ".github/workflows/data-quality-check.yml",
+  "workflow_sha256": "fe0fb2cbc8266c0323965bde16105d475ae0adbd367357eea2872869b879e26f",
+  "patterns": [
+    "scripts/db_delta_export.py",
+    "scripts/db_delta_import.py",
+    "tests/test_db_delta.py",
+    "skills/report-search/scripts/**",
+    ".github/workflows/data-quality-check.yml"
+  ],
+  "matched_files": [],
+  "required": false,
+  "status": "NOT_TRIGGERED",
+  "claim": "Applicability only, not a passing test result"
+}

@@ -1,0 +1,166 @@
+"""Archive GLM review artifacts without promoting summaries to test receipts."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+DEST = TREE / 'docs/verification/2026-09-23-adaptive-qc-glm'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+def sha(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+def save(p, value):
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open('x') as f:
+        json.dump(value, f, ensure_ascii=False, indent=2)
+        f.write('\n')
+
+def load(p):
+    return json.loads(p.read_text())
+
+protocol = load(ROOT / 'protocol.json')
+config = load(ROOT / 'spec/config.json')
+revision = subprocess.check_output(['git', '-C', config['tree'], 'rev-parse', 'HEAD'], text=True).strip()
+assert revision == config['revision']
+assert not subprocess.check_output(['git', '-C', config['tree'], 'status', '--porcelain'], text=True).strip()
+assert subprocess.run(['/usr/sbin/lsof', '-nP', '-iTCP:19899', '-sTCP:LISTEN'], capture_output=True).returncode == 1
+stages = {}
+axes = {}
+requests = 0
+for axis in ['spec', 'quality']:
+    stages[axis] = {}
+    for stage in ['gateway', 'explore', 'execute', 'report']:
+        p = ROOT / axis / (stage + '.controller.json')
+        if not p.exists():
+            stages[axis][stage] = {'status': 'NOT_RUN'}
+            continue
+        data = load(p)
+        counts = data['shim_counts']
+        assert counts['active'] == 0 and counts['shutdown_complete']
+        assert data['shim_exit'] == 0 and data['request_counts_agree']
+        requests += counts['requests']
+        stages[axis][stage] = {'status': data['stage_status'], 'counts': counts,
+                               'elapsed_seconds': data['elapsed_seconds']}
+    report = ROOT / axis / 'report/parsed.json'
+    axes[axis] = load(report) if report.exists() else {'verdict': 'NOT_DELIVERED'}
+    before = ROOT / axis / 'execute/execution.json'
+    after = ROOT / axis / 'report/execution.json'
+    if before.exists() and after.exists():
+        assert load(before)['probe_sha256'] == load(after)['probe_sha256'], 'report stage modified probes'
+assert requests <= protocol['max_batch_requests']
+private = {}
+patterns = [re.compile(rb'(?i)bearer\s+[a-z0-9_.-]{24,}'), re.compile(rb'\bsk-[A-Za-z0-9_-]{16,}'),
+            re.compile(rb'\beyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}')]
+key = subprocess.check_output([PYTHON, '-B', str(ROOT / 'glm_credential.py'), '--emit'])
+hits = []
+for p in sorted(ROOT.rglob('*')):
+    relative = p.relative_to(ROOT)
+    if p.is_symlink() or not p.is_file() or 'tmp' in relative.parts or '__pycache__' in relative.parts:
+        continue
+    data = p.read_bytes()
+    private[str(relative)] = {'sha256': sha(p), 'bytes': len(data)}
+    if key in data or any(pattern.search(data) for pattern in patterns):
+        hits.append(str(relative))
+del key
+assert not hits, hits
+save(ROOT / 'private-manifest.json', private)
+save(ROOT / 'key-scan.json', {'status': 'PASS', 'files_scanned': len(private), 'hits': [],
+                              'checks': ['exact existing GLM key, memory only', 'bearer/sk/JWT patterns']})
+record = {
+    'record_kind': 'host_evidence_index_not_replacement_for_independent_reports',
+    'status': 'BLOCKED_REPORT_TRANSPORT_DEADLINE',
+    'independent_review_complete': False,
+    'partial_execute_report': load(ROOT / 'spec/execute/parsed.json'),
+    'partial_execute_report_is_not_final_verdict': True,
+    'closed_at': datetime.now(timezone.utc).isoformat(), 'evidence_root': str(ROOT),
+    'candidate_revision': revision, 'baseline': config['baseline'], 'candidate_clean': True,
+    'requested_model': config['model'], 'provider': config['provider'], 'upstream_url': config['upstream_url'],
+    'model_substitution_authorized_by_user': True, 'production_configuration_changed': False,
+    'gateway_requests': requests, 'request_count_basis': 'durable private-shim admissions; not a billing receipt',
+    'stages': stages, 'axes': axes, 'dual_axis_reports_delivered': all('stage' in a for a in axes.values()),
+    'merge_clearance': False, 'natural_finance_requests': 0, 'automatic_retries': 0,
+    'historical_l6': 'NOT_PASSED unchanged', 'merged': False, 'deployed': False,
+    'private_port_released': 19899,
+    'report_failure': {'axis': 'spec', 'request': 23, 'request_elapsed_seconds': 120.021381,
+                       'upstream_http_status': 200, 'pi_error': 'terminated',
+                       'valid_final_report': False, 'quality_started': False},
+    'process_deviations': [
+        'Spec explore ran probes early and overwrote scratch probes; original write arguments and outputs preserved.',
+        'Spec explore summary incorrectly claimed C4 was not executed; execute session reproduced failures independently.',
+        'Spec execute wrapped commands with echo; wrapper exit0 and captured child EXIT=1 must remain distinct.',
+        'Spec EXPLORE.md and EXECUTE.md missing; completed terminal REPORT.md artifacts used explicitly, never forged.',
+    ],
+    'earlier_k3_batches': {'requests': 18, 'originals_unchanged': True, 'billing_not_inferred': True},
+    'limits': ['No new current-head complete gates or main union test.',
+               'Reviewer findings and claim coverage must be read from each report, not inferred from stage exit0.',
+               'Host bridge copied prior same-axis evidence only, never model reasoning or other-axis findings.',
+               'GLM provider metadata thinking=off does not establish server-side reasoning configuration.']
+}
+save(ROOT / 'report.json', record)
+copies = {}
+for name in ['report.json', 'protocol.json', 'private-manifest.json', 'key-scan.json', 'adapter-preflight.json']:
+    copies[ROOT / name] = name
+for name in ['glm_review_shim.py', 'glm_credential.py', 'probe_adapter.py', 'bridge_stage.py', 'prepare.py',
+             'finalize_setup.py', 'make_prompts.py', 'seal.py']:
+    copies[ROOT / name] = 'tooling/' + name + '.txt'
+for axis in ['spec', 'quality']:
+    base = ROOT / axis
+    for name in ['config.json', 'review.mjs', 'gateway.mjs', 'run_stage.py', 'run_control.py', 'file_tool.py',
+                 'sandbox_preflight.mjs', 'tools.sb', 'provider-template.json', 'pi-config/settings.json',
+                 'prompt-explore.md', 'prompt-execute.md', 'prompt-report.md']:
+        copies[base / name] = 'tooling/' + axis + '-' + name.replace('/', '-') + '.txt'
+    for p in (base / 'inputs').glob('*'):
+        if p.is_file():
+            copies[p] = 'inputs/' + axis + '/' + p.name
+    for stage in ['gateway', 'explore', 'execute', 'report']:
+        for name in [stage + '.controller.json', stage + '-shim/counts.json', stage + '-shim/requests.jsonl']:
+            p = base / name
+            if p.exists():
+                copies[p] = 'raw/' + axis + '/' + name
+        directory = base / stage
+        if not directory.exists():
+            continue
+        for p in sorted(directory.rglob('*')):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(directory)
+            # Model event streams may contain private reasoning; never archive them.
+            if p.name == 'events.jsonl' or p.name.endswith('.pid'):
+                continue
+            if 'commands' in rel.parts or p.name in {'receipt.json', 'tiny.json', 'execution.json', 'parsed.json', 'REPORT.md',
+                                                     'request-admissions.jsonl', 'responses.jsonl'}:
+                target = 'raw/' + axis + '/' + stage + '/' + str(rel)
+                if target.endswith('.log'):
+                    target = target[:-4] + '.txt'
+                copies[p] = target
+    preflight = base / 'sandbox-preflight-04/receipt.json'
+    copies[preflight] = 'raw/' + axis + '/sandbox-preflight.json'
+    for p in (base / 'work').rglob('*'):
+        if not p.is_file() or p.is_symlink():
+            continue
+        rel = p.relative_to(base / 'work')
+        if 'tmp' in rel.parts or '__pycache__' in rel.parts:
+            continue
+        if rel.parts[0] == 'phase-context' and 'original-probes' not in rel.parts and p.name != 'copy-manifest.json':
+            continue
+        target = 'artifacts/' + axis + '/' + str(rel)
+        if p.suffix in {'.py', '.mjs'}:
+            target += '.txt'
+        copies[p] = target
+archive = {}
+for source, target in copies.items():
+    destination = DEST / target
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    assert not destination.exists(), destination
+    shutil.copyfile(source, destination)
+    assert sha(source) == sha(destination)
+    archive[target] = {'source': str(source), 'sha256': sha(source)}
+save(DEST / 'archive-manifest.json', archive)
+print(json.dumps({'requests': requests, 'archived_files': len(archive),
+                  'axes': {a: x.get('verdict') for a, x in axes.items()}, 'key_scan': 'PASS'}, ensure_ascii=False))

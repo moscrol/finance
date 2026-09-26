@@ -15,6 +15,8 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 2. 解释器：pytest / ruff 一律 `.venv-workbench/bin/python -m …`。宿主 python3 缺依赖，失败数会偏高且看起来完全合理（实测 71 vs 14）。conftest 与 pre-commit 会拦提交，拦不住你已经读错的数字。
 3. 读本分支的在途交接 `docs/handoffs/inflight/<分支名，/ 换 ->.md`（hook 已注入前约 2000 字符）。完工用 `handoff` skill 覆写，在动作完成之后写，否则注入给下一个 agent 的是假状态。
 
+新工作树、换机器、搭建 Agent：先 `python3 scripts/workspace.py doctor`；安装与离线样例走 `docs/workflows/agent-foundation.md`。六图来源及更新触发器在 `docs/agent-maps.json`，源文件存在不代表语义已验证或生产已部署。
+
 ## 三个正门
 
 - 金融问答：`python3 -m intelligence.cli ask "<问题>"`；追问 `chat`；要模型自选工具才 `agent`（opt-in）。Workbench UI 走 Episode（`TurnOrchestrator.run_turn`），不用 CLI 冒充它的会话 id 合同。作答前可用 `intelligence.cli prime "<问题>"` 拿校准 + 个人库 + 图谱前缀做 grounding。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口，不写进日常口令。
@@ -55,7 +57,9 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 - 提交只用 pathspec：`git add -- <文件>` 与 `git commit -- <文件>`；不用 `git add -A` / `git add .`。裸 `git commit` 提交的是整个索引，别人在你 add 和 commit 之间暂存的文件会被你带走（实测吞掉他人 4 个在途文件，靠 `git reset --soft HEAD~1` 退回）。
 - 不提交 `.env*`、`mcp_config.json`、`feishu_config.json`、`*.pdf|zip|duckdb|db|sqlite*|pptx`、`.DS_Store`、`__MACOSX/`、`._*`、缓存与虚拟环境；不写明文密钥（pre-commit `block-forbidden-files` 兜底）。
 - 合并前本机跑等价 CI（Gitea 不跑 Actions）：`.venv-workbench/bin/python -m ruff check . && .venv-workbench/bin/python -m pytest -q`；前端 `cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build`。任一叶子（python / frontend / e2e / registry-check）红或无结论都不合，不允许「带红合入回头再修」；聚合 job `workbench-check` 红先看哪片叶子红。`data-quality-check` 是**按 paths 条件触发**的第五道（`scripts/db_delta_*.py`、`tests/test_db_delta.py`、`skills/report-search/scripts/**`、它自己的 workflow 文件）：改到这些路径就必须跑绿，没触发则不算数、也不算缺结论。教训：main 曾连红 142 次照常合入，E2E 被 fail-fast 掩盖 26 天。若 GitHub 解封并转公开仓，把本条固化成真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开）并回写本节。
+- 把一张收据当「全量绿」用之前，先让它自证收集面：`.venv-workbench/bin/python scripts/check_test_receipt.py <收据> --require-full-scope`。收据的 `target` 只记 pytest 的**位置参数**，`--ignore` / `-k` / `-m` / `--deselect` 一个都不显示，所以「仓根路径 + 12000 passed」看起来和真全量一模一样。教训：`a41e86dfc`（2026-08-20）把一个活测试误扫进 `scripts/archive/`，全树 `pytest -q` 此后 33 天停在 collection error 一条不跑；同期收据库里仍有 187 张「≥10000 passed / error=0 / exit 0 / target=仓根」的收据在流通，回查发现其 176 个 revision **全部带着那个坏文件**——它们只可能是收窄过的读数，而收据看不出来。现在 `scope` 段会记下收窄旋钮与 `collected`，并与读数对账（收了 N 条就得有 N 条读数）。
 - 关闭 PR 必留接替指针（替代 PR / 提交 / 文档）或废弃理由，不静默关闭。验收 session 规程 `docs/workflows/acceptance-workflow.md`；全仓合入看板 `python3 scripts/worktree_board.py`。
+- 门禁与修库不留现场：整库「改前快照 / 备份」一律走 `market_feature_store.db.clone_to_staging`（APFS `cp -c` 克隆，秒级、零额外占盘），不写 `shutil.copy2` / `cp` 整份拷；`run_main_gate.sh` 显式 `--basetemp` 在门禁绿时自动删（红保留，`GATE_KEEP_BASETEMP=1` 可留）；按提交号检出的 detached 门禁树跑完就 `git worktree remove`，批量用 `scripts/cleanup_gate_trees.sh`（默认 dry-run）。教训：2026-09-23 盘上静置 20 份 3.4 GB 整库拷贝（68 GB）+ 30 GB basetemp + 78 棵干净 detached 树，日烧 30–45 GB。
 
 ## 记忆、纠偏与沉淀
 

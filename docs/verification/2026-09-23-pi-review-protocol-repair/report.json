@@ -1,0 +1,51 @@
+{
+  "status": "OFFLINE_PROTOCOL_VERIFIED",
+  "code_revision": "324a76f9a75fde1a25e979e5ade26e63a8dfaf30",
+  "candidate_revision_unchanged": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline_unchanged": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "pi_version": "0.85.1",
+  "test_receipt": "pytest-receipt.json",
+  "test_scope": [
+    "tests/test_pi_review_repair.py",
+    "tests/test_k3_review_shim.py",
+    "tests/test_adaptive_l6_audit.py"
+  ],
+  "tests": {"collected": 55, "passed": 55, "failed": 0, "errors": 0, "skipped": 0, "dirty": false},
+  "new_protocol_tests": 25,
+  "new_protocol_fake_http": {"cases": 23, "requests": 27, "zero_request_cases": 5, "errors": 0},
+  "real_model_requests": 0,
+  "real_independent_spec_stages": 0,
+  "real_independent_quality_stages": 0,
+  "author_product_tests": 0,
+  "product_review_probes": 0,
+  "natural_finance_requests": 0,
+  "checks": {
+    "receipt_check_at_code_revision": "PASS",
+    "ruff_targeted": "PASS",
+    "node_syntax": "PASS",
+    "pre_commit": "PASS",
+    "spec_sandbox": "PASS",
+    "quality_sandbox": "PASS",
+    "prior_archive_private_pairs": 167,
+    "prior_archive_mismatches": 0,
+    "repaired_input_files": 42,
+    "repaired_input_mismatches": 0,
+    "candidate_tree_clean": true,
+    "port_19899_released": true
+  },
+  "development_failures_preserved": [
+    "development-counterexample-receipt.json",
+    "development-setup-error-receipt.json"
+  ],
+  "historical_gateway_status": "BLOCKED_GATEWAY_TOOL_ROUNDTRIP",
+  "independent_verdict": null,
+  "l6_status": "NOT_PASSED",
+  "l6_actual": "1/1/0",
+  "full_repository_gate_run": false,
+  "new_real_batch_authorized": false,
+  "production_modified": false,
+  "merged": false,
+  "pushed_this_turn": false,
+  "private_evidence_root": "~/.finance-runtime/reviews/pr868-pi-protocol-repair-20260923-1900/",
+  "warning": "Synthetic PASS/STAGE_COMPLETE in offline tests is not review admission, independent QC, or product acceptance."
+}

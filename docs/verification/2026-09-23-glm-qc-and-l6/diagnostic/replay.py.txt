@@ -1,0 +1,95 @@
+"""Offline exact-source replay and one presentation-only control, not live QC."""
+from dataclasses import fields, replace
+import hashlib
+import json
+from pathlib import Path
+import socket
+import sys
+from types import SimpleNamespace
+
+ROOT = Path('/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945')
+CANDIDATE = Path('/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private')
+sys.path.insert(0, str(CANDIDATE))
+attempts = []
+
+
+def denied(*args, **kwargs):
+    attempts.append('network')
+    raise AssertionError('offline only')
+
+
+socket.socket.connect = socket.socket.connect_ex = socket.create_connection = denied
+from intelligence.services import episode_semantic_verifier as semantic  # noqa: E402
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation  # noqa: E402
+from intelligence.services.agent_runtime import OutputEvidenceBinding  # noqa: E402
+from intelligence.services.research_contract import ResearchTaskContract  # noqa: E402
+
+path = ROOT / 'live/L6-N1/raw-run/continuous-episode.json'
+digest = hashlib.sha256(path.read_bytes()).hexdigest()
+episode = json.loads(path.read_text())
+claim = json.loads((ROOT / 'audits/l6-n1-source-review.json').read_text())['claims'][0]
+allowed = {field.name for field in fields(AgentEvidence)}
+evidence = []
+for row in episode['outcome']['evidence']:
+    data = {key: value for key, value in row.items() if key in allowed}
+    data['observations'] = tuple(StructuredObservation(**obs) for obs in row.get('observations', ()))
+    for name in ['supports', 'contradicts', 'derived_from']:
+        data[name] = tuple(data.get(name, ()))
+    evidence.append(AgentEvidence(**data))
+outcome = SimpleNamespace(evidence=tuple(evidence),
+                          bindings=tuple(OutputEvidenceBinding(**row) for row in episode['outcome']['bindings']),
+                          draft=episode['outcome']['draft'])
+view = SimpleNamespace(contract=ResearchTaskContract.from_dict(episode['contract']), outcome=outcome)
+sentences = semantic._numbered_sentences(outcome.draft)
+row = next(row for row in sentences if row['text'] == claim['sentence'])
+index = row['index']
+base = semantic._novel_numeric_condition_indexes(sentences, view)
+assert index in base
+trace = []
+original = semantic._quantity_supported_by_evidence
+
+
+def spy(quantity, evidence_quantities, *, sentence, observation_values=frozenset()):
+    supported = original(quantity, evidence_quantities, sentence=sentence, observation_values=observation_values)
+    if sentence == claim['sentence']:
+        trace.append({'quantity': quantity, 'supported': supported})
+    return supported
+
+
+semantic._quantity_supported_by_evidence = spy
+try:
+    assert semantic._novel_numeric_condition_indexes(sentences, view) == base
+finally:
+    semantic._quantity_supported_by_evidence = original
+quantities = semantic._bound_evidence_quantities(outcome)
+observations = semantic._bound_observation_values(outcome)
+anchors = {value: original(value, quantities, sentence=claim['sentence'], observation_values=observations)
+           for value in ['112.27亿元', '246.45']}
+# Same source amount, a unit-explicit display added only to an in-memory copy.
+converted = tuple(replace(item, detail=item.detail + '；成交额=112.27亿元')
+                  if item.content_hash == claim['evidence_hash'] else item for item in evidence)
+control = SimpleNamespace(contract=view.contract,
+                          outcome=SimpleNamespace(evidence=converted, bindings=outcome.bindings, draft=outcome.draft))
+control_rejections = semantic._novel_numeric_condition_indexes(sentences, control)
+restored = semantic._novel_numeric_condition_indexes(sentences, view)
+assert index not in control_rejections
+assert restored == base
+assert anchors == {'112.27亿元': False, '246.45': True}
+assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+assert not attempts
+report = {
+    'scope': 'host offline mechanical diagnosis on pinned candidate, not independent QC or a new live batch',
+    'candidate': '31f1b40dd788d36c71da249d59fb769c50d7cd30', 'episode_sha256': digest,
+    'sentence_index': index, 'sentence': claim['sentence'], 'actual_short_circuit_trace': trace,
+    'anchor_support_by_current_gate': anchors,
+    'original_rejections': base, 'unit_explicit_control_rejections': control_rejections, 'restored_rejections': restored,
+    'control_change': 'Only in-memory E9.detail appended 成交额=112.27亿元, arithmetically equal to original 11226516458.33 yuan at shown precision; source file unchanged.',
+    'fraction_text_unchanged_in_control': True,
+    'finding': 'Correct currency-scale conversion 112.27亿元 is rejected; adding only unit-explicit equivalent to copied evidence makes this exact sentence pass. This identifies the failure for this sentence, not every numeric deletion.',
+    'network_attempts': 0, 'real_model_requests': 0, 'source_unchanged': True,
+    'semantic_source_sha256': hashlib.sha256(Path(semantic.__file__).read_bytes()).hexdigest(),
+}
+with Path(__file__).with_name('report.json').open('x') as stream:
+    json.dump(report, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+print(json.dumps({'status': 'REPRODUCED', 'original': base, 'control': control_rejections, 'restored': restored, 'trace': trace}, ensure_ascii=False))

@@ -1,0 +1,35 @@
+{
+  "state": "LIVE_EXECUTED_PENDING_AUDIT",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "questions": [
+    {
+      "id": "L6-Q1",
+      "text": "寒武纪(688256.SH)这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。",
+      "mode": "full_read_only"
+    },
+    {
+      "id": "L6-Q2",
+      "text": "只用本地已有资料，不联网：东阳光(600673.SH)9月以来的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。",
+      "mode": "local_only_four_read_only_capabilities"
+    },
+    {
+      "id": "L6-Q3",
+      "text": "固态电池题材这轮行情发酵到哪一步了？给我一组可证伪的跟踪条件，每个数值标明来源和日期。",
+      "mode": "theme_track_full_read_only"
+    }
+  ],
+  "initial_submissions_per_question": 1,
+  "resubmissions": 0,
+  "followups": 0,
+  "concurrency": 1,
+  "workbench_port": 19897,
+  "shim_port": 19898,
+  "writer": "kimi-k3",
+  "judge": "glm-5.3-flash",
+  "semantic_judge": "llm",
+  "evidence_judge": "auto",
+  "data_root": "/Users/a77/.finance-runtime/reviews/pr868-l6-natural-20260923-1455/preparation/data",
+  "kb_inputs_frozen": false,
+  "external_inputs_frozen": false,
+  "started_at": "2026-09-23T06:20:38.352323+00:00"
+}

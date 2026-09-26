@@ -1,0 +1,21 @@
+PASS C4_shared_deadline_wins :: exc=LLMDeadlineExceeded dt=0.51
+PASS C2_synthesis_forwards :: {'timeout': 10.0, 'expires': 1346647.482132541, 'cancelled': None, 'now': 1346646.982947541}
+PASS C2_stream_forwards :: {'timeout': 10.0, 'expires': 1346647.482132541, 'cancelled': <function main.<locals>.<lambda> at 0x107dde0c0>, 'now': 1346646.983375625}
+PASS C2_message_forwards :: {'timeout': 10.0, 'expires': 1346647.482132541, 'cancelled': None, 'now': 1346646.98373225}
+PASS C2_synthesis_stream_forwards :: {'timeout': 10, 'expires': 1346647.482132541, 'cancelled': <function main.<locals>.<lambda> at 0x107dde0c0>, 'now': 1346646.983819333}
+PASS call_timeout_slice :: v=0.500
+PASS call_timeout_slice2 :: v=10.000
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v3.py", line 95, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v3.py", line 85, in main
+    R._post_chat_synthesis(PROV, [{"role":"user","content":"x"}], 5.0, 0.2, 16, 1000,
+  File "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate/intelligence/services/llm_refine.py", line 1205, in _post_chat_synthesis
+    _reserve_llm_call()
+  File "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate/intelligence/services/llm_refine.py", line 866, in _reserve_llm_call
+    if ledger is not None and not ledger.try_reserve():
+                                  ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate/intelligence/services/llm_refine.py", line 683, in try_reserve
+    and self._reservation_count >= self.max_calls
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: '>=' not supported between instances of 'int' and 'LLMCallLedger'

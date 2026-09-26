@@ -16,6 +16,7 @@
 - 解释器只用 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（宿主 python3 无依赖）。
 - 测试壳：`env -i PATH="$PATH" HOME="$HOME" KNOWLEDGE_WIKI="$KNOWLEDGE_WIKI"` + `umask 022`。继承 launcher 变量 → 31 假红；umask 077 → 16 假红（2026-08-18 台账 02:25 行⑤实测）。
 - 每批用独立 worktree 验；`/Users/a77/fwp-wt-167-merge` 是现成验收树（webapp node_modules 已装）。
+- 真实会话用 `scripts/launch_workbench_sidecar.sh`；它在读取生产 launcher 后同时覆盖 `FORESIGHT_USERS_DIR` 与 `FORESIGHT_EPISODE_STORE=$USERS/.episodes`。只换用户目录不够：Episode 默认仍写 `$FINANCE_WS/state/episodes`。`FINANCE_WS` 保留用于读取正式行情，不为隔离会话伪造行情根；验收进程另用只读沙箱保护生产库、索引、配置和用户目录。
 - Gitea API token 在 Keychain：`security find-generic-password -s gitea-local -a a77-token -w`。scope 最小集 `write:issue,write:repository,write:user`（2026-08-18 已补；缺 `write:issue` 时评论 403）。
 
 **完成判据**：pytest 收据（`~/.finance-runtime/test-receipts/<ts>-<treesha>.json`）文件名里的树 SHA == 你正在验的树。
@@ -67,13 +68,13 @@ exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告�
   --workbench-port 18981 --re06-port 18984
 ```
 
-该入口顺序执行依赖安装、lint、typecheck、test、build、test:e2e，使用当前 Python 解释器启动测试服务；端口与配套 URL 一起设置。收据保存每步退出码、日志哈希和首尾 Git 身份。只有 `exit_code=0`、`complete=true`、`identity_stable=true` 且 `dirty=false` 才可采信；首尾 revision 都必须等于要求的完整 SHA。Git 查询失败不能解释为干净。任一命令失败或身份变化均返回非零，已有输出目录拒绝覆盖。
+该入口顺序执行依赖安装、lint、typecheck、test、build、test:e2e，使用当前 Python 解释器启动测试服务；端口与配套 URL 一起设置。测试服务的部署账本强制落到本轮输出目录 `deploy-ledger.jsonl`，覆盖继承或显式传入的 `FINANCE_DEPLOY_LEDGER`，收据的 `deploy_ledger` 记录该路径；它只是验收产物，不并入 canonical 账本。收据保存每步退出码、日志哈希和首尾 Git 身份。只有 `exit_code=0`、`complete=true`、`identity_stable=true` 且 `dirty=false` 才可采信；首尾 revision 都必须等于要求的完整 SHA。Git 查询失败不能解释为干净。任一命令失败或身份变化均返回非零，已有输出目录拒绝覆盖。
 
 首尾采样不能证明期间没有发生又恢复的改动，因此仍要用独占检出。历史收据缺字段时保留原件，另起目录重跑；不得把今天的干净状态补写成过去的观测。`git status` 相同也不等于内容相同，复核既有脏树时还要比较二进制 diff 与未跟踪文件内容哈希。
 
 ## 4. 切 8792（链切五步）
 
-链切用下面五步。`scripts/deploy_workbench_runtime.sh` 面向的是「rsync 进现有快照」的旧形态，只在快照目录不换时用。
+链切用下面五步。`scripts/deploy_workbench_runtime.sh` 仅面向不受 Git 管理的旧式 standalone 目录：必须显式设置 `WORKBENCH_REPO_ROOT=<干净源树>` 并传入 `--apply --expect-revision <完整SHA>`。它拒绝覆盖 Git worktree 快照，也拒绝 `intelligence/` 为软链的运行目标；版本快照只能新建再切链；无参数、未知参数和不匹配的版本均拒绝执行，`--help` 只显示帮助。旧版本没有参数解析，连 `--help` 都可能执行真实部署，禁止以运行旧脚本的方式探测用法，先读源码。
 
 ```bash
 # ⚠️ 这条 fetch 不能省（2026-08-18 实测补入）：验收 session 总是刚合完 PR 才切，
@@ -148,6 +149,25 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
 顶部插「更新：」密报行（处置结果 / 门禁数字 / 切换读数 / 收据路径 / 升格项），连同新 handoff 走 docs PR 合入。台账顶部是并发追加热点，rebase 重解冲突是常态。
 
 **完成判据**：台账行合入 main；需要用户拍板的事项在行里显式标「待裁决」。
+
+## 无端口启动归属
+
+`check` 对账被 `port=null` 的测试服务启动行阻断时，不删历史、不补造生产 switch，也不按脚本名或位置参数猜端口。
+先核对同次运行的单进程 Uvicorn 日志（PID 与监听端口）以及启动后五分钟内的 health JSON（时区、代码根与 revision）。
+将原件保留在稳定树外目录，使用 `deploy_ledger.startup_row_sha256(row)` 得到原行规范化 JSON 的 SHA256，再执行：
+
+```bash
+"$PY" scripts/audit_deploy_ledger.py attribute-startup \
+  --target-sha256 "$ROW_SHA256" --port "$PORT" \
+  --server-log "$SERVER_LOG" --server-log-sha256 "$LOG_SHA256" \
+  --health-snapshot "$HEALTH_JSON" --health-sha256 "$HEALTH_SHA256" \
+  --reason "已核同次运行的进程、端口、时间、代码根和版本"
+```
+
+默认只读；核对计划后加 `--apply`，只向同一本账追加 `startup_port_attribution`。原行保留，补记不成为新的启动或切换，不能改变后续事件的顺序。
+读取器每次重新核证据哈希；证据丢失、变化、归属冲突或重复原行都恢复未知。只有 startup 可补记，switch 仍须在实际切换时显式记录端口。
+`check/homes` 使用补记，旧版本读取器仍会保守报错，必须明确使用含此修复的代码根；这不是生产代码已升级的证明。
+证据只是本机保存的运行观测，不是密码学签名认证。手工拼出的日志不构成可采信原件。
 
 ## 坑（都踩过）
 

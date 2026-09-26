@@ -1,0 +1,41 @@
+"""Re-execute committed mutation probes on this revision; never label them independent."""
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+root = Path(__file__).resolve().parent
+tree = root / 'finance-workspace-private'
+python = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+revision = 'db2605d1b1a6a929d9bac468c84ef6aeaddce9ff'
+output = root / 'host-replay'
+output.mkdir(exist_ok=False)
+env = {'HOME': str(Path.home()), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0',
+       'FORESIGHT_LLM_KEYCHAIN': '0'}
+rows = []
+for group in ('runtime', 'writer', 'reentry', 'inbox'):
+    command = [python, '-B', str(tree / 'scripts/review_probes/run_runtime_contract_checks.py'),
+               '--candidate', str(tree), '--expect-revision', revision,
+               '--output', str(output / group), '--group', group]
+    row = {'group': group, 'revision': revision, 'command': command, 'role': 'host replay, not independent review'}
+    started = time.monotonic()
+    with (output / (group + '.log.txt')).open('xb') as log:
+        process = subprocess.Popen(command, cwd=tree, env=env, stdout=log, stderr=log,
+                                   stdin=subprocess.DEVNULL, start_new_session=True)
+        row['pid'] = process.pid
+        rows.append(row)
+        (output / 'processes.json').write_text(json.dumps(rows, indent=2) + '\n')
+        try:
+            process.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            row['timed_out'] = True
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+        row.update(exit_code=process.returncode, elapsed_seconds=round(time.monotonic() - started, 3))
+        (output / 'processes.json').write_text(json.dumps(rows, indent=2) + '\n')
+    print(json.dumps(row), flush=True)
+    if row['exit_code']:
+        raise SystemExit('Host replay blocked; original output preserved.')

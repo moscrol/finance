@@ -1,0 +1,32 @@
+"""Reclaim only our completed pytest session, preserving failed fixture roots first."""
+import hashlib
+import json
+import os
+import shutil
+import tarfile
+from pathlib import Path
+
+scratch=Path('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3265')
+root=Path(__file__).resolve().parent
+assert 'pytest-3265' in (root/'author-python/pytest.log').read_text()
+try:
+    os.kill(78377,0)
+    raise RuntimeError('our pytest process is still live')
+except ProcessLookupError: pass
+archive=root/'author-python/failed-fixtures.tar.gz'
+assert not archive.exists()
+# Fixture names in failures; preserve all variants including setup failures.
+prefixes=('test_skill_artifacts_and_visib','test_subtopic_sections_reach','test_dual_write_run_lands','test_orchestrator_emits_workflo','test_owner_projects_followup','test_research_owner_skills_def','test_owner_dag_reuses','test_theme_vertical_slice','test_phase3_owners_use','test_phase3_owner_blocks_survi','test_phase3_owners_soften_hard','test_news_impact_external')
+paths=[p for p in scratch.iterdir() if not p.is_symlink() and p.name.startswith(prefixes)]
+manifest={}
+for p in paths:
+    for f in p.rglob('*'):
+        if f.is_file() and not f.is_symlink():manifest[str(f.relative_to(scratch))]=hashlib.sha256(f.read_bytes()).hexdigest()
+with tarfile.open(archive,'w:gz') as tf:
+    for p in paths: tf.add(p,arcname=p.name,recursive=True)
+with tarfile.open(archive,'r:gz') as tf:
+    for name,digest in manifest.items():
+        assert hashlib.sha256(tf.extractfile(name).read()).hexdigest()==digest
+(root/'author-python/scratch-reclamation.json').write_text(json.dumps({'scratch':str(scratch),'owner_pytest_pid':78377,'failed_fixture_roots':[p.name for p in paths],'archived_hashes':manifest,'archive_sha256':hashlib.sha256(archive.read_bytes()).hexdigest()},indent=2)+'\n')
+shutil.rmtree(scratch)
+print('Archived and verified',len(paths),'failed fixture roots; removed only our completed scratch',scratch)

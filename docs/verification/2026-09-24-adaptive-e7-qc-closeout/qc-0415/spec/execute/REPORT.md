@@ -1,0 +1,75 @@
+```json
+{
+  "complete": true,
+  "author_tests": {
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0,
+    "commands": [
+      "pytest -q -p no:cacheprovider <candidate>/intelligence/tests/test_llm_timeout_diagnostic.py <candidate>/tests/test_main_gate_receipt.py -k 'violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard or retains_complete_output or output_pipeline_failure or receipts_inside_disposable' --basetemp=.../work/pytest-tmp --junitxml=.../work/author-tests.xml"
+    ]
+  },
+  "reviewer_probes": {
+    "passed": 2,
+    "failed": 2,
+    "commands": [
+      "python work/probes/transport_boundary_probe_v2.py (PASS, 6/6 子用例)",
+      "python work/probes/llm_paths_probe.py (FAIL 6/9, probe_bug)",
+      "python work/probes/llm_paths_probe_v2.py (FAIL 2/6 子用例断言)",
+      "python work/probes/judge_startup_probe.py (PASS, 4/4 子用例)"
+    ]
+  },
+  "intentional_control": {
+    "observed_failed": true,
+    "classification": "probe_bug/intentional_control",
+    "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -B .../work/positive_control.py"
+  },
+  "failures": [
+    {
+      "command": "llm_paths_probe.py",
+      "classification": "probe_bug",
+      "reason": "服务器仅匹配路径=='stall'，而 _post_chat 追加 /chat/completions，stall 用例实际走 /ok 快速分支（wall~0.05s、无异常）；流式路径返回非 SSE JSON 触发 LLMStreamingUnsupported。属探针缺陷，非产品缺陷；保留原始失败文件未改动"
+    },
+    {
+      "command": "llm_paths_probe_v2.py",
+      "classification": "probe_expectation_mismatch",
+      "reason": "message_stream 两条子用例在内容 delta 已发出后命中 0.5s deadline/取消，产品按设计抛 LLMStreamAlreadyEmitted（不可重试语义）而非探针断言的 LLMDeadlineExceeded/LLMStreamCancelled。行为证据本身成立：wall=0.508s（10s 片被 0.5s 共享 deadline 截断）、cancel_to_stop=0.013s。每探针限一次修正，未再重试，按 strict 断言计 failed"
+    }
+  ],
+  "claim_evidence": {
+    "C1": {
+      "evidence": "行为：transport_boundary_probe_v2 6/6 通过——body_deadline_0p5_of_10、slow_headers_deadline、cancel_midstream(HTTPStreamCancelled, 12ms)、zero_deadline_no_spawn(observer_events=[] 无子进程)、stalled_parent_timer(worker Timer 截断, 2.58s)",
+      "missing": "无"
+    },
+    "C2": {
+      "evidence": "行为：v2 中 post_chat/synthesis/message/message_stream/stream_raw 五路径均在 0.5s 停止（wall 0.503-0.510）；静态：llm_refine.py 1139-1234 等各调用点均将 deadline 传入 _open_deadline_http_response，流式路径传 is_cancelled；上游 timeout 与共享 deadline 来源在探针中分开（10s 片 vs 0.5s deadline）",
+      "missing": "message_stream 路径的异常类型为 LLMStreamAlreadyEmitted（设计语义），非探针 strict 断言类型；见 failures"
+    },
+    "C3": {
+      "evidence": "行为：judge_startup_probe late_judge_failed_recorded——0.805s 抛 LLMDeadlineExceeded，ledger status=failed，n_records=1；判官子窗 vs root 区分子用例通过（root_remaining_after=1.593）",
+      "missing": "report_received=False/unavailable=True 语义层字段未做行为探针，仅记录侧验证"
+    },
+    "C4": {
+      "evidence": "行为：五路径 10s slice + 0.5s 共享 deadline 全部在 ~0.5s 停止（v2），未等待 ~3s fixture 完成",
+      "missing": "无（message_stream 异常类型差异见 C2）"
+    },
+    "C5": {
+      "evidence": "行为：llm_paths_probe zero_budget_no_http（LLMCallBudgetExceeded, wall=0.0）、expired_root_no_http（LLMDeadlineExceeded, wall=0.0）；transport 探针 zero_deadline_no_spawn 无 spawn 事件",
+      "missing": "无"
+    },
+    "C6": {
+      "evidence": "行为：judge_startup_probe startup_in_budget——events 含 spawn_started/spawned/request_sent，deadline 计入 spawn（spawn_at=0.0004s 计入预算后 0.908s 截断）",
+      "missing": "未验证具体基准数值（按 claims 不要求）"
+    },
+    "C7": {
+      "evidence": "静态：claims 侧 engineering-history.json 披露历史 c315 失败与前缀覆盖失败；本轴未运行工程收据流程，仅作者 receipt 测试（receipts_inside_disposable 等 16 项通过）",
+      "missing": "未独立重放 gate 收据生成；未评估 RAG/coverage 根因修复风险（claims 未声称修复）"
+    }
+  },
+  "limits": "独立探针 4 次脚本调用（含 1 次修正版）；C3 语义字段、附加范围中 diagnose_llm_timeout/prepare_adaptive_l6/runner admission/currency 校验/run_main_gate.sh 仅经作者测试子集（16 通过）与既有探针间接覆盖，未逐一独立行为探针；LLMStreamAlreadyEmitted 断言差异未二次修正（每失败探针限一次）；网络仅 127.0.0.1:26002-26003。",
+  "stage": "execute",
+  "axis": "spec",
+  "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f"
+}
+```

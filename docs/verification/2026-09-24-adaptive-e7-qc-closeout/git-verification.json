@@ -1,0 +1,10 @@
+{
+  "artifact_revision": "361b6b18c4ea12a83a41f30873a1bd44bb03b016",
+  "candidate_revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "archive_manifest_sha256": "615987362e263f99711af809a40773028dc1ccc17acb1719006b3bbfc0bbd50d",
+  "verified_files": 530,
+  "source_and_local_verified": true,
+  "git_blobs_verified": true,
+  "mismatches": 0,
+  "verdict_override": false
+}

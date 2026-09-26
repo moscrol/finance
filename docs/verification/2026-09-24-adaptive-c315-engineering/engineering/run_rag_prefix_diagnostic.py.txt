@@ -1,0 +1,36 @@
+"""Replay one original-order prefix once and preserve untruncated diagnostics."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / 'candidate'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {k: os.environ[k] for k in ('PATH', 'HOME', 'LANG', 'TMPDIR') if k in os.environ}
+ENV.update(PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0', PYTHONPATH=str(ROOT)+os.pathsep+str(TREE))
+command = [PY, '-B', '-m', 'pytest', '-q', '-x', '-p', 'no:cacheprovider', '-p', 'rag_prefix_diagnostic', '-o', 'tmp_path_retention_policy=failed', '--basetemp='+str(ROOT/'rag-prefix-tmp'), '--junitxml='+str(ROOT/'rag-prefix.xml')]
+result = {'scope': 'diagnosis only; full gate remains RED', 'candidate': subprocess.check_output(['git', '-C', str(TREE), 'rev-parse', 'HEAD'], text=True).strip(), 'command': command, 'complete': False}
+path=ROOT/'rag-prefix-result.json'
+assert not path.exists()
+path.write_text(json.dumps(result, indent=2)+'\n')
+started=time.monotonic()
+with (ROOT/'rag-prefix.log.txt').open('xb') as log:
+    process=subprocess.Popen(command, cwd=TREE, env=ENV, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    result['pid']=process.pid
+    path.write_text(json.dumps(result, indent=2)+'\n')
+    try:
+        code=process.wait(timeout=1800)
+    except subprocess.TimeoutExpired:
+        import signal
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            code=process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            code=process.wait(timeout=15)
+        result['timeout']=True
+result.update(complete=True, exit_code=code, seconds=round(time.monotonic()-started,3))
+path.write_text(json.dumps(result, indent=2)+'\n')
+print(json.dumps(result))

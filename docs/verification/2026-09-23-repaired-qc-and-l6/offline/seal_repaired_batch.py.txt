@@ -1,0 +1,123 @@
+"""Archive finished repaired batches without editing their reviewer evidence."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+BASE = Path('/Users/a77/.finance-runtime/reviews')
+QC = BASE / 'pr868-glm-qc-repaired-20260923-2115'
+L6 = BASE / 'pr868-l6-repaired-20260923-2118'
+OFFLINE = BASE / 'pr868-repair-offline-20260923-2108'
+CANDIDATE_ROOT = BASE / 'pr868-repaired-20260923-2111'
+CANDIDATE = CANDIDATE_ROOT / 'candidate'
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+DEST = TREE / 'docs/verification/2026-09-23-repaired-qc-and-l6'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+RECEIPT = Path('/Users/a77/.finance-runtime/test-receipts/20260923T131130Z-ac11027f-57f31ba6b077.json')
+def load(path):
+    return json.loads(path.read_text())
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+def git(*args, tree=TREE):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+config = load(QC / 'spec/config.json')
+assert git('rev-parse', 'HEAD', tree=CANDIDATE) == config['revision']
+assert not git('status', '--porcelain', tree=CANDIDATE)
+assert all(sha(QC / name) == digest for name, digest in load(QC / 'authorization.json')['inputs_sha256'].items())
+controllers, verdicts, claims = {}, {}, {}
+for axis in ('spec', 'quality'):
+    stages = {}
+    for stage in ('gateway', 'explore', 'execute', 'report'):
+        path = QC / axis / f'{stage}.controller.json'
+        if not path.exists():
+            assert stages and list(stages.values())[-1]['status'] == 'BLOCKED', stages
+            break
+        value = load(path)
+        assert value['status'] in ('COMPLETE', 'BLOCKED'), value
+        counts = value['shim_counts']
+        assert counts['active'] == 0 and counts['shutdown_complete']
+        assert value['request_counts_agree'] and value['shim_exit'] == 0
+        stages[stage] = value
+    controllers[axis] = stages
+    report = QC / axis / 'report/submission.json'
+    if report.exists() and stages['report']['stage_status'] == 'STAGE_COMPLETE':
+        submission = load(report)
+        for key, expected in [('axis', axis), ('stage', 'report'), ('revision', config['revision']), ('baseline', config['baseline'])]:
+            assert submission[key] == expected
+        verdicts[axis] = submission['verdict']
+        claims[axis] = submission
+    else:
+        verdicts[axis] = 'NOT_DELIVERED'
+assert subprocess.run(['/usr/sbin/lsof', '-nP', '-iTCP:19899', '-sTCP:LISTEN'], capture_output=True).returncode == 1
+requests = sum(value['shim_counts']['requests'] for stages in controllers.values() for value in stages.values())
+assert any(claim['status'] == 'not_verified' for claim in claims['spec']['claims'])
+head, main = git('rev-parse', 'HEAD'), git('rev-parse', 'gitea/main')
+merge = subprocess.run(['git', '-C', str(TREE), 'merge-tree', '--write-tree', '--name-only', head, main], capture_output=True, text=True)
+save(QC / 'merge-check.json', {'head': head, 'main': main, 'exit_code': merge.returncode, 'stdout': merge.stdout,
+    'stderr': merge.stderr, 'joint_tree_tests_run': False, 'checked_at': datetime.now(timezone.utc).isoformat()})
+record = {'record_kind': 'host_evidence_index_not_independent_verdict',
+    'status': 'BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE',
+    'candidate_revision': config['revision'], 'baseline': config['baseline'],
+    'independent_verdicts': verdicts, 'model_requests': requests,
+    'requests_by_axis_stage': {axis: {stage: v['shim_counts']['requests'] for stage, v in stages.items()} for axis, stages in controllers.items()},
+    'independent_claims': claims,
+    'frozen_inputs_unchanged': True, 'frozen_input_authority': 'authorization.json (after pinning candidate, before any model calls)',
+    'candidate_clean': True, 'port_19899_released': True,
+    'acceptance_limits': ['Spec C3/C5/C6 not_verified', 'Spec C2 only four HTTP call sites behaviorally intercepted',
+                          'Spec author tests and intentional failing control not run',
+                          'Current candidate full engineering gates and joint-main gates not run'],
+    'author_targeted_receipt': str(RECEIPT), 'author_targeted_passed': 328,
+    'author_targeted_scope': 'targeted only, not independent reviewer evidence or full suite',
+    'separate_l6': load(L6 / 'report.json'), 'natural_quality_accepted': False,
+    'automatic_retries': 0, 'historical_evidence_reassigned': False,
+    'main_at_closure': main, 'main_conflict_free': merge.returncode == 0,
+    'merged': False, 'deployed': False, 'pushed': False, 'closed_at': datetime.now(timezone.utc).isoformat()}
+save(QC / 'report.json', record)
+key = subprocess.check_output([PYTHON, '-B', str(QC / 'glm_credential.py'), '--emit']).strip()
+assert len(key) > 20
+patterns = [re.compile(rb'(?i)bearer\s+[a-z0-9_.-]{24,}'), re.compile(rb'\bsk-[A-Za-z0-9_-]{16,}')]
+manifest, copies, hits = {}, {}, []
+for label, root in [('qc', QC), ('l6', L6), ('offline', OFFLINE)]:
+    for path in sorted(root.rglob('*')):
+        rel = path.relative_to(root)
+        if not path.is_file() or path.is_symlink() or {'tmp', 'data', 'pycache', '__pycache__'}.intersection(rel.parts):
+            continue
+        data = path.read_bytes()
+        name = f'{label}/{rel}'
+        manifest[name] = {'source': str(path), 'sha256': sha(path), 'bytes': len(data)}
+        if key in data or any(pattern.search(data) for pattern in patterns):
+            hits.append(name)
+        if path.name in ('events.jsonl', 'responses.jsonl') or 'phase-context' in rel.parts:
+            continue
+        target = name + ('.txt' if path.suffix in {'.py', '.mjs', '.sh', '.sb', '.log'} else '')
+        copies[path] = target
+for path, target in [(RECEIPT, 'offline/test-receipt.json'), (CANDIDATE_ROOT / 'source-regression.json', 'offline/source-regression.json'),
+                     (CANDIDATE_ROOT / 'pytest.log', 'offline/pytest.log.txt')]:
+    assert path.exists(), path
+    data = path.read_bytes()
+    assert key not in data and not any(pattern.search(data) for pattern in patterns)
+    copies[path] = target
+assert not hits, hits
+del key
+save(QC / 'private-manifest.json', manifest)
+save(QC / 'key-scan.json', {'status': 'PASS', 'files_scanned': len(manifest) + 3, 'hits': []})
+copies[QC / 'private-manifest.json'] = 'qc/private-manifest.json'
+copies[QC / 'key-scan.json'] = 'qc/key-scan.json'
+DEST.mkdir(parents=True, exist_ok=False)
+archive = {}
+for source, name in copies.items():
+    target = DEST / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, target)
+    assert sha(source) == sha(target)
+    archive[name] = {'source': str(source), 'sha256': sha(source), 'bytes': source.stat().st_size}
+save(DEST / 'archive-manifest.json', archive)
+print(json.dumps({'status': record['status'], 'independent_verdicts': verdicts, 'model_requests': requests,
+                  'files': len(archive), 'main': main, 'conflict_free': merge.returncode == 0, 'key_scan': 'PASS'}))

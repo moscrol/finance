@@ -25,6 +25,7 @@ from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_issues import (
     Issue,
     IssueCode,
+    allows_partial_release,
     plan_issue_backfill,
 )
 from intelligence.services.episode_phase import PhaseRecorder
@@ -32,11 +33,16 @@ from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
+    semantic_repair_feedback,
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
+    comparison_baseline_unsupported,
     draft_sentence_count,
+    numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
+    with_unresolved_review_publication,
+    with_unreviewed_revision_publication,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -62,6 +68,7 @@ from intelligence.services.research_harness import (
     FinanceResearchHarness,
     ResearchHarness,
 )
+from intelligence.services.episode_entry_identity import EntryIdentity
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
@@ -69,6 +76,7 @@ from intelligence.services.research_tool_registry import (
     check_satisfiability,
 )
 from intelligence.services.run_store import redact, redact_value
+from intelligence.services.session_projection import CAUSE_VERIFIED, TerminalFacts, view
 from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.pricing_split import pricing_split_receipt
@@ -77,8 +85,11 @@ from intelligence.services.ranking_contract import (
     ranking_receipt,
 )
 from intelligence.services.track_contract import (
+    TRACK_CONTRACT_OUTPUT_ID_SET,
+    append_contract_stub,
     contract_receipt,
     merge_track_missing_outputs,
+    missing_contract_elements,
 )
 from intelligence.runtime.repair_budget import admit_backfill_repair, admit_repair
 from intelligence.runtime.tier_promotion import maybe_promote_forecast_residual
@@ -94,6 +105,20 @@ CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
 )
+
+
+def _repair_changed_submission(before: AgentOutcome, after: AgentOutcome) -> bool:
+    """修复轮有没有交出一份新的提交稿（正文或绑定变了）。
+
+    与 ``FinanceResearchHarness.admit_repair_result`` 的 ``revised_without_tool``
+    同一口径；区别是那边拿它判「算不算进展」，这边拿它判「手里的审查结果还对不对
+    得上正文」——两个问题正交：一次诚实的降级重写可以既「无进展」又「必须复核」。
+    """
+
+    return (
+        before.draft.strip() != after.draft.strip()
+        or before.bindings != after.bindings
+    )
 _TERMINAL_REPAIR_STOP_REASONS = frozenset(
     {
         "repair_deadline_exhausted",
@@ -164,6 +189,7 @@ class ContinuousTurnAdapter:
         fast_path_runner: Callable[..., object] = run_deterministic_fast_path,
         structural_verifier: Callable[..., object] = verify_episode_outcome,
         task_id_factory: Callable[[], str] = _new_task_id,
+        entry_identity: EntryIdentity | None = None,
         timeout: float = 90.0,
         verification_reserve: float = DEFAULT_VERIFICATION_RESERVE_SECONDS,
         synthesis_reserve_for_task: Callable[..., float] | None = None,
@@ -190,6 +216,8 @@ class ContinuousTurnAdapter:
             raise ValueError("runtime_name must be non-empty")
         if not callable(task_id_factory):
             raise TypeError("task_id_factory must be callable")
+        if entry_identity is not None and not isinstance(entry_identity, EntryIdentity):
+            raise TypeError("entry_identity must be an EntryIdentity")
         if synthesis_reserve_for_task is not None and not callable(
             synthesis_reserve_for_task
         ):
@@ -203,6 +231,9 @@ class ContinuousTurnAdapter:
         self._structural_verifier = structural_verifier
         self._semantic_verifier = semantic_verifier
         self._task_id_factory = task_id_factory
+        # None = 没有经过核对的入口（离线驱动、测试）。它不是占位符：未绑定的 episode
+        # 将来也只能被同样未绑定的调用方恢复读，不会被任何一扇门认领。
+        self._entry_identity = entry_identity
         self._timeout = max(0.0, float(timeout))
         self._verification_reserve = max(0.0, float(verification_reserve))
         self._synthesis_reserve_for_task = synthesis_reserve_for_task
@@ -489,6 +520,8 @@ class ContinuousTurnAdapter:
         backfill_turns = 0
         delivery_repair_attempted = False
         semantic_verifier_stale = False
+        # 终局修复改了稿但没来得及复核：公开的仍是旧稿，发布上限要压 partial 并告知。
+        unreviewed_revision = False
         attempts_before = _ledger_attempt_count()
         phase_recorder = PhaseRecorder()
         try:
@@ -541,7 +574,16 @@ class ContinuousTurnAdapter:
             context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
-            context = replace(context_candidate, prior_evidence=control.prior_evidence)
+            # 身份只由入口盖章：context 工厂（含注入替身）写什么都不算，这里无条件覆写。
+            # 绑定发生在 episode 号铸出之后，所以一份身份不可能被搬到另一个 episode 上。
+            context = replace(
+                context_candidate,
+                prior_evidence=control.prior_evidence,
+                entry_identity=(
+                    None if self._entry_identity is None
+                    else self._entry_identity.bind(task_id)
+                ),
+            )
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),
@@ -583,6 +625,8 @@ class ContinuousTurnAdapter:
             if not isinstance(outcome_candidate, AgentOutcome):
                 raise TypeError("runtime must return AgentOutcome")
             outcome = outcome_candidate
+            if outcome.persistence == "failed":
+                return self._storage_failed_result(outcome, context)
             if self._is_cancelled():
                 return _cancelled_result()
             self._publish_progress(
@@ -688,6 +732,8 @@ class ContinuousTurnAdapter:
                 if backfilled is not None:
                     previous_snapshot = current_snapshot
                     outcome, structural = backfilled
+                    if outcome.persistence == "failed":
+                        return self._storage_failed_result(outcome, context)
                     current_snapshot = _repair_snapshot(
                         outcome,
                         structural,
@@ -744,6 +790,8 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                if outcome.persistence == "failed":
+                    return self._storage_failed_result(outcome, context)
                 structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
@@ -791,12 +839,7 @@ class ContinuousTurnAdapter:
                 deadline=root_deadline,
                 retrieve_fn=guided_retriever,
             )
-            semantic = replace(
-                semantic_candidate,
-                verified=_with_track_contract_gaps(
-                    semantic_candidate.verified, context
-                ),
-            )
+            semantic = _with_semantic_contract_gaps(semantic_candidate, context)
             _phase_note(
                 phase_recorder,
                 "semantic_verify",
@@ -810,7 +853,7 @@ class ContinuousTurnAdapter:
                 session is not None
                 and (
                     semantic.gap_output_ids
-                    or semantic.rejected_claim_indexes
+                    or semantic_repair_feedback(semantic)
                     or semantic.verified.missing_outputs
                 )
                 and repair_attempts < max_repair_cycles
@@ -837,10 +880,11 @@ class ContinuousTurnAdapter:
                     previous_snapshot=previous_snapshot,
                     current_snapshot=current_snapshot,
                     cycle=repair_attempts,
-                    rejected_claims=tuple(
-                        f"claim_index:{index}"
-                        for index in semantic.rejected_claim_indexes
+                    rejected_claims=(
+                        *(f"claim_index:{index}" for index in semantic.rejected_claim_indexes),
+                        *semantic.delivery_repair_notes,
                     ),
+                    review_feedback=semantic_repair_feedback(semantic),
                     # 判官删了哪几句、为什么删：修复轮的作者必须看得到，
                     # 否则只能对着「缺某个输出」重发同一份结构。
                     rejected_claim_notes=_rejected_claim_notes(semantic, context),
@@ -851,7 +895,10 @@ class ContinuousTurnAdapter:
                     repair_attempts -= 1
                     break
                 previous_snapshot = current_snapshot
+                previous_outcome = outcome
                 outcome, structural, delivery_only = repaired
+                if outcome.persistence == "failed":
+                    return self._storage_failed_result(outcome, context)
                 structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
@@ -882,25 +929,28 @@ class ContinuousTurnAdapter:
                     outcome=outcome,
                     repair_attempts=repair_attempts,
                 )
-                if (
-                    repair_terminal
-                    or self._is_cancelled()
-                    or root_deadline.expired
-                ):
+                revised = _repair_changed_submission(previous_outcome, outcome)
+                if self._is_cancelled() or root_deadline.expired:
+                    semantic_verifier_stale = True
+                    unreviewed_revision = revised
+                    break
+                if repair_terminal and not revised:
+                    # 终局修复没交出新稿（截止带旧稿 / 原样重发）：手里的审查结果
+                    # 仍对着这份正文，只是事件账不同，不值一次判官。
                     semantic_verifier_stale = True
                     break
+                # 终局修复只要真改了稿（正文或绑定），就必须对新稿重跑判官——
+                # 2026-09-21 冒烟 2：无工具修复 + 模型如实自报 partial 被底座判
+                # 「无进展」(repair_model_stop)，这里曾按终局跳过复核，三句错句随
+                # 旧稿原样发布。终局只约束「不再开下一轮修复」（while 条件里的
+                # not repair_terminal），不豁免「公开的正文必须是被审过的那份」。
                 semantic_candidate = self._verify_semantics(
                     frame=frame,
                     structural=structural,
                     deadline=root_deadline,
                     retrieve_fn=guided_retriever,
                 )
-                semantic = replace(
-                    semantic_candidate,
-                    verified=_with_track_contract_gaps(
-                        semantic_candidate.verified, context
-                    ),
-                )
+                semantic = _with_semantic_contract_gaps(semantic_candidate, context)
                 _phase_note(
                     phase_recorder,
                     "semantic_verify",
@@ -959,17 +1009,34 @@ class ContinuousTurnAdapter:
                 outcome=outcome,
                 repair_attempts=repair_attempts,
             )
+            if semantic is not None and context is not None:
+                try:
+                    recovered = self._recover_verified_delivery(
+                        frame, context, semantic, partial_artifact,
+                    )
+                except Exception as recovery_exc:
+                    # A broken fallback is not permission to publish unchecked text.
+                    partial_artifact["delivery_recovery_failure"] = {
+                        "type": type(recovery_exc).__name__, "message": str(recovery_exc),
+                    }
+                    recovered = None
+                if recovered is not None:
+                    _phase_note(
+                        phase_recorder, "partial", trigger="public_outcome",
+                        reason_code="last_verified_public_answer", context=context,
+                        outcome=outcome, repair_attempts=repair_attempts,
+                    )
+                    if recovered.private_artifact is not None:
+                        recovered.private_artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
+                    return recovered
             degraded_delivery = bool(
                 outcome is not None and outcome.evidence and context is not None
             )
             _phase_note(
                 phase_recorder,
                 "degraded" if degraded_delivery else "failed",
-                trigger="public_outcome",
-                reason_code=type(exc).__name__,
-                context=context,
-                outcome=outcome,
-                repair_attempts=repair_attempts,
+                trigger="public_outcome", reason_code=type(exc).__name__,
+                context=context, outcome=outcome, repair_attempts=repair_attempts,
             )
             partial_artifact["phase_trace"] = _phase_trace_payload(phase_recorder)
             if outcome is not None and outcome.evidence and context is not None:
@@ -1081,6 +1148,7 @@ class ContinuousTurnAdapter:
             final_outcome,
             private_tokens,
             allowed_output_ids=fulfilled_output_ids,
+            retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),
         )
         if semantic.status == "completed" and answer:
             status: ContinuousTurnStatus = "completed"
@@ -1094,7 +1162,12 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
-        publication = self._harness.assess_publication(context=context)
+        publication = with_unresolved_review_publication(
+            self._harness.assess_publication(context=context), semantic,
+        )
+        publication = with_unreviewed_revision_publication(
+            publication, unreviewed_revision=unreviewed_revision,
+        )
         if status == "completed" and publication.max_status == "partial":
             status = "partial"
         if not answer and final_outcome.evidence:
@@ -1110,18 +1183,22 @@ class ContinuousTurnAdapter:
         for notice in public_notices:
             if notice not in answer:
                 answer = "\n\n".join(part for part in (answer, notice) if part)
-        from intelligence.services.material_grounding import grounding_scope
-
-        if grounding_scope(context.contract) == "material_only":
-            semantic = recheck_material_public_delivery(semantic, projected=answer)
-            final_outcome = semantic.verified.outcome
-            answer = semantic.public_answer
-            fulfilled_output_ids = _fulfilled_output_ids(
-                semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
-            )
-            citations = _public_citation_projection(final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids)
-            if status == "completed" and semantic.status != "completed":
-                status = "partial"
+        semantic = recheck_material_public_delivery(semantic, projected=answer)
+        final_outcome = semantic.verified.outcome
+        answer = semantic.public_answer
+        fulfilled_output_ids = _fulfilled_output_ids(
+            semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
+        citations = _public_citation_projection(
+            final_outcome, private_tokens, allowed_output_ids=fulfilled_output_ids,
+            retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),
+        )
+        if status == "completed" and semantic.status != "completed":
+            status = "partial"
+        semantic = _with_semantic_contract_gaps(semantic, context, projected=answer)
+        answer, track_notices, track_receipt = _track_public_delivery(answer, context)
+        if track_notices and status == "completed":
+            status = "partial"
         _phase_note(
             phase_recorder,
             status,
@@ -1160,12 +1237,7 @@ class ContinuousTurnAdapter:
             "repair_attempts": repair_attempts,
             "repair_cycles": repair_cycles,
             "backfill_turns": backfill_turns,
-            "track_contract": contract_receipt(
-                outcome.draft,
-                query=context.contract.question,
-                question_type=context.contract.question_type,
-                as_of=context.today,
-            ),
+            "track_contract": track_receipt,
             # 排序与情景契约收据（10 号单）：矩阵/改判条件/竞争解释解析结果 + 缺件。
             "ranking_contract": ranking_receipt(
                 outcome.draft,
@@ -1173,6 +1245,7 @@ class ContinuousTurnAdapter:
                 question_type=context.contract.question_type,
                 as_of=context.today,
                 conversation_context=context.conversation_context,
+                history_intent=context.history_intent,
             ),
             # 判断增量 / 产业·定价二分收据（Knevo q17 Q8、Q4 回灌）：只读，不并进
             # missing_outputs——先用同题对照实验量出效果，再决定要不要上修复硬门。
@@ -1234,9 +1307,129 @@ class ContinuousTurnAdapter:
                         context.contract,
                         fulfilled_output_ids=fulfilled_output_ids,
                         disclosed_gaps={item.output_id: item.gap for item in semantic.verified.completion.outputs if item.status == "legal_gap"},
-                    ), *public_notices)
+                    ), *public_notices, *track_notices)
                 )
             ),
+        )
+
+    def _storage_failed_result(
+        self, outcome: AgentOutcome, context: ResearchRunContext,
+    ) -> ContinuousTurnResult:
+        """Persistence failure must not trigger another paid repair or judge.
+
+        Preserve the unverified draft privately, never publish it as a verified answer.
+        """
+        notice = "研究恢复记录保存失败，本轮已停止；现有草稿未作为可靠完成的答案发布。"
+        return ContinuousTurnResult(
+            handled=True, status="failed", answer=notice, as_of=None, citations=(),
+            warnings=(notice,), events=self._terminal_events(status="failed"),
+            private_artifact=cast(dict[str, object], _redact_private({
+                "schema_version": 1, "log_version": EPISODE_LOG_VERSION,
+                "execution_kind": "continuous_episode", "runtime_backend": self._runtime_name,
+                "research_context": _episode_context_provenance(context),
+                "contract": context.contract.to_dict(), "outcome": _private_outcome(outcome),
+                "events": list(project_durable_events(outcome.events).events),
+                "failure": {"type": "storage_failed", "recovery": "uncertain"},
+                "learning_eligible": False,
+            })),
+        )
+
+    def _recover_verified_delivery(
+        self,
+        frame: TaskFrame,
+        context: ResearchRunContext,
+        semantic: SemanticEpisodeOutcome,
+        artifact: dict[str, object],
+    ) -> ContinuousTurnResult | None:
+        """A failed follow-up cannot revoke the last successfully checked draft.
+
+        Never publish the unverified repair candidate. No successful semantic
+        check, wrong identity, or empty safe projection still uses the existing
+        fail-closed path. The exception and latest attempted outcome stay in the
+        private artifact; recovery is explicitly partial, not success.
+        """
+        if (
+            self._is_cancelled()
+            or semantic.judge_status not in {"passed", "repaired"}
+            or semantic.status not in {"completed", "partial"}
+            or semantic.repair_withheld
+            or semantic.verified.verified_status == "failed"
+            or (semantic.verified.issue_items and not allows_partial_release(semantic.verified.issue_items))
+            or not _verified_boundary_matches(semantic.verified, frame=frame, context=context)
+            or semantic.verified.contract.task_id != context.contract.task_id
+        ):
+            return None
+        trusted = semantic.verified.outcome
+        private_tokens = _private_tokens(trusted)
+        answer = _safe_public_text(semantic.public_answer, private_tokens=private_tokens)
+        if not answer:
+            return None
+        semantic = recheck_material_public_delivery(
+            replace(semantic, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer))),
+            projected=answer,
+        )
+        if (
+            semantic.verified.verified_status == "failed"
+            or (semantic.verified.issue_items and not allows_partial_release(semantic.verified.issue_items))
+        ):
+            return None
+        answer = semantic.public_answer
+        semantic = _with_semantic_contract_gaps(semantic, context, projected=answer)
+        semantic = replace(semantic, status="partial")
+        fulfilled = _fulfilled_output_ids(
+            semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
+        answer, track_notices, receipt = _track_public_delivery(answer, context)
+        notice = "后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。"
+        # Domain publication constraints still apply to the retained answer.
+        try:
+            publication = self._harness.assess_publication(context=context)
+        except Exception:
+            return None
+        notices = tuple(dict.fromkeys((
+            notice, *track_notices,
+            *(_safe_public_text(item, private_tokens=private_tokens)
+              for item in publication.required_public_notices),
+        )))
+        answer = _with_calendar_disclosure(answer, frame)
+        answer = "\n\n".join((answer, *(item for item in notices if item and item not in answer)))
+        # Recovery is another delivery exit: check AFTER all public projections,
+        # not only the trusted draft that existed before calendar/domain notices.
+        semantic = recheck_material_public_delivery(
+            semantic, projected=answer,
+        )
+        answer = semantic.public_answer
+        semantic = _with_semantic_contract_gaps(semantic, context, projected=answer)
+        answer, final_track_notices, receipt = _track_public_delivery(answer, context)
+        notices = tuple(dict.fromkeys((*notices, *final_track_notices)))
+        fulfilled = _fulfilled_output_ids(
+            semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
+        artifact.update({
+            "contract": context.contract.to_dict(),
+            "semantic_verifier": semantic.to_dict(),
+            "semantic_verifier_stale": True,
+            "publication_assessment": asdict(publication),
+            "track_contract": receipt,
+            "delivery_recovery": {
+                "source": "last_verified_public_answer", "status": "partial",
+                "verified_event_count": len(trusted.events),
+            },
+        })
+        return ContinuousTurnResult(
+            handled=True, status="partial",
+            answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer)),
+            as_of=_episode_as_of(trusted, context, allowed_output_ids=fulfilled),
+            citations=_public_citation_projection(
+                trusted, private_tokens, allowed_output_ids=fulfilled,
+                retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),
+            ),
+            warnings=(notice,), events=self._terminal_events(status="partial"),
+            private_artifact=cast(dict[str, object], _redact_private(artifact)),
+            llm_provider=_episode_llm_provider(trusted, runtime_name=self._runtime_name),
+            open_gaps=tuple(dict.fromkeys((
+                *_open_gap_labels(context.contract, fulfilled_output_ids=fulfilled), *notices,
+            ))),
         )
 
     def _verify_semantics(
@@ -1281,6 +1474,7 @@ class ContinuousTurnAdapter:
         rejected_claims: tuple[str, ...],
         rejected_claim_notes: tuple[str, ...] = (),
         semantic_gap_outputs: tuple[str, ...] = (),
+        review_feedback: tuple[str, ...] = (),
         allow_delivery_repair: bool = True,
     ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome, bool] | None:
         root_budget = context.root_budget
@@ -1313,6 +1507,9 @@ class ContinuousTurnAdapter:
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         )
+        # Diagnostics enrich the repair goal, not the domain's budget classification.
+        if review_feedback:
+            need = replace(need, rejected_claims=review_feedback)
         warrant = self._harness.warrant_repair(
             progress=progress,
             cycle=cycle,
@@ -1346,6 +1543,9 @@ class ContinuousTurnAdapter:
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
+        if candidate.persistence == "failed":
+            # 调用方在使用 structural 前处理保存失败，不再把它喂给领域核验/修复。
+            return candidate, structural, admission.delivery_only
         # 修复不得倒退：修复轮死在 provider 上时，上一轮那份答案并没有因此失效。
         #
         # 下面那行 ``outcome, structural, _ = repaired`` 是无条件替换，所以一个空
@@ -1423,9 +1623,16 @@ class ContinuousTurnAdapter:
         )
         if admission is None or not admission.backfill:
             return None
-        candidate = resume(admission.goal)
+        # The grant is fixed before diagnostics are added; no extra repair turn.
+        goal = replace(
+            admission.goal,
+            unsupported_claims=numeric_condition_repair_feedback(structural),
+        )
+        candidate = resume(goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
+        if candidate.persistence == "failed":
+            return candidate, structural
         if outcome.draft.strip() and not candidate.draft.strip():
             candidate = replace(
                 candidate,
@@ -1453,6 +1660,16 @@ def _issue_backfill_plan(
                 IssueCode.NUMERIC_UNSUPPORTED,
                 "numeric_condition",
                 "unsupported numeric condition without bound evidence",
+            ),
+        )
+    # 比较基准缺位走同一条路：去把历史读数补回来，而不是把看着可证伪的条件删掉。
+    if comparison_baseline_unsupported(structural):
+        items = (
+            *items,
+            Issue(
+                IssueCode.NUMERIC_UNSUPPORTED,
+                "comparison_baseline",
+                "condition compares against a prior-period baseline without bound evidence",
             ),
         )
     return plan_issue_backfill(
@@ -1527,9 +1744,66 @@ def _build_guided_retriever(
     return retrieve
 
 
+def _track_public_delivery(
+    answer: str, context: ResearchRunContext,
+) -> tuple[str, tuple[str, ...], dict[str, object]]:
+    """Keep checked prose, disclose unresolved expression slots, never invent facts."""
+    from intelligence.services.material_delivery import material_question_outputs
+
+    receipt = contract_receipt(
+        answer, query=context.contract.question,
+        question_type=context.contract.question_type, as_of=context.today,
+        history_intent=context.history_intent,
+    )
+    if material_question_outputs(context.contract):
+        return answer, (), receipt
+    # 期限自相矛盾是「写了但对不上」，缺件检查看不到它；只如实披露，不替用户选日期、不改写正文。
+    conflicts = tuple(receipt["ttl_conflicts"])
+    if not receipt["missing_outputs"]:
+        return answer, conflicts, receipt
+    missing = missing_contract_elements(answer)
+    labels = {"quad_or_baseline": "观点对照或基线", "ttl": "复核期限", "next_watch": "下期关注的指标、时间或触发条件"}
+    notice = "跟踪输出未完成：" + "、".join(labels[item] for item in missing) + "。"
+    return append_contract_stub(answer, missing), (notice, *conflicts), receipt
+
+
+def _with_semantic_contract_gaps(
+    semantic: SemanticEpisodeOutcome,
+    context: ResearchRunContext,
+    *,
+    projected: str | None = None,
+) -> SemanticEpisodeOutcome:
+    """Repair deleted assertions, then recheck expression completeness separately.
+
+    Missing watch conditions request the existing bounded repair loop; they do
+    not turn verified neighboring claims into factual failures.
+    """
+    from intelligence.services.material_delivery import material_question_outputs
+
+    if material_question_outputs(context.contract):
+        return semantic
+    verified = _with_track_contract_gaps(
+        semantic.verified, context,
+        answer=semantic.public_answer if projected is None else projected,
+    )
+    missing_track = tuple(
+        item for item in verified.missing_outputs if item in TRACK_CONTRACT_OUTPUT_ID_SET
+    )
+    return replace(
+        semantic, verified=verified,
+        status="partial" if missing_track and semantic.status == "completed" else semantic.status,
+        repair_output_ids=tuple(dict.fromkeys((
+            *(item for item in semantic.repair_output_ids if item not in TRACK_CONTRACT_OUTPUT_ID_SET),
+            *missing_track,
+        ))),
+    )
+
+
 def _with_track_contract_gaps(
     structural: VerifiedEpisodeOutcome,
     context: ResearchRunContext,
+    *,
+    answer: str | None = None,
 ) -> VerifiedEpisodeOutcome:
     """Merge track / ranking expression-contract gaps into missing_outputs only.
 
@@ -1541,17 +1815,25 @@ def _with_track_contract_gaps(
     # 成矩阵/TTL/下一期关注等用户没要求的必填项。
     if material_question_outputs(context.contract):
         return structural
+    # 合成表达槽从当前文本重算，不能把上一轮的缺件永久并集进来。
+    text = structural.outcome.draft if answer is None else answer
+    synthetic_track_ids = TRACK_CONTRACT_OUTPUT_ID_SET - {
+        item.output_id for item in context.contract.required_outputs
+    }
+    existing = tuple(item for item in structural.missing_outputs if item not in synthetic_track_ids)
     merged = merge_track_missing_outputs(
-        structural.missing_outputs,
-        structural.outcome.draft,
+        existing,
+        text,
         query=context.contract.question,
         question_type=context.contract.question_type,
+        history_intent=context.history_intent,
     )
     merged = merge_ranking_missing_outputs(
         merged,
-        structural.outcome.draft,
+        text,
         query=context.contract.question,
         question_type=context.contract.question_type,
+        history_intent=context.history_intent,
     )
     if merged == structural.missing_outputs:
         return structural
@@ -2245,6 +2527,7 @@ def _public_citation_projection(
     private_tokens: frozenset[str],
     *,
     allowed_output_ids: frozenset[str],
+    retained_hashes: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, object], ...]:
     bound_hashes = {
         content_hash
@@ -2252,6 +2535,10 @@ def _public_citation_projection(
         if binding.output_id in allowed_output_ids
         for content_hash in binding.evidence_hashes
     }
+    bound_hashes.update(
+        h for binding in outcome.bindings for h in binding.evidence_hashes
+        if h in retained_hashes
+    )
     citations: list[dict[str, object]] = []
     seen: set[tuple[str, str, str]] = set()
     for item in outcome.evidence:

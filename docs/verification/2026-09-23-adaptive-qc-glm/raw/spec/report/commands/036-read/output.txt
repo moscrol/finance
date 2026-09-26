@@ -1,0 +1,40 @@
+42:    is_model_service_unavailable,
+134:JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
+530:    "未见结算，均不是空结果。query_identity=unavailable 时不能猜测查询身份。"
+804:            "judge_unavailable_count": judge_count,
+806:            # 没有第二模型就没有「等它回来重判」这件事；结构守卫留下的 unavailable
+809:                self.judge_status == "unavailable" and self.judge_mode == JUDGE_MODE_LLM
+1115:    if outcome.judge_status == "unavailable":
+1179:    unavailable: bool
+1246:        if outcome.judge_status == "unavailable" and call.request is not None
+1920:                judge_status="unavailable",
+1936:                judge_status="unavailable",
+1963:                judge_status="unavailable",
+1983:                judge_status="unavailable",
+2130:                unavailable=True,
+2136:            issue = first.issue or "semantic judge unavailable"
+2164:                        judge_unavailable=True,
+2166:                    judge_status="unavailable",
+2272:                        "semantic repair unavailable",
+2402:            second_issue = second.issue or "semantic rejudge unavailable"
+2544:                            third.issue or "semantic final rejudge unavailable"
+2689:                                "unavailable"
+2720:                judge_status=("unavailable" if second.report is None else "rejected"),
+2738:        ``partial``/``unavailable`` and the public text carries the warning.
+2767:            judge_status="unavailable",
+2949:            delivery["history_unavailable"] = bool(history and history.unavailable)
+2977:        unavailable: bool,
+2992:            unavailable,
+3043:            # correlated=False（没人判就谈不上相关）、unavailable=False（不是掉线，
+3047:                unavailable=False,
+3064:                       "unavailable": call.unavailable, "issue": call.issue, "timeout_asked": call.timeout_asked,
+3068:            return replace(second, report=None, unavailable=True, monotonic_release_safe=False,
+3069:                           material_review_calls=calls, issue="material nonfactual review unavailable")
+3106:                unavailable=True,
+3130:                    unavailable=True,
+3162:                        unavailable=True,
+3181:                        unavailable=True,
+3227:                        unavailable=True,
+3245:                        unavailable=False,
+3269:                    unavailable=True,
+3282:                unavailable=True,

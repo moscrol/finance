@@ -154,6 +154,76 @@ class StructuredObservation:
     value: float
 
 
+# 引擎声明的全部历史算子。这里不 import historical_research.query：证据类型是底层
+# 模块，不应为了一个字符串列表把 duckdb 拉进来；漂移由测试看着
+# （tests/test_history_operation_eligibility.py）。漏掉一个算子的后果不是误报，
+# 而是该算子的每一张证据卡都被判为身份无效，模型做对了也交不出去。
+HISTORY_OPERATIONS = (
+    "inspect_history",
+    "compute_history",
+    "find_analogues",
+    "compare_cases",
+    "trace_history",
+    "rank_history",
+)
+
+
+@dataclass(frozen=True)
+class HistoricalEvidenceProvenance:
+    """Immutable identity of one historical result projection.
+
+    This is deliberately separate from ``evidence_content_hash``: the latter
+    identifies the model-facing evidence card, while this record identifies the
+    source query, artifact and immutable source row.  ``research_only`` is a
+    qualification, not a promotion signal.
+    """
+
+    query_id: str
+    operation: str
+    purpose: str
+    result_ref: str
+    row_index: int | None = None
+    row_identity: str = ""
+    row_hash: str = ""
+    research_only: bool = True
+    decision_eligible: bool = False
+    promotion_eligible: bool = False
+
+    def validate(self) -> None:
+        """Validate shape/qualification, not authenticity of the upstream artifact."""
+        text = (self.query_id, self.operation, self.purpose, self.result_ref,
+                self.row_identity, self.row_hash)
+        if any(not isinstance(value, str) for value in text):
+            raise ValueError("invalid historical provenance text")
+        if (not self.query_id.strip()
+                or self.operation not in HISTORY_OPERATIONS
+                or self.purpose not in {"retrospective_discovery", "historical_comparison"}
+                or re.fullmatch(r"[A-Za-z0-9_-]+/history-query-[0-9a-f]{64}\.json", self.result_ref) is None):
+            raise ValueError("invalid historical source identity")
+        if (self.research_only is not True or self.decision_eligible is not False
+                or self.promotion_eligible is not False):
+            raise ValueError("invalid historical research qualification")
+        if self.row_index is not None:
+            if (type(self.row_index) is not int or self.row_index < 0
+                    or self.row_identity != f"{self.query_id}:row:{self.row_index}"):
+                raise ValueError("invalid historical row coordinate")
+        elif self.row_identity not in {"", f"{self.query_id}:row:reference"}:
+            raise ValueError("invalid historical reference coordinate")
+        if (self.row_identity and re.fullmatch(r"[0-9a-f]{16}", self.row_hash) is None
+                or not self.row_identity and self.row_hash):
+            raise ValueError("invalid historical row digest")
+
+    @classmethod
+    def from_dict(cls, value: object) -> HistoricalEvidenceProvenance:
+        from dataclasses import fields
+
+        if not isinstance(value, dict) or set(value) != {f.name for f in fields(cls)}:
+            raise ValueError("incomplete or unknown historical provenance schema")
+        result = cls(**value)
+        result.validate()
+        return result
+
+
 @dataclass(frozen=True)
 class AgentEvidence:
     """一条 agent 补检索证据：来源可回查（kb 路径 / web url / 资讯链接）。"""
@@ -174,9 +244,12 @@ class AgentEvidence:
     content_hash: str = ""
     # 结构化观察值：``detail`` 是给模型看的文本，这里是同一批数的机器可读形态。
     # 下游（槽填数、删句连坐检测）读它，**不回头解析 detail 自由文本**。
-    # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
-    # 因此补上本字段不会改变任何既有证据身份。
+    # 不进 ``evidence_content_hash``：普通卡按 tool/title/detail/source，
+    # 历史卡另绑来源元数据；补上 observations 本身不改变证据身份。
     observations: tuple[StructuredObservation, ...] = ()
+    # Historical results remain auditable research evidence, never decision
+    # evidence merely because a query id or artifact reference is present.
+    history_provenance: HistoricalEvidenceProvenance | None = None
     # 派生证据的输入哈希链（spec capability-amplification §3.4 ``input_evidence_hashes``）：
     # ``derived_calculation`` 产物必带、其余工具为空。``validate_episode_finish`` 读它——
     # 绑定到一条没有输入链的派生证据的结论会被驳回（derived_without_inputs）。
@@ -212,6 +285,22 @@ class AgentEvidence:
             independent_key=self.independent_key,
             freshness=self.freshness,
             content_hash=self.content_hash,
+            provenance=(
+                {
+                    "query_id": self.history_provenance.query_id,
+                    "operation": self.history_provenance.operation,
+                    "purpose": self.history_provenance.purpose,
+                    "result_ref": self.history_provenance.result_ref,
+                    "row_index": self.history_provenance.row_index,
+                    "row_identity": self.history_provenance.row_identity,
+                    "row_hash": self.history_provenance.row_hash,
+                    "research_only": self.history_provenance.research_only,
+                    "decision_eligible": self.history_provenance.decision_eligible,
+                    "promotion_eligible": self.history_provenance.promotion_eligible,
+                }
+                if self.history_provenance is not None
+                else {}
+            ),
         )
 
 
@@ -1990,6 +2079,17 @@ def evidence_content_hash(item: AgentEvidence) -> str:
     payload = "|".join(
         (item.tool, item.title.strip(), item.detail.strip(), item.source.strip())
     )
+    if item.tool in {"history_query", "read_history_result"} and item.history_provenance is not None:
+        from dataclasses import asdict
+
+        # Query and authorized reader are two views of the same immutable card.
+        # Bind control metadata too: changing operation/ref/row is not a new view
+        # of the old evidence. Ordinary evidence retains its existing identity.
+        payload = json.dumps(
+            ["history_result", item.title.strip(), item.detail.strip(), item.source.strip(),
+             asdict(item.history_provenance)],
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 

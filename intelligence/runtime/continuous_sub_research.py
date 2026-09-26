@@ -9,6 +9,7 @@ from intelligence.runtime.agent_episode import (
     ContinuousAgentEpisode,
 )
 from intelligence.services.agent_runtime import AgentModelClient
+from intelligence.runtime.model_output_scope import private_model_output
 from intelligence.services.mode_governor import ModeSignals
 from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.research_harness import FinanceResearchHarness
@@ -50,6 +51,10 @@ class ContinuousSubResearchWorker:
         self._llm_timeout = max(0.1, float(llm_timeout))
 
     def run(self, request: BranchRequest) -> BranchResult:
+        with private_model_output():
+            return self._run(request)
+
+    def _run(self, request: BranchRequest) -> BranchResult:
         frame = self._branch_frame(request)
         root_budget = request.context.root_budget
         if root_budget is None:
@@ -65,6 +70,8 @@ class ContinuousSubResearchWorker:
             task_frame_hash=frame.task_frame_hash,
         )
         context = replace(request.context, contract=contract)
+        if contract.task_id != request.episode_ref.episode_id:
+            raise ValueError("child budget and episode reference disagree")
         outcome = ContinuousAgentEpisode(
             self._model,
             llm_timeout=self._llm_timeout,
@@ -74,6 +81,8 @@ class ContinuousSubResearchWorker:
                 mode_signals=lambda _frame, _plan: ModeSignals(user_mode="quick"),
             ),
             sub_research_coordinator=None,
+            store=request.episode_store,
+            runtime_config={"branch_parent": request.episode_ref.to_dict()},
         ).run(
             task_frame=frame,
             context=context,
@@ -84,10 +93,8 @@ class ContinuousSubResearchWorker:
             if outcome.status in {"completed", "partial"}
             else "failed"
         )
-        # 分支 Episode 没接 event_sink，它的 durable 事件只活在 outcome 里；此前
-        # 到这里就被丢掉，父臂只剩 branch_completed 的合计数。逐批派发账在这里
-        # 从事件重算后随 BranchResult 带出去——事件本体仍不进父账本（父臂的
-        # tool_result 审计底稿装不下三支分支的整条事件流）。
+        # 子事件保存在同一 store 的独立 Episode 下；父账只存引用与计量，
+        # 不复制完整原文，不赋予子草稿公开发布权。无 store 时仍明确 ephemeral。
         return BranchResult(
             branch_id=request.branch_id,
             goal=request.goal,
@@ -103,6 +110,8 @@ class ContinuousSubResearchWorker:
             stop_reason=outcome.stop_reason,
             batches=branch_batches_from_events(outcome.events),
             invalid_actions=branch_invalid_actions_from_events(outcome.events),
+            episode_ref=request.episode_ref,
+            persistence=outcome.persistence,
         )
 
     @staticmethod

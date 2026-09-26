@@ -1,0 +1,62 @@
+def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
+    """Total window shared by all judge attempts.
+
+    Bookgap S3: the source of truth is ``derive_stage_caps`` (a fraction of
+    synthesis reserve).  ``ASK_SEMANTIC_JUDGE_WINDOW`` can only lower it.
+    One complete attempt is ``min(per_attempt_cap, window)`` — the 0.5
+    pre-split was retired after the 08-20 grok tail (46.7s) could not fit
+    in half of the 50s floor.
+    """
+
+    caps = derive_stage_caps(policy or policy_for_env())
+    return apply_env_ceiling(caps.judge_window_seconds, "ASK_SEMANTIC_JUDGE_WINDOW")
+
+
+def judge_attempt_seconds(
+    configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
+) -> float:
+    """Per-attempt cap: the configured value, floored by the tier's own cap.
+
+    档位地板只有 max 档有（``derive_stage_caps``）；其余档位返回配置值，
+    与改动前逐字节一致。``policy`` 缺省走 ``policy_for_env()``——注意那读的是
+    ``ASK_RESEARCH_TIER``，生产设的是 ``WORKBENCH_RESEARCH_TIER``，所以 episode
+    路径必须把合同上的真实档位传进来，不能靠缺省。
+    """
+
+    configured = max(0.1, float(configured_attempt_timeout))
+    floor = derive_stage_caps(policy or policy_for_env()).judge_attempt_seconds
+    if floor is None:
+        return configured
+    return max(configured, float(floor))
+
+
+def policy_for_contract(contract: object | None) -> ResearchPolicy | None:
+    """The episode's real tier from its contract; None when there is no contract."""
+
+    tier = getattr(contract, "research_tier", None)
+    if not isinstance(tier, str) or not tier.strip():
+        return None
+    return ResearchPolicy.for_tier(tier.strip().lower())
+MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
+JudgeFn = Callable[..., object]
+
+
+@runtime_checkable
+class _FinalizerJudgeProvider(Protocol):
+    """Minimal seam the verifier needs from a finalizer.
+
+    The verifier never calls ``recover()`` — it only reads ``_model`` as a
+    fallback judge client.  Defining this Protocol here (in the domain layer)
+    lets ``runtime/episode_finalizer`` satisfy it structurally, instead of the
+    domain layer importing a runtime module.  This is the dependency inversion
+    that breaks the only seam in the layer gate.
+    """
+
+    _model: AgentModelClient
+
+_CONTROL_FIELD_RE = re.compile(
+    r"(?:\b(?:content[_ ]?hash|evidence[_ ]?hash|internal[_ ]?locator|"
+    r"system[_ ]?prompt|tool[_ ]?calls?)\b\s*[:=]?|"
+
+[truncated; total lines=7075, selected=159:218; request a later offset]

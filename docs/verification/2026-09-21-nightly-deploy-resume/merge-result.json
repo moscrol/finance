@@ -1,0 +1,25 @@
+{
+  "at": "2026-09-21T10:42:09.905586+00:00",
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "expected_base": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "qc_sha256": "dd4f1567a0f4f5826bca600c2bca86a1c647db2308b6b87ed11e3e6f755919f2",
+  "status": "MERGED_EXACT_TESTED_SHA",
+  "force": false,
+  "delete_branch": false,
+  "premerge_comment": 5371,
+  "payload": {
+    "do": "fast-forward-only",
+    "head_commit_id": "c097d712f9acfdd258709c7d0de054f978e0159c",
+    "force_merge": false,
+    "delete_branch_after_merge": false,
+    "merge_when_checks_succeed": false
+  },
+  "merge_http_status": 200,
+  "response": null,
+  "pr_after": {
+    "merged": true,
+    "head": "c097d712f9acfdd258709c7d0de054f978e0159c",
+    "merge_commit_sha": "c097d712f9acfdd258709c7d0de054f978e0159c"
+  },
+  "main_after": "c097d712f9acfdd258709c7d0de054f978e0159c"
+}

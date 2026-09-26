@@ -1,0 +1,159 @@
+"""K3 独立探针 C1：保存ACK失败后禁止新模型/工具/repair派发；父子树failure fence；草稿/usage留私有。
+
+夹具复用仓内 conformance 构造件；探针场景、故障注入点与全部断言由本审查独立编写。
+"""
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+from intelligence.runtime.agent_episode import _EpisodeLedger
+from intelligence.services.agent_runtime import EpisodeEvent, ModelTurn
+from intelligence.services.episode_store import (
+    EpisodeStoreFailed,
+    FencedEpisodeStore,
+    MemoryEpisodeStore,
+)
+from intelligence.tests.conformance.fixtures import make_frame
+from intelligence.tests.conformance.oracle import WriteOrderOracle
+from intelligence.tests.conformance.races._drive import build_rig
+
+
+class K3FailAt(WriteOrderOracle):
+    """在指定事件/状态边界第一次写时注入 ACK 失败，并计数失败后的写尝试。"""
+
+    def __init__(self, boundary: str):
+        super().__init__()
+        self.boundary = boundary
+        self.failed = False
+        self.writes_after_failure = 0
+
+    def _check(self, boundary: str) -> None:
+        if self.failed:
+            self.writes_after_failure += 1
+        elif boundary == self.boundary:
+            self.failed = True
+            raise OSError("k3 injected ack loss")
+
+    def append(self, episode_id, events, *, sync=False):
+        for event in events:
+            self._check(event.kind)
+        super().append(episode_id, events, sync=sync)
+
+    def put_state(self, episode_id, state):
+        self._check(f"state:{state.phase}")
+        super().put_state(episode_id, state)
+
+
+def test_k3_c1_model_settlement_ack_loss_fences_all_new_dispatch():
+    """model_turn 结算落盘失败：之后的工具派发、第二次模型调用都必须被闸住。"""
+    store = K3FailAt("model_turn")
+    rig = build_rig("k3-c1-fence-model-turn", store=store)
+    rig.start()
+    outcome = rig.finish()
+    assert store.failed, "故障注入必须真的到达"
+    assert outcome.status == "failed" and outcome.stop_reason == "storage_failed", (
+        f"[C1-OUTCOME] 保存失败后终局必须是 failed/storage_failed，实际 {outcome.status}/{outcome.stop_reason}"
+    )
+    assert outcome.persistence == "failed", "[C1-PERSISTENCE] persistence 必须如实报 failed"
+    assert rig.model.calls == 1, (
+        f"[C1-NO-NEW-MODEL] 保存失败后不得再向模型派发（含修复轮），实际调用 {rig.model.calls} 次"
+    )
+    assert rig.probe.executed == [], (
+        f"[C1-NO-NEW-TOOL] 保存失败后不得再派发工具，实际执行 {rig.probe.executed}"
+    )
+    assert store.writes_after_failure == 0, (
+        f"[C1-NO-WRITE-AFTER-FAIL] 失败后不得再写存储，实际 {store.writes_after_failure} 次"
+    )
+    assert outcome.usage.llm_calls == 1, "[C1-USAGE-RETAINED] 已发生 usage 必须如实留在私有结果里"
+    assert not any(
+        e.kind == "finish" and e.payload.get("status") == "completed" for e in outcome.events
+    ), "[C1-NO-FALSE-COMPLETION] 不得出现 completed 的 finish"
+
+
+class _CountingModel:
+    def __init__(self):
+        self.calls = 0
+
+    def complete(self, **kwargs):
+        self.calls += 1
+        return ModelTurn("ok", (), provider_name="k3")
+
+
+def test_k3_c1_repair_and_tool_entries_share_the_fence():
+    """修复/续轮与首轮共用 ledger.model_complete 闸门；工具意图入口 record_dispatch_intent 同闸。"""
+    store = K3FailAt("model_intent")
+    ledger = _EpisodeLedger(make_frame(), store=store, episode_id="k3-c1-ledger")
+    ledger.add("model_intent", {"turn_id": "turn-1", "phase": "repair", "retries_remaining": 1})
+    assert ledger.store_failures, "故障注入必须到达账本"
+    model = _CountingModel()
+    turn = ledger.model_complete(model, messages=[], tools=[], timeout=1.0)
+    assert turn.error == "storage_failed" and turn.provider_attempts == 0, (
+        f"[C1-REPAIR-FENCE] 修复共用的模型入口在失败后必须直接拒发，实际 error={turn.error!r}"
+    )
+    assert model.calls == 0, "[C1-REPAIR-FENCE] 被拒的修复/续轮不得触达真实模型 client"
+    from intelligence.runtime.episode_tool_batch import DispatchIntent  # 真实工具意图入口
+    # 工具派发意图入口同样被闸（不落 tool_request、不报成功）
+    from intelligence.services.agent_runtime import ModelToolCall
+    intent = DispatchIntent(
+        calls=(ModelToolCall("call-1", "market_data", {"query": "q"}),),
+        clock=SimpleClock(), replay={"call-1": "safe"}, request_extras={},
+    )
+    accepted = ledger.record_dispatch_intent(intent)
+    assert accepted is False, "[C1-TOOL-FENCE] 保存失败后工具派发意图必须被拒"
+    assert not any(e.kind == "tool_request" for e in ledger.events), (
+        "[C1-TOOL-FENCE] 被拒的派发不得落下 tool_request 意图"
+    )
+
+
+class SimpleClock:
+    def to_payload(self):
+        return {}
+
+
+def test_k3_c1_done_checkpoint_failure_keeps_draft_private_and_disk_prefix():
+    """finish 已 append 但 done 检查点失败：草稿留在私有结果，不得改写成完成，磁盘保持前缀。"""
+    store = K3FailAt("state:done")
+    rig = build_rig("k3-c1-fence-done", store=store)
+    rig.start()
+    outcome = rig.finish()
+    assert store.failed, "故障注入必须到达 done 检查点"
+    assert outcome.status == "failed" and outcome.stop_reason == "storage_failed", (
+        "[C1-OUTCOME] done 检查点失败后不得宣告完成"
+    )
+    assert outcome.draft, "[C1-DRAFT-RETAINED] 已准入草稿必须保留在内存结果里，不得被丢弃"
+    stored, _state = store.load(rig.task_id)
+    assert [e.to_dict() for e in stored] == [e.to_dict() for e in outcome.events[: len(stored)]], (
+        "[C1-DISK-PREFIX] 磁盘事件必须是内存事件的前缀，不得倒写/改写"
+    )
+    assert store.writes_after_failure == 0, "[C1-NO-WRITE-AFTER-FAIL] 失败后不得再写"
+
+
+def test_k3_c1_tree_fence_shared_between_parent_and_child():
+    """父子树共享 FencedEpisodeStore：子episode写失败后，同树其他episode的写必须同样被拒。"""
+    event = EpisodeEvent(1, "task", {"task_frame_hash": "k3", "at": "now"})
+
+    class Boom:
+        def append(self, *a, **k):
+            raise OSError("child disk full")
+
+        def put_state(self, *a, **k):
+            raise OSError("child disk full")
+
+    fence = FencedEpisodeStore(Boom())
+    with pytest.raises(OSError):
+        fence.append("child-ep", (event,), sync=True)
+    assert fence.failure and "child-ep" in fence.failure, (
+        "[C1-TREE-FENCE] 失败登记必须闩住并指向肇事episode"
+    )
+    with pytest.raises(EpisodeStoreFailed):
+        fence.append("parent-ep", (event,), sync=True)
+    with pytest.raises(EpisodeStoreFailed):
+        fence.put_state("parent-ep", SimpleNamespace(phase="planning"))
+    # 显式 fail（必需检查点编码失败路径）同样闩住整树
+    fence2 = FencedEpisodeStore(MemoryEpisodeStore())
+    fence2.fail("child-ep", "state:planning:budget", ValueError("bad snapshot"))
+    with pytest.raises(EpisodeStoreFailed):
+        fence2.append("parent-ep", (event,), sync=True)
+    assert "child-ep" in fence2.failure

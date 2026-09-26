@@ -1,0 +1,1 @@
+GATEWAY-FIXTURE-868 quantum-ledger v3 :: checkpoint ok

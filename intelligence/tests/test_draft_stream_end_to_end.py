@@ -46,12 +46,14 @@ PROVIDER = llm_refine.LLMProvider(
 class _ChunkedResponse:
     """把整个信封切成 size 字节一片，模拟 provider 的 SSE 流。"""
 
-    def __init__(self, payload: str, size: int) -> None:
+    def __init__(self, payload: str, size: int, complete: bool = True) -> None:
         pieces = [payload[i : i + size] for i in range(0, len(payload), size)]
         self._lines = [
             f"data: {json.dumps({'choices': [{'delta': {'content': p}}]}, ensure_ascii=False)}\n".encode()
             for p in pieces
         ]
+        if complete:
+            self._lines.append(b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n')
         self._lines.append(b"data: [DONE]\n")
 
     def __enter__(self) -> "_ChunkedResponse":
@@ -65,7 +67,8 @@ class _ChunkedResponse:
 
 
 @pytest.mark.parametrize("size", [1, 3, 11, 64, 4096])
-def test_client_reassembles_exactly_the_draft(tmp_path: Path, size: int) -> None:
+@pytest.mark.parametrize("complete", [False, True])
+def test_client_reassembles_exactly_the_draft(tmp_path: Path, size: int, complete: bool) -> None:
     run_store = RunStore("e2e-stream", root=tmp_path / "runs")
     run = run_store.create_run("明天你怎么看", "ask", session_id="conv_1")
     publisher = RunDraftDeltaPublisher(
@@ -87,15 +90,16 @@ def test_client_reassembles_exactly_the_draft(tmp_path: Path, size: int) -> None
             llm_refine, "_insufficient_budget_reason", return_value=None
         ),
         mock.patch(
-            "urllib.request.urlopen",
-            return_value=_ChunkedResponse(ENVELOPE, size),
+            "intelligence.services.llm_http_transport.urlopen",
+            return_value=_ChunkedResponse(ENVELOPE, size, complete),
         ),
     ):
         turn = client.complete(messages=[{"role": "user", "content": "q"}], tools=[], timeout=30.0)
 
     # 1) agent loop 拿到的仍是完整信封，与非流式同形。
     assert json.loads(turn.content)["draft"] == DRAFT
-    assert turn.error == ""
+    assert turn.error == ("" if complete else "incomplete_model_response:missing_finish_reason")
+    assert turn.provider_attempts == 1
 
     # 2) 客户端按到达顺序拼接 text.delta，得到的正是那段正文。
     events = [

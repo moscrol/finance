@@ -1,0 +1,42 @@
+{
+  "accepted": true,
+  "revision": "5344d8b0f87a9dcf14b08d87a19f63c7c3a25a1a",
+  "archives": [
+    {
+      "archive": "docs/verification/2026-09-23-runtime-contract-followup",
+      "files": 241,
+      "bytes": 540434,
+      "direct_git_blobs": 241,
+      "supplemented_git_blobs": 0
+    },
+    {
+      "archive": "docs/verification/2026-09-23-pr884-gates",
+      "files": 23,
+      "bytes": 49467,
+      "direct_git_blobs": 23,
+      "supplemented_git_blobs": 0
+    },
+    {
+      "archive": "docs/verification/2026-09-23-pr884-closeout-04",
+      "files": 421,
+      "bytes": 1521328,
+      "direct_git_blobs": 292,
+      "supplemented_git_blobs": 129
+    }
+  ],
+  "supplement_check": {
+    "revision": "5344d8b0f87a9dcf14b08d87a19f63c7c3a25a1a",
+    "archive": "docs/verification/2026-09-24-pr884-round04-log-supplement",
+    "manifest_files": 133,
+    "committed_files": 133,
+    "ok": true,
+    "errors": []
+  },
+  "negative_controls": {
+    "tampered_payload_rejected": true,
+    "missing_payload_rejected": true,
+    "restored_passed": true
+  },
+  "kind": "Git archive closure only, not full gates or independent runtime approval",
+  "source": "git archive of fixed commit, no fallback to ignored worktree files"
+}

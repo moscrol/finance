@@ -1,0 +1,22 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_verification_rechecks_archive_even_if_trees_match ____________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3675/test_verification_rechecks_arc0')
+
+    def test_verification_rechecks_archive_even_if_trees_match(repo):
+        (repo / "archive/report.md").write_text("hash is now invalid\n")
+        planned = preview.prepare(repo, "archive", [])
+        assert planned["ok"] is False
+        actual = commit_archive(repo)
+        result = preview.verify(repo, "archive", planned["preview_revision"], actual)
+        assert result["preview_tree"] == result["tree"]
+        assert result["ok"] is False
+>       assert any(e.startswith("real commit: hash mismatch") for e in result["errors"])
+E       assert False
+E        +  where False = any(<generator object test_verification_rechecks_archive_even_if_trees_match.<locals>.<genexpr> at 0x10a664ad0>)
+
+tests/test_preview_evidence_archive.py:208: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_preview_evidence_archive.py::test_verification_rechecks_archive_even_if_trees_match
+1 failed in 1.91s

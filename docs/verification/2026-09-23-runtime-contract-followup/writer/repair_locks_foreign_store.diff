@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..1f04bbb60 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -2492,7 +2492,7 @@ class ContinuousAgentEpisode:
+         if state.ledger.store_failures:
+             return previous
+         episode_id = state.ledger.episode_id
+-        if (state.ledger._store is not self._store
++        if (False
+                 or state.context.contract.task_id.strip() != episode_id
+                 or goal.episode_id != episode_id
+                 or previous.task_frame_hash != state.task_frame.task_frame_hash):

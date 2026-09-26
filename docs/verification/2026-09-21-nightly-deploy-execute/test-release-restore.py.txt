@@ -1,0 +1,48 @@
+"""Validate the one-window rollback helper without any production command."""
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+
+ROOT = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location('controlled_release', ROOT / 'controlled-release.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory(prefix='release-rollback-', dir=ROOT) as td:
+    root = Path(td)
+    calls = []
+    module.HOME = root
+    module.command = lambda args, check=True: calls.append((args, check))
+    module.check_loaded = lambda job, config, zero_runs=False: (calls.append((job, zero_runs)), config)
+    backups = {}
+    # Two shell scripts and two valid plists, including modes and arbitrary bytes.
+    for index, name in enumerate(['a.sh', 'b.sh'] + [f'Library/LaunchAgents/{j}.plist' for j in module.JOBS]):
+        p = root / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data = module.plistlib.dumps({'test': 'original'}) if name.endswith('plist') else b'original\x00bytes\n'
+        p.write_bytes(data)
+        mode = 0o755 if name.endswith('sh') else 0o644
+        p.chmod(mode)
+        b = root / f'backup-{index}'
+        b.write_bytes(data)
+        backups[str(p)] = {'backup': str(b), 'sha256': module.digest(b), 'mode': mode}
+        p.write_bytes(b'partially installed wrong value')
+        p.chmod(0o600)
+    module.restore(backups)
+    assert len(calls) == 6, calls  # two bootout, two bootstrap, two verification
+    assert all(c[0][0] in ('launchctl', *module.JOBS) if isinstance(c[0], list) else c[0] in module.JOBS for c in calls)
+    assert not list(root.rglob('*.rollback-*'))
+    for p, b in backups.items():
+        assert module.digest(Path(p)) == b['sha256']
+        assert Path(p).stat().st_mode & 0o777 == b['mode']
+    # Corrupted backup must fail prior to restoring its bytes.
+    first = next(iter(backups))
+    Path(backups[first]['backup']).write_bytes(b'corrupt')
+    before = Path(first).read_bytes()
+    try:
+        module.restore(backups)
+    except AssertionError:
+        assert Path(first).read_bytes() == before
+    else:
+        raise AssertionError('corrupt backup not rejected')
+print(json.dumps({'scope': 'operator rollback helper only; fake commands and disposable files', 'restored_files': 4, 'modes_restored': True, 'corrupt_backup_rejected': True, 'production_commands': 0}))

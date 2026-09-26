@@ -1,0 +1,248 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-16",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "智能穿戴",
+    "汽车芯片"
+  ],
+  "stock_run": [
+    "寒武纪",
+    "欣旺达",
+    "探路者",
+    "安凯微",
+    "富满微",
+    "立昂微"
+  ],
+  "themes": [
+    {
+      "theme": "半导体",
+      "bucket": "today_do_ima",
+      "priority": 210.27,
+      "stocks": [
+        "寒武纪",
+        "长光华芯",
+        "有研新材",
+        "太极实业",
+        "中微公司"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1632,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "智能穿戴",
+      "bucket": "today_do_ima",
+      "priority": 178.12,
+      "stocks": [
+        "欣旺达",
+        "东山精密",
+        "天通股份",
+        "探路者",
+        "安凯微"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 714,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "汽车芯片",
+      "bucket": "today_do_ima",
+      "priority": 177.6,
+      "stocks": [
+        "寒武纪",
+        "长光华芯",
+        "富满微",
+        "晶丰明源",
+        "立昂微"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 624,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "集成电路",
+      "bucket": "today_do_ima",
+      "priority": 175.14,
+      "stocks": [
+        "寒武纪",
+        "富满微",
+        "澜起科技",
+        "晶丰明源",
+        "安凯微"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 1176,
+      "action": "skip_have_l1",
+      "reason": "已有 L1（核心机制/产业链），不重复 IMA"
+    },
+    {
+      "theme": "EDA（电子设计自动化）",
+      "bucket": "today_find_official_evidence",
+      "priority": 235.14,
+      "stocks": [
+        "致尚科技",
+        "威尔高",
+        "寒武纪",
+        "东田微",
+        "长光华芯"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 5575,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "CPO",
+      "bucket": "today_find_official_evidence",
+      "priority": 200.69,
+      "stocks": [
+        "致尚科技",
+        "长芯博创",
+        "光迅科技",
+        "新易盛",
+        "永鼎股份"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 16779,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "先进封装",
+      "bucket": "today_find_official_evidence",
+      "priority": 183.11,
+      "stocks": [
+        "寒武纪",
+        "有研新材",
+        "太极实业",
+        "中微公司",
+        "富满微"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 17481,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "电力设备",
+      "bucket": "today_find_official_evidence",
+      "priority": 178.15,
+      "stocks": [
+        "欣旺达",
+        "英杰电气",
+        "露笑科技",
+        "帝尔激光",
+        "微导纳米"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 2265,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "寒武纪",
+      "theme": "半导体",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "长光华芯",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "有研新材",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "太极实业",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "中微公司",
+      "theme": "半导体",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "欣旺达",
+      "theme": "智能穿戴",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "东山精密",
+      "theme": "智能穿戴",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "天通股份",
+      "theme": "智能穿戴",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "探路者",
+      "theme": "智能穿戴",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "安凯微",
+      "theme": "智能穿戴",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "富满微",
+      "theme": "汽车芯片",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "晶丰明源",
+      "theme": "汽车芯片",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "立昂微",
+      "theme": "汽车芯片",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "澜起科技",
+      "theme": "集成电路",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 2,
+    "stock_run": 6,
+    "themes": 8,
+    "stocks": 14
+  }
+}

@@ -1,0 +1,5 @@
+786:            "v11_deadline_expires_at": self.guided_retrieval.deadline_expires_at,
+1371:    deadline_expires_at: float | None = None
+1789:            deadline_expires_at=(
+1790:                float(getattr(deadline, "expires_at", 0.0) or 0.0) or None
+3055:            shared_deadline = replace(shared_deadline, expires_at=min(shared_deadline.expires_at, deadline.expires_at))

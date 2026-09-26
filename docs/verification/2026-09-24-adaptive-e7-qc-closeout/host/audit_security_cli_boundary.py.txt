@@ -1,0 +1,22 @@
+"""Interpret preserved observations without rerunning or rewriting failed controls."""
+import hashlib
+import json
+from pathlib import Path
+
+ROOT=Path(__file__).resolve().parent
+source=ROOT/'security-cli-boundary-v2.json'
+raw=source.read_bytes()
+data=json.loads(raw)
+rows=[]
+for axis in ('spec','quality'):
+ original=next(x for x in data['checks'] if x['axis']==axis and x['case']=='original-policy')
+ denied=next(x for x in data['checks'] if x['axis']==axis and x['case']=='deny-cli-control')
+ assert original['exit_code']==0 and 'help' in original['stdout']
+ assert denied['exit_code']==71
+ assert denied['stderr']=="sandbox-exec: execvp() of '/usr/bin/security' failed: Operation not permitted\n"
+ assert not denied['stdout']
+ rows.append({'axis':axis,'original_help_command_allowed':True,'new_rule_explicitly_denies_executable':True,'original_controller_exit_remains':1})
+result={'raw_sha256':hashlib.sha256(raw).hexdigest(),'new_execution':False,'first_and_second_controller_failures_preserved':True,'matcher_error':'execv() does not match the observed execvp(); no permission standard relaxed','credential_read_attempted':False,'scope':'literal /usr/bin/security help, not all keychain APIs','checks':rows}
+with (ROOT/'security-cli-boundary-audit.json').open('x') as output:
+ json.dump(result,output,indent=2)
+print(json.dumps(result))

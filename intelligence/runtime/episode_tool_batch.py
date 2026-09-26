@@ -19,6 +19,7 @@ from threading import Lock
 from time import monotonic
 from typing import Literal, cast
 
+from intelligence.runtime.tool_result_scope import ToolResultScope, tool_result_scope
 from intelligence.services import query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.services.episode_scope import TOOL_ERROR, EpisodeScope
@@ -309,8 +310,9 @@ class _Candidate:
 def _run_with_publish_guard(
     guard: query_ledger.QueryPublishGuard,
     operation: Callable[[], ToolObservation],
+    results: ToolResultScope,
 ) -> ToolObservation:
-    with query_ledger.query_publish_guard_scope(guard):
+    with query_ledger.query_publish_guard_scope(guard), tool_result_scope(results):
         return operation()
 
 
@@ -351,7 +353,8 @@ class EpisodeToolBatchSession:
         # 缺省 None：不接线的调用方（参考 loop、旧测试）逐字节不变。
         # 它**在派发之前**被调，抛了就不派发：意图落不下去时执行外部效果是 INV-R2
         # 唯一不允许的形状，所以这里不吞。
-        self.on_dispatch: Callable[[DispatchIntent], None] | None = None
+        self.on_dispatch: Callable[[DispatchIntent], bool | None] | None = None
+        self.execution_failed: Callable[[], bool] = lambda: False
 
     def bind_scope(
         self, *, registry: ResearchToolRegistry, context: ResearchRunContext
@@ -448,7 +451,11 @@ class EpisodeToolBatchSession:
         request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> ToolBatchResult:
         ordered_calls = tuple(calls)
-        cancelled = is_cancelled or (lambda: False)
+        user_cancelled = is_cancelled or (lambda: False)
+
+        def cancelled() -> bool:
+            return user_cancelled() or self.execution_failed()
+
         asked = tool_batch_timeout_seconds(context.policy)
         clock = ToolDispatchClock(
             batch_grant_asked=asked,
@@ -642,7 +649,7 @@ class EpisodeToolBatchSession:
             # 意图先于效果（INV-R2）：这一批真要进线程池的调用，在派发前整批落账。
             # 放在这里而不是 Episode 里，是因为只有这里知道「哪些真会跑」与授予的 clock。
             extras = request_extras or {}
-            self.on_dispatch(
+            dispatch_allowed = self.on_dispatch(
                 DispatchIntent(
                     calls=tuple(candidate.call for candidate in selected_in_model_order),
                     clock=clock,
@@ -657,8 +664,18 @@ class EpisodeToolBatchSession:
                     },
                 )
             )
+            if dispatch_allowed is False:
+                # Required intent/checkpoint failed: no task may enter the pool.
+                self._seen_queries.difference_update(candidate.key for candidate in selected)
+                for candidate in selected:
+                    items[candidate.index] = ToolCallResult(
+                        candidate.call, "rejected", error="storage_failed",
+                        step_id=step_ids[candidate.index],
+                    )
+                return self._result(items, executed_count=0, normalized_queries=(), clock=clock)
+        dispatched_count = 0
         if selected:
-            self._dispatch(
+            dispatched_count = self._dispatch(
                 selected,
                 items=items,
                 registry=registry,
@@ -685,7 +702,7 @@ class EpisodeToolBatchSession:
 
         return self._result(
             items,
-            executed_count=len(selected),
+            executed_count=dispatched_count,
             normalized_queries=normalized_queries,
             clock=clock,
         )
@@ -739,8 +756,9 @@ class EpisodeToolBatchSession:
         step_ids: dict[int, str],
         timeout: float,
         is_cancelled: Callable[[], bool],
-    ) -> None:
+    ) -> int:
         publish_cutoff = monotonic() + timeout
+        results = ToolResultScope(publish_cutoff, monotonic)
         publish_guard = query_ledger.QueryPublishGuard(
             publish_cutoff=publish_cutoff,
             monotonic=monotonic,
@@ -750,6 +768,13 @@ class EpisodeToolBatchSession:
         timings: dict[int, _ToolTiming] = {}
         try:
             for candidate in selected:
+                if is_cancelled():
+                    items[candidate.index] = ToolCallResult(
+                        candidate.call, "rejected",
+                        error="storage_failed" if self.execution_failed() else "cancelled",
+                        step_id=step_ids[candidate.index],
+                    )
+                    continue
                 operation = partial(
                     registry.execute,
                     candidate.call.name,
@@ -762,12 +787,14 @@ class EpisodeToolBatchSession:
                     # trace_parent+序号生成的，跨臂/跨引擎对不上；call_id 才是
                     # §7.1 要求「逐次对账」时两边都认的那个锚。
                     tool_call_id=candidate.call.call_id,
+                    retain_received_result=self.execution_failed,
                 )
                 worker_context = copy_context()
                 guarded_operation = partial(
                     _run_with_publish_guard,
                     publish_guard,
                     operation,
+                    results,
                 )
                 timing = _ToolTiming(submitted_at=monotonic())
                 timings[candidate.index] = timing
@@ -795,9 +822,28 @@ class EpisodeToolBatchSession:
             if is_cancelled():
                 cancelled_during_wait = True
             publish_guard.close(rollback=cancelled_during_wait)
-            if cancelled_during_wait:
+            storage_failed = self.execution_failed()
+            if cancelled_during_wait and storage_failed:
+                # The synchronous branch coordinator owns child result/usage settlement.
+                # Let it drain inside the already-granted batch window, never a new
+                # timeout. Otherwise its just-received usage is lost to this parent.
+                # Ordinary tools keep P0's immediate uncertain-inflight behavior.
+                draining = tuple(
+                    f for f in unfinished
+                    if future_candidates[f].call.name == "sub_research" and not f.done()
+                )
+                if draining:
+                    drained, _ = wait(draining, timeout=max(0.0, publish_cutoff - monotonic()))
+                    completed.update(drained)
+                # Keep only received results; no late mutation of the returned outcome.
+                completed.update(f for f in unfinished if f.done() and not f.cancelled())
+                unfinished.difference_update(completed)
+            elif cancelled_during_wait:
                 unfinished.update(completed)
                 completed.clear()
+            # A worker may outlive this wait. Close its parent callback/evidence
+            # boundary before returning, independently of cache publication.
+            results.close()
             for future in unfinished:
                 future.cancel()
                 candidate = future_candidates[future]
@@ -805,7 +851,11 @@ class EpisodeToolBatchSession:
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
                     "rejected" if cancelled_during_wait else "timeout",
-                    error="cancelled" if cancelled_during_wait else "tool_timeout",
+                    error=(
+                        "storage_failed_inflight" if storage_failed else
+                        "cancelled" if cancelled_during_wait else "tool_timeout"
+                    ),
+                    detail="Result uncertain at failure boundary" if storage_failed else "",
                     step_id=step_ids[candidate.index],
                     # 超时的这条最需要读数：``queued_ms`` 有值而 ``elapsed_ms`` 为 None，
                     # 说明它排到了但没跑完；两个都是 None 说明它连线程都没抢到——
@@ -856,7 +906,9 @@ class EpisodeToolBatchSession:
                     elapsed_ms=timing.elapsed_ms,
                 )
         finally:
+            results.close()
             publish_guard.close()
+        return len(future_candidates)
 
 
 class ToolBatchExecutor:

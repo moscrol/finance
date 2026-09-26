@@ -1,0 +1,41 @@
+{
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "ok": true,
+  "pytest_receipt": "/Users/a77/.finance-runtime/test-receipts/20260921T093551Z-f2c3e9e1.json",
+  "counts": {
+    "passed": 12480,
+    "failed": 0,
+    "error": 0,
+    "skipped": 87
+  },
+  "pytest_xml_suites": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "89",
+      "tests": "12569",
+      "time": "898.509",
+      "timestamp": "2026-09-21T17:20:52.575807+08:00",
+      "hostname": "77deMacBook-Air.local"
+    }
+  ],
+  "verified_log_count": 13,
+  "logs_verified": [
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-python/ruff.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-python/pytest.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-registry/registry-parseability.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-registry/registry-check.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-registry/registry-tables.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-registry/registry-views.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-registry/registry-crosswalk.log",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-frontend/frontend-0.log.txt",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-frontend/frontend-1.log.txt",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-frontend/frontend-2.log.txt",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-frontend/frontend-3.log.txt",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-frontend/frontend-4.log.txt",
+    "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-frontend/frontend-5.log.txt"
+  ],
+  "receipt_check_exit": 0,
+  "receipt_selection_note": "093625 belongs to another dirty worktree at the same HEAD, not this full run. That failed validation is preserved in main-receipt-check.log."
+}

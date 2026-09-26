@@ -1,0 +1,40 @@
+{
+  "verdict": "NOT_PASSED",
+  "episode_sha256": "0b9f24b4284286c521be2c33a62eb26a75cead6f118e629f29c06eb7ec217bec",
+  "model_revision_observed": true,
+  "drafts": [
+    {
+      "sequence": 28,
+      "phase": null,
+      "served_model": "glm-5.3-flash",
+      "draft_sha256": "a0ab46109291f580582f9fd2d330632060ea653dc84ed8210a36f60bfa6716d4"
+    },
+    {
+      "sequence": 36,
+      "phase": "repair",
+      "served_model": "glm-5.3-flash",
+      "draft_sha256": "2d5bab6420b28a0a7a98f3ab4e52a39260f85e8ea6ac8a86ebdf38aae48db02b"
+    }
+  ],
+  "claims": [
+    {
+      "sentence": "- 量能条件：板块成交额若跌破 09-10 观察到的低点 1295.97 亿（E1）视为退潮确认；",
+      "source_supported": true,
+      "deleted": true,
+      "supported_condition_lost": true
+    }
+  ],
+  "supported_conditions_lost": [
+    "- 量能条件：板块成交额若跌破 09-10 观察到的低点 1295.97 亿（E1）视为退潮确认；"
+  ],
+  "late_report_observed": false,
+  "late_report_adopted": false,
+  "findings": [
+    "evidence_supported_numeric_condition_deleted"
+  ],
+  "all_numeric_conditions_reviewed": false,
+  "judge_status": "repaired",
+  "judge_mode": "llm",
+  "independent_financial_review": false,
+  "scope": "source-review aggregation; synthetic deadline proof and batch closure are separate prerequisites"
+}

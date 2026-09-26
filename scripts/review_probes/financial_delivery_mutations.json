@@ -1,0 +1,44 @@
+[
+  {
+    "id": "financial-final-text-check",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    rejected = _financial_claim_mismatch_indexes(sentences, before)",
+    "new": "    rejected = ()",
+    "targets": ["test_changed_public_projection_rechecks_financial_claims_without_upgrading", "test_adapter_final_financial_projection_is_guarded_and_cited"]
+  },
+  {
+    "id": "financial-debt-retained-citations",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    retained = _retained_delivery_hashes(outcome, outcome.public_answer)",
+    "new": "    retained = ()",
+    "targets": ["test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it"]
+  },
+  {
+    "id": "financial-concrete-repair-note",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes, repair_note))),",
+    "new": "        delivery_repair_notes=outcome.delivery_repair_notes,",
+    "targets": ["test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it"]
+  },
+  {
+    "id": "recovery-final-projection-check",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "        semantic = recheck_material_public_delivery(\n            semantic, projected=answer,\n        )",
+    "new": "        semantic = replace(semantic, public_answer=answer)",
+    "targets": ["test_exception_recovery_checks_after_calendar_and_keeps_citations", "test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference"]
+  },
+  {
+    "id": "recovery-retained-cards",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "                trusted, private_tokens, allowed_output_ids=fulfilled,\n                retained_hashes=frozenset(semantic.delivery_retained_evidence_hashes),",
+    "new": "                trusted, private_tokens, allowed_output_ids=fulfilled,",
+    "targets": ["test_exception_recovery_checks_after_calendar_and_keeps_citations"]
+  },
+  {
+    "id": "delivery-keeps-earlier-verdict-ledger",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "        verdicts = list(self._sentence_verdicts)",
+    "new": "        verdicts = []",
+    "targets": ["test_delivery_verdicts_do_not_mask_preflight_ledger"]
+  }
+]

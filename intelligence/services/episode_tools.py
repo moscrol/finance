@@ -43,6 +43,7 @@ from intelligence.services.research_tool_registry import (
     MIN_WINDOW_SECONDS,
     PreparedToolArguments,
     ResearchToolRegistry,
+    ToolDiagnostic,
     ToolSpec,
     ToolRunResult,
     default_registry,
@@ -131,33 +132,39 @@ def attach_financial_observations(
 ) -> list[agent_research.AgentEvidence]:
     """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
 
-    键是 ``market_financials.observations_by_line`` 渲染的行（与 ``block_lines_to_evidence``
-    剥掉 ``- `` 后的 detail 逐字节相同）。``observations`` 不进内容哈希，证据身份不变。
+    键是规范渲染行，不解析单元格。沿 research-data-readiness/a9a7ce92、d77383ac
+    的已提交修复给模型补主体/报告期/指标口径；本片另保留披露日。标签改变后重算哈希，
+    ``observations`` 本身仍不参与内容哈希。
     """
 
     mapping = bundle.observations_by_line()
     if not mapping:
         return list(evidence)
+    periods = {row.report_date: row for row in bundle.rows}
     out: list[agent_research.AgentEvidence] = []
     for item in evidence:
         found = mapping.get(item.detail)
         if not found:
             out.append(item)
             continue
-        out.append(
-            replace(
-                item,
-                observations=tuple(
-                    agent_research.StructuredObservation(
-                        subject=obs.subject,
-                        as_of=obs.as_of,
-                        metric=obs.metric,
-                        value=obs.value,
-                    )
-                    for obs in found
-                ),
-            )
+        row = periods[found[0].as_of]
+        values = "；".join(
+            f"{market_financials.METRIC_GLOSSARY[obs.metric]}={obs.value:g}" for obs in found
         )
+        labeled = replace(
+            item,
+            title=f"{bundle.name}（{found[0].subject}）报告期 {found[0].as_of}",
+            detail=(
+                f"| {row.report_name}（{row.report_date}） | 披露日={row.notice_date or '缺'}；"
+                f"{values} |"
+            ),
+            observations=tuple(
+                agent_research.StructuredObservation(
+                    subject=obs.subject, as_of=obs.as_of, metric=obs.metric, value=obs.value,
+                ) for obs in found
+            ),
+        )
+        out.append(replace(labeled, content_hash=agent_research.evidence_content_hash(labeled)))
     return out
 
 
@@ -503,7 +510,10 @@ def _subject_exited_universe(
     dataset_max_date: str | None,
     floor: date,
 ) -> bool:
-    """被筛子集停在更早，但数据集本身是新的 → 该主体退出了集合，不是管道陈旧。
+    """检测子集日期落后于已更新数据集，允许交付带日期的历史匹配。
+
+    名称保留旧调用合同；此判据不证明现实退出或逐日覆盖完整。
+    `_exited_universe_result` 负责把这个限制与历史行一起交付。
 
     2026-08-17 用户口径：新鲜度按**数据类**分档，不是整体放宽。
 
@@ -547,7 +557,7 @@ def _probe_filtered_universe_exit(
     tool_context: agent_research.AgentToolContext,
     dataset_label: str,
 ) -> ToolRunResult | None:
-    """问句日无行时，探测「该筛选条件最后一次出现」是否构成要素退出。
+    """问句日无行时，找同条件的历史匹配，不把本地缺行当现实退出。
 
     与 stale 路径的差别：历史授权的定点查询 served_date 为空，不会走进
     `_is_current_query_stale`。空结果若只说「无结果」，模型会把「航空发动机」
@@ -611,19 +621,18 @@ def _exited_universe_result(
     detail: str,
     spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
-    """交付「退出集合」这一生命周期事实，连同退出前的行。
+    """Deliver dated historical matches, without certifying real-world absence.
 
-    与 `_stale_structured_result` 的关键差别：**证据照常交付**。那些行确实早于
-    floor，但它们不是「冒充当前状态的旧数据」——它们是「该主体最后一次出现时
-    长什么样」，配合退出事实一起读才完整。每条证据自带 `source_date`，日期在场，
-    不会被误读成当前盘面。
+    A newer dataset row distinguishes this from a wholly stale dataset, but
+    neither MAX(date) nor a filtered nonmatch certifies complete daily coverage.
+    Keep the existing historical evidence; qualify it before model compaction.
     """
 
     served = str(result.served_date or "未知日期")
     fact = (
-        f"{dataset_label} 中该筛选条件最后一次出现是 {served}；"
-        f"数据集已更新到 {dataset_max_date}，其后未再出现"
-        "（构成要素退出，非数据陈旧）。"
+        f"{dataset_label} 中本次交付的历史匹配记录日期截至 {served}；"
+        f"数据集最新可见日期为 {dataset_max_date}。"
+        "未命中不证明事件未发生；最新日期不证明逐日覆盖完整。"
     )
     observation = f"{fact}{result.observation}" if result.observation else fact
     payload = _finance_payload_kwargs(spec, result) if spec is not None else {}
@@ -639,7 +648,10 @@ def _exited_universe_result(
             served_date=result.served_date,
             result_count=len(result.evidence),
         ),
-        gaps=(),
+        gaps=(
+            "当前筛选缺少请求时点记录；历史记录不代替请求窗口内缺失的事实，"
+            "也不能据此断言事件未发生。",
+        ),
         **payload,
     )
 
@@ -1242,8 +1254,13 @@ def build_episode_registry(
                     else f"已按默认最近 {periods} 期取数"
                 )
             )
-        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
-        row_limit = 12 + max(0, periods - market_financials.DEFAULT_PERIODS)
+        # Adopt the data-row budgeting fix from research-data-readiness/a93b50c2:
+        # headers and fetch-date prose must not displace OCF evidence.
+        row_limit = 2 * periods
+        from intelligence.services.financial_report_contract import select_reports
+
+        selections: list[dict[str, object]] = []
+        gaps: list[str] = []
         source_label = "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报"
         evidence: list[agent_research.AgentEvidence] = []
         observations: list[str] = []
@@ -1292,12 +1309,29 @@ def build_episode_registry(
                     resolved_subjects.append(
                         market_financials.observation_subject(bundle.ts_code)
                     )
+                selection = select_reports(
+                    bundle, question=frame.raw_question,
+                    cutoff=tool_context.information_cutoff or context.information_cutoff,
+                )
+                bundle = selection.bundle
+                selections.append(selection.receipt)
+                gaps.extend(selection.gaps)
+                if selection.hint:
+                    notes.append(selection.hint)
+                # Same fetched rows feed the text and calculator; no second fetch.
+                # Empty real bundles produce gaps, never header/diagnostic evidence.
+                data_block = "\n".join(bundle.observations_by_line()) if bundle.rows else (
+                    bundle.block if bundle.result is None and not selection.receipt["candidates"] else ""
+                )
                 items, text = agent_research.block_lines_to_evidence(
-                    "financial_data",
-                    bundle.block,
-                    source_label,
-                    limit=row_limit,
-                    detail_chars=1000,
+                    "financial_data", data_block, source_label,
+                    limit=row_limit, detail_chars=1000,
+                )
+                notes.extend(
+                    line.strip().removeprefix("- ") for line in bundle.block.splitlines()
+                    if line.strip().removeprefix("- ").startswith(
+                        (*_NON_EVIDENCE_PREFIXES, "口径说明：")
+                    )
                 )
                 evidence.extend(attach_financial_observations(items, bundle))
                 hint = structured_observation_hint(bundle)
@@ -1322,16 +1356,17 @@ def build_episode_registry(
             detail += f"; target_report_end={target_end.isoformat()}"
         if subjects:
             detail += f"; subjects={len(subjects)}; resolved={len(resolved_subjects)}"
-        return (
-            evidence,
-            observation,
-            ProviderTrace(
+        return ToolRunResult(
+            evidence=tuple(evidence), observation=observation,
+            trace=ProviderTrace(
                 provider="agent:financial_data",
                 capability="financial_data",
                 status="success" if evidence else "empty",
                 detail=detail,
                 result_count=len(evidence),
             ),
+            gaps=tuple(gaps),
+            telemetry={"financial_report_selection": selections},
         )
 
     def mainline_runner(
@@ -1464,7 +1499,7 @@ def build_episode_registry(
         if spec.name in {"mainline_context", "evidence_lookup"} else spec
         for spec in base_registry.authorized_specs()
     ]
-    if frame.history_intent is not None and not local_only:
+    if frame.history_intent is not None:
         from intelligence.services.historical_research.episode import history_tool_specs
 
         specs.extend(
@@ -1638,7 +1673,7 @@ def build_episode_registry(
             gaps = (
                 ()
                 if result.evidence
-                else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
+                else (f"{value.dataset} 在指定条件与时点内未命中本地记录；不证明事件未发生或覆盖完整",)
             )
             # 三条限定语**排在数据行之前**（BUILD 模式 4）。它们此前追加在
             # observation 末尾，而 ``tool_result_budget`` 从头数满 900 字符就切，
@@ -1656,6 +1691,7 @@ def build_episode_registry(
             notice = finance_query.truncation_notice(
                 result.audit,
                 covered_range=covered_range,
+                group_by=bounded_value.group_by,
             )
             if notice:
                 notices.append(notice)
@@ -1664,12 +1700,15 @@ def build_episode_registry(
             # 观测型：不改 observation 一个字节，写失败也不进工具路径。
             from intelligence.services.tool_hunger import record_window_uncovered
 
-            record_window_uncovered(
-                bounded_value,
-                covered_range=covered_range,
-                row_count=len(result.evidence),
-                applied_limit=result.audit.applied_limit,
-            )
+            # Grouped source_date is MAX(date), not the covered date range.
+            # Empty groups still prove no match; nonempty groups cannot prove gaps.
+            if finance_query.result_has_date_axis(bounded_value) or not result.evidence:
+                record_window_uncovered(
+                    bounded_value,
+                    covered_range=covered_range,
+                    row_count=len(result.evidence),
+                    applied_limit=result.audit.applied_limit,
+                )
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             if normalization_notes:
                 notices.extend(normalization_notes)
@@ -1973,10 +2012,7 @@ def _finance_query_failure_result(
     if isinstance(error, finance_query.FinanceQueryValidationError):
         failure_code = "invalid_query"
         status = "parse_error"
-        observation = (
-            f"结构化查询参数无效：{str(error)[:160]}；重试提示："
-            f"{finance_query.validation_retry_hint(spec, error)}"
-        )
+        observation = finance_query.validation_diagnostic(spec, error)
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
         from intelligence.services.tool_hunger import record_finance_query_rejected
 
@@ -2003,7 +2039,8 @@ def _finance_query_failure_result(
         gap = "结构化数据源暂不可用；当前答案仍缺少该查询对应的数据"
     return ToolRunResult(
         evidence=(),
-        observation=observation,
+        observation="",
+        diagnostics=(ToolDiagnostic(code=failure_code, message=observation),),
         trace=ProviderTrace(
             provider="duckdb_semantic_query",
             capability="finance_query",

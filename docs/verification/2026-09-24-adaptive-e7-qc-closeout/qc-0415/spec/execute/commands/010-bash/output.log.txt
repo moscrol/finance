@@ -1,0 +1,43 @@
+[
+ {
+  "subcase": "startup_in_budget",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "HTTPDeadlineExceeded",
+  "wall": 0.908,
+  "spawn_at": 0.00042608287185430527,
+  "request_sent_at": 0.004240416921675205,
+  "events": [
+   "spawn_started",
+   "spawned",
+   "request_sent",
+   "closed"
+  ]
+ },
+ {
+  "subcase": "judge_subwindow_vs_root",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "LLMDeadlineExceeded",
+  "wall": 0.407,
+  "root_remaining_after": 1.593
+ },
+ {
+  "subcase": "expired_root_immediate",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "LLMDeadlineExceeded",
+  "wall": 0.0
+ },
+ {
+  "subcase": "late_judge_failed_recorded",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "LLMDeadlineExceeded",
+  "wall": 0.805,
+  "ledger_status": "failed",
+  "failure_reason": null,
+  "n_records": 1
+ }
+]
+SUBCASES total=4 failed=0 []

@@ -85,6 +85,89 @@ def test_case_cannot_hide_an_out_of_scope_query_and_failed_read_is_pure(
         assert read_context.history_results == []
 
 
+@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("mutation", ["conversation", "user", "visibility", "downloadable", "registration", "body"])
+def test_history_reader_rechecks_authority_and_preserves_state_on_rejection(
+    tmp_path, cached, mutation,
+):
+    registry, context, session = _registry(tmp_path)
+    query = _query(registry, context)
+    ref = query.telemetry["result_ref"]
+    reader, read_context, next_session = _next_turn(
+        tmp_path, session, context, "继续找农业的历史失败案例"
+    )
+    if not cached:
+        next_session.refs.clear()
+    assert (ref in next_session.refs) is cached
+    run = session.store.load_run(session.run_id)
+    path = session.store.run_dir(run.run_id) / ref.split("/", 1)[1]
+    if mutation == "conversation":
+        run.session_id = "other-conversation"
+    elif mutation == "user":
+        run.user = "other-user"
+    elif mutation == "visibility":
+        run.artifacts[0]["visibility"] = "internal"
+    elif mutation == "downloadable":
+        run.artifacts[0]["downloadable"] = False
+    elif mutation == "registration":
+        run.artifacts.clear()
+    else:
+        path.write_text('{"tampered":true}\n')
+    session.store._write_run(run)
+    state = (dict(next_session.refs), dict(next_session.query_aliases), set(next_session.definition_refs))
+    original = path.read_bytes()
+    metadata = session.store.run_path(run.run_id).read_bytes()
+
+    with pytest.raises((ValueError, OSError)):
+        reader.execute("read_history_result", {"result_ref": ref}, context=read_context, step_id="rejected")
+    assert (next_session.refs, next_session.query_aliases, next_session.definition_refs) == state
+    assert read_context.history_results == []
+    assert path.read_bytes() == original
+    assert session.store.run_path(run.run_id).read_bytes() == metadata
+
+
+@pytest.mark.parametrize("cached", [False, True])
+def test_authorized_history_read_verifies_content_once(tmp_path, monkeypatch, cached):
+    registry, context, session = _registry(tmp_path)
+    query = _query(registry, context)
+    ref = query.telemetry["result_ref"]
+    expected = session.read(ref)
+    if not cached:
+        session.refs.clear()
+    original_verify = session.store._verified_history_bytes
+    calls = []
+
+    def verify(path, artifact):
+        calls.append(path)
+        return original_verify(path, artifact)
+
+    monkeypatch.setattr(session.store, "_verified_history_bytes", verify)
+    assert session.read(ref) == expected
+    assert len(calls) == 1
+    assert ref in session.refs
+
+
+@pytest.mark.parametrize("mutation", ["conversation", "visibility", "downloadable", "registration"])
+def test_refresh_removes_stale_references_without_rewriting_artifacts(tmp_path, mutation):
+    registry, context, session = _registry(tmp_path)
+    ref = _query(registry, context).telemetry["result_ref"]
+    run = session.store.load_run(session.run_id)
+    if mutation == "conversation":
+        run.session_id = "other-conversation"
+    elif mutation == "visibility":
+        run.artifacts[0]["visibility"] = "internal"
+    elif mutation == "downloadable":
+        run.artifacts[0]["downloadable"] = False
+    else:
+        run.artifacts.clear()
+    session.store._write_run(run)
+    before = session.store.run_path(run.run_id).read_bytes()
+    session.refresh()
+    assert ref not in session.refs
+    assert session.index() == []
+    assert session.store.run_path(run.run_id).read_bytes() == before
+
+
 def test_saved_aliases_are_checked_even_when_not_cited_in_this_draft(tmp_path):
     registry, context, session = _registry(tmp_path)
     _query(registry, context)

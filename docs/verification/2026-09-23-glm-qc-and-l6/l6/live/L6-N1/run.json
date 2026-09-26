@@ -1,0 +1,63 @@
+{
+  "run_id": "run_20260923_195537_731357",
+  "user": "adaptive-l6-glm-20260923-1945",
+  "question": "海光信息(688041.SH)截至2026年9月22日这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。",
+  "task_type": "ask",
+  "status": "completed",
+  "schema_version": 1,
+  "session_id": "conv_b5ffe42f55e1489196156e5eaff1331d",
+  "parent_run_id": null,
+  "created_at": "2026-09-23T19:55:37+08:00",
+  "finished_at": "2026-09-23T20:02:10+08:00",
+  "source_date": "2026-09-22",
+  "duckdb_cutoff": null,
+  "kb_commit": null,
+  "kb_index_built_at": null,
+  "kb_index_freshness": null,
+  "manifest_ref": null,
+  "degrades": [
+    "证据或语义核验未完全通过，已按证据边界降级。"
+  ],
+  "error": null,
+  "artifacts": [
+    {
+      "artifact_id": "artifact_answer_md",
+      "path": "answer.md",
+      "renderer": "markdown",
+      "title": "对话回答：海光信息(688041.SH)截至2026年9月",
+      "sha256": "523402a3615e564614996cbd71b4d8feb9f134f5611806d6f716c7f16a8b4833",
+      "bytes": 2627,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_report_json",
+      "path": "report.json",
+      "renderer": "structured_report",
+      "title": "结构化对话报告",
+      "sha256": "c3c9a21727c0133884d15dba8afaa8106ffcb8f0bf163544992ef76a545042a6",
+      "bytes": 4535,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_followups_json",
+      "path": "followups.json",
+      "renderer": "json",
+      "title": "猜你想问",
+      "sha256": "c6f6c4e41978ed5a46b02df774c41f135d8bd851c14151bd208386ba7f1ed7b2",
+      "bytes": 2529,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    }
+  ],
+  "maintenance_launch": null,
+  "publication": {
+    "status": "published",
+    "message_id": "msg_da143efe716d48e7b087e4e9bc599e5d"
+  },
+  "delivery_pending": false
+}

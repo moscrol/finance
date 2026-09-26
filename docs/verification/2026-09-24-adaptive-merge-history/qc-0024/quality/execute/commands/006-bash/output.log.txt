@@ -1,0 +1,14 @@
+total 48
+drwxr-xr-x@ 13 a77  staff   416 Sep 24 00:31 .
+drwxr-xr-x@ 31 a77  staff   992 Sep 24 00:30 ..
+-rw-r--r--@  1 a77  staff     2 Sep 24 00:21 allowed.txt
+-rw-r--r--@  1 a77  staff   810 Sep 24 00:31 author-tests.xml
+lrwxr-xr-x@  1 a77  staff    82 Sep 24 00:21 escape.json -> /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/config.json
+-rw-r--r--@  1 a77  staff    36 Sep 24 00:27 gateway-echo.txt
+-rw-r--r--@  1 a77  staff    36 Sep 24 00:27 gateway-fixture.txt
+drwxr-xr-x@  3 a77  staff    96 Sep 24 00:30 phase-context
+-rw-r--r--@  1 a77  staff    47 Sep 24 00:21 positive_control.py
+drwxr-xr-x@  6 a77  staff   192 Sep 24 00:30 probes
+-rw-r--r--@  1 a77  staff  1883 Sep 24 00:21 sandbox_check.py
+drwxr-xr-x@  3 a77  staff    96 Sep 24 00:31 tmp
+drwxr-xr-x@  2 a77  staff    64 Sep 24 00:20 users

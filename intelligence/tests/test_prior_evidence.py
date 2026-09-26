@@ -135,6 +135,25 @@ def test_unqualified_source_dates_are_not_admitted(source, day):
         load()
 
 
+@pytest.mark.parametrize("legacy", [False, True])
+def test_nullable_history_metadata_preserves_ordinary_prior_evidence(source, legacy):
+    _, _, _, _, payload, save, load = source
+    if legacy:
+        for row in payload["outcome"]["evidence"]:
+            row.pop("history_provenance")
+    save()
+    assert load().entries[0][1] == replace(_atom(), supports=())
+
+
+@pytest.mark.parametrize("value", [False, "", {}, {"query_id": "forged"}])
+def test_malformed_history_metadata_does_not_become_ordinary_evidence(source, value):
+    _, _, _, _, payload, save, load = source
+    payload["outcome"]["evidence"][1]["history_provenance"] = value
+    save()
+    with pytest.raises(ValueError):
+        load()
+
+
 def test_current_cutoff_and_target_frame_are_rechecked(source):
     *_, load = source
     snapshot = load()
@@ -181,13 +200,19 @@ def test_changed_scope_does_not_inherit_old_observations(source, monkeypatch, qu
                                conversation_id="conv", current_run_id="current")
 
 
-def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage(source):
+@pytest.mark.parametrize("durable", [False, True])
+def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage(source, tmp_path, durable):
+    from uuid import uuid4
+
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+    from intelligence.services.episode_store import JsonlEpisodeStore
     from intelligence.services.research_tool_registry import ResearchToolRegistry
     from intelligence.tests.test_agent_episode import ScriptedModel
 
     _, _, _, frame, _, _, load = source
-    context = replace(build_episode_context(frame, task_id="current"), prior_evidence=load())
+    context = replace(build_episode_context(frame, task_id=f"prior-{uuid4().hex}"), prior_evidence=load())
+    store = JsonlEpisodeStore(tmp_path / "episodes") if durable else None
     finish = ModelTurn(json.dumps({
         "status": "completed", "draft": "上涨家数为3126（E1）。总量不足以证明抛压衰竭，撤回该断言。",
         "gaps": [], "bindings": [
@@ -195,8 +220,20 @@ def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
             {"output_id": "evidence_boundary", "evidence_hashes": [], "basis": "user_premise", "gap": ""},
         ],
     }), (), "scripted", "")
-    model = ScriptedModel([finish])
-    episode = ContinuousAgentEpisode(model)
+    class ModelAfterCheckpoint(ScriptedModel):
+        def complete(self, **kwargs):
+            if store is not None:
+                _, state = store.load(context.contract.task_id)
+                snapshot = EpisodeEvidenceSnapshot.from_dict(
+                    state.evidence_snapshot, episode_id=context.contract.task_id,
+                )
+                assert snapshot.presented_evidence == tuple(atom for _, atom in context.prior_evidence.entries)
+                assert snapshot.presented_evidence[0].supports == ()
+                assert snapshot.covered_outputs == ()
+            return super().complete(**kwargs)
+
+    model = ModelAfterCheckpoint([finish])
+    episode = ContinuousAgentEpisode(model, store=store)
     continuations = []
     outcome = episode.run(task_frame=frame, context=context, registry=ResearchToolRegistry(()),
                           _continuation_sink=continuations)

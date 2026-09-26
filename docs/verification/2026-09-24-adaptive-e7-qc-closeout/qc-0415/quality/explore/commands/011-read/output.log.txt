@@ -1,0 +1,8 @@
+        pass
+
+    # patch the wrapper used by all five sites
+    orig = llm._open_deadline_http_response
+    llm._open_deadline_http_response = fake_open
+    try:
+
+[truncated; total lines=166, selected=124:129; request a later offset]

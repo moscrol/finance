@@ -1,0 +1,1 @@
+{"admission":1,"stage":"execute","model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}

@@ -17,6 +17,14 @@ LOCAL_READ_CAPABILITIES = frozenset({
 })
 
 
+# Evidence producer names are not extra capabilities. These two audited paths
+# share finance_query permission; save_history_research remains uncertified.
+LOCAL_EVIDENCE_PRODUCERS = {
+    "history_query": "finance_query",
+    "read_history_result": "finance_query",
+}
+
+
 def restrict_read_capabilities(capabilities: tuple[str, ...], data_scope: str | None) -> tuple[str, ...]:
     """Intersect the requested reads with the frozen scope; never add a floor."""
     if data_scope == "material_only":

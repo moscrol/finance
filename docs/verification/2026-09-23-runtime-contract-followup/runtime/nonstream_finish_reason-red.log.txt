@@ -1,0 +1,10 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+______________ test_transport_preserves_truncation_reason[False] _______________
+intelligence/tests/test_model_turn_completion_boundary.py:147: in test_transport_preserves_truncation_reason
+    assert result["_finish_reason"] == "length"
+E   KeyError: '_finish_reason'
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/nonstream_finish_reason-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_model_turn_completion_boundary.py::test_transport_preserves_truncation_reason[False]
+1 failed, 1 passed, 69 deselected in 17.82s

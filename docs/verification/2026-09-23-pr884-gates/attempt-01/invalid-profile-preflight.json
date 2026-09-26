@@ -1,0 +1,22 @@
+{
+  "profile": "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))\n",
+  "profile_sha256": "a50bdb81c053400f5922699bec02bd7927fcba269d1dfa5765800bfb0902e7ab",
+  "accepted": false,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-p",
+    "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))\n",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/check_loopback_sandbox.py",
+    "--child"
+  ],
+  "exit_code": 1,
+  "stdout": "{\"external_denied\": false, \"keychain_exec_denied\": true, \"loopback_connect\": true}\n",
+  "stderr": "",
+  "observations": {
+    "external_denied": false,
+    "keychain_exec_denied": true,
+    "loopback_connect": true
+  }
+}

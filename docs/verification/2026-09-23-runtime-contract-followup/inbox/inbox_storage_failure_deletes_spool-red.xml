@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.800" timestamp="2026-09-23T13:49:26.184524+08:00" hostname="77deMacBook-Air.local"><testcase classname="scripts.review_probes.runtime_identity_effects.probe.inbox_checks" name="test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]" time="0.017"><failure message="AssertionError: insert 没落账就不许销毁运输副本&#10;assert 1 == 0&#10; +  where 1 = ingest_spool()&#10; +    where ingest_spool = &lt;intelligence.services.episode_inbox.Inbox object at 0x106fae540&gt;.ingest_spool">scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py:137: in test_c1_failed_insert_keeps_spool_file_and_blocks_claim
+    assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E   AssertionError: insert 没落账就不许销毁运输副本
+E   assert 1 == 0
+E    +  where 1 = ingest_spool()
+E    +    where ingest_spool = &lt;intelligence.services.episode_inbox.Inbox object at 0x106fae540&gt;.ingest_spool</failure></testcase><testcase classname="scripts.review_probes.runtime_identity_effects.probe.inbox_checks" name="test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]" time="0.003"><failure message="AssertionError: insert 没落账就不许销毁运输副本&#10;assert 1 == 0&#10; +  where 1 = ingest_spool()&#10; +    where ingest_spool = &lt;intelligence.services.episode_inbox.Inbox object at 0x107966e70&gt;.ingest_spool">scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py:137: in test_c1_failed_insert_keeps_spool_file_and_blocks_claim
+    assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E   AssertionError: insert 没落账就不许销毁运输副本
+E   assert 1 == 0
+E    +  where 1 = ingest_spool()
+E    +    where ingest_spool = &lt;intelligence.services.episode_inbox.Inbox object at 0x107966e70&gt;.ingest_spool</failure></testcase></testsuite></testsuites>
