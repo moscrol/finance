@@ -95,12 +95,18 @@ incoming main 的非文档文件只有 `.claude/lessons_learned.md`、`intellige
 | `~/.finance-runtime/reviews/backfill-302132-0923/candidate` | fd6d8cc5b | 旧候选冻结树 |
 | `~/.finance-runtime/reviews/backfill-302132-0923/forward-01/tree` | ca4b33316 | 旧前向 |
 | `~/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree` | 3c5b3c9a6 | 旧前向 |
-| `~/.finance-runtime/reviews/pr813-glm-qc-20260924-01..02/candidate` 等 12 棵 | 3c5b3c9a6 | 批 04–21 的失败/历史 QC 沙箱 |
+| `~/.finance-runtime/reviews/pr813-glm-qc-20260924-01..02` + `20260925-01..10` 的 `candidate`，共 **12 棵** | 3c5b3c9a6 | 批 04–21 的失败/历史 QC 沙箱 |
 | `~/.finance-runtime/reviews/pr813-k3-qc-20260924-01/candidate/…` | 3c5b3c9a6 | K3 批（K3 账号已停用） |
 
-**唯一要留的是 `pr813-glm-qc-20260925-22/candidate`**（批 22 的被审对象，QC 报告的证据身份），
-以及证据根 `~/.finance-runtime/reviews/pr813-ready-main-e159-0925/`、
-`~/.finance-runtime/reviews/pr813-glm-qc-20260925-22/`（都不是 worktree，不受 `git worktree remove` 影响）。
+注意分母：`~/.finance-runtime/reviews/pr813-glm-qc-*` 一共 **24 个目录**，但只有上表那 12 个是
+`git worktree list` 里的真 worktree；其余（含批 22）是独立 clone 或普通目录，
+**`git worktree remove` 对它们无效**，要靠 `rm -rf` 单独处理，所以更容易误删。
+
+**必须留的**：
+- `~/.finance-runtime/reviews/pr813-glm-qc-20260925-22/`（批 22 全套），其中
+  `candidate/` 是 430 MB 的**独立 clone**（不是 worktree），是 QC 报告的被审身份，删了 QC 结论就没有对象；
+- `~/.finance-runtime/reviews/pr813-ready-main-e159-0925/`（4f12 工程收据 + 冻结 parquet，生产执行包要用）；
+- `~/.finance-runtime/reviews/unclosed-inventory-20260926/takeover/L4/`（本轮复核与生产执行包）。
 
 ## 6. 本轮没做什么
 
