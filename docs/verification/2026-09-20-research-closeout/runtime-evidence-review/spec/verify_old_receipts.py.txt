@@ -1,0 +1,69 @@
+"""Check fixed identities, raw counts, and every mutation's source/restore hashes."""
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+REPO = Path('/Users/a77/fwp-wt-runtime-contracts-0918')
+OLD = Path('/Users/a77/.finance-runtime/reviews/runtime-contracts-a7f5cc06')
+OUT = Path(__file__).parent
+REV = 'a7f5cc06c087c2d9db896450bb6033851e8e5789'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(REPO), *args])
+
+def digest(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+assert (OLD / 'revision.txt').read_text().strip() == REV
+status_files = ['start-status.txt', 'python-before.txt', 'python-after.txt', 'other-after.txt', 'final-status.txt']
+assert all((OLD / name).read_text() == '' for name in status_files)
+assert git('rev-parse', 'HEAD').decode().strip() == REV
+assert git('status', '--porcelain') == b''
+summary = {'revision': REV, 'legacy_status_files_empty': status_files, 'groups': {}}
+groups = {'evidence-mutations': 18, 'fixture-mutations': 4, 'p0-mutations-regression': 13,
+          'child-mutations-regression': 14, 'restore-mutations-regression': 7,
+          'budget-mutations-regression': 17, 'authorization-mutations-regression': 22}
+for name, count in groups.items():
+    root = OLD / name
+    result = json.loads((root / 'results.json').read_text())
+    assert result['revision'] == REV and result['python'] == PY
+    assert result['complete'] is True and result['final_status'] == ''
+    definitions_raw = git('show', f"{REV}:{result['definitions']}")
+    assert digest(definitions_raw) == result['definitions_sha256']
+    assert (root / 'definitions.json').read_bytes() == definitions_raw
+    definitions = json.loads(definitions_raw)
+    assert len(definitions) == len(result['mutations']) == count
+    records = {r['label']: r for r in result['runs']}
+    for control in ('baseline', 'restored-full'):
+        r = records[control]
+        assert r['exit'] == 0 and r['failures'] == r['errors'] == 0 and r['executed'] > 0
+    for mutation in result['mutations']:
+        raw = git('show', f"{REV}:{mutation['path']}")
+        assert mutation['before_sha256'] == mutation['restored_sha256'] == digest(raw)
+        assert mutation['mutated_sha256'] != digest(raw)
+        red, green = records[mutation['id'] + '-red'], records[mutation['id'] + '-green']
+        assert red['exit'] == 1 and red['executed'] > 0 and red['failures'] > 0 and red['errors'] == 0
+        assert green['exit'] == 0 and green['failures'] == green['errors'] == 0 and green['executed'] == red['executed']
+    summary['groups'][name] = {'mutations': count, 'baseline': records['baseline']['executed'],
+                              'restored': records['restored-full']['executed'], 'source_identity_verified': True}
+
+leaves = ['pytest', 'ruff', 'registry-check-parseability', 'registry-check', 'registry-backfill-tables',
+          'registry-generate-views', 'crosswalk', 'unread-fields', 'runtime-catalog',
+          'frontend-lint', 'frontend-typecheck', 'frontend-test', 'frontend-build', 'e2e']
+for name in leaves:
+    assert (OLD / f'{name}.exit').read_text().strip() == '0'
+    header = json.loads((OLD / f'{name}.log').read_text().splitlines()[0])
+    assert header['revision'] == REV
+    assert header['cwd'] in (str(REPO), str(REPO / 'intelligence/webapp'))
+summary['old_leaf_exit_codes'] = {name: 0 for name in leaves}
+summary['old_counts'] = {'python': '11766 passed, 81 skipped, 2 xfailed', 'frontend': '107 passed', 'e2e': '34 passed, 2 skipped'}
+assert summary['old_counts']['python'] in (OLD / 'pytest.log').read_text()
+assert 'Tests  107 passed (107)' in (OLD / 'frontend-test.log').read_text()
+assert '34 passed' in (OLD / 'e2e.log').read_text() and '2 skipped' in (OLD / 'e2e.log').read_text()
+summary['caveat'] = 'Archived engineering evidence only; groups overlap. This is identity/result verification, not a new whole-repository run or product-quality finding.'
+(OUT / 'old-receipt-verification.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(summary, ensure_ascii=False, indent=2))

@@ -1,0 +1,15 @@
+{
+  "revision": "d197450d90ba88716bc1346ae741113bce0dd888",
+  "status": "",
+  "verdict": "PASS",
+  "actionable_findings": 0,
+  "tests_passed": 16,
+  "external_model_calls": 0,
+  "files": {
+    "report.md": "ea0fb3c029f3f03a1b7d67a92e234f40cad1b41f6a2ba04caa86ed70317c0401",
+    "test_quality_edges.py": "a0dd72955ed4fbaec300ba5adba7267e3919298deee5182597c01386058f828a",
+    "run_quality.py": "690e044b41a1bb24d602ae71f1e838874443587d2189a429609b65247a7178b6",
+    "quality-tests.log": "687908b1aea054109539c2513dbb5b15ad53ab042e842789bd4c7b28ef984d3e",
+    "quality-tests-receipt.json": "c82c44b6db507f529f2afa466f6e22476745f6f357da932851b070d6534f2846"
+  }
+}

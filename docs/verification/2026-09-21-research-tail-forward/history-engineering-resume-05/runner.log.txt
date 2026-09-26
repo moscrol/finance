@@ -1,0 +1,5 @@
+2026-09-21T17:57:58.539897+00:00 START ordinary
+2026-09-21T18:19:25.385154+00:00 END ordinary 1 None
+2026-09-21T18:19:25.551675+00:00 START native
+2026-09-21T18:19:27.651636+00:00 END native 0 None
+{"exits": {"ordinary": 1, "native": 0}, "clean": true}

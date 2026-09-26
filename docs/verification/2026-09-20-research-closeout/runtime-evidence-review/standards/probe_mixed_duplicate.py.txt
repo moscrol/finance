@@ -1,0 +1,65 @@
+"""Offline real runtime: a direct call and a child return one original identity."""
+from pathlib import Path
+import json
+import os
+import sys
+from dataclasses import replace
+
+OUT = Path(__file__).resolve().parent
+ROOT = Path(os.environ.get('REVIEW_SOURCE_ROOT', '/Users/a77/fwp-wt-runtime-contracts-0918'))
+LABEL = os.environ.get('REVIEW_CASE_LABEL', 'candidate')
+sys.path.insert(0, str(ROOT))
+os.environ['FORESIGHT_USERS_DIR'] = str(OUT / 'probe-users')
+os.environ['FINANCE_WS'] = str(OUT / 'probe-workspace')
+os.environ['KB_VAULT'] = str(OUT / 'probe-kb')
+
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.agent_research import AgentEvidence, evidence_content_hash
+from intelligence.services.agent_runtime import ModelToolCall
+from intelligence.services.mode_governor import ModeSignals
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import release_root_budget
+from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
+from intelligence.tests.test_sub_research_persistence import ObservedStore, TreeModel
+from intelligence.tests.test_sub_research_tool import _context, _frame
+
+
+class MixedModel(TreeModel):
+    def complete(self, **kwargs):
+        is_child = 'branch_findings' in json.dumps(kwargs['messages'][:2], ensure_ascii=False)
+        first_parent = not is_child and self.parent_calls == 0
+        turn = super().complete(**kwargs)
+        if first_parent:
+            turn = replace(turn, tool_calls=(ModelToolCall('direct-1', 'market_data', {'query': 'direct'}), *turn.tool_calls))
+        return turn
+
+
+def run_case(vary_links):
+    store = ObservedStore(OUT / LABEL / ('mixed-links' if vary_links else 'same-links'))
+    context = _context('max', allowed=('market_data', 'sub_research'))
+    model = MixedModel(store, context.contract.task_id)
+    executed = []
+
+    def runner(query, tool_context):
+        executed.append('direct' if query == 'direct' else 'child')
+        item = AgentEvidence(tool='market_data', title='同一公告', detail='同一可核验正文', source='fixture',
+                             source_date='2026-07-21', supports=(('direct-output' if query == 'direct' else 'branch-output'),) if vary_links else ())
+        item = replace(item, content_hash=evidence_content_hash(item))
+        return [item], '原件证据', ProviderTrace(provider='fixture', capability='market_data', status='success')
+
+    registry = ResearchToolRegistry((ToolSpec(name='market_data', capability='market_data', description='行情',
+                                             cost='local', freshness='current', runner=runner),))
+    runtime = GLMAgentRuntime(client=model, episode_store=store, mode_signals=lambda *_: ModeSignals(user_mode='deep'))
+    try:
+        outcome = runtime.run(task_frame=_frame(), context=context, registry=registry)
+        return {'vary_links': vary_links, 'persistence': outcome.persistence, 'status': outcome.status,
+                'stop_reason': outcome.stop_reason, 'parent_calls': model.parent_calls, 'child_calls': model.child_calls,
+                'executed': executed, 'presented': [{'hash': item.content_hash, 'supports': item.supports} for item in outcome.evidence],
+                'failures': [dict(event.payload) for event in outcome.events if event.kind == 'persistence_failed']}
+    finally:
+        release_root_budget(context.contract.task_id)
+
+
+results = [run_case(False), run_case(True)]
+(OUT / f'{LABEL}-mixed-duplicate-results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(results, ensure_ascii=False, indent=2))

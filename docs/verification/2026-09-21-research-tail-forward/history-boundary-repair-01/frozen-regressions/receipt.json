@@ -1,0 +1,107 @@
+{
+  "scope": "focused operator checks, not full CI",
+  "before": {
+    "head": "d91aff9d8437fe903f3e643b65d4805aa4cf243c\n",
+    "status": ""
+  },
+  "after": {
+    "head": "d91aff9d8437fe903f3e643b65d4805aa4cf243c\n",
+    "status": ""
+  },
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "commands": [
+    {
+      "name": "history-controller",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_history_forward_seams.py",
+        "tests/test_history_live_seams.py",
+        "tests/test_history_date_scope.py",
+        "tests/test_history_window_binding.py",
+        "intelligence/tests/test_turn_controller.py",
+        "intelligence/tests/test_research_contract.py"
+      ],
+      "start": "2026-09-21T13:46:51.716942+00:00",
+      "finish": "2026-09-21T13:46:58.260366+00:00",
+      "exit": 0
+    },
+    {
+      "name": "material-honesty",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_e2_top_level_regions.py",
+        "intelligence/tests/test_e2_material_contract.py",
+        "intelligence/tests/test_e2_cross_turn_inheritance.py",
+        "intelligence/tests/test_reasoning_input_boundaries.py",
+        "intelligence/tests/test_user_task.py",
+        "intelligence/tests/test_honesty_gates.py"
+      ],
+      "start": "2026-09-21T13:46:58.260481+00:00",
+      "finish": "2026-09-21T13:47:00.933485+00:00",
+      "exit": 0
+    },
+    {
+      "name": "history-assembly",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_history_control_boundary.py",
+        "tests/test_history_market_anatomy.py",
+        "tests/test_history_local_read_execution.py",
+        "intelligence/tests/test_historical_research_episode.py",
+        "intelligence/tests/test_episode_factory.py",
+        "intelligence/tests/test_query_resolution.py"
+      ],
+      "start": "2026-09-21T13:47:00.933599+00:00",
+      "finish": "2026-09-21T13:47:08.120231+00:00",
+      "exit": 0
+    },
+    {
+      "name": "ruff",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "start": "2026-09-21T13:47:08.120365+00:00",
+      "finish": "2026-09-21T13:47:08.300215+00:00",
+      "exit": 0
+    },
+    {
+      "name": "diff-check",
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "start": "2026-09-21T13:47:08.300307+00:00",
+      "finish": "2026-09-21T13:47:08.324470+00:00",
+      "exit": 0
+    },
+    {
+      "name": "adjacent-unresolved",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-s",
+        "--tb=short",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/test_adjacent_unresolved.py"
+      ],
+      "start": "2026-09-21T13:47:08.324528+00:00",
+      "finish": "2026-09-21T13:47:09.082379+00:00",
+      "exit": 1
+    }
+  ]
+}

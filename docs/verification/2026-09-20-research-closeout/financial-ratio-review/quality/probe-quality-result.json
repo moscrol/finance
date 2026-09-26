@@ -1,0 +1,190 @@
+{
+  "root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "before": {
+    "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+    "status": "",
+    "source_hashes": {
+      "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+      "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+      "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+      "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+      "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+    }
+  },
+  "after": {
+    "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+    "status": "",
+    "source_hashes": {
+      "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+      "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+      "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+      "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+      "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+    }
+  },
+  "passed": 20,
+  "failed": 0,
+  "cases": [
+    {
+      "name": "invalid_product_order_0",
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "passed": true
+    },
+    {
+      "name": "invalid_product_order_1",
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "passed": true
+    },
+    {
+      "name": "invalid_product_order_2",
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "passed": true
+    },
+    {
+      "name": "invalid_product_order_3",
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "passed": true
+    },
+    {
+      "name": "invalid_product_order_4",
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "passed": true
+    },
+    {
+      "name": "invalid_product_order_5",
+      "actual": [
+        "calculation_value_unverified"
+      ],
+      "expected": [
+        "calculation_value_unverified"
+      ],
+      "passed": true
+    },
+    {
+      "name": "unbound_invalid_product_does_not_poison",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "invalid_product_does_not_poison_other_period",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "unit_in_table_name_not_column",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "display_1.59_倍",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "display_1.58_倍",
+      "actual": [
+        "calculation_value_mismatch"
+      ],
+      "expected": [
+        "calculation_value_mismatch"
+      ],
+      "passed": true
+    },
+    {
+      "name": "display_158.8_百分比",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "display_158.7_%",
+      "actual": [
+        "calculation_value_mismatch"
+      ],
+      "expected": [
+        "calculation_value_mismatch"
+      ],
+      "passed": true
+    },
+    {
+      "name": "display_1.00000000000000000000000000000000000000000000000000000000000000000000000000000000_倍",
+      "actual": [
+        "calculation_value_mismatch"
+      ],
+      "expected": [
+        "calculation_value_mismatch"
+      ],
+      "passed": true
+    },
+    {
+      "name": "two_ratio_columns_exact_span",
+      "actual": "|报告期|含金量(bp)|含金量(%)|\n|---|---|---|\n|2026中报| 待核对 |158.8|",
+      "expected": "|报告期|含金量(bp)|含金量(%)|\n|---|---|---|\n|2026中报| 待核对 |158.8|",
+      "passed": true
+    },
+    {
+      "name": "negative_ratio_precision",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "zero_denominator_does_not_raise",
+      "actual": [],
+      "expected": [],
+      "passed": true
+    },
+    {
+      "name": "nonfinite_alias_product_is_a_gap",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    },
+    {
+      "name": "overprecise_claim_fails_closed",
+      "actual": [
+        0
+      ],
+      "expected": [
+        0
+      ],
+      "passed": true
+    },
+    {
+      "name": "same_clean_candidate",
+      "actual": true,
+      "expected": true,
+      "passed": true
+    }
+  ]
+}

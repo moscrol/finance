@@ -1,0 +1,59 @@
+"""Read-only offline seam probes. Import selected worktree through --root."""
+from __future__ import annotations
+
+import argparse
+from dataclasses import asdict, replace
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--root", required=True)
+args = parser.parse_args()
+root = Path(args.root)
+sys.path.insert(0, str(root))
+
+from intelligence.services.research_delivery_checks import calculation_copy_findings, disclosure_absence_findings, remove_findings
+from intelligence.tests.test_research_delivery_checks import TRACE, _financial_evidence
+from intelligence.tests.test_episode_semantic_verifier import _structural
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier, recheck_material_public_delivery
+from intelligence.services.research_contract import ResearchDeadline
+
+source, calc = _financial_evidence()
+cases = [
+    ("header_bp", "| 报告期 | 含金量(bp) |\n|---|---|\n|2026中报|1.588|"),
+    ("header_basis_points", "| 报告期 | 含金量（基点） |\n|---|---|\n|2026中报|1.588|"),
+    ("cell_bp_control", "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588bp|"),
+    ("header_percent_control", "| 报告期 | 含金量(%) |\n|---|---|\n|2026中报|158.8|"),
+    ("raw_ratio_control", "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588|"),
+    ("comma_neighbor", "收入为100亿元[E1]，查询为空，所以公司没有公告，利润为20亿元[E1]。"),
+]
+rows = []
+for mode in ("off", "llm"):
+    os.environ["ASK_SEMANTIC_JUDGE"] = mode
+    for name, text in cases:
+        frame, structural = _structural(text, detail="收入利润可核。", traces=(TRACE,))
+        structural = replace(structural, outcome=replace(structural.outcome, evidence=(*structural.outcome.evidence, source, calc)))
+        findings = (*calculation_copy_findings(text, structural.outcome.evidence), *disclosure_absence_findings(text, (TRACE,)))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {"passed": True, "rejected_sentence_indexes": [], "issues": []}).verify(
+            frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+        result = recheck_material_public_delivery(result)
+        rows.append({"case": name, "mode": mode, "input": text, "findings": [asdict(row) for row in findings], "public": result.public_answer, "status": result.status, "repair_output_ids": list(result.repair_output_ids)})
+
+formula = None
+try:
+    from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+except ModuleNotFoundError:
+    pass
+else:
+    wrong = replace(calc, observations=(replace(calc.observations[0], value=9.999),))
+    names = ("含金量", "净现比", "OCF/净利润")
+    formula = []
+    for name in names:
+        product = replace(wrong, observations=(replace(wrong.observations[0], metric=f"现金流比率.{name}[2026中报]"),))
+        text = f"2026中报{name}为9.999。"
+        formula.append({"label": name, "input_ratio": source.observations[0].value / source.observations[1].value, "product_ratio": 9.999, "financial_gaps": list(calculation_ratio_gaps((source, product), (source.content_hash, product.content_hash), subject="600519.SH")), "delivery_findings": [asdict(row) for row in calculation_copy_findings(text, (source, product), calculation_required=True)]})
+
+print(json.dumps({"root": str(root), "sha": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(), "cases": rows, "formula_alias_cases": formula}, ensure_ascii=False, indent=2))

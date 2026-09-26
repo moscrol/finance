@@ -1,0 +1,180 @@
+"""Independent PR #833 contract probes; no network, production DB, or model calls."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import date
+import json
+
+from intelligence.services import agent_research
+from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.historical_research.intent import (
+    HistoryIntent,
+    inherit_history_followup,
+)
+from intelligence.services.material_contract import compile_material_contract
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.ranking_contract import parse_ranking_intent
+from intelligence.services.research_contract import TurnIntent
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolDiagnostic,
+    ToolRunResult,
+    ToolSpec,
+)
+from intelligence.services.track_contract import parse_track_intent
+from intelligence.services.turn_controller import decide_turn
+from intelligence.services.user_task import split_user_message
+
+
+BASE = (
+    "以2026年9月10日为信息截止日，只研究2026年1月1日至9月15日的本地历史数据，"
+    "不联网补数；复盘这波农业怎么走出来的。"
+)
+
+
+results: list[dict[str, object]] = []
+
+
+def check(name: str, condition: bool, **detail: object) -> None:
+    results.append({"name": name, "pass": bool(condition), **detail})
+
+
+base = decide_turn(BASE, llm_complete=lambda _: (None, None, "offline"))
+previous = TurnIntent.from_dict(base.turn_intent.to_dict())
+prior = base.task_frame.history_intent
+assert prior is not None
+
+# Positive control: a current, unquoted user continuation can retain the trusted contract.
+positive = inherit_history_followup("范围与截止日继续不变。", prior)
+check("real_user_continuation_retains_scope", positive == prior, value=repr(positive))
+
+# Negative controls: quoted/material/assistant-summary text must not be authority.
+for label, text in {
+    "closed_quote": "解释这句话：「范围与截止日继续不变。」",
+    "markdown_quote": "> 范围与截止日继续不变。",
+    "fenced_text": "```text\n范围与截止日继续不变。\n```",
+    "assistant_label": "助手旧答：范围与截止日继续不变。",
+    "summary_label": "摘要：仍沿用上一轮信息截止和研究范围。",
+}.items():
+    helper = inherit_history_followup(text, prior)
+    decision = decide_turn(
+        text,
+        previous_intent=previous,
+        previous_turn_id="trusted-turn-1",
+        llm_complete=lambda _: (None, None, "offline"),
+    )
+    restored = decision.task_frame.history_intent
+    check(
+        f"quoted_text_does_not_restore_scope:{label}",
+        helper is None and restored is None,
+        helper=repr(helper),
+        consumer=repr(restored),
+    )
+
+# A later authorization end must not raise the earlier information cutoff.
+later = replace(prior, requested_end="2026-09-30")
+later_frame = replace(base.task_frame, history_intent=later)
+later_context = build_episode_context(
+    later_frame,
+    task_id="independent-cutoff",
+    today="2026-09-21",
+    information_cutoff=None,
+)
+check(
+    "later_authorized_end_does_not_raise_cutoff",
+    later_context.information_cutoff.as_of_date == date(2026, 9, 10),
+    cutoff=later_context.information_cutoff.as_of_date.isoformat(),
+)
+
+# Procedure controls are not fictional market assumptions; an actual counterfactual remains one.
+procedure = compile_material_contract(
+    split_user_message("如果当前分析窗太短，只能在之前授权的日期范围内继续观察。").regions
+)
+hypothesis = compile_material_contract(
+    split_user_message("如果营收增长20%，利润会怎样？").regions
+)
+check(
+    "procedure_not_fictional",
+    procedure is None or procedure.authenticity != "fictional",
+    authenticity=None if procedure is None else procedure.authenticity,
+)
+check(
+    "real_user_hypothesis_still_fictional",
+    hypothesis is not None and hypothesis.authenticity == "fictional",
+    authenticity=None if hypothesis is None else hypothesis.authenticity,
+)
+
+# The real context keeps local reads and admits history producer names without opening web access.
+context = build_episode_context(base.task_frame, task_id="independent-local", today="2026-09-21")
+evidence_types = sorted(
+    {kind for output in context.contract.required_outputs for kind in output.evidence_types}
+)
+check(
+    "local_history_producer_mapping_no_external_grant",
+    "finance_query" in context.contract.allowed_capabilities
+    and "web_search" not in context.contract.allowed_capabilities
+    and "history_query" in evidence_types
+    and "read_history_result" in evidence_types,
+    allowed=list(context.contract.allowed_capabilities),
+    evidence_types=evidence_types,
+)
+
+# A typed diagnostic survives the date fact gate but remains uncitable and creates no E item.
+diagnostic_result = ToolRunResult(
+    evidence=(),
+    observation="",
+    diagnostics=(ToolDiagnostic(code="invalid_query", message="安全字段提示"),),
+    trace=ProviderTrace(
+        provider="fixture",
+        capability="finance_query",
+        status="parse_error",
+        result_count=0,
+    ),
+)
+registry = ResearchToolRegistry(
+    (
+        ToolSpec(
+            name="finance_query",
+            capability="finance_query",
+            description="fixture",
+            cost="local",
+            freshness="historical",
+            runner=lambda *_: diagnostic_result,
+            io_effect="local_read",
+        ),
+    )
+)
+observation = registry.execute("finance_query", "x", context=context, step_id="diagnostic")
+projection = FinanceResearchHarness().project_tool_result(
+    observation,
+    evidence_so_far=observation.evidence,
+    seen_prose=set(),
+)
+wire = json.loads(projection.model_content)
+check(
+    "typed_diagnostic_is_not_evidence_or_date_authority",
+    not observation.evidence
+    and wire.get("evidence") == []
+    and "非市场事实" in wire.get("observation", "")
+    and context.authorized_trade_dates == set(),
+    wire=wire,
+    authorized_trade_dates=sorted(context.authorized_trade_dates),
+)
+
+# History rank/trace language must not trigger forward ranking/tracking templates.
+history = HistoryIntent("retrospective_discovery")
+check(
+    "history_rank_not_forward_priority",
+    not parse_ranking_intent("把A、B、C按历史强弱排名", history_intent=history),
+)
+check(
+    "history_trace_not_forward_tracking",
+    not parse_track_intent("继续追踪这些板块的历史路径", history_intent=history),
+)
+
+print(json.dumps(results, ensure_ascii=False, indent=2, default=str))
+failed = [item["name"] for item in results if not item["pass"]]
+print(json.dumps({"failed": failed, "count": len(failed)}, ensure_ascii=False))
+raise SystemExit(1 if failed else 0)

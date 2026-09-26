@@ -1,0 +1,23 @@
+Spec 轴通过，发现 0 项：没有已证实的需求缺失、错误实现或越界。固定比较 `4ace5ec2e9b7735d90eb15bc2351fa193c1120b8...c8dbd387ff2ddf28546a5a668296c762e0dd951a`。隔离复跑原测试 10P、另加四项命令入口探针通过；撤去末尾身份保护后，两条原反例按预期失败。135 项证据均从提交树读取并验哈希，旧 110 项内容身份不变，历史失败未被改写。当前 PR 明确区分历史全量与本轮前端复验。本结论只签本轴需求，不代替当前 PR 整仓门禁或生产验收。
+
+核验详情：
+
+| 需求原句与位置 | 实现及独立证据 | 判断 |
+|---|---|---|
+| [落实计划第 13 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/docs/superpowers/plans/2026-09-20-open-work-qc-followup.md:13)： “测试首尾分别记录完整 revision、dirty、porcelain 状态”；“初始脏树或错 SHA 不执行测试” | [脚本 identity](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/scripts/run_frontend_gate.py:37) 使用完整 HEAD、全量未跟踪项 porcelain；开始前全等比较 SHA，脏树与错 SHA 均无命令执行。原测试独立复跑覆盖。 | 通过 |
+| 同第 13 行：“末尾脏树、SHA 漂移、Git 查询失败或任一命令非零，都不能写通过结论” | [末尾判定](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/scripts/run_frontend_gate.py:123) 同时要求首尾 SHA 相等、都干净、命令全 0 且完整。四项 CLI 探针中，末尾 Git 元数据不可读取及新增未跟踪文件均 exit 2；lint exit 7 后仍记录后续成功，整体 exit 1；干净对照 exit 0。 | 通过 |
+| 同第 13 行：“输出目录必须是目标树外的新目录”；“顺序运行 install --frozen-lockfile、lint、typecheck、test、build、test:e2e。每步保存命令、退出码及日志哈希” | [输出与步骤实现](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/scripts/run_frontend_gate.py:66) 拒绝树内及已存在目录；六条 CLI 子进程顺序、运行目录、退出码、日志大小及 SHA-256 均核对。原测试确认已有证据原文未覆盖。 | 通过 |
+| 同第 13 行：“`--python` 默认当前解释器，端口参数同时设置端口及配套 URL” | [CLI 环境](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/scripts/run_frontend_gate.py:146) 动态探针确认子进程收到指定解释器、两个端口和 RE06 URL。Workbench URL 由 [Playwright 第 8 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/intelligence/webapp/playwright.config.ts:8) 直接从该端口构造。 | 通过 |
+| [落实计划第 14 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/docs/superpowers/plans/2026-09-20-open-work-qc-followup.md:14)：“撤去末尾身份保护后，结束变脏与 HEAD 改变两个反例必须失败” | 在独立临时副本仅将身份接受条件改为只看开头，保留两条原断言；两条均 `assert 0 == 2` 失败，未改候选源码。[独立变异日志](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-independent-mutation.log.txt)。 | 通过 |
+| [落实计划第 15 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/docs/superpowers/plans/2026-09-20-open-work-qc-followup.md:15)：“两次串行、使用独立输出目录；核首尾同 SHA、dirty=false、六命令退出码 0”；“只重跑前端相关门禁，不冒充本轮新 Python 全量” | #795/#796 新收据分别绑定 `ec92b31b…`/`4ace5ec2…`，时间先后不重叠，十二份日志大小/哈希与当前提交匹配，runner 哈希等于入仓脚本；各 110P、E2E 34P/2S。实时读取 [#789](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/789) 的 head 与本次固定 SHA 一致，正文明确“本轮没有重跑整仓全量”，未把旧读数移签。[PR 快照](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-pr789.json)。 | 通过 |
+| [验收规程第 72 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/docs/workflows/acceptance-workflow.md:72)：“历史收据缺字段时保留原件，另起目录重跑；不得把今天的干净状态补写成过去的观测” | 与补验前 `7bae41a4` 比较，三份历史 frontend.json 均逐字节不变；#788 的末步 exit 1 仍在。新身份只写于 qc-followup，说明同时保留首尾采样的检测边界。 | 通过 |
+| [落实计划第 22 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/docs/superpowers/plans/2026-09-20-open-work-qc-followup.md:22)：“新清单 135 项全部验哈希并逐项入索引；不把本机文件存在当作已入仓” | 每项通过 `git show c8dbd387…:<path>` 读取提交内实际 blob，135/135 大小和 SHA-256 相符。旧 110 项 source/bytes/sha256 全保持，24 项只改归档路径且记录 original_archive_path；未用工作区存在性替代提交证据。 | 通过 |
+| [落实计划第 16 行](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/docs/superpowers/plans/2026-09-20-open-work-qc-followup.md:16)：“补 #796 原授权出处；#597 写 09-12 合并关闭、09-16 补说明、本轮核实；KB 日期交接改固定 SHA 的 Gitea 链接” | 原附件实读 SHA-256 与授权记录一致，含“独立复核 387028b8，决定生成根合入还是回滚”；#597 原始时间字段与新叙述一致；固定 KB `3a210103…` 下日期交接用 `git cat-file -e` 验证存在。原 `26d9e34f` 表述保留。 | 通过 |
+
+可复跑证据：
+
+- [证据核验与原测试/四项 CLI 结果](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-evidence-results.json)、[原测试日志](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-original-tests.log.txt)。
+- [变异、实时 PR 与授权核验结果](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-followup-results.json)。
+- [主探针脚本](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec_probe.py)、[补充探针脚本](/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec_followup_probes.py)；均用 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -B <脚本>` 运行，临时副本和日志全部写在本报告目录内，候选树只读。测试只运行拷出的 runner 单元测试与替身 pnpm 命令，不是前端整片或 Python 全量重跑。
+
+本轴没有编辑候选/生产、推送、合并或评论。需求已经明确首尾采样不能证明期间没有发生又恢复的改动；未将此已披露限制另计缺陷。Standards 轴独立结论未读取。

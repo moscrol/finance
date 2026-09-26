@@ -1,0 +1,21 @@
+..............F                                                          [100%]
+=================================== FAILURES ===================================
+_____ test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[dirty-True] ______
+
+gate = (<function gate.<locals>.run at 0x10888b600>, PosixPath('/private/tmp/pytest-of-a77/pytest-1387/test_incomplete_or_dir...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'dirty', value = True
+
+    @pytest.mark.parametrize("field,value", [("exit_status", None), ("counts", {}), ("dirty", True)])
+    def test_incomplete_or_dirty_receipt_cannot_be_a_green_gate(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run("--receipt", str(receipt)).returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/repo/run_m...p/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/repo/run_m...p/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='') = <function gate.<locals>.run at 0x10888b600>('--receipt', '/private/tmp/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/this-run.json')
+E        +      where '/private/tmp/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/this-run.json' = str(PosixPath('/private/tmp/pytest-of-a77/pytest-1387/test_incomplete_or_dirty_recei2/this-run.json'))
+
+tests/test_run_main_gate.py:138: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_main_gate.py::test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[dirty-True]
+1 failed, 14 passed in 8.43s

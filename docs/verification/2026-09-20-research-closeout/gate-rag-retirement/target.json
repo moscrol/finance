@@ -1,0 +1,10 @@
+{
+  "revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "base": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "tree": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/finance-workspace-private",
+  "components": {
+    "rag_retirement": "1931b3a32237489bcdf21f51bf8523d697398b92",
+    "pr789": "62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717"
+  },
+  "branch": "fix/rag-retirement-main-ready-0920"
+}

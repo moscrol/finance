@@ -1,0 +1,81 @@
+{
+  "evidence": {
+    "base": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+    "head": "c8dbd387ff2ddf28546a5a668296c762e0dd951a",
+    "committed_manifest_items": 135,
+    "committed_items_matching_size_and_sha256": 135,
+    "old_manifest_items_unchanged_content_identity": 110,
+    "historical_log_path_renames_only": 24,
+    "historical_frontend_receipts_byte_identical": [
+      "gate-788/frontend.json",
+      "gate-hithink/frontend.json",
+      "gate-generation-final/frontend.json"
+    ],
+    "historical_788_failure_retained": true,
+    "new_frontend_receipts": [
+      {
+        "number": "795",
+        "revision": "ec92b31b5300bbbb4abc64e41f96854f1438aea0",
+        "six_commands_and_hashes_match": true,
+        "started_at": "2026-09-20T02:55:20.992547+00:00",
+        "finished_at": "2026-09-20T02:56:37.826744+00:00"
+      },
+      {
+        "number": "796",
+        "revision": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+        "six_commands_and_hashes_match": true,
+        "started_at": "2026-09-20T02:57:10.313908+00:00",
+        "finished_at": "2026-09-20T02:58:26.515420+00:00"
+      }
+    ],
+    "problems": []
+  },
+  "copied_original_tests": {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "--rootdir",
+      "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch",
+      "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch/tests/test_run_frontend_gate.py"
+    ],
+    "exit_code": 0,
+    "copied_sha256": {
+      "scripts/run_frontend_gate.py": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+      "tests/test_run_frontend_gate.py": "ea903b026069fb59158a166f22088e27dfd044670664ff9c0ca5befd73ece984"
+    },
+    "log_sha256": "cccc105c4729c139d57bf78fe1feaa9dc85e80781b7367e611405d8054556e25",
+    "log_tail": "..........                                                               [100%]\n10 passed in 1.25s\n"
+  },
+  "additional_cli_probes": [
+    {
+      "mode": "success",
+      "exit_code": 0,
+      "all_assertions_passed": true,
+      "receipt": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch/receipt-success/frontend.json"
+    },
+    {
+      "mode": "end-git-failure",
+      "exit_code": 2,
+      "all_assertions_passed": true,
+      "receipt": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch/receipt-end-git-failure/frontend.json"
+    },
+    {
+      "mode": "second-command-failure",
+      "exit_code": 1,
+      "all_assertions_passed": true,
+      "receipt": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch/receipt-second-command-failure/frontend.json"
+    },
+    {
+      "mode": "end-untracked",
+      "exit_code": 2,
+      "all_assertions_passed": true,
+      "receipt": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-scratch/receipt-end-untracked/frontend.json"
+    }
+  ]
+}

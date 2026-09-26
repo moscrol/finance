@@ -1,0 +1,5 @@
+revision=dd76f502fb6da59e3f34806b1b6f48d11a0955fd
+environment=HOME,PATH,LANG,TMPDIR,FWP_TEST_RECEIPT=0,PYTHONDONTWRITEBYTECODE=1,PYTHONPATH only
+command=env -i <whitelist> /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q --tb=no .../test_consumer_no_fallback.py
+..                                                                       [100%]
+2 passed in 0.07s

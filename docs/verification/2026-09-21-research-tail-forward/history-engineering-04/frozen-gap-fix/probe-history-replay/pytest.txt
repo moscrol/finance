@@ -1,0 +1,28 @@
+..F...........................................F..                        [100%]
+=================================== FAILURES ===================================
+__________ test_replay_keeps_ceiling_across_multiple_elliptical_turns __________
+tests/test_history_permission_inheritance.py:64: in test_replay_keeps_ceiling_across_multiple_elliptical_turns
+    assert history.base_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+_______________ test_real_orchestrator_replays_elliptical_turns ________________
+tests/test_history_permission_inheritance.py:211: in test_real_orchestrator_replays_elliptical_turns
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:42: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+=========================== short test summary info ============================
+FAILED tests/test_history_permission_inheritance.py::test_replay_keeps_ceiling_across_multiple_elliptical_turns - AssertionError: assert 'full' == 'local_only'
+  
+  - local_only
+  + full
+FAILED tests/test_history_permission_inheritance.py::test_real_orchestrator_replays_elliptical_turns - AssertionError: assert 'full' == 'local_only'
+  
+  - local_only
+  + full
+2 failed, 47 passed in 1.95s

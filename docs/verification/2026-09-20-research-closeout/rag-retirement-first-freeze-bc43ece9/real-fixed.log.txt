@@ -1,0 +1,16 @@
+command=/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+finance_head=3f5d0690cec45bb906d758f4165d1558eda78a26 finance_dirty=0
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py", line 121, in <module>
+    check_epoch(old_workers, 'alpha', 'initial-warm')
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py", line 97, in check_epoch
+    warm = worker.prewarm(['query', word, '--mode', 'bm25', '--json'], timeout=20)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-rag-retirement-closeout-0920/intelligence/services/rag_worker.py", line 216, in prewarm
+    response = self._query_locked(argv, timeout, allow_abandon=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-rag-retirement-closeout-0920/intelligence/services/rag_worker.py", line 430, in _query_locked
+    raise RuntimeError("rag worker exited without response")
+RuntimeError: rag worker exited without response
+fixed_probe_sha256 fbce13bd78cc554ba2889c77e6c95c2f82cae844248f70fd093aa9e6f887d32c  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+fixed_results_sha256 sha256sum: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-fixed/results.json: No such file or directory

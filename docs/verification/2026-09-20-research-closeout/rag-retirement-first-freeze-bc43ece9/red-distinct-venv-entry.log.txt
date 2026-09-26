@@ -1,0 +1,26 @@
+regression=distinct-venv-entry-identity
+command=FWP_TEST_RECEIPT=0 ... pytest -q intelligence/tests/test_rag_worker_generation.py -k distinguishes_venv_entries
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_managed_binding_distinguishes_venv_entries_with_same_python_target ____
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2964/test_managed_binding_distingui0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a5958e0>
+
+    def test_managed_binding_distinguishes_venv_entries_with_same_python_target(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        alternate = tmp_path / "other-venv-python"
+        alternate.symlink_to(Path(alpha["python"]).resolve())
+    
+>       with pytest.raises(rag_worker.RagGenerationUnavailable, match="does not match"):
+E       Failed: DID NOT RAISE <class 'intelligence.services.rag_generation_identity.RagGenerationUnavailable'>
+
+intelligence/tests/test_rag_worker_generation.py:358: Failed
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_generation.py::test_managed_binding_distinguishes_venv_entries_with_same_python_target
+1 failed, 14 deselected in 0.06s
+observed_exit=1 expected_nonzero=true

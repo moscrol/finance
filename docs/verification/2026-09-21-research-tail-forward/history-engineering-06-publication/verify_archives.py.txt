@@ -1,0 +1,61 @@
+"""Check committed archive completeness, original bytes, and unchanged prior eight packs."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+DOCS = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+OUT = Path(__file__).resolve().parent
+ROOT = 'docs/verification/2026-09-21-research-tail-forward'
+OLD = '57f187de9c89f528bb79fdd8928c4a862b27fa60'
+sys.path.insert(0, str(DOCS / 'scripts'))
+from check_evidence_archive import check_archive
+
+
+def main(revision):
+    revision = subprocess.check_output(['git', '-C', str(DOCS), 'rev-parse', revision], text=True, timeout=20).strip()
+    def blob(path):
+        return subprocess.check_output(['git', '-C', str(DOCS), 'show', revision + ':' + path], timeout=30)
+    def sha(data):
+        return hashlib.sha256(data).hexdigest()
+    manifests = sorted((DOCS / ROOT).glob('*/sha256-manifest.txt'))
+    results = [check_archive(DOCS, p.parent.relative_to(DOCS).as_posix(), revision) for p in manifests]
+    assert len(results) == 9 and all(r['ok'] for r in results)
+    originals = []
+    for name in ('history-engineering-04', 'history-engineering-resume-05', 'history-engineering-resume-06'):
+        sources = json.loads(blob(ROOT + '/' + name + '/sources.json'))
+        for item in sources['files']:
+            data = blob(item['target'])
+            assert sha(data) == item['sha256'] and len(data) == item['bytes']
+            assert data == Path(item['source']).read_bytes()
+        chunks = sources.get('lossless_chunks', [])
+        for item in chunks:
+            parts = []
+            for part in item['parts']:
+                data = blob(part['target'])
+                assert sha(data) == part['sha256'] and len(data) == part['bytes']
+                parts.append(data)
+            data = b''.join(parts)
+            assert sha(data) == item['sha256'] and len(data) == item['bytes']
+            assert data == Path(item['source']).read_bytes()
+        originals.append({'archive': name, 'whole_originals_matching': len(sources['files']),
+                          'chunked_originals_matching': len(chunks)})
+    old = [p.parent.relative_to(DOCS).as_posix() for p in manifests if p.parent.name != 'history-engineering-resume-06']
+    assert len(old) == 8
+    subprocess.run(['git', '-C', str(DOCS), 'diff', '--exit-code', OLD, revision, '--', *old], check=True, timeout=30)
+    result = {'recorded_at': datetime.now(timezone.utc).isoformat(), 'archive_revision': revision,
+              'archives': results, 'originals': originals, 'old_eight_unchanged_from': OLD,
+              'total_manifest_members': sum(r['manifest_files'] for r in results)}
+    with (OUT / 'archive-check.json').open('x') as stream:
+        json.dump(result, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('revision')
+    main(parser.parse_args().revision)

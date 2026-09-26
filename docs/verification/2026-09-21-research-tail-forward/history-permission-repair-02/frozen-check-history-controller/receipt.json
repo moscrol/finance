@@ -1,0 +1,32 @@
+{
+  "scope": "focused operator check, not independent or full CI",
+  "name": "history-controller",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-s",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/frozen-check-history-controller/tmp",
+    "tests/test_history_forward_seams.py",
+    "tests/test_history_live_seams.py",
+    "tests/test_history_date_scope.py",
+    "tests/test_history_window_binding.py",
+    "intelligence/tests/test_turn_controller.py",
+    "intelligence/tests/test_research_contract.py"
+  ],
+  "started": "2026-09-21T15:06:30.598288+00:00",
+  "finished": "2026-09-21T15:06:51.780859+00:00",
+  "before": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "after": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "exit": 0,
+  "expected_failure": false
+}

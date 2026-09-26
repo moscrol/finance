@@ -1,0 +1,113 @@
+{
+  "expected_revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "identity_before": {
+    "revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+    "dirty": false,
+    "status": "",
+    "time": "2026-09-20T06:52:38.225272+00:00"
+  },
+  "runner_sha256": "455557343edd2147a885d646dd4b1888cdd3283ca1360556590c946e02d2da74",
+  "complete": true,
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.18,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/ruff.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "pytest",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "receipt_redirect",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 524.93,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/pytest.log.txt",
+      "sha256": "5ebeb091eabe10c24c59019197710a13768d6d5eb45a2dcda87a88838506a96b"
+    },
+    {
+      "name": "registry-parse",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.06,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-parse.log.txt",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "name": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-check.log.txt",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "name": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.05,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-tables.log.txt",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.03,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/registry-views.log.txt",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.1,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/ledger-crosswalk.log.txt",
+      "sha256": "219e8950982da840abd3af6c28d0d58398cb6fbfea0b565f7bb52585fc7dd3b8"
+    }
+  ],
+  "identity_after": {
+    "revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+    "dirty": false,
+    "status": "",
+    "time": "2026-09-20T07:01:23.655269+00:00"
+  },
+  "identity_stable": true,
+  "exit_code": 0
+}

@@ -1,0 +1,17 @@
+.............................................................ss......... [ 67%]
+.........s...........F............                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T081822Z-f783f19c.json
+
+=================================== FAILURES ===================================
+_______________________ test_structure_probe_daily_full ________________________
+
+    @pytest.mark.skipif(not _graph_searchable(), reason="CI 不上传 graph.db；本机有图才跑结构探针")
+    def test_structure_probe_daily_full():
+        payload, _ = _query_json("daily-full")
+        blob = json.dumps(payload["layers"]["structure"]["hits"])
+>       assert "market_feature_store" in blob
+E       AssertionError: assert 'market_feature_store' in '[]'
+
+tests/test_code_map.py:594: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_code_map.py::test_structure_probe_daily_full - AssertionErr...
+1 failed, 102 passed, 3 skipped in 13.32s

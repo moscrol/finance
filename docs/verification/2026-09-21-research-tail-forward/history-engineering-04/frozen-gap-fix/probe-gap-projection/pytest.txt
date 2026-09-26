@@ -1,0 +1,48 @@
+FF.......F.......F...                                                    [100%]
+=================================== FAILURES ===================================
+________________ test_gap_reference_survives_control_projection ________________
+tests/test_gap_followup_projection.py:29: in test_gap_reference_survives_control_projection
+    assert classify_reference(visible) == "continuation"
+E   AssertionError: assert 'none' == 'continuation'
+E     
+E     - continuation
+E     + none
+______ test_forecast_gap_keeps_original_owner_without_raw_resolution_hint ______
+tests/test_gap_followup_projection.py:36: in test_forecast_gap_keeps_original_owner_without_raw_resolution_hint
+    assert decision.question_type == "market_forecast"
+E   AssertionError: assert 'general_finance_qa' == 'market_forecast'
+E     
+E     - market_forecast
+E     + general_finance_qa
+___________ test_live_gap_followup_keeps_history_permission_ceiling ____________
+tests/test_gap_followup_projection.py:54: in test_live_gap_followup_keeps_history_permission_ceiling
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:41: in assert_local
+    assert context.contract.material_contract is not None
+E   AssertionError: assert None is not None
+E    +  where None = ResearchTaskContract(task_id='history-boundary-d8fa56bcd8674f5ea638be13e10a3364', question='上一轮「可以联网补数，截止日改为2026年9月20日...79f76bb93207fc75e4fa7cc2ae5aa6af634455d07c', material_contract=None, premise_calculation=None, material_grounding=None).material_contract
+E    +    where ResearchTaskContract(task_id='history-boundary-d8fa56bcd8674f5ea638be13e10a3364', question='上一轮「可以联网补数，截止日改为2026年9月20日...79f76bb93207fc75e4fa7cc2ae5aa6af634455d07c', material_contract=None, premise_calculation=None, material_grounding=None) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-d8fa56bcd8674f5ea638be13e10a3364', question...ack=None, retrieval_stages=(), history_intent=None, history_results=[], history_artifact_index=[], prior_evidence=None).contract
+___________ test_gap_outside_quote_without_trusted_history_clarifies ___________
+tests/test_gap_followup_projection.py:71: in test_gap_outside_quote_without_trusted_history_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+=========================== short test summary info ============================
+FAILED tests/test_gap_followup_projection.py::test_gap_reference_survives_control_projection - AssertionError: assert 'none' == 'continuation'
+  
+  - continuation
+  + none
+FAILED tests/test_gap_followup_projection.py::test_forecast_gap_keeps_original_owner_without_raw_resolution_hint - AssertionError: assert 'general_finance_qa' == 'market_forecast'
+  
+  - market_forecast
+  + general_finance_qa
+FAILED tests/test_gap_followup_projection.py::test_live_gap_followup_keeps_history_permission_ceiling - AssertionError: assert None is not None
+ +  where None = ResearchTaskContract(task_id='history-boundary-d8fa56bcd8674f5ea638be13e10a3364', question='上一轮「可以联网补数，截止日改为2026年9月20日...79f76bb93207fc75e4fa7cc2ae5aa6af634455d07c', material_contract=None, premise_calculation=None, material_grounding=None).material_contract
+ +    where ResearchTaskContract(task_id='history-boundary-d8fa56bcd8674f5ea638be13e10a3364', question='上一轮「可以联网补数，截止日改为2026年9月20日...79f76bb93207fc75e4fa7cc2ae5aa6af634455d07c', material_contract=None, premise_calculation=None, material_grounding=None) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-d8fa56bcd8674f5ea638be13e10a3364', question...ack=None, retrieval_stages=(), history_intent=None, history_results=[], history_artifact_index=[], prior_evidence=None).contract
+FAILED tests/test_gap_followup_projection.py::test_gap_outside_quote_without_trusted_history_clarifies - AssertionError: assert 'research' == 'clarification'
+  
+  - clarification
+  + research
+4 failed, 17 passed in 0.35s

@@ -1,0 +1,169 @@
+"""Independent data-contract and real timer probes. No external model or production writes."""
+from copy import deepcopy
+from dataclasses import asdict, replace
+from datetime import date
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+import threading
+from types import SimpleNamespace
+
+import pytest
+
+ROOT=Path('/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+sys.path.insert(0,str(ROOT))
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+from intelligence.services.evidence_ledger import EvidenceLedger
+from intelligence.services.episode_store import EpisodeState
+
+
+def atom(identity='one', **updates):
+    original=AgentEvidence(tool='market_data',title='source title',detail='完整原文',source='issuer',source_date='2026-07-24',content_hash=identity,supports=('original',),contradicts=('counter',),observations=(StructuredObservation('subject','2026-07-24','metric',12.5),),derived_from=('input',),internal_locator='private://original',reexcerpted=True,pointer_dropped=2,structural_neighbor_demoted=1,deep_read=True)
+    return replace(original,**updates)
+
+
+def resign(payload):
+    body={k:v for k,v in payload.items() if k!='sha256'}
+    payload['sha256']=hashlib.sha256(json.dumps(body,ensure_ascii=False,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def fixture():
+    ledger=EvidenceLedger(information_cutoff=date(2026,7,24))
+    first,second,future=atom(),atom('two'),atom('excluded',source_date='2026-07-25')
+    ledger.branch_sink('child').append(first)
+    ledger.append(second,covered_outputs=('covered',),open_gaps=('gap',))
+    shown=(replace(second,supports=('request-only',),contradicts=()),future,first)
+    payload=ledger.to_recovery_snapshot(episode_id='review',presented_evidence=shown)
+    return ledger, shown, payload
+
+
+def test_roundtrip_keeps_distinct_order_exact_atoms_owners_coverage_and_exclusion():
+    ledger, shown, payload=fixture()
+    data=json.loads(json.dumps(payload,ensure_ascii=False))
+    decoded=EpisodeEvidenceSnapshot.from_dict(data,episode_id='review')
+    restored=EvidenceLedger.from_recovery_snapshot(data,episode_id='review')
+    assert decoded.presented_evidence==shown
+    assert decoded.presented_hashes==('two','excluded','one')
+    assert restored.items()==ledger.items()
+    assert restored.snapshot()==ledger.snapshot()
+    assert restored.append(shown[1],covered_outputs=('forged',))==()
+    assert not restored.mark_output_covered('forged',evidence_ids=('excluded',))
+    assert 'request-only' not in dict(restored.snapshot().evidence_targets)['two']
+    assert restored.to_recovery_snapshot(episode_id='review',presented_evidence=shown)==data
+    state=EpisodeState('review','planning',last_sequence=7,evidence_snapshot=data,evidence_snapshot_sequence=5)
+    data['presentations'][0]['atom']['detail']='caller mutation'
+    exported=state.to_dict()
+    exported['evidence_snapshot']['presentations'][0]['atom']['supports'].append('export mutation')
+    assert state.to_dict()['evidence_snapshot']==payload
+    assert EpisodeState.from_dict(state.to_dict()).to_dict()==state.to_dict()
+
+
+_REPLACEMENTS={
+    'tool':'other','title':'other','detail':'other','source':'other','internal_locator':'other',
+    'evidence_tier':'L1','independent_key':'other','freshness':'fresh','source_date':'2026-07-23',
+    'content_hash':'new-current','publisher_kind':'company','document_type':'announcement',
+    'observations':[{'subject':'subject','as_of':'2026-07-24','metric':'metric','value':88}],
+    'derived_from':['forged'],'reexcerpted':False,'pointer_dropped':3,'structural_neighbor_demoted':2,'deep_read':False,
+}
+
+
+@pytest.mark.parametrize('field',list(_REPLACEMENTS))
+def test_resigned_same_hash_fact_replacement_is_rejected(field):
+    _,_,payload=fixture()
+    payload['presentations'][0]['atom'][field]=_REPLACEMENTS[field]
+    resign(payload)
+    with pytest.raises(ValueError): EpisodeEvidenceSnapshot.from_dict(payload,episode_id='review')
+
+
+@pytest.mark.parametrize('mutation',['classification','duplicate','unknown-field','missing-field','coverage','digest','version'])
+def test_resigned_wire_corruption_cannot_change_eligibility(mutation):
+    _,_,payload=fixture()
+    if mutation=='classification': payload['presentations'][1]['classification']='admitted'
+    elif mutation=='duplicate': payload['presentations'].append(deepcopy(payload['presentations'][1]))
+    elif mutation=='unknown-field': payload['presentations'][1]['authority']='admitted'
+    elif mutation=='missing-field': del payload['presentations'][1]['atom']['observations']
+    elif mutation=='coverage': payload['covered_outputs'].append('only-future')
+    elif mutation=='version': payload['schema_version']=True
+    resign(payload)
+    if mutation=='digest': payload['presentations'][0]['atom']['supports']=['changed-after-digest']
+    with pytest.raises(ValueError): EpisodeEvidenceSnapshot.from_dict(payload,episode_id='review')
+
+
+def test_actual_old_v1_artifact_is_preserved_without_rehashing_as_v2():
+    old=Path('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/standards/candidate/same-links')
+    seen=0
+    for path in old.glob('*/state.json'):
+        state=json.loads(path.read_text())
+        payload=state.get('evidence_snapshot')
+        if not payload or not payload.get('entries'): continue
+        assert payload['schema_version']==1
+        restored=EpisodeState.from_dict(state)
+        assert restored.to_dict()['evidence_snapshot']==payload
+        snapshot=EpisodeEvidenceSnapshot.from_dict(payload,episode_id=state['episode_id'])
+        assert snapshot.to_dict()==payload
+        assert tuple(a.content_hash for a in snapshot.presented_evidence)==tuple(payload['presented_hashes'])
+        seen+=1
+    assert seen>=1,'must read an actual complete v1 artifact, not a synthetic v2 downgrade'
+
+
+def test_fixture_blocks_until_its_popped_timer_finishes_and_leaves_other_owner_alone(tmp_path):
+    from intelligence.api import app as api
+    from intelligence.services.run_store import RunStore
+    from intelligence.tests import test_api_run_admission as admission
+    from intelligence.tests.fixtures.run_supervisor import track_test_client_timers
+    entered, release, finished, joined, teardown_done=(threading.Event() for _ in range(5))
+    other_release=threading.Event()
+    other=api.RunSupervisor(max_workers=1,timeout_sec=0)
+    other_client=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(supervisor=other)))
+    track_test_client_timers(other_client)
+    other_timer=threading.Timer(0,other_release.wait)
+    with other._lock: other._timers[('other','run')]=other_timer
+    other_timer.start()
+    threads=[]; observed=[]; errors=[]; gen=client=teardown=None
+    with pytest.MonkeyPatch.context() as patch:
+        claim=RunStore.claim_failed_run
+        def parked(store,*args,**kwargs):
+            value=claim(store,*args,**kwargs)
+            if kwargs.get('error')=='executor_timeout':
+                assert value[1]
+                threads.append(threading.current_thread()); entered.set()
+                assert release.wait(5),'review timer release did not arrive'
+                observed.append(os.environ['FORESIGHT_USERS_DIR']); finished.set()
+            return value
+        patch.setattr(RunStore,'claim_failed_run',parked)
+        try:
+            gen=admission.harness.__wrapped__(tmp_path,patch); h=next(gen)
+            client=h.build(api.RunSupervisor(max_workers=1,timeout_sec=0))
+            response=client.post('/api/runs',json={'question':'q','user':'owner'})
+            assert response.status_code==200 and entered.wait(5)
+            expected_env=os.environ['FORESIGHT_USERS_DIR']
+            h.gate.release.set()
+            client.app.state.supervisor._executor.shutdown(wait=True)
+            assert not client.app.state.supervisor._timers
+            timer=threads[0]; original_join=timer.join
+            def join(*args,**kwargs): joined.set(); return original_join(*args,**kwargs)
+            patch.setattr(timer,'join',join)
+            def drain():
+                try: next(gen)
+                except StopIteration: pass
+                except BaseException as exc: errors.append(repr(exc))
+                finally: teardown_done.set()
+            teardown=threading.Thread(target=drain);teardown.start()
+            assert joined.wait(5)
+            assert not teardown_done.is_set() and not finished.is_set()
+            release.set()
+            assert teardown_done.wait(5) and finished.is_set()
+            assert not errors and observed==[expected_env]
+            assert other_timer.is_alive() and not other_timer.finished.is_set()
+        finally:
+            release.set();other_release.set();other_timer.join(5);other.shutdown()
+            if teardown: teardown.join(5)
+            for thread in threads: thread.join(5)
+            if gen: gen.close()
+            if client:
+                client.app.state.supervisor.shutdown()
+                client.app.state.supervisor._executor.shutdown(wait=True,cancel_futures=True)
+                client.close()

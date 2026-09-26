@@ -1,0 +1,127 @@
+...F..........F.......F..F.....                                          [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T034248Z-d8d6196b.json
+
+=================================== FAILURES ===================================
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.133\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bc4e6c0>
+claim = '2026中报含金量为0.133。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.133。' not in '应收账款明细尚未取得，...中报含金量为0.133。'
+E         
+E         '2026中报含金量为0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.133。
+
+intelligence/tests/test_financial_r6_regressions.py:154: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.133\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bc4b140>
+claim = '2026中报含金量为0.133。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报含金量为0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+        "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
+        "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
+        "2026中报累计净现比0.133。",
+        "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报含金量为0.133。' not in '应收账款明细尚未取得，...中报含金量为0.133。'
+E         
+E         '2026中报含金量为0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报含金量为0.133。
+
+intelligence/tests/test_financial_r6_regressions.py:154: AssertionError
+_ test_wrong_product_reopens_metric_slot_not_the_whole_research[\u542b\u91d1\u91cf] _
+
+ratio_name = '含金量'
+
+    @pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
+    def test_wrong_product_reopens_metric_slot_not_the_whole_research(ratio_name):
+        _, verified = _financial(SAFE)
+        inputs = verified.outcome.evidence
+        calc = AgentEvidence(
+            "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+            derived_from=tuple(item.content_hash for item in inputs),
+            observations=(StructuredObservation("计算任务", "2025-04-21", f"{ratio_name}[2026中报]", 0.133),),
+        )
+        contract = replace(verified.contract, required_outputs=tuple(
+            replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
+            for required in verified.contract.required_outputs
+        ))
+        outcome = replace(verified.outcome, evidence=(*inputs, calc), bindings=tuple(
+            replace(binding, evidence_hashes=(*binding.evidence_hashes, "calc"))
+            for binding in verified.outcome.bindings
+        ))
+        checked = verify_episode_outcome(contract, outcome)
+>       assert checked.missing_outputs == ("metric_evidence",)
+E       AssertionError: assert () == ('metric_evidence',)
+E         
+E         Right contains one more item: 'metric_evidence'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:351: AssertionError
+_ test_ratio_alias_recomputation_uses_the_same_bound_input_chain[9.999-True-\u542b\u91d1\u91cf] _
+
+ratio_name = '含金量', value = 9.999, rejected = True
+
+    @pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
+    @pytest.mark.parametrize("value,rejected", [(9.999, True), (1.588, False)])
+    def test_ratio_alias_recomputation_uses_the_same_bound_input_chain(ratio_name, value, rejected):
+        from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+        from intelligence.tests.test_research_delivery_checks import _financial_evidence
+    
+        source, calc = _financial_evidence()
+        calc = replace(calc, observations=(replace(
+            calc.observations[0], metric=f"现金流比率.{ratio_name}[2026中报]", value=value,
+        ),))
+        evidence = (source, calc)
+>       assert bool(calculation_ratio_gaps(evidence, (calc.content_hash,), subject="600519.SH")) == rejected
+E       AssertionError: assert False == True
+E        +  where False = bool(())
+E        +    where () = <function calculation_ratio_gaps at 0x10be091c0>((AgentEvidence(tool='financial_data', title='财报', detail='财报输入', source='F10', internal_locator='', source_date=None, ...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc-hash',), subject='600519.SH')
+
+intelligence/tests/test_financial_r6_regressions.py:369: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.133\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a0.133\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_wrong_product_reopens_metric_slot_not_the_whole_research[\u542b\u91d1\u91cf]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_ratio_alias_recomputation_uses_the_same_bound_input_chain[9.999-True-\u542b\u91d1\u91cf]
+4 failed, 27 passed, 72 deselected in 0.61s

@@ -1,0 +1,77 @@
+{
+  "scope": "H-01/H-02/H-03 focused operator check; not independent acceptance",
+  "suite": "inheritance",
+  "pytest_args": [
+    "-q",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-backfill/tmp",
+    "tests/test_history_permission_inheritance.py"
+  ],
+  "mode": "history-backfill",
+  "mutation": {
+    "module": "turn_controller",
+    "function": "decide_turn",
+    "old": "material_contract=material, conversation_materials=history,\n            )",
+    "new": "material_contract=None, conversation_materials=history,\n            )"
+  },
+  "started": "2026-09-21T16:04:27.556068+00:00",
+  "finished": "2026-09-21T16:04:29.887347+00:00",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python": "3.12.13 (main, Mar  3 2026, 12:39:30) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "sha256": {
+      "intelligence/services/user_task.py": "62ff216749854b98b0030f20870c587de4ff129a8d14cf2bcefa30f11b9f6544",
+      "intelligence/services/historical_research/intent.py": "f0a4bc79e6e41bca05b3fa5eb77720a39d94c70776de6a315b5b7372ce0df888",
+      "intelligence/services/research_contract.py": "f53621032050826887805ecf9b60689bcd725f2d095c28961a65069485a552d4",
+      "intelligence/services/honesty_gates.py": "3e7fb0ee4f71aa3e71cdebf19a70e23a4075ac29961b4bae2d3a640ec528b292",
+      "intelligence/services/conversation_materials.py": "2f45557a033aeaf92cf7b7bfcfd0fbc4b64a27cc3ece0fcf8da1f5cf90263fc4",
+      "intelligence/services/material_contract.py": "aff51f99fd24d9156bedc59936adc7acf199a7761c168803130b3365b13de9db",
+      "intelligence/services/task_frame.py": "0691bd2d29590de2df6410616a70e140fd2a3527105f4e5acf711f285b3d78fa",
+      "intelligence/services/turn_controller.py": "d58fce3f0b0f29fc237f037dd2dd9bf15d387fbe403adf416ce7264430328921",
+      "intelligence/runtime/conversation_orchestrator.py": "c4ed53fcf7fe64d23b4728100028b0f8c5f631d849a0fd9e54648876da4260f7",
+      "intelligence/tests/test_historical_research_episode.py": "0713457d92fea6c9a40ff3625e3bf9e286a181bf6dac1139109beea51b466cd9",
+      "docs/agent-product-door.md": "cc583fd8d5699b7bb0293a5a37f601b68208cf8b8cfd9ab46daa09d6489bfcf2",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "tests/test_history_permission_inheritance.py": "e33eab60a1cb6026bcc4cde50306f378bfe83170a7fa6330ece13033dce818f2",
+      "tests/test_history_source_partition.py": "5bfa7d75c8cc4ac8f6f5db432d4cfb0d426d00d86a645034fa7aadbbb616a293",
+      "scripts/probe_history_control_boundary.py": "0086947679af3b70a1625f8a63c1e26479ba69f726d9ca704a34e8089e0f228b"
+    }
+  },
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "sha256": {
+      "intelligence/services/user_task.py": "62ff216749854b98b0030f20870c587de4ff129a8d14cf2bcefa30f11b9f6544",
+      "intelligence/services/historical_research/intent.py": "f0a4bc79e6e41bca05b3fa5eb77720a39d94c70776de6a315b5b7372ce0df888",
+      "intelligence/services/research_contract.py": "f53621032050826887805ecf9b60689bcd725f2d095c28961a65069485a552d4",
+      "intelligence/services/honesty_gates.py": "3e7fb0ee4f71aa3e71cdebf19a70e23a4075ac29961b4bae2d3a640ec528b292",
+      "intelligence/services/conversation_materials.py": "2f45557a033aeaf92cf7b7bfcfd0fbc4b64a27cc3ece0fcf8da1f5cf90263fc4",
+      "intelligence/services/material_contract.py": "aff51f99fd24d9156bedc59936adc7acf199a7761c168803130b3365b13de9db",
+      "intelligence/services/task_frame.py": "0691bd2d29590de2df6410616a70e140fd2a3527105f4e5acf711f285b3d78fa",
+      "intelligence/services/turn_controller.py": "d58fce3f0b0f29fc237f037dd2dd9bf15d387fbe403adf416ce7264430328921",
+      "intelligence/runtime/conversation_orchestrator.py": "c4ed53fcf7fe64d23b4728100028b0f8c5f631d849a0fd9e54648876da4260f7",
+      "intelligence/tests/test_historical_research_episode.py": "0713457d92fea6c9a40ff3625e3bf9e286a181bf6dac1139109beea51b466cd9",
+      "docs/agent-product-door.md": "cc583fd8d5699b7bb0293a5a37f601b68208cf8b8cfd9ab46daa09d6489bfcf2",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "tests/test_history_permission_inheritance.py": "e33eab60a1cb6026bcc4cde50306f378bfe83170a7fa6330ece13033dce818f2",
+      "tests/test_history_source_partition.py": "5bfa7d75c8cc4ac8f6f5db432d4cfb0d426d00d86a645034fa7aadbbb616a293",
+      "scripts/probe_history_control_boundary.py": "0086947679af3b70a1625f8a63c1e26479ba69f726d9ca704a34e8089e0f228b"
+    }
+  },
+  "pytest_exit": 1,
+  "outcomes": {
+    "passed": 48,
+    "failed": [
+      "tests/test_history_permission_inheritance.py::test_generic_history_backfill_requires_the_same_ceiling[True]"
+    ],
+    "errors": [],
+    "collected": 49,
+    "assertion_failures": [
+      "tests/test_history_permission_inheritance.py::test_generic_history_backfill_requires_the_same_ceiling[True]"
+    ]
+  },
+  "expected_outcome_observed": true
+}

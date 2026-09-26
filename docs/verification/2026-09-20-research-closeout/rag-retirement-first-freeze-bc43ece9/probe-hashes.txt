@@ -1,0 +1,7 @@
+original_probe a4de73d46ceadb31c17488cb318ca0b8e9ae864789fa72b11f0cc0a545114714  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/probe_finance_worker.py
+copied_before_edit a4de73d46ceadb31c17488cb318ca0b8e9ae864789fa72b11f0cc0a545114714  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py
+original_results d255d2b42be6e1d421308a7e736dd4a91dfc18559eb0b510ced6beaf6363b34c  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/worker/results.json
+fdf194f4c0d6b129d015e1f97045b0ab98b31f1c09578fcb7994a27ebaf39efb  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.baseline.py
+2130eba97ad0fe77a896693efa6bfc462db4cf5763fcdf66a353c16ebea2fd75  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/worker-baseline/results.json
+fbce13bd78cc554ba2889c77e6c95c2f82cae844248f70fd093aa9e6f887d32c  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.fixed-attempt1.py
+8c60310054d88c5ffabf1dc4e50d17e7fca2f84e09fbba0af08e9d84f413c914  /Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/probe_finance_worker.py

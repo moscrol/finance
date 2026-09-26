@@ -1,0 +1,41 @@
+"""Remove the complete-expression normalization once, then restore and verify."""
+from pathlib import Path
+import hashlib
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+
+ROOT = Path('/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+OUT = Path(__file__).resolve().parent
+path = ROOT / 'intelligence/services/episode_evidence.py'
+original = path.read_text()
+start = original.index('    normalized = value.strip()')
+end = original.index('    try:\n        return date.fromisoformat(normalized)', start)
+mutated = original[:start] + '    normalized = value\n' + original[end:]
+command = [sys.executable, '-m', 'pytest', '-q',
+           'intelligence/tests/test_episode_evidence_presentations.py', '-k',
+           'future_presentation_restores or unadmitted_presentations or reader_rechecks_future']
+results = {}
+
+
+def run(stage):
+    with (OUT / f'mutation-{stage}.log').open('w') as log:
+        return subprocess.run(command, cwd=ROOT, env={**os.environ, 'FWP_TEST_RECEIPT': '0'},
+                              stdout=log, stderr=subprocess.STDOUT, timeout=30).returncode
+
+
+try:
+    path.write_text(mutated)
+    Path(importlib.util.cache_from_source(str(path))).unlink(missing_ok=True)
+    results['red_exit'] = run('red')
+finally:
+    path.write_text(original)
+    Path(importlib.util.cache_from_source(str(path))).unlink(missing_ok=True)
+results['green_exit'] = run('green')
+results.update(command=command, source_sha256=hashlib.sha256(original.encode()).hexdigest(),
+               mutation='remove normalization and complete calendar-shape guard')
+(OUT / 'mutation.json').write_text(json.dumps(results, indent=2) + '\n')
+print(json.dumps(results))
+assert results['red_exit'] == 1 and results['green_exit'] == 0

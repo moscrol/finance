@@ -1,0 +1,801 @@
+{
+  "recorded_at": "2026-09-21T16:24:22.153054+00:00",
+  "scope": "H-03 archive and status publication only; not full gates or independent acceptance",
+  "archive_check": {
+    "time": "2026-09-21T16:14:55.204607+00:00",
+    "archive_revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+    "archives": [
+      {
+        "revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/author-and-small-review",
+        "manifest_files": 281,
+        "committed_files": 281,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/domain-reviews-blocked",
+        "manifest_files": 28,
+        "committed_files": 28,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01",
+        "manifest_files": 38,
+        "committed_files": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01",
+        "manifest_files": 45,
+        "committed_files": 45,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02",
+        "manifest_files": 58,
+        "committed_files": 58,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03",
+        "manifest_files": 81,
+        "committed_files": 81,
+        "ok": true,
+        "errors": []
+      }
+    ],
+    "matched_originals": [
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/README.md",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/README.md",
+        "bytes": 4785,
+        "sha256": "4ef0c40f7d0ad7dc5009273c6dc2ef209c3409c99bb021297040e8859e40b5c4"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/check.py",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/check.py.txt",
+        "bytes": 3293,
+        "sha256": "3b656204d4fc36cacde9db3bc534c432c02243739bad8966f8009448111bf807"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/test_adjacent_input_boundary_diagnostic.py",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/test_adjacent_input_boundary_diagnostic.py.txt",
+        "bytes": 1363,
+        "sha256": "6b2d36eebe6d0e8952663b93ed503e147d89c9d94c48619d22281d70a78ac63a"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/seal_archive.py",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/seal_archive.py.txt",
+        "bytes": 2799,
+        "sha256": "8cfc0adcf1c6562df9de67f43a65355011fa423bc787345a0d519e78da883cae"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/test_adjacent_input_boundary.py",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/legacy-adjacent-input.py.txt",
+        "bytes": 1282,
+        "sha256": "1dbcfafba5065cb82e491ea6983e62624f6d4ab87224acf5bcf1a487341481a0"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/before-source-partition/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/before-source-partition/output.txt",
+        "bytes": 62902,
+        "sha256": "5b52f7615748ba38263f4426c92d8ab5040aac7e63532240e277d54280845c17"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/before-source-partition/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/before-source-partition/receipt.json",
+        "bytes": 2985,
+        "sha256": "f060db87f499dfa0af48a5ba8161e2e3427956008f59a9fcc3118e2a4a586c7e"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-conversation-delivery/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-conversation-delivery/output.txt",
+        "bytes": 271,
+        "sha256": "63885a4b08cdcc3c58d91c48a808457b63123aa14dcfc062b554ba58766a4aa8"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-conversation-delivery/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-conversation-delivery/receipt.json",
+        "bytes": 3571,
+        "sha256": "59183394836402ea7bacafab087cf978303dccfec601394af431f23573155869"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-e2-extra/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-e2-extra/output.txt",
+        "bytes": 180,
+        "sha256": "57a30092fd2a1c4997eb44b5a2390d7ab12281e201a216c6ebada10685b7b2bc"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-e2-extra/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-e2-extra/receipt.json",
+        "bytes": 3733,
+        "sha256": "e100d9f2f4b7ac8703def9d2036c3191a53afabcd897791060533c6ce146bcc8"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-history-assembly/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-history-assembly/output.txt",
+        "bytes": 420,
+        "sha256": "0035eda79dbbb81ede8d101ea45bf205ad095ca76ea2d1b161034b5a843a7c52"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-history-assembly/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-history-assembly/receipt.json",
+        "bytes": 3745,
+        "sha256": "93efac463187fe7db63d475b4772b17a792e866618c48e8fd0671be1a707863a"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-history-controller/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-history-controller/output.txt",
+        "bytes": 271,
+        "sha256": "3a1624fb38738f3be9612d723c290e01a5f2457fc84847bfaf4855e64e34804f"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-history-controller/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-history-controller/receipt.json",
+        "bytes": 3615,
+        "sha256": "81276a51647d9e30c2b901594f148f7f33039849a7c0191ba086d11c373c5af3"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-followup-source/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-followup-source/pytest.txt",
+        "bytes": 3835,
+        "sha256": "bab8ea70a7767099bf332e587b616ecd537053bae04815d2470a5e81e26827ab"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-followup-source/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-followup-source/result.json",
+        "bytes": 6039,
+        "sha256": "369b146eaac9504c39448bae043f7ca6004f3582b78946c281b908b40aae4190"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-frame-source/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-frame-source/pytest.txt",
+        "bytes": 15401,
+        "sha256": "73b1b6e739328ca92e1a498555ea0c495d2c2f7090563dc8a1898d06fce6d48f"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-frame-source/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-frame-source/result.json",
+        "bytes": 11167,
+        "sha256": "442adc2d0c54cf6ae953dde503c3eb328094eab2063ef3ebcbf9a28f35a484a9"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-material-mask/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-material-mask/pytest.txt",
+        "bytes": 34974,
+        "sha256": "f2c5fa6210adef362f0617394cac415b6c87effed944b5566074b8d1faffc5fb"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-material-mask/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-material-mask/result.json",
+        "bytes": 15412,
+        "sha256": "cc3e131271a5bcea53fba950191f9bdb343df1e3c824b80d930c62cf32346038"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-unclosed-quote/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-unclosed-quote/pytest.txt",
+        "bytes": 15015,
+        "sha256": "5b0d7a509e0c0afe4387ed779e151a4ff4ba0a4ba0524c3eb5ac83db9c4c6997"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-mutation-unclosed-quote/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-mutation-unclosed-quote/result.json",
+        "bytes": 13298,
+        "sha256": "dcb14cfa29c0bada443159b7f9cd0f531f5cd852882aafee49c52a730983d893"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-partition-neighbors/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-partition-neighbors/output.txt",
+        "bytes": 272,
+        "sha256": "7a35eb7b01b75956c72ba49dbf83c2b41ede69022bf9a1f4895306e443270950"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-partition-neighbors/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-partition-neighbors/receipt.json",
+        "bytes": 3644,
+        "sha256": "948ba55268e194e39383e0814ed6a084ea584c4811b26df1c3a4c97b6824126e"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-ruff/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-ruff/output.txt",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-ruff/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-ruff/receipt.json",
+        "bytes": 3185,
+        "sha256": "e9235a5d63ecc4fb3a597048a919f537e1a13b2c5ed61f4c6b3c92c6887fae19"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-source-partition-01/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-source-partition-01/output.txt",
+        "bytes": 8971,
+        "sha256": "cd305490c091130b7400d384d98dd1271fbc0319fdd9168d413cec429c567ede"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-source-partition-01/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-source-partition-01/receipt.json",
+        "bytes": 3243,
+        "sha256": "a19245b85e58f8ca984791080125f5e97ca0369732a148793499fe2bc13665b9"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-source-partition-02/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-source-partition-02/output.txt",
+        "bytes": 261,
+        "sha256": "21467d9b95329d4c40ff2a98aeb244534057a39d6152acf052ae0381018f9d8c"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-source-partition-02/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/dirty-source-partition-02/receipt.json",
+        "bytes": 3337,
+        "sha256": "35f8c9bbb13e1b9fb6fc0b083b17c5eca00fab48c3719b711ffef088c5b99286"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-conversation-delivery/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-conversation-delivery/output.txt",
+        "bytes": 261,
+        "sha256": "8dd370de4686244680325ccd8c4c8cbd9be6ba2576fe714e05944477c8d4f607"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-conversation-delivery/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-conversation-delivery/receipt.json",
+        "bytes": 3320,
+        "sha256": "fcda4bd418d8b31e0e50cca0b23e39b7c91f6f0e5fe6e9881530bcd9f47c0193"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-cutoff/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-cutoff/pytest.txt",
+        "bytes": 4367,
+        "sha256": "f66bc1431f3c1dc77c4969ff60359e7d6092def7e2d167f1ee78480672708a5f"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-cutoff/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-cutoff/result.json",
+        "bytes": 6165,
+        "sha256": "a051eed5dc3f2a80ff0e204798c63672686762ebcd3d749a243972c711c8f655"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-diff/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-diff/output.txt",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-diff/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-diff/receipt.json",
+        "bytes": 2856,
+        "sha256": "ea26874d82684609f9d253ef21c94a0690f608a7b5d4331abbe8d719e5491a3b"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-e2-extra/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-e2-extra/output.txt",
+        "bytes": 181,
+        "sha256": "e7d1443f18993eebaa829a604f87c48ec797af88111a9f1bcc47d6de93b1818f"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-e2-extra/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-e2-extra/receipt.json",
+        "bytes": 3482,
+        "sha256": "530c84287c7f6fdf97d510730004e95a0fa16bd2682bb0e502e1b43c8cb4ec8c"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-follow-up/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-follow-up/pytest.txt",
+        "bytes": 10943,
+        "sha256": "355108f520761c6e00f8b110def42fbb72db64e02108706e977f7756377e08f5"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-follow-up/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-follow-up/result.json",
+        "bytes": 7186,
+        "sha256": "ac07afd9577296d10e43368d681cebe8948f7c816556e208b35724391b6fbb15"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-followup-source/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-followup-source/pytest.txt",
+        "bytes": 3835,
+        "sha256": "24aae9e887cceab03b42140debd2b01cc12009b3c6bc28993f10b975b6bd80b9"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-followup-source/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-followup-source/result.json",
+        "bytes": 5539,
+        "sha256": "5355dff48fa6b17f8301cf7f15cb5a971bb9123810cede96118f1324b3117dcb"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-frame-source/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-frame-source/pytest.txt",
+        "bytes": 15401,
+        "sha256": "c37055b30c31f11bd834a8b7ee86f195284cf97cabe7890e4b7141117c4f110b"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-frame-source/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-frame-source/result.json",
+        "bytes": 10667,
+        "sha256": "c13e46e2828751165f971c05d446a7e5b965bc6b23cdaf10194ac5ca74798ccd"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-assembly/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-assembly/output.txt",
+        "bytes": 421,
+        "sha256": "13af6c2eab1d5266be2858b10745cb405dc0d88d796fae43e68cddd479137765"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-assembly/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-assembly/receipt.json",
+        "bytes": 3494,
+        "sha256": "aa4190b1124ce91eae6f9ada19a622a8e76d05e36acaff41abcc4ffcce5dbbc2"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-authority/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-authority/pytest.txt",
+        "bytes": 10680,
+        "sha256": "2919defb5b38e46a8041d351e82d424d916d2650efeb8cecc7d15431b74424f9"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-authority/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-authority/result.json",
+        "bytes": 12084,
+        "sha256": "93e1c9522bbf1b8d1a02be6eff76a1ea9711f37bd2d19724eec22ff209909693"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-backfill/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-backfill/pytest.txt",
+        "bytes": 1593,
+        "sha256": "c2d0332310170b21b0e5494bf08bb83fad5793b9ad2093d01b4e327b34eb5a4b"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-backfill/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-backfill/result.json",
+        "bytes": 5155,
+        "sha256": "0c747d9efcd6f0da8a8f731943242ff4dd1f81c813f5d416cd14c2e3c4577865"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-contract/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-contract/pytest.txt",
+        "bytes": 27303,
+        "sha256": "87410ad8a438b4cf6e9472ced53226d31068632794a572a273bca78ee11ebb5d"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-contract/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-contract/result.json",
+        "bytes": 21388,
+        "sha256": "6a909207ae80c18d1a1882f57903034f15bcf31cbf60c01563c329afdd71e86c"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-controller/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-controller/output.txt",
+        "bytes": 261,
+        "sha256": "9d11cffc63c817a7d886e4290a42a99fc14782990c86aff6ab960298c7cc838d"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-controller/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-controller/receipt.json",
+        "bytes": 3364,
+        "sha256": "de993bba3b98e6cb776a7cf65791473bdae0ebbd7b4a4c5a9181b7a4e1344213"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-delivery/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-delivery/pytest.txt",
+        "bytes": 2144,
+        "sha256": "9f788cd28668a96117389434fca4eded07ae73876edd97e8a419fbff188f9c9f"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-delivery/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-delivery/result.json",
+        "bytes": 5990,
+        "sha256": "30599c488d4c647a808cfc0615af664729fe9c319855e73f0297ea35471df166"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-infer/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-infer/pytest.txt",
+        "bytes": 28521,
+        "sha256": "6af065e9eabd48fec6a0e3c1602300fd532bfddb17b979383f65cbc4191c5e37"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-infer/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-infer/result.json",
+        "bytes": 11106,
+        "sha256": "c2e9b6d25b0b8f0c92a80fb5d444bf8d11329d478b3429f6117a7ed6d1ace5de"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-replay/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-replay/pytest.txt",
+        "bytes": 1271,
+        "sha256": "a29064316cbf74717b1b7d4f2239cc1396e025506217ae022b389629326fe9bc"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-history-replay/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-history-replay/result.json",
+        "bytes": 5307,
+        "sha256": "f95d66fe3d04a31eb5abebc696d78edd89eb95018a199e3db29257bb72493a0f"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-material-mask/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-material-mask/pytest.txt",
+        "bytes": 34973,
+        "sha256": "f510d0f035cbbc77e1616a49647a71f77d1ac2252e381c97e8138ce83d07971c"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-material-mask/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-material-mask/result.json",
+        "bytes": 14912,
+        "sha256": "7b810c25a2fe89a2248a6c3c6cfd806e9a0ac8de069ab90594340873c3fd1326"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-normal/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-normal/pytest.txt",
+        "bytes": 260,
+        "sha256": "2b8ff7ed0cfd7e23e7947dabb15fffb1ce8185bf1e917c8c06fce54b959c1033"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-normal/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-normal/result.json",
+        "bytes": 4741,
+        "sha256": "cbdd381bb946e3acb4872991bb276744099e09b335abb28ecbfdd88887e5e49a"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-original-adjacent/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-original-adjacent/output.txt",
+        "bytes": 1023,
+        "sha256": "f3bfac56ab7c3b97348721eeb91894b8084bce5a4be4516e0042d1603040a577"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-original-adjacent/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-original-adjacent/receipt.json",
+        "bytes": 3233,
+        "sha256": "35942bf5982a9f34ba3038c18914f780de71755889c94a7a950dc433161aa234"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-original-adjacent-diagnostic/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-original-adjacent-diagnostic/output.txt",
+        "bytes": 98,
+        "sha256": "a65a2e135668904da5355e90568a4d7e06f5ac7b4e108ec7fe1b6ab82d6a1587"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-original-adjacent-diagnostic/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-original-adjacent-diagnostic/receipt.json",
+        "bytes": 3254,
+        "sha256": "5eecdac87811a7155c1aaaa0b557766906b0dd3775714fb2b3833033912f22ea"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-partition/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-partition/pytest.txt",
+        "bytes": 42984,
+        "sha256": "b0afd807c7e19fb3ae8e81da0a8ba0e2abf5394165f150f2fef8a0c8cd8caaec"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-partition/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-partition/result.json",
+        "bytes": 14921,
+        "sha256": "832b4ab2299cbcbf8f68b89dc33e676ffea9b15330908f4457646de894e67a8b"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-partition-neighbors/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-partition-neighbors/output.txt",
+        "bytes": 271,
+        "sha256": "6790bc5d7e255abbf1fa4a50972775515237cf0c60f9cfc277a62a3f7c27a958"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-partition-neighbors/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-partition-neighbors/receipt.json",
+        "bytes": 3547,
+        "sha256": "7bd60469f22ff90f7a007b762610c8fe7d50b05a6c69c530787813c266e48a17"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-resolution-hint/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-resolution-hint/pytest.txt",
+        "bytes": 1492,
+        "sha256": "c5260f53d93e162bb93aa162db077fd7150f8e86a3395a12c86ff46ad48bfc43"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-resolution-hint/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-resolution-hint/result.json",
+        "bytes": 5051,
+        "sha256": "07e55d61569bd7d606b30882f76052f55da4002cf567327a5de9d54b8c45400e"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-ruff/output.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-ruff/output.txt",
+        "bytes": 19,
+        "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-ruff/receipt.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-ruff/receipt.json",
+        "bytes": 2933,
+        "sha256": "0ea912ab52209d9161889a16fcf2d4aa306c3435a6ca91cd648cb4f2d3c9e876"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-unclosed-quote/pytest.txt",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-unclosed-quote/pytest.txt",
+        "bytes": 15015,
+        "sha256": "bdf79e637413d56c4bb96595d4cbdebea940e88c202047dbdc05958feafb3403"
+      },
+      {
+        "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/frozen-unclosed-quote/result.json",
+        "target": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/frozen-unclosed-quote/result.json",
+        "bytes": 12798,
+        "sha256": "3ea2bb21e45f475d8f9e1f1ce08106ab80e832177d95f3049f0cef12ad0a018a"
+      }
+    ],
+    "candidate_patch_verified": true,
+    "source_identities": [
+      {
+        "path": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": ""
+      },
+      {
+        "path": "/Users/a77/fwp-wt-history-forward-0921",
+        "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+        "status": ""
+      }
+    ],
+    "old_five_unchanged_since": "ab3b1725a5c12107e629c2f8ba625892318b159c"
+  },
+  "publication": [
+    {
+      "recorded_at": "2026-09-21T16:17:51.998429+00:00",
+      "number": 845,
+      "head_at_publication": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+      "source_revision": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+      "archive_revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+      "title": "WIP: fix(history) H-01/H-02/H-03局部修复，待全叶与独立验收",
+      "body_sha256": "67c71f08c75b4f0a225827a90e0dd86cacf285b4f749151d319f902bfd043d8f",
+      "comment_id": 5510,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845#issuecomment-5510",
+      "write_errors_readback_resolved": [],
+      "overall_history": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    },
+    {
+      "recorded_at": "2026-09-21T16:18:19.503808+00:00",
+      "number": 833,
+      "head_at_publication": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "source_revision": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+      "archive_revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+      "title": "WIP: history forward integration preserving material contracts",
+      "body_sha256": "2f677099700fd15ea9aa3e48e44f4dbdc38f6f76c19c12dd657039ccd31f1f86",
+      "comment_id": 5513,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/833#issuecomment-5513",
+      "write_errors_readback_resolved": [],
+      "overall_history": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    },
+    {
+      "recorded_at": "2026-09-21T16:19:15.069988+00:00",
+      "number": 838,
+      "head_at_publication": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+      "source_revision": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+      "archive_revision": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+      "title": "WIP: 研究尾单前向候选封档与审核边界交接",
+      "body_sha256": "c97a33482699eb783922b5feb5c211e1a32f99ee0a36f501e30b33dd84657f21",
+      "comment_id": 5517,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838#issuecomment-5517",
+      "write_errors_readback_resolved": [],
+      "overall_history": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    }
+  ],
+  "pr_snapshots": {
+    "845": {
+      "before": {
+        "number": 845,
+        "title": "WIP: fix(history) H-01/H-02局部修复，短材料与未闭合引号边界待修",
+        "body": "<!-- history-permission-repair-02:5b1452adf -->\n## 最新接替：H-02 读取继承已局部修复，整体 CHANGES_REQUIRED\n\nWIP #845 固定源码 `7c99f389e9c72668663449dedeacd7fe4830cbdd`，父 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`；原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧 H-01/H-02 结论保留为对应旧提交的历史，当前状态以本节为准。\n\n- H-02 原两种合法省略续问现从 completed 原始 user 链同步恢复历史意图与读取上限，保留窗口、截止及 `local_only`。覆盖连续回放、真实会话入口送达、备用控制器重验、缺链/截断澄清及普通指代回填；旧助手话或任务对象不自证授权，当前用户仍可显式变更范围。\n- 固定干净源码四组定向回归 **770 passed = 168 + 169 + 242 + 191**，已含 H-01 的 41 例与 H-02 的 49 例；额外正常量具 90P 与其重叠，不加总。Ruff/diff-check 通过。十种进程内变异都有真实断言失败、零 collection/setup/teardown 错误：H-01 为 24/15/6/1/4，H-02 为 42/2/17/3/1；源码前后哈希一致。\n- **仍有两条新的正常版失败反例**：短“材料如下”段、未闭合中文引号里的省略续问会误续接历史。固定新源码重现 2F，仍保 `local_only`，只核合同与 `history_query` 登记，未执行该工具或证明实际联网。它们不是原 H-02 的读取权限丢失，整体仍不可放行。\n- 边界夹具禁并计数 socket/DuckDB，H-02 另计意外模型调用；外部 dispatch 在 runner 前拒绝。其他常规回归有临时 DB，不能称 770 全部零 DB。首次入口变异选错包装函数、第二次超时均原样留档，不计有效验证。\n\n永久证据在文档 #838 的固定提交 `5b1452adfc032ad31a78844fa123745d832a1eda`：`docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02/`。**58/58 成员**、清单、Git blob 与原件字节核验通过；旧四包 281/28/38/45 成员逐包重核且字节不变。交接集中 docs 枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，决策快照 `docs/handoffs/2026-09-21-history-permission-inheritance-repair.md`。\n\n下一片处理上述短材料/未闭合引号来源边界，不能牺牲合法续问与读取上限。此 SHA 完整 Python/前端/E2E/registry 门禁、独立终审和历史自然四题复验未完成；旧自然 not_passed 不翻案。未重启外审，不签新 main/#841/三领域联合树；#814 正式收据与其他邻线不接管。未合并、部署、生产回填、清树或新增付费通道。\n\n---\n\n## 范围\n\n#833 的 H-01 局部返修，base=`fix/history-forward-0921@7edfe24e76afbd5c365fbf97dd2414847b086f88`，head=`d91aff9d8437fe903f3e643b65d4805aa4cf243c`。仅叠放比较，不合 main，不替换旧冻结版本。\n\n历史意图、通用追问继承与截止投影复用顶层来源分区。引用/围栏不授历史权限；原文仍供分析。明确范围续问保窗口、截止及本地读取上限。产品门文档随源码更新。\n\n## 实测\n\n- 固定干净提交上定向三组共530 passed（168+169+193，其中已含新41例）。全仓 Ruff与diff-check通过。\n- 五处进程内撤保护：24/15/6/1/4个断言失败，零夹具错误，运行前后源码哈希一致。工具 `scripts/probe_history_control_boundary.py` 可复跑。\n- controller -> TaskFrame -> control -> Episode合同/工具登记；H-01夹具禁并计数网络及DuckDB连接尝试，离线模型/知识替身，不执行历史工具。\n\n## 仍需修改，禁止整体放行\n\n正常版相邻反例H-02：`那它们见顶后谁接力？`、`以前有没有类似，失败案例也看看` 合法继承历史但 material_contract=None，授权出现web_search/web_fetch；期望local_only的2断言仍红。该编号仅本轮发现编号，不是新工单。H-01局部绿不能覆盖此权限缺口。\n\n未跑本revision完整Python/前端/E2E/registry全部合入门禁、未重跑旧四自然题、无新独立Spec/Quality。整体历史仍CHANGES_REQUIRED。旧#833作者全量不移签，原两次capacity无report不翻案；runtime/财务未重启审核。未合并、部署、回填或删除工作树。\n\n## 证据\n\n集中于#838文档分支的新包 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`，旧三包不动；本机原件 `~/.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/`。以后续归档评论的Git blob核验为准。\n\n<!-- history-boundary-repair-01:3a1c8289b -->\n## H-01 修复接替与证据（2026-09-21）\n\n局部修复见 WIP #845，固定源码 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`，叠在 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 上；原候选不移动。受测H-01已修，固定530项定向通过（含41新例），五变异各24/15/6/1/4个断言失败且零夹具错误。\n\n**整体历史仍 CHANGES_REQUIRED。** 正常版H-02两种合法省略续问仍丢`local_only`，授权出现`web_search/web_fetch`，两个期望行为断言失败。仅检查合同/工具登记，未实际联网或执行历史工具。本revision完整合入门禁、新自然题和独立终审未完成；不拿旧绿移签，不自动重开审核，未合并/部署/回填。\n\n证据在 #838 文档枝提交 `3a1c8289b8af4bb3b98e803ffefe4992131a4731` 的 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`。45/45成员与manifest、Git blob及原件字节一致；旧三包281/28/38成员保持不变。接手读集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，下一步修H-02而非重复求绿。",
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "updated_at": "2026-09-22T00:07:04+08:00",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845",
+        "head": {
+          "sha": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+          "ref": "fix/history-forward-boundary-0921"
+        }
+      },
+      "after": {
+        "number": 845,
+        "title": "WIP: fix(history) H-01/H-02/H-03局部修复，待全叶与独立验收",
+        "body": "<!-- history-source-partition-03:c14bc12f5 -->\n## 最新接替：H-03 两输入边界局部修复，整体仍未验收\n\nWIP #845 固定源码 `b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16`，父 `7c99f389e9c72668663449dedeacd7fe4830cbdd`。原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧结论保留为各旧 SHA 的历史，当前状态以本节为准。\n\n- 短“材料如下”段和未闭合中文引号中的“那它们见顶后谁接力？”两种安全断言已转绿：前者按材料归属排除历史控制，后者因边界不确定先澄清。共享分区保材料原文、编号题与独立用户提问；英文词内撇号不当引号。TaskFrame 和普通指代先判未裁剪原文，防末行提取/strip 丢来源容器。受测合法续问仍保窗口、截止及 local_only。\n- 干净固定源码五组定向 **985P / 4S = 168 + 191 + 187 + 309 + 130**，含新 67 例。正常量具157P与其重叠，不加总；全仓Ruff及提交前diff-check通过。十四种进程内变异均有真实断言失败、零collection/setup/teardown错误，源码首尾哈希一致：H-01为24/15/6/1/4，H-02为42/2/17/3/1，H-03为20/22/6/2。\n- 旧外置反例原样回跑 **1F/1P**：失败是诊断打印None合同的AttributeError，未到安全断言。旧原件不改；新副本仅给诊断字段加空值处理、原输入和最终断言不变，**2P**。不能将原件记作全绿，也不能把诊断错误当安全反例仍成立。开发基线48F/18P及中途4F/152P均保留。\n- 边界夹具禁并计数socket/DuckDB及意外模型调用；真实入口在研究执行前截停，只核意图/合同/工具登记，未执行history_query。其他回归含临时DB，不能称985项都零DB。\n\n永久证据在文档 #838 的固定提交 `c14bc12f5a966d82e4fe49995bf5221bd4540a2f`：`docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/`。**81/81成员**完整清单/Git blobs核验通过，79份复制原件及候选补丁字节一致；旧五包281/28/38/45/58逐包重核且不变。日期快照 `docs/handoffs/2026-09-21-history-source-partition-repair.md`，接手看集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`。发布回执放包外，不改冻结清单。\n\n**整体仍CHANGES_REQUIRED / 未验收**：新SHA的完整Python/前端/E2E/registry全叶、独立Spec/Quality终审、历史自然四题复验尚未完成；旧自然not_passed不翻案。后续按授权补精确SHA验收，不移签旧绿。未重启付费审核，不签新main/#841/三领域联合树，#814和其他邻线不接管。未合并、部署、生产回填或清树。\n\n---\n\n<!-- history-permission-repair-02:5b1452adf -->\n## 最新接替：H-02 读取继承已局部修复，整体 CHANGES_REQUIRED\n\nWIP #845 固定源码 `7c99f389e9c72668663449dedeacd7fe4830cbdd`，父 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`；原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧 H-01/H-02 结论保留为对应旧提交的历史，当前状态以本节为准。\n\n- H-02 原两种合法省略续问现从 completed 原始 user 链同步恢复历史意图与读取上限，保留窗口、截止及 `local_only`。覆盖连续回放、真实会话入口送达、备用控制器重验、缺链/截断澄清及普通指代回填；旧助手话或任务对象不自证授权，当前用户仍可显式变更范围。\n- 固定干净源码四组定向回归 **770 passed = 168 + 169 + 242 + 191**，已含 H-01 的 41 例与 H-02 的 49 例；额外正常量具 90P 与其重叠，不加总。Ruff/diff-check 通过。十种进程内变异都有真实断言失败、零 collection/setup/teardown 错误：H-01 为 24/15/6/1/4，H-02 为 42/2/17/3/1；源码前后哈希一致。\n- **仍有两条新的正常版失败反例**：短“材料如下”段、未闭合中文引号里的省略续问会误续接历史。固定新源码重现 2F，仍保 `local_only`，只核合同与 `history_query` 登记，未执行该工具或证明实际联网。它们不是原 H-02 的读取权限丢失，整体仍不可放行。\n- 边界夹具禁并计数 socket/DuckDB，H-02 另计意外模型调用；外部 dispatch 在 runner 前拒绝。其他常规回归有临时 DB，不能称 770 全部零 DB。首次入口变异选错包装函数、第二次超时均原样留档，不计有效验证。\n\n永久证据在文档 #838 的固定提交 `5b1452adfc032ad31a78844fa123745d832a1eda`：`docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02/`。**58/58 成员**、清单、Git blob 与原件字节核验通过；旧四包 281/28/38/45 成员逐包重核且字节不变。交接集中 docs 枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，决策快照 `docs/handoffs/2026-09-21-history-permission-inheritance-repair.md`。\n\n下一片处理上述短材料/未闭合引号来源边界，不能牺牲合法续问与读取上限。此 SHA 完整 Python/前端/E2E/registry 门禁、独立终审和历史自然四题复验未完成；旧自然 not_passed 不翻案。未重启外审，不签新 main/#841/三领域联合树；#814 正式收据与其他邻线不接管。未合并、部署、生产回填、清树或新增付费通道。\n\n---\n\n## 范围\n\n#833 的 H-01 局部返修，base=`fix/history-forward-0921@7edfe24e76afbd5c365fbf97dd2414847b086f88`，head=`d91aff9d8437fe903f3e643b65d4805aa4cf243c`。仅叠放比较，不合 main，不替换旧冻结版本。\n\n历史意图、通用追问继承与截止投影复用顶层来源分区。引用/围栏不授历史权限；原文仍供分析。明确范围续问保窗口、截止及本地读取上限。产品门文档随源码更新。\n\n## 实测\n\n- 固定干净提交上定向三组共530 passed（168+169+193，其中已含新41例）。全仓 Ruff与diff-check通过。\n- 五处进程内撤保护：24/15/6/1/4个断言失败，零夹具错误，运行前后源码哈希一致。工具 `scripts/probe_history_control_boundary.py` 可复跑。\n- controller -> TaskFrame -> control -> Episode合同/工具登记；H-01夹具禁并计数网络及DuckDB连接尝试，离线模型/知识替身，不执行历史工具。\n\n## 仍需修改，禁止整体放行\n\n正常版相邻反例H-02：`那它们见顶后谁接力？`、`以前有没有类似，失败案例也看看` 合法继承历史但 material_contract=None，授权出现web_search/web_fetch；期望local_only的2断言仍红。该编号仅本轮发现编号，不是新工单。H-01局部绿不能覆盖此权限缺口。\n\n未跑本revision完整Python/前端/E2E/registry全部合入门禁、未重跑旧四自然题、无新独立Spec/Quality。整体历史仍CHANGES_REQUIRED。旧#833作者全量不移签，原两次capacity无report不翻案；runtime/财务未重启审核。未合并、部署、回填或删除工作树。\n\n## 证据\n\n集中于#838文档分支的新包 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`，旧三包不动；本机原件 `~/.finance-runtime/reviews/research-tail-integration-20260921/history-boundary-repair-01/`。以后续归档评论的Git blob核验为准。\n\n<!-- history-boundary-repair-01:3a1c8289b -->\n## H-01 修复接替与证据（2026-09-21）\n\n局部修复见 WIP #845，固定源码 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`，叠在 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 上；原候选不移动。受测H-01已修，固定530项定向通过（含41新例），五变异各24/15/6/1/4个断言失败且零夹具错误。\n\n**整体历史仍 CHANGES_REQUIRED。** 正常版H-02两种合法省略续问仍丢`local_only`，授权出现`web_search/web_fetch`，两个期望行为断言失败。仅检查合同/工具登记，未实际联网或执行历史工具。本revision完整合入门禁、新自然题和独立终审未完成；不拿旧绿移签，不自动重开审核，未合并/部署/回填。\n\n证据在 #838 文档枝提交 `3a1c8289b8af4bb3b98e803ffefe4992131a4731` 的 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`。45/45成员与manifest、Git blob及原件字节一致；旧三包281/28/38成员保持不变。接手读集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，下一步修H-02而非重复求绿。",
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "updated_at": "2026-09-22T00:19:14+08:00",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845",
+        "head": {
+          "sha": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+          "ref": "fix/history-forward-boundary-0921"
+        }
+      },
+      "comment": {
+        "id": 5510,
+        "body": "<!-- history-source-partition-03:c14bc12f5 -->\n## 最新接替：H-03 两输入边界局部修复，整体仍未验收\n\nWIP #845 固定源码 `b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16`，父 `7c99f389e9c72668663449dedeacd7fe4830cbdd`。原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧结论保留为各旧 SHA 的历史，当前状态以本节为准。\n\n- 短“材料如下”段和未闭合中文引号中的“那它们见顶后谁接力？”两种安全断言已转绿：前者按材料归属排除历史控制，后者因边界不确定先澄清。共享分区保材料原文、编号题与独立用户提问；英文词内撇号不当引号。TaskFrame 和普通指代先判未裁剪原文，防末行提取/strip 丢来源容器。受测合法续问仍保窗口、截止及 local_only。\n- 干净固定源码五组定向 **985P / 4S = 168 + 191 + 187 + 309 + 130**，含新 67 例。正常量具157P与其重叠，不加总；全仓Ruff及提交前diff-check通过。十四种进程内变异均有真实断言失败、零collection/setup/teardown错误，源码首尾哈希一致：H-01为24/15/6/1/4，H-02为42/2/17/3/1，H-03为20/22/6/2。\n- 旧外置反例原样回跑 **1F/1P**：失败是诊断打印None合同的AttributeError，未到安全断言。旧原件不改；新副本仅给诊断字段加空值处理、原输入和最终断言不变，**2P**。不能将原件记作全绿，也不能把诊断错误当安全反例仍成立。开发基线48F/18P及中途4F/152P均保留。\n- 边界夹具禁并计数socket/DuckDB及意外模型调用；真实入口在研究执行前截停，只核意图/合同/工具登记，未执行history_query。其他回归含临时DB，不能称985项都零DB。\n\n永久证据在文档 #838 的固定提交 `c14bc12f5a966d82e4fe49995bf5221bd4540a2f`：`docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/`。**81/81成员**完整清单/Git blobs核验通过，79份复制原件及候选补丁字节一致；旧五包281/28/38/45/58逐包重核且不变。日期快照 `docs/handoffs/2026-09-21-history-source-partition-repair.md`，接手看集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`。发布回执放包外，不改冻结清单。\n\n**整体仍CHANGES_REQUIRED / 未验收**：新SHA的完整Python/前端/E2E/registry全叶、独立Spec/Quality终审、历史自然四题复验尚未完成；旧自然not_passed不翻案。后续按授权补精确SHA验收，不移签旧绿。未重启付费审核，不签新main/#841/三领域联合树，#814和其他邻线不接管。未合并、部署、生产回填或清树。",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845#issuecomment-5510",
+        "created_at": "2026-09-22T00:17:51+08:00",
+        "updated_at": "2026-09-22T00:17:51+08:00"
+      }
+    },
+    "833": {
+      "before": {
+        "number": 833,
+        "title": "WIP: history forward integration preserving material contracts",
+        "body": "<!-- history-permission-repair-02:5b1452adf -->\n## 最新接替：H-02 读取继承已局部修复，整体 CHANGES_REQUIRED\n\nWIP #845 固定源码 `7c99f389e9c72668663449dedeacd7fe4830cbdd`，父 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`；原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧 H-01/H-02 结论保留为对应旧提交的历史，当前状态以本节为准。\n\n- H-02 原两种合法省略续问现从 completed 原始 user 链同步恢复历史意图与读取上限，保留窗口、截止及 `local_only`。覆盖连续回放、真实会话入口送达、备用控制器重验、缺链/截断澄清及普通指代回填；旧助手话或任务对象不自证授权，当前用户仍可显式变更范围。\n- 固定干净源码四组定向回归 **770 passed = 168 + 169 + 242 + 191**，已含 H-01 的 41 例与 H-02 的 49 例；额外正常量具 90P 与其重叠，不加总。Ruff/diff-check 通过。十种进程内变异都有真实断言失败、零 collection/setup/teardown 错误：H-01 为 24/15/6/1/4，H-02 为 42/2/17/3/1；源码前后哈希一致。\n- **仍有两条新的正常版失败反例**：短“材料如下”段、未闭合中文引号里的省略续问会误续接历史。固定新源码重现 2F，仍保 `local_only`，只核合同与 `history_query` 登记，未执行该工具或证明实际联网。它们不是原 H-02 的读取权限丢失，整体仍不可放行。\n- 边界夹具禁并计数 socket/DuckDB，H-02 另计意外模型调用；外部 dispatch 在 runner 前拒绝。其他常规回归有临时 DB，不能称 770 全部零 DB。首次入口变异选错包装函数、第二次超时均原样留档，不计有效验证。\n\n永久证据在文档 #838 的固定提交 `5b1452adfc032ad31a78844fa123745d832a1eda`：`docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02/`。**58/58 成员**、清单、Git blob 与原件字节核验通过；旧四包 281/28/38/45 成员逐包重核且字节不变。交接集中 docs 枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，决策快照 `docs/handoffs/2026-09-21-history-permission-inheritance-repair.md`。\n\n下一片处理上述短材料/未闭合引号来源边界，不能牺牲合法续问与读取上限。此 SHA 完整 Python/前端/E2E/registry 门禁、独立终审和历史自然四题复验未完成；旧自然 not_passed 不翻案。未重启外审，不签新 main/#841/三领域联合树；#814 正式收据与其他邻线不接管。未合并、部署、生产回填、清树或新增付费通道。\n\n---\n\n## 最新续审裁决：CHANGES_REQUIRED（独立终审仍容量阻塞）\n\n有界续审最终：原thread一次续接，六模块103P/11.93秒后11:33:38Z再capacity→CLI exit1，无report，未触1200秒帽。**但候选不再只是服务阻塞：操作员CHANGES_REQUIRED。** H-01：闭合引号、Markdown引用、代码围栏内“范围与截止日继续不变”经inherit_history_followup→真实typed controller→control→Episode合同→工具登记错误继承旧历史；旧local_only未同步保留，合同出现web/news读取能力及history_query。最终11断言8P/3F，正例/取消/material_only/无上一轮对照通过。未执行工具/DB/网络，cutoff未抬高。helper和旧来源e4675eab相同，不归因前向冲突新引入。先修此实际消费者缺陷，新SHA另验，不自动重试求绿。\n\n证据已封并推送#838，固定提交 `c4e7bea4c74932000149c2392b38c3afa2cdb03c`，`docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01/`，新包Git提交字节 **38/38** 通过，旧包281/281与28/28不变。操作员QC不是独立终审report；源码身份未动，未合并/部署/访问生产。\n\n## 目标与固定身份\n\n将 #783/#800 历史研究链前向移植到当前已测基座，保主干的新材料合同/上一轮复核/市场广度提示，不覆盖旧枝现场。\n- 候选 `7edfe24e76afbd5c365fbf97dd2414847b086f88`\n- 直接基座 `ea5c3a94618a15e37f914c8b1a13e271875e4337`（#831，堆叠依赖）\n- 主干基座 `f783f19c8a01fbe8d0ed70d851df7ed14598c051`\n- 来源 `fix/history-closeout-0920@e4675eab28d83378016874c5396634fff5ab95ba`\n\n## 已验（作者工程，不是独立审）\n\n固定干净候选：全量 pytest 12631P/87S/2X/0F，Ruff、四项 registry、crosswalk通过。前端六步通过（110单测、34 E2E/2跳过），首尾身份稳定且dirty=false。新增8接缝只覆盖材料编译器的程序条件/真假设/续问/引用分区；不能外推历史helper也拒绝引用。本轮新真实消费者反例已确认第二路径缺口，详见最新续审裁决。\n\n原 `run_main_gate.sh` exit1 原样保留：无效 FWP_TEST_RECEIPT_DIR 导致查错目录，错误文本 `$LATEST（...` 在macOS Bash/UTF-8被识别为不存在的变量；不是pytest红。精确pytest收据exit0、校验通过，不挪用并发global latest。正式收据修复沿#814；本地c35诊断已停止第二路线（冗余全量主动中断，门禁rc4），不推进第二PR、不补签#814独立审，不改冻结候选凑绿。\n\n证据：`~/.finance-runtime/reviews/research-tail-integration-20260921/` 下 `history-resolution.json`、`history-python-receipt.json`、`history-receipt-check.txt`、`history-main-gate.log`、`history-frontend-gates/frontend.json`、`history-identity-{before,after}.txt`。原全量收据 `~/.finance-runtime/test-receipts/20260921T091040Z-7edfe24e.json`。\n\n## 未完成与禁止外推\n\n- 首次审核历史记录：新组合独立sol session已真实启动并阅读源码，10:42:18Z明确at capacity结束exit1、无report/动态测试、未触外层1200秒帽，首尾固定净树。BLOCKED_PROVIDER_CAPACITY，不是仍在跑、不代填Spec/Quality、不自动重开。\n- 新main `f2c3e9e1a24f` 含#830，未移入本候选；本PR不是该新main或三领域联合树的验收。\n- 历史原四题自然质量not_passed未推翻，本轮零重跑；不因此关闭#793/#794。\n- 历史证据绑定孤儿片#829未包含，#809不改。\n- 研究授权窗/信息截止/观察窗三分仍是目标；晚授权终点不抬信息截止的对照通过，但引用触发历史继承已证缺陷，不能笼统断言助手/引文完全不能恢复权限。\n- 用户尚未授权合main/8792部署/生产回填/删树。旧#800保留并补接替指针，不静默关闭。\n\n## 封档与交接（2026-09-21）\n\n文档 WIP [#838](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838)，固定封档 `c47b2751f29e08ee6ff0848603adf3c3c4d03ffe`；`docs/verification/2026-09-21-research-tail-forward/README.md`，两包按Git提交字节核验281/281与28/28。各候选的作者、独立、自然质量和合并权限分别记账。为保固定源码身份，新inflight只在`docs/research-tail-closeout-0921`，源码树本地未追加；可用git show该枝读取。\n\n<!-- history-boundary-repair-01:3a1c8289b -->\n## H-01 修复接替与证据（2026-09-21）\n\n局部修复见 WIP #845，固定源码 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`，叠在 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 上；原候选不移动。受测H-01已修，固定530项定向通过（含41新例），五变异各24/15/6/1/4个断言失败且零夹具错误。\n\n**整体历史仍 CHANGES_REQUIRED。** 正常版H-02两种合法省略续问仍丢`local_only`，授权出现`web_search/web_fetch`，两个期望行为断言失败。仅检查合同/工具登记，未实际联网或执行历史工具。本revision完整合入门禁、新自然题和独立终审未完成；不拿旧绿移签，不自动重开审核，未合并/部署/回填。\n\n证据在 #838 文档枝提交 `3a1c8289b8af4bb3b98e803ffefe4992131a4731` 的 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`。45/45成员与manifest、Git blob及原件字节一致；旧三包281/28/38成员保持不变。接手读集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，下一步修H-02而非重复求绿。",
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "updated_at": "2026-09-22T00:17:51+08:00",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/833",
+        "head": {
+          "sha": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+          "ref": "fix/history-forward-0921"
+        }
+      },
+      "after": {
+        "number": 833,
+        "title": "WIP: history forward integration preserving material contracts",
+        "body": "<!-- history-source-partition-03:c14bc12f5 -->\n## 最新接替：H-03 两输入边界局部修复，整体仍未验收\n\nWIP #845 固定源码 `b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16`，父 `7c99f389e9c72668663449dedeacd7fe4830cbdd`。原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧结论保留为各旧 SHA 的历史，当前状态以本节为准。\n\n- 短“材料如下”段和未闭合中文引号中的“那它们见顶后谁接力？”两种安全断言已转绿：前者按材料归属排除历史控制，后者因边界不确定先澄清。共享分区保材料原文、编号题与独立用户提问；英文词内撇号不当引号。TaskFrame 和普通指代先判未裁剪原文，防末行提取/strip 丢来源容器。受测合法续问仍保窗口、截止及 local_only。\n- 干净固定源码五组定向 **985P / 4S = 168 + 191 + 187 + 309 + 130**，含新 67 例。正常量具157P与其重叠，不加总；全仓Ruff及提交前diff-check通过。十四种进程内变异均有真实断言失败、零collection/setup/teardown错误，源码首尾哈希一致：H-01为24/15/6/1/4，H-02为42/2/17/3/1，H-03为20/22/6/2。\n- 旧外置反例原样回跑 **1F/1P**：失败是诊断打印None合同的AttributeError，未到安全断言。旧原件不改；新副本仅给诊断字段加空值处理、原输入和最终断言不变，**2P**。不能将原件记作全绿，也不能把诊断错误当安全反例仍成立。开发基线48F/18P及中途4F/152P均保留。\n- 边界夹具禁并计数socket/DuckDB及意外模型调用；真实入口在研究执行前截停，只核意图/合同/工具登记，未执行history_query。其他回归含临时DB，不能称985项都零DB。\n\n永久证据在文档 #838 的固定提交 `c14bc12f5a966d82e4fe49995bf5221bd4540a2f`：`docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/`。**81/81成员**完整清单/Git blobs核验通过，79份复制原件及候选补丁字节一致；旧五包281/28/38/45/58逐包重核且不变。日期快照 `docs/handoffs/2026-09-21-history-source-partition-repair.md`，接手看集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`。发布回执放包外，不改冻结清单。\n\n**整体仍CHANGES_REQUIRED / 未验收**：新SHA的完整Python/前端/E2E/registry全叶、独立Spec/Quality终审、历史自然四题复验尚未完成；旧自然not_passed不翻案。后续按授权补精确SHA验收，不移签旧绿。未重启付费审核，不签新main/#841/三领域联合树，#814和其他邻线不接管。未合并、部署、生产回填或清树。\n\n---\n\n<!-- history-permission-repair-02:5b1452adf -->\n## 最新接替：H-02 读取继承已局部修复，整体 CHANGES_REQUIRED\n\nWIP #845 固定源码 `7c99f389e9c72668663449dedeacd7fe4830cbdd`，父 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`；原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧 H-01/H-02 结论保留为对应旧提交的历史，当前状态以本节为准。\n\n- H-02 原两种合法省略续问现从 completed 原始 user 链同步恢复历史意图与读取上限，保留窗口、截止及 `local_only`。覆盖连续回放、真实会话入口送达、备用控制器重验、缺链/截断澄清及普通指代回填；旧助手话或任务对象不自证授权，当前用户仍可显式变更范围。\n- 固定干净源码四组定向回归 **770 passed = 168 + 169 + 242 + 191**，已含 H-01 的 41 例与 H-02 的 49 例；额外正常量具 90P 与其重叠，不加总。Ruff/diff-check 通过。十种进程内变异都有真实断言失败、零 collection/setup/teardown 错误：H-01 为 24/15/6/1/4，H-02 为 42/2/17/3/1；源码前后哈希一致。\n- **仍有两条新的正常版失败反例**：短“材料如下”段、未闭合中文引号里的省略续问会误续接历史。固定新源码重现 2F，仍保 `local_only`，只核合同与 `history_query` 登记，未执行该工具或证明实际联网。它们不是原 H-02 的读取权限丢失，整体仍不可放行。\n- 边界夹具禁并计数 socket/DuckDB，H-02 另计意外模型调用；外部 dispatch 在 runner 前拒绝。其他常规回归有临时 DB，不能称 770 全部零 DB。首次入口变异选错包装函数、第二次超时均原样留档，不计有效验证。\n\n永久证据在文档 #838 的固定提交 `5b1452adfc032ad31a78844fa123745d832a1eda`：`docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02/`。**58/58 成员**、清单、Git blob 与原件字节核验通过；旧四包 281/28/38/45 成员逐包重核且字节不变。交接集中 docs 枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，决策快照 `docs/handoffs/2026-09-21-history-permission-inheritance-repair.md`。\n\n下一片处理上述短材料/未闭合引号来源边界，不能牺牲合法续问与读取上限。此 SHA 完整 Python/前端/E2E/registry 门禁、独立终审和历史自然四题复验未完成；旧自然 not_passed 不翻案。未重启外审，不签新 main/#841/三领域联合树；#814 正式收据与其他邻线不接管。未合并、部署、生产回填、清树或新增付费通道。\n\n---\n\n## 最新续审裁决：CHANGES_REQUIRED（独立终审仍容量阻塞）\n\n有界续审最终：原thread一次续接，六模块103P/11.93秒后11:33:38Z再capacity→CLI exit1，无report，未触1200秒帽。**但候选不再只是服务阻塞：操作员CHANGES_REQUIRED。** H-01：闭合引号、Markdown引用、代码围栏内“范围与截止日继续不变”经inherit_history_followup→真实typed controller→control→Episode合同→工具登记错误继承旧历史；旧local_only未同步保留，合同出现web/news读取能力及history_query。最终11断言8P/3F，正例/取消/material_only/无上一轮对照通过。未执行工具/DB/网络，cutoff未抬高。helper和旧来源e4675eab相同，不归因前向冲突新引入。先修此实际消费者缺陷，新SHA另验，不自动重试求绿。\n\n证据已封并推送#838，固定提交 `c4e7bea4c74932000149c2392b38c3afa2cdb03c`，`docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01/`，新包Git提交字节 **38/38** 通过，旧包281/281与28/28不变。操作员QC不是独立终审report；源码身份未动，未合并/部署/访问生产。\n\n## 目标与固定身份\n\n将 #783/#800 历史研究链前向移植到当前已测基座，保主干的新材料合同/上一轮复核/市场广度提示，不覆盖旧枝现场。\n- 候选 `7edfe24e76afbd5c365fbf97dd2414847b086f88`\n- 直接基座 `ea5c3a94618a15e37f914c8b1a13e271875e4337`（#831，堆叠依赖）\n- 主干基座 `f783f19c8a01fbe8d0ed70d851df7ed14598c051`\n- 来源 `fix/history-closeout-0920@e4675eab28d83378016874c5396634fff5ab95ba`\n\n## 已验（作者工程，不是独立审）\n\n固定干净候选：全量 pytest 12631P/87S/2X/0F，Ruff、四项 registry、crosswalk通过。前端六步通过（110单测、34 E2E/2跳过），首尾身份稳定且dirty=false。新增8接缝只覆盖材料编译器的程序条件/真假设/续问/引用分区；不能外推历史helper也拒绝引用。本轮新真实消费者反例已确认第二路径缺口，详见最新续审裁决。\n\n原 `run_main_gate.sh` exit1 原样保留：无效 FWP_TEST_RECEIPT_DIR 导致查错目录，错误文本 `$LATEST（...` 在macOS Bash/UTF-8被识别为不存在的变量；不是pytest红。精确pytest收据exit0、校验通过，不挪用并发global latest。正式收据修复沿#814；本地c35诊断已停止第二路线（冗余全量主动中断，门禁rc4），不推进第二PR、不补签#814独立审，不改冻结候选凑绿。\n\n证据：`~/.finance-runtime/reviews/research-tail-integration-20260921/` 下 `history-resolution.json`、`history-python-receipt.json`、`history-receipt-check.txt`、`history-main-gate.log`、`history-frontend-gates/frontend.json`、`history-identity-{before,after}.txt`。原全量收据 `~/.finance-runtime/test-receipts/20260921T091040Z-7edfe24e.json`。\n\n## 未完成与禁止外推\n\n- 首次审核历史记录：新组合独立sol session已真实启动并阅读源码，10:42:18Z明确at capacity结束exit1、无report/动态测试、未触外层1200秒帽，首尾固定净树。BLOCKED_PROVIDER_CAPACITY，不是仍在跑、不代填Spec/Quality、不自动重开。\n- 新main `f2c3e9e1a24f` 含#830，未移入本候选；本PR不是该新main或三领域联合树的验收。\n- 历史原四题自然质量not_passed未推翻，本轮零重跑；不因此关闭#793/#794。\n- 历史证据绑定孤儿片#829未包含，#809不改。\n- 研究授权窗/信息截止/观察窗三分仍是目标；晚授权终点不抬信息截止的对照通过，但引用触发历史继承已证缺陷，不能笼统断言助手/引文完全不能恢复权限。\n- 用户尚未授权合main/8792部署/生产回填/删树。旧#800保留并补接替指针，不静默关闭。\n\n## 封档与交接（2026-09-21）\n\n文档 WIP [#838](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838)，固定封档 `c47b2751f29e08ee6ff0848603adf3c3c4d03ffe`；`docs/verification/2026-09-21-research-tail-forward/README.md`，两包按Git提交字节核验281/281与28/28。各候选的作者、独立、自然质量和合并权限分别记账。为保固定源码身份，新inflight只在`docs/research-tail-closeout-0921`，源码树本地未追加；可用git show该枝读取。\n\n<!-- history-boundary-repair-01:3a1c8289b -->\n## H-01 修复接替与证据（2026-09-21）\n\n局部修复见 WIP #845，固定源码 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`，叠在 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 上；原候选不移动。受测H-01已修，固定530项定向通过（含41新例），五变异各24/15/6/1/4个断言失败且零夹具错误。\n\n**整体历史仍 CHANGES_REQUIRED。** 正常版H-02两种合法省略续问仍丢`local_only`，授权出现`web_search/web_fetch`，两个期望行为断言失败。仅检查合同/工具登记，未实际联网或执行历史工具。本revision完整合入门禁、新自然题和独立终审未完成；不拿旧绿移签，不自动重开审核，未合并/部署/回填。\n\n证据在 #838 文档枝提交 `3a1c8289b8af4bb3b98e803ffefe4992131a4731` 的 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`。45/45成员与manifest、Git blob及原件字节一致；旧三包281/28/38成员保持不变。接手读集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，下一步修H-02而非重复求绿。",
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "updated_at": "2026-09-22T00:19:14+08:00",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/833",
+        "head": {
+          "sha": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+          "ref": "fix/history-forward-0921"
+        }
+      },
+      "comment": {
+        "id": 5513,
+        "body": "<!-- history-source-partition-03:c14bc12f5 -->\n## 最新接替：H-03 两输入边界局部修复，整体仍未验收\n\nWIP #845 固定源码 `b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16`，父 `7c99f389e9c72668663449dedeacd7fe4830cbdd`。原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧结论保留为各旧 SHA 的历史，当前状态以本节为准。\n\n- 短“材料如下”段和未闭合中文引号中的“那它们见顶后谁接力？”两种安全断言已转绿：前者按材料归属排除历史控制，后者因边界不确定先澄清。共享分区保材料原文、编号题与独立用户提问；英文词内撇号不当引号。TaskFrame 和普通指代先判未裁剪原文，防末行提取/strip 丢来源容器。受测合法续问仍保窗口、截止及 local_only。\n- 干净固定源码五组定向 **985P / 4S = 168 + 191 + 187 + 309 + 130**，含新 67 例。正常量具157P与其重叠，不加总；全仓Ruff及提交前diff-check通过。十四种进程内变异均有真实断言失败、零collection/setup/teardown错误，源码首尾哈希一致：H-01为24/15/6/1/4，H-02为42/2/17/3/1，H-03为20/22/6/2。\n- 旧外置反例原样回跑 **1F/1P**：失败是诊断打印None合同的AttributeError，未到安全断言。旧原件不改；新副本仅给诊断字段加空值处理、原输入和最终断言不变，**2P**。不能将原件记作全绿，也不能把诊断错误当安全反例仍成立。开发基线48F/18P及中途4F/152P均保留。\n- 边界夹具禁并计数socket/DuckDB及意外模型调用；真实入口在研究执行前截停，只核意图/合同/工具登记，未执行history_query。其他回归含临时DB，不能称985项都零DB。\n\n永久证据在文档 #838 的固定提交 `c14bc12f5a966d82e4fe49995bf5221bd4540a2f`：`docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/`。**81/81成员**完整清单/Git blobs核验通过，79份复制原件及候选补丁字节一致；旧五包281/28/38/45/58逐包重核且不变。日期快照 `docs/handoffs/2026-09-21-history-source-partition-repair.md`，接手看集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`。发布回执放包外，不改冻结清单。\n\n**整体仍CHANGES_REQUIRED / 未验收**：新SHA的完整Python/前端/E2E/registry全叶、独立Spec/Quality终审、历史自然四题复验尚未完成；旧自然not_passed不翻案。后续按授权补精确SHA验收，不移签旧绿。未重启付费审核，不签新main/#841/三领域联合树，#814和其他邻线不接管。未合并、部署、生产回填或清树。",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/833#issuecomment-5513",
+        "created_at": "2026-09-22T00:18:18+08:00",
+        "updated_at": "2026-09-22T00:18:18+08:00"
+      }
+    },
+    "838": {
+      "before": {
+        "number": 838,
+        "title": "WIP: 研究尾单前向候选封档与审核边界交接",
+        "body": "<!-- history-permission-repair-02:5b1452adf -->\n## 最新接替：H-02 读取继承已局部修复，整体 CHANGES_REQUIRED\n\nWIP #845 固定源码 `7c99f389e9c72668663449dedeacd7fe4830cbdd`，父 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`；原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧 H-01/H-02 结论保留为对应旧提交的历史，当前状态以本节为准。\n\n- H-02 原两种合法省略续问现从 completed 原始 user 链同步恢复历史意图与读取上限，保留窗口、截止及 `local_only`。覆盖连续回放、真实会话入口送达、备用控制器重验、缺链/截断澄清及普通指代回填；旧助手话或任务对象不自证授权，当前用户仍可显式变更范围。\n- 固定干净源码四组定向回归 **770 passed = 168 + 169 + 242 + 191**，已含 H-01 的 41 例与 H-02 的 49 例；额外正常量具 90P 与其重叠，不加总。Ruff/diff-check 通过。十种进程内变异都有真实断言失败、零 collection/setup/teardown 错误：H-01 为 24/15/6/1/4，H-02 为 42/2/17/3/1；源码前后哈希一致。\n- **仍有两条新的正常版失败反例**：短“材料如下”段、未闭合中文引号里的省略续问会误续接历史。固定新源码重现 2F，仍保 `local_only`，只核合同与 `history_query` 登记，未执行该工具或证明实际联网。它们不是原 H-02 的读取权限丢失，整体仍不可放行。\n- 边界夹具禁并计数 socket/DuckDB，H-02 另计意外模型调用；外部 dispatch 在 runner 前拒绝。其他常规回归有临时 DB，不能称 770 全部零 DB。首次入口变异选错包装函数、第二次超时均原样留档，不计有效验证。\n\n永久证据在文档 #838 的固定提交 `5b1452adfc032ad31a78844fa123745d832a1eda`：`docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02/`。**58/58 成员**、清单、Git blob 与原件字节核验通过；旧四包 281/28/38/45 成员逐包重核且字节不变。交接集中 docs 枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，决策快照 `docs/handoffs/2026-09-21-history-permission-inheritance-repair.md`。\n\n下一片处理上述短材料/未闭合引号来源边界，不能牺牲合法续问与读取上限。此 SHA 完整 Python/前端/E2E/registry 门禁、独立终审和历史自然四题复验未完成；旧自然 not_passed 不翻案。未重启外审，不签新 main/#841/三领域联合树；#814 正式收据与其他邻线不接管。未合并、部署、生产回填、清树或新增付费通道。\n\n---\n\n## 最新状态：历史需修，三领域独立终审未完成\n\n本PR仅文档/证据，不移动冻结源码、不合main/部署；docs基座f2c3e9e1不代表三领域已验该组合。\n\n- #831 ea5c3a946：原独立有限接受不变，一个session Spec/Quality两节，不冒称两位审核者。\n- #833 7edfe24e7：用户“执行”后原thread续接一次，六模块103P/11.93秒，11:33:38Z又capacity→exit1，无report、未触1200秒帽。操作员typed消费者11断言8P/3F确认受保护引文误继承历史/旧local_only未保留，**CHANGES_REQUIRED**。只有合同/工具登记证据，未执行金融工具/DB/网络，旧截止未抬高。\n- #834 cb16cd463 / #835 d82cb16b5：只准备续接prompt，历史共享容量失败后按约定**本轮未启动**。旧315P/240P不补终审，无新测试/会话/report，无待收后台。\n- 正式收据路线沿#814，c35只诊断，不接管原K3或邻线。\n\n## 固定证据与核验\n\n新封档 `c4e7bea4c74932000149c2392b38c3afa2cdb03c` 已推；新包 `docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01/` 按Git完整成员/实际blob核 **38/38**。旧封档c47的作者/小片281/281、领域首轮中断28/28在新提交再次核通过，原字节不变。新包保留同thread事件、首错、真实退出层、独立probe与操作员执行区别；不填造独立report。\n\n入口 `docs/verification/2026-09-21-research-tail-forward/README.md`；根QC `docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01/operator/operator-qc.md`；日期决策 `docs/handoffs/2026-09-21-research-tail-review-resume-01.md`；协调 `docs/handoffs/inflight/docs-research-tail-closeout-0921.md`。交接仅在docs枝，冻结源码不追加文档移动SHA。\n\n提交钩子正常通过，新增说明格式通过，原始日志/源码保字节，不跳钩子。未以文档tip宣称全量重跑；六份inflight≤3KB。记忆三文件54ab8dfb已验提交字节，图谱exit0只证路径/符号，不签行为/合入。\n\n## 下一步与边界\n\n历史先在新修复树统一来源分区并锁真实消费者正负例，保合法历史范围/截止/local_only；不能只给材料编译器加测试或全面清空继承。新SHA重新定向/撤保护/工程/独立增量，旧绿不签新组合。runtime/财务另确认可用通道和单次额度后再审，不自动重开容量失败任务。\n\n恢复时main已到5a5334712（含#837）；三领域仍基于#831/旧main f783f19c8，新main及联合树未验。历史原四题、财务R6/R3自然not_passed不翻；runtime跨进程driver/lease/未知效果对账未验。#829仅保全；无合main/8792部署/夜跑/生产回填/删树授权，保留WIP。\n\n## 续接最终发布回读\n\n最终docs tip `7d6277ca4ac5a852eee7f86b909f404570d45eca` 已推且clean。相对c4e7bea4仅新增包外发布回执/导览/协调交接；三包再次按提交字节核281/281、28/28、38/38通过。源码HEAD未动，没有把文档tip当源码重跑收据；本轮无待收后台。\n\n<!-- history-boundary-repair-01:3a1c8289b -->\n## H-01 修复接替与证据（2026-09-21）\n\n局部修复见 WIP #845，固定源码 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`，叠在 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 上；原候选不移动。受测H-01已修，固定530项定向通过（含41新例），五变异各24/15/6/1/4个断言失败且零夹具错误。\n\n**整体历史仍 CHANGES_REQUIRED。** 正常版H-02两种合法省略续问仍丢`local_only`，授权出现`web_search/web_fetch`，两个期望行为断言失败。仅检查合同/工具登记，未实际联网或执行历史工具。本revision完整合入门禁、新自然题和独立终审未完成；不拿旧绿移签，不自动重开审核，未合并/部署/回填。\n\n证据在 #838 文档枝提交 `3a1c8289b8af4bb3b98e803ffefe4992131a4731` 的 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`。45/45成员与manifest、Git blob及原件字节一致；旧三包281/28/38成员保持不变。接手读集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，下一步修H-02而非重复求绿。",
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "updated_at": "2026-09-22T00:18:18+08:00",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838",
+        "head": {
+          "sha": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+          "ref": "docs/research-tail-closeout-0921"
+        }
+      },
+      "after": {
+        "number": 838,
+        "title": "WIP: 研究尾单前向候选封档与审核边界交接",
+        "body": "<!-- history-source-partition-03:c14bc12f5 -->\n## 最新接替：H-03 两输入边界局部修复，整体仍未验收\n\nWIP #845 固定源码 `b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16`，父 `7c99f389e9c72668663449dedeacd7fe4830cbdd`。原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧结论保留为各旧 SHA 的历史，当前状态以本节为准。\n\n- 短“材料如下”段和未闭合中文引号中的“那它们见顶后谁接力？”两种安全断言已转绿：前者按材料归属排除历史控制，后者因边界不确定先澄清。共享分区保材料原文、编号题与独立用户提问；英文词内撇号不当引号。TaskFrame 和普通指代先判未裁剪原文，防末行提取/strip 丢来源容器。受测合法续问仍保窗口、截止及 local_only。\n- 干净固定源码五组定向 **985P / 4S = 168 + 191 + 187 + 309 + 130**，含新 67 例。正常量具157P与其重叠，不加总；全仓Ruff及提交前diff-check通过。十四种进程内变异均有真实断言失败、零collection/setup/teardown错误，源码首尾哈希一致：H-01为24/15/6/1/4，H-02为42/2/17/3/1，H-03为20/22/6/2。\n- 旧外置反例原样回跑 **1F/1P**：失败是诊断打印None合同的AttributeError，未到安全断言。旧原件不改；新副本仅给诊断字段加空值处理、原输入和最终断言不变，**2P**。不能将原件记作全绿，也不能把诊断错误当安全反例仍成立。开发基线48F/18P及中途4F/152P均保留。\n- 边界夹具禁并计数socket/DuckDB及意外模型调用；真实入口在研究执行前截停，只核意图/合同/工具登记，未执行history_query。其他回归含临时DB，不能称985项都零DB。\n\n永久证据在文档 #838 的固定提交 `c14bc12f5a966d82e4fe49995bf5221bd4540a2f`：`docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/`。**81/81成员**完整清单/Git blobs核验通过，79份复制原件及候选补丁字节一致；旧五包281/28/38/45/58逐包重核且不变。日期快照 `docs/handoffs/2026-09-21-history-source-partition-repair.md`，接手看集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`。发布回执放包外，不改冻结清单。\n\n**整体仍CHANGES_REQUIRED / 未验收**：新SHA的完整Python/前端/E2E/registry全叶、独立Spec/Quality终审、历史自然四题复验尚未完成；旧自然not_passed不翻案。后续按授权补精确SHA验收，不移签旧绿。未重启付费审核，不签新main/#841/三领域联合树，#814和其他邻线不接管。未合并、部署、生产回填或清树。\n\n---\n\n<!-- history-permission-repair-02:5b1452adf -->\n## 最新接替：H-02 读取继承已局部修复，整体 CHANGES_REQUIRED\n\nWIP #845 固定源码 `7c99f389e9c72668663449dedeacd7fe4830cbdd`，父 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`；原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧 H-01/H-02 结论保留为对应旧提交的历史，当前状态以本节为准。\n\n- H-02 原两种合法省略续问现从 completed 原始 user 链同步恢复历史意图与读取上限，保留窗口、截止及 `local_only`。覆盖连续回放、真实会话入口送达、备用控制器重验、缺链/截断澄清及普通指代回填；旧助手话或任务对象不自证授权，当前用户仍可显式变更范围。\n- 固定干净源码四组定向回归 **770 passed = 168 + 169 + 242 + 191**，已含 H-01 的 41 例与 H-02 的 49 例；额外正常量具 90P 与其重叠，不加总。Ruff/diff-check 通过。十种进程内变异都有真实断言失败、零 collection/setup/teardown 错误：H-01 为 24/15/6/1/4，H-02 为 42/2/17/3/1；源码前后哈希一致。\n- **仍有两条新的正常版失败反例**：短“材料如下”段、未闭合中文引号里的省略续问会误续接历史。固定新源码重现 2F，仍保 `local_only`，只核合同与 `history_query` 登记，未执行该工具或证明实际联网。它们不是原 H-02 的读取权限丢失，整体仍不可放行。\n- 边界夹具禁并计数 socket/DuckDB，H-02 另计意外模型调用；外部 dispatch 在 runner 前拒绝。其他常规回归有临时 DB，不能称 770 全部零 DB。首次入口变异选错包装函数、第二次超时均原样留档，不计有效验证。\n\n永久证据在文档 #838 的固定提交 `5b1452adfc032ad31a78844fa123745d832a1eda`：`docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02/`。**58/58 成员**、清单、Git blob 与原件字节核验通过；旧四包 281/28/38/45 成员逐包重核且字节不变。交接集中 docs 枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，决策快照 `docs/handoffs/2026-09-21-history-permission-inheritance-repair.md`。\n\n下一片处理上述短材料/未闭合引号来源边界，不能牺牲合法续问与读取上限。此 SHA 完整 Python/前端/E2E/registry 门禁、独立终审和历史自然四题复验未完成；旧自然 not_passed 不翻案。未重启外审，不签新 main/#841/三领域联合树；#814 正式收据与其他邻线不接管。未合并、部署、生产回填、清树或新增付费通道。\n\n---\n\n## 最新状态：历史需修，三领域独立终审未完成\n\n本PR仅文档/证据，不移动冻结源码、不合main/部署；docs基座f2c3e9e1不代表三领域已验该组合。\n\n- #831 ea5c3a946：原独立有限接受不变，一个session Spec/Quality两节，不冒称两位审核者。\n- #833 7edfe24e7：用户“执行”后原thread续接一次，六模块103P/11.93秒，11:33:38Z又capacity→exit1，无report、未触1200秒帽。操作员typed消费者11断言8P/3F确认受保护引文误继承历史/旧local_only未保留，**CHANGES_REQUIRED**。只有合同/工具登记证据，未执行金融工具/DB/网络，旧截止未抬高。\n- #834 cb16cd463 / #835 d82cb16b5：只准备续接prompt，历史共享容量失败后按约定**本轮未启动**。旧315P/240P不补终审，无新测试/会话/report，无待收后台。\n- 正式收据路线沿#814，c35只诊断，不接管原K3或邻线。\n\n## 固定证据与核验\n\n新封档 `c4e7bea4c74932000149c2392b38c3afa2cdb03c` 已推；新包 `docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01/` 按Git完整成员/实际blob核 **38/38**。旧封档c47的作者/小片281/281、领域首轮中断28/28在新提交再次核通过，原字节不变。新包保留同thread事件、首错、真实退出层、独立probe与操作员执行区别；不填造独立report。\n\n入口 `docs/verification/2026-09-21-research-tail-forward/README.md`；根QC `docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01/operator/operator-qc.md`；日期决策 `docs/handoffs/2026-09-21-research-tail-review-resume-01.md`；协调 `docs/handoffs/inflight/docs-research-tail-closeout-0921.md`。交接仅在docs枝，冻结源码不追加文档移动SHA。\n\n提交钩子正常通过，新增说明格式通过，原始日志/源码保字节，不跳钩子。未以文档tip宣称全量重跑；六份inflight≤3KB。记忆三文件54ab8dfb已验提交字节，图谱exit0只证路径/符号，不签行为/合入。\n\n## 下一步与边界\n\n历史先在新修复树统一来源分区并锁真实消费者正负例，保合法历史范围/截止/local_only；不能只给材料编译器加测试或全面清空继承。新SHA重新定向/撤保护/工程/独立增量，旧绿不签新组合。runtime/财务另确认可用通道和单次额度后再审，不自动重开容量失败任务。\n\n恢复时main已到5a5334712（含#837）；三领域仍基于#831/旧main f783f19c8，新main及联合树未验。历史原四题、财务R6/R3自然not_passed不翻；runtime跨进程driver/lease/未知效果对账未验。#829仅保全；无合main/8792部署/夜跑/生产回填/删树授权，保留WIP。\n\n## 续接最终发布回读\n\n最终docs tip `7d6277ca4ac5a852eee7f86b909f404570d45eca` 已推且clean。相对c4e7bea4仅新增包外发布回执/导览/协调交接；三包再次按提交字节核281/281、28/28、38/38通过。源码HEAD未动，没有把文档tip当源码重跑收据；本轮无待收后台。\n\n<!-- history-boundary-repair-01:3a1c8289b -->\n## H-01 修复接替与证据（2026-09-21）\n\n局部修复见 WIP #845，固定源码 `d91aff9d8437fe903f3e643b65d4805aa4cf243c`，叠在 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 上；原候选不移动。受测H-01已修，固定530项定向通过（含41新例），五变异各24/15/6/1/4个断言失败且零夹具错误。\n\n**整体历史仍 CHANGES_REQUIRED。** 正常版H-02两种合法省略续问仍丢`local_only`，授权出现`web_search/web_fetch`，两个期望行为断言失败。仅检查合同/工具登记，未实际联网或执行历史工具。本revision完整合入门禁、新自然题和独立终审未完成；不拿旧绿移签，不自动重开审核，未合并/部署/回填。\n\n证据在 #838 文档枝提交 `3a1c8289b8af4bb3b98e803ffefe4992131a4731` 的 `docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01/`。45/45成员与manifest、Git blob及原件字节一致；旧三包281/28/38成员保持不变。接手读集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`，下一步修H-02而非重复求绿。",
+        "state": "open",
+        "merged": false,
+        "draft": true,
+        "updated_at": "2026-09-22T00:19:14+08:00",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838",
+        "head": {
+          "sha": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+          "ref": "docs/research-tail-closeout-0921"
+        }
+      },
+      "comment": {
+        "id": 5517,
+        "body": "<!-- history-source-partition-03:c14bc12f5 -->\n## 最新接替：H-03 两输入边界局部修复，整体仍未验收\n\nWIP #845 固定源码 `b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16`，父 `7c99f389e9c72668663449dedeacd7fe4830cbdd`。原 #833 `7edfe24e76afbd5c365fbf97dd2414847b086f88` 不移动。下方旧结论保留为各旧 SHA 的历史，当前状态以本节为准。\n\n- 短“材料如下”段和未闭合中文引号中的“那它们见顶后谁接力？”两种安全断言已转绿：前者按材料归属排除历史控制，后者因边界不确定先澄清。共享分区保材料原文、编号题与独立用户提问；英文词内撇号不当引号。TaskFrame 和普通指代先判未裁剪原文，防末行提取/strip 丢来源容器。受测合法续问仍保窗口、截止及 local_only。\n- 干净固定源码五组定向 **985P / 4S = 168 + 191 + 187 + 309 + 130**，含新 67 例。正常量具157P与其重叠，不加总；全仓Ruff及提交前diff-check通过。十四种进程内变异均有真实断言失败、零collection/setup/teardown错误，源码首尾哈希一致：H-01为24/15/6/1/4，H-02为42/2/17/3/1，H-03为20/22/6/2。\n- 旧外置反例原样回跑 **1F/1P**：失败是诊断打印None合同的AttributeError，未到安全断言。旧原件不改；新副本仅给诊断字段加空值处理、原输入和最终断言不变，**2P**。不能将原件记作全绿，也不能把诊断错误当安全反例仍成立。开发基线48F/18P及中途4F/152P均保留。\n- 边界夹具禁并计数socket/DuckDB及意外模型调用；真实入口在研究执行前截停，只核意图/合同/工具登记，未执行history_query。其他回归含临时DB，不能称985项都零DB。\n\n永久证据在文档 #838 的固定提交 `c14bc12f5a966d82e4fe49995bf5221bd4540a2f`：`docs/verification/2026-09-21-research-tail-forward/history-source-partition-03/`。**81/81成员**完整清单/Git blobs核验通过，79份复制原件及候选补丁字节一致；旧五包281/28/38/45/58逐包重核且不变。日期快照 `docs/handoffs/2026-09-21-history-source-partition-repair.md`，接手看集中docs枝 `docs/handoffs/inflight/fix-history-forward-boundary-0921.md`。发布回执放包外，不改冻结清单。\n\n**整体仍CHANGES_REQUIRED / 未验收**：新SHA的完整Python/前端/E2E/registry全叶、独立Spec/Quality终审、历史自然四题复验尚未完成；旧自然not_passed不翻案。后续按授权补精确SHA验收，不移签旧绿。未重启付费审核，不签新main/#841/三领域联合树，#814和其他邻线不接管。未合并、部署、生产回填或清树。",
+        "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838#issuecomment-5517",
+        "created_at": "2026-09-22T00:19:14+08:00",
+        "updated_at": "2026-09-22T00:19:14+08:00"
+      }
+    }
+  },
+  "memory": {
+    "revision_at_check": "50efc710ffcc88c1b24849d79c3f272539066035",
+    "files": [
+      {
+        "path": "20_projects/finance-workspace-private.md",
+        "commit_sha256": "cceb395e7c433a863d067612c1a6d3960c5574d28172c6de8e367e6d7e83921d",
+        "worktree_sha256": "cceb395e7c433a863d067612c1a6d3960c5574d28172c6de8e367e6d7e83921d",
+        "bytes": 464480,
+        "worktree_matches_commit": true
+      },
+      {
+        "path": "10_knowledge/finance-agent-capability-graph.md",
+        "commit_sha256": "85d605abe676b4fc24fa00a2f4c476ec31b96fd8936663850b7a6bdc45014688",
+        "worktree_sha256": "85d605abe676b4fc24fa00a2f4c476ec31b96fd8936663850b7a6bdc45014688",
+        "bytes": 135400,
+        "worktree_matches_commit": true
+      }
+    ],
+    "graph_audit_exit": 0,
+    "graph_sha256": "85d605abe676b4fc24fa00a2f4c476ec31b96fd8936663850b7a6bdc45014688",
+    "submission": "existing auto-sync/other-session commit; no duplicate commit",
+    "worktree_status": "",
+    "dirty_worktree_is_not_used_as_commit_evidence": true
+  },
+  "prior_attempts": [
+    {
+      "exit": 1,
+      "stage": "memory commit/worktree equality assertion",
+      "receipt_written": false,
+      "traceback_location": "session tool output only",
+      "cause": "concurrent unrelated project-note edit; preserved, not reverted",
+      "resolution": "commit and worktree hashes recorded separately; committed H-03 content required"
+    }
+  ],
+  "graph_audit": {
+    "exit": 0,
+    "stdout": "审计对象（exit 0 只对这些 revision 成立）：\n  agent-memory: main@50efc710 clean\n  finance-workspace-private: HEAD@b4a35fa2c dirty\n  knowledge-base-private: main@8a413cde5 dirty\n\nPENDING 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/services/user_task.py::_request_checklist_ranges@fix/research-contract-citations-0921：仅存在于分支 fix/research-contract-citations-0921，未进当前工作树\nMERGED 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/services/episode_protocol.py::build_episode_input@fix/research-contract-citations-0921：当前工作树已具备，可去掉 @fix/research-contract-citations-0921 提升为常规行\nMERGED 研究要求与公开引用身份（离线候选，未合未部署） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_public_citation_projection@fix/research-contract-citations-0921：当前工作树已具备，可去掉 @fix/research-contract-citations-0921 提升为常规行\nUNVERIFIED 题设计算/行情口径/恢复投影修复候选（验收阻塞，未合/部署） → finance-workspace-private/intelligence/services/material_contract.py::compile_material_contract@fix/8792-premise-market-contracts（分支或文件不在本地，未校验）\nUNVERIFIED 题设计算/行情口径/恢复投影修复候选（验收阻塞，未合/部署） → finance-workspace-private/intelligence/services/finance_query.py@fix/8792-premise-market-contracts（分支或文件不在本地，未校验）\nUNVERIFIED 题设计算/行情口径/恢复投影修复候选（验收阻塞，未合/部署） → finance-workspace-private/intelligence/services/research_harness.py::recovery_evidence_priority@fix/8792-premise-market-contracts（分支或文件不在本地，未校验）\nMERGED 生成失败留痕（待验收，未合/部署） → finance-workspace-private/intelligence/runtime/conversation_orchestrator.py::_run_turn_ledgered@fix/generation-degrade-closeout-0920：当前工作树已具备，可去掉 @fix/generation-degrade-closeout-0920 提升为常规行\nPENDING FinArena 邀请评测（独立本机试用，未合 main） → finance-workspace-private/intelligence/arena/app.py::create_app@feat/finance-arena：仅存在于分支 feat/finance-arena，未进当前工作树\nPENDING FinArena 邀请评测（独立本机试用，未合 main） → finance-workspace-private/intelligence/arena/runner.py::run_pair@feat/finance-arena：仅存在于分支 feat/finance-arena，未进当前工作树\nPENDING FinArena 邀请评测（独立本机试用，未合 main） → finance-workspace-private/intelligence/arena/store.py::ArenaStore@feat/finance-arena：仅存在于分支 feat/finance-arena，未进当前工作树\nUNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::prepare@feat/mechanism-research-pilot（分支或文件不在本地，未校验）\nUNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::run@feat/mechanism-research-pilot（分支或文件不在本地，未校验）\nUNVERIFIED 机制表示合成诊断（未提交的实验量具，不属稳定产品能力） → finance-workspace-private/intelligence/eval/mechanism_pilot.py::report@feat/mechanism-research-pilot（分支或文件不在本地，未校验）\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_history@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_capture@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_recheck@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/scripts/method_validation.py::cmd_daily@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/store.py::read_record@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/flywheel.py::derive_standing@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/method_validation/flywheel.py::recall_for_query@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 方法验证实验 + 方法飞轮接线（已合 main，默认工作树未更新） → finance-workspace-private/intelligence/services/checkpoint_resolvers.py::MethodValidationResolver@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺研究观察值（候选未部署） → finance-workspace-private/market_feature_store/sync/sync_hithink_research.py::sync_hithink_research@feat/hithink-research-data：仅存在于分支 feat/hithink-research-data，未进当前工作树\nPENDING 同花顺研究观察值（候选未部署） → finance-workspace-private/market_feature_store/cli.py::cmd_sync_hithink_research@feat/hithink-research-data：仅存在于分支 feat/hithink-research-data，未进当前工作树\nPENDING 同花顺研究观察值（候选未部署） → finance-workspace-private/scripts/audit_hithink_runtime.py::audit@feat/hithink-research-data：仅存在于分支 feat/hithink-research-data，未进当前工作树\nMERGED 同花顺研究观察值（候选未部署） → finance-workspace-private/market_feature_store/write_path.py::is_canonical_production@feat/hithink-research-data：当前工作树已具备，可去掉 @feat/hithink-research-data 提升为常规行\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_client.py@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_stock_daily.py::sync_hithink_stock_daily@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::sync_hithink_sector_kline@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_limit_pools.py::sync_hithink_limit_pools@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_dragon_auction.py::sync_hithink_dragon_auction@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/intelligence/services/teaching_framework/source_views.py::attach_teaching_sources@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/skills/daily-full-review/scripts/run_review_sync.py::sync_hithink_step@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::_flush_constituents@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_preview.py::preview_sector_calculation@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/cli.py::cmd_hithink_sector_preview@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::SectorCapture@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::audit_capture@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_sector_capture.py::capture_inputs@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/hithink_stock_preview.py::preview_stock_calculation@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/cli.py::cmd_hithink_stock_preview@fix/hithink-review-wiring：仅存在于分支 fix/hithink-review-wiring，未进当前工作树\nPENDING 同花顺官方数据源（同步器已合，分步接线/只读验算在途） → finance-workspace-private/market_feature_store/sync/sync_hithink_sector_kline.py::sync_hithink_sector_kline@fix/broad-index-closeout-0920：仅存在于分支 fix/broad-index-closeout-0920，未进当前工作树\nPENDING 两参数计算表格（候选，独立验收通过，未合/未部署） → finance-workspace-private/intelligence/services/sandbox_fincalc.py::_infer_table_columns@fix/fincalc-row-snapshot-0921：仅存在于分支 fix/fincalc-row-snapshot-0921，未进当前工作树\nPENDING 两参数计算表格（候选，独立验收通过，未合/未部署） → finance-workspace-private/intelligence/tests/test_derived_calculation.py::test_table_environment_has_distinct_calc_identity_from_prior_versions@fix/fincalc-row-snapshot-0921：仅存在于分支 fix/fincalc-row-snapshot-0921，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/market_financials.py::observations_by_line@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/episode_tools.py::attach_financial_observations@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/sandbox_fincalc.py::to_single_quarter@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/derived_calculation_artifacts.py::publish_calculation_artifacts@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 计算与产物：财务观察值 + 沙箱结果协议 + 可下载计算件（已合 main；效果边界见审计） → finance-workspace-private/intelligence/services/derived_calculation.py::load_calculation_record@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/judgment_maintenance/assess.py::assess@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_priority/ranker.py::prioritize@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_validation/service.py::freeze_study@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_diagnostics/report.py::diagnose@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/product_value/measure.py::measure_pair@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_evolution/facade.py::ResearchEvolutionService@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/services/research_evolution/store.py::EvolutionStore@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进化：判断维护 / 研究排序 / 方法验证 / 流程诊断 / 使用测量 + Workbench 接线（已合 main，PR #750 → `6e23dd57`，2026-09-16；默认工作树未更新故仍钉 `@gitea/main`） → finance-workspace-private/intelligence/api/research_evolution.py::build_router@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 飞书 IM 入口（已退役） → finance-workspace-private/intelligence/cli.py::build_parser@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/episode_tools.py::_structured_as_of@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/agent_research.py::block_lines_to_evidence@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/episode_tools.py::_asof_prefetch_text@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nMERGED 市场来源日期与可用性分离（候选，未合未部署） → finance-workspace-private/intelligence/services/market_snapshot_reconcile.py::reconcile_snapshot_with_market_db@fix/market-date-advisory-0921：当前工作树已具备，可去掉 @fix/market-date-advisory-0921 提升为常规行\nPENDING 数字条件门引用隔离（在途组合候选） → finance-workspace-private/intelligence/services/episode_protocol.py::strip_evidence_ordinals@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/market_capital.py::capital_bundle_for_llm@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/episode_tools.py::capital_data_runner@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/provider_observability.py::provider_gap_messages@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/derived_calculation_artifacts.py::result_contract_errors@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_recheck_research_delivery@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/research_delivery_checks.py::_rejected_assertion_spans@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING A股研究数据链（在途整合候选，整体交付未过） → finance-workspace-private/intelligence/services/research_delivery_checks.py::_prose_value_finding@q/research-data-readiness：仅存在于分支 q/research-data-readiness，未进当前工作树\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/scripts/recover_local_review.py::main@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/scripts/recover_local_review.py::recovery_stitch_command@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nMERGED local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/market_feature_store/sync/sync_local_sector_members.py::stitch_sector_members@fix/nightly-refresh-resume-0920：当前工作树已具备，可去掉 @fix/nightly-refresh-resume-0920 提升为常规行\nMERGED local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/market_feature_store/cli.py::cmd_stitch_sector_stocks@fix/nightly-refresh-resume-0920：当前工作树已具备，可去掉 @fix/nightly-refresh-resume-0920 提升为常规行\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py::cmd_fetch@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nPENDING local 夜跑受控恢复（源码在途，部分修复已生效） → finance-workspace-private/tests/test_recovery_refresh_integration.py::test_real_refresh_cli_failure_prevents_child_success@fix/nightly-refresh-resume-0920：仅存在于分支 fix/nightly-refresh-resume-0920，未进当前工作树\nPENDING 日报计划契约对齐（在途） → finance-workspace-private/market_feature_store/consumption_registry.py::resolve_plan@fix/local-plan-gate-alignment：仅存在于分支 fix/local-plan-gate-alignment，未进当前工作树\nMERGED 日报计划契约对齐（在途） → finance-workspace-private/intelligence/workflows/daily_review.py::DailyReviewOptions@fix/local-plan-gate-alignment：当前工作树已具备，可去掉 @fix/local-plan-gate-alignment 提升为常规行\nMERGED 日报计划契约对齐（在途） → finance-workspace-private/market_feature_store/quality.py::check_daily@fix/local-plan-gate-alignment：当前工作树已具备，可去掉 @fix/local-plan-gate-alignment 提升为常规行\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/scripts/run_daily_generation.py::main@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/intelligence/workflows/generation_paths.py::validate_generation_paths@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/scripts/notify_ops.py::_append_log@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 日报生成双根接线（源码已合，生产待升级） → finance-workspace-private/tests/test_eval_launchd_wiring.py::test_generation_failure_stops_receive_and_fallback_log@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 确定性门模式：无 LLM 判官（main支持；8792启用验收未过、已回滚；工单 #55） → finance-workspace-private/intelligence/services/judge_mode.py::semantic_judge_mode@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 确定性门模式：无 LLM 判官（main支持；8792启用验收未过、已回滚；工单 #55） → finance-workspace-private/intelligence/services/gate_receipt.py::episode_public_correlated_judge@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED 确定性门模式：无 LLM 判官（main支持；8792启用验收未过、已回滚；工单 #55） → finance-workspace-private/intelligence/eval/variance_baseline.py::score_distribution@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::financial_claim_mismatches@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_report_contract.py::report_document_binding_gaps@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_with_financial_repair_debt@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_recheck_research_delivery@fix/8792-financial-r6-repair：仅存在于分支 fix/8792-financial-r6-repair，未进当前工作树\nMERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@fix/8792-financial-r6-repair：当前工作树已具备，可去掉 @fix/8792-financial-r6-repair 提升为常规行\nMERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/rag_worker.py::_query_locked@fix/8792-financial-r6-repair：当前工作树已具备，可去掉 @fix/8792-financial-r6-repair 提升为常规行\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/financial-ratio-units-0920：仅存在于分支 fix/financial-ratio-units-0920，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/financial_claim_checks.py::calculation_ratio_gaps@fix/financial-forward-0921：仅存在于分支 fix/financial-forward-0921，未进当前工作树\nPENDING R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_with_financial_repair_debt@fix/financial-forward-0921：仅存在于分支 fix/financial-forward-0921，未进当前工作树\nMERGED R6财务与最终交付保护（组合候选，无新自然验收） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@fix/financial-forward-0921：当前工作树已具备，可去掉 @fix/financial-forward-0921 提升为常规行\nPENDING 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/financial_report_contract.py::select_reports@fix/8792-financial-contracts-r5：仅存在于分支 fix/8792-financial-contracts-r5，未进当前工作树\nMERGED 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/episode_verifier.py::verify_episode_outcome@fix/8792-financial-contracts-r5：当前工作树已具备，可去掉 @fix/8792-financial-contracts-r5 提升为常规行\nPENDING 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/derived_calculation.py::bind_derived_calculation_tool@fix/8792-financial-contracts-r5：仅存在于分支 fix/8792-financial-contracts-r5，未进当前工作树\nMERGED 财报选期与计算交付（R5独立候选，R6自然验收未过） → finance-workspace-private/intelligence/services/mandatory_satisfiability.py::evidence_required_output_ids@fix/8792-financial-contracts-r5：当前工作树已具备，可去掉 @fix/8792-financial-contracts-r5 提升为常规行\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/finish_candidate.py::retain_finish_candidate@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/finish_candidate.py::merge_finish_candidates@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/research_public_prose.py::sanitize_public_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_review_preserving_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nMERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/ask_synthesis.py::synthesize_shadow_grounded_answer@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_preserve_repair_analysis@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/runtime/research_progress.py::_mapping_for_json@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nMERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/api/app.py::_public_run_payload@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行\nMERGED 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/rag_worker.py::_query_locked@feat/research-answer-preservation：当前工作树已具备，可去掉 @feat/research-answer-preservation 提升为常规行\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/evidence_claim_review.py::review_evidence_claims@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究答案保留与终态发布（在途，live未通过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::semantic_repair_feedback@feat/research-answer-preservation：仅存在于分支 feat/research-answer-preservation，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/track_contract.py::persistence_opt_out@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/user_task.py::split_user_message@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_asserted_source_dates@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/runtime/research_progress.py::normalize_query@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 研究意图、登记退出与局部失败隔离（组合候选返修） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_with_semantic_contract_gaps@fix/8792-boundary-integration：仅存在于分支 fix/8792-boundary-integration，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/eval/judge_validity.py::validate_judging_batch@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/eval/judge_validity.py::new_manifest@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/services/llm_refine.py::call_provenance_scope@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/run_quality_ablation.py::finish_judging@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/run_quality_ablation.py::batch_coverage@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/scripts/rejudge_quality_ablation.py::new_batch_artifact@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判官身份与校准有效性（已合 main `0ab15e9b`，默认工作树未更新） → finance-workspace-private/intelligence/call_identity.py::IDENTITY_REPORTED@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 受管 RAG 热进程退役（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_generation_identity.py::FrozenRagGeneration@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 受管 RAG 热进程退役（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_worker.py::PersistentRagWorker@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/evidence.py::matches_filters@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/agent.py::get_page@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 检索可信性与双索引健康（已合 main，未部署） → knowledge-base-private/skills/lib/rag/health.py@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_filter_receipt.py::parse_receipt@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_code_identity.py::code_identity@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED KB过滤回执消费与加载身份（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_rag.py::retrieve@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB v4正文保全与隔离迁移（已合 main，未部署） → knowledge-base-private/skills/lib/rag/chunking.py::_parse_frontmatter@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB v4正文保全与隔离迁移（已合 main，未部署） → knowledge-base-private/skills/lib/rag/config.py@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/services/kb_rag.py::retrieve@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/services/rag_worker.py@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nMERGED KB部署根与Workbench交付（已合 main，未部署） → finance-workspace-private/intelligence/api/app.py::RunSupervisor@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/scripts/rag_maintenance.py::main@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树\nPENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/skills/lib/rag/generation.py::guard_query_generation@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树\nPENDING 双索引受保护维护（候选已实现，未合/未部署） → knowledge-base-private/scripts/publish_rag_index.py::publish_generation@codex/kb-guarded-maintenance-0920：仅存在于分支 codex/kb-guarded-maintenance-0920，未进当前工作树\nPENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/agent_episode.py::_fail_store@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/continuous_turn_adapter.py::_storage_failed_result@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 连续运行保存与截断边界（P0候选，未合未部署） → finance-workspace-private/intelligence/runtime/glm_agent_runtime.py::_settle_cancelled_response@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/sub_research.py::BranchRun@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nMERGED 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/continuous_sub_research.py::ContinuousSubResearchWorker@fix/runtime-contracts-0918：当前工作树已具备，可去掉 @fix/runtime-contracts-0918 提升为常规行\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_store.py::FencedEpisodeStore@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_restore.py::restore_episode@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/research_contract.py::restore_root_budget@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_authorization.py::validate_current_authorization@fix/runtime-contracts-0918：仅存在于分支 fix/runtime-contracts-0918，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_evidence.py::EpisodeEvidenceSnapshot@fix/runtime-evidence-closeout-0920：仅存在于分支 fix/runtime-evidence-closeout-0920，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_evidence.py::EpisodeEvidenceSnapshot@fix/runtime-forward-0921：仅存在于分支 fix/runtime-forward-0921，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/runtime/agent_episode.py::_seed_prior_evidence@fix/runtime-forward-0921：仅存在于分支 fix/runtime-forward-0921，未进当前工作树\nPENDING 子研究存储、恢复保存确认、预算与授权快照（P1前置候选，非续跑driver） → finance-workspace-private/intelligence/services/episode_restore.py::restore_episode@fix/runtime-closeout-0921：仅存在于分支 fix/runtime-closeout-0921，未进当前工作树\nPENDING 实际工具菜单公开投影 → finance-workspace-private/intelligence/services/episode_progress.py::_tool_menu_message@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 实际工具菜单公开投影 → finance-workspace-private/intelligence/services/episode_progress.py::is_public_progress_message@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nMERGED 实际工具菜单公开投影 → finance-workspace-private/intelligence/runtime/agent_episode.py::_available_tool_definitions@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/material_permissions.py::restrict_read_capabilities@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::authorization_denial@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::for_context@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nMERGED 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/runtime/conversation_orchestrator.py::_run_turn_ledgered@fix/e2-boundary-closeout：当前工作树已具备，可去掉 @fix/e2-boundary-closeout 提升为常规行\nPENDING 材料读取上限与来源绑定（E2在途） → finance-workspace-private/intelligence/services/conversation_materials.py::collect_conversation_materials@fix/e2-boundary-closeout：仅存在于分支 fix/e2-boundary-closeout，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::freeze_material_grounding@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::binding_source_errors@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::ClaimSourceBinding@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::_without_deleted_claims@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nPENDING 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/research_tool_registry.py::io_effect@feat/e2-p6-conditioned-input：仅存在于分支 feat/e2-p6-conditioned-input，未进当前工作树\nUNVERIFIED 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_grounding.py::render_material_claims@fix/e2-material-closeout（分支或文件不在本地，未校验）\nUNVERIFIED 材料逐事实锚点与条件化纯度（E2 P6/D6 在途） → finance-workspace-private/intelligence/services/material_claim_review.py::reconcile_claim_checks@fix/e2-material-closeout（分支或文件不在本地，未校验）\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/historical_research/query.py::HistoryQuery@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/historical_research/episode.py::HistorySession@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/historical_research/methodology.py::prepare_methodology_candidate@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/agent_research.py::HistoricalEvidenceProvenance@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/prior_evidence.py::_original_atom@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/episode_verifier.py::_valid_history_identity@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 历史发现与条件比较（主体已合 main；来源绑定返修在途） → finance-workspace-private/intelligence/services/run_store.py::read_history_artifact@feat/history-evidence-integration-0921：仅存在于分支 feat/history-evidence-integration-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/anatomy.py::trace_history@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/scripts/probe_history_queries.py::main@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/scripts/audit_historical_research_artifacts.py::audit_artifact@feat/history-market-anatomy：仅存在于分支 feat/history-market-anatomy，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/window_binding.py::WindowSelection@fix/history-closeout-0920：仅存在于分支 fix/history-closeout-0920，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/historical_research/window_binding.py::WindowSelection@fix/history-forward-0921：仅存在于分支 fix/history-forward-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/user_task.py::split_user_message@fix/history-forward-0921：仅存在于分支 fix/history-forward-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/user_task.py::top_level_message_text@fix/history-forward-boundary-0921：仅存在于分支 fix/history-forward-boundary-0921，未进当前工作树\nMERGED 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/research_contract.py::is_contextual_follow_up@fix/history-forward-boundary-0921：当前工作树已具备，可去掉 @fix/history-forward-boundary-0921 提升为常规行\nMERGED 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/honesty_gates.py::requested_information_cutoff@fix/history-forward-boundary-0921：当前工作树已具备，可去掉 @fix/history-forward-boundary-0921 提升为常规行\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/conversation_materials.py::compile_contract@fix/history-forward-boundary-0921：仅存在于分支 fix/history-forward-boundary-0921，未进当前工作树\nPENDING 市场—板块—个股历史过程研究（候选，未部署） → finance-workspace-private/intelligence/services/conversation_materials.py::collect_material_turn_history@fix/history-forward-boundary-0921：仅存在于分支 fix/history-forward-boundary-0921，未进当前工作树\nMERGED Agent 检索工具 → finance-workspace-private/intelligence/services/agent_research.py::build_graph_tools@gitea/main：当前工作树已具备，可去掉 @gitea/main 提升为常规行\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/user_task.py::conversation_context_material_unrecoverable@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/user_task.py::rebind_material_from_text@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/task_frame.py::MATERIAL_OUT_OF_WINDOW_AMBIGUITY@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 材料身份与超窗恢复（已合 main；全链路效果边界见审计） → finance-workspace-private/intelligence/services/episode_factory.py::assemble_input_understanding_context@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/research_project.py::prior_for_turn@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/research_project.py::load_project@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 跨轮研究项目先验（能力包 09，已合 main；生产已部署） → finance-workspace-private/intelligence/services/followups.py::followup_kind@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nUNVERIFIED 研究求证提示（在途实验，默认关；非已验收推理能力） → finance-workspace-private/intelligence/services/research_reasoning.py::guidance@feat/research-reasoning-awareness（分支或文件不在本地，未校验）\nUNVERIFIED 研究求证提示（在途实验，默认关；非已验收推理能力） → finance-workspace-private/intelligence/services/research_reasoning.py::observation_guidance@feat/research-reasoning-awareness（分支或文件不在本地，未校验）\nUNVERIFIED 研究求证提示（在途实验，默认关；非已验收推理能力） → finance-workspace-private/intelligence/services/prior_evidence.py::load_previous_evidence@feat/research-reasoning-awareness（分支或文件不在本地，未校验）\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/research_plan.py::ResearchPerspective@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/adaptive_research.py::perspective_progress@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/runtime/research_progress.py::ResearchProgressTracker@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::semantic_repair_feedback@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::numeric_condition_repair_feedback@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::with_unresolved_review_publication@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/episode_semantic_verifier.py::last_dispatched_failure@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/finance_query.py::amount_mean@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 自主研究视角反馈（在途默认关，行为验收未过） → finance-workspace-private/intelligence/services/finance_query.py::result_has_date_axis@feat/adaptive-research-loop：仅存在于分支 feat/adaptive-research-loop，未进当前工作树\nPENDING 研究进展账与停滞收口（已合 main；效果未证明提升） → finance-workspace-private/intelligence/runtime/research_progress.py::ResearchProgressTracker@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 研究进展账与停滞收口（已合 main；效果未证明提升） → finance-workspace-private/intelligence/runtime/agent_episode.py::_research_progress_view@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/tool_hunger.py::record_window_uncovered@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::build_requests@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::check_request@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 问题驱动补数（已合 main；隔离恢复链已验） → finance-workspace-private/intelligence/services/data_requests.py::execute_resume@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::parse_ranking_intent@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::apply_scenario@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 排序与情景表达契约（已合 main；完整配对效果未证明） → finance-workspace-private/intelligence/services/ranking_contract.py::ingest_flip_conditions@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/judgment_delta.py::classify_material@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/judgment_delta.py::counter_evidence_floor_order@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 判断增量筛材料（在途，Knevo q17 Q8 回灌 / R4 收窄版） → finance-workspace-private/intelligence/services/evidence_window.py::counter_evidence_floor_order@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/pricing_split.py::parse_pricing_split_intent@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/pricing_split.py::pricing_split_receipt@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 产业证据/定价状态二分（在途，Knevo q17 Q4 回灌 / R5 收窄版） → finance-workspace-private/intelligence/services/market_midterm.py::is_pricing_state_query@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 参与者约束检索步骤（在途试用，Knevo q17 Q6 回灌） → finance-workspace-private/intelligence/services/research_task_planner.py::detect_decision_surface@gitea/main：仅存在于分支 gitea/main，未进当前工作树\nPENDING 专项研究纪律（Knevo 15-28 轮增量，已合 main `c67413c7`，默认工作树未更新） → finance-workspace-private/intelligence/services/research_workflow_guidance.py::workflow_guidance@gitea/main：仅存在于分支 gitea/main，未进当前工作树\n\nOK: 节点清单 94 行、断言 273 条无漂移（0 行因 repo 不在本地跳过，222 条在途/未校验见上）。\n",
+    "stderr": "",
+    "scope": "static path/symbol checks of recorded graph hash, not behavior or merge proof"
+  },
+  "remote_refs_at_check": {
+    "refs/heads/docs/research-tail-closeout-0921": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+    "refs/heads/fix/history-forward-0921": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "refs/heads/fix/history-forward-boundary-0921": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16"
+  },
+  "identities_at_check": [
+    {
+      "path": "/Users/a77/fwp-wt-research-tail-closeout-docs-0921",
+      "head": "c14bc12f5a966d82e4fe49995bf5221bd4540a2f",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+      "status": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-history-forward-0921",
+      "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "status": ""
+    }
+  ],
+  "inflight_bytes_at_check": {
+    "docs-research-tail-closeout-0921.md": 2385,
+    "fix-history-forward-boundary-0921.md": 2500,
+    "fix-history-forward-0921.md": 2781
+  },
+  "pending_boundary_probe_processes": [],
+  "frozen_regressions": {
+    "passed": 985,
+    "skipped": 4,
+    "groups": [
+      168,
+      191,
+      187,
+      309,
+      130
+    ],
+    "overlapping_normal_probe": 157,
+    "valid_mutations": 14,
+    "adjacent_security_assertions": 2
+  },
+  "overall_history": "CHANGES_REQUIRED",
+  "not_performed": [
+    "full gate suite at new source SHA",
+    "independent review restart",
+    "natural four-question reacceptance",
+    "main merge",
+    "deployment",
+    "production write",
+    "worktree deletion",
+    "new paid review channel"
+  ]
+}

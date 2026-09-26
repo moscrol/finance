@@ -1,0 +1,59 @@
+{
+  "main": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "read_only_preview": true,
+  "candidates": {
+    "financial": {
+      "head": "b345975f65fbe17deb386c01676b70bb2bf2a258",
+      "exit_code": 1,
+      "tree": "a6c90ed6bfa45056d27dd1a025ae943195ee1316",
+      "conflict_paths": [
+        ".claude/lessons_learned.md",
+        "docs/agent-product-door.md",
+        "intelligence/api/app.py",
+        "intelligence/api/static/assets/index-Bkv-Nea0.js",
+        "intelligence/api/static/assets/index-DH207EFA.js",
+        "intelligence/api/static/assets/index-DWf9m4Ox.js",
+        "intelligence/api/static/index.html",
+        "intelligence/services/rag_worker.py",
+        "intelligence/webapp/src/App.tsx",
+        "intelligence/webapp/src/types.ts"
+      ]
+    },
+    "runtime": {
+      "head": "12d0ea13cb506f407769d3265323eca978d9fc05",
+      "exit_code": 1,
+      "tree": "de82488766bda7cbfab5f62ffe87bc65c0790fcd",
+      "conflict_paths": [
+        "docs/agent-product-door.md",
+        "intelligence/api/app.py",
+        "intelligence/tests/fixtures/run_supervisor.py",
+        "intelligence/tests/test_api_credits.py",
+        "intelligence/tests/test_api_fixture_lifecycle.py",
+        "intelligence/tests/test_api_quota.py",
+        "intelligence/tests/test_api_run_admission.py",
+        "intelligence/tests/test_workbench_api.py"
+      ]
+    },
+    "history": {
+      "head": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "exit_code": 0,
+      "tree": "dfb7defd6c93ff650bc2bb127858d619fbb468a4",
+      "conflict_paths": []
+    },
+    "backfill": {
+      "head": "1fd34dc7ab06d54882a5643b4b985fa5ca291b7c",
+      "exit_code": 0,
+      "tree": "0e2ab3a78ae8b6dfa4e34ae25bfa3c8da1bd0df2",
+      "conflict_paths": []
+    },
+    "nightly_source": {
+      "head": "6356ffd5e703b30948f687baaaf60102bf97f0a5",
+      "exit_code": 1,
+      "tree": "2f722c0ed496336ca5a713244fe2f2128eac094b",
+      "conflict_paths": [
+        ".claude/lessons_learned.md",
+        "skills/daily-full-review/scripts/run_review_sync.py"
+      ]
+    }
+  }
+}
