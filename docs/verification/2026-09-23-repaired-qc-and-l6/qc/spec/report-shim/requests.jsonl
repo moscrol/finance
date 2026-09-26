@@ -1,0 +1,7 @@
+{"event": "started", "monotonic": 1346751.724289166}
+{"event": "listening", "monotonic": 1346751.812052333, "port": 19899}
+{"event": "admitted", "monotonic": 1346791.646522625, "request": 1, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1346792.051077041, "request": 1}
+{"event": "headers", "monotonic": 1346796.813961541, "request": 1, "status": 200}
+{"elapsed_seconds": 18.835208, "event": "finished", "monotonic": 1346810.501764041, "outcome": "completed", "request": 1, "status": 200}
+{"event": "shutdown", "monotonic": 1346813.441524833}

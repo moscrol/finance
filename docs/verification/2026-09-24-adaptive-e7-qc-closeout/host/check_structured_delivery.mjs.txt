@@ -1,0 +1,55 @@
+// Offline synthetic tool-boundary checks. No provider request or reviewer verdict.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { bindStageResult as oldBind } from '../pr868-glm-qc-20260924-0415/spec/pi_review_protocol.mjs';
+import { bindStageResult } from './structured-delivery-candidate/pi_review_protocol.mjs';
+import { install } from './structured-delivery-candidate/review.mjs';
+const root=path.dirname(fileURLToPath(import.meta.url));
+const out=path.join(root,'structured-delivery-offline');
+fs.mkdirSync(out);
+const identity={stage:'execute',axis:'spec',revision:'e7a6cb412865fdd189cf51a17f93622fa3d4fe55',baseline:'3bb81b9638f97b4773ce0f338df3a505b7c0162f'};
+const oldRequest=path.resolve(root,'../pr868-glm-qc-20260924-0415/quality/execute/commands/016-deliver_stage/request.json');
+const raw=fs.readFileSync(oldRequest);
+const oldHash=createHash('sha256').update(raw).digest('hex');
+const malformed=JSON.parse(raw).params.result;
+const cases=[];
+function check(name,fn){fn();cases.push({name,status:'PASS'});}
+check('original malformed string still rejected',()=>assert.throws(()=>oldBind(malformed,identity),SyntaxError));
+check('legacy object is a red control',()=>assert.throws(()=>oldBind({complete:true},identity),/invalid delivery size/));
+const valid={complete:true,scope:'synthetic host diagnostic; not independent review',model_requests:0,nested:{text:'quoted "value" and newline\n',values:[1,false,null]}};
+check('structured object preserves content and controller binding',()=>assert.deepEqual(bindStageResult(valid,identity),{...valid,...identity}));
+for (const [name,value] of [['malformed string',malformed],['valid string',JSON.stringify(valid)],['array',[]],['null',null],['incomplete',{complete:false}],['string boolean',{complete:'true'}],['forged identity',{complete:true,axis:'quality'}],['oversize',{complete:true,padding:'x'.repeat(6000)}]]) {
+ check('reject '+name,()=>assert.throws(()=>bindStageResult(value,identity)));
+}
+check('invalid host identity rejected',()=>assert.throws(()=>bindStageResult(valid,{...identity,revision:'wrong'}),/invalid controller identity/));
+process.env.REVIEW_PHASE='execute';
+for (const [name,value,accepted] of [['valid',valid,true],['invalid-string',malformed,false],['identity-spoof',{complete:true,revision:identity.revision},false]]) {
+ const folder=path.join(out,name);
+ fs.mkdirSync(folder);
+ fs.mkdirSync(path.join(folder,'commands'));
+ const tools=new Map();
+ const stopped=[];
+ const pi={registerProvider(){},registerTool(tool){tools.set(tool.name,tool);},on(){}};
+ install(pi,{out:folder,token:'synthetic-token-not-a-credential',terminate:code=>stopped.push(code)});
+ const tool=tools.get('deliver_stage');
+ assert.equal(tool.parameters.properties.result.type,'object');
+ if(accepted){
+  const result=await tool.execute('offline-synthetic-call',{result:value});
+  assert.equal(result.terminate,true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(folder,'submission.json'))),{...valid,...identity});
+  assert.deepEqual(stopped,[]);
+ }else{
+  await assert.rejects(tool.execute('offline-synthetic-call',{result:value}),/admission denied/);
+  assert.deepEqual(stopped,[75]);
+  assert.equal(fs.existsSync(path.join(folder,'submission.json')),false);
+ }
+ assert.equal(fs.existsSync(path.join(folder,'request-admissions.jsonl')),false);
+ cases.push({name:'registered tool '+name,status:'PASS'});
+}
+assert.equal(createHash('sha256').update(fs.readFileSync(oldRequest)).digest('hex'),oldHash);
+const result={scope:'Offline synthetic prototype, not installed into any review batch; not a reviewer verdict',old_request_sha256:oldHash,old_bytes_unchanged:true,model_requests:0,cases};
+fs.writeFileSync(path.join(root,'structured-delivery-offline.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify(result));

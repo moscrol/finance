@@ -1,0 +1,402 @@
+      {
+        "name": "chat_with_tools",
+        "start": 1586,
+        "end": 1680
+      },
+      {
+        "name": "_extract_json",
+        "start": 1683,
+        "end": 1697
+      },
+      {
+        "name": "_as_lines",
+        "start": 1700,
+        "end": 1705
+      },
+      {
+        "name": "RefineResult",
+        "start": 1709,
+        "end": 1713
+      },
+      {
+        "name": "refine",
+        "start": 1716,
+        "end": 1729
+      },
+      {
+        "name": "refine_or_reason",
+        "start": 1732,
+        "end": 1773
+      },
+      {
+        "name": "SynthesisResult",
+        "start": 1812,
+        "end": 1817
+      },
+      {
+        "name": "_build_synthesis_prompt",
+        "start": 1820,
+        "end": 1863
+      },
+      {
+        "name": "build_synthesis_messages",
+        "start": 1866,
+        "end": 1934
+      },
+      {
+        "name": "_required_outputs_block",
+        "start": 1981,
+        "end": 1998
+      },
+      {
+        "name": "_registry_document",
+        "start": 2001,
+        "end": 2016
+      },
+      {
+        "name": "build_decision_brief_messages",
+        "start": 2030,
+        "end": 2046
+      },
+      {
+        "name": "build_grounded_composer_messages",
+        "start": 2049,
+        "end": 2086
+      },
+      {
+        "name": "build_grounding_judge_messages",
+        "start": 2089,
+        "end": 2104
+      },
+      {
+        "name": "followup_user_content",
+        "start": 2115,
+        "end": 2120
+      },
+      {
+        "name": "synthesize_messages",
+        "start": 2123,
+        "end": 2233
+      },
+      {
+        "name": "_post_chat_stream",
+        "start": 2236,
+        "end": 2273
+      },
+      {
+        "name": "_post_chat_stream_raw",
+        "start": 2276,
+        "end": 2353
+      },
+      {
+        "name": "synthesize_messages_stream",
+        "start": 2379,
+        "end": 2495
+      },
+      {
+        "name": "gate_revision_user_content",
+        "start": 2507,
+        "end": 2510
+      },
+      {
+        "name": "claim_binding_revision_user_content",
+        "start": 2513,
+        "end": 2526
+      },
+      {
+        "name": "grounded_composer_system_prompt",
+        "start": 2529,
+        "end": 2532
+      },
+      {
+        "name": "fulfillment_revision_user_content",
+        "start": 2535,
+        "end": 2584
+      },
+      {
+        "name": "synthesize",
+        "start": 2587,
+        "end": 2605
+      },
+      {
+        "name": "from_timeout",
+        "start": 188,
+        "end": 189
+      },
+      {
+        "name": "remaining",
+        "start": 191,
+        "end": 192
+      },
+      {
+        "name": "require_remaining",
+        "start": 194,
+        "end": 198
+      },
+      {
+        "name": "call_timeout",
+        "start": 200,
+        "end": 215
+      },
+      {
+        "name": "observe_response",
+        "start": 589,
+        "end": 605
+      },
+      {
+        "name": "observe_result",
+        "start": 607,
+        "end": 617
+      },
+      {
+        "name": "over_budget",
+        "start": 653,
+        "end": 658
+      },
+      {
+        "name": "headroom",
+        "start": 660,
+        "end": 670
+      },
+      {
+        "name": "try_reserve",
+        "start": 672,
+        "end": 688
+      },
+      {
+        "name": "rejection_reason",
+        "start": 690,
+        "end": 694
+      },
+      {
+        "name": "reject",
+        "start": 696,
+        "end": 699
+      },
+      {
+        "name": "record",
+        "start": 701,
+        "end": 703
+      },
+      {
+        "name": "records_for_call",
+        "start": 705,
+        "end": 707
+      },
+      {
+        "name": "summary",
+        "start": 709,
+        "end": 739
+      },
+      {
+        "name": "__init__",
+        "start": 1322,
+        "end": 1324
+      },
+      {
+        "name": "add",
+        "start": 1326,
+        "end": 1360
+      },
+      {
+        "name": "assembled",
+        "start": 1362,
+        "end": 1363
+      },
+      {
+        "name": "_tracked_delta",
+        "start": 2410,
+        "end": 2413
+      }
+    ]
+  },
+  {
+    "file": "intelligence/services/episode_semantic_verifier.py",
+    "symbols": [
+      {
+        "name": "semantic_judge_window_seconds",
+        "start": 158,
+        "end": 169
+      },
+      {
+        "name": "judge_attempt_seconds",
+        "start": 172,
+        "end": 188
+      },
+      {
+        "name": "policy_for_contract",
+        "start": 191,
+        "end": 197
+      },
+      {
+        "name": "_FinalizerJudgeProvider",
+        "start": 203,
+        "end": 213
+      },
+      {
+        "name": "_judge_report_tools",
+        "start": 497,
+        "end": 513
+      },
+      {
+        "name": "compact_judge_payload",
+        "start": 616,
+        "end": 655
+      },
+      {
+        "name": "dumps_judge_request",
+        "start": 658,
+        "end": 662
+      },
+      {
+        "name": "SemanticEpisodeOutcome",
+        "start": 666,
+        "end": 827
+      },
+      {
+        "name": "semantic_repair_feedback",
+        "start": 830,
+        "end": 883
+      },
+      {
+        "name": "_unresolved_publication_feedback",
+        "start": 886,
+        "end": 916
+      },
+      {
+        "name": "with_unresolved_review_publication",
+        "start": 919,
+        "end": 933
+      },
+      {
+        "name": "with_unreviewed_revision_publication",
+        "start": 941,
+        "end": 963
+      },
+      {
+        "name": "_retained_delivery_hashes",
+        "start": 966,
+        "end": 981
+      },
+      {
+        "name": "_recheck_research_delivery",
+        "start": 984,
+        "end": 1069
+      },
+      {
+        "name": "recheck_material_public_delivery",
+        "start": 1072,
+        "end": 1166
+      },
+      {
+        "name": "_HygieneSnapshot",
+        "start": 1170,
+        "end": 1173
+      },
+      {
+        "name": "_JudgeCall",
+        "start": 1177,
+        "end": 1196
+      },
+      {
+        "name": "_judge_failure_identity",
+        "start": 1199,
+        "end": 1225
+      },
+      {
+        "name": "_deadline_remaining_seconds",
+        "start": 1228,
+        "end": 1237
+      },
+      {
+        "name": "_attach_judge_clock",
+        "start": 1240,
+        "end": 1260
+      },
+      {
+        "name": "guided_retrieve_enabled",
+        "start": 1308,
+        "end": 1317
+      },
+      {
+        "name": "build_guided_query",
+        "start": 1320,
+        "end": 1360
+      },
+      {
+        "name": "GuidedRetrievalTelemetry",
+        "start": 1364,
+        "end": 1385
+      },
+      {
+        "name": "_guided_support_row",
+        "start": 1388,
+        "end": 1395
+      },
+      {
+        "name": "SemanticEpisodeVerifier",
+        "start": 1398,
+        "end": 4200
+      },
+      {
+        "name": "_gap_label",
+        "start": 4203,
+        "end": 4215
+      },
+      {
+        "name": "_latest_evidence_date",
+        "start": 4218,
+        "end": 4231
+      },
+      {
+        "name": "_required_output_degraded_note",
+        "start": 4239,
+        "end": 4246
+      },
+      {
+        "name": "_with_required_output_degrade_mark",
+        "start": 4249,
+        "end": 4254
+      },
+      {
+        "name": "_shrink_verified_for_marker_loss",
+        "start": 4257,
+        "end": 4335
+      },
+      {
+        "name": "_gap_task_context",
+        "start": 4338,
+        "end": 4344
+      },
+      {
+        "name": "_contract_slots_all_fulfilled",
+        "start": 4347,
+        "end": 4382
+      },
+      {
+        "name": "_material_questions_settled",
+        "start": 4385,
+        "end": 4404
+      },
+      {
+        "name": "_can_semantically_release_partial",
+        "start": 4407,
+        "end": 4439
+      },
+      {
+        "name": "_numbered_sentences",
+        "start": 4442,
+        "end": 4446
+      },
+      {
+        "name": "_mechanical_reasons_by_index",
+        "start": 4449,
+        "end": 4473
+      },
+      {
+        "name": "_issues_naming_sentence",
+        "start": 4476,
+        "end": 4486
+      },
+
+[truncated; total lines=1582, selected=400:799; request a later offset]

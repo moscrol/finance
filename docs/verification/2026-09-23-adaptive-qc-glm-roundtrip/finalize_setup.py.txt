@@ -1,0 +1,16 @@
+"""Mirror host-owned tooling across isolated axes and freeze its input hashes."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+for name in ['review.mjs', 'run_control.py', 'run_stage.py', 'file_tool.py', 'sandbox_preflight.mjs']:
+    text = (ROOT / 'spec' / name).read_text().replace(str(ROOT / 'spec'), str(ROOT / 'quality'))
+    (ROOT / 'quality' / name).write_text(text)
+for path in ROOT.rglob('*.py'):
+    ast.parse(path.read_text(), filename=str(path))
+manifest = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(ROOT.rglob('*')) if p.is_file() and not p.is_symlink()}
+(ROOT / 'frozen-inputs.json').write_text(json.dumps(manifest, indent=2) + '\n')
+print(json.dumps({'input_files': len(manifest), 'syntax': 'PASS', 'real_model_requests': 0}))

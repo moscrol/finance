@@ -1,0 +1,46 @@
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+001-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+002-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+003-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+004-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+005-read => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+006-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+007-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+008-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+009-write => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+010-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+011-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+012-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+013-write => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+014-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+015-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+016-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+017-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+018-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+019-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+020-write => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+021-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+022-bash => 
+/bin/bash: line 14: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory
+023-write => 

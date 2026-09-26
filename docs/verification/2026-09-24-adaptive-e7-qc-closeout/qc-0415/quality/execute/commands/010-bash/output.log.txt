@@ -1,0 +1,41 @@
+215:def urlopen(request, timeout: float, *, deadline=None, is_cancelled=None, loopback_only: bool = False, observer=None):
+216-    parsed = urllib.parse.urlsplit(request.full_url)
+217-    if loopback_only and (
+218-        parsed.scheme != "http"
+219-        or parsed.hostname != "127.0.0.1"
+220-        or parsed.port is None
+221-    ):
+222-        raise RuntimeError("Non-loopback HTTP request rejected")
+223-    expires_at = time.monotonic() + float(timeout)
+224-    if deadline is not None:
+225-        expires_at = min(expires_at, deadline.expires_at)
+226-    if not math.isfinite(expires_at) or expires_at <= time.monotonic():
+227-        raise HTTPDeadlineExceeded()
+228-    if is_cancelled is not None and is_cancelled():
+229-        raise HTTPStreamCancelled()
+230-    payload = json.dumps({
+231-        "url": request.full_url,
+232-        "body": base64.b64encode(request.data or b"").decode("ascii"),
+233-        "headers": request.header_items(),
+234-        "method": request.get_method(),
+235-        "expires_at": expires_at,
+236-        "loopback_only": loopback_only,
+237-    }).encode("utf-8")
+238-    if time.monotonic() >= expires_at:
+239-        raise HTTPDeadlineExceeded()
+240-    if observer is not None:
+241-        observer("spawn_started")
+242-    process = subprocess.Popen(
+243-        [sys.executable, "-I", "-u", str(Path(__file__).resolve())],
+244-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+245-        close_fds=True,
+246-    )
+247-    response = HTTPResponse(process, expires_at, is_cancelled, observer)
+248-    try:
+249-        if observer is not None:
+250-            observer("spawned")
+251-        os.set_blocking(process.stdout.fileno(), False)
+252-        response.send_request(payload)
+253-        if observer is not None:
+254-            observer("request_sent")
+255-        response.open()

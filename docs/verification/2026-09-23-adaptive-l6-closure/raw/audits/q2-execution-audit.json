@@ -1,0 +1,46 @@
+{
+  "audit_schema": 1,
+  "question": "L6-Q2",
+  "run_id": "run_20260923_142823_856635",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "question_mode": "local_only_four_read_only_capabilities",
+  "submission_count": {
+    "accepted_submissions": 1,
+    "resubmissions": 0,
+    "followups": 0
+  },
+  "execution": {
+    "status": "failed",
+    "stop_reason": "repair_model_unavailable",
+    "initial_model_turns": 1,
+    "initial_model_errors": ["LLMDeadlineExceeded"],
+    "repair_model_turns": 1,
+    "repair_model_errors": ["LLMDeadlineExceeded"],
+    "tool_requests": 0,
+    "tool_results": 0,
+    "tool_calls_initial": 0,
+    "tool_calls_repair": 0,
+    "draft_chars": 0,
+    "evidence_items": 0,
+    "judge_executed": false
+  },
+  "classification": "NOT_EXERCISED",
+  "classification_reason": "模型在首轮规划前超时，repair 轮再次超时；没有发生本地工具调用。因此不能判定东阳光或所属板块在本地无数据，也不能评价候选的本地数据能力。",
+  "not_claims": [
+    "不等于本地数据缺失",
+    "不等于查询返回空结果",
+    "不等于候选的 finance_query 或板块比较逻辑失败",
+    "不等于 Q2 质量 PASS"
+  ],
+  "batch_effect": {
+    "stopped_after": "L6-Q2",
+    "reason": "run_failed",
+    "L6-Q3": "NOT_EXERCISED",
+    "resubmission_prohibited": true
+  },
+  "evidence_pointers": {
+    "events": "../episodes/run_20260923_142823_856635_msg_38b2b10243bb474880d42800aa06b736-90ab6a171db2/events.jsonl",
+    "run": "../L6-Q2/run.json",
+    "submission_count": "../L6-Q2/submission-count.json"
+  }
+}

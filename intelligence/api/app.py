@@ -279,14 +279,13 @@ def _model_floored_synthesis_reserve(
 
     ``GLMAgentRuntime.synthesis_reserve_for_task`` 只看档位与题型（「不由模型
     自选预算」的红线不动——这里的地板是部署侧按实测填的表，不是 LLM 说的）。
-    链首 ``provider.model`` + ``LLM_REASONING_EFFORT`` 查 ``provider_latency``
-    的写作成本表：没有条目（sol、未开思考的 GLM）返回原函数，预算逐字节同前。
+    链首 ``provider.model`` + 该模型的生效推理档（``llm_refine.effective_reasoning_effort``，
+    按模型表优先、其次全局值，与请求体同源）查 ``provider_latency`` 的写作成本表：没有条目
+    （sol、未开思考的 GLM）返回原函数，预算逐字节同前。
     """
 
-    floor = synthesis_reserve_floor_for(
-        providers[0].model if providers else None,
-        os.environ.get(llm_refine.REASONING_EFFORT_ENV),
-    )
+    model = providers[0].model if providers else None
+    floor = synthesis_reserve_floor_for(model, llm_refine.effective_reasoning_effort(model))
     if floor is None:
         return base
 
@@ -650,7 +649,9 @@ def _build_continuous_turn_adapter(
         repair_seconds_cap=repair_seconds_cap_for(
             providers[0].name if providers else None,
             model_name=providers[0].model if providers else None,
-            reasoning_effort=os.environ.get(llm_refine.REASONING_EFFORT_ENV),
+            reasoning_effort=llm_refine.effective_reasoning_effort(
+                providers[0].model if providers else None
+            ),
         ),
         synthesis_reserve_for_task=(
             _model_floored_synthesis_reserve(
@@ -2513,8 +2514,10 @@ def create_app(
                         90.0,
                     ),
                 )
-            except Exception as exc:  # noqa: BLE001 - fail closed at readiness
-                kb_rag.rag_worker.record_startup_failure(exc)
+            except Exception:  # noqa: BLE001 - fail closed at readiness
+                # prewarm records setup failures; registered workers own their
+                # failure/recovery state. Do not latch the same failure twice.
+                pass
         try:
             yield
         finally:

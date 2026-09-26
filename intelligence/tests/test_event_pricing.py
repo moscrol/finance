@@ -719,6 +719,23 @@ def test_narrative_rows_grade_indicator_and_reaction_day(built_narrative):
     assert stats["label_version"] == built_narrative["params"].ev_version
 
 
+def test_calendar_now_sets_narrative_knowledge_cutoff(built_narrative, tmp_path):
+    from datetime import datetime, timezone
+
+    labels = tmp_path / "cutoff.duckdb"
+    build_labels(built_narrative["db"], labels)
+    build_calendar(
+        built_narrative["db"], labels, params=built_narrative["params"],
+        kb_wiki=built_narrative["kb"], now=datetime(2026, 4, 22, 12, tzinfo=timezone.utc),
+    )
+    rows = _q(labels, "SELECT event_ids_json FROM history_event_calendar WHERE source_grade = 'narrative'")
+    ids = {eid for row in rows for eid in json.loads(row[0])}
+    assert "o2" not in ids and "o3" not in ids and "o9" not in ids
+    assert "o5" in ids
+    gaps = _q(labels, "SELECT detail FROM history_event_gaps WHERE gap_kind = 'narrative'")
+    assert any("late_ingestion=2" in (row[0] or "") for row in gaps)
+
+
 def test_narrative_anchors_and_reaction_flow_through_with_their_grade(built_narrative):
     labels = built_narrative["labels"]
     anchors = _q(labels, "SELECT entity_type, entity_id, trade_date, label FROM history_event_anchors WHERE label LIKE 'ev.sellside_%' ORDER BY 3, 4")

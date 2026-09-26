@@ -68,6 +68,9 @@ export FORESIGHT_USERS_DIR="${FORESIGHT_USERS_DIR:-/Users/a77/.local/share/finan
 export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
+# 复盘会会话卫生：默认不直连 urllib，请求间隔 0.8s。未合入/未切 runtime 前夜跑仍是旧代码，这两项只在新树上生效。
+export FUPANHUI_DIRECT="${FUPANHUI_DIRECT:-0}"
+export FUPANHUI_MIN_INTERVAL="${FUPANHUI_MIN_INTERVAL:-0.8}"
 
 # LOG_DIR 必须在这里就位：下面解析 active 指针时要往它里面写 stderr，而 `set -u` 下
 # 引用未赋值变量会让**整条命令**在 shell 层失败（rc=1、输出为空），恰好被 case 归进

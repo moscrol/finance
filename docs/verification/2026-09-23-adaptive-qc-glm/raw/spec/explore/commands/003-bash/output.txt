@@ -1,0 +1,1 @@
+fatal: failed to stat '                                                                       /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate': Operation not permitted

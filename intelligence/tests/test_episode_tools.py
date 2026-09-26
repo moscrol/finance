@@ -2171,10 +2171,9 @@ def test_finance_query_date_filter_is_compensated_not_rejected(
 def test_empty_filtered_sector_query_discloses_universe_exit(
     tmp_path: Path,
 ) -> None:
-    """R-20260828-06 R5：问句日无行但板块曾在清单里，必须披露构成要素退出。
+    """历史同名记录仍交付，但不把本地未命中升级成现实退出。
 
-    live 现场：contains「航空发动机」→「结构化查询无结果」→ 模型放宽成「航空」，
-    近邻替代。空结果要把「最后一次出现 + 其后退出」交给模型，不能只说无结果。
+    保留 R5 的近邻替代回归：不以「航空」的当前行冒充「航空发动机」。
     """
 
     finance_root = tmp_path / "finance"
@@ -2251,7 +2250,10 @@ def test_empty_filtered_sector_query_discloses_universe_exit(
         step_id="r05-retired-sector-exit:1",
     )
 
-    assert "构成要素退出" in result.observation
+    assert "本次交付的历史匹配记录日期截至" in result.observation
+    assert "不证明事件未发生" in result.observation
+    assert "不证明逐日覆盖完整" in result.observation
+    assert "历史记录不代替请求窗口内缺失的事实" in result.gaps[0]
     assert "2026-07-24" in result.observation
     assert "结构化查询无结果" not in result.observation
     assert "261.26" not in result.observation

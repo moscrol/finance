@@ -2,6 +2,8 @@
 
 评接口深浅、找「入口」、宣称「我们没有 X」之前读本页。
 能力有哪些节点仍以能力图谱为准，本页不抄工具表、不写死个数。
+本页描述代码合同；带日期的部署段只对所记版本成立，当前生产需查部署账本与实际收据。
+搭建环境走 [开发基线](workflows/agent-foundation.md)；六图维护合同见 `docs/agent-maps.json`。
 
 **深模块** = 调用方每学一单位接口能驱动多少行为。接口包括签名、不变量、必须知道的配置。数参数个数当深浅，会把测试旋钮当成生产门。
 
@@ -27,7 +29,7 @@
 | 维护旧判断 / 选下一项研究 / 看个人诊断 | `GET /api/conversations/{id}/research-evolution`（+ `POST` 的 `bindings` / `actions` / `events`） | 挂在**既有会话**下的内容区，不是第三条问答引擎：判定全部回调 01–05 的真函数，本层只取数与授权。`?user=` 不是认证——未配认证层时只认服务配置用户与 `RESEARCH_EVOLUTION_ALLOWED_USERS` 白名单。管理动作**不能冒充新判断**：关闭维护项要指到原写入者写下的新判断行 |
 | 研究跑到一半插一句话 | `python3 -m intelligence.cli steer <episode_id> "<文本>"` | 运行底座 P3 收件箱（INV-R5）的跨进程门：写 durable 目录投递槽 `<episode_dir>/inbox-spool/`，loop 下一次模型请求前认领；`--list` 看在跑的、`--wait N` 等回执。store 根必须与 Workbench 进程同一套 `FINANCE_WS` / `FORESIGHT_EPISODE_STORE`，否则是另一个家（CLI 会拒投并打出看过的路径）。Workbench 端点等 Alpha（母单 §12 第 4 题） |
 | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
-| 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
+| 飞书（已退役，不是门） | 无现役 IM 入口 | 2026-09-11 起 IM、自建应用与 Bitable 写入整体退役；旧 `feishu-bot` 子命令和实现已删除 |
 
 夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
 生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
@@ -211,6 +213,26 @@ SSE 沿原总时限等待，超时不伪造完成。
 回归见 `test_rag_worker_transport.py`；撤保护复用 `run_extraction_mutations.py --suite rag-transport`。
 既有金融partial/引用/拒句账与最终发布门保持，不把检索修复等同整题质量通过。
 
+### RAG 启动失败与恢复（候选，未部署）
+
+启动前配置/实例构造失败由启动层记账；实例已注册后的失败由该 worker 独占，
+API 生命周期不再重复保存一份无法随自愈清除的全局错误。readiness 仍须所有已注册
+worker 就绪；成功查询不能抹掉另一实例或启动配置的失败。无实例的配置错误不自动重试。
+预热成功仍要求 `returncode=0` 且 `model_load_count>0`，不放宽 hybrid / 代际门禁。
+代际检查、恢复配方转换与保活启动异常同属实例失败；配方完整校验后才替换，保活启动完成后
+才标记 ready。关闭后的旧实例拒绝查询及预热，已调度的恢复也不能重新拉起已退役进程。
+请求 stdin 写入与 stdout/stderr 读取共用非阻塞 selector 及同一截止时间，避免长请求与
+启动错误输出互相堵住管道。部分请求超时必须终止进程，不能让下一条 JSON 接到残帧上；
+完整请求发出后的热进程首次超时仍按原策略保留。
+协议启动前的进程 stderr 与 stdout 同时非阻塞读取，私有尾部最多保留 4096 字节；
+公开 `workers.rag.last_error_diagnostic` 仅含阶段、固定原因、退出码、白名单异常类型，
+不输出原文、路径或查询。关闭进程清空尾部，成功恢复清空错误；管道注册失败也关闭 selector。
+并发关闭 stderr 后的读取按流结束处理，保留类型化退出错误，而非让检索层通用兜底处理 closed-file 异常；
+未关闭流的真实读取错误仍上抛，不用宽泛吞错伪装正常结束。常规查询响应合同不变。
+覆盖真实轻量子进程与应用 lifespan 的 503→200；不等于生产模型、金融质量或资源余量验收。
+回归 `test_rag_worker_startup_recovery.py`；撤保护复用 `scripts/review_probes/run_extraction_mutations.py`
+的 `--definitions scripts/review_probes/rag_startup_recovery_mutations.json --tests intelligence/tests/test_rag_worker_startup_recovery.py`。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
@@ -219,6 +241,43 @@ SSE 沿原总时限等待，超时不伪造完成。
 默认开，`FINANCE_RESEARCH_WORKFLOW_GUIDANCE=0` 可关。它是生成指令，不是新增语义审稿器；
 权限、材料范围、证据绑定与写侧门保持原合同。代码/对账与效果状态见
 [逐项吸收记录](learning/knevo-distill/workflow-absorption-2026-09-16.md)，未据此宣称部署或质量增益。PR #774 已于 2026-09-17 合入 main（`c67413c7`），部署状态仍以运行服务 `/api/health` 的 revision 为准。
+
+### 研究计划格式纠错（候选）
+
+连续 Episode 在研究尚未收口时，遇到顶层八项必需计划字段齐全、只漏 `kind`
+且不带终局字段的 JSON，交给既有 PLAN 校验/纠错，不误发“只输出最终答案”的指令。
+它仍是无效计划：不自动补标签、不接纳、不执行候选动作；模型可在同一会话纠正
+PLAN 或直接选择已授权工具。带终局字段的无标签对象、无法确定类型的片段仍走原终局路径；
+已关闭研究阶段不借此重开。原纠错次数、预算、权限和证据门不变。
+此修复共用于开关 on/off；离线原件回放只证明分流与纠错提示，不保证模型下一轮会继续取证。
+
+### 自主研究视角反馈（候选，默认关闭）
+
+`WORKBENCH_ADAPTIVE_RESEARCH=on` 在 Episode 动态输入启用模型自选视角协议；
+`ResearchPlan.perspectives` 保存问题、支持/反证引用、当前判断与改判条件。
+连续引擎 A 在每批 `research_progress` 回递最新声明、计划之后的新批次和提交时的未知引用，
+模型可与下一批工具同轮修订 PLAN。deep/max 在首批取证后仍无视角计划时，最多请求一次
+无工具菜单的研究复核，消耗原时间与计划轮额度；快速档、已有视角或已收口时不追加。
+复核和常规反馈从已接收 PLAN 回传 `plan_revision_constraints`，明确不可丢失的输出项、
+分支目标与视角标识，不要求模型猜校验规则。证据已足够的单一事实可在复核轮直接
+FINAL_JSON，无须为解释空视角另写计划；这仍不保证所有简单题都零额外开销。
+视角不预设、不强制查固定池，不扩权限或预算；
+结构合法不等于事实成立，未提交计划也不解释为覆盖完整。强制收口仍走原规则。
+本片只增强研究中的反馈与生成纪律，不代表公开缺口投影或名单一致性已有独立新门禁，
+也不宣称已改善真实模型质量。范围与对照方法见
+[第一轮候选设计](superpowers/specs/2026-09-20-adaptive-research-perspectives.md)。
+
+### 本地未命中的证据边界（候选）
+
+`finance_query` 成功但无行时，只报告本次条件与截止时点内未命中本地记录，
+不据此证明事件未发生或覆盖完整。历史匹配回退仍交付带原日期的证据，但不再由
+「其它行更新更晚」直接宣告主体退出；历史记录不能填补请求窗口内缺失的事实，
+限制同时放在观察前端与 `gaps`，随工具压缩和子研究返回保留。
+写手、子研究汇总与判官明确：未查询/失败/无匹配收据只能称尚未查证，自报缺口
+不是查询收据或事实证据；已收录的零值及否定事实仍可按主体、日期、口径引用。
+这是观察口径修复和生成/审查指令，不是新增的自动否定句校验器；判官失联或
+被关闭时，原 partial/公开策略不变，不能据离线送达测试宣称真实稿已纠正。
+本地只读权限、查询与判官预算不变，旧真实答案不改判。
 
 ### 用户题设计算与行情口径
 
@@ -233,6 +292,22 @@ Workbench 对明确的虚构算例 / 情景计算，在受保护的顶层指令�
 
 `finance_query.market_breadth_daily` 只读聚合同日 canonical 个股截面，返回涨跌平盘
 及覆盖信息，不以返回行数上限截断统计，空涨幅或重复代码不能伪装完整计数。
+`stock_daily` 保留 `amount` 的求和语义；区间日均成交额走同一只读查询的
+`amount_mean` + `amount_valid_count`，强制按 `stock_code` 分组并显式给完整
+`time_range`。均值只对窗口内已入库的有限成交额求算，零值计入，空值/NaN/无穷值不计入；
+有效样本数不等于应有交易日数，也不证明数据全集齐全。聚合在 Agent 返回组数上限之前完成，
+不能从被截断的逐日明细自行心算。这个接口仍属于 `finance_query` 的本地只读能力，
+不等于放开 `derived_calculation`，也不把历史未收录解释成事实不存在。
+`stock_daily` / `sector_daily` / `sw_l1_daily` 的已观测日累计收益走
+`return_compound_pct` + `return_valid_count` + `return_observed_count`，可加
+`return_min_pct` / `return_max_pct`。同一只读查询按主体代码和显式窗口先逐日复利再限组数，
+包含首日涨跌；坏值或重复日期使收益及极值未知，不跳过、不补零。
+证据同时携带主体、请求窗口与实际日期集合；整卡超过模型现有预算时拒绝并提示缩窗，
+不交付半截数值或半截日期。样本数不证明交易日齐全；不是复权总回报或固定成分组合收益。
+普通分组 `return_pct` 仍为平均日涨跌幅，并显式声明不是累计收益。
+写手/判官要求同窗同日期集合比较，收益差用百分点；这是计算工具和指令送达修复，
+不等于自动验证所有正文算术或证明自然模型会选用。判官超时的公开提示明确
+「仅通过证据关联的结构检查，不代表计算或结论正确」，原 partial 公开策略不变。
 板块证据自动携带 `.FP` 复盘会 / `.TI` 同花顺清单口径；数值加工来源另列 `source`。
 格式错误触发终局恢复时，`FinanceResearchHarness.recovery_evidence_priority` 会保留
 未通过草稿引用的真实证据，避免工具均分截断丢掉后续查得的关键行；草稿本身不直接
@@ -472,6 +547,10 @@ INVALID_VERDICT/authority none，不能当独立通过。其新线索原样复�
 D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
 `TaskFrame.material_contract`，随任务序列化和哈希保存。无新语义的普通问题不增加该字段。
 虚构前提标注与旧 `user_premises` 分开；仅范围声明槽使用前提资格，不能替事实背书。
+候选补丁修复“只用本地已有资料／仅使用本地数据／仅限本地材料”等显式来源限制漏识别：
+切句、材料区复核和合同编译共用同一识别器，沿用既有 `local_only` 工具执行上限。
+引号/代码框不变授权，题内限制仍待澄清，已有 `material_only` 不因此放宽。
+这只覆盖明确句式，不代表任意自然语言限制、真实模型交付或公开缺口保真已验收。
 续轮基底未接入前载体明确 `state_unavailable`，不从助手旧答猜权限。
 P2 不将此未就绪状态接成全局澄清闸；普通研究追问仍走原路由。
 预取前澄清必须与 P3 权限及可信基底恢复一同接线，不能据此阶段宣称安全执行。
@@ -783,6 +862,12 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
 
+### 卖方观点订正与可得性（分支候选，未部署）
+
+`fix/sellside-consumption-0922` 在原始事件外追加不可覆盖订正，统一读取层按报告日、首次入库和订正发布时刻取版本。Workbench 概览卖方流使用市场库交易日截止，无市场日不展示无截止数据；缺口进入既有 `data_status`，不是新的产品门。催化归因不再以晨汇存在掩盖卖方隔离或时间缺口，未核验转述不作硬证据优先项。
+
+教学叙事和事件定价日历在构建日读取订正投影，过滤或损坏显式记缺口；仍是事后研究，不证明各历史开盘已知。收益行必须匹配修订版本且计算时间不晚于截止，旧收益生成器尚未迁移。时间长河 `river._opinion_track` 仍读研报目录，不读此投影；分支探针通过不等于线上接通。合同见 [卖方观点消费](learning/opinion-consumption-contract.md)。
+
 ### 质量消融评测：结论只覆盖 legacy CLI ask
 
 `scripts/run_quality_ablation.py` 与 `scripts/rejudge_quality_ablation.py` **不是产品门**，是评测工装。它们经 `run_ask` 调 `python3 -m intelligence.cli ask --compose`，走的是引擎 B 的 legacy CLI 问答路径；**跑出来的分差只覆盖该入口，不代表 Workbench Episode（引擎 A）**。拿消融读数论证「Agent 质量」之前先问这一句。
@@ -811,7 +896,55 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES` 实为**五条**——`external_market` / `dated_market_review` / `market_watch` / `watchlist_digest` / `disclosure_scan`（`continuous_turn_adapter.py:111`，个数以该常量为准，勿写死）。**`quick_fact` 已被明确移出**（`:108`，R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。
 2. **ownerless 长尾 → `generic_research_owner` 循环**：`research_task_contract` 非空时 `_answer_query_impl` **整条早退**、D 块一次不跑（`ask.py:3055-3059`）；契约只在 `conversation_orchestrator.py:2809` 设上，条件是「研究题 + 无专属椅子」（`:2245`）。这一条是 `run_agent_loop`，**不是写死流程**——把 B 整体说成「写死流程」会把它接长尾的能力漏掉。
 
-A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
+A 与 B 的门禁接线不对等：A 的结构门、`episode_semantic_verifier` 与修复循环由 `runtime/continuous_turn_adapter.py` 装配；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。判官实现已位于 `services/episode_semantic_verifier.py`，不能再用「判官在 runtime 所以 B 不能引用」解释现状；模块可引用不等于两条引擎已接通同一门禁。历史并轨方案见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3，现状以源码及对应测试为准。
+
+### 判官窗口诊断（候选）
+
+判官共享窗耗尽或根期限余量不足时，私有工件的顶层 `judge_attempt_index` /
+`timeout_asked` 仍描述被拒发的尝试；没有请求发出，就不继承上一发的异常类或 HTTP 状态。
+此前有实际失败时，另留 `last_dispatched_failure`，含最近失败的尝试序号（从 0 起）、
+获批超时、调用前根期限余量、稳定错误分类、异常类及 HTTP 状态，不含原始错误正文。
+重试成功或首发前即被拒发时不附此字段；它不是完整调用历史，获批超时也不是实际耗时。
+此诊断不改变重试、单次帽、共享窗或公开降级，不证明超时已解决，也不能恢复旧工件丢失的错误。
+
+### 判官的查询身份（候选）
+
+引擎 A 的 `tool_status_registry` 从本轮原始事件按唯一 `call_id` 配对请求与结算，
+保留调用编号、事件序号及通过结构解析的 `finance_query` 请求的数据集、筛选、时间窗等参数。
+乱序返回不靠顺序猜配；缺编号、重复编号、工具不一致或未结算时不补查询范围。
+查询参数中的空值保留，不套用展示字段的空值压缩。其他工具目前只保留调用状态，
+不投递自由文本参数；子研究/预取只有 trace 时保留日期与状态，不猜数据集或配对。
+调用记录与 provider 状态是两个观察面，不能相加计数；后者不再按粗状态合并。
+
+`returned` 只表示工具返回，交付零条证据不证明源数据没有记录、查询覆盖完整或没有风险；
+错误/未结算与空观察分开，不给过程记录造 E 证据。请求范围不是执行后实际覆盖范围，
+参数中的数字也不是事实；不解析诊断正文获取身份，不向判官透传原始错误/模型正文。
+此改动不启用判官、不改变权限或预算、不修正文保留/缺口披露。旧原件可由
+`inspect_adaptive_research.py --project-current-judge-status --output <新目录>` 离线重建
+当前代码的投影，输出明确不是历史实际判官请求，也不是新模型验收。
+
+### 审查诊断回同会话（候选）
+
+连续引擎 A 从既有 `sentence_verdicts` 投递原句、所属审查阶段和原因，经
+`semantic_repair_feedback` 进入原 `REPAIR_GOAL`。删句后不再按变化的句号猜原句，
+机械删除与语义存疑都可申请续修；明确的语义解除不清除独立机械问题，census 仅统计。
+仍受原预算、进度与轮次约束；数字缺口先补证却无进展时，后续续修仍可能不获准。
+预算分类沿用既有 rejected_claim_indexes；完整诊断仅在分类后丰富修订目标，
+不以反馈数量改变授权，也不误挡原有零工具材料重写。
+诊断要求模型完整重写受影响推理并核对关键限制，不自动恢复拒句或将私有缺口粘进正文。
+
+启用模型判官时，`declared_gaps` 提供原稿声明的缺口，供其核对结论是否缺关键限定；
+声明不是已核实事实，也不因存在于私有字段就算已公开。判官 off 不运行这项语义检查，
+机械反馈仍有效。本片不改变开关默认值，不由自主视角开关单独控制；它是候选引擎 A 的
+公共修订接线，不涉及引擎 B。脚本模型验证只证明通路，不证明自然模型会改对；
+无预算/无进展或模型忽略机械/前置反馈时，保留稿不再标成完整完成：最终发布上限会降为 `partial`，并公开“部分表述未通过核验，本轮未完成相关修订；当前保留内容不能视为完整结论。”语义判官在 `judge` 阶段已完成删句或降级为 issue 的记录属于已处理结果，不重复降级；原判官诊断仍只留私有产物，不拼进正文。
+终局修复（`repair_model_stop` / 截止带稿）只约束「不再开下一轮」，不豁免「公开的正文必须是被审过的那份」：修复轮只要真改了稿（正文或绑定），适配器就对新稿重跑判官；来不及复核（截止/取消）时仍发布旧稿，但 `with_unreviewed_revision_publication` 把公开状态压到 `partial` 并公开“核验后产生的修订稿未及复核，本轮按修订前版本发布；当前内容不能视为完整结论。”（2026-09-21 冒烟 2：无工具修复 + 模型如实自报 partial 被底座判无进展，旧稿带着三句错句原样发布）。
+数字条件前置门比对结构化观察值时不看单位（`成交额亿=1862.79` 支撑 `1862.79 亿` 与 `0.19 万亿`，`市场占比=2.53` 支撑 `2.53%`），`E6` 这类证据序号与 `Q3` / `2026Q4` 这类季度标签不当数量；detail 文本里的裸数仍按同维度比对（2026-09-21 冒烟 3：六句有证数值条件因单位错位整段被删）。真实自然模型公开保真仍未验收。
+SDK 修订同样走 harness 的 `repair_goal_message`，不再另行裁剪原句/诊断；
+有 provider history 时原样传提示，无 history 时用 `REPAIR_CONTEXT` 包装同一提示和
+已有快照，工具仍关闭。既有数字条件补证先完成授权，再把原句和缺证原因送入该轮，
+标记 `before_backfill`，不是已删除/已裁决；不增加轮次、不绕无进展门或句数限制。
+离线 Episode 已覆盖 GLM/SDK、judge llm/off 的这两类诊断，以及“修订成功 / 无预算 / 忽略反馈”三种交付结果；不代表所有运行后端或自然模型纠错已验收。
 
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
@@ -840,7 +973,7 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 |---|---|---|
 | `cli ask` | `AskWorkflowOptions` → `run_ask` → 再填 `AskOptions`（浅拷贝还在） | 否，经 CLI 默认填充 |
 | `cli chat` / `cli agent` | 直接 `AskOptions` | 否 |
-| 飞书 IM | `feishu-bot` **exit 2**；文件里还留着 `_run_ask_workflow`，`run()` 到不了 | 已退役，不是门 |
+| 飞书 IM | 旧 `feishu-bot` 子命令与实现已删除，不再构造 `AskOptions` | 已退役，不是门 |
 | `research_owner.py` | 直接 `AskOptions`，带 `compose` / `deadline` / `question_type_override` 等 | 否，策略调用方 |
 | Workbench `app.py` `_run_ask` | 直接 `AskOptions` + `answer_query`，走 run/store | 否，UI 合同 |
 
@@ -906,4 +1039,4 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 对着积木的公开方法数打「浅」、建议再包一层工厂、建议把超时重试塞进注册表——都是把积木当成了门。先问：调用方是人、是调度器、还是引擎内部？
 
-把 `feishu-bot` 当问答正门，或把「飞书 Bitable 写入已退役」写成连 IM 长连接也没了——两扇门不是同一件事。IM 入口现在 exit 2。
+把历史飞书 IM 文档当现役入口，或仍按旧的 exit 2 stub 判断当前代码。2026-09-11 后飞书整体退役；退出方式的历史记录不能覆盖当前 CLI 与源码。

@@ -14,7 +14,10 @@ def _write_kb(tmp: str, *, events: list[dict] | None = None, briefings: dict[str
         store = kb_wiki / "raw" / "theme-radar" / "opinion-store"
         store.mkdir(parents=True, exist_ok=True)
         (store / "opinion-events.jsonl").write_text(
-            "\n".join(json.dumps(event, ensure_ascii=False) for event in events),
+            "\n".join(
+                json.dumps({"event_id": f"fixture-{n}", "ingested_at": event["report_date"], **event}, ensure_ascii=False)
+                for n, event in enumerate(events)
+            ),
             encoding="utf-8",
         )
     for day, text in (briefings or {}).items():

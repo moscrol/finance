@@ -1,0 +1,162 @@
+"""Probe 1 — C1/C6: llm_http_transport deadline semantics (independent probe).
+
+Subcases (each reports trigger-reached explicitly, not just exception type):
+  T1 fast success            : urlopen returns body, observer events present.
+  T2 body trickle + deadline : trickle_sse with deadline 0.6s -> HTTPDeadlineExceeded
+                               AFTER headers received (observer 'headers' seen).
+  T3 cancelled stream        : is_cancelled flips after first chunk -> HTTPStreamCancelled.
+  T4 stalled parent          : parent stops reading; worker Timer os._exit(124);
+                               close() reaps quickly, elapsed bounded.
+  T5 startup in budget       : expired-by-spawn deadline (expires_at = now+0.01) with
+                               fast server -> HTTPDeadlineExceeded, no connection.
+  T6 timeout vs deadline     : timeout=0.4, deadline=+10 -> fail ~0.4s; timeout=10,
+                               deadline=+0.5 -> fail ~0.5s (10s slice can't extend).
+Exit nonzero on any non-control assertion failure.
+"""
+import os
+import sys
+import time
+import urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "..", "..", "candidate"))
+sys.path.insert(0, os.path.join(ROOT, "intelligence"))
+sys.path.insert(0, HERE)
+
+import fake_server
+from services import llm_http_transport as T
+from services.llm_refine import Deadline
+
+PORTS = {"fast": 26001, "trickle": 26002}
+results = []
+
+
+def req(port):
+    return urllib.request.Request(
+        f"http://127.0.0.1:{port}/v1/chat/completions",
+        data=b"{}", headers={"Content-Type": "application/json"}, method="POST",
+    )
+
+
+def record(name, ok, detail):
+    results.append((name, ok, detail))
+    print(f"[{'PASS' if ok else 'FAIL'}] {name}: {detail}", flush=True)
+
+
+def main():
+    srv_fast = fake_server.start(PORTS["fast"], "fast_json")
+    srv_trickle = fake_server.start(PORTS["trickle"], "trickle_sse", interval=0.05)
+
+    # T1 fast success
+    events = []
+    try:
+        t0 = time.monotonic()
+        with T.urlopen(req(PORTS["fast"]), 5, deadline=Deadline.from_timeout(5), observer=lambda e, **k: events.append(e)) as r:
+            body = r.read()
+        ok = body == b"ok-ok" or b'"content"' in body or body  # any complete body
+        ok = ok and "spawn_started" in events and "request_sent" in events and "headers" in events and "eof" in events
+        record("T1_fast_success", bool(ok), f"events={events} bytes={len(body)} elapsed={time.monotonic()-t0:.2f}s")
+    except Exception as e:
+        record("T1_fast_success", False, f"unexpected {type(e).__name__}: {e}")
+
+    # T2 trickle deadline: deadline expires mid-body, after headers
+    events = []
+    try:
+        with T.urlopen(req(PORTS["trickle"]), 30, deadline=Deadline.from_timeout(0.6), observer=lambda e, **k: events.append(e)) as r:
+            r.read()
+        record("T2_trickle_deadline", False, "stream completed unexpectedly")
+    except T.HTTPDeadlineExceeded:
+        reached = "headers" in events  # trigger: deadline hit during body reads
+        record("T2_trickle_deadline", reached, f"HTTPDeadlineExceeded events={events}")
+    except Exception as e:
+        record("T2_trickle_deadline", False, f"wrong exception {type(e).__name__}: {e} events={events}")
+
+    # T3 cancelled stream: flip cancellation after headers, mid-chunks
+    state = {"cancel": False}
+    events = []
+    try:
+        with T.urlopen(req(PORTS["trickle"]), 30, deadline=Deadline.from_timeout(30),
+                       is_cancelled=lambda: state["cancel"], observer=lambda e, **k: events.append(e)) as r:
+            got = 0
+            for block in iter(lambda: None, 1):  # not used
+                break
+            # read streaming chunks via iteration until cancelled
+            class Flip:
+                def __init__(self, r):
+                    self.r = r
+                def __iter__(self):
+                    for line in self.r:
+                        got_ = 1
+                        state["cancel"] = True  # cancel after first streamed line
+                        yield line
+            data = b"".join(Flip(r))
+        record("T3_cancelled_stream", False, "stream completed without cancellation")
+    except T.HTTPStreamCancelled:
+        reached = "headers" in events  # trigger: cancellation took effect mid-stream
+        record("T3_cancelled_stream", reached, f"HTTPStreamCancelled events={events}")
+    except Exception as e:
+        record("T3_cancelled_stream", False, f"wrong exception {type(e).__name__}: {e} events={events}")
+
+    # T4 stalled parent: open stream, then simply stop reading; worker Timer should
+    # os._exit(124) at its own deadline; parent close() must reap promptly.
+    proc_holder = {}
+    try:
+        t0 = time.monotonic()
+        r = T.urlopen(req(PORTS["trickle"]), 30, deadline=Deadline.from_timeout(0.7))
+        proc_holder["p"] = r.process
+        r.open()  # headers
+        time.sleep(1.5)  # parent stalled, well past 0.7s deadline
+        r.close()
+        elapsed = time.monotonic() - t0
+        rc = proc_holder["p"].poll()
+        ok = elapsed < 3.0 and rc is not None  # reaped; exit 124 expected
+        record("T4_stalled_parent_reap", ok, f"elapsed={elapsed:.2f}s returncode={rc} (124 means timer fired)")
+    except Exception as e:
+        record("T4_stalled_parent_reap", False, f"unexpected {type(e).__name__}: {e}")
+        if "p" in proc_holder:
+            try:
+                proc_holder["p"].kill()
+            except Exception:
+                pass
+
+    # T5 startup inside budget: nearly-expired deadline with fast server
+    cons = srv_fast.stats["connections"]
+    try:
+        d = Deadline.from_timeout(0.01)
+        with T.urlopen(req(PORTS["fast"]), 5, deadline=d) as r:
+            r.read()
+        # spawn may occasionally fit in 10ms; that is startup NOT proven in budget
+        record("T5_startup_in_budget", False, "call completed despite 0.01s budget")
+    except T.HTTPDeadlineExceeded:
+        new_cons = srv_fast.stats["connections"] - cons
+        record("T5_startup_in_budget", True,
+               f"HTTPDeadlineExceeded before request (new_connections={new_cons}) => spawn counted against budget")
+    except Exception as e:
+        record("T5_startup_in_budget", False, f"wrong exception {type(e).__name__}: {e}")
+
+    # T6a small timeout, generous deadline
+    try:
+        t0 = time.monotonic()
+        with T.urlopen(req(PORTS["fast"]), 0.0, deadline=Deadline.from_timeout(10)) as r:
+            r.read()
+        record("T6_timeout_slice", False, "completed with timeout=0")
+    except T.HTTPDeadlineExceeded:
+        record("T6_timeout_slice", True, "timeout=0 rejected before spawn (slice is enforced)")
+    # T6b big timeout, small deadline
+    try:
+        t0 = time.monotonic()
+        with T.urlopen(req(PORTS["trickle"]), 10, deadline=Deadline.from_timeout(0.5)) as r:
+            r.read()
+        record("T6_deadline_wins", False, "completed despite 0.5s deadline")
+    except T.HTTPDeadlineExceeded:
+        dt = time.monotonic() - t0
+        record("T6_deadline_wins", dt < 2.0, f"HTTPDeadlineExceeded at {dt:.2f}s (10s slice did not extend)")
+
+    srv_fast.shutdown(); srv_trickle.shutdown()
+    fails = [n for n, ok, _ in results if not ok]
+    print(f"SUBCASES total={len(results)} failed={len(fails)} {fails}")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()

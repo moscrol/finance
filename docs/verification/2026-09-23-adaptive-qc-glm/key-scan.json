@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "files_scanned": 660,
+  "hits": [],
+  "checks": [
+    "exact existing GLM key, memory only",
+    "bearer/sk/JWT patterns"
+  ]
+}

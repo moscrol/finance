@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "scripts.review_probes.diagnose_llm_timeout",
+    "--assert-deadline",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/strict.json"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 10.789405917050317
+}

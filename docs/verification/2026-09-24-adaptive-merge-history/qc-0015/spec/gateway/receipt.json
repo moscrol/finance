@@ -1,0 +1,46 @@
+{
+  "status": "BLOCKED_PROVIDER_OR_ROUNDTRIP",
+  "requests": 3,
+  "pi_requests": 2,
+  "tiny_requests": 1,
+  "exit_code": 0,
+  "timed_out": false,
+  "protocol_state": {
+    "phase": "failed",
+    "requests": 2,
+    "history": [
+      {
+        "event": "start",
+        "phase": "read",
+        "request": 0
+      },
+      {
+        "event": "request",
+        "phase": "read",
+        "request": 1
+      },
+      {
+        "event": "tool_result",
+        "phase": "write",
+        "request": 1
+      },
+      {
+        "event": "request",
+        "phase": "write",
+        "request": 2
+      },
+      {
+        "event": "blocked",
+        "phase": "failed",
+        "request": 2,
+        "reason": "exact_copy_to_fresh_echo_required"
+      }
+    ]
+  },
+  "failed_stop_reasons": [],
+  "tool_executions": 2,
+  "sentinel_returned": false,
+  "written_copy_matches": false,
+  "elapsed_seconds": 12.472449583001435,
+  "purpose": "gateway preflight only, not QC"
+}

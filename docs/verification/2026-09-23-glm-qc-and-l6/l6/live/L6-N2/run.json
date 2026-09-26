@@ -1,0 +1,27 @@
+{
+  "run_id": "run_20260923_200211_404490",
+  "user": "adaptive-l6-glm-20260923-1945",
+  "question": "只用本地已有资料，不联网：生益科技(600183.SH)2026年9月1日至9月22日的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。",
+  "task_type": "ask",
+  "status": "cancelled",
+  "schema_version": 1,
+  "session_id": "conv_e1704dccdff5470aaee1b63a39bedcc4",
+  "parent_run_id": null,
+  "created_at": "2026-09-23T20:02:11+08:00",
+  "finished_at": "2026-09-23T20:04:40+08:00",
+  "source_date": null,
+  "duckdb_cutoff": null,
+  "kb_commit": null,
+  "kb_index_built_at": null,
+  "kb_index_freshness": null,
+  "manifest_ref": null,
+  "degrades": [],
+  "error": "cancelled_by_user",
+  "artifacts": [],
+  "maintenance_launch": null,
+  "publication": {
+    "status": "published",
+    "message_id": "msg_253be973f8554237b35fb5c59f344a5a"
+  },
+  "delivery_pending": false
+}

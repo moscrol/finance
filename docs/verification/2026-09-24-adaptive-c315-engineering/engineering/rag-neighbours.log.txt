@@ -1,0 +1,4 @@
+........................................................................ [ 63%]
+..........................................                               [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-neighbours.xml -
+114 passed in 18.84s

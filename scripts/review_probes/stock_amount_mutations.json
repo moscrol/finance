@@ -1,0 +1,37 @@
+[
+  {
+    "id": "mean-is-sum",
+    "path": "intelligence/services/finance_query.py",
+    "old": "\"amount_mean\": _metric(\"amount\", \"成交额均值亿\"),",
+    "new": "\"amount_mean\": _metric(\"amount\", \"成交额均值亿\", \"sum\"),",
+    "targets": ["test_stored_fourteen_day_sample_is_computed_before_limit"]
+  },
+  {
+    "id": "nonfinite-counted",
+    "path": "intelligence/services/finance_query.py",
+    "old": "expression = f\"CASE WHEN isfinite({expression}) THEN {expression} END\"",
+    "new": "expression = expression",
+    "targets": ["test_mean_and_denominator_exclude_same_invalid_sample_but_keep_zero"]
+  },
+  {
+    "id": "window-identity-lost",
+    "path": "intelligence/services/finance_query.py",
+    "old": "summary_window=_requested_time_range(spec) if _stock_amount_summary(spec) else None,",
+    "new": "summary_window=None,",
+    "targets": ["test_summary_windows_are_part_of_evidence_identity"]
+  },
+  {
+    "id": "aggregate-max-as-date-range",
+    "path": "intelligence/services/episode_tools.py",
+    "old": "if finance_query.result_has_date_axis(bounded_value) or not result.evidence:",
+    "new": "if True:",
+    "targets": ["test_local_registry_delivers_summary_without_external_io"]
+  },
+  {
+    "id": "all-grouped-gaps-hidden",
+    "path": "intelligence/services/episode_tools.py",
+    "old": "if finance_query.result_has_date_axis(bounded_value) or not result.evidence:",
+    "new": "if not bounded_value.group_by or not result.evidence:",
+    "targets": ["test_local_registry_delivers_summary_without_external_io"]
+  }
+]

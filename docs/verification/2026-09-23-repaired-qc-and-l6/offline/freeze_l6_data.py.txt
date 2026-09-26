@@ -1,0 +1,42 @@
+"""Use the canonical database clone primitive for fresh L6 preparation."""
+from pathlib import Path
+import json
+import sys
+from unittest.mock import patch
+
+TREE = Path('/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate')
+ROOT = Path('/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118')
+sys.path.insert(0, str(TREE))
+from market_feature_store.db import clone_to_staging
+from scripts.review_probes import prepare_adaptive_l6 as preparation
+
+original_clone = preparation.clone
+clones = []
+def clone(source, destination):
+    if source.suffix != '.duckdb':
+        return original_clone(source, destination)
+    if destination.exists() or destination.is_symlink():
+        raise ValueError('refuse to overwrite a frozen input')
+    before = preparation.digest(source)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    receipt = clone_to_staging(source, destination)
+    assert receipt['method'] == 'clonefile', receipt
+    assert preparation.digest(source) == before == preparation.digest(destination)
+    assert source.stat().st_ino != destination.stat().st_ino
+    destination.chmod(0o444)
+    clones.append({'primitive': 'market_feature_store.db.clone_to_staging', **receipt,
+                   'source': str(source), 'destination': str(destination), 'sha256': before['sha256']})
+    return before
+sys.argv = ['prepare_adaptive_l6', '--protocol', str(ROOT / 'protocol-coherent.json'),
+            '--output', str(ROOT / 'preparation'), '--code-root', str(TREE),
+            '--source-root', '/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/preparation-coherent/data',
+            '--kb-root', '/Users/a77/knowledge-base-private',
+            '--rag-python', '/Users/a77/knowledge-base-private/.rag_venv/bin/python',
+            '--rag-model', '/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181']
+try:
+    with patch.object(preparation, 'clone', clone):
+        code = preparation.main()
+finally:
+    with (ROOT / 'data-clone-receipt.json').open('x') as stream:
+        json.dump({'clones': clones, 'real_model_requests': 0}, stream, indent=2)
+raise SystemExit(code)

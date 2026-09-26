@@ -146,7 +146,14 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
             clock["now"] = 121.0 if window == "root_expired" else 31.0
         else:
             assert request.tools == ()  # no extra lookup / tool grant
-            repair_input = json.loads(request.input)
+            envelope = json.loads(request.input)
+            repair_input = envelope
+            if envelope["kind"] == "REPAIR_CONTEXT":
+                # feat/adaptive-research-loop wraps the goal so review feedback
+                # survives the SDK hop: the REPAIR_GOAL itself is unchanged and
+                # the evidence rows move to the envelope.
+                repair_input = json.loads(envelope["repair_goal_message"])
+                repair_input.setdefault("evidence", envelope["evidence"])
             assert repair_input["kind"] == "REPAIR_GOAL"
             assert repair_input["episode_id"] == context.contract.task_id
             assert repair_input["evidence"][0]["content_hash"] == evidence.content_hash

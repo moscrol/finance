@@ -1,0 +1,8 @@
+{
+  "removed": [
+    "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/pytest"
+  ],
+  "reason": "fixed clean targeted tests exit 0",
+  "failure_mutation_artifacts_preserved": true,
+  "candidate_worktree_removed": false
+}

@@ -66,6 +66,11 @@ ALLOWED = frozenset(
         # GET /api/conversations/{id}/research-project 出仓，读者是 webapp
         # ResearchProjectPanel（TS），本脚本只扫 Python 看不见。
         "next_questions",
+        # 标准库协议属性：threading.Thread.start() 内部读 self.daemon 决定这条线程
+        # 是否随主进程退出（Timer 没有 daemon 构造参数，只能建完再赋值）。
+        # llm_http_transport 的 worker 用它挂绝对截止硬停；读取点在 stdlib 里，
+        # 本脚本只扫仓内 Python 看不见。
+        "daemon",
         # 标准库协议属性：http.client.HTTPConnection.request() 内部读 self.sock，
         # 预先塞入已建好的 TLS socket 就跳过它自己的 connect()。
         # sync_eastmoney_fund_flow 用它把东财域名解析 / 连接超时握在自己手里；

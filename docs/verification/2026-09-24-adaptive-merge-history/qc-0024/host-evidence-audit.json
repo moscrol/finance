@@ -1,0 +1,41 @@
+{
+  "status": "BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE",
+  "reviewer_verdicts": {
+    "spec": "BLOCKED_INCOMPLETE_EVIDENCE",
+    "quality": "CHANGES_REQUIRED"
+  },
+  "reviewer_reports_unchanged": {
+    "spec": "18eff1f4460d7a5b6c7f3e0bb10906de5f26947009479cec808face061de2399",
+    "quality": "a8e574ffb5fe70939c1f1b7e1c035ddd2d202f1adb443a465259734a0a1f17dd"
+  },
+  "actual_requests": 71,
+  "prior_gateway_requests": 3,
+  "cumulative_requests": 74,
+  "first_two_execute_tools": {
+    "spec": [
+      1,
+      2
+    ],
+    "quality": [
+      1,
+      2
+    ]
+  },
+  "original_candidate_author_tests_passed": 0,
+  "copied_author_test_results": "each reviewer reports 10P/25 deselected; not accepted as original-candidate runs",
+  "quality_probe_scripts": {
+    "passed": 1,
+    "failed": 1,
+    "subcases_passed": 13,
+    "subcases_failed": 2,
+    "report_count_discrepancy": "report says 12 passed; raw output is 5+8=13, and script denominator differs"
+  },
+  "spec_probe_scripts": {
+    "passed": 0,
+    "failed": 3,
+    "reason": "imports failed; same probe retried twice instead of at most one corrected variant"
+  },
+  "host_framing_diagnosis": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/reviewer-framing/result.json",
+  "boundary": "Host diagnosis identifies malformed fixture framing; does not amend CHANGES_REQUIRED or sign independent C1/C3/C5.",
+  "sealed_at": "2026-09-23T17:44:04.237864+00:00"
+}

@@ -61,14 +61,14 @@ def test_http_fallback_preserves_failed_attempt_and_selects_returned_content(mon
     second = replace(PROVIDER, model="second", base_url="https://other.invalid/v1")
     calls = []
 
-    def urlopen(request, **_kwargs):
+    def urlopen(request, timeout=0.0, **_kwargs):
         calls.append(json.loads(request.data))
         if len(calls) == 1:
             raise urllib.error.HTTPError(request.full_url, 503, "error model=not-proof", {}, None)
         return Response(body(" final\n", model="reported", id="response-2"), headers={"x-request-id": "request-2"})
 
     monkeypatch.setattr(llm_refine, "detect_providers", lambda *_: (PROVIDER, second))
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", urlopen)
     with llm_refine.call_ledger_scope(max_calls=2) as ledger:
         with llm_refine.call_provenance_scope("judge-one", "judge") as context:
             content, used, reason = llm_refine.complete(MESSAGES)
@@ -92,7 +92,7 @@ def test_http_fallback_preserves_failed_attempt_and_selects_returned_content(mon
 
 
 def test_success_without_structured_model_never_uses_requested_model(monkeypatch):
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: Response(body("I am requested")))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: Response(body("I am requested")))
     with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope("unknown", "judge") as context:
         llm_refine._post_chat(PROVIDER, MESSAGES, 5)
     record = ledger.records_for_call("unknown")[0]
@@ -104,7 +104,7 @@ def test_success_without_structured_model_never_uses_requested_model(monkeypatch
 def test_nested_ledger_reuses_budget_and_rejected_call_has_no_attempt(monkeypatch):
     calls = []
     monkeypatch.setattr(llm_refine, "detect_providers", lambda *_: (PROVIDER,))
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: calls.append(1) or Response(body(model="served")))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: calls.append(1) or Response(body(model="served")))
     with llm_refine.call_ledger_scope(max_calls=1) as ledger:
         with llm_refine.call_ledger_scope(max_calls=99, reuse_existing=True) as nested:
             assert nested is ledger
@@ -156,7 +156,7 @@ def test_writer_transports_record_identity_and_detect_stream_conflict(monkeypatc
         {"model": "first", "id": "stream-response", "choices": [{"delta": {"content": "an"}}]},
         {"model": "second", "choices": [{"delta": {"content": "swer"}, "finish_reason": "stop"}]},
     ) if streaming else body(model="served")
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: Response(wire))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: Response(wire))
     with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope("writer", "writer"):
         if kind == "synthesis":
             llm_refine._post_chat_synthesis(PROVIDER, MESSAGES, 5, 0, 100, 100)
@@ -176,7 +176,7 @@ def test_concurrent_calls_select_own_attempt_when_completion_order_is_reversed(m
     both_started = threading.Barrier(2)
     second_done = threading.Event()
 
-    def urlopen(request, **_kwargs):
+    def urlopen(request, timeout=0.0, **_kwargs):
         name = json.loads(request.data)["messages"][0]["content"]
         both_started.wait(timeout=3)
         if name == "one":
@@ -186,7 +186,7 @@ def test_concurrent_calls_select_own_attempt_when_completion_order_is_reversed(m
         return Response(body(name, model=f"model-{name}"))
 
     monkeypatch.setattr(llm_refine, "detect_providers", lambda *_: (PROVIDER,))
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", urlopen)
 
     def run(name):
         with llm_refine.call_provenance_scope(name, "judge") as context:
@@ -204,7 +204,7 @@ def test_concurrent_calls_select_own_attempt_when_completion_order_is_reversed(m
 
 
 def test_async_scopes_and_nested_calls_restore_parent_context(monkeypatch):
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: Response(body(model="served")))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: Response(body(model="served")))
 
     async def run(name):
         with llm_refine.call_provenance_scope(name, "judge") as context:
@@ -227,7 +227,7 @@ def test_async_scopes_and_nested_calls_restore_parent_context(monkeypatch):
 def test_json_retry_keeps_first_success_with_unknown_identity(monkeypatch):
     responses = iter([body("not judge JSON"), body('{"score": 4}', model="served")])
     monkeypatch.setattr(llm_refine, "detect_providers", lambda *_: (PROVIDER,))
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: Response(next(responses)))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: Response(next(responses)))
     repaired = [*MESSAGES, {"role": "user", "content": "Return JSON only"}]
     with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope("retry", "judge") as context:
         assert llm_refine.complete(MESSAGES)[0] == "not judge JSON"
@@ -240,7 +240,7 @@ def test_json_retry_keeps_first_success_with_unknown_identity(monkeypatch):
 
 
 def test_no_active_ledger_cannot_claim_collected_success(monkeypatch):
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: Response(body(model="served")))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: Response(body(model="served")))
     assert llm_refine.current_call_ledger() is None
     with llm_refine.call_provenance_scope("missing-ledger", "judge") as context:
         assert llm_refine._post_chat(PROVIDER, MESSAGES, 5) == "answer"
@@ -265,7 +265,7 @@ def test_failed_cli_attempt_is_preserved_without_credential_text(monkeypatch):
 
 def test_tool_response_hash_binds_tool_arguments_as_well_as_content(monkeypatch):
     result = {"role": "assistant", "content": None, "tool_calls": [{"id": "t1", "type": "function", "function": {"name": "lookup", "arguments": '{"ticker":"A"}'}}]}
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: Response({"model": "served", "choices": [{"message": result}]}))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: Response({"model": "served", "choices": [{"message": result}]}))
     with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope("tools", "writer"):
         llm_refine._post_chat_message(PROVIDER, MESSAGES, 5)
     [record] = ledger.records_for_call("tools")
@@ -277,7 +277,7 @@ def test_http_failure_keeps_request_id_but_ignores_error_page_identity(monkeypat
     def urlopen(*_a, **_k):
         raise urllib.error.HTTPError(PROVIDER.base_url, 503, "served model=untrusted", {"x-request-id": "failed-request"}, None)
 
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", urlopen)
     with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope("http-fail", "judge"):
         with pytest.raises(urllib.error.HTTPError):
             llm_refine._post_chat(PROVIDER, MESSAGES, 5)
