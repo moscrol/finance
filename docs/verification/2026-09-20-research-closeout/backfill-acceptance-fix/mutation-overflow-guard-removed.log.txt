@@ -1,0 +1,186 @@
+^D[31mF[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[31m                                                             [100%][0m
+=================================== FAILURES ===================================
+[31m[1m________ test_acceptance_receipt_mutation_fails[pinned_stock_huge_int] _________[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1246/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1246/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1246/test_acceptance_receipt_mutati0')
+case = 'pinned_stock_huge_int', mutate = <function <lambda> at 0x1064f9440>
+
+    @pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                             ids=[c for c, _ in RECEIPT_MUTATIONS])
+    def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+        """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1043: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._is_num\n    return math.isfinite(v)\n           ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1246/test_acceptance_receipt_mutati0/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema'), must_pass = ()
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('', 'Traceback (most recent call last):[0m
+[1m[31mE           File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_3..._is_num[0m
+[1m[31mE             return math.isfinite(v)[0m
+[1m[31mE                    ^^^^^^^^^^^^^^^^[0m
+[1m[31mE         OverflowError: int too large to convert to float[0m
+[1m[31mE         ')[0m
+[1m[31mE       assert 1 == 2[0m
+[1m[31mE        +  where 1 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._is_num\n    return math.isfinite(v)\n           ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[31m[1m______ test_acceptance_receipt_mutation_fails[pinned_technical_huge_int] _______[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1246/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1246/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1246/test_acceptance_receipt_mutati1')
+case = 'pinned_technical_huge_int', mutate = <function <lambda> at 0x1064f94e0>
+
+    @pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                             ids=[c for c, _ in RECEIPT_MUTATIONS])
+    def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+        """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1043: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._is_num\n    return math.isfinite(v)\n           ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1246/test_acceptance_receipt_mutati1/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema'), must_pass = ()
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('', 'Traceback (most recent call last):[0m
+[1m[31mE           File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_3..._is_num[0m
+[1m[31mE             return math.isfinite(v)[0m
+[1m[31mE                    ^^^^^^^^^^^^^^^^[0m
+[1m[31mE         OverflowError: int too large to convert to float[0m
+[1m[31mE         ')[0m
+[1m[31mE       assert 1 == 2[0m
+[1m[31mE        +  where 1 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._is_num\n    return math.isfinite(v)\n           ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[31m[1m________ test_acceptance_receipt_mutation_fails[pinned_window_huge_int] ________[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1246/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1246/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1246/test_acceptance_receipt_mutati2')
+case = 'pinned_window_huge_int', mutate = <function <lambda> at 0x1064f9580>
+
+    @pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                             ids=[c for c, _ in RECEIPT_MUTATIONS])
+    def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+        """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1043: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._is_num\n    return math.isfinite(v)\n           ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1246/test_acceptance_receipt_mutati2/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema'), must_pass = ()
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('', 'Traceback (most recent call last):[0m
+[1m[31mE           File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_3..._is_num[0m
+[1m[31mE             return math.isfinite(v)[0m
+[1m[31mE                    ^^^^^^^^^^^^^^^^[0m
+[1m[31mE         OverflowError: int too large to convert to float[0m
+[1m[31mE         ')[0m
+[1m[31mE       assert 1 == 2[0m
+[1m[31mE        +  where 1 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._is_num\n    return math.isfinite(v)\n           ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[31m[1m_ test_acceptance_is_num_is_total_for_json_numbers[10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False] _[0m
+
+value = 100000000000000000...0000000000000000000, expected = False
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (True, False),
+            (False, False),
+            (float("nan"), False),
+            (float("inf"), False),
+            (float("-inf"), False),
+            (10**400, False),
+            (-(10**400), False),
+            (7, True),
+            (-2.5, True),
+        ],
+    )
+    def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
+        """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
+>       assert verify_acceptance._is_num(value) is expected
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1062: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+v = 100000000000000000...0000000000000000000
+
+    def _is_num(v) -> bool:
+        """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            return False
+        try:
+>           return math.isfinite(v)
+[1m[31mE           OverflowError: int too large to convert to float[0m
+
+[1m[31mscripts/verify_302132_backfill_acceptance.py[0m:134: OverflowError
+[31m[1m_ test_acceptance_is_num_is_total_for_json_numbers[-10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False] _[0m
+
+value = -10000000000000000...0000000000000000000, expected = False
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (True, False),
+            (False, False),
+            (float("nan"), False),
+            (float("inf"), False),
+            (float("-inf"), False),
+            (10**400, False),
+            (-(10**400), False),
+            (7, True),
+            (-2.5, True),
+        ],
+    )
+    def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
+        """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
+>       assert verify_acceptance._is_num(value) is expected
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1062: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+v = -10000000000000000...0000000000000000000
+
+    def _is_num(v) -> bool:
+        """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            return False
+        try:
+>           return math.isfinite(v)
+[1m[31mE           OverflowError: int too large to convert to float[0m
+
+[1m[31mscripts/verify_302132_backfill_acceptance.py[0m:134: OverflowError
+[36m[1m=========================== short test summary info ============================[0m
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_receipt_mutation_fails[pinned_stock_huge_int][0m - AssertionError: ('', 'Traceback (most recent call last):
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_receipt_mutation_fails[pinned_technical_huge_int][0m - AssertionError: ('', 'Traceback (most recent call last):
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_receipt_mutation_fails[pinned_window_huge_int][0m - AssertionError: ('', 'Traceback (most recent call last):
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_is_num_is_total_for_json_numbers[10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False][0m - OverflowError: int too large to convert to float
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_is_num_is_total_for_json_numbers[-10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False][0m - OverflowError: int too large to convert to float
+[31m[31m[1m5 failed[0m, [32m7 passed[0m, [33m92 deselected[0m[31m in 0.74s[0m[0m

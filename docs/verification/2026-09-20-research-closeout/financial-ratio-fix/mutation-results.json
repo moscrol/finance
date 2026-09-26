@@ -1,0 +1,74 @@
+{
+  "base_sha": "d8d6196baebdb1108a81ae01466e9df6397dc4fc",
+  "cases": [
+    {
+      "mutation": "alias",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_financial_r6_regressions.py",
+        "-k",
+        "ratio_alias_recomputation or wrong_product_reopens"
+      ],
+      "returncode": 1,
+      "summary": [
+        "2 failed, 7 passed, 112 deselected in 0.29s"
+      ]
+    },
+    {
+      "mutation": "header",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "-k",
+        "ratio_delta_units"
+      ],
+      "returncode": 1,
+      "summary": [
+        "5 failed, 4 passed, 62 deselected in 0.27s"
+      ]
+    },
+    {
+      "mutation": "product",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "-k",
+        "delta_unit_product"
+      ],
+      "returncode": 1,
+      "summary": [
+        "8 failed, 63 deselected in 0.30s"
+      ]
+    },
+    {
+      "mutation": "original_r6_modules",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_financial_delivery_integration.py",
+        "-k",
+        "ratio_unit_gap or ratio_product_gap"
+      ],
+      "returncode": 1,
+      "summary": [
+        "14 failed, 20 deselected in 0.40s"
+      ]
+    }
+  ],
+  "restored_sha256": {
+    "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+    "intelligence/services/research_delivery_checks.py": "5f9f101b337ae11a7584d10a7fd6c38648fab7716574ad12ecf47e30302fb19c"
+  },
+  "all_restored": true
+}

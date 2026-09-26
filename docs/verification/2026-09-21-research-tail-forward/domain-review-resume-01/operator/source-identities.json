@@ -1,0 +1,62 @@
+{
+  "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+  "recorded_at": "2026-09-21T11:50:04.876936+00:00",
+  "files": [
+    {
+      "path": "intelligence/services/historical_research/intent.py",
+      "sha256": "a9362127bfc4050f04450dad251acdf153779d55bce9cfd0e767457a441f4383",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": true,
+      "source_sha256": "a9362127bfc4050f04450dad251acdf153779d55bce9cfd0e767457a441f4383"
+    },
+    {
+      "path": "intelligence/services/turn_controller.py",
+      "sha256": "86c0c1196b0dfdb04e3ba74611633715afba91570e13e407b53df0ef96ae27f1",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": false,
+      "source_sha256": "e103d7f74fc61a17b7dd215ec735f05de821ee28dcbca894bdaccb49d8c16e69"
+    },
+    {
+      "path": "intelligence/services/episode_factory.py",
+      "sha256": "8b8981d47eb0b8d55c554dbab919c24e0a66383dc7a63e2e6373000078eae3e3",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": false,
+      "source_sha256": "98c0bdae47893349992d43aab623ac507b010524549a7ed4a377611ad98aa1c1"
+    },
+    {
+      "path": "intelligence/services/historical_research/episode.py",
+      "sha256": "f3dac88ecec7ae6f46532c0ee3d26b806b50b4b91f8f713d147482c402c3f901",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": true,
+      "source_sha256": "f3dac88ecec7ae6f46532c0ee3d26b806b50b4b91f8f713d147482c402c3f901"
+    },
+    {
+      "path": "intelligence/services/user_task.py",
+      "sha256": "8bbaa21df314138b6d24b4783df382094fbd7d26d5bbee55f6cc096e31f35741",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": false,
+      "source_sha256": "8967c0820f5a7ec5398038053bedcb631c0471e108fafb630d1e102cd5a8c05a"
+    },
+    {
+      "path": "intelligence/runtime/conversation_orchestrator.py",
+      "sha256": "fc0c02a095443002de19517a71fc90a8d74aac29dcfbf5c48b78ff4e5311e15b",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": false,
+      "source_sha256": "7e91f915ff030c23978d948a43f24d6e03417e8a8e258b826cc8ac6f93b8e879"
+    },
+    {
+      "path": "tests/test_history_forward_seams.py",
+      "sha256": "97bafa2d47b684c71a338dbd6ae533182932c975e6de78878c70d98039098eed",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": false,
+      "source_sha256": null
+    },
+    {
+      "path": "docs/agent-product-door.md",
+      "sha256": "79ae23b9984792adb715b70be7c58910fe15c6ccabfadb4b79864b59be5d4656",
+      "source_ref": "e4675eab28d83378016874c5396634fff5ab95ba",
+      "same_as_source": false,
+      "source_sha256": "41bc5ba945c4e94b3f29a48780bd1d8b52f6dc0ea0f720e75b8fa4f12638f85a"
+    }
+  ]
+}

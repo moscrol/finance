@@ -1,0 +1,130 @@
+"""Reconcile collection and per-phase reports; do not infer completeness from exit 0."""
+from collections import Counter, defaultdict
+import hashlib
+import json
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+
+from resume import OUT, SHA, ident, save
+
+
+def read(path):
+    return json.loads(path.read_text())
+
+
+def python_group(name):
+    folder = OUT / name
+    result = read(folder / 'result.json')
+    assert result['before'] == result['after']
+    assert result['before']['head'] == SHA and not result['before']['status']
+    assert result['exit_code'] == (1 if name == 'ordinary' else 0) and result['stop_reason'] is None
+    collection = read(folder / 'collection.json')
+    session = read(folder / 'session.json')
+    assert session['exit_status'] == (1 if name == 'ordinary' else 0)
+    assert session['testsfailed'] == (2 if name == 'ordinary' else 0)
+    selected = set(collection['selected'])
+    assert len(selected) == len(collection['selected']) == session['testscollected']
+    grouped = defaultdict(list)
+    with (folder / 'reports.jsonl').open() as stream:
+        for line in stream:
+            report = json.loads(line)
+            grouped[report['nodeid']].append(report)
+    assert set(grouped) == selected, {'missing': sorted(selected - set(grouped)), 'extra': sorted(set(grouped) - selected)}
+    outcomes = Counter()
+    for nodeid, reports in grouped.items():
+        phases = {r['when']: r for r in reports}
+        assert len(phases) == len(reports), nodeid
+        assert 'setup' in phases and 'teardown' in phases, nodeid
+        assert phases['setup']['outcome'] != 'failed' and phases['teardown']['outcome'] != 'failed', nodeid
+        final = phases.get('call', phases['setup'])
+        assert final['outcome'] in ('passed', 'skipped', 'failed'), nodeid
+        if final.get('wasxfail') is not None:
+            assert final['outcome'] == 'skipped', 'Unexpected XPASS: ' + nodeid
+            outcomes['xfailed'] += 1
+        else:
+            outcomes[final['outcome']] += 1
+    suites = [s.attrib for s in ET.parse(folder / 'junit.xml').iter('testsuite')]
+    assert len(suites) == 1 and int(suites[0]['errors']) == 0
+    assert int(suites[0]['failures']) == outcomes['failed']
+    assert int(suites[0]['tests']) == sum(outcomes.values())
+    assert int(suites[0]['skipped']) == outcomes['skipped'] + outcomes['xfailed']
+    assert not (folder / 'collection-errors.jsonl').exists()
+    return {'outcomes': dict(outcomes), 'selected_count': len(selected), 'collected_count': len(collection['collected']),
+            'junit_suite': suites[0], 'elapsed_seconds': result['elapsed_seconds']}, collection
+
+
+def browser_group(name):
+    result = read(OUT / name / 'result.json')
+    report = read(OUT / name / 'report.json')
+    assert result['before'] == result['after'] and result['before']['head'] == SHA
+    assert hashlib.sha256((OUT / name / 'report.json').read_bytes()).hexdigest() == result['report_sha256']
+    tests = []
+    def walk(suite):
+        for spec in suite.get('specs', []):
+            for test in spec['tests']:
+                tests.append({'id': spec['id'], 'title': spec['title'], 'project': test['projectName'],
+                              'status': test['status'], 'results': test['results']})
+        for sub in suite.get('suites', []):
+            walk(sub)
+    for suite in report['suites']:
+        walk(suite)
+    assert len(tests) == 36 and len({t['id'] for t in tests}) == 36
+    return result, report, tests
+
+
+def main():
+    ordinary, oc = python_group('ordinary')
+    native, nc = python_group('native')
+    all_ids, ordinary_ids, native_ids = set(oc['collected']), set(oc['selected']), set(nc['selected'])
+    assert not ordinary_ids & native_ids
+    assert ordinary_ids | native_ids == all_ids
+    assert native_ids == set(oc['deselected']) and len(native_ids) == 5
+    assert set(nc['collected']) <= all_ids
+    totals = Counter(ordinary['outcomes']) + Counter(native['outcomes'])
+    assert dict(totals) == {'passed': 12807, 'failed': 2, 'skipped': 87, 'xfailed': 2}
+    from diagnose_rss import TESTS
+    failed = {r['nodeid'] for r in map(json.loads, (OUT / 'ordinary/reports.jsonl').read_text().splitlines())
+              if r['outcome'] == 'failed'}
+    assert failed == set(TESTS)
+    rss = {}
+    for mode, exit_code, failures, ps_code in (('outer', 1, 2, 71), ('native', 0, 0, 0)):
+        result = read(OUT / ('rss-' + mode) / 'result.json')
+        assert result['exit_code'] == exit_code and result['stop_reason'] is None
+        assert result['before'] == result['after'] == read(OUT / 'ordinary/result.json')['before']
+        assert result['ps_probe']['returncode'] == ps_code
+        xml = list(ET.parse(OUT / ('rss-' + mode) / 'junit.xml').iter('testsuite'))
+        assert len(xml) == 1 and int(xml[0].attrib['tests']) == 2
+        assert int(xml[0].attrib['failures']) == failures and int(xml[0].attrib['errors']) == 0
+        rss[mode] = {'exit_code': exit_code, 'tests': 2, 'failures': failures, 'ps_probe': result['ps_probe']}
+    assert read(OUT / 'rss-outer/result.json')['env'] == read(OUT / 'rss-native/result.json')['env']
+    missing_result, missing_report, missing_tests = browser_group('e2e')
+    assert missing_result['exit_code'] == 1 and missing_report['stats']['unexpected'] == 27
+    for test in missing_tests:
+        if test['status'] == 'unexpected':
+            errors = [e['message'] for r in test['results'] for e in r.get('errors', [])]
+            assert errors and all('Executable doesn\'t exist' in e and 'chromium_headless_shell-1179' in e for e in errors)
+    e2e_result, e2e_report, e2e_tests = browser_group('e2e-private-browser')
+    assert {t['id'] for t in missing_tests} == {t['id'] for t in e2e_tests}
+    assert e2e_result['exit_code'] == 0 and e2e_result['stop_reason'] is None
+    assert e2e_report['stats']['expected'] == 34 and e2e_report['stats']['skipped'] == 2
+    assert e2e_report['stats']['unexpected'] == e2e_report['stats']['flaky'] == 0
+    assert not e2e_report['errors']
+    assert all(len(t['results']) == 1 for t in e2e_tests), 'No retries expected'
+    state = ident()
+    assert state['head'] == SHA and not state['status']
+    summary = {'source_revision': SHA, 'identity': state, 'python': {'ordinary': ordinary, 'native': native,
+               'full_collected_test_ids': len(all_ids), 'union_complete': True, 'overlap': 0, 'outcomes': dict(totals),
+               'failed_test_ids': sorted(failed), 'rss_diagnostics': rss,
+               'note': 'Complete disjoint collection coverage; original ordinary run has 2 failures due to outer sandbox denying ps. Both pass in a separate same-env native diagnostic. Not an unqualified green full-run or an official #814 receipt.'},
+               'e2e_first': {'stats': missing_report['stats'], 'exit_code': 1, 'classification': 'MISSING_BROWSER_EXECUTABLE'},
+               'e2e_private_browser': {'stats': e2e_report['stats'], 'exit_code': 0, 'same_36_ids': True, 'retries': 0},
+               'engineering': 'E2E passed. Python full collection executed with 2 original environment failures and separate 2P diagnostic; no unqualified full-run green. Other leaves archived in 04 on same SHA.',
+               'overall': 'CHANGES_REQUIRED / NOT_ACCEPTED', 'independent_review': 'NOT_RESTARTED',
+               'natural_history_four_questions': 'NOT_RERUN', 'merge_deploy_production': 'NOT_PERFORMED'}
+    save(OUT / 'summary.json', summary)
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

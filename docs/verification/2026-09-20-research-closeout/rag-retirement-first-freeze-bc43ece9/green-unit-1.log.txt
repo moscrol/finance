@@ -1,0 +1,3 @@
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_rag_worker_keepalive.py
+........................................................................ [100%]
+72 passed in 4.80s

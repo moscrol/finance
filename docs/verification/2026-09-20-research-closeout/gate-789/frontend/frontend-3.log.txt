@@ -1,0 +1,21 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private/intelligence/webapp[39m
+
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 90[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 190[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 114[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[32m 198[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m71 tests[22m[2m)[22m[33m 1658[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m110 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 11:33:06
+[2m   Duration [22m 2.92s[2m (transform 625ms, setup 1.63s, collect 1.39s, tests 2.27s, environment 2.77s, prepare 522ms)[22m
+

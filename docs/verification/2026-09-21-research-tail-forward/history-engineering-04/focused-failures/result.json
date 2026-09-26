@@ -1,0 +1,36 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "intelligence/tests/test_calculation_sandbox.py",
+    "intelligence/tests/test_codex_headless_runtime.py",
+    "intelligence/tests/test_forecast_residual_followup.py",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/focused-failures.xml"
+  ],
+  "started_at": "2026-09-21T16:58:29.958059+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5770125312
+  },
+  "timeout_seconds": 120,
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+  "signals": [],
+  "finished_at": "2026-09-21T16:58:49.027446+00:00",
+  "elapsed_seconds": 19.068944833008572,
+  "exit_code": 1,
+  "stop_reason": null,
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5812457472
+  },
+  "log_sha256": "a7497cd8deb7065bc5f0c032916254b8aa07deec3f2683f825e3c6bace20ab0c"
+}

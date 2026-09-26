@@ -1,0 +1,28 @@
+"""H-02 desired-behavior counterexamples, intentionally still failing on H-01."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+root = Path(os.environ["BOUNDARY_SOURCE_ROOT"])
+spec = importlib.util.spec_from_file_location("boundary_cases", root / "tests/test_history_control_boundary.py")
+helpers = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(helpers)
+no_external_io = helpers.no_external_io
+trusted_history = helpers.trusted_history
+
+
+@pytest.mark.parametrize("query", ["那它们见顶后谁接力？", "以前有没有类似，失败案例也看看"])
+def test_elliptical_history_continuation_keeps_local_only(query, trusted_history, tmp_path):
+    previous, history = trusted_history
+    decision = helpers._decide(query, previous, history)
+    _, context, names = helpers._project(decision, tmp_path)
+    material = context.contract.material_contract
+    print(json.dumps({"query": query, "history": context.history_intent.to_dict(),
+                      "material_scope": material.data_scope if material else None,
+                      "allowed": context.contract.allowed_capabilities, "history_tools": names},
+                     ensure_ascii=False))
+    assert context.history_intent is not None
+    assert material is not None and material.data_scope == "local_only"

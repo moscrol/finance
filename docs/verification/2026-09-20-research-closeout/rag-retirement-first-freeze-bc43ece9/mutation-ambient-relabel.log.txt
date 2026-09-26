@@ -1,0 +1,41 @@
+mutation=read-ambient-binding-at-start
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py -k frozen_environment_despite_ambient_rewrite
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_managed_launch_uses_frozen_environment_despite_ambient_rewrite ______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2958/test_managed_launch_uses_froze0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f66b40>
+
+    def test_managed_launch_uses_frozen_environment_despite_ambient_rewrite(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        _bind(monkeypatch, beta)
+    
+        payload = worker.status()
+        assert payload["state"] == "cold"
+        assert payload["generation_status"] == "current"
+        with mock.patch.object(rag_worker.subprocess, "Popen") as spawn:
+            process = mock.Mock()
+            process.poll.return_value = 0
+            spawn.return_value = process
+            worker._ensure_process()
+        launched = spawn.call_args.kwargs["env"]
+>       assert launched["KB_RAG_GENERATION"] == alpha["sha"]
+E       AssertionError: assert 'ec2fae9c8cce...c9741daa27e75' == '12c0cfe00f2b...f2611ba4fde65'
+E         
+E         - 12c0cfe00f2b4aa637e87d6ed002a478ac0061ed6bf7d7e1d17f2611ba4fde65
+E         + ec2fae9c8cceef50809506ebf5c42b44dc92e2b5cf50316086fc9741daa27e75
+
+intelligence/tests/test_rag_worker_generation.py:183: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_generation.py::test_managed_launch_uses_frozen_environment_despite_ambient_rewrite
+1 failed, 12 deselected in 0.06s
+observed_exit=1 expected_nonzero=true

@@ -1,0 +1,38 @@
+mutation=remove-current-check
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py -k retired_generation_before_first_new_query
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_status_rejects_retired_generation_before_first_new_query _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2957/test_status_rejects_retired_ge0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108a87c20>
+
+    def test_status_rejects_retired_generation_before_first_new_query(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        try:
+            worker.prewarm(["query", "warmup", "--json"], timeout=3)
+            assert worker.status()["state"] == "ready"
+            process = worker._process
+    
+            _activate(beta)
+            payload = worker.status()
+    
+>           assert payload["state"] == "failed"
+E           AssertionError: assert 'ready' == 'failed'
+E             
+E             - failed
+E             + ready
+
+intelligence/tests/test_rag_worker_generation.py:122: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_generation.py::test_status_rejects_retired_generation_before_first_new_query
+1 failed, 12 deselected in 0.17s
+observed_exit=1 expected_nonzero=true

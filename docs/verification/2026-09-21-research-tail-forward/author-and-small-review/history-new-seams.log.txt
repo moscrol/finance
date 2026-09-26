@@ -1,0 +1,121 @@
+FFFF....                                                                 [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T082840Z-ea5c3a94.json
+
+=================================== FAILURES ===================================
+_ test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u5f53\u524d\u5206\u6790\u7a97\u592a\u77ed\uff0c\u53ea\u80fd\u5728\u4e4b\u524d\u6388\u6743\u7684\u65e5\u671f\u8303\u56f4\u5185\u7ee7\u7eed\u89c2\u5bdf\u3002] _
+
+instruction = '如果当前分析窗太短，只能在之前授权的日期范围内继续观察。'
+
+    @pytest.mark.parametrize("instruction", [
+        "如果当前分析窗太短，只能在之前授权的日期范围内继续观察。",
+        "如果需要验证，请先核对证据。",
+        "如果数据无法获取，请说明缺口。",
+        "如果材料缺失，请说明不能计算。",
+    ])
+    def test_procedure_and_missing_inputs_do_not_grant_fictional_basis(instruction):
+        contract = _contract(instruction)
+        assert contract is None or contract.authenticity != "fictional"
+        assert contract is None or not contract.premise_calculation
+        # Numbered questions must use the same exclusion as top-level instructions.
+        numbered = _contract(f"1. {instruction}")
+        assert numbered is None or numbered.authenticity != "fictional"
+>       assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+
+tests/test_history_forward_seams.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <tuple_iterator object at 0x10922c640>
+
+>   assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+E   AttributeError: 'MaterialQuestion' object has no attribute 'authenticity'
+
+tests/test_history_forward_seams.py:31: AttributeError
+_ test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u9700\u8981\u9a8c\u8bc1\uff0c\u8bf7\u5148\u6838\u5bf9\u8bc1\u636e\u3002] _
+
+instruction = '如果需要验证，请先核对证据。'
+
+    @pytest.mark.parametrize("instruction", [
+        "如果当前分析窗太短，只能在之前授权的日期范围内继续观察。",
+        "如果需要验证，请先核对证据。",
+        "如果数据无法获取，请说明缺口。",
+        "如果材料缺失，请说明不能计算。",
+    ])
+    def test_procedure_and_missing_inputs_do_not_grant_fictional_basis(instruction):
+        contract = _contract(instruction)
+        assert contract is None or contract.authenticity != "fictional"
+        assert contract is None or not contract.premise_calculation
+        # Numbered questions must use the same exclusion as top-level instructions.
+        numbered = _contract(f"1. {instruction}")
+        assert numbered is None or numbered.authenticity != "fictional"
+>       assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+
+tests/test_history_forward_seams.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <tuple_iterator object at 0x10922cd00>
+
+>   assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+E   AttributeError: 'MaterialQuestion' object has no attribute 'authenticity'
+
+tests/test_history_forward_seams.py:31: AttributeError
+_ test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u6570\u636e\u65e0\u6cd5\u83b7\u53d6\uff0c\u8bf7\u8bf4\u660e\u7f3a\u53e3\u3002] _
+
+instruction = '如果数据无法获取，请说明缺口。'
+
+    @pytest.mark.parametrize("instruction", [
+        "如果当前分析窗太短，只能在之前授权的日期范围内继续观察。",
+        "如果需要验证，请先核对证据。",
+        "如果数据无法获取，请说明缺口。",
+        "如果材料缺失，请说明不能计算。",
+    ])
+    def test_procedure_and_missing_inputs_do_not_grant_fictional_basis(instruction):
+        contract = _contract(instruction)
+        assert contract is None or contract.authenticity != "fictional"
+        assert contract is None or not contract.premise_calculation
+        # Numbered questions must use the same exclusion as top-level instructions.
+        numbered = _contract(f"1. {instruction}")
+        assert numbered is None or numbered.authenticity != "fictional"
+>       assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+
+tests/test_history_forward_seams.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <tuple_iterator object at 0x10922d990>
+
+>   assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+E   AttributeError: 'MaterialQuestion' object has no attribute 'authenticity'
+
+tests/test_history_forward_seams.py:31: AttributeError
+_ test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u6750\u6599\u7f3a\u5931\uff0c\u8bf7\u8bf4\u660e\u4e0d\u80fd\u8ba1\u7b97\u3002] _
+
+instruction = '如果材料缺失，请说明不能计算。'
+
+    @pytest.mark.parametrize("instruction", [
+        "如果当前分析窗太短，只能在之前授权的日期范围内继续观察。",
+        "如果需要验证，请先核对证据。",
+        "如果数据无法获取，请说明缺口。",
+        "如果材料缺失，请说明不能计算。",
+    ])
+    def test_procedure_and_missing_inputs_do_not_grant_fictional_basis(instruction):
+        contract = _contract(instruction)
+        assert contract is None or contract.authenticity != "fictional"
+        assert contract is None or not contract.premise_calculation
+        # Numbered questions must use the same exclusion as top-level instructions.
+        numbered = _contract(f"1. {instruction}")
+        assert numbered is None or numbered.authenticity != "fictional"
+>       assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+
+tests/test_history_forward_seams.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = <tuple_iterator object at 0x10922d000>
+
+>   assert numbered is None or all(q.authenticity != "fictional" for q in numbered.questions)
+E   AttributeError: 'MaterialQuestion' object has no attribute 'authenticity'
+
+tests/test_history_forward_seams.py:31: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_history_forward_seams.py::test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u5f53\u524d\u5206\u6790\u7a97\u592a\u77ed\uff0c\u53ea\u80fd\u5728\u4e4b\u524d\u6388\u6743\u7684\u65e5\u671f\u8303\u56f4\u5185\u7ee7\u7eed\u89c2\u5bdf\u3002]
+FAILED tests/test_history_forward_seams.py::test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u9700\u8981\u9a8c\u8bc1\uff0c\u8bf7\u5148\u6838\u5bf9\u8bc1\u636e\u3002]
+FAILED tests/test_history_forward_seams.py::test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u6570\u636e\u65e0\u6cd5\u83b7\u53d6\uff0c\u8bf7\u8bf4\u660e\u7f3a\u53e3\u3002]
+FAILED tests/test_history_forward_seams.py::test_procedure_and_missing_inputs_do_not_grant_fictional_basis[\u5982\u679c\u6750\u6599\u7f3a\u5931\uff0c\u8bf7\u8bf4\u660e\u4e0d\u80fd\u8ba1\u7b97\u3002]
+4 failed, 4 passed in 0.63s

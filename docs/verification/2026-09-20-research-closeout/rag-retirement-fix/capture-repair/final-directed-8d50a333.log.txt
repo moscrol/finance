@@ -1,0 +1,36 @@
+HEAD 8d50a333c03bbd020c6f76885455e8c62385b560
+FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+........................................................................ [ 60%]
+....F...........................................                         [100%]
+=================================== FAILURES ===================================
+_________ test_keepalive_touches_an_idle_warm_worker_without_reloading _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2989/test_keepalive_touches_an_idle0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1073b6f00>
+
+    def test_keepalive_touches_an_idle_warm_worker_without_reloading(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("RAG_WORKER_KEEPALIVE_SECONDS", "0.1")
+        worker = _worker(tmp_path)
+        try:
+            worker.prewarm(["query", "warmup", "--json"], timeout=2)
+            pid = worker._process.pid  # type: ignore[union-attr]
+            assert worker.status()["keepalive_thread_alive"] is True
+            assert _wait_until(lambda: worker.counters["keepalive_sent"] >= 2)
+            status = worker.status()
+            assert worker._process.pid == pid  # type: ignore[union-attr]
+        finally:
+            worker.close()
+    
+        # keepalive 发的是预热同款 argv，走同一个进程、同一次模型加载。
+        assert status["model_load_count"] == 1
+>       assert status["counters"]["queries_served"] >= 3  # prewarm + ≥2 keepalive
+E       assert 2 >= 3
+
+intelligence/tests/test_rag_worker_keepalive.py:69: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_touches_an_idle_warm_worker_without_reloading
+1 failed, 119 passed in 5.33s
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check intelligence/services/rag_generation_identity.py intelligence/services/rag_worker.py intelligence/services/kb_rag.py intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+All checks passed!

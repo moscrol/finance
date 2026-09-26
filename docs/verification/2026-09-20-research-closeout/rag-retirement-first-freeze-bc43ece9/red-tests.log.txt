@@ -1,0 +1,373 @@
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py
+tree=/Users/a77/fwp-wt-rag-retirement-closeout-0920
+head=4ace5ec2e9b7735d90eb15bc2351fa193c1120b8
+FFFFFFFFFFF.                                                             [100%]
+=================================== FAILURES ===================================
+________ test_status_rejects_retired_generation_before_first_new_query _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_status_rejects_retired_ge0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b49130>
+
+    def test_status_rejects_retired_generation_before_first_new_query(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        try:
+            worker.prewarm(["query", "warmup", "--json"], timeout=3)
+            assert worker.status()["state"] == "ready"
+            process = worker._process
+    
+            _activate(beta)
+            payload = worker.status()
+    
+>           assert payload["state"] == "failed"
+E           AssertionError: assert 'ready' == 'failed'
+E             
+E             - failed
+E             + ready
+
+intelligence/tests/test_rag_worker_generation.py:122: AssertionError
+_________ test_status_is_pure_read_and_does_not_spawn_kill_or_recover __________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_status_is_pure_read_and_d0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b481a0>
+
+    def test_status_is_pure_read_and_does_not_spawn_kill_or_recover(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        worker._state = "ready"
+        _activate(beta)
+    
+        with (
+            mock.patch.object(rag_worker.subprocess, "Popen") as spawn,
+            mock.patch.object(worker, "_stop_process") as stop,
+            mock.patch.object(worker, "_schedule_recovery") as recover,
+        ):
+            payload = worker.status()
+    
+>       assert payload["state"] == "failed"
+E       AssertionError: assert 'ready' == 'failed'
+E         
+E         - failed
+E         + ready
+
+intelligence/tests/test_rag_worker_generation.py:154: AssertionError
+___ test_managed_launch_uses_frozen_environment_and_rejects_ambient_rewrite ____
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_managed_launch_uses_froze0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b25790>
+
+    def test_managed_launch_uses_frozen_environment_and_rejects_ambient_rewrite(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        _bind(monkeypatch, beta)
+    
+        payload = worker.status()
+>       assert payload["state"] == "failed"
+E       AssertionError: assert 'cold' == 'failed'
+E         
+E         - failed
+E         + cold
+
+intelligence/tests/test_rag_worker_generation.py:173: AssertionError
+_ test_pool_partitions_managed_bindings_and_old_registration_keeps_aggregate_red _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_pool_partitions_managed_b0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b24ad0>
+
+    def test_pool_partitions_managed_bindings_and_old_registration_keeps_aggregate_red(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        old = rag_worker._worker_for(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        old.prewarm(["query", "alpha", "--json"], timeout=3)
+    
+        _activate(beta)
+        _bind(monkeypatch, beta)
+        new = rag_worker._worker_for(
+            beta["python"], Path(beta["code"]), Path(beta["standard"]), Path(beta["wiki"])
+        )
+        assert new is not old
+        new.prewarm(["query", "beta", "--json"], timeout=3)
+        aggregate = rag_worker.status()
+>       assert aggregate["state"] == "failed"
+E       AssertionError: assert 'ready' == 'failed'
+E         
+E         - failed
+E         + ready
+
+intelligence/tests/test_rag_worker_generation.py:202: AssertionError
+_ test_managed_standard_and_full_retire_together_then_rollback_uses_new_instances _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_managed_standard_and_full0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1083da600>
+
+    def test_managed_standard_and_full_retire_together_then_rollback_uses_new_instances(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        old = [
+            rag_worker._worker_for(
+                alpha["python"], Path(alpha["code"]), Path(alpha[kind]), Path(alpha["wiki"])
+            )
+            for kind in ("standard", "full")
+        ]
+        for worker in old:
+            worker.prewarm(["query", "alpha", "--json"], timeout=3)
+        assert rag_worker.status()["state"] == "ready"
+    
+        _activate(beta)
+>       assert rag_worker.status()["state"] == "failed"
+E       AssertionError: assert 'ready' == 'failed'
+E         
+E         - failed
+E         + ready
+
+intelligence/tests/test_rag_worker_generation.py:233: AssertionError
+_ test_status_explains_managed_identity_damage[delete-manifest-manifest_missing] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_status_explains_managed_i0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b126f0>
+mutation = 'delete-manifest', reason = 'manifest_missing'
+
+    @pytest.mark.parametrize(
+        ("mutation", "reason"),
+        [
+            ("delete-manifest", "manifest_missing"),
+            ("damage-manifest", "manifest_changed"),
+            ("replace-root", "generation_root_replaced"),
+        ],
+    )
+    def test_status_explains_managed_identity_damage(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mutation: str,
+        reason: str,
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        if mutation == "delete-manifest":
+            Path(alpha["manifest"]).unlink()
+        elif mutation == "damage-manifest":
+            Path(alpha["manifest"]).write_text("{}\n", encoding="utf-8")
+        else:
+            root = Path(alpha["root"])
+            moved = root.with_name("old-root")
+            root.rename(moved)
+            root.mkdir()
+    
+        payload = worker.status()
+>       assert payload["state"] == "failed"
+E       AssertionError: assert 'cold' == 'failed'
+E         
+E         - failed
+E         + cold
+
+intelligence/tests/test_rag_worker_generation.py:278: AssertionError
+_ test_status_explains_managed_identity_damage[damage-manifest-manifest_changed] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_status_explains_managed_i1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b59940>
+mutation = 'damage-manifest', reason = 'manifest_changed'
+
+    @pytest.mark.parametrize(
+        ("mutation", "reason"),
+        [
+            ("delete-manifest", "manifest_missing"),
+            ("damage-manifest", "manifest_changed"),
+            ("replace-root", "generation_root_replaced"),
+        ],
+    )
+    def test_status_explains_managed_identity_damage(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mutation: str,
+        reason: str,
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        if mutation == "delete-manifest":
+            Path(alpha["manifest"]).unlink()
+        elif mutation == "damage-manifest":
+            Path(alpha["manifest"]).write_text("{}\n", encoding="utf-8")
+        else:
+            root = Path(alpha["root"])
+            moved = root.with_name("old-root")
+            root.rename(moved)
+            root.mkdir()
+    
+        payload = worker.status()
+>       assert payload["state"] == "failed"
+E       AssertionError: assert 'cold' == 'failed'
+E         
+E         - failed
+E         + cold
+
+intelligence/tests/test_rag_worker_generation.py:278: AssertionError
+_ test_status_explains_managed_identity_damage[replace-root-generation_root_replaced] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_status_explains_managed_i2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108be2ff0>
+mutation = 'replace-root', reason = 'generation_root_replaced'
+
+    @pytest.mark.parametrize(
+        ("mutation", "reason"),
+        [
+            ("delete-manifest", "manifest_missing"),
+            ("damage-manifest", "manifest_changed"),
+            ("replace-root", "generation_root_replaced"),
+        ],
+    )
+    def test_status_explains_managed_identity_damage(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mutation: str,
+        reason: str,
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+        if mutation == "delete-manifest":
+            Path(alpha["manifest"]).unlink()
+        elif mutation == "damage-manifest":
+            Path(alpha["manifest"]).write_text("{}\n", encoding="utf-8")
+        else:
+            root = Path(alpha["root"])
+            moved = root.with_name("old-root")
+            root.rename(moved)
+            root.mkdir()
+    
+        payload = worker.status()
+>       assert payload["state"] == "failed"
+E       AssertionError: assert 'cold' == 'failed'
+E         
+E         - failed
+E         + cold
+
+intelligence/tests/test_rag_worker_generation.py:278: AssertionError
+_ test_legacy_accepts_ordinary_rag_configuration_but_rejects_managed_marker_alias _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_legacy_accepts_ordinary_r0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108bd5b20>
+
+    def test_legacy_accepts_ordinary_rag_configuration_but_rejects_managed_marker_alias(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        code = tmp_path / "legacy-code"
+        index = tmp_path / "legacy-index"
+        wiki = tmp_path / "legacy-wiki"
+        _write_fake_rag(code)
+        index.mkdir()
+        wiki.mkdir()
+        monkeypatch.setenv("KB_RAG_TIMEOUT", "30")
+        monkeypatch.setenv("KB_RAG_CODE_ROOT", str(code))
+        monkeypatch.setenv("RAG_INDEX_DIR", str(index))
+        worker = PersistentRagWorker(sys.executable, code, index, wiki)
+>       assert worker.status()["generation_status"] == "legacy"
+E       KeyError: 'generation_status'
+
+intelligence/tests/test_rag_worker_generation.py:295: KeyError
+___________________ test_partial_managed_binding_is_rejected ___________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_partial_managed_binding_i0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108b59c70>
+
+    def test_partial_managed_binding_is_rejected(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        code = tmp_path / "code"
+        index = tmp_path / "index"
+        _write_fake_rag(code)
+        index.mkdir()
+        monkeypatch.setenv("KB_RAG_GENERATION", "a" * 64)
+>       with pytest.raises(rag_worker.RagGenerationUnavailable, match="incomplete"):
+E       AttributeError: module 'intelligence.services.rag_worker' has no attribute 'RagGenerationUnavailable'
+
+intelligence/tests/test_rag_worker_generation.py:312: AttributeError
+___________ test_retired_generation_does_not_fallback_to_legacy_cli ____________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2952/test_retired_generation_does_n0')
+
+    def test_retired_generation_does_not_fallback_to_legacy_cli(
+        tmp_path: Path,
+    ) -> None:
+        wiki = tmp_path / "wiki"
+        page = wiki / "concepts" / "liquid.md"
+        page.parent.mkdir(parents=True)
+        page.write_text("# liquid\n", encoding="utf-8")
+        script = tmp_path / kb_rag.RAG_SCRIPT_REL
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text("# fixture\n", encoding="utf-8")
+        (tmp_path / ".rag_index").mkdir()
+        with (
+            mock.patch.dict(
+                os.environ,
+                {"RAG_WORKER_ENABLED": "1", "KB_RAG_PYTHON": sys.executable},
+                clear=False,
+            ),
+            mock.patch.object(
+                kb_rag.rag_worker,
+                "query",
+>               side_effect=rag_worker.RagGenerationUnavailable(
+                    "worker generation retired", reason="current_generation_changed"
+                ),
+            ),
+            mock.patch.object(kb_rag.subprocess, "run") as cli,
+        ):
+E       AttributeError: module 'intelligence.services.rag_worker' has no attribute 'RagGenerationUnavailable'
+
+intelligence/tests/test_rag_worker_generation.py:336: AttributeError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_generation.py::test_status_rejects_retired_generation_before_first_new_query
+FAILED intelligence/tests/test_rag_worker_generation.py::test_status_is_pure_read_and_does_not_spawn_kill_or_recover
+FAILED intelligence/tests/test_rag_worker_generation.py::test_managed_launch_uses_frozen_environment_and_rejects_ambient_rewrite
+FAILED intelligence/tests/test_rag_worker_generation.py::test_pool_partitions_managed_bindings_and_old_registration_keeps_aggregate_red
+FAILED intelligence/tests/test_rag_worker_generation.py::test_managed_standard_and_full_retire_together_then_rollback_uses_new_instances
+FAILED intelligence/tests/test_rag_worker_generation.py::test_status_explains_managed_identity_damage[delete-manifest-manifest_missing]
+FAILED intelligence/tests/test_rag_worker_generation.py::test_status_explains_managed_identity_damage[damage-manifest-manifest_changed]
+FAILED intelligence/tests/test_rag_worker_generation.py::test_status_explains_managed_identity_damage[replace-root-generation_root_replaced]
+FAILED intelligence/tests/test_rag_worker_generation.py::test_legacy_accepts_ordinary_rag_configuration_but_rejects_managed_marker_alias
+FAILED intelligence/tests/test_rag_worker_generation.py::test_partial_managed_binding_is_rejected
+FAILED intelligence/tests/test_rag_worker_generation.py::test_retired_generation_does_not_fallback_to_legacy_cli
+11 failed, 1 passed in 0.67s

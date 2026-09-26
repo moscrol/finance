@@ -1,0 +1,62 @@
+"""Record full collection and isolate the seven tests whose environment must be native."""
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+OUT = Path(os.environ['HISTORY_CHECK_OUTPUT'])
+MODE = os.environ['HISTORY_CHECK_MODE']
+assert MODE in {'ordinary', 'environmental'}
+ENVIRONMENTAL = frozenset({
+    'intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_network_even_with_python_guard_off',
+    'intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_writes_outside_workdir_and_fork',
+    'intelligence/tests/test_calculation_sandbox.py::test_default_enforcement_on_this_machine_is_both_layers',
+    'intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]',
+    'intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]',
+    'intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle',
+    'intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters',
+})
+REPORTS = OUT / 'reports.jsonl'
+
+
+def save(name, value):
+    with (OUT / name).open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config, items):
+    collected = [item.nodeid for item in items]
+    assert len(collected) == len(set(collected))
+    assert ENVIRONMENTAL <= set(collected)
+    selected = [item for item in items if (item.nodeid in ENVIRONMENTAL) == (MODE == 'environmental')]
+    selected_ids = {item.nodeid for item in selected}
+    deselected = [item for item in items if item.nodeid not in selected_ids]
+    save('collection.json', {'mode': MODE, 'collected': collected,
+                            'selected': [i.nodeid for i in selected],
+                            'deselected': [i.nodeid for i in deselected]})
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
+
+
+def pytest_runtest_logreport(report):
+    value = {'nodeid': report.nodeid, 'when': report.when, 'outcome': report.outcome,
+             'duration': report.duration, 'wasxfail': getattr(report, 'wasxfail', None)}
+    if report.failed:
+        value['longrepr'] = str(report.longrepr)
+    with REPORTS.open('a') as stream:
+        stream.write(json.dumps(value, ensure_ascii=False) + '\n')
+
+
+def pytest_collectreport(report):
+    if report.failed:
+        with (OUT / 'collection-errors.jsonl').open('a') as stream:
+            stream.write(json.dumps({'nodeid': report.nodeid, 'longrepr': str(report.longrepr)}) + '\n')
+
+
+def pytest_sessionfinish(session, exitstatus):
+    save('session.json', {'exit_status': int(exitstatus), 'testsfailed': session.testsfailed,
+                          'testscollected': session.testscollected})

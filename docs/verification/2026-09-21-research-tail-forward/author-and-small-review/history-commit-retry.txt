@@ -1,0 +1,314 @@
+detect private key..............................................................Passed
+check for added large files.....................................................Passed
+check for merge conflicts.......................................................Passed
+ruff check......................................................................Passed
+工作区事实：你在哪棵树、用哪个解释器............................................Passed
+- hook id: agent-workspace-facts
+- duration: 0.71s
+
+── 工作区事实（提交时自述，非风格检查）──
+  worktree : /Users/a77/fwp-wt-history-forward-0921
+  分支     : fix/history-forward-0921 @ ea5c3a946
+  解释器   : /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+  依赖     : agents, duckdb, fastapi, pytest, ruff, uvicorn, yaml —— 全部可用（宿主 python3 没有，别用它）
+  若刚才某次 pytest 报 ModuleNotFoundError，那是解释器用错了，不是环境缺包。
+
+层级审计........................................................................Passed
+- hook id: layer-audit
+- duration: 10.46s
+
+========================================================================
+层级门禁 — intelligence/services/** 不得 import intelligence.runtime.*
+========================================================================
+  树        /Users/a77/fwp-wt-history-forward-0921
+  分支      fix/history-forward-0921
+  revision  ea5c3a946  ⚠️ 工作区有未提交改动
+  扫描      494 个模块（不含 tests）
+  分层依据  目录 intelligence/runtime/（22 个模块）
+
+✅ ERROR 0 条
+
+结论：通过，ERROR 0 条 == 基线（对 fix/history-forward-0921@ea5c3a946 成立）
+
+路径字面量：不得新增写死的家目录................................................Passed
+- hook id: path-literals
+- duration: 1.15s
+
+========================================================================
+路径字面量门禁 — 不得新增写死的家目录（存量免检）
+========================================================================
+  树        /Users/a77/fwp-wt-history-forward-0921
+  扫描      1692 个 .py（不含 .venv/tmp/缓存）
+  存量基线  23 文件 / 37 处
+  当前      23 文件 / 37 处
+
+✅ 无新增家目录字面量
+
+字段契约：不得新增「写了没人读」的字段..........................................Passed
+- hook id: unread-fields
+- duration: 8.98s
+
+================================================================
+字段契约门禁 — 属性写了但全仓没人读（存量免检）
+================================================================
+  扫描      558 个 .py（intelligence, market_feature_store，不含 tests）
+  存量基线  40 文件 / 100 字段
+  当前      38 文件 / 92 字段
+
+✅ 无新增「写了没人读」的字段
+
+dataset 注册：入库了的表 agent 要够得着.........................................Passed
+- hook id: dataset-registration
+- duration: 0.48s
+
+========================================================================
+dataset 注册审计 — 入库 vs agent 够得着（存量免检，只拦新增）
+========================================================================
+  schema.sql 声明   51 张 fact_/feature_ 表（CREATE TABLE）
+    ├ 已注册        34
+    └ 已写明豁免    17
+  另注册 VIEW       2 个（不在 CREATE TABLE 里，单列以免总数对不上）
+  空表检查          跳过（未提供可读的 DuckDB）
+
+✅ 每张 fact_/feature_ 表都有归属（注册或写明豁免）
+
+结论：通过（34 注册 + 17 豁免 = schema.sql 全部 51 张；另有 2 个注册的 VIEW）
+
+工具可达性：声明了的工具生产装配必须够得着......................................Passed
+- hook id: tool-reachability
+- duration: 2.15s
+
+========================================================================
+工具可达性审计 — 声明 vs 生产装配
+========================================================================
+  声明（_DEFAULT_TOOL_METADATA）      18 个
+  无条件装配（build_episode_registry） 12 个
+  条件装配（需额外输入）               6 个
+
+  ⓘ 以下工具在能力授权之外还需额外输入才装配得出来：
+      - derived_calculation: 仅在附加真实装配上下文中出现；需检查对应入口
+      - history_query: 已授权 finance_query，且真实 TaskFrame.history_intent 存在；无需 HistorySession 也可仅计算
+      - memory_lookup: 已授权 memory_lookup，且传入 memory_user 或 memory_users_root 身份
+      - read_history_result: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - save_history_research: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - sub_research: 已授权 sub_research，且运行时传入绑定协调器和父证据账本的 sub_research_runner
+    这不是缺陷，但生产入口若忘了传那个输入，它会静默永不装配。
+
+✅ 声明与装配一致，无够不着的工具
+
+结论：通过（对 18 个声明工具成立）
+
+运行时目录保鲜：events / tools / harness-seams 与源码一致.......................Passed
+- hook id: runtime-catalog-fresh
+- duration: 1.04s
+
+三张目录与源码一致
+
+红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖.............(no files to check)Skipped
+[fix/history-forward-0921 7edfe24e7] feat(history): forward-port #783/#800 without losing main material contracts
+ 238 files changed, 22980 insertions(+), 151 deletions(-)
+ create mode 100644 docs/handoffs/2026-09-17-history-market-anatomy.md
+ create mode 100644 docs/handoffs/2026-09-18-history-diagnostic-repair.md
+ create mode 100644 docs/handoffs/2026-09-18-history-expression-and-fixture-lifetime.md
+ create mode 100644 docs/handoffs/2026-09-18-history-market-anatomy-live.md
+ create mode 100644 docs/handoffs/2026-09-18-history-succession-delivery.md
+ create mode 100644 docs/handoffs/2026-09-20-history-closeout-fixes.md
+ create mode 100644 docs/handoffs/inflight/feat-history-market-anatomy.md
+ create mode 100644 docs/handoffs/inflight/fix-history-closeout-0920.md
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/acceptance.md
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/manifest.json
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/mutations/diagnostic_bypasses_fact_gate.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/mutations/erase_diagnostic_delivery.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/mutations/raw_exception_as_diagnostic.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/mutations/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/mutations/silently_infer_market_kind.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/previous-a05b3483/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/previous-a05b3483/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/previous-a05b3483/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/previous-a05b3483/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/previous-a05b3483/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/previous-a05b3483/registry.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/receipt-check.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/registry.txt
+ create mode 100644 docs/verification/history-market-anatomy/58b78542/saved-task-contracts.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/acceptance.md
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/candidate-contracts.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/capture-candidate-contracts.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/capture-saved-conflict.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/ci-runner.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/20260918T113717Z-b6f9cbc2.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/20260918T113807Z-b6f9cbc2.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/20260918T114035Z-b6f9cbc2.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/20260918T114334Z-b6f9cbc2.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/20260918T114810Z-b6f9cbc2.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/baseline-red-v2.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/baseline-red.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/regression.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/seams-v1.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/expression/targeted-v1.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/fixture/fixture-missing-join-mutation-v2.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/fixture/fixture-missing-join-mutation-v2.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/fixture/fixture-missing-join-mutation.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/fixture/fixture-mutation-development-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/fixture/fixture-repair-targeted.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/development/fixture/targeted-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-after/late-runner-events.jsonl
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-after/late-runners-prefix.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-after/probe-late-runners.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/isolated-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/late-runner-events.jsonl
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/late-runners-prefix.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/probe-late-runners.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/probe-provenance-transport.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/provenance-isolated.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/provenance-prefix-probe.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/provenance-probe-selection.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/diagnosis-before/provenance-transport-events.jsonl
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/fixture-missing-join-mutation.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/fixture-missing-join-mutation.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/fixture-mutation-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/harness-refs.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/manifest.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-diagnostics/diagnostic_bypasses_fact_gate.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-diagnostics/erase_diagnostic_delivery.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-diagnostics/raw_exception_as_diagnostic.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-diagnostics/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-diagnostics/silently_infer_market_kind.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/drop_history_checkpoint_context.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/drop_history_ranking_prompt.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/drop_history_receipt_scope.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/drop_history_repair_scope.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/drop_history_track_prompt.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/erase_history_checkpoint_gate.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/erase_history_ranking_boundary.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/erase_history_track_boundary.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-expression/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/erase_pair_projection.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/erase_pair_recovery_priority.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/immature_means_failed.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/include_source_peak_in_returns.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/missing_calendar_becomes_zero.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/require_peak_confirmation.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/mutations-succession/target_signal_anchors_returns.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/ci-runner.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-diagnostics/diagnostic_bypasses_fact_gate.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-diagnostics/erase_diagnostic_delivery.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-diagnostics/raw_exception_as_diagnostic.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-diagnostics/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-diagnostics/silently_infer_market_kind.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/drop_history_checkpoint_context.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/drop_history_ranking_prompt.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/drop_history_receipt_scope.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/drop_history_repair_scope.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/drop_history_track_prompt.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/erase_history_checkpoint_gate.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/erase_history_ranking_boundary.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/erase_history_track_boundary.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-expression/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/erase_pair_projection.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/erase_pair_recovery_priority.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/immature_means_failed.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/include_source_peak_in_returns.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/missing_calendar_becomes_zero.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/require_peak_confirmation.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/mutations-succession/target_signal_anchors_returns.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/previous-f9afb4a0/registry.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/receipt-check.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/registry.txt
+ create mode 100644 docs/verification/history-market-anatomy/672abcc5/saved-template-conflict.json
+ create mode 100644 docs/verification/history-market-anatomy/README.md
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/acceptance.md
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/ci-runner.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/20260918T080932Z-edf8820c.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/20260918T081044Z-edf8820c.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/20260918T081308Z-edf8820c.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/20260918T081641Z-edf8820c.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/20260918T081828Z-edf8820c.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/erase_pair_projection.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/development/regression.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/harness-refs.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/legacy-turn3-arithmetic.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/manifest.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-diagnostics/diagnostic_bypasses_fact_gate.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-diagnostics/erase_diagnostic_delivery.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-diagnostics/raw_exception_as_diagnostic.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-diagnostics/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-diagnostics/silently_infer_market_kind.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/erase_pair_projection.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/erase_pair_recovery_priority.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/immature_means_failed.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/include_source_peak_in_returns.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/missing_calendar_becomes_zero.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/require_peak_confirmation.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/mutations-succession/target_signal_anchors_returns.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/receipt-check.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/registry.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/saved-delivery-probe.py.txt
+ create mode 100644 docs/verification/history-market-anatomy/ba281381/saved-delivery.json
+ create mode 100644 docs/verification/history-market-anatomy/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/acceptance.md
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/ci-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/e2e.txt
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/first-live-failure-index.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/health-before.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/live-arithmetic.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/live-manifest.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/production-health-after.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/questions.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/receipt-check.txt
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/recipe-arithmetic.json
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/registry.txt
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/turn-1-answer.md
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/turn-2-answer.md
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/turn-3-answer.md
+ create mode 100644 docs/verification/history-market-anatomy/fbd8f2a6/turn-4-answer.md
+ create mode 100644 docs/verification/history-market-anatomy/frontend.txt
+ create mode 100644 docs/verification/history-market-anatomy/mutations.json
+ create mode 100644 docs/verification/history-market-anatomy/python-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/python.txt
+ create mode 100644 docs/verification/history-market-anatomy/queries.json
+ create mode 100644 docs/verification/history-market-anatomy/read-only-receipt.json
+ create mode 100644 docs/verification/history-market-anatomy/registry.txt
+ create mode 100644 intelligence/services/historical_research/anatomy.py
+ create mode 100644 intelligence/services/historical_research/succession_projection.py
+ create mode 100644 intelligence/services/historical_research/window_binding.py
+ create mode 100644 scripts/history_anatomy_arithmetic.py
+ create mode 100644 scripts/probe_history_queries.py
+ create mode 100644 scripts/review_probes/history_diagnostic_mutations.py
+ create mode 100644 tests/test_history_anatomy_audit_independent.py
+ create mode 100644 tests/test_history_argument_repair.py
+ create mode 100644 tests/test_history_expression_contract_boundary.py
+ create mode 100644 tests/test_history_forward_seams.py
+ create mode 100644 tests/test_history_live_seams.py
+ create mode 100644 tests/test_history_local_read_execution.py
+ create mode 100644 tests/test_history_market_anatomy.py
+ create mode 100644 tests/test_history_succession_projection.py
+ create mode 100644 tests/test_history_tool_diagnostics.py
+ create mode 100644 tests/test_history_window_binding.py

@@ -1,0 +1,51 @@
+import hashlib
+import importlib.util
+import json
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-backfill-302132')
+OLD = Path('/Users/a77/.finance-runtime/db-repair/hithink-20260911/backfill-dryrun-302132')
+
+def sha(path):
+    assert path.stat().st_size < 200_000, f'Refusing large artifact: {path}'
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+sp = importlib.util.spec_from_file_location('acceptance', TREE / 'scripts/verify_302132_backfill_acceptance.py')
+accept = importlib.util.module_from_spec(sp)
+sp.loader.exec_module(accept)
+
+manifest_path = OLD / 'receipts-manifest-20260914-v6.json'
+manifest = json.loads(manifest_path.read_text())
+historical = {'manifest': {'path': str(manifest_path), 'sha256': sha(manifest_path)}, 'checked_small_artifacts': []}
+for group in ('old_receipts', 'acceptance_history', 'run9_run10_backup_receipts'):
+    for item in manifest[group]:
+        path = Path(item['path'])
+        actual = sha(path)
+        historical['checked_small_artifacts'].append({'group': group, 'path': str(path), 'expected': item['sha256'], 'actual': actual, 'match': actual == item['sha256']})
+
+v6path = OLD / 'dryrun-acceptance-v6.json'
+v6 = json.loads(v6path.read_text())
+historical['v6'] = {'path': str(v6path), 'sha256': sha(v6path), 'verdict': v6['verdict'], 'checks': len(v6['checks']), 'passed': sum(c['ok'] is True for c in v6['checks']), 'failed': v6['failed'], 'expected_revision': v6['expected_revision'], 'runs': v6['runs']}
+historical['run_receipts'] = []
+for mode, run in v6['runs'].items():
+    p = OLD / f'fake-prod.duckdb.repair-backfill-execution.{run}.json'
+    r = json.loads(p.read_text())
+    child_path = Path(r['child_report_path'])
+    historical['run_receipts'].append({'mode': mode, 'path': str(p), 'sha256': sha(p), 'schema_errors': accept._validate_receipt(mode, r, run, v6['expected_revision']), 'child_path': str(child_path), 'child_sha256': sha(child_path), 'child_equal_embedded': json.loads(child_path.read_text()) == r['child_report'], 'code_revision': r['code_revision'], 'code_dirty': r['code_dirty'], 'backup_metadata_only': r['backup'], 'parquet_sha256': r['spec']['parquet_sha256']})
+
+full_path = Path('/Users/a77/.finance-runtime/test-receipts/20260914T080259Z-00d64e37.json')
+full = json.loads(full_path.read_text())
+historical['full_test_receipt'] = {'path': str(full_path), 'sha256': sha(full_path), **full}
+historical['limits'] = 'Only small JSON artifacts read and hashed; no historical large DuckDB or backup file opened/copied/hashed. Old result is historical evidence, not current-main qualification.'
+(ROOT / 'historical-evidence.json').write_text(json.dumps(historical, ensure_ascii=False, indent=2) + '\n')
+
+files = git('diff', '--name-only', '4ace5ec2...3736d5bfa997').splitlines()
+identity = {'observed_at': datetime.now(timezone.utc).isoformat(), 'head': git('rev-parse', 'HEAD'), 'code': git('rev-parse', '00d64e37'), 'fixed_main': git('rev-parse', '4ace5ec2'), 'remote_tracking_candidate': git('rev-parse', 'gitea/fix/backfill-302132-scoped'), 'status': git('status', '--short'), 'code_to_head_changed_paths': git('diff', '--name-only', '00d64e37..HEAD').splitlines(), 'candidate_file_sha256': {f: sha(TREE / f) for f in files}}
+(ROOT / 'identity-final.json').write_text(json.dumps(identity, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'head': identity['head'], 'status': identity['status'], 'v6_checks': historical['v6']['checks'], 'v6_passed': historical['v6']['passed'], 'small_artifact_hashes': len(historical['checked_small_artifacts']), 'small_artifact_hashes_match': all(a['match'] for a in historical['checked_small_artifacts']), 'run_schema_errors': [r['schema_errors'] for r in historical['run_receipts']]}, ensure_ascii=False))

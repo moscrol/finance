@@ -1,0 +1,350 @@
+^D[31mF[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[32m.[0m[31mF[0m[31mF[0m[32m.[0m[32m.[0m[31mF[0m[31mF[0m[31mF[0m[31m                                                         [100%][0m
+=================================== FAILURES ===================================
+[31m[1m________ test_acceptance_receipt_mutation_fails[pinned_stock_huge_int] _________[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1243/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1243/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_receipt_mutati0')
+case = 'pinned_stock_huge_int', mutate = <function <lambda> at 0x1068ad3a0>
+
+    @pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                             ids=[c for c, _ in RECEIPT_MUTATIONS])
+    def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+        """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1043: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...2, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_receipt_mutati0/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema'), must_pass = ()
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('', 'Traceback (most recent call last):[0m
+[1m[31mE           File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_3...2, in _is_num[0m
+[1m[31mE             and math.isfinite(v)[0m
+[1m[31mE                 ^^^^^^^^^^^^^^^^[0m
+[1m[31mE         OverflowError: int too large to convert to float[0m
+[1m[31mE         ')[0m
+[1m[31mE       assert 1 == 2[0m
+[1m[31mE        +  where 1 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...2, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[31m[1m______ test_acceptance_receipt_mutation_fails[pinned_technical_huge_int] _______[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1243/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1243/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_receipt_mutati1')
+case = 'pinned_technical_huge_int', mutate = <function <lambda> at 0x1068ad440>
+
+    @pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                             ids=[c for c, _ in RECEIPT_MUTATIONS])
+    def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+        """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1043: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...2, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_receipt_mutati1/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema'), must_pass = ()
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('', 'Traceback (most recent call last):[0m
+[1m[31mE           File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_3...2, in _is_num[0m
+[1m[31mE             and math.isfinite(v)[0m
+[1m[31mE                 ^^^^^^^^^^^^^^^^[0m
+[1m[31mE         OverflowError: int too large to convert to float[0m
+[1m[31mE         ')[0m
+[1m[31mE       assert 1 == 2[0m
+[1m[31mE        +  where 1 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...2, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[31m[1m________ test_acceptance_receipt_mutation_fails[pinned_window_huge_int] ________[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1243/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1243/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_receipt_mutati2')
+case = 'pinned_window_huge_int', mutate = <function <lambda> at 0x1068ad4e0>
+
+    @pytest.mark.parametrize("case,mutate", RECEIPT_MUTATIONS,
+                             ids=[c for c, _ in RECEIPT_MUTATIONS])
+    def test_acceptance_receipt_mutation_fails(e2e_art, tmp_path, case, mutate):
+        """六轮 P2-1：逐字段单独变异（父收据与独立子报告同步）→ 结构化 FAIL。"""
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=SCHEMA_BOTH)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1043: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...2, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_receipt_mutati2/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema'), must_pass = ()
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('', 'Traceback (most recent call last):[0m
+[1m[31mE           File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_3...2, in _is_num[0m
+[1m[31mE             and math.isfinite(v)[0m
+[1m[31mE                 ^^^^^^^^^^^^^^^^[0m
+[1m[31mE         OverflowError: int too large to convert to float[0m
+[1m[31mE         ')[0m
+[1m[31mE       assert 1 == 2[0m
+[1m[31mE        +  where 1 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...2, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[31m[1m_ test_acceptance_is_num_is_total_for_json_numbers[10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False] _[0m
+
+value = 100000000000000000...0000000000000000000, expected = False
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (True, False),
+            (False, False),
+            (float("nan"), False),
+            (float("inf"), False),
+            (float("-inf"), False),
+            (10**400, False),
+            (-(10**400), False),
+            (7, True),
+            (-2.5, True),
+        ],
+    )
+    def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
+        """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
+>       assert verify_acceptance._is_num(value) is expected
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1062: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+v = 100000000000000000...0000000000000000000
+
+    def _is_num(v) -> bool:
+        """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
+        return isinstance(v, (int, float)) and not isinstance(v, bool) \
+>           and math.isfinite(v)
+[1m[31mE       OverflowError: int too large to convert to float[0m
+
+[1m[31mscripts/verify_302132_backfill_acceptance.py[0m:132: OverflowError
+[31m[1m_ test_acceptance_is_num_is_total_for_json_numbers[-10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False] _[0m
+
+value = -10000000000000000...0000000000000000000, expected = False
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (True, False),
+            (False, False),
+            (float("nan"), False),
+            (float("inf"), False),
+            (float("-inf"), False),
+            (10**400, False),
+            (-(10**400), False),
+            (7, True),
+            (-2.5, True),
+        ],
+    )
+    def test_acceptance_is_num_is_total_for_json_numbers(value, expected):
+        """JSON 数值判定对布尔、非有限数和超大整数都返回 bool，不得抛异常。"""
+>       assert verify_acceptance._is_num(value) is expected
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1062: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+v = -10000000000000000...0000000000000000000
+
+    def _is_num(v) -> bool:
+        """有限数值（JSON 可携带 NaN/Inf；bool 不是数值）。"""
+        return isinstance(v, (int, float)) and not isinstance(v, bool) \
+>           and math.isfinite(v)
+[1m[31mE       OverflowError: int too large to convert to float[0m
+
+[1m[31mscripts/verify_302132_backfill_acceptance.py[0m:132: OverflowError
+[31m[1m____ test_acceptance_rejects_spec_code_not_bound_to_sql_target[apply-only] _____[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1243/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1243/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_rejects_spec_c0')
+wrong_modes = ('apply',)
+must_fail = ('receipt_apply_schema', 'spec_alignment_apply_verify')
+must_pass = ('receipt_verify_schema',)
+
+    @pytest.mark.parametrize(
+        "wrong_modes,must_fail,must_pass",
+        [
+            (("apply",),
+             ("receipt_apply_schema", "spec_alignment_apply_verify"),
+             ("receipt_verify_schema",)),
+            (("verify",),
+             ("receipt_verify_schema", "spec_alignment_apply_verify"),
+             ("receipt_apply_schema",)),
+            (("apply", "verify"),
+             SCHEMA_BOTH,
+             ("spec_alignment_apply_verify",)),
+        ],
+        ids=("apply-only", "verify-only", "both-rounds"),
+    )
+    def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
+            e2e_art, tmp_path, wrong_modes, must_fail, must_pass):
+        """每轮 spec/嵌入 child/外部 child 即使同步伪造，也不能改变 SQL 授权对象。"""
+        def mutate(mode, receipt):
+            if mode in wrong_modes:
+                receipt["spec"]["code"] = OTHER
+                receipt["child_report"]["code"] = OTHER
+    
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1091: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...ut.json'], returncode=2, stdout='{"verdict": "FAIL", "failed": ["spec_alignment_apply_verify"], "n": 37}\n', stderr='')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_rejects_spec_c0/out.json')
+must_fail = ('receipt_apply_schema', 'spec_alignment_apply_verify')
+must_pass = ('receipt_verify_schema',)
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+        assert res.returncode == 2, (res.stdout, res.stderr)
+        assert out.exists(), (res.stdout, res.stderr)
+        verdict = json.loads(out.read_text())
+        assert verdict["verdict"] == "FAIL"
+        for name in must_fail:
+>           assert name in verdict["failed"], verdict["failed"]
+[1m[31mE           AssertionError: ['spec_alignment_apply_verify'][0m
+[1m[31mE           assert 'receipt_apply_schema' in ['spec_alignment_apply_verify'][0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:900: AssertionError
+[31m[1m____ test_acceptance_rejects_spec_code_not_bound_to_sql_target[verify-only] ____[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1243/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1243/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_rejects_spec_c1')
+wrong_modes = ('verify',)
+must_fail = ('receipt_verify_schema', 'spec_alignment_apply_verify')
+must_pass = ('receipt_apply_schema',)
+
+    @pytest.mark.parametrize(
+        "wrong_modes,must_fail,must_pass",
+        [
+            (("apply",),
+             ("receipt_apply_schema", "spec_alignment_apply_verify"),
+             ("receipt_verify_schema",)),
+            (("verify",),
+             ("receipt_verify_schema", "spec_alignment_apply_verify"),
+             ("receipt_apply_schema",)),
+            (("apply", "verify"),
+             SCHEMA_BOTH,
+             ("spec_alignment_apply_verify",)),
+        ],
+        ids=("apply-only", "verify-only", "both-rounds"),
+    )
+    def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
+            e2e_art, tmp_path, wrong_modes, must_fail, must_pass):
+        """每轮 spec/嵌入 child/外部 child 即使同步伪造，也不能改变 SQL 授权对象。"""
+        def mutate(mode, receipt):
+            if mode in wrong_modes:
+                receipt["spec"]["code"] = OTHER
+                receipt["child_report"]["code"] = OTHER
+    
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1091: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-...ut.json'], returncode=2, stdout='{"verdict": "FAIL", "failed": ["spec_alignment_apply_verify"], "n": 37}\n', stderr='')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_rejects_spec_c1/out.json')
+must_fail = ('receipt_verify_schema', 'spec_alignment_apply_verify')
+must_pass = ('receipt_apply_schema',)
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+        assert res.returncode == 2, (res.stdout, res.stderr)
+        assert out.exists(), (res.stdout, res.stderr)
+        verdict = json.loads(out.read_text())
+        assert verdict["verdict"] == "FAIL"
+        for name in must_fail:
+>           assert name in verdict["failed"], verdict["failed"]
+[1m[31mE           AssertionError: ['spec_alignment_apply_verify'][0m
+[1m[31mE           assert 'receipt_verify_schema' in ['spec_alignment_apply_verify'][0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:900: AssertionError
+[31m[1m____ test_acceptance_rejects_spec_code_not_bound_to_sql_target[both-rounds] ____[0m
+
+e2e_art = {'base_sha': '64f22dc590b99c114a94e837dd31b5a76b2325d513fa4eba960f656a16a02a88', 'baseline': PosixPath('/private/tmp/p...1243/e2e3021320/clone.duckdb'), 'pq': PosixPath('/private/tmp/pytest-of-a77/pytest-1243/e2e3021320/tail.parquet'), ...}
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_rejects_spec_c2')
+wrong_modes = ('apply', 'verify')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema')
+must_pass = ('spec_alignment_apply_verify',)
+
+    @pytest.mark.parametrize(
+        "wrong_modes,must_fail,must_pass",
+        [
+            (("apply",),
+             ("receipt_apply_schema", "spec_alignment_apply_verify"),
+             ("receipt_verify_schema",)),
+            (("verify",),
+             ("receipt_verify_schema", "spec_alignment_apply_verify"),
+             ("receipt_apply_schema",)),
+            (("apply", "verify"),
+             SCHEMA_BOTH,
+             ("spec_alignment_apply_verify",)),
+        ],
+        ids=("apply-only", "verify-only", "both-rounds"),
+    )
+    def test_acceptance_rejects_spec_code_not_bound_to_sql_target(
+            e2e_art, tmp_path, wrong_modes, must_fail, must_pass):
+        """每轮 spec/嵌入 child/外部 child 即使同步伪造，也不能改变 SQL 授权对象。"""
+        def mutate(mode, receipt):
+            if mode in wrong_modes:
+                receipt["spec"]["code"] = OTHER
+                receipt["child_report"]["code"] = OTHER
+    
+        clone = _install(tmp_path, e2e_art, mutate)
+        out = tmp_path / "out.json"
+        res = _run_acceptance(clone, e2e_art, out)
+>       _assert_structured_fail(res, out, must_fail=must_fail, must_pass=must_pass)
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:1091: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+res = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._acceptance_rejects_spec_c2/out.json'], returncode=0, stdout='{"verdict": "PASS", "failed": [], "n": 37}\n', stderr='')
+out = PosixPath('/private/tmp/pytest-of-a77/pytest-1243/test_acceptance_rejects_spec_c2/out.json')
+must_fail = ('receipt_apply_schema', 'receipt_verify_schema')
+must_pass = ('spec_alignment_apply_verify',)
+
+    def _assert_structured_fail(res, out: Path, must_fail=(), must_pass=()):
+        """坏产物必红：rc=2 + 结构化 FAIL JSON（非裸异常）；指定检查必红/必绿。"""
+>       assert res.returncode == 2, (res.stdout, res.stderr)
+[1m[31mE       AssertionError: ('{"verdict": "PASS", "failed": [], "n": 37}[0m
+[1m[31mE         ', '')[0m
+[1m[31mE       assert 0 == 2[0m
+[1m[31mE        +  where 0 = CompletedProcess(args=['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/Users/a77/fwp-wt-backfill-..._acceptance_rejects_spec_c2/out.json'], returncode=0, stdout='{"verdict": "PASS", "failed": [], "n": 37}\n', stderr='').returncode[0m
+
+[1m[31mtests/test_repair_backfill_stock_history.py[0m:895: AssertionError
+[36m[1m=========================== short test summary info ============================[0m
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_receipt_mutation_fails[pinned_stock_huge_int][0m - AssertionError: ('', 'Traceback (most recent call last):
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_receipt_mutation_fails[pinned_technical_huge_int][0m - AssertionError: ('', 'Traceback (most recent call last):
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_receipt_mutation_fails[pinned_window_huge_int][0m - AssertionError: ('', 'Traceback (most recent call last):
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_is_num_is_total_for_json_numbers[10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False][0m - OverflowError: int too large to convert to float
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_is_num_is_total_for_json_numbers[-10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000-False][0m - OverflowError: int too large to convert to float
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_rejects_spec_code_not_bound_to_sql_target[apply-only][0m - AssertionError: ['spec_alignment_apply_verify']
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_rejects_spec_code_not_bound_to_sql_target[verify-only][0m - AssertionError: ['spec_alignment_apply_verify']
+[31mFAILED[0m tests/test_repair_backfill_stock_history.py::[1mtest_acceptance_rejects_spec_code_not_bound_to_sql_target[both-rounds][0m - AssertionError: ('{"verdict": "PASS", "failed": [], "n": 37}
+[31m[31m[1m8 failed[0m, [32m8 passed[0m, [33m88 deselected[0m[31m in 1.77s[0m[0m

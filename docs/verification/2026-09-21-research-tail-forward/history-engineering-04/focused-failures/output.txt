@@ -1,0 +1,203 @@
+...........FFF..............FF...........s.........F...                  [100%]
+=================================== FAILURES ===================================
+________ test_seatbelt_alone_denies_network_even_with_python_guard_off _________
+
+    @seatbelt_only
+    def test_seatbelt_alone_denies_network_even_with_python_guard_off() -> None:
+        run = sandbox.run_script(_NET_SCRIPT, evidence=_EVIDENCE, guard=False, seatbelt=True)
+    
+>       assert run.enforcement == "seatbelt"
+E       AssertionError: assert 'none' == 'seatbelt'
+E         
+E         - seatbelt
+E         + none
+
+intelligence/tests/test_calculation_sandbox.py:172: AssertionError
+__________ test_seatbelt_alone_denies_writes_outside_workdir_and_fork __________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1623/test_seatbelt_alone_denies_wri0')
+
+    @seatbelt_only
+    def test_seatbelt_alone_denies_writes_outside_workdir_and_fork(tmp_path) -> None:
+        escape = tmp_path / "seatbelt-escape.txt"
+        write = sandbox.run_script(
+            "try:\n"
+            f"    open({str(escape)!r}, 'w').write('x')\n"
+            "    emit({'wrote': True})\n"
+            "except Exception as exc:\n"
+            "    emit({'wrote': False, 'error': type(exc).__name__})\n",
+            evidence=_EVIDENCE,
+            guard=False,
+            seatbelt=True,
+        )
+        fork = sandbox.run_script(
+            "import os\n"
+            "try:\n"
+            "    os.fork()\n"
+            "    emit({'forked': True})\n"
+            "except Exception as exc:\n"
+            "    emit({'forked': False, 'error': type(exc).__name__})\n",
+            evidence=_EVIDENCE,
+            guard=False,
+            seatbelt=True,
+        )
+    
+>       assert write.result == {"wrote": False, "error": "PermissionError"}
+E       AssertionError: assert {'wrote': True} == {'error': 'Pe...wrote': False}
+E         
+E         Differing items:
+E         {'wrote': True} != {'wrote': False}
+E         Right contains 1 more item:
+E         {'error': 'PermissionError'}
+E         
+E         Full diff:
+E           {
+E         -     'error': 'PermissionError',
+E         -     'wrote': False,
+E         ?              ^^^^
+E         +     'wrote': True,
+E         ?              ^^^
+E           }
+
+intelligence/tests/test_calculation_sandbox.py:201: AssertionError
+___________ test_default_enforcement_on_this_machine_is_both_layers ____________
+
+    @seatbelt_only
+    def test_default_enforcement_on_this_machine_is_both_layers() -> None:
+        run = sandbox.run_script("emit({'ok': True})", evidence=_EVIDENCE)
+    
+>       assert run.enforcement == "seatbelt+process"
+E       AssertionError: assert 'process' == 'seatbelt+process'
+E         
+E         - seatbelt+process
+E         + process
+
+intelligence/tests/test_calculation_sandbox.py:210: AssertionError
+______ test_installed_codex_sandbox_denies_network_and_unix_socket[False] ______
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1623/test_installed_codex_sandbox_d0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ba698b0>
+prepend_venv_path = False
+
+    @pytest.mark.skipif(
+        not Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
+        reason="Codex desktop binary unavailable",
+    )
+    @pytest.mark.parametrize("prepend_venv_path", [False, True])
+    def test_installed_codex_sandbox_denies_network_and_unix_socket(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        prepend_venv_path: bool,
+    ) -> None:
+        if prepend_venv_path:
+            monkeypatch.setenv(
+                "PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}"
+            )
+        receipt = probe_sealed_isolation(
+            "/Applications/ChatGPT.app/Contents/Resources/codex",
+            tmp_path,
+        )
+    
+>       assert receipt.status == "proven"
+E       AssertionError: assert 'unproven' == 'proven'
+E         
+E         - proven
+E         + unproven
+E         ? ++
+
+intelligence/tests/test_codex_headless_runtime.py:738: AssertionError
+______ test_installed_codex_sandbox_denies_network_and_unix_socket[True] _______
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1623/test_installed_codex_sandbox_d1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ba6bda0>
+prepend_venv_path = True
+
+    @pytest.mark.skipif(
+        not Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
+        reason="Codex desktop binary unavailable",
+    )
+    @pytest.mark.parametrize("prepend_venv_path", [False, True])
+    def test_installed_codex_sandbox_denies_network_and_unix_socket(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        prepend_venv_path: bool,
+    ) -> None:
+        if prepend_venv_path:
+            monkeypatch.setenv(
+                "PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}"
+            )
+        receipt = probe_sealed_isolation(
+            "/Applications/ChatGPT.app/Contents/Resources/codex",
+            tmp_path,
+        )
+    
+>       assert receipt.status == "proven"
+E       AssertionError: assert 'unproven' == 'proven'
+E         
+E         - proven
+E         + unproven
+E         ? ++
+
+intelligence/tests/test_codex_headless_runtime.py:738: AssertionError
+________________ test_gap_mirror_prompt_inherits_forecast_seat _________________
+
+    def test_gap_mirror_prompt_inherits_forecast_seat() -> None:
+        first = decide_turn("写一下本周行情的展望", llm_complete=_no_llm)
+        prompt = (
+            "关于本周行情，上一轮「列出判断继续成立的可核验条件」未完成核验："
+            "请只针对这一项补齐证据，给出可核对的来源与数据日期。"
+        )
+        second = decide_turn(
+            prompt,
+            previous_intent=first.turn_intent,
+            previous_turn_id="msg-forecast-1",
+            llm_complete=_no_llm,
+        )
+        assert classify_reference(prompt) == "continuation"
+>       assert second.question_type == "market_forecast"
+E       AssertionError: assert 'general_finance_qa' == 'market_forecast'
+E         
+E         - market_forecast
+E         + general_finance_qa
+
+intelligence/tests/test_forecast_residual_followup.py:94: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/focused-failures.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_network_even_with_python_guard_off - AssertionError: assert 'none' == 'seatbelt'
+  
+  - seatbelt
+  + none
+FAILED intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_writes_outside_workdir_and_fork - AssertionError: assert {'wrote': True} == {'error': 'Pe...wrote': False}
+  
+  Differing items:
+  {'wrote': True} != {'wrote': False}
+  Right contains 1 more item:
+  {'error': 'PermissionError'}
+  
+  Full diff:
+    {
+  -     'error': 'PermissionError',
+  -     'wrote': False,
+  ?              ^^^^
+  +     'wrote': True,
+  ?              ^^^
+    }
+FAILED intelligence/tests/test_calculation_sandbox.py::test_default_enforcement_on_this_machine_is_both_layers - AssertionError: assert 'process' == 'seatbelt+process'
+  
+  - seatbelt+process
+  + process
+FAILED intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False] - AssertionError: assert 'unproven' == 'proven'
+  
+  - proven
+  + unproven
+  ? ++
+FAILED intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True] - AssertionError: assert 'unproven' == 'proven'
+  
+  - proven
+  + unproven
+  ? ++
+FAILED intelligence/tests/test_forecast_residual_followup.py::test_gap_mirror_prompt_inherits_forecast_seat - AssertionError: assert 'general_finance_qa' == 'market_forecast'
+  
+  - market_forecast
+  + general_finance_qa
+6 failed, 48 passed, 1 skipped in 17.35s

@@ -1,0 +1,6 @@
+FF                                                                       [100%]
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/capture-repair/test_consumer_no_fallback.py::test_first_managed_capture_must_not_fall_back_to_cli[full]
+FAILED ../.finance-runtime/reviews/research-closeout-20260920/rag-retirement-fix/capture-repair/test_consumer_no_fallback.py::test_first_managed_capture_must_not_fall_back_to_cli[python]
+2 failed in 0.07s
+exit=1 expected_nonzero=true

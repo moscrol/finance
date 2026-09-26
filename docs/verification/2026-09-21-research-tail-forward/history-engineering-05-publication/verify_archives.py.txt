@@ -1,0 +1,57 @@
+"""Verify committed archive objects and copied/chunked originals before publication."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+DOCS = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+OUT = Path(__file__).resolve().parent
+REV = '57f187de9c89f528bb79fdd8928c4a862b27fa60'
+ROOT = 'docs/verification/2026-09-21-research-tail-forward'
+sys.path.insert(0, str(DOCS / 'scripts'))
+from check_evidence_archive import check_archive
+
+
+def blob(path):
+    return subprocess.check_output(['git', '-C', str(DOCS), 'show', REV + ':' + path], timeout=30)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def main():
+    manifests = sorted((DOCS / ROOT).glob('*/sha256-manifest.txt'))
+    results = [check_archive(DOCS, p.parent.relative_to(DOCS).as_posix(), REV) for p in manifests]
+    assert len(results) == 8 and all(r['ok'] for r in results)
+    originals = []
+    for name, expected in (('history-engineering-04', 210), ('history-engineering-resume-05', 44)):
+        sources = json.loads(blob(ROOT + '/' + name + '/sources.json'))
+        assert len(sources['files']) == expected
+        for item in sources['files']:
+            data = blob(item['target'])
+            assert sha(data) == item['sha256'] and data == Path(item['source']).read_bytes()
+        chunks = sources.get('lossless_chunks', [])
+        for item in chunks:
+            data = b''.join(blob(part['target']) for part in item['parts'])
+            assert sha(data) == item['sha256'] and len(data) == item['bytes']
+            assert data == Path(item['source']).read_bytes()
+        originals.append({'archive': name, 'whole_originals_matching': expected, 'chunked_originals_matching': len(chunks)})
+    previous = '28bbf474b11ab30928bbf16687d3fb946c885956'
+    for p in manifests:
+        if p.parent.name == 'history-engineering-resume-05':
+            continue
+        subprocess.run(['git','-C',str(DOCS),'diff','--exit-code',previous,REV,'--',p.parent.relative_to(DOCS).as_posix()],check=True,timeout=20)
+    data = {'recorded_at': datetime.now(timezone.utc).isoformat(), 'archive_revision': REV,
+            'archives': results, 'originals': originals, 'old_seven_unchanged_from': previous,
+            'total_manifest_members': sum(r['manifest_files'] for r in results)}
+    with (OUT / 'archive-check.json').open('x') as stream:
+        json.dump(data, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

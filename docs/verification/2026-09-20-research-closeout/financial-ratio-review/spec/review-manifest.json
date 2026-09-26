@@ -1,0 +1,54 @@
+{
+  "reviewed_at_utc": "2026-09-20T04:01:03.644910+00:00",
+  "verdict": "spec_fail",
+  "candidate_root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "final_head": "7149e236576bdda5463407cf67f11095d7940dd2",
+  "final_status_porcelain": "",
+  "code_sha256": {
+    "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+    "intelligence/services/research_delivery_checks.py": "5f9f101b337ae11a7584d10a7fd6c38648fab7716574ad12ecf47e30302fb19c",
+    "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+    "intelligence/tests/test_research_delivery_checks.py": "9c8696ccd9e29b0a2fc24e193662fec42c4729c3424e84f205c530e6ea735750",
+    "intelligence/tests/test_financial_delivery_integration.py": "b897567fd9c135099b9db938e54d0619af969043aed51c9f98fedbd3fe960829"
+  },
+  "author_code_hashes_match": true,
+  "review_artifact_sha256": {
+    "probe_ratio_label_scope.py": "8030d56f6f421aaa00192aa78db6962a3f9f7a4b207495aaf9a01b14a30461f7",
+    "probe_ratio_spec.py": "528da29e627d69f8ca9e584da4471ba0068313a82821a76d13b451d5aaca0fc1",
+    "original-probe-result.json": "8666a4ce950cb2fc8d792e9a70f480bd503ff8a62a456a0641cd55d241803fe1",
+    "label-scope-result.json": "58fd9b5be2995eddfa1a868f2e85a136690a85df23dc7c753b41ae7c9dfc3c16",
+    "independent-probe-result.json": "1483f41e7a796ee396ce913caeeb9d566f76ad9d38f97b16553a63cb6a69532c",
+    "REVIEW.md": "a9961e1849f5b9bed789017649d0c7439125b9b6fafd3640bca1c6a9a2fe1195",
+    "selected-pytest.log": "d403f343c6f61c39ad35deff262de7037482637eba499e9d896ade14d3f6ce5f"
+  },
+  "runs": [
+    {
+      "type": "pytest",
+      "log": "selected-pytest.log",
+      "passed": 134,
+      "deselected": 92,
+      "exit_status": 0,
+      "command": "FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/spec/pytest-tmp intelligence/tests/test_financial_r6_regressions.py intelligence/tests/test_research_delivery_checks.py intelligence/tests/test_financial_delivery_integration.py -k \"ratio or product or financial_contradiction or correct_rounding\""
+    },
+    {
+      "type": "independent_diagnostic_checks",
+      "artifact": "independent-probe-result.json",
+      "passed": 102,
+      "failed": 0,
+      "script_exit_status": 0
+    },
+    {
+      "type": "independent_real_exit_diagnostic_checks",
+      "artifact": "label-scope-result.json",
+      "passed": 6,
+      "failed": 6,
+      "ungraded_scope_diagnostics": 4,
+      "script_exit_status": 0
+    }
+  ],
+  "candidate_changed": false,
+  "production_changed": false,
+  "live_model_calls": 0,
+  "full_suite_run": false,
+  "merged": false
+}

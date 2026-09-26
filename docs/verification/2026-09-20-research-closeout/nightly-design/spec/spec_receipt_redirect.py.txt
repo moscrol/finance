@@ -1,0 +1,18 @@
+"""Keep pytest's normal environment gate, but isolate its receipt and deny sockets."""
+from pathlib import Path
+import socket
+import sys
+
+
+def pytest_sessionstart(session):
+    out = Path(__file__).resolve().parent / "pytest-receipts"
+    out.mkdir(exist_ok=True)
+    for module in list(sys.modules.values()):
+        if module is not None and hasattr(module, "_RECEIPT_DIR"):
+            module._RECEIPT_DIR = out
+
+    def deny_network(*args, **kwargs):
+        raise AssertionError("Spec review: real network is forbidden")
+
+    socket.socket.connect = deny_network
+    socket.create_connection = deny_network

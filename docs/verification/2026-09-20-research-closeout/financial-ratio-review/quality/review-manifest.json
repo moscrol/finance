@@ -1,0 +1,73 @@
+{
+  "assessment": "Pass; no new actionable quality findings",
+  "recorded_at_utc": "2026-09-20T04:17:59.554865+00:00",
+  "root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "base": "d8d6196baebdb1108a81ae01466e9df6397dc4fc",
+  "first_tool_observation": {
+    "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+    "status": "",
+    "branch": "fix/financial-ratio-units-0920"
+  },
+  "before_probe": {
+    "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+    "status": "",
+    "source_hashes": {
+      "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+      "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+      "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+      "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+      "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+    }
+  },
+  "after_probe": {
+    "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+    "status": "",
+    "source_hashes": {
+      "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+      "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+      "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+      "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+      "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+    }
+  },
+  "final_identity": {
+    "sha": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+    "status": "",
+    "source_hashes": {
+      "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+      "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+      "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+      "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+      "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+    }
+  },
+  "checks": [
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/quality/probe_quality.py --root /Users/a77/fwp-wt-financial-ratio-units-0920",
+      "cwd": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/quality",
+      "exit_code": 0,
+      "behavior_checks": 19,
+      "identity_checks": 1,
+      "failed": 0,
+      "artifact": "probe-quality-result.json"
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check --no-cache intelligence/services/financial_claim_checks.py intelligence/services/research_delivery_checks.py intelligence/tests/test_financial_r6_regressions.py intelligence/tests/test_research_delivery_checks.py intelligence/tests/test_financial_delivery_integration.py",
+      "cwd": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+      "exit_code": 0,
+      "artifact": "ruff.log"
+    },
+    {
+      "command": "git diff --check d8d6196baebdb1108a81ae01466e9df6397dc4fc..d2fc872b",
+      "cwd": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+      "exit_code": 0
+    }
+  ],
+  "limits": "Quality of this patch only; no full test rerun, Spec denominator aggregation, new scope verdict, real-model calls, production access, push, merge, or candidate edits.",
+  "evidence_hashes": {
+    "REVIEW.md": "3b6b04e3ff094321618183593979eb75e3df0c8c8e5d831e241fe349dcc534b3",
+    "probe_quality.py": "cbb8cf2daddbebf875144e24e8480e5e1aeee5dfb38585c81335cb497aaa9791",
+    "probe-quality-result.json": "4aed81829a73926b79ba43d60c80629ba86db9745acac1fc039493e8242a1cf8",
+    "ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  }
+}

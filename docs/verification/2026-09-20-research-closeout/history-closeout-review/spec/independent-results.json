@@ -1,0 +1,166 @@
+{
+  "history_parent_pair_and_boundaries": {
+    "status": "PASS",
+    "details": {
+      "bindings": [
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "ebc8329a0413a05b8684fe564759a16acd03493926963d463408b25f0f3465d8",
+          "source_reference": {
+            "result_ref": "run_20260920_132055_707294/history-query-66c424aeed2ca3d3aee43aadb0b864d8fdbfe85f71afbb13bab41e74056b53b0.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "extended_observation",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-22",
+          "source_query_id": "aa2bde364dc698a3a05163ea0d135a0d2a143c44960ef59681e5654448cfdf08",
+          "source_reference": {
+            "result_ref": "run_20260920_132055_686361/history-query-cf8f5448879d2126da2112faff894a118b64b65777f5d025a2d3c3046c6c2f24.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "ebc8329a0413a05b8684fe564759a16acd03493926963d463408b25f0f3465d8",
+          "source_reference": {
+            "result_ref": "run_20260920_132055_707294/history-query-66c424aeed2ca3d3aee43aadb0b864d8fdbfe85f71afbb13bab41e74056b53b0.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        }
+      ],
+      "rejected": {
+        "different_observation": "history_window_observation_conflict: trace comparisons in this turn must use the same observation endpoint",
+        "earlier_start": "history_window_mismatch: start/end must equal the selected saved window; do not shorten or replace it after overflow. Only an explicitly authorized trace may extend end",
+        "outside_scope": "historical_window_outside_authorized_scope: 用户明确限定了研究日期",
+        "undelivered_parent": "history_window_source_not_read: first read_history_result on the referenced original in this turn",
+        "unauthorized_extension": "history_window_mismatch: start/end must equal the selected saved window; do not shorten or replace it after overflow. Only an explicitly authorized trace may extend end"
+      },
+      "synthetic_db_unchanged": true,
+      "source_artifact_unchanged": true,
+      "read_then_retry": "success"
+    }
+  },
+  "history_concurrent_mixed_parents": {
+    "status": "PASS",
+    "details": {
+      "both_published": true,
+      "db_reads": [
+        "sector",
+        "stock"
+      ],
+      "bindings": [
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "extended_observation",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-22",
+          "source_query_id": "9bf302cb8b72361c79f92844a01d0d86076244ec8e01c37689da84f6cb28db77",
+          "source_reference": {
+            "result_ref": "run_20260920_132055_866174/history-query-e5bc1d1d18c040cba002e08670a97c0b4abd7f76f5e5af6a9dea2b7071d773ee.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "46e5f9ae91560218d142ce2342b85783624b1297ff0ee1f15c822a8ad545a2e7",
+          "source_reference": {
+            "result_ref": "run_20260920_132055_887695/history-query-afa8673120adec328540dc29b5a8655b90c303d39cd8d0d8a030e468296262cd.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        }
+      ]
+    }
+  },
+  "history_other_root_and_forged_ranking": {
+    "status": "PASS",
+    "details": {
+      "rejected": {
+        "other_legitimate_root": "history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window",
+        "ranking_start": "history_window_binding_invalid: saved lineage does not match the source original",
+        "ranking_end": "history_window_binding_invalid: saved lineage does not match the source original",
+        "root_query_id": "history_window_binding_invalid: saved lineage does not match the source original",
+        "root_sample_id": "history_window_binding_invalid: saved lineage does not match the source original"
+      },
+      "forged_parent_db_reads": 0,
+      "legitimate_other_root_saved": true
+    }
+  },
+  "graph_alias_bound_and_failure_pair": {
+    "status": "PASS",
+    "details": {
+      "alias_calls": [
+        [
+          "search",
+          "review-command second-name"
+        ],
+        [
+          "search",
+          "review_command second_name"
+        ]
+      ],
+      "returned_count": 20,
+      "ordinary_query_calls": [
+        [
+          "search",
+          "rank_history"
+        ]
+      ],
+      "missing_vs_unavailable": [
+        {
+          "state": "missing",
+          "reason": null,
+          "hits": []
+        },
+        {
+          "state": "unavailable",
+          "reason": "uvx_missing",
+          "hits": []
+        }
+      ],
+      "doors_and_narrative_independent": true,
+      "backend_failures": {
+        "nonzero_exit": "search_failed",
+        "blank_stdout": "empty_response",
+        "invalid_json": "invalid_response",
+        "missing_results": "invalid_response"
+      }
+    }
+  }
+}

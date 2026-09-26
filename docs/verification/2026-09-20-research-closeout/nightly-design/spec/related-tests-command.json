@@ -1,0 +1,34 @@
+{
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "-p",
+    "spec_receipt_redirect",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/pytest-tmp",
+    "tests/test_recover_local_review.py",
+    "tests/test_index_local_fallback_boundary.py",
+    "tests/test_backfill_sina_resume.py",
+    "tests/test_tiered_sync_local.py::test_refresh_completed_members_after_base_quote_repair",
+    "tests/test_market_feature_store_staging_swap.py::test_receipt_row_present_after_swap",
+    "tests/test_market_feature_store_staging_swap.py::test_crash_without_status_json_does_not_swap",
+    "tests/test_market_feature_store_staging_swap.py::test_sigkill_during_staging_leaves_production_bytes_unchanged",
+    "tests/test_market_feature_store_staging_swap.py::test_pre_swap_backup_created_with_fingerprint_and_receipt",
+    "tests/test_market_feature_store_staging_swap.py::test_stale_status_from_previous_round_does_not_swap",
+    "tests/test_market_feature_store_staging_swap.py::test_status_run_id_mismatch_refused",
+    "tests/test_market_feature_store_staging_swap.py::test_run_mutex_refuses_second_round_before_any_cleanup"
+  ],
+  "cwd": "/Users/a77/fwp-wt-nightly-review-0917",
+  "exit_code": 0,
+  "elapsed_s": 1.405160125112161,
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec:/Users/a77/fwp-wt-nightly-review-0917",
+    "GIT_OPTIONAL_LOCKS": "0"
+  },
+  "note": "Candidate conftest remains active; custom plugin redirects receipt only and denies sockets."
+}

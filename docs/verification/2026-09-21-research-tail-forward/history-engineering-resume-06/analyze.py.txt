@@ -1,0 +1,140 @@
+"""Reconcile the predeclared partition, phase evidence and JUnit, fail closed."""
+from collections import Counter, defaultdict
+import ast
+import hashlib
+import json
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+from run import OUT, SHA, ident, save
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def group(name, identity):
+    folder = OUT / name
+    result = load(folder / 'result.json')
+    session = load(folder / 'session.json')
+    collection = load(folder / 'collection.json')
+    assert result['before'] == result['after'] == identity
+    assert result['exit_code'] == session['exit_status'] == session['testsfailed'] == 0
+    assert result['stop_reason'] is None and not result['signals']
+    assert result['log_sha256'] == digest(folder / 'pytest.log')
+    assert result['outer_sandbox'] == (name == 'ordinary')
+    assert collection['mode'] == name
+    sets = {}
+    for field in ('collected', 'selected', 'deselected'):
+        sets[field] = set(collection[field])
+        assert len(sets[field]) == len(collection[field]), (name, field, 'duplicates')
+    assert not sets['selected'] & sets['deselected']
+    assert sets['selected'] | sets['deselected'] == sets['collected']
+    assert len(sets['selected']) == session['testscollected']
+    reports = defaultdict(list)
+    with (folder / 'reports.jsonl').open() as stream:
+        for line in stream:
+            report = json.loads(line)
+            reports[report['nodeid']].append(report)
+    assert set(reports) == sets['selected'], 'Missing or extra executed IDs'
+    outcomes = Counter()
+    for nodeid, phases in reports.items():
+        by_phase = {p['when']: p for p in phases}
+        assert len(phases) == len(by_phase), (nodeid, 'duplicate phases')
+        assert {'setup', 'teardown'} <= set(by_phase) <= {'setup', 'call', 'teardown'}
+        assert by_phase['teardown']['outcome'] == 'passed', nodeid
+        setup = by_phase['setup']['outcome']
+        assert setup in {'passed', 'skipped'}, nodeid
+        assert ('call' in by_phase) == (setup == 'passed'), nodeid
+        final = by_phase.get('call', by_phase['setup'])
+        assert final['outcome'] in {'passed', 'skipped'}, nodeid
+        if final.get('wasxfail') is not None:
+            assert final['outcome'] == 'skipped', ('Unexpected XPASS', nodeid)
+            outcomes['xfailed'] += 1
+        else:
+            outcomes[final['outcome']] += 1
+    suites = list(ET.parse(folder / 'junit.xml').iter('testsuite'))
+    assert len(suites) == 1
+    suite = suites[0].attrib
+    assert int(suite['errors']) == int(suite['failures']) == 0
+    assert int(suite['tests']) == len(sets['selected']) == sum(outcomes.values())
+    assert int(suite['skipped']) == outcomes['skipped'] + outcomes['xfailed']
+    assert len(list(suites[0].iter('testcase'))) == int(suite['tests'])
+    assert not (folder / 'collection-errors.jsonl').exists()
+    return {'outcomes': dict(outcomes), 'selected_count': len(sets['selected']),
+            'collected_count': len(sets['collected']), 'exit_code': result['exit_code'],
+            'elapsed_seconds': result['elapsed_seconds'], 'junit_suite': suite}, sets, result
+
+
+def outcome_ids(paths):
+    results = defaultdict(set)
+    for path in paths:
+        for line in path.read_text().splitlines():
+            report = json.loads(line)
+            if report['when'] == 'call' or (report['when'] == 'setup' and report['outcome'] == 'skipped'):
+                outcome = 'xfailed' if report.get('wasxfail') is not None else report['outcome']
+                results[outcome].add(report['nodeid'])
+    return results
+
+
+def main():
+    plan = load(OUT / 'plan.json')
+    complete = load(OUT / 'complete.json')
+    identity = ident()
+    assert identity['head'] == SHA and not identity['status']
+    assert plan['identity'] == complete['before'] == complete['after'] == identity
+    assert plan['source_revision'] == complete['source_sha'] == SHA
+    assert plan['runner_sha256'] == complete['runner_sha256'] == digest(OUT / 'run.py')
+    assert plan['plugin_sha256'] == complete['plugin_sha256'] == digest(OUT / 'coverage_plugin7.py')
+    assert [r['mode'] for r in complete['results']] == ['environmental', 'ordinary']
+    assert complete['results'][0]['finished_at'] < complete['results'][1]['started_at']
+    plugin = ast.parse((OUT / 'coverage_plugin7.py').read_text())
+    declared = next(ast.literal_eval(node.value.args[0]) for node in plugin.body
+                    if isinstance(node, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == 'ENVIRONMENTAL' for t in node.targets))
+    ordinary, oc, ore = group('ordinary', identity)
+    environmental, ec, ere = group('environmental', identity)
+    assert complete['results'] == [ere, ore]
+    assert all(r['plugin_sha256'] == plan['plugin_sha256'] for r in (ere, ore))
+    assert len(declared) == 7 and ec['selected'] == declared == oc['deselected']
+    assert not oc['selected'] & ec['selected']
+    assert oc['selected'] | ec['selected'] == oc['collected']
+    assert ec['collected'] <= oc['collected']
+    previous_path = OUT.parent / 'history-engineering-resume-05/ordinary/collection.json'
+    previous = load(previous_path)
+    assert set(previous['collected']) == oc['collected'], 'Collection changed on frozen SHA'
+    totals = Counter(ordinary['outcomes']) + Counter(environmental['outcomes'])
+    prior_root = previous_path.parents[1]
+    old_outcomes = outcome_ids([prior_root / name / 'reports.jsonl' for name in ('ordinary', 'native')])
+    new_outcomes = outcome_ids([OUT / name / 'reports.jsonl' for name in ('ordinary', 'environmental')])
+    assert old_outcomes['skipped'] == new_outcomes['skipped']
+    assert old_outcomes['xfailed'] == new_outcomes['xfailed']
+    assert new_outcomes['passed'] == old_outcomes['passed'] | old_outcomes['failed']
+    assert not new_outcomes['failed']
+    summary = {
+        'source_revision': SHA, 'identity': identity,
+        'python': {'ordinary': ordinary, 'environmental': environmental,
+                   'full_collected_test_ids': len(oc['collected']), 'union_complete': True,
+                   'overlap': 0, 'missing': 0, 'outcomes': dict(totals), 'failed_test_ids': [],
+                   'environmental_ids': sorted(declared),
+                   'collection_matches_05': True, 'skip_and_xfail_ids_match_05': True,
+                   'newly_passing_ids_vs_05': sorted(new_outcomes['passed'] - old_outcomes['passed']),
+                   'previous_collection_source': str(previous_path),
+                   'previous_collection_sha256': digest(previous_path),
+                   'status': 'COMPLETE_PREDECLARED_PARTITION_PASSED',
+                   'note': 'Two predeclared disjoint groups on one clean SHA; not a single unsplit pytest invocation and not an official #814 receipt. Attempt 05 remains unchanged.'},
+        'e2e': 'NOT_RERUN_IN_06; same SHA has 34P/2S in 05; no result transplantation',
+        'engineering': 'Full collected Python test coverage passed in the predeclared seven-ID environmental partition.',
+        'overall': 'CHANGES_REQUIRED / NOT_ACCEPTED', 'official_814_receipt': False,
+        'independent_review': 'NOT_RESTARTED', 'natural_history_four_questions': 'NOT_RERUN',
+        'merge_deploy_production': 'NOT_PERFORMED'}
+    save(OUT / 'summary.json', summary)
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

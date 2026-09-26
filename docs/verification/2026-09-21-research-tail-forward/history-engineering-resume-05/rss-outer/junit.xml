@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.722" timestamp="2026-09-22T02:21:49.841506+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_rag_worker_keepalive" name="test_status_exposes_rss_and_idle" time="0.269"><failure message="assert (False)&#10; +  where False = isinstance(None, int)">intelligence/tests/test_rag_worker_keepalive.py:183: in test_status_exposes_rss_and_idle
+    assert isinstance(after["rss_bytes"], int) and after["rss_bytes"] &gt; 0
+E   assert (False)
+E    +  where False = isinstance(None, int)</failure></testcase><testcase classname="intelligence.tests.test_rag_worker_keepalive" name="test_module_status_aggregates_rss_idle_and_keepalive_counters" time="0.229"><failure message="assert (False)&#10; +  where False = isinstance(None, int)">intelligence/tests/test_rag_worker_keepalive.py:209: in test_module_status_aggregates_rss_idle_and_keepalive_counters
+    assert isinstance(payload["rss_bytes"], int) and payload["rss_bytes"] &gt; 0
+E   assert (False)
+E    +  where False = isinstance(None, int)</failure></testcase></testsuite></testsuites>

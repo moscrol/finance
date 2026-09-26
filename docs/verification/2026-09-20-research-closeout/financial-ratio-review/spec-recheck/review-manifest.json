@@ -1,0 +1,55 @@
+{
+  "reviewed_at_utc": "2026-09-20T04:10:46.289424+00:00",
+  "verdict": "spec_pass",
+  "candidate_root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "initial_head": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+  "final_head": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+  "final_status_porcelain": "",
+  "code_sha256": {
+    "intelligence/services/financial_claim_checks.py": "5289416592a4c2f318785de7da12bd0545de300348d5cf4634ee87b5e9a14682",
+    "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+    "intelligence/tests/test_financial_r6_regressions.py": "0b6f5a537d5e49d0e8b0fbfe2b360ae2790baed4f9cf9e4f508ef309c9b6413c",
+    "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+    "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+  },
+  "author_code_hashes_match": true,
+  "first_review_artifacts_unchanged": true,
+  "review_artifact_sha256": {
+    "prefix-pytest.log": "19bf69e204fa193e5b7948064d996612f75ac03b99335196832028c8f5b2a7ea",
+    "initial-identity.json": "49234bf3558d7943122387f545c9b43094315dd7985c1b101a328b5ddc22cbf0",
+    "label-scope-result.json": "56b936755572fcc9881db62c145f53c232eeebf1e73ed71545c2fb919a21ea30",
+    "independent-probe-result.json": "015516741fb5ee397b44456696ffebed958fbfc0f10593844ee395a1df9d0dd4",
+    "REVIEW.md": "205286b7f11f846f5a67b6f8a7805cc6286b0fd04060fb5fdad00e9c9dc5dd2e"
+  },
+  "runs": [
+    {
+      "type": "first_review_probe_replay",
+      "artifact": "label-scope-result.json",
+      "passed": 12,
+      "failed": 0,
+      "ungraded_scope_diagnostics": 4,
+      "scope_diagnostics_unchanged": true,
+      "script_exit_status": 0
+    },
+    {
+      "type": "independent_main_matrix_replay",
+      "artifact": "independent-probe-result.json",
+      "passed": 102,
+      "failed": 0,
+      "script_exit_status": 0
+    },
+    {
+      "type": "pytest",
+      "log": "prefix-pytest.log",
+      "passed": 29,
+      "deselected": 105,
+      "exit_status": 0,
+      "command": "FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/research-closeout-20260920/financial-ratio-review/spec-recheck/pytest-tmp intelligence/tests/test_research_delivery_checks.py intelligence/tests/test_financial_delivery_integration.py -k \"ratio_prefix_unit\""
+    }
+  ],
+  "candidate_changed": false,
+  "production_changed": false,
+  "live_model_calls": 0,
+  "full_suite_run": false,
+  "merged": false
+}

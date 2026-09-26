@@ -1,0 +1,17 @@
+{
+  "pid": 79558,
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/fwp-wt-research-tail-integration-0921/scripts/run_frontend_gate.py",
+    "--tree",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend",
+    "--expect-revision",
+    "ea5c3a94618a15e37f914c8b1a13e271875e4337",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates",
+    "--workbench-port",
+    "19321",
+    "--re06-port",
+    "19324"
+  ]
+}

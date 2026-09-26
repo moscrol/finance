@@ -1,0 +1,36 @@
+Reading additional input from stdin...
+OpenAI Codex v0.155.0-alpha.9.2
+--------
+workdir: /Users/a77/fwp-wt-research-tail-integration-0921
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: none
+session id: 01a0c35d-7616-7212-854f-4da604d3e395
+--------
+user
+只运行 git rev-parse HEAD 并报告结果。命令工具若失败就停止，不使用任何MCP或其他通道。
+warning: Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.
+  user (/Users/a77/.codex/config.toml): `mcp_servers.burpsuite.model_instructions_file` is ignored.
+warning: Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.
+  user (/Users/a77/.codex/config.toml): `mcp_servers.burpsuite.model_instructions_file` is ignored.
+warning: failed to parse hooks config /Users/a77/finance-workspace-private/.codex/hooks.json: unknown field `_why_portable_hooks`, expected `description` or `hooks` at line 2 column 23
+warning: Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+codex
+我只运行 `git rev-parse HEAD`。
+exec
+/bin/zsh -lc 'git rev-parse HEAD' in /Users/a77/fwp-wt-research-tail-integration-0921
+ succeeded in 0ms:
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-uukLsrPn' (errno=Operation not permitted)
+git: warning: confstr() failed with code 5: couldn't get path of DARWIN_USER_TEMP_DIR; using /tmp instead
+git: error: couldn't create cache file '/tmp/xcrun_db-vM9oGKGi' (errno=Operation not permitted)
+ea5c3a94618a15e37f914c8b1a13e271875e4337
+
+codex
+ea5c3a94618a15e37f914c8b1a13e271875e4337
+tokens used
+20,083
+ea5c3a94618a15e37f914c8b1a13e271875e4337

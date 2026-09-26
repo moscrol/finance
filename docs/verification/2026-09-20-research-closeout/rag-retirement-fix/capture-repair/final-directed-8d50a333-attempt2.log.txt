@@ -1,0 +1,7 @@
+HEAD 8d50a333c03bbd020c6f76885455e8c62385b560
+FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+........................................................................ [ 60%]
+................................................                         [100%]
+120 passed in 5.32s
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check intelligence/services/rag_generation_identity.py intelligence/services/rag_worker.py intelligence/services/kb_rag.py intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+All checks passed!

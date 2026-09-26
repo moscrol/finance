@@ -1,0 +1,18 @@
+{
+  "stage": "registry-tables",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/build_registry.py",
+    "backfill-tables",
+    "--check"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+  "started_at": "2026-09-21T16:53:46.263253+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 3442028544
+  },
+  "timeout_seconds": 90
+}
