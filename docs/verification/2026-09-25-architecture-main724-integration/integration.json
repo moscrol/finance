@@ -1,0 +1,21 @@
+{
+  "candidate_revision": "bb556febd41fed492bdd9d2c10ac95075f9d6726",
+  "main_revision": "72402839075e3eefdee7b185db015a0545096b22",
+  "merge_parents": [
+    "8e1d6fc28a2d96bf2015b1be965802c5f7c6385e",
+    "72402839075e3eefdee7b185db015a0545096b22"
+  ],
+  "main_delta_paths": [
+    "docs/handoffs/2026-09-25-l6-batch2-and-judge-effort.md",
+    "docs/handoffs/2026-09-25-l6-postmerge-result.md",
+    "docs/handoffs/inflight/feat-adaptive-research-loop.md",
+    "docs/superpowers/specs/2026-09-01-workorders-INDEX.md",
+    "intelligence/api/app.py",
+    "intelligence/services/llm_refine.py",
+    "intelligence/tests/test_llm_refine_tool_stream.py",
+    "intelligence/tests/test_workbench_api.py"
+  ],
+  "data_quality_trigger_paths": [],
+  "no_product_configuration_enabled": true,
+  "production_touched": false
+}

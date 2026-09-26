@@ -1,0 +1,41 @@
+{
+  "revision": "bb556febd41fed492bdd9d2c10ac95075f9d6726",
+  "dirty": false,
+  "observed_at": "2026-09-25T11:11:05.740674+00:00",
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "72402839075e3eefdee7b185db015a0545096b22",
+        "bb556febd41fed492bdd9d2c10ac95075f9d6726",
+        "--",
+        "*.py",
+        "*.md",
+        "*.json",
+        "*.yml"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "wait_samples": 41,
+  "first_sample": "2026-09-25T10:48:07.466848+00:00",
+  "last_sample": "2026-09-25T11:08:09.696450+00:00",
+  "minimum_observed_free_bytes": 45968220160,
+  "four_leaves_started": false,
+  "pytest_started": false,
+  "controller_exited": true
+}

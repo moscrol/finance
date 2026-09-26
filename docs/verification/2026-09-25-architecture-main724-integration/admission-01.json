@@ -1,0 +1,25 @@
+{
+  "admitted": false,
+  "foreign_pytest": [
+    {
+      "pid": 56350,
+      "pgid": 56318,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/pytest.xml --durations=20"
+    },
+    {
+      "pid": 68145,
+      "pgid": 68113,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr932-numeric-preflight-gates-0925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr932-numeric-preflight-gates-0925/junit.xml -rfE"
+    },
+    {
+      "pid": 79380,
+      "pgid": 79305,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/sector-timeline-units-counts-20260925/basetemp"
+    }
+  ],
+  "disk_free_bytes": 50278318080,
+  "minimum_free_bytes": 12884901888,
+  "excluded_groups": [],
+  "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+  "observed_at": "2026-09-25T10:46:49.138390+00:00"
+}

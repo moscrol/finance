@@ -1426,6 +1426,57 @@ def test_continuous_turn_injects_selected_perspective_and_headers_answer(
     assert answer_artifact.startswith("当前视角：测试老师")
 
 
+@pytest.mark.parametrize("mode", ["single", "neutral"])
+def test_perspective_reaches_first_glm_callback_from_orchestrator(tmp_path, monkeypatch, mode):
+    import socket
+
+    from scripts.perspective_request_capture import RequestCapture, RequestCaptured
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Offline orchestration probe must not call a provider or network")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    for uid, marker in (("alice", "ALICE_PRIVATE_LENS"), ("bob", "BOB_PRIVATE_LENS")):
+        us = userspace.user_space(uid)
+        perspective_lab.init_perspective(us, "teacher", display_name=marker, ptype="blogger")
+        profile = perspective_lab.load_profile(us, "teacher")
+        profile["risk_triggers"] = [marker]
+        perspective_lab.profile_path(us, "teacher").write_text(json.dumps(profile), encoding="utf-8")
+    query = "目前市场结构如何"
+    (
+        conversation_store, run_store, conversation, run_id, assistant_message_id,
+        _frame, _intent, controller,
+    ) = _continuous_forecast_fixture(tmp_path, query)
+    capture = RequestCapture()
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path, conversation_store=conversation_store, run_store=run_store,
+        answer_query_fn=forbidden, route_skills_fn=forbidden, lane_answer_fn=forbidden,
+        turn_controller_fn=controller, continuous_turn_adapter=capture.adapter(),
+    )
+    with pytest.raises(RequestCaptured):
+        orchestrator.run_turn(
+            conversation_id=conversation.conversation_id, run_id=run_id,
+            assistant_message_id=assistant_message_id, query=query,
+            skill_mode="auto", selected_skill_ids=[], perspective_mode=mode,
+            selected_perspective_ids=["teacher"],
+        )
+    payload = capture.payload()
+    if mode == "single":
+        expected = perspective_lab.active_runtime_prompt(
+            userspace.user_space("alice"), mode=mode, perspective_ids=["teacher"], query=query,
+        )
+        assert payload["perspective_context"] == expected
+        assert "ALICE_PRIVATE_LENS" in payload["perspective_context"]
+        assert payload["perspective_context_rule"]
+    else:
+        assert "perspective_context" not in payload
+        assert "perspective_context_rule" not in payload
+        assert "ALICE_PRIVATE_LENS" not in json.dumps(capture.messages)
+    assert "BOB_PRIVATE_LENS" not in json.dumps(capture.messages)
+    assert not (run_store.run_dir(run_id) / "answer.md").exists()
+
+
 def test_stance_pack_reaches_handle_control_before_engine_a(
     tmp_path,
     monkeypatch,

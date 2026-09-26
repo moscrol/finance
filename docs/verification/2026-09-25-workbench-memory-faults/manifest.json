@@ -1,0 +1,39 @@
+{
+  "candidate_revision": "c367aa2a702e3a40bf826982c4e936a3f50b3f14",
+  "pytest_started": false,
+  "pytest_status": "BLOCKED",
+  "pytest_blocker": "foreign_pytest_present",
+  "ruff_exit_code": 0,
+  "full_gate_executed": false,
+  "artifacts_scope": "resource observations, filtered HTTP health summaries, static check and text-merge preflight; no test receipt",
+  "files": {
+    "admission-01.json": {
+      "bytes": 1386,
+      "sha256": "3763ac2426c74e4d7e961426ed3f2bc3eae496f25ee52ef11e5e0327cf4827cd"
+    },
+    "admission-02.jsonl": {
+      "bytes": 2564,
+      "sha256": "97a3e7da814c22e0f66be6a8eee2bfbf062e005fd57279260156d34ffbe72040"
+    },
+    "admission-03.jsonl": {
+      "bytes": 2564,
+      "sha256": "41e55bbdafbbc852e3373991eba4e9a2500c2d35f5fe000feaa92bb5ac7e2d41"
+    },
+    "health.json": {
+      "bytes": 225,
+      "sha256": "2e601463a99ee3d233bf2bc17cbcdb2a5b63a320fc174923a7ba3a84bc10996f"
+    },
+    "main-preflight.json": {
+      "bytes": 809,
+      "sha256": "09cb4f89d11ac18a4c1de874075c3a5caa950a9baee3dc1394141c4721e0b670"
+    },
+    "readiness.json": {
+      "bytes": 195,
+      "sha256": "817e18885e03de300601d6add4c3170afb06e62782e33b8fea7b4d13c273febc"
+    },
+    "ruff.log.txt": {
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  }
+}

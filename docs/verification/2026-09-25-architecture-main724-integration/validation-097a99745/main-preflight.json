@@ -1,0 +1,28 @@
+{
+  "observed_at": "2026-09-25T16:54:41.308364+00:00",
+  "tested_revision": "097a9974543a5a17e312d149fcbfe5d1b6a65f72",
+  "latest_main": "1341f5c2262935c59add397faa0735c05832bcda",
+  "integrated_main": "72402839075e3eefdee7b185db015a0545096b22",
+  "main_commits_since_integrated": 10,
+  "main_changed_paths": [
+    "docs/handoffs/2026-09-25-l6-batch3-and-gate-shapes.md",
+    "docs/handoffs/2026-09-25-numeric-preflight-model-number.md",
+    "docs/handoffs/inflight/feat-adaptive-research-loop.md",
+    "docs/handoffs/inflight/fix-numeric-preflight-model-number-0925.md",
+    "docs/superpowers/specs/2026-09-01-workorders-INDEX.md",
+    "intelligence/services/asof_prefetch.py",
+    "intelligence/services/episode_semantic_verifier.py",
+    "intelligence/tests/test_episode_numeric_citations.py",
+    "intelligence/tests/test_episode_semantic_verifier.py",
+    "intelligence/tests/test_sector_timeline_units_counts.py"
+  ],
+  "merge_tree_exit_code": 0,
+  "merge_tree": "4aca4bfaaa6bd344747edf2ac7184e52e8354b91",
+  "actual_merge_performed": false,
+  "new_combination_tested": false,
+  "candidate_clean_after_tests": true,
+  "candidate_head_unchanged": true,
+  "green_basetemp_exists": false,
+  "red_basetemp_retained": true,
+  "data_quality_trigger_paths": []
+}

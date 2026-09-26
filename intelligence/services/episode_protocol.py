@@ -1049,6 +1049,18 @@ def validate_episode_finish(
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")
     for binding in bindings:
+        if any(
+            evidence_by_hash[digest].evidence_tier == "user_memory_gap"
+            or (binding.basis == "evidence" and (
+                evidence_by_hash[digest].tool == "memory_lookup"
+                or evidence_by_hash[digest].evidence_tier == "user_memory"
+            ))
+            for digest in binding.evidence_hashes
+        ):
+            raise _reject(
+                "evidence_type_floor",
+                "用户记忆只能绑定为 user_premise；记忆缺口不能作为判断或事实依据",
+            )
         bound_tools = tuple(
             evidence_by_hash[evidence_hash].tool
             for evidence_hash in binding.evidence_hashes

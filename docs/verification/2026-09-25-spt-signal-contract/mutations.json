@@ -1,0 +1,12 @@
+{
+  "revision_on_disk": "cd2116dbee1d249a779500a22a63b73b7fa74a22",
+  "scope": "in_process_fault_injection_only; disk_source_unchanged; failure_receipts_not_baseline_results",
+  "mutations": [
+    {"change": "replace _NEGATION with never-matching regex", "target": "test_uncertain_negative_contrary_and_disjoint_facts_do_not_trigger", "failed": 7, "passed": 15, "exit_status": 1, "receipt": "20260924T171050Z-cd2116db-b00a59f0e01d.json"},
+    {"change": "replace matches with any-group literal match", "target": "test_each_condition_is_required", "failed": 5, "passed": 0, "exit_status": 1, "receipt": "20260924T171050Z-cd2116db-ea87121bec03.json"},
+    {"change": "replace validated_rules with empty mapping", "target": "test_invalid_contracts_fail_closed", "failed": 15, "passed": 0, "exit_status": 1, "receipt": "20260924T171050Z-cd2116db-91130acd7633.json"}
+  ],
+  "restored_clean_run": "clean-targeted-receipt.json",
+  "restored_passed": 597,
+  "restored_failed": 0
+}

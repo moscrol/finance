@@ -1,0 +1,1 @@
+[generate-views --check] agent 目录视图与 skills/ 源一致。

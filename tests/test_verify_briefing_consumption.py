@@ -48,11 +48,11 @@ def _add_landing_day(inputs: Namespace) -> None:
 
 def _add_briefing_labels(
     inputs: Namespace, *, hit_value: float | None = None, tier3_value: float = 0.0,
-    early_label: str | None = None,
+    early_label: str | None = None, tier2_value: float = 1.0,
 ) -> None:
     values = {
         "tf.briefing_tier1_items": 0.0,
-        "tf.briefing_tier2_items": 1.0,
+        "tf.briefing_tier2_items": tier2_value,
         "tf.briefing_tier3_items": tier3_value,
         "tf.briefing_market_confirmed": None,
         "tf.briefing_dimensions": 2.0,
@@ -127,6 +127,34 @@ def test_valid_consumption_reaches_teaching_object_and_river(inputs, capsys):
     assert briefing["disabled_sidecar_unchanged"] is True
     assert briefing["late_teaching_objects_filtered"] == 1
     assert briefing["river_ref"].startswith("history_teaching_labels:")
+
+
+@pytest.mark.parametrize("hit_value,source_count,expected_exit", [
+    (100.0, 1, 0), (0.0, 1, 1), (None, 1, 1),
+    (33.333333, 3, 0), (33.333334, 3, 1),
+])
+def test_ranking_coverage_uses_same_market_inputs_as_builder(inputs, capsys, hit_value, source_count, expected_exit):
+    _add_landing_day(inputs)
+    with duckdb.connect(str(inputs.db)) as con:
+        con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-15'), ('2026-09-16'), ('2026-09-17')")
+        con.execute(
+            "INSERT INTO fact_sector_daily_generation "
+            "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+            "diff_ratio, source, updated_at) "
+            "SELECT trade_date, 'legacy', 'test', 'test', 1.0, 100.0, 11.0, 'fixture', '2026-09-19 08:00:00' "
+            "FROM fact_market_daily WHERE trade_date < '2026-09-19'"
+        )
+    event = json.loads(inputs.projection.read_text())
+    event["theme"] = "test"
+    events = [event, *[{**event, "theme": f"unmatched-{i}"} for i in range(source_count - 1)]]
+    inputs.projection.write_text("\n".join(json.dumps(e) for e in events) + "\n")
+    _add_briefing_labels(inputs, hit_value=hit_value, tier2_value=float(source_count))
+    assert main() == expected_exit
+    result = json.loads(capsys.readouterr().out)
+    if expected_exit == 0:
+        assert result["briefings"][0]["labels"]["briefing_hit_rps5_pct"] == hit_value
+    else:
+        assert "briefing_hit_rps5_pct" in result["error"]
 
 
 def test_same_landing_uses_complete_material_day_aggregation(inputs, capsys, monkeypatch):
