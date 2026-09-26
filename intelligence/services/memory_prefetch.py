@@ -23,6 +23,8 @@ def _gap(reason: str) -> tuple[AgentEvidence, ...]:
 
     messages = {
         "empty": "用户记忆无相关命中；不得编造用户此前的看法。",
+        "future_of_cutoff": "已找到相关用户记忆，但均晚于信息截止日，未交付正文；不代表没有记录。",
+        "date_unavailable": "相关用户记忆的记录日期无法核验，未交付正文；不代表没有记录。",
         "timeout": "用户记忆预取超时，尚未确认是否有相关记录。",
         "unavailable": "用户记忆读取失败，尚未确认是否有相关记录。",
         "busy": "用户记忆预取繁忙，本轮未读取。",
@@ -75,9 +77,33 @@ def collect_opening_memory(
             return _gap("timeout")
         if not result.evidence:
             return _gap("empty" if result.trace.status == "empty" else "unavailable")
+        # The opening skips ResearchToolRegistry.execute, so it must apply the
+        # information cutoff itself: an as-of question may not see notes the
+        # user wrote after that date (the market prefetch uses the same as_of).
+        from intelligence.services.closed_loop_retrieval import filter_future_dated, parse_source_date
+
+        eligible, future_evidence = filter_future_dated(
+            result.evidence,
+            information_cutoff=context.information_cutoff,
+            date_getter=lambda item: item.source_date,
+        )
+        # Legacy undated notes can still be current priors, but cannot establish
+        # what was known at an explicitly requested historical cutoff.
+        undated = []
+        if context.information_cutoff.source == "requested":
+            undated = [item for item in eligible if parse_source_date(item.source_date) is None]
+            eligible = [item for item in eligible if parse_source_date(item.source_date) is not None]
+        if not eligible:
+            return _gap(
+                "date_unavailable"
+                if undated
+                else "future_of_cutoff"
+                if future_evidence
+                else "empty"
+            )
         return tuple(
             replace(item, content_hash=evidence_content_hash(item), io_effect="local_read")
-            for item in result.evidence
+            for item in eligible
         )
     except FutureTimeout:
         return _gap("timeout")

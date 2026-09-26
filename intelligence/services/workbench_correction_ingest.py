@@ -46,14 +46,18 @@ _MARKET_INDICATOR_PATTERN = re.compile(
     r"(?:这波|这轮|今天|大盘|行情|这只|它)$",
 )
 _DENIAL_PATTERN = re.compile(r"不对|错了|不是这样")
+# A question or a hedged guess asks about the market; it does not state how the
+# previous answer should have been done. Precision first (design §0: 宁可不记).
+_QUESTION_PATTERN = re.compile(r"[？?]|(?:吗|呢|吧|么|嘛)[\s。！!…~～]*$")
 
-# Match the specific forms frozen in the correction-loop design. The broad
-# "应该" form is intentional: the canonical positive fixture uses "应该先".
+# Match only the forms frozen in the correction-loop design (§5.2). A bare
+# "应该…" is not one of them: it is also how users ask ("应该怎么看") or guess
+# ("应该还有一波"). The canonical positive "不对，应该先…" is covered by the
+# denial-prefixed form below.
 _PAYLOAD_PATTERNS = (
     re.compile(r"(?:不对|错了|不是这样)\s*[，,:：]?\s*(?:应该是|应该|应为)\s*(?P<correction>.+)$"),
     re.compile(r"你理解错了.*?应为\s*(?P<correction>.+)$"),
     re.compile(r"(?<!不)应该是\s*(?P<correction>.+)$"),
-    re.compile(r"(?<!不)应该\s*(?P<correction>.+)$"),
     re.compile(r"(?<!不)应为\s*(?P<correction>.+)$"),
     re.compile(
         r"不是\s*(?P<wrong>[^，,。；;！？!?]{1,80})\s*[，,]?\s*是\s*"
@@ -199,6 +203,8 @@ def maybe_record_workbench_correction(
         return CorrectionIngestResult("skipped", "no_payload")
     if _has_engineering_term(text):
         return CorrectionIngestResult("skipped", "engineering")
+    if _QUESTION_PATTERN.search(text):
+        return CorrectionIngestResult("skipped", "no_payload")
 
     correction = _extract_correction(text)
     if not correction:

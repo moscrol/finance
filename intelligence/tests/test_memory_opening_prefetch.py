@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date
 import json
 from threading import Event
 import time
@@ -18,7 +19,9 @@ from intelligence.services.conversation_store import ConversationStore, Message
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.evidence_capabilities import runtime_capabilities_for_frame
 from intelligence.services.memory_status import record_status
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
+from intelligence.services.research_tool_registry import ToolRunResult
 from intelligence.services.run_store import RunStore
 from intelligence.services.task_frame import TaskFrame
 
@@ -160,6 +163,109 @@ def test_memory_is_appended_without_replacing_market_prefetch(tmp_path, frame, m
     registry, _ = registry_for(tmp_path, frame)
     assert registry.opening_prefetch[0] == market
     assert registry.opening_prefetch[1].evidence_tier == "user_memory"
+
+
+def _scripted_memory_result(*items: AgentEvidence) -> ToolRunResult:
+    return ToolRunResult(
+        evidence=tuple(items),
+        observation="fixture memory",
+        trace=ProviderTrace(
+            provider="scripted_memory",
+            capability="memory_lookup",
+            status="success",
+            result_count=len(items),
+        ),
+    )
+
+
+def test_opening_memory_filters_future_records_at_explicit_cutoff(frame):
+    context = build_episode_context(
+        frame,
+        task_id="opening-cutoff-filter",
+        capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+    before = AgentEvidence(
+        tool="memory_lookup",
+        title="截止日前记忆",
+        detail="2026-07-24 已留下的判断",
+        source="private-ledger",
+        source_date="2026-07-24",
+        evidence_tier="user_memory",
+    )
+    after = AgentEvidence(
+        tool="memory_lookup",
+        title="截止日后记忆",
+        detail="2026-07-25 才留下的判断",
+        source="private-ledger",
+        source_date="2026-07-25",
+        evidence_tier="user_memory",
+    )
+
+    opening = memory_prefetch.collect_opening_memory(
+        lambda _query, _tool_context: _scripted_memory_result(before, after),
+        query=frame.raw_question,
+        context=context,
+    )
+
+    assert [item.title for item in opening] == ["截止日前记忆"]
+    assert all("截止日后" not in item.detail for item in opening)
+
+
+def test_opening_memory_reports_future_only_as_unusable_not_empty(frame):
+    context = build_episode_context(
+        frame,
+        task_id="opening-future-only",
+        capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+    future = AgentEvidence(
+        tool="memory_lookup",
+        title="未来记忆",
+        detail="只在截止日后留下",
+        source="private-ledger",
+        source_date="2026-07-25",
+        evidence_tier="user_memory",
+    )
+
+    opening = memory_prefetch.collect_opening_memory(
+        lambda _query, _tool_context: _scripted_memory_result(future),
+        query=frame.raw_question,
+        context=context,
+    )
+
+    assert len(opening) == 1
+    assert opening[0].evidence_tier == "user_memory_gap"
+    assert "status=future_of_cutoff" in opening[0].detail
+    assert "无相关命中" not in opening[0].detail
+
+
+def test_opening_memory_does_not_use_undated_legacy_note_for_explicit_cutoff(frame):
+    context = build_episode_context(
+        frame,
+        task_id="opening-undated",
+        capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+    undated = AgentEvidence(
+        tool="memory_lookup",
+        title="无日期记忆",
+        detail="日期无法核验",
+        source="private-ledger",
+        source_date=None,
+        evidence_tier="user_memory",
+    )
+
+    opening = memory_prefetch.collect_opening_memory(
+        lambda _query, _tool_context: _scripted_memory_result(undated),
+        query=frame.raw_question,
+        context=context,
+    )
+
+    assert len(opening) == 1
+    assert opening[0].evidence_tier == "user_memory_gap"
+    assert "status=date_unavailable" in opening[0].detail
+    assert "无日期记忆" not in opening[0].detail
 
 
 def test_worker_exception_does_not_abort_opening(tmp_path, frame, monkeypatch):

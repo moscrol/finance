@@ -97,6 +97,65 @@ def test_engineering_text_is_not_written(tmp_path: Path, previous_answer) -> Non
     assert result.reason == "engineering"
 
 
+@pytest.mark.parametrize(
+    "user_text",
+    [
+        "那我现在应该买入还是继续观望呢？",
+        "这个板块后面应该怎么看？",
+        "你觉得应该关注哪些指标",
+        "明天应该会继续涨吧",
+        "我觉得这个板块应该还有一波",
+        "那应该是什么原因导致的?",
+    ],
+)
+def test_follow_up_question_or_guess_is_not_a_correction(
+    tmp_path: Path, previous_answer, user_text: str
+) -> None:
+    # Takeover review 2026-09-26: a bare "应该" matched every follow-up question,
+    # writing "怎么看" / "会继续涨吧" into the ledger that opening recall replays.
+    path = tmp_path / "corrections.jsonl"
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path,
+        user_text=user_text,
+        previous_assistant=previous_answer,
+        conversation_id="conv-1",
+        corrected_message_id="msg-answer-1",
+        ts="2026-09-25T02:00:00+00:00",
+    )
+
+    assert result.status == "skipped"
+    assert result.reason == "no_payload"
+    assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    "user_text,correction",
+    [
+        ("你刚才说双红就能上，不对，应该先看容量", "先看容量"),
+        ("错了，应为先看客户验证进度", "先看客户验证进度"),
+        ("你理解错了，这里应为先看订单再看产能", "先看订单再看产能"),
+        ("这里应该是先看客户验证进度再谈弹性", "先看客户验证进度再谈弹性"),
+        ("不是产能公告，是客户验证进度", "客户验证进度"),
+    ],
+)
+def test_design_payload_forms_still_write(
+    tmp_path: Path, previous_answer, user_text: str, correction: str
+) -> None:
+    path = tmp_path / "corrections.jsonl"
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path,
+        user_text=user_text,
+        previous_assistant=previous_answer,
+        conversation_id="conv-1",
+        corrected_message_id="msg-answer-1",
+        ts="2026-09-25T02:00:00+00:00",
+    )
+
+    assert result.status == "recorded"
+    record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert record["correction"] == correction
+
+
 def test_duplicate_within_24_hours_is_skipped(tmp_path: Path, previous_answer) -> None:
     path = tmp_path / "corrections.jsonl"
     kwargs = {
