@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_harness.py b/intelligence/services/research_harness.py
+index 7e0f4f26..6ab64dfc 100644
+--- a/intelligence/services/research_harness.py
++++ b/intelligence/services/research_harness.py
+@@ -781,7 +781,7 @@ class FinanceResearchHarness:
+         # 逐字搬自 _EpisodeToolAccumulator.consume 的成功分支。
+         ordinals = evidence_ordinal_table(tuple(evidence_so_far))
+         audit: dict[str, object] = {
+-            **observation.result_status_fields(),
++            "ok": True,
+             "tool": observation.tool,
+             "query": observation.query,
+             "observation": observation.observation,

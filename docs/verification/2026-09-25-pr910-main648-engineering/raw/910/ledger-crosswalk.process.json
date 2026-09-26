@@ -1,0 +1,26 @@
+{
+  "label": "ledger-crosswalk",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "scripts/audit_ledger_spec_crosswalk.py"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+  "started_at": "2026-09-25T09:19:14.997911+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 26532,
+  "process_group": 26532,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T09:19:15.130482+00:00",
+  "elapsed_seconds": 0.13224691711366177
+}

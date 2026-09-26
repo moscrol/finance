@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 29f81996..e7a8c1dd 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -331,7 +331,7 @@ def calculation_copy_findings(
+             for clause in _CLAUSE.finditer(line):
+                 value = re.sub(r"[*`]+", "", clause.group())
+                 periods = list(_PERIOD.finditer(value))
+-                parallel_values = _parallel_ratio_values(value, periods)
++                parallel_values = {}
+                 unlocated = False
+                 for period_match in periods:
+                     tail = value[period_match.end():]

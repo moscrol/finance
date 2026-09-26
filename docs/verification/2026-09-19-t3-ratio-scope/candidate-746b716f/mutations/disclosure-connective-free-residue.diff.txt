@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 07f48a5e..20a36da6 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -31,7 +31,7 @@ _SEARCH_GAP = re.compile(
+     r"(?:查询|检索|搜索|接口|返回|清单|列表|抓取).{0,32}"
+     r"(?:失败|空白|为空|无结果|无记录|未返回|不完整|空集|未找到|查不到|没有结果)"
+ )
+-_ABSENCE = re.compile(r"(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告|零披露|(?:新增)?官方信息差|尚未兑现|没有兑现")
++_ABSENCE = re.compile(r"(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告|(?:新增)?官方信息差|尚未兑现|没有兑现")
+ _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
+ _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
+ _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")

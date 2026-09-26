@@ -1,0 +1,407 @@
+.................................................FFFFFFFFFFFFFFFF.       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T071411Z-64984b33.json
+
+=================================== FAILURES ===================================
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002] _
+
+ratio = '2026中报含金量3年最高，为1.587。'
+
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed(ratio):
+        draft = "收入可核[E1]，" + ratio
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E       assert (())
+
+intelligence/tests/test_research_delivery_review_regressions.py:194: AssertionError
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002] _
+
+ratio = '2026中报含金量3年新高，该值为1.587。'
+
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed(ratio):
+        draft = "收入可核[E1]，" + ratio
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E       assert (())
+
+intelligence/tests/test_research_delivery_review_regressions.py:194: AssertionError
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002] _
+
+ratio = '2026中报含金量为2025中报的1.2倍。'
+
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed(ratio):
+        draft = "收入可核[E1]，" + ratio
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E       assert (())
+
+intelligence/tests/test_research_delivery_review_regressions.py:194: AssertionError
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+
+ratio = '2026中报含金量2倍于同业，实际为1.587。'
+
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed(ratio):
+        draft = "收入可核[E1]，" + ratio
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E       assert (())
+
+intelligence/tests/test_research_delivery_review_regressions.py:194: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075a0b90>
+mode = 'off', ratio = '2026中报含金量3年最高，为1.587。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075a21b0>
+mode = 'llm', ratio = '2026中报含金量3年最高，为1.587。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075a2c90>
+mode = 'off', ratio = '2026中报含金量3年新高，该值为1.587。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075bb170>
+mode = 'llm', ratio = '2026中报含金量3年新高，该值为1.587。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075bbc50>
+mode = 'off', ratio = '2026中报含金量为2025中报的1.2倍。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075bab70>
+mode = 'llm', ratio = '2026中报含金量为2025中报的1.2倍。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075bb860>
+mode = 'off', ratio = '2026中报含金量2倍于同业，实际为1.587。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1075b9640>
+mode = 'llm', ratio = '2026中报含金量2倍于同业，实际为1.587。'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("ratio", AMBIGUOUS_RATIOS)
+    def test_review_unlocated_ratio_reopens_existing_repair_without_erasure(monkeypatch, mode, ratio):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        draft = "收入可核[E1]，" + ratio
+        frame, structural = _structural(draft, detail="收入可核。")
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert result.status == "partial" and result.repair_output_ids
+E       AssertionError: assert ('completed' == 'partial'
+E         
+E         - partial
+E         + completed)
+
+intelligence/tests/test_research_delivery_review_regressions.py:213: AssertionError
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u4ea4\u6613\u6240\u62ab\u9732\u5e73\u53f0\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]\u3002-\u4ea4\u6613\u6240\u62ab\u9732\u5e73\u53f0\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]-\u56e0\u6b64\u6ca1\u6709\u516c\u544a] _
+
+draft = '收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。'
+good = '交易所披露平台显示公司本期无新增公告[E2]', bad = '因此没有公告'
+
+    @pytest.mark.parametrize("draft,good,bad", [
+        (
+            "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+            "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+            "利润可核[E2]", "据此建议观望",
+        ),
+        (
+            "收入可核[E1] 查询空白进而可以认定没有公告。",
+            "收入可核[E1]", "查询空白进",
+        ),
+        (
+            "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+            "收入可核[E1]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+    ])
+    def test_review_second_round_disclosure_controls(draft, good, bad):
+        findings = disclosure_absence_findings(draft, (TRACE,))
+        assert findings
+        kept = remove_findings(draft, findings)
+>       assert good in kept and bad not in kept
+E       AssertionError: assert ('交易所披露平台显示公司本期无新增公告[E2]' in '收入可核[E1]。')
+
+intelligence/tests/test_research_delivery_review_regressions.py:250: AssertionError
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u5229\u6da6\u53ef\u6838[E2]\uff0c\u636e\u6b64\u5efa\u8bae\u89c2\u671b\u3002-\u5229\u6da6\u53ef\u6838[E2]-\u636e\u6b64\u5efa\u8bae\u89c2\u671b] _
+
+draft = '收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。', good = '利润可核[E2]'
+bad = '据此建议观望'
+
+    @pytest.mark.parametrize("draft,good,bad", [
+        (
+            "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+            "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+            "利润可核[E2]", "据此建议观望",
+        ),
+        (
+            "收入可核[E1] 查询空白进而可以认定没有公告。",
+            "收入可核[E1]", "查询空白进",
+        ),
+        (
+            "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+            "收入可核[E1]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+    ])
+    def test_review_second_round_disclosure_controls(draft, good, bad):
+        findings = disclosure_absence_findings(draft, (TRACE,))
+        assert findings
+        kept = remove_findings(draft, findings)
+>       assert good in kept and bad not in kept
+E       AssertionError: assert ('利润可核[E2]' in '收入可核[E1]，利润可核[E2]，据此建议观望。' and '据此建议观望' not in '收入可核[E1]，利润可核[E2]，据此建议观望。'
+E         
+E         '据此建议观望' is contained here:
+E           收入可核[E1]，利润可核[E2]，据此建议观望。
+E         ?                   ++++++)
+
+intelligence/tests/test_research_delivery_review_regressions.py:250: AssertionError
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1] \u67e5\u8be2\u7a7a\u767d\u8fdb\u800c\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a\u3002-\u6536\u5165\u53ef\u6838[E1]-\u67e5\u8be2\u7a7a\u767d\u8fdb] _
+
+draft = '收入可核[E1] 查询空白进而可以认定没有公告。', good = '收入可核[E1]', bad = '查询空白进'
+
+    @pytest.mark.parametrize("draft,good,bad", [
+        (
+            "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+            "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+            "利润可核[E2]", "据此建议观望",
+        ),
+        (
+            "收入可核[E1] 查询空白进而可以认定没有公告。",
+            "收入可核[E1]", "查询空白进",
+        ),
+        (
+            "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+            "收入可核[E1]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+    ])
+    def test_review_second_round_disclosure_controls(draft, good, bad):
+        findings = disclosure_absence_findings(draft, (TRACE,))
+        assert findings
+        kept = remove_findings(draft, findings)
+>       assert good in kept and bad not in kept
+E       AssertionError: assert ('收入可核[E1]' in '收入可核[E1] 查询空白进。' and '查询空白进' not in '收入可核[E1] 查询空白进。'
+E         
+E         '查询空白进' is contained here:
+E           收入可核[E1] 查询空白进。
+E         ?          +++++)
+
+intelligence/tests/test_research_delivery_review_regressions.py:250: AssertionError
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1] \u516c\u544a\u68c0\u7d22\u63a5\u53e3\u8fd4\u56de\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\u3002-\u6536\u5165\u53ef\u6838[E1]-\u56e0\u6b64\u6ca1\u6709\u516c\u544a] _
+
+draft = '收入可核[E1] 公告检索接口返回空白因此没有公告。', good = '收入可核[E1]', bad = '因此没有公告'
+
+    @pytest.mark.parametrize("draft,good,bad", [
+        (
+            "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+            "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+            "利润可核[E2]", "据此建议观望",
+        ),
+        (
+            "收入可核[E1] 查询空白进而可以认定没有公告。",
+            "收入可核[E1]", "查询空白进",
+        ),
+        (
+            "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+            "收入可核[E1]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+    ])
+    def test_review_second_round_disclosure_controls(draft, good, bad):
+        findings = disclosure_absence_findings(draft, (TRACE,))
+        assert findings
+        kept = remove_findings(draft, findings)
+>       assert good in kept and bad not in kept
+E       AssertionError: assert ('收入可核[E1]' in '')
+
+intelligence/tests/test_research_delivery_review_regressions.py:250: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u4ea4\u6613\u6240\u62ab\u9732\u5e73\u53f0\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]\u3002-\u4ea4\u6613\u6240\u62ab\u9732\u5e73\u53f0\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]-\u56e0\u6b64\u6ca1\u6709\u516c\u544a]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u5229\u6da6\u53ef\u6838[E2]\uff0c\u636e\u6b64\u5efa\u8bae\u89c2\u671b\u3002-\u5229\u6da6\u53ef\u6838[E2]-\u636e\u6b64\u5efa\u8bae\u89c2\u671b]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1] \u67e5\u8be2\u7a7a\u767d\u8fdb\u800c\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a\u3002-\u6536\u5165\u53ef\u6838[E1]-\u67e5\u8be2\u7a7a\u767d\u8fdb]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1] \u516c\u544a\u68c0\u7d22\u63a5\u53e3\u8fd4\u56de\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\u3002-\u6536\u5165\u53ef\u6838[E1]-\u56e0\u6b64\u6ca1\u6709\u516c\u544a]
+16 failed, 50 passed in 0.34s

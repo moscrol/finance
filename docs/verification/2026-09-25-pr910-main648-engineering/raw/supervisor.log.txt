@@ -1,0 +1,19 @@
+{"pr": "910", "label": "doctor", "exit": 0}
+{"pr": "910", "label": "registry-parse", "exit": 0}
+{"pr": "910", "label": "registry-check", "exit": 0}
+{"pr": "910", "label": "registry-tables", "exit": 0}
+{"pr": "910", "label": "registry-views", "exit": 0}
+{"pr": "910", "label": "ledger-crosswalk", "exit": 0}
+{"pr": "910", "label": "diff-check", "exit": 0}
+{"pr": "910", "label": "targeted", "exit": 0}
+{"pr": "910", "label": "targeted-receipt-check", "exit": 0}
+{"pr": "910", "label": "python-full", "exit": 0}
+{"pr": "910", "label": "full-receipt-check", "exit": 0}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/run_gates.py", line 121, in <module>
+    run_candidate(pr, revision, targets)
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/run_gates.py", line 100, in run_candidate
+    step('frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(tree),
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/run_gates.py", line 58, in step
+    raise RuntimeError('resource admission denied: ' + label)
+RuntimeError: resource admission denied: frontend

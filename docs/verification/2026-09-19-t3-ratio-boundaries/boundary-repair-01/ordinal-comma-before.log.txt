@@ -1,0 +1,34 @@
+.....F...........F...........F......                                     [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T104711Z-d402a563.json
+
+=================================== FAILURES ===================================
+_ test_independent_numeric_roles_survive_without_waiving_ratio[\u4e3a1.588-\u884c\u4e1a\u6392\u540d\u7b2c3,\u6536\u5165123\u4ebf\u5143[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:60: in test_independent_numeric_roles_survive_without_waiving_ratio
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_independent_numeric_roles_survive_without_waiving_ratio[\u4e3a\u5f85\u6838\u5bf9-\u884c\u4e1a\u6392\u540d\u7b2c3,\u6536\u5165123\u4ebf\u5143[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:60: in test_independent_numeric_roles_survive_without_waiving_ratio
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_independent_numeric_roles_survive_without_waiving_ratio[\u4e3a1.587-\u884c\u4e1a\u6392\u540d\u7b2c3,\u6536\u5165123\u4ebf\u5143[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:62: in test_independent_numeric_roles_survive_without_waiving_ratio
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...,收入123亿元[E1]。' == '2026中报含金量为待核...,收入123亿元[E1]。'
+E     
+E     - 2026中报含金量为待核对，行业排名第3,收入123亿元[E1]。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，行业排名第3,收入123亿元[E1]。
+E     ? +++++++++++
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_independent_numeric_roles_survive_without_waiving_ratio[\u4e3a1.588-\u884c\u4e1a\u6392\u540d\u7b2c3,\u6536\u5165123\u4ebf\u5143[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_independent_numeric_roles_survive_without_waiving_ratio[\u4e3a\u5f85\u6838\u5bf9-\u884c\u4e1a\u6392\u540d\u7b2c3,\u6536\u5165123\u4ebf\u5143[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_independent_numeric_roles_survive_without_waiving_ratio[\u4e3a1.587-\u884c\u4e1a\u6392\u540d\u7b2c3,\u6536\u5165123\u4ebf\u5143[E1]]
+3 failed, 33 passed, 77 deselected in 0.29s

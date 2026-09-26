@@ -1,0 +1,198 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-percent-delta-is-growth-rate-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_labeled_change_rates_are_not_ratio_levels or test_review_lead_cases_through_public_exit"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+F...F...FFFFFFFFFFFFFFFFFF                                               [100%]
+=================================== FAILURES ===================================
+_ test_review_lead_cases_through_public_exit[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u540c\u6bd4\u589e\u957f12%\u3002-None] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:78: in test_review_lead_cases_through_public_exit
+    _assert_public_exit(monkeypatch, draft, wrong, mode)
+intelligence/tests/test_research_delivery_ratio_boundaries.py:59: in _assert_public_exit
+    assert not findings
+E   AssertionError: assert not (DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),)
+_ test_review_lead_cases_through_public_exit[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u540c\u6bd4\u589e\u957f12%\u3002-None] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:78: in test_review_lead_cases_through_public_exit
+    _assert_public_exit(monkeypatch, draft, wrong, mode)
+intelligence/tests/test_research_delivery_ratio_boundaries.py:59: in _assert_public_exit
+    assert not findings
+E   AssertionError: assert not (DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u957f12%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u957f12%[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u73af\u6bd4\u4e0b\u964d3.5%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u63d0\u5347158.8%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u52a015bp[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为1.588' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     ?      ^
+E     + 为1.588
+E     ?      ^)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u957f12%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u957f12%[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u73af\u6bd4\u4e0b\u964d3.5%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u63d0\u5347158.8%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u52a015bp[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:127: in test_labeled_change_rates_are_not_ratio_levels
+    assert bool(findings) == (slot == "为1.587")
+E   AssertionError: assert True == ('为待核对' == '为1.587'
+E    +  where True = bool((DeliveryFinding(start=0, end=0, code='calculation_value_unlocated', replacement='〔比率对应关系待核对〕'),))
+E     
+E     - 为1.587
+E     + 为待核对)
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u957f12%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...为待核对，同比增长12%。' == '2026中报含金量为待核对，同比增长12%。'
+E     
+E     - 2026中报含金量为待核对，同比增长12%。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比增长12%。
+E     ? +++++++++++
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u957f12%[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...，同比增长12%[E1]。' == '2026中报含金量为待核对，同比增长12%[E1]。'
+E     
+E     - 2026中报含金量为待核对，同比增长12%[E1]。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比增长12%[E1]。
+E     ? +++++++++++
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u73af\u6bd4\u4e0b\u964d3.5%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...待核对，环比下降3.5%。' == '2026中报含金量为待核对，环比下降3.5%。'
+E     
+E     - 2026中报含金量为待核对，环比下降3.5%。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，环比下降3.5%。
+E     ? +++++++++++
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u63d0\u5347158.8%] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...对，同比提升158.8%。' == '2026中报含金量为待核对，同比提升158.8%。'
+E     
+E     - 2026中报含金量为待核对，同比提升158.8%。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比提升158.8%。
+E     ? +++++++++++
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u52a015bp[E1]] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...同比增加15bp[E1]。' == '2026中报含金量为待核对，同比增加15bp[E1]。'
+E     
+E     - 2026中报含金量为待核对，同比增加15bp[E1]。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比增加15bp[E1]。
+E     ? +++++++++++
+_ test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:129: in test_labeled_change_rates_are_not_ratio_levels
+    assert kept == draft.replace("为1.587", "为待核对")
+E   AssertionError: assert '〔比率对应关系待核对〕2...待核对，同比下降15基点。' == '2026中报含金量为待核对，同比下降15基点。'
+E     
+E     - 2026中报含金量为待核对，同比下降15基点。
+E     + 〔比率对应关系待核对〕2026中报含金量为待核对，同比下降15基点。
+E     ? +++++++++++
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-percent-delta-is-growth-rate-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_review_lead_cases_through_public_exit[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u540c\u6bd4\u589e\u957f12%\u3002-None]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_review_lead_cases_through_public_exit[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u540c\u6bd4\u589e\u957f12%\u3002-None]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u957f12%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u957f12%[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u73af\u6bd4\u4e0b\u964d3.5%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u63d0\u5347158.8%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u589e\u52a015bp[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.588-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u957f12%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u957f12%[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u73af\u6bd4\u4e0b\u964d3.5%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u63d0\u5347158.8%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u589e\u52a015bp[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a\u5f85\u6838\u5bf9-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u957f12%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u957f12%[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u73af\u6bd4\u4e0b\u964d3.5%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u63d0\u5347158.8%]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u589e\u52a015bp[E1]]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_labeled_change_rates_are_not_ratio_levels[\u4e3a1.587-\u540c\u6bd4\u4e0b\u964d15\u57fa\u70b9]
+20 failed, 6 passed, 661 deselected in 1.13s
+
+STDERR:
+
+EXIT=1

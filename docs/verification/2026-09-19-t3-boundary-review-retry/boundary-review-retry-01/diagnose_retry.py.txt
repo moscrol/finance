@@ -1,0 +1,163 @@
+"""Read-only diagnosis after the bounded call; never repairs/publishes a verdict.
+
+Record exact manifest omissions, source-vs-displayed-tail identity, and revision
+specific handoff facts. Supplemental disclosure inputs complete review fragments
+and are explicitly producer examples, not invented verbatim review reproductions.
+"""
+from collections import Counter
+from dataclasses import replace
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+from unittest.mock import patch
+
+OPS = Path(__file__).parent
+BASE = OPS.parent
+STATE = BASE / 'qc-retry-d46c2c3b-01'
+RUN = STATE / 'runs/ARL-0005'
+REPO = Path('/Users/a77/fwp-q-research-data-readiness')
+ROOT = BASE / 'candidate-d46c2c3b/registry-pinned/finance-workspace-private'
+REV = 'd46c2c3b10221483c811426e99ad379314289871'
+TIP = 'b78dbe3be97b846ea2bd8093ae16f5d0bbfc73a8'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=REPO, text=True)
+
+
+sys.path.insert(0, str(REPO / 'scripts/review_probes'))
+from check_delivery_fact_retention import _identity
+before = _identity(ROOT)
+assert before['revision'] == REV and not before['status']
+sys.path.insert(0, str(ROOT))
+from intelligence.services import episode_semantic_verifier as verifier
+from intelligence.services import research_delivery_checks as checks
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests import test_episode_semantic_verifier as fixture
+from intelligence.tests import test_research_delivery_checks as financial_fixture
+for module in (verifier, checks, fixture, financial_fixture):
+    assert Path(module.__file__).resolve().is_relative_to(ROOT)
+
+request = load(STATE / 'requests/ARL-0005.json')
+verdict = load(RUN / 'invalid-verdict.json')
+required = set(request['required_checks']) | {t for ts in request['artifact_tests'].values() for t in ts} | {'git_diff_check', 'artifact_hygiene', 'canonical_safety'}
+missing = sorted(required - verdict['checks'].keys())
+extra = sorted(verdict['checks'].keys() - required)
+prompt = (RUN / 'review-prompt.txt').read_text()
+manifest = {
+    'required_count': len(required), 'returned_count': len(verdict['checks']),
+    'exact_required_present_count': len(required & verdict['checks'].keys()),
+    'missing_count': len(missing), 'missing': missing,
+    'missing_test_files': [v for v in missing if v.endswith('.py')],
+    'missing_exact_named_probes': [v for v in missing if not v.endswith('.py')],
+    'extra_count': len(extra), 'extra': extra,
+    'all_missing_names_were_in_original_prompt': all(name in prompt for name in missing),
+    'returned_status_counts': dict(Counter(row['status'] for row in verdict['checks'].values())),
+    'validation': load(STATE / 'verdict-validation.json'),
+    'raw_verdict_sha256': sha(RUN / 'invalid-verdict.json'),
+    'interpretation': 'JSON shape success and a large check count are not exact manifest coverage. Do not fill omitted checks or rename model checks after return.',
+}
+
+probe = load(OPS / 'boundaries.json')
+raw_probe = load(RUN / 'original-ratio-boundary-probe.log')
+preflight = load(RUN / 'preflight.json')
+tail = preflight['checks']['original-ratio-boundary-probe']['output_tail']
+identity_claim = {
+    'raw_probe_has_identity': all(k in raw_probe for k in ('probe_sha256', 'target_unchanged')),
+    'raw_target_unchanged': raw_probe['target_unchanged'],
+    'raw_probe_sha256': raw_probe['probe_sha256'],
+    'independent_local_receipt_has_same_probe_sha256': probe['probe_sha256'] == raw_probe['probe_sha256'],
+    'source_matches_receipt': sha(ROOT / 'scripts/review_probes/check_ratio_scope_boundaries.py') == raw_probe['probe_sha256'],
+    'tail_contains_probe_sha256': '"probe_sha256"' in tail,
+    'tail_contains_target_unchanged': '"target_unchanged"' in tail,
+    'interpretation': 'Reviewer saw a truncated output tail, not absence in the probe. The recommendation to add already-existing identity fields is inapplicable; do not modify the original probe.',
+}
+path = 'docs/handoffs/inflight/q-research-data-readiness.md'
+snapshots = []
+for revision in (REV, TIP):
+    text = git('show', revision + ':' + path)
+    snapshots.append({'revision': revision, 'sha256': hashlib.sha256(text.encode()).hexdigest(),
+                      'text': text})
+handoff_claim = {
+    'path': path, 'snapshots': snapshots,
+    'interpretation': 'Frozen business d46 contains the prior inflight state. Producer documentation b78 already updated it before this review call. Valid observation about frozen d46, not an unresolved claim about current b78.',
+}
+
+supplemental = []
+inputs = (
+    ('venue-fragment-completed', '收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。', 'venue'),
+    ('known-venue-control', '收入可核[E1]，查询返回空白，因此公司没有公告，巨潮资讯网显示本期没有公告[E2]。', 'venue'),
+    ('absence-fragment-completed', '收入可核[E1]，查询返回空白，因此本期无任何披露文件。', 'absence'),
+    ('known-absence-control', '收入可核[E1]，查询返回空白，因此本期为零披露。', 'absence'),
+)
+for mode in ('off', 'llm'):
+    for name, draft, behavior in inputs:
+        frame, structural = fixture._structural(draft, detail='收入可核。', traces=(financial_fixture.TRACE,))
+        evidence = structural.outcome.evidence[0]
+        structural = replace(structural, outcome=replace(structural.outcome,
+            evidence=(evidence, replace(evidence, content_hash='venue-fixture', title='披露来源夹具', detail='本期没有公告'))))
+        findings = checks.disclosure_absence_findings(draft, structural.outcome.traces)
+        with patch.dict('os.environ', {'ASK_SEMANTIC_JUDGE': mode}):
+            result = verifier.SemanticEpisodeVerifier(judge_fn=lambda request: {
+                'passed': True, 'rejected_sentence_indexes': [], 'issues': [],
+            }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+        expected = {
+            'independent_income_retained': '收入可核[E1]' in result.public_answer,
+            'partial_and_repair_requested': result.status == 'partial' and bool(result.repair_output_ids),
+        }
+        if behavior == 'venue':
+            expected['attributed_fact_and_citation_retained'] = draft.split('，')[-1] in result.public_answer
+            expected['false_inference_removed'] = '因此公司没有公告' not in result.public_answer
+        else:
+            expected['false_inference_removed'] = draft.split('，')[-1] not in result.public_answer
+        supplemental.append({'name': name, 'origin': 'producer-completed review fragment; not verbatim original',
+            'draft': draft, 'judge_mode': mode, 'judge_stubbed': mode == 'llm',
+            'local_codes': [f.code for f in findings], 'status': result.status,
+            'public_answer': result.public_answer, 'checks': expected,
+            'passed': all(expected.values())})
+
+residue = load(OPS / 'residue-d46c2c3b.json')
+marked = next(row for row in residue['cases'] if row['name'] == 'formatted-uncertainty-marker' and row['judge_mode'] == 'off')
+notes = marked['delivery_repair_notes']
+stream = [json.loads(line) for line in (RUN / 'reviewer-stream.jsonl').read_text().splitlines() if line.strip()]
+events = Counter((r.get('type'), r.get('subtype')) for r in stream)
+envelope = load(RUN / 'reviewer-envelope.json')
+models = sorted({r['message']['model'] for r in stream if r.get('type') == 'assistant' and r.get('message', {}).get('model')})
+model_receipt = {k: envelope.get(k) for k in ('subtype', 'is_error', 'duration_ms', 'duration_api_ms', 'num_turns', 'total_cost_usd', 'usage', 'modelUsage', 'stop_reason', 'terminal_reason', 'permission_denials')}
+model_receipt.update(
+    assistant_message_models=models,
+    event_counts=[{'type': a, 'subtype': b, 'count': count} for (a, b), count in events.items()],
+    stream_external_tool_use_blocks=[block.get('name') for r in stream if r.get('type') == 'assistant' for block in r.get('message', {}).get('content', []) if block.get('type') == 'tool_use'],
+    scope='One CLI invocation this window; reported num_turns is not provider request count. CLI costBasis=list, not billing. Financial conversations and market fetches remain zero.',
+)
+after = _identity(ROOT)
+assert before == after
+report = {
+    'created_at': datetime.now(timezone.utc).isoformat(), 'scope': 'post-return local diagnosis, not independent authority or natural QA',
+    'model_calls_by_this_script': 0, 'before': before, 'after': after, 'target_unchanged': True,
+    'request_sha256': sha(STATE / 'requests/ARL-0005.json'),
+    'manifest': manifest, 'probe_identity_claim': identity_claim, 'handoff_claim': handoff_claim,
+    'marker_repair_notes': {'actual_notes': notes, 'explicit_marker_removal_wording_present': any('移除' in n and '标记' in n for n in notes),
+                          'scope': 'Prompt text inspection only; natural repair behavior not tested.'},
+    'supplemental_disclosure': {'cases': supplemental, 'passed': sum(r['passed'] for r in supplemental), 'failed': sum(not r['passed'] for r in supplemental)},
+    'model_receipt': model_receipt,
+    'do_not_infer': ['Invalid CHANGES_REQUIRED is not the fourth valid CR.', 'No aggregate gate was run.', 'No new business fix, natural finance QA, merge or deployment.', 'No causal claim that compaction caused omitted checks.'],
+}
+out = OPS / 'post-return-diagnosis.json'
+assert not out.exists()
+out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'missing': len(missing), 'extra': len(extra), 'identity_fields_exist': identity_claim['raw_probe_has_identity'],
+                  'supplemental_passed': report['supplemental_disclosure']['passed'], 'supplemental_failed': report['supplemental_disclosure']['failed'],
+                  'model_names': models, 'target_unchanged': True}, ensure_ascii=False))

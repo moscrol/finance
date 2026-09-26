@@ -1,0 +1,201 @@
+{
+  "duration_api_ms": 458222,
+  "stop_reason": "tool_use",
+  "session_id": "a0f60529-98c3-42e2-aa3c-a19ff4d55a22",
+  "total_cost_usd": 1.19882875,
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 58999,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 33203,
+    "output_tokens_details": {
+      "thinking_tokens": 26319
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 58999
+    },
+    "inference_geo": "not_available",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 2,
+      "outputTokens": 33203,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 58999,
+      "webSearchRequests": 0,
+      "costUSD": 1.19882875,
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 26319,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 2,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "{\"schema_version\":2,\"review_id\":\"ARL-0001\",\"commit\":\"a2a3301963d11a073f511e1552b53daee7ecd704\",\"request_sha256\":\"f788d85a8717eb73aa5d33476317ea4e9ae85def9fc1084213908fb9c69646be\",\"status\":\"CHANGES_REQUIRED\",\"reviewer\":\"claude:independent-reviewer\",\"reviewer_class\":\"external\",\"authority\":\"external\",\"findings\":[{\"severity\":\"medium\",\"file\":\"intelligence/services/research_delivery_checks.py\",\"line\":264,\"title\":\"Prose ratio localization can land on a non-ratio number, leaving the mismatched ratio in the delivered answer\",\"evidence\":\"After `_RATIO_NAME` matches, `number = re.match(rf\\\"\\\\s*(?:为|是|=|：|:)?\\\\s*({_NUMBER})\\\\s*(%|倍)?\\\", remainder)` accepts the FIRST numeric token after the ratio word, not the ratio value. Counterexample (products={'2026-06-30':{1.588}}): draft `2026中报含金量3年新高，实际为1.587。` -> remainder `3年新高，实际为1.587。` -> number='3' -> _display_matches('3',1.588) False -> calculation_value_mismatch -> `_prose_value_finding` replaces the raw token '3' -> delivered text `2026中报含金量待核对年新高，实际为1.587。`; the mismatched 1.587 is now PUBLIC and the re-check is idempotent (second pass finds nothing). Same class with an adjacent period token: `含金量对照：2026中报 2025中报分别为1.587与0.289` replaces the period label '2025' with 待核对 while 1.587 survives. Pre-patch this clause was withheld whole (over-deletion, but no bad number reached the user), so the narrowing INTRODUCES this delivery path. Mitigations that keep this below high: status still drops to partial, the gap notice '部分逐期比率与本次计算产物不一致…对应比率仍需核对' is appended, and the same-turn repair note is emitted.\",\"recommendation\":\"Only accept a number token that can be the ratio value: add a negative lookahead rejecting tokens followed by 年|中报|年报|季|半年|H1|Q[1-4]|月|日 and tokens that `_PERIOD`/`_period()` parses, and when the ratio label is found but no plausible value token is located, fall back to the previous conservative clause withholding instead of editing an unrelated token. Add both counterexamples to test_research_delivery_retention.py and a mutation entry.\"},{\"severity\":\"medium\",\"file\":\"intelligence/services/research_delivery_checks.py\",\"line\":54,\"title\":\"A restated absence conclusion in a neighboring comma part survives the narrowed deletion\",\"evidence\":\"`_rejected_assertion_spans` rejects a part only when `_ABSENCE and _INFERENCE and not _UNKNOWN` hold INSIDE that part. A part that restates the conclusion without an inference marker is kept. Counterexample with an l3_lookup trace: `公告检索接口返回空白，因此可以认定没有新公告，即公司无新增公告。` -> parts: p0 (search gap, kept), p1 (rejected), p2 `即公司无新增公告。` — `_ABSENCE` matches 无新增公告 but `_INFERENCE` has only 即可|即无, so p2 is NOT rejected. Delivered text becomes `公告检索接口返回空白，即公司无新增公告。`, i.e. the empty-search→no-disclosure inference is still effectively published. Pre-patch the whole clause was deleted, so this residue is introduced by the narrowing. The mandatory notice ('公告检索范围尚未核实完整；不能据此断言公司没有公告…') and the repair request limit the harm, which is why this is medium rather than high.\",\"recommendation\":\"After computing rejected spans, re-scan the surviving parts of the SAME clause: if a survivor still asserts `_ABSENCE` without `_UNKNOWN` and carries no independent evidence citation of its own, extend the removal to it (or keep clause-level withholding for that residue). Cover with a regression case and a mutation so the behavior cannot silently regress.\"},{\"severity\":\"medium\",\"file\":\"intelligence/services/research_delivery_checks.py\",\"line\":39,\"title\":\"Independent fact + citation are still deleted when the joiner is not , ，但 or 但是\",\"evidence\":\"`_ASSERTION_PART = re.compile(r\\\"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)\\\")` recognizes only half/full-width comma and 但/但是. Joiners such as 、 — —— 空格 而 or a parenthesis produce ONE part, so the whole clause (including the independently sourced fact and its citation) is removed exactly as in the reported P1 defect: e.g. `收入可核[E1]——查询返回空白因此公司没有公告。` or `收入可核[E1] 查询返回空白因此公司没有公告。` yields kept text without `收入可核[E1]`. The tests only parametrize 。；，,但但是, so this residual class is uncovered. This is a partially-discharged pre-existing defect, not a new regression, and docs/agent-product-door.md does disclose '不代表任意自然句法都已识别'.\",\"recommendation\":\"Either extend the separator alternation (、/而/然而/不过/破折号/whitespace) with matching regression + mutation cases, or make the deletion span never swallow an `[En]` citation that is not inside the absence+inference substring; keep the documented non-generality statement either way.\"},{\"severity\":\"low\",\"file\":\"intelligence/services/research_delivery_checks.py\",\"line\":101,\"title\":\"Narrow deletion can leave dangling connectives or pronominal references\",\"evidence\":\"Middle-run removal keeps the preceding separator: `收入可核[E1]，但因此没有公告，利润可核[E2]。` -> `收入可核[E1]，但利润可核[E2]。` (stranded contrastive 但). Leading-run removal keeps a survivor whose antecedent is gone: `查询空白即可证明没有公告，据此建议观望。` -> `据此建议观望。`. No false factual claim is emitted and the gap notice is appended, but the public prose is degraded/ungrounded.\",\"recommendation\":\"When the span before a survivor is deleted, also drop an immediately preceding stranded 但/但是/而 and consider flagging survivors beginning with 据此/因此/由此 for the repair note.\"},{\"severity\":\"low\",\"file\":\"intelligence/services/research_delivery_checks.py\",\"line\":186,\"title\":\"Markdown mark reconstruction can emit unbalanced markers for markup inside the number token\",\"evidence\":\"`_prose_value_finding` collects marks only from raw[raw_start:raw_end] and appends them after 待核对. For `含金量为1.**587**` the span ends at the digit '7' (raw_end = positions[end-1]+1), so marks='**' is appended while the trailing '**' remains in the text, yielding `待核对****`. Cosmetic only; no number or citation is lost.\",\"recommendation\":\"Expand raw_end over immediately trailing '*'/'`' runs, or normalize the reconstructed marks to a balanced prefix/suffix pair.\"},{\"severity\":\"info\",\"file\":\"intelligence/tests/test_research_delivery_retention.py\",\"line\":109,\"title\":\"judge=llm coverage is a deterministic success stub, not model-backed acceptance\",\"evidence\":\"`SemanticEpisodeVerifier(judge_fn=lambda request: {\\\"passed\\\": True, ...})` is used for both `off` and `llm` modes here and in test_research_delivery_repair.py; the retention probe receipt also records judge_stubbed=true for its llm cases. These receipts therefore prove local-check wiring, not natural-answer quality. The handoff and lessons_learned state this honestly ('自然回答仍not_passed，本轮0模型/0新取数').\",\"recommendation\":\"Keep this framing; do not let these receipts be cited for T3 natural-quality acceptance or cutover.\"}],\"checks\":{\"scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases\":{\"status\":\"PASS\",\"evidence\":\"Independently executed by the isolated worker: exit_code 0, 6/6 cases passed, target_unchanged=true, expect-revision a2a33019 honored, source_sha256 recorded for research_delivery_checks.py/episode_semantic_verifier.py. All three separators (。/；/，) x judge off|llm return status=partial with false_inference_rejected, independent_fact_retained, explicit_citation_retained, bound_evidence_retained, original_evidence_unchanged, failure_not_upgraded and final_recheck_idempotent true. The probe script itself is NOT in changed_paths, so the fixture/assertions were not edited to pass.\"},\"scripts/review_probes/run_extraction_mutations.py:research-delivery\":{\"status\":\"PASS\",\"evidence\":\"Independently executed: exit_code 0. The runner diff only ADDS test_research_delivery_retention.py to the research-delivery suite; four new mutations (disclosure-narrow-edit-span, disclosure-keep-sentence-context, ratio-prose-local-value, ratio-prose-raw-coordinates) were added with explicit targets. Output tail shows genuine red phases (e.g. ratio-prose-raw-coordinates-red exit 1 with 4 failures showing corrupted offsets such as '**2026待核对**金量为**1.587**') and matching green phases exit 0, plus restored-full exit 0 (182 executed). No existing mutation was deleted or retargeted.\"},\"reject_false_inference_and_retain_independent_fact\":{\"status\":\"PARTIAL\",\"evidence\":\"Rejection trigger is unchanged from the parent (a part still needs _ABSENCE+_INFERENCE and no _UNKNOWN; the old code required the same on its comma tails), so no false inference that was previously rejected is now accepted. Retention is genuinely fixed for ，/,/但/但是 joins: test_disclosure_edit_spans_preserve_unrelated_raw_text (12 cases) and test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation (6 separators x 2 judge modes) reach the real verifier exit and assert draft/evidence immutability plus delivery_retained_evidence_hashes. Honest qualifiers/critiques/conditionals still survive (test_honest_qualifiers_still_survive). Gaps: a restated absence claim in a neighboring part now survives (finding 2) and non-comma joiners still delete the sourced fact + citation (finding 3).\"},\"keep_raw_markdown_coordinates_and_ratio_neighbors\":{\"status\":\"PARTIAL\",\"evidence\":\"Coordinates are now raw: _rejected_assertion_spans operates on clause.group() (formatting stripped only per-part for matching) and _prose_value_finding maps stripped indices back through `positions`, preserving **/` wrappers and neighbors; the ratio-prose-raw-coordinates mutation proves the mapping is load-bearing, and test_ratio_prose_replaces_only_bad_value_not_its_neighbors covers bold/backtick/percent/multiple/multiline cases, including two bad cells in one 'vs' comparison (multi-finding merge) with idempotent re-check. However the located token is not validated as a ratio value, so an adjacent period label or an unrelated integer can be replaced while the mismatched ratio stays public (finding 1), and mid-token markup can yield unbalanced markers (finding 5).\"},\"same_turn_repair_and_final_projection\":{\"status\":\"PASS\",\"evidence\":\"test_research_delivery_repair.py now parametrizes case in {disclosure, disclosure_comma, calculation, calculation_prose} x repair_result {unchanged, corrected, timeout} x window {reserved, exhausted, root_expired} x mode {off, llm}. It asserts exactly one fetch, tools==() on the repair turn, allocated_calls==1, allocated_seconds<=hard cap, repair_attempts==int(can_repair), degraded/'核验未完成' on root expiry without authenticating the unverified draft, no provider diagnostics in public text, and retention of '已核实中报收入'/'[E1]'/citations while '因此公司没有公告' and '1.587' stay out. Final projection recheck is now parametrized over 。/，/但 seam injection and still yields partial with fact+citations retained; the retention tests additionally assert recheck_material_public_delivery(result) == result. No extra budget, model, source or fetch is introduced; episode_semantic_verifier.py is unchanged.\"},\"no_gate_weakening_no_natural_quality_overclaim\":{\"status\":\"PARTIAL\",\"evidence\":\"No test was deleted, skipped or xfailed; the only removed assertion ('1.587' not in answer inside the calculation branch) is retained unconditionally earlier in the same test, and the calculation branch was correctly narrowed to table-only facts (706.91/445.17) while 0.289/待核对 assertions now apply to both calculation cases. No thresholds, budgets, verifier exits or probe fixtures were relaxed. Docs are honest: handoff states 未合main/未部署, 完整门禁/撤保护复验待跑, 旧收据不得替新代码签字, 自然回答仍not_passed, 0模型/0新取数; product door adds '这是有限显式断言的定位修补，不代表任意自然句法都已识别'. PARTIAL only because the product-door sentence '正文只替换错误数值及其单位，保留原期别、格式、其他数值与引用' is falsified by the finding-1 counterexample where a period label is replaced.\"},\"intelligence/tests/test_frozen_research_delivery.py\":{\"status\":\"PASS\",\"evidence\":\"Included in the worker's combined pytest run at this exact commit (exit_code 0; 159 passed across the four artifact test files, no skips reported in the tail). File is unchanged by the diff, so the frozen-behavior baseline still holds against the narrowed edits.\"},\"intelligence/tests/test_research_delivery_checks.py\":{\"status\":\"PASS\",\"evidence\":\"Included in the combined pytest run (exit_code 0). Unchanged by this commit; the new code reuses its TABLE/TRACE/_financial_evidence fixtures, so the pre-existing table-cell and detection semantics were not re-baselined to accommodate the repair.\"},\"intelligence/tests/test_research_delivery_repair.py\":{\"status\":\"PASS\",\"evidence\":\"Included in the combined pytest run (exit_code 0) and also executed under the research-delivery mutation suite. Diff only adds cases/assertions (disclosure_comma, calculation_prose, separator-parametrized final projection, '因此公司没有公告' not in answer); no relaxation.\"},\"intelligence/tests/test_research_delivery_retention.py\":{\"status\":\"PASS\",\"evidence\":\"New file, included in the combined pytest run (exit_code 0) and newly wired into the research-delivery mutation suite. It exercises both the pure span helpers and the real SemanticEpisodeVerifier/recheck_material_public_delivery exits, asserting finding spans stay within the draft and that re-detection returns (). Its judge_fn is a deterministic success stub (see info finding), and it does not yet cover the residues in findings 1-3.\"},\"git_diff_check\":{\"status\":\"PASS\",\"evidence\":\"`git diff --check d38dab3f..a2a33019` exit_code 0 with empty output: no whitespace errors or conflict markers.\"},\"artifact_hygiene\":{\"status\":\"PASS\",\"evidence\":\"changed_paths exactly equals the 8 declared artifacts; forbidden_paths empty; every changed Python module has its direct test in artifact_tests (research_delivery_checks.py -> test_research_delivery_checks.py plus frozen/repair/retention). No receipts, binaries, lockfiles or generated state committed; the only untracked item (.agent-review/) is reviewer scratch in the worktree, not part of the commit.\"},\"canonical_safety\":{\"status\":\"PASS\",\"evidence\":\"Scope is confined to one service module, its tests, two review probes and three docs. No merge to main, no canonical 8792/runtime cutover, no budget/ledger/session/gate configuration touched, no network or model call added (episode_semantic_verifier.py and the repair budget path are unchanged). Handoff explicitly records 未合main/未部署 and that production cutover needs separate authorization; this verdict grants no deployment or T3 natural-quality acceptance.\"}},\"reviewed_at\":\"2026-09-19T06:23:08.103886+00:00\",\"summary\":\"The repair does what it claims for the reported P1: detection still uses the whole sentence, while removal is limited to rejected comma/但-parts with raw offsets, so `中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。` now keeps the sourced fact, its citation and the bound evidence across 。/；/，/,/但/但是 and through the real verifier exit; ratio prose replaces only the bad value (plus its unit) and preserves Markdown, period labels, neighbor values and citations in the covered cases. Independently executed probes pass (fact-retention 6/6 with target_unchanged, mutation suite exit 0 with real red/green pairs for the four new mutations, diff --check clean, combined artifact tests exit 0 with 159 passed). No test, gate, budget or threshold was weakened, and the docs honestly scope this as a finite non-general patch that is neither merged nor deployed. Falsification nevertheless found two narrowing regressions introduced by this commit. (1) Prose value localization takes the first numeric token after the ratio word, so `2026中报含金量3年新高，实际为1.587。` replaces '3' with 待核对 and publishes the mismatched 1.587 (pre-patch the clause was withheld); an adjacent period label can likewise be clobbered. (2) A conclusion restated without an inference marker survives: `公告检索接口返回空白，因此可以认定没有新公告，即公司无新增公告。` is delivered as `公告检索接口返回空白，即公司无新增公告。`, i.e. the false empty-search inference is still effectively published (mitigated by the mandatory coverage notice, partial status and the same-turn repair note). A third, partially-discharged pre-existing class: joiners outside ，/,/但/但是 (、, dash, whitespace, 而) still delete the independent fact and its citation wholesale. These are ordinary defects with small, targeted fixes, not an architecture conflict, so CHANGES_REQUIRED rather than BLOCKED. All judge=llm coverage here is a deterministic success stub; nothing in these receipts is model-backed acceptance.\",\"next_action\":\"Producer fixes forward on the same branch: (a) constrain the prose number match to plausible ratio values (reject tokens followed by 年/中报/年报/季/H1/Q# or parseable as a period) and fall back to conservative clause withholding when no value token is located; (b) extend rejection to same-clause survivors that still assert absence without an independent citation; (c) optionally widen the assertion separators or protect non-claim citations for 、/dash/whitespace/而 joins; add regression cases plus mutation entries for each, then resubmit a new request for external review. No merge, cutover or natural-quality acceptance is authorized by this verdict.\"}",
+  "structured_output": {
+    "schema_version": 2,
+    "review_id": "ARL-0001",
+    "commit": "a2a3301963d11a073f511e1552b53daee7ecd704",
+    "request_sha256": "f788d85a8717eb73aa5d33476317ea4e9ae85def9fc1084213908fb9c69646be",
+    "status": "CHANGES_REQUIRED",
+    "reviewer": "claude:independent-reviewer",
+    "reviewer_class": "external",
+    "authority": "external",
+    "findings": [
+      {
+        "severity": "medium",
+        "file": "intelligence/services/research_delivery_checks.py",
+        "line": 264,
+        "title": "Prose ratio localization can land on a non-ratio number, leaving the mismatched ratio in the delivered answer",
+        "evidence": "After `_RATIO_NAME` matches, `number = re.match(rf\"\\s*(?:为|是|=|：|:)?\\s*({_NUMBER})\\s*(%|倍)?\", remainder)` accepts the FIRST numeric token after the ratio word, not the ratio value. Counterexample (products={'2026-06-30':{1.588}}): draft `2026中报含金量3年新高，实际为1.587。` -> remainder `3年新高，实际为1.587。` -> number='3' -> _display_matches('3',1.588) False -> calculation_value_mismatch -> `_prose_value_finding` replaces the raw token '3' -> delivered text `2026中报含金量待核对年新高，实际为1.587。`; the mismatched 1.587 is now PUBLIC and the re-check is idempotent (second pass finds nothing). Same class with an adjacent period token: `含金量对照：2026中报 2025中报分别为1.587与0.289` replaces the period label '2025' with 待核对 while 1.587 survives. Pre-patch this clause was withheld whole (over-deletion, but no bad number reached the user), so the narrowing INTRODUCES this delivery path. Mitigations that keep this below high: status still drops to partial, the gap notice '部分逐期比率与本次计算产物不一致…对应比率仍需核对' is appended, and the same-turn repair note is emitted.",
+        "recommendation": "Only accept a number token that can be the ratio value: add a negative lookahead rejecting tokens followed by 年|中报|年报|季|半年|H1|Q[1-4]|月|日 and tokens that `_PERIOD`/`_period()` parses, and when the ratio label is found but no plausible value token is located, fall back to the previous conservative clause withholding instead of editing an unrelated token. Add both counterexamples to test_research_delivery_retention.py and a mutation entry."
+      },
+      {
+        "severity": "medium",
+        "file": "intelligence/services/research_delivery_checks.py",
+        "line": 54,
+        "title": "A restated absence conclusion in a neighboring comma part survives the narrowed deletion",
+        "evidence": "`_rejected_assertion_spans` rejects a part only when `_ABSENCE and _INFERENCE and not _UNKNOWN` hold INSIDE that part. A part that restates the conclusion without an inference marker is kept. Counterexample with an l3_lookup trace: `公告检索接口返回空白，因此可以认定没有新公告，即公司无新增公告。` -> parts: p0 (search gap, kept), p1 (rejected), p2 `即公司无新增公告。` — `_ABSENCE` matches 无新增公告 but `_INFERENCE` has only 即可|即无, so p2 is NOT rejected. Delivered text becomes `公告检索接口返回空白，即公司无新增公告。`, i.e. the empty-search→no-disclosure inference is still effectively published. Pre-patch the whole clause was deleted, so this residue is introduced by the narrowing. The mandatory notice ('公告检索范围尚未核实完整；不能据此断言公司没有公告…') and the repair request limit the harm, which is why this is medium rather than high.",
+        "recommendation": "After computing rejected spans, re-scan the surviving parts of the SAME clause: if a survivor still asserts `_ABSENCE` without `_UNKNOWN` and carries no independent evidence citation of its own, extend the removal to it (or keep clause-level withholding for that residue). Cover with a regression case and a mutation so the behavior cannot silently regress."
+      },
+      {
+        "severity": "medium",
+        "file": "intelligence/services/research_delivery_checks.py",
+        "line": 39,
+        "title": "Independent fact + citation are still deleted when the joiner is not , ，但 or 但是",
+        "evidence": "`_ASSERTION_PART = re.compile(r\"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)\")` recognizes only half/full-width comma and 但/但是. Joiners such as 、 — —— 空格 而 or a parenthesis produce ONE part, so the whole clause (including the independently sourced fact and its citation) is removed exactly as in the reported P1 defect: e.g. `收入可核[E1]——查询返回空白因此公司没有公告。` or `收入可核[E1] 查询返回空白因此公司没有公告。` yields kept text without `收入可核[E1]`. The tests only parametrize 。；，,但但是, so this residual class is uncovered. This is a partially-discharged pre-existing defect, not a new regression, and docs/agent-product-door.md does disclose '不代表任意自然句法都已识别'.",
+        "recommendation": "Either extend the separator alternation (、/而/然而/不过/破折号/whitespace) with matching regression + mutation cases, or make the deletion span never swallow an `[En]` citation that is not inside the absence+inference substring; keep the documented non-generality statement either way."
+      },
+      {
+        "severity": "low",
+        "file": "intelligence/services/research_delivery_checks.py",
+        "line": 101,
+        "title": "Narrow deletion can leave dangling connectives or pronominal references",
+        "evidence": "Middle-run removal keeps the preceding separator: `收入可核[E1]，但因此没有公告，利润可核[E2]。` -> `收入可核[E1]，但利润可核[E2]。` (stranded contrastive 但). Leading-run removal keeps a survivor whose antecedent is gone: `查询空白即可证明没有公告，据此建议观望。` -> `据此建议观望。`. No false factual claim is emitted and the gap notice is appended, but the public prose is degraded/ungrounded.",
+        "recommendation": "When the span before a survivor is deleted, also drop an immediately preceding stranded 但/但是/而 and consider flagging survivors beginning with 据此/因此/由此 for the repair note."
+      },
+      {
+        "severity": "low",
+        "file": "intelligence/services/research_delivery_checks.py",
+        "line": 186,
+        "title": "Markdown mark reconstruction can emit unbalanced markers for markup inside the number token",
+        "evidence": "`_prose_value_finding` collects marks only from raw[raw_start:raw_end] and appends them after 待核对. For `含金量为1.**587**` the span ends at the digit '7' (raw_end = positions[end-1]+1), so marks='**' is appended while the trailing '**' remains in the text, yielding `待核对****`. Cosmetic only; no number or citation is lost.",
+        "recommendation": "Expand raw_end over immediately trailing '*'/'`' runs, or normalize the reconstructed marks to a balanced prefix/suffix pair."
+      },
+      {
+        "severity": "info",
+        "file": "intelligence/tests/test_research_delivery_retention.py",
+        "line": 109,
+        "title": "judge=llm coverage is a deterministic success stub, not model-backed acceptance",
+        "evidence": "`SemanticEpisodeVerifier(judge_fn=lambda request: {\"passed\": True, ...})` is used for both `off` and `llm` modes here and in test_research_delivery_repair.py; the retention probe receipt also records judge_stubbed=true for its llm cases. These receipts therefore prove local-check wiring, not natural-answer quality. The handoff and lessons_learned state this honestly ('自然回答仍not_passed，本轮0模型/0新取数').",
+        "recommendation": "Keep this framing; do not let these receipts be cited for T3 natural-quality acceptance or cutover."
+      }
+    ],
+    "checks": {
+      "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases": {
+        "status": "PASS",
+        "evidence": "Independently executed by the isolated worker: exit_code 0, 6/6 cases passed, target_unchanged=true, expect-revision a2a33019 honored, source_sha256 recorded for research_delivery_checks.py/episode_semantic_verifier.py. All three separators (。/；/，) x judge off|llm return status=partial with false_inference_rejected, independent_fact_retained, explicit_citation_retained, bound_evidence_retained, original_evidence_unchanged, failure_not_upgraded and final_recheck_idempotent true. The probe script itself is NOT in changed_paths, so the fixture/assertions were not edited to pass."
+      },
+      "scripts/review_probes/run_extraction_mutations.py:research-delivery": {
+        "status": "PASS",
+        "evidence": "Independently executed: exit_code 0. The runner diff only ADDS test_research_delivery_retention.py to the research-delivery suite; four new mutations (disclosure-narrow-edit-span, disclosure-keep-sentence-context, ratio-prose-local-value, ratio-prose-raw-coordinates) were added with explicit targets. Output tail shows genuine red phases (e.g. ratio-prose-raw-coordinates-red exit 1 with 4 failures showing corrupted offsets such as '**2026待核对**金量为**1.587**') and matching green phases exit 0, plus restored-full exit 0 (182 executed). No existing mutation was deleted or retargeted."
+      },
+      "reject_false_inference_and_retain_independent_fact": {
+        "status": "PARTIAL",
+        "evidence": "Rejection trigger is unchanged from the parent (a part still needs _ABSENCE+_INFERENCE and no _UNKNOWN; the old code required the same on its comma tails), so no false inference that was previously rejected is now accepted. Retention is genuinely fixed for ，/,/但/但是 joins: test_disclosure_edit_spans_preserve_unrelated_raw_text (12 cases) and test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation (6 separators x 2 judge modes) reach the real verifier exit and assert draft/evidence immutability plus delivery_retained_evidence_hashes. Honest qualifiers/critiques/conditionals still survive (test_honest_qualifiers_still_survive). Gaps: a restated absence claim in a neighboring part now survives (finding 2) and non-comma joiners still delete the sourced fact + citation (finding 3)."
+      },
+      "keep_raw_markdown_coordinates_and_ratio_neighbors": {
+        "status": "PARTIAL",
+        "evidence": "Coordinates are now raw: _rejected_assertion_spans operates on clause.group() (formatting stripped only per-part for matching) and _prose_value_finding maps stripped indices back through `positions`, preserving **/` wrappers and neighbors; the ratio-prose-raw-coordinates mutation proves the mapping is load-bearing, and test_ratio_prose_replaces_only_bad_value_not_its_neighbors covers bold/backtick/percent/multiple/multiline cases, including two bad cells in one 'vs' comparison (multi-finding merge) with idempotent re-check. However the located token is not validated as a ratio value, so an adjacent period label or an unrelated integer can be replaced while the mismatched ratio stays public (finding 1), and mid-token markup can yield unbalanced markers (finding 5)."
+      },
+      "same_turn_repair_and_final_projection": {
+        "status": "PASS",
+        "evidence": "test_research_delivery_repair.py now parametrizes case in {disclosure, disclosure_comma, calculation, calculation_prose} x repair_result {unchanged, corrected, timeout} x window {reserved, exhausted, root_expired} x mode {off, llm}. It asserts exactly one fetch, tools==() on the repair turn, allocated_calls==1, allocated_seconds<=hard cap, repair_attempts==int(can_repair), degraded/'核验未完成' on root expiry without authenticating the unverified draft, no provider diagnostics in public text, and retention of '已核实中报收入'/'[E1]'/citations while '因此公司没有公告' and '1.587' stay out. Final projection recheck is now parametrized over 。/，/但 seam injection and still yields partial with fact+citations retained; the retention tests additionally assert recheck_material_public_delivery(result) == result. No extra budget, model, source or fetch is introduced; episode_semantic_verifier.py is unchanged."
+      },
+      "no_gate_weakening_no_natural_quality_overclaim": {
+        "status": "PARTIAL",
+        "evidence": "No test was deleted, skipped or xfailed; the only removed assertion ('1.587' not in answer inside the calculation branch) is retained unconditionally earlier in the same test, and the calculation branch was correctly narrowed to table-only facts (706.91/445.17) while 0.289/待核对 assertions now apply to both calculation cases. No thresholds, budgets, verifier exits or probe fixtures were relaxed. Docs are honest: handoff states 未合main/未部署, 完整门禁/撤保护复验待跑, 旧收据不得替新代码签字, 自然回答仍not_passed, 0模型/0新取数; product door adds '这是有限显式断言的定位修补，不代表任意自然句法都已识别'. PARTIAL only because the product-door sentence '正文只替换错误数值及其单位，保留原期别、格式、其他数值与引用' is falsified by the finding-1 counterexample where a period label is replaced."
+      },
+      "intelligence/tests/test_frozen_research_delivery.py": {
+        "status": "PASS",
+        "evidence": "Included in the worker's combined pytest run at this exact commit (exit_code 0; 159 passed across the four artifact test files, no skips reported in the tail). File is unchanged by the diff, so the frozen-behavior baseline still holds against the narrowed edits."
+      },
+      "intelligence/tests/test_research_delivery_checks.py": {
+        "status": "PASS",
+        "evidence": "Included in the combined pytest run (exit_code 0). Unchanged by this commit; the new code reuses its TABLE/TRACE/_financial_evidence fixtures, so the pre-existing table-cell and detection semantics were not re-baselined to accommodate the repair."
+      },
+      "intelligence/tests/test_research_delivery_repair.py": {
+        "status": "PASS",
+        "evidence": "Included in the combined pytest run (exit_code 0) and also executed under the research-delivery mutation suite. Diff only adds cases/assertions (disclosure_comma, calculation_prose, separator-parametrized final projection, '因此公司没有公告' not in answer); no relaxation."
+      },
+      "intelligence/tests/test_research_delivery_retention.py": {
+        "status": "PASS",
+        "evidence": "New file, included in the combined pytest run (exit_code 0) and newly wired into the research-delivery mutation suite. It exercises both the pure span helpers and the real SemanticEpisodeVerifier/recheck_material_public_delivery exits, asserting finding spans stay within the draft and that re-detection returns (). Its judge_fn is a deterministic success stub (see info finding), and it does not yet cover the residues in findings 1-3."
+      },
+      "git_diff_check": {
+        "status": "PASS",
+        "evidence": "`git diff --check d38dab3f..a2a33019` exit_code 0 with empty output: no whitespace errors or conflict markers."
+      },
+      "artifact_hygiene": {
+        "status": "PASS",
+        "evidence": "changed_paths exactly equals the 8 declared artifacts; forbidden_paths empty; every changed Python module has its direct test in artifact_tests (research_delivery_checks.py -> test_research_delivery_checks.py plus frozen/repair/retention). No receipts, binaries, lockfiles or generated state committed; the only untracked item (.agent-review/) is reviewer scratch in the worktree, not part of the commit."
+      },
+      "canonical_safety": {
+        "status": "PASS",
+        "evidence": "Scope is confined to one service module, its tests, two review probes and three docs. No merge to main, no canonical 8792/runtime cutover, no budget/ledger/session/gate configuration touched, no network or model call added (episode_semantic_verifier.py and the repair budget path are unchanged). Handoff explicitly records 未合main/未部署 and that production cutover needs separate authorization; this verdict grants no deployment or T3 natural-quality acceptance."
+      }
+    },
+    "reviewed_at": "2026-09-19T06:23:08.103886+00:00",
+    "summary": "The repair does what it claims for the reported P1: detection still uses the whole sentence, while removal is limited to rejected comma/但-parts with raw offsets, so `中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。` now keeps the sourced fact, its citation and the bound evidence across 。/；/，/,/但/但是 and through the real verifier exit; ratio prose replaces only the bad value (plus its unit) and preserves Markdown, period labels, neighbor values and citations in the covered cases. Independently executed probes pass (fact-retention 6/6 with target_unchanged, mutation suite exit 0 with real red/green pairs for the four new mutations, diff --check clean, combined artifact tests exit 0 with 159 passed). No test, gate, budget or threshold was weakened, and the docs honestly scope this as a finite non-general patch that is neither merged nor deployed. Falsification nevertheless found two narrowing regressions introduced by this commit. (1) Prose value localization takes the first numeric token after the ratio word, so `2026中报含金量3年新高，实际为1.587。` replaces '3' with 待核对 and publishes the mismatched 1.587 (pre-patch the clause was withheld); an adjacent period label can likewise be clobbered. (2) A conclusion restated without an inference marker survives: `公告检索接口返回空白，因此可以认定没有新公告，即公司无新增公告。` is delivered as `公告检索接口返回空白，即公司无新增公告。`, i.e. the false empty-search inference is still effectively published (mitigated by the mandatory coverage notice, partial status and the same-turn repair note). A third, partially-discharged pre-existing class: joiners outside ，/,/但/但是 (、, dash, whitespace, 而) still delete the independent fact and its citation wholesale. These are ordinary defects with small, targeted fixes, not an architecture conflict, so CHANGES_REQUIRED rather than BLOCKED. All judge=llm coverage here is a deterministic success stub; nothing in these receipts is model-backed acceptance.",
+    "next_action": "Producer fixes forward on the same branch: (a) constrain the prose number match to plausible ratio values (reject tokens followed by 年/中报/年报/季/H1/Q# or parseable as a period) and fall back to conservative clause withholding when no value token is located; (b) extend rejection to same-clause survivors that still assert absence without an independent citation; (c) optionally widen the assertion separators or protect non-claim citations for 、/dash/whitespace/而 joins; add regression cases plus mutation entries for each, then resubmit a new request for external review. No merge, cutover or natural-quality acceptance is authorized by this verdict."
+  },
+  "ttft_ms": 374175,
+  "type": "result",
+  "duration_ms": 458236,
+  "uuid": "24bc12ea-7100-4d26-9ef0-e697859f1d9c",
+  "ttft_stream_ms": 9499,
+  "time_to_request_ms": 12,
+  "first_content_frame_ms": 9499,
+  "queued_turn_count": 0
+}

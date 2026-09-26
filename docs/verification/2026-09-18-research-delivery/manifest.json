@@ -1,0 +1,2059 @@
+{
+  "schema": "research-delivery-local-evidence-v1",
+  "sealed_at": "2026-09-18T12:47:38.028151+00:00",
+  "branch": "feat/research-data-readiness",
+  "full_candidate_revision": "a31b572f9a762c6205224d251717472ffa61c530",
+  "runtime_root": "/Users/a77/.finance-runtime/research-delivery-20260918",
+  "engineering": "passed_at_fixed_clean_candidate",
+  "new_mutation_groups": 13,
+  "default_suite_compatibility_groups": 35,
+  "new_natural_model_runs": 0,
+  "live_answer_quality": "not_passed",
+  "merged_or_deployed": false,
+  "previous_manifest": {
+    "manifest": "/Users/a77/fwp-wt-research-data-readiness/docs/verification/2026-09-18-research-data-readiness/manifest.json",
+    "sha256": "d37237b8d2c0bde5503428b2bc92d689c4aa4ea29d80d4d0eae5dda487f091d7",
+    "file_count": 194,
+    "all_originals_unchanged": true
+  },
+  "limitations": [
+    "Original files stay local; manifest hashes identity, not financial correctness.",
+    "New result admission, bounded text guard and scripted SDK repair are not general semantic/arithmetic certification.",
+    "Authored corrected script consumes frozen input and changes under perturbation; arbitrary model scripts are not certified.",
+    "New mutation suite has behavior AssertionError evidence; old default also has mutation-induced runtime failures and is only a compatibility rerun.",
+    "Earlier dirty receipts and overlapping target suites are not summed with the clean full suite.",
+    "Old live runs remain failed and keep their original revision/model labels; no new retrieval or model session in this round.",
+    "No main merge, production switch, R5 integration, source restoration, or broader stable-update coverage is claimed."
+  ],
+  "file_count": 338,
+  "files": [
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-deadline.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 75397,
+      "sha256": "a64b6cf625346a27ff77ba35240a66aa241c811736f78a75b873ffdb8f467c84"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-final-green.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 186,
+      "sha256": "f587ff940fe99761bb3fdfe5fa3be07f9dc40c75884c0ed64d230d2c4b7100ac"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-final-matrix.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 3628,
+      "sha256": "66ccbfb8d1687f6ff088ebdc11d0f27a157416db65f48c978cb470ff4ef2ad01"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-final-projection-fixed.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 3340,
+      "sha256": "b5fea2841a717b37b568fe5ef8f6e11b146dc893537446724e02028986d024cc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-final-projection.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 72056,
+      "sha256": "dca1db0d3bdd723d03fd73e1a8c4a651caa434ec6cd052f915c4295ecd14c4d6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-payload-citation-after.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 347,
+      "sha256": "cd9ed0dbe5871530db5b0872d0ea2669c7190b93b66772991d05f0e82ee505c2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-payload-citation-before.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 29819,
+      "sha256": "8acf321e94c7ff9ad9c1eaa5528e761abce96054a7b78b8baec631300126e7ca"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-repair-closed-stage.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 185,
+      "sha256": "112b878e14d0a3262426a85b2b767f780d18e9dc8d5582667019644447b031d1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-repair-diagnosis.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 24484,
+      "sha256": "35921a14f11707bb9d3e48505ceb1d7006dddc178c404ec73381792538fc2349"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-repair-first.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 14925,
+      "sha256": "3c1fe88f03b12cd6c2c6dea31893493334d2c52e8ef940574a838d97bcf4c37b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-repair-matrix.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 186,
+      "sha256": "6350765d9d5acb7422674711a78de8fef08dd9e01eafad0774786c75bbd4b394"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/adapter-repair-reserved.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 96875,
+      "sha256": "3d819f13bafd4b39874c072db601fec8ddaf0b8efba6d7b6c9cc08cecf823ddf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/e2e-deploy-ledger.jsonl",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 848,
+      "sha256": "eb4a650e47c295983af3f0a18981f2cad3ede76f17d2864424d47a7442bc1394"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/e2e-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 215,
+      "sha256": "351691d6c23ae89e59dbba4515be8d0f430d0ada8b00fe4827e71a6b244537e5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/e2e.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 12747,
+      "sha256": "9e472ef3559dcead199584c9cb331b339a89e84ee2bbc5a3c943986d8508caa2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-build-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 221,
+      "sha256": "db4b08cff1937d1dd7e8079dd6032351c7e00816413539fd5aa393e0e065c7bd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-build.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 715,
+      "sha256": "70a0b36d43f92b3afb9a66a5c05761ba35734699d6f4d24877301b79ef58d283"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-lint-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 220,
+      "sha256": "9c01d453fc979f2fa0c07d8837054008f59923d21ce3fb1cc186c073f3036e2f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-lint.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 118,
+      "sha256": "a632bb402bf766f6aadfbe8b74a13754dfad82806ecb1437fb65082fca002cc8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-test-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 220,
+      "sha256": "fbfdc17b27706ad2ef6e9977eaf89cc8b4d5c4e89ac1c00812e8130e606d1950"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-test.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 845,
+      "sha256": "cf1bfd538a8cab2e4cfdda9047d9b0cab0984d6c0690b77fe94d9632627c2606"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-typecheck-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 230,
+      "sha256": "5d08d1f3f7699a6937a33c125d77e2a0475b94bc88e157643549e7927bff78d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/frontend-typecheck.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 216,
+      "sha256": "7bb04397199c3e47513c4f88d5cd2fa0bdce35f1214d378d3801239d05cd3357"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/ledger-crosswalk-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 316,
+      "sha256": "d64f7825050a41514e514c91091f64154f1307eb16cd5de421145bb79f3948d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/ledger-crosswalk.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 2013,
+      "sha256": "8c61617450bafe4ccaf9067fa5254b20ae233b44c803f965275dc7d18574b932"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/parseability-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 325,
+      "sha256": "534bb7aaa80a7b0471478c42d54fc9887244e933202eab2c3fa508027942f535"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/parseability.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/pytest-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 313,
+      "sha256": "4d1116c2fb6d8fcbe9bd4ee51bdfbb23b5462c229e640c0ec7c5b125903e3183"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/pytest.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 17123,
+      "sha256": "9826095b6fd748388332fba443f50d34cbbc385f8ea4b65e7397ea60e37ce3ab"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/registry-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 308,
+      "sha256": "9b591ba326f2c7db5d9b8df9af3c74e963bd551a8f57199e1cf916a8996a0757"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/registry.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 4247,
+      "sha256": "3bd8df87b8d227a015a869ec8e79b3dbf336b4e8ee90ae95f0e9bb7cdb8c3100"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/ruff-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 302,
+      "sha256": "069c23cc04fcfc406e853f81bcf4f4e94839f531e3b8effb1b1f7d36782b7071"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/ruff.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/started.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 128,
+      "sha256": "46bdda7b54cae4e416e19188b5f80c179de07e7b59c765e4233632f5221948d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/tables-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 331,
+      "sha256": "41b5b2938ed11bdd44786dc9c08242b5b7c091760ad1e15e2fb8e42d489bfd5c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/tables.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/views-result.json",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 329,
+      "sha256": "8cf11e2de09e8e9018074e0b0ad89bce40fd82a00e6a12a547d75564bf2d1f75"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/candidate-a31b572f/views.log",
+      "scope": "clean fixed candidate engineering check; frontend/e2e use fixtures, no natural model acceptance",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/code-commit-final.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 6209,
+      "sha256": "12b8f98a500ec7cb3c4e1175c0a8d1f54dacedf0e19490945dfd448aedac5a1e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/code-commit.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 5581,
+      "sha256": "f1c2795b15ad6ac019d8d2092c694bb5a2d8f2126044494844068037c947a39b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/code-map-build.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 208,
+      "sha256": "41d489a3cfa297d2dad35d0a164eff72d76ae047d786278a2597bd0526491774"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/code-map-query.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 532,
+      "sha256": "b25c8ca9c155c4e40b7ffbad4dc5f5d822a7be54b1271572ad0476a02568efec"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/delivery-guards-after.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 267,
+      "sha256": "ea3f701008f26c38403507a3f486f34baacfdb4221388044d791688e08b09ca8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/delivery-guards-before.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 15242,
+      "sha256": "40f9a5b3d9b843c69b23b95deb6153971d0d41647135d7202abe050e9087fe75"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M1-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 893,
+      "sha256": "9952dc8358d927e7784e75b67d1adfa9fac022eb36b40a3a7659b248a390c71b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M1-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1027,
+      "sha256": "34b7324d45bcb0657abd0dab91119a5d6a94dec6ae98c044e9b97712054ec13a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M1-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3352,
+      "sha256": "406408876c3b18da2c60fc3ab771a3cbab3bf923f36051dacde016cb78ad3152"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M1-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3875,
+      "sha256": "1feea0a0676c4a1ff8cc221f57c45a9b07a47c5629527031ec335c4c0165f304"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M1.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 550,
+      "sha256": "e7499c95ca18db88de3b71b78455321f6cd7f5798588da774ac238f311a0a231"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M10-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 905,
+      "sha256": "fc729b574df4c3a8630bfb44013c8e35d43045bbd58fabca94e39c647945dc58"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M10-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 762,
+      "sha256": "3d3474970c4d9db6479134645f29ce304762e27b991c7516ac0b2609d9f6f977"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M10-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2082,
+      "sha256": "842b51d13b8364e837c1258b85f5dfe09b55082ef4a61349cb9f63144f35d44e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M10-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2160,
+      "sha256": "e977c19b53a6947077f9a3bbeb668da204bc201023804c8c2ceb762f642be8a8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M10.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 682,
+      "sha256": "56b13d01963a0d736510da26bb6b1bb4493a8ed3c178a571c1f4a516477b14e4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M11-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 919,
+      "sha256": "0a5766bcf70222159766397090bcbbcf27a722c020a5b3f9b3a6be7f0bfc30b4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M11-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 602,
+      "sha256": "4963a4cf11cccab470aa56344bb04518f70c66482bfccc9ff8b1b0a11b6fe1f6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M11-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2391,
+      "sha256": "2593e6373916765b9c223f094be9f2c3a3234a518b1cdfe7c12cdd4d1277e921"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M11-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1977,
+      "sha256": "7b426bf96c205e4ed16cd440c760285b1411ae8fa4a2afc4a65ebd74f42122b9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M11.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 795,
+      "sha256": "bc08ec6efbb96a70b683d768568f9526bf3c6c5f6ccf6b40214c0566c9a0b3b9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M12-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 922,
+      "sha256": "a3aa80d49593063961d292fb9c9bfab6dde4b2b2678e5ef1c96bbf1058ca34f1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M12-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 621,
+      "sha256": "f8a2c70ff387e7e352813ff804f9e921ac91ed610aa3caa258c66e0d29fafd0f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M12-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2954,
+      "sha256": "bb7aa798fb69abf5380e494ddea332e8c2e29179980dffbe2fd1cb1524b42421"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M12-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3669,
+      "sha256": "ce91f6d34210a71218fe62ebea8235001c1f3f3ca0c3a49a8b47aaec7657d00b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M12.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 711,
+      "sha256": "39597cc87904f6f7fa9474d7502da119fb5d1ae705f86172f112c9afb4f4da32"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M13-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 922,
+      "sha256": "706df68c4507b8a20477ecf2d23c4ece74c0c7bd0088308c7d90fce048fca45f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M13-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 621,
+      "sha256": "27e1e1aef5591dde6327ac4636f9f08f8417913f50b7643882ddfc2741a39130"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M13-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1571,
+      "sha256": "3418fb0f3251215475cee6d47b5f4245633cebfd57e59ef6f725bb52a4f9d0be"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M13-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 898,
+      "sha256": "ea37534a1434a500c87d0f67d5c57ace1a0756f5cfb7e7e087b80ccc9bb2caa2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M13.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 600,
+      "sha256": "e837e64478f5d6811225639cbd03807a9b2f36ec060e7ebcc067838a31342883"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M14-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 918,
+      "sha256": "69a3dfedc4bb5a25faed22b735b4704922380ea2de96d45a17e620248d2d1ba6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M14-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 769,
+      "sha256": "0a210d59690a74fb27b5079a8a6d4c3ae2e1306a992b70547643f9d4f9000355"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M14-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3722,
+      "sha256": "719a2fa60a44093b1a809abf5ad3e6aee1643f505a9d4161caff870018ee6347"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M14-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3146,
+      "sha256": "1caaf4b0f1df40a330f20205381b36472fcc73a3fc17de2cba18db0e2875ac46"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M14.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1074,
+      "sha256": "21eab79223c1aee9587fbe682fb85ed32fa330310cc3024375bf2c7629f11eeb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M15-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 911,
+      "sha256": "3f1734af825d817e64092d97fb9862bbe205409048d395f67441e53b95f08310"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M15-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 603,
+      "sha256": "abfa992a3879842d9b4565b3513abe0ad493679bda00f60ad47b8da7977b7de6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M15-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2732,
+      "sha256": "97a9566c5d86635a9ba3c7ab9c4459dd42e6746350011d72a3a6b1a20cda7929"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M15-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2585,
+      "sha256": "985b982aa0aaac4581d30f7099818673d8735c7fedd7f1e738f6a8376b535792"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M15.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 808,
+      "sha256": "ecf1176bac09ad0c7cb4f0aebe296cfc3913a59af0b7d09ed75cd9d6a69ae24e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M16-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 920,
+      "sha256": "9b67f75b16df1b316a342302aa4983c788046b6e53dbc0f2886c741e8bd216c4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M16-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 428,
+      "sha256": "59acb53620773c561392999eb427267adcdb833631dbd4522fc920de9d571720"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M16-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1571,
+      "sha256": "39898d058a2f6d49c8f1c16beb8ba77c713d700cf42ba9c0ae8866a15afcbe1d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M16-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 781,
+      "sha256": "45b4f9a6be22e541dd0e0b856560b928c9c064de147343daa845c7d3a1a5ff61"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M16.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 580,
+      "sha256": "a54ae936d004204161fc8efc5bc834cf93710366145ad07a355ea690b5ddb4d8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M17-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 916,
+      "sha256": "de8ed355c46d5531b20b87c07433cbe1cd118eb954ee21178a9eee4b7d95978b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M17-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 940,
+      "sha256": "95b7882e945b2f2c20a6e397a7a1370a406706f08440046401cd24e5018b2ee4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M17-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2806,
+      "sha256": "6748e78f96b44b89ae7c65dd16d23b0ad3a6ac05975464ab61204ae4fa276b9c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M17-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2699,
+      "sha256": "26b69698e0bc35b4bf284b87585bacb62581567487e04a2215b122b03eeb026e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M17.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 698,
+      "sha256": "90084486a3f7214890187ff1efd85408f040736b02b515ba06b2b84f16beb37f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M18-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 921,
+      "sha256": "5431c2a148382674ee72f6ef77d72fa2e7282ac54618d217414cd6983dd624c0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M18-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 611,
+      "sha256": "02b7a63dea5f3b4b6cd08468a8c6fdf2d47d44cb6e18e233bb404e1097c049c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M18-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2284,
+      "sha256": "18f449f8a97372d472f4ea3375c40d4a6dad2e2a68be7859ae6c5bd7c62f8bbc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M18-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1797,
+      "sha256": "bb1680cdc39fdac67adec99436dd42c8a67db1753f7b1aac4f9404fb74359f6d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M18.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 726,
+      "sha256": "8ba75089a3559e0fb6661e5527913ce3be4c1b19c9fe7f75975ecec800cb1981"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M19-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 919,
+      "sha256": "f6413ef009486e3077d686d73d86165c69c46b4dfce52be788e042be0b3ea4c6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M19-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 583,
+      "sha256": "862999e9f0f17bbb960ab034c4f58f5e7d764c399bd7a9fab028e7d15f4f2195"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M19-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1684,
+      "sha256": "748655dcb91225db609846d03ca39e62d43233a135e62d255795614956eaa3cd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M19-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1145,
+      "sha256": "130b63d65fa2af4ae41d1f0008ac880912841aa8e483935990aa82840d67a1a0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M19.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 580,
+      "sha256": "61b8b16661d21d3a0c50c8373f6e7c1166b0f74915f269aa47cb6d7108661179"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M2-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 949,
+      "sha256": "e1956be22947040fa86c9c04a066ddfb68cb36b035f18bd4311f06f8fe02694b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M2-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2529,
+      "sha256": "244b7c73cb63fb85ca37c077a0327fe0a9d8ccdc5a2b91bd34401b7ab210fb45"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M2-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4131,
+      "sha256": "2c6f664bba4b7fec2857ae6aa24e8472e49616e7ce71a3d81096676698285bba"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M2-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 5908,
+      "sha256": "147b5ed38260f56ee25a9ab1352411f42d2db7a9cc0d745069eac81c0672244f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M2.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 579,
+      "sha256": "87267681b7e2c9f6394f8e264ab305f029d16bc1fcd83f998846df5899d8058e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M20-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 923,
+      "sha256": "e2f07fe4f7f665e079ad4864adc879649e445798c5aa7f502fedd9bc13b1b705"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M20-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 605,
+      "sha256": "55906a726a746b53303723b0b7995cde4c0e0d8e9441dddceb5d07a91f6ccfb9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M20-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1692,
+      "sha256": "e30e790a57ffa9a4fc072524f2f69b8c9ffb6a1652cdfd945c86f9a12a15786d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M20-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1140,
+      "sha256": "59a05cbd4ebf299ae328ef1c95be3be08a08265856eaf009512c2e2b0e6992e3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M20.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 794,
+      "sha256": "5b7552899abba0fbf2a8b242bc78201967430e958b961fd5c9f8e1bff7704ed4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M21-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 915,
+      "sha256": "e0aa4dc7de5a875433f4ea3abf8ecf5afbc85a387e278684acad7525f0fb849d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M21-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 424,
+      "sha256": "bf8216c0d21be35298b343dc3b5f93e13c6cee04365f8c73fa8867f4437cdbb3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M21-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1897,
+      "sha256": "4c35f594937b6b6a7cb152fada92e1f1980786d3918c17148e0a6f45fc8c6693"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M21-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 755,
+      "sha256": "6b04372a18ff55055f90bdf81e803d25ac3714303fd718a4107362827b4e00a2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M21.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 750,
+      "sha256": "a14b422bdcbf30600a93aaafdfccaf482042f1697f2fd6c63296b23a5c4f815a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M22-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 922,
+      "sha256": "ee4a6f019a5ab1717846ceb5c989b504bcac81912c080b93624e47916981ba41"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M22-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 786,
+      "sha256": "c30bd0c5036d7cfc5154beb236c6eac205be08f5a683f27a92ac740c46eaa977"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M22-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2278,
+      "sha256": "ea1305ceac27d2424acc77383ca3ec34ac68986c20cebfa2c6cafea204d28909"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M22-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2539,
+      "sha256": "8c63dcac5fb06ee3aedf8a10c66b91f305971a7259d790a10667aee4978d61c7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M22.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1291,
+      "sha256": "a8b8b2c5f2819256750ada387d2dddae634d9fd440ab433440590fb9dc1936cc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M23-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 921,
+      "sha256": "0f49d56e98d1d3f231e130c6b943b225f06456a4928f349a450a2762be2d3e23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M23-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 429,
+      "sha256": "896d5afdd99c2c101ade60f12101582b0e634bc1da45286bad40f317a8256a97"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M23-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2010,
+      "sha256": "0f5157dcb1ce743f53ca09648f49d2df93546b10f344648e74fabbdb59cc21ef"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M23-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1240,
+      "sha256": "d420bc5d31cf6a70d12b5aa7de73cc5fcf810cd9e30eb9818b8f5333d0dc62ec"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M23.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1367,
+      "sha256": "c28133659ef5e03c462f38d8107a45c1cdb0fd3eddff78770d661d56688c8082"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M24-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 918,
+      "sha256": "e588f9cb8c4e05e3f5900bed2b24879111c5874478a7dc14a6f13d71c160b1e1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M24-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 613,
+      "sha256": "0548516c61db208b3af9f1b36fb0aac6528bb51217d19587d9fb0c844e0d9c0d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M24-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3858,
+      "sha256": "2f74705e4c28d6c9bd68f685ec85a3723992d2760531493b61067d5bbb1bfb28"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M24-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4206,
+      "sha256": "d4b150a1a57e600ba5ec52e0e2d4c8086a6dda77f871df2eaf3a04eb7814dfed"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M24.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 646,
+      "sha256": "f8f794951a32be489171e9aa790bcb826a9a38139cee5dd426dc1662b6128a73"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M25-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 928,
+      "sha256": "f11dd66ba3e849908a7ac651a8979bc0e2aa1ae1c6966329a647b61f3fad0340"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M25-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 642,
+      "sha256": "fcb0e8eba96555d2351b3cd34c572a5ad19a21211f28353fad6e1036ecd617f2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M25-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1779,
+      "sha256": "1c24bd0d3d3ddeefd9c77f02268c19c5bacd4aa9fce1d08271b67a24e5010f89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M25-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1278,
+      "sha256": "1081630817e5e3a07583b7b73570d5e404ce107c49acffac45d00147a5d34887"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M25.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 745,
+      "sha256": "b2609882238ecda519a46623e7133099716c770fc187b902d1d72e5032a790e7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M26-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 920,
+      "sha256": "8b8484a1f9b1bb8e8ac381efc02dd65af986417aae2583f3ac7aa1cc0c1bd226"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M26-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 773,
+      "sha256": "c1e963feaef9e514093a8313c5b9e43d159e6c1f1e3c89b85d92f2ba5cf2da50"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M26-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2412,
+      "sha256": "5545fc849c0c8b34ad8b5dcce1e7824c9790d4a6fa7d3aa3924d946088ee624d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M26-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2232,
+      "sha256": "60016c3604b0ee9bf2e93d2c54a085370a79a6afc2ddeaff4645242d82346b4a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M26.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 914,
+      "sha256": "a7a802af14cab2f5c43a43adc1919bdec3fe720a25d134e12d0160a769794f4f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M27-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 923,
+      "sha256": "3e88095dbea4991c955e3f9d85b956fb8458a9635850d099708c95ae4f56e128"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M27-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 609,
+      "sha256": "7a934275fd9361673339e2c725e17c378778806b158c9e44ad4b9a89f26828f8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M27-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1790,
+      "sha256": "a753a8cb026d6e34f90d6e695870e05cdfe33ab50497cadc1159a77363ef6f6a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M27-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1362,
+      "sha256": "2a941db81a67542e50ba49f098e0d2868fc7e691f3d40a85db131cdaa540a2c3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M27.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 614,
+      "sha256": "3e86da9313154f9f2bab4b63c4ad295380bdade4de87ca028467c5d45b8948d6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M28-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 918,
+      "sha256": "d68838621febf4d889f802f64e3a5c5d880304588f9b45b38ef0c09250ac774e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M28-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 762,
+      "sha256": "a88f0ec696931c1df3e0ed3ecf25d836c1de953fd2066dc2cf4f1bca3c73520e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M28-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2043,
+      "sha256": "5c763aee66a8aac08539d74e005b638e7df972ee5e8bc2af0e2706148ed26f25"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M28-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1525,
+      "sha256": "3b39c4a320173019dde9dd80215a6de82ef4684e79898a8a3444f407fe91c21b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M28.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 889,
+      "sha256": "de7527ebfd5ea54d6da9274d65a0996463ed498c6de28f46bead9260b2f2d471"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M29-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 941,
+      "sha256": "7ecc63b33e3a608992af1b55bd856827ce84bf098c2d836e502a8f105fb2018e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M29-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1238,
+      "sha256": "0e8669ec30772d3460781a096fbef30a00ddcded102097ad7aa8905faffd2610"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M29-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4310,
+      "sha256": "c7333974579c5223cf9a94eeaf9a051854ff11433ff7414f795e984468210206"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M29-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4070,
+      "sha256": "d0886661e3cf969b7498c997cc31226cd80fbe199ffc509a7bc812760f4ca3eb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M29.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 581,
+      "sha256": "c5cdbc7ca411bfbe7f64920574b1f1a6ae17b3b6e4da294ffa8b39b1004a051c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M3-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 898,
+      "sha256": "92535ef4133b2894311f96b9b081fc83aedf2a64c601938b310a3df7b59942bc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M3-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1700,
+      "sha256": "005a514528ecb493ed41e93aeae3641c7f955fb6b6a77d56fbbd1df1c1206593"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M3-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1688,
+      "sha256": "1c683cd4c5576e518c028d9dcd05aea44565656649bbc06d1114125dd9ce20fc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M3-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2368,
+      "sha256": "3c2600f13c2298ff5ee61730acc43e1e75e480b0348e4fbc23c1a09b4eef12d3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M3.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 706,
+      "sha256": "564cfbb5a6c1fa53eaf03178e0cae6cb8d16d06310703768378a82bd45bec282"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M30-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 934,
+      "sha256": "4f9c5c99835fe36164cadddb22254795c8c7f0ae37864fb218ea67ade453c93c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M30-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1025,
+      "sha256": "3a5fd71ac7cfdf92a72155a99d9fbc82bfdd78d271c08c3c2baed5c933e2e6db"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M30-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2355,
+      "sha256": "37c48d834241907a75b7b6679eea619ec9f63140f2bf395103cf073f4ca4afce"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M30-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1868,
+      "sha256": "75140f1fac2c6cc5918d2fbe6de9ea13ebb72e1a0f7dcc8140d6dcd3b225fc76"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M30.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 898,
+      "sha256": "2bee8a479fb2517858c0cc28dcc42817c97ea6ae96c2fc00b2cbe32e1f434fd9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M31-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 934,
+      "sha256": "cb7846fc2a2417047e7403a490bae08f8b40f4dfbb3cb6f08871d0155eb87e8b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M31-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1025,
+      "sha256": "3542137b09f561b5643b944b283bef2113648f62f732846e012b6de075d35427"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M31-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1937,
+      "sha256": "27f2f0a8624858145b184d0d99dcdf8cda80af71762fad715b5e38f46d391bb2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M31-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1587,
+      "sha256": "66b50c0234b37e2ef4048cffc5129c80edab67b45c652b4ecfd9fe263ed14349"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M31.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 673,
+      "sha256": "cee4b02d5a247b0a456c9e697a8a299042a5eb1da21337eb580c3c0ab6f5b101"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M32-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 946,
+      "sha256": "7f785c56af76572a8c0bf8f1ca3c08df8ced75103bc21e577dd14546d791485e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M32-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 390,
+      "sha256": "412a113ab5f4d2903974bd513c1d223ed145694c7dce6765d4f7eb15cb7fd3a6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M32-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1981,
+      "sha256": "bdb26bd14245b7975b9adea7e205ef537bf830bc00a9b64e9580171f1602a278"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M32-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1628,
+      "sha256": "82733453e0d6180ac154794524a48d3f23ab84a349b08b09280846ec6882d95c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M32.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 815,
+      "sha256": "904c8420cd90467cb7cc7259feadf6df75ef5e359ab239a5cbe677d26f7e9189"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M33-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 930,
+      "sha256": "87d80fe9c8791598ae24a3735cf4e3c3ba0cf649d4d5c359bbef1f2274b2e974"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M33-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1443,
+      "sha256": "eb65a6ab2093ff06a022020d5c7b4f364621899a6d18a98f4dd9fa32b7317d69"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M33-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1581,
+      "sha256": "7a255ab7ceee05111094f7c1e78b1fc43deea3bb3aff9abbc764018837fc1887"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M33-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1879,
+      "sha256": "becaf14732f235293b57860a0d045986a99c4901e2783bc9d466b9c8ea2281e1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M33.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 633,
+      "sha256": "234871b9d6e6963edd98932de984f38f89d0c47b8856ed2b81b6e03da99c697b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M34-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 925,
+      "sha256": "04e8d2a28c5baee1f5e852fb69f29b28b6d3947f086b2104195f6b1b6ef55b1b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M34-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1214,
+      "sha256": "213f129ab4a2c359cc1d34812f43e12522bc957223c02d745048986b89cd11dd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M34-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3048,
+      "sha256": "29bc68c979e98bd54cf84589a27d4a933c65357930d7026d15baf3b7c50d3f87"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M34-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2579,
+      "sha256": "6ae4c86c8b2e6a0a0b719f6a05469b68fac4a2fd49f3c41ef19e1452a2e670df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M34.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 670,
+      "sha256": "8d45fc6c4bcbfbbd117a869fe88c059f34a52b891769fb3d470ffc5efc2bf8a5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M35-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 925,
+      "sha256": "f1e602c5b3f72b998eefa70cb9cae10ad0791bf95f5d9af0de49ba1bd513b116"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M35-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1214,
+      "sha256": "f59dadc9d1f2d4901574392575e4894db1a4aa069be2d753080684280ff9ff39"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M35-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1879,
+      "sha256": "567b5a6e887a2699d9e9efb45aecc83eaac3cb22ca7f4ab9b624ec42c84b7447"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M35-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1760,
+      "sha256": "a52fcb60cfeff5dc5e48fdf8d54eee3467b6a19daa11fff9d317f356a3ac6af5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M35.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 590,
+      "sha256": "d44eb029e05de6687ed0056145cbef7cd94d45a7883b73634179d969246b4a08"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M4-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 898,
+      "sha256": "d28a618ee97da7fbb020dd5bed555ded936ac182b905e25b9b0e2d75ff44e7be"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M4-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1548,
+      "sha256": "5407603b56aaf0191e51db9e7c1874a651b6ad895a8d1c99e2505f11abb43020"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M4-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2878,
+      "sha256": "b4a5eca6b91f6be17fa8dafd92b9435d0bd05dbbd0b718ce8eb0ce894695a640"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M4-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4121,
+      "sha256": "a5dd59325e2d2e043592c01fa8edc8aab5a2a311e4e69865123df376111dfe53"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M4.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 504,
+      "sha256": "ddaf4ad4342e85c59bc78a4f38578dae900183e0ff42ddb76bb8b61b4101c8b4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M5-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 898,
+      "sha256": "28da5f2c8f12c84646413207a9bcb3190b645e6cdf76d55cbd169aa39f9a08c6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M5-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1700,
+      "sha256": "149d5c786defaff00e1786d26bb75acb3f813b3d74fa70c35c4f3d9ad49313b8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M5-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2848,
+      "sha256": "734fddbdbcdb81378f1dabd261658ed975785ab3a948a4a8f171ddbcd98e9783"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M5-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4689,
+      "sha256": "26929a4bb89434136fbab522d866df21179bf02d4a190409bfcd25badbe4284c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M5.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 568,
+      "sha256": "fd7c7a4d9fbd6b7787377a99bb311538c21217ccd2de226f133dfb1e754ef3c1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M6-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 912,
+      "sha256": "ae8a9a33a274691f8937e6f78ac335c9fb397fc20b88311f6a9dde5ea4272886"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M6-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 606,
+      "sha256": "2a025cd662f2461bacf6fc078176693ea9e8642412905bdceaecca0a3a56cc75"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M6-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2007,
+      "sha256": "a94b91ce8ce3cc661082e0859d9cccaa60e072cb9b09324e00ffef3de7229ec4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M6-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1175,
+      "sha256": "d9c1b805886e11fc4139886c99939e045ab605a88263b2aee43c710bf91cfa5d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M6.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 548,
+      "sha256": "a3432746e97f77fed3e931feb51868bb25ec0b4c2f3f0538ba873ebb0258fea8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M7-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 913,
+      "sha256": "fa8e01911cbe3c9a22d584d4cf7f7fc8b83baee821539d58f12e0628e62f4a52"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M7-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 591,
+      "sha256": "a282b50649e8986d7cfb0f725c831ffad061ed6e326357c7008710aed933b438"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M7-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1512,
+      "sha256": "d5e6965cdf3d6c45afa4ca8f6f5c3cc11efd28065ffd42a523ee6c3e7919b51c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M7-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 852,
+      "sha256": "38b65a522ba4d7744691e0707abad2a5cb8bc0d710acd811eeeebce321b3e847"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M7.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 795,
+      "sha256": "1fc97adf06515555849c61b426cfe6b15bf501bf6a0ae842caa57c89938103fa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M8-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 916,
+      "sha256": "c1e047f5269c0d844467d8629cbf171387bd8c9593156f69531dd441afcad5e2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M8-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 597,
+      "sha256": "5337abbce39dacfcc36f4a32b536dc2b5c92dfce1e1d82ec01dda1914c0dec41"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M8-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1615,
+      "sha256": "19c75739af6924b52f5431a98fb6d87af64f7cd370bdc828e72a437b442ed71f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M8-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1034,
+      "sha256": "eeeee33468666529fffbce727dc0c25b22e44b4c5123f234e81f2c224c8ea8ab"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M8.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 702,
+      "sha256": "f941d530fc545920e61052d554007254eedca87f8866252aac1b82c85d5607e7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M9-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 913,
+      "sha256": "4145fa60ad8f8e6466b09ec2ded48ef494667c98e779cac37585de30a03c5cb8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M9-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 609,
+      "sha256": "45e7cd5cd62088c07d8e4ae2de50ac3ca082d8f8c380e7ebc11ac463b266c113"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M9-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1543,
+      "sha256": "14d881b41ab12c802f414ab11b5bfad5fc9a764496642104562600ac4c3eae92"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M9-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 890,
+      "sha256": "b98897e6d65df3610939c176574bb9cdf3daed1fbe0652382e9e8ff3fd35a8fb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/M9.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 858,
+      "sha256": "aa49d285a15038fdded92ac5b125eb8239607114541e5006802bc1b23b88f64f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/baseline.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1016,
+      "sha256": "58cc58b58c50b284332d4a4112fd451cacded0653e3152e1654b13ac67cc5c5d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/baseline.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 28071,
+      "sha256": "3fe0283dc11b9612eef2ae2d328000698f268192d648531b7c8d5b1c2cc95168"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/definitions.json",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 14741,
+      "sha256": "6d1e55296fc6a594f0d6a825b0e547bdd7d7ee9a5f0fa8bd06262e7a3b467cde"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/restored-full.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1026,
+      "sha256": "c6bdc9385b123c41604e8c9836a2823965ef5f6b42cb4034f1ef97dbda4640dd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/restored-full.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 28071,
+      "sha256": "1bc767f04c9e7b0ac4ed8ee9f75a884167ad18d067767e1b48aec11188d97edc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-a31b572f/results.json",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 54041,
+      "sha256": "9538153909ed6a01c49fa79dfbd6ae17c570f960df52e7323f929e878c895f3d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/extraction-default-supervisor.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 33825,
+      "sha256": "e399bbba1e9ec816d7cd89b2fa515e1b43abcab3f8d76a1517812a14d4cd9351"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/final-targeted.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 508,
+      "sha256": "18e403baf4e5b989d64809157e63f7abd216b919666933382f3bafcb8cb98996"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/frozen-replay-first.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 186,
+      "sha256": "141e0f4b38248f8addf15164fc4dcd004112658216816471d47ee8a908c89af7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/full-supervisor.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/graph-audit-final.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 37525,
+      "sha256": "4fd46f2f33441213236a62f12d0dd6b19662aba0a5fdaed6a06e4a648a0776f4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/guard-boundaries-before.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 1644,
+      "sha256": "1f54111cc6cb8ab687b1070c52c11c91a69c83974af1005155e24360c3588490"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/harness-check-refs.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 2339,
+      "sha256": "4f5c67b3a56fcc50f78331ffbfbb735aa15493cb7634de247d3e3b611d7178d9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/harness-commit.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 161,
+      "sha256": "24927eb825f51288a3a0cdb3775da4beecdaddfcb57f049098cbd284da1b4d12"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/harness-push.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 303,
+      "sha256": "5240d0d9b8a11076e2f06cf063723a8bb5626d749f2eb2290c5393fb8d437a6b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/baseline.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 972,
+      "sha256": "a5f8d194a14d5c414f6c2d824e4bfd26846bc186927e4449079a8cfb7615f905"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/baseline.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 21783,
+      "sha256": "2621274522b2c84e40a1f59813340c8c5ae3badd0c3b52542e40bc2e7d6b7d3e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/cell-local-preservation-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1092,
+      "sha256": "e37666121b433cf1c20a1954edac35ef892809425f0be1ff36981f9e49a53dc0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/cell-local-preservation-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 729,
+      "sha256": "cfd56ce1fc16a165ed2d26cccfdbea95cb0a3a638cb4201df2d365f617e6cd0d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/cell-local-preservation-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4574,
+      "sha256": "a986b0c228046323b093a9acec24c1ea893ae97c86bad60158e69b4e0a5e7e1b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/cell-local-preservation-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 5582,
+      "sha256": "2023561371055e967706c014cd5c0cf68ef2f0f26ca4c00290b1aa9a9865240e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/cell-local-preservation.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 716,
+      "sha256": "9d198fcef30c87ddded3cba021190ceb9ce69a5b6e5037f85dafd85ea970a98d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/definitions.json",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4758,
+      "sha256": "3392d4ba1915f46c4f6dceef5ce24ae8f57db25f2a4cf8062736ebca11d25dd9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/domain-error-status-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1015,
+      "sha256": "c69cf407d5df5af5e0be8abcb5f74ee48e4c79338b10b0d7bb32e8e7b1882b30"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/domain-error-status-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 396,
+      "sha256": "786946c41aa2dce77e54633f5ca2735627eb450b613f3222a31a02eb7156358b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/domain-error-status-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1609,
+      "sha256": "6c422530352ffaeee0a5a9256f33d0a6301acc94bf5cb275dc3e04e40ec77da2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/domain-error-status-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 685,
+      "sha256": "69aecc091a227a88a489ac7f8c8e2232d79083641d4f6c387cdddd99a6efa898"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/domain-error-status.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 831,
+      "sha256": "61700953b3c1f37d1109f1353959656216fdaa4db2daacf667b780cb4a4d2365"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/harness-status-delivery-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1023,
+      "sha256": "02d9aed3c409df1af5a402ca01380669e17a31fec09da285289564d4b681e7b6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/harness-status-delivery-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 396,
+      "sha256": "cfede146fd510a10c8d6405e586b4b61faf919a7b49eefd9cd5ace0fb92b5f8b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/harness-status-delivery-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1617,
+      "sha256": "03ecf428277db8ee839257b36c5103ae71498c0fb98d1ccb31d880dec87d86af"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/harness-status-delivery-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 685,
+      "sha256": "51e7ac47848e7ee8267552b6a9db295d8351a7f2c99f74bb6425f21cfd5fa5e8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/harness-status-delivery.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 666,
+      "sha256": "5f98a21acfa8ec15c4868a0acb287420b97f140607ee95025d161f261f9ecfaf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/metric-column-not-table-purpose-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1038,
+      "sha256": "20c71b755ffb03ace37fa24af2c29f977e63de4f0a9ac1a7ea9d0fadec9a4f94"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/metric-column-not-table-purpose-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2024,
+      "sha256": "0743d5caf4feae14730af2081aeead88df0f869f9ee815688a6d4ec66ef4c9c2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/metric-column-not-table-purpose-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4274,
+      "sha256": "c92346c93862eb224303d9b24caa993f155a9b47ae86ad0b5fa7ad93be748b12"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/metric-column-not-table-purpose-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4129,
+      "sha256": "e2c400bf858e4017b6c8ccd904e19041950caca1d632179ca3ab0f4b6f831fcc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/metric-column-not-table-purpose.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 910,
+      "sha256": "567703c9f3915284d7871cfbd749bbb8fe3ea522a96b3ddc3d1d4c63d47dd192"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/missing-product-not-certified-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1112,
+      "sha256": "1b9daff59feb1eaf3da0881fc5de4b388f3f12f8d739cbbf825177685ccc014b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/missing-product-not-certified-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 730,
+      "sha256": "56b63a4c956ebbc6bfd3890f5b92e8d0877bc02c48dfb884c543af02abf8a972"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/missing-product-not-certified-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 5797,
+      "sha256": "4f4a70126eaf0abc82a95548dcaa30f512df5680711b0cd2936772f6ca927782"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/missing-product-not-certified-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 8118,
+      "sha256": "381fd2f84b24927c3431cfb89f28bb61b116e7805a49f9aaa684cdc97e153bd6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/missing-product-not-certified.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 594,
+      "sha256": "70b66eb50b707196180dcad741571a9e8c4d5adb07fba5bef32c1ae4b1fceff1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/nonmaterial-final-projection-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1018,
+      "sha256": "ad2269edb54b08c06ae8d065462e317c17973195e60bd3b1d7ceccf120403848"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/nonmaterial-final-projection-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 381,
+      "sha256": "3b8e05f6e434cf3de5d353e1ada6f8a379c522e8341d7e359f9670c9721f24d5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/nonmaterial-final-projection-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1880,
+      "sha256": "2706c5bf197095d693739cd54dd77903e4433fd5dcd14f825b65b769746422d2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/nonmaterial-final-projection-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1264,
+      "sha256": "4c501bf3f52369bd79fb2f6eb87679cab3fb45c5feded8ea3340c888f4091234"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/nonmaterial-final-projection.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 748,
+      "sha256": "495a1494f43271c3900377d29478fdc49ebc42405cbe1757ce773686a765510d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/period-not-bag-of-numbers-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1090,
+      "sha256": "973741681dc678c0948fac923f4373c56dd9cc37f9ceec0121193d9045a083b7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/period-not-bag-of-numbers-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2178,
+      "sha256": "27d2567d6537686beb2b1545da41dd71505863ee04be09287aeb12960917b606"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/period-not-bag-of-numbers-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4251,
+      "sha256": "95748fb34c3f60f658cba42b6d222263b2a86d5a35b45b06592186824d881ad6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/period-not-bag-of-numbers-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 4380,
+      "sha256": "439b0ba610f112630a0b04775cebe90056cdfe0136a9adddd04b56df97234926"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/period-not-bag-of-numbers.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 948,
+      "sha256": "923fbbeb6c0921fc94311d65925df85db595952a9891e8e89701dd777bb60508"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-calculation-check-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1097,
+      "sha256": "41bbab4b8b86ed87eff8e53fd6d32a833d681b02db35f91fdc699779ec9752d1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-calculation-check-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 899,
+      "sha256": "22ff702c488f5ee64d65f7374a31680913576505bd05a4412e1cee172719e5dd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-calculation-check-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 6167,
+      "sha256": "f2ec14ecbe12de647d40e26cbc3d9fcd07ad9122a141d1c19cd1aa6f5a46f6e8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-calculation-check-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 8369,
+      "sha256": "444e4234e6424cd261f5bb95f65efb11d323fbde9ab94b23dc30aefabb1d2bd0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-calculation-check.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 730,
+      "sha256": "44a3d2191c1bf11fa1424ed4f3f1c0fd0a7b6cee03bb18ee8c15dcc0209ba2ae"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-disclosure-check-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1079,
+      "sha256": "1fcf3800c62a027f104ce972689c35ed8d4ca82033aa6035593ebaf9626817f5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-disclosure-check-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1912,
+      "sha256": "dc6b57b48b88fed5f6292c766be0842d7efd6e7558ffb95bf2ab57d03960a53b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-disclosure-check-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 10015,
+      "sha256": "2bbc4775df84ab08c44d29841a1e9a16bb38a893d83afbe16997e9cd8e85fd9f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-disclosure-check-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 13541,
+      "sha256": "fddb79449c2d2f34face8a83eb38051b43a95e87bbb6523894d9c492c4eed90e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/public-disclosure-check.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 733,
+      "sha256": "1032831ceebf1a5e6b70530f34281a3e192990a6467449d900757d76df958f39"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/restored-full.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 982,
+      "sha256": "7ad1048e642dc2199c07d0223e14f3565613ddff5ef8febbb201bc9c8ac67a8c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/restored-full.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 21783,
+      "sha256": "2e835a40581ae34e5f7d472f5569b7f5a4de44f99e5613cdc8ffdb216a6dd8dc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/result-success-admission-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1081,
+      "sha256": "8524e2374e3b6f9cc776527dc3c90a56b6b2924d1f32b23a254175f553d14a30"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/result-success-admission-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 545,
+      "sha256": "96818570e8badf207a512800e0ac7ac69f9e3450b61fa0263cbb4c5b7934c624"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/result-success-admission-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2942,
+      "sha256": "96a928e2ca6731a895c334c9e5568bf333400c656f1fd9857f011469bd28d49d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/result-success-admission-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 2972,
+      "sha256": "811a3e0e3eddc69838fc3d24b4e57ac2b9d6ee162049ca90e064f9bd36b826e7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/result-success-admission.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 570,
+      "sha256": "72e463e3842ffe93da2e1ecef9ba3023658b376d36094240125080c57a59e9ef"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/results.json",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 44559,
+      "sha256": "8cbc1d764a1921bf635e0dfbe5cc5613c5536ac69d27e25499a0ee52d222ceef"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/retained-bound-citations-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1110,
+      "sha256": "c481e84f26e1f7ec0c8821eadce5ef1c9d0b2cdaeb53a847822acdefb9dad1d1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/retained-bound-citations-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 7661,
+      "sha256": "e41b5590f28cc4664ccef5f43a9c6465c182bd4aeb921e7ecaa41daa707ddf2a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/retained-bound-citations-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 9679,
+      "sha256": "e57c4d0f046619479f6df80a026c6cf4f3c5421cd0da20dd4ccf7724b88bdf24"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/retained-bound-citations-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 15127,
+      "sha256": "1c9ebbba607d4459605d62eb8a43d4a2e70b60cc22fc783e736783ad584f2f4a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/retained-bound-citations.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 864,
+      "sha256": "8cfab64ed43feca7c2811e7ab66f761e1529979b4293d113c4442337e9c2a8da"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/same-turn-repair-note-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1025,
+      "sha256": "ed662306088d8427d8f3206feb57fffaa5cf0f27b1a9e9c30eed7327a854dd71"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/same-turn-repair-note-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 7492,
+      "sha256": "9489e49a99341355cdb5bef7716820985881ff113b51ec74084dd2c73b0e7cea"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/same-turn-repair-note-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 8330,
+      "sha256": "73b4f4fd931934b5240d13d968bc9e7b517bb4dcdc9ddd5399ce57d080d2aa63"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/same-turn-repair-note-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 14153,
+      "sha256": "0e086483e03d59866a6f8b1712a84b55d78693c49ff08ae6803838cd5941125b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/same-turn-repair-note.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 733,
+      "sha256": "af1c6bf4152517c874365b4c3bd7b04006fac40c25de7515e84cdaf038534300"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/strict-table-width-green.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1007,
+      "sha256": "1d5f073330cfafdf327c336b0a886c14caaf295704d519934023339071708937"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/strict-table-width-green.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3202,
+      "sha256": "1e9fe961eb5135b5ddb3157e51e90ab342aba1499e04206f9d3f896ffacfede3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/strict-table-width-red.log",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 1612,
+      "sha256": "a127864bbdc4c52e7f0bf4ef0f646bffa5a268d42bbf87f3f17d013ef61efded"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/strict-table-width-red.xml",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 3486,
+      "sha256": "d9e650b15694a5a5cc4ac8d71e70a9d6093d4f13e28c9ae5e64c7b3d70c7ac52"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-a31b572f/strict-table-width.diff",
+      "scope": "fixed revision mutation evidence; red logs are intentional failures, check suite-specific scope",
+      "bytes": 728,
+      "sha256": "8a2e84e7a958d3d96d0685f1770c51c03bd708da7b616c3813415af63401551f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/mutations-supervisor.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 34793,
+      "sha256": "8ff272bf48136d9544799493d5cf9fa1be9ed4c5467b81f7dc47c69ae3ef8d64"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/receipt-check.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 723,
+      "sha256": "0b8ed63f67f8379177edc05ff6f49a3629d353cd8d827dbf998b3edd4e9484b6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/result-contract-after.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 186,
+      "sha256": "0709428e176c7b95512c33991736b079f83bd2bd3f07a9f3bae9ed87fd9076e1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/result-contract-before.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 34621,
+      "sha256": "8aefeecec71ac5457eded2630f192efb4b4722d4b85a69128c20e0463659c1a2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/run_candidate_checks.py",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 3452,
+      "sha256": "4e725c0ee180cfc7a8e30dba38e1569ae4c503805d03b24ce9d4d1eb125e8161"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/seal-prerequisites.json",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 8208,
+      "sha256": "5b7ce580a127eab137269344530a25c1d14528817fd6b33b21cfb3ce90769c98"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/seal_delivery.py",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 7421,
+      "sha256": "da33b1bbb36a6f5191e14a5a170d1571e57c217fe61f5e31762bc548df04e09f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/targeted-wide.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 428,
+      "sha256": "93994cd485423d2056ee48b3d7a8b53c8429f751493af63ee2c843395151e9f3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/research-delivery-20260918/targeted-with-adapter.log",
+      "scope": "development/archival diagnostic; per-file revision and conditions govern, not universal PASS",
+      "bytes": 758,
+      "sha256": "b109bab30fb57400614a2b4864269483bf9c218d89d90d04211fc2efa5d0e74f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T105421Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 3440,
+      "sha256": "b8d6b841f7e9c2c798a28cc600e56a71028ee3b82311f25d7996923babd312ba"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T105545Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 995,
+      "sha256": "f2af5e6599104ec0cbc25526faac4eb803fc69f1689654c588427c5aa1267c11"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T110441Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 2414,
+      "sha256": "6e0d4e268a6d71f1c7334fcf619654704d684a092a9a684c9a0a6fa3583ba7c7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T110648Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1322,
+      "sha256": "eb54d2a0d1fc4341c66c169cca15476cce5b5dcf82850265392ab74383e0cd42"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T111326Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1435,
+      "sha256": "bc751c659114654aea8478f7220f7216df55f8e11c00ba380b53d9e4273b27a6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T111540Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1410,
+      "sha256": "fdad32b735c1b687f8a461fb33c589904f6906d79edd5a903f540f291455e6da"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T112008Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1703,
+      "sha256": "b79c2835ea9fde1e077a044ffbb5c0c2c33ddba6f67738f9d5e172a527e5d369"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T112218Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1933,
+      "sha256": "613edb2839a6a0a02c32875ff8b270e7908a539b7271f901721768815dae25c1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T112251Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1506,
+      "sha256": "6ece12bbcddc5d642ede553c2f6bd147a7e444cb663f7903032e052188e5d412"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T112335Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1933,
+      "sha256": "f6835a0daea30b4fb1cdac200a609749285c7d2453d833ee3c42220f6b86b1bf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T115432Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1361,
+      "sha256": "fe1c02f7810451d5ed3a8c5ae9323681298bc26f2b7ba19e9f766defadd49133"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T115853Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 2251,
+      "sha256": "ebe17117940c805dd7b4f6563a06120c6ced6a19ec2351372698332eb525fc46"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120110Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1567,
+      "sha256": "7a67a51e2c4a192bf9cef96c48c5e07d7b09a7b282df6198f513361afa3c6fd2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120219Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1417,
+      "sha256": "d00ddbd64e8f390dc7e08ed3e2ddf703e8c8d69097b3572650d84b6c32e2b927"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120442Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1717,
+      "sha256": "31c63467ea59cf1d1d8e30459cce70b16e0e372c81fdbe9b508d0235ee8b3885"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120659Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 3641,
+      "sha256": "e4281ac215d0041e15c241dddb5ac9839344280efe714c6ce35135a84c7914aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120809Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 3700,
+      "sha256": "249c15168fdd4755ed56227a2e54773677a3fc31dc7afeb63c09906036fe8492"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120919Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1649,
+      "sha256": "2b6e6e8fb1f3eb36861c7ed393a9cc45b95c35ecb9ed672616eac4a4063d033a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T120950Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1649,
+      "sha256": "963c4426e6d3f1e0d32e35f701351dff3a51c2e7e3d3d344bd7cf081db00a9fd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T121026Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 1536,
+      "sha256": "f6f411c80a456d493774bfa6dd77418de79e2ddd6f8cc3cdb5fca58dbf08e474"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T121139Z-2c5f4993.json",
+      "scope": "earlier dirty targeted tests; not clean acceptance for 2c5f4993 and not additive",
+      "bytes": 2088,
+      "sha256": "e4a11bd0558cd53f312257938059a7fca5de90f844453ceea82952c8b7b0b73c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/20260918T122214Z-a31b572f.json",
+      "scope": "authoritative clean full Python test receipt",
+      "bytes": 662,
+      "sha256": "e88fea8a5a4dca707f9b6bb8d476ce1686b4be92fee2546c007ffa4be7dd4bbc"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-research-data-readiness/intelligence/tests/fixtures/research_delivery_20260918.json",
+      "scope": "frozen failed inputs and public answers, not new market/financial truth",
+      "bytes": 20010,
+      "sha256": "0686041439b8494446d475ffdf1e8e516173da1fd0f2bc324ffebdcb52500b31"
+    }
+  ]
+}

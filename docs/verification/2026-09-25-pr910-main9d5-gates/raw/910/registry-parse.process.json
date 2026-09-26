@@ -1,0 +1,27 @@
+{
+  "label": "registry-parse",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "scripts/build_registry.py",
+    "check-parseability"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "167c9ffac1b428164e7906861438eb1757895dc5",
+  "started_at": "2026-09-25T05:36:04.709926+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 54420,
+  "process_group": 54420,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T05:36:04.896652+00:00",
+  "elapsed_seconds": 0.18623987515456975
+}

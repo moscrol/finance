@@ -1,0 +1,133 @@
+"""Continue only unexecuted offline leaves with bounded admission; preserve the first run."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import socket
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'remaining-01'
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+BASE = '64847b7a173bfb7191012638e8ec044ea31e0513'
+REVISIONS = {'910': '4e4d93a55bfd919b1c42bcb60f079ae56741fc3f',
+             '911': 'a52a3a9759a1d1d33fc5e19c86e35576394dd546'}
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+helpers = importlib.import_module('scripts.review_probes.run_extraction_mutations')
+observe = importlib.import_module('scripts.review_probes.gate_resources').observe
+fingerprint = importlib.import_module('scripts.check_test_receipt')._fingerprint
+assert sys.executable == PY and fingerprint() == '66726d345bf37ce5'
+OUT.mkdir(exist_ok=False)
+report = {'started_at': datetime.now(timezone.utc).isoformat(), 'pid': os.getpid(),
+          'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+          'revisions': REVISIONS, 'baseline': BASE, 'python': PY,
+          'dependency_fingerprint': fingerprint(), 'paid_model_requests': 0,
+          'scope': 'unexecuted leaves only; not an independent review',
+          'prior_910_receipt': str(ROOT / '910/receipts/gate-0df6qTxE/pytest.json'),
+          'steps': [], 'status': 'RUNNING'}
+
+
+def save(path, value):
+    temporary = path.with_suffix(path.suffix + '.tmp')
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    temporary.replace(path)
+
+
+def identity(pr):
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert helpers.git(tree, 'rev-parse', 'HEAD') == REVISIONS[pr]
+    assert not helpers.git(tree, 'status', '--porcelain')
+    return tree
+
+
+def step(pr, label, command, *, timeout=180, heavy=False, ports=(), receipt=None):
+    tree = identity(pr)
+    out = OUT / pr
+    out.mkdir(exist_ok=True)
+    if heavy:
+        deadline = time.monotonic() + 600
+        samples = []
+        while True:
+            sample = observe(tree, minimum_free=20 * 1024**3)
+            samples.append(sample)
+            save(out / f'{label}.admission.json', samples)
+            if sample['admitted']:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f'resource wait expired before {pr}/{label}')
+            time.sleep(min(30, max(0, deadline - time.monotonic())))
+    for port in ports:
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', port))
+    env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+    env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(tree), PYTHONDONTWRITEBYTECODE='1',
+               FORESIGHT_LLM_KEYCHAIN='0', FORESIGHT_USERS_DIR=str(out / 'isolated-users'),
+               FINANCE_DEPLOY_LEDGER=str(out / 'deploy-ledger.jsonl'),
+               FWP_TEST_RECEIPT_DIR=str(out / 'receipts'))
+    if receipt:
+        env['FWP_TEST_RECEIPT_PATH'] = str(receipt)
+    result = helpers._run_logged_command(tree, out, label, command, env, timeout=timeout)
+    identity(pr)
+    row = {'pr': pr, 'label': label, 'exit': result['exit'], 'status': result['status']}
+    report['steps'].append(row)
+    save(OUT / 'summary.json', report)
+    print(json.dumps(row), flush=True)
+    return result['exit'] == 0 and result['status'] == 'completed'
+
+
+def frontend(pr):
+    return step(pr, 'frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(identity(pr)),
+                                '--expect-revision', REVISIONS[pr], '--output', str(OUT / pr / 'frontend'),
+                                '--python', PY, '--workbench-port', '20981', '--re06-port', '20984'],
+                timeout=1800, heavy=True, ports=(20981, 20984))
+
+
+save(OUT / 'summary.json', report)
+try:
+    assert not (ROOT / '910/frontend').exists() and not (ROOT / '911').exists()
+    if not step('910', 'prior-full-receipt-check', [PY, 'scripts/check_test_receipt.py', report['prior_910_receipt'],
+               '--expect-revision', REVISIONS['910'], '--main-ref', BASE, '--base-drift-max', '0', '--require-full-scope']):
+        raise RuntimeError('prior full receipt is not trustworthy')
+    for label, args in (
+        ('doctor', ['scripts/workspace.py', 'doctor']), ('ruff', ['-m', 'ruff', 'check', '.']),
+        ('registry-parse', ['scripts/build_registry.py', 'check-parseability']),
+        ('registry-check', ['scripts/build_registry.py', 'check']),
+        ('registry-tables', ['scripts/build_registry.py', 'backfill-tables', '--check']),
+        ('registry-views', ['scripts/build_registry.py', 'generate-views', '--check']),
+        ('ledger-crosswalk', ['scripts/audit_ledger_spec_crosswalk.py']),
+    ):
+        step('911', label, [PY, *args])
+    step('911', 'diff-check', ['git', 'diff', '--check', BASE + '...HEAD'])
+    frontend('910')
+    targets = ['intelligence/tests/conformance/test_research_chain.py',
+               'intelligence/tests/test_workbench_research_chain.py']
+    out = OUT / '911'
+    if not step('911', 'targeted', [PY, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+                '--basetemp=' + str(out / 'targeted-tmp'), '--junitxml=' + str(out / 'targeted.xml'), *targets],
+                timeout=900, heavy=True, receipt=out / 'targeted-receipt.json'):
+        raise RuntimeError('targeted checks failed; inspect before full run')
+    step('911', 'targeted-receipt-check', [PY, 'scripts/check_test_receipt.py', str(out / 'targeted-receipt.json'),
+         '--expect-revision', REVISIONS['911'], '--main-ref', BASE, '--base-drift-max', '0',
+         '--require-target', targets[0], '--require-target', targets[1]])
+    step('911', 'python-full', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+         '-q -p no:cacheprovider --basetemp=' + str(out / 'full-tmp') + ' --junitxml=' + str(out / 'full.xml')],
+         timeout=2700, heavy=True, ports=(19899,))
+    receipts = list((out / 'receipts').glob('gate-*/pytest.json'))
+    if len(receipts) != 1:
+        raise RuntimeError('expected one full-scope #911 receipt')
+    report['python_911_receipt'] = str(receipts[0])
+    report['python_911_counts'] = json.loads(receipts[0].read_text())['counts']
+    step('911', 'full-receipt-check', [PY, 'scripts/check_test_receipt.py', str(receipts[0]),
+         '--expect-revision', REVISIONS['911'], '--main-ref', BASE, '--base-drift-max', '0', '--require-full-scope'])
+    frontend('911')
+    report['status'] = ('REMAINING_LEAVES_PASS_NOT_INDEPENDENT_REVIEW' if all(
+        row['exit'] == 0 and row['status'] == 'completed' for row in report['steps']) else 'REMAINING_LEAVES_FAILED')
+except Exception as exc:
+    report.update(status='STOPPED_INCOMPLETE', error=str(exc))
+    raise
+finally:
+    report['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save(OUT / 'summary.json', report)

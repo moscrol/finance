@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/episode_semantic_verifier.py b/intelligence/services/episode_semantic_verifier.py
+index 43648d75..1c61dc75 100644
+--- a/intelligence/services/episode_semantic_verifier.py
++++ b/intelligence/services/episode_semantic_verifier.py
+@@ -695,7 +695,7 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) ->
+     findings = (
+         *disclosure_absence_findings(public, before.outcome.traces),
+         *calculation_copy_findings(
+-            public, before.outcome.evidence,
++            '', before.outcome.evidence,
+             calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),
+         ),
+     )

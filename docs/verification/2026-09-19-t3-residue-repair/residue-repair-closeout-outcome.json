@@ -1,0 +1,270 @@
+{
+  "created_at": "2026-09-19T15:01:03.867659+00:00",
+  "status": "engineering_green_hold_for_independent_review",
+  "scope": "ARL-0005 five reproduced leads fixed on the original q branch with paired controls; frozen engineering rerun on the new business revision. No external verdict, natural finance conversation, merge or deployment.",
+  "business_revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+  "parent_documentation_tip": "81cbbec78342ad241674fd30b59d71616e9c1043",
+  "previous_business_revision": "d46c2c3b10221483c811426e99ad379314289871",
+  "read_only_probe_revision_unchanged": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+  "changed_paths": [
+    "intelligence/services/research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_ratio_boundaries.py",
+    "scripts/review_probes/research_delivery_mutations.json"
+  ],
+  "leads_resolved": [
+    {
+      "input": "2026中报含金量为1.588，同比增长12%。",
+      "origin": "review-verbatim",
+      "d46": "false calculation_value_unlocated, partial + repair",
+      "now": "no finding, completed, text unchanged",
+      "rule": "delta-labeled % / bp is a change rate"
+    },
+    {
+      "input": "2026中报含金量为1.588，样本量120。",
+      "origin": "review-ellipsis-prefix-expanded",
+      "d46": "false unlocated",
+      "now": "no finding",
+      "rule": "explicitly labeled count is its own fact"
+    },
+    {
+      "input": "2026中报含金量实际为158.7bp。",
+      "origin": "review-verbatim",
+      "d46": "no finding, completed (bp treated as unknown suffix)",
+      "now": "calculation_value_mismatch, 158.7bp withheld, partial + repair",
+      "rule": "bp/基点 is a value-slot unit that never displays the level; same for table cells"
+    },
+    {
+      "input": "收入可核[E1]，2026中报含金量待核对；该比率为1.587。",
+      "origin": "review-verbatim",
+      "d46": "no finding, completed",
+      "now": "mismatch, 1.587 withheld, [E1] retained, partial + repair",
+      "rule": "该比率为 joins the finite continuation list; value prefix derives from the same list"
+    },
+    {
+      "input": "〔比率对应关系**待核对**〕2026中报含金量为1.588。",
+      "origin": "review-marker-fragment-completed-with-matching-ratio",
+      "d46": "second plain marker inserted",
+      "now": "zero-width finding, first edit is a no-op, exactly one marker, still partial + repair",
+      "rule": "raw-view marker check strips Markdown"
+    }
+  ],
+  "explicitly_not_covered": [
+    "anaphora across a sentence boundary (待核对。该比率为1.587)",
+    "unlabeled neighbors 另有120 / 另有12% / 另有15bp stay unlocated",
+    "bp in a table header is not parsed as a unit (cell still compared as a plain number)",
+    "含金量同比增长12% without a value slot yields no finding (left to the semantic judge)"
+  ],
+  "frozen_candidate": {
+    "path": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e",
+    "passed": true,
+    "before_after_state_equal": true,
+    "registry_state_equal": true,
+    "checks": [
+      {
+        "name": "ruff",
+        "exit_code": 0,
+        "seconds": 0.09
+      },
+      {
+        "name": "pytest-full",
+        "exit_code": 0,
+        "seconds": 481.13
+      },
+      {
+        "name": "receipt-validation",
+        "exit_code": 0,
+        "seconds": 0.2
+      },
+      {
+        "name": "frontend-lint",
+        "exit_code": 0,
+        "seconds": 1.14
+      },
+      {
+        "name": "frontend-typecheck",
+        "exit_code": 0,
+        "seconds": 1.75
+      },
+      {
+        "name": "frontend-test",
+        "exit_code": 0,
+        "seconds": 3.14
+      },
+      {
+        "name": "frontend-build",
+        "exit_code": 0,
+        "seconds": 2.67
+      },
+      {
+        "name": "e2e",
+        "exit_code": 0,
+        "seconds": 61.56
+      },
+      {
+        "name": "registry-parseability",
+        "exit_code": 0,
+        "seconds": 0.09
+      },
+      {
+        "name": "registry-check",
+        "exit_code": 0,
+        "seconds": 0.09
+      },
+      {
+        "name": "registry-tables",
+        "exit_code": 0,
+        "seconds": 0.09
+      },
+      {
+        "name": "registry-views",
+        "exit_code": 0,
+        "seconds": 0.05
+      },
+      {
+        "name": "registry-ledger",
+        "exit_code": 0,
+        "seconds": 0.09
+      },
+      {
+        "name": "original-fact-retention-probe",
+        "exit_code": 0,
+        "seconds": 0.31
+      },
+      {
+        "name": "original-ratio-hedge-probe",
+        "exit_code": 0,
+        "seconds": 0.31
+      },
+      {
+        "name": "original-ratio-boundary-probe",
+        "exit_code": 0,
+        "seconds": 0.31
+      },
+      {
+        "name": "residue-review-lead-probe",
+        "exit_code": 0,
+        "seconds": 0.31
+      },
+      {
+        "name": "research-delivery-mutations",
+        "exit_code": 0,
+        "seconds": 136.75
+      }
+    ],
+    "registry_pinned": {
+      "finance-workspace-private": {
+        "revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+        "status": ""
+      },
+      "knowledge-base-private": {
+        "revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+        "status": ""
+      },
+      "finance-research-site": {
+        "revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+        "status": ""
+      }
+    }
+  },
+  "full_engineering_receipt": {
+    "path": "/Users/a77/.finance-runtime/test-receipts/20260919T144656Z-6fb37a6e.json",
+    "revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+    "counts": {
+      "passed": 12259,
+      "failed": 0,
+      "error": 0,
+      "skipped": 87
+    },
+    "xfailed_from_log": 2,
+    "exit_status": 0,
+    "dirty": false,
+    "tree": "/Users/a77/fwp-q-research-data-readiness"
+  },
+  "probes_on_6fb37a6e": {
+    "retention": {
+      "passed": 6,
+      "failed": 0,
+      "status": "passed",
+      "probe_sha256": "743f0c3d19463df4aa61e78cf2d3580331b5e8c7bf7f9a46156e9bbf2ded7b4d",
+      "target_unchanged": true,
+      "revision": "6fb37a6e191185daef832369677af15b0d56afb2"
+    },
+    "hedge": {
+      "passed": 4,
+      "failed": 0,
+      "status": "passed",
+      "probe_sha256": "a967a1a96438c19e6a23d4b056bdcf80255930a672d224127b1e7c78b5703c9c",
+      "target_unchanged": true,
+      "revision": "6fb37a6e191185daef832369677af15b0d56afb2"
+    },
+    "boundaries": {
+      "passed": 16,
+      "failed": 0,
+      "status": "passed",
+      "probe_sha256": "f35b59a53ce1d58ac4509a84b51894619a44d82e7a704dbfb0e470181549db4a",
+      "target_unchanged": true,
+      "revision": "6fb37a6e191185daef832369677af15b0d56afb2"
+    },
+    "residue": {
+      "passed": 14,
+      "failed": 0,
+      "status": "passed",
+      "probe_sha256": "34ea6608e4f19305befd1b428c3ac9cfdf326a6bb0622fc2e221eb35ff01b736",
+      "target_unchanged": true,
+      "revision": "6fb37a6e191185daef832369677af15b0d56afb2"
+    }
+  },
+  "mutations": {
+    "groups": 52,
+    "new_groups": [
+      "ratio-percent-delta-is-growth-rate",
+      "ratio-count-label-not-value",
+      "ratio-basis-points-not-absolute",
+      "ratio-basis-points-are-a-unit",
+      "ratio-anaphoric-continuation-label",
+      "ratio-marker-recognized-through-markup"
+    ],
+    "definitions_sha256": "f9cb16832075987ae3e6769ce69adafa7e402e01eb8394fbf39cf6656836e3b0",
+    "baseline_executed": 687,
+    "restored_full_executed": 687,
+    "all_groups_red_then_green": true,
+    "new_group_red_failures": {
+      "ratio-percent-delta-is-growth-rate": 20,
+      "ratio-count-label-not-value": 20,
+      "ratio-basis-points-not-absolute": 4,
+      "ratio-basis-points-are-a-unit": 19,
+      "ratio-anaphoric-continuation-label": 12,
+      "ratio-marker-recognized-through-markup": 9
+    }
+  },
+  "external_review": {
+    "dispatched_this_window": false,
+    "reason": "a new bounded window (deadline/budget/exclusive root) is an explicit user decision; request must cover the cumulative diff up to 6fb37a6e",
+    "valid_prior_changes_required": [
+      "ARL-0001",
+      "ARL-0002",
+      "ARL-0003"
+    ],
+    "invalid_or_timeout_preserved": [
+      "ARL-0004 invalid PASS",
+      "ARL-0005 600s timeout",
+      "ARL-0005 invalid CR (check_manifest)"
+    ]
+  },
+  "natural_finance_conversations": 0,
+  "market_fetches": 0,
+  "live_model_calls": 0,
+  "merge": false,
+  "deployment": false,
+  "production_modified": false,
+  "port_8792_revision_unchanged": "bf662e9310ff",
+  "hygiene": {
+    "stale_worktree_entries_pruned": 61,
+    "empty_receipt_left_in_place": "/Users/a77/.finance-runtime/test-receipts/20260919T105310Z-d46c2c3b.json",
+    "follow_up": "check_test_receipt.py does not reject zero-count exit-0 receipts; not changed on this branch"
+  },
+  "documentation_precision_fixes": [
+    "prompt SHA a002a150 -> a087adcb and adapter SHA recorded as a 补记 in 2026-09-19-t3-boundary-review-retry.md and its archive README",
+    "2 xfailed only visible in the pytest log line, not in receipt counts"
+  ]
+}

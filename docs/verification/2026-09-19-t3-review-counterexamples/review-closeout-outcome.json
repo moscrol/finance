@@ -1,0 +1,63 @@
+{
+  "status": "hold",
+  "reason": "valid independent CHANGES_REQUIRED plus exact real-exit hedge bypass 0P/4F",
+  "business_revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+  "engineering_passed": true,
+  "python_receipt": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/full-python-receipt.json",
+  "reviews": [
+    {
+      "root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01",
+      "review_id": "ARL-0001",
+      "commit": "a2a3301963d11a073f511e1552b53daee7ecd704",
+      "status": "CHANGES_REQUIRED",
+      "requested_model": "sonnet",
+      "configured_model": "claude-opus-5",
+      "reported_models": [
+        "claude-opus-5"
+      ],
+      "reported_cost_usd": 1.19882875,
+      "cost_scope": "CLI estimate/list price, not settlement receipt",
+      "provider_request_count": null
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33",
+      "review_id": "ARL-0002",
+      "commit": "64984b33e6f38eccc50c004b7b79120f1f45a775",
+      "status": "CHANGES_REQUIRED",
+      "requested_model": "sonnet",
+      "configured_model": "claude-opus-5",
+      "reported_models": [
+        "claude-opus-5"
+      ],
+      "reported_cost_usd": 0.9547405,
+      "cost_scope": "CLI estimate/list price, not settlement receipt",
+      "provider_request_count": null
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-79dba348",
+      "review_id": "ARL-0003",
+      "commit": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "status": "CHANGES_REQUIRED",
+      "requested_model": "sonnet",
+      "configured_model": "claude-opus-5",
+      "reported_models": [
+        "claude-opus-5"
+      ],
+      "reported_cost_usd": 1.0830505,
+      "cost_scope": "CLI estimate/list price, not settlement receipt",
+      "provider_request_count": null
+    }
+  ],
+  "this_session_review_cli_attempts": 3,
+  "earlier_timeout_attempts": 1,
+  "live_finance_conversations": 0,
+  "market_fetches": 0,
+  "merged": false,
+  "deployed": false,
+  "pending_fixes": [
+    "Already-withheld token must not suppress later numeric assertions",
+    "Unlocated marker must scope to ratio phrase, not independent fact or next period",
+    "Finite source-attribution and absence lexicon limits remain"
+  ],
+  "probe": "scripts/review_probes/check_ratio_hedge_delivery.py"
+}

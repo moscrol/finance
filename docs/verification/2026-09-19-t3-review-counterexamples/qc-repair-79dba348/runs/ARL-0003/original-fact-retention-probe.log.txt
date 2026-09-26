@@ -1,0 +1,157 @@
+{
+  "scope": "finite_engineering_counterexample_not_natural_answer_acceptance",
+  "model_calls": 0,
+  "probe_sha256": "743f0c3d19463df4aa61e78cf2d3580331b5e8c7bf7f9a46156e9bbf2ded7b4d",
+  "before": {
+    "code_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+    "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "313cd6bfc698502add815502e69ec1e14d855ab05da068a1a0b7f512ad7bf857",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "after": {
+    "code_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+    "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "313cd6bfc698502add815502e69ec1e14d855ab05da068a1a0b7f512ad7bf857",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "target_unchanged": true,
+  "cases": [
+    {
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "separator": "。",
+      "draft": "中报原文披露了收入[E1]。但查询返回空白，因此公司没有公告。",
+      "public_answer": "中报原文披露了收入[E1]。但查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "false_inference_rejected": true,
+        "independent_fact_retained": true,
+        "explicit_citation_retained": true,
+        "bound_evidence_retained": true,
+        "original_evidence_unchanged": true,
+        "coverage_gap_explained": true,
+        "failure_not_upgraded": true,
+        "local_check_exercised": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": true
+    },
+    {
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "separator": "；",
+      "draft": "中报原文披露了收入[E1]；但查询返回空白，因此公司没有公告。",
+      "public_answer": "中报原文披露了收入[E1]；但查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "false_inference_rejected": true,
+        "independent_fact_retained": true,
+        "explicit_citation_retained": true,
+        "bound_evidence_retained": true,
+        "original_evidence_unchanged": true,
+        "coverage_gap_explained": true,
+        "failure_not_upgraded": true,
+        "local_check_exercised": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": true
+    },
+    {
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "separator": "，",
+      "draft": "中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。",
+      "public_answer": "中报原文披露了收入[E1]，但查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "false_inference_rejected": true,
+        "independent_fact_retained": true,
+        "explicit_citation_retained": true,
+        "bound_evidence_retained": true,
+        "original_evidence_unchanged": true,
+        "coverage_gap_explained": true,
+        "failure_not_upgraded": true,
+        "local_check_exercised": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": true
+    },
+    {
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "separator": "。",
+      "draft": "中报原文披露了收入[E1]。但查询返回空白，因此公司没有公告。",
+      "public_answer": "中报原文披露了收入[E1]。但查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "false_inference_rejected": true,
+        "independent_fact_retained": true,
+        "explicit_citation_retained": true,
+        "bound_evidence_retained": true,
+        "original_evidence_unchanged": true,
+        "coverage_gap_explained": true,
+        "failure_not_upgraded": true,
+        "local_check_exercised": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": true
+    },
+    {
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "separator": "；",
+      "draft": "中报原文披露了收入[E1]；但查询返回空白，因此公司没有公告。",
+      "public_answer": "中报原文披露了收入[E1]；但查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "false_inference_rejected": true,
+        "independent_fact_retained": true,
+        "explicit_citation_retained": true,
+        "bound_evidence_retained": true,
+        "original_evidence_unchanged": true,
+        "coverage_gap_explained": true,
+        "failure_not_upgraded": true,
+        "local_check_exercised": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": true
+    },
+    {
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "separator": "，",
+      "draft": "中报原文披露了收入[E1]，但查询返回空白，因此公司没有公告。",
+      "public_answer": "中报原文披露了收入[E1]，但查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "false_inference_rejected": true,
+        "independent_fact_retained": true,
+        "explicit_citation_retained": true,
+        "bound_evidence_retained": true,
+        "original_evidence_unchanged": true,
+        "coverage_gap_explained": true,
+        "failure_not_upgraded": true,
+        "local_check_exercised": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "passed": 6,
+  "failed": 0
+}

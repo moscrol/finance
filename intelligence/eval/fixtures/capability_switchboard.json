@@ -48,6 +48,22 @@
       "notes": "两道 env 门在 runner 下游：market_financials.py:93、valuation_estimate.py:66（默认 '1'，置 '0'/'false'/'off' 即关）。capability 开着而 env 关着 = 表说 on 实际 off。"
     },
     {
+      "id": "capital_data",
+      "kind": "capability",
+      "status": "active",
+      "seam": "intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA",
+      "close_via": [
+        "allowed_capabilities:remove",
+        "fixture_policy:external_capital_enabled=false",
+        "material_contract:local_only"
+      ],
+      "default": "ambient",
+      "singleton_when_on": false,
+      "chassis_survives": true,
+      "positive_control": "offered_schemas",
+      "notes": "D12 共享取数接 Episode；external_or_mixed，不进本地能力白名单。sealed fixture 默认禁外呼，无额外 FINANCE_* env 门。空、错与未尝试分别保留；历史解禁不请求当前滚动源。"
+    },
+    {
       "id": "mainline_context",
       "kind": "capability",
       "status": "active",
