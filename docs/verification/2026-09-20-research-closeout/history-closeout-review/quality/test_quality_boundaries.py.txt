@@ -1,0 +1,138 @@
+"""Independent quality checks: lifecycle and partial-backend boundaries only."""
+
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Event
+import json
+import subprocess
+
+import pytest
+
+from intelligence.services.historical_research.window_binding import WindowSelection
+from scripts import code_map as cm
+
+
+ROOT = Path("/Users/a77/fwp-wt-history-closeout-0920")
+BASE = {
+    "root_query_id": "root-a", "root_sample_id": "sample-a",
+    "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
+    "source_start": "2026-01-17", "source_end": "2026-01-22",
+    "start": "2026-01-17", "end": "2026-01-29",
+}
+
+
+def test_review_uses_candidate_modules_and_dependency_gate(request):
+    import os
+    import sys
+
+    import intelligence.services.historical_research.window_binding as wb
+
+    assert Path(wb.__file__).resolve() == ROOT / "intelligence/services/historical_research/window_binding.py"
+    assert Path(cm.__file__).resolve() == ROOT / "scripts/code_map.py"
+    gate = next(
+        p for p in request.config.pluginmanager.get_plugins()
+        if str(getattr(p, "__file__", "")) == str(ROOT / "conftest.py")
+    )
+    assert os.environ.get(gate._ESCAPE) != "1"
+    assert gate._missing() == ()
+    assert os.environ["FWP_TEST_RECEIPT"] == "0"
+    print(json.dumps({"interpreter": sys.executable, "gate": gate.__file__, "window_module": wb.__file__, "map_module": cm.__file__}))
+
+
+@pytest.mark.parametrize("worker_succeeds,sibling_succeeds", [(False, False), (False, True), (True, False)])
+def test_mixed_parent_completion_keeps_only_successful_reservations(worker_succeeds, sibling_succeeds):
+    selection = WindowSelection()
+    entered, release = Event(), Event()
+
+    def calculation(binding, succeeds, wait=False):
+        try:
+            with selection.reserve(binding, observation=True):
+                if wait:
+                    entered.set()
+                    assert release.wait(4), "review failed to release worker"
+                if not succeeds:
+                    raise RuntimeError("synthetic calculation failed")
+        except RuntimeError as error:
+            assert str(error) == "synthetic calculation failed"
+            return False
+        return True
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(calculation, BASE, worker_succeeds, True)
+        try:
+            assert entered.wait(2), "worker did not enter its reservation"
+            assert calculation(dict(BASE, source_end="2026-01-29"), sibling_succeeds) is sibling_succeeds
+        finally:
+            release.set()
+        assert pending.result(4) is worker_succeeds
+
+    if worker_succeeds or sibling_succeeds:
+        with pytest.raises(ValueError, match="history_window_selection_conflict"):
+            with selection.reserve(dict(BASE, root_query_id="root-b"), observation=True):
+                pytest.fail("successful root reservation was lost")
+        with pytest.raises(ValueError, match="history_window_observation_conflict"):
+            with selection.reserve(dict(BASE, end="2026-01-30"), observation=True):
+                pytest.fail("successful observation endpoint was lost")
+        with selection.reserve(dict(BASE, source_end="2026-01-29"), observation=True):
+            pass
+    else:
+        with selection.reserve(dict(BASE, root_query_id="root-b", end="2026-01-30"), observation=True):
+            pass
+
+
+def test_failed_observation_releases_endpoint_without_losing_rank_root():
+    selection = WindowSelection()
+    with selection.reserve(dict(BASE, end=BASE["ranking_end"]), observation=False):
+        pass
+    with pytest.raises(RuntimeError, match="synthetic calculation failed"):
+        with selection.reserve(dict(BASE, source_end="2026-01-29"), observation=True):
+            raise RuntimeError("synthetic calculation failed")
+    with pytest.raises(ValueError, match="history_window_selection_conflict"):
+        with selection.reserve(dict(BASE, root_query_id="root-b"), observation=True):
+            pytest.fail("committed ranking root was released")
+    with selection.reserve(dict(BASE, source_end="2026-01-29", end="2026-01-30"), observation=True):
+        pass
+
+
+def test_partial_alias_failure_is_visible_without_losing_literal_evidence(tmp_path, monkeypatch):
+    literal = {
+        "name": "handler", "file_path": str(tmp_path / "module.py"),
+        "qualified_name": "module.handler",
+    }
+    door = {"path": "AGENTS.md", "symbol": None, "excerpt": "write-job", "retired": []}
+    monkeypatch.setattr(cm, "collect_status", lambda root: ({"status": "ready"}, 0))
+    monkeypatch.setattr(cm, "search_doors", lambda root, tokens: ("missing", [door]))
+    monkeypatch.setattr(cm, "search_narrative", lambda *args: [])
+
+    failures = (
+        (subprocess.CompletedProcess([], 1, "", "failed"), "search_failed"),
+        (subprocess.CompletedProcess([], 0, "", ""), "empty_response"),
+        (subprocess.CompletedProcess([], 0, "{broken", ""), "invalid_response"),
+        (cm.UvxMissing("synthetic missing backend"), "uvx_missing"),
+    )
+    for failure, reason in failures:
+        calls = []
+
+        def fake_search(args, root):
+            calls.append(args[1])
+            if args[1] == "write-job":
+                return subprocess.CompletedProcess([], 0, json.dumps({"results": [literal]}), "")
+            assert args[1] == "write_job"
+            if isinstance(failure, Exception):
+                raise failure
+            return failure
+
+        monkeypatch.setattr(cm, "run_crg_cli", fake_search)
+        payload, code = cm.collect_query(tmp_path, "write-job")
+        assert calls == ["write-job", "write_job"]
+        assert code == 0
+        assert payload["layers"]["structure"]["state"] == "unavailable"
+        assert payload["layers"]["structure"]["reason"] == reason
+        assert [(h["path"], h["symbol"]) for h in payload["layers"]["structure"]["hits"]] == [("module.py", "handler")]
+        assert payload["completeness_claim"]["structure"] == "unavailable"
+        assert payload["layers"]["doors"]["hits"] == [door]
+        assert reason in payload["next_action"]
+        text, _ = cm.collect_ask(tmp_path, "write-job")
+        assert "## structure (unavailable)" in text
+        assert "module.py" in text and reason in text
+        print(json.dumps({"partial_failure_reason": reason, "literal_hits_preserved": True}))

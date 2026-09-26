@@ -1,0 +1,32 @@
+{
+  "scope": "focused operator check, not independent or full CI",
+  "name": "material-honesty",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-s",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/frozen-check-material-honesty/tmp",
+    "intelligence/tests/test_e2_top_level_regions.py",
+    "intelligence/tests/test_e2_material_contract.py",
+    "intelligence/tests/test_e2_cross_turn_inheritance.py",
+    "intelligence/tests/test_reasoning_input_boundaries.py",
+    "intelligence/tests/test_user_task.py",
+    "intelligence/tests/test_honesty_gates.py"
+  ],
+  "started": "2026-09-21T15:06:30.600037+00:00",
+  "finished": "2026-09-21T15:06:38.723136+00:00",
+  "before": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "after": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "exit": 0,
+  "expected_failure": false
+}

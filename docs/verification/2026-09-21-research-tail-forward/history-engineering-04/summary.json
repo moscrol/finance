@@ -1,0 +1,175 @@
+{
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "parent_revision": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+  "focused_groups": {
+    "history-controller": {
+      "tests": 168,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 168
+    },
+    "conversation-delivery": {
+      "tests": 191,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 191
+    },
+    "partition-neighbors": {
+      "tests": 191,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "passed": 187
+    },
+    "history-assembly": {
+      "tests": 309,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 309
+    },
+    "e2-extra": {
+      "tests": 130,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 130
+    },
+    "gap-neighbors": {
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 29
+    }
+  },
+  "focused_passed": 1014,
+  "focused_skipped": 4,
+  "overlapping_normal_probe_passed": 178,
+  "probes": {
+    "cutoff": {
+      "passed": 37,
+      "failed": 4,
+      "assertion_failures": 4,
+      "errors": 0
+    },
+    "follow-up": {
+      "passed": 35,
+      "failed": 6,
+      "assertion_failures": 6,
+      "errors": 0
+    },
+    "followup-source": {
+      "passed": 65,
+      "failed": 2,
+      "assertion_failures": 2,
+      "errors": 0
+    },
+    "frame-source": {
+      "passed": 61,
+      "failed": 6,
+      "assertion_failures": 6,
+      "errors": 0
+    },
+    "gap-projection": {
+      "passed": 17,
+      "failed": 4,
+      "assertion_failures": 4,
+      "errors": 0
+    },
+    "history-authority": {
+      "passed": 32,
+      "failed": 17,
+      "assertion_failures": 17,
+      "errors": 0
+    },
+    "history-backfill": {
+      "passed": 48,
+      "failed": 1,
+      "assertion_failures": 1,
+      "errors": 0
+    },
+    "history-contract": {
+      "passed": 7,
+      "failed": 42,
+      "assertion_failures": 42,
+      "errors": 0
+    },
+    "history-delivery": {
+      "passed": 46,
+      "failed": 3,
+      "assertion_failures": 3,
+      "errors": 0
+    },
+    "history-infer": {
+      "passed": 26,
+      "failed": 15,
+      "assertion_failures": 15,
+      "errors": 0
+    },
+    "history-replay": {
+      "passed": 47,
+      "failed": 2,
+      "assertion_failures": 2,
+      "errors": 0
+    },
+    "material-mask": {
+      "passed": 47,
+      "failed": 20,
+      "assertion_failures": 20,
+      "errors": 0
+    },
+    "normal": {
+      "passed": 178,
+      "failed": 0,
+      "assertion_failures": 0,
+      "errors": 0
+    },
+    "partition": {
+      "passed": 17,
+      "failed": 24,
+      "assertion_failures": 24,
+      "errors": 0
+    },
+    "resolution-hint": {
+      "passed": 40,
+      "failed": 1,
+      "assertion_failures": 1,
+      "errors": 0
+    },
+    "unclosed-quote": {
+      "passed": 45,
+      "failed": 22,
+      "assertion_failures": 22,
+      "errors": 0
+    }
+  },
+  "new_revision_frontend": "lint/typecheck/110 component tests/build passed",
+  "new_revision_e2e": {
+    "passed": 9,
+    "interrupted": 1,
+    "did_not_run": 26,
+    "exit_code": 130,
+    "stop_reason": "disk-space-floor"
+  },
+  "new_revision_full_python": "NOT_RUN",
+  "overall": "CHANGES_REQUIRED / NOT_ACCEPTED",
+  "parent_engineering": {
+    "python": "SIGTERM operator interruption at 741.94s; exit -15; no JUnit or final summary",
+    "focused_diagnostics": "6 failed / 48 passed / 1 skipped",
+    "native_sandbox_probes": "5 passed without outer sandbox, using their own OS sandboxes",
+    "frontend": "lint/typecheck/110 component tests/build passed",
+    "e2e_first": "1 failed / 33 passed / 2 skipped; RE06_E2E_URL omitted",
+    "e2e_corrected": "34 passed / 2 skipped; same clean parent SHA"
+  },
+  "non_actions": [
+    "no merge",
+    "no deployment",
+    "no production writes",
+    "no paid review restart"
+  ],
+  "runner_provenance_note": "diagnose.py was extended with environment/native-sandbox options after collection and initial focused checks; early receipts describe actual earlier argv, do not attest the final helper bytes.",
+  "scope_label_note": "probe result scope retains H-01/H-02/H-03 wording; gap suite/mutation identity and exact sources are recorded separately."
+}

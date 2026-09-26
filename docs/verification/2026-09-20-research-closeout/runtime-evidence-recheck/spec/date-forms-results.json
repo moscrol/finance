@@ -1,0 +1,143 @@
+[
+  {
+    "source_date": "2026-07-25",
+    "registry_date": "2026-07-25",
+    "durable": false,
+    "status": "partial",
+    "persistence": "ephemeral",
+    "stop_reason": "model_finish",
+    "draft": "需补同日证据。",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 2
+  },
+  {
+    "source_date": "2026-07-25",
+    "registry_date": "2026-07-25",
+    "durable": true,
+    "status": "partial",
+    "persistence": "durable",
+    "stop_reason": "model_finish",
+    "draft": "需补同日证据。",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 2
+  },
+  {
+    "source_date": "20260725",
+    "registry_date": "2026-07-25",
+    "durable": false,
+    "status": "partial",
+    "persistence": "ephemeral",
+    "stop_reason": "model_finish",
+    "draft": "需补同日证据。",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 2
+  },
+  {
+    "source_date": "20260725",
+    "registry_date": "2026-07-25",
+    "durable": true,
+    "status": "partial",
+    "persistence": "durable",
+    "stop_reason": "model_finish",
+    "draft": "需补同日证据。",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 2
+  },
+  {
+    "source_date": "2026-07-25T09:30:00+08:00",
+    "registry_date": "2026-07-25",
+    "durable": false,
+    "status": "partial",
+    "persistence": "ephemeral",
+    "stop_reason": "model_finish",
+    "draft": "需补同日证据。",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 2
+  },
+  {
+    "source_date": "2026-07-25T09:30:00+08:00",
+    "registry_date": "2026-07-25",
+    "durable": true,
+    "status": "partial",
+    "persistence": "durable",
+    "stop_reason": "model_finish",
+    "draft": "需补同日证据。",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 2
+  },
+  {
+    "source_date": "2026-7-25",
+    "registry_date": "2026-07-25",
+    "durable": false,
+    "error": "ValueError",
+    "message": "presented evidence is absent from the ledger and is not valid future material",
+    "model_calls": 1
+  },
+  {
+    "source_date": "2026-7-25",
+    "registry_date": "2026-07-25",
+    "durable": true,
+    "status": "failed",
+    "persistence": "failed",
+    "stop_reason": "storage_failed",
+    "draft": "",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 1
+  },
+  {
+    "source_date": "2026-7-25 09:30:00",
+    "registry_date": "2026-07-25",
+    "durable": false,
+    "error": "ValueError",
+    "message": "presented evidence is absent from the ledger and is not valid future material",
+    "model_calls": 1
+  },
+  {
+    "source_date": "2026-7-25 09:30:00",
+    "registry_date": "2026-07-25",
+    "durable": true,
+    "status": "failed",
+    "persistence": "failed",
+    "stop_reason": "storage_failed",
+    "draft": "",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 1
+  },
+  {
+    "source_date": " 2026-07-25 ",
+    "registry_date": "2026-07-25",
+    "durable": false,
+    "error": "ValueError",
+    "message": "presented evidence is absent from the ledger and is not valid future material",
+    "model_calls": 1
+  },
+  {
+    "source_date": " 2026-07-25 ",
+    "registry_date": "2026-07-25",
+    "durable": true,
+    "status": "failed",
+    "persistence": "failed",
+    "stop_reason": "storage_failed",
+    "draft": "",
+    "trace_status": [
+      "future_of_cutoff"
+    ],
+    "model_calls": 1
+  }
+]

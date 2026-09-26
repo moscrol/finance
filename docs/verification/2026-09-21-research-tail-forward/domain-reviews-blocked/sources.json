@@ -1,0 +1,160 @@
+{
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/domain-review-operator-qc.md",
+      "archive": "domain-review-operator-qc.md",
+      "bytes": 2173,
+      "sha256": "6653a44846ba1f48962fdda958b2bf67a06f8485675b976062fb497fc07195b2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/00-test-files.txt",
+      "archive": "financial-sol-review/00-test-files.txt",
+      "bytes": 678,
+      "sha256": "f7ae3d1c97f23351b62ddbe8322beed1d15fbd31ea3f943ce757899c0820d572"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/01-targeted-pytest-first-command.txt",
+      "archive": "financial-sol-review/01-targeted-pytest-first-command.txt",
+      "bytes": 2167,
+      "sha256": "a9a9b931780a4e4ed0e52421238e275118063eec524bb67fbbe5dbe3ff91e93e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/01-targeted-pytest.txt",
+      "archive": "financial-sol-review/01-targeted-pytest.txt",
+      "bytes": 347,
+      "sha256": "a831de14363285f9163927524933448b5f9eedb58053429a18cf9cc49a5a58b6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/completion.json",
+      "archive": "financial-sol-review/completion.json",
+      "bytes": 1300,
+      "sha256": "07ea82fcb101f665ba3f0fdb7303cd5694c2278d9380146fa1b85363d3965478"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/events.jsonl",
+      "archive": "financial-sol-review/events.jsonl",
+      "bytes": 371346,
+      "sha256": "042dd22c1c4c68090885fb2e9bf548d19413b4fe2fdfe76410d3c7251833c051"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/launcher.json",
+      "archive": "financial-sol-review/launcher.json",
+      "bytes": 42,
+      "sha256": "0dc7097c3aeaf6ea6ef2e3a55d3bd64afaec0af281b2b293dffb5dcba2b75bb6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/launcher.log",
+      "archive": "financial-sol-review/launcher.log.txt",
+      "bytes": 1168,
+      "sha256": "aa5d98ce85367ff8a4aab751936ed091d324e1f0482d495c526db536edbfcb3c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/process.json",
+      "archive": "financial-sol-review/process.json",
+      "bytes": 943,
+      "sha256": "d6eb7d763af56e6816c014fb38533c0b5717fcbe0dec64175a25cf662ffe40ad"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/prompt.md",
+      "archive": "financial-sol-review/prompt.md",
+      "bytes": 3643,
+      "sha256": "e57af644ceb977d5fe77b24aac52cd5d60a69b51f87df597e9c43aefb1e25f98"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/stderr.txt",
+      "archive": "financial-sol-review/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/completion.json",
+      "archive": "history-sol-review/completion.json",
+      "bytes": 1294,
+      "sha256": "c060bfa7d44d967f987efbe6942ee382865094a5933f75a085987903fc0cfe49"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/events.jsonl",
+      "archive": "history-sol-review/events.jsonl",
+      "bytes": 477469,
+      "sha256": "48a525e48805b6b38979e06dd3226a7a62732e4abe398179451690f8548bf0b9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/launcher.json",
+      "archive": "history-sol-review/launcher.json",
+      "bytes": 40,
+      "sha256": "c20d87f7090f687b60672d5a7775895ad784412d6499074bcde1b5131c0c34e0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/launcher.log",
+      "archive": "history-sol-review/launcher.log.txt",
+      "bytes": 1162,
+      "sha256": "dc8c225fab086cc3c130d2d4c26c8dd6c098ce0fe8755095b9392ae7e9eb9a55"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/process.json",
+      "archive": "history-sol-review/process.json",
+      "bytes": 937,
+      "sha256": "d4edaf47a5dda219aad24410ef7eb2c27fcb16b884468decec69ce08b3473f2c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/prompt.md",
+      "archive": "history-sol-review/prompt.md",
+      "bytes": 3737,
+      "sha256": "787b9bb81ccd9dd06011f84952a65879f17c6fe82a322b28bd39766d09197958"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review/stderr.txt",
+      "archive": "history-sol-review/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/run-domain-review.py",
+      "archive": "run-domain-review.py.txt",
+      "bytes": 3119,
+      "sha256": "6b78ff03adc4bacfe15885c11b7860a7a6f9ecb6409bce656073b526380bc8ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/completion.json",
+      "archive": "runtime-sol-review/completion.json",
+      "bytes": 1294,
+      "sha256": "bc60fe5223ee599d5506ff7b48033f648a375851dc52a7945815c8a291e7fa89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/events.jsonl",
+      "archive": "runtime-sol-review/events.jsonl",
+      "bytes": 339393,
+      "sha256": "427966b76c86c004c05d91101e24abdacee13ab9463b8b4ac1f9a8b57cacab21"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/launcher.json",
+      "archive": "runtime-sol-review/launcher.json",
+      "bytes": 40,
+      "sha256": "626929340378d751c5ee3a6aebd4522ee70db48b9b6f913bae8620455063be23"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/launcher.log",
+      "archive": "runtime-sol-review/launcher.log.txt",
+      "bytes": 1162,
+      "sha256": "48b5b7c9a7d8fc558561ab52b6b7a3090a4c9f5d3fe8ac1fcbae120934167c93"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/process.json",
+      "archive": "runtime-sol-review/process.json",
+      "bytes": 937,
+      "sha256": "2b80b19cca25cc7e4244aeef4955e64945752371ca5aaf092661183a644c0782"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/prompt.md",
+      "archive": "runtime-sol-review/prompt.md",
+      "bytes": 3550,
+      "sha256": "b5f7941ad6e0bc8b280625e2de699b251a683d8f33f08f99b15658f2e7151c12"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-sol-review/stderr.txt",
+      "archive": "runtime-sol-review/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

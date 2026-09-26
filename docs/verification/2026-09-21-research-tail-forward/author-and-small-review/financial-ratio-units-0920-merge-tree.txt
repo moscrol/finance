@@ -1,0 +1,71 @@
+3e112e381d544e9443b341f31a2e10571bad684d
+100644 b30e72124f4d3ee258a49642854d2f5a6a7d8531 1	.claude/lessons_learned.md
+100644 dfdc1da9f43068720a99bb51f5df5386eb359bcb 2	.claude/lessons_learned.md
+100644 e348dd061441762f4c8d83bb923223e940b0a2a5 3	.claude/lessons_learned.md
+100644 0af342d07f7df8e87cd498d08a4a3101bb9b6f03 1	docs/agent-product-door.md
+100644 78764f0a73dab5bbe0753b9da38bb3a860923f3f 2	docs/agent-product-door.md
+100644 dad8db133d79bb17252db3b00ce0b85e061557a3 3	docs/agent-product-door.md
+100644 eec438517167aa08bbc8d90ce87452572e958b06 1	intelligence/api/app.py
+100644 35d89f8ea9c9bbee0524a7e84229e185a8d67b16 2	intelligence/api/app.py
+100644 de55bdfae2840e71ed6d05882dac23d3039abb9a 3	intelligence/api/app.py
+100644 1418b397c138e104593431fb4b4de8f249686b7d 3	intelligence/api/static/assets/index-Bkv-Nea0.js
+100644 1418b397c138e104593431fb4b4de8f249686b7d 2	intelligence/api/static/assets/index-DH207EFA.js
+100644 f32aea600da581db406c8719186a22919b1a564e 1	intelligence/api/static/assets/index-DWf9m4Ox.js
+100644 119bdaa9d3567d8f98cf4f8016c7af3340819db7 1	intelligence/api/static/index.html
+100644 e60960557169bc2e916c385da24819d1b07b64aa 2	intelligence/api/static/index.html
+100644 25a441cae4b2010a44ed7fa8d34f9bce92e571c7 3	intelligence/api/static/index.html
+100644 46483426d8827d2e63943c00b2662bd3a96fc614 1	intelligence/runtime/continuous_turn_adapter.py
+100644 739ff8a2bee51831b8e1163f510a1b4626f255a8 2	intelligence/runtime/continuous_turn_adapter.py
+100644 fe42460b6ae77c18a9d41472a04fa1c2e4562b54 3	intelligence/runtime/continuous_turn_adapter.py
+100644 28daf3c2ac868c22cd868fa582af2b524b6dfc7b 1	intelligence/services/episode_semantic_verifier.py
+100644 ea1937ed381b4dee2d20d9ea97cf77e3c06ccb55 2	intelligence/services/episode_semantic_verifier.py
+100644 f89d9b03e35d445b04b0983d78261f628954b728 3	intelligence/services/episode_semantic_verifier.py
+100644 f872f21c1f1a7d3f1cd1d742a68b3f2d729f071e 1	intelligence/services/mandatory_satisfiability.py
+100644 8378fa8ecb780a00aceeb5a5de8a350949e63f04 2	intelligence/services/mandatory_satisfiability.py
+100644 6ef4867b85ac190f8d84a2bade02936bc766ef90 3	intelligence/services/mandatory_satisfiability.py
+100644 684a88ec6c463a116109e1f83d9b08ae04676761 1	intelligence/services/rag_worker.py
+100644 ba6324d4967b64c864268f6b0e10793a0ed2a89b 2	intelligence/services/rag_worker.py
+100644 2a67198895de642d6ba96cc7c4ae48a3a8dceefd 3	intelligence/services/rag_worker.py
+100644 6a4961d138e6233ffbd3f2a20b2d861def0bb719 1	intelligence/tests/test_session_projection.py
+100644 e5ba65a3756c23357db6c9917d23c6d1974e6a4f 2	intelligence/tests/test_session_projection.py
+100644 f9b30b90f8df7b70f8cd1ae96683bba5c7eb249e 3	intelligence/tests/test_session_projection.py
+100644 ec5380a5d83d57ca6d0d5027cd708ba2aad959a8 1	intelligence/webapp/src/App.tsx
+100644 aa63cf7fd07a7a44c81c84fa5f88256bc44716d9 2	intelligence/webapp/src/App.tsx
+100644 85ca510b5b522ad84f18d97629f8ce7cbcd2cf22 3	intelligence/webapp/src/App.tsx
+100644 3b48d3e8e4124bd80f3e71ad1175628c0eea439e 1	intelligence/webapp/src/types.ts
+100644 f780008be7f0f14187c00a76e06fffcacf099e4c 2	intelligence/webapp/src/types.ts
+100644 1325d93439d62631bbc7ef0cc34010ab31c1d75b 3	intelligence/webapp/src/types.ts
+
+Auto-merging .claude/lessons_learned.md
+CONFLICT (content): Merge conflict in .claude/lessons_learned.md
+Auto-merging docs/agent-product-door.md
+CONFLICT (content): Merge conflict in docs/agent-product-door.md
+Auto-merging intelligence/api/app.py
+CONFLICT (content): Merge conflict in intelligence/api/app.py
+Auto-merging intelligence/api/static/assets/index-DWf9m4Ox.js
+CONFLICT (rename/rename): intelligence/api/static/assets/index-DWf9m4Ox.js renamed to intelligence/api/static/assets/index-DH207EFA.js in gitea/main and to intelligence/api/static/assets/index-Bkv-Nea0.js in fix/financial-ratio-units-0920.
+Auto-merging intelligence/api/static/index.html
+CONFLICT (content): Merge conflict in intelligence/api/static/index.html
+Auto-merging intelligence/runtime/continuous_turn_adapter.py
+CONFLICT (content): Merge conflict in intelligence/runtime/continuous_turn_adapter.py
+Auto-merging intelligence/services/episode_protocol.py
+Auto-merging intelligence/services/episode_semantic_verifier.py
+CONFLICT (content): Merge conflict in intelligence/services/episode_semantic_verifier.py
+Auto-merging intelligence/services/episode_verifier.py
+Auto-merging intelligence/services/mandatory_satisfiability.py
+CONFLICT (content): Merge conflict in intelligence/services/mandatory_satisfiability.py
+Auto-merging intelligence/services/rag_worker.py
+CONFLICT (content): Merge conflict in intelligence/services/rag_worker.py
+Auto-merging intelligence/services/research_harness.py
+Auto-merging intelligence/services/research_tool_registry.py
+Auto-merging intelligence/services/user_task.py
+Auto-merging intelligence/tests/test_episode_protocol.py
+Auto-merging intelligence/tests/test_rag_worker.py
+Auto-merging intelligence/tests/test_session_projection.py
+CONFLICT (content): Merge conflict in intelligence/tests/test_session_projection.py
+Auto-merging intelligence/tests/test_workbench_api.py
+Auto-merging intelligence/webapp/src/App.tsx
+CONFLICT (content): Merge conflict in intelligence/webapp/src/App.tsx
+Auto-merging intelligence/webapp/src/components/components.test.tsx
+Auto-merging intelligence/webapp/src/types.ts
+CONFLICT (content): Merge conflict in intelligence/webapp/src/types.ts

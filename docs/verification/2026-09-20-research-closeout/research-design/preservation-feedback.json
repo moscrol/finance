@@ -1,0 +1,31 @@
+{
+  "root": "/Users/a77/fwp-wt-research-answer-preservation",
+  "sha": "ce673a9f4af4afd9995a8be779f98cdcf0a2249a",
+  "input": "市场成交活跃，说明行业盈利必然持续改善。[E1]",
+  "judge_calls": 1,
+  "status": "partial",
+  "judge_status": "rejected",
+  "rejected_claim_indexes": [],
+  "gap_output_ids": [],
+  "missing_outputs": [],
+  "repair_output_ids": [],
+  "adapter_repair_condition": false,
+  "sentence_verdicts": [
+    {
+      "stage": "judge",
+      "judge_round": 1,
+      "sentence_index": 1,
+      "sentence": "市场成交活跃，说明行业盈利必然持续改善。",
+      "decision": "demoted_to_issue",
+      "reasons": [
+        "judge"
+      ],
+      "judge_issues": [],
+      "cited_evidence_ordinals": [],
+      "unresolved_evidence_ordinals": [],
+      "bound_evidence_hashes": [],
+      "source_tiers": []
+    }
+  ],
+  "public": "市场成交活跃，说明行业盈利必然持续改善。[E1]\n\n### 核验批注（分析保留，不代表已证实）\n- 原稿第1句「市场成交活跃，说明行业盈利必然持续改善。」：复核认为证据支持不足，属于存疑判断，不是已证实事实。"
+}

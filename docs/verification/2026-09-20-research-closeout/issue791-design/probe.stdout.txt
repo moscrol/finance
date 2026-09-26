@@ -1,0 +1,70 @@
+{
+  "candidate": "c9bd82ff2e25fe2727347329706f7aeb98444ee8",
+  "main_fixed": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "clean_before": true,
+  "clean_after": true,
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "original_union": {
+    "per_theme": {
+      "storage": 9,
+      "lithium": 10,
+      "solid": 7
+    },
+    "unique_stocks": 15,
+    "stock_codes": [
+      "001223.SZ",
+      "002213.SZ",
+      "002491.SZ",
+      "002531.SZ",
+      "002584.SZ",
+      "002585.SZ",
+      "002846.SZ",
+      "002882.SZ",
+      "600110.SH",
+      "600163.SH",
+      "603090.SH",
+      "603186.SH",
+      "603200.SH",
+      "605058.SH",
+      "605162.SH"
+    ],
+    "denominator": 32,
+    "expected_pct": 46.875,
+    "arithmetic_sum": 26,
+    "arithmetic_sum_pct": 81.25,
+    "scope": "2026-09-15 original selected three tag memberships; not causal attribution"
+  },
+  "aggregate_without_members": {
+    "rows": [
+      {
+        "trade_date": "2026-09-15",
+        "limit_up_count": 26,
+        "market_limit_up_count": 32
+      }
+    ],
+    "evidence": [
+      "交易日=2026-09-15；涨停家数=26；全市场涨停家数=32"
+    ],
+    "sql": "SELECT \"trade_date\" AS c0, SUM(\"limit_up_count\") AS c1, MAX(\"market_limit_up_count\") AS c2, MAX(\"trade_date\") AS __source_date FROM \"fact_theme_limit_heat_daily\" WHERE \"trade_date\" <= ? AND \"trade_date\" >= ? AND \"trade_date\" <= ? AND \"sector_ts_code\" IN (?, ?, ?) GROUP BY \"trade_date\" ORDER BY c0 DESC LIMIT ?",
+    "meaning": "Production query accepts occurrence sum; it does not compute or certify union share."
+  },
+  "original_d10_correct_order": [
+    {
+      "window": "2025-09-02~2025-09-29",
+      "distance": 0.313,
+      "forward_5": "指数0.07%/日均涨停58家/最高7板/日均双红22.6个"
+    },
+    {
+      "window": "2025-11-26~2025-12-23",
+      "distance": 0.37,
+      "forward_5": "指数1.15%/日均涨停73家/最高12板/日均双红17.0个"
+    },
+    {
+      "window": "2025-10-29~2025-11-25",
+      "distance": 0.395,
+      "forward_5": "指数0.72%/日均涨停60家/最高7板/日均双红13.4个"
+    }
+  ],
+  "boundary": "No model, production DB, network, implementation changes, or final-answer judge run. Query and model-facing projection only."
+}
+projection: {"original_query_id": "34b3ad0586c7fad9a6ed5929faa6036f8da8dfd9185f875036cf750cc53a6324", "total_matched": 9, "returned_count": 5, "projected_distances": [{"sample": 0, "entity_code": "990026.FP", "start": "2026-08-04", "distance": 0.46245020510027784}, {"sample": 1, "entity_code": "990026.FP", "start": "2026-07-28", "distance": 0.6021519764530856}, {"sample": 2, "entity_code": "990026.FP", "start": "2026-08-18", "distance": 0.8489930579575464}, {"sample": 3, "entity_code": "990026.FP", "start": "2026-08-11", "distance": 0.9842579955218572}, {"sample": 4, "entity_code": "990026.FP", "start": "2026-07-14", "distance": 1.135235614861062}], "candidate_order_and_values_preserved": true, "saved_distance_definition": "mean absolute feature difference / max(abs(reference),1), plus missing-dimension share; no fitted transform or forward outcomes", "distance_definition_in_model": false, "distance_definition_in_telemetry": false, "saved_excluded_count": 36, "excluded_candidates_in_model": false}

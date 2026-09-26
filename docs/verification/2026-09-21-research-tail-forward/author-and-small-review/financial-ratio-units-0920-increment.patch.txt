@@ -1,0 +1,466 @@
+diff --git a/intelligence/services/financial_claim_checks.py b/intelligence/services/financial_claim_checks.py
+index d4f597109..1e4e54ab5 100644
+--- a/intelligence/services/financial_claim_checks.py
++++ b/intelligence/services/financial_claim_checks.py
+@@ -25,9 +25,12 @@ _MONTH = {"一季报": 3, "一季度": 3, "Q1": 3, "中报": 6, "半年报": 6,
+           "半年度": 6, "上半年": 6, "H1": 6, "Q2": 6, "三季报": 9,
+           "前三季度": 9, "Q3": 9, "年报": 12, "年度": 12, "全年": 12, "FY": 12, "Q4": 12}
+ _PERIOD_LABEL = re.compile("|".join(sorted(_MONTH, key=len, reverse=True)), re.I)
+-_RATIO = r"(?:净现比|OCF\s*[/／÷]\s*(?:归母)?净利(?:润)?|经营现金流对归母净利的覆盖率)"
++_RATIO = r"(?:含金量|净现比|OCF\s*[/／÷]\s*(?:归母)?净利(?:润)?|经营现金流对归母净利的覆盖率)"
++_DELTA_UNIT = re.compile(r"百分点|基点|(?<![A-Za-z])bps?(?![A-Za-z])", re.I)
++_RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
+ _RATIO_VALUE = re.compile(
+-    rf"{_RATIO}\s*(?:约为|为|约|是|[：:=])?\s*(?P<value>{_NUMBER})\s*(?P<unit>%|倍)?", re.I,
++    rf"{_RATIO}\s*(?:[（(]\s*(?P<label_unit>{_RATIO_UNIT})\s*[）)])?"
++    rf"\s*(?:约为|为|约|是|[：:=])?\s*(?P<value>{_NUMBER})\s*(?P<unit>{_RATIO_UNIT})?", re.I,
+ )
+ _COMPARISON = re.compile(r"同累计长度|同口径对照|降至|降到|回升|走弱|恶化|改善|较.+(?:升|降)")
+ _COMPARISON_CAVEAT = re.compile(r"(?:不能|不可|不宜|不应|不直接).{0,8}比较|仅.{0,6}列示|不据此判断")
+@@ -129,6 +132,9 @@ def calculation_ratio_gaps(
+                 continue
+             period = periods.pop()
+             ocf, profit = values.get((period, "ocf_cum_yi")), values.get((period, "net_profit_cum_yi"))
++            if ocf is not None and profit and _DELTA_UNIT.search(column):
++                gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 使用差值单位，不适用于绝对比例核验")
++                continue
+             multiplier = 100 if "%" in column or "百分比" in column else 1
+             if ocf is not None and profit and not _same_display(ocf / profit * multiplier, str(obs.value)):
+                 gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 与同报告期原始输入复算不一致")
+@@ -164,7 +170,7 @@ def financial_claim_mismatches(
+             # Do not use the requested company's inputs to disprove a peer.
+             continue
+         bad = False
+-        financial = bool(re.search(r"现金流|净现比|OCF|存货|净利润", text, re.I))
++        financial = bool(re.search(r"现金流|OCF|存货|净利润", text, re.I) or re.search(_RATIO, text, re.I))
+         if financial:
+             for equation in _EQUATION.finditer(text):
+                 a, b = _decimal(equation["a"]), _decimal(equation["b"])
+@@ -183,8 +189,12 @@ def financial_claim_mismatches(
+                 ocf = values.get((period, "ocf_cum_yi"))
+                 profit = values.get((period, "net_profit_cum_yi"))
+                 if ocf is not None and profit:
+-                    multiplier = 100 if ratio["unit"] == "%" else 1
+-                    bad |= not _same_display(ocf / profit * multiplier, ratio["value"])
++                    unit, label_unit = ratio["unit"] or "", ratio["label_unit"] or ""
++                    if _DELTA_UNIT.search(unit) or _DELTA_UNIT.search(label_unit):
++                        bad = True
++                    else:
++                        multiplier = 100 if (unit or label_unit) in {"%", "百分比"} else 1
++                        bad |= not _same_display(ocf / profit * multiplier, ratio["value"])
+             for quarter in _SINGLE_OCF.finditer(text):
+                 q = _CN_NUM.get(quarter["quarter"], int(quarter["quarter"]) if quarter["quarter"].isdigit() else 0)
+                 end_month, start_month = q * 3, (q - 1) * 3
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 40139282c..74d4f9c9d 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -76,11 +76,27 @@ _RATIO_NAME = re.compile(
+     r"(?:除以|对)?[\s_]*(?:归母)?(?:净利(?:润)?|net[_ ]?profit)", re.I,
+ )
+ _NUMBER = r"[-+]?\d+(?:\.\d+)?"
+-_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*(%|倍)?\s*$")
++_DELTA_UNIT = re.compile(r"百分点|基点|(?<![A-Za-z])bps?(?![A-Za-z])", re.I)
++_RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
++_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*({_RATIO_UNIT})?\s*$", re.I)
++_PROSE_VALUE = re.compile(
++    rf"\s*(?:[（(]\s*(?P<label_unit>{_RATIO_UNIT})\s*[）)])?"
++    rf"\s*(?:为|是|=|：|:)?\s*(?P<value>{_NUMBER})\s*(?P<unit>{_RATIO_UNIT})?", re.I,
++)
++
++
++def _ratio_unit(value: str) -> str:
++    # A difference unit cannot be hidden by a percent/multiple marker elsewhere
++    # in the same label. It is never converted into an absolute ratio level.
++    if delta := _DELTA_UNIT.search(value):
++        return delta.group().lower()
++    if "%" in value or "百分比" in value:
++        return "%"
++    return "倍" if "倍" in value else ""
+ 
+ 
+ def _absolute_ratio_label(value: str) -> bool:
+-    return bool(_RATIO_NAME.search(value)) and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value)
++    return bool(_RATIO_NAME.search(value)) and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value)
+ 
+ 
+ def _period(value: str) -> str | None:
+@@ -115,6 +131,7 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
+     if len(subjects) != 1:
+         return {}
+     products: dict[str, set[float]] = {}
++    inapplicable_periods: set[str] = set()
+     for item in evidence:
+         if item.tool != "derived_calculation" or not item.derived_from:
+             continue
+@@ -131,9 +148,16 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
+             # A year in the table name must not override the row's report period.
+             label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric
+             period = _period(label)
++            if period and _DELTA_UNIT.search(column):
++                inapplicable_periods.add(period)
++                continue
+             if period and Decimal(str(obs.value)).is_finite():
+-                ratio = obs.value / 100 if "%" in column or "百分比" in column else obs.value
++                ratio = obs.value / 100 if _ratio_unit(column) == "%" else obs.value
+                 products.setdefault(period, set()).add(ratio)
++    # An empty known period is an unverified product, distinct from no product.
++    # A second, valid-looking value cannot waive the first product's unit gap.
++    for period in inapplicable_periods:
++        products[period] = set()
+     return products
+ 
+ 
+@@ -155,9 +179,12 @@ def calculation_copy_findings(
+     if not products and not require_product:
+         return ()
+ 
+-    def failure_code(values: set[float], raw: str, unit: str) -> str:
+-        if len(values) != 1:
+-            return "calculation_value_unverified" if require_product or values else ""
++    def failure_code(values: set[float] | None, raw: str, unit: str, label_unit: str = "") -> str:
++        if _DELTA_UNIT.search(unit) or _DELTA_UNIT.search(label_unit):
++            return "calculation_value_unverified"
++        if values is None or len(values) != 1:
++            return "calculation_value_unverified" if require_product or values is not None else ""
++        unit = _ratio_unit(unit or label_unit)
+         return "" if _display_matches(raw, next(iter(values)), unit) else "calculation_value_mismatch"
+ 
+     findings: list[DeliveryFinding] = []
+@@ -167,17 +194,17 @@ def calculation_copy_findings(
+     for line in text.splitlines(keepends=True):
+         if line.lstrip().startswith("|"):
+             cells = [re.sub(r"[*`]+", "", c.strip()) for c in line.strip().strip("|").split("|")]
+-            headers = tuple((i, "%" if "%" in c or "百分比" in c else "")
++            headers = tuple((i, _ratio_unit(c))
+                             for i, c in enumerate(cells) if _absolute_ratio_label(c))
+             if headers:
+                 ratio_columns = headers
+                 period_column = next((i for i, c in enumerate(cells) if c in {"报告期", "期间", "期别"}), None)
+             elif period_column is not None and period_column < len(cells):
+                 period = _period(cells[period_column])
+-                values = products.get(period or "", set())
++                values = products.get(period or "")
+                 for index, header_unit in ratio_columns:
+                     match = _NUMBER_CELL.fullmatch(cells[index]) if index < len(cells) else None
+-                    code = failure_code(values, match[1], match[2] or header_unit) if match and period else ""
++                    code = failure_code(values, match[1], match[2] or "", header_unit) if match and period else ""
+                     if code:
+                         # Remove only the incorrect cell, not the independent
+                         # OCF/profit facts in the same row. Never write a guessed
+@@ -198,18 +225,26 @@ def calculation_copy_findings(
+                 for period_match in _PERIOD.finditer(value):
+                     tail = value[period_match.end():]
+                     ratio = _RATIO_NAME.match(tail.lstrip())
++                    prefix_unit = ""
+                     if ratio is not None:
+                         remainder = tail.lstrip()[ratio.end():]
+-                    elif (re.search(r"(?:比率|净现比|含金量)[^。；;]*[:：]", value[:period_match.start()])
+-                          and not re.search(r"同比|环比|增速|变化|变动|差额|增量", value[:period_match.start()])):
++                    elif (prefixes := tuple(re.finditer(
++                        r"(?:比率|净现比|含金量)[^。；;:：]*[:：]", value[:period_match.start()],
++                    ))) and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value[:period_match.start()]):
+                         # Explicitly labeled same-clause comparison, e.g.
+                         # '比率同期对照：2026中报1.588 vs 2025中报0.289'.
++                        # Only the nearest label supplies a unit; a preceding
++                        # period's value or another sentence cannot supply it.
++                        prefix_unit = _ratio_unit(prefixes[-1].group())
+                         remainder = tail
+                     else:
+                         continue
+-                    number = re.match(rf"\s*(?:为|是|=|：|:)?\s*({_NUMBER})\s*(%|倍)?", remainder)
+-                    values = products.get(_period(period_match.group()) or "", set())
+-                    code = failure_code(values, number[1], number[2] or "") if number else ""
++                    number = _PROSE_VALUE.match(remainder)
++                    values = products.get(_period(period_match.group()) or "")
++                    code = failure_code(
++                        values, number["value"], number["unit"] or "",
++                        _ratio_unit(f"{prefix_unit} {number['label_unit'] or ''}"),
++                    ) if number else ""
+                     if code:
+                         findings.append(DeliveryFinding(offset + clause.start(), offset + clause.end(), code))
+                         break
+diff --git a/intelligence/tests/test_financial_delivery_integration.py b/intelligence/tests/test_financial_delivery_integration.py
+index 0e46f038e..9a9312f81 100644
+--- a/intelligence/tests/test_financial_delivery_integration.py
++++ b/intelligence/tests/test_financial_delivery_integration.py
+@@ -17,6 +17,7 @@ from intelligence.tests.test_boundary_partial_delivery import _delivery
+ from intelligence.tests.test_continuous_turn_adapter import _control
+ from intelligence.tests.test_episode_semantic_verifier import _judge
+ from intelligence.tests.test_financial_r6_regressions import SAFE, _financial
++from intelligence.tests.test_research_delivery_checks import _financial_evidence
+ 
+ BAD = "二季度单季经营现金流=18−33.68=−15.66亿元。"
+ GOOD = "二季度单季经营现金流=18−33.68=−15.68亿元。"
+@@ -41,6 +42,106 @@ def _metric_only(draft):
+     return frame, verify_episode_outcome(contract, outcome)
+ 
+ 
++def _ratio_delivery(draft, *, product_value=1.588, product_unit=""):
++    frame, verified = _metric_only(draft)
++    source, calc = _financial_evidence()
++    source = replace(source, observations=tuple(
++        replace(obs, subject=frame.subject) for obs in source.observations
++    ))
++    calc = replace(calc, observations=(replace(
++        calc.observations[0], metric=f"现金流比率.含金量{product_unit}[2026中报]", value=product_value,
++    ),))
++    contract = replace(verified.contract, required_outputs=tuple(
++        replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
++        for required in verified.contract.required_outputs
++    ))
++    outcome = replace(verified.outcome, evidence=(source, calc), bindings=(
++        OutputEvidenceBinding("metric_evidence", (source.content_hash, calc.content_hash)),
++    ))
++    return frame, verify_episode_outcome(contract, outcome)
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize("header,cell", [
++    ("含金量(bp)", "1.588"),
++    ("含金量(BP)", "1.588倍"),
++    ("含金量（基点）", "1.588"),
++    ("含金量(百分点)", "1.588"),
++    ("含金量", "1.588bp"),
++])
++def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
++    draft = SAFE + "[E1]。\n" + table
++    frame, verified = _ratio_delivery(draft)
++    assert verified.verified_status == "completed"
++    verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
++    result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
++    assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
++    assert SAFE in result.public_answer and "[E1]" in result.public_answer
++    assert result.status == "partial"
++    assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
++    assert result.verified.outcome == verified.outcome
++    assert result.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
++    assert any("calculation_value_unverified" in issue for issue in result.issues)
++    assert recheck_material_public_delivery(result) == result
++    corrected_draft = SAFE + "[E1]。\n|报告期|含金量(%)|\n|---|---|\n|2026中报|158.8|"
++    clean = verify_episode_outcome(verified.contract, replace(verified.outcome, draft=corrected_draft))
++    corrected = verifier.verify(frame=frame, structurally_verified=clean, deadline=ResearchDeadline.from_timeout(5))
++    assert corrected.status == "completed" and "158.8" in corrected.public_answer
++    assert corrected.gap_output_ids == corrected.repair_output_ids == ()
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize("product_value,product_unit,gap_note", [
++    (9.999, "", "复算不一致"),
++    (1.588, "(bp)", "差值单位"),
++])
++def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
++    frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
++    assert verified.missing_outputs == ("metric_evidence",)
++    assert gap_note in verified.completion.outputs[0].gap
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert result.status == "partial" and result.repair_output_ids == ("metric_evidence",)
++    assert result.verified.outcome == verified.outcome
++    assert verified.outcome.draft == draft
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize("claim,rejected", [
++    ("含金量(bp)：2026中报1.588。", True),
++    ("含金量（基点）：2026中报1.588。", True),
++    ("含金量(百分点)：2026中报1.588。", True),
++    ("含金量(bp)：2026中报1.588倍。", True),
++    ("含金量：2026中报1.588。", False),
++    ("含金量：2026中报9.999。", True),
++    ("含金量(倍)：2026中报1.588。", False),
++    ("含金量(%)：2026中报158.8。", False),
++    ("含金量同比增长(bp)：2026中报9.999。", False),
++    ("含金量环比变化(基点)：2026中报9.999。", False),
++    ("利差以bp计。含金量：2026中报1.588。", False),
++    ("含金量：2024中报9.999。", False),
++])
++def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = SAFE + "[E1]。\n" + claim
++    frame, verified = _ratio_delivery(draft)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert (claim not in result.public_answer) == rejected
++    assert result.status == ("partial" if rejected else "completed")
++    expected_ids = ("metric_evidence",) if rejected else ()
++    assert result.gap_output_ids == result.repair_output_ids == expected_ids
++    assert SAFE in result.public_answer and "[E1]" in result.public_answer
++    assert result.verified.outcome == verified.outcome
++    assert verified.outcome.draft == draft
++
++
+ @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+ @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+ def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+diff --git a/intelligence/tests/test_financial_r6_regressions.py b/intelligence/tests/test_financial_r6_regressions.py
+index 92ba06a22..0ff8c09cf 100644
+--- a/intelligence/tests/test_financial_r6_regressions.py
++++ b/intelligence/tests/test_financial_r6_regressions.py
+@@ -134,6 +134,11 @@ def _financial(draft, *, question="请比较中际旭创的利润与回款，注
+     "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+     "二季度单季经营现金流=18−33.68=−15.66亿元。",
+     "2026中报净现比0.133。",
++    "2026中报含金量为0.133。",
++    "2026中报含金量为0.132bp。",
++    "2026中报含金量为0.132基点。",
++    "2026中报含金量为0.132个百分点。",
++    "2026中报含金量(bp)为0.132倍。",
+     "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+     "2026中报OCF/净利从2025年报的1.009降至0.132。",
+     "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+@@ -165,6 +170,10 @@ def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch,
+     "二季度单季经营现金流=18−33.68=−15.68亿元。",
+     "二季度单季经营现金流约-15.7亿元。",
+     "2026中报净现比0.132。",
++    "2026中报含金量为0.132。",
++    "2026中报含金量为0.132倍。",
++    "2026中报含金量为13.2%。",
++    "2026中报含金量同比增长13.2%。",
+     "2026中报和2025全年累计长度不同，不能直接比较净现比改善与否。",
+     "2026中报净现比0.132，2025全年1.009；仅分别列示，不据此判断恶化。",
+     "存货三个月内增加约41.5亿元（156.72→198.26亿元）。",
+@@ -305,6 +314,14 @@ def test_document_claim_does_not_borrow_an_unrelated_company(monkeypatch, overri
+     ("净现比.净现比%[2026中报]", 13.2, False),
+     ("净现比.营收[2026中报]", 417.78, False),
+     ("净现比.净现比同比增长[2026中报]", 13.2, False),
++    ("现金流.含金量(bp)[2026中报]", 0.132, True),
++    ("现金流.净现比(BP)[2026中报]", 0.132, True),
++    ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
++    ("现金流.含金量(百分点)[2026中报]", 0.132, True),
++    ("现金流.含金量(倍)[2026中报]", 0.132, False),
++    ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
++    ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
++    ("现金流.含金量[2024中报]", 9.999, False),
+     ("净现比.净现比[2026中报]", float("nan"), True),
+ ])
+ def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
+@@ -327,13 +344,14 @@ def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, reje
+     assert calculation_ratio_gaps((*inputs, peer, mixed), ("calc",), subject="300308") == ()
+ 
+ 
+-def test_wrong_product_reopens_metric_slot_not_the_whole_research():
++@pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
++def test_wrong_product_reopens_metric_slot_not_the_whole_research(ratio_name):
+     _, verified = _financial(SAFE)
+     inputs = verified.outcome.evidence
+     calc = AgentEvidence(
+         "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
+         derived_from=tuple(item.content_hash for item in inputs),
+-        observations=(StructuredObservation("计算任务", "2025-04-21", "净现比[2026中报]", 0.133),),
++        observations=(StructuredObservation("计算任务", "2025-04-21", f"{ratio_name}[2026中报]", 0.133),),
+     )
+     contract = replace(verified.contract, required_outputs=tuple(
+         replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
+@@ -351,6 +369,22 @@ def test_wrong_product_reopens_metric_slot_not_the_whole_research():
+     assert calc in checked.outcome.evidence
+ 
+ 
++@pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
++@pytest.mark.parametrize("value,rejected", [(9.999, True), (1.588, False)])
++def test_ratio_alias_recomputation_uses_the_same_bound_input_chain(ratio_name, value, rejected):
++    from intelligence.services.financial_claim_checks import calculation_ratio_gaps
++    from intelligence.tests.test_research_delivery_checks import _financial_evidence
++
++    source, calc = _financial_evidence()
++    calc = replace(calc, observations=(replace(
++        calc.observations[0], metric=f"现金流比率.{ratio_name}[2026中报]", value=value,
++    ),))
++    evidence = (source, calc)
++    assert bool(calculation_ratio_gaps(evidence, (calc.content_hash,), subject="600519.SH")) == rejected
++    assert calculation_ratio_gaps(evidence, (), subject="600519.SH") == ()
++    assert calculation_ratio_gaps(evidence, (calc.content_hash,), subject="000858.SZ") == ()
++
++
+ def test_conflicting_financial_inputs_are_not_cherry_picked():
+     from intelligence.services.financial_claim_checks import financial_claim_mismatches
+     _, verified = _financial(SAFE)
+diff --git a/intelligence/tests/test_research_delivery_checks.py b/intelligence/tests/test_research_delivery_checks.py
+index bd23cba94..b476e1d1f 100644
+--- a/intelligence/tests/test_research_delivery_checks.py
++++ b/intelligence/tests/test_research_delivery_checks.py
+@@ -144,6 +144,78 @@ def test_correct_rounding_percent_and_unrelated_numbers_not_rejected(draft):
+     assert calculation_copy_findings(draft, _financial_evidence()) == ()
+ 
+ 
++@pytest.mark.parametrize("header,cell", [
++    ("含金量(bp)", "1.588"),
++    ("含金量(BP)", "1.588"),
++    ("含金量（基点）", "1.588"),
++    ("含金量(百分点)", "1.588"),
++    ("含金量(bp)", "1.588倍"),
++    ("含金量(%)", "158.8bp"),
++    ("含金量", "1.588bp"),
++    ("含金量", "1.588基点"),
++    ("含金量", "1.588个百分点"),
++])
++def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
++    draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
++    draft = draft.replace("含金量占位", header)
++    findings = calculation_copy_findings(draft, _financial_evidence())
++    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
++    kept = remove_findings(draft, findings)
++    assert f"| 报告期 | OCF累计 | {header} |" in kept
++    assert "|2026中报|706.91| 待核对 |" in kept
++
++
++@pytest.mark.parametrize("claim", [
++    "2026中报含金量为1.588bp。",
++    "2026中报含金量为1.588基点。",
++    "2026中报含金量为1.588百分点。",
++    "2026中报含金量为1.588个百分点。",
++    "2026中报含金量(bp)为1.588倍。",
++])
++def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
++    findings = calculation_copy_findings(claim, _financial_evidence())
++    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
++
++
++@pytest.mark.parametrize("draft", [
++    "含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。",
++    "含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。",
++    "含金量：2026中报1.588，2025中报0.289。",
++    "含金量(%)：2026中报158.8，2025中报28.9。",
++    "含金量(bp)需要另行核验。含金量：2026中报1.588。",
++])
++def test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence(draft):
++    assert calculation_copy_findings(draft, _financial_evidence()) == ()
++
++
++@pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
++@pytest.mark.parametrize("with_valid_product", [False, True])
++def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
++    source, calc = _financial_evidence()
++    invalid = replace(calc, content_hash="delta-calc", observations=(replace(
++        calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
++    ),))
++    evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
++    findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
++    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
++
++
++@pytest.mark.parametrize("header,cell", [
++    ("含金量", "1.588"),
++    ("含金量(倍)", "1.588"),
++    ("含金量", "1.588倍"),
++    ("含金量(%)", "158.8"),
++    ("含金量", "158.8%"),
++    ("含金量同比增长(bp)", "9.999"),
++    ("含金量增长(bp)", "9.999"),
++    ("含金量环比变化(基点)", "9.999"),
++    ("收入(亿元)", "9.999"),
++])
++def test_ratio_units_preserve_absolute_values_and_excluded_column_roles(header, cell):
++    draft = f"|报告期|{header}|\n|---|---|\n|2026中报|{cell}|"
++    assert calculation_copy_findings(draft, _financial_evidence()) == ()
++
++
+ @pytest.mark.parametrize("mode", ["off", "llm"])
+ @pytest.mark.parametrize(
+     "status", ["request_error", "partial", "empty", "not_attempted"]

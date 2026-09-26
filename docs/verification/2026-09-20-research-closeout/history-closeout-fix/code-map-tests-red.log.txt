@@ -1,0 +1,104 @@
+FFFF                                                                     [100%]读数收据: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/receipts/code-map-red/20260920T050509Z-dca7c27e.json
+
+=================================== FAILURES ===================================
+__________________ test_search_graph_parses_crg_json_results ___________________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2947/test_search_graph_parses_crg_j0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1087c5f70>
+
+    def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        stdout = json.dumps(
+            {
+                "status": "ok",
+                "results": [
+                    {
+                        "name": "cmd_daily_full",
+                        "file_path": str(root / "market_feature_store" / "cli.py"),
+                        "qualified_name": "market_feature_store/cli.py::cmd_daily_full",
+                        "signature": "def cmd_daily_full(args) -> int",
+                    },
+                    {
+                        "name": str(root / "tests" / "test_daily_full_preflight.py"),
+                        "file_path": str(root / "tests" / "test_daily_full_preflight.py"),
+                        "qualified_name": "tests/test_daily_full_preflight.py",
+                    },
+                ],
+            }
+        )
+    
+        def fake(args, cwd):
+            return subprocess.CompletedProcess(["uvx"], 0, stdout, "")
+    
+        monkeypatch.setattr(cm, "run_crg_cli", fake)
+        hits, unavailable_reason = cm.search_graph("daily-full", root)
+>       assert unavailable_reason is None
+E       AssertionError: assert {'excerpt': 'tests/test_daily_full_preflight.py', 'path': 'tests/test_daily_full_preflight.py', 'retired': [], 'symbol': None, ...} is None
+
+tests/test_code_map.py:625: AssertionError
+_ test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2947/test_search_graph_dispatches_h0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10817dd60>
+
+    def test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup(
+        tmp_path, monkeypatch
+    ):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        calls = []
+>       monkeypatch.setattr(cm, "STRUCTURE_HIT_CAP", 3)
+E       AttributeError: <module 'code_map' from '/Users/a77/fwp-wt-history-closeout-0920/scripts/code_map.py'> has no attribute 'STRUCTURE_HIT_CAP'
+
+tests/test_code_map.py:641: AttributeError
+_____________ test_search_graph_ordinary_query_is_dispatched_once ______________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2947/test_search_graph_ordinary_que0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1087eaf90>
+
+    def test_search_graph_ordinary_query_is_dispatched_once(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        calls = []
+    
+        def fake(args, cwd):
+            calls.append(list(args))
+            return subprocess.CompletedProcess(
+                ["uvx"], 0, json.dumps({"status": "ok", "results": []}), ""
+            )
+    
+        monkeypatch.setattr(cm, "run_crg_cli", fake)
+>       hits, unavailable_reason = cm.search_graph("rank_history", root)
+E       ValueError: not enough values to unpack (expected 2, got 0)
+
+tests/test_code_map.py:689: ValueError
+______ test_query_distinguishes_missing_structure_backend_from_zero_hits _______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2947/test_query_distinguishes_missi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108816900>
+
+    def test_query_distinguishes_missing_structure_backend_from_zero_hits(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        head = _git(root, "rev-parse", "HEAD")
+        _make_graph(root, n_nodes=1, git_head_sha=head)
+        (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
+        (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
+    
+        monkeypatch.setattr(cm, "_uvx_path", lambda: None)
+        unavailable, code = cm.collect_query(root, "daily-full")
+        assert code == 0
+>       assert unavailable["layers"]["structure"]["state"] == "unavailable"
+E       AssertionError: assert 'missing' == 'unavailable'
+E         
+E         - unavailable
+E         + missing
+
+tests/test_code_map.py:706: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_code_map.py::test_search_graph_parses_crg_json_results - As...
+FAILED tests/test_code_map.py::test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup
+FAILED tests/test_code_map.py::test_search_graph_ordinary_query_is_dispatched_once
+FAILED tests/test_code_map.py::test_query_distinguishes_missing_structure_backend_from_zero_hits
+4 failed, 41 deselected in 0.99s

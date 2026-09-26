@@ -1,0 +1,83 @@
+
+> market-intelligence-workbench@0.1.0 test:e2e /Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp
+> playwright test
+
+(node:64995) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[workbench] INFO:     Started server process [65006]
+[workbench] INFO:     Waiting for application startup.
+[workbench] INFO:     Application startup complete.
+[workbench] INFO:     Uvicorn running on http://127.0.0.1:19851 (Press CTRL+C to quit)
+[research-evolution-binding] INFO:     Started server process [65083]
+[research-evolution-binding] INFO:     Waiting for application startup.
+[research-evolution-binding] INFO:     Application startup complete.
+[research-evolution-binding] INFO:     Uvicorn running on http://127.0.0.1:19854 (Press CTRL+C to quit)
+
+Running 36 tests using 1 worker
+
+(node:65112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:65112) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:65112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (2.4s)
+  ✓  2 [desktop] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.7s)
+  ✓  3 [desktop] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (193ms)
+  ✓  4 [desktop] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (24ms)
+  ✓  5 [desktop] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (19ms)
+  ✓  6 [desktop] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (20ms)
+  ✓  7 [desktop] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (681ms)
+  ✓  8 [desktop] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (683ms)
+  ✓  9 [desktop] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (713ms)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260922_011334_457345）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260922_011334_457345）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260922_011336_394939）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260922_011336_394939）；研究不受影响
+  ✘  10 [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (4.4s)
+
+
+  1) [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+
+    Test was interrupted.
+
+    Error: locator.click: Test ended.
+    Call log:
+    [2m  - waiting for getByLabel('研究助手消息').nth(1).getByText('运行详情', { exact: true })[22m
+    [2m    - locator resolved to <span>…</span>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      187 |   const secondAnswer = page.getByLabel("研究助手消息").nth(1);
+      188 |   await expect(secondAnswer.locator(".stream-table-shell")).toHaveCount(0);
+    > 189 |   await secondAnswer.getByText("运行详情", { exact: true }).click();
+          |                                                         ^
+      190 |   await expect(
+      191 |     secondAnswer.getByRole("button", { name: "结构化对话报告" }),
+      192 |   ).toBeVisible();
+        at /Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp/e2e/workbench.spec.ts:189:57
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 interrupted
+    [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+  26 did not run
+  9 passed (18.1s)
+ ELIFECYCLE  Command failed with exit code 130.

@@ -1,0 +1,126 @@
+"""Independent offline probes for PR #831's two stated contracts.
+
+This file lives outside the checkout and is never imported by the repository.
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+
+ROOT = Path("/Users/a77/fwp-wt-tail-prereq-review-0921")
+sys.path.insert(0, str(ROOT))
+
+
+def probe_timer_ownership() -> None:
+    from intelligence.api.app import RunSupervisor
+    from intelligence.tests.fixtures.run_supervisor import (
+        _OwnedTimers,
+        drain_test_client,
+        track_test_client_timers,
+    )
+
+    # Verify the helper itself registers before work, retains a popped timer,
+    # and joins the callback without touching a separate process timer.
+    class Client:
+        pass
+
+    supervisor = RunSupervisor(max_workers=1, timeout_sec=0.01)
+    client = Client()
+    client.app = type("App", (), {"state": type("State", (), {"supervisor": supervisor})()})()
+    track_test_client_timers(client)
+    assert isinstance(supervisor._timers, _OwnedTimers)
+    callback_started = threading.Event()
+    callback_release = threading.Event()
+    callback_finished = threading.Event()
+
+    timer = threading.Timer(
+        0,
+        lambda: (
+            callback_started.set(),
+            callback_release.wait(2),
+            callback_finished.set(),
+        ),
+    )
+    with supervisor._lock:
+        supervisor._timers[("u", "r")] = timer
+    timer.start()
+    assert callback_started.wait(1)
+    with supervisor._lock:
+        supervisor._timers.pop(("u", "r"))
+        assert timer in supervisor._timers.owned
+
+    unrelated_done = threading.Event()
+    unrelated = threading.Timer(2, unrelated_done.set)
+    unrelated.start()
+    started = time.monotonic()
+    callback_release.set()
+    # The helper needs a real TestClient-shaped close and supervisor state;
+    # use a tiny adapter and ensure it joins only its owned timer.
+    client.close = lambda: None
+    drain_test_client(client)
+    elapsed = time.monotonic() - started
+    unrelated_alive = unrelated.is_alive()
+    unrelated.cancel()
+    unrelated.join(1)
+    assert callback_finished.is_set()
+    assert elapsed < 1.0
+    assert unrelated_alive
+    assert supervisor._executor._shutdown
+
+
+def probe_code_map_contracts() -> None:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import code_map as cm
+
+    root = ROOT
+    original = cm.run_crg_cli
+    calls: list[list[str]] = []
+
+    def fake(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        query = args[1]
+        if query == "daily-full":
+            rows = [
+                {"name": "a", "file_path": str(root / "a.py"), "qualified_name": "a"},
+                {"name": "a", "file_path": str(root / "a.py"), "qualified_name": "a-alias"},
+            ]
+        elif query == "daily_full":
+            rows = [
+                {"name": "a", "file_path": str(root / "a.py"), "qualified_name": "a"},
+                {"name": "b", "file_path": str(root / "b.py"), "qualified_name": "b"},
+            ]
+        else:
+            rows = []
+        return subprocess.CompletedProcess(["uvx"], 0, json.dumps({"status": "ok", "results": rows}), "")
+
+    cm.run_crg_cli = fake
+    try:
+        hits, reason = cm.search_graph("daily-full", root)
+        assert reason is None
+        assert calls == [["search", "daily-full"], ["search", "daily_full"]]
+        assert len(hits) == 2
+        assert [(h["path"], h["symbol"]) for h in hits] == [("a.py", "a"), ("b.py", "b")]
+
+        calls.clear()
+        hits, reason = cm.search_graph("ordinary_query", root)
+        assert reason is None and hits == []
+        assert calls == [["search", "ordinary_query"]]
+
+        calls.clear()
+        cm.run_crg_cli = lambda args, cwd: subprocess.CompletedProcess(["uvx"], 7, "", "backend down")
+        hits, reason = cm.search_graph("daily-full", root)
+        assert hits == [] and reason == "search_failed"
+        assert calls == []
+    finally:
+        cm.run_crg_cli = original
+
+
+if __name__ == "__main__":
+    probe_timer_ownership()
+    probe_code_map_contracts()
+    print("independent probes: PASS")

@@ -1,0 +1,37 @@
+[
+  {
+    "number": 790,
+    "title": "研究深度 1/5：查询报错后的有界修正闭环",
+    "body": "执行授权：2026-09-20 在途收尾审阅；规格 PR #789。基线诊断 `docs/8792-sector-history-diag-0917@40321402:docs/verification/2026-09-17-sector-history-comparison/README.md`；第二轮原件 `docs/react-components-comparison-0918@87c719f8:docs/verification/2026-09-18-react-components-comparison/`。\n\nP0b / F6。复现 metric 被放进 dimension、服务返回精确修正建议后没有再查询的路径。沿既有工具结果和研究loop接修正反馈，冻结一次失败→一次正确调用→取数成功；持续失败时保持失败/缺数并降低比较结论，不能用热度替代相对强度。验收覆盖正确输入不增加调用、缺表/未知字段/合法空结果分型、预算及绝对deadline不放宽、取消不继续、同题自然入口首答。定向反例及撤保护要先红后绿，工程与真实质量分账。\n\n范围：先实现与独立验收，不因本工单自动批准合 main、切8792、扩大模型预算或写生产库。",
+    "state": "open",
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/790"
+  },
+  {
+    "number": 791,
+    "title": "研究深度 2/5：集合聚合与历史排序忠实",
+    "body": "执行授权：2026-09-20 在途收尾审阅；规格 PR #789。基线诊断 `docs/8792-sector-history-diag-0917@40321402:docs/verification/2026-09-17-sector-history-comparison/README.md`；第二轮原件 `docs/react-components-comparison-0918@87c719f8:docs/verification/2026-09-18-react-components-comparison/`。\n\nP0c / F1,F2。多个重叠题材的涨停数必须成员并集后算占比，成员不可得则拒绝总占比；原32股样本并集15，不能把10+9+7直接当26。固定相似度排序应保留0.313先于0.370，后续收益不得倒灌改相似排名。验收乱序输入、同距离、缺成员、重复对象、小样本不得写常见/胜率；结果表和最终公开稿一致。与1/5关联但可独立实施。\n\n范围：先实现与独立验收，不因本工单自动批准合 main、切8792、扩大模型预算或写生产库。",
+    "state": "open",
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/791"
+  },
+  {
+    "number": 792,
+    "title": "研究深度 3/5：方法论卡与观测卡分离",
+    "body": "执行授权：2026-09-20 在途收尾审阅；规格 PR #789。基线诊断 `docs/8792-sector-history-diag-0917@40321402:docs/verification/2026-09-17-sector-history-comparison/README.md`；第二轮原件 `docs/react-components-comparison-0918@87c719f8:docs/verification/2026-09-18-react-components-comparison/`。\n\nP1a / F3,F4。现有规则卡（如方向锚和高度锚同时恶化的判读规则）只能说明如何判断，不能支持今天已发生/未发生。沿现有证据契约明确方法论、观测事实、分析判断；观测需对象、交易日期和真实数据来源。验收只有规则、规则加匹配观测、错对象/错日期/缺值、混合卡片，公开正文与引用一致；不另造重复规则库。\n\n范围：先实现与独立验收，不因本工单自动批准合 main、切8792、扩大模型预算或写生产库。",
+    "state": "open",
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/792"
+  },
+  {
+    "number": 793,
+    "title": "研究深度 4/5：板块比较合同与假设槽",
+    "body": "执行授权：2026-09-20 在途收尾审阅；规格 PR #789。基线诊断 `docs/8792-sector-history-diag-0917@40321402:docs/verification/2026-09-17-sector-history-comparison/README.md`；第二轮原件 `docs/react-components-comparison-0918@87c719f8:docs/verification/2026-09-18-react-components-comparison/`。\n\nP1b / F5。把自然问法哪个板块更有机会接到既有ranking_contract的板块对象；明确比较窗口、候选范围和强度/热度/位置口径，给同窗矩阵与改判条件。未来条件标待验证假设，不冒充已发生事实。验收板块/公司互不误伤、群指代、候选不足、各对象数据新鲜度不同、同窗不足时合法缺口；不能复制公司表头假装满足。\n\n范围：先实现与独立验收，不因本工单自动批准合 main、切8792、扩大模型预算或写生产库。",
+    "state": "open",
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/793"
+  },
+  {
+    "number": 794,
+    "title": "研究深度 5/5：预览按需展开并保留证据身份",
+    "body": "执行授权：2026-09-20 在途收尾审阅；规格 PR #789。基线诊断 `docs/8792-sector-history-diag-0917@40321402:docs/verification/2026-09-17-sector-history-comparison/README.md`；第二轮原件 `docs/react-components-comparison-0918@87c719f8:docs/verification/2026-09-18-react-components-comparison/`。\n\n来源第二轮对照。保留首屏足以判断是否继续读的摘要，用户明确展开后沿已有材料/工具入口取得完整片段；展开前后绑定同一来源、版本、对象、日期，不把截断预览当完整原文或新来源。验收长表/长列表/字段截断、重复展开、版本变化、来源不可读、取消和预算；真实Workbench操作检查可发现性，后台不要仅加未接调用的开关。\n\n范围：先实现与独立验收，不因本工单自动批准合 main、切8792、扩大模型预算或写生产库。",
+    "state": "open",
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/794"
+  }
+]

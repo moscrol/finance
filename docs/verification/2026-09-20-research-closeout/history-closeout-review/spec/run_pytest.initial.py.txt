@@ -1,0 +1,18 @@
+"""Redirect only test receipt and temporary-output destinations, retaining repo gates."""
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/fwp-wt-history-closeout-0920')
+sys.path.insert(0, str(SOURCE))
+import conftest
+import pytest
+
+name, *args = sys.argv[1:]
+conftest._RECEIPT_DIR = ROOT / 'receipts' / name
+raise SystemExit(pytest.main([
+    '-q', '-rA', '-o', 'cache_dir=' + str(ROOT / 'pytest-cache' / name),
+    '--basetemp=' + str(ROOT / 'temporary' / name),
+    '--junitxml=' + str(ROOT / (name + '.junit.xml')),
+    *args,
+]))

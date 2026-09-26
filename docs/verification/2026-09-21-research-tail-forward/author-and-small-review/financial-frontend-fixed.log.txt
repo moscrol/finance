@@ -1,0 +1,1523 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-financial-forward-0921/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-financial-forward-0921/intelligence/webapp
+
+ ✓ src/api.test.ts (3 tests) 15ms
+ ✓ src/researchActivity.test.ts (2 tests) 10ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 8ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 354ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 250ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 451ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 808ms
+ ❯ src/components/components.test.tsx (79 tests | 1 failed) 6310ms
+   ✓ Workbench components > starts a workflow preset and submits from the unified composer 182ms
+   ✓ Workbench components > keeps degraded state, evidence and followups visible 63ms
+   ✓ Workbench components > translates internal failures and stages into user-facing language 2ms
+   ✓ Workbench components > counts only evidence records bound to verifiable citations 18ms
+   ✓ Workbench components > keeps structured modules behind the explicit run inspector 61ms
+   ✓ Workbench components > sanitizes markdown before rendering an artifact 16ms
+   ✓ Workbench components > shows a readable artifact date and source before technical metadata 40ms
+   ✓ Workbench components > keeps workflow summaries in their native JSON viewer 10ms
+   ✓ Workbench components > filters the artifact registry by date 61ms
+   ✓ Workbench components > keeps internal tool names out of the user-facing trace 57ms
+   ✓ Workbench components > shows the structured report inside the explicit run inspector 41ms
+   ✓ Workbench components > shows report degradation warnings and the bound KB snapshot 25ms
+   ✓ Workbench components > shows only allowlisted provider and model metadata 4ms
+   ✓ Workbench components > hides credential-shaped provider and model metadata 4ms
+   ✓ Workbench components > shows aggregate self-use maturity without private event details 20ms
+   ✓ Workbench components > does not start final self-use judgement during the demo stage 7ms
+   ✓ Chat-first conversation components > restores, switches and archives conversations in the mobile drawer 69ms
+   ✓ Chat-first conversation components > filters conversation history without changing the active conversation 53ms
+   ✓ Chat-first conversation components > starts a guided research workflow from the empty conversation 19ms
+   ✓ Chat-first conversation components > selects and removes product skills while keeping hybrid as default 44ms
+   ✓ Chat-first conversation components > switches from data neutral to a selected KOL perspective 27ms
+   ✓ Chat-first conversation components > distinguishes manual skills from automatically invoked skills 2ms
+   ✓ Chat-first conversation components > offers stop while a message is running 11ms
+   ✓ Chat-first conversation components > marks template answers and regenerates without hiding the old answer 24ms
+   ✓ Chat-first conversation components > warns when a completed ask answer has no verifiable evidence 8ms
+   ✓ Chat-first conversation components > warns when a completed research answer has no verifiable evidence 9ms
+   ✓ Chat-first conversation components > warns when a completed workflow answer has no verifiable evidence 9ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for an index technical answer 9ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for chat answers 7ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for meta answers 6ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for clarify answers 7ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for static knowledge answers 7ms
+   ✓ Chat-first conversation components > does not show the company evidence warning for fresh knowledge answers 11ms
+   ✓ Chat-first conversation components > replaces loading with a persistent cancelled message 4ms
+   ✓ Chat-first conversation components > shows the latest real Episode progress while the answer is pending 5ms
+   ✓ Chat-first conversation components > shows every episode milestone, not only the newest one 8ms
+   ✓ Chat-first conversation components > shows the actual tool menu before any call, including on a failed run 6ms
+   ✓ Chat-first conversation components > keeps the timeline available after the answer lands 8ms
+   ✓ Chat-first conversation components > replays and upserts public trace steps in live message state 1ms
+   ✓ Chat-first conversation components > applies identity-checked deltas, module upserts and replay deduplication 0ms
+   ✓ Chat-first conversation components > applies answer snapshots with monotonic overwrite semantics 1ms
+   ✓ Chat-first conversation components > shows the verified_draft answer phase 8ms
+   ✓ Chat-first conversation components > shows the validated_synthesis answer phase 8ms
+   ✓ Chat-first conversation components > shows the verified_fallback answer phase 7ms
+   ✓ Chat-first conversation components > shows the decision_brief_fallback answer phase 8ms
+   ✓ Chat-first conversation components > shows the evidence_gap_fallback answer phase 11ms
+   ✓ Chat-first conversation components > loads and displays the selected owner workflow 5ms
+   ✓ Chat-first conversation components > tracks skill results and ends loading on complete or cancel 0ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  343ms
+   ✓ Workbench navigation reliability > restores the latest conversation and submits in hybrid mode 265ms
+   ✓ Workbench navigation reliability > seeds the credits line from bootstrap and refreshes it once a question is accepted 201ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles 223ms
+   ✓ Workbench navigation reliability > restores the perspective picker from the latest user message 96ms
+   ✓ Workbench navigation reliability > regenerates with the original user message perspective 125ms
+   ✓ Workbench navigation reliability > keeps polling a completed run until its exact message publication is visible 244ms
+   ✓ Workbench navigation reliability > keeps polling a failed run until its exact message publication is visible 280ms
+   ✓ Workbench navigation reliability > keeps polling a cancelled run until its exact message publication is visible 212ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is missing-marker 221ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is wrong-message 248ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is wrong-conversation 238ms
+   ✓ Workbench navigation reliability > does not close the stream when publication is load-failed 187ms
+   ✓ Workbench navigation reliability > reconnects on reload when a terminal message is still awaiting publication 64ms
+   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects 228ms
+   ✓ Workbench navigation reliability > keeps polling while terminal ownership precedes report delivery 271ms
+   ✓ Workbench navigation reliability > reconnects a restored completed message whose artifacts are still being delivered 44ms
+   × Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn 396ms
+     → Unable to find an accessible element with the role "button" and name "发送研究问题"
+
+Here are the accessible roles:
+
+  complementary:
+
+  Name "会话列表":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"会话列表"[39m
+    [33mclass[39m=[32m"conversation-list "[39m
+  [36m/>[39m
+
+  Name "研究检查器":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"研究检查器"[39m
+    [33mclass[39m=[32m"research-inspector "[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"conversation-list-header"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"chat-topbar"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"inspector-header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong[39m
+    [33mdata-status[39m=[32m"running"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "关闭会话列表":
+  [36m<button[39m
+    [33maria-label[39m=[32m"关闭会话列表"[39m
+    [33mclass[39m=[32m"icon-button conversation-close"[39m
+    [33mtitle[39m=[32m"关闭会话列表"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "今日":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "主题":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "信号":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "验证":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "问答":
+  [36m<button[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"active"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "新对话":
+  [36m<button[39m
+    [33mclass[39m=[32m"new-conversation-button"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "液冷跟踪 2026/7/11":
+  [36m<button[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"conversation-select"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "归档液冷跟踪":
+  [36m<button[39m
+    [33maria-label[39m=[32m"归档液冷跟踪"[39m
+    [33mclass[39m=[32m"conversation-archive"[39m
+    [33mtitle[39m=[32m"归档液冷跟踪"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "机器人 2026/7/10":
+  [36m<button[39m
+    [33mclass[39m=[32m"conversation-select"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "归档机器人":
+  [36m<button[39m
+    [33maria-label[39m=[32m"归档机器人"[39m
+    [33mclass[39m=[32m"conversation-archive"[39m
+    [33mtitle[39m=[32m"归档机器人"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物库":
+  [36m<button[39m
+    [33maria-label[39m=[32m"产物库"[39m
+    [33mclass[39m=[32m"conversation-library-link"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "打开会话列表":
+  [36m<button[39m
+    [33maria-label[39m=[32m"打开会话列表"[39m
+    [33mclass[39m=[32m"icon-button conversation-toggle"[39m
+    [33mtitle[39m=[32m"打开会话列表"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "配置模型":
+  [36m<button[39m
+    [33maria-label[39m=[32m"配置模型"[39m
+    [33mclass[39m=[32m"model-status-button ready"[39m
+    [33mtitle[39m=[32m"配置模型"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "打开研究检查器":
+  [36m<button[39m
+    [33maria-label[39m=[32m"打开研究检查器"[39m
+    [33mclass[39m=[32m"icon-button inspector-toggle"[39m
+    [33mtitle[39m=[32m"打开研究检查器"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "选择研究工具":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"选择研究工具"[39m
+    [33mclass[39m=[32m"skill-menu-trigger"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "选择分析视角":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"选择分析视角"[39m
+    [33mclass[39m=[32m"skill-menu-trigger perspective-menu-trigger"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "停止生成":
+  [36m<button[39m
+    [33maria-label[39m=[32m"停止生成"[39m
+    [33mclass[39m=[32m"stop-generation-button"[39m
+    [33mtitle[39m=[32m"停止生成"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "关闭检查器":
+  [36m<button[39m
+    [33maria-label[39m=[32m"关闭检查器"[39m
+    [33mclass[39m=[32m"icon-button"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "工作台一级导航":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"工作台一级导航"[39m
+    [33mclass[39m=[32m"output-navigation"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  searchbox:
+
+  Name "搜索会话":
+  [36m<input[39m
+    [33maria-label[39m=[32m"搜索会话"[39m
+    [33mplaceholder[39m=[32m"搜索会话"[39m
+    [33mtype[39m=[32m"search"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "研究线程":
+  [36m<h2 />[39m
+
+  Name "运行轨迹":
+  [36m<h3[39m
+    [33mid[39m=[32m"trace-run_old"[39m
+  [36m/>[39m
+
+  Name "证据与边界":
+  [36m<h2[39m
+    [33mid[39m=[32m"inspector-evidence-heading"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"main-surface chat-surface"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"agent-status running"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"message-thinking"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"message-run-warning"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "消息记录":
+  [36m<section[39m
+    [33maria-label[39m=[32m"消息记录"[39m
+    [33mclass[39m=[32m"message-thread"[39m
+  [36m/>[39m
+
+  Name "运行轨迹":
+  [36m<section[39m
+    [33maria-labelledby[39m=[32m"trace-run_old"[39m
+  [36m/>[39m
+
+  Name "当前任务摘要":
+  [36m<section[39m
+    [33maria-label[39m=[32m"当前任务摘要"[39m
+    [33mclass[39m=[32m"inspector-task-summary"[39m
+  [36m/>[39m
+
+  Name "证据与边界":
+  [36m<section[39m
+    [33maria-labelledby[39m=[32m"inspector-evidence-heading"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  article:
+
+  Name "研究助手消息":
+  [36m<article[39m
+    [33maria-label[39m=[32m"研究助手消息"[39m
+    [33mclass[39m=[32m"message-row message-assistant"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"message-run-details"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"message-technical-details"[39m
+  [36m/>[39m
+
+  Name "自用成熟度预览":
+  [36m<details[39m
+    [33maria-label[39m=[32m"自用成熟度预览"[39m
+    [33mclass[39m=[32m"inspector-section"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ol[39m
+    [33mclass[39m=[32m"message-trace-list"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+  form:
+
+  Name "研究提问":
+  [36m<form[39m
+    [33maria-label[39m=[32m"研究提问"[39m
+    [33mclass[39m=[32m"composer "[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "输入研究问题":
+  [36m<textarea[39m
+    [33mid[39m=[32m"research-composer"[39m
+    [33mplaceholder[39m=[32m"输入问题，说明对象、时间和想验证的判断…"[39m
+    [33mrows[39m=[32m"4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "研究工具选择方式":
+  [36m<select[39m
+    [33maria-label[39m=[32m"研究工具选择方式"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "自动选择并补充指定工具":
+  [36m<option[39m
+    [33mvalue[39m=[32m"hybrid"[39m
+  [36m/>[39m
+
+  Name "手动指定研究工具":
+  [36m<option[39m
+    [33mvalue[39m=[32m"manual"[39m
+  [36m/>[39m
+
+  Name "自动选择研究工具":
+  [36m<option[39m
+    [33mvalue[39m=[32m"auto"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "检查器视图":
+  [36m<div[39m
+    [33maria-label[39m=[32m"检查器视图"[39m
+    [33mclass[39m=[32m"inspector-tabs"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "证据":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"active"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "项目":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "维护":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "运行":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "记忆":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "回检":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  code:
+
+  Name "":
+  [36m<code />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"app-shell chat-first-shell inspector-closed"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"会话列表"[39m
+        [33mclass[39m=[32m"conversation-list "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"conversation-list-header"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"brand"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"brand-mark"[39m
+            [36m>[39m
+              [0mF[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"brand-copy"[39m
+            [36m>[39m
+              [36m<strong>[39m
+                [0mForesight[0m
+              [36m</strong>[39m
+              [36m<span>[39m
+                [0mResearch Agent[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"关闭会话列表"[39m
+            [33mclass[39m=[32m"icon-button conversation-close"[39m
+            [33mtitle[39m=[32m"关闭会话列表"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-panel-left-close"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M9 3v18"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m16 15-3-3 3-3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"当前研究工作区"[39m
+          [33mclass[39m=[32m"workspace-module"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"workspace-module-icon"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-boxes"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"16"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m7 16.5 5-3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M7 16.5v5.17"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m17 16.5-5-3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m17 16.5 4.74-2.85"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M17 16.5v5.17"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 8 7.26 5.15"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 8 4.74-2.85"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 13.5V8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"workspace-module-copy"[39m
+          [36m>[39m
+            [36m<small>[39m
+              [0m工作区[0m
+            [36m</small>[39m
+            [36m<strong>[39m
+              [0m市场研究[0m
+            [36m</strong>[39m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"14"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"14"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</div>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"工作台一级导航"[39m
+          [33mclass[39m=[32m"output-navigation"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m""[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-calendar-days"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+       ...
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state 206ms
+   ✓ Workbench navigation reliability > closes the event stream and polling timer when unmounted 162ms
+   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key 262ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it 273ms
+   ✓ Workbench navigation reliability > regenerates as a new message without replacing the old answer 88ms
+   ✓ Workbench navigation reliability > upserts replayed report modules by module_id 1ms
+   ✓ Workbench navigation reliability > does not let a late conversation response replace the current thread 80ms
+   ✓ Workbench navigation reliability > does not let a late artifact response replace the current selection 190ms
+   ✓ Workbench navigation reliability > upserts replayed trace steps by step_id 24ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > exposes the snapshot as a clickable read-only evidence page 60ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > stays absent when the report has no digest snapshot 8ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > fails closed when only the redacted path string key is present 7ms
+   ✓ DigestSnapshotView（P1b 证据快照页） > shows remaining credits only for metered users and warns at zero 39ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/components.test.tsx > Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "发送研究问题"
+
+Here are the accessible roles:
+
+  complementary:
+
+  Name "会话列表":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"会话列表"[39m
+    [33mclass[39m=[32m"conversation-list "[39m
+  [36m/>[39m
+
+  Name "研究检查器":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"研究检查器"[39m
+    [33mclass[39m=[32m"research-inspector "[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"conversation-list-header"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"chat-topbar"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"inspector-header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong[39m
+    [33mdata-status[39m=[32m"running"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "关闭会话列表":
+  [36m<button[39m
+    [33maria-label[39m=[32m"关闭会话列表"[39m
+    [33mclass[39m=[32m"icon-button conversation-close"[39m
+    [33mtitle[39m=[32m"关闭会话列表"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "今日":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "主题":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "信号":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "验证":
+  [36m<button[39m
+    [33mclass[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "问答":
+  [36m<button[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"active"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "新对话":
+  [36m<button[39m
+    [33mclass[39m=[32m"new-conversation-button"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "液冷跟踪 2026/7/11":
+  [36m<button[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"conversation-select"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "归档液冷跟踪":
+  [36m<button[39m
+    [33maria-label[39m=[32m"归档液冷跟踪"[39m
+    [33mclass[39m=[32m"conversation-archive"[39m
+    [33mtitle[39m=[32m"归档液冷跟踪"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "机器人 2026/7/10":
+  [36m<button[39m
+    [33mclass[39m=[32m"conversation-select"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "归档机器人":
+  [36m<button[39m
+    [33maria-label[39m=[32m"归档机器人"[39m
+    [33mclass[39m=[32m"conversation-archive"[39m
+    [33mtitle[39m=[32m"归档机器人"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物库":
+  [36m<button[39m
+    [33maria-label[39m=[32m"产物库"[39m
+    [33mclass[39m=[32m"conversation-library-link"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "打开会话列表":
+  [36m<button[39m
+    [33maria-label[39m=[32m"打开会话列表"[39m
+    [33mclass[39m=[32m"icon-button conversation-toggle"[39m
+    [33mtitle[39m=[32m"打开会话列表"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "配置模型":
+  [36m<button[39m
+    [33maria-label[39m=[32m"配置模型"[39m
+    [33mclass[39m=[32m"model-status-button ready"[39m
+    [33mtitle[39m=[32m"配置模型"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "打开研究检查器":
+  [36m<button[39m
+    [33maria-label[39m=[32m"打开研究检查器"[39m
+    [33mclass[39m=[32m"icon-button inspector-toggle"[39m
+    [33mtitle[39m=[32m"打开研究检查器"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "选择研究工具":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"选择研究工具"[39m
+    [33mclass[39m=[32m"skill-menu-trigger"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "选择分析视角":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"选择分析视角"[39m
+    [33mclass[39m=[32m"skill-menu-trigger perspective-menu-trigger"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "停止生成":
+  [36m<button[39m
+    [33maria-label[39m=[32m"停止生成"[39m
+    [33mclass[39m=[32m"stop-generation-button"[39m
+    [33mtitle[39m=[32m"停止生成"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "关闭检查器":
+  [36m<button[39m
+    [33maria-label[39m=[32m"关闭检查器"[39m
+    [33mclass[39m=[32m"icon-button"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "工作台一级导航":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"工作台一级导航"[39m
+    [33mclass[39m=[32m"output-navigation"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  searchbox:
+
+  Name "搜索会话":
+  [36m<input[39m
+    [33maria-label[39m=[32m"搜索会话"[39m
+    [33mplaceholder[39m=[32m"搜索会话"[39m
+    [33mtype[39m=[32m"search"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "研究线程":
+  [36m<h2 />[39m
+
+  Name "运行轨迹":
+  [36m<h3[39m
+    [33mid[39m=[32m"trace-run_old"[39m
+  [36m/>[39m
+
+  Name "证据与边界":
+  [36m<h2[39m
+    [33mid[39m=[32m"inspector-evidence-heading"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"main-surface chat-surface"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<span[39m
+    [33mclass[39m=[32m"agent-status running"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"message-thinking"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"message-run-warning"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "消息记录":
+  [36m<section[39m
+    [33maria-label[39m=[32m"消息记录"[39m
+    [33mclass[39m=[32m"message-thread"[39m
+  [36m/>[39m
+
+  Name "运行轨迹":
+  [36m<section[39m
+    [33maria-labelledby[39m=[32m"trace-run_old"[39m
+  [36m/>[39m
+
+  Name "当前任务摘要":
+  [36m<section[39m
+    [33maria-label[39m=[32m"当前任务摘要"[39m
+    [33mclass[39m=[32m"inspector-task-summary"[39m
+  [36m/>[39m
+
+  Name "证据与边界":
+  [36m<section[39m
+    [33maria-labelledby[39m=[32m"inspector-evidence-heading"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  article:
+
+  Name "研究助手消息":
+  [36m<article[39m
+    [33maria-label[39m=[32m"研究助手消息"[39m
+    [33mclass[39m=[32m"message-row message-assistant"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"message-run-details"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<details[39m
+    [33mclass[39m=[32m"message-technical-details"[39m
+  [36m/>[39m
+
+  Name "自用成熟度预览":
+  [36m<details[39m
+    [33maria-label[39m=[32m"自用成熟度预览"[39m
+    [33mclass[39m=[32m"inspector-section"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ol[39m
+    [33mclass[39m=[32m"message-trace-list"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+  form:
+
+  Name "研究提问":
+  [36m<form[39m
+    [33maria-label[39m=[32m"研究提问"[39m
+    [33mclass[39m=[32m"composer "[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "输入研究问题":
+  [36m<textarea[39m
+    [33mid[39m=[32m"research-composer"[39m
+    [33mplaceholder[39m=[32m"输入问题，说明对象、时间和想验证的判断…"[39m
+    [33mrows[39m=[32m"4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "研究工具选择方式":
+  [36m<select[39m
+    [33maria-label[39m=[32m"研究工具选择方式"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "自动选择并补充指定工具":
+  [36m<option[39m
+    [33mvalue[39m=[32m"hybrid"[39m
+  [36m/>[39m
+
+  Name "手动指定研究工具":
+  [36m<option[39m
+    [33mvalue[39m=[32m"manual"[39m
+  [36m/>[39m
+
+  Name "自动选择研究工具":
+  [36m<option[39m
+    [33mvalue[39m=[32m"auto"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "检查器视图":
+  [36m<div[39m
+    [33maria-label[39m=[32m"检查器视图"[39m
+    [33mclass[39m=[32m"inspector-tabs"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "证据":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"active"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "项目":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "维护":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "运行":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "记忆":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "回检":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m""[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  code:
+
+  Name "":
+  [36m<code />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"app-shell chat-first-shell inspector-closed"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"会话列表"[39m
+        [33mclass[39m=[32m"conversation-list "[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"conversation-list-header"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"brand"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"brand-mark"[39m
+            [36m>[39m
+              [0mF[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"brand-copy"[39m
+            [36m>[39m
+              [36m<strong>[39m
+                [0mForesight[0m
+              [36m</strong>[39m
+              [36m<span>[39m
+                [0mResearch Agent[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"关闭会话列表"[39m
+            [33mclass[39m=[32m"icon-button conversation-close"[39m
+            [33mtitle[39m=[32m"关闭会话列表"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-panel-left-close"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M9 3v18"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m16 15-3-3 3-3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"当前研究工作区"[39m
+          [33mclass[39m=[32m"workspace-module"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"workspace-module-icon"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-boxes"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"16"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m7 16.5 5-3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M7 16.5v5.17"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m17 16.5-5-3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m17 16.5 4.74-2.85"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M17 16.5v5.17"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 8 7.26 5.15"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 8 4.74-2.85"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 13.5V8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"workspace-module-copy"[39m
+          [36m>[39m
+            [36m<small>[39m
+              [0m工作区[0m
+            [36m</small>[39m
+            [36m<strong>[39m
+              [0m市场研究[0m
+            [36m</strong>[39m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-chevron-right"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"14"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"14"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 18 6-6-6-6"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</div>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"工作台一级导航"[39m
+          [33mclass[39m=[32m"output-navigation"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m""[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-calendar-days"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"16"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+       ...
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/components.test.tsx:2345:29
+    2343|     await waitFor(() => expect(apiMocks.getTrace).toHaveBeenCalledTime…
+    2344|     await user.type(screen.getByLabelText("输入研究问题"), "紧接着追问");
+    2345|     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+       |                             ^
+    2346|     expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(2);
+    2347|     await act(async () => delayedTrace.resolve([]));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 7 passed (8)
+      Tests  1 failed | 117 passed (118)
+   Start at  17:16:02
+   Duration  10.22s (transform 1.78s, setup 3.46s, collect 4.02s, tests 8.21s, environment 8.42s, prepare 2.12s)
+
+ ELIFECYCLE  Test failed. See above for more details.

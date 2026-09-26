@@ -1,0 +1,256 @@
+"""Independent behavior probes; use actual Registry/HistorySession/RunStore seams.
+
+Only synthetic financial facts and saved review artifacts are used. The existing
+fixture/helper code provides setup and successful message-boundary projection;
+all review checks and concurrent schedules below are independent.
+"""
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from dataclasses import replace
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+from threading import Event
+import traceback
+
+import pytest
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/fwp-wt-history-closeout-0920')
+sys.path.insert(0, str(SOURCE))
+from tests.test_history_market_anatomy import anatomy_db
+from tests.test_history_window_binding import _args, _context, _execute, _read, _scenario, _tools
+from tests.test_history_live_seams import FOLLOWUPS, _decide
+from intelligence.services.historical_research.episode import HistorySession
+from intelligence.services.historical_research.query import HistoryQuery
+
+
+def module_from_file(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+cm = module_from_file('spec_review_code_map', SOURCE / 'scripts/code_map.py')
+
+
+@contextmanager
+def workspace(name):
+    with tempfile.TemporaryDirectory(prefix=name + '-', dir=ROOT) as tmp:
+        yield Path(tmp)
+
+
+def assert_rejected(fragment, action):
+    try:
+        action()
+    except ValueError as error:
+        assert fragment in str(error), str(error)
+        return str(error)
+    raise AssertionError('Expected rejection: ' + fragment)
+
+
+def chain(work):
+    db = anatomy_db.__wrapped__(work)
+    tools, context, session, original, ref, store, conversation, decision = _scenario(work, db)
+    _read(tools, context, ref)
+    rank = _execute(tools, context, **_args(original, ref))
+    rank_ref = rank.telemetry['result_ref']
+    follow = _decide(store, conversation, FOLLOWUPS[1], decision.turn_intent, 2)
+    result = dict(db=db, original=original, analogue_ref=ref, rank_ref=rank_ref,
+                  frame=follow.task_frame, runs=session.store, conversation=session.conversation_id)
+    tools, context, session = next_turn(result)
+    _read(tools, context, rank_ref)
+    args = _args(original, ref, operation='trace_history', entity_codes=['A.FP', 'B.FP'],
+                 window_ref={'result_ref': rank_ref}, end='2026-01-29')
+    trace = _execute(tools, context, **args)
+    result.update(tools=tools, context=context, session=session, args=args,
+                  trace_ref=trace.telemetry['result_ref'])
+    return result
+
+
+def next_turn(values, frame=None):
+    frame = frame or values['frame']
+    run = values['runs'].create_run('spec-review followup', 'ask', session_id=values['conversation'])
+    session = HistorySession(values['runs'], run.run_id, values['conversation'])
+    context = _context(frame)
+    tools = _tools(frame, context, values['db'], session)
+    return tools, context, session
+
+
+def history_parent_pair_and_boundaries():
+    with workspace('history-pair') as work:
+        values = chain(work)
+        tools, context, session = values['tools'], values['context'], values['session']
+        trace_ref, args = values['trace_ref'], values['args']
+        _read(tools, context, trace_ref)
+        before_db = hashlib.sha256(values['db'].read_bytes()).hexdigest()
+        original_bytes = session.store.read_history_artifact(*session.refs[trace_ref])
+        bindings = []
+        for parent in (trace_ref, values['rank_ref'], trace_ref):
+            observation = _execute(tools, context, **dict(args, entity_kind='stock',
+                entity_codes=['S1', 'S2'], window_ref={'result_ref': parent}))
+            assert observation.trace.status == 'success'
+            payload = session.read(observation.telemetry['result_ref'])
+            binding = payload['window_binding']
+            parent_payload = session.read(parent)
+            assert binding['source_query_id'] == parent_payload['query_id']
+            assert (binding['source_start'], binding['source_end']) == (
+                parent_payload['spec']['start'], parent_payload['spec']['end'])
+            assert (binding['ranking_start'], binding['ranking_end']) == ('2026-01-17', '2026-01-22')
+            assert binding['root_query_id'] == values['original']['query_id']
+            assert binding['root_sample_id'] == values['original']['rows'][0]['sample_id']
+            assert payload['spec']['entity_codes'] == ['S1', 'S2']
+            bindings.append(binding)
+
+        errors = {}
+        errors['different_observation'] = assert_rejected('history_window_observation_conflict',
+            lambda: _execute(tools, context, **dict(args, end='2026-01-28')))
+        errors['earlier_start'] = assert_rejected('history_window_mismatch',
+            lambda: _execute(tools, context, **dict(args, start='2026-01-16')))
+        scope_tools, scope_context, _ = next_turn(values)
+        _read(scope_tools, scope_context, values['rank_ref'])
+        errors['outside_scope'] = assert_rejected('outside_authorized_scope',
+            lambda: _execute(scope_tools, scope_context, **dict(args, end='2026-02-01')))
+
+        fresh_tools, fresh_context, _ = next_turn(values)
+        errors['undelivered_parent'] = assert_rejected('history_window_source_not_read',
+            lambda: _execute(fresh_tools, fresh_context, **dict(args, window_ref={'result_ref': trace_ref})))
+        _read(fresh_tools, fresh_context, trace_ref)
+        delivered = _execute(fresh_tools, fresh_context, **dict(args, window_ref={'result_ref': trace_ref}))
+        assert delivered.trace.status == 'success'
+
+        strict = replace(values['frame'], history_intent=replace(
+            values['frame'].history_intent, allow_window_extension=False))
+        strict_tools, strict_context, _ = next_turn(values, strict)
+        _read(strict_tools, strict_context, values['rank_ref'])
+        errors['unauthorized_extension'] = assert_rejected('history_window_mismatch',
+            lambda: _execute(strict_tools, strict_context, **args))
+        assert hashlib.sha256(values['db'].read_bytes()).hexdigest() == before_db
+        assert session.store.read_history_artifact(*session.refs[trace_ref]) == original_bytes
+        return {'bindings': bindings, 'rejected': errors, 'synthetic_db_unchanged': True,
+                'source_artifact_unchanged': True, 'read_then_retry': delivered.trace.status}
+
+
+def history_concurrent_mixed_parents():
+    with workspace('history-concurrent') as work:
+        values = chain(work)
+        tools, context, session = next_turn(values)
+        for parent in (values['rank_ref'], values['trace_ref']):
+            _read(tools, context, parent)
+        entered, release = Event(), Event()
+        calls = []
+        original_run = HistoryQuery.run
+
+        def controlled(self, spec, **kw):
+            calls.append(spec.entity_kind)
+            if spec.entity_kind == 'sector':
+                entered.set()
+                assert release.wait(5), 'review schedule did not release first read'
+            return original_run(self, spec, **kw)
+
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(HistoryQuery, 'run', controlled)
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                first = pool.submit(_execute, tools, context, **values['args'])
+                try:
+                    assert entered.wait(3)
+                    second = _execute(tools, context, **dict(values['args'], entity_kind='stock',
+                        entity_codes=['S1', 'S2'], window_ref={'result_ref': values['trace_ref']}))
+                    assert second.trace.status == 'success'
+                finally:
+                    release.set()
+                first = first.result(5)
+        assert first.trace.status == 'success'
+        assert calls == ['sector', 'stock']
+        return {'both_published': True, 'db_reads': calls,
+                'bindings': [session.read(item.telemetry['result_ref'])['window_binding']
+                             for item in (first, second)]}
+
+
+def graph_alias_bound_and_failure_pair():
+    calls = []
+    def row(name, source, qualified):
+        return {'name': name, 'file_path': str(SOURCE / source), 'qualified_name': qualified}
+    responses = {
+        'review-command second-name': [row('reused_symbol', 'scripts/a.py', 'literal'),
+                                       row('reused_symbol', 'scripts/b.py', 'different source')],
+        'review_command second_name': [row('reused_symbol', 'scripts/a.py', 'duplicate alias')]
+            + [row('symbol_' + str(i), 'scripts/c.py', 'alias_' + str(i)) for i in range(30)],
+    }
+    def fake(args, cwd):
+        assert cwd == SOURCE
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, json.dumps({'status': 'ok', 'results': responses[args[1]]}), '')
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(cm, 'run_crg_cli', fake)
+        hits, reason = cm.search_graph('review-command second-name', SOURCE)
+    assert reason is None
+    assert calls == [['search', 'review-command second-name'], ['search', 'review_command second_name']]
+    assert len(hits) == 20
+    assert len({(row['path'], row['symbol']) for row in hits}) == 20
+    assert [row['path'] for row in hits if row['symbol'] == 'reused_symbol'] == ['scripts/a.py', 'scripts/b.py']
+    assert hits[0]['excerpt'] == 'literal'
+
+    ordinary_calls = []
+    def valid_empty(args, cwd):
+        ordinary_calls.append(args)
+        return subprocess.CompletedProcess(args, 0, json.dumps({'status': 'ok', 'results': []}), '')
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(cm, 'run_crg_cli', valid_empty)
+        empty_hits, empty_reason = cm.search_graph('rank_history', SOURCE)
+        empty, code = cm.collect_query(SOURCE, 'daily-full')
+    assert empty_hits == [] and empty_reason is None
+    assert ordinary_calls[0] == ['search', 'rank_history']
+    assert sum(item == ['search', 'rank_history'] for item in ordinary_calls) == 1
+    assert code == 0 and empty['layers']['structure']['state'] == 'missing'
+    assert empty['completeness_claim']['structure'] == 'missing'
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(cm, '_uvx_path', lambda: None)
+        unavailable, code = cm.collect_query(SOURCE, 'daily-full')
+    assert code == 0
+    assert unavailable['layers']['structure'] == {'state': 'unavailable', 'reason': 'uvx_missing', 'hits': []}
+    assert unavailable['completeness_claim']['structure'] == 'unavailable'
+    assert unavailable['layers']['doors'] == empty['layers']['doors']
+    assert unavailable['layers']['narrative'] == empty['layers']['narrative']
+    assert unavailable['layers']['doors']['hits'] and unavailable['layers']['narrative']['hits']
+
+    errors = {}
+    for label, returncode, stdout in [('nonzero_exit', 1, ''), ('blank_stdout', 0, ''),
+                                     ('invalid_json', 0, '{'), ('missing_results', 0, '{}')]:
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            monkeypatch.setattr(cm, 'run_crg_cli', lambda args, cwd, rc=returncode, data=stdout:
+                                subprocess.CompletedProcess(args, rc, data, 'controlled failure'))
+            payload, _ = cm.collect_query(SOURCE, 'rank_history')
+        assert payload['layers']['structure']['state'] == 'unavailable'
+        errors[label] = payload['layers']['structure']['reason']
+    return {'alias_calls': calls, 'returned_count': len(hits), 'ordinary_query_calls': ordinary_calls[:1],
+            'missing_vs_unavailable': [empty['layers']['structure'], unavailable['layers']['structure']],
+            'doors_and_narrative_independent': True, 'backend_failures': errors}
+
+
+def main():
+    results = {}
+    failed = False
+    for function in (history_parent_pair_and_boundaries, history_concurrent_mixed_parents,
+                     graph_alias_bound_and_failure_pair):
+        try:
+            details = function()
+            results[function.__name__] = {'status': 'PASS', 'details': details}
+        except Exception as error:
+            failed = True
+            results[function.__name__] = {'status': 'FAIL', 'error': str(error), 'traceback': traceback.format_exc()}
+    (ROOT / 'independent-results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps(results, ensure_ascii=False, indent=2))
+    raise SystemExit(int(failed))
+
+
+if __name__ == '__main__':
+    main()

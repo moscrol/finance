@@ -1,0 +1,34 @@
+from pathlib import Path
+import json
+import os
+import subprocess
+import time
+
+ROOT = Path('/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+OUT = Path(__file__).resolve().parent
+EXPECTED = 'd197450d90ba88716bc1346ae741113bce0dd888'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+def pin():
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+    result = {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--short')}
+    assert result == {'revision': EXPECTED, 'status': ''}, result
+    return result
+
+before = pin()
+command = [PYTHON, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+           '--basetemp', str(OUT / 'pytest-temp'), '--rootdir', str(ROOT),
+           str(OUT / 'test_quality_edges.py'),
+           'intelligence/tests/test_api_fixture_lifecycle.py',
+           'intelligence/tests/test_episode_evidence_snapshot.py::test_restore_keeps_original_capture_position_when_synthesizing_settlements']
+env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0')
+started = time.monotonic()
+with (OUT / 'quality-tests.log').open('w') as log:
+    proc = subprocess.run(command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=90)
+receipt = {'before': before, 'after': pin(), 'command': command, 'exit_code': proc.returncode,
+           'elapsed_seconds': round(time.monotonic() - started, 3), 'external_model_calls': 0}
+(OUT / 'quality-tests-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+print(json.dumps(receipt, indent=2))
+print((OUT / 'quality-tests.log').read_text())
+raise SystemExit(proc.returncode)

@@ -1,0 +1,38 @@
+Evidence root: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix
+Source tree: /Users/a77/fwp-wt-backfill-acceptance-closeout-0920
+Fixed source: 3736d5bfa9978dfa0a264bb2e44795c4bc29b27d
+Code freeze: be3f2930 (full SHA recorded in manifest.json)
+Interpreter: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+Every test/probe command used env -i with HOME, PATH, LANG, TMPDIR, FWP_TEST_RECEIPT=0, PYTHONDONTWRITEBYTECODE=1, and PYTHONPATH only.
+
+1. Baseline original probe (rc=0 wrapper; cases: control rc0/PASS/37, fake code rc0/PASS/37, huge int rc1/no JSON):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill302132-design/probe.py --tree /Users/a77/fwp-wt-backfill-acceptance-closeout-0920 --output /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/baseline-probe
+
+2. New focused tests before implementation (rc=1; 8 failed, 8 passed, 88 deselected):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/red-tests.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider -q tests/test_repair_backfill_stock_history.py -k 'is_num or spec_code or huge_int'
+
+3. Focused tests after implementation (rc=0; 16 passed, 88 deselected):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/focused-green.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider -q tests/test_repair_backfill_stock_history.py -k 'is_num or spec_code or huge_int'
+
+4. Original probe after implementation, before code commit (rc=0 wrapper; control rc0/PASS/37, fake code rc2/FAIL/22, huge int rc2/FAIL/22):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill302132-design/probe.py --tree /Users/a77/fwp-wt-backfill-acceptance-closeout-0920 --output /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe
+
+5. CODE guard removed mutation (rc=1; 3 failed, 101 deselected):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/mutation-code-guard-removed.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider -q tests/test_repair_backfill_stock_history.py -k rejects_spec_code_not_bound_to_sql_target
+
+6. Overflow guard removed mutation (rc=1; 5 failed, 7 passed, 92 deselected):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/mutation-overflow-guard-removed.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider -q tests/test_repair_backfill_stock_history.py -k 'is_num or huge_int'
+
+7. Both guards restored, same inputs (rc=0; 15 passed, 89 deselected):
+env -i HOME=/Users/a77 PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/post-mutation-restored-green.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider -q tests/test_repair_backfill_stock_history.py -k 'is_num or huge_int or rejects_spec_code_not_bound_to_sql_target'
+
+8. Full related module on code freeze (rc=0; 104 passed = original 89 + new 15):
+env -i HOME=/Users/a77 PATH=/Users/a77/finance-workspace-private/.venv-workbench/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/full-module-code-freeze.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -p no:cacheprovider -q tests/test_repair_backfill_stock_history.py
+
+9. Ruff on code freeze (rc=0; all checks passed):
+env -i HOME=/Users/a77 PATH=/Users/a77/finance-workspace-private/.venv-workbench/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/ruff-code-freeze.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check scripts/verify_302132_backfill_acceptance.py tests/test_repair_backfill_stock_history.py
+
+10. Original probe on clean code freeze (rc=0 wrapper; control rc0/PASS/37, fake code rc2/FAIL/22, huge int rc2/FAIL/22):
+env -i HOME=/Users/a77 PATH=/Users/a77/finance-workspace-private/.venv-workbench/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin LANG=en_US.UTF-8 TMPDIR=/tmp FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/a77/fwp-wt-backfill-acceptance-closeout-0920 /usr/bin/script -q /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze.log.txt /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill302132-design/probe.py --tree /Users/a77/fwp-wt-backfill-acceptance-closeout-0920 --output /Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-fix/fixed-probe-code-freeze
+
+Scope: all DuckDB/parquet files under this evidence root were created from the existing tiny 30-trading-day fixture. No production/old rehearsal database or parquet was read or copied; no live API/model call ran.

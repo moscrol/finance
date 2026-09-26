@@ -1,0 +1,813 @@
+diff --git a/docs/agent-product-door.md b/docs/agent-product-door.md
+index 3a8280aa4..21b9ebfef 100644
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@ -175,15 +175,20 @@ local_only 原始 Episode 恢复输入。RunStore 校验用户、会话、登记
+ 历次原件见 [输入边界复验](verification/2026-09-21-reasoning-input-boundaries.md) 和
+ [旧证据复核 V3](verification/2026-09-21-prior-evidence-review.md)。未合、未部署。
+ 
+-### 历史续问的控制边界（H-01 候选，未部署）
++### 历史续问的控制边界（H-01/H-02 候选，未部署）
+ 
+ 历史意图、取消、范围续接与信息截止识别共用 `user_task.top_level_message_text` 的来源分区；
+ 闭合引号、Markdown 引用和代码围栏不声明历史权限，边界不确定时不从文本猜授权。
+ 普通追问的旧意图回填也走这一分区，不因原文解析器的 `context_dependent` 标签绕回去。
+ 用户原文仍保存在 TaskFrame，屏蔽只用于控制识别，不删除待分析材料。
+ 明确“范围与截止日继续不变”的受测续问保留原窗口、信息截止与可信材料合同的读取上限。
+-这不证明任意自然续问都安全：省略式“那它们见顶后谁接力？”等仍可能继承历史而丢失
+-`local_only` 合同，属于未解决的相邻问题；不能据 H-01 局部回归开放完整历史验收。
++H-02 返修使“那它们见顶后谁接力？”和“以前有没有类似，失败案例也看看”从完整用户消息
++回放读取上限，连续省略续问仍保 `local_only`；旧助手话和持久化任务意图本身不授予读取权限。
++无可信基底、链被截断或已转题时先澄清；普通指代回填也须恢复同一合同。真实会话入口负责
++送达，备用控制器返回宽权限旧任务时重新编译；当前用户明确放宽仍经原逐轴编译器处理。
++局部回归不证明任意自然输入安全：短材料 `材料如下：\n那它们见顶后谁接力？` 与未闭合引用
++`「那它们见顶后谁接力？` 尚未被来源分区识别为不确定，可能误续接历史（受测读取上限未放宽）。
++此相邻输入边界问题、完整门禁、独立终审和自然四题验收仍未闭合，不能据局部绿开放完整历史验收。
+ 
+ ### 材料题边界（E2，分阶段接线中）
+ 
+diff --git a/intelligence/runtime/conversation_orchestrator.py b/intelligence/runtime/conversation_orchestrator.py
+index 8b529f399..e801c9075 100644
+--- a/intelligence/runtime/conversation_orchestrator.py
++++ b/intelligence/runtime/conversation_orchestrator.py
+@@ -85,7 +85,7 @@ from intelligence.services.watchlist_digest_pack import (
+ )
+ from intelligence.services.answer_stream import AnswerSnapshot
+ from intelligence.services.provider_observability import ProviderTrace
+-from intelligence.services.historical_research.intent import HistoryIntent
++from intelligence.services.historical_research.intent import HistoryIntent, inherit_history_followup
+ from intelligence.services.answer_orchestrator import (
+     QUESTION_CONCEPT_DEFINITION,
+     QUESTION_GENERAL,
+@@ -1946,16 +1946,18 @@ class TurnOrchestrator:
+             # Recover state only from complete persisted user messages in the
+             # same bounded window; summary/assistant prose is never authority.
+             parts = split_user_message(str(query or "").strip())
++            history_continuation = inherit_history_followup(
++                query, inherited_intent.history_intent if inherited_intent is not None else None,
++            ) is not None
+             material_contract = compile_material_contract(parts.regions) if parts.regions else None
+             material_history = None
+-            if material_contract and material_contract.continuation_requested:
++            if history_continuation or (material_contract and material_contract.continuation_requested):
+                 material_history = collect_material_turn_history(
+                     context.material_messages or (),
+                     unavailable=context.material_history_unavailable,
+                 )
+-                material_contract = compile_material_contract(
+-                    parts.regions, source_turn=material_history.source_turn,
+-                    inherited_contract=material_history.base_contract,
++                material_contract = material_history.compile_contract(
++                    parts.regions, history_continuation=history_continuation,
+                 )
+             elif material_contract and material_contract.data_scope == "material_only":
+                 material_history = (
+@@ -1974,13 +1976,14 @@ class TurnOrchestrator:
+             # injected controllers keep their pre-existing keyword contract.
+             if not material_contract or (
+                 material_contract.data_scope != "material_only"
++                and not history_continuation
+                 and not self._uses_default_turn_controller
+             ):
+                 material_history = None
+             restricted_history = bool(
+                 material_contract
+                 and material_history is not None
+-                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
++                and (history_continuation or material_contract.data_scope == "material_only" or material_contract.needs_clarification)
+             )
+             # Keep the established controller context contract byte-compatible.
+             # The typed projection is an additional authority input; the model
+@@ -2031,6 +2034,7 @@ class TurnOrchestrator:
+                     query,
+                     legacy_envelope,
+                     conversation_materials=material_history,
++                    history_continuation=history_continuation,
+                     inherited_subject=(
+                         inherited_intent.primary_subject
+                         if inherited_intent is not None
+@@ -2048,7 +2052,10 @@ class TurnOrchestrator:
+             if restricted_history and not self._uses_default_turn_controller:
+                 # Injected controllers may supply stale/full frames. Recompile
+                 # the source-aware contract, not just replace its permission bit.
+-                decision = decide_turn(query, conversation_materials=material_history)
++                decision = decide_turn(
++                    query, conversation_materials=material_history,
++                    previous_intent=inherited_intent, previous_turn_id=inherited_turn_id,
++                )
+                 task_frame = decision.task_frame
+                 assert task_frame is not None
+                 raw_envelope = envelope_from_task_frame(task_frame)
+diff --git a/intelligence/services/conversation_materials.py b/intelligence/services/conversation_materials.py
+index 4f694ce21..ad078cdcd 100644
+--- a/intelligence/services/conversation_materials.py
++++ b/intelligence/services/conversation_materials.py
+@@ -10,10 +10,13 @@ from dataclasses import asdict, dataclass
+ import json
+ from typing import TYPE_CHECKING, Sequence
+ 
++from intelligence.services.historical_research.intent import (
++    HistoryIntent, infer_history_intent, inherit_history_followup,
++)
+ from intelligence.services.material_contract import MaterialContract, compile_material_contract
+ from intelligence.services.premise_financial_calculation import PremiseSource
+ from intelligence.services.user_task import (
+-    MaterialRef, material_id_for, references_material, split_user_message,
++    MaterialRef, TopLevelRegions, material_id_for, references_material, split_user_message,
+ )
+ 
+ if TYPE_CHECKING:
+@@ -42,6 +45,20 @@ class ConversationMaterials:
+     base_contract: MaterialContract | None = None
+     source_turn: int = 0
+     calculation_sources: tuple[PremiseSource, ...] = ()
++    history_intent: HistoryIntent | None = None
++
++    def compile_contract(
++        self, regions: TopLevelRegions, *, history_continuation: bool = False,
++    ) -> MaterialContract | None:
++        # A persisted routing intent requests recovery; only replayed user records
++        # can prove that its permission chain is still available.
++        base = self.base_contract
++        if history_continuation and (self.history_intent is None or self.unavailable):
++            base = None
++        return compile_material_contract(
++            regions, source_turn=self.source_turn, inherited_contract=base,
++            history_continuation=history_continuation,
++        )
+ 
+     def to_prompt_block(self) -> str:
+         """Typed JSON, never reparsed as a legacy user:/assistant: transcript."""
+@@ -87,7 +104,8 @@ class ConversationMaterials:
+             raise ValueError("invalid calculation source history")
+         return cls(tuple(parsed), unavailable, tuple(old_answers),
+                    MaterialContract.from_dict(base) if base is not None else None, turn,
+-                   tuple(PremiseSource.from_dict(source) for source in sources))
++                   tuple(PremiseSource.from_dict(source) for source in sources),
++                   HistoryIntent.from_dict(value.get("history_intent")))
+ 
+ 
+ def collect_conversation_materials(
+@@ -122,6 +140,7 @@ def collect_material_turn_history(
+     This is deterministic recovery from original records, not an LLM summary.
+     """
+     base = None
++    history_intent = None
+     chain: list[Message] = []
+     turn = 0
+     for message in messages:
+@@ -130,7 +149,14 @@ def collect_material_turn_history(
+         if message.role == "user":
+             turn += 1
+             parts = split_user_message(message.content)
+-            compiled = compile_material_contract(parts.regions, source_turn=turn, inherited_contract=base) if parts.regions else None
++            history_followup = inherit_history_followup(message.content, history_intent)
++            compiled = compile_material_contract(
++                parts.regions, source_turn=turn, inherited_contract=base,
++                history_continuation=history_followup is not None,
++            ) if parts.regions else None
++            history_intent = history_followup or infer_history_intent(message.content)
++            if compiled and (compiled.needs_clarification or compiled.data_scope == "material_only"):
++                history_intent = None
+             if compiled is not None:
+                 if not compiled.continuation_requested and (
+                     parts.materials or not references_material(parts.question)
+@@ -147,4 +173,4 @@ def collect_material_turn_history(
+                     if m.role == "assistant" and m.content.strip())
+     sources = tuple(PremiseSource(m.message_id, m.content) for m in chain
+                     if m.role == "user" and m.content.strip()) if base and base.premise_calculation else ()
+-    return ConversationMaterials(material.items, unavailable, answers, base, turn + 1, sources)
++    return ConversationMaterials(material.items, unavailable, answers, base, turn + 1, sources, history_intent)
+diff --git a/intelligence/services/material_contract.py b/intelligence/services/material_contract.py
+index 31c23db31..da2dedc46 100644
+--- a/intelligence/services/material_contract.py
++++ b/intelligence/services/material_contract.py
+@@ -139,14 +139,15 @@ def blocks_contract_blind_pipelines(
+ def compile_material_contract(
+     regions: TopLevelRegions, *, source_turn: int = 0,
+     inherited_contract: MaterialContract | None = None,
++    history_continuation: bool = False,
+ ) -> MaterialContract | None:
+-    """解释D1可见指令；仅显式续轮继承调用方提供的可信用户指令基底。"""
+-    if not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
++    """Compile visible controls; history continuation still requires a trusted base."""
++    if not history_continuation and not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
+         return None
+     if isinstance(source_turn, bool) or not isinstance(source_turn, int) or source_turn < 0:
+         raise ValueError("source_turn must be a nonnegative integer")
+     questions = tuple(MaterialQuestion(qid, text) for qid, text in zip(regions.question_ids, regions.sub_questions, strict=True))
+-    continuation = any(s.kind == "continuation" and s.scope == "message" for s in regions.instructions)
++    continuation = history_continuation or any(s.kind == "continuation" and s.scope == "message" for s in regions.instructions)
+     if regions.classification == "boundary_uncertain":
+         return MaterialContract("boundary_uncertain", None, None, questions=questions,
+                                 continuation_requested=continuation, uncertain_reasons=regions.uncertain_reasons)
+diff --git a/intelligence/services/task_frame.py b/intelligence/services/task_frame.py
+index b85c1e1fc..387c16760 100644
+--- a/intelligence/services/task_frame.py
++++ b/intelligence/services/task_frame.py
+@@ -145,8 +145,11 @@ class TaskFrame:
+             payload.pop("material_contract", None)
+         if self.conversation_materials is None:
+             payload.pop("conversation_materials", None)
+-        elif not self.conversation_materials.calculation_sources:
+-            payload["conversation_materials"].pop("calculation_sources", None)
++        else:
++            if not self.conversation_materials.calculation_sources:
++                payload["conversation_materials"].pop("calculation_sources", None)
++            if self.conversation_materials.history_intent is None:
++                payload["conversation_materials"].pop("history_intent", None)
+         return payload
+ 
+     @property
+@@ -294,6 +297,7 @@ def build_task_frame(
+     conversation_context: str | None = None,
+     conversation_materials: ConversationMaterials | None = None,
+     source_turn: int = 0,
++    history_continuation: bool = False,
+ ) -> TaskFrame:
+     """Compile rules first, then optionally merge one constrained LLM draft.
+ 
+@@ -310,10 +314,13 @@ def build_task_frame(
+     # 材料与问题分开：路由、目标、日历、产出物都只看问题部分；raw_question 仍是
+     # 完整原文（模型需要读材料本身）。没有材料时 core == question，一切照旧。
+     parts = split_user_message(question)
+-    material_contract = compile_material_contract(
+-        parts.regions,
+-        source_turn=conversation_materials.source_turn if conversation_materials else source_turn,
+-        inherited_contract=conversation_materials.base_contract if conversation_materials else None,
++    material_contract = (
++        conversation_materials.compile_contract(
++            parts.regions, history_continuation=history_continuation,
++        ) if conversation_materials is not None else compile_material_contract(
++            parts.regions, source_turn=source_turn,
++            history_continuation=history_continuation,
++        )
+     ) if parts.regions else None
+     restricted_material = bool(material_contract and (
+         material_contract.data_scope == "material_only" or material_contract.needs_clarification
+diff --git a/intelligence/services/turn_controller.py b/intelligence/services/turn_controller.py
+index 8a184c0aa..8f976266b 100644
+--- a/intelligence/services/turn_controller.py
++++ b/intelligence/services/turn_controller.py
+@@ -8,7 +8,6 @@ from typing import Literal, TypeAlias, cast
+ 
+ from intelligence.services import ask_clarify, llm_refine
+ from intelligence.services.conversation_materials import ConversationMaterials
+-from intelligence.services.material_contract import compile_material_contract
+ from intelligence.services.query_resolution import (
+     QueryResolution,
+     QueryResolver,
+@@ -1106,6 +1105,13 @@ def decide_turn(
+     resolver: QueryResolver | None = None,
+     conversation_materials: ConversationMaterials | None = None,
+ ) -> TurnDecision:
++    from intelligence.services.historical_research.intent import inherit_history_followup
++
++    history_followup = inherit_history_followup(
++        query, previous_intent.history_intent if previous_intent is not None else None
++    )
++    if history_followup is not None and conversation_materials is None:
++        conversation_materials = ConversationMaterials(unavailable=True)
+     # Source-aware material turns are resolved before pending-frame recovery,
+     # lexicons and generic routing. An old research intent is not a permission.
+     # Exception: a pending material-contract clarification means this message
+@@ -1116,9 +1122,8 @@ def decide_turn(
+         from intelligence.services.user_task import split_user_message
+ 
+         parts = split_user_message(query)
+-        material = compile_material_contract(
+-            parts.regions, source_turn=conversation_materials.source_turn,
+-            inherited_contract=conversation_materials.base_contract,
++        material = conversation_materials.compile_contract(
++            parts.regions, history_continuation=history_followup is not None,
+         ) if parts.regions else None
+         if material and (material.data_scope == "material_only" or material.needs_clarification
+                          or material.premise_calculation):
+@@ -1126,7 +1131,10 @@ def decide_turn(
+                 "general_finance_qa", "unknown", None,
+                 "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,
+             )
+-            frame = build_task_frame(query, envelope, conversation_materials=conversation_materials)
++            frame = build_task_frame(
++                query, envelope, conversation_materials=conversation_materials,
++                history_continuation=history_followup is not None,
++            )
+             if material.needs_clarification:
+                 question = (
+                     "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
+@@ -1203,14 +1211,9 @@ def decide_turn(
+         (resolver or QueryResolver()).resolve(resolution_query),
+     )
+     from intelligence.services.historical_research.intent import (
+-        inherit_history_followup,
+         infer_history_intent,
+         named_wave_subject,
+     )
+-
+-    history_followup = inherit_history_followup(
+-        query, previous_intent.history_intent if previous_intent is not None else None
+-    )
+     inherit_subject = bool(
+         previous_intent is not None
+         and is_contextual_follow_up(
+@@ -1240,6 +1243,7 @@ def decide_turn(
+         # 真实入口的空历史块带「（无历史消息）」字样，非空，走「已知为空」车道。
+         conversation_context=context if context else None,
+         conversation_materials=conversation_materials,
++        history_continuation=history_followup is not None,
+     )
+     if history_followup is not None and (
+         task_frame.history_intent is None
+@@ -1370,9 +1374,34 @@ def decide_turn(
+             primary_subject=task_frame.subject or previous_intent.primary_subject,
+         )
+     if intent.inherited_from_turn is not None:
+-        if task_frame.history_intent is None and previous_intent is not None:
++        if (task_frame.history_intent is None and previous_intent is not None
++                and previous_intent.history_intent is not None):
++            # Generic pronoun resolution can inherit history without matching the
++            # domain follow-up grammar. It must recover the same read ceiling.
++            from intelligence.services.user_task import split_user_message
++
++            history = conversation_materials or ConversationMaterials(unavailable=True)
++            material = history.compile_contract(
++                split_user_message(query).regions, history_continuation=True,
++            )
++            if material.needs_clarification:
++                question = "无法恢复上一轮的可信条件，请补充原材料和本轮允许的数据范围。"
++                task_frame = replace(
++                    task_frame, material_contract=material, conversation_materials=history,
++                    clarification_question=question,
++                    ambiguities=(*task_frame.ambiguities, *material.uncertain_reasons),
++                )
++                intent = replace(intent, history_intent=None, pending_task_frame=task_frame.to_dict(),
++                                 clarification_rounds=1, task_frame_hash=task_frame.task_frame_hash)
++                return _attach_turn_intent(
++                    _decision("clarify", envelope=envelope, needs_retrieval=False,
++                              needs_memory=False, needs_template=False,
++                              clarification_questions=(question,), reason="历史回填缺少可信权限基底"),
++                    intent, task_frame=task_frame,
++                )
+             task_frame = replace(
+-                task_frame, history_intent=previous_intent.history_intent
++                task_frame, history_intent=previous_intent.history_intent,
++                material_contract=material, conversation_materials=history,
+             )
+         inherited_kind = (
+             "company"
+diff --git a/intelligence/tests/test_historical_research_episode.py b/intelligence/tests/test_historical_research_episode.py
+index 6023641dc..713a4750b 100644
+--- a/intelligence/tests/test_historical_research_episode.py
++++ b/intelligence/tests/test_historical_research_episode.py
+@@ -240,6 +240,15 @@ def test_real_app_factory_injects_same_run_writer_only_for_history(
+     assert "history_session" not in received[-1]
+ 
+ 
++def _history_user_records(question):
++    from intelligence.services.conversation_materials import collect_material_turn_history
++    from intelligence.services.conversation_store import Message
++
++    return collect_material_turn_history([
++        Message("history-user", "conv", "user", question, "2026-09-21", "completed"),
++    ])
++
++
+ def test_elliptical_history_followup_inherits_and_can_change_window():
+     from intelligence.services.turn_controller import decide_turn
+ 
+@@ -250,12 +259,14 @@ def test_elliptical_history_followup_inherits_and_can_change_window():
+     previous = first.turn_intent
+     for query in ("以前有没有类似？", "那以前呢？"):
+         followup = decide_turn(
+-            query, previous_intent=previous, previous_turn_id="t1", llm_complete=offline
++            query, previous_intent=previous, previous_turn_id="t1", llm_complete=offline,
++            conversation_materials=_history_user_records(first.task_frame.raw_question),
+         )
+         assert followup.task_frame.history_intent.purpose == "historical_comparison"
+         assert followup.subject == "农业"
+     narrowed = decide_turn(
+         "只看2025-01-01到2025-03-31",
++        conversation_materials=_history_user_records(first.task_frame.raw_question),
+         previous_intent=previous,
+         previous_turn_id="t1",
+         llm_complete=offline,
+@@ -540,7 +551,8 @@ def test_source_restriction_preserves_explicit_history_continuation(question):
+ 
+     previous = decide_turn("这一波农业怎么走出来的", llm_complete=offline).turn_intent
+     result = decide_turn(
+-        question, previous_intent=previous, previous_turn_id="old", llm_complete=offline
++        question, previous_intent=previous, previous_turn_id="old", llm_complete=offline,
++        conversation_materials=_history_user_records("这一波农业怎么走出来的"),
+     )
+     assert result.task_frame.history_intent == previous.history_intent
+     assert result.subject == "农业"
+diff --git a/scripts/probe_history_control_boundary.py b/scripts/probe_history_control_boundary.py
+index a7ade476c..bf2856b4f 100644
+--- a/scripts/probe_history_control_boundary.py
++++ b/scripts/probe_history_control_boundary.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+-"""Run H-01 regressions with one process-local protection withdrawal.
++"""Run H-01/H-02 regressions with one process-local protection withdrawal.
+ 
+-No source edits, model calls, production data or tool execution. Run each mode
++No source edits, model calls, production data or external runner execution. Run each mode
+ with a bounded launcher. A killed mutant requires a test assertion failure,
+ not a collection/fixture error. Output directories must be new; old receipts
+ are never overwritten. These receipts are focused tests, not main-gate passes.
+@@ -19,15 +19,25 @@ import os
+ from pathlib import Path
+ import subprocess
+ import sys
++import textwrap
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ TEST = "tests/test_history_control_boundary.py"
++INHERITANCE_TEST = "tests/test_history_permission_inheritance.py"
+ SOURCES = (
+     "intelligence/services/user_task.py",
+     "intelligence/services/historical_research/intent.py",
+     "intelligence/services/research_contract.py",
+     "intelligence/services/honesty_gates.py",
++    "intelligence/services/conversation_materials.py",
++    "intelligence/services/material_contract.py",
++    "intelligence/services/task_frame.py",
++    "intelligence/services/turn_controller.py",
++    "intelligence/runtime/conversation_orchestrator.py",
++    "intelligence/tests/test_historical_research_episode.py",
++    "docs/agent-product-door.md",
+     TEST,
++    INHERITANCE_TEST,
+     "scripts/probe_history_control_boundary.py",
+ )
+ # Alter function code objects so already imported aliases see the same change.
+@@ -55,6 +65,29 @@ MUTATIONS = {
+         'visible_query, _uncertain = top_level_message_text(str(query or ""))',
+         'visible_query = str(query or "")',
+     ),
++    "history-contract": (
++        "material_contract", "compile_material_contract",
++        "continuation = history_continuation or any(", "continuation = any(",
++    ),
++    "history-replay": (
++        "conversation_materials", "collect_material_turn_history",
++        "history_continuation=history_followup is not None", "history_continuation=False",
++    ),
++    "history-authority": (
++        "conversation_materials", "ConversationMaterials.compile_contract",
++        "if history_continuation and (self.history_intent is None or self.unavailable):",
++        "if False:",
++    ),
++    "history-delivery": (
++        "intelligence.runtime.conversation_orchestrator", "TurnOrchestrator._run_turn_ledgered",
++        "if history_continuation or (material_contract and material_contract.continuation_requested):",
++        "if material_contract and material_contract.continuation_requested:",
++    ),
++    "history-backfill": (
++        "turn_controller", "decide_turn",
++        "material_contract=material, conversation_materials=history,\n            )",
++        "material_contract=None, conversation_materials=history,\n            )",
++    ),
+ }
+ 
+ 
+@@ -77,6 +110,11 @@ class Outcomes:
+         self.failed = []
+         self.errors = []
+         self.collected = 0
++        self.assertion_failures = []
++
++    def pytest_runtest_makereport(self, item, call):
++        if call.when == "call" and call.excinfo and call.excinfo.errisinstance(AssertionError):
++            self.assertion_failures.append(item.nodeid)
+ 
+     def pytest_collection_finish(self, session):
+         self.collected = len(session.items)
+@@ -96,6 +134,7 @@ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("mode", choices=("normal", *MUTATIONS))
+     parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--suite", choices=("boundary", "inheritance", "all"), default="all")
+     args = parser.parse_args()
+     output = args.output.resolve()
+     output.mkdir(parents=True, exist_ok=False)
+@@ -109,16 +148,21 @@ def main():
+     started = datetime.now(timezone.utc).isoformat()
+     results = Outcomes()
+     mutation = None
+-    pytest_args = ["-q", "--tb=short", "--basetemp", str(output / "tmp"), TEST]
++    tests = {"boundary": [TEST], "inheritance": [INHERITANCE_TEST], "all": [TEST, INHERITANCE_TEST]}[args.suite]
++    pytest_args = ["-q", "--tb=short", "--basetemp", str(output / "tmp"), *tests]
+     with (output / "pytest.txt").open("w", encoding="utf-8") as stream:
+         with redirect_stdout(stream), redirect_stderr(stream):
+             if args.mode == "normal":
+                 code = int(pytest.main(pytest_args, plugins=[results]))
+             else:
+                 module_name, name, old, new = MUTATIONS[args.mode]
+-                module = importlib.import_module(f"intelligence.services.{module_name}")
+-                function = getattr(module, name)
+-                source = inspect.getsource(function)
++                module = importlib.import_module(
++                    module_name if module_name.startswith("intelligence.") else f"intelligence.services.{module_name}"
++                )
++                function = module
++                for component in name.split("."):
++                    function = getattr(function, component)
++                source = textwrap.dedent(inspect.getsource(function))
+                 if source.count(old) != 1:
+                     raise ValueError("Mutation anchor is not unique")
+                 namespace = dict(vars(module))
+@@ -126,18 +170,19 @@ def main():
+                 mutation = {"module": module_name, "function": name, "old": old, "new": new}
+                 original_code = function.__code__
+                 try:
+-                    function.__code__ = namespace[name].__code__
++                    function.__code__ = namespace[function.__name__].__code__
+                     code = int(pytest.main(pytest_args, plugins=[results]))
+                 finally:
+                     function.__code__ = original_code
+     after = identity()
+     expected = (
+         code == 0 and results.passed == results.collected and results.collected > 0
+-        if args.mode == "normal" else code == 1 and bool(results.failed)
++        if args.mode == "normal" else code == 1 and bool(results.assertion_failures)
+     )
+     ok = expected and not results.errors and before == after
+     receipt = {
+-        "scope": "H-01 focused operator check; not independent acceptance",
++        "scope": "H-01/H-02 focused operator check; not independent acceptance",
++        "suite": args.suite, "pytest_args": pytest_args,
+         "mode": args.mode, "mutation": mutation, "started": started,
+         "finished": datetime.now(timezone.utc).isoformat(),
+         "interpreter": sys.executable, "python": sys.version,
+diff --git a/tests/test_history_permission_inheritance.py b/tests/test_history_permission_inheritance.py
+new file mode 100644
+index 000000000..f867e1b7f
+--- /dev/null
++++ b/tests/test_history_permission_inheritance.py
+@@ -0,0 +1,265 @@
++"""H-02: trusted permission replay for elliptical history continuations."""
++from dataclasses import asdict, replace
++
++import pytest
++
++from intelligence.services.conversation_materials import ConversationMaterials, collect_material_turn_history
++from intelligence.services.conversation_store import Message
++from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
++from tests.test_history_control_boundary import (
++    BASE, PROTECTED, OfflineKnowledge, _decide, _offline, _project,
++    no_external_io, trusted_history,
++)
++
++# Imported fixtures are intentionally shared with the H-01 no-IO checks.
++__all__ = ["no_external_io", "trusted_history"]
++FOLLOWUPS = ("那它们见顶后谁接力？", "以前有没有类似，失败案例也看看")
++
++
++@pytest.fixture(autouse=True)
++def no_model_calls(monkeypatch):
++    from intelligence.services import llm_refine
++
++    attempts = []
++
++    def forbidden(*_args, **_kwargs):
++        attempts.append("model")
++        raise AssertionError("Model provider must not be reached")
++
++    monkeypatch.setattr(llm_refine, "complete", forbidden)
++    yield
++    assert not attempts, "A model call was attempted even if its exception was swallowed"
++
++
++def message(text, role="user", identity="u1"):
++    return Message(identity, "c1", role, text, "2026-09-21", "completed")
++
++
++def assert_local(decision, tmp_path):
++    control, context, tools = _project(decision, tmp_path)
++    assert control.terminal_kind == "research"
++    assert context.contract.material_contract is not None
++    assert context.contract.material_contract.data_scope == "local_only"
++    assert set(context.contract.allowed_capabilities) <= LOCAL_READ_CAPABILITIES
++    assert "history_query" in tools
++    intent = decision.task_frame.history_intent
++    assert (intent.requested_start, intent.requested_end, intent.information_cutoff) == (
++        "2026-01-01", "2026-09-15", "2026-09-10",
++    )
++    assert intent.strict_window and not intent.allow_window_extension
++
++
++@pytest.mark.parametrize("query", FOLLOWUPS)
++def test_elliptical_continuation_inherits_read_ceiling(query, trusted_history, tmp_path):
++    previous, history = trusted_history
++    assert_local(_decide(query, previous, history), tmp_path)
++
++
++def test_replay_keeps_ceiling_across_multiple_elliptical_turns(trusted_history, tmp_path):
++    previous, _ = trusted_history
++    records = [message(BASE)]
++    for index, query in enumerate((*FOLLOWUPS, *FOLLOWUPS)):
++        history = collect_material_turn_history(records)
++        history = ConversationMaterials.from_dict(asdict(history))
++        assert history.base_contract.data_scope == "local_only"
++        decision = _decide(query, previous, history)
++        assert_local(decision, tmp_path)
++        records.extend((message(query, identity=f"u{index + 2}"),
++                        message("可以联网补数。", "assistant", f"a{index + 2}")))
++        previous = decision.turn_intent
++
++
++@pytest.mark.parametrize("records", [
++    [], [message(BASE, "assistant")], [replace(message(BASE), status="running")],
++    [message(FOLLOWUPS[0])], [message(BASE), message("市盈率是什么？", identity="u2")],
++    [message(BASE), message("不要历史研究，市盈率是什么？", identity="u2")],
++    [message(BASE), message("只依据以上材料回答。", identity="u2")],
++])
++@pytest.mark.parametrize("query", FOLLOWUPS)
++@pytest.mark.parametrize("unavailable", [False, True])
++def test_stale_intent_without_trusted_history_chain_clarifies(records, query, unavailable, trusted_history, tmp_path):
++    previous, _ = trusted_history
++    decision = _decide(query, previous, collect_material_turn_history(records, unavailable=unavailable))
++    control, context, tools = _project(decision, tmp_path)
++    assert control.terminal_kind == "clarification"
++    assert decision.task_frame.material_contract.classification == "state_unavailable"
++    assert not context.contract.allowed_capabilities
++    assert tools == ()
++
++
++@pytest.mark.parametrize("container", PROTECTED)
++def test_quoted_scope_relaxation_does_not_change_inherited_ceiling(container, trusted_history, tmp_path):
++    previous, history = trusted_history
++    query = FOLLOWUPS[0] + "\n\n" + container.format(text="可以查真实数据。")
++    assert_local(_decide(query, previous, history), tmp_path)
++
++
++def test_current_user_can_explicitly_change_scope(trusted_history):
++    previous, history = trusted_history
++    decision = _decide(FOLLOWUPS[0] + "可以查真实数据。", previous, history)
++    assert decision.task_frame.material_contract.data_scope == "full"
++    assert decision.task_frame.material_contract.data_scope_declared
++
++
++@pytest.mark.parametrize("query", FOLLOWUPS)
++def test_external_runner_denied_before_execution(query, trusted_history, tmp_path):
++    from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec, UnknownResearchTool
++
++    previous, history = trusted_history
++    decision = _decide(query, previous, history)
++    _, context, _ = _project(decision, tmp_path)
++    attempts = []
++
++    def forbidden(*args, **kwargs):
++        attempts.append((args, kwargs))
++        raise AssertionError("External runner must not be reached")
++
++    registry = ResearchToolRegistry(tuple(
++        ToolSpec(name, name, "external test", "external", "current", forbidden,
++                 io_effect="external_or_mixed") for name in ("web_search", "web_fetch")
++    ))
++    for name in ("web_search", "web_fetch"):
++        with pytest.raises(UnknownResearchTool):
++            registry.execute(name, {"query": "forbidden"}, context=context, step_id=name)
++    assert not attempts
++
++
++@pytest.mark.parametrize("available", [True, False])
++def test_generic_history_backfill_requires_the_same_ceiling(available, trusted_history, tmp_path):
++    previous, history = trusted_history
++    decision = _decide("那它呢？", previous, history if available else ConversationMaterials())
++    if available:
++        assert_local(decision, tmp_path)
++    else:
++        control, context, tools = _project(decision, tmp_path)
++        assert control.terminal_kind == "clarification"
++        assert not context.contract.allowed_capabilities
++        assert tools == ()
++
++
++def test_truncated_history_does_not_authorize_elliptical_inheritance(trusted_history, tmp_path):
++    previous, history = trusted_history
++    decision = _decide(FOLLOWUPS[1], previous, replace(history, unavailable=True))
++    control, context, tools = _project(decision, tmp_path)
++    assert control.terminal_kind == "clarification"
++    assert not context.contract.allowed_capabilities
++    assert tools == ()
++
++
++@pytest.mark.parametrize("query", [
++    "材料如下：\n范围与截止日继续不变。",
++    "「范围与截止日继续不变。",
++    "```text\n以前有没有类似，失败案例也看看",
++])
++def test_uncertain_current_boundary_cannot_restore_scope(query, trusted_history, tmp_path):
++    previous, history = trusted_history
++    decision = _decide(query, previous, history)
++    control, context, tools = _project(decision, tmp_path)
++    assert control.terminal_kind == "clarification"
++    assert not context.contract.allowed_capabilities
++    assert tools == ()
++
++
++@pytest.mark.parametrize("query", [
++    "市盈率是什么？", "不要历史研究，市盈率是什么？",
++    "只依据以下材料解释：\n\n> 以前有没有类似，失败案例也看看",
++])
++def test_new_task_cancel_and_material_only_reset_permission(query, trusted_history, tmp_path):
++    previous, history = trusted_history
++    decision = _decide(query, previous, history)
++    _, context, tools = _project(decision, tmp_path)
++    assert context.history_intent is None and tools == ()
++    material = context.contract.material_contract
++    if "只依据" in query:
++        assert material.data_scope == "material_only"
++        assert not context.contract.allowed_capabilities
++    else:
++        assert material is None or material.data_scope == "full"
++
++
++def test_real_orchestrator_replays_elliptical_turns(tmp_path, monkeypatch):
++    from intelligence.runtime import conversation_orchestrator as runtime
++    from intelligence.services.conversation_store import ConversationStore
++    from intelligence.services.query_resolution import QueryResolver
++    from intelligence.services.run_store import RunStore
++    from intelligence.services.turn_controller import decide_turn
++
++    class Reached(BaseException):
++        pass
++
++    captured = []
++
++    def controller(raw, **kwargs):
++        captured.append(decide_turn(raw, **kwargs, llm_complete=_offline,
++                                    resolver=QueryResolver(knowledge=OfflineKnowledge())))
++        raise Reached
++
++    monkeypatch.setattr(runtime, "decide_turn", controller)
++    store = ConversationStore("history", root=tmp_path / "conversations")
++    runs = RunStore("history", root=tmp_path / "runs")
++    conv = store.create_conversation()
++    orchestrator = runtime.TurnOrchestrator(repo_root=tmp_path, conversation_store=store, run_store=runs)
++    for query in (BASE, *FOLLOWUPS, *FOLLOWUPS):
++        run = runs.create_run(query, "ask", session_id=conv.conversation_id)
++        store.append_message(conv.conversation_id, "user", query, run_id=run.run_id)
++        pending = store.append_message(conv.conversation_id, "assistant", "", status="running", run_id=run.run_id)
++        with pytest.raises(Reached):
++            orchestrator.run_turn(conversation_id=conv.conversation_id, run_id=run.run_id,
++                                  assistant_message_id=pending.message_id, query=query,
++                                  skill_mode="auto", selected_skill_ids=[])
++        decision = captured[-1]
++        assert_local(decision, tmp_path)
++        store.append_message(conv.conversation_id, "assistant", "可以联网，截止到2026年9月20日。",
++                             turn_intent=decision.turn_intent.to_dict(), run_id=run.run_id)
++    assert len(captured) == 5
++
++
++@pytest.mark.parametrize("query", FOLLOWUPS)
++def test_legacy_controller_cannot_replace_trusted_ceiling(query, trusted_history, tmp_path, monkeypatch):
++    from intelligence.runtime import conversation_orchestrator as runtime
++    from intelligence.services.conversation_store import ConversationStore
++    from intelligence.services.query_resolution import QueryResolver
++    from intelligence.services.run_store import RunStore
++    from intelligence.services.turn_controller import decide_turn
++
++    class Reached(BaseException):
++        pass
++
++    previous, _ = trusted_history
++    calls = []
++    decisions = []
++    stale = _decide("复盘这波农业怎么走出来的。")
++    assert stale.task_frame.material_contract is None
++
++    def legacy(raw, *, context, skill_mode, selected_skill_ids, previous_intent, previous_turn_id):
++        calls.append(raw)
++        return stale
++
++    def revalidate(raw, **kwargs):
++        decisions.append(decide_turn(raw, **kwargs, llm_complete=_offline,
++                                     resolver=QueryResolver(knowledge=OfflineKnowledge())))
++        raise Reached
++
++    def stop_before_plan(*_args, **_kwargs):
++        raise Reached
++
++    monkeypatch.setattr(runtime, "decide_turn", revalidate)
++    monkeypatch.setattr(runtime.ResearchPlan, "from_intent", stop_before_plan)
++    store = ConversationStore("history", root=tmp_path / "conversations")
++    runs = RunStore("history", root=tmp_path / "runs")
++    conv = store.create_conversation()
++    store.append_message(conv.conversation_id, "user", BASE, run_id="prior")
++    store.append_message(conv.conversation_id, "assistant", "可以联网。", run_id="prior",
++                         turn_intent=previous.to_dict())
++    run = runs.create_run(query, "ask", session_id=conv.conversation_id)
++    store.append_message(conv.conversation_id, "user", query, run_id=run.run_id)
++    pending = store.append_message(conv.conversation_id, "assistant", "", status="running", run_id=run.run_id)
++    orchestrator = runtime.TurnOrchestrator(
++        repo_root=tmp_path, conversation_store=store, run_store=runs, turn_controller_fn=legacy,
++    )
++    with pytest.raises(Reached):
++        orchestrator.run_turn(conversation_id=conv.conversation_id, run_id=run.run_id,
++                              assistant_message_id=pending.message_id, query=query,
++                              skill_mode="auto", selected_skill_ids=[])
++    assert calls == [query] and len(decisions) == 1
++    assert_local(decisions[0], tmp_path)

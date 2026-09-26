@@ -1,0 +1,21 @@
+{
+  "mutation": {
+    "before": "prefix_unit = _ratio_unit(prefixes[-1].group())",
+    "after": "prefix_unit = \"\""
+  },
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "intelligence/tests/test_research_delivery_checks.py",
+    "intelligence/tests/test_financial_delivery_integration.py",
+    "-k",
+    "ratio_prefix_unit"
+  ],
+  "returncode": 1,
+  "summary": [
+    "13 failed, 16 passed, 105 deselected in 0.46s"
+  ],
+  "restored_sha256": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5"
+}

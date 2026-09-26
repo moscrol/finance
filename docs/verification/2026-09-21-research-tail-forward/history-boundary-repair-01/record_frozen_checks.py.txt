@@ -1,0 +1,40 @@
+"""Record bounded local checks against an immutable clean source checkout."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+source = Path(sys.argv[1]).resolve()
+output = Path(__file__).resolve().parent / sys.argv[2]
+output.mkdir(exist_ok=False)
+python = sys.executable
+
+def identity():
+    return {arg: subprocess.check_output(["git", "-C", str(source), *args], timeout=15).decode()
+            for arg, args in {"head": ["rev-parse", "HEAD"], "status": ["status", "--porcelain"]}.items()}
+
+before = identity()
+assert not before["status"]
+groups = {
+    "history-controller": ["tests/test_history_forward_seams.py", "tests/test_history_live_seams.py", "tests/test_history_date_scope.py", "tests/test_history_window_binding.py", "intelligence/tests/test_turn_controller.py", "intelligence/tests/test_research_contract.py"],
+    "material-honesty": ["intelligence/tests/test_e2_top_level_regions.py", "intelligence/tests/test_e2_material_contract.py", "intelligence/tests/test_e2_cross_turn_inheritance.py", "intelligence/tests/test_reasoning_input_boundaries.py", "intelligence/tests/test_user_task.py", "intelligence/tests/test_honesty_gates.py"],
+    "history-assembly": ["tests/test_history_control_boundary.py", "tests/test_history_market_anatomy.py", "tests/test_history_local_read_execution.py", "intelligence/tests/test_historical_research_episode.py", "intelligence/tests/test_episode_factory.py", "intelligence/tests/test_query_resolution.py"],
+}
+env = dict(os.environ, FWP_TEST_RECEIPT="0", PYTHONDONTWRITEBYTECODE="1", PYTHONPATH=str(source), BOUNDARY_SOURCE_ROOT=str(source))
+commands = [(name, [python, "-m", "pytest", "-q", *paths]) for name, paths in groups.items()]
+commands += [("ruff", [python, "-m", "ruff", "check", "."]), ("diff-check", ["git", "diff", "--check"]),
+             ("adjacent-unresolved", [python, "-m", "pytest", "-q", "-s", "--tb=short", str(Path(__file__).with_name("test_adjacent_unresolved.py"))])]
+rows = []
+for name, command in commands:
+    start = datetime.now(timezone.utc).isoformat()
+    with (output / (name + ".txt")).open("xb") as stream:
+        result = subprocess.run(command, cwd=source, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+    row = {"name": name, "argv": command, "start": start, "finish": datetime.now(timezone.utc).isoformat(), "exit": result.returncode}
+    rows.append(row)
+    print(json.dumps(row), flush=True)
+after = identity()
+assert before == after
+(output / "receipt.json").write_text(json.dumps({"scope": "focused operator checks, not full CI", "before": before, "after": after, "interpreter": python, "commands": rows}, indent=2) + "\n")
+assert all(row["exit"] == (1 if row["name"] == "adjacent-unresolved" else 0) for row in rows)

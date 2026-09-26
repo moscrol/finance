@@ -1,0 +1,134 @@
+"""Independent offline Spec probes against an immutable checkout.
+
+Usage: python probe_ratio_spec.py --root <candidate checkout>
+Only prints JSON; source tree and original fixture evidence remain immutable.
+"""
+from __future__ import annotations
+
+import argparse
+from dataclasses import asdict, replace
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--root", required=True)
+args = parser.parse_args()
+root = Path(args.root).resolve()
+sys.path.insert(0, str(root))
+
+def no_network(*_args, **_kwargs):
+    raise AssertionError("Spec probe attempted network IO")
+
+socket.socket.connect = no_network
+socket.socket.connect_ex = no_network
+socket.create_connection = no_network
+
+from intelligence.services.financial_claim_checks import calculation_ratio_gaps, financial_claim_mismatches
+from intelligence.services.research_delivery_checks import calculation_copy_findings, remove_findings
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier, recheck_material_public_delivery
+from intelligence.services.episode_verifier import verify_episode_outcome
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_financial_delivery_integration import _ratio_delivery
+from intelligence.tests.test_research_delivery_checks import _financial_evidence
+
+source, original_calc = _financial_evidence()
+calc = replace(original_calc, observations=(original_calc.observations[0],))
+rows = []
+
+def record(name, expected, actual, **details):
+    rows.append({"name": name, "expected": expected, "actual": actual,
+                 "passes": expected == actual, **details})
+
+def product(label="含金量", value=1.588, unit="", period="2026中报", **kwargs):
+    return replace(calc, observations=(replace(calc.observations[0],
+                   metric=f"现金流比率.{label}{unit}[{period}]", value=value),), **kwargs)
+
+for alias in ("含金量", "净现比", "OCF/净利润"):
+    for number in (1.588, 9.999):
+        evidence = (source, product(alias, number))
+        gaps = calculation_ratio_gaps(evidence, (calc.content_hash,), subject="600519.SH")
+        record(f"recompute:{alias}:{number}", number == 9.999, bool(gaps), gaps=gaps)
+        claim = f"2026中报{alias}为{number}。"
+        mismatch = financial_claim_mismatches([{"index": 1, "text": claim}], evidence,
+                    (source.content_hash, calc.content_hash), subject="600519.SH")
+        record(f"financial_prose:{alias}:{number}", number == 9.999, bool(mismatch))
+
+for unit in ("bp", "BP", "bps", "BPs", "基点", "百分点", "个百分点"):
+    cases = {
+        "header": f"|报告期|含金量({unit})|\n|---|---|\n|2026中报|1.588|",
+        "header_with_multiple_cell": f"|报告期|含金量({unit})|\n|---|---|\n|2026中报|1.588倍|",
+        "cell": f"|报告期|含金量|\n|---|---|\n|2026中报|1.588{unit}|",
+        "prose": f"2026中报含金量为1.588{unit}。",
+        "prose_label": f"2026中报含金量({unit})为1.588倍。",
+    }
+    for position, draft in cases.items():
+        findings = calculation_copy_findings(draft, (source, calc))
+        record(f"delta:{unit}:{position}", ["calculation_value_unverified"],
+               [f.code for f in findings], draft=draft)
+    illegal = product(unit=f"({unit})", content_hash="illegal-product")
+    for include_valid in (False, True):
+        evidence = (source, illegal, calc) if include_valid else (source, illegal)
+        findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
+        record(f"delta_product:{unit}:with_valid={include_valid}",
+               ["calculation_value_unverified"], [f.code for f in findings])
+
+for header, value in (("含金量", "1.588"), ("含金量(倍)", "1.588"),
+                      ("含金量", "1.588倍"), ("含金量(%)", "158.8"),
+                      ("含金量", "158.8%"), ("含金量(百分比)", "158.8"),
+                      ("含金量同比增长(bp)", "9.999"), ("含金量环比变化(基点)", "9.999"),
+                      ("收入(亿元)", "9.999")):
+    draft = f"|报告期|{header}|\n|---|---|\n|2026中报|{value}|"
+    record(f"control:{header}:{value}", [],
+           [f.code for f in calculation_copy_findings(draft, (source, calc))])
+
+wrong = product(value=9.999)
+record("unbound_product", (), calculation_ratio_gaps((source, wrong), (), subject="600519.SH"))
+record("foreign_subject", (), calculation_ratio_gaps((source, wrong), (wrong.content_hash,), subject="000858.SZ"))
+record("missing_inputs", (), calculation_ratio_gaps((wrong,), (wrong.content_hash,), subject="600519.SH"))
+outside = product(value=9.999, period="2024中报")
+record("other_report_period_product", (), calculation_ratio_gaps((source, outside), (outside.content_hash,), subject="600519.SH"))
+
+exit_cases = [
+    ("wrong_product_and_prose", "2026中报含金量为9.999。", 9.999, "", False),
+    ("wrong_product_and_table", "|报告期|含金量|\n|---|---|\n|2026中报|9.999|", 9.999, "", False),
+    ("wrong_product_and_multiple_table", "|报告期|含金量(倍)|\n|---|---|\n|2026中报|9.999|", 9.999, "", False),
+    ("wrong_product_and_percent_table", "|报告期|含金量(%)|\n|---|---|\n|2026中报|999.9|", 9.999, "", False),
+    ("correct_product_and_table", "|报告期|含金量|\n|---|---|\n|2026中报|1.588|", 1.588, "", True),
+    ("delta_product_and_table", "|报告期|含金量|\n|---|---|\n|2026中报|1.588|", 1.588, "(bp)", False),
+    ("delta_header_good_cell", "|报告期|含金量(bp)|\n|---|---|\n|2026中报|1.588倍|", 1.588, "", False),
+]
+for mode in ("off", "llm"):
+    os.environ["ASK_SEMANTIC_JUDGE"] = mode
+    for name, claim, value, unit, legal in exit_cases:
+        draft = "经营情况需继续跟踪[E1]。\n" + claim
+        frame, verified = _ratio_delivery(draft, product_value=value, product_unit=unit)
+        result = SemanticEpisodeVerifier(judge_fn=lambda _request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+        result = recheck_material_public_delivery(result)
+        record(f"exit:{mode}:{name}", legal, claim in result.public_answer,
+               structural_status=verified.verified_status, semantic_status=result.status,
+               gap_output_ids=result.gap_output_ids, repair_output_ids=result.repair_output_ids,
+               public=result.public_answer, issues=result.issues,
+               original_unchanged=result.verified.outcome == verified.outcome)
+        corrected_draft = "经营情况需继续跟踪[E1]。\n2026中报含金量为158.8%。"
+        corrected_calc = replace(verified.outcome.evidence[1], observations=(replace(
+            verified.outcome.evidence[1].observations[0], metric="现金流比率.含金量[2026中报]", value=1.588),))
+        corrected_outcome = replace(verified.outcome, draft=corrected_draft,
+                                    evidence=(verified.outcome.evidence[0], corrected_calc))
+        clean = verify_episode_outcome(verified.contract, corrected_outcome)
+        repaired = SemanticEpisodeVerifier(judge_fn=lambda _request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=clean, deadline=ResearchDeadline.from_timeout(5))
+        record(f"correction:{mode}:{name}", ("completed", (), ()),
+               (repaired.status, repaired.gap_output_ids, repaired.repair_output_ids))
+
+print(json.dumps({"root": str(root), "sha": subprocess.check_output(
+    ["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
+    "summary": {"total": len(rows), "passed": sum(r["passes"] for r in rows),
+                "failed": sum(not r["passes"] for r in rows)}, "cases": rows},
+    ensure_ascii=False, indent=2))
