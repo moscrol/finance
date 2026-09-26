@@ -1,0 +1,8 @@
+START_SHA 292d78f3
+env -i HOME PATH LANG TMPDIR FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=<worktree> <workbench-python> -m pytest -p no:cacheprovider -q intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_generation.py
+........................................................................ [ 84%]
+.............                                                            [100%]
+85 passed in 5.14s
+env -i HOME PATH LANG TMPDIR FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=<worktree> <workbench-python> -m ruff check intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_generation.py
+All checks passed!
+END_SHA 292d78f3afe1513725eb91baa5e65d6ab554ec9d

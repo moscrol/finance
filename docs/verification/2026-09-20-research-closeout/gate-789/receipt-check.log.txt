@@ -1,0 +1,19 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/receipts/20260920T034000Z-c8dbd387.json
+  产生于   2026-09-20T03:40:00+00:00
+  目标     /Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789/finance-workspace-private
+  读数     passed=11488 failed=0 error=0 skipped=86
+
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == c8dbd387ff2d
+  ✗ 收据基座落后 gitea/main 共 4 张合并（上限 0）——分支尖收据不得冒充批次门禁，rebase 后重跑
+
+🔁 需重跑 —— 1 项条件不符：基座漂移超限
+   （「需重跑」不等于「测试坏了」，只是这份收据不适用于你的处境。）

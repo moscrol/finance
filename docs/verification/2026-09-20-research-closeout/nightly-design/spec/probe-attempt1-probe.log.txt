@@ -1,0 +1,81 @@
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+
+[runlog] appended -> /Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/candidate-good-i0owzktc/skills/daily-full-review/state/runlog.md
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe_spec.py", line 214, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe_spec.py", line 199, in main
+    results['integrated_hithink_no_key'] = child_flow('integrated-hithink-no-key', integrated=True, key=False)
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe_spec.py", line 94, in child_flow
+    sync = integrated_sync() if integrated else load(SYNC_PATH, 'candidate_review_sync')
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe_spec.py", line 69, in integrated_sync
+    exec(compile(INTEGRATED_SOURCE, module.__file__, 'exec'), module.__dict__)
+  File "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/run_review_sync.py", line 41, in <module>
+    SKILL_DIR = Path(__file__).resolve().parents[1]
+ImportError: cannot import name 'PLAN_CHOICES' from 'market_feature_store.consumption_registry' (/Users/a77/fwp-wt-nightly-review-0917/market_feature_store/consumption_registry.py)

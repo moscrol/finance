@@ -1,0 +1,15 @@
+.........                                                                [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T051806Z-e0f2a5c7.json
+
+==================================== PASSES ====================================
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/existing-boundaries-fixed-harness.junit.xml -
+=========================== short test summary info ============================
+PASSED tests/test_history_window_binding.py::test_source_identity_scope_and_cutoff_are_checked_before_query
+PASSED tests/test_history_window_binding.py::test_immutable_original_recovery_checks_dependencies_and_lineage_without_live_db
+PASSED tests/test_history_window_binding.py::test_overflow_does_not_shrink_window_or_population_and_failed_reservation_releases
+PASSED tests/test_history_window_binding.py::test_concurrent_incompatible_selection_is_rejected_before_second_db_read
+PASSED tests/test_history_window_binding.py::test_worker_completion_or_projection_without_message_does_not_attest_consumption
+PASSED tests/test_history_window_binding.py::test_extended_trace_cannot_launder_new_rank_interval_in_later_turn
+PASSED tests/test_history_window_binding.py::test_bound_original_cannot_hide_wider_ancestor_scope
+PASSED tests/test_history_window_binding.py::test_cancel_and_deadline_leave_no_binding_or_saved_calculation
+PASSED tests/test_code_map.py::test_structure_probe_daily_full
+9 passed in 2.27s

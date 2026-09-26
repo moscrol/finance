@@ -1,0 +1,4 @@
+........................................................................ [ 90%]
+........                                                                 [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/spec/selected.xml -
+80 passed in 1.49s

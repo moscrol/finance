@@ -1,0 +1,40 @@
+{
+  "reviewed_parent": "7149e236576bdda5463407cf67f11095d7940dd2",
+  "code_sha": "26fadf33e8ef30a708b6fdd661283c8a5487d8cc",
+  "final_head": "d2fc872b4a669685a1175ac4c49c004b5b92155e",
+  "status_porcelain": "",
+  "code_sha256": {
+    "intelligence/services/research_delivery_checks.py": "1d05eb4fa804415b00a8f227627594e8abfebc3dac8ae69059773e7a6d0093f5",
+    "intelligence/tests/test_research_delivery_checks.py": "d6629ca36613500cb3613604c4ff7ac9ef5f9cc6473daf4741ab80bc5f9732ba",
+    "intelligence/tests/test_financial_delivery_integration.py": "2497d5da75c295e05745f178bf49747a6c71a8a37be15586efe9211d813408f4"
+  },
+  "documentation_delta": [
+    "docs/handoffs/2026-09-20-financial-ratio-prefix-unit-repair.md",
+    "docs/handoffs/inflight/fix-financial-ratio-units-0920.md",
+    "docs/superpowers/plans/2026-09-20-financial-ratio-units.md"
+  ],
+  "fixed_targeted": {
+    "passed": 134,
+    "failed": 0,
+    "log": "fixed-related-green.log",
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260920T040521Z-26fadf33.json"
+  },
+  "red_green": {
+    "before": {
+      "failed": 13,
+      "passed": 16
+    },
+    "after": {
+      "failed": 0,
+      "passed": 29
+    }
+  },
+  "independent_probe_replay": {
+    "passed": 12,
+    "failed": 0,
+    "scope_diagnostics_unchanged": 4
+  },
+  "full_suite_run": false,
+  "natural_model_run": false,
+  "production_changed": false
+}

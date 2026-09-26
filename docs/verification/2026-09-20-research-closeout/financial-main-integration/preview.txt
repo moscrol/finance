@@ -1,0 +1,29 @@
+5e983862bc32a99f2a0731cb8b78f22e5446985b
+.claude/lessons_learned.md
+docs/agent-product-door.md
+intelligence/api/app.py
+intelligence/api/static/assets/index-Bkv-Nea0.js
+intelligence/api/static/assets/index-DH207EFA.js
+intelligence/api/static/assets/index-DWf9m4Ox.js
+intelligence/api/static/index.html
+intelligence/webapp/src/App.tsx
+intelligence/webapp/src/types.ts
+
+Auto-merging .claude/lessons_learned.md
+CONFLICT (content): Merge conflict in .claude/lessons_learned.md
+Auto-merging docs/agent-product-door.md
+CONFLICT (content): Merge conflict in docs/agent-product-door.md
+Auto-merging intelligence/api/app.py
+CONFLICT (content): Merge conflict in intelligence/api/app.py
+Auto-merging intelligence/api/static/assets/index-DWf9m4Ox.js
+CONFLICT (rename/rename): intelligence/api/static/assets/index-DWf9m4Ox.js renamed to intelligence/api/static/assets/index-DH207EFA.js in 4ace5ec2e9b7735d90eb15bc2351fa193c1120b8 and to intelligence/api/static/assets/index-Bkv-Nea0.js in b345975f65fbe17deb386c01676b70bb2bf2a258.
+Auto-merging intelligence/api/static/index.html
+CONFLICT (content): Merge conflict in intelligence/api/static/index.html
+Auto-merging intelligence/services/rag_worker.py
+Auto-merging intelligence/tests/test_rag_worker.py
+Auto-merging intelligence/tests/test_workbench_api.py
+Auto-merging intelligence/webapp/src/App.tsx
+CONFLICT (content): Merge conflict in intelligence/webapp/src/App.tsx
+Auto-merging intelligence/webapp/src/components/components.test.tsx
+Auto-merging intelligence/webapp/src/types.ts
+CONFLICT (content): Merge conflict in intelligence/webapp/src/types.ts

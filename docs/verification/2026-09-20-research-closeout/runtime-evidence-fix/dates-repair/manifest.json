@@ -1,0 +1,157 @@
+{
+  "created_at": "2026-09-20T04:48:46.678897+00:00",
+  "revision": "d197450d90ba88716bc1346ae741113bce0dd888",
+  "code_revision": "11216c81585188c7f2986622f6b84ac567538b44",
+  "base_revision": "56d6062e4544ae40d2e91c19968f4bfe8066e60c",
+  "branch": "fix/runtime-evidence-closeout-0920",
+  "clean_before": true,
+  "clean_after": true,
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "probe_source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/spec/probe_date_forms.py",
+  "probe_source_sha256": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+  "original_matrix": {
+    "red_failures": 6,
+    "red_controls": 6,
+    "final_green": 12,
+    "probe": {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-fix/dates-repair/final/probe_date_forms.py",
+        "/Users/a77/fwp-wt-runtime-evidence-closeout-0920"
+      ],
+      "exit_code": 0,
+      "log": "final-probe.log",
+      "log_sha256": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4"
+    }
+  },
+  "pytest": {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "intelligence/tests/test_episode_evidence_presentations.py"
+    ],
+    "exit_code": 0,
+    "log": "final-related.log",
+    "log_sha256": "6b6da24cabbdadaa866f2628b826afe29a7c8a71e690fd4451de2f10e18a0106"
+  },
+  "passed": 63,
+  "ruff": {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "ruff",
+      "check",
+      "intelligence/services/episode_evidence.py",
+      "intelligence/tests/test_episode_evidence_presentations.py"
+    ],
+    "exit_code": 0,
+    "log": "final-ruff.log",
+    "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  "mutation": {
+    "red_exit": 1,
+    "green_exit": 0,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "intelligence/tests/test_episode_evidence_presentations.py",
+      "-k",
+      "future_presentation_restores or unadmitted_presentations or reader_rechecks_future"
+    ],
+    "source_sha256": "3da3b96630b6eb656469056cd719c79c4f68dbffcde405779b4546daa9aafed5",
+    "mutation": "remove normalization and complete calendar-shape guard"
+  },
+  "changed_files_sha256": {
+    "docs/handoffs/2026-09-20-runtime-evidence-date-forms-repair.md": "1879fa71fef945824a2e603ede7f8b31dfad1d9a25b496dc274926611a08fd73",
+    "docs/handoffs/inflight/fix-runtime-evidence-closeout-0920.md": "ec4c6c297070ee65f323dc983189d7ec4884aedbc03a36aa9d1f3974219eaa3f",
+    "intelligence/services/episode_evidence.py": "3da3b96630b6eb656469056cd719c79c4f68dbffcde405779b4546daa9aafed5",
+    "intelligence/tests/test_episode_evidence_presentations.py": "2e1867c2914cae76e1efab8fe7d80cf1ff8444f1146bc858eb635b780ff77368"
+  },
+  "prior_manifest_unchanged_sha256": "8a889afa77cf403a78ece65d9c70dbd39e62b196b9c7b818e5dd317fa2469ab1",
+  "artifacts": {
+    "dates-tests-red.log": {
+      "sha256": "7b5aaab4d76b55e092d2ae6cad4f84b4ed5a41297851c7fe4e7eee57550d7d53",
+      "bytes": 14112
+    },
+    "final/date-forms-results.json": {
+      "sha256": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4",
+      "bytes": 3677
+    },
+    "final/probe_date_forms.py": {
+      "sha256": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+      "bytes": 2423
+    },
+    "final-probe.log": {
+      "sha256": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4",
+      "bytes": 3677
+    },
+    "final-related.log": {
+      "sha256": "6b6da24cabbdadaa866f2628b826afe29a7c8a71e690fd4451de2f10e18a0106",
+      "bytes": 99
+    },
+    "final-ruff.log": {
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    "freeze_dates.py": {
+      "sha256": "f36a10e0d1c139ff6165f198c6da5c819be59c3f2a55fd140f08b9d56e35f93a",
+      "bytes": 3967
+    },
+    "green/date-forms-results.json": {
+      "sha256": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4",
+      "bytes": 3677
+    },
+    "green/probe.log": {
+      "sha256": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4",
+      "bytes": 3677
+    },
+    "green/probe_date_forms.py": {
+      "sha256": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+      "bytes": 2423
+    },
+    "mutation-green.log": {
+      "sha256": "d2192a958c1ee994d58c43a1e828f4dd100d611faf9fadf7cff81a47dabe9230",
+      "bytes": 114
+    },
+    "mutation-red.log": {
+      "sha256": "c3d20d51c77dfd59df16b5282df282705ecb41ef7c8e115f8b49a1a5afd50f44",
+      "bytes": 13449
+    },
+    "mutation.json": {
+      "sha256": "3c070de3584d8dab04777bac559a5a2f9e01af2d77e23c1a72ecce65e9747639",
+      "bytes": 487
+    },
+    "red/date-forms-results.json": {
+      "sha256": "4ed7dd58449eb35986392abdda8f9d96dff1c9026b17d2b7b472d9e954b7657c",
+      "bytes": 3431
+    },
+    "red/probe.log": {
+      "sha256": "4ed7dd58449eb35986392abdda8f9d96dff1c9026b17d2b7b472d9e954b7657c",
+      "bytes": 3431
+    },
+    "red/probe_date_forms.py": {
+      "sha256": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+      "bytes": 2423
+    },
+    "related-green.log": {
+      "sha256": "6b6da24cabbdadaa866f2628b826afe29a7c8a71e690fd4451de2f10e18a0106",
+      "bytes": 99
+    },
+    "run_date_mutation.py": {
+      "sha256": "a10cfda042def5a34f12a7b72bcf5cb812c7ffe07191e549178ca09f465c3f63",
+      "bytes": 1743
+    }
+  },
+  "not_rerun": [
+    "prior 348-test suite",
+    "prior six-mutation matrix",
+    "whole-repository gates"
+  ],
+  "no_live_model_calls": true,
+  "no_production_changes": true,
+  "next": "Independent Spec recheck of original date matrix, then Quality"
+}

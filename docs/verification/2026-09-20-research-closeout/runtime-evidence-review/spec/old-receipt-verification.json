@@ -1,0 +1,76 @@
+{
+  "revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+  "legacy_status_files_empty": [
+    "start-status.txt",
+    "python-before.txt",
+    "python-after.txt",
+    "other-after.txt",
+    "final-status.txt"
+  ],
+  "groups": {
+    "evidence-mutations": {
+      "mutations": 18,
+      "baseline": 75,
+      "restored": 75,
+      "source_identity_verified": true
+    },
+    "fixture-mutations": {
+      "mutations": 4,
+      "baseline": 3,
+      "restored": 3,
+      "source_identity_verified": true
+    },
+    "p0-mutations-regression": {
+      "mutations": 13,
+      "baseline": 167,
+      "restored": 167,
+      "source_identity_verified": true
+    },
+    "child-mutations-regression": {
+      "mutations": 14,
+      "baseline": 68,
+      "restored": 68,
+      "source_identity_verified": true
+    },
+    "restore-mutations-regression": {
+      "mutations": 7,
+      "baseline": 32,
+      "restored": 32,
+      "source_identity_verified": true
+    },
+    "budget-mutations-regression": {
+      "mutations": 17,
+      "baseline": 61,
+      "restored": 61,
+      "source_identity_verified": true
+    },
+    "authorization-mutations-regression": {
+      "mutations": 22,
+      "baseline": 89,
+      "restored": 89,
+      "source_identity_verified": true
+    }
+  },
+  "old_leaf_exit_codes": {
+    "pytest": 0,
+    "ruff": 0,
+    "registry-check-parseability": 0,
+    "registry-check": 0,
+    "registry-backfill-tables": 0,
+    "registry-generate-views": 0,
+    "crosswalk": 0,
+    "unread-fields": 0,
+    "runtime-catalog": 0,
+    "frontend-lint": 0,
+    "frontend-typecheck": 0,
+    "frontend-test": 0,
+    "frontend-build": 0,
+    "e2e": 0
+  },
+  "old_counts": {
+    "python": "11766 passed, 81 skipped, 2 xfailed",
+    "frontend": "107 passed",
+    "e2e": "34 passed, 2 skipped"
+  },
+  "caveat": "Archived engineering evidence only; groups overlap. This is identity/result verification, not a new whole-repository run or product-quality finding."
+}

@@ -1,0 +1,21 @@
+{
+  "main": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "candidate": "b345975f65fbe17deb386c01676b70bb2bf2a258",
+  "exit_code": 1,
+  "result_tree": "5e983862bc32a99f2a0731cb8b78f22e5446985b",
+  "conflicted_paths": [
+    ".claude/lessons_learned.md",
+    "docs/agent-product-door.md",
+    "intelligence/api/app.py",
+    "intelligence/api/static/assets/index-Bkv-Nea0.js",
+    "intelligence/api/static/assets/index-DH207EFA.js",
+    "intelligence/api/static/assets/index-DWf9m4Ox.js",
+    "intelligence/api/static/index.html",
+    "intelligence/webapp/src/App.tsx",
+    "intelligence/webapp/src/types.ts"
+  ],
+  "conflict_groups": 7,
+  "worktree_changed": false,
+  "merge_performed": false,
+  "preview_sha256": "5094dfb89593bdd347d31336e85b241666fba29e6e1e9fa31d94dbfb43f59678"
+}

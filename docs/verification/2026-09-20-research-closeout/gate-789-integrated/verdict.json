@@ -1,0 +1,9 @@
+{
+  "revision": "62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717",
+  "base": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "python_registry": 0,
+  "frontend_e2e": 0,
+  "receipt_check": 0,
+  "receipt": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-789-integrated/receipts/20260920T040052Z-62bbc4ec.json",
+  "receipt_check_sha256": "1daf7dbfc4619cca76adbe9aa5f974a0cc750ccf402e19765380fb8716822510"
+}

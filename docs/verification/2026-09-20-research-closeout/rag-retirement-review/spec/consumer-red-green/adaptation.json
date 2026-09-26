@@ -1,0 +1,6 @@
+{
+  "source": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/test_missing_managed_artifact.py",
+  "source_sha256": "08ff32b076218429afde2f07228160c8c5925dae190ed6bd289935137b3889da",
+  "probe_sha256": "f3d2a1541bfac85446631c4825e590a44709458a9e3a539c28f2573d7e8b5d42",
+  "change": "Remove only baseline diagnostic assertion requiring raw FileNotFoundError; preserve both fixture mutations and all approved consumer assertions byte-for-byte so same probe can become green after fix."
+}
