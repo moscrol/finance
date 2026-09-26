@@ -154,6 +154,20 @@ class StructuredObservation:
     value: float
 
 
+# 引擎声明的全部历史算子。这里不 import historical_research.query：证据类型是底层
+# 模块，不应为了一个字符串列表把 duckdb 拉进来；漂移由测试看着
+# （tests/test_history_operation_eligibility.py）。漏掉一个算子的后果不是误报，
+# 而是该算子的每一张证据卡都被判为身份无效，模型做对了也交不出去。
+HISTORY_OPERATIONS = (
+    "inspect_history",
+    "compute_history",
+    "find_analogues",
+    "compare_cases",
+    "trace_history",
+    "rank_history",
+)
+
+
 @dataclass(frozen=True)
 class HistoricalEvidenceProvenance:
     """Immutable identity of one historical result projection.
@@ -182,7 +196,7 @@ class HistoricalEvidenceProvenance:
         if any(not isinstance(value, str) for value in text):
             raise ValueError("invalid historical provenance text")
         if (not self.query_id.strip()
-                or self.operation not in {"inspect_history", "compute_history", "find_analogues", "compare_cases"}
+                or self.operation not in HISTORY_OPERATIONS
                 or self.purpose not in {"retrospective_discovery", "historical_comparison"}
                 or re.fullmatch(r"[A-Za-z0-9_-]+/history-query-[0-9a-f]{64}\.json", self.result_ref) is None):
             raise ValueError("invalid historical source identity")

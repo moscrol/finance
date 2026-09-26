@@ -1,0 +1,703 @@
+{
+  "main_revision": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "files": [
+    {
+      "file": "python/ledger-crosswalk.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/ledger-crosswalk.log.txt",
+      "bytes": 2069,
+      "sha256": "ed679776d78ec582c35e3d05ffb9b7f504e8d47ecde9769f9f6865cb6495131b"
+    },
+    {
+      "file": "python/pytest.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/pytest.log.txt",
+      "bytes": 18098,
+      "sha256": "6469418ed2ebd34ba16d4e65681835223b9813e6d1dbfe27c283071e269250b0"
+    },
+    {
+      "file": "python/registry-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/registry-check.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "file": "python/registry-parse.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/registry-parse.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "file": "python/registry-tables.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/registry-tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "file": "python/registry-views.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/registry-views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "file": "python/ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "file": "python/python-registry.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/python-registry.json",
+      "bytes": 3841,
+      "sha256": "0ea3129d6054a748dcf1b0c1b9b11551e54321dc9b995da7e727de2d2b4aa20c"
+    },
+    {
+      "file": "python/target.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/target.json",
+      "bytes": 878,
+      "sha256": "2fefa9f011a58c94a98b42b141b6564a0c4f1e7a24838cd16549a9b028ec282b"
+    },
+    {
+      "file": "python/receipts/20260920T102128Z-728f3271.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/receipts/20260920T102128Z-728f3271.json",
+      "bytes": 750,
+      "sha256": "e16baf0cb18d0d25e27362fada20cf5b013ad6cecce22631a37e93e46b9cd76c"
+    },
+    {
+      "file": "frontend/frontend-0.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend-0.log.txt",
+      "bytes": 1818,
+      "sha256": "09bfc58be95575986a39d4ae31dc155bcbaf1c0c0720a6ecd7127bad16fee86a"
+    },
+    {
+      "file": "frontend/frontend-1.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend-1.log.txt",
+      "bytes": 176,
+      "sha256": "0cfac211d200cf62616f8049a9b722c17883ca116d58493d4e9a38b24fb4980b"
+    },
+    {
+      "file": "frontend/frontend-2.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend-2.log.txt",
+      "bytes": 274,
+      "sha256": "a93809a286694a75099428155003fc85bc9d3fc1b163f6a61930b6b9db804ffd"
+    },
+    {
+      "file": "frontend/frontend-3.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend-3.log.txt",
+      "bytes": 1552,
+      "sha256": "33b54e024becfb2529fa011e51b50c52447489de45cd8b96f9542a6343436f1b"
+    },
+    {
+      "file": "frontend/frontend-4.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend-4.log.txt",
+      "bytes": 1039,
+      "sha256": "56e0fe83d1be6c94a72cd9358d544a444d71adfed2ca6260501f70a580483e16"
+    },
+    {
+      "file": "frontend/frontend-5.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend-5.log.txt",
+      "bytes": 12808,
+      "sha256": "3ae8bf8776cdd2ba64dd0bb9b7c4f16c4c38ed13d8bc27a4aeceb190c76eed47"
+    },
+    {
+      "file": "frontend/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/receipt/frontend.json",
+      "bytes": 2561,
+      "sha256": "5e9da8b5d05e391326075a8942ac6431c32e246ff956b1d2a15e83409ccad446"
+    },
+    {
+      "file": "receipt-check-premerge.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/receipt-check-premerge.json",
+      "bytes": 471,
+      "sha256": "28545697bf10dc1ad3dd18ebb35cf10b60f40f43abf522c4cd6ccf18ab76514b"
+    },
+    {
+      "file": "receipt-check-premerge.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/receipt-check-premerge.log.txt",
+      "bytes": 899,
+      "sha256": "ce6409cc80322d9f88166fd731c02856ba5f3d8448802ecd72e96e6e64e8559a"
+    },
+    {
+      "file": "receipt-check-postmerge.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/receipt-check-postmerge.json",
+      "bytes": 525,
+      "sha256": "751428f65d3c4587b0e0f36398296ec074098f34baf953226f7fe71b8afe3b8c"
+    },
+    {
+      "file": "receipt-check-postmerge.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/receipt-check-postmerge.log.txt",
+      "bytes": 899,
+      "sha256": "ce6409cc80322d9f88166fd731c02856ba5f3d8448802ecd72e96e6e64e8559a"
+    },
+    {
+      "file": "inherited-evidence-check.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/inherited-evidence-check.json",
+      "bytes": 165,
+      "sha256": "08cd9f0d24cb369e88785bc5b3669228dfae0672ad594c5d44cd48809d6780af"
+    },
+    {
+      "file": "merge-request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/merge-request.json",
+      "bytes": 299,
+      "sha256": "2ceace8d5bf394848a4a2db2b97a95a03714ad3c1f3f575782f6a390580a4973"
+    },
+    {
+      "file": "production-runtime-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/production-runtime-before.json",
+      "bytes": 319,
+      "sha256": "26289aa2405d2f59c63da07181301d50c1f639ae30ce9f76388882a2efb03741"
+    },
+    {
+      "file": "production-after-merge.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/production-after-merge.json",
+      "bytes": 319,
+      "sha256": "26289aa2405d2f59c63da07181301d50c1f639ae30ce9f76388882a2efb03741"
+    },
+    {
+      "file": "production-after-cleanup.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/production-after-cleanup.json",
+      "bytes": 319,
+      "sha256": "26289aa2405d2f59c63da07181301d50c1f639ae30ce9f76388882a2efb03741"
+    },
+    {
+      "file": "removal-dev-wt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/removal-dev-wt.json",
+      "bytes": 31279,
+      "sha256": "f95a71c776181d955ca3dc6a390a1b2f6b846401bf3979f87b7638400b2fcf0f"
+    },
+    {
+      "file": "removal-prod-snapshot.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/removal-prod-snapshot.json",
+      "bytes": 17612,
+      "sha256": "82e97bc481583ad166b74d768ef9c01c0284f9f7c42783cb466dcec99df96096"
+    },
+    {
+      "file": "restore-smoke.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/restore-smoke.json",
+      "bytes": 249,
+      "sha256": "5461ea5c95212b3fb01c487166d2496a8a435e77783bfa4d5f5a0ce32986f8dc"
+    },
+    {
+      "file": "final-cleanup-summary.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/final-cleanup-summary.json",
+      "bytes": 633,
+      "sha256": "71da835c879661edc92f291f9461d70a8d0d0a6681ea921ba802ab250197a2f6"
+    },
+    {
+      "file": "own-frontend-cleanup.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/own-frontend-cleanup.json",
+      "bytes": 476,
+      "sha256": "c3872878e11a83e2a55d7982d789156d9c97e3f0cffdf24a4ba4af70cf21e016"
+    },
+    {
+      "file": "own-frontend-cleanup-first-stop.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/own-frontend-cleanup-first-stop.json",
+      "bytes": 270,
+      "sha256": "e5777cbc39ba7c6dc4454d03f59ee0b415c071ada0c18f067c29f7d5c602c517"
+    },
+    {
+      "file": "removal-dev-wt.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/removal-dev-wt.log",
+      "bytes": 1810,
+      "sha256": "bc0ec82562c1ec8f59e66881c81e112704189fc1fe1c3f7cee8b19d5538537a0"
+    },
+    {
+      "file": "removal-prod-snapshot.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/removal-prod-snapshot.log",
+      "bytes": 1320,
+      "sha256": "d40c25d391fb97508a6d563092ee1b729ef5579953c4a5186b565099dcbda844"
+    },
+    {
+      "file": "worktrees-final.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktrees-final.txt",
+      "bytes": 42481,
+      "sha256": "18b3f7ea6e49b18ee79051a22be2fe849029bcb12845b72270e9bb5026f438a9"
+    },
+    {
+      "file": "scripts/audit_cleanup_batch_version.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/audit_cleanup_batch_version.py.txt",
+      "bytes": 7422,
+      "sha256": "1b5536086d3a9e2f32cb0c04f529e8efaccc4ca20c481139a24455998c6101b4"
+    },
+    {
+      "file": "scripts/remove_verified.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/remove_verified.py",
+      "bytes": 7982,
+      "sha256": "375fa10efbe789dd852e5a36a43c79efbdbad9232abd255464323514797ee15d"
+    },
+    {
+      "file": "scripts/gate_python_registry.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/gate_python_registry.py",
+      "bytes": 3585,
+      "sha256": "455557343edd2147a885d646dd4b1888cdd3283ca1360556590c946e02d2da74"
+    },
+    {
+      "file": "docs-scanner-tests.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/docs-scanner-tests.log.txt",
+      "bytes": 1072,
+      "sha256": "9c6b94510d83e4101da36fee4de0cad9be26e0b883e41bda3004ca6a5a5ff0b4"
+    },
+    {
+      "file": "docs-scanner-command.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/docs-scanner-command.json",
+      "bytes": 2443,
+      "sha256": "370847a8bc1686c5849a57d12b2544e552d8758a678c06f3fc06d1bb5ae04a21"
+    },
+    {
+      "file": "docs-ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/docs-ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  ],
+  "external_only": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/cleanup-audit.json",
+      "bytes": 82572503,
+      "sha256": "bea49c83986959380ca06c81a49f2b36d1f086ffd5702451572dfe36b73f64f1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/own-frontend-metadata-results.tar.gz",
+      "bytes": 1120084,
+      "sha256": "c25ccce72d63422a6549538a758cf7a136045204605f978359d5efb7b6fdcf65"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0ea1adb21dc6402c-tracked.json",
+      "bytes": 761579,
+      "sha256": "1fe87cf9597c6d004df5c24b2d0a28dfaacda08349c30536aa8ee3b4a55d7a4d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0ea1adb21dc6402c.tar.gz",
+      "bytes": 179100,
+      "sha256": "040d73d6e67af0d2e14c09d2bee03fd5acda17e7d53d87a9fcb9fe0785c04bd4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0eb39818cdad4695-tracked.json",
+      "bytes": 771877,
+      "sha256": "bdb4a6ec2e9ee3192b4b1a0dfe3e07c24880690dccbc4887d5b6810809eb4108"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/0eb39818cdad4695.tar.gz",
+      "bytes": 179002,
+      "sha256": "5be06726ea93d9a859570f18a2617c12f2d453fd4f78b82d7313706d51e53482"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/10999de08354d56e-tracked.json",
+      "bytes": 844696,
+      "sha256": "4986b5f3f17ab73081d7e159ed9b772310d7b09c874fd6cb512a359fef6982bc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/10999de08354d56e.tar.gz",
+      "bytes": 196855,
+      "sha256": "463ee7d15f40cf4a0fb1918ef2a6458aa3539fcc9ad2442737e788ec7b5d7742"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/177ebe028a86aa5f-tracked.json",
+      "bytes": 760998,
+      "sha256": "8202bd14b2704c645d507fc84d1917e387ef3252a680682a36c870021a875b7e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/177ebe028a86aa5f.tar.gz",
+      "bytes": 176720,
+      "sha256": "b8b0c5491641c871503b1584c9568faa2110beed5073948ae1080f5a11e17fc8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/26cb3ed55ec0c8eb-tracked.json",
+      "bytes": 745747,
+      "sha256": "c3ac934281d796c24203b757ab811e9e10a7d5735606610dfd133c7b0fc7670d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/26cb3ed55ec0c8eb.tar.gz",
+      "bytes": 172064,
+      "sha256": "42e96caebb26a9bbf1637e5e58c24611e8dc07610ad97dda17912fcd5d9f5f30"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/276bbf9a57589b2d-tracked.json",
+      "bytes": 771423,
+      "sha256": "2e9dea57eec95bb05397bd2ce1d8cbf10ab1973998e18b07480037d548281f09"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/276bbf9a57589b2d.tar.gz",
+      "bytes": 177941,
+      "sha256": "9458762874b9ffae8532794dcfe2f0b8e2c7edc2b4506d59ec07d4516d0f87fa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2771133639ac4c86-tracked.json",
+      "bytes": 686955,
+      "sha256": "a0cf84756afaf8d6356458a4ecc07ce7c2ac9de66d1817dcb62e40c4b03f555a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2771133639ac4c86.tar.gz",
+      "bytes": 160435,
+      "sha256": "59427561b6b11a2148a8c08a33f6a485848e4ae65b6797af47e33165e015d49f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2b6cbbe1db4c59fc-tracked.json",
+      "bytes": 765109,
+      "sha256": "397e095a5e26b1bb702963ba87c035993a86d069ed47540b13bccb6f1f2cbe19"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2b6cbbe1db4c59fc.tar.gz",
+      "bytes": 177898,
+      "sha256": "9bcefccd7a6f17f107f8731760f8f1d173d6c97149010de1f1c82547d9889dfd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2e41159803fa0b4f-tracked.json",
+      "bytes": 771967,
+      "sha256": "6eb38ec351172535fd015137bb0f45047189e8eee0ba3455575d3e3470b63fff"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/2e41159803fa0b4f.tar.gz",
+      "bytes": 178107,
+      "sha256": "c9bf44e6f713282018434702b0091fc32e1fdceff0eb907f37a8c94dfe93c744"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/324142f3e17d34c4-tracked.json",
+      "bytes": 746179,
+      "sha256": "1b0c1ad33d005b18cd7659b3c0192fdf37c963f91efdd2b53168c6410b2228f5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/324142f3e17d34c4.tar.gz",
+      "bytes": 173822,
+      "sha256": "2d4dd79e1aba1992a09f561a6b6c880826dfebdcc9e39cf026add50681863af5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/359ffb7d0488a9dc-tracked.json",
+      "bytes": 761815,
+      "sha256": "55bdbce9d09ccb0ac7230c4976ded13a62c5eca9e7abe9d5adc92cd142732cbb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/359ffb7d0488a9dc.tar.gz",
+      "bytes": 179499,
+      "sha256": "13af0ba18973319b67da5087e181ea09362d0c4d66258af2a3f0c187a4720f26"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/3f7c2970deb1ef62-tracked.json",
+      "bytes": 790485,
+      "sha256": "1e2adac21ac6be6072b14b7bb81628a7c66468d39a40666488390a381b295ca3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/3f7c2970deb1ef62.tar.gz",
+      "bytes": 182244,
+      "sha256": "8810459a3c026947de1b1d6e7389a4ef854bf94097f46cbcd6dfd7c7543bc6b7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/41599c1a8b6eef35-tracked.json",
+      "bytes": 771423,
+      "sha256": "586e43d38146684df8bdd6f4d359adbc2f0c2e765426b9a0a0d746ed984d71a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/41599c1a8b6eef35.tar.gz",
+      "bytes": 178024,
+      "sha256": "6284354fe90bc0076824d0f6cbeeebdb0dbc70ea3aeaf742978d36d6f3dfe2a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/450caf7d1d51687f-tracked.json",
+      "bytes": 1019366,
+      "sha256": "3aeeaeed2d2dd6629404e0b700cd53aa7f19cb8878baeccc2a4e5d79533e04ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/450caf7d1d51687f.tar.gz",
+      "bytes": 268612,
+      "sha256": "706697cc041786c4faaf28fd13ed1ab24bd6ba82e74bc150bc3ad43e6051a036"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/49f8d8e446ff7580-tracked.json",
+      "bytes": 771967,
+      "sha256": "5cc312a055c5ae2dc2e5a817fa9f1587e24eba8555bc766233f295a136caab74"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/49f8d8e446ff7580.tar.gz",
+      "bytes": 177985,
+      "sha256": "82bc8b0751666af09191ec8d79d6444f708ba927bb6aaa646c07abbb2f6654a5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/4b3667f3e2b7ec37-tracked.json",
+      "bytes": 760563,
+      "sha256": "e9736393e4aa3b3a1d6e6a2a2d02755459eff0f990a35dacca9797faad31dfb5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/4b3667f3e2b7ec37.tar.gz",
+      "bytes": 175636,
+      "sha256": "d57dff81c0fd8d8cfb3208eb1748ee3d6dd192510c6081aefcb77b97ac305b10"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/4bb64bf534e9cd0b-tracked.json",
+      "bytes": 842381,
+      "sha256": "83d350773a8c24946d3d0dd467fc3e536427fcbc387e343cedd61682ffc6e833"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/4bb64bf534e9cd0b.tar.gz",
+      "bytes": 198293,
+      "sha256": "13000ae195ceace4fb241235aee956d7c2d4bfb54b17f25d21b29153d96b0129"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/55633f88d1d8d04d-tracked.json",
+      "bytes": 841205,
+      "sha256": "6b00d3f73275b6731d25460e7c7e33001232c6f0591f02d2b05318fa122630b9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/55633f88d1d8d04d.tar.gz",
+      "bytes": 192017,
+      "sha256": "c246a47a41921628b53dd1f04ed5e22e422f6e555ce9972ff2c375defc601af4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/66fb7c56e83c8187-tracked.json",
+      "bytes": 732356,
+      "sha256": "87c044869d811a35bcbd35204113995d0b17d0f6dafd8d3bb612618ab61532b7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/66fb7c56e83c8187.tar.gz",
+      "bytes": 170170,
+      "sha256": "ba5e640607a64ac909af23b57cb7be14433b8a0210c224238968f77509967f6a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/6b1b1c10a794a967-tracked.json",
+      "bytes": 757297,
+      "sha256": "a9965faf367c212a026e8bf07eb21180ba22503dfc4365b2505303ce46890325"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/6b1b1c10a794a967.tar.gz",
+      "bytes": 174833,
+      "sha256": "04f7a1871a6e026fb047ea9e6263f9b31a8b5c6a242caf7921ac5fa7ba3cfac3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/6f6ac65de2b9fcd3-tracked.json",
+      "bytes": 727418,
+      "sha256": "c1e37c5ca3cbe2c0d1270f5477de7c4cc074b438146b30d08dbc5d0c4ed4f7d6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/6f6ac65de2b9fcd3.tar.gz",
+      "bytes": 169038,
+      "sha256": "9efc0a2a1f6722dfacd491c9538c4a0515ce29f2376a1e7c3fe5ebeb9a5103a4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/725d8e9d11b6c14c-tracked.json",
+      "bytes": 852233,
+      "sha256": "846ec2201b944c3845aa1ffff393953ced77a24304999a924bb09429920bb02e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/725d8e9d11b6c14c.tar.gz",
+      "bytes": 200450,
+      "sha256": "5e3ed4138ea05a159c68b1503e2e405608f160674ef9ca5e680e83732ab267b8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/768653efb20ce981-tracked.json",
+      "bytes": 736897,
+      "sha256": "3497636956d7f8d2cc2ef3ad89c432a357a35ca3a14648470afa9a102fb86bbb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/768653efb20ce981.tar.gz",
+      "bytes": 175256,
+      "sha256": "1e0f5ef0f265d3b6fe5f9f0307c16d0a3d0d69fcbb3c264af5a717a88ba1670f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/7cc0ca83054e0fea-tracked.json",
+      "bytes": 771967,
+      "sha256": "c8f2ab717ac63c8cfa0b8022bb4a7fb8ee88e76a77de294929c094bfe69c2006"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/7cc0ca83054e0fea.tar.gz",
+      "bytes": 178148,
+      "sha256": "25c5833ae86adc66f105b35b84f93778207ac07da9508e6a6f76a05f9446f05e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/8b47b12d30abb304-tracked.json",
+      "bytes": 786597,
+      "sha256": "896c7b73061b57dcb17dda62c7b02d8689fa7bb9d9e853b806119b9802432d9c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/8b47b12d30abb304.tar.gz",
+      "bytes": 181841,
+      "sha256": "7634c6dbe0d4497e0a7185668e70ef0ef5fae97401d3bff4254e9c1ad2d3a8b6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/92557471a2879a41-tracked.json",
+      "bytes": 787943,
+      "sha256": "f21faad5c3e39d3311a7aef89bb26a8265ce9004fe1fdee996669762c2fade15"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/92557471a2879a41.tar.gz",
+      "bytes": 183326,
+      "sha256": "2aad5f7c114f296bc003c6e8a7763e43e36de29ce10572a4e3f4908b1264b2a1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/93e24655cf2d40cc-tracked.json",
+      "bytes": 746595,
+      "sha256": "9b80b8cd09dedd945d0ef7c035ab61f4307a72c740363610a1fcde1214c5f6ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/93e24655cf2d40cc.tar.gz",
+      "bytes": 172212,
+      "sha256": "7253b1337294494da91e9aafbb8df50466e79b5a58bbcc9037e3138c3d8858d6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/94b7e21105d4579c-tracked.json",
+      "bytes": 1148060,
+      "sha256": "1a66638b51b87665c84cdb80ce708303821e92d79b3a8fc3c3f855250cafb78c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/94b7e21105d4579c.tar.gz",
+      "bytes": 249780,
+      "sha256": "35c7f19c7b2284f662e3eb17d593fadd37c855cd398ee2770a9d9f8e9f0c9009"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/95c0f2105bc0c269-tracked.json",
+      "bytes": 834178,
+      "sha256": "416e8f1219e1bf3e8eb9fc40ebef5e0cdef966f9c2501d2fcd359687e2bc2554"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/95c0f2105bc0c269.tar.gz",
+      "bytes": 192385,
+      "sha256": "376b00c470f6e82442ed9562d38937517bbe372df165eee49339f7676003aed3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/962c4df0be790ed1-tracked.json",
+      "bytes": 833303,
+      "sha256": "9eb090e5860ff552fd0b4c7b047b4c3cd97a7f31851b6b2178f2d9f8338b5ed1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/962c4df0be790ed1.tar.gz",
+      "bytes": 193464,
+      "sha256": "8007fbb457f8e18e91cbb2469f6b97bb90ef68a9276b000440857b01e4cd0a2e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/9736b05200ee7ff0-tracked.json",
+      "bytes": 844297,
+      "sha256": "81bf280699029550e5e9a07533caac9f4c584d3dbf3f71f20106ea6d8c324870"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/9736b05200ee7ff0.tar.gz",
+      "bytes": 195627,
+      "sha256": "e1d21517861178bbe446321aa4b7d54caa2977dccb16c58bc4b3bf9722a3df8b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/9d3a7effb9cd17e9-tracked.json",
+      "bytes": 746804,
+      "sha256": "ba9c8c325e356dbfad7b6cd6884e8f38a49807838f28db94d392562610e95c3d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/9d3a7effb9cd17e9.tar.gz",
+      "bytes": 172239,
+      "sha256": "35a10eddeca6c86d3b49d02eb9fb5a9e44c96d1031dcb865160cd1620f9cac5b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/accdfcd0f87cd5ee-tracked.json",
+      "bytes": 723308,
+      "sha256": "5bca6e89c0b5fda847c58097355443106ddbfc9c5ffe3475592fffba8ce81faf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/accdfcd0f87cd5ee.tar.gz",
+      "bytes": 169512,
+      "sha256": "19f3f7d9bf89d5447ea0948f884a5f87c4c15af43b057d272ea5a4e6e6ead4f6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/bbbdbc654b2664e8-tracked.json",
+      "bytes": 746804,
+      "sha256": "c12e42a71912bc87491f5243676a48c0c782ce2eaa02e1cd6241bc6521ab7f31"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/bbbdbc654b2664e8.tar.gz",
+      "bytes": 172157,
+      "sha256": "ec6155c14a0c9dd1411d25fb151996a2229eb2d40b71bb6e99f0ba1c060c6d7b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/c7cba534edc9b603-tracked.json",
+      "bytes": 685556,
+      "sha256": "21cac1282ed5b4cf2acb85ec4166104f1b0c18ccb76e7636e371efb183a181d4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/c7cba534edc9b603.tar.gz",
+      "bytes": 160091,
+      "sha256": "7128402a9f72399ec17a3d0cbe72b23aae08b862f6eadeff89e819203e37d581"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/cf6421c1f453f277-tracked.json",
+      "bytes": 761579,
+      "sha256": "0a14c52ecdc6c0cd2cf2ff8133e43bba2e45b0f6b44115d270d6d9862e588988"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/cf6421c1f453f277.tar.gz",
+      "bytes": 175908,
+      "sha256": "611113e594882f02d382aa0aeb644cbdd66f8338b3a837b1e045a42ff8e184bf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/d413c0b7e8143810-tracked.json",
+      "bytes": 792806,
+      "sha256": "633e1d76aa1cc25fe99d340e95c3377a5e49e2076b2dc59f15db464b77644a21"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/d413c0b7e8143810.tar.gz",
+      "bytes": 182921,
+      "sha256": "e48e0c0c3164f94ae705518ca9f3ffe00a875debdad62d6bbd7da59de3daa5d8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/d7bc4f2b07527398-tracked.json",
+      "bytes": 797662,
+      "sha256": "3e5caca656aa9580db7b0347bc01bb80ea832f936e757d856040f0ddc6f17e3f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/d7bc4f2b07527398.tar.gz",
+      "bytes": 183996,
+      "sha256": "c688a002e7889dd262f16656083f33383e300deabe14ffd3d6d0ad01e17ae73b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/dc8dd2a37d590c09-tracked.json",
+      "bytes": 786133,
+      "sha256": "9f28198db2732cb4a4585a6b1334d0906e5dca944387f474a24ffac43e6b3985"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/dc8dd2a37d590c09.tar.gz",
+      "bytes": 183243,
+      "sha256": "cd273fac0a3a60a480949e5e806daffc893060c2c6de8e69483d8bbcec689ae2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/e1030a8c89f5ca31-tracked.json",
+      "bytes": 726973,
+      "sha256": "a14ae3a5e9ac3a44fbb596e93826f9892659e55fc00e3fe378db78b87a2af2d4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/e1030a8c89f5ca31.tar.gz",
+      "bytes": 167647,
+      "sha256": "c02c012a65349eaa431396351dac80d760cf1e1ab6c87a3f7e4d6db2c0faf4b5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/ea24f95609326a9d-tracked.json",
+      "bytes": 754170,
+      "sha256": "3b5825fd0066884dc5d7cb4bc929649db6b2ebf6197057517d3264cd512e55f1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/ea24f95609326a9d.tar.gz",
+      "bytes": 174084,
+      "sha256": "43e678d01f17e0dcf1ed9ef7299406b34e7040ecb8a23e0f105d72a8051678f9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/eda3e52058650bef-tracked.json",
+      "bytes": 744727,
+      "sha256": "8e4e365cf3a76c44a3cb4f8d231fbb54f12884c38a6157295e044c02cd4fa557"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/eda3e52058650bef.tar.gz",
+      "bytes": 171964,
+      "sha256": "86a8d453e1aac38f900dd7fbe7ac7eb77daa8d2f6a48487f3dcb3c4ec171c626"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/f01eba0de0b27cab-tracked.json",
+      "bytes": 796158,
+      "sha256": "3e1c36a06f949db104d61d4fde833f40ffc5fff0de935c06ce7ebcd69dfb0169"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/f01eba0de0b27cab.tar.gz",
+      "bytes": 183613,
+      "sha256": "a9cc37ec88bffcc3b434e656f6b28074798a49a1fcc104c0457dc3b3e7027bc1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/fb8cbfd093db32b2-tracked.json",
+      "bytes": 750318,
+      "sha256": "bb9489b312e2a68060be6578fbecaf357f92c336beedaf80da495fafd4374e2f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/worktree-metadata/fb8cbfd093db32b2.tar.gz",
+      "bytes": 173258,
+      "sha256": "90cdfd5886d55e728e222f81acb3b8f962cbfb9a5e55b6b45ea3d3bb4d7a01f6"
+    }
+  ]
+}

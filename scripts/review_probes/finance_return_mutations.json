@@ -1,0 +1,79 @@
+[
+  {
+    "id": "compound-becomes-sum",
+    "path": "intelligence/services/finance_query.py",
+    "old": "compounded = f\"100.0 * (PRODUCT(1.0 + {value} / 100.0 ORDER BY {day}) - 1.0)\"",
+    "new": "compounded = f\"SUM({value})\"",
+    "targets": ["test_frozen_live_series_computed_before_limit"]
+  },
+  {
+    "id": "bad-chain-skips-null",
+    "path": "intelligence/services/finance_query.py",
+    "old": "f\"{count} = COUNT(*) AND COUNT(DISTINCT {day}) = COUNT(*) \"",
+    "new": "f\"COUNT(DISTINCT {day}) = COUNT(*) \"",
+    "targets": ["test_bad_row_invalidates_whole_chain_instead_of_skipping"]
+  },
+  {
+    "id": "duplicate-day-counted-twice",
+    "path": "intelligence/services/finance_query.py",
+    "old": "f\"{count} = COUNT(*) AND COUNT(DISTINCT {day}) = COUNT(*) \"",
+    "new": "f\"{count} = COUNT(*) \"",
+    "targets": ["test_duplicate_day_fails_even_when_values_agree"]
+  },
+  {
+    "id": "missing-identity-certified",
+    "path": "intelligence/services/finance_query.py",
+    "old": "f\"AND COUNT(*) FILTER (WHERE NULLIF(TRIM({identity}), '') IS NOT NULL) = COUNT(*)\"",
+    "new": "f\"AND LENGTH('{identity}') > 0\"",
+    "targets": ["test_missing_subject_never_certifies_return"]
+  },
+  {
+    "id": "window-identity-lost",
+    "path": "intelligence/services/finance_query.py",
+    "old": "f\"代码={row[key]}；请求={_format_date_range(*window)}；\"",
+    "new": "f\"代码={row[key]}；\"",
+    "targets": ["test_window_and_date_set_survive_evidence_identity"]
+  },
+  {
+    "id": "date-set-hidden",
+    "path": "intelligence/services/finance_query.py",
+    "old": "detail + f\"日期={compact_dates}；含首日；样本数不证明交易日齐全；\"",
+    "new": "detail + f\"日期字符数={len(compact_dates)}；含首日；样本数不证明交易日齐全；\"",
+    "targets": ["test_same_count_different_dates_are_not_presented_as_aligned", "test_local_registry_delivers_summary_without_external_io"]
+  },
+  {
+    "id": "oversized-card-silently-clipped",
+    "path": "intelligence/services/finance_query.py",
+    "old": "if len(detail) > MAX_EVIDENCE_DETAIL_CHARS:",
+    "new": "if len(detail) > MAX_EVIDENCE_DETAIL_CHARS * 100:",
+    "targets": ["test_long_date_set_refuses_instead_of_delivering_truncated_card"]
+  },
+  {
+    "id": "average-as-return",
+    "path": "intelligence/services/finance_query.py",
+    "old": "detail += \"；平均日涨跌幅不是累计收益\"",
+    "new": "detail += \"；累计收益\"",
+    "targets": ["test_existing_grouped_daily_average_is_not_labelled_cumulative"]
+  },
+  {
+    "id": "writer-date-alignment-lost",
+    "path": "intelligence/services/episode_protocol.py",
+    "old": "\"比较相对强弱须对齐实际观测日期集合及行情口径，收益率相减用百分点；\"",
+    "new": "\"比较相对强弱；\"",
+    "targets": ["test_writer_requires_comparable_computed_returns"]
+  },
+  {
+    "id": "judge-arithmetic-caveat-lost",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "\"单日涨跌范围概括不能忽略所引窗口内的反例。结构绑定通过不证明计算正确。\"",
+    "new": "\"检查单日涨跌范围。\"",
+    "targets": ["test_judge_return_arithmetic_rules_reach_provider"]
+  },
+  {
+    "id": "public-binding-overclaim-restored",
+    "path": "intelligence/services/session_projection.py",
+    "old": "\"本次未完成独立复核（复核服务超时）；仅通过证据关联的结构检查，\"\n    \"不代表计算或结论正确。以下为待复核内容：\"",
+    "new": "\"本次未完成独立复核（复核服务超时）；内容与证据绑定已通过校验：\"",
+    "targets": ["test_three_causes_emit_distinct_first_sentences"]
+  }
+]

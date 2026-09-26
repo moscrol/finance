@@ -1,0 +1,282 @@
+{
+  "schema": "history-succession-engineering-snapshot-v1",
+  "tested_revision": "ba28138189ff231b19b61561644594ab9a44b041",
+  "created_at": "2026-09-18T08:43:34.087467+00:00",
+  "scope": "author-side engineering, saved-failure and scripted Episode delivery; not a real-model retest, independent personnel QC or method validation",
+  "status": {
+    "engineering": "passed",
+    "mutation_tests": "caught",
+    "saved_original": "unchanged",
+    "real_model_retest": "not_run",
+    "last_real_group": "failed_at_fbd8f2a6",
+    "merged": false,
+    "deployed": false
+  },
+  "runtime_root": "/Users/a77/.finance-runtime/history-succession-ba281381-checks",
+  "original": {
+    "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092551_590812/history-query-461de0b134934e8e572c5b2677581da6f63992c43fcb255633f1e04531a227f4.json",
+    "bytes": 1387169,
+    "sha256": "461de0b134934e8e572c5b2677581da6f63992c43fcb255633f1e04531a227f4",
+    "query_id": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+  },
+  "product_source_sha256": {
+    "intelligence/services/episode_semantic_verifier.py": "f0ede0588a48f9368003b3bd28e7bb6c9df79ab85b7362bebc842ef4827b6059",
+    "intelligence/services/episode_tools.py": "7abfaec10ecc6976267b82fc420bfd3e753953eb9688f0acb47f0b4064b68e9b",
+    "intelligence/services/finance_query.py": "38140a46d062fb6597bb0939abbf9fd164817a9a6d631f6ba800f57c3ab832a4",
+    "intelligence/services/historical_research/anatomy.py": "513c171e56ec66bcea30a38cc0c9cc5cd437bef1b488b92723fd3fb21b9dfb75",
+    "intelligence/services/historical_research/episode.py": "2c308601cca51ed717901705fe34403dea27fee358f6db0d4847f0b1e827202f",
+    "intelligence/services/historical_research/query.py": "064f47765624b651b96fcb9f76d77034b60276c0c79403343cba97885935533b",
+    "intelligence/services/historical_research/recovery.py": "ef4b4b894531dfac2d47913699f853b1ef7969b51dabc35621a99033aa7072d7",
+    "intelligence/services/historical_research/succession_projection.py": "01811f53289f0eb48d660f5d44c6d6fa2394a320a6a2eca86b8c513400c153ae",
+    "intelligence/services/research_tool_registry.py": "43fdcf13902d51f183594611ba570131ef103425505a6d47faf4eb090bea3770",
+    "intelligence/services/tool_result_budget.py": "cd41e3acc4d2d55023eafda012a0ebc91878d41de77f1c05ae497b2e1827514c",
+    "scripts/audit_historical_research_artifacts.py": "3847166294ef877751ff908ecd10e4b5911d91b31a1a70e6ffa9eb1f3afee107",
+    "scripts/history_anatomy_arithmetic.py": "7f7fe7f4b52585cae72dca6191c29996fbedd02d9aa4772df3fa877592f6310b",
+    "scripts/review_probes/history_diagnostic_mutations.py": "d577b9e93b9aa16618ece51e5064f16fc5306ab0866ffe62d493ab24ceafae1e",
+    "tests/test_history_anatomy_audit_independent.py": "1977d87421390d90bd3d39e3e47e70679ee94ec3172c8cf656b5f3506a520586",
+    "tests/test_history_argument_repair.py": "7febd49bdb1331be757dfcf812854d2afa438e49328dea4a502a8c735ed5db08",
+    "tests/test_history_market_anatomy.py": "bc80b3fd61196778c393603765b304183f86b3cf76374e992a7b11e2f2dbef0e",
+    "tests/test_history_model_projection.py": "02b0e60ca17ea1932b444206da40fc99c39c53328086cf16bf293e038ba3a2f1",
+    "tests/test_history_succession_projection.py": "18b871d67301c6b06164a970da961aa1eed22b6fb9f8b282e488d9a7275dda22",
+    "tests/test_history_tool_diagnostics.py": "48f32dc4a8b2be312310d4a5d139aef95463222cda68a6205d5b24f96212d022"
+  },
+  "previous_evidence": {
+    "diagnostic_engineering": "../58b78542/acceptance.md",
+    "retained_failed_engineering": "../58b78542/previous-a05b3483/",
+    "last_real_acceptance": "../fbd8f2a6/acceptance.md"
+  },
+  "limits": [
+    "No real-model retest or automatic free-text error detector.",
+    "No semantic-verifier selection or global evidence budget changes.",
+    "Legacy compatibility uses only saved calendar; no live DB or artifact migration.",
+    "Independent arithmetic implementation is not independent personnel QC, data authenticity or PIT certification.",
+    "Development receipts and intentional mutation failures are not normal frozen-code failures.",
+    "Development regression.txt and erase_pair_projection.txt both point to 20260918T081828Z-edf8820c.json: the seconds-plus-revision filename collided. The surviving JSON describes the deliberate mutation (0 passed/1 failed), NOT the 854 passed/12 skipped regression. Do not reconstruct or relabel the lost regression JSON; use its terminal log only. The frozen ba281381 full-suite receipt is separately matched to its own target, counts and log."
+  ],
+  "records": [
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/receipt.json",
+      "archived": "ci-receipt.json",
+      "bytes": 3129,
+      "sha256": "5b6f480bc88db86ee09b3ee2024130f0f60f46c40cce380702049b017657e9d7",
+      "role": "frozen_engineering"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T082918Z-ba281381.json",
+      "archived": "python-receipt.json",
+      "bytes": 659,
+      "sha256": "74fd33fe33258f7192da9d611a94f8fd2dffea53e348d10b5601870f38fe6b03",
+      "role": "frozen_engineering"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/python.txt",
+      "archived": "python.txt",
+      "bytes": 17212,
+      "sha256": "8334fb5e6f92b2771b859239f067586fffe43d020301c0c3e90de29d9f5d55cb",
+      "role": "frozen_engineering"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/frontend.txt",
+      "archived": "frontend.txt",
+      "bytes": 1942,
+      "sha256": "ed3026cb61e299185be388f546f1cd68740623d9d30828207266797e54f3d4bd",
+      "role": "frozen_engineering"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/e2e.txt",
+      "archived": "e2e.txt",
+      "bytes": 12767,
+      "sha256": "bc2d88a767dc12dba45837eff0e045df24491b67a2be3bc765e76d30c7b36ff5",
+      "role": "frozen_engineering"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/registry.txt",
+      "archived": "registry.txt",
+      "bytes": 2869,
+      "sha256": "c7b8982ccb8792381bd309cbb62620909bd33b93935d52545f5599e1f08a3ff2",
+      "role": "frozen_engineering"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/receipt-check.txt",
+      "archived": "receipt-check.txt",
+      "bytes": 749,
+      "sha256": "8e28b480526d3b7988ef7c2eafe5dbab3b39fc6f9310724d25aae4e14b5ccab2",
+      "role": "receipt_conditions"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/run.py",
+      "archived": "ci-runner.py.txt",
+      "bytes": 2815,
+      "sha256": "7e88bcad196465e46e910ca6b81d6ed8f12ce92f8a519c28147e264df6f754f9",
+      "role": "one_off_engineering_driver"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/receipt.json",
+      "archived": "mutations-succession/receipt.json",
+      "bytes": 4473,
+      "sha256": "ecbee85f5231813fc3129179d256e2c6dd3cbbf61eda528f1a23051861567572",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/erase_pair_projection.txt",
+      "archived": "mutations-succession/erase_pair_projection.txt",
+      "bytes": 794,
+      "sha256": "b19d8cda5d413a684e01d880da6283fb6103502b706b904b25203587dcd5f872",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/immature_means_failed.txt",
+      "archived": "mutations-succession/immature_means_failed.txt",
+      "bytes": 1371,
+      "sha256": "268192180b38a164ba08e6bea3c5a05e794230f98d4e7af80311a1cf467d07e1",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/require_peak_confirmation.txt",
+      "archived": "mutations-succession/require_peak_confirmation.txt",
+      "bytes": 813,
+      "sha256": "5791bb2b9e7ed9848f6ab6166c8f52102dce48af64885b4d0cc7cb836a941e89",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/include_source_peak_in_returns.txt",
+      "archived": "mutations-succession/include_source_peak_in_returns.txt",
+      "bytes": 2242,
+      "sha256": "6ea7d66abcb79c0b10ddeb8e0676aa8a439df44b9cd45e6101520798397ad4e0",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/target_signal_anchors_returns.txt",
+      "archived": "mutations-succession/target_signal_anchors_returns.txt",
+      "bytes": 961,
+      "sha256": "1bb339938d30ecc3e60f9f14bff9eba83b1b371e6398f3afc623739ddbeb61eb",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/missing_calendar_becomes_zero.txt",
+      "archived": "mutations-succession/missing_calendar_becomes_zero.txt",
+      "bytes": 981,
+      "sha256": "ebfe79b6f05a9fbdb0f2d3d082f4804f670de47f2f80a8019db0d453de414b97",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-succession/erase_pair_recovery_priority.txt",
+      "archived": "mutations-succession/erase_pair_recovery_priority.txt",
+      "bytes": 761,
+      "sha256": "054a0a63543f9dce97811920d0af102506f6609f95463a17b8b39e67c3c4c2a7",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-diagnostics/receipt.json",
+      "archived": "mutations-diagnostics/receipt.json",
+      "bytes": 2661,
+      "sha256": "c588e9401dd2ad435a17b6723a7e537198d5b5d64122b8447a97ef02f319d885",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-diagnostics/erase_diagnostic_delivery.txt",
+      "archived": "mutations-diagnostics/erase_diagnostic_delivery.txt",
+      "bytes": 1061,
+      "sha256": "c60accef898cad108c066de16aacf9b3321f0706e96c259dcb5e65f3729d9677",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-diagnostics/diagnostic_bypasses_fact_gate.txt",
+      "archived": "mutations-diagnostics/diagnostic_bypasses_fact_gate.txt",
+      "bytes": 3936,
+      "sha256": "88e1d2e3ae03359ed62ee8631eda2f4dae38238e772dfa6b661e96bfe72eb342",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-diagnostics/raw_exception_as_diagnostic.txt",
+      "archived": "mutations-diagnostics/raw_exception_as_diagnostic.txt",
+      "bytes": 1552,
+      "sha256": "16ba68b08e13a0f261f7379621320cf262d3d432a494982646be7776d34271fc",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/mutations-diagnostics/silently_infer_market_kind.txt",
+      "archived": "mutations-diagnostics/silently_infer_market_kind.txt",
+      "bytes": 836,
+      "sha256": "6615f929dc8f96fbfce8c7ff9244e12c9324ac0be068202e9f167c6765768736",
+      "role": "intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/legacy-turn3-arithmetic.json",
+      "archived": "legacy-turn3-arithmetic.json",
+      "bytes": 3510,
+      "sha256": "613b38e0abdc10a2a14bcb1ee450f846ed043d02b3a923ba2b65a8df544ec3e7",
+      "role": "read_only_saved_failure_replay"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/saved-delivery.json",
+      "archived": "saved-delivery.json",
+      "bytes": 6987,
+      "sha256": "41887477864a76ea41a3edc5f6ef41a7d22ceaef16515e60f8a5d4e5813f1769",
+      "role": "read_only_saved_failure_replay"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/probe_saved_delivery.py",
+      "archived": "saved-delivery-probe.py.txt",
+      "bytes": 3587,
+      "sha256": "e578fd6fa73de9889d78973ef15557921fd4e655fc3d07263469bdb510e614c7",
+      "role": "one_off_saved_failure_driver"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-ba281381-checks/harness-refs.txt",
+      "archived": "harness-refs.txt",
+      "bytes": 2339,
+      "sha256": "7479969fc5e83077bc474bc5dbdb1c239c8af8156d3f78a094de767bbd3c34aa",
+      "role": "cross_repo_reference_check_not_business_acceptance"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T080932Z-edf8820c.json",
+      "archived": "development/20260918T080932Z-edf8820c.json",
+      "bytes": 1854,
+      "sha256": "70ab2a8be4ab86fc77cc1b8b846fdf340452dc5a49ff649bbef0154097d47acf",
+      "role": "dirty_development_not_frozen_revision"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T081044Z-edf8820c.json",
+      "archived": "development/20260918T081044Z-edf8820c.json",
+      "bytes": 1175,
+      "sha256": "bf968c5231c2f2cea71b0a1056370952a14861774e48acaaf06e3263fba82e74",
+      "role": "dirty_development_not_frozen_revision"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T081308Z-edf8820c.json",
+      "archived": "development/20260918T081308Z-edf8820c.json",
+      "bytes": 1010,
+      "sha256": "ea6b63e0f1b0998b390049d569ea5bf6d95e3e8931f8862c913574ae28d902ab",
+      "role": "dirty_development_not_frozen_revision"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T081641Z-edf8820c.json",
+      "archived": "development/20260918T081641Z-edf8820c.json",
+      "bytes": 3293,
+      "sha256": "363caf212e64ce43d4e34e42b75d5e7a32de80dae5d81e7bde5c886749e4869a",
+      "role": "dirty_development_not_frozen_revision"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T081828Z-edf8820c.json",
+      "archived": "development/20260918T081828Z-edf8820c.json",
+      "bytes": 1341,
+      "sha256": "4df266d8be20d01ea35e2c44959d60e8495443490ca6886447da722e25b34656",
+      "role": "same_second_receipt_collision_intentional_negative_test"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-20260918-development/regression.txt",
+      "archived": "development/regression.txt",
+      "bytes": 1159,
+      "sha256": "3ad16826bfac6b85ee05e17f1874838d9c7fa30264ac1f37448bfe83a38f3a75",
+      "role": "dirty_development_not_frozen_revision"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/history-succession-20260918-development/mutations/erase_pair_projection.txt",
+      "archived": "development/erase_pair_projection.txt",
+      "bytes": 794,
+      "sha256": "f17b59697f51af4dd9012dab8c82a1a5b03bd698b420282f05ad97ee64d585f5",
+      "role": "same_second_receipt_collision_intentional_negative_test"
+    }
+  ]
+}

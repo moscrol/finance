@@ -1,31 +1,27 @@
-# #809 质检返修 → WIP #832
+# #81 ReAct 轨迹链 · #832 前向接手（L5，09-27）
 
 ## 这个分支做什么
-独立核验原六项修复，补删句接缝/幸存定义/分句状语缺陷。代码 `ec246761e` 已推；接替PR #832，原#809头ac3bbd310不动、评论5345指向接替，两张均WIP。
+#832 是 #81 唯一产品载体。09-27 接手：以 Pi 本地合流 `11d63a717`（含旧头 27034ce44）为底，合 #892 文档 `37797b3d5`（INDEX 取 main；QUEUE 取 main 并补回 #81 行）与 main（最后一次 `339676bfe`，两次均无冲突），快进推回本分支。本地分支名 `fix/react-trace-qc-fwd-0926`，树 `/Users/a77/fwp-wt-l5-react-0926`。
 
 ## 决策与被否方案
-- 独占QC树；不动主目录他人改动/原作者树，不自动合main或部署。
-- 局部接缝+同一分句语法；否决整句删除/放宽数字门/模型重写，保观察和列表。
-- 历史封存片另枝修，不塞#809；旧基座/比较合同须另验。
-- 完整背景、被否方案和收据：`docs/handoffs/2026-09-21-react-trace-qc.md`。
+- 沿用 Pi 合流，不重做；#892 原件已并入，建议关闭 #892 并留指针到 #832。
+- K3/GLM 独审停用，按用户委托改 Claude 范围化复核；0304 旧批不补签。
+- C3 缺的是测试不是产品：旧用例只测「先错后对」，补「先有效取证→参数失败→合法修正」3 例。
+- 取消有两层（回合后检查 + registry 派发前检查），只撤一层会存活；变异改为整体撤取消信号。
 
 ## 当前状态
-最终代码 `ec246761eec6caeac17ea9ad3477b06248f200f5`，实现已提交；本份及证据为后续docs-only归档。#832是后续入口，不分别合#809。未合main/未部署8792/未写生产。
+代码 `81fa50a56`，其后只有本文档提交；已推 #832（WIP）。产品增量只有 `episode_semantic_verifier.py`（C6），C1–C5 产品代码已在 main。未合 main、未部署、未写生产，零模型请求。
 
 ## 已验证
-- ec246干净全量12554P/87S/2X，收据 `~/.finance-runtime/test-receipts/20260921T093438Z-ec246761.json`，严格校验0，首尾身份一致。
-- 同SHA前端110P、E2E34P/2S，六步0；Ruff/registry五项0。
-- 正式句式37例/相关369P、九项撤保护全捕获。原件225行分页/删除14,15回放通过，无新自然模型调用。
-- 仓内小型原件：`docs/verification/2026-09-21-react-trace-qc/`；完整根 `~/.finance-runtime/reviews/react-trace-qc-20260921/`。
+- 扩大 178 文件 5387P/8S、全仓 Ruff 0（@81fa50a56）；最终头 7 文件读数见证据目录 `final.log`。
+- 变异（复用 runner，@81fa50a56）：C3×3、C5×2、C6×2 全红、还原全绿；手工 C5 页坐标归零 4F。
+- 复核 PASS_WITH_LIMITS：`~/.finance-runtime/reviews/unclosed-inventory-20260926/takeover/L5/review.md`。
 
-## 未验证 / 已知边界
-- K3固定a412跑274旧测，但新探针导入失败、后续504、600秒截止无报告，仍BLOCKED。作者改编探针不是独立签字。
-- 自然金融会话0，原not_passed不翻：225/25/候选数值绑定、#793比较合同/假设槽和#794未完成。
-- main已到f2c3e9e1a（#830）；merge-tree无冲突不等于合流已验。本枝代码门禁不移签后来main。
-- 历史隔离枝 `baseline/history-evidence-qc-0921` 代码2c529cb17/证据06fca48d4：280P+独立5P，两缺陷已修，完整合流/全叶未验。
+## 未验证
+全仓 python / 前端 / E2E / registry 四叶；#76 自然金融验收与 live 模型；C3 新例是脚本模型、只走 finance_query。
 
 ## 下一步
-需要新独立复核时先明确范围/预算；合入前固定当时main集成候选、重验全叶，再等用户批准。历史片单独验来源恢复和比较合同后才做有界自然题；别自动补绑数字。
+协调者合并预览跑四叶后合入。合后把 `docs-react-trace-chain-0923`、`fix-react-trace-closeout-0921`、`fix-react-trace-closeout-forward-0924` 三份 inflight 归档。#841 另见其 PR 评论。
 
 ## 踩过的坑
-首轮磁盘满2F/14errors留档；只清理本轮结束夹具。旧a412全绿也漏“目前。”，不移签ec246。K3管道吞rc/API误用会假绿，详见k3/root-qc.md；原始错误和auto_retry_start事件均保留。
+变异 runner 遇存活变异会中止并留临时树，要自己 `git worktree remove`；`TMPDIR` 指到证据目录可避开 /tmp。

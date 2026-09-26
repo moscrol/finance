@@ -1,0 +1,59 @@
+"""Compare the two RSS failures under the same env with/without outer Seatbelt."""
+import hashlib
+import json
+import os
+import signal
+import subprocess
+import time
+
+from resume import OUT, ROOT, PY, SHA, PROFILE, ident, now, save
+
+TESTS = [
+    'intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle',
+    'intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters',
+]
+
+
+def main():
+    initial = ident()
+    assert initial['head'] == SHA and not initial['status']
+    env = {'HOME': '/Users/a77', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+           'LANG': 'en_US.UTF-8', 'TMPDIR': '/tmp', 'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0',
+           'PYTHONPATH': str(ROOT)}
+    for mode in ('outer', 'native'):
+        folder = OUT / ('rss-' + mode)
+        folder.mkdir(exist_ok=False)
+        prefix = ['/usr/bin/sandbox-exec', '-p', PROFILE] if mode == 'outer' else []
+        command = [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', '--tb=short',
+                   '--basetemp', str(folder / 'tmp'), '--junitxml', str(folder / 'junit.xml'), *TESTS]
+        record = {'before': ident(), 'command': command, 'env': env, 'outer_sandbox': bool(prefix),
+                  'started_at': now(), 'runner_sha256': hashlib.sha256(__import__('pathlib').Path(__file__).read_bytes()).hexdigest()}
+        save(folder / 'start.json', record)
+        began = time.monotonic()
+        with (folder / 'output.txt').open('x') as log:
+            proc = subprocess.Popen([*prefix, *command], cwd=ROOT, env=env, stdout=log,
+                                    stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                rc = proc.wait(timeout=60)
+                reason = None
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    rc = proc.wait(timeout=8)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                    rc = proc.wait(timeout=5)
+                reason = 'timeout'
+        sample = subprocess.run([*prefix, '/bin/ps', '-o', 'rss=', '-p', str(os.getpid())],
+                                env=env, capture_output=True, text=True, timeout=10)
+        record.update({'exit_code': rc, 'stop_reason': reason, 'after': ident(), 'finished_at': now(),
+                       'elapsed_seconds': time.monotonic() - began,
+                       'ps_probe': {'returncode': sample.returncode, 'stdout': sample.stdout, 'stderr': sample.stderr},
+                       'log_sha256': hashlib.sha256((folder / 'output.txt').read_bytes()).hexdigest()})
+        save(folder / 'result.json', record)
+        print(json.dumps({'mode': mode, 'exit_code': rc, 'ps_probe': record['ps_probe']}))
+    assert ident() == initial
+
+
+if __name__ == '__main__':
+    main()

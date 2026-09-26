@@ -1,0 +1,10 @@
+{
+  "adapter_source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/qc_repair_once.py",
+  "adapter_source_sha256": "793012a09d80af83d0d68635e0a705a454921d24c4744c3e64dc54693c1693dd",
+  "new_adapter_sha256": "b3a8431e9e1e7845f418ebb48148986dadc9985e8332413898da6b4a59bb5e94",
+  "dispatch_source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-repair-01/dispatch_review.py",
+  "dispatch_source_sha256": "d1c3c7b38432369c751aa825ab989f9f62b3106fbcc26cdca091a61d5eeab121",
+  "new_dispatch_sha256": "2cc4ff320cf5207c09e31886cba3b4ef63bb894a4aba7f3a4bc825e8dbc3dce9",
+  "protocol_implementation_changed": false,
+  "dispatch": "explicit ARL-0005 manual retry, not worker queue selection"
+}

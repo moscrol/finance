@@ -1,0 +1,1 @@
+^D{"message": "Symlink loop from '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality/test-tmp/rag-quality-ogm_s1m_/venv/bin/python3'", "outcome": "exception", "type": "RuntimeError"}

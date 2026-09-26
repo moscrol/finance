@@ -1,0 +1,42 @@
+            OutputEvidenceBinding(output_id, (evidence.content_hash,))
+            for output_id in frame.required_outputs
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+def _judge(
+    passed: bool, *, rejected: tuple[int, ...] = (), issues: tuple[str, ...] = ()
+):
+    calls: list[dict[str, object]] = []
+
+    def run(request):
+        calls.append(request)
+        if calls.__len__() > 1:
+            return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return {
+            "passed": passed,
+            "rejected_sentence_indexes": list(rejected),
+            "issues": list(issues),
+        }
+
+    run.calls = calls  # type: ignore[attr-defined]
+    return run
+
+
+class _RecordingJudgeModel:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.calls.append(
+            {
+                "messages": messages,
+                "tools": tools,
+                "timeout": timeout,
+            }
+        )
+        return ModelTurn(
+
+[truncated; total lines=5180, selected=205:244; request a later offset]

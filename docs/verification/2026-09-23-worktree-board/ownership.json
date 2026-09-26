@@ -1,0 +1,232 @@
+{
+  "sampled_at": "2026-09-23T13:53:12.176379+00:00",
+  "base_sha": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "trees": [
+    {
+      "path": "/Users/a77/fwp-wt-ownership-arena-gates-0921",
+      "head": "471f85a226134d441b801dd4e5a0dbe964e07aa2",
+      "branch": "baseline/ownership-arena-gates-0921",
+      "observed_head": "471f85a226134d441b801dd4e5a0dbe964e07aa2",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-arena-gates-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/arena-main-ready-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-arena-gates-v2-0921",
+      "head": "b8292d235a8843d46d9f8cecd62a95567d7d7b1a",
+      "branch": "baseline/ownership-arena-gates-v2-0921",
+      "observed_head": "b8292d235a8843d46d9f8cecd62a95567d7d7b1a",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-arena-gates-v2-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/arena-main-ready-v2-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-closeout-0921",
+      "head": "53f789969c4478ea3470c548396ea9cd2e8290d6",
+      "branch": "ops/worktree-ownership-closeout-0921",
+      "observed_head": "53f789969c4478ea3470c548396ea9cd2e8290d6",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-closeout-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-gates-0921",
+      "head": "321712b68732eef3512da80a4aaedfecd2a9c950",
+      "branch": "baseline/ownership-gates-0921",
+      "observed_head": "321712b68732eef3512da80a4aaedfecd2a9c950",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-followup-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v2-0921",
+      "head": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+      "branch": "baseline/ownership-gates-v2-0921",
+      "observed_head": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v2-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-followup-recheck-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v3-0921",
+      "head": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "branch": "baseline/ownership-gates-v3-0921",
+      "observed_head": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v3-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-gates-v4-0921",
+      "head": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "branch": "baseline/ownership-gates-v4-0921",
+      "observed_head": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v4-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-integration-v4-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v3-0921",
+      "head": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "branch": "(detached)",
+      "observed_head": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v3-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/quality-k3",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-quality-v4-0921",
+      "head": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "branch": "(detached)",
+      "observed_head": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v4-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/quality-k3",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-resume-review-0921",
+      "head": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+      "branch": "(detached)",
+      "observed_head": "e1b63b1a5b7c066b7377bbd2d005051863331001",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v2-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-resume-20260921",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v3-0921",
+      "head": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "branch": "(detached)",
+      "observed_head": "47530e20fe5c3195e50ce429b31898d57918e413",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v3-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-k3-v3-20260921/spec-k3",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    },
+    {
+      "path": "/Users/a77/fwp-wt-ownership-spec-v4-0921",
+      "head": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "branch": "(detached)",
+      "observed_head": "6eb12c1b8a41071fd4af8bee343950fe0b85b221",
+      "head_matches_registration": true,
+      "status": [
+        " D .code-review-graph/.gitignore",
+        " D .code-review-graph/wiki-steering.json"
+      ],
+      "baseline_anchors_at_head": [
+        "baseline/ownership-gates-v4-0921"
+      ],
+      "ancestor_exit": 1,
+      "evidence_directory": "/Users/a77/.finance-runtime/reviews/ownership-k3-v4-20260921/spec-k3",
+      "evidence_exists": true,
+      "disposition": "KEEP: dirty review tree; #64 authorization required",
+      "evidence_note": ""
+    }
+  ]
+}

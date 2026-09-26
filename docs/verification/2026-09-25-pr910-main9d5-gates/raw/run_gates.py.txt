@@ -1,0 +1,121 @@
+"""Run serial offline engineering gates on two fixed candidates; never merge/deploy/review."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import socket
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+BASE = '9d5b9800a5500e6f64875432f8df3a06713d6f52'
+SPECS = {
+    '910': ('167c9ffac1b428164e7906861438eb1757895dc5', ['tests/test_pi_review_repair.py']),
+    '911': ('8dec2a856b76cec21fae6daae1ed7505fb838dcc', [
+        'intelligence/tests/conformance/test_research_chain.py',
+        'intelligence/tests/test_workbench_research_chain.py']),
+}
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+helpers = importlib.import_module('scripts.review_probes.run_extraction_mutations')
+observe = importlib.import_module('scripts.review_probes.gate_resources').observe
+fingerprint = importlib.import_module('scripts.check_test_receipt')._fingerprint
+assert sys.executable == PY and fingerprint() == '66726d345bf37ce5'
+
+
+def save(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+
+def check_ports(ports):
+    for port in ports:
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', port))
+
+
+def run_candidate(pr, revision, targets):
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    out = ROOT / pr
+    out.mkdir(exist_ok=False)
+    assert helpers.git(tree, 'rev-parse', 'HEAD') == revision
+    assert helpers.git(tree, 'status', '--porcelain') == ''
+    env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+    env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(tree), PYTHONDONTWRITEBYTECODE='1',
+               FORESIGHT_LLM_KEYCHAIN='0', FORESIGHT_USERS_DIR=str(out / 'isolated-users'),
+               FINANCE_DEPLOY_LEDGER=str(out / 'deploy-ledger.jsonl'),
+               FWP_TEST_RECEIPT_DIR=str(out / 'receipts'))
+    report = {'pr': pr, 'tree': str(tree), 'revision': revision, 'baseline': BASE,
+              'python': PY, 'dependency_fingerprint': fingerprint(), 'steps': [],
+              'model_requests': 0, 'independent_review': False, 'status': 'RUNNING'}
+    save(out / 'summary.json', report)
+
+    def step(label, command, timeout=180, ports=(), heavy=False):
+        if heavy:
+            admission = observe(tree, minimum_free=20 * 1024**3)
+            save(out / f'{label}.admission.json', admission)
+            if not admission['admitted']:
+                raise RuntimeError('resource admission denied: ' + label)
+        check_ports(ports)
+        result = helpers._run_logged_command(tree, out, label, command, env, timeout=timeout)
+        report['steps'].append({'label': label, 'exit': result['exit'], 'status': result['status']})
+        save(out / 'summary.json', report)
+        print(json.dumps({'pr': pr, 'label': label, 'exit': result['exit']}), flush=True)
+        return result['exit'] == 0 and result['status'] == 'completed'
+
+    try:
+        for label, args in (
+            ('doctor', ['scripts/workspace.py', 'doctor']),
+            ('registry-parse', ['scripts/build_registry.py', 'check-parseability']),
+            ('registry-check', ['scripts/build_registry.py', 'check']),
+            ('registry-tables', ['scripts/build_registry.py', 'backfill-tables', '--check']),
+            ('registry-views', ['scripts/build_registry.py', 'generate-views', '--check']),
+            ('ledger-crosswalk', ['scripts/audit_ledger_spec_crosswalk.py']),
+        ):
+            step(label, [PY, *args])
+        step('diff-check', ['git', 'diff', '--check', BASE + '...HEAD'])
+        env['FWP_TEST_RECEIPT_PATH'] = str(out / 'targeted-receipt.json')
+        if not step('targeted', [PY, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+                                '--basetemp=' + str(out / 'targeted-tmp'),
+                                '--junitxml=' + str(out / 'targeted.xml'), *targets],
+                    timeout=900, heavy=True, ports=range(26001, 26009) if pr == '910' else ()):
+            raise RuntimeError('targeted checks failed; inspect before full run')
+        del env['FWP_TEST_RECEIPT_PATH']
+        step('targeted-receipt-check', [PY, 'scripts/check_test_receipt.py', str(out / 'targeted-receipt.json'),
+                                       '--expect-revision', revision, '--main-ref', BASE, '--base-drift-max', '0',
+                                       '--require-target', targets[0]])
+        step('python-full', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+                            '-q -p no:cacheprovider --basetemp=' + str(out / 'full-tmp')
+                            + ' --junitxml=' + str(out / 'full.xml')], timeout=2700, heavy=True,
+             ports=range(26001, 26009) if pr == '910' else (19899,))
+        receipts = list((out / 'receipts').glob('gate-*/pytest.json'))
+        if len(receipts) == 1:
+            report['python_receipt'] = str(receipts[0])
+            report['python_counts'] = json.loads(receipts[0].read_text())['counts']
+            step('full-receipt-check', [PY, 'scripts/check_test_receipt.py', str(receipts[0]),
+                                       '--expect-revision', revision, '--main-ref', BASE,
+                                       '--base-drift-max', '0', '--require-full-scope'])
+        else:
+            raise RuntimeError('expected one full-scope receipt')
+        step('frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(tree),
+                          '--expect-revision', revision, '--output', str(out / 'frontend'),
+                          '--python', PY, '--workbench-port', '20981', '--re06-port', '20984'],
+             timeout=1800, heavy=True, ports=(20981, 20984))
+        report['dirty_after'] = helpers.git(tree, 'status', '--porcelain')
+        assert report['dirty_after'] == '' and helpers.git(tree, 'rev-parse', 'HEAD') == revision
+        report['status'] = ('ENGINEERING_GATES_PASS_NOT_INDEPENDENT_REVIEW' if all(
+            row['exit'] == 0 and row['status'] == 'completed' for row in report['steps']) else 'ENGINEERING_GATES_FAILED')
+    except Exception as exc:
+        report.update(status='STOPPED_INCOMPLETE', error=str(exc))
+        raise
+    finally:
+        report['finished_at'] = datetime.now(timezone.utc).isoformat()
+        save(out / 'summary.json', report)
+
+
+with (ROOT / 'started.json').open('x') as stream:
+    json.dump({'pid': os.getpid(), 'started_at': datetime.now(timezone.utc).isoformat(),
+               'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+               'paid_authorization': False}, stream)
+for pr, (revision, targets) in SPECS.items():
+    run_candidate(pr, revision, targets)

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/file_tool.py", line 16, in <module>
+    raise PermissionError('only review work is writable')
+PermissionError: only review work is writable

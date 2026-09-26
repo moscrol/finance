@@ -1,0 +1,24 @@
+{
+  "observed_at": "2026-09-25T09:33:10.175465+00:00",
+  "candidate_revision": "c367aa2a702e3a40bf826982c4e936a3f50b3f14",
+  "fetched_main_revision": "64847b7a173bfb7191012638e8ec044ea31e0513",
+  "integrated_main_revision": "9d5b9800a5500e6f64875432f8df3a06713d6f52",
+  "main_changed_paths": [
+    "docs/handoffs/2026-09-25-l6-postmerge-result.md",
+    "docs/handoffs/inflight/feat-adaptive-research-loop.md",
+    "docs/superpowers/specs/2026-09-01-workorders-INDEX.md"
+  ],
+  "merge_tree": {
+    "command": [
+      "git",
+      "merge-tree",
+      "--write-tree",
+      "64847b7a173bfb7191012638e8ec044ea31e0513",
+      "c367aa2a702e3a40bf826982c4e936a3f50b3f14"
+    ],
+    "exit_code": 0,
+    "stdout": "ef7dd9c7a916b5678701df5bc8c87687e418d32c\n",
+    "stderr": ""
+  },
+  "actual_merge_performed": false
+}

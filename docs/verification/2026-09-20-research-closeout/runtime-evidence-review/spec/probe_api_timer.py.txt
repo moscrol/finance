@@ -1,0 +1,84 @@
+"""Deterministically park an already-fired real timer across fixture teardown."""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import sys
+import threading
+from tempfile import TemporaryDirectory
+
+TREE = Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(TREE))
+
+import pytest
+from intelligence.api import app as api_module
+from intelligence.services.run_store import RunStore
+from intelligence.tests import test_api_run_admission
+
+
+entered = threading.Event()
+release = threading.Event()
+done = threading.Event()
+timer_threads = []
+observed = []
+before_env = os.environ.get("FORESIGHT_USERS_DIR")
+fixture = client = None
+result = {}
+try:
+    with TemporaryDirectory(prefix="api-timer-", dir=Path(__file__).parent) as tmp:
+        with pytest.MonkeyPatch.context() as patch:
+            original_claim = RunStore.claim_failed_run
+
+            def parked_claim(store, *args, **kwargs):
+                value = original_claim(store, *args, **kwargs)
+                if kwargs.get("error") == "executor_timeout":
+                    assert value[1], "the live timer must claim timeout before the worker completes"
+                    timer_threads.append(threading.current_thread())
+                    entered.set()
+                    try:
+                        if not release.wait(5):
+                            raise RuntimeError("review did not release the timer")
+                        observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
+                    finally:
+                        done.set()
+                return value
+
+            patch.setattr(RunStore, "claim_failed_run", parked_claim)
+            fixture = test_api_run_admission.harness.__wrapped__(Path(tmp), patch)
+            h = next(fixture)
+            client = h.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
+            response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+            assert response.status_code == 200
+            assert entered.wait(5), "timer did not reach its deterministic checkpoint"
+            during_env = os.environ.get("FORESIGHT_USERS_DIR")
+            try:
+                next(fixture)
+            except StopIteration:
+                pass
+            else:
+                raise AssertionError("fixture did not finish")
+            result = {
+                "drain_returned": True,
+                "executor_active": client.app.state.supervisor.active_count(),
+                "timer_alive_after_drain": timer_threads[0].is_alive(),
+                "timer_completed_after_drain": done.is_set(),
+                "fixture_env": during_env,
+            }
+        # Dependency restoration happens before the still-running timeout callback returns.
+        release.set()
+        timer_threads[0].join(5)
+        result.update({"restored_env": before_env, "callback_observed_env": observed, "timer_cleaned": not timer_threads[0].is_alive()})
+finally:
+    release.set()
+    for thread in timer_threads:
+        thread.join(5)
+    if fixture is not None:
+        fixture.close()
+    if client is not None:
+        client.app.state.supervisor.shutdown()
+        client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+        client.close()
+
+print(json.dumps(result, ensure_ascii=False))
+raise SystemExit(1 if result["timer_alive_after_drain"] else 0)

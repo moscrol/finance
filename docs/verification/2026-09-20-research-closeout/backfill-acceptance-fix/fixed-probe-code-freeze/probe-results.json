@@ -1,0 +1,37 @@
+[
+  {
+    "case": "control",
+    "rc": 0,
+    "verdict": "PASS",
+    "failed": [],
+    "output_exists": true,
+    "checks": 37,
+    "stderr_tail": ""
+  },
+  {
+    "case": "spec_other_code",
+    "rc": 2,
+    "verdict": "FAIL",
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "output_exists": true,
+    "checks": 22,
+    "stderr_tail": ""
+  },
+  {
+    "case": "huge_numeric_pin",
+    "rc": 2,
+    "verdict": "FAIL",
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "output_exists": true,
+    "checks": 22,
+    "stderr_tail": ""
+  }
+]

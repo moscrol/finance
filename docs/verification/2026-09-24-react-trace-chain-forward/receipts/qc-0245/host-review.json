@@ -1,0 +1,27 @@
+{
+  "recorded_at": "2026-09-23T18:56:35.864084+00:00",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "verdict": "CHANGES_REQUIRED_C6_ORDERED_DEFINITION_AND_BLOCKED_INDEPENDENT_COVERAGE",
+  "model_requests_in_batch": 56,
+  "model_requests_added": 0,
+  "current_authorization_dispatched_total": 124,
+  "model_report": "Spec BLOCKED with C6 not_verified; Quality never started.",
+  "observed": [
+    "4 gateway + 19 explore + 20 execute + 13 report requests completed; no provider failed/cancelled requests.",
+    "Every actual relay admission carried enabled thinking, low effort and native max_tokens <=8192.",
+    "Spec final report appropriately refuses C6 independent verification but incorrectly attributes every C6 failure solely to its synthetic grammar.",
+    "Host reproduction through SemanticEpisodeVerifier.verify proves ordered 1./1)/(1) definition deletion leaves orphaned count in public_answer.",
+    "Host helper reproduction proves a surviving ordered definition is missed and its live count is wrongly removed."
+  ],
+  "host_diagnosis": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/host-c6-diagnostic.json",
+  "limits": [
+    "Host reproduction uses an author structural fixture; it is not a new independent signoff.",
+    "A complete batch with no stream errors is n=1; not provider stability or latency causation proof.",
+    "C3 independent probe reused author helpers; original failed probes and model reports retained.",
+    "Finding observations in the report findings array triggered repeated deterministic submission refusal; new tooling must clarify defects-only findings, not silently accept reported defects."
+  ],
+  "natural_finance_requests": 0,
+  "merged": false,
+  "deployed": false
+}

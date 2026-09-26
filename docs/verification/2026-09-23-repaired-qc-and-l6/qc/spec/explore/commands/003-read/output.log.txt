@@ -1,0 +1,402 @@
+[
+  {
+    "file": "intelligence/services/llm_http_transport.py",
+    "sha256": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5",
+    "lines": 306,
+    "symbols": [
+      {
+        "name": "HTTPDeadlineExceeded",
+        "start": 28,
+        "end": 29
+      },
+      {
+        "name": "HTTPStreamCancelled",
+        "start": 32,
+        "end": 33
+      },
+      {
+        "name": "_headers",
+        "start": 41,
+        "end": 45
+      },
+      {
+        "name": "_raise_remote_error",
+        "start": 48,
+        "end": 71
+      },
+      {
+        "name": "HTTPResponse",
+        "start": 74,
+        "end": 210
+      },
+      {
+        "name": "urlopen",
+        "start": 213,
+        "end": 251
+      },
+      {
+        "name": "_worker",
+        "start": 254,
+        "end": 302
+      },
+      {
+        "name": "__init__",
+        "start": 75,
+        "end": 84
+      },
+      {
+        "name": "_check",
+        "start": 86,
+        "end": 92
+      },
+      {
+        "name": "_wait",
+        "start": 94,
+        "end": 103
+      },
+      {
+        "name": "send_request",
+        "start": 105,
+        "end": 117
+      },
+      {
+        "name": "_receive",
+        "start": 119,
+        "end": 142
+      },
+      {
+        "name": "open",
+        "start": 144,
+        "end": 151
+      },
+      {
+        "name": "_chunks",
+        "start": 153,
+        "end": 166
+      },
+      {
+        "name": "read",
+        "start": 168,
+        "end": 171
+      },
+      {
+        "name": "__iter__",
+        "start": 173,
+        "end": 184
+      },
+      {
+        "name": "__enter__",
+        "start": 186,
+        "end": 188
+      },
+      {
+        "name": "__exit__",
+        "start": 190,
+        "end": 191
+      },
+      {
+        "name": "close",
+        "start": 193,
+        "end": 210
+      },
+      {
+        "name": "emit",
+        "start": 255,
+        "end": 257
+      },
+      {
+        "name": "LoopbackOnly",
+        "start": 276,
+        "end": 286
+      },
+      {
+        "name": "http_request",
+        "start": 279,
+        "end": 284
+      }
+    ]
+  },
+  {
+    "file": "intelligence/services/llm_refine.py",
+    "sha256": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+    "lines": 2605,
+    "symbols": [
+      {
+        "name": "_llm_request_headers",
+        "start": 91,
+        "end": 103
+      },
+      {
+        "name": "LLMProvider",
+        "start": 120,
+        "end": 126
+      },
+      {
+        "name": "http_transport_override",
+        "start": 140,
+        "end": 151
+      },
+      {
+        "name": "LLMStreamCancelled",
+        "start": 154,
+        "end": 155
+      },
+      {
+        "name": "LLMStreamingUnsupported",
+        "start": 158,
+        "end": 159
+      },
+      {
+        "name": "LLMDeadlineExceeded",
+        "start": 162,
+        "end": 163
+      },
+      {
+        "name": "LLMOutputTooLong",
+        "start": 166,
+        "end": 167
+      },
+      {
+        "name": "LLMCallBudgetExceeded",
+        "start": 170,
+        "end": 171
+      },
+      {
+        "name": "LLMStreamAlreadyEmitted",
+        "start": 174,
+        "end": 180
+      },
+      {
+        "name": "Deadline",
+        "start": 184,
+        "end": 215
+      },
+      {
+        "name": "_open_deadline_http_response",
+        "start": 219,
+        "end": 229
+      },
+      {
+        "name": "detect_providers",
+        "start": 232,
+        "end": 283
+      },
+      {
+        "name": "detect_provider",
+        "start": 286,
+        "end": 288
+      },
+      {
+        "name": "judge_provider",
+        "start": 291,
+        "end": 336
+      },
+      {
+        "name": "judge_fallback_provider",
+        "start": 339,
+        "end": 357
+      },
+      {
+        "name": "judge_provider_chain",
+        "start": 360,
+        "end": 379
+      },
+      {
+        "name": "_provider_failure_reason",
+        "start": 382,
+        "end": 392
+      },
+      {
+        "name": "stable_llm_fallback_reason",
+        "start": 395,
+        "end": 471
+      },
+      {
+        "name": "provider_override",
+        "start": 475,
+        "end": 480
+      },
+      {
+        "name": "LLMCallRecord",
+        "start": 492,
+        "end": 522
+      },
+      {
+        "name": "LLMCallContext",
+        "start": 526,
+        "end": 530
+      },
+      {
+        "name": "call_provenance_scope",
+        "start": 539,
+        "end": 545
+      },
+      {
+        "name": "_canonical_sha256",
+        "start": 548,
+        "end": 552
+      },
+      {
+        "name": "provider_endpoint_id",
+        "start": 555,
+        "end": 566
+      },
+      {
+        "name": "_metadata_string",
+        "start": 569,
+        "end": 570
+      },
+      {
+        "name": "_LLMCallAttempt",
+        "start": 574,
+        "end": 617
+      },
+      {
+        "name": "_new_call_attempt",
+        "start": 620,
+        "end": 633
+      },
+      {
+        "name": "LLMCallLedger",
+        "start": 640,
+        "end": 739
+      },
+      {
+        "name": "_record_to_dict",
+        "start": 742,
+        "end": 750
+      },
+      {
+        "name": "_has_usage",
+        "start": 753,
+        "end": 754
+      },
+      {
+        "name": "_tokens_by_purpose",
+        "start": 757,
+        "end": 771
+      },
+      {
+        "name": "_estimated_share",
+        "start": 774,
+        "end": 787
+      },
+      {
+        "name": "_insufficient_budget_reason",
+        "start": 790,
+        "end": 809
+      },
+      {
+        "name": "_tally_failure_reasons",
+        "start": 812,
+        "end": 820
+      },
+      {
+        "name": "call_ledger_scope",
+        "start": 830,
+        "end": 847
+      },
+      {
+        "name": "_budget_rejection",
+        "start": 850,
+        "end": 855
+      },
+      {
+        "name": "_reserve_llm_call",
+        "start": 858,
+        "end": 867
+      },
+      {
+        "name": "current_call_ledger",
+        "start": 870,
+        "end": 871
+      },
+      {
+        "name": "call_purpose",
+        "start": 882,
+        "end": 893
+      },
+      {
+        "name": "current_call_purpose",
+        "start": 896,
+        "end": 897
+      },
+      {
+        "name": "_retry_delay_seconds",
+        "start": 915,
+        "end": 919
+      },
+      {
+        "name": "_failure_reason",
+        "start": 937,
+        "end": 958
+      },
+      {
+        "name": "_record_llm_call",
+        "start": 961,
+        "end": 1015
+      },
+      {
+        "name": "synthesis_thinking_disabled",
+        "start": 1018,
+        "end": 1022
+      },
+      {
+        "name": "_apply_thinking_controls",
+        "start": 1034,
+        "end": 1043
+      },
+      {
+        "name": "_stable_finish_reason",
+        "start": 1046,
+        "end": 1052
+      },
+      {
+        "name": "_build_user_prompt",
+        "start": 1066,
+        "end": 1073
+      },
+      {
+        "name": "_complete_cli_judge",
+        "start": 1076,
+        "end": 1122
+      },
+      {
+        "name": "_chat_payload",
+        "start": 1125,
+        "end": 1136
+      },
+      {
+        "name": "_post_chat",
+        "start": 1139,
+        "end": 1192
+      },
+      {
+        "name": "_post_chat_synthesis",
+        "start": 1195,
+        "end": 1234
+      },
+      {
+        "name": "complete",
+        "start": 1237,
+        "end": 1309
+      },
+      {
+        "name": "_ToolCallAssembler",
+        "start": 1312,
+        "end": 1363
+      },
+      {
+        "name": "_post_chat_message_stream",
+        "start": 1366,
+        "end": 1503
+      },
+      {
+        "name": "_post_chat_message",
+        "start": 1506,
+        "end": 1569
+      },
+      {
+        "name": "_served_model_from_body",
+
+[truncated; total lines=1893, selected=1:400; request a later offset]

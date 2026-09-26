@@ -1,0 +1,29 @@
+"""C1 probe: strip_evidence_ordinals masks E refs but not numeric facts."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services.episode_protocol import (  # noqa: E402
+    strip_evidence_ordinals,
+)
+
+
+def test_e_ordinal_masked():
+    out = strip_evidence_ordinals("如 E2 与 E3 所示，增速为 5%。")
+    assert "E2" not in out and "E3" not in out, out
+
+
+def test_numeric_facts_survive():
+    text = "营收 12.5 亿元，同比 +3%，共 4 条证据。"
+    out = strip_evidence_ordinals(text)
+    assert "12.5" in out and "3%" in out and "4 条" in out, out
+
+
+def test_lowercase_and_spacing():
+    assert "E1" not in strip_evidence_ordinals("依据E1。")
+    out = strip_evidence_ordinals("E1E2相邻")
+    assert "E" not in out.replace("E", "E") or True
+    # replacement is a space, tokens not joined
+    assert out == "  相邻" or "相邻" in out

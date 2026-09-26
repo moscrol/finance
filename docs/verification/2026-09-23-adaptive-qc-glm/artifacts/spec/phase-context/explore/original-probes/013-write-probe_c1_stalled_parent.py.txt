@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Probe C1 (stalled parent): worker Timer terminates even if parent reads nothing.
+
+Server on 127.0.0.1:26002 streams a large body immediately. The parent opens
+the response, then deliberately stalls (no reads) past the deadline. The
+worker subprocess must exit by itself with code 124 (Timer -> os._exit), and
+when the stalled parent finally resumes, it must observe the failure instead
+of blocking until the per-call timeout (5s here, deadline 1.2s).
+"""
+import socket
+import sys
+import threading
+import time
+import urllib.request
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private")
+from intelligence.services import llm_http_transport  # noqa: E402
+
+HOST, PORT = "127.0.0.1", 26002
+
+
+def fast_server(stop):
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind((HOST, PORT))
+    srv.listen(4)
+    while not stop.is_set():
+        srv.settimeout(0.2)
+        try:
+            conn, _ = srv.accept()
+        except socket.timeout:
+            continue
+        try:
+            conn.recv(65536)
+            body = b"a" * (1024 * 1024)  # 1 MiB, delivered eagerly
+            head = (b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n"
+                    b"Connection: close\r\n\r\n" % len(body))
+            conn.sendall(head + body)
+        except OSError:
+            pass
+        finally:
+            conn.close()
+    srv.close()
+
+
+class Deadline:
+    def __init__(self, expires_at):
+        self.expires_at = expires_at
+
+
+def main():
+    stop = threading.Event()
+    threading.Thread(target=fast_server, args=(stop,), daemon=True).start()
+    time.sleep(0.2)
+
+    req = urllib.request.Request(f"http://{HOST}:{PORT}/big", data=b"{}", method="POST")
+    dl = Deadline(time.monotonic() + 1.2)
+    t0 = time.monotonic()
+    resp = llm_http_transport.urlopen(req, timeout=5.0, deadline=dl, loopback_only=True)
+    assert resp.status == 200, f"headers not received: {resp.status}"
+    print(f"headers at {time.monotonic()-t0:.2f}s; parent now stalls 2.0s...")
+    time.sleep(2.0)  # parent is a stalled consumer the whole time
+    rc = resp.process.poll()
+    print(f"worker returncode while parent stalled: {rc}")
+    assert rc == 124, (
+        f"worker did not self-terminate at deadline (rc={rc}); "
+        "Timer enforcement for stalled parent FAILED"
+    )
+    # resume reading: must fail, not deliver a clean full body at 5s timeout
+    err = None
+    try:
+        data = resp.read()
+        print(f"read returned {len(data)} bytes cleanly")
+        err = "clean-read"
+    except llm_http_transport.HTTPDeadlineExceeded:
+        err = "deadline"
+    except OSError as e:
+        err = f"oserror:{type(e).__name__}"
+    elapsed = time.monotonic() - t0
+    print(f"after-resume outcome={err} elapsed={elapsed:.2f}")
+    assert err != "clean-read", "stalled parent got a complete body anyway"
+    assert elapsed < 4.0, f"resumed read blocked until per-call timeout: {elapsed:.2f}s"
+    resp.close()
+    stop.set()
+    print("PROBE_C1_STALLED_PARENT: PASS")
+
+
+if __name__ == "__main__":
+    main()

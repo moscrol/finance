@@ -1,0 +1,6 @@
+{
+  "scope": ["review-b", "review-c"],
+  "point": "Before either batch starts; review-a inputs remain unchanged",
+  "operator_change": "Prefer small probe files and early execution; no change to contracts, verdict criteria, model route, request limit or timeout",
+  "reason": "Review-a is spending several minutes streaming a tool-call payload; avoid leaving dynamic validation and reporting until the deadline"
+}

@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "files_scanned": 115,
+  "pattern_hits": [],
+  "scope": "JWT/bearer/sk patterns, no credential values output"
+}

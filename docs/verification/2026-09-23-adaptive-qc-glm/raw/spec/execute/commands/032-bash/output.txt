@@ -1,0 +1,121 @@
+        provider = providers[0] if providers else None
+        if provider is not None:
+            leftover = _deadline_remaining_seconds(deadline)
+            if leftover_window_blocks_complete_attempt(
+                leftover, attempt_cap, policy
+            ):
+                return self._clocked_judge_call(
+                    asked=0.0,
+                    remaining=leftover,
+                    correlated=False,
+                    unavailable=True,
+                    issue=LEFTOVER_WINDOW_ISSUE,
+                    root_deadline_exhausted=True,
+                    monotonic_release_safe=True,
+                )
+            messages = [
+                {"role": "system", "content": _judge_system_prompt(request)},
+                {
+                    "role": "user",
+                    "content": dumps_judge_request(request),
+                },
+            ]
+            prior_failures_release_safe = True
+            last_failure: _JudgeCall | None = None
+            # 窗口余额账：报价是「一次完整尝试」，真正的封顶是这里。
+            # 用 deadline 读数扣账而不是另起时钟——冻结时间的测试才不会两套钟打架。
+            window_left = total_window
+            previous_remaining: float | None = None
+            for attempt, timeout_limit in enumerate(attempt_timeouts):
+                remaining_at_entry = _deadline_remaining_seconds(deadline)
+                if previous_remaining is not None and remaining_at_entry is not None:
+                    window_left -= max(0.0, previous_remaining - remaining_at_entry)
+                previous_remaining = remaining_at_entry
+                timeout_limit = min(timeout_limit, max(0.0, window_left))
+                if leftover_window_blocks_complete_attempt(
+                    remaining_at_entry, attempt_cap, policy
+                ):
+                    return self._clocked_judge_call(
+                        asked=0.0,
+                        judge_attempt_index=attempt,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue=LEFTOVER_WINDOW_ISSUE,
+                        last_dispatched_failure=last_failure,
+                        root_deadline_exhausted=True,
+                        monotonic_release_safe=True,
+                    )
+                attempt_timeout = deadline.synthesis_timeout(timeout_limit)
+                if attempt_timeout <= 0.001:
+                    failure_chain_release_safe = (
+                        attempt == 0 or prior_failures_release_safe
+                    )
+                    # root_deadline_exhausted 保持 True：释放语义（预算到点 →
+                    # 只删不改地放行早先完成的报告）对「窗被吃光」同样成立，
+                    # 这里只把归因写对，不改放行行为。
+                    return self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        judge_attempt_index=attempt,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue=self._window_starved_issue(attempt, deadline),
+                        last_dispatched_failure=last_failure,
+                        root_deadline_exhausted=True,
+                        monotonic_release_safe=failure_chain_release_safe,
+                    )
+                # 槽位轮转：attempt 0 走主判官，之后的槽走链上下一位（链短于
+                # 槽数时停在最后一位）。哪位判官真正服务了本轮，由 LLM 调用
+                # 台账逐 attempt 记 provider 名，不另加 schema。
+                active_provider = providers[min(attempt, len(providers) - 1)]
+                try:
+                    # purpose=judge 只包住真正发请求的这一层（INDEX #23）：三处
+                    # ``_judge_request`` 都汇到这里，修复轮的写手调用发生在本方法
+                    # 之外，不会被误标。提示词 / 超时 / 判定逻辑一律不动。
+                    with llm_refine.provider_override(active_provider):
+                        with llm_refine.call_purpose("judge"):
+                            content, _used, reason = llm_refine.complete(
+                                messages,
+                                timeout=attempt_timeout,
+                                temperature=0.0,
+                            )
+                except Exception as exc:  # pragma: no cover - adapter boundary
+                    issue, retryable, release_safe = _stable_semantic_judge_error(
+                        type(exc).__name__
+                    )
+                    should_retry = _should_retry_semantic_judge(
+                        attempt,
+                        retryable=retryable,
+                        release_safe=release_safe,
+                        prior_failures_release_safe=(
+                            prior_failures_release_safe
+                        ),
+                        deadline=deadline,
+                    )
+                    prior_failures_release_safe &= release_safe
+                    if not should_retry and _next_slot_switches_judge(
+                        attempt, len(providers), len(attempt_timeouts), deadline
+                    ):
+                        # 主判官放弃但链上还有没上场的备胎：下一槽换人再试。
+                        # 释放安全账照常累计，不因换人清零（R-20260829-03）。
+                        should_retry = True
+                    last_failure = self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        judge_attempt_index=attempt,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=True,
+                        issue=issue,
+                        failure=exc,
+                        transient_provider_failure=(
+                            prior_failures_release_safe
+                        ),
+                        monotonic_release_safe=prior_failures_release_safe,
+                    )
+                    if should_retry:
+                        continue
+                    return last_failure
+                report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"))
+                if report is not None:
+                    return self._clocked_judge_call(

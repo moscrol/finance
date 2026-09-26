@@ -1,0 +1,31 @@
+750:def strip_evidence_ordinals(text: str) -> str:
+751-    """Mask prose E references in an analysis-only copy, using the citation grammar.
+752-
+753-    Citation IDs are not quantities. Replace them with a space rather than
+754-    joining adjacent tokens. This neither validates references nor changes the
+755-    public draft: consumers must still check unknown ordinals in the original.
+756-    """
+757-
+758-    return _PROSE_EVIDENCE_REF_RE.sub(" ", str(text or ""))
+759-
+760-
+761-def resolve_evidence_refs(
+762-    raw_refs: list[object],
+763-    evidence: tuple[AgentEvidence, ...],
+764-) -> tuple[str, ...]:
+765-    """把绑定里的 E1..En（或精确哈希）解析成 ``content_hash``。
+766-
+767-    序号优先：``E1`` 永不按哈希解释。越界序号硬拒。精确哈希仍接受，
+768-    供旧夹具与偶发抄对的路径；抄错的哈希走既有 forged/truncated，
+769-    **不做模糊纠正**（拼接标本会同时近配两条真哈希）。
+770-    """
+771-
+772-    table = evidence_ordinal_table(evidence)
+773-    by_id = {eid: digest for digest, eid in table.items()}
+774-    resolved: list[str] = []
+775-    for raw in raw_refs:
+776-        if not isinstance(raw, str):
+777-            raise _reject(
+778-                "hashes_not_list",
+779-                "binding evidence_hashes must be a string list",
+780-            )

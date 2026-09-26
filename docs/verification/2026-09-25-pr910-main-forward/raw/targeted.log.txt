@@ -1,0 +1,7 @@
+{"label": "targeted", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-forward-20260925/910/pytest-tmp", "--junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-forward-20260925/910/targeted.xml", "tests/test_pi_review_repair.py::test_content_binding_rejects_malformed_or_forged_submissions", "tests/test_pi_review_repair.py::test_probe_validation_checks_canonical_files_without_rewriting", "tests/test_pi_review_repair.py::test_prepare_preserves_sealed_inputs_and_refuses_reuse", "tests/test_pi_review_repair.py::test_prepare_fails_closed_on_changed_archive"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "4ad2cb42b0c58d9b3997a435568eea5e549bccdb", "started_at": "2026-09-25T04:32:37.354174+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+....                                                                     [100%]读数收据: /Users/a77/.finance-runtime/reviews/pr910-911-forward-20260925/910/pytest.json
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr910-911-forward-20260925/910/targeted.xml -
+4 passed in 1.76s
+
+EXIT=0 STATUS=completed

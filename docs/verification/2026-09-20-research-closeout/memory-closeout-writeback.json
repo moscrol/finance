@@ -1,0 +1,8 @@
+{
+  "project_index_commit": "e7777981703022b105ce005139445e72333b1fed",
+  "knowledge_note_commit": "98c1b59d6fae7f51221ee814fadeabeb4be2073e",
+  "capability_graph_commit": "33f75d5e4090f853107b43db4134c91c8f85771c",
+  "remote": "gitea/main",
+  "graph_audit_exit": 0,
+  "note": "Knowledge note and capability graph were committed and pushed by the existing auto-sync process; their committed provenance was verified. Small project index edit was explicitly committed with pathspec."
+}

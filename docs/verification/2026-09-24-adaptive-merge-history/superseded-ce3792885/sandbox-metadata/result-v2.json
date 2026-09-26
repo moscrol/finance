@@ -1,0 +1,36 @@
+{
+  "author_test_exit": 0,
+  "content_denials_exit": 0,
+  "scope": "host sandbox probe only",
+  "commands": [
+    [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/after-v2.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/candidate/intelligence/tests/test_llm_timeout_diagnostic.py",
+      "-k",
+      "violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard",
+      "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/work/after-v2"
+    ],
+    [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/sandbox-metadata/after-v2.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-c",
+      "from pathlib import Path\nimport sys\nfor p in sys.argv[1:]:\n try: Path(p).read_bytes()\n except PermissionError: pass\n else: raise AssertionError('content read unexpectedly allowed: '+p)\nprint('all protected content reads denied')\n",
+      "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/candidate/docs/agent-product-door.md",
+      "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/candidate/.git",
+      "/Users/a77/.pi/agent/models.json",
+      "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/report/parsed.json"
+    ]
+  ]
+}

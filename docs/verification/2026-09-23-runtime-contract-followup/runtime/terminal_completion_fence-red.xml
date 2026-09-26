@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="12" time="13.059" timestamp="2026-09-23T13:38:31.742260+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[configure-0-0]" time="0.014"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[task-0-0]" time="0.004"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[prompt_assembled-0-0]" time="0.008"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[state:planning-0-0]" time="0.023"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[model_intent-0-0]" time="0.026"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[state:model_pending-0-0]" time="0.016"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[model_turn-1-0]" time="0.010"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[tool_request-1-0]" time="0.036"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[state:tools_pending-1-0]" time="0.031"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[tool_result-1-1]" time="0.045"><failure message="AssertionError: assert 'durable' == 'failed'&#10;  &#10;  - failed&#10;  + durable">intelligence/tests/test_episode_persistence_failure.py:60: in test_failed_write_stops_new_effects
+    assert outcome.persistence == "failed"
+E   AssertionError: assert 'durable' == 'failed'
+E     
+E     - failed
+E     + durable</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[finish-2-1]" time="0.027"><failure message="AssertionError: assert 'completed' == 'failed'&#10;  &#10;  - failed&#10;  + completed">intelligence/tests/test_episode_persistence_failure.py:58: in test_failed_write_stops_new_effects
+    assert outcome.status == "failed"
+E   AssertionError: assert 'completed' == 'failed'
+E     
+E     - failed
+E     + completed</failure></testcase><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_failed_write_stops_new_effects[state:done-2-1]" time="0.036"><failure message="AssertionError: assert 'completed' == 'failed'&#10;  &#10;  - failed&#10;  + completed">intelligence/tests/test_episode_persistence_failure.py:58: in test_failed_write_stops_new_effects
+    assert outcome.status == "failed"
+E   AssertionError: assert 'completed' == 'failed'
+E     
+E     - failed
+E     + completed</failure></testcase></testsuite></testsuites>

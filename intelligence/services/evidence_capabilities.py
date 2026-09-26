@@ -551,6 +551,21 @@ def all_tools_authorized() -> bool:
     return os.environ.get(TOOL_AUTHORIZATION_ENV, "").strip().lower() == "all"
 
 
+MEMORY_OPENING_QUESTION_TYPES = frozenset({
+    "stock_deep_dive", "theme_analysis", "theme_track", "trade_advice",
+    "valuation_estimate", "financial_analysis",
+})
+
+
+def needs_opening_memory(frame: TaskFrame) -> bool:
+    """Only resolved company/theme research gets automatic private recall."""
+    return (
+        frame.question_type in MEMORY_OPENING_QUESTION_TYPES
+        and str(frame.subject_kind or "").strip().lower() in {"company", "theme", "concept"}
+        and len(str(frame.subject or "").strip()) >= 2
+    )
+
+
 def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     """Project task semantics into the continuous runtime's tool namespace."""
 
@@ -579,6 +594,18 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
         if (runtime_name := _PLAN_CAPABILITY_TO_RUNTIME.get(item.capability))
     )
     capabilities = tuple(dict.fromkeys((*floor, *planned)))
+    # 复用已有 D12 意图，不新增题型/产品门。只给确实要求取数的题增加菜单能力；
+    # 纯概念/方法题仍受上方无检索短路约束。外呼读取范围由材料合同继续收窄。
+    from intelligence.services.market_capital import parse_capital_intent
+
+    if (
+        frame_requires_retrieval
+        and frame.question_type not in {"concept_definition", "methodology_discussion", "answer_review"}
+        and parse_capital_intent(frame.raw_question)
+    ):
+        capabilities = tuple(dict.fromkeys((*capabilities, "capital_data")))
+    if needs_opening_memory(frame) and "memory_lookup" not in capabilities:
+        capabilities = (*capabilities, "memory_lookup")
     if frame.history_intent is not None and "finance_query" not in capabilities:
         capabilities = (*capabilities, "finance_query")
     # 取页是检索的延伸，不单独进策略表：授权了 web_search 就授权 web_fetch——

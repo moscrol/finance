@@ -1,0 +1,3 @@
+{"admission":2,"text":"已读取 Explore 阶段输出。七个探针已存在且均合格。现在按顺序执行所需的三次运行，从必红（must-red）对照组开始。"}
+{"admission":3,"text":"Control 阶段的表现与预期一致（exit 1，显示 `AssertionError: intentional_positive_control` → `intentional_positive_control`）。现在开始运行完整的 probes 套件。"}
+{"admission":4,"text":"探针运行完成：16 个通过，16 个失败 — 失败需要进行分类，但首先我必须完成所需的作者测试套件（读取操作仍处于暂停状态）。"}

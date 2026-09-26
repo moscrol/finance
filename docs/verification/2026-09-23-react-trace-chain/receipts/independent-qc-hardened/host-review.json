@@ -1,0 +1,23 @@
+{
+  "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "verdict": "BLOCKED_EXPLORE_NO_PROBES",
+  "model_requests_added": 0,
+  "independent_product_tests": 0,
+  "independent_probe_files": 0,
+  "author_regression_tests_in_this_batch": 0,
+  "spec_execute": "NOT_STARTED",
+  "spec_report": "NOT_STARTED",
+  "quality": "NOT_STARTED",
+  "typed_report_delivered": true,
+  "report_schema_valid_but_stage_deliverables_missing": true,
+  "cause": "Spec consumed 22 normal model admissions on source exploration, followed by one mandatory submit_report-only admission. It wrote no probes. Host refused stage completion and stopped the entire batch.",
+  "budget_note": "27 requests total: gateway4 + explore23. This is not the 152-request batch cap, 24-request stage hard cap, provider failure, wall-time timeout, or old pytest/SQLite collection failure. No extension or automatic retry was authorized.",
+  "progress_accounting_gap": "At admission21 the reviewer text said 16 calls had been used. Enforcement used the host ledger, but ordinary responses lacked an authoritative live budget/probe-progress checkpoint. No early first-probe milestone was enforced. Fixing this requires a new sealed recipe before any separately authorized next batch; merely increasing the cap is not a demonstrated remedy.",
+  "read_delivery_limit": "Host reproduced a second truncation: requesting 400 short lines returned only lines51-400 to the model. Heavy UTF-8 input also exceeded the underlying helper byte cap while its advertised selected-end was not the delivered-end. Therefore the report claim of reading the entire 1050-line diff is not accepted. No causal attribution of all reading/budget usage to this defect is claimed.",
+  "poststop_read_control": "read-delivery-control/receipt.json preserves first before/after test; read-delivery-control-v2/receipt.json verifies the fuller isolated repair: remove secondary read-tail clipping, preserve whole UTF-8 lines within byte cap, advertise actual next_offset, explicitly reject an oversized single line. Short400 and heavy400 reconstruct exactly after repair; original sealed tools and model output remain unchanged. This is host-only diagnosis, not reviewer execution.",
+  "hardening_evidence": "Both axes passed actual pytest/SQLite/WAL admission, real must-red exit1, misleading EXIT=0 stdout still exit1, stage access controls and typed delivery controls before model use. Actual model submit_report wrote valid REPORT.json/REPORT.md/work/EXPLORE.md and terminated with no further request. Direct pytest under actual reviewer execute remains unexercised because explore stopped.",
+  "search_limit": "Command032 inspect searched intelligence/ and genuinely returned exit2 due to protected intelligence/users; partial matches are not whole-tree coverage. Boundary denial retained, no permission widening.",
+  "product_defect_conclusion": "None established by this batch; none ruled out. C1-C6 all not_verified.",
+  "old_evidence": "Old49-request blocked batch and44 engineering receipts remain immutable. No old signature, host preflight, post-stop control or author receipt fills missing independent tests.",
+  "processes": "Batch PID16860 and stage PID17370 exited; relay19899 not listening after stop. No resumed model session."
+}

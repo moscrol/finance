@@ -1,0 +1,54 @@
+[
+  {
+    "vary_links": false,
+    "persistence": "durable",
+    "status": "partial",
+    "stop_reason": "model_finish",
+    "parent_calls": 2,
+    "child_calls": 2,
+    "executed": [
+      "direct",
+      "{\"task_frame\": {\"raw_question\": \"核验甲\", \"user_goal\": \"核验甲\", \"question_type\": \"general_finance_qa\", \"subject\": \"A股市场\", \"subject_kind\": \"market_pattern\", \"market_scope\": \"A股\", \"timeframe\": \"最近交易日\", \"required_outputs\": [\"branch_findings\"], \"assumptions\": [\"按A股市场理解\", \"分支只负责取证，不负责最终结论\"], \"ambiguities\": [], \"clarification_question\": null, \"evidence_policy\": \"general_finance_evidence\", \"confidence\": 0.95, \"task_frame_hash\": \"9653e15632f076c9e5bbceba6dca53fb4f4c04d06db55a9300268dbb3530cee6\"}, \"research_contract\": {\"question\": \"核验甲\", \"subject\": \"A股市场\", \"subject_kind\": \"market_pattern\", \"question_type\": \"general_finance_qa\", \"required_outputs\": [{\"output_id\": \"branch_findings\", \"description\": \"本分支为父题查到的事实与反证：逐条绑定证据序号；分支只负责取证，不下最终结论\", \"evidence_types\": [], \"required\": true, \"grounding_mode\": \"evidence\", \"preplaced_gap\": \"\"}], \"allowed_capabilities\": [\"market_data\"], \"research_tier\": \"quick\", \"presentation_profile\": \"general\", \"freshness\": \"current\", \"timeframe\": \"最近交易日\", \"evidence_plan\": {\"profile\": \"general\", \"freshness\": \"current\", \"requirements\": []}, \"contract_version\": \"1\", \"task_frame_hash\": \"9653e15632f076c9e5bbceba6dca53fb4f4c04d06db55a9300268dbb3530cee6\"}, \"today\": \"2026-07-22\", \"latest_data_date\": \"2026-07-21\", \"information_cutoff\": {\"as_of_date\": \"2026-07-22\", \"source\": \"requested\"}, \"conversation_context\": \"\", \"conversation_context_rule\": \"历史对话仅用于消解指代和延续用户目标，不得当作事实证据\", \"date_rule\": \"today 不是行情日期；information_cutoff 是所有查询与引用事实的不可变日期上限；市场事实还须服从 latest_data_date 和证据日期\", \"task_frame_hash\": \"9653e15632f076c9e5bbceba6dca53fb4f4c04d06db55a9300268dbb3530cee6\", \"available_tools\": \"- market_data（market_data，local，current）：行情\", \"question_type_rules\": \"\\n\\n\\n\\n\", \"reading_baseline\": \"- [FY-A10] 框架自身可被证伪：不把单次观察写成定律。使用下列任何一条判读规则时，若本轮证据与规则冲突，以证据为准并明说冲突，不得机械套用；规则被证伪时说明是哪一条、因何失效。\\n- [FY-A09] 反顺从检查：不因为已经给出过某个方向的判断，就在后续论证里调低它的风险权重；对自己上文的结论做一次反向检查再收尾。\\n- [CR-01] 先阶段，再板块，最后个股：任何板块或个股判断，先确认市场处于哪一阶段（成交额中枢、指数箱体位置），再判该板块在主线周期的哪一段，最后才落到个股。不脱离阶段断言新主线。\\n- [CR-02] 证据分层顺序：证据硬度自高至低：盘面量价资金结构 > 涨价/订单/产能等产业硬事实 > 第三方数据与金融验证链 > 卖方观点 > 小作文传闻。低层级证据不得推翻高层级；只有低层级证据时必须说明结论强度受限。\\n- [CR-03] 结论条件化并自带证伪：给方向判断时同时给出：需满足哪些量价确认条件才升级、当前满足几条、出现哪些信号即降级或放弃。不给无条件结论。\\n- [CR-04] 组合信号优先于单点：不用单一指标定性。按层级或多条件组合判断，并说明各条件当前状态；缺条件时说明缺哪一条，不得用其他条件补位凑成结论。\\n- [SPT-A10] 基本面定地图，交易面定买卖：基本面结论（赛道容量、渗透率位置、验证链）只用于确定方向地图；买卖时点与强弱判断必须由量价资金结构确认。逻辑再好也不替代盘面确认。\", \"reading_baseline_rule\": \"判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过\"}"
+    ],
+    "presented": [
+      {
+        "hash": "752004f28e62cfee",
+        "supports": []
+      }
+    ],
+    "failures": []
+  },
+  {
+    "vary_links": true,
+    "persistence": "failed",
+    "status": "failed",
+    "stop_reason": "storage_failed",
+    "parent_calls": 1,
+    "child_calls": 2,
+    "executed": [
+      "direct",
+      "{\"task_frame\": {\"raw_question\": \"核验甲\", \"user_goal\": \"核验甲\", \"question_type\": \"general_finance_qa\", \"subject\": \"A股市场\", \"subject_kind\": \"market_pattern\", \"market_scope\": \"A股\", \"timeframe\": \"最近交易日\", \"required_outputs\": [\"branch_findings\"], \"assumptions\": [\"按A股市场理解\", \"分支只负责取证，不负责最终结论\"], \"ambiguities\": [], \"clarification_question\": null, \"evidence_policy\": \"general_finance_evidence\", \"confidence\": 0.95, \"task_frame_hash\": \"9653e15632f076c9e5bbceba6dca53fb4f4c04d06db55a9300268dbb3530cee6\"}, \"research_contract\": {\"question\": \"核验甲\", \"subject\": \"A股市场\", \"subject_kind\": \"market_pattern\", \"question_type\": \"general_finance_qa\", \"required_outputs\": [{\"output_id\": \"branch_findings\", \"description\": \"本分支为父题查到的事实与反证：逐条绑定证据序号；分支只负责取证，不下最终结论\", \"evidence_types\": [], \"required\": true, \"grounding_mode\": \"evidence\", \"preplaced_gap\": \"\"}], \"allowed_capabilities\": [\"market_data\"], \"research_tier\": \"quick\", \"presentation_profile\": \"general\", \"freshness\": \"current\", \"timeframe\": \"最近交易日\", \"evidence_plan\": {\"profile\": \"general\", \"freshness\": \"current\", \"requirements\": []}, \"contract_version\": \"1\", \"task_frame_hash\": \"9653e15632f076c9e5bbceba6dca53fb4f4c04d06db55a9300268dbb3530cee6\"}, \"today\": \"2026-07-22\", \"latest_data_date\": \"2026-07-21\", \"information_cutoff\": {\"as_of_date\": \"2026-07-22\", \"source\": \"requested\"}, \"conversation_context\": \"\", \"conversation_context_rule\": \"历史对话仅用于消解指代和延续用户目标，不得当作事实证据\", \"date_rule\": \"today 不是行情日期；information_cutoff 是所有查询与引用事实的不可变日期上限；市场事实还须服从 latest_data_date 和证据日期\", \"task_frame_hash\": \"9653e15632f076c9e5bbceba6dca53fb4f4c04d06db55a9300268dbb3530cee6\", \"available_tools\": \"- market_data（market_data，local，current）：行情\", \"question_type_rules\": \"\\n\\n\\n\\n\", \"reading_baseline\": \"- [FY-A10] 框架自身可被证伪：不把单次观察写成定律。使用下列任何一条判读规则时，若本轮证据与规则冲突，以证据为准并明说冲突，不得机械套用；规则被证伪时说明是哪一条、因何失效。\\n- [FY-A09] 反顺从检查：不因为已经给出过某个方向的判断，就在后续论证里调低它的风险权重；对自己上文的结论做一次反向检查再收尾。\\n- [CR-01] 先阶段，再板块，最后个股：任何板块或个股判断，先确认市场处于哪一阶段（成交额中枢、指数箱体位置），再判该板块在主线周期的哪一段，最后才落到个股。不脱离阶段断言新主线。\\n- [CR-02] 证据分层顺序：证据硬度自高至低：盘面量价资金结构 > 涨价/订单/产能等产业硬事实 > 第三方数据与金融验证链 > 卖方观点 > 小作文传闻。低层级证据不得推翻高层级；只有低层级证据时必须说明结论强度受限。\\n- [CR-03] 结论条件化并自带证伪：给方向判断时同时给出：需满足哪些量价确认条件才升级、当前满足几条、出现哪些信号即降级或放弃。不给无条件结论。\\n- [CR-04] 组合信号优先于单点：不用单一指标定性。按层级或多条件组合判断，并说明各条件当前状态；缺条件时说明缺哪一条，不得用其他条件补位凑成结论。\\n- [SPT-A10] 基本面定地图，交易面定买卖：基本面结论（赛道容量、渗透率位置、验证链）只用于确定方向地图；买卖时点与强弱判断必须由量价资金结构确认。逻辑再好也不替代盘面确认。\", \"reading_baseline_rule\": \"判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过\"}"
+    ],
+    "presented": [
+      {
+        "hash": "752004f28e62cfee",
+        "supports": [
+          "direct-output"
+        ]
+      }
+    ],
+    "failures": [
+      {
+        "status": "failed",
+        "stop_reason": "storage_failed",
+        "store_failures": [
+          "state:planning:evidence:ValueError"
+        ],
+        "recovery": "uncertain",
+        "learning_eligible": false,
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-09-20T12:11:39.076+08:00"
+      }
+    ]
+  }
+]

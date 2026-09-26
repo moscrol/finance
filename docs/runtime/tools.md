@@ -5,10 +5,11 @@
 
 来源：`research_tool_registry.default_registry`（用哑 runner 装配）+ `_TOOL_CONTRACTS`。`query_scope=episode` 的工具参数表为空，截止日在 context 上而不在参数里。说明书只写实测过的失败模式，空即合法。
 
-18 个工具
+19 个工具
 
 | 工具 | 能力 | 成本 | 新鲜度 | 查询范围 | 最小窗(s) | 参数键 | produces | 描述 |
 |---|---|---|---|---|---|---|---|---|
+| `capital_data` | capital_data | external | current | query | — | `query` | metric_evidence, supporting_evidence | 个股两融、大宗交易、未来90天解禁日程（东财按需只读取数；不是大单资金流、龙虎榜或股东名单） |
 | `derived_calculation` | derived_calculation | external | current | query | — | `inputs_from_calc`, `params`, `purpose`, `script`, `timeout_seconds`, `use_duckdb` | supporting_evidence | 在只读沙箱里对本回合已取到的证据跑一段 Python 做计算或跨源口径核对，结果作为带输入哈希链的派生证据返回 |
 | `evidence_lookup` | evidence_lookup | local | stable | query | — | `query` | supporting_evidence | 本地证据索引 |
 | `evidence_search` | evidence_search | external | current | query | 30.0 | `query` | counterpoint, supporting_evidence | 对本地知识证据执行窄口径、宽口径和反方闭环检索 |
@@ -30,9 +31,13 @@
 
 ## 说明书（`ToolSpec.contract`）
 
+### `capital_data`
+
+只接受单只A股及两融/大宗/解禁切片；未解析标的或切片就不外查。来源是东财汇总数据，不是公司公告。两融默认最近5个交易记录，大宗最近5条，按交易日期标记而非抓取日，不代表全历史、当日全量或当时已披露。解禁只提供本次抓取的未来90天日程，最多20条并提示截断；证据日期是抓取日，正文另列未来解禁日，不是已经发生、减持承诺或涨跌预测。历史解禁因缺披露时点拒绝查询，不能冒充历史已知快照。request_error/parse_error/not_attempted是缺口；empty只表示该来源本次未返回记录，不能据此断言没有解禁/大宗/两融。部分成功保留已取行，并交代失败的切片。不提供大单净流入、龙虎榜、十大股东或北向净流入；这些不得用两融余额替代。
+
 ### `derived_calculation`
 
-返回的是对本回合已有证据做计算后的派生证据（带 input_evidence_hashes 与原样脚本）：它的档次不高于输入里最低的那一档，日期取输入里最旧的 as_of，不是今天。结论要绑到这条派生证据上，并同时引用它的输入证据；沙箱算出的数与某个来源不一致时，先看两边的输入是否同一批证据，不要二选一。「没有 emit」「脚本报错」「超时」「触发沙箱限制」都表示计算没产出，不是任何数值，也不能当否定证据；错误码会带原因，改脚本可重试。本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，不要把中报 / 三季报的累计数当单季数。结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，正文里告诉用户可下载，并写明「计算编号 <calc_id>」。params 里放假设（用户改一个假设时只改 params 再算一次）；inputs_from_calc 填上一轮的计算编号就沿用那次的输入快照与脚本（不重新取数、不断哈希链，输入在脚本里编号 P1..Pn），找不到该编号回 base_calc_not_found，不是数值。**改一个假设重算上一轮时，inputs_from_calc 是首选**：同一话题的追问先找上一轮的计算编号（在本工具上次结果的观察文本与产物名 calc-<编号>.* 里，16 位十六进制），传 inputs_from_calc=<编号> + 只改 params；不要重新调 financial_data 取同一批数，也不要把上一轮的脚本整段重抄。表格行这样组织：rows 里每行是一个 dict，键用列名（如 {'报告期': '2025Q1', '营收（亿元）': 514.43}），不要把列名行塞进 rows，也不要 None 填 0——缺就 None。series() / to_single_quarter() 返回的是 **dict 的列表**（不是 tuple）：每个元素 {'as_of': '2026-06-30', 'value': 922.78, ...}，取数用 x['as_of'] / x['value'] 或 x.get(...)，不要 x[0] / x[1]（dict 按下标 0 取会 KeyError: 0）；dict(seq) / {x[0]: x[1] for x in seq} 都不适用于它——按 as_of 建映射：{x['as_of']: x['value'] for x in to_single_quarter(series(sub, 'revenue_cum_yi'))}。零分母、缺季度、单位不认识时助手函数返回 None 并写 note，None 就写「缺」，不要填 0 或外推。
+返回的是对本回合已有证据做计算后的派生证据（带 input_evidence_hashes 与原样脚本）：它的档次不高于输入里最低的那一档，日期取输入里最旧的 as_of，不是今天。结论要绑到这条派生证据上，并同时引用它的输入证据；沙箱算出的数与某个来源不一致时，先看两边的输入是否同一批证据，不要二选一。「没有 emit」「脚本报错」「超时」「触发沙箱限制」都表示计算没产出，不是任何数值，也不能当否定证据；错误码会带原因，改脚本可重试。本回合还没有任何证据时会拒绝（no_bound_evidence）：先取证再计算。参数 script 是 Python 正文（用 EVIDENCE 读证据、emit 出结果，不能联网 / 起进程 / 越界写文件），purpose 一句话说明算什么，use_duckdb 只在要查本地行情库时开，timeout_seconds 默认 20 最多 60。财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，不要把中报 / 三季报的累计数当单季数。summary 仅接标量，不接逐期嵌套字典；逐期结果用 tables=[table(name, columns, rows)]。格式错误或无可展示结果会返回 invalid_result_contract，不是成功计算。结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，正文里告诉用户可下载，并写明「计算编号 <calc_id>」。params 里放假设（用户改一个假设时只改 params 再算一次）；inputs_from_calc 填上一轮的计算编号就沿用那次的输入快照与脚本（不重新取数、不断哈希链，输入在脚本里编号 P1..Pn），找不到该编号回 base_calc_not_found，不是数值。**改一个假设重算上一轮时，inputs_from_calc 是首选**：同一话题的追问先找上一轮的计算编号（在本工具上次结果的观察文本与产物名 calc-<编号>.* 里，16 位十六进制），传 inputs_from_calc=<编号> + 只改 params；不要重新调 financial_data 取同一批数，也不要把上一轮的脚本整段重抄。表格行这样组织：rows 里每行是一个 dict，键用列名（如 {'报告期': '2025Q1', '营收（亿元）': 514.43}），不要把列名行塞进 rows，也不要 None 填 0——缺就 None。series() / to_single_quarter() 返回的是 **dict 的列表**（不是 tuple）：每个元素 {'as_of': '2026-06-30', 'value': 922.78, ...}，取数用 x['as_of'] / x['value'] 或 x.get(...)，不要 x[0] / x[1]（dict 按下标 0 取会 KeyError: 0）；dict(seq) / {x[0]: x[1] for x in seq} 都不适用于它——按 as_of 建映射：{x['as_of']: x['value'] for x in to_single_quarter(series(sub, 'revenue_cum_yi'))}。零分母、缺季度、单位不认识时助手函数返回 None 并写 note，None 就写「缺」，不要填 0 或外推。
 
 ### `evidence_lookup`
 

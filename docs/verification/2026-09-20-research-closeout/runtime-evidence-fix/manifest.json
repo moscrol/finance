@@ -1,0 +1,451 @@
+{
+  "revision": "56d6062e4544ae40d2e91c19968f4bfe8066e60c",
+  "branch": "fix/runtime-evidence-closeout-0920",
+  "base_revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+  "final_receipt": "final-receipt.json",
+  "clean": true,
+  "original_probe_red": {
+    "future": {
+      "exit_code": 1,
+      "failing_cells": 2,
+      "total_cells": 4,
+      "log": "future-red.log"
+    },
+    "mixed": {
+      "exit_code": 0,
+      "result_failure": true,
+      "failing_cells": 1,
+      "total_cells": 2,
+      "note": "Raw JSON, not exit status, supplies the failure verdict",
+      "log": "mixed-red.log"
+    },
+    "timer": {
+      "exit_code": 1,
+      "log": "timer-red.log",
+      "green_replacement": "asynchronous teardown with explicit release event in test_api_fixture_lifecycle.py"
+    }
+  },
+  "green_original_probes": {
+    "future_cells": 4,
+    "mixed_cells": 2
+  },
+  "bounded_mutations": [
+    {
+      "name": "M1-hash-only",
+      "source": "intelligence/services/episode_evidence.py",
+      "original_sha256": "f1ffd3f68e2363e4e61e4d1616f732530051d2d897f39e006a3d0ecec2837941",
+      "red": {
+        "label": "M1-hash-only-red",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "-k",
+          "same_hash_presentations or v2_digest"
+        ],
+        "returncode": 1,
+        "seconds": 0.36539196968078613,
+        "log": "M1-hash-only-red.log"
+      },
+      "green": {
+        "label": "M1-hash-only-green",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "-k",
+          "same_hash_presentations or v2_digest"
+        ],
+        "returncode": 0,
+        "seconds": 0.2676520347595215,
+        "log": "M1-hash-only-green.log"
+      }
+    },
+    {
+      "name": "M2-unknown-as-future",
+      "source": "intelligence/services/episode_evidence.py",
+      "original_sha256": "f1ffd3f68e2363e4e61e4d1616f732530051d2d897f39e006a3d0ecec2837941",
+      "red": {
+        "label": "M2-unknown-as-future-red",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "-k",
+          "unadmitted_presentations or reader_rechecks_future"
+        ],
+        "returncode": 1,
+        "seconds": 0.32155799865722656,
+        "log": "M2-unknown-as-future-red.log"
+      },
+      "green": {
+        "label": "M2-unknown-as-future-green",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "-k",
+          "unadmitted_presentations or reader_rechecks_future"
+        ],
+        "returncode": 0,
+        "seconds": 0.26641416549682617,
+        "log": "M2-unknown-as-future-green.log"
+      }
+    },
+    {
+      "name": "M3-upgrade-v1-on-read",
+      "source": "intelligence/services/episode_evidence.py",
+      "original_sha256": "f1ffd3f68e2363e4e61e4d1616f732530051d2d897f39e006a3d0ecec2837941",
+      "red": {
+        "label": "M3-upgrade-v1-on-read-red",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "intelligence/tests/test_episode_evidence_snapshot.py",
+          "-k",
+          "v1_read_preserves or restore_keeps_original_capture_position"
+        ],
+        "returncode": 1,
+        "seconds": 0.43044519424438477,
+        "log": "M3-upgrade-v1-on-read-red.log"
+      },
+      "green": {
+        "label": "M3-upgrade-v1-on-read-green",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "intelligence/tests/test_episode_evidence_snapshot.py",
+          "-k",
+          "v1_read_preserves or restore_keeps_original_capture_position"
+        ],
+        "returncode": 0,
+        "seconds": 0.4331681728363037,
+        "log": "M3-upgrade-v1-on-read-green.log"
+      }
+    },
+    {
+      "name": "M4-future-in-restored-ledger",
+      "source": "intelligence/services/evidence_ledger.py",
+      "original_sha256": "ef1232f088d9f3544fd18bbbf49d09e7f212f1f7d348fb66793d2e2c93c84034",
+      "red": {
+        "label": "M4-future-in-restored-ledger-red",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "-k",
+          "future_presentation_restores"
+        ],
+        "returncode": 1,
+        "seconds": 0.2611062526702881,
+        "log": "M4-future-in-restored-ledger-red.log"
+      },
+      "green": {
+        "label": "M4-future-in-restored-ledger-green",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_episode_evidence_presentations.py",
+          "-k",
+          "future_presentation_restores"
+        ],
+        "returncode": 0,
+        "seconds": 0.26025986671447754,
+        "log": "M4-future-in-restored-ledger-green.log"
+      }
+    },
+    {
+      "name": "M5-skip-timer-join",
+      "source": "intelligence/tests/fixtures/run_supervisor.py",
+      "original_sha256": "f1e3e2fc22ddf7835d80a9b2303b7bee85ed5ad49b74fdf88385ad8ed209158f",
+      "red": {
+        "label": "M5-skip-timer-join-red",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_api_fixture_lifecycle.py",
+          "-k",
+          "fired_timer"
+        ],
+        "returncode": 1,
+        "seconds": 1.0793299674987793,
+        "log": "M5-skip-timer-join-red.log"
+      },
+      "green": {
+        "label": "M5-skip-timer-join-green",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_api_fixture_lifecycle.py",
+          "-k",
+          "fired_timer"
+        ],
+        "returncode": 0,
+        "seconds": 0.9410901069641113,
+        "log": "M5-skip-timer-join-green.log"
+      }
+    },
+    {
+      "name": "M6-forget-retired-timers",
+      "source": "intelligence/tests/fixtures/run_supervisor.py",
+      "original_sha256": "f1e3e2fc22ddf7835d80a9b2303b7bee85ed5ad49b74fdf88385ad8ed209158f",
+      "red": {
+        "label": "M6-forget-retired-timers-red",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_api_fixture_lifecycle.py",
+          "-k",
+          "fired_timer"
+        ],
+        "returncode": 1,
+        "seconds": 0.970451831817627,
+        "log": "M6-forget-retired-timers-red.log"
+      },
+      "green": {
+        "label": "M6-forget-retired-timers-green",
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "intelligence/tests/test_api_fixture_lifecycle.py",
+          "-k",
+          "fired_timer"
+        ],
+        "returncode": 0,
+        "seconds": 0.9576101303100586,
+        "log": "M6-forget-retired-timers-green.log"
+      }
+    }
+  ],
+  "artifacts": {
+    "M1-hash-only-green.log": {
+      "sha256": "5b8247ba2746217bef7d7f8b7c62b0caa7f6862076f9bccd28d7d10fec790d07",
+      "bytes": 114
+    },
+    "M1-hash-only-red.log": {
+      "sha256": "8f04f5a69354076fe042856abdf371f17f1a967979cae47dddbc3fe690a01f4f",
+      "bytes": 11494
+    },
+    "M2-unknown-as-future-green.log": {
+      "sha256": "4603f54a6b01067911eeffd369331f73c5a354fd4f89d7ed09557da0f8ae5e17",
+      "bytes": 114
+    },
+    "M2-unknown-as-future-red.log": {
+      "sha256": "320e9044cfa7312305246fd2d305c5c603504a0a326863e984e08951cce1e7e5",
+      "bytes": 12048
+    },
+    "M3-upgrade-v1-on-read-green.log": {
+      "sha256": "b6d1ae8d2ff36c07ea144885ec4c724698c1e571aa341387f8853dafc06087b6",
+      "bytes": 114
+    },
+    "M3-upgrade-v1-on-read-red.log": {
+      "sha256": "5ce5bee88214dc492c0b524c6cb4381fc66893e4ac8de2954f10547751ad17d0",
+      "bytes": 1644
+    },
+    "M4-future-in-restored-ledger-green.log": {
+      "sha256": "5219ac1846dedf477edf14ac78bd77545130cde8acbceb9a509ce0f0b9adb10c",
+      "bytes": 113
+    },
+    "M4-future-in-restored-ledger-red.log": {
+      "sha256": "52b95b1ba5016f35bbd02671222b1c55ce2e84bfbb345d97a1cb36af79774c08",
+      "bytes": 3780
+    },
+    "M5-skip-timer-join-green.log": {
+      "sha256": "edd2549a1d0f4415f3c008bc7033897d26528da25f0154e6e99362ca0176bfc5",
+      "bytes": 112
+    },
+    "M5-skip-timer-join-red.log": {
+      "sha256": "74819e29710c28fd621b125ccf527a3ff55f1e9966db1bebd9e4855001860bd7",
+      "bytes": 15613
+    },
+    "M6-forget-retired-timers-green.log": {
+      "sha256": "edd2549a1d0f4415f3c008bc7033897d26528da25f0154e6e99362ca0176bfc5",
+      "bytes": 112
+    },
+    "M6-forget-retired-timers-red.log": {
+      "sha256": "56e45c9349d87b6766a9bd090d6afd27d6aa8a20321bca97b8b594d8719de764",
+      "bytes": 15613
+    },
+    "api-green-initial.log": {
+      "sha256": "8296ddd8e4c310f4327410731fefe033ddcd968381a0665921c2bd8a644f87e4",
+      "bytes": 99
+    },
+    "evidence-green-initial.log": {
+      "sha256": "363455d649c7e20c32530c76076e8ce12c36bd001d623a9f3c83044bb6ae2e12",
+      "bytes": 180
+    },
+    "final-receipt.json": {
+      "sha256": "a802824f3e57cb9e75d342884ddb8b14fb2c3607e7be7b9ba3a683c14a0e1b86",
+      "bytes": 4845
+    },
+    "final-related-green.log": {
+      "sha256": "6fdf8edf3ff115df3176d273dcec31b80cfadb7e19df2d2edbbb2513745258f2",
+      "bytes": 420
+    },
+    "final-ruff-green.log": {
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    "freeze_evidence.py": {
+      "sha256": "fc8950b521885f15bec3dda9c2bb0ec284f81c72239880bf266d9fe4148d81f5",
+      "bytes": 5126
+    },
+    "future-green.log": {
+      "sha256": "b87c8b71c56921df0a80fd1e041d757e902ed710b84caa1f5baebbd2c55ed9d3",
+      "bytes": 1380
+    },
+    "future-red.log": {
+      "sha256": "0c713853a9471ea00fadfee8f84f5136707852dd3d19f1f884b5c241b5ed7cdd",
+      "bytes": 1403
+    },
+    "mixed-green.log": {
+      "sha256": "228abbf972704d268a1b1d64552ab8cb41f8b841214f387c25e23614043f4866",
+      "bytes": 725
+    },
+    "mixed-red.log": {
+      "sha256": "e44fd43b184b344abeced692e660f3262aa3a4992e4424b678656601b8177773",
+      "bytes": 1111
+    },
+    "mutations.json": {
+      "sha256": "1403c759d6d6a76ec0e4bcb6eb5fc1fa814d15ca113aa603b595572a54d0ba40",
+      "bytes": 6633
+    },
+    "presentations-red.log": {
+      "sha256": "a8b666ce0f8bffde4a460bcbdbde36535bf47781fa2bd14bcf2812ce98fb89a8",
+      "bytes": 22177
+    },
+    "related-green.log": {
+      "sha256": "4cb94ab04c8c3e43387630da180a2ed7d9a438a98638d735550a74b5779b8e1e",
+      "bytes": 420
+    },
+    "ruff.log": {
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    "run_mutations.py": {
+      "sha256": "813041234ee77d0072d2d2fdc72ad74e4988755ff71f072416f86089697a2800",
+      "bytes": 3771
+    },
+    "spec/probe_api_timer.py": {
+      "sha256": "b47bdeccbb94d15882e06de569125d953a33d334cea02c99589c51e124630a37",
+      "bytes": 3364
+    },
+    "spec/probe_future_evidence.py": {
+      "sha256": "b1db34dda0cbddced5b5b30787b614296928f44e9db254f1c0f8d4a4ada94eeb",
+      "bytes": 3156
+    },
+    "standards/green/mixed-links/branches-c480e86188404fc2b6d795290fd2c2af_branch-1-ed2f4043328b/events.jsonl": {
+      "sha256": "b15fac662f171bcec97c6ae8b9f7a660d71acc3c01da6cd3498f218dd8b66615",
+      "bytes": 40185
+    },
+    "standards/green/mixed-links/branches-c480e86188404fc2b6d795290fd2c2af_branch-1-ed2f4043328b/state.json": {
+      "sha256": "8ec5d443883ab2b9104425228cc140cddb3efdd038454b6e8ab5f46ef5263b74",
+      "bytes": 6208
+    },
+    "standards/green/mixed-links/sub-research-tool-max-1aa7d9ed/events.jsonl": {
+      "sha256": "3468be3fdeb64afa6c9c317220accab3d5f97810e739518420ea0c814ad2630e",
+      "bytes": 28726
+    },
+    "standards/green/mixed-links/sub-research-tool-max-1aa7d9ed/state.json": {
+      "sha256": "7bb69a256ba4f0450101b0146159ba6b47939d6c6ae99255c1991413389e52ed",
+      "bytes": 8625
+    },
+    "standards/green/same-links/branches-e81977819ba7435a95557d1cc18f587b_branch-1-3854bab0ac73/events.jsonl": {
+      "sha256": "a7dd1ac93830f6610176eb147bec9e447b09da0b9a1a4df08c5f93010a4da83f",
+      "bytes": 40141
+    },
+    "standards/green/same-links/branches-e81977819ba7435a95557d1cc18f587b_branch-1-3854bab0ac73/state.json": {
+      "sha256": "7d6da234423d87b9e6ab5cf23c10f62e97a886f02d9ec2466175a61beae2d9b3",
+      "bytes": 6095
+    },
+    "standards/green/same-links/sub-research-tool-max-f57518a4/events.jsonl": {
+      "sha256": "1f17c581668156502729ccf1418e5010cdebd1baed5cd35dbc85e88ffaaa17f9",
+      "bytes": 28647
+    },
+    "standards/green/same-links/sub-research-tool-max-f57518a4/state.json": {
+      "sha256": "8d342d7f3cb69dd0575583b95412dc1cb453412972569033c4d42ebd5210cda1",
+      "bytes": 8511
+    },
+    "standards/green-mixed-duplicate-results.json": {
+      "sha256": "228abbf972704d268a1b1d64552ab8cb41f8b841214f387c25e23614043f4866",
+      "bytes": 725
+    },
+    "standards/probe_mixed_duplicate.py": {
+      "sha256": "0359efb1d4c9f6f7c01ad1421645d55f5318dcc2a030e29312d4abd74b410d91",
+      "bytes": 3683
+    },
+    "standards/red/mixed-links/branches-a82b79fb22f449f7b80b4c70bd49d067_branch-1-0370f48b1385/events.jsonl": {
+      "sha256": "f0cfde9de84598ed12e4c379616178f7460f09306ab91126c7dbaca641675f7f",
+      "bytes": 40187
+    },
+    "standards/red/mixed-links/branches-a82b79fb22f449f7b80b4c70bd49d067_branch-1-0370f48b1385/state.json": {
+      "sha256": "832b04e43781c43a294e822197eda218b7bcbd2bf3cb872612acab56ce3b460b",
+      "bytes": 5435
+    },
+    "standards/red/mixed-links/sub-research-tool-max-deb99b81/events.jsonl": {
+      "sha256": "08aa08882f46c3bb5114f2f818fefbd404d21715cc20a4efda7772bba275dcd3",
+      "bytes": 26896
+    },
+    "standards/red/mixed-links/sub-research-tool-max-deb99b81/state.json": {
+      "sha256": "a8d6aae9c5b342cca1a4508e2458f64475cd975ad6e251f021862b91e1ac25a3",
+      "bytes": 6922
+    },
+    "standards/red/same-links/branches-f8a84be2911d493b83f0007ec90cecc8_branch-1-d9c10d4d29c7/events.jsonl": {
+      "sha256": "240c2ff999e845b0cd5c61f1c3b5c1057f66ecaff1f185d68d8fcf596b9df852",
+      "bytes": 40142
+    },
+    "standards/red/same-links/branches-f8a84be2911d493b83f0007ec90cecc8_branch-1-d9c10d4d29c7/state.json": {
+      "sha256": "41b87b9d6b7169f4c085eded3ee004f5c4daf1453a809ad0b0beb81a0f5b00d2",
+      "bytes": 5360
+    },
+    "standards/red/same-links/sub-research-tool-max-55367003/events.jsonl": {
+      "sha256": "772464f257a848532672b8590eac9c8656d62cbfb5f64ebc57ff04a15ccac4b2",
+      "bytes": 28646
+    },
+    "standards/red/same-links/sub-research-tool-max-55367003/state.json": {
+      "sha256": "292563476d1cfa1ddc614297bfe1e7acc2e40234876cf95e94ef62ae7d7a5b87",
+      "bytes": 7777
+    },
+    "standards/red-mixed-duplicate-results.json": {
+      "sha256": "e44fd43b184b344abeced692e660f3262aa3a4992e4424b678656601b8177773",
+      "bytes": 1111
+    },
+    "timer-deterministic-red.log": {
+      "sha256": "1c86004805ad4e8e1b76fa4ce669a73983e7f4207e098dd52861c064d523b04b",
+      "bytes": 15613
+    },
+    "timer-red.log": {
+      "sha256": "913b8f8128e2ce2eb6cd7ea3bfa5a8eb4c26aeff597236af7fc6b417929ece5e",
+      "bytes": 418
+    }
+  },
+  "no_live_model_calls": true,
+  "no_production_changes": true,
+  "review_status": "awaiting independent Spec then Quality"
+}

@@ -1,0 +1,30 @@
+Recovered from immutable events.jsonl command result; shell rc is not child rc.
+
+COMMAND
+/bin/zsh -lc 'review_root=/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review
+mkdir -p "$review_root"
+ls -l intelligence/tests/test_financial_forward_seams.py intelligence/tests/test_financial_publication_integration.py intelligence/tests/test_financial_contracts_r5.py intelligence/tests/test_financial_r6_regressions.py intelligence/tests/test_judge_reason_codes.py intelligence/tests/test_rag_worker_transport.py intelligence/webapp/src/components/components.test.tsx 2>&1 | tee "$review_root/00-test-files.txt"
+set +e
+umask 022
+env -i PATH=/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin HOME=/Users/a77 FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 /usr/bin/timeout 120 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_financial_forward_seams.py intelligence/tests/test_financial_publication_integration.py intelligence/tests/test_financial_contracts_r5.py intelligence/tests/test_financial_r6_regressions.py intelligence/tests/test_judge_reason_codes.py intelligence/tests/test_rag_worker_transport.py >"$review_root/01-targeted-pytest.txt" 2>&1
+rc=$?
+printf '"'\\nEXIT=%s\\n' \""'$rc" | tee -a "$review_root/01-targeted-pytest.txt"
+tail -120 "$review_root/01-targeted-pytest.txt"
+exit 0'
+
+OUTPUT
+-rw-r--r--@ 1 a77  staff  34702 Sep 21 18:33 intelligence/tests/test_financial_contracts_r5.py
+-rw-r--r--@ 1 a77  staff   2810 Sep 21 18:33 intelligence/tests/test_financial_forward_seams.py
+-rw-r--r--@ 1 a77  staff   8254 Sep 21 18:33 intelligence/tests/test_financial_publication_integration.py
+-rw-r--r--@ 1 a77  staff  22058 Sep 21 18:33 intelligence/tests/test_financial_r6_regressions.py
+-rw-r--r--@ 1 a77  staff  16804 Sep 21 18:33 intelligence/tests/test_judge_reason_codes.py
+-rw-r--r--@ 1 a77  staff  13469 Sep 21 18:33 intelligence/tests/test_rag_worker_transport.py
+-rw-r--r--@ 1 a77  staff  96433 Sep 21 18:33 intelligence/webapp/src/components/components.test.tsx
+
+EXIT=127
+env: /usr/bin/timeout: No such file or directory
+
+EXIT=127
+
+
+SHELL EXIT=0

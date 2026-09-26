@@ -1,0 +1,36 @@
+............................F.........FFF                                [100%]
+=================================== FAILURES ===================================
+_ test_real_continuation_keeps_scope_cutoff_and_read_ceiling[\u7ee7\u7eed\u7814\u7a76\u3002\u89e3\u91ca\u8fd9\u53e5\u8bdd\uff1a\u300c\u7ad9\u57282026\u5e749\u67081\u65e5\u6536\u76d8\u3002\u300d] _
+tests/test_history_control_boundary.py:165: in test_real_continuation_keeps_scope_cutoff_and_read_ceiling
+    assert context.information_cutoff.as_of_date == date(2026, 9, 10)
+E   AssertionError: assert datetime.date(2026, 9, 1) == datetime.date(2026, 9, 10)
+E    +  where datetime.date(2026, 9, 1) = InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested').as_of_date
+E    +    where InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-dd6ed91325914b90bebab8e5e09b9620', question...indow_source='none', allow_window_extension=False), history_results=[], history_artifact_index=[], prior_evidence=None).information_cutoff
+E    +  and   datetime.date(2026, 9, 10) = date(2026, 9, 10)
+_ test_all_history_readers_use_protected_regions[\u89e3\u91ca\u8fd9\u53e5\u8bdd\uff1a\u300c{text}\u300d] _
+tests/test_history_control_boundary.py:226: in test_all_history_readers_use_protected_regions
+    assert requested_information_cutoff(container.format(text="站在2026年9月1日收盘。")) is None
+E   AssertionError: assert InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') is None
+E    +  where InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') = requested_information_cutoff('解释这句话：「站在2026年9月1日收盘。」')
+E    +    where '解释这句话：「站在2026年9月1日收盘。」' = <built-in method format of str object at 0x109100e10>(text='站在2026年9月1日收盘。')
+E    +      where <built-in method format of str object at 0x109100e10> = '解释这句话：「{text}」'.format
+___________ test_all_history_readers_use_protected_regions[> {text}] ___________
+tests/test_history_control_boundary.py:226: in test_all_history_readers_use_protected_regions
+    assert requested_information_cutoff(container.format(text="站在2026年9月1日收盘。")) is None
+E   AssertionError: assert InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') is None
+E    +  where InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') = requested_information_cutoff('> 站在2026年9月1日收盘。')
+E    +    where '> 站在2026年9月1日收盘。' = <built-in method format of str object at 0x1091422b0>(text='站在2026年9月1日收盘。')
+E    +      where <built-in method format of str object at 0x1091422b0> = '> {text}'.format
+_____ test_all_history_readers_use_protected_regions[```text\n{text}\n```] _____
+tests/test_history_control_boundary.py:226: in test_all_history_readers_use_protected_regions
+    assert requested_information_cutoff(container.format(text="站在2026年9月1日收盘。")) is None
+E   AssertionError: assert InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') is None
+E    +  where InformationCutoff(as_of_date=datetime.date(2026, 9, 1), source='requested') = requested_information_cutoff('```text\n站在2026年9月1日收盘。\n```')
+E    +    where '```text\n站在2026年9月1日收盘。\n```' = <built-in method format of str object at 0x109142330>(text='站在2026年9月1日收盘。')
+E    +      where <built-in method format of str object at 0x109142330> = '```text\n{text}\n```'.format
+=========================== short test summary info ============================
+FAILED tests/test_history_control_boundary.py::test_real_continuation_keeps_scope_cutoff_and_read_ceiling[\u7ee7\u7eed\u7814\u7a76\u3002\u89e3\u91ca\u8fd9\u53e5\u8bdd\uff1a\u300c\u7ad9\u57282026\u5e749\u67081\u65e5\u6536\u76d8\u3002\u300d]
+FAILED tests/test_history_control_boundary.py::test_all_history_readers_use_protected_regions[\u89e3\u91ca\u8fd9\u53e5\u8bdd\uff1a\u300c{text}\u300d]
+FAILED tests/test_history_control_boundary.py::test_all_history_readers_use_protected_regions[> {text}]
+FAILED tests/test_history_control_boundary.py::test_all_history_readers_use_protected_regions[```text\n{text}\n```]
+4 failed, 37 passed in 0.81s

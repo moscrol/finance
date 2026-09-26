@@ -1,0 +1,39 @@
+"""Prepare an authorized GLM fallback batch; old evidence remains untouched."""
+import json
+from pathlib import Path
+import shutil
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'pr868-k3-qc-20260923-1607'
+CANDIDATE = OLD / 'candidate/finance-workspace-private'
+FILES = ['review.mjs', 'gateway.mjs', 'run_control.py', 'run_stage.py', 'file_tool.py',
+         'tools.sb', 'provider-template.json', 'pi-config/settings.json', 'config.json']
+for axis in ['spec', 'quality']:
+    dest = ROOT / axis
+    assert not dest.exists()
+    for name in FILES + ['sandbox_preflight.mjs']:
+        source = OLD / ('quality' if name == 'sandbox_preflight.mjs' else 'spec') / name
+        text = source.read_text().replace(str(OLD), str(ROOT)).replace(str(ROOT / 'candidate/finance-workspace-private'), str(CANDIDATE))
+        text = text.replace('mirasim-kimi', 'fomo').replace('kimi-k3', 'glm-5.3').replace('k3_review_shim.py', 'glm_review_shim.py')
+        if axis == 'quality':
+            text = text.replace(str(ROOT / 'spec'), str(dest))
+        p = dest / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+    shutil.copytree(OLD / 'spec/inputs', dest / 'inputs')
+    cfg = json.loads((dest / 'config.json').read_text())
+    cfg.update(axis=axis, thinking='off', provider='fomo', model='glm-5.3', upstream_port=54340)
+    (dest / 'config.json').write_text(json.dumps(cfg, indent=2) + '\n')
+    provider = json.loads((dest / 'provider-template.json').read_text())
+    model = provider['models'][0]
+    model.update(id='glm-5.3', name='GLM 5.3 isolated review', reasoning=False, contextWindow=128000, maxTokens=8192)
+    model.pop('thinkingLevelMap', None)
+    model['compat']['supportsReasoningEffort'] = False
+    (dest / 'provider-template.json').write_text(json.dumps(provider, indent=2) + '\n')
+    for name in ['tmp', 'users', 'probes']:
+        (dest / 'work' / name).mkdir(parents=True, exist_ok=True)
+shim = (OLD / 'k3_review_shim.py').read_text().replace('kimi-k3', 'glm-5.3')
+(ROOT / 'glm_review_shim.py').write_text(shim)
+prompts = (OLD / 'make_prompts.py').read_text().replace("TREE = ROOT / 'candidate/finance-workspace-private'", 'TREE = Path(' + repr(str(CANDIDATE)) + ')')
+prompts = prompts.replace('medium思考，8192输出tokens', 'GLM-5.3沿用既有非扩展思考配置，8192输出tokens').replace('网关18788、代理19899', '网关18788/54340、代理19899')
+(ROOT / 'make_prompts.py').write_text(prompts)
+print(ROOT)

@@ -1,0 +1,152 @@
+{"label": "doctor", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "scripts/workspace.py", "doctor"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "a8cea541422d006c1aa0c022db8a652a2792886e", "started_at": "2026-09-25T10:07:19.352470+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+{
+  "schema_version": "workspace-doctor/v1",
+  "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "a8cea541422d006c1aa0c022db8a652a2792886e",
+  "branch": "fix/pr910-main-0925",
+  "dirty": false,
+  "interpreter": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "scope": "offline_development",
+  "production_verified": false,
+  "errors": [],
+  "warnings": [
+    "code map is not ready; no architecture completeness claim",
+    "map source availability is not semantic or production verification"
+  ],
+  "baseline": {
+    "ref": "gitea/main",
+    "revision": "643a2888ea14079035bc8b080129e3e4145d5685",
+    "ahead_behind": "14\t0",
+    "fetched": false
+  },
+  "environment": {
+    "python": "3.12.13",
+    "executable": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "versions": {
+      "annotated-doc": "0.0.4",
+      "annotated-types": "0.7.0",
+      "anyio": "4.14.1",
+      "attrs": "26.1.0",
+      "certifi": "2026.6.17",
+      "charset_normalizer": "3.4.9",
+      "click": "8.4.2",
+      "distro": "1.9.0",
+      "duckdb": "1.5.4",
+      "fastapi": "0.139.0",
+      "griffelib": "2.1.0",
+      "h11": "0.16.0",
+      "httpcore": "1.0.9",
+      "httpx": "0.28.1",
+      "httpx-sse": "0.4.3",
+      "idna": "3.18",
+      "jiter": "0.16.0",
+      "jsonschema": "4.26.0",
+      "jsonschema-specifications": "2025.9.1",
+      "mcp": "1.28.1",
+      "openai": "2.48.0",
+      "openai-agents": "0.18.3",
+      "pydantic": "2.13.4",
+      "pydantic-core": "2.46.4",
+      "pydantic-settings": "2.14.2",
+      "pyjwt": "2.13.0",
+      "python-dotenv": "1.2.2",
+      "python-multipart": "0.0.32",
+      "referencing": "0.37.0",
+      "requests": "2.32.4",
+      "rpds-py": "2026.6.3",
+      "sniffio": "1.3.1",
+      "sse-starlette": "3.4.6",
+      "starlette": "1.3.1",
+      "tqdm": "4.69.1",
+      "typing-extensions": "4.16.0",
+      "typing-inspection": "0.4.2",
+      "urllib3": "2.7.0",
+      "uvicorn": "0.51.0",
+      "websockets": "16.1.1",
+      "PyYAML": "6.0.3",
+      "pytest": "8.3.5",
+      "ruff": "0.11.13",
+      "iniconfig": "2.3.0",
+      "packaging": "26.2",
+      "pluggy": "1.6.0",
+      "cryptography": "49.0.0",
+      "cffi": "2.1.0",
+      "pycparser": "3.0",
+      "numpy": "2.2.1",
+      "pandas": "2.2.3",
+      "Markdown": "3.10.3",
+      "python-dateutil": "2.9.0.post0",
+      "pytz": "2026.2",
+      "tzdata": "2026.3",
+      "six": "1.17.0"
+    },
+    "missing_modules": []
+  },
+  "dependency_drift": {},
+  "code_map": {
+    "status": "stale",
+    "scope": "checkout_only",
+    "worktree_coverage": "committed_only",
+    "production_verified": false,
+    "node_count": 34194,
+    "git_head_sha": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+    "head_sha": "a8cea541422d006c1aa0c022db8a652a2792886e",
+    "head_matches_build": false,
+    "commits_behind": 4,
+    "stale_weight": "heavy",
+    "worktree_dirty_code": false,
+    "one_line": "代码地图: stale 落后4且触及 intelligence/ ← 勿当当前架构"
+  },
+  "maps": [
+    {
+      "id": "code",
+      "source": "scripts/code_map.py",
+      "validation": "not_run",
+      "revision": "a8cea541422d006c1aa0c022db8a652a2792886e",
+      "dirty": false,
+      "availability": "present",
+      "sha256": "b8c4ac67cf282beb0e19d55ac0fcc658a242cc9ab3ce4696c929f67963f0ce7a"
+    },
+    {
+      "id": "capabilities",
+      "source": "10_knowledge/finance-agent-capability-graph.md",
+      "validation": "not_run",
+      "availability": "unavailable"
+    },
+    {
+      "id": "product-doors",
+      "source": "docs/agent-product-door.md",
+      "validation": "not_run",
+      "revision": "a8cea541422d006c1aa0c022db8a652a2792886e",
+      "dirty": false,
+      "availability": "present",
+      "sha256": "2c355ea215438e033436827c2704ef1390b76bbaf1f88b3bdf8866f750bdf3ac"
+    },
+    {
+      "id": "harness-layers",
+      "source": "DESIGN-stack.md",
+      "validation": "not_run",
+      "revision": "849c62090b6f7e83eb0c99a0b15da7344a5a82fe",
+      "availability": "present",
+      "sha256": "cc028f64934c7eba0c5e389986868d51d75185f91fc9dd512ebc897397e943aa"
+    },
+    {
+      "id": "closed-loop",
+      "source": "10_knowledge/agent-system-closed-loop-first-principles.md",
+      "validation": "not_run",
+      "availability": "unavailable"
+    },
+    {
+      "id": "ledgers",
+      "source": "docs/learning/ledger-map.md",
+      "validation": "not_run",
+      "revision": "a8cea541422d006c1aa0c022db8a652a2792886e",
+      "dirty": false,
+      "availability": "present",
+      "sha256": "2cf5a64e9bb0703bc8a75f10e20358d585cf6cf4acb3c8c917686400c09466ac"
+    }
+  ],
+  "status": "ready"
+}
+
+EXIT=0 STATUS=completed

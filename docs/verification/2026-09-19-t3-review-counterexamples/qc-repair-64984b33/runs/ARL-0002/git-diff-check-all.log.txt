@@ -1,0 +1,565 @@
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:99: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:105: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:111: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:117: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:123: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:129: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/before.log.txt:135: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-lint.log.txt:4: new blank line at EOF.
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-test.log.txt:21: new blank line at EOF.
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/frontend-typecheck.log.txt:4: new blank line at EOF.
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.log.txt:15: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.log.txt:22: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.xml:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/metric-column-not-table-purpose-red.xml:14: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.log.txt:14: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.log.txt:25: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.xml:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/missing-product-not-certified-red.xml:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.log.txt:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.log.txt:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.log.txt:25: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.xml:5: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.xml:11: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/nonmaterial-final-projection-red.xml:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.log.txt:13: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.log.txt:20: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.xml:7: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/period-not-bag-of-numbers-red.xml:12: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.log.txt:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.log.txt:26: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.log.txt:37: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.xml:11: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.xml:18: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-calculation-check-red.xml:27: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:24: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:32: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:40: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:48: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:56: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:64: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:72: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.log.txt:80: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:10: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:22: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:28: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:34: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:40: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:46: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:52: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/public-disclosure-check-red.xml:58: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:14: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:20: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:26: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:32: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:38: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.log.txt:44: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:12: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:20: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:24: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value-red.xml:28: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value.diff.txt:11: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-local-value.diff.txt:12: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.log.txt:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.log.txt:26: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.log.txt:35: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.xml:11: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.xml:18: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/ratio-prose-raw-coordinates-red.xml:25: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:24: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:32: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:40: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:48: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:56: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:64: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:72: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:80: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:88: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:96: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:104: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:112: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:120: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:128: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:136: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:144: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:152: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:160: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:168: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:176: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:184: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:192: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.log.txt:200: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:15: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:21: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:27: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:33: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:39: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:45: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:51: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:57: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:63: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:69: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:75: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:81: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:87: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:93: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:99: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:105: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:111: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:117: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:123: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:129: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:135: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:141: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/candidate-a2a33019/mutations/retained-bound-citations-red.xml:147: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.log.txt:15: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.log.txt:22: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.xml:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/metric-column-not-table-purpose-red.xml:14: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.log.txt:14: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.log.txt:25: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.xml:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/missing-product-not-certified-red.xml:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.log.txt:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.log.txt:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.log.txt:25: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml:5: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml:11: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/nonmaterial-final-projection-red.xml:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.log.txt:13: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.log.txt:20: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.xml:7: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/period-not-bag-of-numbers-red.xml:12: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.log.txt:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.log.txt:26: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.log.txt:37: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.xml:11: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.xml:18: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-calculation-check-red.xml:27: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:24: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:32: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:40: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:48: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:56: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:64: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:72: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.log.txt:80: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:10: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:22: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:28: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:34: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:40: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:46: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:52: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/public-disclosure-check-red.xml:58: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:14: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:20: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:26: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:32: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:38: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.log.txt:44: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:12: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:20: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:24: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value-red.xml:28: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value.diff.txt:11: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-local-value.diff.txt:12: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.log.txt:8: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.log.txt:17: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.log.txt:26: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.log.txt:35: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.xml:11: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.xml:18: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/ratio-prose-raw-coordinates-red.xml:25: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:16: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:24: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:32: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:40: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:48: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:56: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:64: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:72: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:80: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:88: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:96: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:104: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:112: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:120: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:128: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:136: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:144: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:152: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:160: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:168: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:176: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:184: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:192: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.log.txt:200: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:4: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:9: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:15: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:21: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:27: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:33: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:39: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:45: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:51: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:57: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:63: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:69: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:75: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:81: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:87: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:93: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:99: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:105: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:111: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:117: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:123: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:129: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:135: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:141: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/mutations/retained-bound-citations-red.xml:147: trailing whitespace.
++E     
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:176: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:178: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:180: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:200: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:220: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:224: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:232: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:241: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:247: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:255: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:261: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:314: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:315: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:318: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:342: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:343: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:350: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:351: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:370: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:401: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:402: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:409: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:410: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:426: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:429: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:449: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:500: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:501: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:511: trailing whitespace.
++ 
+docs/verification/2026-09-19-t3-retention-repair/qc/runs/ARL-0001/review-prompt.txt:794: trailing whitespace.
++ 

@@ -1,0 +1,89 @@
+{
+  "target_revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "frontend_complete": true,
+  "frontend_exit": 0,
+  "identity_stable": true,
+  "start_end_expected_clean": true,
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "sha256": "7d7cdd5735f16f033053db568a899b454e3169c2e530a3ab621eae6bb715d8aa",
+      "sha_matches": true,
+      "bytes_match": true
+    },
+    {
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "sha256": "ccdca32c0b951ba2b8d822afcad9d0bcb30c8ecd129e72b94196cfeb692748ab",
+      "sha_matches": true,
+      "bytes_match": true
+    },
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "sha256": "af122b62519f1467d70730368a8b4b9df6754f49a67454bf6a8c03f3cf3931f4",
+      "sha_matches": true,
+      "bytes_match": true
+    },
+    {
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "sha256": "e5752d2ed7cb37e3f8cfe4d87ee9e1eef9ef52b29fe4d6b2e5de627f56b071bd",
+      "sha_matches": true,
+      "bytes_match": true
+    },
+    {
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "sha256": "e3536d577a1543f9fc39194635fdbfcba9f8eac42b39ec89f48d5eb2f43f3893",
+      "sha_matches": true,
+      "bytes_match": true
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "sha256": "659d823d8c077099d85c04e97466ca77c0c0a7fcb542c775fbcb94a875ab6775",
+      "sha_matches": true,
+      "bytes_match": true
+    }
+  ],
+  "hashes": {
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate_python_registry.py": "455557343edd2147a885d646dd4b1888cdd3283ca1360556590c946e02d2da74",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/receipt_redirect.py": "4de4eee99c27b40e43eeac9e663524f5199bbcb0e11156411906885fdf413ad3",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/finance-workspace-private/scripts/run_frontend_gate.py": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec-final/REPORT.md": "1f766f550b5b7607a11cf2b2066295987ea07689cc98e826e250af1b51e8fe1b",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/quality-final/REPORT.md": "f3da7ab5449cd669175ddc81aa33f3585af2f3ef9bd5791b89f6f91e8be9e311",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/spec-integrated.md": "5afc0a1dc32949c21b74a9ad3be4ceac121e37267d0301dda5ac74a12032ddac",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate789-review/standards.md": "db59bb3dc1b5b944f4f08a39c52ef7e1f0305144fa26ea19e9de465d977ea174",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/target.json": "4bf2aa8ddf8ccd277872ba4a6799e78641287069ca1a3e611489ce81dbd50af6",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/frontend/frontend.json": "8201cb804a95ca18a64d55b3c71c9fab8e77f5b5cfa9ec3ebdcb08bf5c502d3a"
+  },
+  "frontend_runner_matches": true,
+  "test_counts": {
+    "unit_passed": 110,
+    "unit_total": 110,
+    "e2e_skipped": 2,
+    "e2e_passed": 34,
+    "e2e_total": 36
+  }
+}

@@ -1,0 +1,57 @@
+    JSON itself; arbitrary objects must still fail rather than become reprs.
+    """
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def normalize_query(value: object) -> str:
+    """归一化查询键：压空白、小写、截长。只用于比较，不回灌给模型。"""
+
+    if isinstance(value, Mapping):
+        query = value.get("query")
+        if isinstance(query, str) and query.strip():
+            value = query
+        else:
+            goals = value.get("goals")
+            if isinstance(goals, (list, tuple)) and goals:
+                value = " | ".join(str(item) for item in goals)
+            else:
+                value = json.dumps(
+                    value, ensure_ascii=False, sort_keys=True, default=_mapping_for_json,
+                ) if value else ""
+    text = re.sub(r"\s+", " ", str(value or "")).strip().lower()
+    return text[:_MAX_QUERY_CHARS]
+
+
+@dataclass(frozen=True)
+class ToolCallDigest:
+    """一次工具调用相对「此前已有证据」的结果形状。"""
+
+    tool: str
+    query: str
+    status: CallStatus
+    new_evidence: int = 0
+    total_evidence: int = 0
+
+    def __post_init__(self) -> None:
+        if self.status not in {"new", *_NO_PROGRESS_STATUSES}:
+            raise ValueError(f"unknown call digest status: {self.status!r}")
+        object.__setattr__(self, "tool", str(self.tool or "").strip())
+        object.__setattr__(self, "query", normalize_query(self.query))
+        object.__setattr__(self, "new_evidence", max(0, int(self.new_evidence)))
+        object.__setattr__(self, "total_evidence", max(0, int(self.total_evidence)))
+
+    @property
+    def result_label(self) -> str:
+        if self.status == "new":
+            return f"new:{self.new_evidence}"
+        return self.status
+
+
+@dataclass(frozen=True)
+class BatchDigest:
+    index: int
+    calls: tuple[ToolCallDigest, ...]
+
+[truncated; total lines=420, selected=66:120; next_offset=121]

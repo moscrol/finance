@@ -1,0 +1,242 @@
+{
+  "pr": "910",
+  "revision": "167c9ffac1b428164e7906861438eb1757895dc5",
+  "baseline": "9d5b9800a5500e6f64875432f8df3a06713d6f52",
+  "created_at": "2026-09-25T05:48:57.496954+00:00",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/diff-check.log",
+      "sha256": "14e74abe9ef15a675b1dc501a25ef0656c08273c06eb66339fbe8c99a03a0b1e",
+      "bytes": 532,
+      "path": "raw/910/diff-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/diff-check.process.json",
+      "sha256": "7b323acf3dd2af7019b2d67cd641306d49138c0e82bf2a335d65d447b5c1faa9",
+      "bytes": 739,
+      "path": "raw/910/diff-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/doctor.log",
+      "sha256": "fc7b55d9abaa0f24c231eed2d2addc24c951abfc5237891ce769e77e5ac73181",
+      "bytes": 5044,
+      "path": "raw/910/doctor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/doctor.process.json",
+      "sha256": "de606c9db6a709e68295fc1abcf6b40554ea6fec495a281dd2e55f7c8633bfe9",
+      "bytes": 748,
+      "path": "raw/910/doctor.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/ledger-crosswalk.log",
+      "sha256": "15e4ef7ee23a8b3545d79c94e5749b263c5a40e400b6035dca73f1e584f63cc8",
+      "bytes": 2568,
+      "path": "raw/910/ledger-crosswalk.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/ledger-crosswalk.process.json",
+      "sha256": "79527fb502604ef64565e2a100bee1c242004b96c71e0c15073767af9f19d4dd",
+      "bytes": 763,
+      "path": "raw/910/ledger-crosswalk.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-check.log",
+      "sha256": "6ec8f202bf535fef5d0b7f0544efd3c16306fa0f10910abd27e710854c3cb5b6",
+      "bytes": 590,
+      "path": "raw/910/registry-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-check.process.json",
+      "sha256": "4b681245b20884db8c9da5c8d27f36946e86702ce147d75d465b204ff958881b",
+      "bytes": 761,
+      "path": "raw/910/registry-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-parse.log",
+      "sha256": "abd2d8225fb1dc9bb37ed8b76e4ca9b8f7030de6331320596e1d1c0ebea82f58",
+      "bytes": 665,
+      "path": "raw/910/registry-parse.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-parse.process.json",
+      "sha256": "b25d81ae3304052b17b0394140653bbb81b7d449a18c0d4f9c2d72eb4a1fe5bc",
+      "bytes": 774,
+      "path": "raw/910/registry-parse.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-tables.log",
+      "sha256": "41f91a59599799c7e4b80ca7495ea5e510c12c22a104bef12fc2ed0ab3ad57e8",
+      "bytes": 695,
+      "path": "raw/910/registry-tables.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-tables.process.json",
+      "sha256": "70e8eb51e438385cd2abb02929a88e9ced34d65097e59a0b3f43ee00af05de06",
+      "bytes": 786,
+      "path": "raw/910/registry-tables.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-views.log",
+      "sha256": "8a2ef00e9e2d0cfac68be63c12d728aefa012cb6686307f03007528434407db4",
+      "bytes": 645,
+      "path": "raw/910/registry-views.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/registry-views.process.json",
+      "sha256": "dfbf96ad28a9c9ceb1f79b9140b5902425593160809caeae8dad0e9269fa0e22",
+      "bytes": 785,
+      "path": "raw/910/registry-views.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/summary.json",
+      "sha256": "aacf06250068c9c98040bfbfbea94eb104a624f5c28649087da5183cbb04c715",
+      "bytes": 1137,
+      "path": "raw/910/summary.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/supplement-ruff.log",
+      "sha256": "c457c5ae41b798a4b3cc36a541c0eb40493fda8e3afd94b34263f8ff38f27a91",
+      "bytes": 567,
+      "path": "raw/910/supplement-ruff.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/supplement-ruff.process.json",
+      "sha256": "999d835ac714878a52f825bfebd4114ec67d37c8099597430c77fc131e256ff4",
+      "bytes": 760,
+      "path": "raw/910/supplement-ruff.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/910/targeted.admission.json",
+      "sha256": "4422994a7c72e060a7bafd6ecaca8b1fc7c3c07808dd5a1cc4a46caac3f33f1d",
+      "bytes": 596,
+      "path": "raw/910/targeted.admission.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/candidate-identities.json",
+      "sha256": "1bebd0853686a1b03383491cad210799175870115f522dae437e648464084b79",
+      "bytes": 6647,
+      "path": "raw/candidate-identities.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-context.json",
+      "sha256": "6415602b1aa84efd6a1c4cd3a197a11d762506b476a79471e1512960bee5f4d9",
+      "bytes": 1029,
+      "path": "raw/conflict-context.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.log",
+      "sha256": "376875609ef60d295986e970d715c553cdaf0f78c6b9e7b7cf7f9cfff21ce7cd",
+      "bytes": 2541,
+      "path": "raw/conflict-targeted.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.process.json",
+      "sha256": "09614e3e61204b0da1cc2ead3f89f3895dff5e5f99c31c482a3cd9c39014da38",
+      "bytes": 1337,
+      "path": "raw/conflict-targeted.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.result.json",
+      "sha256": "c80c7334b1d0ce438b1c414f636bae5210c17ba4297f8a81c28051d9d926918d",
+      "bytes": 1318,
+      "path": "raw/conflict-targeted.result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.xml",
+      "sha256": "f84d44b88c71e1c74b607d20b26493f257f1ecc2a244ec42adf024de32e19dd4",
+      "bytes": 1220,
+      "path": "raw/conflict-targeted.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/run_gates.py",
+      "sha256": "880b8bbc4e8a9f5937de367703dadb30509634dc05d31951cd073e122e3cb168",
+      "bytes": 6750,
+      "path": "raw/run_gates.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/seal_gates.py",
+      "sha256": "b2eebc51a6d115484d29fabc8ad37dc984a6accc2ea48a8ce42c34eb91bd23fe",
+      "bytes": 3013,
+      "path": "raw/seal_gates.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/started.json",
+      "sha256": "9da22ee13bd2e084f42a97435d6a7170baf451bcd44430299bde6f43251f7e59",
+      "bytes": 178,
+      "path": "raw/started.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/supervisor.log",
+      "sha256": "d0f44301412fe677093a255c6452702413b7d83b7ab9cb589b58c3afeff1d8bc",
+      "bytes": 1040,
+      "path": "raw/supervisor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/supplement-static.json",
+      "sha256": "4ac467bb957886ace920bd163713a3ed3aaf794fe0899f003f6ed2922ed9ef51",
+      "bytes": 661,
+      "path": "raw/supplement-static.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait-observations.json",
+      "sha256": "e2da883bcdeb13673b4cbfbc92f716c9546bb64eae7dbcf1bc97a8963321751c",
+      "bytes": 13170,
+      "path": "raw/wait-observations.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait-result.json",
+      "sha256": "5fa4d827e5a3aecc65b6bea5f9116120812f5387b6550ea817ae8b372ec4de62",
+      "bytes": 121,
+      "path": "raw/wait-result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait.log",
+      "sha256": "49b3a0ccba0214417c4a8ce7ecc1f354e197dab28c37ec11150b99371b440ffc",
+      "bytes": 113,
+      "path": "raw/wait.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait_once.py",
+      "sha256": "22ab6a354a7502c77e666a8c09623676f10b2ed54d79c934ffc2b2ee2a0bf909",
+      "bytes": 1603,
+      "path": "raw/wait_once.py.txt",
+      "storage": "git-original"
+    }
+  ],
+  "scope": "original gate evidence; conflict-targeted ran on an uncommitted merge",
+  "independent_review": false,
+  "paid_model_requests": 0
+}

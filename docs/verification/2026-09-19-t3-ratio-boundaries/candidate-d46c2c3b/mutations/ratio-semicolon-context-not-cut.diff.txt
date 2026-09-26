@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..605e2602 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -412,7 +412,7 @@ def calculation_copy_findings(
+             ratio_columns, period_column = (), None
+             # Prose needs an explicit ratio label locally. Broader semantic
+             # matching (e.g. ambiguous bare 1.588) stays with the existing judge.
+-            for clause in _RATIO_CLAUSE.finditer(line):
++            for clause in _CLAUSE.finditer(line):
+                 value = re.sub(r"[*`]+", "", clause.group())
+                 periods = list(_PERIOD.finditer(value))
+                 parallel_values, parallel_end = _parallel_ratio_values(value, periods)

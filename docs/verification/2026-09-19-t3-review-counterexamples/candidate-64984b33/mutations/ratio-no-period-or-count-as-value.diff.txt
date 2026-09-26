@@ -1,0 +1,12 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index d34bf08e..1b64060f 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -234,7 +234,7 @@ def _prose_number(value: str, start: int) -> tuple[int, int, str, str] | None:
+     number = _PROSE_NUMBER.match(value, start)
+     if number is None:
+         return None
+-    if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):
++    if False:
+         return None
+     return number.start(1), number.end(2 if number[2] else 1), number[1], number[2] or ""

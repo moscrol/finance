@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="1.015" timestamp="2026-09-19T22:48:29.856006+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_checks" name="test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[off]" time="0.001"><failure message="AssertionError: assert ('1.587' not in '收入数据可核。[E1]...03 | 0.289 |'&#10;  &#10;  '1.587' is contained here:&#10;     445.17 | 1.587 |&#10;  ?           +++++&#10;    | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |)">intelligence/tests/test_research_delivery_checks.py:269: in test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts
+    assert "1.587" not in result.public_answer and "待核对" in result.public_answer
+E   AssertionError: assert ('1.587' not in '收入数据可核。[E1]...03 | 0.289 |'
+E     
+E     '1.587' is contained here:
+E        445.17 | 1.587 |
+E     ?           +++++
+E       | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |)</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_checks" name="test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[llm]" time="0.002"><failure message="AssertionError: assert ('1.587' not in '收入数据可核。[E1]...03 | 0.289 |'&#10;  &#10;  '1.587' is contained here:&#10;     445.17 | 1.587 |&#10;  ?           +++++&#10;    | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |)">intelligence/tests/test_research_delivery_checks.py:269: in test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts
+    assert "1.587" not in result.public_answer and "待核对" in result.public_answer
+E   AssertionError: assert ('1.587' not in '收入数据可核。[E1]...03 | 0.289 |'
+E     
+E     '1.587' is contained here:
+E        445.17 | 1.587 |
+E     ?           +++++
+E       | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |)</failure></testcase><testcase classname="intelligence.tests.test_frozen_research_delivery" name="test_old_empty_product_cannot_support_claimed_calculator_ratios[off]" time="0.001"><failure message="AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'&#10;  &#10;  '1.587' is contained here:&#10;     445.17 | 1.587 |&#10;  ?           +++++&#10;    **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。&#10;    **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。&#10;    **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。">intelligence/tests/test_frozen_research_delivery.py:190: in test_old_empty_product_cannot_support_claimed_calculator_ratios
+    assert "1.587" not in result.public_answer
+E   AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'
+E     
+E     '1.587' is contained here:
+E        445.17 | 1.587 |
+E     ?           +++++
+E       **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。
+E       **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。
+E       **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。</failure></testcase><testcase classname="intelligence.tests.test_frozen_research_delivery" name="test_old_empty_product_cannot_support_claimed_calculator_ratios[llm]" time="0.001"><failure message="AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'&#10;  &#10;  '1.587' is contained here:&#10;     445.17 | 1.587 |&#10;  ?           +++++&#10;    **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。&#10;    **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。&#10;    **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。">intelligence/tests/test_frozen_research_delivery.py:190: in test_old_empty_product_cannot_support_claimed_calculator_ratios
+    assert "1.587" not in result.public_answer
+E   AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'
+E     
+E     '1.587' is contained here:
+E        445.17 | 1.587 |
+E     ?           +++++
+E       **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。
+E       **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。
+E       **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。</failure></testcase></testsuite></testsuites>

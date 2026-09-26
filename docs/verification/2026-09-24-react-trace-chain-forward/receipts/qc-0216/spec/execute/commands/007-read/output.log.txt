@@ -1,0 +1,46 @@
+"""PR832 spec probe 3 (C1): E ordinals are citations, not numeric facts."""
+from __future__ import annotations
+
+from intelligence.services.episode_protocol import (
+    cited_evidence_ordinals,
+    parse_evidence_ordinal,
+    strip_evidence_ordinals,
+)
+from intelligence.services.episode_semantic_verifier import (
+    numeric_condition_unsupported,
+)
+from intelligence.tests.test_episode_semantic_verifier import _structural
+
+
+def test_strip_masks_ordinal_refs_with_space_not_join():
+    text = "缩量整理（E3、e12）后量能改善。"
+    out = strip_evidence_ordinals(text)
+    assert out == "缩量整理（  、  ）后量能改善。", out
+    assert "E3" not in out and "e12" not in out
+
+
+def test_strip_keeps_non_citation_tokens_intact():
+    text = "PE10处于低位；1.5E8 不算引用；CE4认证；E1000超出上限；E01带前导零。"
+    out = strip_evidence_ordinals(text)
+    # None of these are citation ordinals; the text must survive unchanged.
+    assert out == text, out
+    assert cited_evidence_ordinals(text) == ()
+
+
+def test_citation_grammar_borders():
+    assert cited_evidence_ordinals("见E1与E2，再看E41。") == ("E1", "E2", "E41")
+    assert cited_evidence_ordinals("PE10、1.5E8、CE4") == ()
+    assert parse_evidence_ordinal("E12") == 12
+    assert parse_evidence_ordinal("E0") is None
+    assert parse_evidence_ordinal("E1000") is None
+    assert parse_evidence_ordinal("PE10") is None
+
+
+def test_ordinal_only_draft_is_not_a_numeric_claim():
+    _f, structural = _structural("如E3所示，板块量能温和改善。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+def test_real_number_still_checked_even_next_to_ordinals():
+    _f, structural = _structural("如E3所示，今日涨停52家，量能放大。")
+    assert numeric_condition_unsupported(structural) is True

@@ -32,6 +32,8 @@ class ProviderTrace:
     requested_date: str | None = None
     served_date: str | None = None
     requested_time_range: tuple[str | None, str | None] | None = None
+    # 可公开原因只能以枚举映射为固定文案；原始 detail 永不直出。
+    reason_code: str = ""
 
     @classmethod
     def from_dict(cls, value: object) -> "ProviderTrace":
@@ -77,10 +79,13 @@ class ProviderTrace:
                 else None
             ),
             requested_time_range=requested_time_range,
+            reason_code=str(value.get("reason_code") or ""),
         )
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        if not self.reason_code:
+            payload.pop("reason_code")  # 不改变旧 trace 的序列化形状
         if self.requested_time_range is not None:
             start, end = self.requested_time_range
             payload["requested_time_range"] = {"start": start, "end": end}
@@ -88,6 +93,41 @@ class ProviderTrace:
 
 
 _AGENT_PROVIDER_PREFIX = "agent:"
+
+_CAPITAL_GAP_REASONS = {
+    "historical_date_unresolved": (
+        "历史日期边界未明确，请给出 YYYY-MM-DD 截止日；未请求当前滚动数据。"
+        "历史解禁仍需当时已披露的公告，不能用当前日程回填。"
+    ),
+    "historical_snapshot_unavailable": (
+        "历史解禁快照缺少披露时点，不能证明当时已知；未请求当前滚动日程。"
+        "需补当时已披露的公告，不能据此判断有无解禁。"
+    ),
+}
+_L3_GAP_STATUSES = {
+    "request_error": "公告来源查询失败",
+    "parse_error": "公告来源返回无法解析",
+    "partial": "公告来源仅部分返回",
+    "empty": "公告来源本次未返回可用证据",
+    "not_attempted": "本次未执行公告来源查询",
+    "disabled": "本次未启用公告来源查询",
+}
+
+
+def provider_gap_messages(traces) -> tuple[str, ...]:
+    """结构化数据失败 → 固定用户提示，不读取 detail/query/模型草稿。"""
+    messages = []
+    for trace in traces:
+        tool = provider_trace_tool_name(trace)
+        if tool == "capital_data" and trace.status == "not_attempted":
+            message = _CAPITAL_GAP_REASONS.get(trace.reason_code)
+            if message:
+                messages.append(message)
+        elif tool == "l3_lookup":
+            message = _L3_GAP_STATUSES.get(trace.status)
+            if message:
+                messages.append(message + "；不能据此断言公司没有公告或尚未兑现。")
+    return tuple(dict.fromkeys(messages))
 
 
 def provider_trace_tool_name(trace: "ProviderTrace") -> str:

@@ -1,0 +1,9 @@
+mkdir: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255: Operation not permitted
+mkdir_exit=1
+total 0
+drwxr-xr-x@  4 a77  staff  128 Sep 23 23:13 .
+drwxr-xr-x@ 12 a77  staff  384 Sep 23 23:11 ..
+-rw-r--r--@  1 a77  staff    0 Sep 23 23:13 .wtest
+drwxr-xr-x@  2 a77  staff   64 Sep 23 23:04 jiti
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/.wtest
+rm_exit=0

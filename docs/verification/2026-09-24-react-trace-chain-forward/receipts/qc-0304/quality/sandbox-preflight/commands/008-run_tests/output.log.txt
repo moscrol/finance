@@ -1,0 +1,17 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________________________ test_red ___________________________________
+
+    def test_red():
+        print("EXIT=0")
+>       assert 1 == 2, "never trust printed status"
+E       AssertionError: never trust printed status
+E       assert 1 == 2
+
+../../quality/work/probes/test_harness_misleading_output.py:3: AssertionError
+----------------------------- Captured stdout call -----------------------------
+EXIT=0
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/preflight-008-run_tests.xml -
+=========================== short test summary info ============================
+FAILED ::test_red - AssertionError: never trust printed status
+1 failed in 0.06s

@@ -1,0 +1,6 @@
+remote: 
+remote: Create a new pull request for 'fix/market-date-advisory-0921':        
+remote:   http://localhost:3300/a77/finance-workspace-private/pulls/new/fix/market-date-advisory-0921        
+remote: 
+To http://127.0.0.1:3300/a77/finance-workspace-private.git
+   ca4cdcb89..4a6e18da6  HEAD -> fix/market-date-advisory-0921

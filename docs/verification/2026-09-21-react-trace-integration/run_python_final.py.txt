@@ -1,0 +1,56 @@
+"""Final fixed-revision gate: clean environment, bounded time, owned temporary data.
+
+Passed pytest temp fixtures are released after each test; failed ones are kept.
+This changes retention only, not test collection/selection or pass criteria.
+"""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import time
+
+TREE = Path('/Users/a77/fwp-wt-react-trace-qc-0921')
+OUT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+EXPECTED = 'a14005fc9a9d671d178da6fc91be9cb69ae67e77'
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=TREE, text=True).strip()
+    return dict(revision=git('rev-parse', 'HEAD'), status=git('status', '--porcelain'))
+
+
+record = dict(started_at=datetime.now(timezone.utc).isoformat(), identity_before=identity())
+assert record['identity_before'] == dict(revision=EXPECTED, status='')
+assert not (OUT/'python-final.log').exists()
+env = {key: os.environ[key] for key in ('HOME', 'PATH') if key in os.environ}
+env['PYTHONPYCACHEPREFIX'] = str(OUT/'pycache')
+command = [PY, '-m', 'pytest', '-q', '--junitxml', str(OUT/'python-final.xml'),
+           '--basetemp', str(OUT/'python-final-temp'), '-o', 'tmp_path_retention_policy=failed',
+           '-o', 'tmp_path_retention_count=1']
+record.update(command=command, disk_free_samples=[], timeout_seconds=1800)
+with (OUT/'python-final.log').open('wb') as log:
+    proc = subprocess.Popen(command, cwd=TREE, env=env, stdout=log, stderr=subprocess.STDOUT,
+                            start_new_session=True, umask=0o022)
+    record['pid'] = proc.pid
+    start = time.monotonic()
+    while proc.poll() is None:
+        record['disk_free_samples'].append(dict(elapsed=round(time.monotonic()-start), free_bytes=shutil.disk_usage(TREE).free))
+        (OUT/'python-final-execution.json').write_text(json.dumps(record, indent=2)+'\n')
+        if time.monotonic()-start > 1800:
+            os.killpg(proc.pid, signal.SIGTERM)
+            record['timed_out'] = True
+            try:
+                proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+            break
+        time.sleep(10)
+    record['exit_code'] = proc.wait()
+record.update(identity_after=identity(), finished_at=datetime.now(timezone.utc).isoformat())
+record['identity_stable'] = record['identity_before'] == record['identity_after'] == dict(revision=EXPECTED,status='')
+(OUT/'python-final-execution.json').write_text(json.dumps(record, indent=2)+'\n')

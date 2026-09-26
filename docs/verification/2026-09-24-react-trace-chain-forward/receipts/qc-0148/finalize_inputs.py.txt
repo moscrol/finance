@@ -1,0 +1,16 @@
+"""Synchronize only unrun axis tooling and prompts before admission/sealing."""
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+assert not (ROOT/'harness-lock.json').exists()
+subprocess.run([PY, '-B', str(ROOT/'finish_setup.py'), 'copy'], check=True)
+for phase in ['explore', 'execute']:
+    text = (ROOT/'spec'/f'prompt-{phase}.md').read_text()
+    text = text.replace(str(ROOT/'spec'), str(ROOT/'quality')).replace('独立 spec 审查者', '独立 quality 审查者')
+    (ROOT/'quality'/f'prompt-{phase}.md').write_text(text)
+subprocess.run([PY, '-m', 'ruff', 'check', str(ROOT/'spec/probe_inventory.py'), str(ROOT/'spec/file_tool.py'),
+                str(ROOT/'prepare.py'), str(ROOT/'finalize_inputs.py')], check=True)
+for name in ['review.mjs', 'sandbox_preflight.mjs']:
+    subprocess.run(['node', '--check', str(ROOT/'spec'/name)], check=True)

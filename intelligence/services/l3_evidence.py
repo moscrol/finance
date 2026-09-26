@@ -21,6 +21,8 @@ from intelligence.services.answer_orchestrator import (
     QuestionPlan,
 )
 
+from intelligence.services.provider_observability import ProviderStatus
+
 DEFAULT_COMPANY_CMD = "{python_sh} -m disclosure_lookup.cli company {company_sh} --days {days} --source {sources}"
 
 
@@ -102,6 +104,15 @@ class L3EvidenceBundle:
     items: list[L3EvidenceItem] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     commands: list[str] = field(default_factory=list)
+    failures: list[ProviderStatus] = field(default_factory=list)
+
+    @property
+    def status(self) -> ProviderStatus:
+        if self.items:
+            return "partial" if self.failures else "success"
+        if self.failures:
+            return self.failures[0]
+        return "empty" if self.looked_up else "not_attempted"
 
     @property
     def looked_up(self) -> bool:
@@ -111,7 +122,7 @@ class L3EvidenceBundle:
         lines = [
             "## L3 官方证据工具补查（运行时工具证据，不等同于已沉淀知识库）",
             "- 口径：L3 测的是「公司端兑现度」而非「题材合法性」；题材可由产业端催化独立驱动，无公告 ≠ 无驱动，不得据此降级。",
-            "- 结论固定写成两行：「驱动=产业端何事件（见催化归因/叙事源）；公司端兑现=有/无+口径」。",
+            "- 分开交代：「驱动=产业端何事件（见催化归因/叙事源）；公司端兑现=已证实/未证实+证据口径」；未证实不等于未发生。",
             "- 使用原则：公告/问询函/互动易用于约束事实边界；若只查到澄清、风险提示或无订单口径，不能把预期当兑现。",
         ]
         if self.gaps:
@@ -126,8 +137,9 @@ class L3EvidenceBundle:
                 lines.append(f"  - [L{idx}] {item.source_type}｜{item.title}：{item.summary}{cite}")
         else:
             lines.append(
-                "- 工具返回：未取得可注入的 L3 证据；读作「公司端尚未兑现」，"
-                "驱动是否成立另看产业端催化；不得据此否定题材或降级，但也不得把预期写成已兑现。"
+                "- 工具返回：本次未取得可注入的 L3 证据，属于证据缺口；"
+                "不能据此断言公司没有公告或尚未兑现，也不得把预期写成已兑现。"
+                "驱动是否成立另看产业端催化。"
             )
         if self.warnings:
             lines.append("- 工具警告：")
@@ -288,11 +300,8 @@ def _run_source(
     cwd = os.path.expanduser(cfg.cwd) if cfg.cwd else None
     cached_stdout = _read_cached_stdout(cfg, source_type, command, cwd)
     if cached_stdout is not None:
-        items = _parse_lookup_output(source_type, cached_stdout)
-        if not items:
-            bundle.warnings.append(f"{source_type} 缓存命中但没有解析到可用证据。")
-            _warn_if_company_unresolved(cached_stdout, "", bundle)
-        bundle.items.extend(items[: cfg.limit])
+        # 旧缓存也可能装着 rc=0 的失败诊断，不得因缓存命中洗成合法空集。
+        _consume_source_output(source_type, cached_stdout, "", cfg.limit, bundle, cached=True)
         return
     try:
         completed = subprocess.run(
@@ -305,22 +314,66 @@ def _run_source(
             cwd=cwd,
         )
     except subprocess.TimeoutExpired:
+        bundle.failures.append("request_error")
         bundle.warnings.append(f"{source_type} 查询超时（{cfg.timeout}s），回答需标记 L3 未完成。")
         return
     except OSError as exc:
+        bundle.failures.append("request_error")
         bundle.warnings.append(f"{source_type} 查询无法启动：{exc}")
         return
 
     if completed.returncode != 0:
         stderr = _squash(completed.stderr, 180)
+        bundle.failures.append("request_error")
         bundle.warnings.append(f"{source_type} 查询失败 rc={completed.returncode}：{stderr or '无 stderr'}")
         return
-    _write_cached_stdout(cfg, source_type, command, cwd, completed.stdout)
-    items = _parse_lookup_output(source_type, completed.stdout)
+    if _consume_source_output(source_type, completed.stdout, completed.stderr, cfg.limit, bundle):
+        _write_cached_stdout(cfg, source_type, command, cwd, completed.stdout)
+
+
+def _consume_source_output(
+    source_type: str, stdout: str, stderr: str, limit: int,
+    bundle: L3EvidenceBundle, *, cached: bool = False,
+) -> bool:
+    """兼容现有 CLI：rc=0 只证明进程结束，源级错误仍保留；部分行仍可用。
+
+    仅检查诊断行，不把公告正文里的「失败」当网络错误。长期应由上游结构化状态取代。
+    返回是否可缓存；不将失败/部分失败缓存成正常空集或全成功。
+    """
+    failures = [line.strip() for line in f"{stdout}\n{stderr}".splitlines()
+                if re.match(r"\s*(?:\[(?:fetch|warn|warning|error)\]|error:|warning:|HTTP Error|Traceback)", line, re.I)
+                and re.search(r"failed|failure|error|exception|timeout|forbidden|失败|超时", line, re.I)]
+    if failures:
+        bundle.failures.append("request_error")
+        bundle.warnings.append(f"{source_type} 上游查询未完整成功：{_squash('；'.join(failures), 500)}；不能据此断言没有公告")
+    payload = _decode_json_payload(stdout)
+    # JSON 模式必须是行列表或有明确行列表字段的信封。坏 JSON 不许落纯文本兜底。
+    body_lines = [line for line in stdout.splitlines() if line.strip() and not _is_non_evidence_cli_line(line)]
+    json_shaped = bool(body_lines and (
+        body_lines[0].lstrip().startswith(("[", "{")) or body_lines[0].strip() == "null"
+    ))
+    rows = payload if isinstance(payload, list) else (
+        next((payload[key] for key in ("items", "results", "data") if key in payload), None)
+        if isinstance(payload, dict) else None
+    )
+    malformed = (payload is not None or json_shaped) and (
+        not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows)
+    )
+    if malformed:
+        bundle.failures.append("parse_error")
+        bundle.warnings.append(f"{source_type} JSON 载荷形状无效；不能当成空结果")
+        items = []
+    elif failures and payload is None:
+        # 多行 traceback 的续行没有 [warn] 前缀；只接受旧 CLI 的带日期证据格式。
+        items = _parse_plaintext_lookup_lines(source_type, body_lines)
+    else:
+        items = _parse_lookup_output(source_type, stdout)
     if not items:
-        bundle.warnings.append(f"{source_type} 查询成功但没有解析到可用证据。")
-        _warn_if_company_unresolved(completed.stdout, completed.stderr, bundle)
-    bundle.items.extend(items[: cfg.limit])
+        action = "缓存命中但" if cached else "进程已结束但"
+        bundle.warnings.append(f"{source_type} {action}没有解析到可用证据。")
+        _warn_if_company_unresolved(stdout, stderr, bundle)
+    bundle.items.extend(items[:limit])
+    return not failures and not malformed
 
 
 _UNRESOLVED_COMPANY_MARKER = "无法解析公司"
@@ -381,8 +434,8 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
     text = str(stdout or "").strip()
     if not text:
         return []
-    # 载荷是合法 JSON 时，「解析出 0 条」是**结论**（这家公司近 N 天没有够格的
-    # 公告），不是「解析失败」。这两件事以前共用一个 falsy 分支，于是 CLI 正常
+    # 载荷是合法 JSON 时，「解析出 0 条」只代表本次没有可注入的行，
+    # 不证明公司没有公告；上游请求状态由 _consume_source_output 保留。CLI 正常
     # 返回 `[]` 会一路落到下面的纯文本兜底，把第一行 `[` 当成证据标题——凭空造出
     # 一条假证据。空集该走 to_prompt_block 的空集措辞，那是它专门写好的路径。
     if _decode_json_payload(text) is not None:
@@ -393,7 +446,8 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
     parsed_lines = _parse_plaintext_lookup_lines(source_type, lines)
     if parsed_lines:
         return parsed_lines
-    if all(_is_non_evidence_cli_line(line) for line in lines):
+    lines = [line for line in lines if not _is_non_evidence_cli_line(line)]
+    if not lines:
         return []
     title = lines[0]
     summary = "；".join(lines[:4])
@@ -411,9 +465,7 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
 # 模型不引用它们是对的。副作用比「没用上」更糟——它们照样计进证据数，让
 # 「检索到 45 条」看起来很健康，还占着 prompt 预算。
 #
-# 空结果不是降级：`L3EvidenceBundle.to_prompt_block` 对空集有专门措辞
-# （「未取得可注入的 L3 证据；读作公司端尚未兑现……不得据此否定题材」），
-# 那才是这种情况该走的路径。
+# 空结果不证明没有公告或尚未兑现；to_prompt_block 保留证据缺口，status 另记取数状态。
 #
 # **fail-open**：只有上游明确标了 P2/P3 才丢。没有 triage_level 字段的源
 # （互动易、以及不带该字段的历史/测试载荷）一律保留——门禁只该拦它认得出的
@@ -457,7 +509,7 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
             body = f"{_squash(body, 90)} ‖ 答复：{reply}"
         if row.get("is_reverse") is True:
             title = f"[反向口径] {title}"
-        date = row.get("date") or row.get("publish_date") or row.get("source_date") or ""
+        date = row.get("date") or row.get("publish_date") or row.get("published_at") or row.get("source_date") or ""
         url = row.get("url") or row.get("source") or row.get("id") or "runtime cli"
         prefix = f"{date} " if date else ""
         out.append(
@@ -517,7 +569,7 @@ def _is_non_evidence_cli_line(line: str) -> bool:
     text = str(line or "").strip().lower()
     return bool(
         not text
-        or text.startswith(("[warn]", "[warning]", "[error]", "warning:", "error:"))
+        or text.startswith(("[fetch]", "[warn]", "[warning]", "[error]", "warning:", "error:", "http error", "traceback"))
         or text in {"(无结果)", "无结果", "(no results)", "no results"}
         or "无法解析公司" in text
     )
@@ -639,6 +691,8 @@ def _cache_path(cfg: L3LookupConfig, source_type: str, command: list[str], cwd: 
         "command": command,
         "cwd": cwd or "",
         "pythonpath": cfg.pythonpath or "",
+        # 旧缓存没有 stderr，无法证明当时没失败；换版本，不读旧的成功空壳。
+        "status_contract": "source-diagnostics-v2",
     }
     digest = sha256(json.dumps(key_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
     return cache_dir / f"{digest}.json"

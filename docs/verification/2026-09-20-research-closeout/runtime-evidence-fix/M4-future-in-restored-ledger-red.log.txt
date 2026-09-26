@@ -1,0 +1,48 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-07-25] _
+
+source_date = '2026-07-25'
+
+    @pytest.mark.parametrize("source_date", ["2026-07-25", "2026-07-25T09:30:00+08:00"])
+    def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
+        assert ledger.append(future, covered_outputs=("future-output",)) == ()
+        payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
+        decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+        restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
+        assert decoded.presented_evidence == (future,)
+        assert payload["presentations"][0]["classification"] == "future_of_cutoff"
+>       assert restored.items() == ()
+E       AssertionError: assert (AgentEvidenc...nouncement'),) == ()
+E         
+E         Left contains one more item: AgentEvidence(tool='finance_query', title='原日期提示', detail='原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不...inter_dropped=2, structural_neighbor_demoted=1, deep_read=True, publisher_kind='company', document_type='announcement')
+E         Use -v to get more diff
+
+intelligence/tests/test_episode_evidence_presentations.py:61: AssertionError
+_ test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-07-25T09:30:00+08:00] _
+
+source_date = '2026-07-25T09:30:00+08:00'
+
+    @pytest.mark.parametrize("source_date", ["2026-07-25", "2026-07-25T09:30:00+08:00"])
+    def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
+        ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+        future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
+        assert ledger.append(future, covered_outputs=("future-output",)) == ()
+        payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
+        decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+        restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
+        assert decoded.presented_evidence == (future,)
+        assert payload["presentations"][0]["classification"] == "future_of_cutoff"
+>       assert restored.items() == ()
+E       AssertionError: assert (AgentEvidenc...nouncement'),) == ()
+E         
+E         Left contains one more item: AgentEvidence(tool='finance_query', title='原日期提示', detail='原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不截断\n原文不...inter_dropped=2, structural_neighbor_demoted=1, deep_read=True, publisher_kind='company', document_type='announcement')
+E         Use -v to get more diff
+
+intelligence/tests/test_episode_evidence_presentations.py:61: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-07-25]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_future_presentation_restores_exact_notice_but_cannot_cover_output[2026-07-25T09:30:00+08:00]
+2 failed, 44 deselected in 0.14s

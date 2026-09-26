@@ -1,0 +1,12 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 29f81996..4365eca9 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -286,7 +286,7 @@ def calculation_copy_findings(
+     if len(subjects) != 1:
+         return ()
+     products = _ratio_products(evidence)
+-    require_product = calculation_required or bool(re.search(r"计算编号\s*[0-9a-f]{16}", text))
++    require_product = False
+     if not products and not require_product:
+         return ()

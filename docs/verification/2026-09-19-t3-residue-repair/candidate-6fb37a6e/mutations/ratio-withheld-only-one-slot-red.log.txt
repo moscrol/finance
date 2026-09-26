@@ -1,0 +1,102 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-withheld-only-one-slot-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_withheld_slot_does_not_exempt_later_ratio or test_hedge_failure_reaches_real_verifier_and_repair"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+FFFFFFFFFFFFFFFF                                                         [100%]
+=================================== FAILURES ===================================
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u5f85\u6838\u5bf9] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u5f85\u6838\u5bf9] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u5f85\u6838\u5bf9] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`] _
+intelligence/tests/test_research_delivery_ratio_scope.py:20: in test_withheld_slot_does_not_exempt_later_ratio
+    assert findings
+E   assert ()
+_ test_hedge_failure_reaches_real_verifier_and_repair[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_hedge_failure_reaches_real_verifier_and_repair[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_hedge_failure_reaches_real_verifier_and_repair[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_hedge_failure_reaches_real_verifier_and_repair[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:42: in test_hedge_failure_reaches_real_verifier_and_repair
+    assert result.status == "partial" and result.gap_output_ids and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-withheld-only-one-slot-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u5f85\u6838\u5bf9]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u5f85\u6838\u5bf9]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u8be5\u503c\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u5f85\u6838\u5bf9]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a\u5f85\u6838\u5bf9]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u4e3a**\u5f85\u6838\u5bf9**]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_withheld_slot_does_not_exempt_later_ratio[\uff0c\u5b9e\u9645\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587-\u662f`\u5f85\u6838\u5bf9`]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_hedge_failure_reaches_real_verifier_and_repair[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_hedge_failure_reaches_real_verifier_and_repair[off-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_hedge_failure_reaches_real_verifier_and_repair[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_hedge_failure_reaches_real_verifier_and_repair[llm-2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+16 failed, 671 deselected in 1.06s
+
+STDERR:
+
+EXIT=1

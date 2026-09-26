@@ -1,0 +1,22 @@
+1023:            calculation_required=bool(re.search(r"(?:用|使用|通过).{0,8}(?:计算工具|计算器|沙箱)", contract.question)),
+2398:            # best-effort rejudge may catch omissions, but root-budget expiry
+2971:    def _clocked_judge_call(
+3102:            return self._clocked_judge_call(
+3126:                return self._clocked_judge_call(
+3157:                    return self._clocked_judge_call(
+3176:                    return self._clocked_judge_call(
+3222:                    last_failure = self._clocked_judge_call(
+3240:                    return self._clocked_judge_call(
+3264:                last_failure = self._clocked_judge_call(
+3278:            return self._clocked_judge_call(
+3306:            return self._clocked_judge_call(
+3348:                return self._clocked_judge_call(
+3379:                last_failure = self._clocked_judge_call(
+3394:                return self._clocked_judge_call(
+3414:                last_failure = self._clocked_judge_call(
+3435:                    return self._clocked_judge_call(
+3443:                return self._clocked_judge_call(
+3454:                return self._clocked_judge_call(
+3462:            return self._clocked_judge_call(
+3471:        return self._clocked_judge_call(
+6746:        return "semantic judge call budget exhausted", False, False

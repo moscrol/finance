@@ -1,0 +1,235 @@
+"""Exercise cleanup_gate_trees.sh only in disposable Git repositories."""
+from __future__ import annotations
+
+import os
+import plistlib
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts/cleanup_gate_trees.sh"
+
+
+def git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def make_repo(tmp_path: Path, *, ignored: bool = False) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.name", "Cleanup test")
+    git(repo, "config", "user.email", "cleanup@example.test")
+    (repo / "file").write_text("base")
+    if ignored:
+        (repo / ".gitignore").write_text("evidence/\n")
+        git(repo, "add", "--", "file", ".gitignore")
+    else:
+        git(repo, "add", "--", "file")
+    git(repo, "commit", "-m", "fixture")
+    return repo
+
+
+def age_tree(path: Path) -> None:
+    old = 946684800  # 2000-01-01 UTC
+    for current, dirs, files in os.walk(path, followlinks=False):
+        for name in (*dirs, *files):
+            os.utime(Path(current) / name, (old, old), follow_symlinks=False)
+    os.utime(path, (old, old), follow_symlinks=False)
+
+
+def run_cleanup(repo: Path, home: Path, fake_lsof_body: str, *, apply: bool = True, extra_args=()):
+    fakebin = home / "bin"
+    fakebin.mkdir(parents=True, exist_ok=True)
+    (fakebin / "lsof").write_text(f"#!/bin/sh\n{fake_lsof_body}\n")
+    (fakebin / "lsof").chmod(0o755)
+    env = os.environ.copy()
+    env.update(
+        HOME=str(home),
+        PATH=f"{fakebin}{os.pathsep}{env['PATH']}",
+        LSOF_TIMEOUT="2",
+    )
+    args = ["bash", str(SCRIPT), "--repo", str(repo), "--days", "0", *extra_args]
+    if apply:
+        args.append("--apply")
+    return subprocess.run(args, env=env, capture_output=True, text=True, timeout=20)
+
+
+def add_detached(repo: Path, path: Path) -> Path:
+    git(repo, "worktree", "add", "--detach", "-q", str(path), "HEAD")
+    return path
+
+
+def test_lsof_failure_refuses_to_delete(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 1")
+
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "采样失败" in result.stderr
+
+
+def test_launchd_symlink_reference_is_canonicalized(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    home = tmp_path / "home"
+    (home / "Library/LaunchAgents").mkdir(parents=True)
+    (home / "runtime").symlink_to(candidate, target_is_directory=True)
+    (home / "Library/LaunchAgents/job.plist").write_bytes(
+        plistlib.dumps({"WorkingDirectory": str(home / "runtime")})
+    )
+
+    result = run_cleanup(repo, home, "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "被 launchd/启动器引用" in result.stdout
+
+
+def test_ignored_content_keeps_detached_tree(tmp_path):
+    repo = make_repo(tmp_path, ignored=True)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    evidence = candidate / "evidence/important.db"
+    evidence.parent.mkdir()
+    evidence.write_text("keep")
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert evidence.exists()
+    assert "ignored 内容" in result.stdout
+
+
+def test_old_clean_detached_tree_can_be_removed(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not candidate.exists()
+    assert "RM" in result.stdout
+
+
+def test_graph_changes_are_not_exempt_from_dirty_guard(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    (candidate / ".code-review-graph").mkdir()
+    (candidate / ".code-review-graph/notes.md").write_text("uncommitted evidence")
+    age_tree(candidate)
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert ".code-review-graph/notes.md" in result.stdout
+
+
+def test_process_blocker_identifies_pid_and_path(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    result = run_cleanup(
+        repo, tmp_path / "home", f"printf 'p123\\ncworker\\nfcwd\\nn{candidate}\\n'",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "pid=123" in result.stdout and "fd=cwd" in result.stdout
+
+
+def test_malformed_plist_stops_cleanup(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    home = tmp_path / "home"
+    (home / "Library/LaunchAgents").mkdir(parents=True)
+    (home / "Library/LaunchAgents/broken.plist").write_text("broken")
+    result = run_cleanup(repo, home, "exit 0")
+    assert result.returncode == 4
+    assert candidate.exists()
+    assert "broken.plist" in result.stderr
+
+
+def test_cache_only_ignored_content_no_longer_blocks(tmp_path):
+    # 2026-09-24 实测：dry-run 报 0 棵可删，125 棵被 __pycache__/.pytest_cache 挡住。缓存是可再生的，不是内容。
+    repo = make_repo(tmp_path, ignored=True)
+    (repo / ".gitignore").write_text("evidence/\n__pycache__/\n.pytest_cache/\n")
+    git(repo, "add", "--", ".gitignore")
+    git(repo, "commit", "-m", "ignore caches")
+    candidate = add_detached(repo, tmp_path / "candidate")
+    (candidate / ".pytest_cache").mkdir()
+    (candidate / ".pytest_cache/v").write_text("x")
+    (candidate / "__pycache__").mkdir()
+    (candidate / "__pycache__/m.cpython-312.pyc").write_bytes(b"\0")
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not candidate.exists()
+    assert "RM" in result.stdout
+
+
+def test_directory_watch_handle_does_not_block(tmp_path):
+    # 一个 Claude Code 会话在几百棵树里持有数千个 DIR 句柄（文件监视器）；fd 是数字且类型 DIR 不算在用。
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    result = run_cleanup(
+        repo, tmp_path / "home", f"printf 'p7\\ncclaude\\nf5\\ntDIR\\nn{candidate}\\n'",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not candidate.exists()
+
+
+def test_locked_tree_is_skipped_with_its_reason_by_default(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    git(repo, "worktree", "lock", "--reason", "PR999 fixed gate candidate", str(candidate))
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "上锁" in result.stdout and "PR999" in result.stdout
+
+
+def test_release_merged_locks_unlocks_only_trees_already_in_base(tmp_path):
+    repo = make_repo(tmp_path)
+    merged = add_detached(repo, tmp_path / "merged")
+    git(repo, "worktree", "lock", "--reason", "PR999 fixed gate candidate", str(merged))
+    pending = add_detached(repo, tmp_path / "pending")
+    (pending / "file").write_text("candidate work")
+    git(pending, "add", "--", "file")
+    git(pending, "commit", "-m", "unmerged candidate")
+    git(repo, "worktree", "lock", "--reason", "PR1000 in progress", str(pending))
+    age_tree(merged)
+    age_tree(pending)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0", extra_args=["--release-merged-locks"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not merged.exists() and "锁已过期" in result.stdout
+    assert pending.exists() and "PR1000" in result.stdout
+
+
+def test_lock_reason_asking_to_retain_is_never_released(tmp_path):
+    # #60 的安装预演树：候选早已合入 main，但锁理由写着 retain for authorized deployment——
+    # 留到授权事件，不是留到合入。2026-09-25 的 dry-run 差点把它们当过期锁拆掉。
+    repo = make_repo(tmp_path)
+    rehearsal = add_detached(repo, tmp_path / "rehearsal")
+    git(repo, "worktree", "lock", "--reason", "PR887 candidate; not installed; retain for authorized deployment", str(rehearsal))
+    age_tree(rehearsal)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0", extra_args=["--release-merged-locks"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert rehearsal.exists()
+    assert "理由要求保留" in result.stdout and "锁已过期" not in result.stdout

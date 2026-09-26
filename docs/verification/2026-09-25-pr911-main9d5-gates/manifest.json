@@ -1,0 +1,228 @@
+{
+  "pr": "911",
+  "revision": "8dec2a856b76cec21fae6daae1ed7505fb838dcc",
+  "baseline": "9d5b9800a5500e6f64875432f8df3a06713d6f52",
+  "created_at": "2026-09-25T05:48:57.654676+00:00",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-diff.log",
+      "sha256": "cbadda394fc5760617244f1ced5c216db3fae995eee7df7324b68723568a6e58",
+      "bytes": 506,
+      "path": "raw/911/supplement-diff.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-diff.process.json",
+      "sha256": "2b63ba138463ee18cf2a42b8d87e0719eb41c9266ca0676cde575f8e87c0e072",
+      "bytes": 714,
+      "path": "raw/911/supplement-diff.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-doctor.log",
+      "sha256": "064ccb0a170a0bcda51af5a193d69992f7a09d3038bd52c7d048753b78d6f40f",
+      "bytes": 5115,
+      "path": "raw/911/supplement-doctor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-doctor.process.json",
+      "sha256": "56126823ba03a26ac02073e5beedcab24683d3dda3d37670a08214c9954db90b",
+      "bytes": 759,
+      "path": "raw/911/supplement-doctor.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-ledger.log",
+      "sha256": "ede85ca67a181e0f36f73463c0ac1dddc92a47fdbcfe658d74ba59fd37850bfc",
+      "bytes": 2569,
+      "path": "raw/911/supplement-ledger.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-ledger.process.json",
+      "sha256": "a953b8947f30416e7459690bf09b4650846732db3f248e0af950af21a36eb42b",
+      "bytes": 763,
+      "path": "raw/911/supplement-ledger.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-0.log",
+      "sha256": "400c215e3ea9e2d3952fa671792da7a9e2e45d8e6c64cbec05df0d59f4d88a43",
+      "bytes": 672,
+      "path": "raw/911/supplement-registry-0.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-0.process.json",
+      "sha256": "2024bd3adea8cdd430b8944b9f3532653ed7c1eb1efbc74a5a95aa428cfbdeca",
+      "bytes": 781,
+      "path": "raw/911/supplement-registry-0.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-1.log",
+      "sha256": "59afc17bd7e4cb2db1971f04e223da31c3f155c09419d6a0f2a5cb70243e6874",
+      "bytes": 597,
+      "path": "raw/911/supplement-registry-1.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-1.process.json",
+      "sha256": "431b107e8dcbefee08bb07008f78480ee95a3d865617bb9ab41cf442cf0c3324",
+      "bytes": 768,
+      "path": "raw/911/supplement-registry-1.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-2.log",
+      "sha256": "8204a5bc1ac49a68a58de17a342bd62a3a387e2da0f52c6acf58c849fbf61ae5",
+      "bytes": 701,
+      "path": "raw/911/supplement-registry-2.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-2.process.json",
+      "sha256": "d38a36380b31a26ce4d9d8a0916d7f87b9d5a14dcee0d8eff5a1f8f06f06400e",
+      "bytes": 793,
+      "path": "raw/911/supplement-registry-2.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-3.log",
+      "sha256": "9442ab3e2d13911d55b9bc9f6fdd05c5fd00822a545a3a9f2e334e349fd28959",
+      "bytes": 652,
+      "path": "raw/911/supplement-registry-3.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-registry-3.process.json",
+      "sha256": "2975c6c9e8d551fe2ad914411a51698c2429dde9b67cffb41055d0ee3b2aa368",
+      "bytes": 792,
+      "path": "raw/911/supplement-registry-3.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-ruff.log",
+      "sha256": "41a667951cb469a78fd4ca42528770e12b32225c8337f24a27332929debbbd3e",
+      "bytes": 567,
+      "path": "raw/911/supplement-ruff.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/911/supplement-ruff.process.json",
+      "sha256": "269273492c34a53109555ff3758fa41250642fd48dc7c837a3ecd26890642b8c",
+      "bytes": 760,
+      "path": "raw/911/supplement-ruff.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/candidate-identities.json",
+      "sha256": "1bebd0853686a1b03383491cad210799175870115f522dae437e648464084b79",
+      "bytes": 6647,
+      "path": "raw/candidate-identities.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-context.json",
+      "sha256": "6415602b1aa84efd6a1c4cd3a197a11d762506b476a79471e1512960bee5f4d9",
+      "bytes": 1029,
+      "path": "raw/conflict-context.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.log",
+      "sha256": "376875609ef60d295986e970d715c553cdaf0f78c6b9e7b7cf7f9cfff21ce7cd",
+      "bytes": 2541,
+      "path": "raw/conflict-targeted.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.process.json",
+      "sha256": "09614e3e61204b0da1cc2ead3f89f3895dff5e5f99c31c482a3cd9c39014da38",
+      "bytes": 1337,
+      "path": "raw/conflict-targeted.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.result.json",
+      "sha256": "c80c7334b1d0ce438b1c414f636bae5210c17ba4297f8a81c28051d9d926918d",
+      "bytes": 1318,
+      "path": "raw/conflict-targeted.result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/conflict-targeted.xml",
+      "sha256": "f84d44b88c71e1c74b607d20b26493f257f1ecc2a244ec42adf024de32e19dd4",
+      "bytes": 1220,
+      "path": "raw/conflict-targeted.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/run_gates.py",
+      "sha256": "880b8bbc4e8a9f5937de367703dadb30509634dc05d31951cd073e122e3cb168",
+      "bytes": 6750,
+      "path": "raw/run_gates.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/seal_gates.py",
+      "sha256": "b2eebc51a6d115484d29fabc8ad37dc984a6accc2ea48a8ce42c34eb91bd23fe",
+      "bytes": 3013,
+      "path": "raw/seal_gates.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/started.json",
+      "sha256": "9da22ee13bd2e084f42a97435d6a7170baf451bcd44430299bde6f43251f7e59",
+      "bytes": 178,
+      "path": "raw/started.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/supervisor.log",
+      "sha256": "d0f44301412fe677093a255c6452702413b7d83b7ab9cb589b58c3afeff1d8bc",
+      "bytes": 1040,
+      "path": "raw/supervisor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/supplement-static.json",
+      "sha256": "4ac467bb957886ace920bd163713a3ed3aaf794fe0899f003f6ed2922ed9ef51",
+      "bytes": 661,
+      "path": "raw/supplement-static.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait-observations.json",
+      "sha256": "e2da883bcdeb13673b4cbfbc92f716c9546bb64eae7dbcf1bc97a8963321751c",
+      "bytes": 13170,
+      "path": "raw/wait-observations.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait-result.json",
+      "sha256": "5fa4d827e5a3aecc65b6bea5f9116120812f5387b6550ea817ae8b372ec4de62",
+      "bytes": 121,
+      "path": "raw/wait-result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait.log",
+      "sha256": "49b3a0ccba0214417c4a8ce7ecc1f354e197dab28c37ec11150b99371b440ffc",
+      "bytes": 113,
+      "path": "raw/wait.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main9d5-20260925/wait_once.py",
+      "sha256": "22ab6a354a7502c77e666a8c09623676f10b2ed54d79c934ffc2b2ee2a0bf909",
+      "bytes": 1603,
+      "path": "raw/wait_once.py.txt",
+      "storage": "git-original"
+    }
+  ],
+  "scope": "original gate evidence; conflict-targeted ran on an uncommitted merge",
+  "independent_review": false,
+  "paid_model_requests": 0
+}

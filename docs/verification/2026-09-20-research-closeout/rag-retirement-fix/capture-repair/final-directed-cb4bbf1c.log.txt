@@ -1,0 +1,7 @@
+HEAD cb4bbf1c
+FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+........................................................................ [ 59%]
+.................................................                        [100%]
+121 passed in 5.31s
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check intelligence/services/rag_generation_identity.py intelligence/services/rag_worker.py intelligence/services/kb_rag.py intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+All checks passed!

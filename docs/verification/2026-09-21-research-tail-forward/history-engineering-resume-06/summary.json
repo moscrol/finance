@@ -1,0 +1,86 @@
+{
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "identity": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "python": {
+    "ordinary": {
+      "outcomes": {
+        "passed": 12802,
+        "skipped": 87,
+        "xfailed": 2
+      },
+      "selected_count": 12891,
+      "collected_count": 12898,
+      "exit_code": 0,
+      "elapsed_seconds": 1306.0919249998406,
+      "junit_suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "89",
+        "tests": "12891",
+        "time": "1302.462",
+        "timestamp": "2026-09-22T02:44:31.875974+08:00",
+        "hostname": "77deMacBook-Air.local"
+      }
+    },
+    "environmental": {
+      "outcomes": {
+        "passed": 7
+      },
+      "selected_count": 7,
+      "collected_count": 56,
+      "exit_code": 0,
+      "elapsed_seconds": 2.011573125142604,
+      "junit_suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "7",
+        "time": "1.588",
+        "timestamp": "2026-09-22T02:44:29.608050+08:00",
+        "hostname": "77deMacBook-Air.local"
+      }
+    },
+    "full_collected_test_ids": 12898,
+    "union_complete": true,
+    "overlap": 0,
+    "missing": 0,
+    "outcomes": {
+      "passed": 12809,
+      "skipped": 87,
+      "xfailed": 2
+    },
+    "failed_test_ids": [],
+    "environmental_ids": [
+      "intelligence/tests/test_calculation_sandbox.py::test_default_enforcement_on_this_machine_is_both_layers",
+      "intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_network_even_with_python_guard_off",
+      "intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_writes_outside_workdir_and_fork",
+      "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]",
+      "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]",
+      "intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters",
+      "intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle"
+    ],
+    "collection_matches_05": true,
+    "skip_and_xfail_ids_match_05": true,
+    "newly_passing_ids_vs_05": [
+      "intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters",
+      "intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle"
+    ],
+    "previous_collection_source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/collection.json",
+    "previous_collection_sha256": "5a01a779f912440348bb8d56199273272168472606c2229189b1fca8993f188c",
+    "status": "COMPLETE_PREDECLARED_PARTITION_PASSED",
+    "note": "Two predeclared disjoint groups on one clean SHA; not a single unsplit pytest invocation and not an official #814 receipt. Attempt 05 remains unchanged."
+  },
+  "e2e": "NOT_RERUN_IN_06; same SHA has 34P/2S in 05; no result transplantation",
+  "engineering": "Full collected Python test coverage passed in the predeclared seven-ID environmental partition.",
+  "overall": "CHANGES_REQUIRED / NOT_ACCEPTED",
+  "official_814_receipt": false,
+  "independent_review": "NOT_RESTARTED",
+  "natural_history_four_questions": "NOT_RERUN",
+  "merge_deploy_production": "NOT_PERFORMED"
+}

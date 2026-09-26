@@ -1,0 +1,70 @@
+"""Independent spec probe (C6): the repair is wired into the real verifier exit.
+
+Runs SemanticEpisodeVerifier end-to-end (real local numeric gate + scripted judge,
+author helpers _judge/_structural for plumbing only) on scenarios NOT present in the
+author tests:
+  A. a locally-rejected numeric definition plus a dangling count in a surviving
+     observation sentence -> both the definition and the count phrase disappear from
+     the public answer and the repaired draft, while the surrounding observation and
+     the deletion bookkeeping survive;
+  B. a second definition of the SAME label survives the pass -> the count reference
+     must NOT be removed (claim: only labels with no surviving definition);
+  C. a draft whose every line is either the rejected definition or a count-only
+     label line -> repair must not deliver an empty public answer.
+"""
+
+import sys
+
+CANDIDATE = "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private"
+if CANDIDATE not in sys.path:
+    sys.path.insert(0, CANDIDATE)
+
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier  # noqa: E402
+from intelligence.services.research_contract import ResearchDeadline  # noqa: E402
+from intelligence.tests.test_episode_semantic_verifier import _judge, _structural  # noqa: E402
+
+
+def _verify(draft):
+    frame, structural = _structural(draft)
+    return SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+
+def test_deleted_definition_and_dangling_count_both_leave_the_public_answer():
+    result = _verify(
+        "降级条件：若跌破3%且回撤5日，则降级。\n"
+        "量能主线抱团。当前**满足降级条件中的2条，量能尚未恶化**。"
+    )
+    answer = result.public_answer
+    assert "降级条件：" not in answer and "中的2条" not in answer
+    assert "量能主线抱团" in answer and "量能尚未恶化" in answer
+    assert "满足降级条件中的2条" not in result.verified.outcome.draft
+    assert result.sentence_verdicts and any(
+        row["sentence"].startswith("降级条件") and row["decision"] == "deleted"
+        for row in result.sentence_verdicts
+    )
+
+
+def test_surviving_same_label_definition_keeps_the_count_reference():
+    result = _verify(
+        "降级条件：若跌破3%，则降级。\n"
+        "降级条件：若量能持续萎缩，则降级。\n"
+        "当前**满足降级条件中的2条，量能配合**。"
+    )
+    answer = result.public_answer
+    if "若量能持续萎缩" in answer:
+        # The label still has a live definition, so the count is not dangling.
+        assert "满足降级条件中的2条" in answer
+
+
+def test_fully_consumed_draft_is_not_delivered_as_an_empty_answer():
+    result = _verify(
+        "升级条件：若涨停60家以上，则升级。\n"
+        "结论：满足升级条件中的2条。"
+    )
+    assert result.public_answer  # never an empty public answer
+    assert "满足升级条件中的2条" not in result.public_answer
+    assert result.sentence_verdicts

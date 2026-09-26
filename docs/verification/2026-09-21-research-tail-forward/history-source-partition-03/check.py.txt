@@ -1,0 +1,70 @@
+"""Bounded checks with exact revision/content identities; never overwrite a receipt."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+OUT = Path(__file__).resolve().parent
+SOURCES = [
+    'intelligence/services/user_task.py', 'intelligence/services/task_frame.py',
+    'intelligence/services/research_contract.py',
+    'intelligence/services/conversation_materials.py', 'intelligence/services/turn_controller.py',
+    'tests/test_history_source_partition.py', 'tests/test_history_control_boundary.py',
+    'tests/test_history_permission_inheritance.py', 'scripts/probe_history_control_boundary.py',
+    'docs/agent-product-door.md',
+]
+
+
+def identity():
+    result = {key: subprocess.check_output(['git', '-C', str(ROOT), *args], timeout=15).decode()
+              for key, args in {'head': ['rev-parse', 'HEAD'], 'status': ['status', '--porcelain']}.items()}
+    result['sha256'] = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in SOURCES}
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('tag')
+    parser.add_argument('--expect', type=int, default=0)
+    parser.add_argument('--clean', action='store_true')
+    parser.add_argument('--kind', choices=['pytest', 'ruff', 'diff'], default='pytest')
+    parser.add_argument('paths', nargs='*')
+    args = parser.parse_args()
+    folder = OUT / args.tag
+    folder.mkdir(exist_ok=False)
+    before = identity()
+    if args.clean:
+        assert not before['status']
+    command = ([sys.executable, '-m', 'pytest', '-q', '--tb=short', '--basetemp', str(folder / 'tmp'), *args.paths]
+               if args.kind == 'pytest' else [sys.executable, '-m', 'ruff', 'check', '.']
+               if args.kind == 'ruff' else ['git', 'diff', '--check'])
+    if args.kind == 'pytest':
+        assert args.paths, 'Never run an unbounded full suite'
+    started = datetime.now(timezone.utc).isoformat()
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0', PYTHONPATH=str(ROOT))
+    timed_out = False
+    with (folder / 'output.txt').open('xb') as stream:
+        try:
+            proc = subprocess.run(command, cwd=ROOT, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=115)
+            code = proc.returncode
+        except subprocess.TimeoutExpired:
+            timed_out, code = True, 124
+    after = identity()
+    receipt = {'started': started, 'finished': datetime.now(timezone.utc).isoformat(),
+               'scope': 'focused operator check, not full gates or independent acceptance',
+               'command': command, 'before': before, 'after': after,
+               'exit': code, 'timed_out': timed_out, 'expected_exit': args.expect}
+    (folder / 'receipt.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'tag': args.tag, 'exit': code, 'head': before['head'].strip(),
+                      'clean': not before['status'], 'unchanged': before == after}))
+    print('\n'.join((folder / 'output.txt').read_text().splitlines()[-4:]))
+    assert before == after and code == args.expect and not timed_out
+
+
+if __name__ == '__main__':
+    main()

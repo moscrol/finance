@@ -1,0 +1,27 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-closeout-0920",
+  "started_at": "2026-09-20T05:19:56.306710+00:00",
+  "ended_at": "2026-09-20T05:19:57.947161+00:00",
+  "before": {
+    "head": "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+    "branch": "fix/history-closeout-0920",
+    "status": ""
+  },
+  "after": {
+    "head": "e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7",
+    "branch": "fix/history-closeout-0920",
+    "status": ""
+  },
+  "exit_status": 1,
+  "output_sha256": "3d93108358dd226b46bcb4d5c1b42a73fed5a512c9b61b90f2e2ae0509b07caa",
+  "env_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "UV_OFFLINE": "1",
+    "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Users/a77/.codex/tmp/arg0/codex-arg0HQgSvt:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources",
+    "PYTHONPATH": "/Users/a77/fwp-wt-history-closeout-0920"
+  }
+}

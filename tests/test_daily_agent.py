@@ -18,7 +18,7 @@ from intelligence.workflows.daily_agent import (
 
 
 class DailyAgentTest(unittest.TestCase):
-    def make_fixture(self, root: Path) -> ProjectPaths:
+    def make_fixture(self, root: Path, *, complete_inventory: bool = True) -> ProjectPaths:
         finance = root / "finance"
         exports = finance / "market_feature_store" / "exports"
         daily_dir = finance / "复盘" / "daily" / "2026-06-11"
@@ -31,6 +31,17 @@ class DailyAgentTest(unittest.TestCase):
         relations.mkdir(parents=True)
         sources.mkdir(parents=True)
         briefings.mkdir(parents=True)
+        if complete_inventory:
+            for folder in ("未入库", "已入库", "待人工确认"):
+                (root / folder).mkdir()
+            for name, key in (
+                ("theme-radar/missing-concept-audit.json", "missing_concepts"),
+                ("theme-radar/missing-evidence-source-audit.json", "missing_sources"),
+                ("ima-stock/audits/entity-stock-ima-coverage-2026-06-11.json", "missing"),
+            ):
+                path = wiki / "raw" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps({key: []}), encoding="utf-8")
 
         for path in [
             exports / "2026-06-11-daily-review.md",
@@ -332,6 +343,34 @@ class DailyAgentTest(unittest.TestCase):
                 (output / "content-tampered.json").exists()
             )
             self.assertTrue((output / "content-tampered-research-queue.json").exists())
+
+    def test_daily_agent_propagates_unknown_inventory_as_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_fixture(Path(tmp), complete_inventory=False)
+            summary, report, markdown = run_daily_agent(
+                DailyAgentOptions(
+                    date="2026-06-11",
+                    finance_root=paths.finance_root,
+                    kb_wiki=paths.knowledge_wiki,
+                    top_per_date=2,
+                    semantic_rag_top_n=0,
+                    register_checkpoints=False,
+                )
+            )
+            ledger = report["ledger"]
+            self.assertEqual(ledger["status"], "WARN")
+            self.assertEqual(ledger["scope"], "file_inventory_only")
+            self.assertEqual(len(ledger["sections"]["ima_stock"]["missing_folders"]), 3)
+            for name, key in (
+                ("missing_concepts", "count"),
+                ("missing_sources", "count"),
+                ("ima_stock_coverage", "missing_count"),
+            ):
+                self.assertIsNone(ledger["debts"][name][key])
+                self.assertEqual(ledger["debts"][name]["error"], "missing")
+            step = next(item for item in summary.steps if item.name == "daily-ledger")
+            self.assertEqual(step.status, "WARN")
+            self.assertIn("日常产物状态：`WARN`", markdown)
 
     def test_daily_agent_rejects_wiki_changes_during_generation(self):
         with tempfile.TemporaryDirectory() as tmp:

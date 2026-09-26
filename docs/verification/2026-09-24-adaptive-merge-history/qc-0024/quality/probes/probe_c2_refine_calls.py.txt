@@ -1,0 +1,187 @@
+"""独立探针 C2/C4/C5(根预算)：五个 llm_refine 调用点的 deadline/取消转发。
+
+A 部分：http_transport_override 注入记录型假 opener，验证五个调用点各自
+把共享 Deadline 转发到传输层（流式路径还转发 is_cancelled）。
+B 部分：真实传输层行为验证 C4（10s 片 + 0.5s 共享 deadline 必须在 ~0.5s 停）。
+C 部分：零预算/预算耗尽 —— 无 HTTP 请求、无预订。
+"""
+import sys
+import time
+import urllib.request
+
+CAND = "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate"
+sys.path.insert(0, CAND)
+from intelligence.services import llm_refine as R  # noqa: E402
+from intelligence.services import llm_http_transport as T  # noqa: E402
+
+RESULTS, FAILED = [], []
+
+
+def record(name, ok, detail):
+    RESULTS.append((name, ok, detail))
+    print(("PASS " if ok else "FAIL ") + name + " :: " + detail)
+    if not ok:
+        FAILED.append(name)
+
+
+class FakeResp:
+    def __init__(self):
+        self._body = (b'{"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],'
+                      b' "usage": {"prompt_tokens": 1, "completion_tokens": 1}}')
+        self.status = 200
+        self.headers = {}
+
+    def read(self):
+        return self._body
+
+    def __iter__(self):
+        lines = [
+            b'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":null}]}\n',
+            b'data: {"choices":[{"delta":{},"finish_reason":"stop"}], "usage":{}}\n',
+            b'data: [DONE]\n',
+        ]
+        for l in lines:
+            yield l
+
+
+class RecordingOpener:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, request, timeout, *, deadline=None, is_cancelled=None,
+                 loopback_only=False, observer=None):
+        self.calls.append({
+            "url": request.full_url, "timeout": timeout,
+            "deadline": deadline, "is_cancelled": is_cancelled,
+        })
+
+        class _Ctx:
+            def __enter__(s):
+                return FakeResp()
+
+            def __exit__(s, *a):
+                return False
+        return _Ctx()
+
+
+PROVIDER = R.LLMProvider(name="fake", api_key="k", base_url="http://127.0.0.1:1", model="m")
+MSGS = [{"role": "user", "content": "hi"}]
+
+
+def part_a():
+    op = RecordingOpener()
+    shared = R.Deadline.from_timeout(5.0)
+    cancel_flag = lambda: False  # noqa: E731
+    expected = [
+        ("_post_chat", lambda: R._post_chat(PROVIDER, MSGS, 2.0, deadline=shared), False),
+        ("_post_chat_synthesis",
+         lambda: R._post_chat_synthesis(PROVIDER, MSGS, 2.0, 0.2, 10, 1000, deadline=shared), False),
+        ("_post_chat_message",
+         lambda: R._post_chat_message(PROVIDER, MSGS, 2.0, deadline=shared), False),
+        ("_post_chat_message_stream",
+         lambda: R._post_chat_message_stream(
+             PROVIDER, MSGS, 2.0, 0.2, None, None, None, lambda s: None,
+             is_cancelled=cancel_flag, deadline=shared), True),
+        ("_post_chat_stream",
+         lambda: R._post_chat_stream(
+             PROVIDER, MSGS, 2, 0.2, lambda s: None, None, cancel_flag, shared, 10, 1000), True),
+    ]
+    for name, fn, wants_cancel in expected:
+        try:
+            with R.http_transport_override(op):
+                fn()
+            ok_detail = ""
+            ok = True
+        except Exception as e:
+            ok, ok_detail = False, "exc %r" % e
+        c = op.calls[-1] if op.calls else None
+        if c is None:
+            record("A_" + name, False, "opener never called " + ok_detail)
+            continue
+        deadline_ok = c["deadline"] is shared  # 同一对象，非同值重建
+        cancel_ok = (c["is_cancelled"] is cancel_flag) if wants_cancel else True
+        record("A_" + name, ok and deadline_ok and cancel_ok,
+               "deadline_fwd=%s cancel_fwd=%s timeout=%s %s"
+               % (deadline_ok, cancel_ok, c["timeout"], ok_detail))
+    # 无 deadline 时调用点自建 Deadline
+    op2 = RecordingOpener()
+    try:
+        with R.http_transport_override(op2):
+            R._post_chat(PROVIDER, MSGS, 3.0)
+        c = op2.calls[-1]
+        record("A_deadline_default",
+               c["deadline"] is not None and c["deadline"].expires_at > 0,
+               "self-built deadline expires_at=%r" % getattr(c["deadline"], "expires_at", None))
+    except Exception as e:
+        record("A_deadline_default", False, "exc %r" % e)
+
+
+def part_b():
+    # C4 行为级：10s 时间片 + 0.5s 共享 deadline，本地假服务延迟 2.9s
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            time.sleep(2.9)
+            body = b'{"choices":[{"message":{"content":"late"}}]}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    srv = None
+    for p in range(26001, 26009):
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", p), H)
+            break
+        except OSError:
+            continue
+    if srv is None:
+        record("B_shared_deadline_behavioral", False, "no free port")
+        return
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    prov = R.LLMProvider(name="fake", api_key="k",
+                         base_url="http://127.0.0.1:%d" % srv.server_address[1], model="m")
+    t0 = time.monotonic()
+    try:
+        R._post_chat(prov, MSGS, 10.0, deadline=R.Deadline.from_timeout(0.5))
+        record("B_shared_deadline_behavioral", False, "completed against 2.9s server")
+    except R.LLMDeadlineExceeded:
+        el = time.monotonic() - t0
+        record("B_shared_deadline_behavioral", el < 1.5,
+               "LLMDeadlineExceeded at %.2fs (timeout=10, shared=0.5)" % el)
+    except Exception as e:
+        record("B_shared_deadline_behavioral", False, "wrong exc %r" % e)
+    srv.shutdown()
+
+
+def part_c():
+    # C5 根预算耗尽：无 HTTP 请求、无预订
+    op = RecordingOpener()
+    try:
+        with R.call_ledger_scope(max_calls=1) as ledger:
+            assert ledger.try_reserve()  # 耗尽唯一名额（模拟外部已用掉）
+            R._post_chat(PROVIDER, MSGS, 2.0)
+        record("C_zero_budget", False, "no exception, opener calls=%d" % len(op.calls))
+    except R.LLMCallBudgetExceeded:
+        record("C_zero_budget", len(op.calls) == 0,
+               "LLMCallBudgetExceeded, opener calls=%d (no HTTP, no new reservation)" % len(op.calls))
+    except Exception as e:
+        record("C_zero_budget", False, "wrong exc %r opener=%d" % (e, len(op.calls)))
+
+
+if __name__ == "__main__":
+    with R.http_transport_override(RecordingOpener()):  # 默认隔离，防真实网络
+        pass
+    part_a()
+    part_b()
+    part_c()
+    print("subcases=%d failed=%d" % (len(RESULTS), len(FAILED)))
+    sys.exit(1 if FAILED else 0)

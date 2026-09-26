@@ -1,8 +1,16 @@
+import json
+import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
+from intelligence.paths import ProjectPaths
+from intelligence.runner import run_command_step
 from intelligence.services.ima_gap_report import build_ima_gap_report, classify_page
+from intelligence.workflows.daily_review import DailyReviewOptions, build_daily_review_plan
 
 
 class ImaGapReportTest(unittest.TestCase):
@@ -77,6 +85,50 @@ class ImaGapReportTest(unittest.TestCase):
             self.assertEqual(by_stock["众兴菌业"], "run_stock_card")
             self.assertEqual(by_stock["海南橡胶"], "skip_no_entity")
             self.assertEqual(report["theme_run"], ["种植业"])
+
+
+@pytest.mark.parametrize("queue_state", ["missing", "empty", "populated", "invalid_json"])
+def test_cli_status_reaches_real_workflow_runner(tmp_path, queue_state):
+    paths = ProjectPaths(tmp_path, tmp_path / "wiki", tmp_path / "site", tmp_path / "snapshot", tmp_path / "index")
+    (paths.knowledge_wiki / "concepts").mkdir(parents=True)
+    (paths.knowledge_wiki / "entities").mkdir()
+    (paths.knowledge_wiki / "sources").mkdir()
+    paths.market_exports.mkdir(parents=True)
+    day = "2026-09-18"
+    queue = paths.market_exports / f"{day}-research-queue.json"
+    if queue_state != "missing":
+        payload = {"date": day, "today_do_ima": [], "today_find_official_evidence": []}
+        if queue_state == "populated":
+            (paths.knowledge_wiki / "concepts" / "test-theme.md").write_text("# test-theme\n", encoding="utf-8")
+            payload["today_do_ima"].append({"目标": "test-theme", "优先级": 100, "强势股": []})
+        queue.write_text("{" if queue_state == "invalid_json" else json.dumps(payload), encoding="utf-8")
+
+    spec = next(s for s in build_daily_review_plan(
+        DailyReviewOptions(date=day, skip_sync=True, plan="full"), paths,
+    ) if s.name == "ima-gap-report")
+    code_root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": str(code_root), "FINANCE_WS": str(tmp_path),
+           "KB_VAULT": str(paths.knowledge_wiki)}
+    step = run_command_step(
+        spec.name, [sys.executable, *spec.argv[1:]], cwd=tmp_path,
+        outputs=spec.outputs, env=env, timeout_sec=30,
+    )
+    if queue_state in {"missing", "invalid_json"}:
+        assert step.status == "FAIL"
+        assert step.returncode not in (None, 0)
+        assert step.errors
+        assert not any(Path(p).exists() for p in spec.outputs)
+        if queue_state == "missing":
+            result = json.loads("\n".join(step.stdout_tail))
+            assert result["ok"] is False
+            assert str(queue) in result["error"]
+    else:
+        assert step.status == "PASS"
+        assert step.returncode == 0
+        assert not step.errors
+        assert all(Path(p).is_file() for p in spec.outputs)
+        report = json.loads(Path(spec.outputs[0]).read_text(encoding="utf-8"))
+        assert report["theme_run"] == (["test-theme"] if queue_state == "populated" else [])
 
 
 if __name__ == "__main__":

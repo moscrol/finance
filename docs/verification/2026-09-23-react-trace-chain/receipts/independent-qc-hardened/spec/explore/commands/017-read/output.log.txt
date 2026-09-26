@@ -1,0 +1,82 @@
+            if source[line_start:start].strip() == "":
+                delete_start = line_start
+            delete_end = end
+            if (
+                delete_end < len(source)
+                and source[delete_end] == "\n"
+                and (delete_start == 0 or source[delete_start - 1] == "\n")
+            ):
+                delete_end += 1
+            spans.append((delete_start, delete_end))
+        cursor = end
+    for start, end in reversed(spans):
+        source = f"{source[:start]}{source[end:]}"
+    if preserve_numbering:
+        return source.strip()
+    repaired = _renumber_ordered_list_items(source.strip())
+    return _reconcile_explicit_list_counts(original_source, repaired)
+
+
+def _reconcile_explicit_list_counts(before: str, after: str) -> str:
+    """Keep an explicit count aligned with a surviving ordered-list group.
+
+    This is deliberately narrow: only a count phrase immediately followed by
+    one ordered list whose original length equals that count is eligible.  A
+    count that cannot be mapped safely is removed rather than guessed.
+    """
+
+    matches = tuple(
+        sorted(
+            (
+                *_EXPLICIT_LIST_COUNT_RE.finditer(before),
+                *_PREFIXED_LIST_COUNT_RE.finditer(before),
+            ),
+            key=lambda item: item.start(),
+        )
+    )
+    if not matches:
+        return after
+    replacements: list[tuple[int, int, str]] = []
+    after_cursor = 0
+    for match in matches:
+        original_count = _parse_small_count(match.group("count"))
+        if original_count is None:
+            continue
+        before_group = _next_list_group_count(
+            before,
+            match.end(),
+            contiguous=False,
+        )
+        if before_group != original_count:
+            continue
+        phrase = match.group(0)
+        after_start = after.find(phrase, after_cursor)
+        if after_start < 0:
+            continue
+        after_end = after_start + len(phrase)
+        after_cursor = after_end
+        after_group = _next_list_group_count(after, after_end)
+        if after_group == original_count:
+            continue
+        if after_group is None or after_group < 1:
+            label = match.groupdict().get("label") or ""
+            descriptor = match.groupdict().get("descriptor") or ""
+            replacements.append(
+                (after_start, after_end, label or descriptor)
+            )
+            continue
+        rendered_count = _render_small_count(
+            after_group,
+            chinese=not match.group("count").isdigit(),
+        )
+        label = match.groupdict().get("label")
+        descriptor = match.groupdict().get("descriptor")
+        replacement = (
+            f"{label}有{rendered_count}{match.group('unit')}"
+            if label
+            else f"{rendered_count}{match.group('unit')}{descriptor}"
+        )
+        replacements.append((after_start, after_end, replacement))
+    # Apply from right to left so each replacement keeps later offsets stable.
+
+[truncated; total lines=6936, selected=5920:5999; request a later offset]

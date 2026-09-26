@@ -1,0 +1,265 @@
+#!/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+"""One-shot independent T3 repair review; uses the existing review worker protocol."""
+from __future__ import annotations
+
+import ast
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+STATE = Path(os.environ['STATE_ROOT'])
+ROOT = Path(os.environ['REVIEW_WORKTREE'])
+REQUEST = Path(os.environ['REQUEST_FILE'])
+CLAIM = Path(os.environ['CLAIM_FILE'])
+RUN = STATE / 'runs' / os.environ['REVIEW_ID']
+request = json.loads(REQUEST.read_text())
+claim = json.loads(CLAIM.read_text())
+revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+assert revision == request['commit'] == os.environ['COMMIT']
+assert hashlib.sha256(REQUEST.read_bytes()).hexdigest() == claim['request_sha256']
+os.umask(0o022)
+ENV = {key: os.environ[key] for key in ('HOME', 'PATH', 'LANG', 'TMPDIR') if key in os.environ}
+ENV['FORESIGHT_LLM_KEYCHAIN'] = '0'
+checks = {}
+
+
+def run(name, command, *, cwd=ROOT):
+    result = subprocess.run(command, cwd=cwd, env=ENV, capture_output=True, text=True, timeout=600)
+    raw = result.stdout + result.stderr
+    (RUN / (name + '.log')).write_text(raw)
+    checks[name] = {'exit_code': result.returncode, 'command': command, 'cwd': str(cwd),
+                    'output_tail': raw[-5000:]}
+
+
+tests = sorted({test for paths in request['artifact_tests'].values() for test in paths})
+run('artifact-tests', [PY, '-m', 'pytest', '-q', *tests])
+review_range = request['parent_commit'] + '..' + revision
+run('git-diff-check-all', ['git', 'diff', '--check', review_range])
+# Archived original logs/diffs intentionally retain their bytes. Their known
+# whitespace is not an exemption for fresh code/docs; verify manifests below.
+archive_names = ('2026-09-19-t3-retention-repair', '2026-09-19-t3-review-counterexamples', '2026-09-19-t3-ratio-scope')
+archive_roots = ['docs/verification/' + name for name in archive_names]
+run('git-diff-check-fresh', ['git', 'diff', '--check', review_range, '--', '.',
+    *[':!' + path for path in archive_roots]])
+run('git-diff-check-archive-docs', ['git', 'diff', '--check', review_range, '--',
+    *[path + '/' + filename for path in archive_roots for filename in ('README.md', 'manifest.json')]])
+clean_root = Path(os.environ['CLEAN_REVIEW_TARGET'])
+assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=clean_root, text=True).strip() == revision
+assert not subprocess.check_output(['git', 'status', '--porcelain'], cwd=clean_root, text=True).strip()
+run('original-fact-retention-probe', [PY, 'scripts/review_probes/check_delivery_fact_retention.py',
+    '--code-root', str(clean_root), '--expect-revision', revision], cwd=clean_root)
+run('original-ratio-hedge-probe', [PY, 'scripts/review_probes/check_ratio_hedge_delivery.py',
+    '--code-root', str(clean_root), '--expect-revision', revision], cwd=clean_root)
+run('original-ratio-boundary-probe', [PY, 'scripts/review_probes/check_ratio_scope_boundaries.py',
+    '--code-root', str(clean_root), '--expect-revision', revision], cwd=clean_root)
+run('research-delivery-mutations', [PY, 'scripts/review_probes/run_extraction_mutations.py',
+    '--suite', 'research-delivery', '--revision', revision, '--output', str(RUN / 'mutations')])
+changed = subprocess.check_output(['git', 'diff', '--name-only', request['parent_commit'] + '..' + revision], cwd=ROOT, text=True).splitlines()
+sys.path.insert(0, str(ROOT))
+from scripts.agent_review.contract import forbidden_artifact_paths
+preflight = {'revision': revision, 'request_sha256': claim['request_sha256'],
+             'tests': tests, 'checks': checks, 'changed_paths': changed,
+             'forbidden_paths': forbidden_artifact_paths(changed),
+             'created_at': datetime.now(timezone.utc).isoformat()}
+archived_paths = set()
+archive_context = []
+for archive_root in archive_roots:
+    archive = ROOT / archive_root
+    manifest_bytes = (archive / 'manifest.json').read_bytes()
+    manifest = json.loads(manifest_bytes)
+    inventory = []
+    for row in manifest['files']:
+        path = archive / row['archive']
+        data = path.read_bytes()
+        assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+        archived_paths.add(str(path.relative_to(ROOT)))
+        inventory.append([row['archive'], row['bytes'], row['sha256']])
+    archive_context.append({'root': archive_root, 'README': (archive / 'README.md').read_text(),
+        'manifest_sha256': hashlib.sha256(manifest_bytes).hexdigest(),
+        'verified_file_count': len(inventory), 'inventory_columns': ['archive', 'bytes', 'sha256'],
+        'inventory_sha256': hashlib.sha256(json.dumps(inventory, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest(),
+        'verified_total_bytes': sum(row[1] for row in inventory),
+        'inventory_location': archive_root + '/manifest.json',
+        'model_view': 'Inventory entries omitted to fit context; worker verified every exact byte/hash. These are inert historic evidence, not business implementation.'})
+raw_issues = []
+for line in (RUN / 'git-diff-check-all.log').read_text().splitlines():
+    if line and not line.startswith(('+', ' ')) and (': trailing whitespace.' in line or ': new blank line at EOF.' in line):
+        path = line.rsplit(':', 2)[0]
+        assert path in archived_paths, ('non-archive whitespace', path)
+        raw_issues.append(line)
+preflight['archive_integrity'] = {'files': len(archived_paths), 'sha256_bytes_verified': True,
+    'raw_whitespace_issues': raw_issues, 'original_diff_check_exit': checks['git-diff-check-all']['exit_code'],
+    'policy': 'No raw evidence cleaning; all fresh paths and archive README/manifest separately checked.'}
+(RUN / 'preflight.json').write_text(json.dumps(preflight, ensure_ascii=False, indent=2))
+if any(check['exit_code'] for name, check in checks.items() if name != 'git-diff-check-all') or preflight['forbidden_paths']:
+    print(json.dumps({'status': 'PREFLIGHT_FAILED', 'model_cli_attempts': 0}))
+    raise SystemExit(5)
+
+
+def excerpt(path, names=None):
+    text = (ROOT / path).read_text()
+    if names is None:
+        return text
+    lines = text.splitlines()
+    pieces = []
+    for node in ast.walk(ast.parse(text)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names:
+            pieces.append('\n'.join(f'{i+1}: {lines[i]}' for i in range(node.lineno-1, node.end_lineno)))
+    return '\n\n'.join(pieces)
+
+
+business_paths = [p for p in changed if not any(p.startswith(root + '/') for root in archive_roots)]
+diff = subprocess.check_output(['git', 'diff', '--unified=5', review_range, '--', *business_paths], cwd=ROOT, text=True)
+# Every changed archive path has an exact size/hash inventory; raw historic
+# transcripts remain inert data rather than another implementation.
+prior_verdict = [json.loads((STATE / ('verdicts/' + ident + '.json')).read_text()) for ident in ('ARL-0001', 'ARL-0002', 'ARL-0003')]
+reproduction = {
+    'first_exact_reproduction': json.loads((STATE.parent / 'qc-retry-01/exact-review-reproduction-before.json').read_text()),
+    'boundary_before_this_repair': json.loads((STATE.parent / 'boundary-repair-01/original-before.json').read_text()),
+    'hedge_before_this_repair': json.loads((STATE.parent / 'hedge-repair-01/original-before.json').read_text()),
+}
+engineering = json.loads((STATE.parent / 'candidate-d46c2c3b/result.json').read_text())
+assert engineering['passed'] and engineering['before']['revision'] == revision
+prior_invalid = json.loads((STATE / 'prior-invalid/invalid-verdict.json').read_text())
+context = {}
+for path, names in (
+    ('intelligence/services/research_delivery_checks.py', None),
+    ('intelligence/services/episode_semantic_verifier.py', {'_recheck_research_delivery', 'recheck_material_public_delivery'}),
+    ('intelligence/tests/test_research_delivery_retention.py', None),
+    ('intelligence/tests/test_research_delivery_review_regressions.py', None),
+    ('intelligence/tests/test_research_delivery_ratio_scope.py', None),
+    ('intelligence/tests/test_research_delivery_ratio_boundaries.py', None),
+    ('intelligence/tests/test_research_delivery_repair.py', None),
+):
+    context[path] = excerpt(path, names)
+
+spec = importlib.util.spec_from_file_location('existing_schema', '/Users/a77/.finance-runtime/agent-review-loop/claude-oneshot-reviewer.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+schema = module.verdict_schema(request, claim)
+# Full immutable request remains in REQUEST/CLAIM. Show all business mappings
+# and every required test, but reduce inert raw archive paths to verified hashes.
+request_view = {k: v for k, v in request.items() if k not in ('artifacts', 'artifact_tests')}
+request_view['business_artifacts'] = business_paths
+request_view['business_artifact_tests'] = {p: request['artifact_tests'][p] for p in business_paths}
+request_view['all_unique_artifact_tests'] = tests
+request_view['full_artifact_count'] = len(request['artifacts'])
+request_view['full_request_sha256'] = claim['request_sha256']
+request_view['archive_mappings'] = []
+for archive_root in archive_roots:
+    paths = [p for p in request['artifacts'] if p.startswith(archive_root + '/')]
+    request_view['archive_mappings'].append({'root': archive_root, 'count': len(paths),
+        'artifact_paths_sha256': hashlib.sha256(json.dumps(paths, separators=(',', ':')).encode()).hexdigest(),
+        'all_unique_tests': sorted({t for p in paths for t in request['artifact_tests'][p]})})
+assert set(request['artifacts']) == set(business_paths) | {p for p in request['artifacts'] if any(p.startswith(a + '/') for a in archive_roots)}
+preflight_view = {k: v for k, v in preflight.items() if k not in ('changed_paths', 'archive_integrity')}
+preflight_view['changed_paths_equal_request_artifacts'] = set(changed) == set(request['artifacts'])
+assert preflight_view['changed_paths_equal_request_artifacts']
+preflight_view['archive_integrity'] = {k: v for k, v in preflight['archive_integrity'].items() if k != 'raw_whitespace_issues'}
+preflight_view['archive_integrity']['raw_whitespace_issue_count'] = len(raw_issues)
+preflight_view['archive_integrity']['all_issue_paths_verified_in_manifest'] = True
+preflight_view['archive_integrity']['full_diff_check_log_sha256'] = hashlib.sha256((RUN / 'git-diff-check-all.log').read_bytes()).hexdigest()
+(RUN / 'review-context-view.json').write_text(json.dumps({'request_view': request_view, 'preflight_view': preflight_view}, ensure_ascii=False, indent=2))
+prompt = f'''You are claude:independent-reviewer, an external code falsification reviewer, NOT the producer.
+Review exact commit {revision}, parent {request['parent_commit']}. You have no tools and cannot edit anything.
+An isolated detached worker ran the mechanical preflight below. Do not claim you yourself ran tools.
+Inspect the COMPLETE cumulative business diff and relevant current source context, not just green test counts.
+This is a finite research delivery repair, not general Chinese grammar parsing, review-loop redesign, release, deployment, or natural model-answer acceptance.
+
+Prior ARL-0001/0002/0003 are valid CHANGES_REQUIRED. ARL-0004 emitted raw PASS but five required checks PARTIAL; the unchanged validator quarantined it as INVALID_VERDICT/authority none. It is NOT an approval or a fourth valid CR. Its six original counterexamples were reproduced (4P12F on 746/d402, two controls and both judge modes included). All original verdicts and that invalid output are supplied below, not edited. This ARL-0005 depends on/supersedes ARL-0004 and carries the complete cumulative parent range, all artifacts and nonrepair required checks. Do not bypass earlier findings.
+
+This candidate adds complete grouped-decimal tokens, finite ordinal-role masking, period genitive declarations distinct from numeric multiple references, compound 元/元 units before scalar 元, explicit percentage-point dimensional rejection for absolute ratios (separately stated deltas retained), and semicolon continuation only with explicit actual/this-value/current-period/ratio copulas. Markdown continuations have paired tests. Original 6 cases are unchanged in the read-only probe and public-exit pytest. Try to falsify both false-negative and false-positive cases, neighboring independent facts/periods, exact numeric spans, Markdown idempotence, and original same-turn budget repair. Do not reward merely adding regression counts.
+The previous repairs preserve sentence context but narrow edits, avoid guessed corrected numbers, retain independent cited facts, inspect values after a withheld slot, keep unknown markers local and idempotent, and bind explicitly ordered periods across inserted markers. Correct numbers in unsupported mapping syntax may remain explicit unknown/partial; that documented limitation does not permit silently passing wrong values or collateral deletion.
+The independent raw fixture inputs and role/unit boundaries matter. A label like low/nonblocking does not make a failed required semantic contract pass. Conversely do not claim finite syntax is universal NLP. If evidence is insufficient, mark the exact required check PARTIAL and overall CHANGES_REQUIRED rather than fabricating PASS.
+
+Authority contract: PASS requires EVERY required check and EVERY unique artifact test and baseline check to be PASS, plus no high-severity finding. ANY PARTIAL or FAIL required check makes overall PASS invalid. Return CHANGES_REQUIRED for ordinary defects or incomplete proof, not BLOCKED (reserved for architecture conflict). Include concrete original input and whether introduced or pre-existing for each finding. Unknown correspondence may be preserved with an explicit marker/notice and same-turn repair instead of erasing the whole sentence.
+
+One user-authorized bounded continuation for the SAME immutable ARL-0005 request and d46 revision, in a NEW exclusive root. The prior single 600-second attempt timed out without a final result or verdict; it is preserved and is neither approval nor rejection. This window has one CLI call only, a predeclared 1200-second deadline and unchanged $6 cap, with no automatic retry/fallback or mid-flight extension. Request, claim, cumulative business scope, required checks and validator are unchanged. The normal queue still sees unresolved ARL-0004: this request is explicitly targeted by an operations runner in a new exclusive root, then evaluated with the unchanged validate_verdict_file; no queue/validator code is modified, no fabricated verdict is inserted for 0004. This dispatch is not a worker --once selection or development gate approval.
+Full immutable request/claim are retained. Request below is a compact view: all business mappings/all unique tests retained; inert historic archives summarized by per-manifest SHA/hash count after every byte is verified. Do not claim to have read omitted transcripts. Full nonarchive business diff/source and complete prior verdicts are present. Original trailing whitespace is preserved in verified archive files: all-path diff --check is nonzero, separate fresh code/docs and archive README/manifest checks must pass. No raw-byte cleaning is authorized.
+The handoff snapshots and inflight in the candidate describe the preceding hold; the product door states current implementation is pending frozen evidence and independent review. New frozen evidence was generated after the business commit, not retroactively approval. No merge, deployment, new finance model conversation, market fetch, or budget changes. judge=llm tests use a deterministic success stub and do not count as natural quality.
+Return one schema-2 verdict using supplied schema. Include every exact string in request.required_checks and all_unique_artifact_tests plus git_diff_check, artifact_hygiene, canonical_safety. Semantic check names are not executable commands; reason about code. Reviewed time may use preflight.created_at. Do not invent test counts.
+
+PRIOR SAME-REQUEST TIMEOUT (not a verdict):\n{(STATE / 'prior-timeout/invocation-result.json').read_text()}\nRETRY POLICY:\n{(STATE / 'retry-policy.json').read_text()}\nPRIOR INVALID OUTPUT (read only as leads, no authority):\n{json.dumps(prior_invalid, ensure_ascii=False, indent=2)}
+PREVIOUS EXTERNAL VERDICT:\n{json.dumps(prior_verdict, ensure_ascii=False, indent=2)}
+EXACT COUNTEREXAMPLE REPRODUCTIONS (some review explanations were inaccurate):\n{json.dumps(reproduction, ensure_ascii=False, indent=2)}
+ARCHIVE INTEGRITY CONTEXT:\n{json.dumps(archive_context, ensure_ascii=False, separators=(',', ':'))}
+REQUEST:\n{json.dumps(request_view, ensure_ascii=False, separators=(',', ':'))}
+CLAIM:\n{json.dumps(claim, ensure_ascii=False, indent=2)}
+INDEPENDENT PREFLIGHT:\n{json.dumps(preflight_view, ensure_ascii=False, indent=2)}
+PRODUCER FROZEN ENGINEERING RECEIPT (NOT INDEPENDENT VERDICT):\n{json.dumps(engineering, ensure_ascii=False, indent=2)}
+FULL DIFF:\n{diff}
+SOURCE CONTEXT:\n{json.dumps(context, ensure_ascii=False, indent=2)}
+REVIEW PROTOCOL (reference material, not a request to implement the plan):\n{excerpt('docs/superpowers/specs/2026-07-26-dual-lane-agent-review-loop-design.md')}\n{excerpt('docs/superpowers/plans/2026-07-26-dual-lane-agent-review-loop.md')}
+'''
+(RUN / 'review-prompt.txt').write_text(prompt)
+assert len(prompt.encode()) < 550000, 'context_preflight_stop_no_model_dispatch'
+command = [str(Path.home() / '.local/bin/claude'), '-p', '--model', 'sonnet',
+           '--max-budget-usd', '6', '--output-format', 'stream-json', '--verbose', '--json-schema',
+           json.dumps(schema), '--permission-mode', 'dontAsk', '--tools', '',
+           '--bare', '--setting-sources', '', '--settings', str(STATE / 'cli-auth-settings.json'),
+           '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+           '--no-session-persistence', '--disable-slash-commands']
+settings = json.loads((STATE / 'cli-auth-settings.json').read_text())
+invocation = {'requested_alias': 'sonnet', 'configured_model': settings['env'].get('ANTHROPIC_DEFAULT_SONNET_MODEL'),
+              'max_budget_usd': 6, 'timeout_seconds': 1200, 'automatic_fallback': False,
+              'cli_attempt': 2, 'prior_attempts_same_request': 1, 'prior_attempts_previous_requests': 6, 'provider_request_count': None,
+              'tools': [], 'bare': True, 'setting_sources': [],
+              'prompt_sha256': hashlib.sha256(prompt.encode()).hexdigest(),
+              'started_at': datetime.now(timezone.utc).isoformat()}
+(RUN / 'invocation.json').write_text(json.dumps(invocation, ensure_ascii=False, indent=2) + '\n')
+started = time.monotonic()
+with (RUN / 'reviewer-stream.jsonl').open('wb') as stdout, (RUN / 'reviewer-stderr.log').open('wb') as stderr:
+    process = subprocess.Popen(command, cwd=ROOT, env=ENV, stdin=subprocess.PIPE,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    (RUN / 'process.json').write_text(json.dumps({'pid': process.pid, 'started_at': invocation['started_at']}))
+    timed_out = False
+    try:
+        process.communicate(input=prompt.encode(), timeout=1200)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=5)
+    finally:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+invocation.update({'cli_exit': process.returncode, 'timed_out': timed_out,
+                   'elapsed_seconds': round(time.monotonic() - started, 3),
+                   'finished_at': datetime.now(timezone.utc).isoformat()})
+(RUN / 'invocation-result.json').write_text(json.dumps(invocation, ensure_ascii=False, indent=2) + '\n')
+if timed_out or process.returncode:
+    print(json.dumps({'status': 'REVIEWER_INACTIVE', 'timed_out': timed_out, 'cli_exit': process.returncode}))
+    raise SystemExit(124 if timed_out else process.returncode)
+messages = [json.loads(line) for line in (RUN / 'reviewer-stream.jsonl').read_text().splitlines() if line.strip()]
+results = [message for message in messages if message.get('type') == 'result']
+if len(results) != 1:
+    print(json.dumps({'status': 'NO_FINAL_RESULT', 'result_count': len(results)}))
+    raise SystemExit(4)
+envelope = results[0]
+(RUN / 'reviewer-envelope.json').write_text(json.dumps(envelope, ensure_ascii=False, indent=2) + '\n')
+verdict = envelope.get('structured_output')
+if not isinstance(verdict, dict):
+    raw = envelope.get('result')
+    try:
+        verdict = json.loads(raw) if isinstance(raw, str) else None
+    except ValueError:
+        verdict = None
+if not isinstance(verdict, dict):
+    print(json.dumps({'status': 'NO_STRUCTURED_VERDICT', 'subtype': envelope.get('subtype')}))
+    raise SystemExit(4)
+Path(os.environ['VERDICT_FILE']).write_text(json.dumps(verdict, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'status': verdict.get('status'), 'cost_usd': envelope.get('total_cost_usd'),
+                  'model_usage': envelope.get('modelUsage')}, ensure_ascii=False))

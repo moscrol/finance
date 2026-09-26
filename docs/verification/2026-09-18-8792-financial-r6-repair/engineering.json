@@ -1,0 +1,161 @@
+{
+  "before": {
+    "revision": "15527aad05efda1b42d8ffac107da94186760378",
+    "status": ""
+  },
+  "after": {
+    "revision": "15527aad05efda1b42d8ffac107da94186760378",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "finished_at": "2026-09-18T14:47:04.707131+00:00",
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "seconds": 0.37,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:07.458541+00:00"
+    },
+    {
+      "name": "pytest",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        "--basetemp",
+        "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/candidate-15527aad/pytest-tmp"
+      ],
+      "exit_code": 0,
+      "seconds": 897.13,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:47:04.595153+00:00"
+    },
+    {
+      "name": "frontend-lint",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "seconds": 16.43,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:23.519470+00:00"
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "seconds": 19.07,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:42.591318+00:00"
+    },
+    {
+      "name": "frontend-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "seconds": 32.99,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:33:15.583604+00:00"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "seconds": 39.42,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:33:55.016274+00:00"
+    },
+    {
+      "name": "e2e",
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "seconds": 91.83,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:35:26.842800+00:00"
+    },
+    {
+      "name": "parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "seconds": 0.37,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:07.460766+00:00"
+    },
+    {
+      "name": "registry",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 1,
+      "seconds": 0.47,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:07.945947+00:00"
+    },
+    {
+      "name": "tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.38,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:08.322595+00:00"
+    },
+    {
+      "name": "views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.19,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:08.516761+00:00"
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.83,
+      "revision": "15527aad05efda1b42d8ffac107da94186760378",
+      "finished_at": "2026-09-18T14:32:09.348901+00:00"
+    }
+  ],
+  "all_passed": false
+}

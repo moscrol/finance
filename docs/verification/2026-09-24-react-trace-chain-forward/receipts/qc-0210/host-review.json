@@ -1,0 +1,13 @@
+{
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "verdict": "BLOCKED_GATEWAY_EXACT_ROUNDTRIP_AND_PHASE_PROMPT_LEAK",
+  "model_requests_added": 0,
+  "model_requests_in_batch": 4,
+  "actual_independent_probe_execution": {"tests": 0, "passed": 0, "failed": 0},
+  "offline_admission": {"spec_author_passed": 186, "quality_author_passed": 186, "independent_product_coverage": false, "metadata_only_read_controls_passed": true},
+  "gateway": {"requests": 4, "completed": 4, "failed": 0, "sentinel_returned": false, "written_copy_matches": false, "expected": "GLM_TOOL_ROUNDTRIP_b3bcf2c7dc8b2a8c", "written": "GLM_TOOL_ROUNDTRIP_b3bcf0c7dc8b2a8c", "unauthorized_tool_call": "work/probe-001.json; blocked and terminated"},
+  "diagnosis": "Generic exploration progress instructions were appended to gateway prompts. The third assistant attempted an incremental probe write forbidden in gateway. One nonce character was also copied incorrectly; not established that prompt leakage caused this copying error.",
+  "continuation": "pr832-glm-qc-20260924-0216 excludes gateway/preflight messages from progress injection and gives explore/execute/report distinct instructions. Exact byte roundtrip remains mandatory; no tolerance or same-batch retry.",
+  "limits": ["Product exploration never started", "No independent signoff", "No natural-finance quality verdict", "No merge or deployment"]
+}

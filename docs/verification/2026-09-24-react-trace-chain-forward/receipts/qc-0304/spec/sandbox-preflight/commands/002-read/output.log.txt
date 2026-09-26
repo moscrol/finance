@@ -1,0 +1,47 @@
+import errno, os, socket, sqlite3
+from pathlib import Path
+import intelligence.services.llm_refine
+
+
+def test_sqlite_wal_and_temp(tmp_path):
+    parent = tmp_path / "nested"
+    parent.mkdir(parents=True)
+    with sqlite3.connect(parent / "control.sqlite3") as con:
+        assert con.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+        con.execute("CREATE TABLE controls (value INTEGER)")
+        con.execute("INSERT INTO controls VALUES (81)")
+        assert con.execute("SELECT value FROM controls").fetchone() == (81,)
+
+
+def test_denied_operations_and_allowed_fake_service():
+    for target in ["/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/docs/handoffs/inflight/fix-react-trace-qc-0921.md","/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/inputs/claims.md","/Users/a77/.pi/agent/models.json","/Users/a77/fwp-wt-react-trace-chain-0923/intelligence/services/episode_protocol.py"]:
+        try: Path(target).read_bytes()
+        except PermissionError: pass
+        else: raise AssertionError("forbidden read: " + target)
+    for target in ["/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/docs","/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/.agents"]:
+        assert Path(target).stat().st_mode
+        try: list(Path(target).iterdir())
+        except PermissionError: pass
+        else: raise AssertionError('directory contents unexpectedly allowed: ' + target)
+    for target in ["/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/forbidden-write","/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/forbidden-write","/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/tmp/admission-escape.json"]:
+        try: Path(target).write_text("denied")
+        except PermissionError: pass
+        else: raise AssertionError("forbidden write: " + target)
+    for host, port in [("127.0.0.1", 8792), ("127.0.0.1", 19899), ("127.0.0.1", 18788), ("127.0.0.1", 54340), ("192.0.2.1", 443)]:
+        with socket.socket() as client:
+            client.settimeout(0.2)
+            try: client.connect((host, port))
+            except OSError as error: assert error.errno in (errno.EPERM, errno.EACCES), error
+            else: raise AssertionError("network allowed")
+    assert not any("TOKEN" in k or "API_KEY" in k for k in os.environ)
+    with socket.socket() as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        for port in range(26001,26009):
+            try: server.bind(("127.0.0.1", port)); break
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE: raise
+        else: raise AssertionError("all fake-service ports unavailable")
+        server.listen(1)
+        with socket.create_connection(server.getsockname(),timeout=1):
+            peer,_ = server.accept()
+            peer.close()

@@ -1,0 +1,4 @@
+== gate @ 480cad07057c tree=/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/receipts/gate-B7Yp8cMf/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/pytest --junitxml=/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/pytest.xml

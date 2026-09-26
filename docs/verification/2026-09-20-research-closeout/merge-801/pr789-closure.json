@@ -1,0 +1,9 @@
+{
+  "number": 789,
+  "state": "closed",
+  "merged": false,
+  "head": "62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717",
+  "superseded_by": 801,
+  "main": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "pointer": "2026-09-20 收口：本 PR 的提交 62bbc4ecf1e1d57bad6497fe60911ce6e3b6d717 已被 [PR #801](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/801) 完整吸收，并经用户明确确认，以 fast-forward-only 合入 main e51c5157c9ea9aa86491c486663700e7d7696a6f。独立合并复核逐 blob 确认本 PR 的代码与证据未遗失。接替门禁与原件见协调 PR #799；源分支保留，生产未切换。"
+}

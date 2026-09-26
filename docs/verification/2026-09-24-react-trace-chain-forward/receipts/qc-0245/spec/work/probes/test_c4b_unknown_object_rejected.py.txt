@@ -1,0 +1,26 @@
+"""C4 probe 2: unknown objects rejected unconditionally."""
+import sys
+import types
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.runtime.research_progress import normalize_query  # noqa: E402
+
+
+class Weird:
+    pass
+
+
+def test_unknown_object_raises_typeerror():
+    with pytest.raises(TypeError):
+        normalize_query({"query": 1, "params": Weird()})
+
+
+def test_nested_frozen_mapping_accepted():
+    m = types.MappingProxyType({"query": 1, "p": types.MappingProxyType({"a": 2})})
+    out = normalize_query(m)
+    assert isinstance(out, str) and out, out

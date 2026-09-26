@@ -1,0 +1,54 @@
+[
+  {
+    "vary_links": false,
+    "persistence": "durable",
+    "status": "partial",
+    "stop_reason": "model_finish",
+    "parent_calls": 2,
+    "child_calls": 2,
+    "executed": [
+      "direct",
+      "child"
+    ],
+    "presented": [
+      {
+        "hash": "752004f28e62cfee",
+        "supports": []
+      }
+    ],
+    "failures": []
+  },
+  {
+    "vary_links": true,
+    "persistence": "failed",
+    "status": "failed",
+    "stop_reason": "storage_failed",
+    "parent_calls": 1,
+    "child_calls": 2,
+    "executed": [
+      "direct",
+      "child"
+    ],
+    "presented": [
+      {
+        "hash": "752004f28e62cfee",
+        "supports": [
+          "direct-output"
+        ]
+      }
+    ],
+    "failures": [
+      {
+        "status": "failed",
+        "stop_reason": "storage_failed",
+        "store_failures": [
+          "state:planning:evidence:ValueError"
+        ],
+        "recovery": "uncertain",
+        "learning_eligible": false,
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-09-20T12:13:53.303+08:00"
+      }
+    ]
+  }
+]

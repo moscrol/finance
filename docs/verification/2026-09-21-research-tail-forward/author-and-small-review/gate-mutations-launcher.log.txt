@@ -1,0 +1,8 @@
+{'name': 'baseline', 'exit_code': 0, 'assertion_failure': False, 'collection_error': False}
+{'name': 'global-latest', 'exit_code': 1, 'assertion_failure': True, 'collection_error': False}
+{'name': 'archive-exit-green', 'exit_code': 1, 'assertion_failure': True, 'collection_error': False}
+{'name': 'skip-run-identity', 'exit_code': 1, 'assertion_failure': True, 'collection_error': False}
+{'name': 'skip-exit-agreement', 'exit_code': 1, 'assertion_failure': True, 'collection_error': False}
+{'name': 'dirty-is-green', 'exit_code': 1, 'assertion_failure': True, 'collection_error': False}
+{'name': 'hide-interrupted', 'exit_code': 1, 'assertion_failure': True, 'collection_error': False}
+{'name': 'restored', 'exit_code': 0, 'assertion_failure': False, 'collection_error': False}

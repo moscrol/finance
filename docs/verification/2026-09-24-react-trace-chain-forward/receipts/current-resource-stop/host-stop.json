@@ -1,0 +1,29 @@
+{
+  "status": "STOPPED_OWN_WAIT_ON_INDEPENDENT_QC_HOLD",
+  "pid": 14587,
+  "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -B /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/run_engineering.py",
+  "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+  "recorded_at": "2026-09-23T19:25:31.407940+00:00",
+  "prior_status": {
+    "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+    "status": "WAIT_RESOURCE",
+    "started_at": "2026-09-23T19:03:50.985005+00:00",
+    "steps": [],
+    "limits": "Admission only, no global lock or resource isolation; no test scope/retry/timeout relaxation."
+  },
+  "last_resource_sample": {
+    "time": "2026-09-23T19:25:28.971079+00:00",
+    "free_gib": 43.70650863647461,
+    "load1": 7.19775390625,
+    "active_pytest": [
+      "34085 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/workbench-release-20260924/history-candidate/full-pytest-tmp --junitxml=/Users/a77/.finance-runtime/reviews/workbench-release-20260924/history-candidate/full-pytest.xml --durations=20",
+      "98573 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/knevo-deploy-readiness-20260924/audit-canonical-tmp --junitxml=/Users/a77/.finance-runtime/knevo-deploy-readiness-20260924/audit-canonical-junit.xml -ra"
+    ],
+    "eligible": false
+  },
+  "started_engineering_steps": 0,
+  "resource_deadline_exhausted": false,
+  "test_failure": false,
+  "others_signalled": false,
+  "reason": "Independent Quality has missing coverage and no valid final report. Resource admission still not met; do not leave an invisible heavy-gate launcher behind this stopped review."
+}

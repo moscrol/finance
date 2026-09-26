@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="1.041" timestamp="2026-09-19T17:04:09.179158+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_review_regressions" name="test_review_ratio_preface_does_not_hide_bad_value[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a1.587\u3002]" time="0.001"><failure message="AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...新高，实际为1.587。'&#10;  &#10;  '1.587' is contained here:&#10;    〔比率对应关系待核对〕2026中报含金量3年新高，实际为1.587。&#10;  ?                             +++++">intelligence/tests/test_research_delivery_review_regressions.py:178: in test_review_ratio_preface_does_not_hide_bad_value
+    assert "1.587" not in kept
+E   AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...新高，实际为1.587。'
+E     
+E     '1.587' is contained here:
+E       〔比率对应关系待核对〕2026中报含金量3年新高，实际为1.587。
+E     ?                             +++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_review_regressions" name="test_review_ratio_preface_does_not_hide_bad_value[2026\u4e2d\u62a5\u542b\u91d1\u91cf12\u4e2a\u6708\u65b0\u9ad8\uff0c\u5b9e\u9645\u4e3a1.587\u3002]" time="0.000"><failure message="AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...新高，实际为1.587。'&#10;  &#10;  '1.587' is contained here:&#10;    〔比率对应关系待核对〕2026中报含金量12个月新高，实际为1.587。&#10;  ?                               +++++">intelligence/tests/test_research_delivery_review_regressions.py:178: in test_review_ratio_preface_does_not_hide_bad_value
+    assert "1.587" not in kept
+E   AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...新高，实际为1.587。'
+E     
+E     '1.587' is contained here:
+E       〔比率对应关系待核对〕2026中报含金量12个月新高，实际为1.587。
+E     ?                               +++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_review_regressions" name="test_review_ratio_preface_does_not_hide_bad_value[2026\u4e2d\u62a5\u542b\u91d1\u91cf30\u5e74\u65b0\u9ad8\uff0c\u672c\u671f\u4e3a1.587\u3002]" time="0.000"><failure message="AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...新高，本期为1.587。'&#10;  &#10;  '1.587' is contained here:&#10;    〔比率对应关系待核对〕2026中报含金量30年新高，本期为1.587。&#10;  ?                              +++++">intelligence/tests/test_research_delivery_review_regressions.py:178: in test_review_ratio_preface_does_not_hide_bad_value
+    assert "1.587" not in kept
+E   AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...新高，本期为1.587。'
+E     
+E     '1.587' is contained here:
+E       〔比率对应关系待核对〕2026中报含金量30年新高，本期为1.587。
+E     ?                              +++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_review_regressions" name="test_review_ratio_preface_does_not_hide_bad_value[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u521b3\u5e74\u4f4e\u70b9\uff0c\u6bd4\u7387\u4e3a1.587\u3002]" time="0.000"><failure message="AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...低点，比率为1.587。'&#10;  &#10;  '1.587' is contained here:&#10;    〔比率对应关系待核对〕2026中报含金量创3年低点，比率为1.587。&#10;  ?                              +++++">intelligence/tests/test_research_delivery_review_regressions.py:178: in test_review_ratio_preface_does_not_hide_bad_value
+    assert "1.587" not in kept
+E   AssertionError: assert '1.587' not in '〔比率对应关系待核对〕...低点，比率为1.587。'
+E     
+E     '1.587' is contained here:
+E       〔比率对应关系待核对〕2026中报含金量创3年低点，比率为1.587。
+E     ?                              +++++</failure></testcase></testsuite></testsuites>

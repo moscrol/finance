@@ -1,0 +1,2 @@
+[docs/evidence-preview-qc-0923 7effba0] docs: register isolated Git archive preview and real-tree verification
+ 2 files changed, 22 insertions(+)

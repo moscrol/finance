@@ -1,0 +1,53 @@
+{
+  "created_at": "2026-09-23T18:15:55.597521+00:00",
+  "workorder": 75,
+  "candidate_workorder": 81,
+  "pr": 832,
+  "user_message": "推进，直到可以合并部署",
+  "authorization_context": "Continue repairs and bounded independent/engineering validation toward merge/deployment readiness; no unconditional merge or production switch.",
+  "scope_interpretation": "Proceed with one bounded #75 review of #832 only; no #76, merge, deployment or production writes.",
+  "budget_set_by_host": {
+    "max_batch_requests": 152,
+    "per_axis_gateway_max": 4,
+    "per_stage_requests": 24,
+    "per_stage_seconds": 600,
+    "per_request_seconds": 120,
+    "automatic_retries": 0,
+    "concurrency": 1
+  },
+  "model": "glm-5.3",
+  "provider": "glm-direct-review",
+  "route": "existing official coding endpoint and existing Keychain credential",
+  "billing_note": "Existing route; zero provider price metadata is not a billing receipt.",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "candidate_tree": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/candidate/finance-workspace-private",
+  "author_tree": "/Users/a77/fwp-wt-react-trace-chain-0923",
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "stages": [
+    "explore",
+    "execute",
+    "report"
+  ],
+  "stop_policy": "Finite152-request batch; no same-batch retry. Any failure stops; diagnose before a distinct continuation, never hide original failure.",
+  "natural_finance_requests": 0,
+  "merged": false,
+  "deployed": false,
+  "previous_batch": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0210",
+  "hardening": [
+    "fixed direct test exit",
+    "typed terminating report",
+    "actual pytest/SQLite admission",
+    "read delivered-line cursor",
+    "authoritative request progress",
+    "early probe milestone"
+  ],
+  "continuation": "One new finite batch after fixing inappropriate exploration progress prompts in gateway/report phases. Exact nonce roundtrip and all budgets unchanged.",
+  "reviewer_artifacts_copied": false,
+  "actual_author_suite_admission": "REQUIRED_BEFORE_SEAL",
+  "previous_requests_in_current_authorization": 33,
+  "maximum_total_requests_with_this_batch": 185
+}

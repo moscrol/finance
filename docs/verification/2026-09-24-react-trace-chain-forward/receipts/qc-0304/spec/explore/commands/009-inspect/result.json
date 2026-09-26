@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "def strip_evidence_ordinals|def normalize_query",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 184,
+  "output_sha256": "6e89d189a282aa7ac0a0aed9ef7802cdb8adf6b489783135236b49fab7360863"
+}

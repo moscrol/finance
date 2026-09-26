@@ -1,0 +1,18 @@
+[
+  {
+    "case": "financial-calc",
+    "question": "贵州茅台（600519）最近六期财报，列出累计经营现金流净额，再用经营现金流净额除以归母净利润比较含金量。用计算工具核算，说明报告期与披露日，缺数保留缺口。只做这项，不查新闻、股价或公告。",
+    "exit_code": 0,
+    "ids": {
+      "conversation_id": "conv_8e05f6bffd434aacada2961307ec4217",
+      "run_id": "run_20260922_204734_634133",
+      "assistant_message_id": "msg_60144108a8624ec6927655f8ab04444d"
+    },
+    "seconds": 125.98,
+    "writer_model": "kimi-k3",
+    "source_revision": "6a1fef3c730c4bae4654bf69cc85ccd563c601f2",
+    "source_dirty": false,
+    "captured_at": "2026-09-22T12:49:40.214229+00:00",
+    "run_status": "completed"
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "before": {
+    "revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+    "status": ""
+  },
+  "after": {
+    "revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+    "status": ""
+  },
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-review/standards/pytest-temp",
+    "intelligence/tests/test_episode_evidence_snapshot.py",
+    "intelligence/tests/test_api_fixture_lifecycle.py",
+    "intelligence/tests/test_sub_research_persistence.py::test_linked_nonterminal_restore_refuses_without_mutating_logs"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.89,
+  "external_models": 0
+}

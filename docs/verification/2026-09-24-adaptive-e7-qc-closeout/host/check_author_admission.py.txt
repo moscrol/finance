@@ -1,0 +1,31 @@
+"""Host-only original-path author test admission; no model or reviewer verdict."""
+from concurrent.futures import ThreadPoolExecutor
+import json
+from pathlib import Path
+import shlex
+import subprocess
+import time
+
+ROOT=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0400')
+OUT=Path(__file__).resolve().parent
+
+def check(axis):
+ folder=ROOT/axis
+ config=json.loads((folder/'config.json').read_text())
+ work=folder/'work'
+ prefix='The exact second command (no env prefix, no copied files) is: '
+ command=next(line[len(prefix):] for line in (folder/'prompt-execute.md').read_text().splitlines() if line.startswith(prefix))
+ args=shlex.split(command)
+ args=[('--basetemp='+str(work/'host-author-tmp') if value.startswith('--basetemp=') else '--junitxml='+str(work/'host-author.xml') if value.startswith('--junitxml=') else value) for value in args]
+ env={'HOME':str(work),'PATH':'/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C.UTF-8','TMPDIR':str(work/'tmp'),'PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':config['tree'],'FWP_TEST_RECEIPT':'0','GIT_OPTIONAL_LOCKS':'0','FORESIGHT_USERS_DIR':str(work/'users')}
+ started=time.monotonic()
+ with (OUT/(axis+'-author-admission.log.txt')).open('xb') as log:
+  result=subprocess.run(['/usr/bin/sandbox-exec','-f',str(folder/'tools.sb'),*args],cwd=config['tree'],env=env,stdout=log,stderr=subprocess.STDOUT,timeout=120)
+ return {'axis':axis,'command':args,'exit_code':result.returncode,'seconds':round(time.monotonic()-started,3),'model_requests':0,'scope':'Host admission, original candidate test paths; separate basetemp/XML only; not reviewer execution'}
+
+with ThreadPoolExecutor(max_workers=2) as pool:
+ rows=list(pool.map(check,('spec','quality')))
+with (OUT/'author-admission.json').open('x') as out:
+ json.dump(rows,out,indent=2)
+print(json.dumps(rows))
+assert all(row['exit_code']==0 for row in rows)

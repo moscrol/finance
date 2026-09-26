@@ -1,0 +1,58 @@
+"""QC probe C3 (fixed v3): invalid tool call feeds back into the same episode.
+
+v2 used _tool_turn("q1", "c1"); the author fixture signature is
+_tool_turn(query, *, call_id=..., name=...). This version uses the real signature
+(mirroring author usage _tool_turn("主线板块", name="finance_query")) and then
+hand-builds the invalid finance_query call as a ModelTurn.
+"""
+import sys
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+from dataclasses import replace
+from uuid import uuid4
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services import episode_tools
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.tests.test_agent_episode import (
+    _context, _finish_turn, _frame, _tool_turn,
+)
+from intelligence.tests.test_agent_episode import ScriptedModel
+
+
+def test_invalid_tool_call_feedback_returns_to_same_episode(tmp_path):
+    frame = _frame()
+    context = replace(
+        _context(frame, allowed_capabilities=("finance_query",)),
+        trace_parent_id=uuid4().hex,
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+    )
+    call = ModelToolCall("bad-1", "finance_query", {
+        "dataset": "market_daily", "dimensions": ["trade_date"],
+        "metrics": ["stage_day"],
+        "time_range": {"start": "not-a-date", "end": "2026-07-21"},
+    })
+    model = ScriptedModel([
+        _tool_turn("主线板块", name="finance_query", call_id="call-ok"),
+        ModelTurn("", (call,), "scripted"),
+        replace(_finish_turn(), content='{"draft": "判断保留。", "status": "partial", "gaps": ["工具缺参"]}'),
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    errors = [e for e in outcome.events if e.kind == "tool_error"]
+    assert len(errors) == 1
+    assert errors[0].payload["error"] == "invalid_arguments"
+    # earlier successful evidence retained; invalid call did not consume budget
+    assert len(outcome.evidence) >= 1
+    assert outcome.usage.tool_calls == 1
+    # the model received the structured feedback inside the same episode
+    feedback = [
+        m for m in model.calls[-1]["messages"]
+        if m.get("role") == "tool" and m.get("tool_call_id") == call.call_id
+    ]
+    assert feedback, "no feedback message delivered to the model"
+    assert "invalid_arguments" in str(feedback) or "ISO date" in str(feedback)

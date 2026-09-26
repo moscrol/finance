@@ -1,0 +1,504 @@
+[
+  {
+    "environment": "frozen_ci",
+    "path": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "uvx": null,
+    "query": "daily-full",
+    "exit": 0,
+    "payload": {
+      "query": "daily-full",
+      "status": "stale",
+      "vault": "unavailable",
+      "layers": {
+        "doors": {
+          "state": "ok",
+          "hits": [
+            {
+              "title": "- 写入复盘事实：`python3 -m market_feature_stor",
+              "path": "AGENTS.md",
+              "symbol": null,
+              "excerpt": "- 写入复盘事实：`python3 -m market_feature_store.cli daily-full --trade-date <今天>`（staging 写 + 原子换库），**只对当天盘后**；夜跑编排走 `skills/daily-full-review`。**历史日 / 断档回补一律走 `skills/duckdb-backfill/SKILL.md`**——`daily-full`、东财快照、申万 realtime 都是「取最新」语义，把历史日期塞进去就是把今天盘中价写成那天收盘（2026-09-07 实测）；原子换库保的是写入完整性，不保日期语义正确。fupanhui 停抓期间（2026-09-07 起账号风控）只用 `run_review_sync.py --plan local`，full / cheap 会打复盘会，跑了必失败且续期惩罚。不手搓 inline SQL / heredoc 凑数，不用 `daily-update` / `daily-full-exec` 直写生产库。",
+              "retired": []
+            },
+            {
+              "title": "- 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条",
+              "path": "AGENTS.md",
+              "symbol": null,
+              "excerpt": "- 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条写入链：`scripts/sync_to_local.py`（无副作用 shim）、`scripts/fast_daily_sync.py`（写 VIEW 且拷昨日行改日期，值全空）、`scripts/backfill_sector_marginal.py`（写不存在的旧表）、旧库 `db/market.duckdb`、**飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）**——自建应用与仓内全部飞书代码已删除，退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`，运维告警改走 `scripts/notify_ops.py`（零凭证）。",
+              "retired": [
+                "- 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条写入链：`scripts/sync_to_local.py`（无副作用 shim）、`scripts/fast_daily_sync.py`（写 VIEW 且拷昨日行改日期，值全空）、`scripts/backfill_sector_marginal.py`（写不存在的旧表）、旧库 `db/market.duckdb`、**飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）**——自建应用与仓内全部飞书代码已删除，退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`，运维告警改走 `scripts/notify_ops.py`（零凭证）。"
+              ]
+            },
+            {
+              "title": "| daily-full-review | 全量复盘、今日全量复盘、跑全量复盘、",
+              "path": "AGENTS.md",
+              "symbol": null,
+              "excerpt": "| daily-full-review | 全量复盘、今日全量复盘、跑全量复盘、补完复盘、daily full review（有副作用：写库 + 打上游 API。**未软链进 `.claude/skills/`，没有 `/daily-full-review` 斜杠命令**，按 SKILL.md 代跑或先建视图） |",
+              "retired": []
+            },
+            {
+              "title": "- **`duckdb-backfill` 2026-09-07 起已暴露、可被",
+              "path": "CLAUDE.md",
+              "symbol": null,
+              "excerpt": "- **`duckdb-backfill` 2026-09-07 起已暴露、可被你直接触发**，别再当它是隐藏件。此前它既标 `disable` 又不在软链里，回补任务从来读不到它，agent 只能硬跑 `daily-full` 过历史日——而那正是回补红线第一条禁止的：`daily-full` 是「取最新」语义，写到历史日等于把今天盘中价写成那天收盘。",
+              "retired": [
+                "- **`duckdb-backfill` 2026-09-07 起已暴露、可被你直接触发**，别再当它是隐藏件。此前它既标 `disable` 又不在软链里，回补任务从来读不到它，agent 只能硬跑 `daily-full` 过历史日——而那正是回补红线第一条禁止的：`daily-full` 是「取最新」语义，写到历史日等于把今天盘中价写成那天收盘。"
+              ]
+            },
+            {
+              "title": "- **没软链进 `.claude/skills/`**：`daily-full",
+              "path": "CLAUDE.md",
+              "symbol": null,
+              "excerpt": "- **没软链进 `.claude/skills/`**：`daily-full-review`、`sector-data`、`stock-deep-dive`、`researcher-valuation`、`opinion-cross`、`strategy1-matrix`、`disclosure-archive`、`serenity-alpha`、`strategy-evolve`、`checkpoint-recheck-mac-setup`、`dispatcher`。**它们没有斜杠命令，别让用户输入 `/<skill>`**——那条命令不存在。正确说法是：技能存在但未对你暴露，规范源在 `skills/<name>/SKILL.md`；要启用得**手建相对软链再重扫注册表**（需用户同意）：`ln -s ../../skills/<name> .claude/skills/<name> && python3 scripts/build_registry.py scan`。**别拿 `generate-views` 当启用命令**——它只规范**已存在**的条目（修错目标、把物理拷贝换回软链），不创建缺失的软链；对着空视图目录跑它会 exit 0 且什么都不建，入口依然不存在（已实测）。用户不想启用时，你按 SKILL.md 的步骤代跑，但先把它的副作用讲清楚（写库 / 打上游 API / 装 launchd）。",
+              "retired": []
+            }
+          ]
+        },
+        "structure": {
+          "state": "stale",
+          "hits": []
+        },
+        "narrative": {
+          "state": "missing",
+          "hits": []
+        }
+      },
+      "conflicts": [],
+      "completeness_claim": {
+        "doors": "ok",
+        "structure": "stale",
+        "narrative": "missing",
+        "recall": "untested"
+      },
+      "next_action": "正门见 layers.doors。叙事见 layers.narrative 或 ask。"
+    },
+    "stderr": ""
+  },
+  {
+    "environment": "frozen_ci",
+    "path": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "uvx": null,
+    "query": "daily_full",
+    "exit": 0,
+    "payload": {
+      "query": "daily_full",
+      "status": "stale",
+      "vault": "unavailable",
+      "layers": {
+        "doors": {
+          "state": "missing",
+          "hits": []
+        },
+        "structure": {
+          "state": "stale",
+          "hits": []
+        },
+        "narrative": {
+          "state": "missing",
+          "hits": []
+        }
+      },
+      "conflicts": [],
+      "completeness_claim": {
+        "doors": "missing",
+        "structure": "stale",
+        "narrative": "missing",
+        "recall": "untested"
+      },
+      "next_action": "正门见 layers.doors。叙事见 layers.narrative 或 ask。"
+    },
+    "stderr": ""
+  },
+  {
+    "environment": "with_uvx",
+    "path": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "uvx": "/Users/a77/.local/bin/uvx",
+    "query": "daily-full",
+    "exit": 0,
+    "payload": {
+      "query": "daily-full",
+      "status": "stale",
+      "vault": "unavailable",
+      "layers": {
+        "doors": {
+          "state": "ok",
+          "hits": [
+            {
+              "title": "- 写入复盘事实：`python3 -m market_feature_stor",
+              "path": "AGENTS.md",
+              "symbol": null,
+              "excerpt": "- 写入复盘事实：`python3 -m market_feature_store.cli daily-full --trade-date <今天>`（staging 写 + 原子换库），**只对当天盘后**；夜跑编排走 `skills/daily-full-review`。**历史日 / 断档回补一律走 `skills/duckdb-backfill/SKILL.md`**——`daily-full`、东财快照、申万 realtime 都是「取最新」语义，把历史日期塞进去就是把今天盘中价写成那天收盘（2026-09-07 实测）；原子换库保的是写入完整性，不保日期语义正确。fupanhui 停抓期间（2026-09-07 起账号风控）只用 `run_review_sync.py --plan local`，full / cheap 会打复盘会，跑了必失败且续期惩罚。不手搓 inline SQL / heredoc 凑数，不用 `daily-update` / `daily-full-exec` 直写生产库。",
+              "retired": []
+            },
+            {
+              "title": "- 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条",
+              "path": "AGENTS.md",
+              "symbol": null,
+              "excerpt": "- 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条写入链：`scripts/sync_to_local.py`（无副作用 shim）、`scripts/fast_daily_sync.py`（写 VIEW 且拷昨日行改日期，值全空）、`scripts/backfill_sector_marginal.py`（写不存在的旧表）、旧库 `db/market.duckdb`、**飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）**——自建应用与仓内全部飞书代码已删除，退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`，运维告警改走 `scripts/notify_ops.py`（零凭证）。",
+              "retired": [
+                "- 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条写入链：`scripts/sync_to_local.py`（无副作用 shim）、`scripts/fast_daily_sync.py`（写 VIEW 且拷昨日行改日期，值全空）、`scripts/backfill_sector_marginal.py`（写不存在的旧表）、旧库 `db/market.duckdb`、**飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）**——自建应用与仓内全部飞书代码已删除，退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`，运维告警改走 `scripts/notify_ops.py`（零凭证）。"
+              ]
+            },
+            {
+              "title": "| daily-full-review | 全量复盘、今日全量复盘、跑全量复盘、",
+              "path": "AGENTS.md",
+              "symbol": null,
+              "excerpt": "| daily-full-review | 全量复盘、今日全量复盘、跑全量复盘、补完复盘、daily full review（有副作用：写库 + 打上游 API。**未软链进 `.claude/skills/`，没有 `/daily-full-review` 斜杠命令**，按 SKILL.md 代跑或先建视图） |",
+              "retired": []
+            },
+            {
+              "title": "- **`duckdb-backfill` 2026-09-07 起已暴露、可被",
+              "path": "CLAUDE.md",
+              "symbol": null,
+              "excerpt": "- **`duckdb-backfill` 2026-09-07 起已暴露、可被你直接触发**，别再当它是隐藏件。此前它既标 `disable` 又不在软链里，回补任务从来读不到它，agent 只能硬跑 `daily-full` 过历史日——而那正是回补红线第一条禁止的：`daily-full` 是「取最新」语义，写到历史日等于把今天盘中价写成那天收盘。",
+              "retired": [
+                "- **`duckdb-backfill` 2026-09-07 起已暴露、可被你直接触发**，别再当它是隐藏件。此前它既标 `disable` 又不在软链里，回补任务从来读不到它，agent 只能硬跑 `daily-full` 过历史日——而那正是回补红线第一条禁止的：`daily-full` 是「取最新」语义，写到历史日等于把今天盘中价写成那天收盘。"
+              ]
+            },
+            {
+              "title": "- **没软链进 `.claude/skills/`**：`daily-full",
+              "path": "CLAUDE.md",
+              "symbol": null,
+              "excerpt": "- **没软链进 `.claude/skills/`**：`daily-full-review`、`sector-data`、`stock-deep-dive`、`researcher-valuation`、`opinion-cross`、`strategy1-matrix`、`disclosure-archive`、`serenity-alpha`、`strategy-evolve`、`checkpoint-recheck-mac-setup`、`dispatcher`。**它们没有斜杠命令，别让用户输入 `/<skill>`**——那条命令不存在。正确说法是：技能存在但未对你暴露，规范源在 `skills/<name>/SKILL.md`；要启用得**手建相对软链再重扫注册表**（需用户同意）：`ln -s ../../skills/<name> .claude/skills/<name> && python3 scripts/build_registry.py scan`。**别拿 `generate-views` 当启用命令**——它只规范**已存在**的条目（修错目标、把物理拷贝换回软链），不创建缺失的软链；对着空视图目录跑它会 exit 0 且什么都不建，入口依然不存在（已实测）。用户不想启用时，你按 SKILL.md 的步骤代跑，但先把它的副作用讲清楚（写库 / 打上游 API / 装 launchd）。",
+              "retired": []
+            }
+          ]
+        },
+        "structure": {
+          "state": "stale",
+          "hits": [
+            {
+              "title": "export_increment.py",
+              "path": "skills/daily-full-review/scripts/export_increment.py",
+              "symbol": null,
+              "excerpt": "skills/daily-full-review/scripts/export_increment.py",
+              "retired": []
+            },
+            {
+              "title": "_tables_with_trade_date",
+              "path": "skills/daily-full-review/scripts/export_increment.py",
+              "symbol": "_tables_with_trade_date",
+              "excerpt": "skills/daily-full-review/scripts/export_increment.py::_tables_with_trade_date",
+              "retired": []
+            },
+            {
+              "title": "_resolve_date",
+              "path": "skills/daily-full-review/scripts/export_increment.py",
+              "symbol": "_resolve_date",
+              "excerpt": "skills/daily-full-review/scripts/export_increment.py::_resolve_date",
+              "retired": []
+            },
+            {
+              "title": "main",
+              "path": "skills/daily-full-review/scripts/export_increment.py",
+              "symbol": "main",
+              "excerpt": "skills/daily-full-review/scripts/export_increment.py::main",
+              "retired": []
+            },
+            {
+              "title": "l3_daily_backfill.py",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": null,
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "retired": []
+            },
+            {
+              "title": "_codes_in",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": "_codes_in",
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py::_codes_in",
+              "retired": []
+            },
+            {
+              "title": "_html_row_for_date",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": "_html_row_for_date",
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py::_html_row_for_date",
+              "retired": []
+            },
+            {
+              "title": "_matrix_codes",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": "_matrix_codes",
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py::_matrix_codes",
+              "retired": []
+            },
+            {
+              "title": "_agent_gap_codes",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": "_agent_gap_codes",
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py::_agent_gap_codes",
+              "retired": []
+            },
+            {
+              "title": "_sources_for",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": "_sources_for",
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py::_sources_for",
+              "retired": []
+            },
+            {
+              "title": "main",
+              "path": "skills/daily-full-review/scripts/l3_daily_backfill.py",
+              "symbol": "main",
+              "excerpt": "skills/daily-full-review/scripts/l3_daily_backfill.py::main",
+              "retired": []
+            },
+            {
+              "title": "nightly_full_review.sh",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": null,
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "retired": []
+            },
+            {
+              "title": "_review_exit",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "_review_exit",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::_review_exit",
+              "retired": []
+            },
+            {
+              "title": "notify",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "notify",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::notify",
+              "retired": []
+            },
+            {
+              "title": "run_moneyflow",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "run_moneyflow",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::run_moneyflow",
+              "retired": []
+            },
+            {
+              "title": "run_l2_branch",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "run_l2_branch",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::run_l2_branch",
+              "retired": []
+            },
+            {
+              "title": "run_generation_and_finalize",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "run_generation_and_finalize",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::run_generation_and_finalize",
+              "retired": []
+            },
+            {
+              "title": "skip_method_flywheel",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "skip_method_flywheel",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::skip_method_flywheel",
+              "retired": []
+            },
+            {
+              "title": "run_method_flywheel",
+              "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+              "symbol": "run_method_flywheel",
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review.sh::run_method_flywheel",
+              "retired": []
+            },
+            {
+              "title": "nightly_full_review_runtime.sh",
+              "path": "skills/daily-full-review/scripts/nightly_full_review_runtime.sh",
+              "symbol": null,
+              "excerpt": "skills/daily-full-review/scripts/nightly_full_review_runtime.sh",
+              "retired": []
+            }
+          ]
+        },
+        "narrative": {
+          "state": "missing",
+          "hits": []
+        }
+      },
+      "conflicts": [],
+      "completeness_claim": {
+        "doors": "ok",
+        "structure": "stale",
+        "narrative": "missing",
+        "recall": "untested"
+      },
+      "next_action": "正门见 layers.doors。叙事见 layers.narrative 或 ask。"
+    },
+    "stderr": ""
+  },
+  {
+    "environment": "with_uvx",
+    "path": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "uvx": "/Users/a77/.local/bin/uvx",
+    "query": "daily_full",
+    "exit": 0,
+    "payload": {
+      "query": "daily_full",
+      "status": "stale",
+      "vault": "unavailable",
+      "layers": {
+        "doors": {
+          "state": "missing",
+          "hits": []
+        },
+        "structure": {
+          "state": "stale",
+          "hits": [
+            {
+              "title": "cmd_daily_full",
+              "path": "market_feature_store/cli.py",
+              "symbol": "cmd_daily_full",
+              "excerpt": "market_feature_store/cli.py::cmd_daily_full",
+              "retired": []
+            },
+            {
+              "title": "cmd_daily_full_exec",
+              "path": "market_feature_store/cli.py",
+              "symbol": "cmd_daily_full_exec",
+              "excerpt": "market_feature_store/cli.py::cmd_daily_full_exec",
+              "retired": []
+            },
+            {
+              "title": "_latest_trade_date",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_latest_trade_date",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_latest_trade_date",
+              "retired": []
+            },
+            {
+              "title": "preflight_daily_update",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "preflight_daily_update",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::preflight_daily_update",
+              "retired": []
+            },
+            {
+              "title": "_default_cdp_probe",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_default_cdp_probe",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_default_cdp_probe",
+              "retired": []
+            },
+            {
+              "title": "_run_step",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_run_step",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_run_step",
+              "retired": []
+            },
+            {
+              "title": "run_hithink_sector_kline_step",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_hithink_sector_kline_step",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_hithink_sector_kline_step",
+              "retired": []
+            },
+            {
+              "title": "run_hithink_limit_pools_step",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_hithink_limit_pools_step",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_hithink_limit_pools_step",
+              "retired": []
+            },
+            {
+              "title": "run_hithink_dragon_auction_step",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_hithink_dragon_auction_step",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_hithink_dragon_auction_step",
+              "retired": []
+            },
+            {
+              "title": "run_hithink_stock_daily_step",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_hithink_stock_daily_step",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_hithink_stock_daily_step",
+              "retired": []
+            },
+            {
+              "title": "_run_compute_features",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_run_compute_features",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_run_compute_features",
+              "retired": []
+            },
+            {
+              "title": "validate_daily_data",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "validate_daily_data",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::validate_daily_data",
+              "retired": []
+            },
+            {
+              "title": "run_daily_update",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_daily_update",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_daily_update",
+              "retired": []
+            },
+            {
+              "title": "sector_completion_gate",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "sector_completion_gate",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::sector_completion_gate",
+              "retired": []
+            },
+            {
+              "title": "_db_shape",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_db_shape",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_db_shape",
+              "retired": []
+            },
+            {
+              "title": "_write_receipt",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_write_receipt",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_write_receipt",
+              "retired": []
+            },
+            {
+              "title": "run_daily_full_staged",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_daily_full_staged",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_daily_full_staged",
+              "retired": []
+            },
+            {
+              "title": "_run_daily_full_staged_locked",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_run_daily_full_staged_locked",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_run_daily_full_staged_locked",
+              "retired": []
+            },
+            {
+              "title": "_abort",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "_abort",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::_abort",
+              "retired": []
+            },
+            {
+              "title": "run_daily_full",
+              "path": "market_feature_store/sync/sync_daily_full.py",
+              "symbol": "run_daily_full",
+              "excerpt": "market_feature_store/sync/sync_daily_full.py::run_daily_full",
+              "retired": []
+            }
+          ]
+        },
+        "narrative": {
+          "state": "missing",
+          "hits": []
+        }
+      },
+      "conflicts": [],
+      "completeness_claim": {
+        "doors": "missing",
+        "structure": "stale",
+        "narrative": "missing",
+        "recall": "untested"
+      },
+      "next_action": "正门见 layers.doors。叙事见 layers.narrative 或 ask。"
+    },
+    "stderr": ""
+  }
+]

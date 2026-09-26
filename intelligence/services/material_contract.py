@@ -7,11 +7,11 @@ import re
 
 from intelligence.services.user_task import (
     TopLevelRegions,
-    _B_LOCAL_ONLY_PHRASES,
     is_material_only_instruction,
     _B_RELAX_PHRASES,
     _FICTIONAL_SENT_RE,
     _HYPOTHESIS_STRONG_RE,
+    _is_local_only_head,
     _state_head,
 )
 
@@ -139,14 +139,15 @@ def blocks_contract_blind_pipelines(
 def compile_material_contract(
     regions: TopLevelRegions, *, source_turn: int = 0,
     inherited_contract: MaterialContract | None = None,
+    history_continuation: bool = False,
 ) -> MaterialContract | None:
-    """解释D1可见指令；仅显式续轮继承调用方提供的可信用户指令基底。"""
-    if not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
+    """Compile visible controls; history continuation still requires a trusted base."""
+    if not history_continuation and not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
         return None
     if isinstance(source_turn, bool) or not isinstance(source_turn, int) or source_turn < 0:
         raise ValueError("source_turn must be a nonnegative integer")
     questions = tuple(MaterialQuestion(qid, text) for qid, text in zip(regions.question_ids, regions.sub_questions, strict=True))
-    continuation = any(s.kind == "continuation" and s.scope == "message" for s in regions.instructions)
+    continuation = history_continuation or any(s.kind == "continuation" and s.scope == "message" for s in regions.instructions)
     if regions.classification == "boundary_uncertain":
         return MaterialContract("boundary_uncertain", None, None, questions=questions,
                                 continuation_requested=continuation, uncertain_reasons=regions.uncertain_reasons)
@@ -180,7 +181,7 @@ def compile_material_contract(
             data_scope, data_scope_declared = "material_only", True
         elif head.startswith(_B_RELAX_PHRASES):
             data_scope, data_scope_declared = "full", True
-        elif head.startswith(_B_LOCAL_ONLY_PHRASES):
+        elif _is_local_only_head(head):
             data_scope_declared = True
             if data_scope == "full":
                 data_scope = "local_only"

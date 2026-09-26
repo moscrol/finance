@@ -1,0 +1,469 @@
+{
+  "classification": "HOST_AUTHOR_ENGINEERING_NOT_INDEPENDENT_QC",
+  "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+  "prior_revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "files": [
+    {
+      "path": "current-light/product-diff-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/product-diff-check.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "current-light/tables.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "current-light/views.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "current-light/parseability.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/parseability.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "current-light/crosswalk.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/crosswalk.log.txt",
+      "bytes": 2012,
+      "sha256": "c1cdc76beb939990d54f66c81604dd44e910772e77c415666ce267001ff9ea1d"
+    },
+    {
+      "path": "current-light/registry.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/registry.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "current-light/ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "current-light/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/receipt.json",
+      "bytes": 3921,
+      "sha256": "bdd788d340b3ab0e2563c0d777641fff86f8202cb6076891b461d00ff71ec419"
+    },
+    {
+      "path": "current-light/merge-tree.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/light/merge-tree.log.txt",
+      "bytes": 41,
+      "sha256": "b0422e9bf3d71881fad1790dc8e38969681b8aae1608d2598c77e6f33bdad5ba"
+    },
+    {
+      "path": "current-mutations/emphasis_before_modifiers.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/emphasis_before_modifiers.xml",
+      "bytes": 25119,
+      "sha256": "1a247ccf1499ca62a9f90a3d8bff812617a1408b6a34a48992653d562e910a83"
+    },
+    {
+      "path": "current-mutations/summary.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/summary.json",
+      "bytes": 28287,
+      "sha256": "025e0ccb5bf622b10c6fedc7793cc2d2679fa58903a12f28c4a57c7bb2cc236d"
+    },
+    {
+      "path": "current-mutations/temporary_time_adverb.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/temporary_time_adverb.xml",
+      "bytes": 21414,
+      "sha256": "e752d8ad73804feb17fd09fa908f8d9ff76fbc4418d33621d9f16b86a64f128f"
+    },
+    {
+      "path": "current-mutations/leading_separator.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/leading_separator.xml",
+      "bytes": 69290,
+      "sha256": "e9f399612929a2acfdd48758d3debf5d7055b53dea78885e3853994a04d8aa7c"
+    },
+    {
+      "path": "current-mutations/repair_wiring.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/repair_wiring.xml",
+      "bytes": 37728,
+      "sha256": "f4eeb2e3ce65457852551ffc4969a1c04dd2525decc778d16bcb0b21dbab1369"
+    },
+    {
+      "path": "current-mutations/terminal_separator.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/terminal_separator.log",
+      "bytes": 53245,
+      "sha256": "5fa1656ad7c82b73d07be6006336a6edf9f244e0d4b68d184f4b49acb399f39b"
+    },
+    {
+      "path": "current-mutations/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/baseline.xml",
+      "bytes": 17655,
+      "sha256": "5f3d4d1ed88c71ce0ea09359ff92edeb0e31c5ceb3336f6197c2434e867d8999"
+    },
+    {
+      "path": "current-mutations/clause_local_time_adverbs.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/clause_local_time_adverbs.xml",
+      "bytes": 66864,
+      "sha256": "dd1d78b8ca21b02eb394225a7c9e85863c8207ebbcd4e4f0210859305f98af75"
+    },
+    {
+      "path": "current-mutations/bound_modifiers.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/bound_modifiers.xml",
+      "bytes": 98247,
+      "sha256": "708ac3200f338ea4e7bd467bab7c5f6210ba3402cfb379f1deabc9f7dddfff11"
+    },
+    {
+      "path": "current-mutations/survivor_sentence_grammar.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/survivor_sentence_grammar.log",
+      "bytes": 1762,
+      "sha256": "2c7d27f44f517c1bd4c62738b0d73058180af76691d8a4df91604b2187dd07f7"
+    },
+    {
+      "path": "current-mutations/listed_definition_recognition.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/listed_definition_recognition.xml",
+      "bytes": 59941,
+      "sha256": "565505347ab5357cb51933c6863b75dbe32df6cca6fa78c7b3671976cf393554"
+    },
+    {
+      "path": "current-mutations/line_endings.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/line_endings.log",
+      "bytes": 136511,
+      "sha256": "3bad9893b225b43d4e81c635fe8bb38257e61c06605718568adc4fe88ea2d060"
+    },
+    {
+      "path": "current-mutations/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/baseline.log",
+      "bytes": 301,
+      "sha256": "24b30f3e3b235587c3d6e56a8d932fe13eae54d2075d2355145fe2c91dc33431"
+    },
+    {
+      "path": "current-mutations/clause_local_time_adverbs.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/clause_local_time_adverbs.log",
+      "bytes": 51745,
+      "sha256": "fd21be31eef417166d4a97bdcc359c743d61e0bdaf342a4c51350dfe255d008c"
+    },
+    {
+      "path": "current-mutations/bound_modifiers.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/bound_modifiers.log",
+      "bytes": 85219,
+      "sha256": "cd1c91eb509b4e6a409699459d7e8a404208c58172e8b2686a12a78bb9b9e19b"
+    },
+    {
+      "path": "current-mutations/survivor_sentence_grammar.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/survivor_sentence_grammar.xml",
+      "bytes": 19135,
+      "sha256": "8eb81d130718b3ef39e6f216653851fdd41386a56b1eab63b8f0f50e10b1040d"
+    },
+    {
+      "path": "current-mutations/line_endings.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/line_endings.xml",
+      "bytes": 147469,
+      "sha256": "91b728e40f15777d8922540697b60d7a74e1f0a0b7fb469d6dda9746def5deca"
+    },
+    {
+      "path": "current-mutations/listed_definition_recognition.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/listed_definition_recognition.log",
+      "bytes": 39684,
+      "sha256": "f198083f9eb43ffb34c809789f5bdb0491496664deb1d34973053658056d37ba"
+    },
+    {
+      "path": "current-mutations/emphasis_before_modifiers.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/emphasis_before_modifiers.log",
+      "bytes": 8508,
+      "sha256": "04e0a04c8e26c8e937310803c8f57ec0c1182a233c2db4c4cbf2e62d2f1a860b"
+    },
+    {
+      "path": "current-mutations/temporary_time_adverb.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/temporary_time_adverb.log",
+      "bytes": 4482,
+      "sha256": "6455f720c645f91485379da4718a74c36e23b90cce766f9e1c307c17617d902f"
+    },
+    {
+      "path": "current-mutations/leading_separator.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/leading_separator.log",
+      "bytes": 54412,
+      "sha256": "6dd89f988befa4d80e3bdfb4199edf9db68a6f73819e51f13bf6edc6b525d77a"
+    },
+    {
+      "path": "current-mutations/repair_wiring.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/repair_wiring.log",
+      "bytes": 19485,
+      "sha256": "88955981b15e41cf05ec540056b654644e56ad6af9ff20e8a96cfe2b46fefbc7"
+    },
+    {
+      "path": "current-mutations/terminal_separator.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/terminal_separator.xml",
+      "bytes": 69178,
+      "sha256": "eb38f51cfa7b7aae23acff22dcac2eba2e8bb295cd9ade0657ad1ddbf1940782"
+    },
+    {
+      "path": "prior-light/product-diff-check.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/product-diff-check.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "prior-light/tables.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "prior-light/views.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "prior-light/parseability.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/parseability.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "prior-light/crosswalk.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/crosswalk.log.txt",
+      "bytes": 2012,
+      "sha256": "437aa1e1aeb1d2498e17310cc3ee66b71b589a1fd6fc125dc637aa6bab15f08d"
+    },
+    {
+      "path": "prior-light/registry.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/registry.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "prior-light/ruff.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "prior-light/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/receipt.json",
+      "bytes": 3833,
+      "sha256": "9a39e3c65ed7ee89f794c632862e5fd5ea14752579083f4773bb12464021d877"
+    },
+    {
+      "path": "prior-light/merge-tree.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/light/merge-tree.log.txt",
+      "bytes": 41,
+      "sha256": "70f501934f89b5eaf4c1c656a6f7c53463f81f9db2dab5dd9f1d02be8fa7734d"
+    },
+    {
+      "path": "prior-mutations/emphasis_before_modifiers.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/emphasis_before_modifiers.xml",
+      "bytes": 17986,
+      "sha256": "4963f15b3dcda0e4b16c78550d98fdb933116af6f03e5a78f18145a5aecf7059"
+    },
+    {
+      "path": "prior-mutations/summary.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/summary.json",
+      "bytes": 20007,
+      "sha256": "57764347f56d48200c5f318bae138d34d53dfca56daf6bf0a4b0d269ff9e9e5f"
+    },
+    {
+      "path": "prior-mutations/temporary_time_adverb.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/temporary_time_adverb.xml",
+      "bytes": 14281,
+      "sha256": "a5db4974d00241b7802c9f2a579fc97f6893bc4037589230a9a12d2f03ae06d4"
+    },
+    {
+      "path": "prior-mutations/leading_separator.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/leading_separator.xml",
+      "bytes": 45248,
+      "sha256": "ab6241586024a5bf06557490c1f0ad6d48101993695ea1705b2fed4fad1ca39c"
+    },
+    {
+      "path": "prior-mutations/repair_wiring.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/repair_wiring.xml",
+      "bytes": 11753,
+      "sha256": "6bd653ef3fc299a8fd2213a865da699fea309c98e11daa6a505bd65489f52bac"
+    },
+    {
+      "path": "prior-mutations/terminal_separator.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/terminal_separator.log",
+      "bytes": 37775,
+      "sha256": "2b96312d2e35c324e445efc8d58d0fec22d4d6c34169b76fec26f5fdc7663052"
+    },
+    {
+      "path": "prior-mutations/baseline.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/baseline.xml",
+      "bytes": 10522,
+      "sha256": "f056378cf3cc767146637b1632730e7fa21aa29ce3bcac563ba751fcd88fc3f5"
+    },
+    {
+      "path": "prior-mutations/clause_local_time_adverbs.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/clause_local_time_adverbs.xml",
+      "bytes": 42429,
+      "sha256": "6bba2967311d9be7c5055d69e155e82ba1bca4b4a38ca251128dc61b1555ac37"
+    },
+    {
+      "path": "prior-mutations/bound_modifiers.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/bound_modifiers.xml",
+      "bytes": 74065,
+      "sha256": "26da89797a2361d419b23b49d790c439a4155ef3656a576474d22a9fdc3f6495"
+    },
+    {
+      "path": "prior-mutations/survivor_sentence_grammar.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/survivor_sentence_grammar.log",
+      "bytes": 1682,
+      "sha256": "fea9b56eb23a1fb10af31912ceeaec909af576486aaa1a2d0f77dbcf3dfce96b"
+    },
+    {
+      "path": "prior-mutations/line_endings.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/line_endings.log",
+      "bytes": 120452,
+      "sha256": "b035f7cf3e36054bdd659cb2d2b7cff1c267fd8c19bc8af604ddfc13a4b2596b"
+    },
+    {
+      "path": "prior-mutations/baseline.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/baseline.log",
+      "bytes": 221,
+      "sha256": "aaf0dc810227899a1b667ec8c08850698047fa2909e055b5bc9f3df541998d87"
+    },
+    {
+      "path": "prior-mutations/clause_local_time_adverbs.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/clause_local_time_adverbs.log",
+      "bytes": 34580,
+      "sha256": "09294ba80651dc5399f9f54554944967b8dec1f6cbd9d29ced54a140b3504447"
+    },
+    {
+      "path": "prior-mutations/bound_modifiers.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/bound_modifiers.log",
+      "bytes": 68209,
+      "sha256": "36135394b4b02d77c006837bdfdf825deecee774ccfc184c466255b8bc7a3aaa"
+    },
+    {
+      "path": "prior-mutations/survivor_sentence_grammar.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/survivor_sentence_grammar.xml",
+      "bytes": 12002,
+      "sha256": "810a83307629845020f91eab676438a9cc79029d8dab4ed3b1e3160e6faeb29a"
+    },
+    {
+      "path": "prior-mutations/line_endings.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/line_endings.xml",
+      "bytes": 122895,
+      "sha256": "abc1adf187f8bdbafc65501ee370f02b03866d5624a849d198878db08e3e9342"
+    },
+    {
+      "path": "prior-mutations/emphasis_before_modifiers.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/emphasis_before_modifiers.log",
+      "bytes": 8428,
+      "sha256": "bc191ccf165c86f39fd03736b77e74aec001fbd8d1e0ef9aa350f562f874e1a1"
+    },
+    {
+      "path": "prior-mutations/temporary_time_adverb.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/temporary_time_adverb.log",
+      "bytes": 4402,
+      "sha256": "1be1356186b66ed169a2f0ae9dc60c2b90b58c5bb90c484e3b711fc51585c598"
+    },
+    {
+      "path": "prior-mutations/leading_separator.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/leading_separator.log",
+      "bytes": 37444,
+      "sha256": "c98da519e13a614bebfd7c2658d3f8c4b358bd0f806942c6177a53122b03073c"
+    },
+    {
+      "path": "prior-mutations/repair_wiring.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/repair_wiring.log",
+      "bytes": 1578,
+      "sha256": "b8553e1c62fd1e68e4be8c4c25e3464be2980cff47dc7800a04abdc64e25bb15"
+    },
+    {
+      "path": "prior-mutations/terminal_separator.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/terminal_separator.xml",
+      "bytes": 45668,
+      "sha256": "e9d6da6ebeeb0bf1fefead1da481190011a0a53f0ca340d5420dcf357a42caed"
+    },
+    {
+      "path": "repair-red/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/red/output.log.txt",
+      "bytes": 39648,
+      "sha256": "3bef3861da2f6585f22bd514814ad6459e1f720f278cbea3d91b1f152977419b"
+    },
+    {
+      "path": "repair-red/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/red/junit.xml",
+      "bytes": 59941,
+      "sha256": "ff976c74ee8be6b9dc93cb272fa641d307349c58e80d6ad7f3c47b3edd63bba7"
+    },
+    {
+      "path": "repair-red/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/red/receipt.json",
+      "bytes": 1122,
+      "sha256": "4985698a61fde1559c43bd3d62dd82d23caf7a2de3a3d1ec3a38ee68d4b499f8"
+    },
+    {
+      "path": "repair-green/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/green/output.log.txt",
+      "bytes": 609,
+      "sha256": "c9020defc11e14578a5eee591e91099ab2a210fa08a724a67946fddf08e44e50"
+    },
+    {
+      "path": "repair-green/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/green/junit.xml",
+      "bytes": 75761,
+      "sha256": "e4496fbea21221199b8bdb9c8a72fd684cb91b139bc29a11531408aef3c3effe"
+    },
+    {
+      "path": "repair-green/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/green/receipt.json",
+      "bytes": 1604,
+      "sha256": "bf254745a367112089b158981de641ae816f5e43fd159cb867e086e45f83783d"
+    },
+    {
+      "path": "scripts/prepare_engineering_checks.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/prepare_engineering_checks.py",
+      "bytes": 2073,
+      "sha256": "23369c45ac2e17cbac7511db0c1818d558524bd503b039b88560d4825fbd3561"
+    },
+    {
+      "path": "scripts/run_light_gates.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/run_light_gates.py",
+      "bytes": 3606,
+      "sha256": "eefb03ec54e377c1b4282c963cd62a0b8dbc94f71984a2018718d300f4019f2a"
+    },
+    {
+      "path": "scripts/mutate_seams_v3.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/mutate_seams_v3.py",
+      "bytes": 4838,
+      "sha256": "8b09dcea6727276ad8ef7f890e8f2720e34a1042b61b2948f18508da31cf3d12"
+    },
+    {
+      "path": "scripts/run_engineering.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/run_engineering.py",
+      "bytes": 5502,
+      "sha256": "46cddb11855f5a479c7389d3cfe4fa4d5fd9260efb2f11dfe6ab8f3f3fe268a3"
+    },
+    {
+      "path": "scripts/run_check.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/run_check.py",
+      "bytes": 1588,
+      "sha256": "4723b46e6d8a2bb34563dda7d9ce211509cd0ef6c650ccfb7e84c7efb3808f67"
+    },
+    {
+      "path": "prior-resource/status.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/status.json",
+      "bytes": 266,
+      "sha256": "e90a0b17380445cdbe6476c4b0fcb380620b0b8b3faefc5532d3d913a9c15364"
+    },
+    {
+      "path": "prior-resource/resource-admission.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/resource-admission.jsonl",
+      "bytes": 162166,
+      "sha256": "dffea487a87d38ad39753ea0ba5042fc256fbe9e94c85a7445e287361d616641"
+    },
+    {
+      "path": "prior-resource/host-stop.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/host-stop.json",
+      "bytes": 834,
+      "sha256": "e1848bc7a78efd6b1b5f92773bf2e9b2d8f69428bbb8031cf199d6b4ace7cc78"
+    }
+  ],
+  "limits": [
+    "repair-red/green are before the product commit on explicitly dirty author tree, not clean full-scope receipts.",
+    "current-light and current-mutations bind the committed clean candidate.",
+    "prior-resource is a stopped wait for superseded head; no heavy test was launched.",
+    "No full Python/frontend/E2E verdict is claimed in this host package."
+  ]
+}

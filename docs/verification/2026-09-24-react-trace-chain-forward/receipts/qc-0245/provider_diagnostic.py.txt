@@ -1,0 +1,74 @@
+"""Record provider-source facts and aggregate old events without copying reasoning."""
+from collections import Counter
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import urllib.request
+
+ROOT = Path(__file__).resolve().parent
+SOURCES = {
+    'glm-5.3-source.md':'https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3.md',
+    'glm-migration-source.md':'https://docs.bigmodel.cn/cn/guide/start/migrate-to-glm-new.md',
+    'glm-thinking-source.md':'https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode.md',
+}
+sources = []
+for name, url in SOURCES.items():
+    with urllib.request.urlopen(url, timeout=30) as response:
+        data = response.read()
+    with (ROOT/name).open('xb') as stream:
+        stream.write(data)
+    sources.append({'url':url,'snapshot':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
+batches = []
+for suffix in ['0148','0210','0216']:
+    folder = ROOT.parent/('pr832-glm-qc-20260924-'+suffix)
+    batch = json.loads((folder/'batch.json').read_text())
+    shapes = []
+    stats = Counter()
+    for stage in ['gateway','explore','execute','report']:
+        shape_path = folder/'spec'/stage/'payload-shapes.jsonl'
+        if shape_path.exists():
+            shapes.extend(json.loads(line) for line in shape_path.read_text().splitlines())
+        path = folder/'spec'/stage/'events.jsonl'
+        if path.exists():
+            with path.open() as stream:
+                for line in stream:
+                    event = json.loads(line)
+                    update = event.get('assistantMessageEvent',{})
+                    if update.get('type') == 'thinking_delta' and update.get('delta'):
+                        stats[stage+'_nonempty_thinking_deltas'] += 1
+    batches.append({'root':str(folder),'status':batch['status'],'dispatched_requests':batch['requests'],
+                    'recorded_payload_shapes':len(shapes),
+                    'shapes_with_max_completion_tokens_8192':sum(row.get('max_completion_tokens') == 8192 for row in shapes),
+                    'shapes_with_explicit_reasoning_effort':sum('reasoning_effort' in row for row in shapes),
+                    'events_aggregate':dict(stats)})
+record = {'recorded_at':datetime.now(timezone.utc).isoformat(),'model_requests_added':0,'sources':sources,
+          'facts':['GLM-5.3 requires thinking enabled and defaults reasoning_effort to max.',
+                   'Official supported low-cost thinking setting is enabled with reasoning_effort low, not off.',
+                   'Native completion ceiling parameter is max_tokens.',
+                   'Installed SDK offline capture reproduces old missing effort and max_completion_tokens, and validates corrected native low configuration.'],
+          'limits':['Historical payload-shape logs and SDK reproduction are not a retroactive capture of every outgoing body.',
+                    'These configuration mismatches do not prove all 120-second stream failures have the same cause.',
+                    'Old nontrivial assertion failures remain unclassified; provider diagnosis does not prove product correctness.'],
+          'batches':batches,'current_authorization_dispatched_before_new_batch':sum(row['dispatched_requests'] for row in batches)}
+with (ROOT/'provider-diagnostic.json').open('x') as stream:
+    json.dump(record,stream,ensure_ascii=False,indent=2)
+    stream.write('\n')
+old = ROOT.parent/'pr832-glm-qc-20260924-0216'
+config = json.loads((old/'spec/config.json').read_text())
+host = {'recorded_at':record['recorded_at'],'revision':config['revision'],'baseline':config['baseline'],
+        'verdict':'BLOCKED_PROVIDER_STREAM_AND_INVALID_THINKING_ASSUMPTION',
+        'model_requests_in_batch':json.loads((old/'batch.json').read_text())['requests'],'model_requests_added':0,
+        'observed':['Gateway passed; explore produced six independent probe files.',
+                    'Execute: intentional control exit1, independent probes 29 cases:20 passed/9 failed, seven author files 186 passed.',
+                    'Execute stopped on a 120-second provider stream failure, without its required final delivery.',
+                    'Spec report and all Quality phases never started.',
+                    'Nominal thinking off was false as an effective-model claim: thinking deltas exist; GLM-5.3 cannot disable thinking.'],
+        'classification_limits':['The nine independent failing assertions have not all been diagnosed by the reviewer; not automatically product defects or fixture errors.',
+                                 'No current independent Spec or Quality signoff; author greens and valid explore JSON do not substitute.',
+                                 'Official/SDK findings are host-only diagnosis; do not retroactively modify sealed controls or certify old model requests.'],
+        'provider_diagnostic':str(ROOT/'provider-diagnostic.json'),'natural_finance_requests':0,'merged':False,'deployed':False}
+with (old/'host-review.json').open('x') as stream:
+    json.dump(host,stream,ensure_ascii=False,indent=2)
+    stream.write('\n')
+print(json.dumps({'model_requests_added':0,'prior_requests':record['current_authorization_dispatched_before_new_batch'],'batches':batches}))

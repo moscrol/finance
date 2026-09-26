@@ -1,0 +1,38 @@
+"""Independent C1 probe: evidence ordinals are citations, not numeric facts.
+
+Unit checks on the masking grammar plus a real verifier pass showing ordinal-bearing
+prose survives while an unsupported numeric claim in the same draft is still checked.
+"""
+from __future__ import annotations
+
+from intelligence.services.episode_protocol import strip_evidence_ordinals
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+
+
+def test_c1_prose_e_refs_are_masked_without_joining_tokens():
+    masked = strip_evidence_ordinals("如E1与E2、E12所示；参见e3。")
+    assert masked == "如 与 、 、所示；参见 。"
+    for ref in ("E1", "E2", "E12", "e3"):
+        assert ref not in masked
+
+
+def test_c1_lookalikes_and_real_quantities_are_not_masked():
+    text = "PE10倍、1.5E8的规模、CE4认证；上涨3870点，成交2.5万亿元，共3家。"
+    assert strip_evidence_ordinals(text) == text
+    # Documented grammar boundary: ordinals are E1..E999 without leading zeros.
+    assert strip_evidence_ordinals("E0与E1000") == "E0与E1000"
+
+
+def test_c1_verifier_keeps_citation_prose_but_still_checks_numbers():
+    # E1 is a valid ordinal for the single evidence piece in the fixture.
+    frame, structural = _structural("根据E1观察，市场处于缩量阶段。若指数跌破3870点则失效。")
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    # Citation-bearing prose is not deleted as a fabricated numeric fact...
+    assert "市场处于缩量阶段" in result.public_answer
+    # ...while the unsupported comparator number is still redacted.
+    assert "3870点" not in result.public_answer
+    assert "3870点" not in result.verified.outcome.draft

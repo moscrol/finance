@@ -1,0 +1,499 @@
+269-# variables are still threshold claims. Match comparison operators only when
+270-# followed by a quantity, not Markdown/HTML delimiters or an arrow alone.
+271-_NUMERIC_COMPARATOR_RE = re.compile(
+272-    r"(?:[<>≤≥≦≧]=?|不低于|不高于|大于等于|小于等于|低于|高于|超过|大于|小于)\s*[+-]?\d"
+273-)
+274-_CONDITION_LABEL_RE = re.compile(
+275:    r"^(?:区分变量|判断标准|检验条件|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
+276:    r"失效信号|降级信号|条件)\s*(?:\d+|[一二三四五六七八九十]+)?\s*[：:=]"
+277-)
+278-_CONDITION_HEADING_RE = re.compile(
+279:    r"(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|失效信号|降级信号|条件)"
+280-)
+281-_DANGLING_CONDITION_COUNT_RE = re.compile(
+282-    # 破折号只认中文全角 — –：ASCII 连字符在行首是 markdown 列表符，
+283:    # 吃掉它会让整条列表项塌成一句没有标记的散文。
+284-    r"(?P<dash>[—–]+\s*)?"
+285-    r"(?P<opening>\*{2})?\s*满足"
+286:    r"(?P<label>升级条件|降级条件)中的"
+287:    r"(?P<count>[0-9０-９一二两三四五六七八九十百千万]+)条"
+288-    r"(?P<comma>[，,]\s*)?"
+289-)
+290-# 删掉计数后，接缝两侧已有这些字符之一就不再补标点，否则会出现「，，」。
+291-_CLAUSE_EDGE_CHARS = "，,、；;：:。．！？!?—–-"
+292-_LIST_MARKER_ONLY_RE = re.compile(r"^\s*(?:[-*+•>]|\d+[.、)）])?\s*$")
+293-_LIST_MARKER_PREFIX_RE = re.compile(r"^\s*(?:[-+•>]|\*(?!\*)|\d+[.、)）])\s*")
+--
+320-_LABEL_ONLY_AFTER_REPAIR_RE = re.compile(
+321-    r"^[\s\-*+•>]*(?:\*{2})?[^：:。．！？\n]{0,16}[：:]\s*(?:\*{2})?[。．，,、；;\s]*$"
+322-)
+323-_SUBSTANTIVE_CHAR_RE = re.compile(r"[0-9A-Za-z一-鿿]")
+324-_CONDITION_DEFINITION_RE = re.compile(
+325-    r"^\s*(?:[-*]\s*)?(?:\*{2})?"
+326:    r"(?P<label>升级条件|降级条件)"
+327-    r"(?:\*{2})?\s*[:：]"
+328-)
+329-_LEADING_CONDITION_LABEL_RE = re.compile(
+330-    r"^\s*(?:[-*]\s*)?"
+331:    r"(?:条件|失效信号|降级信号|触发条件)\s*"
+332-    r"(?:\d+|[一二三四五六七八九十]+)?"
+333-    r"\s*(?:[:：、.)）-]\s*)?"
+334-)
+335-_LEADING_SECTION_RE = re.compile(r"^\s*【[^】]{1,80}】\s*")
+336-_LEADING_LIST_LABEL_RE = re.compile(
+337-    r"^\s*(?:[-*]\s*)?(?:\d+|[一二三四五六七八九十]+)\s*"
+--
+368-)
+369-_ORDERED_LIST_ITEM_RE = re.compile(
+370-    r"^(?P<indent>\s*)(?P<number>\d+)(?P<suffix>[）).、])(?P<body>.*)$"
+371-)
+372-_CIRCLED_LIST_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩"
+373-_EXPLICIT_LIST_COUNT_RE = re.compile(
+374:    r"(?P<label>依据|理由|原因|条件|要点|因素|信号|维度|方面)"
+375-    r"\s*(?:(?:一共|共|有|包括)\s*)?"
+376-    r"(?P<count>\d+|[一二两三四五六七八九十]+)"
+377:    r"(?P<unit>点|条|项|个|方面|种)"
+378-)
+379-_PREFIXED_LIST_COUNT_RE = re.compile(
+380-    r"(?P<count>\d+|[一二两三四五六七八九十]+)"
+381-    r"(?P<unit>层)"
+382:    r"(?P<descriptor>[^，,。；;\n]{0,12}?(?:框架|方法|验证|条件|要点))"
+383-)
+384-_PAREN_LIST_NUMBER_RE = re.compile(
+385-    r"(?P<open>[(（])(?P<number>\d{1,2})(?P<close>[)）])"
+386-)
+387-_NUMERIC_CONDITION_ISSUE = Issue(
+388-    IssueCode.NUMERIC_UNSUPPORTED,
+--
+499-                        "items": {"type": "integer"},
+500-                    },
+501-                    "issues": {
+502-                        "type": "array",
+503-                        "items": {"type": "string"},
+504-                    },
+505:                    # 可选：每条拒句的理由码。不进 required——旧判官不回它时报告照旧有效。
+506-                    "reason_codes": {
+507-                        "type": "array",
+508-                        "items": {
+509-                            "type": "object",
+510-                            "additionalProperties": False,
+511-                            "properties": {
+--
+554-    "当前时点、事实/假设边界、因果证据、数字支持和跨题污染。观察事实、事实数字、"
+555-    "外部因果和历史概率必须有直接证据。分析问题允许从已绑定事实做透明推导：若"
+556-    "句子明确标注为判断、情景或估计，且推理前提可在证据中核验，不要要求 evidence "
+557-    "原文已经包含预测结论。“据此判断”“这说明”“这意味着”也属于显式分析标记，"
+558-    "但仍须核验其观察前提，不能把外部原因偷渡成事实。用户明确要求持续时间、"
+559-    "空间、估值或其他预测时，允许"
+560:    "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
+561-    "应拒绝。tool_status_registry 只支持检索过程状态，例如本轮是否命中；它不能支持"
+562-    "市场事实或因果结论。答案不得暴露 capability、工具、provider 或哈希等内部标识，"
+563-    "只能用“本轮资讯检索未命中”等自然语言。"
+564-    "verified_quantities 是**已由确定性核对确认**来自 evidence_registry 的数值清单"
+565-    "（逐字节相等才入列）：其中出现的数**不得**判为“未注册数字”“无直接证据”"
+566:    "或“注册表无对应条目”，也不得因此摘除 required output。你要审的是这些数被"
+567-    "用来支撑的**语义**（因果是否成立、口径有没有混用、日期是否对得上），"
+568-    "不是它们在不在证据里——那一半已经查过了。清单之外的数仍按原规则审查。"
+569-    "evidence_registry 的 E 编号与正文引用"
+570-    "同一空间，可不连续；output_bindings.evidence_ids 与其对应。required_outputs 中的 "
+571-    "答案对自身证据边界或推理层级的披露句（如“原文未覆盖某时段，此段映射为"
+572-    "推理层”“以下为视角层推断”）是降低断言强度的元陈述，不是外部事实，"
+573-    "不要求证据也不得拒绝；但披露句若同时断言具体行情数字或外部事件，仍按"
+574-    "事实句审查。"
+575-    "grounding_mode 是硬边界：evidence 只能引用直接证据，user_premise 只能评估用户"
+576:    "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。若 "
+577-    "answer_grounding_mode 为 model_reasoning，不得仅因方法步骤、T+N 观察窗口或"
+578-    "定性判断没有 evidence_ids 而拒绝；只有它把外部事实、历史胜率或当前行情冒充"
+579:    "已核验事实时才拒绝。若为 user_premise，用户明确给出的条件视为假设前提，不要求"
+580-    "先证明该前提为真。只输出一个严格 "
+581-    "JSON 对象，字段必须是 "
+582-    "passed(boolean)、rejected_sentence_indexes(integer list)、issues(string list)。"
+583-    "passed=true 时 rejected_sentence_indexes 必须为空；发现违反上述边界的句子时"
+584-    "passed=false 并列出句号。必须从第1句检查到最后一句，一次返回全部不合格句号；"
+585-    "不得发现首批问题后提前停止。issues 只能描述不合格句；issues 中明确提到的"
+586-    "句号集合必须与 rejected_sentence_indexes 一致。"
+587:    "可选字段 reason_codes（对象列表，每项 {sentence_index, code}）为每条拒句标注"
+588-    "理由码，code 只能取：fact_beyond_evidence（观察事实、数字、主体、日期或代码超出"
+589-    "所引证据）、causal_or_role_overreach（因果、角色或环节定位越出证据）、"
+590-    "unsupported_ranking（优先级或排序名次无透明规则支持，但同句数字本身有证据）、"
+591-    "internal_process_leak（暴露调用工具、provider、哈希等内部过程表述，事实本身无误）。"
+592-    "拿不准就不给该句标码。若提供 ranking_contract，公司矩阵表「优先级」列按其 "
+593-    "priority_grounding 审查：只审同行其他格，不得仅因优先级数字无证据而拒绝该行。"
+--
+705-    repair_withheld: bool = False
+706-    unattempted_claim_count: int = 0
+707-    asked_date_coverage: str = "not_applicable"
+708-    repair_collapsed_to_stub: bool = False
+709-    repair_rollback_mode: str | None = None
+710-    premise_calculation_review: dict[str, object] | None = None
+711:    # P2 第一步（spec 2026-09-02 §3.3「先量后改」）：判官每条拒句的结构化账——
+712-    # 删了还是降成 issue、机械还是语义、句子引了哪些 E / 绑到哪些哈希 / 来源档。
+713-    # 只记不改任何判据；读侧 ``scripts/offline_judge_verdict_census.py``。
+714-    sentence_verdicts: tuple[dict[str, object], ...] = ()
+715-    material_claim_checks: tuple[dict[str, object], ...] = ()
+716-    material_output_checks: tuple[dict[str, object], ...] = ()
+717-    material_nonfactual_checks: tuple[dict[str, object], ...] = ()
+--
+1132-
+1133-# ---------------------------------------------------------------------------
+1134-# V11 · 判官引导的一次有界回检索
+1135-# 设计：docs/superpowers/specs/2026-08-22-v11-judge-guided-retrieval-design.md
+1136-# 接进默认路径：2026-09-09 判官修复 01 第三刀（任务包 01-judge-recovery-goal-brief.md）
+1137-#
+1138:# 只在「纯语义早退」那条路上开火：首判拒了句、_plan_repair_indexes 为空（没有机械
+1139:# 句要删）、V8 已把语义拒句降成 issue 准备直接出门。此时用被拒句拼一条确定性 query
+1140-# 回库一次，检回新卡就让判官再看同一份草稿一眼；判官明确放过的句子撤标（从
+1141-# _semantic_reject_texts 拿掉），其余原样。不改 draft、不进 _repair、不加第二修复窗、
+1142-# 每 episode 最多一枪、旗标在 IO 之前预占、预算不够就当 V8 没发生过。
+1143-# ---------------------------------------------------------------------------
+1144-GUIDED_RETRIEVE_ENV = "FINANCE_V11_GUIDED_RETRIEVE"
+1145-# 复用 episode_tools.retrieve_kb 的 min(timeout, 30.0)，不新发明 16 / 25 / 45。
+--
+1193-    raw_question: str,
+1194-    reject_texts: Sequence[str],
+1195-    reject_issues: Sequence[str] = (),
+1196-) -> str:
+1197-    """确定性拼 query（V11 §6）：骨干是被拒句，不是判官话术；不调 LLM。
+1198-
+1199:    规则：主体（空则取问句「怎么看/如何/为什么」之前的前缀）+ 最多 3 条被拒句
+1200-    （去【质检…】标、截 40 字、去首尾标点）+ issue 里不含元话语的 CJK 词（去重）；
+1201-    空白折叠、总长 80 字；空则退回「主体 问句」。
+1202-    """
+1203-
+1204-    head = str(subject or "").strip()
+1205-    question = str(raw_question or "").strip()
+--
+1411-        - ``internal_process_leak`` → 改写：「调用工具」一族换成「检索」。那是文风泄漏，
+1412-          不是假话。
+1413-        - ``causal_or_role_overreach`` / 无码 / 未知码 / 改写落空 → 改动前的槽位规则：
+1414-          必答槽内降级为 issue（句子保留、控制面记账），槽外删。
+1415-
+1416-        无码走槽位规则而不是「引了 E 就删」：「引了 E 且被拒」不是「事实与证据不相容」
+1417:        的可靠代理——39 条实测账本里 L4_structured（本地行情，全系统最可信档）占 25 条，
+1418-        其中大半判官写明数字没问题。判官不吐码时宁可少删；吐码率用账本量。
+1419-        """
+1420-
+1421-        mechanical, semantic = _partition_rejected_indexes(
+1422-            rejected,
+1423-            sentences=sentences,
+--
+1490-        outcome: SemanticEpisodeOutcome,
+1491-    ) -> SemanticEpisodeOutcome:
+1492-        texts = self._semantic_reject_texts
+1493-        if not texts:
+1494-            return outcome
+1495-        # 兼容仍可能由引导回检索产生的存疑账：已进入删除修复的拒句不应再
+1496:        # 通过这个投影回到公开稿。这里仅保留控制面标记，公开文本不拼质检条。
+1497-        issues = tuple(
+1498-            dict.fromkeys((*outcome.issues, *self._semantic_reject_issues))
+1499-        )
+1500-        judge_status = outcome.judge_status
+1501-        if judge_status == "passed":
+1502-            judge_status = "repaired"
+--
+1519-        structurally_verified: VerifiedEpisodeOutcome,
+1520-        deadline: ResearchDeadline,
+1521-        retrieve_fn: GuidedRetrieveFn | None = None,
+1522-    ) -> SemanticEpisodeOutcome:
+1523-        """Run structural-first verification with bounded deletion-only repair.
+1524-
+1525:        拒句账（``sentence_verdicts``）在这一层统一挂到返回值上：内层有十几条
+1526:        提前返回路径，逐条挂会漏；账本为空时不动返回值（历史夹具逐字节不变）。
+1527-
+1528-        ``retrieve_fn`` 是 V11 回检索的注入口（形状 ``fn(query, granted_seconds)
+1529-        -> Sequence[AgentEvidence]``），由 ``continuous_turn_adapter`` 按回合从工具
+1530-        注册表造；不注入 = 所有既有夹具自动 skip（``no_retriever``）。
+1531-        """
+1532-
+--
+1572-                        gap_body="本轮定性解释未通过核验；以上仅为题设计算，不能据此判断股票便宜。",
+1573-                    )),
+1574-                    issues=tuple(dict.fromkeys((*outcome.issues, "premise_calculation_mismatch: " + error))),
+1575-                )
+1576-            elif public != outcome.public_answer:
+1577-                outcome = replace(outcome, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)))
+1578:        # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
+1579-        # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
+1580-        outcome = replace(
+1581-            outcome,
+1582-            judge_mode=judge_mode_label(self._judge_mode),
+1583-            cited_outside_slot_count=self._census_count,
+1584-        )
+--
+2001-                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
+2002-                root_deadline_exhausted=True,
+2003-                monotonic_release_safe=deadline_release_safe,
+2004-            )
+2005-        if first.report is None:
+2006-            issue = first.issue or "semantic judge unavailable"
+2007:            # 窗被前一发吃光与根期限到点走同一条瞬态候选路：拆标签只为归因，
+2008-            # 不改这里的放行判定。
+2009-            if first.monotonic_release_safe and issue in {
+2010-                ROOT_DEADLINE_EXHAUSTED_ISSUE,
+2011-                WINDOW_EXHAUSTED_ISSUE,
+2012-                "semantic judge transient provider error",
+2013-                LEFTOVER_WINDOW_ISSUE,
+--
+2095-            sentences,
+2096-            structural,
+2097-            first.report.issues,
+2098-            reason_codes=first.report.reason_code_by_index,
+2099-        )
+2100-        if not self._repair_work_pending(first_repair_indexes):
+2101:            # ★ V11 唯一入口：纯语义早退。开火与否都不改下面这条返回路径。
+2102-            self._guided_result = self._guided_retrieve_and_rejudge(
+2103-                frame=frame,
+2104-                structural=structural,
+2105-                sentences=sentences,
+2106-                first=first,
+2107-                deadline=deadline,
+--
+3567-        public_source, mode = choose_repair_rollback(before, minus)
+3568-        extra: tuple[str, ...] = ()
+3569-        if mode == "whole_pre_repair" and rejected_sentence_indexes:
+3570-            extra = (
+3571-                "code=repair_collapsed_to_stub :: "
+3572-                "已回退至未经语义修复的稿，其中含 "
+3573:                f"{len(rejected_sentence_indexes)} 条未通过判官的表述",
+3574-            )
+3575-        return public_source, mode, extra
+3576-
+3577-    def _maybe_withhold_stub(
+3578-        self,
+3579-        frame: TaskFrame,
+--
+3707-        contract = structural.contract
+3708-        if contract is None:
+3709-            return None
+3710-        from intelligence.services.material_delivery import material_question_outputs
+3711-
+3712-        original = structural.outcome
+3713:        # 改写账先取走再动稿：本函数任何一条早退都不能把它留给下一轮 ``_repair``。
+3714-        rewrites = self._take_pending_rewrites()
+3715-        draft = _drop_rejected_sentences(
+3716-            original.draft,
+3717-            rejected_sentence_indexes,
+3718-            preserve_numbering=bool(material_question_outputs(contract)),
+3719-        )
+--
+3723-            rejected_sentence_indexes=rejected_sentence_indexes,
+3724-        )
+3725-        if not draft:
+3726-            return None
+3727-        draft = _apply_sentence_rewrites(draft, rewrites)
+3728-        # 先按槽补回被连坐的真值，再算缺口。补回成功时缺口自然为空
+3729:        # （真值已在稿里）；缺口这条留作兜底——补不回来时它仍会记账，
+3730-        # 不让真值静默消失。
+3731-        draft, _restored = _restore_lost_observations(
+3732-            draft=draft,
+3733-            before=original.draft,
+3734-            evidence=original.evidence,
+3735-        )
+--
+3921-        judge_unavailable: bool = False,
+3922-    ) -> str:
+3923-        """缺数三档的中间档：缺 X → 仍可判 Y → 验证窗口 Z。
+3924-
+3925-        原版只说「证据不足 + 仍需核验 X」——把「一格没核验」和「全军覆没」
+3926-        呈现成同一句话，用户无从知道本轮其实已经核验了什么（knevo 对照里
+3927:        「从不输出裸的不知道」那条；08-01 验收 C 组的诚实度失分同源）。
+3928-
+3929-        「仍可判 Y」的取材红线：**只用结构性事实**——契约里的槽位描述、
+3930-        binding 里去重后的证据哈希数、证据的来源日期。普通 ``evidence_gap``
+3931-        一个字都不从 draft 捞。``invalid_repair_finish`` 且证据非空改走
+3932-        ``verification_incomplete``：已兑现槽在拒稿前写入 ``public=``，未兑现
+3933-        槽交给 ``unknown_slots``，由 ``view()`` 渲成用户语言。
+3934-        """
+3935-
+3936-        question = frame.raw_question.strip() or "当前问题"
+3937-        if judge_unavailable:
+3938:            # 禁语在下面的 evidence 分支，不看 cause。判官挂了必须改这条
+3939-            # body，不能只改开口。
+3940-            parts: list[str] = []
+3941-            evidence = verified.outcome.evidence
+3942-            if evidence:
+3943-                parts.append(
+3944:                    f"本轮已取得 {len(evidence)} 条证据，暂不对外引用；可直接重试。"
+3945-                )
+3946-            window = _latest_evidence_date(evidence)
+3947-            if window:
+3948-                parts.append(f"证据数据截至 {window}。")
+3949-            return view(
+3950-                TerminalFacts(
+--
+4000-        if cause != CAUSE_VERIFICATION_INCOMPLETE and labels:
+4001-            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
+4002-        if kept:
+4003-            parts.append(
+4004-                "本轮已核验（供参考，不构成完整结论）："
+4005-                + "、".join(
+4006:                    f"{label}（{count} 条证据）" for label, count in kept[:3]
+4007-                )
+4008-                + "。"
+4009-            )
+4010-        elif verified.outcome.evidence:
+4011-            # LLM 超时 / deadline 打断时常见的形状：检索已完成、证据在手，
+4012:            # 但没走到 FINAL_JSON，一条都没绑定（08-12 A5 实测：25 条证据、
+4013:            # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
+4014-            # 让用户区分「没查到」和「查到了没来得及核验」——两者的下一步
+4015-            # 完全不同（换问法 vs 直接重试）。
+4016-            parts.append(
+4017:                f"本轮已取得 {len(verified.outcome.evidence)} 条证据，"
+4018-                "但未完成核验绑定，暂不能引用；可直接重试。"
+4019-            )
+4020-        window = _latest_evidence_date(verified.outcome.evidence)
+4021-        if window:
+4022-            parts.append(f"证据数据截至 {window}；缺口补齐后可复验。")
+4023-        # ASK_DEGRADED_FALLBACK（默认 off）：knevo q13 七项里的「尝试过什么 /
+--
+4203-    operational fact, not a missing required output.
+4204-    """
+4205-
+4206-    if not verified.outcome.draft.strip():
+4207-        return False
+4208-    # 扩展区绑定（契约外、引用可核验）已被结构层隔离，不算契约槽位的问题；
+4209:    # 其余任何 issue 仍让这条「诚实 runtime partial」升格失效。
+4210-    if any(
+4211-        item.code is not IssueCode.EXTRA_OUTPUT_BINDING
+4212-        for item in verified.issue_items
+4213-    ):
+4214-        return False
+4215-    if verified.completion.factual_grounding != "fulfilled":
+--
+4320-        for index in indexes:
+4321-            reasons.setdefault(int(index), []).append(code)
+4322-    return {index: tuple(codes) for index, codes in reasons.items()}
+4323-
+4324-
+4325-def _issues_naming_sentence(issues: tuple[str, ...], index: int) -> tuple[str, ...]:
+4326:    """判官 issue 里显式点到「第 N 句 / 句 N / sentence N」的那些条。"""
+4327-
+4328-    named: list[str] = []
+4329-    for issue in issues:
+4330-        for match in _ISSUE_SENTENCE_INDEX_RE.finditer(str(issue or "")):
+4331-            raw = next((group for group in match.groups() if group), "")
+4332-            if raw and int(raw) == index:
+--
+4345-    reasons: tuple[str, ...],
+4346-    issues: tuple[str, ...],
+4347-    verified: VerifiedEpisodeOutcome,
+4348-    judge_reason_code: str = "",
+4349-    rewritten_to: str = "",
+4350-) -> dict[str, object]:
+4351:    """一条拒句账：句子 / 决定 / 理由 / 判官原话 / 理由码 / 引到的证据与来源档。
+4352-
+4353-    证据侧只走 E 序号反解（``evidence_ordinal_table`` 的逆映射），不解析自由文本；
+4354-    句子没引 E 时 ``cited_evidence_ordinals`` 为空，``source_tiers`` 也为空——
+4355-    这本身就是读侧要统计的一类（「无出处被删」与「有出处被删」分开数）。
+4356-    ``judge_reason_code`` 空串表示判官没给码（旧判官 / 拿不准），读侧据此量
+4357-    「判官吐码率」；``rewritten_to`` 只在 decision=rewritten 时非空。
+--
+4605-    text: str,
+4606-    *,
+4607-    code: str,
+4608-    contract: object,
+4609-    sentences: list[dict[str, object]],
+4610-) -> tuple[str, str]:
+4611:    """一条语义拒句的动词：``(decision, rewritten_text)``。
+4612-
+4613-    fail-closed 落在路由：无码、未知码、改写落空都退回改动前的槽位规则，而不是
+4614-    作废判官报告。改写只在两处精确形状上开火——矩阵行的「优先级」格、「调用工具」
+4615-    一族措辞——其余一律不猜。
+4616-    """
+4617-
+--
+4680-    sentences: list[dict[str, object]],
+4681-    verified: VerifiedEpisodeOutcome,
+4682-) -> tuple[int, ...]:
+4683-    """Sentences carrying an A-share code that no evidence card mentions.
+4684-
+4685-    #8792 账本里整批被拒的形状：「600711/000603/603132/…」六位代码无一在证据里。
+4686:    只做**分区**不做预检：它决定一条已被判官拒绝的句子是删还是降级，不替判官拒句——
+4687-    模型凭常识写出的真代码（「贵州茅台（600519）」）在证据表没登记时，删除权仍归判官。
+4688:    任一代码不在任何证据语料里即点名：保留一条带编造代码的句子比丢掉同句其他真值更糟，
+4689-    连坐的有据数值另由 ``_restore_lost_observations`` 补回。
+4690-    """
+4691-
+4692-    corpus = " ".join(_evidence_corpus(item) for item in verified.outcome.evidence)
+4693-    rejected: list[int] = []
+4694-    for item in sentences:
+--
+4914-
+4915-    contract = verified.contract
+4916-    if contract is not None and contract.required_outputs:
+4917-        # 整体豁免问的是「这份契约是不是压根不靠证据」，所以**保留** required
+4918-        # 过滤：prior_recall / prime_* 这类可选 advisory 槽签的不是 evidence，
+4919-        # 但它们不该把一份必需槽全 evidence 的契约说成 evidence-free。下面那块
+4920:        # 条件槽豁免问的是另一个问题，故不带这个过滤——两块不对称是有意的，
+4921-        # 别为了「统一风格」把这里也放宽。
+4922-        if all(
+4923-            item.grounding_mode != "evidence"
+4924-            for item in contract.required_outputs
+4925-            if item.required
+4926-        ):
+4927-            return ()
+4928:        # 条件槽粒度豁免：契约把前瞻假设槽（情景/持续/证伪条件）签成
+4929:        # model_reasoning 时，条件句里的新阈值是模型受契约委托提出的判断，
+4930-        # 不再按「证据里没有的数量」连坐整句。此前门禁只认「全契约非
+4931-        # evidence」的整体豁免，混合契约（如 market_forecast 带 evidence 的
+4932-        # 边界槽）下证伪阈值必死。事实句仍由语义判官逐句审。
+4933-        #
+4934-        # 这里**不看 required**：required 回答「缺了算不算失败」，grounding_mode
+4935-        # 回答「谁授权这个阈值」，是两根正交的轴，豁免只该看后者。装配层给前瞻
+--
+4991-        labelled = _CONDITION_LABEL_RE.match(candidate) is not None
+4992-        # In a condition matrix check its condition cells, not an unrelated
+4993-        # company code or numeric priority column. Header detection is exact.
+4994-        if candidate.startswith("|") and candidate.endswith("|"):
+4995-            cells = [cell.strip() for cell in candidate.strip("|").split("|")]
+4996-            columns = tuple(i for i, cell in enumerate(cells) if cell in {
+4997:                "变化", "条件", "触发条件", "改判条件", "证伪条件", "失效信号", "区分变量",
+4998-            })
+4999-            if columns and not re.search(r"\d", candidate):
+5000-                condition_columns = columns
+5001-                continue
+5002-            if condition_section and condition_columns:
+5003-                candidate = " | ".join(
+--
+5322-        if digest in by_hash
+5323-    }
+5324-
+5325-
+5326-# 只识别来源/公告的发布日期断言，不把同句的计划、投产日、预测时点等与 source_date 比。
+5327-# 这是有意收窄的机械门，不是通用日期语义判官：没有可比较的字段/关系就不删句。
+5328:_SOURCE_DATE_SUBJECT = r"(?:该|这[份条篇则]?|上述)?(?:公告|报告|研报|材料|证据|新闻)"
+5329-_SOURCE_DATE_PREDICATE = re.compile(
+5330-    rf"(?:{_SOURCE_DATE_SUBJECT}(?:的)?(?:发布|披露)(?:日期|时间)?"
+5331-    r"|(?<![\w\u4e00-\u9fff])发布日期|来源日期|source_date)"
+5332-    r"(?:为|是|于|：|:)?$"
+5333-)
+5334-_SOURCE_DATE_INVERTED = re.compile(rf"{_SOURCE_DATE_SUBJECT}(?:已)?于$")
+--
+5699-    *,
+5700-    before: str,
+5701-    rejected_sentence_indexes: tuple[int, ...],
+5702-) -> str:
+5703-    """Remove counts that refer to a condition definition deleted upstream.
+5704-
+5705:    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+5706:    2条" behind.  That count is meaningful only while the referenced condition list
+5707-    is still visible.  The repair is deliberately narrow: it targets labels that were
+5708-    actually deleted in this pass, preserves the surrounding observations, and leaves
+5709-    ordinary conditions untouched.
+5710-    """
+5711-
+5712-    if not draft or not rejected_sentence_indexes:
+--
+6627-        return "semantic judge configuration error", False, False
+6628-    if "budget" in normalized or "预算" in normalized:
+6629-        return "semantic judge call budget exhausted", False, False
+6630-    if "cancel" in normalized or "取消" in normalized:
+6631-        return "semantic judge cancelled", False, False
+6632-    # CLI judge 的故障要在通用分支之前判：`GrokCliInvalidJson` 含 "invalid"，
+6633:    # 会被下面那条 invalid 分支抢走并判成 retryable=False。
+6634-    #
+6635-    # ⚠ 这里匹配的是**类名**（`grokcli…`），不是异常消息。上游
+6636-    # `llm_refine.complete()` 产出的串是 `LLM 调用失败（{type(exc).__name__}）`，
+6637-    # **消息正文根本不进这个串**。第一版按消息里的 `grok_cli_empty` 写匹配，
+6638-    # 结果是一段永不触发的死代码——读起来像修好了，实测 retryable 仍为 False。
+6639-    #

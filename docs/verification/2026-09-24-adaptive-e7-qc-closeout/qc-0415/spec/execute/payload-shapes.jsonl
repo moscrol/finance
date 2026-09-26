@@ -1,0 +1,16 @@
+{"admission":1,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":2,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":3,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":4,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":5,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":6,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":7,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":8,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":9,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":10,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":11,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":12,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":13,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":14,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":15,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":16,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}

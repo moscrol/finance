@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="3.738" timestamp="2026-09-23T13:39:35.556170+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_writer" name="test_repair_owns_entire_operation_and_releases_on_exception" time="0.098"><failure message="Failed: DID NOT RAISE &lt;class 'intelligence.services.episode_store.EpisodeWriterBusy'&gt;">intelligence/tests/test_episode_writer.py:391: in test_repair_owns_entire_operation_and_releases_on_exception
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE &lt;class 'intelligence.services.episode_store.EpisodeWriterBusy'&gt;</failure></testcase></testsuite></testsuites>

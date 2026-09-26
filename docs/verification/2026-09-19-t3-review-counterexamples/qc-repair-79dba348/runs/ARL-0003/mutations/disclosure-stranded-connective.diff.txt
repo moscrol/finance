@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 29f81996..b0b7d0da 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -85,7 +85,7 @@ def _rejected_assertion_spans(raw: str) -> tuple[tuple[int, int], ...]:
+         if first:
+             separator = raw[parts[first - 1].end("claim"):start]
+             connective = re.search(r"但是|然而|不过|但|而", separator)
+-            if connective:
++            if False and connective:
+                 start = parts[first - 1].end("claim") + connective.start()
+         if i + 1 < len(parts):
+             end = parts[i + 1].start("claim")  # also remove the following separator

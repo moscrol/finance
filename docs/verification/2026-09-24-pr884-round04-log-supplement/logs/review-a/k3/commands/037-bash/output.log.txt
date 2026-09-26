@@ -1,0 +1,160 @@
+            return "dispatch_tools", call_ids
+        if event.kind == "finish":
+            return "interpret_turn", ()
+    raise AssertionError("uninterrupted run had no next effect after this prefix")
+
+
+_SCENARIO = (
+    ScriptedTurn(
+        tool_calls=(
+            ScriptedToolCall(AUTHORIZED_TOOL, "市场宽度"),
+            ScriptedToolCall(AUTHORIZED_TOOL, "成交额"),
+        ),
+    ),
+    ScriptedTurn(finish=completed_finish()),
+)
+
+
+def _all_prefixes(events: tuple[EpisodeEvent, ...], states: list[EpisodeState]) -> list[int]:
+    first_state = min(s.last_sequence for s in states)
+    return list(range(first_state, len(events) + 1))
+
+
+def test_every_crash_prefix_restores_to_what_actually_happened_next() -> None:
+    store, events = _run_uninterrupted(_SCENARIO)
+    phases_seen = {s.phase for s in store.states}
+    assert {"planning", "model_pending", "tools_pending", "done"} <= phases_seen
+    checked: set[tuple[str, str]] = set()
+    for length in _all_prefixes(events, store.states):
+        crash_store, state = _store_at(events, store.states, length)
+        if state.phase != "done" and any(e.kind == "finish" for e in events[:length]):
+            # Finish bytes may land before the completed checkpoint. Do not
+            # turn lost acknowledgement into a claim of reliable completion.
+            before = crash_store.load(EPISODE_ID)
+            with pytest.raises(RestoreUnavailable, match="finish.*checkpoint"):
+                restore_episode(EPISODE_ID, crash_store, now=SOON)
+            assert crash_store.load(EPISODE_ID) == before
+            continue
+        result = restore_episode(EPISODE_ID, crash_store, now=SOON, context=store.context, registry=store.registry)
+        if state.phase == "done":
+            assert result.disposition == "already_terminal", (length, state.phase)
+            continue
+        expected_action, expected_calls = _expected_next(events, length, state)
+        assert result.disposition == "resumable", (length, state.phase, result.to_dict())
+        assert result.plan is not None
+        assert result.plan.action == expected_action, (
+            f"prefix={length} phase={state.phase} reserved={state.reserved_ids}: "
+            f"restore said {result.plan.action!r}, uninterrupted run did {expected_action!r}"
+        )
+        if expected_calls:
+            assert tuple(result.plan.call_ids) == expected_calls
+        # 截止未过、意图声明 safe：不该合成任何**结算**，模型历史一字不多。
+        # 唯一允许多出来的是未知效果登记：``retry_model`` / ``replay_tools`` 正是在提议
+        # “再付一次钱”，那段窗口必须留痕。它不是结算、不进模型历史，只登记“有笔账没对”。
+        synthesized_kinds = [e.kind for e in result.synthesized]
+        assert set(synthesized_kinds) <= {"effects_unknown"}, (length, synthesized_kinds)
+        if result.plan.action in {"retry_model", "replay_tools"}:
+            assert synthesized_kinds == ["effects_unknown"], (length, state.phase)
+            assert {e.reserved_id for e in result.unreconciled_effects} == set(
+                result.plan.call_ids or (result.plan.turn_id,)
+            ), (length, state.phase)
+        else:
+            # 没有悬空意图就没有未知窗口；``dispatch_tools`` 那条没落意图的调用从未出门。
+            assert synthesized_kinds == [], (length, state.phase)
+            assert result.unreconciled_effects == (), (length, state.phase)
+        checked.add((state.phase, expected_action))
+    # 三种切点都到过：意图前（model_turn / dispatch_tools）、意图后结算前（retry / replay）、结算后。
+    assert {"retry_model", "replay_tools", "model_turn", "interpret_turn", "dispatch_tools"} <= {
+        action for _phase, action in checked
+    }, checked
+
+
+def test_memory_and_jsonl_restore_byte_identical(tmp_path: Path) -> None:
+    store, events = _run_uninterrupted(_SCENARIO)
+    for index, length in enumerate(_all_prefixes(events, store.states)):
+        memory_store, _ = _store_at(events, store.states, length)
+        jsonl_store, _ = _store_at(events, store.states, length, jsonl_root=tmp_path / f"p{index}")
+        for now in (SOON, MUCH_LATER):
+            left = restore_episode(EPISODE_ID, memory_store, now=now, context=store.context, registry=store.registry)
+            right = restore_episode(EPISODE_ID, jsonl_store, now=now, context=store.context, registry=store.registry)
+            strip = lambda d: json.dumps(  # noqa: E731
+                {**d, "synthesized": [{k: v for k, v in e.items() if k != "payload"} | {"payload": {k: v for k, v in e["payload"].items() if k != "at"}} for e in d["synthesized"]]},
+======
+def test_every_crash_prefix_keeps_its_next_action_until_execution(tmp_path, disk):
+    recording, events = _run_uninterrupted(_SCENARIO)
+    authority = {"context": recording.context, "registry": recording.registry}
+    actions = set()
+    for length in _all_prefixes(events, recording.states):
+        root = tmp_path / str(length)
+        store, state = _store_at(
+            events, recording.states, length, jsonl_root=root if disk else None,
+        )
+        if not state.terminal and any(e.kind == "finish" for e in events[:length]):
+            with pytest.raises(RestoreUnavailable, match="finish.*checkpoint"):
+                restore_episode(EPISODE_ID, store, now=SOON, **authority)
+            continue
+        first = restore_episode(EPISODE_ID, store, now=SOON, **authority)
+        saved = store.load(EPISODE_ID)
+        if first.plan is not None:
+            actions.add(first.plan.action)
+        for _ in range(2):
+            reader = JsonlEpisodeStore(root) if disk else store
+            again = restore_episode(EPISODE_ID, reader, now=SOON, **authority)
+            assert again.plan == first.plan, (length, state.phase, first.plan, again.plan)
+            assert again.disposition == first.disposition
+            assert again.synthesized == ()
+            assert reader.load(EPISODE_ID) == saved
+    assert {"retry_model", "replay_tools", "dispatch_tools", "interpret_turn", "model_turn"} <= actions
+
+
+@pytest.mark.parametrize("disk", [False, True])
+def test_partial_batch_replay_then_dispatch_retains_unissued_calls(tmp_path, disk):
+    recording, events = _run_uninterrupted(_SCENARIO)
+    authority = {"context": recording.context, "registry": recording.registry}
+    requests = [e for e in events if e.kind == "tool_request"]
+    first_id, second_id = [e.payload["call_id"] for e in requests]
+    store, _ = _store_at(
+        events, recording.states, requests[0].sequence,
+        jsonl_root=tmp_path if disk else None,
+    )
+    replay = restore_episode(EPISODE_ID, store, now=SOON, **authority)
+    assert replay.plan.action == "replay_tools" and replay.plan.call_ids == (first_id,)
+
+    # Stand in only for the driver's completed effect, not for a guessed checkpoint.
+    settlement = next(e for e in events if e.kind == "tool_result" and e.payload["call_id"] == first_id)
+    store.append(EPISODE_ID, (replace(settlement, sequence=len(replay.events) + 1),), sync=True)
+    reader = JsonlEpisodeStore(tmp_path) if disk else store
+    dispatch = restore_episode(EPISODE_ID, reader, now=SOON, **authority)
+    assert dispatch.plan.action == "dispatch_tools"
+    assert dispatch.plan.call_ids == (second_id,)
+    again = restore_episode(EPISODE_ID, reader, now=SOON, **authority)
+    assert again.plan == dispatch.plan
+    assert again.events == dispatch.events
+
+
+@pytest.mark.parametrize("disk", [False, True])
+def test_undispatched_application_call_is_settled_only_once(tmp_path, disk):
+    episode_id, store, call_id, context, registry = _crashed_fallback_episode(
+        after_kind="application_tool_call",
+    )
+    if disk:
+        events, state = store.load(episode_id)
+        store = JsonlEpisodeStore(tmp_path)
+        store.append(episode_id, events, sync=True)
+        store.put_state(episode_id, state)
+    authority = {"context": context, "registry": registry}
+    first = restore_episode(episode_id, store, now=SOON, **authority)
+    assert [e.kind for e in first.synthesized] == ["tool_error"]
+    saved = store.load(episode_id)
+    for _ in range(2):
+        reader = JsonlEpisodeStore(tmp_path) if disk else store
+        again = restore_episode(episode_id, reader, now=SOON, **authority)
+        assert again.plan == first.plan
+        assert again.synthesized == ()
+        assert reader.load(episode_id) == saved
+        assert sum(e.kind == "tool_error" and e.payload.get("call_id") == call_id for e in again.events) == 1
+
+
+@pytest.mark.parametrize("boundary", ["model_error", "state"])
+@pytest.mark.parametrize("after_write", [False, True])
+def test_retry_after_lost_ack_keeps_one_settlement_and_the_same_plan(tmp_path, boundary, after_write):

@@ -58,9 +58,9 @@ def _cli_provider() -> llm_refine.LLMProvider:
 
 def _install_http(monkeypatch: pytest.MonkeyPatch, body: dict) -> None:
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
-        lambda request, timeout=0.0: _FakeHttpResponse(body),
+        lambda request, timeout=0.0, **_kwargs: _FakeHttpResponse(body),
     )
 
 

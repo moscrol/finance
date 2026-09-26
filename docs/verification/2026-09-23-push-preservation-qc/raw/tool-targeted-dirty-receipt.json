@@ -1,0 +1,25 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-push-preservation-qc-0923",
+  "revision": "8e79893729da43c6e66f707ee28cbca99abb0c74",
+  "branch": "fix/push-preservation-qc-0923",
+  "dirty": true,
+  "dirty_paths": [
+    "scripts/preview_evidence_archive.py",
+    "tests/test_preview_evidence_archive.py"
+  ],
+  "worktree_dirty_total": 2,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_preview_evidence_archive.py tests/test_evidence_archive.py",
+  "counts": {
+    "passed": 44,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-22T16:42:22+00:00"
+}

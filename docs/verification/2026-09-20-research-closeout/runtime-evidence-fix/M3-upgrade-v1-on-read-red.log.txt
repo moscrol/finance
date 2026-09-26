@@ -1,0 +1,27 @@
+F....                                                                    [100%]
+=================================== FAILURES ===================================
+_______ test_v1_read_preserves_version_digest_and_presentation_semantics _______
+
+    def test_v1_read_preserves_version_digest_and_presentation_semantics():
+        ledger, presented, payload = _fixture()
+        payload.pop("presentations")
+        payload.update(schema_version=1, presented_hashes=[item.content_hash for item in presented])
+        _resign(payload)
+        original = deepcopy(payload)
+        decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+>       assert decoded.to_dict() == original
+E       AssertionError: assert {'covered_out...6-07-24', ...} == {'covered_out...6-07-24', ...}
+E         
+E         Omitting 6 identical items, use -vv to show
+E         Differing items:
+E         {'schema_version': 2} != {'schema_version': 1}
+E         {'sha256': '1171e7c093f43757cd6eae0879a139a1fed33e603e30505e166791e4760fa601'} != {'sha256': '5411b2edd004bbb3035d1f284c821e2c8f4a9b5904f3fab4e99f76c6bc9742ef'}
+E         Left contains 1 more item:
+E         {'presentations': [{'atom': {'content_hash': 'first',...
+E         
+E         ...Full output truncated (1045 lines hidden), use '-vv' to show
+
+intelligence/tests/test_episode_evidence_presentations.py:86: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v1_read_preserves_version_digest_and_presentation_semantics
+1 failed, 4 passed, 118 deselected in 0.27s

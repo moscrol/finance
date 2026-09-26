@@ -1,0 +1,9 @@
+170:class LLMCallBudgetExceeded(RuntimeError):
+640:class LLMCallLedger:
+867:        raise LLMCallBudgetExceeded(ledger.rejection_reason())
+1296:        except LLMCallBudgetExceeded as exc:
+1322:    def __init__(self) -> None:
+1662:        except LLMCallBudgetExceeded as exc:
+1752:    except LLMCallBudgetExceeded as exc:
+2192:        except LLMCallBudgetExceeded as exc:
+2433:    except LLMCallBudgetExceeded as exc:

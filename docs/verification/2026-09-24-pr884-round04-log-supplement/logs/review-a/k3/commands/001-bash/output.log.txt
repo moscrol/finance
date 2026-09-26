@@ -1,0 +1,5 @@
+db2605d1b1a6a929d9bac468c84ef6aeaddce9ff
+---BRANCH---
+db2605d1b docs(handoff): record closeout readmission and logging fix
+437202489 fix(gate): preserve complete pytest logs before interruption
+75dfd08c2 Merge commit 'b59d6eed0356ae093b52bd291ab328628de8790e' into test/runtime-probe-repair-0923

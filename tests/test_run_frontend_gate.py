@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -119,3 +121,50 @@ def test_missing_command_has_a_failure_receipt(checkout):
     missing = (str(output.parent / "absent-executable"),)
     assert run_gate(tree, output, sha, commands=[missing]) == 1
     assert receipt(output)["checks"][0]["exit_code"] == 127
+
+
+@pytest.mark.parametrize("entry", ["inherited", "explicit", "cli"])
+@pytest.mark.parametrize("has_override", [False, True])
+def test_startup_ledger_is_always_scoped_to_this_gate(checkout, monkeypatch, entry, has_override):
+    from scripts import run_frontend_gate as gate
+
+    tree, output, sha = checkout
+    home = output.parent / "home"
+    canonical = home / ".finance-runtime/deploy-ledger.jsonl"
+    canonical.parent.mkdir(parents=True)
+    canonical.write_text("canonical sentinel\n")
+    caller_ledger = output.parent / "caller-ledger.jsonl"
+    caller_ledger.write_text("caller sentinel\n")
+    monkeypatch.setenv("HOME", str(home))
+    if has_override:
+        monkeypatch.setenv("FINANCE_DEPLOY_LEDGER", str(caller_ledger))
+    else:
+        monkeypatch.delenv("FINANCE_DEPLOY_LEDGER", raising=False)
+    original_environment = dict(os.environ)
+    module = Path(__file__).resolve().parents[1] / "intelligence/runtime/deploy_ledger.py"
+    child = command(
+        "import importlib.util; "
+        f"spec=importlib.util.spec_from_file_location('ledger', {str(module)!r}); "
+        "ledger=importlib.util.module_from_spec(spec); spec.loader.exec_module(ledger); "
+        "ledger.record_event(action='startup', rev='abcdef012345', port=20891)"
+    )
+    if entry == "cli":
+        real_run = gate.run_gate
+        monkeypatch.setattr(gate, "run_gate", lambda tree, output, revision, *, env:
+                            real_run(tree, output, revision, env=env, commands=[child]))
+        monkeypatch.setattr(sys, "argv", ["run_frontend_gate.py", "--tree", str(tree),
+                            "--output", str(output), "--expect-revision", sha])
+        code = gate.main()
+    else:
+        env = dict(original_environment) if entry == "explicit" else None
+        code = gate.run_gate(tree, output, sha, commands=[child], env=env)
+        if env is not None:
+            assert env == original_environment
+    assert code == 0
+    assert canonical.read_text() == "canonical sentinel\n"
+    assert caller_ledger.read_text() == "caller sentinel\n"
+    isolated = output / "deploy-ledger.jsonl"
+    rows = [json.loads(line) for line in isolated.read_text().splitlines()]
+    assert len(rows) == 1 and rows[0]["port"] == 20891
+    assert receipt(output)["deploy_ledger"] == str(isolated)
+    assert dict(os.environ) == original_environment

@@ -1,0 +1,71 @@
+"""QC probe C5 (fixed): pagination identity via the real APIs.
+
+Original test_qc_c5_pagination.py assumed (a) projection records were dicts and
+(b) ToolRunResult.metadata. In the product, _model_projection blocks are
+(title, json_detail_str, source_date) and _result exposes the pagination dict
+via ToolRunResult.telemetry. This version uses those real shapes.
+"""
+import json
+import sys
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+from intelligence.services.historical_research.episode import (
+    _model_projection, _result,
+)
+
+
+def _payload(rows, total=None):
+    return {
+        "operation": "find_analogues",
+        "status": "ok",
+        "total_matched": total if total is not None else len(rows),
+        "returned_count": len(rows),
+        "truncated": False,
+        "preview": rows,
+    }
+
+
+def test_sample_indexes_carry_absolute_offset():
+    payload = dict(_payload([{"a": 1}, {"a": 2}, {"a": 3}, {"a": 4}]), offset=10)
+    projected = _model_projection(payload, "ref-1")
+    scope = None
+    samples = []
+    for title, detail, _date in projected:
+        block = json.loads(detail)
+        assert isinstance(block, dict)
+        if "分母" in title:
+            scope = block
+        if isinstance(block.get("sample"), int):
+            samples.append(block["sample"])
+    assert scope is not None
+    assert scope["offset"] == 10
+    assert "next_offset" in scope
+    assert samples == [10, 11, 12, 13], samples
+
+
+def test_result_next_offset_semantics():
+    rows = [{"a": i} for i in range(4)]
+    payload = _payload(rows, total=10)
+    r = _result(dict(payload), offset=2)
+    md = r.telemetry
+    assert md["offset"] == 2
+    assert md["next_offset"] == 2 + 4
+    # final page -> next_offset None
+    payload2 = _payload(rows, total=6)
+    r2 = _result(dict(payload2), offset=2)
+    assert r2.telemetry["next_offset"] is None
+    assert "next_offset" in r.observation and "null" in r.observation
+
+
+def test_truncation_flag_reflects_partial_page():
+    payload = _payload([{"a": 1}, {"a": 2}, {"a": 3}], total=3)
+    r = _result(dict(payload), offset=0)
+    assert r.telemetry["truncated"] is False
+
+
+def test_zero_return_sets_next_offset_none():
+    payload = _payload([], total=5)
+    r = _result(dict(payload), offset=0)
+    assert r.telemetry["next_offset"] is None
+    assert r.telemetry["returned_count"] == 0

@@ -1,0 +1,43 @@
+"""File tools run under the same OS sandbox as bash, without credentials."""
+import json
+import os
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+config = json.loads((ROOT / 'config.json').read_text())
+request = json.load(sys.stdin)
+kind, params = request['kind'], request['params']
+tree = Path(config['tree']).resolve()
+work = ROOT / 'work'
+raw = params['path'].removeprefix('@')
+target = (tree / raw).resolve()
+if kind == 'write':
+    if not target.is_relative_to(work):
+        raise PermissionError('only review work is writable')
+    phase = os.environ.get('REVIEW_PHASE')
+    if phase == 'report':
+        raise PermissionError('report stage is read-only')
+    if phase == 'execute' and not target.is_relative_to(work / 'probes'):
+        raise PermissionError('execute writes new probe versions only')
+    if target.name in {'EXPLORE.md', 'EXECUTE.md', 'SPEC_REPORT.md', 'QUALITY_REPORT.md'}:
+        raise PermissionError('stage delivery is host-owned via submit_report')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open('x') as stream:
+        stream.write(params['content'])
+    print(f'Wrote {len(params["content"].encode())} bytes to {target}')
+elif kind == 'read':
+    if not any(target.is_relative_to(Path(base).resolve()) for base in [str(ROOT), str(tree)]):
+        raise PermissionError('read outside review/source roots')
+    if target.name.startswith('.env') or target.name in {'auth.json', 'mcp_config.json', 'feishu_config.json'}:
+        raise PermissionError('credential file not readable')
+    lines = target.read_text().splitlines(keepends=True)
+    start = max(0, int(params.get('offset', 1)) - 1)
+    end = min(len(lines), start + min(int(params.get('limit', 400)), 1600))
+    text = ''.join(lines[start:end])
+    data = text.encode()
+    print(data[:48000].decode('utf-8', errors='ignore'), end='')
+    if end < len(lines) or len(data) > 48000:
+        print(f'\n[truncated; total lines={len(lines)}, selected={start + 1}:{end}; request a later offset]')
+else:
+    raise ValueError('unsupported file operation')

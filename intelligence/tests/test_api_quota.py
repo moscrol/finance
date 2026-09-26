@@ -14,7 +14,7 @@ from intelligence.api import app as app_module  # noqa: E402
 from intelligence.api.quota import RunQuota  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
+from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
 
 
 @pytest.fixture()
@@ -126,6 +126,7 @@ def quota_client(tmp_path, monkeypatch):
             run_quota=RunQuota(daily_limit=1, exempt_users=frozenset({"owner"})),
         )
     )
+    track_test_client_timers(client)
     try:
         yield client
     finally:

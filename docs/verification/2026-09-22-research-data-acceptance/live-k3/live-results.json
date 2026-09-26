@@ -1,0 +1,34 @@
+[
+  {
+    "case": "historical-iso",
+    "question": "截至2025-08-01，贵州茅台（600519）的未来90天解禁安排是什么？只核实解禁。如果历史快照不支持，请说明原因，不要用当前日程回填。",
+    "exit_code": 0,
+    "ids": {
+      "conversation_id": "conv_a9ebbe803a1946ceb83172cb704049b2",
+      "run_id": "run_20260922_184241_236894",
+      "assistant_message_id": "msg_65678cecec5c47b7a2a7a00141634c0c"
+    },
+    "seconds": 226.76,
+    "writer_model": "kimi-k3",
+    "source_revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+    "source_dirty": false,
+    "captured_at": "2026-09-22T10:46:27.667245+00:00",
+    "run_status": "completed"
+  },
+  {
+    "case": "financial-calc",
+    "question": "贵州茅台（600519）最近六期财报，列出累计经营现金流净额，再用经营现金流净额除以归母净利润比较含金量。用计算工具核算，说明报告期与披露日，缺数保留缺口。只做这项，不查新闻、股价或公告。",
+    "exit_code": 0,
+    "ids": {
+      "conversation_id": "conv_c5313494569f4976b53c76b3c0a2f4e1",
+      "run_id": "run_20260922_184630_938943",
+      "assistant_message_id": "msg_f708c18b4c71482591f1aeddfd381532"
+    },
+    "seconds": 151.09,
+    "writer_model": "kimi-k3",
+    "source_revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+    "source_dirty": false,
+    "captured_at": "2026-09-22T10:49:01.817739+00:00",
+    "run_status": "completed"
+  }
+]

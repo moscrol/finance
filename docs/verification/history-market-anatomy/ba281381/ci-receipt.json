@@ -1,0 +1,127 @@
+{
+  "tested_revision": "ba28138189ff231b19b61561644594ab9a44b041",
+  "scope": "author-side equivalent CI, not independent QC or live-model acceptance",
+  "leaves": {
+    "python": {
+      "commands": [
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "-m",
+            "ruff",
+            "check",
+            "."
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "-m",
+            "pytest",
+            "-q"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "sha256": "8334fb5e6f92b2771b859239f067586fffe43d020301c0c3e90de29d9f5d55cb"
+    },
+    "frontend": {
+      "commands": [
+        {
+          "command": [
+            "pnpm",
+            "lint"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "pnpm",
+            "typecheck"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "pnpm",
+            "test"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "pnpm",
+            "build"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "sha256": "ed3026cb61e299185be388f546f1cd68740623d9d30828207266797e54f3d4bd"
+    },
+    "e2e": {
+      "commands": [
+        {
+          "command": [
+            "pnpm",
+            "test:e2e"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "sha256": "bc2d88a767dc12dba45837eff0e045df24491b67a2be3bc765e76d30c7b36ff5"
+    },
+    "registry": {
+      "commands": [
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "check-parseability"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "check"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "backfill-tables",
+            "--check"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "generate-views",
+            "--check"
+          ],
+          "exit_code": 0
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/audit_ledger_spec_crosswalk.py"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "exit_code": 0,
+      "sha256": "c7b8982ccb8792381bd309cbb62620909bd33b93935d52545f5599e1f08a3ff2"
+    }
+  },
+  "revision_after": "ba28138189ff231b19b61561644594ab9a44b041",
+  "dirty_after": []
+}

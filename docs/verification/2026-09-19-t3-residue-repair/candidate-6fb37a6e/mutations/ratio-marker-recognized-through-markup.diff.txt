@@ -1,0 +1,12 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 9709e54a..8d16c8ab 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -370,7 +370,7 @@ def _unlocated_ratio_finding(raw: str, period_start: int, *, offset: int) -> Del
+         insertion -= len(wrapper.group())
+     # The marker belongs to this period only, never to all the clause's facts.
+     # A Markdown-wrapped marker is still the marker: never insert a second one.
+-    marked = re.sub(r"[*`]+", "", raw[:insertion]).rstrip().endswith(_UNLOCATED_RATIO_MARK)
++    marked = raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)
+     return DeliveryFinding(offset + insertion, offset + insertion, "calculation_value_unlocated",
+                            "" if marked else _UNLOCATED_RATIO_MARK)

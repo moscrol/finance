@@ -1,0 +1,252 @@
+{
+  "before": {
+    "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+    "status": ""
+  },
+  "checks": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.04,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:20:57.163099+00:00"
+    },
+    {
+      "name": "pytest-full",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 490.95,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:29:08.108885+00:00"
+    },
+    {
+      "name": "receipt-validation",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/test-receipts/20260919T072906Z-79dba348.json",
+        "--expect-revision",
+        "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+        "--require-target",
+        "/Users/a77/fwp-q-research-data-readiness",
+        "--base-drift-max",
+        "0"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.19,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:29:08.298555+00:00"
+    },
+    {
+      "name": "frontend-lint",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 1.13,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:29:09.431598+00:00"
+    },
+    {
+      "name": "frontend-typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 2.22,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:29:11.652397+00:00"
+    },
+    {
+      "name": "frontend-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 3.93,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:29:15.581900+00:00"
+    },
+    {
+      "name": "frontend-build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 3.02,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:29:18.597539+00:00"
+    },
+    {
+      "name": "e2e",
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+      "exit_code": 0,
+      "seconds": 60.0,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:18.598275+00:00"
+    },
+    {
+      "name": "registry-parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+      "exit_code": 0,
+      "seconds": 0.08,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:20.159173+00:00"
+    },
+    {
+      "name": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+      "exit_code": 0,
+      "seconds": 0.08,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:20.241345+00:00"
+    },
+    {
+      "name": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+      "exit_code": 0,
+      "seconds": 0.09,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:20.331586+00:00"
+    },
+    {
+      "name": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+      "exit_code": 0,
+      "seconds": 0.05,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:20.379628+00:00"
+    },
+    {
+      "name": "registry-ledger",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+      "exit_code": 0,
+      "seconds": 0.08,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:20.461508+00:00"
+    },
+    {
+      "name": "original-fact-retention-probe",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/check_delivery_fact_retention.py",
+        "--code-root",
+        "/Users/a77/fwp-q-research-data-readiness",
+        "--expect-revision",
+        "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 0.32,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:30:21.144898+00:00"
+    },
+    {
+      "name": "research-delivery-mutations",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/run_extraction_mutations.py",
+        "--suite",
+        "research-delivery",
+        "--revision",
+        "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+        "--output",
+        "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/mutations"
+      ],
+      "cwd": "/Users/a77/fwp-q-research-data-readiness",
+      "exit_code": 0,
+      "seconds": 73.73,
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "finished_at": "2026-09-19T07:31:34.879714+00:00"
+    }
+  ],
+  "live_model_calls": 0,
+  "finished": true,
+  "full_python_receipt": "/Users/a77/.finance-runtime/test-receipts/20260919T072906Z-79dba348.json",
+  "registry_before": {
+    "finance-workspace-private": {
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+      "status": ""
+    },
+    "finance-research-site": {
+      "revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+      "status": ""
+    }
+  },
+  "registry_after": {
+    "finance-workspace-private": {
+      "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+      "status": ""
+    },
+    "finance-research-site": {
+      "revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+      "status": ""
+    }
+  },
+  "after": {
+    "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+    "status": ""
+  },
+  "passed": true
+}

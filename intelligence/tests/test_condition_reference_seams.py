@@ -105,6 +105,64 @@ def test_no_deleted_definition_means_no_prose_rewrite(text):
     ) == text
 
 
+_DEFINITION_PREFIXES = (
+    "", "- ", "* ", "+ ", "• ", "1. ", "2) ", "3） ", "4、 ",
+    "一、", "(1) ", "（2）", "① ", "10. **",
+)
+
+
+@pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+def test_deleted_list_definition_removes_only_its_count(prefix):
+    closing = "**" if prefix.endswith("**") else ""
+    before = f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+    draft = "- 量能改善，满足升级条件中的2条。\r\n- 独立观察。\r\n"
+    assert _repair_dangling_condition_references(
+        draft, before=before + draft, rejected_sentence_indexes=(1,)
+    ) == "- 量能改善。\r\n- 独立观察。\r\n"
+
+
+@pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+def test_surviving_list_definition_preserves_its_count(prefix):
+    closing = "**" if prefix.endswith("**") else ""
+    retained = (
+        f"{prefix}升级条件{closing}：量能改善。\n"
+        "已满足升级条件中的1条，需观察。"
+    )
+    before = "升级条件：若涨停60家以上，则升级。\n" + retained
+    assert _repair_dangling_condition_references(
+        retained, before=before, rejected_sentence_indexes=(1,)
+    ) == retained
+
+
+@pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+def test_list_definition_deletion_reaches_public_answer(prefix):
+    closing = "**" if prefix.endswith("**") else ""
+    frame, structural = _structural(
+        f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+        "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "该股放量上攻。"
+    assert result.verified.outcome.draft == result.public_answer
+    assert any(
+        row["decision"] == "deleted" and "60家" in row["sentence"]
+        for row in result.sentence_verdicts
+    )
+
+
+@pytest.mark.parametrize("prefix", ["观察到", "2026-09-24 ", "1. 观察到", "普通条件："])
+def test_non_definition_prose_does_not_authorize_count_removal(prefix):
+    draft = "满足升级条件中的2条，需观察。"
+    assert _repair_dangling_condition_references(
+        draft, before=f"{prefix}升级条件：量能改善。", rejected_sentence_indexes=(1,)
+    ) == draft
+
+
 def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
     judge = _judge(True)
     frame, structural = _structural(

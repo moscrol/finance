@@ -1,0 +1,50 @@
+{
+  "pr": "910",
+  "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "167c9ffac1b428164e7906861438eb1757895dc5",
+  "baseline": "9d5b9800a5500e6f64875432f8df3a06713d6f52",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "steps": [
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "model_requests": 0,
+  "independent_review": false,
+  "status": "STOPPED_INCOMPLETE",
+  "error": "resource admission denied: targeted",
+  "finished_at": "2026-09-25T05:36:05.851973+00:00"
+}

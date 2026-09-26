@@ -1,0 +1,92 @@
+def _repair_dangling_condition_references(
+    draft: str,
+    *,
+    before: str,
+    rejected_sentence_indexes: tuple[int, ...],
+) -> str:
+    """Remove counts that refer to a condition definition deleted upstream.
+
+    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+    2条" behind.  That count is meaningful only while the referenced condition list
+    is still visible.  The repair is deliberately narrow: it targets labels that were
+    actually deleted in this pass, preserves the surrounding observations, and leaves
+    ordinary conditions untouched.
+    """
+
+    if not draft or not rejected_sentence_indexes:
+        return draft
+    rejected = frozenset(rejected_sentence_indexes)
+    deleted_labels = {
+        match.group("label")
+        for item in _numbered_sentences(before)
+        if item.get("index") in rejected
+        for match in (_CONDITION_DEFINITION_RE.match(str(item.get("text") or "")),)
+        if match is not None
+    }
+    if not deleted_labels:
+        return draft
+    # Use the deletion-side sentence grammar here too: a surviving definition
+    # may be the second sentence on a line, not just a line's first heading.
+    surviving_labels = {
+        match.group("label")
+        for item in _numbered_sentences(draft)
+        for match in (_CONDITION_DEFINITION_RE.match(str(item["text"])),)
+        if match is not None
+    }
+    orphaned_labels = deleted_labels - surviving_labels
+    if not orphaned_labels:
+        return draft
+
+    orphaned = frozenset(orphaned_labels)
+    lines: list[str] = []
+    for raw_line in str(draft).splitlines(keepends=True):
+        body = raw_line.rstrip("\r\n")
+        line = _strip_dangling_condition_counts(body, orphaned)
+        if line is None:
+            continue
+        lines.append(line + raw_line[len(body):])
+    return "".join(lines)
+
+
+def _strip_dangling_condition_counts(
+    line: str, orphaned_labels: frozenset[str]
+) -> str | None:
+    """Drop every orphaned count on one line; None means the line lost all content.
+
+    扫描用 ``finditer`` 而不是「search 到第一个就判标签」：同一行里先出现一个
+    未失联的计数时，后面失联的那个必须照样删得掉。
+    """
+
+    repaired = line
+    changed = False
+    while True:
+        match = next(
+            (
+                found
+                for found in _DANGLING_CONDITION_COUNT_RE.finditer(repaired)
+                if found.group("label") in orphaned_labels
+            ),
+            None,
+        )
+        if match is None:
+            break
+        repaired = _splice_out_condition_count(repaired, match)
+        changed = True
+    if not changed:
+        return line
+    return None if _is_contentless_after_repair(repaired) else repaired
+
+
+def _splice_out_condition_count(line: str, match: re.Match[str]) -> str:
+    """Remove one matched count and heal the seam it leaves behind."""
+
+    prefix = _drop_adverbs_bound_to_count(line[: match.start()])
+    suffix = line[match.end() :]
+    opening = bool(match.group("opening"))
+    # An opening emphasis marker can precede the removed time/adverb phrase.
+    # Do not take a *closing* marker off a surviving observation.
+    if prefix.endswith("**") and prefix.count("**") % 2:
+        prefix = prefix[:-2]
+        opening = True
+
+[truncated; total lines=6937, selected=5698:5787; next_offset=5788]

@@ -1,0 +1,114 @@
+"""Freeze this one review window's outcome; no new model call or verdict repair."""
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+import os
+import subprocess
+
+BASE = Path(__file__).resolve().parent.parent
+OPS = Path(__file__).parent
+STATE = BASE / 'qc-retry-d46c2c3b-01'
+RUN = STATE / 'runs/ARL-0005'
+REPO = Path('/Users/a77/fwp-q-research-data-readiness')
+REV = 'd46c2c3b10221483c811426e99ad379314289871'
+TIP = '52f6dee7e197d005442bda1da58f9f94f813c8a8'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=REPO, text=True).strip()
+
+
+assert git('rev-parse', 'HEAD') == TIP and not git('status', '--porcelain')
+assert not git('diff', REV + '..' + TIP, '--', 'intelligence', 'market_feature_store')
+assert not (STATE / 'worktrees/review-ARL-0005').exists()
+assert not (STATE / 'verdicts/ARL-0004.json').exists() and not (STATE / 'verdicts/ARL-0005.json').exists()
+for row in load(STATE / 'inherited-chain.json'):
+    source, copied = Path(row['source']), STATE / row['copy']
+    assert source.read_bytes() == copied.read_bytes() and sha(copied) == row['sha256']
+request_hash = sha(STATE / 'requests/ARL-0005.json')
+assert request_hash == '5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6'
+assert sha(STATE / 'claims/ARL-0005.json') == sha(BASE / 'qc-repair-d46c2c3b/claims/ARL-0005.json')
+validation = load(STATE / 'verdict-validation.json')
+assert validation['valid'] is False and validation['authority'] == 'none' and validation['errors'] == ['check_manifest']
+assert (STATE / 'verdict-validation.exit').read_text().strip() == '1'
+invocation = load(RUN / 'invocation-result.json')
+dispatch = load(STATE / 'dispatch-result.json')
+assert invocation['cli_exit'] == 0 and not invocation['timed_out'] and invocation['cli_attempt'] == 2
+assert dispatch['status'] == 'INVALID_VERDICT'
+assert load(STATE / 'retry-policy.json')['max_cli_calls_this_window'] == 1
+
+probes = []
+for revision, prefix in ((REV, ''), (TIP, 'probe-tip-')):
+    for name in ('retention', 'hedge', 'boundaries'):
+        file = OPS / (prefix + name + '.json')
+        data = load(file)
+        assert data['before']['revision'] == revision and data['before'] == data['after']
+        assert data['target_unchanged'] and data['model_calls'] == 0
+        probes.append({'path': str(file), 'sha256': sha(file), 'revision': revision,
+                       'passed': data['passed'], 'failed': data['failed'], 'probe_sha256': data['probe_sha256']})
+residue = []
+for filename in ('residue-d46c2c3b.json', 'residue-746b716f.json', 'residue-79dba348.json', 'probe-tip-residue.json'):
+    file = OPS / filename
+    data = load(file)
+    assert data['target_unchanged'] and data['model_calls'] == 0
+    residue.append({'path': str(file), 'sha256': sha(file), 'revision': data['before']['revision'],
+                    'passed': data['passed'], 'failed': data['failed'], 'probe_sha256': data['probe_sha256']})
+assert len({r['probe_sha256'] for r in residue}) == 1
+
+# PID presence alone could be reuse. Capture commands only for our recorded PIDs;
+# fail closed if any recorded task still has a Python/Claude process attached.
+process_files = (STATE / 'dispatch-process.json', RUN / 'adapter-process.json', RUN / 'process.json')
+pids = {load(p)['pid'] for p in process_files}
+active = []
+for line in subprocess.check_output(['ps', '-axo', 'pid=,ppid=,comm=']).decode('utf-8', errors='replace').splitlines():
+    fields = line.strip().split(None, 2)
+    if len(fields) == 3 and int(fields[0]) in pids:
+        active.append({'pid': int(fields[0]), 'ppid': int(fields[1]), 'command': fields[2]})
+assert not active, active
+
+outcome = {
+    'created_at': datetime.now(timezone.utc).isoformat(),
+    'status': 'hold_invalid_review_and_reproduced_residue',
+    'scope': 'One user-authorized bounded manual continuation after the 600s timeout; no third same-request call, no business implementation change.',
+    'business_revision': REV, 'pre_review_documentation_tip': 'b78dbe3be97b846ea2bd8093ae16f5d0bbfc73a8',
+    'new_read_only_probe_tip': TIP,
+    'review_id': 'ARL-0005', 'request_sha256': request_hash,
+    'review_state_root': str(STATE), 'old_state_root_preserved': str(BASE / 'qc-repair-d46c2c3b'),
+    'request_claim_and_21_inherited_files_unchanged': True,
+    'invocation': invocation, 'dispatch': dispatch, 'validation': validation,
+    'model_receipt': load(OPS / 'post-return-diagnosis.json')['model_receipt'],
+    'review_authority': 'none', 'valid_prior_changes_required': ['ARL-0001', 'ARL-0002', 'ARL-0003'],
+    'previous_invalid_pass_and_timeout_not_overwritten': True,
+    'published_new_verdict': False, 'aggregate_gate_invoked': False,
+    'normal_queue_note': 'Explicit operations target; normal worker still sees unresolved ARL-0004. No worker/validator change.',
+    'manifest_diagnosis': {'required': 61, 'returned': 63, 'exact_present': 26, 'missing': 35,
+                          'missing_test_paths': 31, 'missing_named_probes': 4, 'extra': 37,
+                          'all_missing_names_present_in_original_prompt': True},
+    'mechanical_preflight': {'test_files': 38, 'passed': 1301, 'mutations': 46,
+                            'baseline_and_restored_passed_each': 601, 'not_a_model_tool_run': True,
+                            'not_new_full_engineering_receipt': True},
+    'original_probes': probes, 'new_residue_probe': residue,
+    'residue_scope': 'Five lead cases (three verbatim sentences, one expanded count prefix, one completed formatted-marker fragment) plus two controls, each judge off/success stub. No formula/script-consumption or natural-model guarantee.',
+    'supplemental_disclosure': {'passed': 4, 'failed': 4,
+                              'scope': 'Producer-completed venue/absence fragments plus controls, not verbatim external inputs or part of the 4P10F ratio denominator.'},
+    'review_misreadings': ['Boundary probe already emits probe_sha256/target_unchanged; displayed 5000-character tail omitted them.',
+                          'Frozen d46 inflight is historical; b78 already updated handoff before this call.'],
+    'full_engineering_receipt_scope': 'Existing d46 receipt 20260919T105730Z-d46c2c3b.json only; no new full receipt for probe/docs tips.',
+    'natural_finance_conversations': 0, 'market_fetches': 0, 'additional_model_calls_after_return': 0,
+    'business_code_changed': False, 'merge': False, 'deployment': False, 'production_modified': False,
+    'temporary_review_tree_removed': True, 'recorded_task_pids': sorted(pids), 'active_recorded_processes': active,
+    'follow_up': 'Keep hold; reproduce/fix confirmed local gaps on original q branch with positive/negative controls, then freeze new business revision and revalidate. A future external window requires an explicit bounded decision; never patch the invalid verdict or retry to green. Natural conversations remain separate.',
+}
+out = BASE / 'boundary-retry-closeout-outcome.json'
+assert not out.exists()
+out.write_text(json.dumps(outcome, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'outcome': str(out), 'status': outcome['status'], 'active_recorded_processes': active}))

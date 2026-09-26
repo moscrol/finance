@@ -1,0 +1,93 @@
+"""Independent spec probe (C6): dangling condition-count repair, contract boundaries.
+
+Function-level exercise of _repair_dangling_condition_references. Expectations derive
+from the claim: counts are removed ONLY when the referenced 升级条件/降级条件
+definition was rejected in this repair AND no definition of that label survives;
+unrelated prose, bullets and line endings survive; the deleted-vs-surviving decision
+uses sentence-level definitions.
+"""
+
+import sys
+
+CANDIDATE = "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private"
+if CANDIDATE not in sys.path:
+    sys.path.insert(0, CANDIDATE)
+
+from intelligence.services.episode_semantic_verifier import (  # noqa: E402
+    _numbered_sentences,
+    _repair_dangling_condition_references,
+)
+
+DEF = "升级条件：站稳20日线。"
+BOTH = "升级条件：站稳20日线。降级条件：跌破前低。"
+
+
+def _repair(text, before=DEF, rejected=(1,)):
+    return _repair_dangling_condition_references(
+        text, before=before, rejected_sentence_indexes=rejected
+    )
+
+
+def test_orphaned_count_forms_are_removed_with_their_stranded_modifiers():
+    cases = [
+        # (draft line, expected) — orphan = 升级条件 rejected in this pass.
+        ("放量上攻，满足升级条件中的2条，值得跟踪。", "放量上攻，值得跟踪。"),
+        ("量能配合，满足升级条件中的两条。", "量能配合。"),
+        ("量能配合，满足升级条件中的２条。", "量能配合。"),
+        ("— 满足升级条件中的2条，量能配合。", "量能配合。"),
+        ("目前尚未满足升级条件中的2条；需继续观察。", "需继续观察。"),
+        ("结论：满足升级条件中的2条。", ""),
+        ("满足降级条件中的1条；满足升级条件中的2条，需观察。", "需观察。"),
+    ]
+    for text, expected in cases:
+        assert _repair(text, before=BOTH, rejected=(1, 2)) == expected, text
+
+
+def test_count_of_a_label_not_deleted_here_is_untouched():
+    # 降级条件 was not rejected in this pass, so its count stays verbatim.
+    text = "满足降级条件中的1条，量能配合。"
+    assert _repair(text, before=DEF, rejected=(1,)) == text
+
+
+def test_surviving_definition_of_the_same_label_blocks_removal():
+    before = "升级条件：站稳20日线。升级条件：第二条定义。"
+    text = "满足升级条件中的2条，量能配合。"
+    assert _repair(text, before=before, rejected=(1,)) == text
+
+
+def test_mid_sentence_definition_is_not_recognized_as_surviving():
+    # Narrowness boundary: a definition that does not start its own sentence is not
+    # a surviving definition, so the count is still spliced out.
+    before = "升级条件：原始定义。"
+    draft = "观察：升级条件：站稳20日线。满足升级条件中的2条，量能配合。"
+    assert _repair(draft, before=before, rejected=(1,)) == (
+        "观察：升级条件：站稳20日线。量能配合。"
+    )
+
+
+def test_unrelated_lines_bullets_and_line_endings_survive_verbatim():
+    text = (
+        "# 标题\r\n"
+        "- 保留的观察，含数字60家。\r\n"
+        "满足升级条件中的2条，量能配合。\r\n"
+        "尾部不动。"
+    )
+    assert _repair(text) == (
+        "# 标题\r\n- 保留的观察，含数字60家。\r\n量能配合。\r\n尾部不动。"
+    )
+
+
+def test_no_rejected_sentences_and_no_deleted_labels_mean_no_rewrite():
+    text = "满足升级条件中的2条，量能配合。"
+    assert _repair(text, before=DEF, rejected=()) == text
+    # A rejected sentence that is not a condition definition must not arm the repair.
+    assert _repair(text, before="普通观察一句。", rejected=(1,)) == text
+
+
+def test_sentence_indexing_is_stable_between_before_and_draft():
+    # The repair re-derives labels from 1-based sentence indexes; a definition that
+    # is the second sentence on one line must be counted on both sides.
+    before = "开场白。升级条件：站稳20日线。"
+    assert [item["index"] for item in _numbered_sentences(before)] == [1, 2, 3]
+    draft = "开场白。满足升级条件中的2条，量能配合。"
+    assert _repair(draft, before=before, rejected=(2,)) == "开场白。量能配合。"

@@ -1,0 +1,90 @@
+from dataclasses import replace
+from datetime import date
+from threading import Event, Timer
+from types import SimpleNamespace
+
+import pytest
+
+from intelligence.api.app import RunSupervisor
+from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+from intelligence.services.evidence_ledger import EvidenceLedger
+from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers
+from intelligence.tests.test_episode_evidence_snapshot import _atom
+
+
+@pytest.mark.parametrize('raw_date', ['\u30002026-7-25\t', '20260725T093000+0800'])
+def test_additional_complete_future_forms_preserve_original_without_fact_admission(raw_date):
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    item = _atom('future-extra', source_date=raw_date)
+    assert ledger.append(item) == ()
+    payload = ledger.to_recovery_snapshot(episode_id='edge', presented_evidence=(item,))
+    snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id='edge')
+    assert snapshot.presented_evidence == (item,)
+    assert snapshot.presentations[0].classification == 'future_of_cutoff'
+    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id='edge')
+    assert restored.items() == () and restored.snapshot().covered_outputs == ()
+    assert not restored.mark_output_covered('direct', evidence_ids=('future-extra',))
+    assert snapshot.to_dict() == payload
+
+
+@pytest.mark.parametrize('raw_date', ['2026-07-25X09:30:00', '2026-07-25T09:30:00\nsource'])
+def test_noncalendar_separator_and_embedded_source_text_do_not_grant_future_status(raw_date):
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    with pytest.raises(ValueError):
+        ledger.to_recovery_snapshot(episode_id='edge', presented_evidence=(_atom('future-extra', source_date=raw_date),))
+
+
+def test_request_contradiction_roundtrip_keeps_ledger_targets_separate():
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    original = _atom('shared', supports=('first',), contradicts=('first-counter',))
+    ledger.append(original, covered_outputs=('first',))
+    presented = replace(original, supports=(), contradicts=('request-counter',))
+    before = ledger.snapshot()
+    payload = ledger.to_recovery_snapshot(episode_id='edge', presented_evidence=(presented,))
+    snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id='edge')
+    assert snapshot.presented_evidence == (presented,)
+    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id='edge')
+    assert restored.items() == (original,) and restored.snapshot() == before
+    assert 'request-counter' not in dict(restored.snapshot().evidence_targets)['shared']
+
+
+def test_idempotent_tracking_cleans_unstarted_and_completed_owned_timers_only():
+    first = RunSupervisor(max_workers=1)
+    other = RunSupervisor(max_workers=1)
+    closed = []
+    def client(supervisor, label):
+        return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(supervisor=supervisor)),
+                               close=lambda: closed.append(label))
+    first_client, other_client = client(first, 'first'), client(other, 'other')
+    track_test_client_timers(first_client)
+    track_test_client_timers(other_client)
+    unstarted = Timer(60, lambda: None)
+    completed = Timer(0, lambda: None)
+    entered, release = Event(), Event()
+    def parked():
+        entered.set()
+        release.wait(5)
+    unrelated = Timer(0, parked)
+    try:
+        with first._lock:
+            first._timers[('u', 'unstarted')] = unstarted
+            first._timers[('u', 'completed')] = completed
+        completed.start()
+        completed.join(2)
+        assert not completed.is_alive()
+        with first._lock:
+            first._timers.clear()
+        track_test_client_timers(first_client)
+        with other._lock:
+            other._timers[('u', 'other')] = unrelated
+        unrelated.start()
+        assert entered.wait(2)
+        drain_test_client(first_client)
+        assert closed == ['first'] and unrelated.is_alive()
+        assert unstarted.finished.is_set() and unstarted.ident is None
+        assert first._timers.owned == [unstarted, completed]
+    finally:
+        release.set()
+        drain_test_client(other_client)
+        first.shutdown()
+        first._executor.shutdown(wait=True, cancel_futures=True)

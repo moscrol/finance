@@ -1,0 +1,15 @@
+281:_DANGLING_CONDITION_COUNT_RE = re.compile(
+324:_CONDITION_DEFINITION_RE = re.compile(
+387:_NUMERIC_CONDITION_ISSUE = Issue(
+1895:                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
+3720:        draft = _repair_dangling_condition_references(
+3731:        draft, _restored = _restore_lost_observations(
+4451:        *(_NUMERIC_CONDITION_ISSUE.message for _ in [0] if numeric),
+4689:    连坐的有据数值另由 ``_restore_lost_observations`` 补回。
+5045:def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+5644:def _restore_lost_observations(
+5697:def _repair_dangling_condition_references(
+5719:        for match in (_CONDITION_DEFINITION_RE.match(str(item.get("text") or "")),)
+5729:        for match in (_CONDITION_DEFINITION_RE.match(str(item["text"])),)
+5762:                for found in _DANGLING_CONDITION_COUNT_RE.finditer(repaired)
+6934:    "numeric_condition_unsupported",

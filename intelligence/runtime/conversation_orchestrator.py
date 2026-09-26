@@ -23,6 +23,7 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     render_daily_review_answer,
     upsert_report_module,
+    worse_status,
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
@@ -37,6 +38,10 @@ from intelligence.services.outlook_delivery_gate import (
     apply_market_watch_delivery_gate,
     apply_outlook_delivery_gate,
     evidence_grid_text,
+)
+from intelligence.services.public_delivery_gate import (
+    contract_output_descriptions,
+    review_public_delivery,
 )
 from intelligence.services.reading_direction_gate import (
     apply_reading_direction_gate,
@@ -85,6 +90,7 @@ from intelligence.services.watchlist_digest_pack import (
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.historical_research.intent import HistoryIntent, inherit_history_followup
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
@@ -106,6 +112,7 @@ from intelligence.services.tool_hunger import bind_run_hunger
 from intelligence.services import llm_refine
 from intelligence.services import output_review
 from intelligence.services import query_ledger
+from intelligence.services import workbench_correction_ingest
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
     LaneAnswer,
@@ -1713,6 +1720,36 @@ def previous_turn_message(context: ConversationContext) -> Message | None:
     return None
 
 
+def previous_completed_assistant_message(
+    context: ConversationContext,
+) -> Message | None:
+    """Find the answer that the current user message could be correcting.
+
+    This intentionally does not reuse ``previous_turn_message``: that helper
+    finds the latest message with a turn intent, regardless of role/status.
+    """
+    for message in reversed(context.recent_messages):
+        if (
+            message.role == "assistant"
+            and message.status == "completed"
+            and message.content.strip()
+        ):
+            return message
+    return None
+
+
+def workbench_correction_guard_reason(user_id: str) -> str | None:
+    """Return the closed guard reason for the runtime-only write path."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return "identity_skipped"
+    cleaned = str(user_id or "").strip()
+    if not cleaned or cleaned in {"golden-test", "tester"}:
+        return "identity_skipped"
+    if cleaned.startswith(("probe-", "fsr2-", "ablation-", "golden-")):
+        return "identity_skipped"
+    return None
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -1747,6 +1784,84 @@ class TurnOrchestrator:
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
         self.continuous_turn_adapter = continuous_turn_adapter
+
+    def _maybe_ingest_workbench_correction(
+        self,
+        *,
+        context: ConversationContext,
+        query: str,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        warnings: list[str],
+    ) -> None:
+        """Record a high-confidence user correction without blocking research."""
+        user_id = str(getattr(self.run_store, "user_id", "") or "")
+        guard_reason = workbench_correction_guard_reason(user_id)
+        if guard_reason is not None:
+            result = workbench_correction_ingest.CorrectionIngestResult(
+                "skipped", guard_reason
+            )
+        else:
+            previous = previous_completed_assistant_message(context)
+            previous_payload = None
+            if previous is not None:
+                previous_payload = {
+                    "message_id": previous.message_id,
+                    "role": previous.role,
+                    "status": previous.status,
+                    "content": previous.content,
+                }
+            try:
+                prior_intent = TurnIntent.from_dict(previous.turn_intent) if previous else None
+                themes = (
+                    [prior_intent.primary_subject]
+                    if prior_intent is not None and prior_intent.primary_subject
+                    else []
+                )
+                result = workbench_correction_ingest.maybe_record_workbench_correction(
+                    userspace.user_space(user_id).corrections_path,
+                    user_text=query,
+                    previous_assistant=previous_payload,
+                    conversation_id=conversation_id,
+                    corrected_message_id=(previous.message_id if previous else ""),
+                    themes=themes,
+                )
+            except Exception as exc:  # fail-open: research must still run
+                result = workbench_correction_ingest.CorrectionIngestResult(
+                    "failed",
+                    "write_failed",
+                    error_type=type(exc).__name__,
+                )
+
+        if result.status == "failed":
+            warning = "user_correction_ingest_failed"
+            warnings.append(warning)
+            try:
+                self.run_store.add_degrade(run_id, warning)
+            except Exception:
+                pass
+        if result.status == "skipped":
+            return
+        try:
+            step_id = (
+                "user_correction_recorded"
+                if result.status == "recorded"
+                else "user_correction_ingest_failed"
+            )
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                step_id,
+                step_id,
+                result.to_trace(),
+                status="failed" if result.status == "failed" else "completed",
+            )
+        except Exception:
+            # The trace is observability; it must not turn a fail-open write
+            # side into a failed research turn.
+            pass
 
     def _publish_calculation_artifacts(
         self,
@@ -1902,6 +2017,14 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
+            self._maybe_ingest_workbench_correction(
+                context=context,
+                query=query,
+                conversation_id=conversation_id,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                warnings=warnings,
+            )
             inherited_message = previous_turn_message(context)
             inherited_intent = (
                 TurnIntent.from_dict(inherited_message.turn_intent)
@@ -1945,16 +2068,18 @@ class TurnOrchestrator:
             # Recover state only from complete persisted user messages in the
             # same bounded window; summary/assistant prose is never authority.
             parts = split_user_message(str(query or "").strip())
+            history_continuation = inherit_history_followup(
+                query, inherited_intent.history_intent if inherited_intent is not None else None,
+            ) is not None
             material_contract = compile_material_contract(parts.regions) if parts.regions else None
             material_history = None
-            if material_contract and material_contract.continuation_requested:
+            if history_continuation or (material_contract and material_contract.continuation_requested):
                 material_history = collect_material_turn_history(
                     context.material_messages or (),
                     unavailable=context.material_history_unavailable,
                 )
-                material_contract = compile_material_contract(
-                    parts.regions, source_turn=material_history.source_turn,
-                    inherited_contract=material_history.base_contract,
+                material_contract = material_history.compile_contract(
+                    parts.regions, history_continuation=history_continuation,
                 )
             elif material_contract and material_contract.data_scope == "material_only":
                 material_history = (
@@ -1973,13 +2098,14 @@ class TurnOrchestrator:
             # injected controllers keep their pre-existing keyword contract.
             if not material_contract or (
                 material_contract.data_scope != "material_only"
+                and not history_continuation
                 and not self._uses_default_turn_controller
             ):
                 material_history = None
             restricted_history = bool(
                 material_contract
                 and material_history is not None
-                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
+                and (history_continuation or material_contract.data_scope == "material_only" or material_contract.needs_clarification)
             )
             # Keep the established controller context contract byte-compatible.
             # The typed projection is an additional authority input; the model
@@ -2030,6 +2156,7 @@ class TurnOrchestrator:
                     query,
                     legacy_envelope,
                     conversation_materials=material_history,
+                    history_continuation=history_continuation,
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
@@ -2047,7 +2174,10 @@ class TurnOrchestrator:
             if restricted_history and not self._uses_default_turn_controller:
                 # Injected controllers may supply stale/full frames. Recompile
                 # the source-aware contract, not just replace its permission bit.
-                decision = decide_turn(query, conversation_materials=material_history)
+                decision = decide_turn(
+                    query, conversation_materials=material_history,
+                    previous_intent=inherited_intent, previous_turn_id=inherited_turn_id,
+                )
                 task_frame = decision.task_frame
                 assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)
@@ -3390,6 +3520,7 @@ class TurnOrchestrator:
                 as_of=getattr(result, "trade_date", None),
                 theme=getattr(result, "matched_theme", None),
                 session_id=run_id,
+                history_intent=task_frame.history_intent,
             )
             has_answer_snapshot = result.answer_spec is not None and decision.lane in {
                 "research",
@@ -4497,6 +4628,36 @@ class TurnOrchestrator:
             "context_growth",
             growth,
         )
+        # 最终交付门（services/public_delivery_gate）。放在这里而不是 adapter 里：
+        # adapter 返回之后正文还会被视角头、复核意见、outlook / market_watch 删句闸
+        # 和未验证网格改写，只有这一行之后的 answer_text 才是用户真正读到的那段。
+        # 判定本体是 services 侧纯函数，runtime 只接线、不持有词表。
+        delivery = review_public_delivery(
+            answer_text,
+            required_outputs=task_frame.required_outputs,
+            descriptions=contract_output_descriptions(
+                private_artifact.get("contract")
+            ),
+        )
+        answer_status = projected.report_business
+        if delivery.applied:
+            answer_text = delivery.text
+            # 取更差而不是覆盖：业务状态已是 gap / blocked 时，门判 partial 不得把
+            # answer_status 字段抬回 partial（complete_report 的 status 本来就取更差，
+            # 这里让字段本身也如实；排序与 complete_report 共用同一张 STATUS_RANK）。
+            answer_status = worse_status(answer_status, delivery.answer_status)
+            warning = f"public_delivery_gate:{delivery.verdict}"
+            warnings.append(warning)
+            self.run_store.add_degrade(run_id, warning)
+        report["public_delivery_gate"] = delivery.to_dict()
+        self._trace(
+            run_id,
+            assistant_message_id,
+            conversation_id,
+            "continuous:public_delivery_gate",
+            "public_delivery_gate",
+            delivery.to_dict(),
+        )
         complete_report(
             report,
             as_of=result.as_of,
@@ -4504,9 +4665,10 @@ class TurnOrchestrator:
             llm_provider=result.llm_provider,
             llm_model=self.llm_model,
             business_status=projected.report_business,
-            # 刻意保持不变：本轮只加观测，不让 coverage 判定影响交付状态。
-            # 见 _continuous_answer_coverage 的 docstring 与路线图 Phase 1「先量后改」。
-            answer_status=projected.report_business,
+            # marker coverage 仍是观测（见 _continuous_answer_coverage 的 docstring）。
+            # 会动交付状态的只有上面那道确定性交付门：它要求「形态 + 覆盖」两把
+            # 钥匙同时命中，单独缺措辞标记不足以降级。
+            answer_status=answer_status,
         )
         public_report = _redact_object(report)
         if isinstance(public_report, dict):
@@ -4691,6 +4853,7 @@ class TurnOrchestrator:
             as_of=result.as_of,
             theme=task_frame.subject,
             session_id=run_id,
+            history_intent=task_frame.history_intent,
         )
         return TurnResult(
             status=projected.run,
@@ -5481,8 +5644,11 @@ class TurnOrchestrator:
         as_of: str | None,
         theme: str | None,
         session_id: str,
+        history_intent: HistoryIntent | None = None,
     ) -> None:
-        """跟踪题下期关注 / 排序题改判条件写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        """前向跟踪/排序才写 checkpoint；历史回溯不自动登记，失败不挡回答。"""
+        if history_intent is not None:
+            return
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
         user_id = self.run_store.user_id

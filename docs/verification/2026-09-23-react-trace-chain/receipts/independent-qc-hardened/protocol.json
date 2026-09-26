@@ -1,0 +1,47 @@
+{
+  "created_at": "2026-09-23T15:57:28.074899+00:00",
+  "workorder": 75,
+  "candidate_workorder": 81,
+  "pr": 832,
+  "user_message": "执行",
+  "authorization_context": "User approved mechanical harness hardening followed by one fresh bounded #75 batch.",
+  "scope_interpretation": "Proceed with one bounded #75 review of #832 only; no #76, merge, deployment or production writes.",
+  "budget_set_by_host": {
+    "max_batch_requests": 152,
+    "per_axis_gateway_max": 4,
+    "per_stage_requests": 24,
+    "per_stage_seconds": 600,
+    "per_request_seconds": 120,
+    "automatic_retries": 0,
+    "concurrency": 1
+  },
+  "model": "glm-5.3",
+  "provider": "glm-direct-review",
+  "route": "existing official coding endpoint and existing Keychain credential",
+  "billing_note": "Existing route; zero provider price metadata is not a billing receipt.",
+  "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "candidate_tree": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/candidate/finance-workspace-private",
+  "author_tree": "/Users/a77/fwp-wt-react-trace-chain-0923",
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "stages": [
+    "explore",
+    "execute",
+    "report"
+  ],
+  "stop_policy": "One new batch only. Any failed admission/stage stops the candidate. No automatic budget continuation.",
+  "natural_finance_requests": 0,
+  "merged": false,
+  "deployed": false,
+  "previous_batch": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255",
+  "hardening": [
+    "direct argv pytest receipts",
+    "typed terminating submit_report",
+    "stage-specific tools",
+    "actual pytest/SQLite/WAL and denied-operation admission",
+    "immutable first probe versions"
+  ]
+}

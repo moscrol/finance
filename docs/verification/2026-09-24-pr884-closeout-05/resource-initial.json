@@ -1,0 +1,25 @@
+{
+  "admitted": false,
+  "foreign_pytest": [
+    {
+      "pid": 35814,
+      "pgid": 35757,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider"
+    },
+    {
+      "pid": 50980,
+      "pgid": 50949,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/knevo-deploy-readiness-20260924/full-tmp"
+    },
+    {
+      "pid": 52409,
+      "pgid": 52381,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/python-basetemp"
+    }
+  ],
+  "disk_free_bytes": 7252299776,
+  "minimum_free_bytes": 12884901888,
+  "excluded_groups": [],
+  "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+  "observed_at": "2026-09-23T17:37:20.381232+00:00"
+}

@@ -1,0 +1,28 @@
+{
+  "started_at": "2026-09-21T11:44:49.806305+00:00",
+  "operator_not_independent_reviewer": true,
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-c",
+    "import runpy; runpy.run_path('/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/independent_contract_probe.py', run_name=\"__main__\")"
+  ],
+  "cwd": "/Users/a77/fwp-wt-history-forward-review-0921",
+  "env": {
+    "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "HOME": "/Users/a77",
+    "FWP_TEST_RECEIPT": "0",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "timeout_seconds": 120,
+  "identity_before": {
+    "revision": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "status": ""
+  },
+  "purpose": "run reviewer probe bytes unchanged with repository import resolution; no new model continuation, no product writes",
+  "exit_code": 1,
+  "finished_at": "2026-09-21T11:44:51.382230+00:00",
+  "identity_after": {
+    "revision": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "status": ""
+  }
+}

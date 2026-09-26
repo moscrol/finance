@@ -1,0 +1,23 @@
+{
+  "pr": 910,
+  "file": "tests/test_pi_review_repair.py",
+  "ours": "8b4300906a7a04a955b4d3125e27b1a35ed1588e",
+  "incoming_main": "9d5b9800a5500e6f64875432f8df3a06713d6f52",
+  "incoming_change": "acee7993f2c4dda64b40e9f2057bef4bc91610a2",
+  "resolved_commit": "167c9ffac1b428164e7906861438eb1757895dc5",
+  "resolution": "Keep configure_sandbox and ephemeral fake-provider routing. Move incoming exact subpath/literal replacement and unique-anchor assertions into configure_sandbox; retain incoming non-widening sandbox regression unchanged.",
+  "premerge_verification": {
+    "artifact": "conflict-targeted.result.json",
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "uncommitted merge worktree; not a clean candidate receipt and not a full-scope receipt"
+  },
+  "other_pr": {
+    "pr": 911,
+    "merge_commit": "8dec2a856b76cec21fae6daae1ed7505fb838dcc",
+    "preview_tree": "32f55112642cd1df84292d01677ba69f6d098327",
+    "actual_tree": "32f55112642cd1df84292d01677ba69f6d098327",
+    "conflicts": 0
+  }
+}

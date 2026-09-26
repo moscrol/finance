@@ -1,0 +1,7 @@
+883:        public = _drop_rejected_sentences(public, rejected)
+2712:            _drop_rejected_sentences(verified.outcome.draft, report.rejected_sentence_indexes, preserve_numbering=True),
+3563:            _drop_rejected_sentences(before, rejected_sentence_indexes, preserve_numbering=preserve_numbering)
+3715:        draft = _drop_rejected_sentences(
+3720:        draft = _repair_dangling_condition_references(
+5697:def _repair_dangling_condition_references(
+5893:def _drop_rejected_sentences(

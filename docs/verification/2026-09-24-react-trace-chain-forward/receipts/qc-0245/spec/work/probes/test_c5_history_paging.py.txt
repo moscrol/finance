@@ -1,0 +1,55 @@
+"""C5 probe 1: history read paging identity and offsets."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services.historical_research.episode import (  # noqa: E402
+    _model_projection,
+    _result,
+)
+
+
+def _payload(rows, total=None, offset=0):
+    return {
+        "operation": "find_analogues",
+        "status": "success",
+        "total_matched": total if total is not None else len(rows),
+        "returned_count": len(rows[offset: offset + 2]),
+        "truncated": False,
+        "preview": rows[offset: offset + 2],
+        "reference": {"k": "v"},
+        "coverage": [],
+    }
+
+
+def test_projection_row_identity_absolute():
+    rows = [{"i": i} for i in range(6)]
+    proj = _model_projection(_payload(rows, total=6, offset=2), "ref-1")
+    texts = [t for t in proj if isinstance(t[0], int)]
+    # second page rows should be numbered 2,3 not 0,1
+    assert [t[0] for t in texts] == [2, 3], texts
+
+
+def test_result_metadata_carries_offsets():
+    rows = [{"i": i} for i in range(6)]
+    res = _result(_payload(rows, total=6), result_ref="ref-1", offset=2)
+    md = res.metadata
+    assert md["offset"] == 2
+    assert md["next_offset"] == 4
+    assert "next_offset" in md and md["next_offset"] is not None
+
+
+def test_final_page_next_offset_none():
+    rows = [{"i": i} for i in range(3)]
+    res = _result(_payload(rows, total=3), result_ref="ref-1", offset=2)
+    # page 2 = rows[2:4] -> returned 1, end=3 == total -> None
+    assert res.metadata["next_offset"] is None
+
+
+def test_truncated_hint_on_page():
+    rows = [{"i": i} for i in range(6)]
+    res = _result(_payload(rows, total=6), result_ref="ref-1", offset=0)
+    assert res.metadata["truncated"] is False
+    assert "next_offset" in str(res.content) or res.metadata["next_offset"] == 2

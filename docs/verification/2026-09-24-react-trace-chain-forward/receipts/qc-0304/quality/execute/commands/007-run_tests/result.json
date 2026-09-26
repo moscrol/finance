@@ -1,0 +1,61 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-007-run_tests",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-007-run_tests.xml"
+  ],
+  "shell": false,
+  "target_exit_code": 1,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 7583,
+  "output_sha256": "6db4d2d498512b13cedb8627e8962c77c10adb4287c6989037a70c6dec5626be",
+  "suite": "probes",
+  "files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair.py"
+  ],
+  "counts": {
+    "tests": 21,
+    "failed": 9,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 12
+  },
+  "input_sha256": {
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py": "6683f0047dc80d4b35763321d66904a5c543accda27f71d1e78011f680f8a5b5",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py": "3ae5e9ddfa57ac647e9363647f1ac8eccf0a96c18d224c556b865e4cb7ec2671",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed.py": "50fcd99a7f746219ec23126a65b6533c4506cf3e402a35472431d93a989da24b",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py": "5e71a898c5f9d86e26a1ebd5671873d9b2d06183242b57d4a354811285b7c600",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py": "ede660f4809f374980c93e24b434d4e299be53e88698dceff56daa44c0aa063c",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit.py": "6117db28d4bea70513d8500ebb43b6086d06c6c1facf33d0b82b75a51169ca26",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair.py": "333cba9032ec2b681e895dd697fdc80cdbea927a00235697dece9dfe755e67ca"
+  },
+  "inputs_unchanged": true,
+  "junit_sha256": "fda0efb2010f762e7a2ff728ca662bab9b69723df70e6f3c58ddf19d63609d9f",
+  "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/007-run_tests/result.json",
+  "output": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/007-run_tests/output.log"
+}

@@ -1,0 +1,1 @@
+{"toolCallId":"bash_3_c8237c5d","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && ls docs/agent-product-door.md && rg -n '^#|运行时|交付|恢复|ACK|预算|授权|证据|身份|幂等|去重|effect' docs/agent-product-door.md | head -60"}}

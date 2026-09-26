@@ -108,20 +108,34 @@ transition from `candidate` to `published`, `superseded`, or `rejected`:
 | `captured_at` | timezone-aware capture time |
 
 Primary key: `(trade_date, snapshot_id)`. At most one snapshot per trade date
-and provider may be `published`.
+may be `published` — across providers, not per provider. Readers resolve the
+official roster by date alone (`published_snapshot()`, the `fact_sector_*`
+views, `get_published_snapshot_id()`), so a per-provider scope here would let
+the writer create state the readers refuse to read.
 
 DuckDB has no partial unique index for `status='published'`, so this is a
 transactional application invariant, not a claimed schema constraint. The
 publisher demotes the previous generation, promotes the candidate, then checks
-that the published count for `(trade_date, provider_source)` is exactly one
-before commit; any other count rolls the transaction back. Concurrent
-publication conflicts fail closed and retry from a fresh read.
+that the published count for `trade_date` is exactly one before commit; any
+other count rolls the transaction back. Concurrent publication conflicts fail
+closed and retry from a fresh read.
+
+Changing provider for a date that already has a published snapshot is allowed
+but never implicit: the caller names the incumbent with
+`supersede_provider=<currently published provider>`, and a wrong name is
+rejected rather than resolved. The retired provider's `dim_sector` identities
+are deactivated in the same transaction, so the dimension table cannot become a
+second official roster. History and rejected alternatives:
+`docs/handoffs/2026-09-22-hithink-sector-closeout.md`.
 
 The implementation builds canonical rows in memory before it writes a header.
 A candidate is publishable only when the response is non-empty; all codes and
 identity rows are unique; names are non-empty; member counts are positive
-integers; and, when a prior adjacent-day published snapshot exists, normalized
-name continuity meets the 95% integrity floor.
+integers; and, when a prior published snapshot from the same provider exists,
+normalized name continuity meets the 95% integrity floor. That baseline is
+same-provider by construction, so a provider switch has no baseline and the
+floor does not apply — deliberate, because cross-provider names legitimately
+differ and no defensible threshold exists yet. A switch is recorded, not gated.
 
 Re-observing the same `snapshot_id` is idempotent. A different valid same-day
 snapshot never overwrites rows: one transaction inserts its immutable rows,

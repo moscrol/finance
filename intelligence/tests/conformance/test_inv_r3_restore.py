@@ -15,6 +15,8 @@ import pytest
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
 from intelligence.services.episode_restore import restore_episode
 from intelligence.services.episode_store import MemoryEpisodeStore
+from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.tests.conformance.backends import BACKENDS, BackendDescriptor, Verdict
 from intelligence.tests.conformance.baseline import ratchet
 from intelligence.tests.conformance.fixtures import (
@@ -39,7 +41,7 @@ _SCENARIO = (
 )
 
 
-def _crash_after_tool_intent(task_id: str) -> tuple[MemoryEpisodeStore, str]:
+def _crash_after_tool_intent(task_id: str) -> tuple[MemoryEpisodeStore, str, ResearchRunContext, ResearchToolRegistry]:
     """跑一遍不间断，再把日志截到「工具意图已落、结算未落」那一刻。
 
     不间断那一遍用写序 oracle 当 store（P4 公共件，``conformance/oracle.py``）：崩溃现场是从
@@ -47,14 +49,22 @@ def _crash_after_tool_intent(task_id: str) -> tuple[MemoryEpisodeStore, str]:
     「现场」不是任何真实崩溃能留下的现场。
     """
 
-    recording = WriteOrderOracle()
+    checkpoints = []
+
+    class RecordingOracle(WriteOrderOracle):
+        def put_state(self, episode_id, state):
+            super().put_state(episode_id, state)
+            checkpoints.append(state)
+
+    recording = RecordingOracle()
+    registry = effect_registry(recording)
     probe = ScenarioProbe()
     frame = make_frame()
     context = make_context(frame, task_id=task_id, timeout=120.0)
     outcome = GLMAgentRuntime(
         client=EffectAwareModel(ScriptedModelClient(list(_SCENARIO), probe), recording),
         episode_store=recording,
-    ).run(task_frame=frame, context=context, registry=effect_registry(recording))
+    ).run(task_frame=frame, context=context, registry=registry)
     assert outcome.status == "completed"
     recording.assert_sandwich()
     events, _ = recording.load(task_id)
@@ -62,44 +72,42 @@ def _crash_after_tool_intent(task_id: str) -> tuple[MemoryEpisodeStore, str]:
     # tools_pending 那份状态在意图之后立刻写；崩溃现场 = 意图为末条、状态为 tools_pending。
     crash = MemoryEpisodeStore()
     crash.append(task_id, events[: intent.sequence])
-    from intelligence.services.episode_store import EpisodeState
-
-    crash.put_state(
-        task_id,
-        EpisodeState(
-            episode_id=task_id,
-            phase="tools_pending",
-            reserved_ids=(intent.payload["call_id"],),
-            deadline_at=(datetime.now().astimezone() + timedelta(seconds=60)).isoformat(),
-            last_sequence=intent.sequence,
-            contract_snapshot=dict(events[0].payload),
-        ),
-    )
-    return crash, str(intent.payload["call_id"])
+    state = next(s for s in checkpoints if s.phase == "tools_pending" and s.last_sequence == intent.sequence)
+    crash.put_state(task_id, state)  # actual checkpoint, including current authority
+    return crash, str(intent.payload["call_id"]), context, registry
 
 
 def test_continuous_restores_next_action_from_state_not_from_log_shape() -> None:
-    crash, call_id = _crash_after_tool_intent("conf-inv-r3-continuous")
-    probe = ScenarioProbe()
+    crash, call_id, context, registry = _crash_after_tool_intent("conf-inv-r3-continuous")
     soon = datetime.now().astimezone()
     result = restore_episode(
-        "conf-inv-r3-continuous", crash, registry=make_registry(probe), now=soon
+        "conf-inv-r3-continuous", crash, registry=registry, context=context, now=soon
     )
     assert result.disposition == "resumable"
     assert result.plan is not None and result.plan.action == "replay_tools"
     assert result.plan.call_ids == (call_id,)
-    assert result.synthesized == ()
+    # INV-R3 守的是两件事：不伪造**结算**，不推进**程序计数器**。不是「一字不写」——
+    # 那只是前两者的代理指标。``replay_tools`` 在提议重发一次可能已计费的调用，
+    # 登记那段未知窗口既不是结算、也不改变位置。
+    assert [e.kind for e in result.synthesized] == ["effects_unknown"]
+    assert [e.reserved_id for e in result.unreconciled_effects] == [call_id]
+    _, after = crash.load("conf-inv-r3-continuous")
+    assert after is not None
+    assert (after.phase, after.reserved_ids) == ("tools_pending", (call_id,))
     assert crash.list_open() == ("conf-inv-r3-continuous",)
 
 
 def test_continuous_closes_when_deadline_passed_and_lists_nothing_open() -> None:
-    crash, call_id = _crash_after_tool_intent("conf-inv-r3-closed")
+    crash, call_id, context, registry = _crash_after_tool_intent("conf-inv-r3-closed")
     later = datetime.now().astimezone() + timedelta(days=1)
-    result = restore_episode("conf-inv-r3-closed", crash, now=later)
+    result = restore_episode("conf-inv-r3-closed", crash, now=later, context=context, registry=registry)
     assert result.disposition == "closed" and result.outcome is not None
     assert result.outcome.stop_reason == "interrupted"
-    assert [e.kind for e in result.synthesized] == ["tool_error", "finish"]
+    assert [e.kind for e in result.synthesized] == ["tool_error", "effects_unknown", "finish"]
     assert result.synthesized[0].payload["call_id"] == call_id
+    # 关闭不等于对账：已经可能花出去的钱不会因为 episode 终局而回来。
+    assert [e.reserved_id for e in result.unreconciled_effects] == [call_id]
+    assert crash.load("conf-inv-r3-closed")[1].unreconciled_effects != ()
     assert crash.list_open() == ()
 
 

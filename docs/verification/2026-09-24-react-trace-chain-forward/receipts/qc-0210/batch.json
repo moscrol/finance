@@ -1,0 +1,36 @@
+{
+  "started_at": "2026-09-23T18:12:25.012692+00:00",
+  "status": "BLOCKED_STAGE",
+  "requests": 4,
+  "max_requests": 152,
+  "automatic_retries": 0,
+  "stages": [
+    {
+      "axis": "spec",
+      "stage": "gateway",
+      "controller_exit": 0,
+      "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+      "max_requests": 4,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 4,
+        "dispatched": 4,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 4,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 32.53764908318408,
+      "stage_status": "BLOCKED_PROVIDER_OR_ROUNDTRIP",
+      "request_counts_agree": true
+    }
+  ],
+  "natural_finance_requests": 0,
+  "current": "spec/gateway",
+  "finished_at": "2026-09-23T18:12:57.704163+00:00"
+}

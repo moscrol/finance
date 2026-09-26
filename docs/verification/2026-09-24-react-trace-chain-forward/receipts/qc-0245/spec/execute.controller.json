@@ -1,0 +1,23 @@
+{
+  "stage": "execute",
+  "status": "COMPLETE",
+  "max_requests": 24,
+  "automatic_retries": 0,
+  "shim_sha256": "f89f82aace152d357a2791fb3cd3894e8f389e81af51a03d8df1ef241ed5c48c",
+  "stage_runner_exit": 0,
+  "shim_exit": 0,
+  "shim_counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 20,
+    "dispatched": 20,
+    "dropped_temperature": 0,
+    "failed": 0,
+    "requests": 20,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "elapsed_seconds": 165.10602049995214,
+  "stage_status": "STAGE_COMPLETE",
+  "request_counts_agree": true
+}

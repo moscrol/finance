@@ -1,0 +1,24 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/mutations/result-success-admission-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_frozen_nested_summary_is_not_success_or_derived_evidence or test_original_script_no_longer_claims_renderable_success"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-pe3y1sd2/tree", "revision": "a2a3301963d11a073f511e1552b53daee7ecd704"}
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+________ test_frozen_nested_summary_is_not_success_or_derived_evidence _________
+intelligence/tests/test_calculation_result_delivery.py:45: in test_frozen_nested_summary_is_not_success_or_derived_evidence
+    assert isinstance(outcome, dc.CalculationError)
+E   assert False
+E    +  where False = isinstance(DerivedCalculation(calc_id='9a9f370288ff86ec', purpose='现金流含金量', script="emit({'schema': 'derived_calculation.result/v...vations': [{'subject': '600519', 'as_of': '2025-05-01', 'metric': 'net_profit', 'value': 1740.0}]}), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+E    +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+___________ test_original_script_no_longer_claims_renderable_success ___________
+intelligence/tests/test_frozen_research_delivery.py:94: in test_original_script_no_longer_claims_renderable_success
+    assert (
+E   assert (False)
+E    +  where False = isinstance(DerivedCalculation(calc_id='e2d4544cb8e50188', purpose='计算茅台六期OCF/归母净利含金量比率（简化emit格式）', script='rows=[("2025Q1","2025-....88}, {'subject': '600519.SH', 'as_of': '2025-03-31', 'metric': 'inventory_yi', 'value': 547.98}]}), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+E    +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-a2a33019/mutations/result-success-admission-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_calculation_result_delivery.py::test_frozen_nested_summary_is_not_success_or_derived_evidence
+FAILED intelligence/tests/test_frozen_research_delivery.py::test_original_script_no_longer_claims_renderable_success
+2 failed, 180 deselected in 0.92s
+
+STDERR:
+
+EXIT=1

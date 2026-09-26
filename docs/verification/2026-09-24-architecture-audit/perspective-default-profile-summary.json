@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fengyuan",
+    "schema_version": 1,
+    "updated_at": "2026-07-17T09:58:39+00:00",
+    "stored_article_count": 0,
+    "stored_confidence": "low",
+    "known_gaps_count": 1,
+    "has_pending_review_note": false
+  },
+  {
+    "id": "sptfei",
+    "schema_version": 1,
+    "updated_at": "2026-08-22T17:30:00+00:00",
+    "stored_article_count": 50,
+    "stored_confidence": "medium",
+    "known_gaps_count": 11,
+    "has_pending_review_note": true
+  }
+]

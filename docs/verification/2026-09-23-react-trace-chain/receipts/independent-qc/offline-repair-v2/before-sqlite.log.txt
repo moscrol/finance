@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/sqlite_direct.py", line 4, in <module>
+    with sqlite3.connect(p) as con:
+         ^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: unable to open database file

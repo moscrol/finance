@@ -18,6 +18,7 @@ from intelligence.services.evidence_capabilities import (
     EvidenceRequirement,
     resolve_evidence_plan,
     runtime_capabilities_for_frame,
+    needs_opening_memory,
 )
 from intelligence.services.mandatory_satisfiability import (
     apply_static_chain_mapping_precheck,
@@ -362,25 +363,53 @@ _COMPARISON_ANALOG_OUTPUT_IDS: tuple[str, ...] = (
     "counterpoint",
     "evidence_boundary",
 )
+# 兑不出的白名单比没有白名单更坏：漏掉一个算子，模型做对了也交不出去。
+# 参数只能是引擎声明的那六个（tests/test_history_operation_eligibility.py 盯漂移）。
 _ALL_HISTORY_OPERATIONS = (
     "inspect_history",
     "compute_history",
     "find_analogues",
     "compare_cases",
+    "trace_history",
+    "rank_history",
 )
+# 作用域仍然有效：哪个提问靠哪种观察支撑。只在题目真的需要时放行
+# 同窗排名（rank_history）与启动到峰值路径（trace_history）。
 _COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
-    "direct_assessment": ("compare_cases", "find_analogues"),
-    "comparison_dimensions": ("inspect_history", "compute_history", "compare_cases"),
-    "analog_similarities": ("find_analogues",),
-    "key_differences": ("find_analogues", "compare_cases"),
-    "limits_of_analogy": ("find_analogues", "compare_cases"),
-    "counterpoint": ("find_analogues", "compare_cases"),
-    "evidence_boundary": (
+    "direct_assessment": (
+        "compare_cases",
+        "find_analogues",
+        "rank_history",
+        "trace_history",
+    ),
+    "comparison_dimensions": (
         "inspect_history",
         "compute_history",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    # 相似点必须来自真做过的类比检索，不得用排名或路径冗代。
+    "analog_similarities": ("find_analogues",),
+    "key_differences": (
         "find_analogues",
         "compare_cases",
+        "rank_history",
+        "trace_history",
     ),
+    "limits_of_analogy": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "counterpoint": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "evidence_boundary": _ALL_HISTORY_OPERATIONS,
 }
 
 
@@ -410,7 +439,7 @@ def _with_prior_recall(
     """Add the prior_recall slot only when the tool that fills it is authorized.
 
     这个判据里的 `memory_lookup in capabilities` 不是防御性冗余。`prior_recall`
-    的注入条件只看题型与措辞，而 `memory_lookup` 的授权来自另一条路
+    的注入条件看有主体的研究题或显式回忆措辞，而 `memory_lookup` 的授权来自另一条路
     （`evidence_capabilities.py` 的 evidence policy），两者可以不同步：
 
     - 调用方显式传 `capabilities` 且其中没有 `memory_lookup`；
@@ -423,7 +452,7 @@ def _with_prior_recall(
     产出一个填不满的契约。所以把「有工具」变成注入的前置条件。
     """
 
-    if not _references_prior_judgement(frame):
+    if not (_references_prior_judgement(frame) or needs_opening_memory(frame)):
         return output_ids
     if "memory_lookup" not in capabilities:
         return output_ids
@@ -866,9 +895,7 @@ def build_episode_context(
         premise_calculation=calculation_for_frame(frame, today=today),
         material_grounding=freeze_material_grounding(frame) if material is not None else None,
     )
-    if frame.history_intent is not None and "finance_query" in capability_tuple and not (
-        material is not None and material.data_scope == "local_only"
-    ):
+    if frame.history_intent is not None and "finance_query" in capability_tuple:
         # Capability authorizes execution; evidence_types admits the actual
         # producer names. Keep historical provenance and narrow output contracts
         # (for example memory/news/financial anchors) intact.
@@ -900,6 +927,11 @@ def build_episode_context(
             latest_data_date=latest_data_date,
         )
     )
+    if frame.history_intent is not None and frame.history_intent.information_cutoff:
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.information_cutoff)),
+            "requested",
+        )
     if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
         cutoff = InformationCutoff(
             min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),

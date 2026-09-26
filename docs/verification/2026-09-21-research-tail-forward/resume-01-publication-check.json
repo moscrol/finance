@@ -1,0 +1,157 @@
+{
+  "recorded_at": "2026-09-21T12:05:39.301092+00:00",
+  "purpose": "publication after frozen c4e7bea4 archive; outside frozen packs, not a new source revision gate",
+  "archive_revision": "c4e7bea4c74932000149c2392b38c3afa2cdb03c",
+  "archive_checks": [
+    {
+      "revision": "c4e7bea4c74932000149c2392b38c3afa2cdb03c",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/author-and-small-review",
+      "manifest_files": 281,
+      "committed_files": 281,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "c4e7bea4c74932000149c2392b38c3afa2cdb03c",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/domain-reviews-blocked",
+      "manifest_files": 28,
+      "committed_files": 28,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "c4e7bea4c74932000149c2392b38c3afa2cdb03c",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01",
+      "manifest_files": 38,
+      "committed_files": 38,
+      "ok": true,
+      "errors": []
+    }
+  ],
+  "pr_publication": {
+    "recorded_at": "2026-09-21T12:04:50.235295+00:00",
+    "prs": [
+      {
+        "pr": 833,
+        "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+        "state": "open",
+        "merged": false,
+        "mergeable": false,
+        "comment_id": 5407,
+        "body_verified": true
+      },
+      {
+        "pr": 834,
+        "head": "cb16cd463db5c19b3187a5137009791082874653",
+        "state": "open",
+        "merged": false,
+        "mergeable": false,
+        "comment_id": 5408,
+        "body_verified": true
+      },
+      {
+        "pr": 835,
+        "head": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+        "state": "open",
+        "merged": false,
+        "mergeable": false,
+        "comment_id": 5409,
+        "body_verified": true
+      },
+      {
+        "pr": 838,
+        "head": "c4e7bea4c74932000149c2392b38c3afa2cdb03c",
+        "state": "open",
+        "merged": false,
+        "mergeable": false,
+        "comment_id": 5410,
+        "body_verified": true
+      }
+    ]
+  },
+  "memory_verified": {
+    "recorded_at": "2026-09-21T12:02:29.992402+00:00",
+    "head": "54ab8dfbfe1ba8d8c8f28381338f66a116a7bc39",
+    "files": [
+      {
+        "path": "20_projects/finance-workspace-private.md",
+        "sha256": "17057e159ab27dd1a0e343c13e9f02189e5d5528898938065ce763fded617fa8",
+        "blob_matches_intended_bytes": true
+      },
+      {
+        "path": "10_knowledge/finance-agent-capability-graph.md",
+        "sha256": "fce832e0e43fd5d6be0ee447d45768dce3943c96ef49d8e46196cf34e93c488e",
+        "blob_matches_intended_bytes": true
+      },
+      {
+        "path": "10_knowledge/evidence-hygiene-three-failure-shapes.md",
+        "sha256": "45a30f57f564d5d9ceda8a89f47d326c79093a218f8ad4dc6fe2a1f00804e8d3",
+        "blob_matches_intended_bytes": true
+      }
+    ],
+    "status": "",
+    "remote_main": "54ab8dfbfe1ba8d8c8f28381338f66a116a7bc39"
+  },
+  "inflight_bytes_before_publication_addendum": {
+    "fix-financial-forward-0921.md": 2462,
+    "docs-research-tail-closeout-0921.md": 2677,
+    "fix-gate-receipt-selection-0921.md": 2033,
+    "fix-research-tail-integration-0921.md": 1838,
+    "fix-runtime-forward-0921.md": 2364,
+    "fix-history-forward-0921.md": 2549
+  },
+  "graph_audit": {
+    "exit_code": 0,
+    "scope": "paths and symbols only; no stale assertions, 202 pending/unverified; does not certify behavior/merge/quality"
+  },
+  "logs": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-01-docs-commit.log",
+      "bytes": 11198,
+      "sha256": "fac92c086364d53e8a8749a6d0f82ac64089ea15089ece23cda4deea4b86e056"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-01-docs-push.log",
+      "bytes": 272,
+      "sha256": "31cd5dca8601f002b654883b413531d6cb7322e8e2a970f31a7fb405b8971ee2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-01-graph-audit.txt",
+      "bytes": 53910,
+      "sha256": "2c464f376639679384bb451892604f4597c5aac5a964ca6f3cefbe21f2042a7d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-01-graph-audit.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-01-memory-verified.json",
+      "bytes": 814,
+      "sha256": "facd86e379c1e9efd3095a1b667c5a97ab4b7b9b78e3433d1542bd14c3cdd012"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/resume-01-pr-publication.json",
+      "bytes": 927,
+      "sha256": "c9ea75bca6513ef7b0efaef2501be0e5266fbabf148ff86a87606d128ea07e43"
+    }
+  ],
+  "source_state": "three frozen candidate source trees and review checkouts remain exact clean SHA, final identities inside frozen new pack",
+  "no_live_background_review": true,
+  "new_pack": {
+    "manifest_files": 38,
+    "source_files": 36,
+    "old_packs_unchanged": true
+  },
+  "not_done": [
+    "source repair",
+    "independent final report",
+    "runtime continuation",
+    "financial continuation",
+    "new main or combined-tree acceptance",
+    "merge",
+    "deployment",
+    "production reads or writes",
+    "worktree deletion"
+  ]
+}

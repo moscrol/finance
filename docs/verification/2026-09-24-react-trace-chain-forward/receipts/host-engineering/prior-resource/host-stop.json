@@ -1,0 +1,16 @@
+{
+  "status": "STOPPED_OWN_WAIT_BEFORE_CANDIDATE_REPAIR",
+  "pid": 2056,
+  "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -B /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/run_engineering.py",
+  "recorded_at": "2026-09-23T18:56:35.880370+00:00",
+  "prior_status": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": "WAIT_RESOURCE",
+    "started_at": "2026-09-23T18:03:33.794072+00:00",
+    "steps": [],
+    "limits": "Admission only, no global lock or resource isolation; no test scope/retry/timeout relaxation."
+  },
+  "reason": "Confirmed C6 product defect requires a new head; do not launch full gates on the superseded candidate.",
+  "started_engineering_steps": 0,
+  "others_signalled": false
+}

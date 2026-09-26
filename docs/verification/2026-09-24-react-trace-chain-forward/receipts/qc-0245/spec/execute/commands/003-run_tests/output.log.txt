@@ -1,0 +1,16 @@
+
+==================================== ERRORS ====================================
+________________________ ERROR collecting test session _________________________
+ImportError while importing test module '/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c3_repair_feedback.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+../../spec/work/probes/test_c3_repair_feedback.py:3: in <module>
+    from copy import replace
+E   ImportError: cannot import name 'replace' from 'copy' (/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/copy.py)
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/tmp/execute-003-run_tests.xml -
+=========================== short test summary info ============================
+ERROR 
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 1.52s

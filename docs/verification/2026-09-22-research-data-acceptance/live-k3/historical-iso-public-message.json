@@ -1,0 +1,129 @@
+{
+  "message_id": "msg_65678cecec5c47b7a2a7a00141634c0c",
+  "conversation_id": "conv_a9ebbe803a1946ceb83172cb704049b2",
+  "role": "assistant",
+  "content": "**直接判断：截至 2025-08-01 的贵州茅台（600519）未来 90 天解禁安排，本轮无法核实，历史快照不支持。**\n**为什么历史快照不支持**\n- 解禁数据源（东财汇总口径）对「2025-08-01 时点的未来 90 天解禁」明确拒绝查询：该源是滚动日程，只提供抓取日（2026-09-22）起未来 90 天的安排，且**不带披露日期**，无法证明某条解禁在 2025-08-01 当时已被市场知晓。按你的要求，我没有用当前日程回填。\n- 官方公告通道（限售股上市流通公告）本轮查询失败（上游接口报错、未解析到可用证据），不能据此断言没有相关公告，只能记为证据缺口。\n- 本地知识库检索超时降级；本地证据索引仅有研报与年报条目（E6、E7），不含解禁安排；新闻检索只返回 2026-09 的近期报道（E8–E13），与 2025-08 解禁无关；网页检索结果（E1–E5）全部跑偏到贵州省介绍，无有效命中。\n**反证与替代解释**：在本轮实际取回的全部证据（E1–E13）中，未发现足以推翻「无法核实」这一判断的反证——没有任何一条材料显示 2025-08 前后茅台存在或不存在解禁安排。一个竞争性解释是：茅台上市多年、流通盘占比极高，该窗口很可能本无大额限售解禁；但这只是推断，所取证据既不能证实也不能证伪，故不写成事实。\n**待验证问题**\n- 2025-08-01 起 90 天内茅台是否存在限售股上市流通安排？等巨潮资讯网该时段的「限售股份上市流通提示性公告」或公司 2025 年半年报/年报中的限售股份变动表可证实。\n**裁判变量**\n- 补关键缺口：在巨潮资讯网按 600519 检索 2025-05 至 2025-11 的限售流通类公告；有公告则按公告日期与数量回答，无公告则结合年报限售股表判断该窗口无解禁。",
+  "created_at": "2026-09-22T18:42:41.271059+08:00",
+  "status": "completed",
+  "run_id": "run_20260922_184241_236894",
+  "skill_mode": "hybrid",
+  "selected_skill_ids": [],
+  "perspective_mode": "neutral",
+  "selected_perspective_ids": [],
+  "invoked_skill_ids": [],
+  "citations": [
+    {
+      "title": "贵州省_百度百科",
+      "source": "https://baike.baidu.com/item/%E8%B4%B5%E5%B7%9E%E7%9C%81/20475641",
+      "date": ""
+    },
+    {
+      "title": "贵州省 - 维基百科，自由的百科全书",
+      "source": "https://zh.wikipedia.org/知识库/%E8%B4%B5%E5%B7%9E%E7%9C%81",
+      "date": ""
+    },
+    {
+      "title": "去了贵州四次，整理了贵州超全攻略（必去十大景点+避坑指南+行程+花费）第一次去贵州 …",
+      "source": "https://zhuanlan.zhihu.com/p/1961427909836243518",
+      "date": ""
+    },
+    {
+      "title": "贵州省人民政府",
+      "source": "https://www.guizhou.gov.cn/",
+      "date": ""
+    },
+    {
+      "title": "贵州旅游必去的15个景区，去过一半已经此生无憾，你去过了几个",
+      "source": "https://news.qq.com/rain/a/20241006A06ZBY00",
+      "date": "2024-10-13"
+    },
+    {
+      "title": "贵州茅台",
+      "source": "本地证据索引",
+      "date": "2026-06-20"
+    },
+    {
+      "title": "9只白酒股下跌贵州茅台1253.8元/股收盘",
+      "source": "http://finance.eastmoney.com/a/202609223881245771.html",
+      "date": "2026-09-22"
+    },
+    {
+      "title": "贵州茅台酱香酒营销有限公司陕西省区原副经理张丽萍接受纪律审查和监察调查",
+      "source": "http://finance.eastmoney.com/a/202609223881176469.html",
+      "date": "2026-09-22"
+    },
+    {
+      "title": "【调仓】贵州茅台，纳入！800现金流ETF招商(159119)估值回落，份额连续3周增长！",
+      "source": "http://stock.eastmoney.com/a/202609223881157536.html",
+      "date": "2026-09-22"
+    },
+    {
+      "title": "四季版系列茅台酒即将上线“i茅台”！贵州茅台股价上扬，食品饮料ETF华夏（515170）冲击4连阳",
+      "source": "http://stock.eastmoney.com/a/202609223881157129.html",
+      "date": "2026-09-22"
+    },
+    {
+      "title": "18只白酒股上涨贵州茅台下跌0.36%",
+      "source": "http://finance.eastmoney.com/a/202609213879993232.html",
+      "date": "2026-09-21"
+    },
+    {
+      "title": "【深度】贵州茅台入局，市现率降三成——800现金流调仓的“高质量切换”",
+      "source": "http://stock.eastmoney.com/a/202609213879975143.html",
+      "date": "2026-09-21"
+    }
+  ],
+  "degrades": [],
+  "followups": [
+    {
+      "question": "贵州茅台目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+      "type": "evidence",
+      "rationale": "完整结论也打最薄一层证据核验",
+      "type_label": "证据加深",
+      "source": "",
+      "label": "核对最硬证据",
+      "full_prompt": "贵州茅台目前最硬的一条公司级证据是什么，出自哪份公告或研报？",
+      "angle": "A",
+      "kind": "gap_fill",
+      "kind_label": "补关键缺口",
+      "inherits": {
+        "subject": "贵州茅台",
+        "question_type": "stock_deep_dive"
+      }
+    },
+    {
+      "question": "除了当前已点名的标的，贵州茅台同链暴露度相近的下一跳应先核谁的订单或认证？不要把已有名单当成新发现。",
+      "type": "alternative",
+      "rationale": "连续对话第一期无结构，只问下一跳不点新票",
+      "type_label": "替代标的",
+      "source": "",
+      "label": "同链下一跳",
+      "full_prompt": "除了当前已点名的标的，贵州茅台同链暴露度相近的下一跳应先核谁的订单或认证？不要把已有名单当成新发现。",
+      "angle": "B",
+      "kind": "alternative_explanation",
+      "kind_label": "比较替代解释",
+      "inherits": {
+        "subject": "贵州茅台",
+        "question_type": "stock_deep_dive"
+      }
+    },
+    {
+      "question": "出现哪些反证应下调对贵州茅台的判断？",
+      "type": "counter",
+      "rationale": "完整答案的默认证伪件",
+      "type_label": "反证验证",
+      "source": "",
+      "label": "证伪条件",
+      "full_prompt": "出现哪些反证应下调对贵州茅台的判断？",
+      "angle": "D",
+      "kind": "condition_test",
+      "kind_label": "检验条件",
+      "inherits": {
+        "subject": "贵州茅台",
+        "question_type": "stock_deep_dive"
+      }
+    }
+  ],
+  "continuation": null,
+  "maintenance_launch": null
+}

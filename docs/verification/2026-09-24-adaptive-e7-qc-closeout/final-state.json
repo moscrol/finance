@@ -1,0 +1,50 @@
+{
+  "artifact_head": "361b6b18c4ea12a83a41f30873a1bd44bb03b016",
+  "candidate_revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "candidate_status": "",
+  "remote_main": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "whole_pr_diff_check": {
+    "exit_code": 2,
+    "waived": false,
+    "old_bytes_modified": false,
+    "output": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/whole-pr-format-final.log.txt"
+  },
+  "historical_failure_ids": [
+    {
+      "id": "intelligence.tests.test_llm_timeout_diagnostic::test_shared_window_zero_rejection_is_not_a_third_request",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_keepalive_is_off_by_default",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_keepalive_touches_an_idle_warm_worker_without_reloading",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_keepalive_not_due_right_after_real_traffic",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_keepalive_does_not_queue_behind_a_real_query",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_close_stops_keepalive_thread",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_status_exposes_rss_and_idle",
+      "passed_this_revision": true
+    },
+    {
+      "id": "intelligence.tests.test_rag_worker_keepalive::test_module_status_aggregates_rss_idle_and_keepalive_counters",
+      "passed_this_revision": true
+    }
+  ],
+  "historical_root_cause_established": false,
+  "cumulative_model_requests": 131,
+  "natural_submissions": 0,
+  "push_merge_deploy_performed": false
+}

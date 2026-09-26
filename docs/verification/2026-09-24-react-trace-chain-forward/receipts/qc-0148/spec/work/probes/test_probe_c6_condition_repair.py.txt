@@ -1,0 +1,123 @@
+"""Independent C6 probe: dangling-count repair wiring, preconditions and numeric-gate scope.
+
+Uses the pre-existing author fixtures `_judge`/`_structural`; scenarios and
+expectations are derived from the claims, not copied.
+"""
+from __future__ import annotations
+
+import pytest
+
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeVerifier,
+    _drop_rejected_sentences,
+    _numbered_sentences,
+    _repair_dangling_condition_references,
+)
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+
+
+_ORPHAN = "满足升级条件中的2条"
+
+
+def _verify(draft, rejected):
+    judge = _judge(False, rejected=rejected)
+    frame, structural = _structural(draft)
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    return judge, result
+
+
+def test_c6_real_exit_keeps_surviving_definition_and_strips_only_orphaned_count():
+    draft = (
+        "升级条件：出现放量长阳才算成立。降级条件：跌破前低才算成立。\n"
+        "多头结构未破坏。当前已满足降级条件中的1条，且满足升级条件中的2条，量能配合。"
+    )
+    indexes = [item["index"] for item in _numbered_sentences(draft)]
+    assert indexes == [1, 2, 3, 4]  # precondition: sentence grammar sees all four
+    judge, result = _verify(draft, (1,))
+
+    assert result.judge_status == "repaired"
+    # The surviving definition and its live count reference both stay visible.
+    assert "降级条件：跌破前低才算成立。" in result.public_answer
+    assert "降级条件中的1条" in result.public_answer
+    # The deleted definition and its orphaned count are both gone.
+    assert "升级条件" not in result.public_answer
+    assert _ORPHAN not in result.verified.outcome.draft
+    # Unrelated prose and the line break survive the repair.
+    assert "多头结构未破坏。当前已满足降级条件中的1条，量能配合。" in result.public_answer
+    assert "\n" in result.public_answer
+    assert any(
+        row["decision"] == "deleted" and str(row["sentence"]).startswith("升级条件")
+        for row in result.sentence_verdicts
+    )
+
+
+def test_c6_numeric_gate_still_redacts_novel_numbers_while_repair_fires():
+    draft = (
+        "升级条件：出现放量长阳才算成立。\n"
+        "若指数跌破3870点则失效，多头结构破坏。\n"
+        "当前满足升级条件中的2条，量能配合。"
+    )
+    judge, result = _verify(draft, (1,))
+
+    # The local numeric gate still catches the unsupported comparator...
+    assert "3870点" not in result.public_answer
+    assert "3870点" not in result.verified.outcome.draft
+    assert all("3870点" not in str(item["text"]) for item in judge.calls[0]["sentences"])
+    # ...while the dangling-count repair removes its own target only.
+    assert _ORPHAN not in result.public_answer
+    assert "量能配合。" in result.public_answer
+    assert result.judge_status == "repaired"
+
+
+def test_c6_count_whose_only_content_was_the_line_is_dropped_via_real_exit():
+    judge, result = _verify("升级条件：站稳20日线。\n结论：满足升级条件中的2条。", (1,))
+    assert result.judge_status == "repaired"
+    assert "升级条件" not in result.public_answer
+    assert "2条" not in result.public_answer
+    assert "结论" not in result.public_answer
+
+
+def test_c6_surviving_definition_blocks_removal_and_preconditions_are_real():
+    # A second, surviving 升级条件 definition keeps the count meaningful.
+    before = (
+        "升级条件：站稳20日线。\n升级条件：出现放量长阳才算成立。\n当前满足升级条件中的2条。"
+    )
+    draft = _drop_rejected_sentences(before, (1,))
+    assert "升级条件：出现放量长阳才算成立。" in draft  # the survivor is really there
+    assert _repair_dangling_condition_references(
+        draft, before=before, rejected_sentence_indexes=(1,)
+    ) == draft
+
+    # Nothing was deleted in this repair: no rewrite even without any definition.
+    text = "量能配合，满足升级条件中的2条，需观察。"
+    assert _repair_dangling_condition_references(
+        text, before=text, rejected_sentence_indexes=()
+    ) == text
+    assert _repair_dangling_condition_references(
+        text, before="普通观察一句。" + text, rejected_sentence_indexes=(1,)
+    ) == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Other labels/units/positions are outside the N条 exemption.
+        ("满足普通条件中的2条，需观察。", "满足普通条件中的2条，需观察。"),
+        ("满足升级条件中的2项目，需观察。", "满足升级条件中的2项目，需观察。"),
+        ("升级条件中的2条均未满足，需观察。", "升级条件中的2条均未满足，需观察。"),
+        # Orphaned removal: Chinese numerals, CRLF endings and untouched lines.
+        ("满足升级条件中的两条，需观察。", "需观察。"),
+        ("该股放量上攻，满足升级条件中的2条。\r\n- 保留原文\r\n",
+         "该股放量上攻。\r\n- 保留原文\r\n"),
+    ],
+)
+def test_c6_removal_scope_is_exactly_orphaned_label_counts(text, expected):
+    before = "升级条件：站稳20日线。降级条件：跌破前低。"
+    rejected = (1, 2)
+    assert {item["index"] for item in _numbered_sentences(before)} == {1, 2}
+    assert _repair_dangling_condition_references(
+        text, before=before, rejected_sentence_indexes=rejected
+    ) == expected

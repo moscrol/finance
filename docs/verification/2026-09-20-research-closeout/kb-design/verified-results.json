@@ -1,0 +1,85 @@
+{
+  "candidate": "3a21010323eababb54ce8519093fd60dbacb9451",
+  "financial_candidate": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "before": {
+    "kb": {
+      "sha": "3a21010323eababb54ce8519093fd60dbacb9451",
+      "status": ""
+    },
+    "finance": {
+      "sha": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+      "status": ""
+    }
+  },
+  "after": {
+    "kb": {
+      "sha": "3a21010323eababb54ce8519093fd60dbacb9451",
+      "status": ""
+    },
+    "finance": {
+      "sha": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+      "status": ""
+    }
+  },
+  "passed": true,
+  "independent_behavior_cases": 11,
+  "commands": [
+    {
+      "name": "original-boundary-replay",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/replay_original_probe.py",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/probe_spec_boundaries.py",
+        "/Users/a77/kb-wt-guarded-maintenance-0920",
+        "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/original-boundary-replay"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/original-boundary-replay.log",
+      "log_sha256": "09cf6e7da8ebf1d2f47798bbb43f5e612f70ab660dc52f7f88222b7268b1164c"
+    },
+    {
+      "name": "original-root-overlap",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/probe_known_root_overlap.py",
+        "/Users/a77/kb-wt-guarded-maintenance-0920",
+        "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/original-root-overlap"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/original-root-overlap.log",
+      "log_sha256": "845e235084d3dff0dc547dfda12f19f24c620069c1cae0c87b011b7b048cf16c"
+    },
+    {
+      "name": "additional-boundaries",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/probe_additional_boundaries.py",
+        "/Users/a77/kb-wt-guarded-maintenance-0920",
+        "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/additional-boundaries"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/additional-boundaries.log",
+      "log_sha256": "f675c1f34e4c44671bf6336afa5cc9d8aa44dcb2d6396cf1674f10d484cea37b"
+    },
+    {
+      "name": "activation",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/replay_activation.py"
+      ],
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/activation.log",
+      "log_sha256": "660381a5075224fb1123bf666c8900f2fa7dd7cde51d7700b5eb21c47c166681"
+    }
+  ],
+  "probe_sha256": {
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/replay_original_probe.py": "d8303a40264de1fc06e5efec2dcb14674403da34db5ccf013c4ffecf3442e2da",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/probe_spec_boundaries.py": "397b9bfd85d5b70ffb0b89e718521a99876bcf1044a2c435222f26ce9fe5dd57",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/probe_known_root_overlap.py": "8c202785cb5e4ed22ce68cd63d9b9f1fb2a548176877edf691223e0d6a04fe00",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/probe_additional_boundaries.py": "3018f1f20b9d6fc14de6dea4dbce25a716893724effa47fb3b1f4ebca870dbcc",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/kb-design/replay_activation.py": "e243fdf4a6ade5ca7cac45a333a852de1b0fc01f461d7c5cb4a193ca441b54d7"
+  },
+  "production_actions": false,
+  "network_publication": false,
+  "paid_model_calls": false
+}

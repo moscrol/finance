@@ -1,0 +1,22 @@
+_LABEL_ONLY_AFTER_REPAIR_RE = re.compile(
+    r"^[\s\-*+•>]*(?:\*{2})?[^：:。．！？\n]{0,16}[：:]\s*(?:\*{2})?[。．，,、；;\s]*$"
+)
+_SUBSTANTIVE_CHAR_RE = re.compile(r"[0-9A-Za-z一-鿿]")
+_CONDITION_DEFINITION_RE = re.compile(
+    r"^\s*(?:(?:[-*+•]|\d+[.)）、]|[一二三四五六七八九十]+[.)）、]|"
+    r"[(（]\d{1,2}[)）]|[①-⑩])\s*)?(?:\*{2})?"
+    r"(?P<label>升级条件|降级条件)"
+    r"(?:\*{2})?\s*[:：]"
+)
+_LEADING_CONDITION_LABEL_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?"
+    r"(?:条件|失效信号|降级信号|触发条件)\s*"
+    r"(?:\d+|[一二三四五六七八九十]+)?"
+    r"\s*(?:[:：、.)）-]\s*)?"
+)
+_LEADING_SECTION_RE = re.compile(r"^\s*【[^】]{1,80}】\s*")
+_LEADING_LIST_LABEL_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:\d+|[一二三四五六七八九十]+)\s*"
+    r"(?:[:：、.)）-]\s*)"
+
+[truncated; total lines=6937, selected=320:339; next_offset=340]

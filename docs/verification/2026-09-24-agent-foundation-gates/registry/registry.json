@@ -1,0 +1,56 @@
+{
+  "revision": "03af215e092cf0da25f3c7e8f60256cb60c2836e",
+  "identity_stable": true,
+  "checks": [
+    {
+      "argv": [
+        "/Users/a77/fwp-wt-agent-foundation/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/a77/fwp-wt-agent-foundation/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/a77/fwp-wt-agent-foundation/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/a77/fwp-wt-agent-foundation/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/a77/fwp-wt-agent-foundation/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/a77/fwp-wt-agent-foundation/.venv-workbench/bin/python",
+        "scripts/gen_runtime_catalog.py",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "finished_at": "2026-09-24T13:46:19.053200+00:00"
+}

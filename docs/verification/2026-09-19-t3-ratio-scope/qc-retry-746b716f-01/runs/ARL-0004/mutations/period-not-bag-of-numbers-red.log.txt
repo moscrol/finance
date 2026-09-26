@@ -1,0 +1,32 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/runs/ARL-0004/mutations/period-not-bag-of-numbers-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_copy_guard_binds_period_and_column_not_a_bag_of_numbers or test_correct_rounding_percent_and_unrelated_numbers_not_rejected"], "cwd": "/private/tmp/extraction-closeout-mutations-y7e6b255/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+FFF....                                                                  [100%]
+=================================== FAILURES ===================================
+_________ test_copy_guard_binds_period_and_column_not_a_bag_of_numbers _________
+intelligence/tests/test_research_delivery_checks.py:114: in test_copy_guard_binds_period_and_column_not_a_bag_of_numbers
+    assert len(findings) == 1
+E   AssertionError: assert 2 == 1
+E    +  where 2 = len((DeliveryFinding(start=100, end=107, code='calculation_value_unverified', replacement=' 待核对 '), DeliveryFinding(start=150, end=157, code='calculation_value_unverified', replacement=' 待核对 ')))
+_ test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \u62a5\u544a\u671f | \u62ab\u9732\u65e5 | OCF\u7d2f\u8ba1 | \u5f52\u6bcd\u51c0\u5229\u7d2f\u8ba1 | \u542b\u91d1\u91cf |\n|---|---|---|---|---|\n| 2026\u4e2d\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.588 |\n| 2025\u4e2d\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n] _
+intelligence/tests/test_research_delivery_checks.py:144: in test_correct_rounding_percent_and_unrelated_numbers_not_rejected
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E   AssertionError: assert (DeliveryFind...ment=' 待核对 ')) == ()
+E     
+E     Left contains 2 more items, first extra item: DeliveryFinding(start=100, end=107, code='calculation_value_unverified', replacement=' 待核对 ')
+E     Use -v to get more diff
+_ test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \u62a5\u544a\u671f | \u62ab\u9732\u65e5 | OCF\u7d2f\u8ba1 | \u5f52\u6bcd\u51c0\u5229\u7d2f\u8ba1 | \u542b\u91d1\u91cf |\n|---|---|---|---|---|\n| 2026\u4e2d\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.59 |\n| 2025\u4e2d\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n] _
+intelligence/tests/test_research_delivery_checks.py:144: in test_correct_rounding_percent_and_unrelated_numbers_not_rejected
+    assert calculation_copy_findings(draft, _financial_evidence()) == ()
+E   AssertionError: assert (DeliveryFind...ment=' 待核对 ')) == ()
+E     
+E     Left contains 2 more items, first extra item: DeliveryFinding(start=100, end=106, code='calculation_value_unverified', replacement=' 待核对 ')
+E     Use -v to get more diff
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/runs/ARL-0004/mutations/period-not-bag-of-numbers-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_copy_guard_binds_period_and_column_not_a_bag_of_numbers
+FAILED intelligence/tests/test_research_delivery_checks.py::test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \u62a5\u544a\u671f | \u62ab\u9732\u65e5 | OCF\u7d2f\u8ba1 | \u5f52\u6bcd\u51c0\u5229\u7d2f\u8ba1 | \u542b\u91d1\u91cf |\n|---|---|---|---|---|\n| 2026\u4e2d\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.588 |\n| 2025\u4e2d\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \u62a5\u544a\u671f | \u62ab\u9732\u65e5 | OCF\u7d2f\u8ba1 | \u5f52\u6bcd\u51c0\u5229\u7d2f\u8ba1 | \u542b\u91d1\u91cf |\n|---|---|---|---|---|\n| 2026\u4e2d\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.59 |\n| 2025\u4e2d\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n]
+3 failed, 4 passed, 409 deselected in 1.03s
+
+STDERR:
+
+EXIT=1

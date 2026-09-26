@@ -1,0 +1,13 @@
+.......................F.........                                        [100%]
+=================================== FAILURES ===================================
+________ test_generic_history_backfill_requires_the_same_ceiling[True] _________
+tests/test_history_permission_inheritance.py:116: in test_generic_history_backfill_requires_the_same_ceiling
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract is not None
+E   AssertionError: assert None is not None
+E    +  where None = ResearchTaskContract(task_id='history-boundary-08f64fe2ebed49b0a204454d18747958', question='那它呢？', subject='农业', subje...aa04c83ae73422d1fa3f26668c3b1a5003eb797a46', material_contract=None, premise_calculation=None, material_grounding=None).material_contract
+E    +    where ResearchTaskContract(task_id='history-boundary-08f64fe2ebed49b0a204454d18747958', question='那它呢？', subject='农业', subje...aa04c83ae73422d1fa3f26668c3b1a5003eb797a46', material_contract=None, premise_calculation=None, material_grounding=None) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-08f64fe2ebed49b0a204454d18747958', question...indow_source='none', allow_window_extension=False), history_results=[], history_artifact_index=[], prior_evidence=None).contract
+=========================== short test summary info ============================
+FAILED tests/test_history_permission_inheritance.py::test_generic_history_backfill_requires_the_same_ceiling[True]
+1 failed, 32 passed in 1.78s

@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "scope": "Second E2E attempt only. Trace uses monotonic milliseconds. Status/duration -1 denotes an incomplete request at capture, not an HTTP server status. No causal attribution to host load or product regression.",
+  "cases": [
+    {
+      "case": "workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-mobile",
+      "source_trace": "/Users/a77/.finance-runtime/reviews/react-trace-chain-20260923/frontend-retry/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-mobile/trace.zip",
+      "trace_sha256": "1dbd21ef2fc8fdf2be1cbc44d3b6c82686fe04858847876f46a887dace125960",
+      "reload_start_ms": 510130.975,
+      "expect_start_ms": 511185.367,
+      "expect_end_ms": 516212.118,
+      "configured_expect_timeout_ms": 5000,
+      "last_message_count_before_reload": 8,
+      "requests_after_reload": [
+        {
+          "start_after_reload_ms": 338.629,
+          "method": "GET",
+          "status": -1,
+          "duration_ms": -1,
+          "path": "/api/workbench/bootstrap"
+        }
+      ]
+    },
+    {
+      "case": "workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-tablet",
+      "source_trace": "/Users/a77/.finance-runtime/reviews/react-trace-chain-20260923/frontend-retry/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-tablet/trace.zip",
+      "trace_sha256": "2c60dc5b161974aa054143dfdab53f137ca64747f8265e034a6b67bcb09d65ef",
+      "reload_start_ms": 279941.679,
+      "expect_start_ms": 282049.319,
+      "expect_end_ms": 287234.003,
+      "configured_expect_timeout_ms": 5000,
+      "last_message_count_before_reload": 8,
+      "requests_after_reload": [
+        {
+          "start_after_reload_ms": 423.468,
+          "method": "GET",
+          "status": -1,
+          "duration_ms": -1,
+          "path": "/api/runs/run_20260923_212017_815545"
+        },
+        {
+          "start_after_reload_ms": 1418.66,
+          "method": "GET",
+          "status": 200,
+          "duration_ms": 5417.548,
+          "path": "/api/workbench/bootstrap"
+        },
+        {
+          "start_after_reload_ms": 6794.039,
+          "method": "GET",
+          "status": 200,
+          "duration_ms": 262.29200000000003,
+          "path": "/api/skills"
+        },
+        {
+          "start_after_reload_ms": 6794.453,
+          "method": "GET",
+          "status": 200,
+          "duration_ms": 276.476,
+          "path": "/api/perspectives"
+        },
+        {
+          "start_after_reload_ms": 6851.271,
+          "method": "GET",
+          "status": 200,
+          "duration_ms": 355.404,
+          "path": "/api/workbench/overview"
+        },
+        {
+          "start_after_reload_ms": 6794.717,
+          "method": "GET",
+          "status": 200,
+          "duration_ms": 365.25100000000003,
+          "path": "/api/llm/config"
+        },
+        {
+          "start_after_reload_ms": 6790.355,
+          "method": "GET",
+          "status": -1,
+          "duration_ms": -1,
+          "path": "/api/conversations"
+        }
+      ]
+    }
+  ]
+}

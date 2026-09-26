@@ -1,0 +1,5 @@
+rg: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/.git: Operation not permitted (os error 1)
+rg: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/users: Operation not permitted (os error 1)
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/runtime/research_progress.py:73:def normalize_query(value: object) -> str:
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/services/episode_protocol.py:750:def strip_evidence_ordinals(text: str) -> str:
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/services/query_ledger.py:33:def normalize_query(query: str) -> str:

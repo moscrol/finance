@@ -14,11 +14,12 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import date as date_cls, timedelta
 from pathlib import Path
 from typing import Any
+
+from intelligence.services.opinion_events import OpinionDataError, load_events
 
 
 STATUS_NARRATIVE_HIT = "narrative_hit"
@@ -46,18 +47,21 @@ class CatalystIndex:
     opinion_events: list[dict[str, Any]] = field(default_factory=list)
     briefing_lines: list[tuple[str, str]] = field(default_factory=list)
     opinion_source_available: bool = False
+    opinion_source_blocked: bool = False
     briefing_dates_found: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     @property
     def sources_available(self) -> bool:
-        return self.opinion_source_available or bool(self.briefing_dates_found)
+        return not self.opinion_source_blocked and (self.opinion_source_available or bool(self.briefing_dates_found))
 
 
 def build_catalyst_index(
     kb_wiki: str | Path,
     market_date: str,
     window_days: int = DEFAULT_WINDOW_DAYS,
+    *,
+    knowledge_cutoff: str | None = None,
 ) -> CatalystIndex:
     wiki = Path(kb_wiki).expanduser()
     index = CatalystIndex(market_date=market_date, window_days=window_days)
@@ -68,9 +72,13 @@ def build_catalyst_index(
 
     events_path = wiki / OPINION_EVENTS_RELPATH
     if events_path.is_file():
-        index.opinion_source_available = True
-        index.opinion_events = _load_opinion_events(events_path, set(window_dates), index.warnings)
+        before = len(index.warnings)
+        eligible = _eligible_events(wiki, market_date, knowledge_cutoff, index.warnings)
+        index.opinion_source_blocked = len(index.warnings) != before
+        index.opinion_source_available = not index.opinion_source_blocked
+        index.opinion_events = [event for event in eligible if event["report_date"] in window_dates]
     else:
+        index.opinion_source_blocked = True
         index.warnings.append(f"卖方观点事件缺失：{events_path}")
 
     briefings_dir = wiki / BRIEFINGS_RELPATH
@@ -102,7 +110,7 @@ def freshness_problems(
 
     briefings_dir = wiki / BRIEFINGS_RELPATH
     latest_briefing = max(
-        (p.stem for p in briefings_dir.glob("????-??-??.md")),
+        (p.stem for p in briefings_dir.glob("????-??-??.md") if p.stem <= market_date),
         default="",
     ) if briefings_dir.is_dir() else ""
     if not latest_briefing:
@@ -124,16 +132,17 @@ def freshness_problems(
     else:
         latest_event = ""
         scratch: list[str] = []
-        for event in _load_opinion_events(events_path, window_dates=None, warnings=scratch):
-            event_date = str(event.get("report_date") or event.get("ingested_at") or "")
+        for event in _eligible_events(wiki, market_date, None, scratch):
+            event_date = event["report_date"]
             if event_date > latest_event:
                 latest_event = event_date
         try:
             age = (anchor - date_cls.fromisoformat(latest_event)).days if latest_event else None
         except ValueError:
             age = None
+        problems.extend(scratch)
         if age is None:
-            problems.append(f"卖方观点事件无法解析最新日期：{events_path}")
+            problems.append(f"卖方观点事件无截至 {market_date} 可用记录：{events_path}")
         elif age > opinion_max_age_days:
             problems.append(
                 f"卖方观点事件断更：最新 {latest_event}，距 {market_date} 已 {age} 天（阈值 {opinion_max_age_days} 天）；"
@@ -157,7 +166,10 @@ def attribute_theme(
             continue
         events.append(
             {
-                "date": event.get("report_date") or event.get("ingested_at") or "-",
+                "date": event["report_date"],
+                "recorded_at": event.get("recorded_at"),
+                "event_id": event.get("event_id"),
+                "revision_id": event.get("revision_id"),
                 "source_type": "sellside_opinion",
                 "source": event.get("source") or event.get("report_title") or "-",
                 "excerpt": _event_excerpt(event),
@@ -227,7 +239,7 @@ def _summary(status: str, events: list[dict[str, Any]]) -> str:
         return f"驱动在叙事端：{first.get('date', '-')} {first.get('source', '-')}｜{first.get('excerpt', '-')}"
     if status == STATUS_MARKET_ONLY:
         return "研报/晨汇窗口内未命中催化；先确认是否有场外产业事件，再决定研究路径。"
-    return "叙事源（研报观点/晨汇）本身缺失，无法归因；先补数据源。"
+    return "叙事源（研报观点/晨汇）缺失或存在隔离、时间不可用记录，不能据此断言纯盘面异动。"
 
 
 def _window_dates(market_date: str, window_days: int) -> list[str]:
@@ -238,26 +250,15 @@ def _window_dates(market_date: str, window_days: int) -> list[str]:
     return [(anchor - timedelta(days=offset)).isoformat() for offset in range(max(1, window_days))]
 
 
-def _load_opinion_events(path: Path, window_dates: set[str] | None, warnings: list[str]) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
+def _eligible_events(
+    wiki: Path, market_date: str, knowledge_cutoff: str | None, warnings: list[str],
+) -> list[dict[str, Any]]:
+    # Invalid caller cutoffs still raise; a corrupt ledger is an explicit source gap.
     try:
-        with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(event, dict):
-                    continue
-                event_date = str(event.get("report_date") or event.get("ingested_at") or "")
-                if window_dates is None or event_date in window_dates:
-                    events.append(event)
-    except OSError as exc:
-        warnings.append(f"读取卖方观点事件失败：{exc}")
-    return events
+        return load_events(wiki, as_of=market_date, knowledge_cutoff=knowledge_cutoff, warnings=warnings)
+    except (OpinionDataError, OSError, UnicodeError) as exc:
+        warnings.append(f"读取卖方观点事件失败，已隔离该源：{exc}")
+        return []
 
 
 def _significant_lines(path: Path, warnings: list[str]) -> list[str]:
@@ -301,6 +302,8 @@ def _terms_overlap(theme: str, term: str) -> bool:
 
 
 def _event_excerpt(event: dict[str, Any]) -> str:
+    if event.get("claim_summary"):
+        return _clip(event["claim_summary"])
     for key in ("catalysts", "hard_evidence", "soft_claims"):
         values = event.get(key)
         if isinstance(values, list) and values:

@@ -1,0 +1,107 @@
+{
+  "scope": "Offline deterministic numeric-gate repair, not semantic correctness or deployment acceptance",
+  "baseline_runtime_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+  "candidate_revision": "2841ce665b2dae4039ba8c70600c03a48c57fa78",
+  "original_run_id": "run_20260917_203230_060027",
+  "citation_replay": {
+    "before": {
+      "sentence": "- 储能链收跌但涨停家数高，是「涨停集中但板块指数走弱」的分歧组合，若后续出现利多不涨+连板高标走坏，按抱团踩踏前兆判读应降级（E27）；",
+      "quantity_tokens": [
+        "27"
+      ],
+      "rejected_with_citation": [
+        20
+      ],
+      "rejected_without_citation": []
+    },
+    "after": {
+      "sentence": "- 储能链收跌但涨停家数高，是「涨停集中但板块指数走弱」的分歧组合，若后续出现利多不涨+连板高标走坏，按抱团踩踏前兆判读应降级（E27）；",
+      "quantity_tokens": [
+        "27"
+      ],
+      "rejected_with_citation": [],
+      "rejected_without_citation": []
+    }
+  },
+  "archived_numeric_sentences": {
+    "input": "/Users/a77/.local/share/finance-workbench/diagnostics/20260917-sector-history-2030/production-hybrid/continuous-episode.json",
+    "sentences": [
+      {
+        "index": 20,
+        "text": "- 储能链收跌但涨停家数高，是「涨停集中但板块指数走弱」的分歧组合，若后续出现利多不涨+连板高标走坏，按抱团踩踏前兆判读应降级（E27）；"
+      },
+      {
+        "index": 24,
+        "text": "**跟踪与失效**：升级条件=储能/锂电池连续两日边际量为正且板块指数收涨、市场量能回升（量比回到 100% 附近）；"
+      },
+      {
+        "index": 25,
+        "text": "降级/放弃条件=涨停家数从 10 家级快速收缩、数据中心式「热度见顶回落」在储能重演、或指数跌破缩量箱体。"
+      }
+    ],
+    "baseline_rejected": [
+      20,
+      24,
+      25
+    ],
+    "patched_rejected": [
+      24,
+      25
+    ],
+    "boundary": "Deterministic numeric gate only; no model, database or API request"
+  },
+  "red_before_fix": {
+    "passed": 13,
+    "failed": 18
+  },
+  "focused_after_fix": {
+    "passed": 285,
+    "failed": 0
+  },
+  "mutation_mask_disabled": {
+    "passed": 13,
+    "failed": 18
+  },
+  "mutation_numeric_gate_disabled": {
+    "passed": 10,
+    "failed": 21
+  },
+  "full_clean_pytest_receipt": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-citation-numeric-gate-0917",
+    "revision": "2841ce665b2dae4039ba8c70600c03a48c57fa78",
+    "branch": "fix/citation-numeric-gate-0917",
+    "dirty": false,
+    "dirty_paths": [],
+    "worktree_dirty_total": 0,
+    "dependency_gate_bypassed": false,
+    "target": "/Users/a77/fwp-wt-citation-numeric-gate-0917",
+    "counts": {
+      "passed": 11472,
+      "failed": 0,
+      "error": 0,
+      "skipped": 81
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-17T13:38:12+00:00"
+  },
+  "pytest_terminal_extra": {
+    "xfailed": 2,
+    "warnings": 17
+  },
+  "ruff_check_all": "passed",
+  "receipt_check": {
+    "checks_passed": 8,
+    "expected_revision": "2841ce665b2dae4039ba8c70600c03a48c57fa78",
+    "base_drift_max": 0
+  },
+  "not_run": [
+    "frontend checks",
+    "browser/e2e",
+    "full registry-check workflow",
+    "patched live Workbench API/model probe"
+  ]
+}

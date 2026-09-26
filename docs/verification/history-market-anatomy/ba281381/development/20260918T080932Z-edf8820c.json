@@ -1,0 +1,35 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-market-anatomy",
+  "revision": "edf8820c2a23391dd1799baf73c574151bf812f8",
+  "branch": "feat/history-market-anatomy",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/services/historical_research/anatomy.py",
+    "intelligence/services/historical_research/episode.py",
+    "intelligence/services/historical_research/recovery.py",
+    "intelligence/services/historical_research/succession_projection.py",
+    "scripts/history_anatomy_arithmetic.py",
+    "tests/test_history_succession_projection.py"
+  ],
+  "worktree_dirty_total": 6,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_history_succession_projection.py tests/test_history_market_anatomy.py tests/test_history_model_projection.py tests/test_history_anatomy_audit_independent.py tests/test_history_recovery_selection.py",
+  "counts": {
+    "passed": 76,
+    "failed": 5,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_history_succession_projection.py::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite",
+    "tests/test_history_succession_projection.py::test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection[False]",
+    "tests/test_history_succession_projection.py::test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection[True]",
+    "tests/test_history_succession_projection.py::test_new_observation_fields_are_independently_audited_and_old_definition_is_still_supported",
+    "tests/test_history_succession_projection.py::test_real_episode_consumer_uses_observed_days_not_null_confirmation"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-18T08:09:32+00:00"
+}

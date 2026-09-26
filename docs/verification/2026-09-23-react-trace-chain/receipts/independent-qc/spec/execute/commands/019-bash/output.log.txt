@@ -1,0 +1,128 @@
+mkdir_exit=0
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+rootdir: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 3 items
+
+::test_final_page_is_truncated_with_null_next_and_absolute_ids FAILED    [ 33%]
+::test_read_past_the_end_returns_empty_page_without_next_offset FAILED   [ 66%]
+::test_projection_failure_inside_real_result_records_no_success FAILED   [100%]
+
+=================================== FAILURES ===================================
+_________ test_final_page_is_truncated_with_null_next_and_absolute_ids _________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/probe-c5-reg/test_final_page_is_truncated_w0')
+
+    def test_final_page_is_truncated_with_null_next_and_absolute_ids(tmp_path):
+>       registry, context, _session = _registry(tmp_path)
+
+../../spec/work/probes/probe_c5_registry_pages.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_historical_research_episode.py:115: in _registry
+    store = RunStore("history-test", root=tmp_path / "runs")
+intelligence/services/run_store.py:292: in __init__
+    self.db = WorkbenchDB(db_path)
+intelligence/services/workbench_db.py:84: in __init__
+    with self._connect() as conn:
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.workbench_db.WorkbenchDB object at 0x106f68800>
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """事务 + 确定性关闭。
+    
+        裸 ``with sqlite3.connect(...)`` 只管提交/回滚**不关连接**，连接对象
+        等周期 GC 兜底回收。轮询负载下分配快于 GC，fd 顶到 launchd 软上限
+        256 后 EMFILE 以「unable to open database file」形态间歇 500
+        （2026-08-26 生产事故，台账 R-20260826-03）。此处 finally close，
+        fd 生命周期与语句块严格一致，不依赖 GC 时机。
+        """
+    
+>       conn = sqlite3.connect(self.path, timeout=30)
+E       sqlite3.OperationalError: unable to open database file
+
+intelligence/services/workbench_db.py:98: OperationalError
+________ test_read_past_the_end_returns_empty_page_without_next_offset _________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/probe-c5-reg/test_read_past_the_end_returns0')
+
+    def test_read_past_the_end_returns_empty_page_without_next_offset(tmp_path):
+>       registry, context, _session = _registry(tmp_path)
+
+../../spec/work/probes/probe_c5_registry_pages.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_historical_research_episode.py:115: in _registry
+    store = RunStore("history-test", root=tmp_path / "runs")
+intelligence/services/run_store.py:292: in __init__
+    self.db = WorkbenchDB(db_path)
+intelligence/services/workbench_db.py:84: in __init__
+    with self._connect() as conn:
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.workbench_db.WorkbenchDB object at 0x106bbfd70>
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """事务 + 确定性关闭。
+    
+        裸 ``with sqlite3.connect(...)`` 只管提交/回滚**不关连接**，连接对象
+        等周期 GC 兜底回收。轮询负载下分配快于 GC，fd 顶到 launchd 软上限
+        256 后 EMFILE 以「unable to open database file」形态间歇 500
+        （2026-08-26 生产事故，台账 R-20260826-03）。此处 finally close，
+        fd 生命周期与语句块严格一致，不依赖 GC 时机。
+        """
+    
+>       conn = sqlite3.connect(self.path, timeout=30)
+E       sqlite3.OperationalError: unable to open database file
+
+intelligence/services/workbench_db.py:98: OperationalError
+________ test_projection_failure_inside_real_result_records_no_success _________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/probe-c5-reg/test_projection_failure_inside0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10787bf20>
+
+    def test_projection_failure_inside_real_result_records_no_success(tmp_path, monkeypatch):
+>       registry, context, session = _registry(tmp_path)
+
+../../spec/work/probes/probe_c5_registry_pages.py:89: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_historical_research_episode.py:115: in _registry
+    store = RunStore("history-test", root=tmp_path / "runs")
+intelligence/services/run_store.py:292: in __init__
+    self.db = WorkbenchDB(db_path)
+intelligence/services/workbench_db.py:84: in __init__
+    with self._connect() as conn:
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.workbench_db.WorkbenchDB object at 0x107879c40>
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        """事务 + 确定性关闭。
+    
+        裸 ``with sqlite3.connect(...)`` 只管提交/回滚**不关连接**，连接对象
+        等周期 GC 兜底回收。轮询负载下分配快于 GC，fd 顶到 launchd 软上限
+        256 后 EMFILE 以「unable to open database file」形态间歇 500
+        （2026-08-26 生产事故，台账 R-20260826-03）。此处 finally close，
+        fd 生命周期与语句块严格一致，不依赖 GC 时机。
+        """
+    
+>       conn = sqlite3.connect(self.path, timeout=30)
+E       sqlite3.OperationalError: unable to open database file
+
+intelligence/services/workbench_db.py:98: OperationalError
+=========================== short test summary info ============================
+FAILED ::test_final_page_is_truncated_with_null_next_and_absolute_ids - sqlit...
+FAILED ::test_read_past_the_end_returns_empty_page_without_next_offset - sqli...
+FAILED ::test_projection_failure_inside_real_result_records_no_success - sqli...
+============================== 3 failed in 1.70s ===============================
+EXIT=1

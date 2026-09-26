@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..e5b8461f 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -305,7 +305,7 @@ def _ratio_value_slots(value: str, start: int, end: int) -> tuple[list[tuple[int
+         gap = _WITHHELD_SLOT.match(value, cursor, end)
+         number = _prose_number(value[:end], cursor)
+         if gap:
+-            cursor = gap.end()
++            return numbers, end
+         elif number:
+             numbers.append(number)
+             cursor = number[1]

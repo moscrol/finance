@@ -1,0 +1,61 @@
+"""Preserve selected engineering originals and large-file references, never rewrite logs."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+REVISIONS = {'910': '4e4d93a55bfd919b1c42bcb60f079ae56741fc3f',
+             '911': 'a52a3a9759a1d1d33fc5e19c86e35576394dd546'}
+assert json.loads((ROOT / 'remaining-01/summary.json').read_text())['status'] != 'RUNNING'
+assert (ROOT / 'audited-results.json').is_file()
+for pr, revision in REVISIONS.items():
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip() == revision
+    assert not subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True).strip()
+    destination = tree / 'docs/verification' / f'2026-09-25-pr{pr}-main648-engineering'
+    destination.mkdir(exist_ok=False)
+    paths = {p for p in ROOT.iterdir() if p.is_file()}
+    paths |= {p for p in (ROOT / 'remaining-01').iterdir() if p.is_file()}
+    for out in (ROOT / pr, ROOT / 'remaining-01' / pr):
+        paths |= {p for p in out.glob('*') if p.is_file()}
+        paths |= {p for p in (out / 'receipts').glob('gate-*/*') if p.is_file()}
+        paths |= {p for p in (out / 'frontend').glob('*') if p.is_file()}
+    if pr == '910':
+        tmp = ROOT / '910/targeted-tmp'
+        for xml in tmp.glob('test_real_author_checks_execut[0-9]*/sandbox-inputs/*/work/author-checks.xml'):
+            folder = xml.parent.parent
+            paths.add(xml)
+            paths |= set(xml.parent.glob('author-ports.*'))
+            paths |= {p for p in (folder / 'offline-tool-run').rglob('*') if p.is_file()}
+            paths |= {folder / 'config.json', folder / 'tools.sb'}
+        for receipt in tmp.glob('test_sandbox_preflight_collect[0-9]*/sandbox-inputs/*/sandbox-preflight/receipt.json'):
+            paths |= {p for p in receipt.parent.rglob('*') if p.is_file()}
+    records = []
+    for source in sorted(paths):
+        assert not source.is_symlink()
+        raw = source.read_bytes()
+        record = {'source': str(source), 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}
+        if len(raw) > 500000:
+            record['storage'] = 'external-large-original'
+        else:
+            target = destination / 'raw' / source.relative_to(ROOT)
+            if target.suffix in {'.py', '.log', '.sb'}:
+                target = target.with_name(target.name + '.txt')
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            assert target.read_bytes() == raw
+            record.update(path=target.relative_to(destination).as_posix(), storage='git-original')
+        records.append(record)
+    manifest = {'schema_version': 1, 'pr': pr, 'revision': revision,
+                'baseline': '64847b7a173bfb7191012638e8ec044ea31e0513',
+                'created_at': datetime.now(timezone.utc).isoformat(), 'files': records,
+                'scope': 'per-candidate engineering originals; common audit files explicitly identify both PRs',
+                'independent_review': False, 'paid_model_requests': 0,
+                'excluded': 'disposable fixtures except selected nested author evidence; previous-run receipts'}
+    (destination / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'pr': pr, 'originals': len(records),
+                      'external': sum(r['storage'] == 'external-large-original' for r in records),
+                      'archive': str(destination)}))

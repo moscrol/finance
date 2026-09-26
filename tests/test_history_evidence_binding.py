@@ -386,14 +386,21 @@ def test_comparison_contract_maps_slots_to_history_operations_and_keeps_hypothes
         "counterpoint",
         "evidence_boundary",
     }.issubset(outputs)
+    # 相似点仍只能由真做过的类比检索支撑。差异与适用边界则可以立在同窗排名
+    # 与启动到峰值路径上：原先的四算子白名单使 rank_history/trace_history 无处可引，
+    # 模型即使做对也会在终局被 BLOCK（见 tests/test_history_operation_eligibility.py）。
     assert set(outputs["analog_similarities"].allowed_history_operations) == {"find_analogues"}
     assert set(outputs["key_differences"].allowed_history_operations) == {
         "find_analogues",
         "compare_cases",
+        "rank_history",
+        "trace_history",
     }
     assert set(outputs["limits_of_analogy"].allowed_history_operations) == {
         "find_analogues",
         "compare_cases",
+        "rank_history",
+        "trace_history",
     }
     assert outputs["comparison_assumptions"].grounding_mode == "model_reasoning"
     assert outputs["comparison_assumptions"].evidence_types == ()

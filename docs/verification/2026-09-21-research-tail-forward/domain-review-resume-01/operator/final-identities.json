@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-09-21T11:54:16.985460+00:00",
+  "identities": [
+    {
+      "domain": "history",
+      "kind": "source",
+      "tree": "/Users/a77/fwp-wt-history-forward-0921",
+      "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "status": ""
+    },
+    {
+      "domain": "history",
+      "kind": "review",
+      "tree": "/Users/a77/fwp-wt-history-forward-review-0921",
+      "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "status": ""
+    },
+    {
+      "domain": "runtime",
+      "kind": "source",
+      "tree": "/Users/a77/fwp-wt-runtime-forward-0921",
+      "head": "cb16cd463db5c19b3187a5137009791082874653",
+      "status": ""
+    },
+    {
+      "domain": "runtime",
+      "kind": "review",
+      "tree": "/Users/a77/fwp-wt-runtime-forward-review-0921",
+      "head": "cb16cd463db5c19b3187a5137009791082874653",
+      "status": ""
+    },
+    {
+      "domain": "financial",
+      "kind": "source",
+      "tree": "/Users/a77/fwp-wt-financial-forward-0921",
+      "head": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+      "status": ""
+    },
+    {
+      "domain": "financial",
+      "kind": "review",
+      "tree": "/Users/a77/fwp-wt-financial-forward-review-0921",
+      "head": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+      "status": ""
+    }
+  ],
+  "history_prior_evidence_unchanged": true,
+  "history_resume_report_exists": false,
+  "runtime_and_financial_no_process": [
+    true,
+    true
+  ]
+}

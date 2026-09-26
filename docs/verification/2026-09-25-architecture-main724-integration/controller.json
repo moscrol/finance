@@ -1,0 +1,9 @@
+{
+  "revision": "bb556febd41fed492bdd9d2c10ac95075f9d6726",
+  "started_at": "2026-09-25T10:48:07.412174+00:00",
+  "pid": 88052,
+  "leaves": [],
+  "complete": false,
+  "blocked_leaf": "frontend",
+  "finished_at": "2026-09-25T11:08:09.697233+00:00"
+}

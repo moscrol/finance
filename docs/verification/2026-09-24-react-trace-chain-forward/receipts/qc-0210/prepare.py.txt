@@ -1,0 +1,39 @@
+"""New finite continuation after a diagnosed sandbox admission gap."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SEED = ROOT.parent/'pr832-glm-qc-20260924-0148'
+AUTHOR = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+TREE = ROOT/'candidate/finance-workspace-private'
+REV = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+assert subprocess.check_output(['git','-C',str(AUTHOR),'rev-parse','HEAD'],text=True).strip() == REV
+assert not subprocess.check_output(['git','-C',str(AUTHOR),'status','--porcelain'])
+subprocess.run(['git','-C',str(AUTHOR),'worktree','add','--detach',str(TREE),REV],check=True)
+lock = json.loads((SEED/'harness-lock.json').read_text())
+provenance = []
+for name in lock['files']:
+    if '/sandbox-preflight/' in name:
+        continue
+    source = SEED/name
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == lock['files'][name]
+    dest = ROOT/name
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    dest.write_text(source.read_text().replace(str(SEED),str(ROOT)))
+    provenance.append({'source':str(source),'sha256':lock['files'][name],'destination':name})
+for name in ['glm_credential.py','glm_review_shim.py','run_batch.py','finish_setup.py']:
+    source = SEED/name
+    (ROOT/name).write_text(source.read_text().replace(str(SEED),str(ROOT)))
+for axis in ['spec','quality']:
+    for name in ['work/tmp','work/users','work/probes']:
+        (ROOT/axis/name).mkdir(parents=True)
+protocol = json.loads((ROOT/'protocol.json').read_text())
+protocol.update(created_at=datetime.now(timezone.utc).isoformat(),candidate_tree=str(TREE),previous_batch=str(SEED),
+                continuation='One new finite batch after offline reproduction/fix of metadata-only pytest collection failure. Previous29 requests and all failures remain. No cap increase or HTTP retry.',
+                reviewer_artifacts_copied=False,actual_author_suite_admission='REQUIRED_BEFORE_SEAL')
+(ROOT/'protocol.json').write_text(json.dumps(protocol,ensure_ascii=False,indent=2)+'\n')
+(ROOT/'tooling-provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
+print(json.dumps({'root':str(ROOT),'revision':REV,'model_requests':0}))

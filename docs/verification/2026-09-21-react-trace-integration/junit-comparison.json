@@ -1,0 +1,17 @@
+{
+  "previous": {
+    "total": 12643,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 89
+  },
+  "current": {
+    "total": 12685,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 89
+  },
+  "skip_names_and_reasons_equal": true,
+  "previous_revision": "ec246761eec6caeac17ea9ad3477b06248f200f5",
+  "current_revision": "a14005fc9a9d671d178da6fc91be9cb69ae67e77"
+}

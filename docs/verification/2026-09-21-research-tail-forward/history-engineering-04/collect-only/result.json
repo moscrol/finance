@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "--collect-only",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "started_at": "2026-09-21T16:55:36.951584+00:00",
+  "before": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 3409145856
+  },
+  "timeout_seconds": 150,
+  "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+  "signals": [],
+  "finished_at": "2026-09-21T16:57:27.542130+00:00",
+  "elapsed_seconds": 110.58911083312705,
+  "exit_code": 0,
+  "stop_reason": null,
+  "after": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 4196139008
+  },
+  "log_sha256": "7faa877b9cd53eba786fbeb0aff140fa9b478eaf6b15b6ed62e840c1a5836db0"
+}

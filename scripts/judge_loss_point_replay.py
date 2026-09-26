@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import math
 import os
 import re
 import sys
@@ -45,7 +46,11 @@ from typing import Any, Mapping
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from intelligence.services.agent_research import AgentEvidence, ProviderTrace  # noqa: E402
+from intelligence.services.agent_research import (  # noqa: E402
+    AgentEvidence,
+    ProviderTrace,
+    StructuredObservation,
+)
 from intelligence.services.agent_runtime import (  # noqa: E402
     AgentOutcome,
     AgentUsage,
@@ -89,9 +94,60 @@ def _build(cls, payload: Mapping[str, Any], **overrides: Any):
     return cls(**kwargs)
 
 
-def _rebuild_outcome(payload: Mapping[str, Any]) -> AgentOutcome:
+_OBSERVATION_TEXT_FIELDS = ("subject", "as_of", "metric")
+
+
+def _rebuild_observations(item: Any) -> tuple[StructuredObservation, ...]:
+    """存证 ``observations``（``asdict`` 列表）→ ``StructuredObservation``，值一律转 float。
+
+    缺键 / 非列表 → 空。单条坏形状跳过、不连坐整张卡：非 dict、文本字段缺或非
+    str、值不是有限的 int/float（bool 不算数）。判据与仓内严格加载器
+    （``episode_evidence._atom`` / ``prior_evidence._original_atom``）同口径，只是
+    这里跳过而不抛——重放要容忍旧存档，但不替坏条目编数。多余键忽略。
+    """
+
+    raw = item.get("observations") if isinstance(item, Mapping) else None
+    if not isinstance(raw, list):
+        return ()
+    rebuilt: list[StructuredObservation] = []
+    for entry in raw:
+        if not isinstance(entry, Mapping):
+            continue
+        texts = {key: entry.get(key) for key in _OBSERVATION_TEXT_FIELDS}
+        value = entry.get("value")
+        if any(not isinstance(text, str) for text in texts.values()):
+            continue
+        if type(value) not in (int, float):
+            continue
+        try:
+            number = float(value)
+        except OverflowError:  # JSON 整数不设上限，装不进 float 的不是可比的观察值
+            continue
+        if math.isfinite(number):
+            rebuilt.append(StructuredObservation(**texts, value=number))
+    return tuple(rebuilt)
+
+
+def _rebuild_outcome(
+    payload: Mapping[str, Any], *, keep_observations: bool = True
+) -> AgentOutcome:
+    """存证 outcome → ``AgentOutcome``；证据的结构化观察值默认原样还原。
+
+    两处下游读观察值，丢了它重放就与生产分叉：数值门 2026-09-21 起把观察值当支撑
+    来源（``episode_semantic_verifier._bound_evidence_quantities`` /
+    ``_bound_observation_values``），会多判「证据里没有的数量」；结构核验对财报题的
+    ``metric_evidence`` 槽（``episode_verifier`` 函数内懒加载的
+    ``financial_report_contract.report_binding_gaps``）按观察值核报告期与指标，会把
+    有据的槽判缺。``keep_observations=False`` 复现 2026-09-09 版（b7bf0d941）的置空
+    重建，只给要对照旧读数的差分臂用。
+    """
+
     evidence = tuple(
-        _build(AgentEvidence, item, observations=())
+        _build(
+            AgentEvidence,
+            item,
+            observations=_rebuild_observations(item) if keep_observations else (),
+        )
         for item in payload.get("evidence") or []
     )
     traces = tuple(_build(ProviderTrace, item) for item in payload.get("traces") or [])
@@ -147,7 +203,7 @@ def _verdict_counts(sv: Mapping[str, Any]) -> dict[str, int] | None:
     return dict(counter)
 
 
-def replay_receipt(path: Path) -> dict[str, Any]:
+def replay_receipt(path: Path, *, keep_observations: bool = True) -> dict[str, Any]:
     receipt = json.loads(path.read_text(encoding="utf-8"))
     run_id = path.parent.name
     user = path.parents[2].name
@@ -195,7 +251,7 @@ def replay_receipt(path: Path) -> dict[str, Any]:
     }
     try:
         contract = ResearchTaskContract.from_dict(contract_payload)
-        outcome = _rebuild_outcome(outcome_payload)
+        outcome = _rebuild_outcome(outcome_payload, keep_observations=keep_observations)
         verified = verify_episode_outcome(contract, outcome)
         row["replayed_structural"] = verified.verified_status
         # 与 archived_codes 同口径去重（按 code），否则「存证 vs 重放」会把重复码数成差异。
@@ -308,12 +364,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", default=None, help="把逐题行写成 JSON 文件")
     parser.add_argument("--markdown", action="store_true", help="逐题 markdown 表")
     parser.add_argument("--only-loss", action="store_true", help="只列有损失的题（非 L5）")
+    parser.add_argument(
+        "--drop-observations",
+        action="store_true",
+        help="复现 2026-09-09 版置空观察值的重建，只为对照旧读数；默认保留，与生产一致",
+    )
     args = parser.parse_args(argv)
 
     root = Path(args.runs_dir).expanduser() if args.runs_dir else _default_users_root()
     users = [item.strip() for item in args.users.split(",") if item.strip()]
     runs = _parse_runs(args.runs)
-    rows = [replay_receipt(path) for path in _iter_receipts(root, users, args.since, runs)]
+    keep_observations = not args.drop_observations
+    rows = [
+        replay_receipt(path, keep_observations=keep_observations)
+        for path in _iter_receipts(root, users, args.since, runs)
+    ]
     if args.limit:
         rows = rows[-args.limit :]
     if runs is not None:
@@ -323,7 +388,10 @@ def main(argv: list[str] | None = None) -> int:
 
     shown = [row for row in rows if not args.only_loss or row["first_loss"] != "L5_delivered"]
     summary = Counter(row["first_loss"] for row in rows)
-    print(f"episodes={len(rows)} users={users} since={args.since or '-'}")
+    print(
+        f"episodes={len(rows)} users={users} since={args.since or '-'} "
+        f"observations={'kept' if keep_observations else 'dropped'}"
+    )
     for key in LOSS_POINTS:
         print(f"  {key:22} {summary.get(key, 0)}")
     changed = [row for row in rows if row["structural_delta"]]

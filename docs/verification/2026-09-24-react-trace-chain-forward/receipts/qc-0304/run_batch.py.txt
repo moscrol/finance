@@ -1,0 +1,56 @@
+"""One finite serial Spec/Quality batch, stopping at the first failed stage."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1', 'GIT_OPTIONAL_LOCKS': '0'}
+if sys.argv[1:] == ['--background']:
+    with (ROOT/'batch.log.txt').open('xb') as stream:
+        proc = subprocess.Popen([PYTHON, '-B', __file__], env=ENV, stdout=stream, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL, start_new_session=True)
+    print(json.dumps({'pid': proc.pid, 'output': str(ROOT/'batch.json')}))
+    raise SystemExit(0)
+
+record = {'started_at': datetime.now(timezone.utc).isoformat(), 'status': 'RUNNING', 'requests': 0,
+          'max_requests': 152, 'automatic_retries': 0, 'stages': [], 'natural_finance_requests': 0}
+with (ROOT/'batch.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+
+
+def save():
+    temporary = ROOT/'batch.pending'
+    temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2)+'\n')
+    os.replace(temporary, ROOT/'batch.json')
+
+
+try:
+    for axis in ['spec', 'quality']:
+        for stage in ['gateway', 'explore', 'execute', 'report']:
+            record['current'] = f'{axis}/{stage}'
+            save()
+            result = subprocess.run([PYTHON, '-B', str(ROOT/axis/'run_control.py'), stage], env=ENV)
+            receipt_path = ROOT/axis/(stage+'.controller.json')
+            receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
+            record['stages'].append({'axis': axis, 'stage': stage, 'controller_exit': result.returncode, **receipt})
+            record['requests'] += receipt.get('shim_counts', {}).get('dispatched', 0)
+            save()
+            if result.returncode or receipt.get('status') != 'COMPLETE' or record['requests'] > 152:
+                record['status'] = 'BLOCKED_STAGE'
+                raise SystemExit(1)
+        verdict = json.loads((ROOT/axis/'report/REPORT.json').read_text())['verdict']
+        if verdict not in ['PASS', 'PASS_WITH_LIMITS']:
+            record['status'] = verdict
+            raise SystemExit(1)
+    record['status'] = 'COMPLETE_PENDING_HOST_EVIDENCE_CHECK'
+finally:
+    if record['status'] == 'RUNNING':
+        record['status'] = 'BLOCKED_CONTROLLER_EXCEPTION'
+    record['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save()
+    print(json.dumps({'status': record['status'], 'requests': record['requests'], 'last_stage': record.get('current')}), flush=True)

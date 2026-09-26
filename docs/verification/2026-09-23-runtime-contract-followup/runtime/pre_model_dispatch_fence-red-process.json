@@ -1,0 +1,40 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/host.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/entry.py",
+    "-q",
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red.xml",
+    "intelligence/tests/test_episode_persistence_failure.py",
+    "intelligence/tests/test_model_turn_completion_boundary.py",
+    "intelligence/tests/test_workbench_api.py::test_sse_emits_terminal_message_arriving_between_reads",
+    "-k",
+    "test_failed_write_stops_new_effects",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/pytest"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/scratch/contract-mutations-aqhz89le/tree",
+  "env": {
+    "PATH": "/Users/a77/.pi/agent/bin:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Applications/Ghostty.app/Contents/MacOS",
+    "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/home",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/scratch/contract-mutations-aqhz89le/tree",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/users",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red/tmp",
+    "KNOWLEDGE_WIKI": "/Users/a77/knowledge-base-private/wiki"
+  },
+  "timeout": 120,
+  "exit_code": 1,
+  "raw_sha256": "799798e43dfc22c043b2e012e8407f729f95473a55b8a19c574c080d6c976966"
+}

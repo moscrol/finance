@@ -1,0 +1,62 @@
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+
+
+def _structural(
+    draft: str,
+    *,
+    status: str = "completed",
+    detail: str = "市场成交额与结构观察",
+    title: str = "A股市场快照",
+    source: str = "行情快照",
+    gaps: tuple[str, ...] = (),
+    traces: tuple[ProviderTrace, ...] = (),
+    required_outputs: tuple[RequiredOutput, ...] | None = None,
+    research_tier: str = "standard",
+):
+    frame = _frame()
+    evidence = AgentEvidence(
+        tool="market_data",
+        title=title,
+        detail=detail,
+        source=source,
+        source_date="2026-07-22",
+        content_hash="HASH_PRIVATE_SENTINEL",
+    )
+    if required_outputs is None:
+        required_outputs = (
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+        )
+    contract = ResearchTaskContract(
+        task_id="semantic-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=required_outputs,
+        allowed_capabilities=("market_data",),
+        research_tier=research_tier,
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status=status,
+        draft=draft,
+        evidence=(evidence,),
+        traces=traces,
+        gaps=gaps,
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+
+[truncated; total lines=5180, selected=60:119; request a later offset]

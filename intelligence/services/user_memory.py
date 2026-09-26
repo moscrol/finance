@@ -398,13 +398,17 @@ def _method_records(
     query: str,
     user: str | None,
     users_root: str | Path | None,
+    *,
+    strict: bool = False,
 ) -> list[dict[str, Any]]:
-    """方法验证立场召回；任何失败只降级为空，不让记忆召回本身失败。"""
+    """方法验证立场召回；默认容错，开口预取须显式区分失败与空命中。"""
     try:
         from intelligence.services.method_validation import flywheel
 
         return flywheel.recall_for_query(query, user=user, users_root=users_root)
     except Exception:
+        if strict:
+            raise OSError("method memory unavailable") from None
         return []
 
 
@@ -425,12 +429,17 @@ def relevant_memory_records(
     user: str | None = None,
     limit: int = DEFAULT_LIMIT,
     users_root: str | Path | None = None,
+    *,
+    strict: bool = False,
 ) -> MemoryRecall:
     """Recall relevant judgments/corrections as records, not rendered markdown."""
 
     j_path, c_path, _ck_path, _v_path = _ledger_paths(user, users_root)
-    j_records, _ = judgments.load_judgments(j_path, window=DEFAULT_LOAD_WINDOW)
-    c_records, _ = corrections.load_corrections(c_path, window=DEFAULT_LOAD_WINDOW)
+    read_options = {"strict": True} if strict else {}
+    j_records, j_warning = judgments.load_judgments(j_path, window=DEFAULT_LOAD_WINDOW, **read_options)
+    c_records, c_warning = corrections.load_corrections(c_path, window=DEFAULT_LOAD_WINDOW, **read_options)
+    if strict and (j_warning or c_warning):
+        raise OSError("user memory ledger unavailable")
     return MemoryRecall(
         judgments=select_relevant(
             j_records,
@@ -451,7 +460,7 @@ def relevant_memory_records(
         ),
         judgments_path=j_path,
         corrections_path=c_path,
-        methods=_method_records(query, user, users_root),
+        methods=_method_records(query, user, users_root, strict=strict),
     )
 
 

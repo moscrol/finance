@@ -1,0 +1,10 @@
+{
+  "command": "python -m scripts.agent_review.gate --repo /Users/a77/fwp-q-research-data-readiness --state-root /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01",
+  "tool_timeout_seconds": 120,
+  "completed": false,
+  "stdout_bytes": 0,
+  "exit_code": null,
+  "remaining_processes": 0,
+  "authority": "no_decision",
+  "note": "Do not infer PASS, CHANGES_REQUIRED or a timing cause. Direct validate_verdict result is independently preserved with exit1/authority none. No retry was run."
+}

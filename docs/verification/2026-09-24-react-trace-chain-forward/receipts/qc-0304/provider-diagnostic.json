@@ -1,0 +1,75 @@
+{
+  "recorded_at": "2026-09-23T18:46:41.109007+00:00",
+  "model_requests_added": 0,
+  "sources": [
+    {
+      "url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.3.md",
+      "snapshot": "glm-5.3-source.md",
+      "bytes": 23572,
+      "sha256": "7731b96335c6a263303240615e3b9f20d433e8bf04565bb04936444691036bcf"
+    },
+    {
+      "url": "https://docs.bigmodel.cn/cn/guide/start/migrate-to-glm-new.md",
+      "snapshot": "glm-migration-source.md",
+      "bytes": 8199,
+      "sha256": "926305aa8313bb74f3425524ff8cb636e91dd8bb062828790f53629c107b0b20"
+    },
+    {
+      "url": "https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode.md",
+      "snapshot": "glm-thinking-source.md",
+      "bytes": 6511,
+      "sha256": "9e18ec7b365f93c539a8b4c9d9c6a71bdb2ec590abd53972f20c42c2f6063641"
+    }
+  ],
+  "facts": [
+    "GLM-5.3 requires thinking enabled and defaults reasoning_effort to max.",
+    "Official supported low-cost thinking setting is enabled with reasoning_effort low, not off.",
+    "Native completion ceiling parameter is max_tokens.",
+    "Installed SDK offline capture reproduces old missing effort and max_completion_tokens, and validates corrected native low configuration."
+  ],
+  "limits": [
+    "Historical payload-shape logs and SDK reproduction are not a retroactive capture of every outgoing body.",
+    "These configuration mismatches do not prove all 120-second stream failures have the same cause.",
+    "Old nontrivial assertion failures remain unclassified; provider diagnosis does not prove product correctness."
+  ],
+  "batches": [
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148",
+      "status": "BLOCKED_STAGE",
+      "dispatched_requests": 29,
+      "recorded_payload_shapes": 28,
+      "shapes_with_max_completion_tokens_8192": 28,
+      "shapes_with_explicit_reasoning_effort": 0,
+      "events_aggregate": {
+        "gateway_nonempty_thinking_deltas": 404,
+        "explore_nonempty_thinking_deltas": 20712,
+        "execute_nonempty_thinking_deltas": 9065
+      }
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0210",
+      "status": "BLOCKED_STAGE",
+      "dispatched_requests": 4,
+      "recorded_payload_shapes": 3,
+      "shapes_with_max_completion_tokens_8192": 3,
+      "shapes_with_explicit_reasoning_effort": 0,
+      "events_aggregate": {
+        "gateway_nonempty_thinking_deltas": 1504
+      }
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216",
+      "status": "BLOCKED_STAGE",
+      "dispatched_requests": 35,
+      "recorded_payload_shapes": 34,
+      "shapes_with_max_completion_tokens_8192": 34,
+      "shapes_with_explicit_reasoning_effort": 0,
+      "events_aggregate": {
+        "gateway_nonempty_thinking_deltas": 89,
+        "explore_nonempty_thinking_deltas": 13683,
+        "execute_nonempty_thinking_deltas": 23697
+      }
+    }
+  ],
+  "current_authorization_dispatched_before_new_batch": 68
+}

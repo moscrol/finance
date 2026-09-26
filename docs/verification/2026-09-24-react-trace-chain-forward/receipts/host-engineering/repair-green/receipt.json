@@ -1,0 +1,31 @@
+{
+  "label": "green",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "intelligence/tests/test_condition_reference_seams.py",
+    "intelligence/tests/test_episode_numeric_citations.py",
+    "intelligence/tests/test_episode_semantic_verifier.py",
+    "intelligence/tests/test_episode_protocol.py",
+    "intelligence/tests/test_finance_query_repair_feedback.py",
+    "intelligence/tests/test_agent_episode_progress.py",
+    "intelligence/tests/test_research_progress.py",
+    "tests/test_history_model_projection.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/green/tmp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/green/junit.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-react-trace-chain-0923",
+  "exit_code": 0,
+  "elapsed_seconds": 10.550868332851678,
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "status": " M docs/agent-product-door.md\n M intelligence/services/episode_semantic_verifier.py\n M intelligence/tests/test_condition_reference_seams.py\n",
+  "files_sha256": {
+    "/Users/a77/fwp-wt-react-trace-chain-0923/intelligence/services/episode_semantic_verifier.py": "6f7c16eaf638f2f74a254d4475813ce18cafe9970d33684a7f1835e0e442576f",
+    "/Users/a77/fwp-wt-react-trace-chain-0923/intelligence/tests/test_condition_reference_seams.py": "1da6c231ec6f6dbf7c59f33421bd993e627eadef0af862525705c6e06615eccf"
+  },
+  "log_sha256": "c9020defc11e14578a5eee591e91099ab2a210fa08a724a67946fddf08e44e50"
+}

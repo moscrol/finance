@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "_ORDINAL|strip_evidence_ordinals",
+    "/Users/a77/finance-workspace-private/intelligence/services/episode_protocol.py"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 129,
+  "output_sha256": "c25865a13297020c7a111f934e55c35511d2ccca6814dad4b552bae80e4069ab"
+}

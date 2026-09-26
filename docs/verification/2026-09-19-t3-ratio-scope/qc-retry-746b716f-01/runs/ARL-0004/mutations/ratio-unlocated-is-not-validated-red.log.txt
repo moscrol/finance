@@ -1,0 +1,94 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/runs/ARL-0004/mutations/ratio-unlocated-is-not-validated-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed or test_review_unlocated_ratio_reopens_existing_repair_without_erasure"], "cwd": "/private/tmp/extraction-closeout-mutations-y7e6b255/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+FFFFFFFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:194: in test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:194: in test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:194: in test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())
+_ test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:194: in test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-off] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-llm] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-off] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-llm] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-off] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-llm] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-off] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+_ test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-llm] _
+intelligence/tests/test_research_delivery_review_regressions.py:213: in test_review_unlocated_ratio_reopens_existing_repair_without_erasure
+    assert result.status == "partial" and result.repair_output_ids
+E   AssertionError: assert ('completed' == 'partial'
+E     
+E     - partial
+E     + completed)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-746b716f-01/runs/ARL-0004/mutations/ratio-unlocated-is-not-validated-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u65b0\u9ad8\uff0c\u8be5\u503c\u4e3a1.587\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a2025\u4e2d\u62a5\u76841.2\u500d\u3002-llm]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_unlocated_ratio_reopens_existing_repair_without_erasure[2026\u4e2d\u62a5\u542b\u91d1\u91cf2\u500d\u4e8e\u540c\u4e1a\uff0c\u5b9e\u9645\u4e3a1.587\u3002-llm]
+12 failed, 404 deselected in 1.06s
+
+STDERR:
+
+EXIT=1

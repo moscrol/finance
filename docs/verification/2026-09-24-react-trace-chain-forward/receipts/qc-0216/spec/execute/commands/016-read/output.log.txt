@@ -1,0 +1,145 @@
+"""PR832 spec probe 5 (C2+C3): safe finance_query diagnostics; repair feeds back
+into the same Episode without dropping evidence or minting budget.
+
+Borrowed plumbing only: episode registry build + duckdb table shape from the
+author's new offline test module; expectations are my own.
+"""
+from __future__ import annotations
+
+import json
+import duckdb
+import pytest
+from dataclasses import replace
+from uuid import uuid4
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services import episode_tools, finance_query
+from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.tests.test_agent_episode import _context, _finish_turn, _frame
+
+
+def _request(**overrides):
+    return {
+        "dataset": "market_daily", "dimensions": ["trade_date"],
+        "metrics": ["stage_day"],
+        "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+        **overrides,
+    }
+
+
+def _setup(tmp_path, *, max_steps=3):
+    path = tmp_path / "db" / "market_feature_store.duckdb"
+    path.parent.mkdir()
+    with duckdb.connect(str(path)) as con:
+        con.execute(
+            "CREATE TABLE fact_market_daily "
+            "(trade_date DATE, stage_day INTEGER, sh_index_pct_chg DOUBLE)"
+        )
+        con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-21', 3, 1.25)")
+    frame = _frame()
+    context = replace(
+        _context(frame, max_steps=max_steps, allowed_capabilities=("finance_query",)),
+        trace_parent_id=uuid4().hex,
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+    )
+    return frame, context, ResearchToolRegistry((registry.resolve("finance_query"),)), path
+
+
+def _execute(registry, context, arguments):
+    return registry.execute("finance_query", arguments, context=context, step_id=uuid4().hex)
+
+
+def test_invalid_arguments_yield_structured_error_not_fabricated_rows(tmp_path):
+    _f, context, registry, path = _setup(tmp_path)
+    before = path.read_bytes()
+    bad = _execute(registry, context, _request(
+        metrics=["stage_day"], filters=[{"field": "/etc/passwd", "op": "eq", "value": 99.9}],
+    ))
+    assert bad.trace.status == "parse_error"
+    assert not bad.evidence
+    assert "/etc/passwd" not in bad.observation
+    assert "1.25" not in bad.observation  # no fabricated observation
+    assert path.read_bytes() == before
+
+
+def test_failure_result_redacts_secret_paths_and_percent_prose():
+    prose = "secret/path forbidden-provider-text 99.9% future fact"
+    result = episode_tools._finance_query_failure_result(
+        finance_query.FinanceQuerySpec.from_arguments(_request()),
+        finance_query.FinanceQueryValidationError(f"not a metric: {prose}"),
+    )
+    assert result.observation == "" and not result.evidence
+    assert len(result.diagnostics) == 1
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "invalid_query"
+    for banned in ("secret/path", "forbidden-provider-text", "99.9%"):
+        assert banned not in diagnostic.message
+    assert "重试提示" in diagnostic.message
+
+
+class _Scripted:
+    """Good query, then invalid query, then finish — same episode."""
+
+    def __init__(self):
+        self.calls = []
+        self.tool_messages = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.calls.append({"messages": list(messages)})
+        self.tool_messages = [m for m in messages if m.get("role") == "tool"]
+        if len(self.tool_messages) == 0:
+            return ModelTurn("", (ModelToolCall("q1", "finance_query",
+                                                _request(metrics=["sh_index_pct_chg"])),),
+                             "scripted", "")
+        if len(self.tool_messages) == 1:
+            return ModelTurn("", (ModelToolCall("q2", "finance_query", _request()),),
+                             "scripted", "")
+        return _finish_turn(status="partial", draft="探针：仅验证反馈与预算，不验证研究质量。",
+                            hashes=(), gap="probe only")
+
+
+def test_local_validation_failure_feeds_back_same_episode_keeps_evidence_and_budget(tmp_path):
+    frame, context, registry, path = _setup(tmp_path)
+    before = path.read_bytes()
+    model = _Scripted()
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.usage.tool_calls == 2          # no extra slot minted for the retry
+    assert len(model.calls) == 3                   # same episode, third turn still sees history
+    assert len(model.tool_messages) == 2
+    first = json.loads(model.tool_messages[0]["content"])
+    second = json.loads(model.tool_messages[1]["content"])
+    assert first.get("evidence")                   # good query returned evidence
+    assert not second.get("evidence")
+    assert "stage_day→market_daily.dimension" in second.get("observation", "")
+    assert "重试提示" in second.get("observation", "")
+    # Existing evidence survives the local validation failure.
+    assert outcome.evidence and outcome.evidence[0].tool == "finance_query"
+    events = [e for e in outcome.events if e.kind == "tool_result"]
+    assert len(events) == 2
+    assert path.read_bytes() == before
+
+
+def test_cancellation_after_feedback_stops_without_extra_dispatch(tmp_path):
+    from threading import Event
+    frame, context, registry, _ = _setup(tmp_path)
+    cancelled = Event()
+
+    class _CancelAfterFirst(_Scripted):
+        def complete(self, *, messages, tools, timeout):
+            turn = super().complete(messages=messages, tools=tools, timeout=timeout)
+            if len(self.tool_messages) == 1:
+                cancelled.set()
+            return turn
+
+    model = _CancelAfterFirst()
+    outcome = ContinuousAgentEpisode(model, is_cancelled=cancelled.is_set).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert outcome.stop_reason == "cancelled"
+    assert outcome.usage.tool_calls == 1

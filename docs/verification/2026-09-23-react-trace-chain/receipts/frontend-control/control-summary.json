@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "runs": [
+    {
+      "name": "main",
+      "revision": "626d8a508c1c988ff094110b371987e6afdcdd15",
+      "receipt": "main/frontend.json",
+      "started_at": "2026-09-23T14:35:51.132499+00:00",
+      "finished_at": "2026-09-23T14:37:58.973148+00:00",
+      "checks": 6,
+      "unit_passed": 120,
+      "e2e_passed": 34,
+      "e2e_skipped": 2,
+      "e2e_elapsed_seconds": 91.89,
+      "resource_samples": 27,
+      "cpu_count": 10,
+      "load_one_minute": {
+        "min": 10.25537109375,
+        "median": 11.97802734375,
+        "max": 13.591796875
+      },
+      "min_disk_free_bytes": 24346472448
+    },
+    {
+      "name": "candidate",
+      "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+      "receipt": "candidate/frontend.json",
+      "started_at": "2026-09-23T14:38:01.296032+00:00",
+      "finished_at": "2026-09-23T14:39:46.848881+00:00",
+      "checks": 6,
+      "unit_passed": 120,
+      "e2e_passed": 34,
+      "e2e_skipped": 2,
+      "e2e_elapsed_seconds": 79.06,
+      "resource_samples": 23,
+      "cpu_count": 10,
+      "load_one_minute": {
+        "min": 8.93701171875,
+        "median": 11.0380859375,
+        "max": 13.79150390625
+      },
+      "min_disk_free_bytes": 23155642368
+    }
+  ],
+  "limitations": [
+    "One serial observation per revision, not randomized or a performance benchmark.",
+    "Resource samples describe the shared host, not isolated per-test consumption.",
+    "Previous two candidate failures remain valid history; their root cause is unproven.",
+    "No independent QC, natural-finance acceptance, merge or deployment authorization."
+  ],
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "verdict": "ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS"
+}

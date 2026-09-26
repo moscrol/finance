@@ -1,0 +1,43 @@
+{
+  "candidate_revision": "bb556febd41fed492bdd9d2c10ac95075f9d6726",
+  "main_revision": "72402839075e3eefdee7b185db015a0545096b22",
+  "four_leaf_status": "BLOCKED",
+  "four_leaves_started": false,
+  "pytest_started": false,
+  "static_checks_status": "PASS",
+  "controller_exited": true,
+  "files": {
+    "admission-01.json": {
+      "bytes": 1546,
+      "sha256": "a8a7b8e0714b8161f4125df98b7a5f939680d54f6851e91ddc4a4438f55d2b5f"
+    },
+    "admission-frontend.jsonl": {
+      "bytes": 41489,
+      "sha256": "e83aacb1ae5fc1fcc82bfd3aef3626d8b2f649ac94f8a1cdd5d7b1ccab916018"
+    },
+    "controller.json": {
+      "bytes": 249,
+      "sha256": "683ff0602cff247dbe1baa50b9c0077ad3407a4a45f8c873e67012e6c873293d"
+    },
+    "controller.log.txt": {
+      "bytes": 4182,
+      "sha256": "45c668d4ea8a75916a65e133ad9c666d5a5a20ead1a321651eef367b7692370d"
+    },
+    "diff-check.log.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integration.json": {
+      "bytes": 812,
+      "sha256": "16f5a2ca4d63f3964fd38545cd48ef3a463532c215b61ea5234389f32ddcddb2"
+    },
+    "ruff.log.txt": {
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "static-checks.json": {
+      "bytes": 955,
+      "sha256": "67564d0abf5b190b2a589e80f3ce306db59decd459676b4afe85f1118a5ff848"
+    }
+  }
+}

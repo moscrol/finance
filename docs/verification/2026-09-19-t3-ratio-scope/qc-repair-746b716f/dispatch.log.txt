@@ -1,0 +1,1 @@
+{"detail": "transport", "review_id": "ARL-0004", "status": "REVIEWER_INACTIVE"}
