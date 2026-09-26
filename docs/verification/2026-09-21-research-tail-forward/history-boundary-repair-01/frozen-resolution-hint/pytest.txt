@@ -1,0 +1,10 @@
+.....................................F...                                [100%]
+=================================== FAILURES ===================================
+______ test_raw_resolution_hint_cannot_override_protected_boundary[True] _______
+tests/test_history_control_boundary.py:208: in test_raw_resolution_hint_cannot_override_protected_boundary
+    assert is_contextual_follow_up(
+E   AssertionError: assert True is not True
+E    +  where True = is_contextual_follow_up('解释这句话：「那它呢？」', QueryEnvelope(question_type='general_finance_qa', subject_kind='unknown', subject=None, decision_goal='形成条件化判断', timef...eting_explanations=(), method_candidates=(), history_intent=None, material_contract=None, conversation_materials=None)), TurnIntent(primary_subject='农业', secondary_topics=(), question_type='theme_analysis', answer_owner='theme-research', c...True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)), resolution=QueryResolution(envelope=QueryEnvelope(question_type='general_finance_qa', subject_kind='unknown', subject=None, decis...d='none', context_dependent=True, status='resolved', candidates=(), suggested_action='proceed', comparison_entities=()))
+=========================== short test summary info ============================
+FAILED tests/test_history_control_boundary.py::test_raw_resolution_hint_cannot_override_protected_boundary[True]
+1 failed, 40 passed in 0.86s

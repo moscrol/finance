@@ -1,0 +1,15 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/runs/ARL-0005/mutations/harness-status-delivery-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_actual_failure_flag_reaches_model_and_audit_not_transport_ok"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-2rfxbfv4/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_actual_failure_flag_reaches_model_and_audit_not_transport_ok _______
+intelligence/tests/test_research_delivery_checks.py:353: in test_actual_failure_flag_reaches_model_and_audit_not_transport_ok
+    assert projection.audit_payload["ok"] is False and model["ok"] is False
+E   assert (True is False)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/runs/ARL-0005/mutations/harness-status-delivery-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_actual_failure_flag_reaches_model_and_audit_not_transport_ok
+1 failed, 600 deselected in 1.01s
+
+STDERR:
+
+EXIT=1

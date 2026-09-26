@@ -1,0 +1,77 @@
+"""Six bounded mutations; restore each file before its matching green run."""
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path('/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+OUT = Path(__file__).resolve().parent
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+EVIDENCE = 'intelligence/services/episode_evidence.py'
+PRESENTATIONS = 'intelligence/tests/test_episode_evidence_presentations.py'
+SNAPSHOTS = 'intelligence/tests/test_episode_evidence_snapshot.py'
+API = 'intelligence/tests/test_api_fixture_lifecycle.py'
+MUTATIONS = [
+    ('M1-hash-only', EVIDENCE,
+     'if replace(item, supports=original.supports, contradicts=original.contradicts) != original:',
+     'if item.content_hash != original.content_hash:',
+     [PRESENTATIONS, '-k', 'same_hash_presentations or v2_digest']),
+    ('M2-unknown-as-future', EVIDENCE,
+     'raise ValueError("presented evidence is absent from the ledger and is not valid future material")',
+     'return "future_of_cutoff"',
+     [PRESENTATIONS, '-k', 'unadmitted_presentations or reader_rechecks_future']),
+    ('M3-upgrade-v1-on-read', EVIDENCE,
+     'return cls(episode_id, cutoff, tuple(entries), tuple(presentations), covered, gaps, version)',
+     'return cls(episode_id, cutoff, tuple(entries), tuple(presentations), covered, gaps, 2)',
+     [PRESENTATIONS, SNAPSHOTS, '-k', 'v1_read_preserves or restore_keeps_original_capture_position']),
+    ('M4-future-in-restored-ledger', 'intelligence/services/evidence_ledger.py',
+     'ledger._open_gaps = set(snapshot.open_gaps)\n        return ledger',
+     'ledger._open_gaps = set(snapshot.open_gaps)\n        for presentation in snapshot.presentations:\n            ledger._items[presentation.atom.content_hash] = presentation.atom\n        return ledger',
+     [PRESENTATIONS, '-k', 'future_presentation_restores']),
+    ('M5-skip-timer-join', 'intelligence/tests/fixtures/run_supervisor.py',
+     '            timer.join()', '            pass',
+     [API, '-k', 'fired_timer']),
+    ('M6-forget-retired-timers', 'intelligence/tests/fixtures/run_supervisor.py',
+     'timers = tuple(supervisor._timers.owned)', 'timers = tuple(supervisor._timers.values())',
+     [API, '-k', 'fired_timer']),
+]
+
+
+def invalidate(path):
+    Path(importlib.util.cache_from_source(str(path))).unlink(missing_ok=True)
+
+
+def run(label, args):
+    command = [PYTHON, '-m', 'pytest', '-q', *args]
+    started = time.time()
+    with (OUT / f'{label}.log').open('w') as log:
+        result = subprocess.run(command, cwd=ROOT, env={**os.environ, 'FWP_TEST_RECEIPT': '0'},
+                                stdout=log, stderr=subprocess.STDOUT, timeout=45)
+    return {'label': label, 'command': command, 'returncode': result.returncode,
+            'seconds': time.time() - started, 'log': f'{label}.log'}
+
+
+results = []
+for name, relative, before, after, args in MUTATIONS:
+    path = ROOT / relative
+    original = path.read_text()
+    assert original.count(before) == 1, name
+    try:
+        path.write_text(original.replace(before, after))
+        invalidate(path)
+        red = run(f'{name}-red', args)
+    finally:
+        path.write_text(original)
+        invalidate(path)
+    green = run(f'{name}-green', args)
+    results.append({'name': name, 'source': relative,
+                    'original_sha256': hashlib.sha256(original.encode()).hexdigest(),
+                    'red': red, 'green': green})
+    (OUT / 'mutations.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
+    print(f'{name}: red={red["returncode"]} green={green["returncode"]}', flush=True)
+    assert red['returncode'] == 1 and green['returncode'] == 0, name

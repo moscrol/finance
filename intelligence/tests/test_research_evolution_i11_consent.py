@@ -80,7 +80,9 @@ def test_withdraw_logging_stops_self_use_measurement_but_research_completes(worl
 def test_granted_required_scopes_keep_measurement_flowing(world):
     _consent(world, "grant", ["research", "logging"], "b")
     run_id = _run_once(world, "Research with consent in force")
-    seen = _wait_measurements(world, run_id, {"run_started", "run_finished"})
+    # cost_recorded 必须一起等：它在终态事件之后才追加，只等 run_finished 会在机器
+    # 繁忙时抢在它前面返回（实测 load 44 的全量回归里偷发红，单跑则稳绿）。
+    seen = _wait_measurements(world, run_id, {"run_started", "run_finished", "cost_recorded"})
     assert "cost_recorded" in seen  # 假 turn 记了 120 tokens → 终态多写一条 certainty=unknown 的成本
 
 

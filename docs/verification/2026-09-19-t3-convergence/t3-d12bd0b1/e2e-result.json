@@ -1,0 +1,12 @@
+{
+  "name": "e2e",
+  "command": [
+    "pnpm",
+    "test:e2e"
+  ],
+  "cwd": "/Users/a77/fwp-q-research-data-readiness/intelligence/webapp",
+  "exit_code": 0,
+  "seconds": 62.95,
+  "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+  "finished_at": "2026-09-19T03:25:09.239285+00:00"
+}

@@ -1,0 +1,75 @@
+"""Seal text evidence and losslessly chunk phase reports under the repository size cap."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+from resume import OUT, SHA, ident, save
+
+DOCS = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+REL = Path('docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05')
+
+
+def digest(content):
+    return hashlib.sha256(content).hexdigest()
+
+
+def main():
+    summary = json.loads((OUT / 'summary.json').read_text())
+    assert summary['source_revision'] == SHA
+    assert summary['identity'] == ident()
+    archive = DOCS / REL
+    archive.mkdir(exist_ok=False)
+    files = [p for p in OUT.iterdir() if p.is_file() and p.suffix in {'.py', '.json', '.log', '.md'}]
+    for name in ('ordinary', 'native', 'e2e', 'e2e-private-browser', 'browser-install', 'rss-outer', 'rss-native'):
+        files.extend(p for p in (OUT / name).iterdir() if p.is_file() and p.suffix in {'.json', '.xml', '.txt', '.log'})
+    records = []
+    for source in sorted(files):
+        relative = source.relative_to(OUT)
+        if source.suffix in {'.py', '.log'}:
+            relative = relative.with_name(relative.name + '.txt')
+        target = archive / relative
+        target.parent.mkdir(exist_ok=True, parents=True)
+        shutil.copyfile(source, target)
+        content = target.read_bytes()
+        assert content == source.read_bytes() and len(content) < 5 * 1024**2
+        records.append({'source': str(source), 'target': target.relative_to(DOCS).as_posix(),
+                        'bytes': len(content), 'sha256': digest(content)})
+    chunks = []
+    for name in ('ordinary', 'native'):
+        source = OUT / name / 'reports.jsonl'
+        parts = []
+        pending = bytearray()
+        def flush():
+            if not pending:
+                return
+            target = archive / name / f'reports.part-{len(parts)+1:03d}.jsonl'
+            with target.open('xb') as stream:
+                stream.write(pending)
+            parts.append({'target': target.relative_to(DOCS).as_posix(), 'bytes': len(pending), 'sha256': digest(pending)})
+            pending.clear()
+        with source.open('rb') as stream:
+            for line in stream:
+                if len(pending) + len(line) > 3 * 1024**2:
+                    flush()
+                pending.extend(line)
+            flush()
+        content = source.read_bytes()
+        combined = b''.join((DOCS / p['target']).read_bytes() for p in parts)
+        assert combined == content
+        chunks.append({'source': str(source), 'bytes': len(content), 'sha256': digest(content), 'parts': parts})
+    traces = [{'source': str(p), 'bytes': p.stat().st_size, 'sha256': digest(p.read_bytes()), 'archived': False}
+              for p in sorted((OUT / 'e2e/test-results').rglob('trace.zip'))]
+    save(archive / 'sources.json', {'source_revision': SHA, 'files': records, 'lossless_chunks': chunks,
+                                  'local_only_binary_trace_hashes': traces,
+                                  'exclusions': ['browser binaries', 'temporary test databases/users', 'pycache', 'trace zip bytes']})
+    lines = [digest(p.read_bytes()) + '  ' + p.relative_to(DOCS).as_posix()
+             for p in sorted(archive.rglob('*')) if p.is_file()]
+    with (archive / 'sha256-manifest.txt').open('x') as stream:
+        stream.write('\n'.join(lines) + '\n')
+    print(json.dumps({'archive': str(archive), 'members': len(lines), 'copied_originals': len(records),
+                      'chunked_originals': len(chunks), 'bytes': sum(p.stat().st_size for p in archive.rglob('*') if p.is_file())}))
+
+
+if __name__ == '__main__':
+    main()

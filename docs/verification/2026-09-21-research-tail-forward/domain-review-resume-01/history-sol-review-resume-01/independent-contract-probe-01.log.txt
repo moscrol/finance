@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-sol-review-resume-01/independent_contract_probe.py", line 9, in <module>
+    from intelligence.services import agent_research
+ModuleNotFoundError: No module named 'intelligence'

@@ -1,0 +1,8 @@
+{
+  "retry": {"enabled": false, "maxRetries": 0, "provider": {"timeoutMs": 120000, "maxRetries": 0, "maxRetryDelayMs": 1000}},
+  "compaction": {"enabled": false},
+  "enableInstallTelemetry": false,
+  "enableAnalytics": false,
+  "defaultProjectTrust": "never",
+  "packages": [], "extensions": [], "skills": [], "prompts": [], "themes": []
+}

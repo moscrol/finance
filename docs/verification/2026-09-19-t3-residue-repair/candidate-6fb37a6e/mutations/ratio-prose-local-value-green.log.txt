@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-prose-local-value-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_ratio_prose_replaces_only_bad_value_not_its_neighbors or test_ratio_prose_retention_reaches_verifier_exit"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+.........                                                                [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-prose-local-value-green.xml -
+9 passed, 678 deselected in 1.00s
+
+STDERR:
+
+EXIT=0

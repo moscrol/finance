@@ -5,10 +5,11 @@
 
 来源：`research_tool_registry.default_registry`（用哑 runner 装配）+ `_TOOL_CONTRACTS`。`query_scope=episode` 的工具参数表为空，截止日在 context 上而不在参数里。说明书只写实测过的失败模式，空即合法。
 
-18 个工具
+19 个工具
 
 | 工具 | 能力 | 成本 | 新鲜度 | 查询范围 | 最小窗(s) | 参数键 | produces | 描述 |
 |---|---|---|---|---|---|---|---|---|
+| `capital_data` | capital_data | external | current | query | — | `query` | metric_evidence, supporting_evidence | 个股两融、大宗交易、未来90天解禁日程（东财按需只读取数；不是大单资金流、龙虎榜或股东名单） |
 | `derived_calculation` | derived_calculation | external | current | query | — | `inputs_from_calc`, `params`, `purpose`, `script`, `timeout_seconds`, `use_duckdb` | supporting_evidence | 在只读沙箱里对本回合已取到的证据跑一段 Python 做计算或跨源口径核对，结果作为带输入哈希链的派生证据返回 |
 | `evidence_lookup` | evidence_lookup | local | stable | query | — | `query` | supporting_evidence | 本地证据索引 |
 | `evidence_search` | evidence_search | external | current | query | 30.0 | `query` | counterpoint, supporting_evidence | 对本地知识证据执行窄口径、宽口径和反方闭环检索 |
@@ -29,6 +30,10 @@
 | `web_search` | web_search | external | current | query | 5.0 | `query` | event_facts, impact_transmission, supporting_evidence | 全网网页检索（摘要是线索；核对原文时用已授权的 web_fetch，未取到正文须披露） |
 
 ## 说明书（`ToolSpec.contract`）
+
+### `capital_data`
+
+只接受单只A股及两融/大宗/解禁切片；未解析标的或切片就不外查。来源是东财汇总数据，不是公司公告。两融默认最近5个交易记录，大宗最近5条，按交易日期标记而非抓取日，不代表全历史、当日全量或当时已披露。解禁只提供本次抓取的未来90天日程，最多20条并提示截断；证据日期是抓取日，正文另列未来解禁日，不是已经发生、减持承诺或涨跌预测。历史解禁因缺披露时点拒绝查询，不能冒充历史已知快照。request_error/parse_error/not_attempted是缺口；empty只表示该来源本次未返回记录，不能据此断言没有解禁/大宗/两融。部分成功保留已取行，并交代失败的切片。不提供大单净流入、龙虎榜、十大股东或北向净流入；这些不得用两融余额替代。
 
 ### `derived_calculation`
 

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "state": "AUDIT_COMPLETE_NOT_PASSED",
+  "can_execute": false,
+  "overall_verdict": "NOT_PASSED",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "source_protocol": {
+    "path": "protocol.json",
+    "sha256": "14da345941a7f6fb338f08ab3417132ef4a1d9001db44497176aeff95027edf5",
+    "recorded_state": "LIVE_EXECUTED_PENDING_AUDIT",
+    "preserved_unchanged": true
+  },
+  "source_closure": {
+    "path": "l6-closure.json",
+    "sha256": "596b452fe6c8fabbeeebfb9cb75b53dfbcdf3947e6a6658a42a4355b4234fa67",
+    "preserved_unchanged": true
+  },
+  "submission_accounting": {
+    "maximum_initial_submissions_per_question": 1,
+    "actual_initial_submissions": {"L6-Q1": 1, "L6-Q2": 1, "L6-Q3": 0},
+    "resubmissions": 0,
+    "followups": 0,
+    "clarification": "The source closure field initial_submissions_per_question=1 is the protocol allowance, not evidence that Q3 was submitted.",
+    "source": "results.json and per-question submission-count.json",
+    "stopped_for": {"question": "L6-Q2", "reason": "run_failed"}
+  },
+  "quality_status": {
+    "L6-Q1": "BLOCKED_JUDGE_UNAVAILABLE",
+    "L6-Q2": "NOT_EXERCISED",
+    "L6-Q3": "NOT_EXERCISED",
+    "actual_repair_draft_observed": false,
+    "natural_late_judge_report_observed": false
+  },
+  "harness_limitations": {
+    "provider_request_count": null,
+    "zero_counter_is_not_zero_requests": true,
+    "counter_persistence": "Counters are written on startup and in finally; runner sends SIGTERM and shim has no signal handler. The persisted zero counters are not a valid request receipt.",
+    "stream_buffering_reproduced_offline": true,
+    "stream_probe": "audits/shim-streaming-characterization.json",
+    "stream_probe_model_requests": 0,
+    "historical_timeout_root_cause_proven": false,
+    "caution": "Observed L6 failures do not isolate candidate behavior from the private shim or provider. No natural rerun or shim repair was performed."
+  },
+  "evidence_bindings": {
+    "q1_episode_sha256": "e633a45dc4d6e84315b96949a731530237f2551cc43ae49726522354630e7020",
+    "frozen_manifest_sha256": "5796a9b742eb44b779ed44d94f6ece23ff243e203e7f980e524263b1d1085bbb",
+    "q1_source_review_sha256": "9e401b74aa3d7e37edcefd68966e4a688ae645a7e38bc61f2f9a520a33d9a3ed",
+    "q1_source_audit_sha256": "bff27b95a3fdf68a1894022617932ea0390d830195219070332c580005675d45",
+    "q2_execution_audit_sha256": "00853df1d2414480119c76c5fec0f5c2df780353b98f76aec7571c6d2eb92d28"
+  },
+  "independent_engineering_qc": {
+    "workorder": 75,
+    "state": "NOT_STARTED",
+    "approved_channel": "K3 via pi and local gateway",
+    "host_source_inspection_is_not_independent_qc": true,
+    "next_admission_requirements": [
+      "Register the exact candidate and distinguish runtime scope from later audit tooling.",
+      "Validate reviewer request accounting and streaming with an offline control before paid requests.",
+      "Run payload-shaped gateway preflight and isolated explore/execute/report sessions per workorder."
+    ]
+  },
+  "safety": {
+    "production_changed_by_this_run": false,
+    "candidate_changed_by_this_run": false,
+    "merge_performed": false,
+    "deployment_performed": false,
+    "q3_resubmission_allowed": false
+  }
+}

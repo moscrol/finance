@@ -1,0 +1,42 @@
+"""Record one bounded focused check against a clean immutable checkout."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+root = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+output = Path(__file__).resolve().parent
+name = sys.argv[1]
+groups = {
+    'history-controller': ['tests/test_history_forward_seams.py', 'tests/test_history_live_seams.py', 'tests/test_history_date_scope.py', 'tests/test_history_window_binding.py', 'intelligence/tests/test_turn_controller.py', 'intelligence/tests/test_research_contract.py'],
+    'material-honesty': ['intelligence/tests/test_e2_top_level_regions.py', 'intelligence/tests/test_e2_material_contract.py', 'intelligence/tests/test_e2_cross_turn_inheritance.py', 'intelligence/tests/test_reasoning_input_boundaries.py', 'intelligence/tests/test_user_task.py', 'intelligence/tests/test_honesty_gates.py'],
+    'history-assembly': ['tests/test_history_control_boundary.py', 'tests/test_history_permission_inheritance.py', 'tests/test_history_market_anatomy.py', 'tests/test_history_local_read_execution.py', 'intelligence/tests/test_historical_research_episode.py', 'intelligence/tests/test_episode_factory.py', 'intelligence/tests/test_query_resolution.py'],
+    'conversation-delivery': ['intelligence/tests/test_conversation_orchestrator.py', 'intelligence/tests/test_conversation_materials.py', 'intelligence/tests/test_e2_material_turn_delivery.py', 'intelligence/tests/test_task_frame.py'],
+    'adjacent-unresolved': [str(output / 'test_adjacent_input_boundary.py')],
+}
+command = ([sys.executable, '-m', 'pytest', '-q', '-s', '--tb=short', '--basetemp', str(output / f'frozen-check-{name}' / 'tmp'), *groups[name]] if name in groups else
+           [sys.executable, '-m', 'ruff', 'check', '.'] if name == 'ruff' else ['git', 'diff', '--check'])
+
+def identity():
+    return {key: subprocess.check_output(['git', '-C', str(root), *args], timeout=15).decode()
+            for key, args in {'head': ['rev-parse', 'HEAD'], 'status': ['status', '--porcelain']}.items()}
+
+before = identity()
+assert not before['status'], before
+folder = output / f'frozen-check-{name}'
+folder.mkdir(exist_ok=False)
+started = datetime.now(timezone.utc).isoformat()
+env = dict(os.environ, FWP_TEST_RECEIPT='0', PYTHONDONTWRITEBYTECODE='1', PYTHONPATH=str(root))
+with (folder / 'pytest.txt').open('xb') as stream:
+    result = subprocess.run(command, cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+after = identity()
+receipt = {'scope': 'focused operator check, not independent or full CI', 'name': name,
+           'command': command, 'started': started, 'finished': datetime.now(timezone.utc).isoformat(),
+           'before': before, 'after': after, 'exit': result.returncode,
+           'expected_failure': name == 'adjacent-unresolved'}
+(folder / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+print(json.dumps(receipt))
+assert before == after
+assert result.returncode == (1 if name == 'adjacent-unresolved' else 0)

@@ -1,0 +1,88 @@
+{
+  "record_kind": "host_preflight_closure_not_financial_verdict",
+  "status": "BLOCKED_PREFLIGHT",
+  "candidate": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "blockers": [
+    "strict_deadline_overrun",
+    "retrieval_readiness_timeout"
+  ],
+  "strict_scenarios": 13,
+  "deadline_violations": [
+    "body_stall"
+  ],
+  "strict_failure": {
+    "scenario": "body_stall",
+    "timeout_input_seconds": 0.8,
+    "wall_elapsed_seconds": 1.3782751669641584,
+    "request_count": 0,
+    "attempts": [
+      {
+        "timeout_seconds": 0.7999695420730859,
+        "phase": "open_response",
+        "returncode": -9,
+        "elapsed_ms": 1372
+      }
+    ],
+    "requests": [],
+    "content_present": false,
+    "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+    "emitted_chars": 0,
+    "reserved_count": 1,
+    "records": [
+      {
+        "caller": "chat",
+        "elapsed_ms": 1375,
+        "status": "failed",
+        "reason": "timeout"
+      }
+    ]
+  },
+  "retrieval_probe": {
+    "ready": false,
+    "exit_code": 124,
+    "model_path": "/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181",
+    "offline": true,
+    "downloads": false,
+    "paid_model_requests": 0,
+    "model_weights_present": true,
+    "log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "model_requests": 0,
+  "financial_submissions": {
+    "L6-R1": 0,
+    "L6-R2": 0,
+    "L6-R3": 0
+  },
+  "resubmissions": 0,
+  "followups": 0,
+  "sidecars_started": 0,
+  "ports_free": {
+    "19897": true,
+    "19898": true
+  },
+  "production_identity_unchanged": {
+    "source_revision": true,
+    "source_dirty": true,
+    "loaded_code_root": true,
+    "loaded_tree_fingerprint": true,
+    "code_matches_repo": true,
+    "users_dir": true,
+    "agent_runtime": true
+  },
+  "frozen_data_unchanged": true,
+  "frozen_files": 751,
+  "candidate_unchanged": true,
+  "source_regression": "PASS",
+  "synthetic_proxy_preflight": "PASS",
+  "natural_quality_verdict": "NOT_EXERCISED",
+  "historical_failure_unchanged": true,
+  "strict_case_interpretation": "No loopback HTTP request reached the body_stall endpoint. Wall-clock limit still exceeded; no causal attribution to scheduling or upstream behavior is established.",
+  "retries": 0,
+  "budgets_raised": false,
+  "merged": false,
+  "deployed": false,
+  "closed_at": "2026-09-23T13:27:04.592674+00:00"
+}

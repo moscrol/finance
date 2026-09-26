@@ -1,0 +1,16 @@
+{
+  "requested_alias": "sonnet",
+  "configured_model": "claude-opus-5",
+  "max_budget_usd": 6,
+  "timeout_seconds": 600,
+  "automatic_fallback": false,
+  "cli_attempt": 1,
+  "prior_attempts_same_request": 0,
+  "prior_attempts_previous_request": 2,
+  "provider_request_count": null,
+  "tools": [],
+  "bare": true,
+  "setting_sources": [],
+  "prompt_sha256": "24d77c31294f4f9ba015c15176ec8bae48c3e239e70ebe0d6eaad89cdb136c42",
+  "started_at": "2026-09-19T07:03:37.353680+00:00"
+}

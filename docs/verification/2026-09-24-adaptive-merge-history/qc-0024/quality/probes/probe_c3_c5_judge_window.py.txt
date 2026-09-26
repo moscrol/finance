@@ -1,0 +1,125 @@
+"""独立探针 C3/C5(判官窗)：晚到判官载荷拒绝 + 根到期与判官子窗耗尽的区分。
+
+C3 行为边界：0.8s 判官预算，上游 ~2.9s 才返回——载荷不得被接受，
+应在 ~0.8s 得到 Deadline 触发（进入流/读阶段后才触发，而非启动失败）。
+C5 纯函数边界：expired root（根无剩余 -> 无任何尝试报价）与
+judge subwindow exhausted（根仍有剩余但判官窗残片不足以完成一次完整尝试）。
+"""
+import sys
+import threading
+import time
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+CAND = "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate"
+sys.path.insert(0, CAND)
+from intelligence.services import llm_refine as R  # noqa: E402
+from intelligence.services import episode_semantic_verifier as V  # noqa: E402
+
+RESULTS, FAILED = [], []
+
+
+def record(name, ok, detail):
+    RESULTS.append((name, ok, detail))
+    print(("PASS " if ok else "FAIL ") + name + " :: " + detail)
+    if not ok:
+        FAILED.append(name)
+
+
+class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        # 判官载荷晚到：~2.9s 后才发 header + body
+        time.sleep(2.9)
+        body = b'{"report": {"verdict": "pass"}}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class FakeResearchDeadline:
+    """Duck-type: episode_semantic_verifier 只调用 synthesis_timeout()/expired。"""
+
+    def __init__(self, remaining):
+        self._remaining = float(remaining)
+
+    def synthesis_timeout(self, seconds):
+        return min(float(seconds), max(0.0, self._remaining - 0.0))
+
+
+def part_late_judge():
+    srv = None
+    for p in range(26001, 26009):
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", p), H)
+            break
+        except OSError:
+            continue
+    if srv is None:
+        record("C3_late_judge_rejected", False, "no free port")
+        return
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    prov = R.LLMProvider(name="fake", api_key="k",
+                         base_url="http://127.0.0.1:%d" % srv.server_address[1], model="m")
+    t0 = time.monotonic()
+    accepted = False
+    try:
+        with R.call_ledger_scope(max_calls=10) as ledger:
+            content = R._post_chat(prov, [{"role": "user", "content": "judge"}], 30.0,
+                                   deadline=R.Deadline.from_timeout(0.8))
+            accepted = True
+        record("C3_late_judge_rejected", False, "late payload accepted: %r" % content)
+    except R.LLMDeadlineExceeded:
+        el = time.monotonic() - t0
+        # 关键：预算 0.8s 判官，必须在 2.9s 载荷到达前停（<2.5s），且是 deadline 触发
+        record("C3_late_judge_rejected", (not accepted) and el < 2.5,
+               "LLMDeadlineExceeded at %.2fs (judge budget=0.8, payload at ~2.9, not accepted)" % el)
+    except Exception as e:
+        record("C3_late_judge_rejected", False, "wrong exc %r" % e)
+    srv.shutdown()
+
+
+def part_window_distinction():
+    # expired root：根剩余 0 -> 无任何尝试报价
+    try:
+        out = V._semantic_attempt_timeouts(FakeResearchDeadline(0.0), configured_attempt_timeout=2.0)
+        record("C5_expired_root", out == (),
+               "attempts for zero root remaining = %r" % (out,))
+    except Exception as e:
+        record("C5_expired_root", False, "exc %r" % e)
+
+    # judge subwindow 耗尽：根仍有 300s，但判官窗派生只剩 0.4s
+    try:
+        fake = FakeResearchDeadline(300.0)
+        # 强制判官子窗只剩 0.4：synthesis_timeout 上限即窗残片
+        fake.synthesis_timeout = lambda s: 0.4
+        out = V._semantic_attempt_timeouts(fake, configured_attempt_timeout=2.0)
+        record("C5_judge_subwindow_exhausted", out == () or (len(out) > 0 and max(out) <= 0.401),
+               "attempts with starved judge window = %r (root still 300s)" % (out,))
+    except Exception as e:
+        record("C5_judge_subwindow_exhausted", False, "exc %r" % e)
+
+    # leftover 判定：0.4s 残片装不下 2.0s 的完整尝试；None（无窗约束）不阻塞
+    try:
+        blocked_small = V.leftover_window_blocks_complete_attempt(0.4, 2.0)
+        blocked_none = V.leftover_window_blocks_complete_attempt(None, 2.0)
+        blocked_big = V.leftover_window_blocks_complete_attempt(10.0, 2.0)
+        ok = blocked_small is True and blocked_none is False and blocked_big is False
+        record("C5_leftover_guard", ok,
+               "small=%r none=%r big=%r" % (blocked_small, blocked_none, blocked_big))
+    except Exception as e:
+        record("C5_leftover_guard", False, "exc %r" % e)
+
+
+if __name__ == "__main__":
+    part_late_judge()
+    part_window_distinction()
+    print("subcases=%d failed=%d" % (len(RESULTS), len(FAILED)))
+    sys.exit(1 if FAILED else 0)

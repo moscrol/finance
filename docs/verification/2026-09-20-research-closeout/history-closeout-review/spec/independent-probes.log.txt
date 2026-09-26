@@ -1,0 +1,92 @@
+{
+  "history_parent_pair_and_boundaries": {
+    "status": "FAIL",
+    "error": "Expected rejection: outside_authorized_scope",
+    "traceback": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py\", line 245, in main\n    details = function()\n              ^^^^^^^^^^\n  File \"/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py\", line 119, in history_parent_pair_and_boundaries\n    errors['outside_scope'] = assert_rejected('outside_authorized_scope',\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/probe_review.py\", line 56, in assert_rejected\n    raise AssertionError('Expected rejection: ' + fragment)\nAssertionError: Expected rejection: outside_authorized_scope\n"
+  },
+  "history_concurrent_mixed_parents": {
+    "status": "PASS",
+    "details": {
+      "both_published": true,
+      "db_reads": [
+        "sector",
+        "stock"
+      ],
+      "bindings": [
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "extended_observation",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-22",
+          "source_query_id": "f0e0b8b743738e7db1fc5c5fb4a96bd11476ac3bbb82c939fb40cbfa2713590a",
+          "source_reference": {
+            "result_ref": "run_20260920_131736_519687/history-query-2d1ac11ac9ff758b83e813ea633712620f03c3ac14e7323d38f485fbed1938bf.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        },
+        {
+          "end": "2026-01-29",
+          "ranking_end": "2026-01-22",
+          "ranking_start": "2026-01-17",
+          "relation": "same_window",
+          "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+          "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+          "source_end": "2026-01-29",
+          "source_query_id": "bb0dd2632baf146ba2f9ef46b7421505a2e8f4cd60edbf97212bb0abbaec6834",
+          "source_reference": {
+            "result_ref": "run_20260920_131736_540320/history-query-8353e1d011f753787c701f0a7e8f16d787e96d619c6d2118f5cb0c210db7dc29.json"
+          },
+          "source_start": "2026-01-17",
+          "start": "2026-01-17",
+          "version": "history-window-binding-v1"
+        }
+      ]
+    }
+  },
+  "graph_alias_bound_and_failure_pair": {
+    "status": "PASS",
+    "details": {
+      "alias_calls": [
+        [
+          "search",
+          "review-command second-name"
+        ],
+        [
+          "search",
+          "review_command second_name"
+        ]
+      ],
+      "returned_count": 20,
+      "ordinary_query_calls": [
+        [
+          "search",
+          "rank_history"
+        ]
+      ],
+      "missing_vs_unavailable": [
+        {
+          "state": "missing",
+          "reason": null,
+          "hits": []
+        },
+        {
+          "state": "unavailable",
+          "reason": "uvx_missing",
+          "hits": []
+        }
+      ],
+      "doors_and_narrative_independent": true,
+      "backend_failures": {
+        "nonzero_exit": "search_failed",
+        "blank_stdout": "empty_response",
+        "invalid_json": "invalid_response",
+        "missing_results": "invalid_response"
+      }
+    }
+  }
+}

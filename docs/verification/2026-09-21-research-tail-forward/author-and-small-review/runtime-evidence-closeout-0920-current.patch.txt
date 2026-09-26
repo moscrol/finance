@@ -1,0 +1,1460 @@
+diff --git a/intelligence/services/episode_evidence.py b/intelligence/services/episode_evidence.py
+new file mode 100644
+index 000000000..5acd38199
+--- /dev/null
++++ b/intelligence/services/episode_evidence.py
+@@ -0,0 +1,277 @@
++"""Versioned private evidence checkpoint; not a public projection or replay permit.
++
++Provider content_hash is an existing identity (not a signature of every field).
++The snapshot digest additionally covers dates, ownership, structured values and
++presentation order. Neither digest authenticates a user or an external source.
++"""
++from __future__ import annotations
++
++from dataclasses import asdict, dataclass, replace
++from datetime import date, datetime
++import hashlib
++import json
++import math
++import re
++from typing import TYPE_CHECKING
++
++from intelligence.services.agent_research import AgentEvidence, StructuredObservation
++from intelligence.services.agent_runtime import _json_copy
++
++if TYPE_CHECKING:
++    from collections.abc import Iterable
++    from intelligence.services.evidence_ledger import EvidenceLedger
++
++_COMMON_FIELDS = frozenset({
++    "schema_version", "kind", "episode_id", "information_cutoff", "entries",
++    "covered_outputs", "open_gaps", "sha256",
++})
++_FIELDS_BY_VERSION = {
++    1: _COMMON_FIELDS | {"presented_hashes"},
++    2: _COMMON_FIELDS | {"presentations"},
++}
++_STRING_FIELDS = (
++    "tool", "title", "detail", "source", "internal_locator", "evidence_tier",
++    "independent_key", "freshness", "content_hash", "publisher_kind", "document_type",
++)
++# Explicit atom schema: a new AgentEvidence field must make capture fail closed
++# until its persistence/validation semantics have been deliberately chosen.
++_ATOM_FIELDS = frozenset((*_STRING_FIELDS,
++    "source_date", "supports", "contradicts", "derived_from", "observations",
++    "reexcerpted", "pointer_dropped", "structural_neighbor_demoted", "deep_read",
++))
++
++
++def _object(value: object, expected: frozenset[str], name: str) -> dict[str, object]:
++    if not isinstance(value, dict) or set(value) != expected:
++        raise ValueError(f"evidence {name} fields are incomplete or unknown")
++    return value
++
++
++def _strings(value: object, *, canonical: bool = False) -> tuple[str, ...]:
++    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
++        raise ValueError("evidence field requires a string list")
++    if canonical and (any(not item or item != item.strip() for item in value) or len(set(value)) != len(value)):
++        raise ValueError("evidence identities must be unique nonempty canonical strings")
++    return tuple(value)
++
++
++def _digest(body: dict[str, object]) -> str:
++    return hashlib.sha256(json.dumps(
++        body, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False,
++    ).encode()).hexdigest()
++
++
++def _atom(raw: object) -> AgentEvidence:
++    atom = _object(raw, _ATOM_FIELDS, "atom")
++    if any(not isinstance(atom[key], str) for key in _STRING_FIELDS):
++        raise ValueError("evidence atom text fields must be strings")
++    identity = atom["content_hash"]
++    if not identity or identity != identity.strip():
++        raise ValueError("evidence content identity must be canonical and nonempty")
++    if atom["source_date"] is not None and not isinstance(atom["source_date"], str):
++        raise ValueError("evidence source_date must be a string or None")
++    kwargs = dict(atom)
++    for key in ("supports", "contradicts", "derived_from"):
++        kwargs[key] = _strings(atom[key])
++    if type(atom["deep_read"]) is not bool or (
++        atom["reexcerpted"] is not None and type(atom["reexcerpted"]) is not bool
++    ):
++        raise ValueError("evidence boolean markers cannot be coerced")
++    for key in ("pointer_dropped", "structural_neighbor_demoted"):
++        value = atom[key]
++        if value is not None and (type(value) is not int or value < 0):
++            raise ValueError("evidence counters must be nonnegative integers or None")
++    if not isinstance(atom["observations"], list):
++        raise ValueError("evidence observations must be a list")
++    observations = []
++    for raw_observation in atom["observations"]:
++        observation = _object(raw_observation, frozenset({"subject", "as_of", "metric", "value"}), "observation")
++        if any(not isinstance(observation[key], str) for key in ("subject", "as_of", "metric")):
++            raise ValueError("evidence observation text must be strings")
++        value = observation["value"]
++        try:
++            finite = type(value) in (int, float) and math.isfinite(value)
++        except OverflowError:
++            finite = False
++        if not finite:
++            raise ValueError("evidence observation value must be a finite number")
++        observations.append(StructuredObservation(**observation))
++    kwargs["observations"] = tuple(observations)
++    item = AgentEvidence(**kwargs)
++    if _json_copy(asdict(item), path="atom") != atom:
++        raise ValueError("evidence atom cannot be reconstructed without loss")
++    return item
++
++
++@dataclass(frozen=True)
++class EvidenceCheckpointEntry:
++    atom: AgentEvidence
++    targets: tuple[str, ...]
++    branch_owner: str | None
++    cutoff_status: str
++
++    def to_dict(self) -> dict[str, object]:
++        return {
++            "atom": _json_copy(asdict(self.atom), path="atom"),
++            "targets": list(self.targets), "branch_owner": self.branch_owner,
++            "cutoff_status": self.cutoff_status,
++        }
++
++
++@dataclass(frozen=True)
++class EvidencePresentation:
++    atom: AgentEvidence
++    classification: str
++
++    def to_dict(self) -> dict[str, object]:
++        return {
++            "atom": _json_copy(asdict(self.atom), path="presentation.atom"),
++            "classification": self.classification,
++        }
++
++
++def _presentation_source_day(value: str) -> date | None:
++    """Normalize complete calendar expressions, without searching surrounding text."""
++    normalized = value.strip()
++    match = re.fullmatch(r"([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})([Tt ].+)?", normalized)
++    if match is not None:
++        year, month, day, clock = match.groups()
++        normalized = f"{year}-{int(month):02d}-{int(day):02d}{clock or ''}"
++    elif re.fullmatch(r"[0-9]{8}(?:[Tt ].+)?", normalized) is None:
++        return None
++    try:
++        return date.fromisoformat(normalized)
++    except ValueError:
++        try:
++            return datetime.fromisoformat(normalized).date()
++        except ValueError:
++            return None
++
++
++def classify_presentation(
++    item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
++) -> str:
++    """Request links may vary; every other admitted field still belongs to the first writer."""
++    if original is not None:
++        if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
++            raise ValueError("presented evidence differs from its admitted original")
++        return "admitted"
++    # The registry can expose future-only results as a dated notice. This is a
++    # presentation, never a fact admission or an inferred coverage target. Parse
++    # the complete date value: a title or a valid prefix plus junk grants nothing.
++    if cutoff is not None and isinstance(item.source_date, str):
++        source_day = _presentation_source_day(item.source_date)
++        if source_day is not None and source_day > cutoff:
++            return "future_of_cutoff"
++    raise ValueError("presented evidence is absent from the ledger and is not valid future material")
++
++
++@dataclass(frozen=True)
++class EpisodeEvidenceSnapshot:
++    episode_id: str
++    information_cutoff: date | None
++    entries: tuple[EvidenceCheckpointEntry, ...]
++    presentations: tuple[EvidencePresentation, ...]
++    covered_outputs: tuple[str, ...]
++    open_gaps: tuple[str, ...]
++    schema_version: int = 2
++
++    @property
++    def presented_hashes(self) -> tuple[str, ...]:
++        return tuple(item.atom.content_hash for item in self.presentations)
++
++    @property
++    def presented_evidence(self) -> tuple[AgentEvidence, ...]:
++        return tuple(item.atom for item in self.presentations)
++
++    def to_dict(self) -> dict[str, object]:
++        body = {
++            "schema_version": self.schema_version, "kind": "episode_evidence", "episode_id": self.episode_id,
++            "information_cutoff": self.information_cutoff.isoformat() if self.information_cutoff else None,
++            "entries": [entry.to_dict() for entry in self.entries],
++            "covered_outputs": list(self.covered_outputs), "open_gaps": list(self.open_gaps),
++        }
++        if self.schema_version == 1:
++            body["presented_hashes"] = list(self.presented_hashes)
++        else:
++            body["presentations"] = [item.to_dict() for item in self.presentations]
++        return {**body, "sha256": _digest(body)}
++
++    @classmethod
++    def from_dict(cls, payload: object, *, episode_id: str) -> EpisodeEvidenceSnapshot:
++        from intelligence.services.evidence_ledger import _clean, _cutoff_status
++
++        raw = _json_copy(payload, path="evidence_snapshot")
++        if not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw["schema_version"] not in _FIELDS_BY_VERSION:
++            raise ValueError("unsupported evidence snapshot version/kind")
++        version = raw["schema_version"]
++        raw = _object(raw, _FIELDS_BY_VERSION[version], "snapshot")
++        if raw["kind"] != "episode_evidence":
++            raise ValueError("unsupported evidence snapshot version/kind")
++        if not isinstance(raw["episode_id"], str) or raw["episode_id"] != episode_id or not episode_id or episode_id != episode_id.strip():
++            raise ValueError("evidence snapshot episode identity mismatch")
++        body = {key: value for key, value in raw.items() if key != "sha256"}
++        if not isinstance(raw["sha256"], str) or raw["sha256"] != _digest(body):
++            raise ValueError("evidence snapshot digest mismatch")
++        cutoff = raw["information_cutoff"]
++        if cutoff is not None:
++            if not isinstance(cutoff, str):
++                raise ValueError("evidence cutoff must be an ISO date or None")
++            parsed_cutoff = date.fromisoformat(cutoff)
++            if parsed_cutoff.isoformat() != cutoff:
++                raise ValueError("evidence cutoff must be canonical")
++            cutoff = parsed_cutoff
++        if not isinstance(raw["entries"], list):
++            raise ValueError("evidence entries must be a list")
++        entries = []
++        identities: set[str] = set()
++        all_targets: set[str] = set()
++        for record in raw["entries"]:
++            entry = _object(record, frozenset({"atom", "targets", "branch_owner", "cutoff_status"}), "entry")
++            atom = _atom(entry["atom"])
++            if atom.content_hash in identities:
++                raise ValueError("duplicate evidence content identity")
++            identities.add(atom.content_hash)
++            targets = _strings(entry["targets"], canonical=True)
++            if not set(_clean((*atom.supports, *atom.contradicts))).issubset(targets):
++                raise ValueError("evidence targets omit atom support/contradiction links")
++            all_targets.update(targets)
++            owner = entry["branch_owner"]
++            if owner is not None and (not isinstance(owner, str) or not owner or owner != owner.strip()):
++                raise ValueError("evidence branch owner must be canonical or None")
++            status = _cutoff_status(atom, cutoff)
++            if status is None or status != entry["cutoff_status"]:
++                raise ValueError("evidence source date/cutoff status mismatch")
++            entries.append(EvidenceCheckpointEntry(atom, targets, owner, status))
++        by_hash = {entry.atom.content_hash: entry.atom for entry in entries}
++        if version == 1:
++            presented = _strings(raw["presented_hashes"], canonical=True)
++            if not set(presented).issubset(identities):
++                raise ValueError("presented evidence is absent from the ledger")
++            presentations = [EvidencePresentation(by_hash[identity], "admitted") for identity in presented]
++        else:
++            if not isinstance(raw["presentations"], list):
++                raise ValueError("evidence presentations must be a list")
++            presentations = []
++            presented_ids: set[str] = set()
++            for record in raw["presentations"]:
++                presentation = _object(record, frozenset({"atom", "classification"}), "presentation")
++                atom = _atom(presentation["atom"])
++                if atom.content_hash in presented_ids:
++                    raise ValueError("duplicate presented evidence identity")
++                presented_ids.add(atom.content_hash)
++                classification = classify_presentation(atom, by_hash.get(atom.content_hash), cutoff)
++                if presentation["classification"] != classification:
++                    raise ValueError("evidence presentation classification mismatch")
++                presentations.append(EvidencePresentation(atom, classification))
++        covered = _strings(raw["covered_outputs"], canonical=True)
++        gaps = _strings(raw["open_gaps"], canonical=True)
++        if list(covered) != sorted(covered) or list(gaps) != sorted(gaps) or not set(covered).issubset(all_targets):
++            raise ValueError("evidence coverage/gaps do not reconcile with targets")
++        return cls(episode_id, cutoff, tuple(entries), tuple(presentations), covered, gaps, version)
++
++
++def capture_evidence_snapshot(
++    *, episode_id: str, ledger: EvidenceLedger, presented_evidence: Iterable[AgentEvidence],
++) -> dict[str, object]:
++    return ledger.to_recovery_snapshot(episode_id=episode_id, presented_evidence=presented_evidence)
+diff --git a/intelligence/services/evidence_ledger.py b/intelligence/services/evidence_ledger.py
+index 69667b7dc..fb6f8ae68 100644
+--- a/intelligence/services/evidence_ledger.py
++++ b/intelligence/services/evidence_ledger.py
+@@ -212,6 +212,59 @@ class EvidenceLedger:
+         with self._lock:
+             return tuple(self._items.values())
+ 
++    def to_recovery_snapshot(
++        self, *, episode_id: str, presented_evidence: Iterable[AgentEvidence],
++    ) -> dict[str, object]:
++        """Capture full private atoms and coverage under one ledger lock.
++
++        Presentation is owned by the parent loop, not arrival order (parallel
++        children can arrive in the opposite order). Unpresented atoms stay in
++        the ledger without acquiring an E-number.
++        """
++        from intelligence.services.episode_evidence import (
++            EpisodeEvidenceSnapshot, EvidenceCheckpointEntry, EvidencePresentation,
++            classify_presentation,
++        )
++
++        presented = tuple(presented_evidence)
++        with self._lock:
++            snapshot = EpisodeEvidenceSnapshot(
++                episode_id=episode_id, information_cutoff=self._cutoff,
++                entries=tuple(EvidenceCheckpointEntry(
++                    atom=item, targets=self._targets[identity],
++                    branch_owner=self._branch_owners.get(identity),
++                    cutoff_status=_cutoff_status(item, self._cutoff),
++                ) for identity, item in self._items.items()),
++                presentations=tuple(EvidencePresentation(
++                    atom=item,
++                    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
++                ) for item in presented),
++                covered_outputs=tuple(sorted(self._covered_outputs)),
++                open_gaps=tuple(sorted(self._open_gaps)),
++            )
++            payload = snapshot.to_dict()
++        # Validate without a second capture; serialization failure is required
++        # checkpoint failure, not permission to silently drop a field.
++        return EpisodeEvidenceSnapshot.from_dict(payload, episode_id=episode_id).to_dict()
++
++    @classmethod
++    def from_recovery_snapshot(cls, payload: object, *, episode_id: str) -> EvidenceLedger:
++        """Rebuild data only; grants no execution/publishing permission."""
++        from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
++
++        snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id=episode_id)
++        ledger = cls(information_cutoff=snapshot.information_cutoff)
++        # Do not re-append with today's policy or renumber/recompute saved links.
++        for entry in snapshot.entries:
++            identity = entry.atom.content_hash
++            ledger._items[identity] = entry.atom
++            ledger._targets[identity] = entry.targets
++            if entry.branch_owner is not None:
++                ledger._branch_owners[identity] = entry.branch_owner
++        ledger._covered_outputs = set(snapshot.covered_outputs)
++        ledger._open_gaps = set(snapshot.open_gaps)
++        return ledger
++
+     def snapshot(self) -> EvidenceLedgerSnapshot:
+         with self._lock:
+             families = tuple(
+diff --git a/intelligence/tests/fixtures/run_supervisor.py b/intelligence/tests/fixtures/run_supervisor.py
+index e6fbf34d4..9dc82b62d 100644
+--- a/intelligence/tests/fixtures/run_supervisor.py
++++ b/intelligence/tests/fixtures/run_supervisor.py
+@@ -1,21 +1,57 @@
+ """Keep test-owned workers inside the lifetime of their patched dependencies."""
+ from __future__ import annotations
+ 
++from threading import Timer, current_thread
+ from typing import TYPE_CHECKING
+ 
+ if TYPE_CHECKING:
+     from fastapi.testclient import TestClient
+ 
+ 
++class _OwnedTimers(dict[tuple[str, str], Timer]):
++    """Record this supervisor's timers even after its completion callback pops them.
++
++    The supervisor already serializes all writes with its lock. After the test
++    joins its executor, no worker can create/start another timer in this list.
++    No global Timer factory or unrelated process thread is patched or inspected.
++    """
++
++    def __init__(self, timers: dict[tuple[str, str], Timer]) -> None:
++        super().__init__(timers)
++        self.owned = list(timers.values())
++
++    def __setitem__(self, key: tuple[str, str], timer: Timer) -> None:
++        self.owned.append(timer)
++        super().__setitem__(key, timer)
++
++
++def track_test_client_timers(client: TestClient) -> None:
++    """Register ownership before a fixture yields its client or accepts test work."""
++    supervisor = client.app.state.supervisor
++    with supervisor._lock:
++        if not isinstance(supervisor._timers, _OwnedTimers):
++            supervisor._timers = _OwnedTimers(supervisor._timers)
++
++
+ def drain_test_client(client: TestClient) -> None:
+-    """Cancel queued work and join running fakes before pytest undoes monkeypatch.
++    """Cancel queued work and join owned workers/timers before monkeypatch undo.
+ 
+     Production shutdown intentionally does not wait for slow IO. Tests own their
+     bounded runners and must release any gates before calling this helper. Access
+     to the private executor is confined to test infrastructure, not a new runtime
+-    shutdown policy. Waiting also covers completion callbacks/credit settlement.
++    shutdown policy. Waiting also covers completion callbacks/credit settlement
++    and already-fired timeout callbacks no longer in the active task table.
+     """
+     supervisor = client.app.state.supervisor
+     supervisor.shutdown()
+     supervisor._executor.shutdown(wait=True, cancel_futures=True)
++    with supervisor._lock:
++        if not isinstance(supervisor._timers, _OwnedTimers):
++            raise RuntimeError("register test timer ownership before submitting work")
++        timers = tuple(supervisor._timers.owned)
++    for timer in timers:
++        timer.cancel()
++    for timer in timers:
++        if timer is not current_thread() and timer.ident is not None:
++            timer.join()
+     client.close()
+diff --git a/intelligence/tests/test_api_credits.py b/intelligence/tests/test_api_credits.py
+index 780c15efc..77b8a9770 100644
+--- a/intelligence/tests/test_api_credits.py
++++ b/intelligence/tests/test_api_credits.py
+@@ -34,7 +34,7 @@ from intelligence.api.credits import (  # noqa: E402
+ from intelligence.api.quota import RunQuota  # noqa: E402
+ from intelligence.services import run_store as rs  # noqa: E402
+ from intelligence.services.run_store import RunStore  # noqa: E402
+-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
++from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[2]
+ CLI = REPO_ROOT / "scripts" / "workbench_credits.py"
+@@ -675,6 +675,7 @@ def api(tmp_path, monkeypatch):
+                 run_supervisor=supervisor,
+             )
+         )
++        track_test_client_timers(client)
+         clients.append(client)
+         return client
+ 
+diff --git a/intelligence/tests/test_api_fixture_lifecycle.py b/intelligence/tests/test_api_fixture_lifecycle.py
+index d7044c5ae..7a6a970db 100644
+--- a/intelligence/tests/test_api_fixture_lifecycle.py
++++ b/intelligence/tests/test_api_fixture_lifecycle.py
+@@ -1,12 +1,14 @@
+ """Force late API workers to resolve runners during fixture teardown, not after it."""
+ from __future__ import annotations
+ 
++import os
+ import threading
+ 
+ import pytest
+ 
+ from intelligence.api import app as api_module
+ from intelligence.api.credits import CreditStore
++from intelligence.services.run_store import RunStore
+ from intelligence.tests import test_api_credits, test_api_quota, test_api_run_admission
+ 
+ 
+@@ -78,3 +80,127 @@ def test_api_fixture_joins_late_worker_before_restoring_runner(tmp_path, owner):
+                 client.app.state.supervisor.shutdown()
+                 client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+                 client.close()
++
++
++@pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
++def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
++    entered = threading.Event()
++    release = threading.Event()
++    worker_release = threading.Event()
++    forgotten = threading.Event()
++    joining = threading.Event()
++    teardown_observed = threading.Event()
++    teardown_done = threading.Event()
++    callback_done = threading.Event()
++    unrelated_release = threading.Event()
++    unrelated = threading.Timer(0, unrelated_release.wait)
++    unrelated.start()
++    observed = []
++    timers = []
++    errors = []
++    fixture = client = teardown_thread = None
++    with pytest.MonkeyPatch.context() as patch:
++        original_claim = RunStore.claim_failed_run
++
++        def parked_claim(store, *args, **kwargs):
++            value = original_claim(store, *args, **kwargs)
++            if kwargs.get("error") == "executor_timeout":
++                assert value[1]
++                timers.append(threading.current_thread())
++                entered.set()
++                try:
++                    if not release.wait(5):
++                        raise RuntimeError("test did not release its timer")
++                    observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
++                finally:
++                    callback_done.set()
++            return value
++
++        patch.setattr(RunStore, "claim_failed_run", parked_claim)
++        factory = {
++            "quota": test_api_quota.quota_client,
++            "credits": test_api_credits.api,
++            "admission": test_api_run_admission.harness,
++        }[owner]
++        try:
++            fixture = factory.__wrapped__(tmp_path, patch)
++            value = next(fixture)
++            if owner == "quota":
++                client = value
++            elif owner == "credits":
++                client = value(CreditStore(enabled=False))
++            else:
++                client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
++                value.gate.release.set()
++            supervisor = client.app.state.supervisor
++            supervisor.timeout_sec = 0
++            fake_runner = api_module._run_ask
++            forget = supervisor._forget
++
++            def gated_runner(*args, **kwargs):
++                if not worker_release.wait(5):
++                    raise RuntimeError("test did not release its worker")
++                return fake_runner(*args, **kwargs)
++
++            def observed_forget(*args, **kwargs):
++                try:
++                    return forget(*args, **kwargs)
++                finally:
++                    forgotten.set()
++
++            patch.setattr(api_module, "_run_ask", gated_runner)
++            patch.setattr(supervisor, "_forget", observed_forget)
++            response = client.post("/api/runs", json={"question": "q", "user": "owner"})
++            assert response.status_code == 200
++            assert entered.wait(5)
++            fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
++            worker_release.set()
++            assert forgotten.wait(5)
++            assert not supervisor._timers and supervisor.active_count() == 0
++            timer = timers[0]
++            join = timer.join
++
++            def observed_join(*args, **kwargs):
++                joining.set()
++                teardown_observed.set()
++                return join(*args, **kwargs)
++
++            patch.setattr(timer, "join", observed_join)
++
++            def teardown():
++                try:
++                    next(fixture)
++                except StopIteration:
++                    pass
++                except BaseException as exc:
++                    errors.append(exc)
++                finally:
++                    teardown_done.set()
++                    teardown_observed.set()
++
++            teardown_thread = threading.Thread(target=teardown)
++            teardown_thread.start()
++            assert teardown_observed.wait(5)
++            assert joining.is_set(), "fixture exited without joining its already-fired timer"
++            assert not teardown_done.is_set() and not callback_done.is_set()
++            release.set()
++            assert teardown_done.wait(5) and callback_done.is_set()
++            assert not errors and observed == [fixture_env]
++            assert unrelated.is_alive(), "fixture must not wait for unrelated process timers"
++            run = RunStore(user_id="owner").load_run(response.json()["run_id"])
++            assert run.status == "failed" and run.error == "executor_timeout"
++        finally:
++            release.set()
++            worker_release.set()
++            unrelated_release.set()
++            unrelated.join(5)
++            if teardown_thread is not None:
++                teardown_thread.join(5)
++            for timer in timers:
++                timer.join(5)
++            if fixture is not None:
++                fixture.close()
++            if client is not None:
++                client.app.state.supervisor.shutdown()
++                client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
++                client.close()
+diff --git a/intelligence/tests/test_api_quota.py b/intelligence/tests/test_api_quota.py
+index 6b24c63c5..02b321566 100644
+--- a/intelligence/tests/test_api_quota.py
++++ b/intelligence/tests/test_api_quota.py
+@@ -14,7 +14,7 @@ from intelligence.api import app as app_module  # noqa: E402
+ from intelligence.api.quota import RunQuota  # noqa: E402
+ from intelligence.services import run_store as rs  # noqa: E402
+ from intelligence.services.run_store import RunStore  # noqa: E402
+-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
++from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+ 
+ 
+ @pytest.fixture()
+@@ -126,6 +126,7 @@ def quota_client(tmp_path, monkeypatch):
+             run_quota=RunQuota(daily_limit=1, exempt_users=frozenset({"owner"})),
+         )
+     )
++    track_test_client_timers(client)
+     try:
+         yield client
+     finally:
+diff --git a/intelligence/tests/test_api_run_admission.py b/intelligence/tests/test_api_run_admission.py
+index f0c8fa991..49e9d0b5b 100644
+--- a/intelligence/tests/test_api_run_admission.py
++++ b/intelligence/tests/test_api_run_admission.py
+@@ -20,7 +20,7 @@ from intelligence.api.app import RunSupervisor  # noqa: E402
+ from intelligence.api.quota import RunQuota  # noqa: E402
+ from intelligence.services import run_store as rs  # noqa: E402
+ from intelligence.services.run_store import RunStore  # noqa: E402
+-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
++from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+ 
+ 
+ def _wait_for(predicate: Callable[[], bool], *, timeout: float = 5.0) -> None:
+@@ -92,6 +92,7 @@ def harness(tmp_path, monkeypatch):
+                 run_quota=quota,
+             )
+         )
++        track_test_client_timers(client)
+         clients.append(client)
+         return client
+ 
+diff --git a/intelligence/tests/test_episode_evidence_presentations.py b/intelligence/tests/test_episode_evidence_presentations.py
+new file mode 100644
+index 000000000..a44a842ee
+--- /dev/null
++++ b/intelligence/tests/test_episode_evidence_presentations.py
+@@ -0,0 +1,290 @@
++"""Presentation links and cutoff notices survive without rewriting admitted facts."""
++from __future__ import annotations
++
++from copy import deepcopy
++from dataclasses import replace
++from datetime import date
++import json
++
++import pytest
++
++from intelligence.services import episode_evidence as snapshots
++from intelligence.services.agent_research import StructuredObservation
++from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore
++from intelligence.services.evidence_ledger import EvidenceLedger
++from intelligence.tests.test_episode_evidence_snapshot import _atom, _fixture, _resign
++
++
++def test_presentation_links_roundtrip_without_changing_first_writer_or_coverage():
++    ledger, presented, _ = _fixture()
++    before = ledger.snapshot()
++    changed = (replace(presented[0], supports=("new-request",), contradicts=()), presented[1])
++    payload = snapshots.capture_evidence_snapshot(
++        episode_id="episode", ledger=ledger, presented_evidence=changed,
++    )
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert payload["schema_version"] == 2
++    assert decoded.presented_evidence == changed
++    assert decoded.presented_hashes == ("first", "second")
++    assert restored.items() == ledger.items()
++    assert restored.snapshot() == before == ledger.snapshot()
++    assert "new-request" not in dict(restored.snapshot().evidence_targets)["first"]
++    assert decoded.to_dict() == payload
++
++
++@pytest.mark.parametrize("changes", [
++    {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
++    {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
++    {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
++    {"internal_locator": "replacement"}, {"deep_read": False},
++])
++def test_same_hash_presentations_may_not_replace_any_fact(changes):
++    ledger, presented, _ = _fixture()
++    with pytest.raises(ValueError):
++        snapshots.capture_evidence_snapshot(
++            episode_id="episode", ledger=ledger,
++            presented_evidence=(replace(presented[0], supports=("request",), **changes),),
++        )
++
++
++@pytest.mark.parametrize("source_date", [
++    "2026-07-25", "20260725", "2026-07-25T09:30:00+08:00",
++    "2026-7-25", "2026-7-25 09:30:00", " 2026-07-25 ",
++])
++def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
++    assert ledger.append(future, covered_outputs=("future-output",)) == ()
++    payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert decoded.presented_evidence == (future,)
++    assert payload["presentations"][0]["classification"] == "future_of_cutoff"
++    assert restored.items() == ()
++    assert restored.snapshot().covered_outputs == ()
++    assert not restored.mark_output_covered("future-output", evidence_ids=("future",))
++    assert decoded.to_dict() == payload
++
++
++@pytest.mark.parametrize(("cutoff", "source_date"), [
++    (None, "2026-07-25"), (date(2026, 7, 24), None),
++    (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
++    (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
++    (None, "2026-7-25"), (date(2026, 7, 24), "2026-7-24"),
++    (date(2026, 7, 24), "2026-7-25garbage"), (date(2026, 7, 24), "正文2026-7-25"),
++    (date(2026, 7, 24), "/tmp/2026-7-25"), (date(2026, 7, 24), "2026-7-25 09:30:00+08:00garbage"),
++    (date(2026, 7, 24), "2026-W30-6"), (date(2026, 7, 24), "2026W306"),
++])
++def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
++    ledger = EvidenceLedger(information_cutoff=cutoff)
++    item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
++    with pytest.raises(ValueError):
++        ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(item,))
++
++
++def test_v1_read_preserves_version_digest_and_presentation_semantics():
++    ledger, presented, payload = _fixture()
++    payload.pop("presentations")
++    payload.update(schema_version=1, presented_hashes=[item.content_hash for item in presented])
++    _resign(payload)
++    original = deepcopy(payload)
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    assert decoded.to_dict() == original
++    assert decoded.presented_evidence == presented
++    assert EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode").snapshot() == ledger.snapshot()
++    state = EpisodeState(episode_id="episode", phase="planning", last_sequence=2,
++                         evidence_snapshot=payload, evidence_snapshot_sequence=2)
++    assert EpisodeState.from_dict(state.to_dict()).to_dict()["evidence_snapshot"] == original
++    assert ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=presented)["schema_version"] == 2
++
++
++@pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate", "unknown", "coverage", "digest"])
++def test_v1_reader_retains_strict_legacy_validation(mutation):
++    _, presented, payload = _fixture()
++    payload.pop("presentations")
++    payload.update(schema_version=1, presented_hashes=[item.content_hash for item in presented])
++    if mutation == "missing":
++        del payload["entries"][0]["atom"]["observations"]
++    elif mutation == "extra":
++        payload["presentations"] = []
++    elif mutation == "duplicate":
++        payload["presented_hashes"] = ["first", "first"]
++    elif mutation == "unknown":
++        payload["presented_hashes"] = ["missing"]
++    elif mutation == "coverage":
++        payload["covered_outputs"] = ["forged"]
++    _resign(payload)
++    if mutation == "digest":
++        payload["entries"][0]["atom"]["source_date"] = "2026-07-23"
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize(("cutoff", "source_date"), [
++    (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
++    ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
++    ("2026-07-24", "2026-7-25garbage"), ("2026-07-24", "正文2026-7-25"),
++    ("2026-07-24", "/tmp/2026-7-25"), ("2026-07-24", "2026-7-25 09:30:00+08:00garbage"),
++    ("2026-07-24", "2026-W30-6"),
++])
++def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    payload = ledger.to_recovery_snapshot(
++        episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
++    )
++    payload["information_cutoff"] = cutoff
++    payload["presentations"][0]["atom"]["source_date"] = source_date
++    _resign(payload)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize(("path", "value"), [
++    (("presentations", 0, "atom", "detail"), "changed"),
++    (("presentations", 0, "atom", "source_date"), "2026-07-23"),
++    (("presentations", 0, "atom", "observations", 0, "value"), 99),
++    (("presentations", 0, "atom", "supports"), ["different-request"]),
++    (("presentations", 0, "classification"), "future_of_cutoff"),
++])
++def test_v2_digest_covers_full_presentation_and_classification(path, value):
++    _, _, payload = _fixture()
++    node = payload
++    for key in path[:-1]:
++        node = node[key]
++    node[path[-1]] = value
++    with pytest.raises(ValueError, match="digest"):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    if path[-1] != "supports":
++        _resign(payload)
++        with pytest.raises(ValueError):
++            snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize("mutation", ["duplicate", "missing-atom", "missing-classification", "extra", "coverage", "admitted"])
++def test_future_presentation_schema_and_coverage_are_fail_closed(mutation):
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    payload = ledger.to_recovery_snapshot(
++        episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
++    )
++    if mutation == "duplicate":
++        payload["presentations"].append(deepcopy(payload["presentations"][0]))
++    elif mutation.startswith("missing-"):
++        del payload["presentations"][0][mutation.removeprefix("missing-")]
++    elif mutation == "extra":
++        payload["presentations"][0]["unexpected"] = True
++    elif mutation == "coverage":
++        payload["covered_outputs"] = ["direct"]
++    else:
++        payload["presentations"][0]["classification"] = "admitted"
++    _resign(payload)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize("durable", [False, True])
++@pytest.mark.parametrize("future_only", [False, True])
++def test_real_episode_reaches_next_model_after_future_only_or_mixed_results(tmp_path, durable, future_only):
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.research_contract import InformationCutoff
++    from intelligence.tests.test_agent_episode import (
++        ScriptedModel, _context, _finish_turn, _frame, _market_registry, _successful_runner, _tool_turn,
++    )
++
++    frame = _frame()
++    context = replace(_context(frame, max_steps=2), information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"))
++    model = ScriptedModel([
++        _tool_turn("historical cutoff probe"),
++        _finish_turn(status="partial", draft="需补同日证据。", hashes=(), gap="缺少截止内证据"),
++    ])
++
++    def runner(query, tool_context):
++        evidence, observation, trace = _successful_runner(query, tool_context)
++        evidence = [replace(item, source_date="2026-07-25") for item in evidence]
++        if not future_only:
++            evidence.append(replace(evidence[0], source_date="2026-07-24", content_hash="in-cutoff"))
++        return evidence, observation, replace(trace, source_trade_date="2026-07-25")
++
++    store = JsonlEpisodeStore(tmp_path) if durable else None
++    outcome = ContinuousAgentEpisode(model, store=store).run(
++        task_frame=frame, context=context, registry=_market_registry(runner),
++    )
++    assert len(model.calls) == 2 and outcome.stop_reason == "model_finish"
++    assert outcome.persistence == ("durable" if durable else "ephemeral")
++    assert not any(event.kind == "persistence_failed" for event in outcome.events)
++    assert outcome.evidence[0].source_date == ("2026-07-25" if future_only else "2026-07-24")
++    if future_only:
++        assert "晚于问句日 2026-07-24" in outcome.evidence[0].title
++    if store is not None:
++        state = store.load(context.contract.task_id)[1]
++        decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=context.contract.task_id)
++        restored = EvidenceLedger.from_recovery_snapshot(state.evidence_snapshot, episode_id=context.contract.task_id)
++        assert decoded.presented_evidence == outcome.evidence
++        if future_only:
++            assert restored.items() == ()
++            assert not restored.mark_output_covered("direct_assessment", evidence_ids=(outcome.evidence[0].content_hash,))
++
++
++@pytest.mark.parametrize("durable", [False, True])
++def test_real_glm_parent_mixed_batch_keeps_child_original_and_parent_request_links(tmp_path, durable):
++    from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
++    from intelligence.services.agent_research import evidence_content_hash
++    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
++    from intelligence.services.mode_governor import ModeSignals
++    from intelligence.services.provider_observability import ProviderTrace
++    from intelligence.services.research_contract import release_root_budget
++    from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
++    from intelligence.tests.test_sub_research_tool import _context, _frame
++
++    class MixedModel:
++        parent_calls = 0
++        child_calls = 0
++
++        def complete(self, *, messages, tools, timeout):
++            child = "branch_findings" in json.dumps(messages[:2], ensure_ascii=False)
++            if child:
++                self.child_calls += 1
++                if self.child_calls == 1:
++                    return ModelTurn("", (ModelToolCall("child-tool", "market_data", {"query": "child"}),))
++            else:
++                self.parent_calls += 1
++                if self.parent_calls == 1:
++                    return ModelTurn("", (
++                        ModelToolCall("direct-tool", "market_data", {"query": "direct"}),
++                        ModelToolCall("branch-tool", "sub_research", {"goals": ["核验甲"]}),
++                    ))
++            return ModelTurn(json.dumps({
++                "status": "partial", "draft": "证据仍不足。", "gaps": ["待核验"], "bindings": [],
++            }, ensure_ascii=False), ())
++
++    context = _context("max", allowed=("market_data", "sub_research"))
++    model = MixedModel()
++
++    def runner(query, _):
++        item = _atom(source_date="2026-07-21",
++                     supports=(("direct-output" if query == "direct" else "branch-output"),), contradicts=())
++        item = replace(item, content_hash=evidence_content_hash(item))
++        return [item], "原件证据", ProviderTrace(provider="fixture", capability="market_data", status="success")
++
++    registry = ResearchToolRegistry((ToolSpec(
++        name="market_data", capability="market_data", description="行情", cost="local", freshness="current", runner=runner,
++    ),))
++    store = JsonlEpisodeStore(tmp_path) if durable else None
++    try:
++        outcome = GLMAgentRuntime(client=model, episode_store=store,
++                                 mode_signals=lambda *_: ModeSignals(user_mode="deep")).run(
++            task_frame=_frame(), context=context, registry=registry,
++        )
++        assert model.parent_calls == model.child_calls == 2
++        assert outcome.stop_reason == "model_finish"
++        assert outcome.persistence == ("durable" if durable else "ephemeral")
++        assert outcome.evidence[0].supports == ("direct-output",)
++        if store is not None:
++            state = store.load(context.contract.task_id)[1]
++            decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=context.contract.task_id)
++            assert decoded.presented_evidence == outcome.evidence
++            assert decoded.entries[0].atom.supports == ("branch-output",)
++            assert decoded.entries[0].branch_owner is not None
++            assert "direct-output" not in decoded.entries[0].targets
++    finally:
++        release_root_budget(context.contract.task_id)
+diff --git a/intelligence/tests/test_episode_evidence_snapshot.py b/intelligence/tests/test_episode_evidence_snapshot.py
+new file mode 100644
+index 000000000..4f34b7a00
+--- /dev/null
++++ b/intelligence/tests/test_episode_evidence_snapshot.py
+@@ -0,0 +1,537 @@
++"""Private evidence recovery preserves atoms, owners and model-visible citation order."""
++from __future__ import annotations
++
++from copy import deepcopy
++from dataclasses import asdict, fields, replace
++from datetime import date
++import hashlib
++import json
++from uuid import uuid4
++
++import pytest
++
++from intelligence.services import episode_evidence as snapshots
++from intelligence.services.agent_research import AgentEvidence, StructuredObservation
++from intelligence.services.agent_runtime import public_agent_evidence
++from intelligence.services.episode_protocol import evidence_ordinal_table, resolve_evidence_refs
++from intelligence.services.episode_store import EpisodeState
++from intelligence.services.evidence_ledger import EvidenceLedger
++
++
++def _atom(identity="provider-identity", **changes):
++    return AgentEvidence(
++        **dict(dict(
++            tool="finance_query", title="原始观察", detail="原文不截断\n" * 500,
++            source="公告", internal_locator="private://original/observation",
++            source_date="2026-07-24", evidence_tier="L3", supports=("direct",),
++            contradicts=("counter",), independent_key="issuer", freshness="current",
++            content_hash=identity,
++            observations=(StructuredObservation("公司", "2026-07-24", "营收亿元", 12.5),),
++            derived_from=("prior-input",), reexcerpted=True, pointer_dropped=2,
++            structural_neighbor_demoted=1, deep_read=True,
++            publisher_kind="company", document_type="announcement",
++        ), **changes)
++    )
++
++
++def _fixture():
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    first, second = _atom("first"), _atom("second", source_date=None, observations=())
++    # Arrival order is NOT necessarily the parent's model-visible order.
++    ledger.branch_sink("invocation:child-2").append(second)
++    ledger.append(first, covered_outputs=("direct",), open_gaps=("verify",))
++    ledger.mark_output_covered("comparison", evidence_ids=("second",))
++    ledger.open_gap("not-covered")
++    presented = (first, second)
++    payload = snapshots.capture_evidence_snapshot(
++        episode_id="episode", ledger=ledger, presented_evidence=presented,
++    )
++    return ledger, presented, payload
++
++
++def _resign(payload):
++    # A digest is an integrity check, not a substitute for semantic validation.
++    body = {k: v for k, v in payload.items() if k != "sha256"}
++    payload["sha256"] = hashlib.sha256(json.dumps(
++        body, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False,
++    ).encode()).hexdigest()
++
++
++def test_full_private_roundtrip_keeps_atoms_coverage_owners_and_distinct_citation_order():
++    ledger, presented, payload = _fixture()
++    payload = json.loads(json.dumps(payload, allow_nan=False))
++    snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert restored.items() == ledger.items()
++    assert restored.snapshot() == ledger.snapshot()
++    assert snapshot.presented_evidence == presented
++    assert resolve_evidence_refs(["E1", "E2"], snapshot.presented_evidence) == ("first", "second")
++    assert evidence_ordinal_table(restored.items()) != evidence_ordinal_table(snapshot.presented_evidence)
++    assert snapshot.to_dict() == payload
++    assert restored.to_recovery_snapshot(episode_id="episode", presented_evidence=presented) == payload
++    assert set(payload["entries"][0]["atom"]) == {f.name for f in fields(AgentEvidence)}
++    assert asdict(snapshot.presented_evidence[0]) == asdict(presented[0])
++    assert "internal_locator" not in public_agent_evidence(snapshot.presented_evidence[0])
++    assert "observations" not in public_agent_evidence(snapshot.presented_evidence[0])
++    assert restored.append(replace(presented[0], detail="later replacement")) == ()
++    assert restored.items()[1].detail == presented[0].detail  # first writer wins
++    restored.append(_atom("third"))
++    assert len(ledger.items()) == 2  # not an alias of the source ledger
++
++
++def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
++    _, presented, payload = _fixture()
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert restored.branch_sink("wrong-owner").append(presented[1]) == ()
++    assert dict(restored.snapshot().evidence_branch_owners) == {"second": "invocation:child-2"}
++    assert restored.append(_atom("future", source_date="2026-07-25")) == ()
++    assert restored.append(_atom("bad-date", source_date="not-a-date")) == ()
++    assert restored.append(_atom("new")) == ("new",)
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(
++        restored.to_recovery_snapshot(episode_id="episode", presented_evidence=(*presented, _atom("new"))),
++        episode_id="episode",
++    )
++    assert resolve_evidence_refs(["E1", "E2", "E3"], decoded.presented_evidence) == ("first", "second", "new")
++
++
++@pytest.mark.parametrize(("path", "value"), [
++    (("schema_version",), True), (("schema_version",), 3), (("kind",), "public_evidence"),
++    (("episode_id",), "other"), (("information_cutoff",), "2026-99-99"),
++    (("entries", 0, "atom", "source_date"), "2026-07-25"),
++    (("entries", 0, "atom", "source_date"), "unknown"),
++    (("entries", 0, "atom", "detail"), None),
++    (("entries", 0, "atom", "content_hash"), " spaced "),
++    (("entries", 0, "atom", "supports"), [False]),
++    (("entries", 0, "atom", "observations"), [{"subject": "a", "as_of": "2026-07-24", "metric": "x", "value": True}]),
++    (("entries", 0, "atom", "observations"), [{"subject": "a", "as_of": "2026-07-24", "metric": "x", "value": 1, "extra": "bad"}]),
++    (("entries", 0, "atom", "pointer_dropped"), -1),
++    (("entries", 0, "atom", "structural_neighbor_demoted"), True),
++    (("entries", 0, "atom", "reexcerpted"), 1),
++    (("entries", 0, "atom", "deep_read"), "false"),
++    (("entries", 0, "targets"), []),
++    (("entries", 0, "targets"), ["direct", "direct"]),
++    (("entries", 0, "branch_owner"), ""),
++    (("entries", 0, "cutoff_status"), "verified"),
++    (("presentations", 0, "atom", "content_hash"), "missing"),
++    (("presentations", 1, "atom", "content_hash"), "first"),
++    (("covered_outputs",), ["not-targeted"]), (("open_gaps",), [" duplicate "]),
++    (("unexpected",), True),
++])
++def test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest(path, value):
++    _, _, payload = _fixture()
++    node = payload
++    for key in path[:-1]:
++        node = node[key]
++    node[path[-1]] = value
++    _resign(payload)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize("path", [
++    ("entries",), ("presentations",), ("information_cutoff",),
++    ("entries", 0, "branch_owner"), ("entries", 0, "cutoff_status"),
++    ("entries", 0, "atom", "observations"), ("entries", 0, "atom", "source_date"),
++    ("entries", 0, "atom", "derived_from"), ("entries", 0, "atom", "internal_locator"),
++])
++def test_missing_fields_are_not_filled_from_public_projection_or_defaults(path):
++    _, _, payload = _fixture()
++    node = payload
++    for key in path[:-1]:
++        node = node[key]
++    del node[path[-1]]
++    _resign(payload)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++def test_digest_binds_body_not_just_provider_content_hash_and_rejects_duplicate_atoms():
++    _, _, payload = _fixture()
++    changed = deepcopy(payload)
++    changed["entries"][0]["atom"]["detail"] = "changed original"
++    with pytest.raises(ValueError, match="digest"):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(changed, episode_id="episode")
++    changed = deepcopy(payload)
++    changed["entries"].append(deepcopy(changed["entries"][0]))
++    _resign(changed)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(changed, episode_id="episode")
++
++
++@pytest.mark.parametrize("value", [float("nan"), float("inf"), 10 ** 400])
++def test_structured_observation_numbers_must_be_finite_and_never_coerced(value):
++    ledger = EvidenceLedger()
++    item = _atom(observations=(StructuredObservation("a", "2026-07-24", "x", value),))
++    ledger.append(item)
++    with pytest.raises(ValueError):
++        snapshots.capture_evidence_snapshot(episode_id="episode", ledger=ledger, presented_evidence=(item,))
++
++
++def test_capture_refuses_hash_collision_or_unadmitted_presented_atom():
++    ledger, presented, _ = _fixture()
++    for items in ((replace(presented[0], detail="different atom"),), (_atom("missing"),)):
++        with pytest.raises(ValueError):
++            snapshots.capture_evidence_snapshot(episode_id="episode", ledger=ledger, presented_evidence=items)
++
++
++def test_checkpoint_is_deeply_frozen_detached_and_keeps_capture_prefix():
++    _, _, payload = _fixture()
++    state = EpisodeState(episode_id="episode", phase="planning", last_sequence=7,
++                         evidence_snapshot=payload, evidence_snapshot_sequence=5)
++    original = state.to_dict()
++    payload["entries"][0]["atom"]["detail"] = "mutated caller"
++    with pytest.raises(TypeError):
++        state.evidence_snapshot["entries"][0]["atom"]["detail"] = "mutated frozen state"
++    exported = state.to_dict()
++    exported["evidence_snapshot"]["entries"][0]["targets"].append("mutated export")
++    assert state.to_dict() == original
++    assert EpisodeState.from_dict(original).to_dict() == original
++    assert state.evidence_snapshot_sequence == 5
++
++
++@pytest.mark.parametrize("sequence", [None, True, -1, 8, 1.5])
++def test_snapshot_capture_position_must_belong_to_checkpoint_prefix(sequence):
++    _, _, payload = _fixture()
++    with pytest.raises(ValueError):
++        EpisodeState(episode_id="episode", phase="planning", last_sequence=7,
++                     evidence_snapshot=payload, evidence_snapshot_sequence=sequence)
++    with pytest.raises(ValueError):
++        EpisodeState(episode_id="episode", phase="planning", evidence_snapshot_sequence=1)
++
++
++def test_legacy_checkpoint_stays_diagnostic_not_fabricated_empty_evidence():
++    state = EpisodeState.from_dict({"episode_id": "episode", "phase": "planning", "log_version": 1})
++    assert state.evidence_snapshot is None and state.evidence_snapshot_sequence is None
++
++
++def test_loop_checkpoints_capture_received_full_atoms_not_the_public_event_projection(tmp_path):
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.episode_store import JsonlEpisodeStore
++    from intelligence.services.provider_observability import ProviderTrace
++    from intelligence.services.research_tool_registry import ResearchToolRegistry
++    from intelligence.tests.conformance.races._drive import build_rig
++
++    rig = build_rig(f"evidence-{uuid4().hex}")
++    item = _atom("runtime-evidence")
++    spec = replace(rig.registry.resolve("market_data"), runner=lambda *_: (
++        [item], "观察值", ProviderTrace(provider="test", capability="market_data", status="success"),
++    ))
++    rig.registry = ResearchToolRegistry((spec,))
++    store = JsonlEpisodeStore(tmp_path)
++    rig.episode = ContinuousAgentEpisode(rig.model, is_cancelled=rig.signal, store=store)
++    rig.start()
++    rig.run_until("model_pending")
++    _, initial = store.load(rig.task_id)
++    assert initial.evidence_snapshot is not None
++    assert snapshots.EpisodeEvidenceSnapshot.from_dict(initial.evidence_snapshot, episode_id=rig.task_id).presented_evidence == ()
++    rig.run_until("tools_settled")
++    # Step itself precedes the next checkpoint: do not label old capture as reconciled.
++    _, before = store.load(rig.task_id)
++    assert snapshots.EpisodeEvidenceSnapshot.from_dict(before.evidence_snapshot, episode_id=rig.task_id).presented_evidence == ()
++    rig.run_until("model_pending")
++    events, state = store.load(rig.task_id)
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=rig.task_id)
++    assert decoded.presented_evidence == (item,)
++    assert state.evidence_snapshot_sequence == state.last_sequence
++    public = next(e.payload for e in events if e.kind == "tool_result")["evidence"][0]
++    assert "observations" not in public and "internal_locator" not in public
++    assert decoded.presented_evidence[0].internal_locator == item.internal_locator
++    rig.finish()
++    _, done = store.load(rig.task_id)
++    assert snapshots.EpisodeEvidenceSnapshot.from_dict(done.evidence_snapshot, episode_id=rig.task_id).presented_evidence == (item,)
++
++
++@pytest.mark.parametrize("expired", [False, True])
++@pytest.mark.parametrize("version", [1, 2])
++def test_restore_keeps_original_capture_position_when_synthesizing_settlements(tmp_path, expired, version):
++    from datetime import datetime, timedelta
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.episode_restore import restore_episode
++    from intelligence.services.episode_store import JsonlEpisodeStore
++    from intelligence.tests.conformance.races._drive import build_rig
++
++    rig = build_rig(f"evidence-prefix-{uuid4().hex}")
++    live = JsonlEpisodeStore(tmp_path / "live")
++    rig.episode = ContinuousAgentEpisode(rig.model, is_cancelled=rig.signal, store=live)
++    rig.start()
++    rig.run_until("tools_settled")
++    rig.run_until("model_pending")
++    events, checkpoint = live.load(rig.task_id)
++    assert checkpoint.evidence_snapshot["presentations"]
++    if version == 1:
++        payload = checkpoint.to_dict()["evidence_snapshot"]
++        payload["presented_hashes"] = [item["atom"]["content_hash"] for item in payload.pop("presentations")]
++        payload["schema_version"] = 1
++        _resign(payload)
++        checkpoint = replace(checkpoint, evidence_snapshot=payload)
++    # Retry=0 exercises synthetic model_error -> finalizing, not just a readonly plan.
++    checkpoint = replace(checkpoint, retry={"remaining": 0})
++    rig.finish()
++    crash = JsonlEpisodeStore(tmp_path / "crash")
++    crash.append(rig.task_id, events, sync=True)
++    crash.put_state(rig.task_id, checkpoint)
++    result = restore_episode(rig.task_id, crash, context=rig.context, registry=rig.registry,
++                             now=datetime.fromisoformat(checkpoint.deadline_at) + timedelta(seconds=1 if expired else -1))
++    assert result.disposition == ("closed" if expired else "resumable")
++    assert result.synthesized
++    assert result.state_after.evidence_snapshot == checkpoint.evidence_snapshot
++    assert result.state_after.evidence_snapshot_sequence == checkpoint.last_sequence < result.state_after.last_sequence
++    assert crash.load(rig.task_id)[1].evidence_snapshot == checkpoint.evidence_snapshot
++    # Closure is still a control-plane result; no reconstructed answer is broadcast.
++    if expired:
++        assert result.outcome.draft == "" and result.outcome.evidence == ()
++
++
++@pytest.mark.parametrize("expired", [False, True])
++@pytest.mark.parametrize("missing", [True, False])
++def test_nonterminal_restore_refuses_missing_snapshot_or_cutoff_drift_without_writes(tmp_path, expired, missing):
++    from datetime import datetime, timedelta
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.episode_restore import RestoreUnavailable, restore_episode
++    from intelligence.services.episode_store import JsonlEpisodeStore
++    from intelligence.tests.conformance.races._drive import build_rig
++
++    rig = build_rig(f"evidence-gate-{uuid4().hex}")
++    live = JsonlEpisodeStore(tmp_path / "live")
++    rig.episode = ContinuousAgentEpisode(rig.model, is_cancelled=rig.signal, store=live)
++    rig.start()
++    rig.run_until("model_pending")
++    events, checkpoint = live.load(rig.task_id)
++    rig.finish()
++    if missing:
++        checkpoint = replace(checkpoint, evidence_snapshot=None, evidence_snapshot_sequence=None)
++    else:
++        payload = checkpoint.to_dict()["evidence_snapshot"]
++        payload["information_cutoff"] = "2026-07-23"
++        _resign(payload)
++        checkpoint = replace(checkpoint, evidence_snapshot=payload)
++    crash = JsonlEpisodeStore(tmp_path / "crash")
++    crash.append(rig.task_id, events, sync=True)
++    crash.put_state(rig.task_id, checkpoint)
++    before = crash.load(rig.task_id)
++    with pytest.raises(RestoreUnavailable, match="evidence"):
++        restore_episode(rig.task_id, crash, context=rig.context, registry=rig.registry,
++                        now=datetime.fromisoformat(checkpoint.deadline_at) + timedelta(seconds=1 if expired else -1))
++    assert crash.load(rig.task_id) == before
++
++
++@pytest.mark.parametrize("boundary", ["planning", "tools_pending", "done"])
++@pytest.mark.parametrize("failure", ["raise", "missing", "invalid"])
++def test_required_evidence_encoding_failure_fences_tree_and_retains_received_results(tmp_path, monkeypatch, boundary, failure):
++    from intelligence.runtime import agent_episode
++    from intelligence.services.agent_runtime import EpisodeEvent
++    from intelligence.services.episode_store import EpisodeStoreFailed, FencedEpisodeStore, JsonlEpisodeStore
++    from intelligence.tests.conformance.races._drive import build_rig
++
++    rig = build_rig(f"evidence-failure-{uuid4().hex}")
++    raw = JsonlEpisodeStore(tmp_path)
++    fence = FencedEpisodeStore(raw)
++    rig.episode = agent_episode.ContinuousAgentEpisode(rig.model, is_cancelled=lambda: rig.signal.requested, store=fence)
++    rig.start()
++    if boundary == "tools_pending":
++        rig.run_until("model_settled")
++    elif boundary == "done":
++        rig.run_until("before_finish")
++    _, before = raw.load(rig.task_id)
++    calls = rig.model.calls
++    capture = agent_episode.capture_evidence_snapshot
++
++    def fail(**kwargs):
++        if failure == "raise":
++            raise OSError("evidence encoding failed")
++        if failure == "missing":
++            return None
++        payload = capture(**kwargs)
++        payload["episode_id"] = "wrong-owner"
++        _resign(payload)
++        return payload
++
++    monkeypatch.setattr(agent_episode, "capture_evidence_snapshot", fail)
++    outcome = rig.finish()
++    assert outcome.persistence == "failed" and outcome.stop_reason == "storage_failed"
++    assert rig.model.calls == calls and outcome.usage.llm_calls == calls
++    assert raw.load(rig.task_id)[1] == before
++    assert fence.failure and not rig.signal.requested
++    with pytest.raises(EpisodeStoreFailed):
++        fence.append("sibling", (EpisodeEvent(1, "task", {}),), sync=True)
++    assert raw.load("sibling") == ((), None)
++    if boundary == "done":
++        assert outcome.evidence and outcome.draft
++    else:
++        assert not outcome.evidence and outcome.usage.tool_calls == 0
++
++
++def test_opening_prefetch_is_in_the_first_confirmed_checkpoint_before_model_dispatch(tmp_path):
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.episode_store import JsonlEpisodeStore
++    from intelligence.tests.conformance.races._drive import build_rig
++
++    rig = build_rig(f"evidence-prefetch-{uuid4().hex}")
++    item = _atom("prefetched")
++    # Use the existing registry metadata path, copied by for_context/with_specs.
++    from intelligence.services.research_tool_registry import ResearchToolRegistry
++    rig.registry = ResearchToolRegistry((rig.registry.resolve("market_data"),), opening_prefetch=(item,))
++    checkpoints = []
++
++    class RecordingStore(JsonlEpisodeStore):
++        def put_state(self, episode_id, state):
++            super().put_state(episode_id, state)
++            checkpoints.append(state)
++
++    store = RecordingStore(tmp_path)
++    rig.episode = ContinuousAgentEpisode(rig.model, is_cancelled=rig.signal, store=store)
++    rig.start()
++    rig.run_until("model_pending")
++    snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(checkpoints[0].evidence_snapshot, episode_id=rig.task_id)
++    assert checkpoints[0].phase == "planning" and rig.model.calls == 0
++    assert snapshot.presented_evidence == (item,)
++    assert resolve_evidence_refs(["E1"], snapshot.presented_evidence) == ("prefetched",)
++    rig.finish()
++
++
++@pytest.mark.parametrize("plan", [False, True])
++def test_real_child_tree_keeps_parent_ownership_and_independent_child_evidence(tmp_path, plan):
++    from intelligence.tests.test_sub_research_persistence import ObservedStore, run_tree
++
++    store = ObservedStore(tmp_path)
++    outcome, _, _, _, _ = run_tree(store, rounds=1, goals=("核验甲", "核验乙"), plan=plan)
++    assert outcome.persistence == "durable"
++    starts = [e for e in outcome.events if e.kind == "branch_started"]
++    parent_id = starts[0].payload["episode_ref"]["parent_episode_id"]
++    parent = store.load(parent_id)[1]
++    parent_snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(parent.evidence_snapshot, episode_id=parent_id)
++    assert parent_snapshot.presented_evidence == outcome.evidence
++    owners = {entry.atom.content_hash: entry.branch_owner for entry in parent_snapshot.entries}
++    assert set(owners.values()) == store.child_ids
++    for child_id in store.child_ids:
++        _, child = store.load(child_id)
++        snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(child.evidence_snapshot, episode_id=child_id)
++        assert snapshot.presented_evidence
++        assert all(owners[item.content_hash] == child_id for item in snapshot.presented_evidence)
++        assert all(entry.branch_owner is None for entry in snapshot.entries)
++    assert len(parent_snapshot.entries) == 2
++
++
++def test_unpresented_child_atom_has_no_citation_ordinal_until_parent_accepts_it():
++    ledger, presented, _ = _fixture()
++    extra = _atom("pending-child")
++    ledger.branch_sink("child-pending").append(extra)
++    snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(
++        snapshots.capture_evidence_snapshot(episode_id="episode", ledger=ledger, presented_evidence=presented),
++        episode_id="episode",
++    )
++    assert len(snapshot.entries) == 3 and len(snapshot.presented_evidence) == 2
++    assert "pending-child" not in evidence_ordinal_table(snapshot.presented_evidence)
++
++
++def test_concurrent_append_and_capture_never_mix_atom_and_owner_or_coverage():
++    from concurrent.futures import ThreadPoolExecutor
++    from threading import Barrier
++
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    barrier = Barrier(2)
++
++    def append():
++        barrier.wait(timeout=5)
++        for index in range(60):
++            ledger.branch_sink(f"child-{index}").append(_atom(f"e-{index}"))
++
++    with ThreadPoolExecutor(max_workers=1) as pool:
++        future = pool.submit(append)
++        barrier.wait(timeout=5)
++        for _ in range(60):
++            payload = snapshots.capture_evidence_snapshot(episode_id="episode", ledger=ledger, presented_evidence=())
++            decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++            assert all(entry.branch_owner == f"child-{index}" and entry.atom.content_hash == f"e-{index}"
++                       for index, entry in enumerate(decoded.entries))
++        future.result(timeout=10)
++    assert len(ledger.items()) == 60
++
++
++def test_repair_saves_fresh_evidence_while_retaining_old_citation_numbers(tmp_path):
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.episode_store import JsonlEpisodeStore
++    from intelligence.tests.test_agent_episode import (
++        ScriptedModel, _frame, _context, _tool_turn, _finish_turn, _market_registry, _successful_runner,
++    )
++    from intelligence.tests.test_episode_session import _goal
++
++    frame = _frame(("direct_assessment", "counterpoint"))
++    context = _context(frame, max_steps=4)
++    def runner(query, tool_context):
++        evidence, observation, trace = _successful_runner(query, tool_context)
++        if query == "反方证据":
++            evidence = [replace(item, content_hash="repair-evidence") for item in evidence]
++        return evidence, observation, trace
++
++    registry = _market_registry(runner)
++    store = JsonlEpisodeStore(tmp_path)
++    model = ScriptedModel([
++        _tool_turn("市场"), _finish_turn(status="partial", gap="缺少反方证据"),
++        _tool_turn("反方证据", call_id="repair-call"), _finish_turn(status="partial", gap="仍待核验"),
++    ])
++    episode = ContinuousAgentEpisode(model, store=store)
++    continuation = []
++    previous = episode.run(task_frame=frame, context=context, registry=registry, _continuation_sink=continuation)
++    first = store.load(context.contract.task_id)[1]
++    repaired = episode.resume(continuation[0], previous, _goal(context.contract.task_id))
++    assert previous.persistence == repaired.persistence == "durable"
++    last = store.load(context.contract.task_id)[1]
++    old = snapshots.EpisodeEvidenceSnapshot.from_dict(first.evidence_snapshot, episode_id=context.contract.task_id)
++    fresh = snapshots.EpisodeEvidenceSnapshot.from_dict(last.evidence_snapshot, episode_id=context.contract.task_id)
++    assert len(fresh.presented_evidence) == 2 and fresh.presented_evidence == repaired.evidence
++    assert fresh.presented_evidence[:1] == old.presented_evidence
++    assert resolve_evidence_refs(["E1"], fresh.presented_evidence) == old.presented_hashes
++    assert last.evidence_snapshot_sequence > first.evidence_snapshot_sequence
++
++
++@pytest.mark.parametrize("missing", ["ledger", "presentation", "cutoff"])
++def test_missing_current_source_never_reuses_a_previous_evidence_snapshot(tmp_path, missing):
++    from intelligence.runtime.agent_episode import _EpisodeLedger
++    from intelligence.services.episode_store import FencedEpisodeStore, JsonlEpisodeStore
++    from intelligence.tests.conformance.races._drive import build_rig
++
++    rig = build_rig(f"evidence-source-{uuid4().hex}")
++    raw = JsonlEpisodeStore(tmp_path)
++    fence = FencedEpisodeStore(raw)
++    ledger = _EpisodeLedger(rig.frame, episode_id=rig.task_id, store=fence)
++    ledger.active_context, ledger.active_registry = rig.context, rig.registry
++    ledger.active_evidence_ledger = EvidenceLedger(information_cutoff=rig.context.information_cutoff.as_of_date)
++    ledger.presented_evidence = []
++    ledger.put_state(phase="planning")
++    assert not ledger.store_failures
++    before = raw.load(rig.task_id)
++    if missing == "ledger":
++        ledger.active_evidence_ledger = None
++    elif missing == "presentation":
++        ledger.presented_evidence = None
++    else:
++        ledger.active_evidence_ledger = EvidenceLedger(information_cutoff=date(2026, 7, 23))
++    ledger.put_state(phase="planning")
++    assert ledger.store_failures and fence.failure
++    assert raw.load(rig.task_id) == before
++
++
++def test_unbounded_and_undated_evidence_stay_explicit_not_upgraded_on_roundtrip():
++    ledger = EvidenceLedger()
++    items = (_atom("dated"), _atom("undated", source_date=""))
++    ledger.append(items)
++    payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=items)
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert restored.information_cutoff is None
++    assert dict(restored.snapshot().evidence_cutoff_status) == {"dated": "unbounded", "undated": "undated"}
++    assert restored.items() == items
++
++
++def test_consistent_legacy_terminal_query_is_readonly_and_does_not_resend_evidence():
++    from intelligence.services.agent_runtime import EpisodeEvent
++    from intelligence.services.episode_restore import restore_episode
++    from intelligence.services.episode_store import MemoryEpisodeStore
++
++    store = MemoryEpisodeStore()
++    store.append("episode", (EpisodeEvent(1, "task", {}), EpisodeEvent(2, "finish", {})), sync=True)
++    store.put_state("episode", EpisodeState(episode_id="episode", phase="done", last_sequence=2))
++    before = store.load("episode")
++    result = restore_episode("episode", store)
++    assert result.disposition == "already_terminal" and result.outcome is result.plan is None
++    assert result.synthesized == () and store.load("episode") == before

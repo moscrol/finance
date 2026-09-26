@@ -1,0 +1,22 @@
+{
+  "stage": "gateway",
+  "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+  "max_requests": 4,
+  "automatic_retries": 0,
+  "shim_sha256": "b5dd3b1d37524fe8060ed7752f1aaf129aaf877f8799932fad313e7b30cd6055",
+  "shim_exit": 0,
+  "shim_counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 0,
+    "dispatched": 1,
+    "dropped_temperature": 0,
+    "failed": 1,
+    "requests": 1,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "elapsed_seconds": 121.89887170889415,
+  "stage_status": "BLOCKED_PROVIDER_HTTP_502",
+  "request_counts_agree": true
+}

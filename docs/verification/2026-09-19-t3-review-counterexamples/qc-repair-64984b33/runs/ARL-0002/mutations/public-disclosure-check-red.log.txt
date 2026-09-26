@@ -1,0 +1,100 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33/runs/ARL-0002/mutations/public-disclosure-check-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_success_exit_also_checks_absence_and_preserves_neighbors or test_frozen_disclosure_answer_through_real_verifier_exit"], "cwd": "/private/tmp/extraction-closeout-mutations-_154ra9n/tree", "revision": "64984b33e6f38eccc50c004b7b79120f1f45a775"}
+FFFFFFFFFF                                                               [100%]
+=================================== FAILURES ===================================
+_ test_success_exit_also_checks_absence_and_preserves_neighbors[request_error-off] _
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+_ test_success_exit_also_checks_absence_and_preserves_neighbors[request_error-llm] _
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+__ test_success_exit_also_checks_absence_and_preserves_neighbors[partial-off] __
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+__ test_success_exit_also_checks_absence_and_preserves_neighbors[partial-llm] __
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+___ test_success_exit_also_checks_absence_and_preserves_neighbors[empty-off] ___
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+___ test_success_exit_also_checks_absence_and_preserves_neighbors[empty-llm] ___
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+_ test_success_exit_also_checks_absence_and_preserves_neighbors[not_attempted-off] _
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+_ test_success_exit_also_checks_absence_and_preserves_neighbors[not_attempted-llm] _
+intelligence/tests/test_research_delivery_checks.py:169: in test_success_exit_also_checks_absence_and_preserves_neighbors
+    assert "窗口内无新公告即" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'
+E     
+E     '窗口内无新公告即' is contained here:
+E       已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。
+E     ?                     ++++++++
+________ test_frozen_disclosure_answer_through_real_verifier_exit[off] _________
+intelligence/tests/test_frozen_research_delivery.py:162: in test_frozen_disclosure_answer_through_real_verifier_exit
+    assert "窗口内无新公告即无新增官方信息差" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即无新增官方信息差' not in '以披露日 2026-0...改革阵痛」叙事是否延续。'
+E     
+E     '窗口内无新公告即无新增官方信息差' is contained here:
+E       标题，属外部观点）；窗口内无新公告即无新增官方信息差。股吧「机构退出」等评论未经公告证实，不作事实。反证：现有清单是抓取时点切片，接口未完整返回，不能据此断定9月确实零公告。裁判变量：1）补关键缺口：在上交所/巨潮公告检索接口正常时按披露日筛选 2026-08-19 至 09-18 重查一次，若返回空白则可坐实窗口内无公告；2）比较替代解释：等公司 2026 年三季度经营数据公告（预计 10 月中下旬）验证「改革阵痛」叙事是否延续。
+E     ?           ++++++++++++++++
+________ test_frozen_disclosure_answer_through_real_verifier_exit[llm] _________
+intelligence/tests/test_frozen_research_delivery.py:162: in test_frozen_disclosure_answer_through_real_verifier_exit
+    assert "窗口内无新公告即无新增官方信息差" not in result.public_answer
+E   AssertionError: assert '窗口内无新公告即无新增官方信息差' not in '以披露日 2026-0...改革阵痛」叙事是否延续。'
+E     
+E     '窗口内无新公告即无新增官方信息差' is contained here:
+E       标题，属外部观点）；窗口内无新公告即无新增官方信息差。股吧「机构退出」等评论未经公告证实，不作事实。反证：现有清单是抓取时点切片，接口未完整返回，不能据此断定9月确实零公告。裁判变量：1）补关键缺口：在上交所/巨潮公告检索接口正常时按披露日筛选 2026-08-19 至 09-18 重查一次，若返回空白则可坐实窗口内无公告；2）比较替代解释：等公司 2026 年三季度经营数据公告（预计 10 月中下旬）验证「改革阵痛」叙事是否延续。
+E     ?           ++++++++++++++++
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33/runs/ARL-0002/mutations/public-disclosure-check-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[request_error-off]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[request_error-llm]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[partial-off]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[partial-llm]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[empty-off]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[empty-llm]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[not_attempted-off]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_success_exit_also_checks_absence_and_preserves_neighbors[not_attempted-llm]
+FAILED intelligence/tests/test_frozen_research_delivery.py::test_frozen_disclosure_answer_through_real_verifier_exit[off]
+FAILED intelligence/tests/test_frozen_research_delivery.py::test_frozen_disclosure_answer_through_real_verifier_exit[llm]
+10 failed, 295 deselected in 0.89s
+
+STDERR:
+
+EXIT=1

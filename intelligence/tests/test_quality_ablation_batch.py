@@ -51,14 +51,14 @@ def test_real_scoring_chain_seals_eligible_batch_and_checkpoints_selected_attemp
     output = tmp_path / "batch.json"
     run.write_artifact(output, data, create=True)
     calls = []
-    def transport(request, **kwargs):
+    def transport(request, timeout=0.0, **kwargs):
         prior = json.loads(output.read_text())
         assert prior["manifest"]["answer_manifest"] is not None
         calls.append(json.loads(request.data))
         if len(calls) > 1:
             assert prior["call_ledger"]["call_count"] == len(calls) - 1
         return score_response()
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", transport)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", transport)
     run.finish_judging(data, seed=1, persist=lambda: run.write_artifact(output, data))
     assert len(calls) == 6
     assert all(p["max_tokens"] == 1000 and p["temperature"] == 0.1 for p in calls)
@@ -76,7 +76,7 @@ def test_real_scoring_chain_seals_eligible_batch_and_checkpoints_selected_attemp
 def test_changed_or_unknown_response_stops_after_one_call_with_receipt(judge, monkeypatch, tmp_path, model):
     data = artifact()
     calls = []
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **k: calls.append(1) or score_response(model))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **k: calls.append(1) or score_response(model))
     output = tmp_path / "invalid.json"
     run.write_artifact(output, data, create=True)
     run.finish_judging(data, seed=1, persist=lambda: run.write_artifact(output, data))
@@ -95,7 +95,7 @@ def test_interruption_retains_completed_attempt_and_invalidates_batch(judge, mon
         if len(calls) == 2:
             raise KeyboardInterrupt()
         return score_response()
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", transport)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", transport)
     output = tmp_path / "partial.json"
     run.write_artifact(output, data, create=True)
     with pytest.raises(KeyboardInterrupt):
@@ -121,7 +121,7 @@ def test_main_saves_before_ask_and_routes_all_scores_through_batch(judge, monkey
         p.update(receipt_verified=True, receipt_id=answer, question_sha256=validity.canonical_hash({"text": question.text, "as_of": question.as_of}))
         return {"ok": True, "answer": answer, "writer_provenance": p}
     monkeypatch.setattr(run, "run_ask", ask)
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **kw: score_response())
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **kw: score_response())
     assert run.main(["--output", str(path), "--components", "kb-rag", "--max-questions", "2", "--calibration-repeats", "1"]) == 0
     saved = json.loads(path.read_text())
     assert saved["judging_validity"]["valid"], saved["judging_validity"]
@@ -173,7 +173,7 @@ def test_old_receipt_cannot_claim_valid_by_omitting_manifest(judge):
 
 def test_unknown_identity_in_invalid_json_does_not_spend_format_retry(judge, monkeypatch):
     calls = []
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **k: calls.append(1) or Response(body("not JSON")))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **k: calls.append(1) or Response(body("not JSON")))
     result = run.judge_answer(run.Question("q", "q", "2026-09-01"), "answer", spec=run.build_judge_spec())
     assert len(calls) == 1
     assert result["reason"] == "judge_identity_unknown"
@@ -182,10 +182,10 @@ def test_unknown_identity_in_invalid_json_does_not_spend_format_retry(judge, mon
 
 def test_closing_a_batch_prevents_reusing_finish(judge, monkeypatch):
     data = artifact()
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **k: score_response())
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **k: score_response())
     run.finish_judging(data, seed=1)
     calls = []
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **k: calls.append(1) or score_response())
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **k: calls.append(1) or score_response())
     with pytest.raises(ValueError, match="open"):
         run.finish_judging(data, seed=1)
     assert not calls

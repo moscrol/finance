@@ -1,0 +1,56 @@
+{
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "started_at": "2026-09-21T18:15:28.357248+00:00",
+  "command": [
+    "pnpm",
+    "test:e2e",
+    "--reporter=list,json",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-browser/test-results"
+  ],
+  "env": {
+    "HOME": "/Users/a77",
+    "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "WORKBENCH_PYTHON": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "WORKBENCH_E2E_PORT": "19851",
+    "RE06_E2E_PORT": "19854",
+    "RE06_E2E_URL": "http://127.0.0.1:19854",
+    "CI": "1",
+    "NO_COLOR": "1",
+    "PLAYWRIGHT_JSON_OUTPUT_NAME": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-browser/report.json",
+    "PLAYWRIGHT_BROWSERS_PATH": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/browsers"
+  },
+  "timeout_seconds": 600,
+  "min_free_bytes": 2147483648,
+  "sandbox_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n(deny file-write* (subpath \"/Users/a77/finance-workspace-private\"))\n(deny file-write* (subpath \"/Users/a77/agent-memory\"))\n",
+  "runner_sha256": "081e1c504cdcb090f4c8ba43b35ceb37eeb4bf5e93a7cedd513cae9c12785da1",
+  "signals": [],
+  "after": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "finished_at": "2026-09-21T18:16:59.943317+00:00",
+  "elapsed_seconds": 91.58559354185127,
+  "exit_code": 0,
+  "stop_reason": null,
+  "log_sha256": "2f57bfe6a076d450a3d30b16f4d7fe09ea1b055cab86bfafe802da691aaf4cb1",
+  "report_sha256": "04dfd19b508291fc6a8d0a88c39290e4964b9f2ab8e8c2bc6da01171203a584e",
+  "stats": {
+    "startTime": "2026-09-21T18:15:29.358Z",
+    "duration": 89325.409,
+    "expected": 34,
+    "skipped": 2,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": []
+}

@@ -1,0 +1,448 @@
+{
+  "created_at": "2026-09-19T12:56:40.146109+00:00",
+  "scope": "post-return local diagnosis, not independent authority or natural QA",
+  "model_calls_by_this_script": 0,
+  "before": {
+    "code_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+    "revision": "d46c2c3b10221483c811426e99ad379314289871",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "661894ce18ae0835fc1297303569f5fd279b5526448b7fbffc17608ba498ce80",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "after": {
+    "code_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/registry-pinned/finance-workspace-private",
+    "revision": "d46c2c3b10221483c811426e99ad379314289871",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "661894ce18ae0835fc1297303569f5fd279b5526448b7fbffc17608ba498ce80",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "target_unchanged": true,
+  "request_sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6",
+  "manifest": {
+    "required_count": 61,
+    "returned_count": 63,
+    "exact_required_present_count": 26,
+    "missing_count": 35,
+    "missing": [
+      "intelligence/tests/test_agent_episode_ab.py",
+      "intelligence/tests/test_ceiling_required_block_degrade.py",
+      "intelligence/tests/test_continuous_turn_adapter.py",
+      "intelligence/tests/test_data_gap_delivery.py",
+      "intelligence/tests/test_degraded_fallback.py",
+      "intelligence/tests/test_e2_material_delivery.py",
+      "intelligence/tests/test_episode_answer_hygiene.py",
+      "intelligence/tests/test_episode_issues.py",
+      "intelligence/tests/test_forecast_residual_budget.py",
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_gap_answer_middle_tier.py",
+      "intelligence/tests/test_grok_cli_judge.py",
+      "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+      "intelligence/tests/test_judge_evidence_projection.py",
+      "intelligence/tests/test_judge_mode_off.py",
+      "intelligence/tests/test_judge_sentence_verdicts.py",
+      "intelligence/tests/test_judge_source_recheck.py",
+      "intelligence/tests/test_kb_gap_proof.py",
+      "intelligence/tests/test_llm_call_ledger_usage.py",
+      "intelligence/tests/test_longtail_baseline.py",
+      "intelligence/tests/test_optional_forward_slots.py",
+      "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+      "intelligence/tests/test_publication_qc_off_table.py",
+      "intelligence/tests/test_publication_view_deepen.py",
+      "intelligence/tests/test_run_agent_runtime_benchmark.py",
+      "intelligence/tests/test_runtime_fault_matrix.py",
+      "intelligence/tests/test_stage_caps.py",
+      "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+      "intelligence/tests/test_v11_judge_guided_retrieval.py",
+      "intelligence/tests/test_v8_semantic_deletion_rights.py",
+      "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases",
+      "scripts/review_probes/check_ratio_hedge_delivery.py:4-unchanged-cases",
+      "scripts/review_probes/check_ratio_scope_boundaries.py:16-unchanged-cases",
+      "scripts/review_probes/run_extraction_mutations.py:research-delivery",
+      "tests/test_historical_evidence_contract.py"
+    ],
+    "missing_test_files": [
+      "intelligence/tests/test_agent_episode_ab.py",
+      "intelligence/tests/test_ceiling_required_block_degrade.py",
+      "intelligence/tests/test_continuous_turn_adapter.py",
+      "intelligence/tests/test_data_gap_delivery.py",
+      "intelligence/tests/test_degraded_fallback.py",
+      "intelligence/tests/test_e2_material_delivery.py",
+      "intelligence/tests/test_episode_answer_hygiene.py",
+      "intelligence/tests/test_episode_issues.py",
+      "intelligence/tests/test_forecast_residual_budget.py",
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_gap_answer_middle_tier.py",
+      "intelligence/tests/test_grok_cli_judge.py",
+      "intelligence/tests/test_judge_delete_keeps_grounded_values.py",
+      "intelligence/tests/test_judge_evidence_projection.py",
+      "intelligence/tests/test_judge_mode_off.py",
+      "intelligence/tests/test_judge_sentence_verdicts.py",
+      "intelligence/tests/test_judge_source_recheck.py",
+      "intelligence/tests/test_kb_gap_proof.py",
+      "intelligence/tests/test_llm_call_ledger_usage.py",
+      "intelligence/tests/test_longtail_baseline.py",
+      "intelligence/tests/test_optional_forward_slots.py",
+      "intelligence/tests/test_outlook_ten_question_frozen_set.py",
+      "intelligence/tests/test_publication_qc_off_table.py",
+      "intelligence/tests/test_publication_view_deepen.py",
+      "intelligence/tests/test_run_agent_runtime_benchmark.py",
+      "intelligence/tests/test_runtime_fault_matrix.py",
+      "intelligence/tests/test_stage_caps.py",
+      "intelligence/tests/test_step_trajectory_qualification_prefetch.py",
+      "intelligence/tests/test_v11_judge_guided_retrieval.py",
+      "intelligence/tests/test_v8_semantic_deletion_rights.py",
+      "tests/test_historical_evidence_contract.py"
+    ],
+    "missing_exact_named_probes": [
+      "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases",
+      "scripts/review_probes/check_ratio_hedge_delivery.py:4-unchanged-cases",
+      "scripts/review_probes/check_ratio_scope_boundaries.py:16-unchanged-cases",
+      "scripts/review_probes/run_extraction_mutations.py:research-delivery"
+    ],
+    "extra_count": 37,
+    "extra": [
+      "mutations:research-delivery",
+      "probe:check_fact_retention",
+      "probe:check_ratio_hedge_scope",
+      "probe:check_ratio_scope_boundaries",
+      "scripts/review_probes/check_ratio_scope_boundaries.py",
+      "scripts/review_probes/research_delivery_mutations.json",
+      "test_calculation_value_mismatch_is_reported",
+      "test_calculation_value_unlocated_is_reported",
+      "test_calculation_value_unverified_is_reported",
+      "test_disclosure_absence_inference_is_rejected",
+      "test_final_projection_excludes_points_value",
+      "test_hedge_scope_is_not_bypassed",
+      "test_independent_fact_is_retained",
+      "test_markdown_coordinates_preserved",
+      "test_ratio_ambiguous_residue_is_reported",
+      "test_ratio_annotation_role_is_not_value",
+      "test_ratio_citation_role_is_not_value",
+      "test_ratio_compound_unit_is_not_amount",
+      "test_ratio_genitive_claim_is_not_reference",
+      "test_ratio_genitive_label_is_checked",
+      "test_ratio_grouped_decimal_is_single_token",
+      "test_ratio_independent_delta_not_absolute",
+      "test_ratio_marker_is_period_local",
+      "test_ratio_marker_recheck_is_idempotent",
+      "test_ratio_notice_is_deduplicated",
+      "test_ratio_ordinal_role_is_not_value",
+      "test_ratio_period_role_is_not_value",
+      "test_ratio_points_cannot_certify",
+      "test_ratio_points_delta_is_independent",
+      "test_ratio_residual_unit_not_blind_waiver",
+      "test_ratio_semicolon_continuation_binds_slot",
+      "test_ratio_semicolon_does_not_capture_next_sentence",
+      "test_ratio_semicolon_value_not_just_unknown",
+      "test_ratio_table_unit_contract",
+      "test_repair_matrix_judge_modes",
+      "test_repair_matrix_root_expired_degraded",
+      "test_repair_matrix_tools_and_budget"
+    ],
+    "all_missing_names_were_in_original_prompt": true,
+    "returned_status_counts": {
+      "PASS": 54,
+      "PARTIAL": 9
+    },
+    "validation": {
+      "valid": false,
+      "authority": "none",
+      "errors": [
+        "check_manifest"
+      ],
+      "status": "CHANGES_REQUIRED",
+      "review_id": "ARL-0005",
+      "commit": "d46c2c3b10221483c811426e99ad379314289871"
+    },
+    "raw_verdict_sha256": "64647e94587131c12211ef805fc277a97fc61aea2cb2f90afa3879d03d4caefd",
+    "interpretation": "JSON shape success and a large check count are not exact manifest coverage. Do not fill omitted checks or rename model checks after return."
+  },
+  "probe_identity_claim": {
+    "raw_probe_has_identity": true,
+    "raw_target_unchanged": true,
+    "raw_probe_sha256": "f35b59a53ce1d58ac4509a84b51894619a44d82e7a704dbfb0e470181549db4a",
+    "independent_local_receipt_has_same_probe_sha256": true,
+    "source_matches_receipt": true,
+    "tail_contains_probe_sha256": false,
+    "tail_contains_target_unchanged": false,
+    "interpretation": "Reviewer saw a truncated output tail, not absence in the probe. The recommendation to add already-existing identity fields is inapplicable; do not modify the original probe."
+  },
+  "handoff_claim": {
+    "path": "docs/handoffs/inflight/q-research-data-readiness.md",
+    "snapshots": [
+      {
+        "revision": "d46c2c3b10221483c811426e99ad379314289871",
+        "sha256": "1f8cd526f2621c1841aaff547030a78e791ef1dd688fd8a90a937d9fdca0be62",
+        "text": "# T3 值槽续检 · 2026-09-19\n\n## 这个分支做什么\n沿原q线修可信正文/引用误删与数值核验，不开热点平行线；工程、外审、自然答案分账。\n\n## 当前状态\n业务746b716ff95d40898697628e197fd266a9473bf6已推Gitea。原占位四例已4P，但新边界探针4P/12F，仍停合。\nARL-0004首调用本地Prompt too long无裁决；独占根补试返回PASS却有5项必需检查PARTIAL，被原门禁隔离为INVALID_VERDICT/failed_check_for_pass、authority none。不是外审通过，也不冒充第四份有效CR；旧三份CR未被有效覆盖。无后台续试。\n未开PR/合main/部署；main末核b22ddf8b。见`docs/handoffs/2026-09-19-t3-ratio-scope-review.md`及`docs/verification/2026-09-19-t3-ratio-scope/`。\n\n## 决策与被否方案\n- 占位只消费自身值槽，后续/残余数字仍查；否整期continue、猜数或整句删除。\n- 标记锚定期别，保原文坐标/Markdown；并列绑定对标记透明但不免检，必须重验第二次解析。\n- 否手改外审PASS/PARTIAL或再试到绿；无效裁决只作反例线索，原样复现另记账。\n- 正确但陌生措辞可保守unknown；不能把所有独立数字都当未知比率，当前仍有新误报。\n\n## 未验证 / 已知边界\n新回归：正确比率后接“行业排名第3”、金额“1,234.56亿元”或“2025中报的含金量为0.289”，均误降partial。\n既有漏检：错值“1.587元/元”“158.7个百分点”、占位后分号“；实际为1.587”仍completed无缺口/续修。六类×off/成功替身12F，未继续修。\n本轮自然金融会话0/取数0；旧not_passed不翻案。外审两次CLI另计：首次本地0API/token，补试opus-5报价$2.15684非结算，provider次数未知。\n格式化旧标记/续修提示移除标记及任意归属词表仍待验。8792、夜跑、KB防写、他人树/shim及其他T线未动。\n\n## 下一步\n1. 主树venv原样跑`check_ratio_scope_boundaries.py`，精确746应4P12F；旧保真6P/逗号占位4P。红针非绿CI。\n2. 六类接入既有出口/续修矩阵，成对保独立数字/单位/邻期；新冻SHA验全套+变异，再新独占根外审，保旧CR及invalid意见。\n3. 原件根`~/.finance-runtime/convergence-20260919/retention-repair/`；本次review根`qc-repair-746b716f`和`qc-retry-746b716f-01`，不是全局同号队列。\n4. 固定题/证据/GLM flash+5.3兜底/预算另验conversations。未来待合tip另出精确收据；切生产另授权。\n\n## 已验证\n746全量11988P/0F/0E/87S/2x，收据`20260919T085036Z-746b716f.json`；Ruff0，前端110P/lint/typecheck/build0，E2E34P2S，固定三仓五项0；36撤保护真检出/还原绿、首尾416P。外审机械预检1116P不是准入。\n\n## 踩过的坑\n正确值也不免检≠所有后续数字属于它。外审总PASS与必需项PARTIAL矛盾即无效。后置gate120秒无输出超时，无决策；直接裁决验证已明确invalid。原件不清洗，收据不移签。\n"
+      },
+      {
+        "revision": "b78dbe3be97b846ea2bd8093ae16f5d0bbfc73a8",
+        "sha256": "b4bc2af5af7bb14230cb995c9dcc48f9053eee40b3c9cf64b875ccdf2aca08de",
+        "text": "# T3 六类边界返修 · 2026-09-19\n\n## 这个分支做什么\n沿原q线修研究交付数值/独立事实与引用；工程、外审、自然效果分账。\n\n## 当前状态\n业务d46c2c3b10221483c811426e99ad379314289871已推Gitea，原六类边界由4P12F变16P；工程全绿，仍hold。\nARL-0005单次外审600秒超时，无最终信封/裁决；非PASS/CR，旧三份有效CR与0004无效PASS未被覆盖。无后台续试。\n未开PR/合main/部署，main末核b22ddf8b。详见`docs/handoffs/2026-09-19-t3-ratio-boundary-repair.md`与`docs/verification/2026-09-19-t3-ratio-boundaries/`。\n\n## 决策与被否方案\n- 数字先完整分词/角色/量纲再比较，否拆千分位、任意后续数猜比率、整句删除。\n- 邻期“的含金量”独立绑定，“的1.2倍”仍参照unknown；局部标记不豁免重检。\n- 元/元是比率；百分点不能认证绝对比率，独立增减差值保留。\n- 分号仅明确续值时继承，兼容外层Markdown；否跨句号/换行/独立分句猜归属，不扩大公告窗口。\n- 外审显式指向0005，不重跑0004/不填伪裁决/不改worker或validator；不冒称常规队列批准。\n\n## 未验证 / 已知边界\n自然金融conversations0、市场取数0，旧not_passed不翻案。任意单位/格式/隐含主体期别/脚本真实消费及自然修复未验；不是通用句法器。\n本轮外审1次CLI：sonnet别名→opus-5，600.041秒超时；最终费用/token无回执，provider次数未知，不是0成本。\n8792/夜跑/KB防写/其他T线/他人工作树/shim未动。留证tip不借用业务全量收据。\n\n## 下一步\n1. 核精确d46/干净树，复跑原量具6P/4P/16P；原件根`~/.finance-runtime/convergence-20260919/retention-repair/`。\n2. 新的明确有界外审窗口，独占root保旧请求/claim/CR/invalid与超时；不能覆盖`qc-repair-d46c2c3b`或自动延时重试到绿。\n3. 有效裁决后再固定代码/原题/证据/GLM flash+5.3兜底与预算验真实conversations；合main/部署另确认。\n\n## 已验证\nd46全量12173P/0F/0E/87S/2x，收据`20260919T105730Z-d46c2c3b.json`；Ruff0，前端110P及lint/typecheck/build0，E2E34P2S，固定三仓五项0且前后干净。\n46撤保护逐项真检出/还原，首尾601P。ARL机械预检1301P，不代独立批准。561件/9,232,028字节归档；历史1702件不变。\n\n## 踩过的坑\n首红120F/258P；格式化分号续值3F、序号后英文逗号3F另存。初次漏mode参数的collection error不是行为红。\n常规worker仍选无有效裁决的0004；本次operations靶向0005并用原校验器，不是聚合gate结论。未另跑gate，无决策不推断批准。\n"
+      }
+    ],
+    "interpretation": "Frozen business d46 contains the prior inflight state. Producer documentation b78 already updated it before this review call. Valid observation about frozen d46, not an unresolved claim about current b78."
+  },
+  "marker_repair_notes": {
+    "actual_notes": [
+      "按报告期及比率列重新对账本次计算产物，明确报告期与数值对应关系；不得把年数或比较倍数当本期比率，无法对应则明确留缺口。"
+    ],
+    "explicit_marker_removal_wording_present": false,
+    "scope": "Prompt text inspection only; natural repair behavior not tested."
+  },
+  "supplemental_disclosure": {
+    "cases": [
+      {
+        "name": "venue-fragment-completed",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+        "judge_mode": "off",
+        "judge_stubbed": false,
+        "local_codes": [
+          "disclosure_absence_inference"
+        ],
+        "status": "partial",
+        "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": true,
+          "attributed_fact_and_citation_retained": false,
+          "false_inference_removed": true
+        },
+        "passed": false
+      },
+      {
+        "name": "known-venue-control",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，巨潮资讯网显示本期没有公告[E2]。",
+        "judge_mode": "off",
+        "judge_stubbed": false,
+        "local_codes": [
+          "disclosure_absence_inference"
+        ],
+        "status": "partial",
+        "public_answer": "收入可核[E1]，查询返回空白，巨潮资讯网显示本期没有公告[E2]。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": true,
+          "attributed_fact_and_citation_retained": true,
+          "false_inference_removed": true
+        },
+        "passed": true
+      },
+      {
+        "name": "absence-fragment-completed",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
+        "judge_mode": "off",
+        "judge_stubbed": false,
+        "local_codes": [],
+        "status": "completed",
+        "public_answer": "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": false,
+          "false_inference_removed": false
+        },
+        "passed": false
+      },
+      {
+        "name": "known-absence-control",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此本期为零披露。",
+        "judge_mode": "off",
+        "judge_stubbed": false,
+        "local_codes": [
+          "disclosure_absence_inference"
+        ],
+        "status": "partial",
+        "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": true,
+          "false_inference_removed": true
+        },
+        "passed": true
+      },
+      {
+        "name": "venue-fragment-completed",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+        "judge_mode": "llm",
+        "judge_stubbed": true,
+        "local_codes": [
+          "disclosure_absence_inference"
+        ],
+        "status": "partial",
+        "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": true,
+          "attributed_fact_and_citation_retained": false,
+          "false_inference_removed": true
+        },
+        "passed": false
+      },
+      {
+        "name": "known-venue-control",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，巨潮资讯网显示本期没有公告[E2]。",
+        "judge_mode": "llm",
+        "judge_stubbed": true,
+        "local_codes": [
+          "disclosure_absence_inference"
+        ],
+        "status": "partial",
+        "public_answer": "收入可核[E1]，查询返回空白，巨潮资讯网显示本期没有公告[E2]。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": true,
+          "attributed_fact_and_citation_retained": true,
+          "false_inference_removed": true
+        },
+        "passed": true
+      },
+      {
+        "name": "absence-fragment-completed",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
+        "judge_mode": "llm",
+        "judge_stubbed": true,
+        "local_codes": [],
+        "status": "completed",
+        "public_answer": "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": false,
+          "false_inference_removed": false
+        },
+        "passed": false
+      },
+      {
+        "name": "known-absence-control",
+        "origin": "producer-completed review fragment; not verbatim original",
+        "draft": "收入可核[E1]，查询返回空白，因此本期为零披露。",
+        "judge_mode": "llm",
+        "judge_stubbed": true,
+        "local_codes": [
+          "disclosure_absence_inference"
+        ],
+        "status": "partial",
+        "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+        "checks": {
+          "independent_income_retained": true,
+          "partial_and_repair_requested": true,
+          "false_inference_removed": true
+        },
+        "passed": true
+      }
+    ],
+    "passed": 4,
+    "failed": 4
+  },
+  "model_receipt": {
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 1189068,
+    "duration_api_ms": 1189018,
+    "num_turns": 4,
+    "total_cost_usd": 1.5541615000000002,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 32976,
+      "output_tokens": 25610,
+      "output_tokens_details": {
+        "thinking_tokens": 2051
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "not_available",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-5": {
+        "inputTokens": 2000,
+        "outputTokens": 52755,
+        "cacheReadInputTokens": 450573,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 1.5541615000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 2051,
+        "canonicalModel": "claude-opus-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "stop_reason": "tool_use",
+    "terminal_reason": "completed",
+    "permission_denials": [],
+    "assistant_message_models": [
+      "claude-opus-5"
+    ],
+    "event_counts": [
+      {
+        "type": "system",
+        "subtype": "init",
+        "count": 1
+      },
+      {
+        "type": "system",
+        "subtype": "thinking_tokens",
+        "count": 472
+      },
+      {
+        "type": "assistant",
+        "subtype": null,
+        "count": 5
+      },
+      {
+        "type": "system",
+        "subtype": "status",
+        "count": 13
+      },
+      {
+        "type": "system",
+        "subtype": "compact_boundary",
+        "count": 1
+      },
+      {
+        "type": "user",
+        "subtype": null,
+        "count": 3
+      },
+      {
+        "type": "result",
+        "subtype": "success",
+        "count": 1
+      }
+    ],
+    "stream_external_tool_use_blocks": [
+      "StructuredOutput",
+      "StructuredOutput"
+    ],
+    "scope": "One CLI invocation this window; reported num_turns is not provider request count. CLI costBasis=list, not billing. Financial conversations and market fetches remain zero."
+  },
+  "do_not_infer": [
+    "Invalid CHANGES_REQUIRED is not the fourth valid CR.",
+    "No aggregate gate was run.",
+    "No new business fix, natural finance QA, merge or deployment.",
+    "No causal claim that compaction caused omitted checks."
+  ]
+}

@@ -664,6 +664,9 @@ def test_judge_rejected_gap_can_rewrite_without_tools_or_stale_revocation():
                 resumes.append(goal)
                 assert goal.missing_answer_elements == ("answer_q2",)
                 assert goal.remaining_calls == 0 and not goal.reopen_tools
+                feedback = [json.loads(item) for item in goal.unsupported_claims]
+                assert any(item["sentence"] == bad_gap for item in feedback)
+                assert all(item["stage"] == "judge" for item in feedback)
                 return replace(good, events=(*previous.events, EpisodeEvent(len(previous.events) + 1, "model_turn", {})))
             return CallbackEpisodeSession(episode_id=context.contract.task_id, outcome=bad, resume_callback=resume)
     def judge(request):

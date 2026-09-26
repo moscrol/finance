@@ -1,0 +1,3 @@
+...                                                                      [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-checks.xml -
+3 passed in 1.72s

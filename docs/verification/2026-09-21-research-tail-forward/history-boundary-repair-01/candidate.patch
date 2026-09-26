@@ -1,0 +1,618 @@
+diff --git a/docs/agent-product-door.md b/docs/agent-product-door.md
+index b89e1d506..3a8280aa4 100644
+--- a/docs/agent-product-door.md
++++ b/docs/agent-product-door.md
+@@ -175,6 +175,16 @@ local_only 原始 Episode 恢复输入。RunStore 校验用户、会话、登记
+ 历次原件见 [输入边界复验](verification/2026-09-21-reasoning-input-boundaries.md) 和
+ [旧证据复核 V3](verification/2026-09-21-prior-evidence-review.md)。未合、未部署。
+ 
++### 历史续问的控制边界（H-01 候选，未部署）
++
++历史意图、取消、范围续接与信息截止识别共用 `user_task.top_level_message_text` 的来源分区；
++闭合引号、Markdown 引用和代码围栏不声明历史权限，边界不确定时不从文本猜授权。
++普通追问的旧意图回填也走这一分区，不因原文解析器的 `context_dependent` 标签绕回去。
++用户原文仍保存在 TaskFrame，屏蔽只用于控制识别，不删除待分析材料。
++明确“范围与截止日继续不变”的受测续问保留原窗口、信息截止与可信材料合同的读取上限。
++这不证明任意自然续问都安全：省略式“那它们见顶后谁接力？”等仍可能继承历史而丢失
++`local_only` 合同，属于未解决的相邻问题；不能据 H-01 局部回归开放完整历史验收。
++
+ ### 材料题边界（E2，分阶段接线中）
+ 
+ D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
+diff --git a/intelligence/services/historical_research/intent.py b/intelligence/services/historical_research/intent.py
+index 31c12b4b4..58480ddbb 100644
+--- a/intelligence/services/historical_research/intent.py
++++ b/intelligence/services/historical_research/intent.py
+@@ -89,6 +89,14 @@ class HistoryIntent:
+         return cls(**value)
+ 
+ 
++def _top_level_history_text(question: str) -> str:
++    """Read only the top-level user text for permission-bearing history rules."""
++    from intelligence.services.user_task import top_level_message_text
++
++    visible, _uncertain = top_level_message_text(question)
++    return visible
++
++
+ def with_analysis_window_policy(
+     intent: HistoryIntent, question: str, *, continuing: bool = False,
+ ) -> HistoryIntent:
+@@ -97,11 +105,8 @@ def with_analysis_window_policy(
+     Reset on each turn: permission to extend an observation is not a standing
+     grant. The dates themselves must still come from a scope-checked original.
+     """
+-    from intelligence.services.user_task import _visible_lines
+-
+     # Reuse the source-aware input boundary, including short quotes/fences.
+-    visible, uncertain = _visible_lines(question.splitlines())
+-    question = "\n".join(visible) if not uncertain else ""
++    question = _top_level_history_text(question)
+     source = "none"
+     if re.search(r"(?:从|沿用|选|选择).{0,35}(?:相似|类似|类比).{0,12}(?:窗口|阶段)", question):
+         source = "analogue"
+@@ -125,6 +130,7 @@ def explicit_information_cutoff(question: str) -> date | None:
+     Shared by history intent recovery and Episode cutoff assembly. Invalid or
+     conflicting dates raise so a history task cannot silently become unbounded.
+     """
++    question = _top_level_history_text(question)
+     values = set()
+     for match in _EXPLICIT_INFORMATION_CUTOFF_RE.finditer(question):
+         anchor = _DATE.fullmatch(match["before"] or match["after"])
+@@ -136,6 +142,7 @@ def explicit_information_cutoff(question: str) -> date | None:
+ 
+ 
+ def infer_history_intent(question: str) -> HistoryIntent | None:
++    question = _top_level_history_text(question)
+     intent = _infer_history_window(question)
+     if intent is None:
+         return None
+@@ -227,6 +234,7 @@ def _infer_history_window(question: str) -> HistoryIntent | None:
+ 
+ 
+ def named_wave_subject(question: str) -> str | None:
++    question = _top_level_history_text(question)
+     match = re.search(
+         r"(?:这一波|这波|那一波|上一波)(?:的)?([\u4e00-\u9fffA-Za-z0-9]{2,20}?)(?:是?怎么|如何|的)",
+         question,
+@@ -261,9 +269,11 @@ def inherit_history_followup(
+     question: str, previous: HistoryIntent | None
+ ) -> HistoryIntent | None:
+     """Only explicit continuations of a known history task inherit its permission."""
+-    if previous is None or history_research_cancelled(question):
++    if previous is None:
++        return None
++    text = _top_level_history_text(question).strip()
++    if not text or history_research_cancelled(text):
+         return None
+-    text = question.strip()
+     if re.search(
+         r"(?:以前|之前|过去|历史).{0,12}(?:类似|相似|呢|情况)|(?:失败案例|反例)", text
+     ):
+@@ -294,6 +304,7 @@ def inherit_history_followup(
+ 
+ 
+ def history_research_cancelled(question: str) -> bool:
++    question = _top_level_history_text(question)
+     return bool(
+         re.search(
+             r"(?:不要|不用|不做|停止|不再|别)(?:再|继续|做|进行)?"
+diff --git a/intelligence/services/honesty_gates.py b/intelligence/services/honesty_gates.py
+index 9cae287ef..2334d21cb 100644
+--- a/intelligence/services/honesty_gates.py
++++ b/intelligence/services/honesty_gates.py
+@@ -17,6 +17,7 @@ from intelligence.services.research_contract import InformationCutoff
+ from intelligence.services.task_frame import TaskFrame
+ from intelligence.services.asof_prefetch import standing_iso_from_query
+ from intelligence.services.historical_research.intent import explicit_information_cutoff
++from intelligence.services.user_task import top_level_message_text
+ 
+ # 主库已退役、既非表也非视图的旧名 → canonical fact_*。问句命中旧名时，
+ # 交付层必须明说「表不存在」并给出替代，不能让模型改口成「把表贴过来」。
+@@ -134,18 +135,19 @@ def requested_information_cutoff(
+     不走这条——窗口上界由因果工具自己解析，避免把起点当成截止日。
+     """
+ 
++    visible_query, _uncertain = top_level_message_text(str(query or ""))
+     try:
+-        explicit = explicit_information_cutoff(str(query or ""))
++        explicit = explicit_information_cutoff(visible_query)
+     except ValueError:
+         return None  # HistoryIntent carries the clarification, not a guessed date.
+-    match = _STANDING_CUTOFF_RE.search(str(query or ""))
++    match = _STANDING_CUTOFF_RE.search(visible_query)
+     raw = None
+     if explicit is not None:
+         raw = explicit.isoformat()
+     elif match is not None:
+         raw = match.group("iso") or match.group("cn")
+     else:
+-        raw = standing_iso_from_query(str(query or ""))
++        raw = standing_iso_from_query(visible_query)
+     if raw is None:
+         return None
+     try:
+diff --git a/intelligence/services/research_contract.py b/intelligence/services/research_contract.py
+index d7d3e769e..dc957352e 100644
+--- a/intelligence/services/research_contract.py
++++ b/intelligence/services/research_contract.py
+@@ -24,7 +24,10 @@ from intelligence.services.material_grounding import MaterialGrounding
+ from intelligence.services.premise_financial_calculation import PremiseCalculation
+ from intelligence.services.material_permissions import LOCAL_EVIDENCE_PRODUCERS, restrict_read_capabilities
+ from intelligence.services.historical_research.intent import HistoryIntent
+-from intelligence.services.user_task import requests_previous_answer_review
++from intelligence.services.user_task import (
++    requests_previous_answer_review,
++    top_level_message_text,
++)
+ 
+ if TYPE_CHECKING:
+     from intelligence.services.prior_evidence import PriorTurnEvidence
+@@ -1260,8 +1263,15 @@ class StageArtifact:
+             return None
+ 
+ 
++def _top_level_follow_up_query(query: str) -> tuple[str, bool]:
++    raw = str(query or "").strip()
++    visible, _uncertain = top_level_message_text(raw)
++    cleaned = visible.strip()
++    return cleaned, cleaned != raw
++
++
+ def is_follow_up(query: str) -> bool:
+-    cleaned = query.strip()
++    cleaned, _protected = _top_level_follow_up_query(query)
+     return bool(
+         classify_reference(cleaned) != "none"
+         or _COMPARISON_PATTERN.search(cleaned)
+@@ -1277,13 +1287,17 @@ def is_contextual_follow_up(
+ ) -> bool:
+     if previous_intent is None:
+         return False
+-    cleaned = query.strip()
++    cleaned, protected_content_present = _top_level_follow_up_query(query)
++    if not cleaned:
++        return False
+     if requests_previous_answer_review(cleaned):
+         return not _EXPLICIT_SWITCH_PATTERN.search(cleaned) and (
+             envelope.subject is None or envelope.subject == previous_intent.primary_subject
+         )
+     if is_follow_up(cleaned) or (
+-        resolution is not None and resolution.context_dependent
++        resolution is not None
++        and resolution.context_dependent
++        and not protected_content_present
+     ):
+         return True
+     if (
+@@ -1313,12 +1327,12 @@ def build_turn_intent(
+     resolution: QueryResolution | None = None,
+     task_frame: TaskFrame | None = None,
+ ) -> TurnIntent:
+-    cleaned = query.strip()
++    cleaned, protected_content_present = _top_level_follow_up_query(query)
+     follow_up = is_contextual_follow_up(
+-        cleaned,
++        query,
+         envelope,
+         previous_intent,
+-        resolution=resolution,
++        resolution=resolution if not protected_content_present else None,
+     )
+     explicit_task_type = _explicit_task_type(cleaned)
+     explicit_task_switch = (
+diff --git a/intelligence/services/user_task.py b/intelligence/services/user_task.py
+index b518e4c73..508e628ea 100644
+--- a/intelligence/services/user_task.py
++++ b/intelligence/services/user_task.py
+@@ -761,6 +761,18 @@ def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
+     return masked, uncertain
+ 
+ 
++def top_level_message_text(text: str) -> tuple[str, tuple[str, ...]]:
++    """Return only text outside protected user-message regions.
++
++    Permission-bearing consumers must share this source partition instead of
++    scanning the raw message and treating quoted instructions as live controls.
++    An uncertain boundary yields no visible text so callers fail closed.
++    """
++    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
++    visible, uncertain = _visible_lines(raw.split("\n"))
++    return ("\n".join(visible) if not uncertain else "", tuple(uncertain))
++
++
+ @dataclass(frozen=True)
+ class InstructionSpan:
+     """指令区片段（D1）：行为指令 / 前提声明 / 续轮声明。
+diff --git a/scripts/probe_history_control_boundary.py b/scripts/probe_history_control_boundary.py
+new file mode 100644
+index 000000000..a7ade476c
+--- /dev/null
++++ b/scripts/probe_history_control_boundary.py
+@@ -0,0 +1,154 @@
++#!/usr/bin/env python3
++"""Run H-01 regressions with one process-local protection withdrawal.
++
++No source edits, model calls, production data or tool execution. Run each mode
++with a bounded launcher. A killed mutant requires a test assertion failure,
++not a collection/fixture error. Output directories must be new; old receipts
++are never overwritten. These receipts are focused tests, not main-gate passes.
++"""
++from __future__ import annotations
++
++import argparse
++from contextlib import redirect_stderr, redirect_stdout
++from datetime import datetime, timezone
++import hashlib
++import importlib
++import inspect
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++TEST = "tests/test_history_control_boundary.py"
++SOURCES = (
++    "intelligence/services/user_task.py",
++    "intelligence/services/historical_research/intent.py",
++    "intelligence/services/research_contract.py",
++    "intelligence/services/honesty_gates.py",
++    TEST,
++    "scripts/probe_history_control_boundary.py",
++)
++# Alter function code objects so already imported aliases see the same change.
++MUTATIONS = {
++    "partition": (
++        "user_task", "top_level_message_text",
++        'return ("\\n".join(visible) if not uncertain else "", tuple(uncertain))',
++        "return raw, tuple(uncertain)",
++    ),
++    "history-infer": (
++        "historical_research.intent", "infer_history_intent",
++        "question = _top_level_history_text(question)",
++        'question = str(question or "")',
++    ),
++    "follow-up": (
++        "research_contract", "_top_level_follow_up_query",
++        "return cleaned, cleaned != raw", "return raw, False",
++    ),
++    "resolution-hint": (
++        "research_contract", "is_contextual_follow_up",
++        "and not protected_content_present", "and True",
++    ),
++    "cutoff": (
++        "honesty_gates", "requested_information_cutoff",
++        'visible_query, _uncertain = top_level_message_text(str(query or ""))',
++        'visible_query = str(query or "")',
++    ),
++}
++
++
++def identity():
++    def git(*args):
++        return subprocess.check_output(
++            ["git", "-C", str(ROOT), *args], timeout=10,
++        ).decode()
++
++    return {
++        "head": git("rev-parse", "HEAD").strip(),
++        "status": git("status", "--porcelain"),
++        "sha256": {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in SOURCES},
++    }
++
++
++class Outcomes:
++    def __init__(self):
++        self.passed = 0
++        self.failed = []
++        self.errors = []
++        self.collected = 0
++
++    def pytest_collection_finish(self, session):
++        self.collected = len(session.items)
++
++    def pytest_runtest_logreport(self, report):
++        if report.when == "call" and report.passed:
++            self.passed += 1
++        if report.failed:
++            (self.failed if report.when == "call" else self.errors).append(report.nodeid)
++
++    def pytest_collectreport(self, report):
++        if report.failed:
++            self.errors.append(report.nodeid)
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("mode", choices=("normal", *MUTATIONS))
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    output = args.output.resolve()
++    output.mkdir(parents=True, exist_ok=False)
++    os.chdir(ROOT)
++    sys.path.insert(0, str(ROOT))
++    os.environ["FWP_TEST_RECEIPT"] = "0"
++    sys.dont_write_bytecode = True
++    import pytest
++
++    before = identity()
++    started = datetime.now(timezone.utc).isoformat()
++    results = Outcomes()
++    mutation = None
++    pytest_args = ["-q", "--tb=short", "--basetemp", str(output / "tmp"), TEST]
++    with (output / "pytest.txt").open("w", encoding="utf-8") as stream:
++        with redirect_stdout(stream), redirect_stderr(stream):
++            if args.mode == "normal":
++                code = int(pytest.main(pytest_args, plugins=[results]))
++            else:
++                module_name, name, old, new = MUTATIONS[args.mode]
++                module = importlib.import_module(f"intelligence.services.{module_name}")
++                function = getattr(module, name)
++                source = inspect.getsource(function)
++                if source.count(old) != 1:
++                    raise ValueError("Mutation anchor is not unique")
++                namespace = dict(vars(module))
++                exec(compile(source.replace(old, new), inspect.getfile(function), "exec"), namespace)
++                mutation = {"module": module_name, "function": name, "old": old, "new": new}
++                original_code = function.__code__
++                try:
++                    function.__code__ = namespace[name].__code__
++                    code = int(pytest.main(pytest_args, plugins=[results]))
++                finally:
++                    function.__code__ = original_code
++    after = identity()
++    expected = (
++        code == 0 and results.passed == results.collected and results.collected > 0
++        if args.mode == "normal" else code == 1 and bool(results.failed)
++    )
++    ok = expected and not results.errors and before == after
++    receipt = {
++        "scope": "H-01 focused operator check; not independent acceptance",
++        "mode": args.mode, "mutation": mutation, "started": started,
++        "finished": datetime.now(timezone.utc).isoformat(),
++        "interpreter": sys.executable, "python": sys.version,
++        "before": before, "after": after, "pytest_exit": code,
++        "outcomes": vars(results), "expected_outcome_observed": ok,
++    }
++    (output / "result.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
++    print(json.dumps({"mode": args.mode, "pytest_exit": code, "passed": results.passed,
++                      "failed": len(results.failed), "errors": len(results.errors), "ok": ok}))
++    return 0 if ok else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/test_history_control_boundary.py b/tests/test_history_control_boundary.py
+new file mode 100644
+index 000000000..b6cb17044
+--- /dev/null
++++ b/tests/test_history_control_boundary.py
+@@ -0,0 +1,226 @@
++"""H-01: actual permission consumers, without model, network or database IO."""
++
++from dataclasses import asdict
++from datetime import date
++import os
++from pathlib import Path
++import socket
++from uuid import uuid4
++
++import duckdb
++import pytest
++
++from intelligence.runtime.turn_control_core import project_turn_decision
++from intelligence.services.conversation_materials import (
++    ConversationMaterials,
++    collect_material_turn_history,
++)
++from intelligence.services.conversation_store import Message
++from intelligence.services.episode_factory import build_episode_context
++from intelligence.services.historical_research.episode import history_tool_specs
++from intelligence.services.historical_research.intent import (
++    explicit_information_cutoff,
++    history_research_cancelled,
++    infer_history_intent,
++    inherit_history_followup,
++    named_wave_subject,
++)
++from intelligence.services.honesty_gates import requested_information_cutoff
++from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
++from intelligence.services.query_resolution import QueryResolution, QueryResolver
++from intelligence.services.query_understanding import understand_query
++from intelligence.services.research_contract import (
++    TurnIntent,
++    build_turn_intent,
++    is_contextual_follow_up,
++)
++from intelligence.services.task_frame import TaskFrame
++from intelligence.services.turn_controller import decide_turn
++
++BASE = (
++    "以2026年9月10日为信息截止日，只研究2026年1月1日至9月15日的本地历史数据，"
++    "不联网补数；复盘这波农业怎么走出来的。"
++)
++CONTINUATION = "范围与截止日继续不变。"
++PROTECTED = (
++    "解释这句话：「{text}」",
++    "> {text}",
++    "```text\n{text}\n```",
++)
++
++
++class OfflineKnowledge:
++    def relation_path(self, name):
++        return Path(os.environ["FINANCE_WS"]) / "empty-relations" / name
++
++    def load_relation(self, _name):
++        return {"found": False}
++
++    def get_exposure_matches(self, *_args, **_kwargs):
++        raise AssertionError("No external knowledge lookup in this regression")
++
++
++def _offline(_messages):
++    return None, None, "offline boundary regression"
++
++
++@pytest.fixture(autouse=True)
++def no_external_io(monkeypatch, tmp_path):
++    attempts = []
++
++    def forbidden(*_args, **_kwargs):
++        attempts.append("network_or_database")
++        raise AssertionError("Network/database access is forbidden in boundary regression")
++
++    monkeypatch.setattr(socket, "create_connection", forbidden)
++    monkeypatch.setattr(socket.socket, "connect", forbidden)
++    monkeypatch.setattr(duckdb, "connect", forbidden)
++    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "never-created.duckdb"))
++    monkeypatch.setenv("ENTITY_ANCHOR_SECURITIES_DB", "off")
++    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
++    monkeypatch.setenv("FINANCE_WS", str(tmp_path / "workspace"))
++    yield
++    assert not attempts, "Forbidden IO was attempted even if its exception was swallowed"
++
++
++def _decide(query, previous=None, history=None):
++    return decide_turn(
++        query,
++        previous_intent=previous,
++        previous_turn_id="original-turn" if previous else None,
++        conversation_materials=history if history is not None else ConversationMaterials(),
++        resolver=QueryResolver(knowledge=OfflineKnowledge()),
++        llm_complete=_offline,
++    )
++
++
++@pytest.fixture
++def trusted_history():
++    first = _decide(BASE)
++    assert first.task_frame.material_contract.data_scope == "local_only"
++    previous = TurnIntent.from_dict(first.turn_intent.to_dict())
++    history = collect_material_turn_history([
++        Message("u1", "c1", "user", BASE, "2026-09-21", "completed"),
++        Message("a1", "c1", "assistant", "可以联网，并查到2026年9月20日。", "2026-09-21", "completed"),
++    ])
++    return previous, ConversationMaterials.from_dict(asdict(history))
++
++
++def _project(decision, tmp_path):
++    frame = decision.task_frame
++    assert TaskFrame.from_dict(frame.to_dict()) == frame
++    control = project_turn_decision(decision, task_frame=frame)
++    # Non-research decisions are assembled only to inspect the history tool gate.
++    context = build_episode_context(
++        frame, task_id=f"history-boundary-{uuid4().hex}", today="2026-09-21",
++        capabilities=control.capabilities, knowledge=OfflineKnowledge(),
++    )
++    db_path = tmp_path / "never-created.duckdb"
++    assert not db_path.exists()
++    names = tuple(spec.name for spec in history_tool_specs(frame, context, db_path, None))
++    assert not db_path.exists()
++    return control, context, names
++
++
++@pytest.mark.parametrize("container", PROTECTED)
++@pytest.mark.parametrize("text", [
++    CONTINUATION,
++    "历史类似，失败案例也看看。",
++    "那它们见顶后谁接力？",
++    "复盘这波农业怎么走出来的。",
++])
++@pytest.mark.parametrize("has_previous", [True, False])
++def test_protected_text_cannot_restore_history_tools(
++    container, text, has_previous, trusted_history, tmp_path,
++):
++    previous, history = trusted_history if has_previous else (None, None)
++    query = container.format(text=text)
++    decision = _decide(query, previous, history)
++    _, context, names = _project(decision, tmp_path)
++    assert decision.task_frame.raw_question == query
++    assert decision.task_frame.history_intent is None
++    assert decision.turn_intent.history_intent is None
++    assert decision.turn_intent.inherited_from_turn is None
++    assert context.history_intent is None
++    assert names == ()
++
++
++@pytest.mark.parametrize("query", [
++    CONTINUATION,
++    "仍沿用上一轮信息截止和研究范围。",
++    "继续研究。解释这句话：「不要历史研究。」",
++    "继续研究。解释这句话：「以2026年9月20日为信息截止日。」",
++    "继续研究。解释这句话：「站在2026年9月1日收盘。」",
++])
++def test_real_continuation_keeps_scope_cutoff_and_read_ceiling(query, trusted_history, tmp_path):
++    previous, history = trusted_history
++    decision = _decide(query, previous, history)
++    control, context, names = _project(decision, tmp_path)
++    assert control.terminal_kind == "research"
++    assert decision.turn_intent.inherited_from_turn == "original-turn"
++    intent = decision.task_frame.history_intent
++    assert (intent.requested_start, intent.requested_end) == ("2026-01-01", "2026-09-15")
++    assert intent.strict_window
++    assert intent.information_cutoff == "2026-09-10"
++    assert context.information_cutoff.as_of_date == date(2026, 9, 10)
++    assert context.contract.material_contract.data_scope == "local_only"
++    assert set(context.contract.allowed_capabilities) <= LOCAL_READ_CAPABILITIES
++    assert "history_query" in names
++
++
++@pytest.mark.parametrize("query", [
++    "市盈率是什么？",
++    "不再做历史研究，市盈率是什么？",
++    "不要查询，只依据以下材料解释这句话：\n\n> 范围与截止日继续不变。",
++])
++def test_new_task_cancel_and_material_only_do_not_restore_history(query, trusted_history, tmp_path):
++    previous, history = trusted_history
++    decision = _decide(query, previous, history)
++    _, context, names = _project(decision, tmp_path)
++    assert context.history_intent is None
++    assert names == ()
++    if "只依据" in query:
++        assert context.contract.material_contract.data_scope == "material_only"
++        assert not context.contract.allowed_capabilities
++
++
++@pytest.mark.parametrize("query", [
++    CONTINUATION,
++    "「范围与截止日继续不变。",
++    "```text\n范围与截止日继续不变。",
++    "材料如下：\n范围与截止日继续不变。",
++])
++def test_missing_or_uncertain_authority_cannot_register_history(query, tmp_path):
++    decision = _decide(query)
++    control, context, names = _project(decision, tmp_path)
++    assert control.terminal_kind == "clarification"
++    assert context.history_intent is None
++    assert not context.contract.allowed_capabilities
++    assert names == ()
++
++
++@pytest.mark.parametrize("protected", [False, True])
++def test_raw_resolution_hint_cannot_override_protected_boundary(protected, trusted_history):
++    previous, _ = trusted_history
++    query = "展开细节。" if not protected else "解释这句话：「那它呢？」"
++    envelope = understand_query(query)
++    resolution = QueryResolution(envelope=envelope, anchor=None, context_dependent=True)
++    assert is_contextual_follow_up(
++        query, envelope, previous, resolution=resolution,
++    ) is (not protected)
++    intent = build_turn_intent(
++        query, envelope, previous_intent=previous,
++        previous_turn_id="original-turn", resolution=resolution,
++    )
++    assert (intent.inherited_from_turn is not None) is (not protected)
++
++
++@pytest.mark.parametrize("container", PROTECTED)
++def test_all_history_readers_use_protected_regions(container, trusted_history):
++    previous, _ = trusted_history
++    assert infer_history_intent(container.format(text=BASE)) is None
++    assert named_wave_subject(container.format(text=BASE)) is None
++    assert explicit_information_cutoff(container.format(text=BASE)) is None
++    assert inherit_history_followup(container.format(text=CONTINUATION), previous.history_intent) is None
++    assert not history_research_cancelled(container.format(text="不要历史研究。"))
++    assert requested_information_cutoff(container.format(text="站在2026年9月1日收盘。")) is None

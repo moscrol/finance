@@ -1,0 +1,53 @@
+"""Archive finished c315 evidence reversibly, keeping outcome scopes separate."""
+import base64
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import re
+
+TREE=Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+OLD=Path('/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205')
+QC=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0208')
+L6=Path('/Users/a77/.finance-runtime/reviews/pr868-l6-20260924-0210')
+DEST=TREE/'docs/verification/2026-09-24-adaptive-c315-engineering'
+assert not DEST.exists()
+DEST.mkdir()
+manifest={}
+def add(source, relative):
+ raw=source.read_bytes()
+ assert not re.search(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:ghp_|glpat-|sk-proj-)[A-Za-z0-9_-]{20,}',raw),source
+ encoded=len(raw)>350000
+ whitespace=bool(re.search(rb'[ \t]+\r?$',raw,re.M)) or raw.endswith(b'\n\n')
+ encoding='raw'
+ data=raw
+ if encoded or whitespace:
+  encoding='gzip-base64-json' if encoded else 'base64-json'
+  payload=gzip.compress(raw,mtime=0) if encoded else raw
+  data=(json.dumps({'encoding':encoding,'source_sha256':hashlib.sha256(raw).hexdigest(),'source_bytes':len(raw),'data':base64.b64encode(payload).decode('ascii')},indent=2)+'\n').encode()
+  relative += '.encoded.json'
+ else:
+  relative=relative.replace('.py','.py.txt') if relative.endswith('.py') else relative
+ target=DEST/relative
+ target.parent.mkdir(parents=True,exist_ok=True)
+ target.write_bytes(data)
+ decoded=data
+ if encoding!='raw':
+  decoded=base64.b64decode(json.loads(data)['data'],validate=True)
+  if encoding=='gzip-base64-json': decoded=gzip.decompress(decoded)
+ assert decoded==raw
+ manifest[relative]={'source':str(source),'encoding':encoding,'source_bytes':len(raw),'source_sha256':hashlib.sha256(raw).hexdigest(),'stored_bytes':len(data),'stored_sha256':hashlib.sha256(data).hexdigest()}
+
+for name in ['gates.json','python.log.txt','run_gates.py','cancellation-triplet.json','admission-mutations.json','admission-mutation-coverage.log.txt','admission-mutation-wiring.log.txt','admission-mutation-restored.log.txt','run_l6_gate_mutations.py','l6_gate_mutant.py','rag-keepalive-diagnostic.log.txt','rag-keepalive-diagnostic.xml','rag-pair-failed-retention.log.txt','rag-pair-failed-retention.xml','rag-neighbours.log.txt','rag-neighbours.xml','rag-full-collection.log.txt','rag-full-collection.xml','rag-prefix-result.json','rag-prefix-selection.json','rag-prefix.log.txt','rag-prefix.xml','rag_prefix_diagnostic.py','run_rag_prefix_diagnostic.py','log-retention-before.log.txt','log-retention-before.xml','log-boundary-before.log.txt','log-boundary-before.xml','log-retention-fixed.log.txt','log-retention-fixed.xml','whole-pr-format.json','whole-pr-format.log.txt','history-git-verification.json']:
+ add(OLD/name,'engineering/'+name)
+add(OLD/'python-receipts/gate-C61dBEV0/pytest.json','engineering/pytest-receipt.json')
+for name in ['parseability','registry','tables','views','ledger']:
+ add(OLD/(name+'.log.txt'),'engineering/'+name+'.log.txt')
+for source in sorted((OLD/'frontend').glob('*.json')):
+ add(source,'frontend/'+source.name)
+for source in sorted((OLD/'frontend').glob('*.log.txt')):
+ add(source,'frontend/'+source.name)
+for root,names,prefix in [(QC,['batch.json','closure-unadmitted.json'],'qc'),(L6,['preflight-controller.json','closure-unadmitted.json','protocol-coherent.json'],'l6')]:
+ for name in names: add(root/name,prefix+'/'+name)
+(DEST/'archive-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+print(json.dumps({'files':len(manifest),'stored_bytes':sum(x['stored_bytes'] for x in manifest.values()),'compressed':sum(x['encoding']=='gzip-base64-json' for x in manifest.values()),'decoded_mismatches':0}))

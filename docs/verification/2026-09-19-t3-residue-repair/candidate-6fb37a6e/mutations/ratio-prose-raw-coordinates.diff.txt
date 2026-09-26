@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 9709e54a..8b136e31 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -219,7 +219,7 @@ def _prose_value_finding(
+     value (possibly inside the unit) is preserved, not rebuilt from plain text.
+     """
+     positions = [i for i, char in enumerate(raw) if char not in "*`"]
+-    raw_start, raw_end = positions[start], positions[end - 1] + 1
++    raw_start, raw_end = start, end
+     # Keep a balanced wrapper around the whole value, but discard formatting
+     # that starts/ends inside a numeric token (1.**587**, **1.5**87).
+     prefix = re.search(r"[*`]+$", raw[:raw_start])

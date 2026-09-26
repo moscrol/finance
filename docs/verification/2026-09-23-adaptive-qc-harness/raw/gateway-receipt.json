@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "requests": 3,
+  "pi_requests": 2,
+  "tiny_requests": 1,
+  "exit_code": 0,
+  "timed_out": false,
+  "failed_stop_reasons": [],
+  "tool_executions": 1,
+  "sentinel_returned": true,
+  "elapsed_seconds": 21.06356054218486,
+  "purpose": "gateway preflight only, not QC"
+}

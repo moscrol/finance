@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Probe C1 (behavioral): absolute monotonic deadline governs streaming reads.
+
+Fake loopback server on 127.0.0.1:26001 sends HTTP headers immediately, then
+trickles one byte every 0.2s forever. We call llm_http_transport.urlopen with
+timeout=6.0 but a shared deadline at now+1.5s. Expect HTTPDeadlineExceeded at
+~1.5s (not 6s), and worker subprocess terminated after close().
+"""
+import socket
+import sys
+import threading
+import time
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private")
+from intelligence.services import llm_http_transport  # noqa: E402
+
+HOST, PORT = "127.0.0.1", 26001
+got_conns = []
+
+
+def trickling_server(stop):
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind((HOST, PORT))
+    srv.listen(4)
+    while not stop.is_set():
+        srv.settimeout(0.2)
+        try:
+            conn, _ = srv.accept()
+        except socket.timeout:
+            continue
+        conn.settimeout(0.2)
+        got_conns.append(time.monotonic())
+        try:
+            conn.recv(65536)  # swallow request (headers + small body)
+            conn.sendall(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n"
+                b"Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+            )
+            while not stop.is_set():
+                conn.sendall(b"1\r\nx\r\n")
+                time.sleep(0.2)
+        except OSError:
+            pass
+        finally:
+            conn.close()
+    srv.close()
+
+
+class Deadline:
+    def __init__(self, expires_at):
+        self.expires_at = expires_at
+
+
+def main():
+    stop = threading.Event()
+    t = threading.Thread(target=trickling_server, args=(stop,), daemon=True)
+    t.start()
+    time.sleep(0.2)
+
+    req = __import__("urllib.request", fromlist=["x"]).Request(
+        f"http://{HOST}:{PORT}/slow", data=b"{}", method="POST")
+    dl = Deadline(time.monotonic() + 1.5)
+    t0 = time.monotonic()
+    err = None
+    resp = None
+    try:
+        resp = llm_http_transport.urlopen(
+            req, timeout=6.0, deadline=dl, loopback_only=True)
+        chunks = 0
+        try:
+            for line in resp:
+                chunks += 1
+        except llm_http_transport.HTTPDeadlineExceeded:
+            err = "deadline"
+        except BaseException as e:  # noqa: BLE001
+            err = f"other:{type(e).__name__}"
+        elapsed = time.monotonic() - t0
+        print(f"chunks={chunks} err={err} elapsed={elapsed:.2f}")
+        assert err == "deadline", f"expected deadline failure, got {err}"
+        assert elapsed < 3.0, f"deadline not enforced during stream: {elapsed:.2f}s"
+        assert elapsed >= 1.4, f"failed too early ({elapsed:.2f}s), not at deadline"
+        time.sleep(0.4)  # give the worker's own Timer a chance to fire
+        rc = resp.process.poll()
+        print(f"worker returncode after failure={rc}")
+        assert rc is not None, "worker still alive 0.4s after deadline failure"
+    finally:
+        if resp is not None:
+            resp.close()
+        stop.set()
+    print("PROBE_C1_STREAM_DEADLINE: PASS")
+
+
+if __name__ == "__main__":
+    main()

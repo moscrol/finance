@@ -1,0 +1,317 @@
+[
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 41803227136,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:37:46.976543+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 41698983936,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:38:17.061556+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 40504299520,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:38:47.133755+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 40406241280,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:39:17.206943+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 40374751232,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:39:47.249678+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 39722151936,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:40:17.307066+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 38502834176,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:40:47.398134+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 38500106240,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:41:17.461334+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 40626069504,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:41:47.520120+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 39546601472,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:42:17.611447+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 40593727488,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:42:47.657139+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 39421784064,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:43:17.702490+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 38192824320,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:43:47.930171+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 36025155584,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:44:17.993483+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 37068185600,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:44:48.155458+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 37055430656,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:45:18.287286+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 38118117376,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:45:48.336529+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 37676875776,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:46:18.392409+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 36228587520,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:46:48.482301+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 35401383936,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:47:18.653986+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 52606,
+        "pgid": 52582,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+      }
+    ],
+    "disk_free_bytes": 36239134720,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T05:47:46.976205+00:00"
+  }
+]

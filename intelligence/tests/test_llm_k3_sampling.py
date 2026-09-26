@@ -17,14 +17,14 @@ def test_all_transports_apply_model_sampling_policy(monkeypatch, kind, model):
     tools = [{"type": "function", "function": {"name": "lookup", "parameters": {"type": "object"}}}]
     requests = []
 
-    def urlopen(request, **_kwargs):
+    def urlopen(request, timeout=0.0, **_kwargs):
         payload = json.loads(request.data)
         requests.append(payload)
         if payload.get("stream"):
             return Response(sse({"model": model, "choices": [{"delta": {"content": "answer"}, "finish_reason": "stop"}]}))
         return Response(body(model=model))
 
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", urlopen)
     monkeypatch.delenv("LLM_THINKING", raising=False)
     if kind == "chat":
         llm_refine._post_chat(provider, messages, 5, 0.25, max_tokens=123)

@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/runs/ARL-0004/mutations/disclosure-connective-free-residue-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_second_round_disclosure_controls"], "cwd": "/private/tmp/extraction-closeout-mutations-a1ybj3vq/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+.......                                                                  [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-746b716f/runs/ARL-0004/mutations/disclosure-connective-free-residue-green.xml -
+7 passed, 409 deselected in 1.01s
+
+STDERR:
+
+EXIT=0

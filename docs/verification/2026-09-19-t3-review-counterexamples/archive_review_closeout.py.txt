@@ -1,0 +1,77 @@
+"""One-time immutable archive of three T3 review attempts and two exact candidates.
+
+Not a new review runner. Copy text bytes only; preserve logs/diffs verbatim.
+Fail on secret-like content, symlinks, binary data, or any pre-existing destination.
+"""
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+import re
+
+SRC = Path(__file__).parent
+DEST = Path('/Users/a77/fwp-q-research-data-readiness/docs/verification/2026-09-19-t3-review-counterexamples')
+ROOT_NAMES = (
+    'qc-retry-01', 'candidate-64984b33', 'qc-repair-64984b33',
+    'candidate-79dba348', 'qc-repair-79dba348',
+)
+TOP_NAMES = (
+    'run_frozen_checks_64984b33.py', 'run_frozen_checks_79dba348.py',
+    'frozen-driver-64984b33.log', 'frozen-driver-64984b33.exit',
+    'frozen-driver-79dba348.log', 'frozen-driver-79dba348.exit',
+    'review-closeout-outcome.json', 'archive_review_closeout.py',
+)
+EXCLUDED = {'registry-pinned', 'locks', 'worktrees', '__pycache__'}
+SECRET = re.compile(
+    r'(?:sk-[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY-----'
+    r'|Authorization:\s*Bearer\s+[A-Za-z0-9_-]{16,}'
+    r'|["\'](?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|api_key|access_token)["\']\s*:\s*["\'][A-Za-z0-9_+/=-]{16,})'
+)
+
+# Earlier attempts have immutable manifests; never rewrite their source files.
+for name in ('qc-retry-01', 'qc-repair-64984b33'):
+    root = SRC / name
+    manifest = json.loads((root / 'sealed-attempt-manifest.json').read_text())
+    for row in manifest['files']:
+        data = (root / row['path']).read_bytes()
+        assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+
+selected = [SRC / name for name in TOP_NAMES]
+for name in ROOT_NAMES:
+    root = SRC / name
+    selected.extend(p for p in root.rglob('*') if p.is_file()
+                    and not EXCLUDED.intersection(p.relative_to(root).parts))
+
+payloads = []
+for path in sorted(selected):
+    assert not path.is_symlink(), path
+    data = path.read_bytes()
+    text = data.decode('utf-8')
+    assert '\x00' not in text and not SECRET.search(text), 'binary or secret-like data in ' + str(path)
+    relative = path.relative_to(SRC)
+    if path.suffix in {'.py', '.log', '.diff'}:
+        relative = relative.with_name(relative.name + '.txt')
+    payloads.append((path, relative, data))
+
+DEST.mkdir(exist_ok=False)
+rows = []
+for source, relative, data in payloads:
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    rows.append({'source': str(source), 'archive': str(relative), 'bytes': len(data),
+                 'sha256': hashlib.sha256(data).hexdigest()})
+manifest = {
+    'created_at': datetime.now(timezone.utc).isoformat(),
+    'scope': 'T3 engineering passes at exact revisions; three valid external CHANGES_REQUIRED; latest hedge probe 0P/4F; not natural QA or release',
+    'latest_business_revision': '79dba348bb2f4e76aa6be0d692a34baae1b6ddbe',
+    'excluded_directory_names': sorted(EXCLUDED),
+    'raw_bytes_preserved': True,
+    'files': rows,
+}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+for row in rows:
+    data = (DEST / row['archive']).read_bytes()
+    assert data == Path(row['source']).read_bytes()
+    assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+print(json.dumps({'files': len(rows), 'bytes': sum(r['bytes'] for r in rows), 'verified': True}))

@@ -1,0 +1,30 @@
+..............................................FFF                        [100%]
+=================================== FAILURES ===================================
+_______________ test_real_orchestrator_replays_elliptical_turns ________________
+tests/test_history_permission_inheritance.py:211: in test_real_orchestrator_replays_elliptical_turns
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:40: in assert_local
+    assert control.terminal_kind == "research"
+E   AssertionError: assert 'clarification' == 'research'
+E     
+E     - research
+E     + clarification
+_ test_legacy_controller_cannot_replace_trusted_ceiling[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+tests/test_history_permission_inheritance.py:264: in test_legacy_controller_cannot_replace_trusted_ceiling
+    assert calls == [query] and len(decisions) == 1
+E   AssertionError: assert (['那它们见顶后谁接力？'] == ['那它们见顶后谁接力？']
+E     
+E     Use -v to get more diff and 0 == 1)
+E    +  where 0 = len([])
+_ test_legacy_controller_cannot_replace_trusted_ceiling[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b] _
+tests/test_history_permission_inheritance.py:264: in test_legacy_controller_cannot_replace_trusted_ceiling
+    assert calls == [query] and len(decisions) == 1
+E   AssertionError: assert (['以前有没有类似，失败案例也看看'] == ['以前有没有类似，失败案例也看看']
+E     
+E     Use -v to get more diff and 0 == 1)
+E    +  where 0 = len([])
+=========================== short test summary info ============================
+FAILED tests/test_history_permission_inheritance.py::test_real_orchestrator_replays_elliptical_turns
+FAILED tests/test_history_permission_inheritance.py::test_legacy_controller_cannot_replace_trusted_ceiling[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f]
+FAILED tests/test_history_permission_inheritance.py::test_legacy_controller_cannot_replace_trusted_ceiling[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b]
+3 failed, 46 passed in 3.27s

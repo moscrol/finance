@@ -1,0 +1,1 @@
+{"toolCallId":"call_e5192c08c27e470c8461f128","params":{"command":"grep -n -e \"_reserve_llm_call\" -e \"call_ledger_scope\" -e \"def http_transport_override\" intelligence/services/llm_refine.py","timeout":30}}

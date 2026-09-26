@@ -1,0 +1,366 @@
+[
+  {
+    "id": "result-success-admission",
+    "path": "intelligence/services/derived_calculation.py",
+    "old": "    if result_errors:\n",
+    "new": "    if False and result_errors:\n",
+    "targets": ["test_frozen_nested_summary_is_not_success_or_derived_evidence", "test_original_script_no_longer_claims_renderable_success"]
+  },
+  {
+    "id": "strict-table-width",
+    "path": "intelligence/services/derived_calculation_artifacts.py",
+    "old": "                if len(row) != len(columns):\n",
+    "new": "                if False and len(row) != len(columns):\n",
+    "targets": ["test_invalid_result_has_stable_codes_without_private_values"]
+  },
+  {
+    "id": "domain-error-status",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "            return {\"ok\": False, \"error\": str(error[\"code\"]), \"status\": self.trace.status}",
+    "new": "            return {\"ok\": True}",
+    "targets": ["test_actual_failure_flag_reaches_model_and_audit_not_transport_ok"]
+  },
+  {
+    "id": "harness-status-delivery",
+    "path": "intelligence/services/research_harness.py",
+    "old": "            **observation.result_status_fields(),",
+    "new": "            \"ok\": True,",
+    "targets": ["test_actual_failure_flag_reaches_model_and_audit_not_transport_ok"]
+  },
+  {
+    "id": "public-disclosure-check",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "        *disclosure_absence_findings(public, before.outcome.traces),",
+    "new": "        *(),",
+    "targets": ["test_success_exit_also_checks_absence_and_preserves_neighbors", "test_frozen_disclosure_answer_through_real_verifier_exit"]
+  },
+  {
+    "id": "public-calculation-check",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "            public, before.outcome.evidence,\n",
+    "new": "            '', before.outcome.evidence,\n",
+    "targets": ["test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts", "test_old_empty_product_cannot_support_claimed_calculator_ratios"]
+  },
+  {
+    "id": "period-not-bag-of-numbers",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                values = products.get(period or \"\", set())",
+    "new": "                values = set().union(*products.values())",
+    "targets": ["test_copy_guard_binds_period_and_column_not_a_bag_of_numbers", "test_correct_rounding_percent_and_unrelated_numbers_not_rejected"]
+  },
+  {
+    "id": "metric-column-not-table-purpose",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if not _absolute_ratio_label(column):",
+    "new": "            if False and not _absolute_ratio_label(column):",
+    "targets": ["test_correct_rounding_percent_and_unrelated_numbers_not_rejected"]
+  },
+  {
+    "id": "cell-local-preservation",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                                offset + cell.start(), offset + cell.end(),",
+    "new": "                                offset, offset + len(line),",
+    "targets": ["test_copy_guard_binds_period_and_column_not_a_bag_of_numbers", "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts"]
+  },
+  {
+    "id": "same-turn-repair-note",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "                        *semantic.delivery_repair_notes,",
+    "new": "                        *(),",
+    "targets": ["test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"]
+  },
+  {
+    "id": "nonmaterial-final-projection",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "        semantic = recheck_material_public_delivery(semantic, projected=answer)\n",
+    "new": "        semantic = replace(semantic, public_answer=answer)\n",
+    "targets": ["test_adapter_rechecks_nonmaterial_final_projection"]
+  },
+  {
+    "id": "retained-bound-citations",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)",
+    "new": "    retained = ()",
+    "targets": ["test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence", "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"]
+  },
+  {
+    "id": "missing-product-not-certified",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    require_product = calculation_required or bool(re.search(r\"计算编号\\s*[0-9a-f]{16}\", text))",
+    "new": "    require_product = False",
+    "targets": ["test_missing_and_conflicting_products_are_not_certified_by_numeric_presence", "test_old_empty_product_cannot_support_claimed_calculator_ratios"]
+  },
+  {
+    "id": "disclosure-narrow-edit-span",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "DeliveryFinding(clause.start() + start, clause.start() + end, \"disclosure_absence_inference\")",
+    "new": "DeliveryFinding(clause.start(), clause.end(), \"disclosure_absence_inference\")",
+    "targets": ["test_disclosure_edit_spans_preserve_unrelated_raw_text", "test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation"]
+  },
+  {
+    "id": "disclosure-keep-sentence-context",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        search_claim = bool(_SEARCH_GAP.search(value))",
+    "new": "        search_claim = bool(_SEARCH_GAP.search(re.split(r'[,，]', value)[-1]))",
+    "targets": ["test_disclosure_edit_spans_preserve_unrelated_raw_text"]
+  },
+  {
+    "id": "ratio-prose-local-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "return DeliveryFinding(offset + raw_start, offset + raw_end, code, \"待核对\" + marks)",
+    "new": "return DeliveryFinding(offset, offset + len(raw), code)",
+    "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors", "test_ratio_prose_retention_reaches_verifier_exit"]
+  },
+  {
+    "id": "ratio-prose-raw-coordinates",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    raw_start, raw_end = positions[start], positions[end - 1] + 1",
+    "new": "    raw_start, raw_end = start, end",
+    "targets": ["test_ratio_prose_replaces_only_bad_value_not_its_neighbors"]
+  },
+  {
+    "id": "disclosure-no-residual-conclusion",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    has_rejected_premise = any(rejected)",
+    "new": "    has_rejected_premise = False",
+    "targets": ["test_review_disclosure_residue_is_not_republished", "test_review_counterexamples_reach_real_public_exit"]
+  },
+  {
+    "id": "disclosure-extra-joiners",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_ASSERTION_PART = re.compile(rf\"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)\")",
+    "new": "_ASSERTION_PART = re.compile(r\"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)\")",
+    "targets": ["test_review_more_joiners_preserve_raw_fact"]
+  },
+  {
+    "id": "disclosure-stranded-connective",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if connective:",
+    "new": "            if False and connective:",
+    "targets": ["test_review_disclosure_residue_is_not_republished"]
+  },
+  {
+    "id": "disclosure-new-announcement-wording",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "(?:没有|并无|不存在|无|零|未发布)(?:新增|新的|新)?公告",
+    "new": "(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告",
+    "targets": ["test_review_disclosure_residue_is_not_republished"]
+  },
+  {
+    "id": "ratio-no-period-or-count-as-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if (not number[2] and _NON_RATIO_SUFFIX.match(value, number.end(1))) or _PERIOD.match(value, number.start(1)):",
+    "new": "    if False:",
+    "targets": ["test_review_ratio_does_not_revoke_qualifiers_or_other_metrics", "test_review_ratio_locates_value_not_year_or_period"]
+  },
+  {
+    "id": "ratio-ordered-period-binding",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                parallel_values, parallel_end = _parallel_ratio_values(value, periods)",
+    "new": "                parallel_values, parallel_end = {}, 0",
+    "targets": ["test_review_ratio_locates_value_not_year_or_period"]
+  },
+  {
+    "id": "ratio-ranking-preface-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                        if preface:",
+    "new": "                        if False and preface:",
+    "targets": ["test_review_ratio_preface_does_not_hide_bad_value"]
+  },
+  {
+    "id": "ratio-partial-token-markup",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if internal and (left != internal + right or re.search(r\"[*`]+[\\d.]\", raw[raw_start:raw_end])):",
+    "new": "    if False:",
+    "targets": ["test_review_ratio_locates_value_not_year_or_period"]
+  },
+  {
+    "id": "ratio-unlocated-is-not-validated",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                if unlocated:",
+    "new": "                if False and unlocated:",
+    "targets": ["test_review_unlocated_ratio_is_explicitly_unverified_not_silently_passed", "test_review_unlocated_ratio_reopens_existing_repair_without_erasure"]
+  },
+  {
+    "id": "ratio-unlocated-repair-notice",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    if \"calculation_value_unlocated\" in codes:",
+    "new": "    if False and \"calculation_value_unlocated\" in codes:",
+    "targets": ["test_review_unlocated_ratio_reopens_existing_repair_without_erasure"]
+  },
+  {
+    "id": "disclosure-nonadjacent-dependent",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            prior_rejection = prior_rejection or rejected[index]",
+    "new": "            prior_rejection = rejected[index]",
+    "targets": ["test_review_second_round_disclosure_controls"]
+  },
+  {
+    "id": "ratio-withheld-only-one-slot",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if gap:\n            cursor = gap.end()",
+    "new": "        if gap:\n            return numbers, end",
+    "targets": ["test_withheld_slot_does_not_exempt_later_ratio", "test_hedge_failure_reaches_real_verifier_and_repair"]
+  },
+  {
+    "id": "ratio-no-neighbor-period-residual",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                    scope_end = _ratio_scope_end(value, periods, period_index)",
+    "new": "                    scope_end = len(value)",
+    "targets": ["test_ratio_scope_preserves_withheld_and_nonvalue_controls", "test_unlocated_marker_scopes_to_ratio_not_independent_fact"]
+  },
+  {
+    "id": "ratio-marker-local-position",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    insertion = positions[period_start]",
+    "new": "    insertion = 0",
+    "targets": ["test_unlocated_marker_scopes_to_ratio_not_independent_fact", "test_each_unlocated_period_gets_its_own_marker"]
+  },
+  {
+    "id": "ratio-located-value-not-blanket-waiver",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "unlocated = marked or bool((values or require_product) and _has_unlocated_ratio_number(residual))",
+    "new": "unlocated = marked or bool(not numbers and (values or require_product) and _has_unlocated_ratio_number(residual))",
+    "targets": ["test_located_or_parallel_value_does_not_exempt_residual_numbers"]
+  },
+  {
+    "id": "ratio-marker-still-needs-review",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "marked = value[:period_match.start()].rstrip().endswith(_UNLOCATED_RATIO_MARK)",
+    "new": "marked = False",
+    "targets": ["test_resolved_value_does_not_silently_discard_existing_uncertainty_marker"]
+  },
+  {
+    "id": "ratio-parallel-binding-survives-marker",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "value[a.end():b.start()].replace(_UNLOCATED_RATIO_MARK, \"\")",
+    "new": "value[a.end():b.start()]",
+    "targets": ["test_parallel_list_binding_survives_a_local_uncertainty_marker", "test_located_or_parallel_value_does_not_exempt_residual_numbers"]
+  },
+  {
+    "id": "disclosure-connective-free-residue",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "公告|零披露|(?:新增)?官方信息差",
+    "new": "公告|(?:新增)?官方信息差",
+    "targets": ["test_review_second_round_disclosure_controls"]
+  },
+  {
+    "id": "disclosure-explicit-venue-retention",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "|交易所披露平台|巨潮资讯网)",
+    "new": "|交易所披露平台)",
+    "targets": ["test_review_second_round_disclosure_controls"]
+  },
+  {
+    "id": "ratio-grouped-number-is-one-token",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_NUMBER = r\"[-+]?(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?\"",
+    "new": "_NUMBER = r\"[-+]?\\d+(?:\\.\\d+)?\"",
+    "targets": ["test_independent_numeric_roles_survive_without_waiving_ratio", "test_grouped_ratio_is_one_token_not_numeric_fragments"]
+  },
+  {
+    "id": "ratio-ordinal-role-not-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        r\"(?:排名第?|位列第?|第)\\s*\\d+(?!\\d|[.,]\\d)\",",
+    "new": "        r\"(?!)\",",
+    "targets": ["test_independent_numeric_roles_survive_without_waiving_ratio", "test_original_boundary_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-genitive-claim-not-reference",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if not re.match(rf\"\\s*的\\s*{_NUMBER}\\s*倍\", value[following.end():]):",
+    "new": "        if not re.match(r\"\\s*的\", value[following.end():]):",
+    "targets": ["test_genitive_neighbor_binds_its_own_value", "test_original_boundary_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-genitive-label-is-checked",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                    label_prefix = re.match(r\"\\s*(?:的\\s*)?\", tail).end()",
+    "new": "                    label_prefix = re.match(r\"\\s*\", tail).end()",
+    "targets": ["test_genitive_neighbor_binds_its_own_value"]
+  },
+  {
+    "id": "ratio-compound-unit-not-amount",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if (not number[2] and _NON_RATIO_SUFFIX.match(value, number.end(1))) or _PERIOD.match(value, number.start(1)):",
+    "new": "    if _NON_RATIO_SUFFIX.match(value, number.end(1)) or _PERIOD.match(value, number.start(1)):",
+    "targets": ["test_explicit_units_roundtrip_without_unit_fragments", "test_original_boundary_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-points-are-not-absolute",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if unit == \"个百分点\":",
+    "new": "    if False and unit == \"个百分点\":",
+    "targets": ["test_percentage_points_cannot_certify_absolute_ratio", "test_table_units_use_the_same_dimension_contract"]
+  },
+  {
+    "id": "ratio-semicolon-context-not-cut",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            for clause in _RATIO_CLAUSE.finditer(line):",
+    "new": "            for clause in _CLAUSE.finditer(line):",
+    "targets": ["test_explicit_continuation_checks_each_slot_across_punctuation", "test_original_boundary_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-semicolon-value-not-just-unknown",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_VALUE_CONTINUATION = re.compile(rf\"\\s*[,，；;]\\s*(?={_CONTINUATION_LABEL})\")",
+    "new": "_VALUE_CONTINUATION = re.compile(rf\"\\s*[,，]\\s*(?={_CONTINUATION_LABEL})\")",
+    "targets": ["test_explicit_continuation_checks_each_slot_across_punctuation", "test_original_boundary_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-residual-unit-not-blind-waiver",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if unit:\n",
+    "new": "        if False and unit:\n",
+    "targets": ["test_ambiguous_residue_still_unknown_without_deleting_independent_text"]
+  },
+  {
+    "id": "ratio-independent-delta-not-absolute",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if unit[1] == \"个百分点\" and delta:",
+    "new": "            if False and unit[1] == \"个百分点\" and delta:",
+    "targets": ["test_independent_numeric_roles_survive_without_waiving_ratio"]
+  },
+  {
+    "id": "ratio-percent-delta-is-growth-rate",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if delta and (unit[1] == \"%\" or _BASIS_POINTS.fullmatch(unit[1])):",
+    "new": "            if False and delta and (unit[1] == \"%\" or _BASIS_POINTS.fullmatch(unit[1])):",
+    "targets": ["test_labeled_change_rates_are_not_ratio_levels", "test_review_lead_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-count-label-not-value",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "        if _COUNT_LABEL.search(residual[:number.start()]):",
+    "new": "        if False and _COUNT_LABEL.search(residual[:number.start()]):",
+    "targets": ["test_labeled_counts_are_not_ratio_levels", "test_review_lead_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-basis-points-not-absolute",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    if _BASIS_POINTS.fullmatch(unit):",
+    "new": "    if False and _BASIS_POINTS.fullmatch(unit):",
+    "targets": ["test_basis_points_cannot_certify_absolute_ratio", "test_table_units_use_the_same_dimension_contract"]
+  },
+  {
+    "id": "ratio-basis-points-are-a-unit",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_RATIO_UNIT = r\"元\\s*[/／]\\s*元|个百分点|[bB][pP]|基点|%|倍\"",
+    "new": "_RATIO_UNIT = r\"元\\s*[/／]\\s*元|个百分点|%|倍\"",
+    "targets": ["test_basis_points_cannot_certify_absolute_ratio", "test_labeled_change_rates_are_not_ratio_levels", "test_table_units_use_the_same_dimension_contract"]
+  },
+  {
+    "id": "ratio-anaphoric-continuation-label",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "_CONTINUATION_LABEL = r\"(?:实际|该值|本期|该比率|比率)为\"",
+    "new": "_CONTINUATION_LABEL = r\"(?:实际|该值|本期|比率)为\"",
+    "targets": ["test_anaphoric_ratio_continuation_checks_its_value", "test_review_lead_cases_through_public_exit"]
+  },
+  {
+    "id": "ratio-marker-recognized-through-markup",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    marked = re.sub(r\"[*`]+\", \"\", raw[:insertion]).rstrip().endswith(_UNLOCATED_RATIO_MARK)",
+    "new": "    marked = raw[:insertion].rstrip().endswith(_UNLOCATED_RATIO_MARK)",
+    "targets": ["test_formatted_marker_still_unverified_but_not_duplicated", "test_formatted_marker_wrong_value_withheld_with_one_marker"]
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "state": "AUDIT_COMPLETE_NOT_PASSED",
+  "can_execute": false,
+  "initial_submissions_actual": {
+    "L6-N1": 1,
+    "L6-N2": 1,
+    "L6-N3": 0
+  },
+  "report_sha256": "76dc84d4adc22ca1bc43087f6a6ff9f3b817d6255f8659e121ce6c49a7d865c8"
+}

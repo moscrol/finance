@@ -1,0 +1,3 @@
+e0f2a5c7 docs: hand off history closeout fixes
+7e5f2ccd fix(code-map): resolve command aliases in structure search
+dca7c27e fix(history): key window selection by stable ranking root

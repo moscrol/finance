@@ -82,7 +82,7 @@ _EVENT_PROJECTIONS: dict[str, tuple[str, str, str]] = {
     "plan": ("planning", "已形成研究计划。", "completed"),
     "mode_decision": ("planning", "已按任务复杂度确认研究深度。", "completed"),
     "tool_request": ("research", "正在核对计划所需资料。", "running"),
-    "tool_result": ("research", "已取得一批可核验资料。", "completed"),
+    "tool_result": ("research", "查询已结束，未确认取得可用资料。", "completed"),
     "tool_error": ("research", "一项资料未取得，正在调整研究路径。", "completed"),
     "branch_started": ("research", "已启动并行的只读补充研究。", "running"),
     "branch_completed": ("research", "一项补充研究已返回证据。", "completed"),
@@ -122,6 +122,7 @@ _TOOL_LABELS: dict[str, str] = {
     "l3_lookup": "订单与量产证据",
     "market_data": "盘面快照",
     "financial_data": "财务数据",
+    "capital_data": "两融/大宗/解禁数据",
     "mainline_context": "主线结构",
     # 历史发现研究三件（2026-09-09）：没有标签的工具进度会静默退回通用句。
     "history_query": "历史行情重建与样本比较",
@@ -142,6 +143,7 @@ _TOOL_NAME_KEYS = ("name", "tool")
 _TOOL_EVENT_TEMPLATES: dict[str, str] = {
     "tool_request": "正在查{label}。",
     "tool_result": "已取得{label}。",
+    "tool_result_without_evidence": "{label}查询已结束，未确认取得可用记录。",
     "tool_error": "{label}未取到，正在调整研究路径。",
 }
 
@@ -247,6 +249,11 @@ def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
         return None
     stage, message, status = projection
     template = _TOOL_EVENT_TEMPLATES.get(event.kind)
+    if event.kind == "tool_result":
+        # ok=True 仅说明调用返回，不表示有业务数据；旧事件缺 evidence 也不能猜成功。
+        evidence = event.payload.get("evidence")
+        if not isinstance(evidence, (tuple, list)) or not evidence or event.payload.get("ok") is False:
+            template = _TOOL_EVENT_TEMPLATES["tool_result_without_evidence"]
     if template is not None:
         label = _tool_label(event.payload)
         if label is not None:

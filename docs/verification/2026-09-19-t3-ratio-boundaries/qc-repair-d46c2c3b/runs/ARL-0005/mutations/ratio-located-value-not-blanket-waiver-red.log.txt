@@ -1,0 +1,30 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_located_or_parallel_value_does_not_exempt_residual_numbers"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-2rfxbfv4/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+.FFFF                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_located_or_parallel_value_does_not_exempt_residual_numbers[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u53e6\u67091.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:94: in test_located_or_parallel_value_does_not_exempt_residual_numbers
+    assert findings
+E   assert ()
+_ test_located_or_parallel_value_does_not_exempt_residual_numbers[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.588\uff0c\u53e6\u67091.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:94: in test_located_or_parallel_value_does_not_exempt_residual_numbers
+    assert findings
+E   assert ()
+_ test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a\u5f85\u6838\u5bf9\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:94: in test_located_or_parallel_value_does_not_exempt_residual_numbers
+    assert findings
+E   assert ()
+_ test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.588\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+intelligence/tests/test_research_delivery_ratio_scope.py:94: in test_located_or_parallel_value_does_not_exempt_residual_numbers
+    assert findings
+E   assert ()
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-d46c2c3b/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_located_or_parallel_value_does_not_exempt_residual_numbers[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u53e6\u67091.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_located_or_parallel_value_does_not_exempt_residual_numbers[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u5f85\u6838\u5bf9\uff0c\u5b9e\u9645\u4e3a1.588\uff0c\u53e6\u67091.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a\u5f85\u6838\u5bf9\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.588\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+4 failed, 1 passed, 596 deselected in 1.04s
+
+STDERR:
+
+EXIT=1

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="8" failures="0" skipped="0" tests="9" time="0.898" timestamp="2026-09-20T13:14:49.271045+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_window_binding" name="test_source_identity_scope_and_cutoff_are_checked_before_query" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_immutable_original_recovery_checks_dependencies_and_lineage_without_live_db" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_overflow_does_not_shrink_window_or_population_and_failed_reservation_releases" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_concurrent_incompatible_selection_is_rejected_before_second_db_read" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_worker_completion_or_projection_without_message_does_not_attest_consumption" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_extended_trace_cannot_launder_new_rank_interval_in_later_turn" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_bound_original_cannot_hide_wider_ancestor_scope" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_history_window_binding" name="test_cancel_and_deadline_leave_no_binding_or_saved_calculation" time="0.000"><error message="failed on setup with &quot;FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'&quot;">self = PosixPath('/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries')
+mode = 448, parents = False, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-review/spec/temporary/existing-boundaries'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1311: FileNotFoundError</error></testcase><testcase classname="tests.test_code_map" name="test_structure_probe_daily_full" time="0.264" /></testsuite></testsuites>

@@ -1,0 +1,34 @@
+import json
+from pathlib import Path
+import shutil
+ROOT = Path(__file__).resolve().parent
+for name in ['review.mjs', 'run_control.py', 'run_stage.py', 'sandbox_preflight.mjs']:
+    p = ROOT / 'spec' / name
+    p.write_text(p.read_text().replace('fomo', 'glm-direct-review').replace('private K3', 'private GLM').replace('isolated K3', 'isolated GLM'))
+    shutil.copyfile(p, ROOT / 'quality' / name)
+for axis in ['spec', 'quality']:
+    p = ROOT / axis / 'config.json'
+    config = json.loads(p.read_text())
+    config.update(provider='glm-direct-review', upstream_port=443,
+                  upstream_url='https://open.bigmodel.cn/api/coding/paas/v4')
+    p.write_text(json.dumps(config, indent=2) + '\n')
+protocol = {
+ 'authorization': 'User correction: K3 unavailable may switch to GLM; both can be writers. Applies to this isolated review, not deployment.',
+ 'model': 'glm-5.3', 'provider': 'glm-direct-review', 'upstream_url': 'https://open.bigmodel.cn/api/coding/paas/v4',
+ 'credential_source': 'existing launcher Keychain command; memory only',
+ 'local_fomo': 'configured but no listener at 54340; no request issued; not restarted',
+ 'candidate_revision': config['revision'], 'baseline': config['baseline'], 'candidate_tree': config['tree'],
+ 'request_seconds': 120, 'stage_seconds': 600, 'max_requests_per_stage': 24,
+ 'gateway_requests_per_axis_max': 4, 'max_batch_requests': 152, 'concurrency': 1,
+ 'pi_thinking': 'off per existing GLM model metadata, not a claim that server-side reasoning is disabled',
+ 'max_output_tokens': 8192, 'shim': '19899 private listener -> official HTTPS, unchanged payload, no automatic retry',
+ 'sandbox_network': 'only own fake services localhost 26001-26008', 'sandbox_writes': 'own axis/work',
+ 'axes': ['spec','quality'], 'stages': ['explore','execute','report'], 'fresh_sessions': True,
+ 'old_k3_outputs_not_given_to_glm': True, 'independent_probes_separate_from_author_tests': True,
+ 'automatic_retries': 0, 'natural_finance_requests': 0, 'merged': False, 'deployed': False,
+ 'historical_l6': 'NOT_PASSED unchanged; this correction allows future model fallback, not rewriting old verdicts'
+}
+with (ROOT / 'protocol.json').open('x') as f:
+    json.dump(protocol, f, ensure_ascii=False, indent=2)
+    f.write('\n')
+print('GLM direct route prepared; no provider requests')

@@ -1,0 +1,367 @@
+{
+  "at": "2026-09-21T16:58:28.465232+00:00",
+  "identity": {
+    "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+    "status": "",
+    "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+    "free_bytes": 5752942592
+  },
+  "stages": [
+    {
+      "stage": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:41:16.875719+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 5583605760
+      },
+      "timeout_seconds": 120,
+      "finished_at": "2026-09-21T16:41:17.881059+00:00",
+      "elapsed_seconds": 1.0051522920839489,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 5583597568,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 5584982016
+      },
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "stage": "python",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/pytest-temp",
+        "--junitxml",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-04/python.xml"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:41:17.992501+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 5584707584
+      },
+      "timeout_seconds": 900,
+      "finished_at": "2026-09-21T16:53:39.928117+00:00",
+      "elapsed_seconds": 741.9353420417756,
+      "exit_code": -15,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3407880192,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3449757696
+      },
+      "log_sha256": "05d7e2efe250fc04b8d41cec9f52fbfeef5f0851bd7abf0287abc36ca2e4203c"
+    },
+    {
+      "stage": "registry-parse",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:53:40.821611+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3449344000
+      },
+      "timeout_seconds": 90,
+      "finished_at": "2026-09-21T16:53:41.855496+00:00",
+      "elapsed_seconds": 1.033311750041321,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3449339904,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3447304192
+      },
+      "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "stage": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:53:43.048711+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3446865920
+      },
+      "timeout_seconds": 90,
+      "finished_at": "2026-09-21T16:53:45.074340+00:00",
+      "elapsed_seconds": 2.023796917172149,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3445743616,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3443499008
+      },
+      "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "stage": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:53:46.263253+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3442028544
+      },
+      "timeout_seconds": 90,
+      "finished_at": "2026-09-21T16:53:47.280218+00:00",
+      "elapsed_seconds": 1.0142053328454494,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3442028544,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3441979392
+      },
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "stage": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:53:48.272339+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3442151424
+      },
+      "timeout_seconds": 90,
+      "finished_at": "2026-09-21T16:53:49.290652+00:00",
+      "elapsed_seconds": 1.0176813751459122,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3442106368,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3440328704
+      },
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "stage": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921",
+      "started_at": "2026-09-21T16:53:50.273107+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3439132672
+      },
+      "timeout_seconds": 90,
+      "finished_at": "2026-09-21T16:53:51.282402+00:00",
+      "elapsed_seconds": 1.00876958318986,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3439128576,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3436818432
+      },
+      "log_sha256": "1d6aa72251c9796b32fd90730e9afce1109a18b5a92a71c13b1dbcc44250d041"
+    },
+    {
+      "stage": "frontend-lint",
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+      "started_at": "2026-09-21T16:53:52.475470+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3435388928
+      },
+      "timeout_seconds": 180,
+      "finished_at": "2026-09-21T16:54:23.627720+00:00",
+      "elapsed_seconds": 31.151782999979332,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3398725632,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3396100096
+      },
+      "log_sha256": "cb88a45279d5bb2042ad4252298d100ed45b8bc0faf6b3b3c553bd69be8934ad"
+    },
+    {
+      "stage": "frontend-typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+      "started_at": "2026-09-21T16:54:24.708641+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3395313664
+      },
+      "timeout_seconds": 180,
+      "finished_at": "2026-09-21T16:54:53.865226+00:00",
+      "elapsed_seconds": 29.156135958153754,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3386441728,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3412533248
+      },
+      "log_sha256": "62b45ad02e6fb70d798f8fe4d1302557e51b0947e422d08b163d9c66f6bab339"
+    },
+    {
+      "stage": "frontend-test",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+      "started_at": "2026-09-21T16:54:54.573920+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3411922944
+      },
+      "timeout_seconds": 240,
+      "finished_at": "2026-09-21T16:55:32.818847+00:00",
+      "elapsed_seconds": 38.24443962494843,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3408879616,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3412897792
+      },
+      "log_sha256": "71218a661e3bebcf2a588544d0ba3b6c9d31e42a7242ad7793e7ac49f6604e6f"
+    },
+    {
+      "stage": "frontend-build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+      "started_at": "2026-09-21T16:55:33.592074+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3412680704
+      },
+      "timeout_seconds": 240,
+      "finished_at": "2026-09-21T16:56:08.827021+00:00",
+      "elapsed_seconds": 35.23447995795868,
+      "exit_code": 0,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3362910208,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3360661504
+      },
+      "log_sha256": "db2289111fa7242d8f470f37e20a780a44f82b3d949e9b6cbbb1644b41dac426"
+    },
+    {
+      "stage": "e2e",
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "cwd": "/Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp",
+      "started_at": "2026-09-21T16:56:09.628243+00:00",
+      "before": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 3360137216
+      },
+      "timeout_seconds": 900,
+      "finished_at": "2026-09-21T16:58:28.319058+00:00",
+      "elapsed_seconds": 138.6900472920388,
+      "exit_code": 1,
+      "stop_reason": null,
+      "min_observed_free_bytes": 3217776640,
+      "after": {
+        "head": "b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16",
+        "status": "",
+        "index_sha256": "569be8f944243132d65146868c33ff551d745cfaed5f96c4ca61b855ef2008c6",
+        "free_bytes": 5752938496
+      },
+      "log_sha256": "df7ac6e30532809cec8f281a33ea1531d8bcedfe0213b6137c3b2fb22df51983"
+    }
+  ],
+  "planned_stages": 12,
+  "completed_stages": 12,
+  "all_passed": false
+}

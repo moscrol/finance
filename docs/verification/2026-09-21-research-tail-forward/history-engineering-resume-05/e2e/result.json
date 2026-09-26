@@ -1,0 +1,55 @@
+{
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "started_at": "2026-09-21T18:11:29.871384+00:00",
+  "command": [
+    "pnpm",
+    "test:e2e",
+    "--reporter=list,json",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results"
+  ],
+  "env": {
+    "HOME": "/Users/a77",
+    "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "WORKBENCH_PYTHON": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "WORKBENCH_E2E_PORT": "19851",
+    "RE06_E2E_PORT": "19854",
+    "RE06_E2E_URL": "http://127.0.0.1:19854",
+    "CI": "1",
+    "NO_COLOR": "1",
+    "PLAYWRIGHT_JSON_OUTPUT_NAME": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/report.json"
+  },
+  "timeout_seconds": 600,
+  "min_free_bytes": 2147483648,
+  "sandbox_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n(deny file-write* (subpath \"/Users/a77/finance-workspace-private\"))\n(deny file-write* (subpath \"/Users/a77/agent-memory\"))\n",
+  "runner_sha256": "18b03ba135078e50a4db101ed0598005ad0119dc01113d5c7ae0929839a1fbf3",
+  "signals": [],
+  "after": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "finished_at": "2026-09-21T18:12:05.325633+00:00",
+  "elapsed_seconds": 35.453497416805476,
+  "exit_code": 1,
+  "stop_reason": null,
+  "log_sha256": "d192d36ad13a00cf0125c10c8b3789cb08831012aef1928afee21dd1421159d5",
+  "report_sha256": "bd73f87ebd95aa78f15c9ac9236d7fa51d28d3a60299f9f2d8eccb3f3855609b",
+  "stats": {
+    "startTime": "2026-09-21T18:11:32.060Z",
+    "duration": 32489.256,
+    "expected": 9,
+    "skipped": 0,
+    "unexpected": 27,
+    "flaky": 0
+  },
+  "errors": []
+}

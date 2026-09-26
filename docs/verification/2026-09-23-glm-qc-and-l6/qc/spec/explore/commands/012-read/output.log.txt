@@ -1,0 +1,77 @@
+class LLMCallLedger:
+    records: list[LLMCallRecord] = field(default_factory=list)
+    # 硬预算（P1-B 消费闭环）：非 None 时，尝试数达到上限后新调用被拒发
+    # （入口直接返回降级 reason，不发 HTTP）。防失控为主，默认上限宽松。
+    max_calls: int | None = None
+    rejected_count: int = 0
+    _reservation_count: int = 0
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        repr=False,
+        compare=False,
+    )
+
+    def over_budget(self) -> bool:
+        with self._lock:
+            return (
+                self.max_calls is not None
+                and self._reservation_count >= self.max_calls
+            )
+
+    def headroom(self) -> int | None:
+        """本轮还能发几次模型调用；无上限时 None。
+
+        给准入判断用（子研究起分支前看余量够不够分支 + 判官 / 合成的尾段），
+        不是保留位：预占仍只在 ``try_reserve`` 那道 HTTP 边界发生。
+        """
+
+        with self._lock:
+            if self.max_calls is None:
+                return None
+            return max(0, int(self.max_calls) - int(self._reservation_count))
+
+    def try_reserve(self) -> bool:
+        """Atomically reserve one real provider attempt.
+
+        Completed records are too late to enforce a concurrent limit: two
+        callers can both observe the same record count before either finishes.
+        Reservations are cumulative for the turn, so fallback/retry calls each
+        consume one slot and in-flight calls count immediately.
+        """
+        with self._lock:
+            if (
+                self.max_calls is not None
+                and self._reservation_count >= self.max_calls
+            ):
+                self.rejected_count += 1
+                return False
+            self._reservation_count += 1
+            return True
+
+    def rejection_reason(self) -> str:
+        return (
+            f"LLM 调用预算耗尽（本轮上限 {self.max_calls} 次尝试），"
+            "已拒发新调用并降级"
+        )
+
+    def reject(self) -> str:
+        with self._lock:
+            self.rejected_count += 1
+        return self.rejection_reason()
+
+    def record(self, record: LLMCallRecord) -> None:
+        with self._lock:
+            self.records.append(record)
+
+    def records_for_call(self, call_id: str) -> list[dict[str, object]]:
+        with self._lock:
+            return [_record_to_dict(record) for record in self.records if record.call_id == call_id]
+
+    def summary(self) -> dict[str, object]:
+        with self._lock:
+            records = list(self.records)
+            reservation_count = self._reservation_count
+            rejected_count = self.rejected_count
+        by_caller: dict[str, int] = {}
+
+[truncated; total lines=2605, selected=640:714; request a later offset]

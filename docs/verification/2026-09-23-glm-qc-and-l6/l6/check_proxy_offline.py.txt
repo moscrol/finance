@@ -1,0 +1,99 @@
+"""Exercise the actual L6 proxy against a loopback-only fake upstream."""
+import http.client
+import importlib.util
+import json
+from pathlib import Path
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location("l6_proxy", ROOT / "glm_l6_shim.py")
+proxy = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(proxy)
+payloads = []
+first = b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
+last = b'data: [DONE]\n\n'
+
+
+class Fake(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *_args):
+        pass
+
+    def do_POST(self):
+        payloads.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+        status = 400 if len(payloads) == 3 else 200
+        self.send_response(status)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Content-Length", str(len(first) + len(last)))
+        self.end_headers()
+        self.wfile.write(first)
+        self.wfile.flush()
+        time.sleep(0.4)
+        self.wfile.write(last)
+        self.wfile.flush()
+
+
+upstream = ThreadingHTTPServer(("127.0.0.1", 0), Fake)
+upthread = threading.Thread(target=upstream.serve_forever)
+upthread.start()
+ledger = proxy.Ledger(ROOT / "proxy-offline-ledger", 4)
+server = proxy.ReviewServer(0, 443, ledger, 3, 20)
+thread = threading.Thread(target=server.serve_forever)
+thread.start()
+measurements = []
+
+
+def connect(host, port, timeout):
+    assert (host, port) == ("open.bigmodel.cn", 443)
+    return http.client.HTTPConnection("127.0.0.1", upstream.server_port, timeout=timeout)
+
+
+def send(model):
+    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=4)
+    started = time.monotonic()
+    connection.request("POST", "/v1/chat/completions", json.dumps({"model": model, "messages": [], "temperature": 0.6, "stream": True}), {"Content-Type": "application/json"})
+    response = connection.getresponse()
+    chunk = response.read1(65536)
+    elapsed = time.monotonic() - started
+    rest = response.read()
+    connection.close()
+    return response.status, chunk, rest, elapsed
+
+
+try:
+    with patch.object(proxy.http.client, "HTTPSConnection", side_effect=connect):
+        for model in ("glm-5.3", "glm-5.3-flash"):
+            status, chunk, rest, elapsed = send(model)
+            assert status == 200 and chunk == first and rest == last
+            assert elapsed < 0.3, f"stream buffered: {elapsed}"
+            measurements.append({"model": model, "first_chunk_seconds": elapsed})
+        assert send("unapproved-model")[0] == 400
+        assert len(payloads) == 2
+        assert send("glm-5.3")[0] == 400
+        assert send("glm-5.3")[0] == 503
+        assert all(item["temperature"] == 0.6 for item in payloads)
+finally:
+    server.stopping.set()
+    server.shutdown()
+    server.server_close()
+    thread.join()
+    ledger.close()
+    upstream.shutdown()
+    upstream.server_close()
+    upthread.join()
+
+counts = json.loads((ROOT / "proxy-offline-ledger/counts.json").read_text())
+assert counts["requests"] == counts["dispatched"] == 3
+assert counts["completed"] == 2 and counts["failed"] == 1
+assert counts["active"] == 0 and counts["shutdown_complete"] is True
+assert counts["stopped_for"] == "http_400"
+result = {"status": "PASS", "real_model_requests": 0, "fake_upstream_requests": 3,
+          "measurements": measurements, "counts": counts,
+          "checks": ["writer and flash judge whitelist", "payload unchanged", "unbuffered first chunk", "unapproved model never dispatched", "400 prevents subsequent dispatch", "durable accounting and cleanup"]}
+with (ROOT / "proxy-offline-check.json").open("x") as stream:
+    json.dump(result, stream, indent=2)
+print(json.dumps(result))

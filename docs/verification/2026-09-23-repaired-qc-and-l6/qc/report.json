@@ -1,0 +1,305 @@
+{
+  "record_kind": "host_evidence_index_not_independent_verdict",
+  "status": "BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE",
+  "candidate_revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "independent_verdicts": {
+    "spec": "PASS_WITH_LIMITS",
+    "quality": "BLOCKED_INCOMPLETE_EVIDENCE"
+  },
+  "model_requests": 65,
+  "requests_by_axis_stage": {
+    "spec": {
+      "gateway": 4,
+      "explore": 12,
+      "execute": 17,
+      "report": 1
+    },
+    "quality": {
+      "gateway": 4,
+      "explore": 9,
+      "execute": 17,
+      "report": 1
+    }
+  },
+  "independent_claims": {
+    "spec": {
+      "complete": true,
+      "verdict": "PASS_WITH_LIMITS",
+      "claims": [
+        {
+          "id": "C1",
+          "status": "verified",
+          "evidence": "probe_transport_v2.py 全 5 项 PASS(exit 0):滴流 deadline=1.0 于 1.02s 截断;停滞父进程 read 抛 HTTPDeadlineExceeded 且 worker rc=124(dt=2.72,Timer→os._exit(124) 生效);流式取消 HTTPStreamCancelled;timeout=0 立即拒绝;正向 200 读回。静态:llm_http_transport.py line 225/237/243/264(urlopen 检查、threading.Timer(remaining, os._exit,(124,)))。首次 probe_transport.py 的 C 项失败为探针判定设计错误,已分类 probe_bug"
+        },
+        {
+          "id": "C2",
+          "status": "verified",
+          "evidence": "probe_deadline_forward_v3.py(exit 1 但目标断言全 PASS):http_transport_override 拦截 4 个调用点(_post_chat_synthesis/_post_chat_message_stream/_post_chat_message/_post_chat_stream_raw)均转发 deadline(expires-now≈0.5)且 timeout=10.0 与 deadline 不同值,两个流式点转发 is_cancelled;无 slice() API 使用,call_timeout 语义 0.5/10.0 两例 PASS。限制:第五个调用点仅静态证据,未单独拦截"
+        },
+        {
+          "id": "C3",
+          "status": "not_verified",
+          "evidence": "probe_judge_window.py 因阶段预算关停未运行;episode_semantic_verifier.py 窗口函数未逐行核对。迟到载荷拒收、report_received=False/unavailable=True、root remaining 归零均无行为证据"
+        },
+        {
+          "id": "C4",
+          "status": "verified",
+          "evidence": "行为探针:_post_chat_synthesis 在 timeout=10.0s 片 + 0.5s 共享 Deadline + 2.9s 慢后端下 0.51s 抛 LLMDeadlineExceeded(v2=0.52s, v3=0.51s),包装器转发共享 deadline 而非仅 per-call timeout"
+        },
+        {
+          "id": "C5",
+          "status": "not_verified",
+          "evidence": "静态:LLMCallLedger.try_reserve 原子预占(llm_refine.py 640-697),_reserve_llm_call 在 line 1205 先于 HTTP,v3 崩溃栈亦证预留先于传输。但两次行为探针均因探针自身 API 臆测失败(v2: 不存在 max_seconds 参数;v3: call_ledger_scope 首参为 max_calls 非 ledger,TypeError int>=LLMCallLedger),均分类 probe_bug,零预算拒发与 root/判官子窗口区分无行为证据"
+        },
+        {
+          "id": "C6",
+          "status": "not_verified",
+          "evidence": "部分:静态确认每调用经 urlopen 启动隔离子进程且 expires_at 在 Popen 前设定(transport 探针 E 项 timeout=0 发子进程前拒绝间接支持)。启动计入预算的对比性行为证据(probe_judge_window 极小预算项)未运行"
+        },
+        {
+          "id": "C7",
+          "status": "verified",
+          "evidence": "声明性声明,无需测试:历史收据仅覆盖 7ad61a0d,本候选 ac11027f 含 merge+产品修复;本次评审未将任何历史收据计入当前测试数,author_tests 计数为 0"
+        }
+      ],
+      "findings": [],
+      "author_tests": {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "note": "计划中的作者 pytest 用例(violation_uses/cli_strict/existing_receipt/rejects_unbounded/endpoint_guard)因阶段预算关停全部未执行,未观察到任何结果,不引用历史收据"
+      },
+      "reviewer_probes": {
+        "total": 4,
+        "passed": 1,
+        "failed": 3,
+        "detail": "probe_transport.py exit1(C 项判定设计错误);probe_transport_v2.py exit0 全 PASS(C1);probe_deadline_forward_v2.py exit1(LLMCallLedger 签名臆测);probe_deadline_forward_v3.py exit1(call_ledger_scope 签名臆测,C4/C2 目标断言仍全 PASS);probe_judge_window.py 未运行"
+      },
+      "intentional_control": {
+        "observed_failed": false,
+        "classification": "not_run",
+        "note": "positive_control.py 因阶段关停未执行,无观察结果,不作分类"
+      },
+      "failures": [
+        {
+          "cmd": "probe_transport.py C项",
+          "classification": "probe_bug",
+          "reason": "假设 urlopen 必先返回 response;实际父侧在返回前按绝对 deadline 抛 HTTPDeadlineExceeded,属正确产品行为"
+        },
+        {
+          "cmd": "probe_deadline_forward_v2.py",
+          "classification": "probe_bug",
+          "reason": "LLMCallLedger 无 max_seconds 参数"
+        },
+        {
+          "cmd": "probe_deadline_forward_v3.py",
+          "classification": "probe_bug",
+          "reason": "call_ledger_scope 首参是 max_calls 非 ledger;C5 行为验证未获证据"
+        },
+        {
+          "cmd": "author pytest + probe_judge_window.py + positive_control.py",
+          "classification": "not_run",
+          "reason": "阶段预算关停,未执行"
+        }
+      ],
+      "limits": "C3 全部、C5 行为性、C6 启动计入对比、C2 第五调用点拦截均无证据;离线 CLI/归档夹具测试因沙箱拒绝文件未运行,未削弱沙箱;历史作者收据未用作任何证据;两次探针失败均为探针 API 臆测,未发现产品缺陷;自然 L6 仍为 NOT_PASSED,本评审无 merge/deploy 权限。C7 为 verified 仅指声明处理正确,不含对本候选测试覆盖的背书",
+      "stage": "report",
+      "axis": "spec",
+      "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+      "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15"
+    },
+    "quality": {
+      "complete": true,
+      "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+      "claims": [
+        {
+          "id": "C1",
+          "status": "not_verified",
+          "evidence": "静态：explore全读llm_http_transport.py（monotonic绝对deadline、select轮询0.05s、Timer->os._exit(124)、父侧_check）。行为：probe_transport_v2.py运行exit0，P1/P2/P4/P5/P6 PASS（trickle dt=1.52、delta=0、startup dt=1.01、stalled parent dt=1.97）。但P3取消路径FAIL：抛HTTPDeadlineExceeded而非T.HTTPStreamCancelled；shell无法定位源文件（No such file/Operation not permitted）且inspect导入失败，未能确认HTTPStreamCancelled是否存在，取消语义未验证。核心截止/停读已证，取消未证，整claim记not_verified"
+        },
+        {
+          "id": "C2",
+          "status": "not_verified",
+          "evidence": "静态：llm_refine.py行184-229/1139-1309/1366-1569/2236-2350五调用点均经_open_deadline_http_response传deadline（流式另传is_cancelled）。行为：probe_refine_deadline.py F3转发矩阵未运行，无行为证据"
+        },
+        {
+          "id": "C3",
+          "status": "not_verified",
+          "evidence": "静态：Deadline.call_timeout=min(slice,remaining)支持判官窗口截断。行为：probe_judge_window.py未运行；report_received=False/unavailable=True记账、迟到payload拒绝、root剩余按墙钟均无行为证据"
+        },
+        {
+          "id": "C4",
+          "status": "not_verified",
+          "evidence": "静态可见wrapper转发共享deadline，但probe_refine_deadline.py F1（10s slice vs 0.5s shared vs 2.9s fixture）未运行，缺失转发不可检测，无行为证据"
+        },
+        {
+          "id": "C5",
+          "status": "not_verified",
+          "evidence": "部分行为已证：P4 expired deadline零请求delta=0（transport层）。root耗尽vs判官子窗口耗尽区分（J3）及refine层F4未运行，claim部分未证，记not_verified"
+        },
+        {
+          "id": "C6",
+          "status": "verified",
+          "evidence": "P5行为PASS：2.0s延迟响应头在1.0s deadline内被截断dt=1.01，子进程启动计入授予预算；探针用独立子进程HTTP调用，与claim语义一致"
+        },
+        {
+          "id": "C7",
+          "status": "verified",
+          "evidence": "claims.md确认历史回执仅属7ad61a0d；本候选ac11027含main合并与产品修复，本评审未将历史回执用作当期证据，author_tests当期计数为0"
+        }
+      ],
+      "findings": [],
+      "author_tests": {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "note": "作者pytest当期未运行（closeout强制提前、时间预算挤占）；历史回执不计入"
+      },
+      "reviewer_probes": {
+        "passed": 5,
+        "failed": 1,
+        "not_run": 2,
+        "detail": "probe_transport_v2.py运行1次：P1/P2/P4/P5/P6 PASS，P3 FAIL（抛HTTPDeadlineExceeded而非T.HTTPStreamCancelled，属探针期望错误或产品无该类型，未及修正）。probe_refine_deadline.py、probe_judge_window.py未运行"
+      },
+      "intentional_control": {
+        "run": false,
+        "classification": "not_run",
+        "note": "positive_control.py未在closeout前执行，无有意失败控制观测"
+      },
+      "failures": [
+        {
+          "command": "probe_transport_v2.py P3",
+          "classification": "probe_implementation_error_candidate",
+          "reason": "取消路径抛HTTPDeadlineExceeded而非HTTPStreamCancelled；grep/find因沙箱拒绝读candidate目录，inspect导入路径intelligence.llm_http_transport失败，未能判定是探针类型面错误还是产品缺陷"
+        },
+        {
+          "command": "probe_refine_deadline.py / probe_judge_window.py / author pytest / positive_control.py",
+          "classification": "not_run",
+          "reason": "closeout强制提前，C2/C3/C4行为验证与作者测试、有意失败控制全部缺失"
+        }
+      ],
+      "limits": [
+        "shell沙箱拒绝直接读取candidate目录（Operation not permitted），源码核查依赖explore阶段记录，P3异常类型无法当期确认",
+        "C2/C3/C4关键行为探针与作者测试、有意失败控制均未运行，非通过性缺失",
+        "C3 verifier层unavailable/report_received记账未直接探测",
+        "P3失败分类存疑（探针期望vs产品缺陷），未构成对产品的finding",
+        "自然L6保持NOT_PASSED；latest-head/main门与本评审无关"
+      ],
+      "stage": "report",
+      "axis": "quality",
+      "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+      "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15"
+    }
+  },
+  "frozen_inputs_unchanged": true,
+  "frozen_input_authority": "authorization.json (after pinning candidate, before any model calls)",
+  "candidate_clean": true,
+  "port_19899_released": true,
+  "acceptance_limits": [
+    "Spec C3/C5/C6 not_verified",
+    "Spec C2 only four HTTP call sites behaviorally intercepted",
+    "Spec author tests and intentional failing control not run",
+    "Current candidate full engineering gates and joint-main gates not run"
+  ],
+  "author_targeted_receipt": "/Users/a77/.finance-runtime/test-receipts/20260923T131130Z-ac11027f-57f31ba6b077.json",
+  "author_targeted_passed": 328,
+  "author_targeted_scope": "targeted only, not independent reviewer evidence or full suite",
+  "separate_l6": {
+    "record_kind": "host_preflight_closure_not_financial_verdict",
+    "status": "BLOCKED_PREFLIGHT",
+    "candidate": "ac11027fa75ee6a988ab90ab81e0329159964643",
+    "blockers": [
+      "strict_deadline_overrun",
+      "retrieval_readiness_timeout"
+    ],
+    "strict_scenarios": 13,
+    "deadline_violations": [
+      "body_stall"
+    ],
+    "strict_failure": {
+      "scenario": "body_stall",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 1.3782751669641584,
+      "request_count": 0,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999695420730859,
+          "phase": "open_response",
+          "returncode": -9,
+          "elapsed_ms": 1372
+        }
+      ],
+      "requests": [],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 1375,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    "retrieval_probe": {
+      "ready": false,
+      "exit_code": 124,
+      "model_path": "/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181",
+      "offline": true,
+      "downloads": false,
+      "paid_model_requests": 0,
+      "model_weights_present": true,
+      "log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "model_requests": 0,
+    "financial_submissions": {
+      "L6-R1": 0,
+      "L6-R2": 0,
+      "L6-R3": 0
+    },
+    "resubmissions": 0,
+    "followups": 0,
+    "sidecars_started": 0,
+    "ports_free": {
+      "19897": true,
+      "19898": true
+    },
+    "production_identity_unchanged": {
+      "source_revision": true,
+      "source_dirty": true,
+      "loaded_code_root": true,
+      "loaded_tree_fingerprint": true,
+      "code_matches_repo": true,
+      "users_dir": true,
+      "agent_runtime": true
+    },
+    "frozen_data_unchanged": true,
+    "frozen_files": 751,
+    "candidate_unchanged": true,
+    "source_regression": "PASS",
+    "synthetic_proxy_preflight": "PASS",
+    "natural_quality_verdict": "NOT_EXERCISED",
+    "historical_failure_unchanged": true,
+    "strict_case_interpretation": "No loopback HTTP request reached the body_stall endpoint. Wall-clock limit still exceeded; no causal attribution to scheduling or upstream behavior is established.",
+    "retries": 0,
+    "budgets_raised": false,
+    "merged": false,
+    "deployed": false,
+    "closed_at": "2026-09-23T13:27:04.592674+00:00"
+  },
+  "natural_quality_accepted": false,
+  "automatic_retries": 0,
+  "historical_evidence_reassigned": false,
+  "main_at_closure": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "main_conflict_free": true,
+  "merged": false,
+  "deployed": false,
+  "pushed": false,
+  "closed_at": "2026-09-23T13:39:42.480959+00:00"
+}

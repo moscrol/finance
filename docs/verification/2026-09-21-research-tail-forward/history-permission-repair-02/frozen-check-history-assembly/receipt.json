@@ -1,0 +1,33 @@
+{
+  "scope": "focused operator check, not independent or full CI",
+  "name": "history-assembly",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-s",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/frozen-check-history-assembly/tmp",
+    "tests/test_history_control_boundary.py",
+    "tests/test_history_permission_inheritance.py",
+    "tests/test_history_market_anatomy.py",
+    "tests/test_history_local_read_execution.py",
+    "intelligence/tests/test_historical_research_episode.py",
+    "intelligence/tests/test_episode_factory.py",
+    "intelligence/tests/test_query_resolution.py"
+  ],
+  "started": "2026-09-21T15:06:30.582905+00:00",
+  "finished": "2026-09-21T15:06:52.803224+00:00",
+  "before": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "after": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": ""
+  },
+  "exit": 0,
+  "expected_failure": false
+}

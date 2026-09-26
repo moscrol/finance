@@ -1,0 +1,5 @@
+ERROR: file or directory not found: intelligence/tests/test_derived_calculation_result_contract.py
+
+读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T064316Z-ec692b53.json
+
+no tests ran in 0.14s

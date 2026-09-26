@@ -45,6 +45,8 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.episode_session import EpisodeSessionError
 
 
 def _frame() -> TaskFrame:
@@ -623,6 +625,92 @@ def test_sdk_runtime_resumes_with_same_provider_continuation() -> None:
     ]
 
 
+@pytest.mark.parametrize("provider_history,remaining_calls", [(True, 1), (True, 0), (False, 0), (False, 1)])
+@pytest.mark.parametrize("custom_message", [False, True])
+def test_sdk_repair_preserves_domain_message_and_complete_diagnostics(
+    provider_history, remaining_calls, custom_message,
+) -> None:
+    frame = _frame()
+    context = _context(frame)
+    continuation = object() if provider_history else None
+    seen_messages = []
+    requests = []
+    tool_calls = []
+    feedback = tuple(json.dumps({
+        "stage": "preflight", "sentence_index": i + 1,
+        "sentence": "原句中的限定条件" * 90 + f"尾部-{i}",
+        "reasons": ["novel_numeric_condition"],
+    }, ensure_ascii=False) for i in range(23))
+
+    class Harness(FinanceResearchHarness):
+        def repair_goal_message(self, goal, *, tools_open):
+            message = (
+                f"CUSTOM_REPAIR[{goal.repair_goal_id}]:{tools_open}"
+                if custom_message else super().repair_goal_message(goal, tools_open=tools_open)
+            )
+            seen_messages.append((goal, tools_open, message))
+            return message
+
+    def runner(request):
+        requests.append(request)
+        if len(requests) == 1:
+            request.tools[0].invoke("A股 当前主线")
+        return AgentsSdkResult(json.dumps({
+            "status": "completed", "draft": "医药是韧性核心。",
+            "bindings": [{"output_id": "direct_assessment", "evidence_hashes": ["mainline-hash"], "gap": ""}],
+            "gaps": [],
+        }, ensure_ascii=False), 1, continuation_input=continuation)
+
+    session = OpenAIAgentsRuntime(
+        runner=runner, backend="sdk_glm", model_name="test", harness=Harness(),
+    ).start(frame, context=context, registry=_registry(tool_calls))
+    original = session.outcome
+    goal = RepairGoal(
+        episode_id=context.contract.task_id, repair_goal_id="sdk-complete-feedback",
+        cycle=1, missing_answer_elements=("direct_assessment",), unsupported_claims=feedback,
+        missing_evidence_modes=(), attempted_actions=("mainline_context:original",),
+        evidence_progress=CoverageDelta(1, 0, 1, 2),
+        remaining_calls=remaining_calls, remaining_seconds=5.0,
+    )
+    if not provider_history and remaining_calls:
+        with pytest.raises(EpisodeSessionError, match="provider continuation is required"):
+            session.resume(goal)
+        assert len(requests) == 1
+        assert seen_messages == []
+        assert session.outcome is original
+        session.close()
+        return
+    repaired = session.resume(goal)
+    assert len(seen_messages) == 1
+    effective_goal, tools_open, message = seen_messages[0]
+    assert effective_goal.unsupported_claims == feedback
+    assert tools_open is bool(remaining_calls)
+    assert len(requests) == 2
+    assert requests[1]._continuation_input is continuation
+    if provider_history:
+        assert requests[1].input == message
+    else:
+        payload = json.loads(requests[1].input)
+        assert payload["repair_goal_message"] == message
+        assert payload["existing_draft"] == original.draft
+        assert payload["existing_bindings"] == [b.to_dict() for b in original.bindings]
+        assert payload["evidence"]
+        assert requests[1].tools == ()
+    if not custom_message:
+        payload = json.loads(message)
+        assert payload["unsupported_claims"] == list(feedback)
+        assert "不要只删前件留下后件" in payload["claim_revision_note"]
+        assert payload["evidence_progress"]["new_source_families"] == 2
+    event = next(e for e in repaired.events if e.kind == "repair_goal")
+    assert tuple(event.payload["unsupported_claims"]) == feedback
+    assert repaired.events[:len(original.events)] == original.events
+    assert repaired.evidence == original.evidence
+    assert repaired.usage.tool_calls == 1
+    assert len(tool_calls) == 1
+    assert requests[1].max_turns == (2 if remaining_calls else 1)
+    session.close()
+
+
 def test_sdk_episode_debits_one_shared_root_tool_budget_across_resume() -> None:
     frame = _frame()
 
@@ -782,6 +870,8 @@ def test_sdk_resume_keeps_tools_closed_after_original_research_window(
             assert request.tools == ()
             assert request.max_turns == 1
             assert 0.0 < request.timeout <= 2.0
+            repair_input = json.loads(request.input)
+            assert "研究工具已关闭" in repair_input["instruction"]
             if explicit_model_settings is not None:
                 assert request.model_settings is explicit_model_settings
             else:

@@ -233,18 +233,15 @@ def _day_fingerprints(con: duckdb.DuckDBPyConnection) -> dict[str, tuple]:
     而 DuckDB 会把聚合并行切给多线程、分片和的合并顺序每次不同——
     实测同一连接同一份未改动数据连跑 5 次 sum(close) 得到 3 个不同值
     （114825.50219999999 / 114825.5022 / 114825.50220000005）。
-    用它当“没变”断言会随机误报。整数求和既精确又与顺序无关，
-    且比浮点和更敏感：任一代码/价格/金额变动都会被抓到，
-    而不是只能抓“和变了”。
+    用它当“没变”断言会随机误报。整行 hash 的整数和与顺序无关，
+    覆盖所有列，保留 NULL 与真实值的区别；新增列也自动纳入。
+    这是事务内的误写探测，不是无碰撞证明或可跨 DuckDB 版本的计划签名。
     """
     return {
         str(r[0]): (r[1], r[2])
         for r in con.execute(
-            "SELECT trade_date, count(*), sum(hash("
-            "  stock_ts_code || ':' || coalesce(close, -1)::VARCHAR"
-            "                || ':' || coalesce(amount, -1)::VARCHAR"
-            "                || ':' || coalesce(pre_close, -1)::VARCHAR)::HUGEINT) "
-            "FROM fact_stock_daily GROUP BY 1"
+            "SELECT trade_date, count(*), sum(hash(d)::HUGEINT) "
+            "FROM fact_stock_daily AS d GROUP BY 1"
         ).fetchall()
     }
 
@@ -256,10 +253,13 @@ def apply_bridge_day(con: duckdb.DuckDBPyConnection, plan: dict[str, Any]) -> di
     if not rows:
         raise BridgeRefused(f"{td} 无可写行")
 
-    before = _day_fingerprints(con)
-    # 越界校验放在 COMMIT **之前**：放在之后就只能报警、回滚不了。
+    # 计划可能已过期；覆盖授权与目标状态必须在写入事务内重新核验。
     con.execute("BEGIN TRANSACTION")
     try:
+        before = _day_fingerprints(con)
+        existing = before.get(td, (0,))[0]
+        if existing and plan.get("policy", {}).get("allow_replace_existing") is not True:
+            raise BridgeRefused(f"{td} 已有 {existing} 行，默认桥接拒绝覆盖")
         deleted = con.execute(
             "DELETE FROM fact_stock_daily WHERE trade_date = ? RETURNING stock_ts_code",
             [td],
@@ -272,12 +272,10 @@ def apply_bridge_day(con: duckdb.DuckDBPyConnection, plan: dict[str, Any]) -> di
             rows,
         )
         after = _day_fingerprints(con)
-        drift = sorted(d for d in before if d != td and before[d] != after.get(d))
-        gone = sorted(d for d in before if d not in after)
-        if drift or gone:
-            raise BridgeRefused(
-                f"写入越界：其他日期被改动 drift={drift[:10]} gone={gone[:10]}"
-            )
+        drift = sorted(d for d in before.keys() | after.keys()
+                       if d != td and before.get(d) != after.get(d))
+        if drift:
+            raise BridgeRefused(f"写入越界：其他日期被改动 drift={drift[:10]}")
         final = int(con.execute(
             "SELECT count(*) FROM fact_stock_daily WHERE trade_date = ?", [td]).fetchone()[0])
         if final != len(rows):

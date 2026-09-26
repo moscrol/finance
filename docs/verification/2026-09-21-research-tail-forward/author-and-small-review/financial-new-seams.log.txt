@@ -1,0 +1,34 @@
+F..                                                                      [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T093245Z-ea5c3a94.json
+
+=================================== FAILURES ===================================
+_ test_financial_rejection_and_stock_code_partition_remain_independent[False] __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d239040>
+known_code = False
+
+    @pytest.mark.parametrize("known_code", [False, True])
+    def test_financial_rejection_and_stock_code_partition_remain_independent(monkeypatch, known_code):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
+        claim = "相关个股包括白银有色（601212）。"
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + claim + "\n" + BAD)
+        if known_code:
+            first, *rest = verified.outcome.evidence
+            verified = replace(verified, outcome=replace(verified.outcome, evidence=(
+                replace(first, detail=first.detail + "白银有色601212。"), *rest,
+            )))
+        # The model rejects the code sentence; R6 must independently reject the bad
+        # arithmetic even though the model did not flag it. Known codes retain the
+        # main slot rule instead of being reclassified as mechanically fabricated.
+        judge = _coded_judge((2,), ("第2句的股票代码证据里没有。",), None)
+        result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        reasons = {reason for row in result.sentence_verdicts for reason in row["reasons"]}
+        assert "financial_claim_mismatch" in reasons
+>       assert ("unknown_stock_code" in reasons) is not known_code
+E       AssertionError: assert ('unknown_stock_code' in {'financial_claim_mismatch', 'judge'}) is not False
+
+intelligence/tests/test_financial_forward_seams.py:32: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_forward_seams.py::test_financial_rejection_and_stock_code_partition_remain_independent[False]
+1 failed, 2 passed in 2.75s

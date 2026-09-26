@@ -1,0 +1,3 @@
+写出 docs/runtime/events.md
+写出 docs/runtime/tools.md
+写出 docs/runtime/harness-seams.md

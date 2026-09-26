@@ -1,0 +1,88 @@
+```json
+{
+  "complete": true,
+  "verdict": "PASS_WITH_LIMITS",
+  "claims": [
+    {
+      "id": "C1",
+      "status": "verified",
+      "evidence": "probe_transport_v2.py 全 5 项 PASS(exit 0):滴流 deadline=1.0 于 1.02s 截断;停滞父进程 read 抛 HTTPDeadlineExceeded 且 worker rc=124(dt=2.72,Timer→os._exit(124) 生效);流式取消 HTTPStreamCancelled;timeout=0 立即拒绝;正向 200 读回。静态:llm_http_transport.py line 225/237/243/264(urlopen 检查、threading.Timer(remaining, os._exit,(124,)))。首次 probe_transport.py 的 C 项失败为探针判定设计错误,已分类 probe_bug"
+    },
+    {
+      "id": "C2",
+      "status": "verified",
+      "evidence": "probe_deadline_forward_v3.py(exit 1 但目标断言全 PASS):http_transport_override 拦截 4 个调用点(_post_chat_synthesis/_post_chat_message_stream/_post_chat_message/_post_chat_stream_raw)均转发 deadline(expires-now≈0.5)且 timeout=10.0 与 deadline 不同值,两个流式点转发 is_cancelled;无 slice() API 使用,call_timeout 语义 0.5/10.0 两例 PASS。限制:第五个调用点仅静态证据,未单独拦截"
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "evidence": "probe_judge_window.py 因阶段预算关停未运行;episode_semantic_verifier.py 窗口函数未逐行核对。迟到载荷拒收、report_received=False/unavailable=True、root remaining 归零均无行为证据"
+    },
+    {
+      "id": "C4",
+      "status": "verified",
+      "evidence": "行为探针:_post_chat_synthesis 在 timeout=10.0s 片 + 0.5s 共享 Deadline + 2.9s 慢后端下 0.51s 抛 LLMDeadlineExceeded(v2=0.52s, v3=0.51s),包装器转发共享 deadline 而非仅 per-call timeout"
+    },
+    {
+      "id": "C5",
+      "status": "not_verified",
+      "evidence": "静态:LLMCallLedger.try_reserve 原子预占(llm_refine.py 640-697),_reserve_llm_call 在 line 1205 先于 HTTP,v3 崩溃栈亦证预留先于传输。但两次行为探针均因探针自身 API 臆测失败(v2: 不存在 max_seconds 参数;v3: call_ledger_scope 首参为 max_calls 非 ledger,TypeError int>=LLMCallLedger),均分类 probe_bug,零预算拒发与 root/判官子窗口区分无行为证据"
+    },
+    {
+      "id": "C6",
+      "status": "not_verified",
+      "evidence": "部分:静态确认每调用经 urlopen 启动隔离子进程且 expires_at 在 Popen 前设定(transport 探针 E 项 timeout=0 发子进程前拒绝间接支持)。启动计入预算的对比性行为证据(probe_judge_window 极小预算项)未运行"
+    },
+    {
+      "id": "C7",
+      "status": "verified",
+      "evidence": "声明性声明,无需测试:历史收据仅覆盖 7ad61a0d,本候选 ac11027f 含 merge+产品修复;本次评审未将任何历史收据计入当前测试数,author_tests 计数为 0"
+    }
+  ],
+  "findings": [],
+  "author_tests": {
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "note": "计划中的作者 pytest 用例(violation_uses/cli_strict/existing_receipt/rejects_unbounded/endpoint_guard)因阶段预算关停全部未执行,未观察到任何结果,不引用历史收据"
+  },
+  "reviewer_probes": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "detail": "probe_transport.py exit1(C 项判定设计错误);probe_transport_v2.py exit0 全 PASS(C1);probe_deadline_forward_v2.py exit1(LLMCallLedger 签名臆测);probe_deadline_forward_v3.py exit1(call_ledger_scope 签名臆测,C4/C2 目标断言仍全 PASS);probe_judge_window.py 未运行"
+  },
+  "intentional_control": {
+    "observed_failed": false,
+    "classification": "not_run",
+    "note": "positive_control.py 因阶段关停未执行,无观察结果,不作分类"
+  },
+  "failures": [
+    {
+      "cmd": "probe_transport.py C项",
+      "classification": "probe_bug",
+      "reason": "假设 urlopen 必先返回 response;实际父侧在返回前按绝对 deadline 抛 HTTPDeadlineExceeded,属正确产品行为"
+    },
+    {
+      "cmd": "probe_deadline_forward_v2.py",
+      "classification": "probe_bug",
+      "reason": "LLMCallLedger 无 max_seconds 参数"
+    },
+    {
+      "cmd": "probe_deadline_forward_v3.py",
+      "classification": "probe_bug",
+      "reason": "call_ledger_scope 首参是 max_calls 非 ledger;C5 行为验证未获证据"
+    },
+    {
+      "cmd": "author pytest + probe_judge_window.py + positive_control.py",
+      "classification": "not_run",
+      "reason": "阶段预算关停,未执行"
+    }
+  ],
+  "limits": "C3 全部、C5 行为性、C6 启动计入对比、C2 第五调用点拦截均无证据;离线 CLI/归档夹具测试因沙箱拒绝文件未运行,未削弱沙箱;历史作者收据未用作任何证据;两次探针失败均为探针 API 臆测,未发现产品缺陷;自然 L6 仍为 NOT_PASSED,本评审无 merge/deploy 权限。C7 为 verified 仅指声明处理正确,不含对本候选测试覆盖的背书",
+  "stage": "report",
+  "axis": "spec",
+  "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15"
+}
+```

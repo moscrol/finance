@@ -1,0 +1,5 @@
+{
+  "status": "PASS",
+  "requests": 1,
+  "served_model": "glm-5.3"
+}

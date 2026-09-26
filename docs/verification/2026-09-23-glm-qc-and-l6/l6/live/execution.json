@@ -1,0 +1,18 @@
+{
+  "identity_before": {
+    "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "status": ""
+  },
+  "identity_after": {
+    "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "status": ""
+  },
+  "production_identity_unchanged": true,
+  "owned_ports_released": true,
+  "production_lock_unchanged": true,
+  "stopped_for": {
+    "question": "L6-N2",
+    "reason": "run_cancelled"
+  },
+  "finished_at": "2026-09-23T12:04:42.579302+00:00"
+}

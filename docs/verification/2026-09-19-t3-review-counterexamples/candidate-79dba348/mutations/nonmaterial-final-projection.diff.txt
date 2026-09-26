@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/continuous_turn_adapter.py b/intelligence/runtime/continuous_turn_adapter.py
+index bbfa8538..d0b1aaab 100644
+--- a/intelligence/runtime/continuous_turn_adapter.py
++++ b/intelligence/runtime/continuous_turn_adapter.py
+@@ -1107,7 +1107,7 @@ class ContinuousTurnAdapter:
+         for notice in public_notices:
+             if notice not in answer:
+                 answer = "\n\n".join(part for part in (answer, notice) if part)
+-        semantic = recheck_material_public_delivery(semantic, projected=answer)
++        semantic = replace(semantic, public_answer=answer)
+         final_outcome = semantic.verified.outcome
+         answer = semantic.public_answer
+         fulfilled_output_ids = _fulfilled_output_ids(

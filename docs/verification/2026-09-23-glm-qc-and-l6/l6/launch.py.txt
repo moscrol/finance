@@ -1,0 +1,25 @@
+"""Start the owned, bounded L6 controller without exposing credentials."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+root = Path(__file__).resolve().parent
+python = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+inputs = ["run_live_l6.py", "glm_l6_shim.py", "launcher-exports.sh", "protocol-coherent.json", "strict-deadline.json", "positive-control.json", "proxy-offline-check.json"]
+with (root / "live-inputs.json").open("x") as stream:
+    json.dump({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in inputs}, stream, indent=2)
+os.umask(0o077)
+with (root / "controller.log").open("xb") as log:
+    process = subprocess.Popen(
+        [python, "-B", str(root / "run_live_l6.py"),
+         "--repo", "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private",
+         "--preparation", str(root / "preparation-coherent"), "--output", str(root / "live")],
+        stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+        env={"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1"},
+        start_new_session=True,
+    )
+with (root / "controller-pid.json").open("x") as stream:
+    json.dump({"pid": process.pid}, stream)
+print(json.dumps({"pid": process.pid, "output": str(root / "live")}))

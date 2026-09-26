@@ -1,0 +1,87 @@
+    )
+    return estimated / len(with_usage)
+
+
+def _insufficient_budget_reason(
+    timeout: float,
+    min_viable_seconds: float | None,
+) -> str | None:
+    """预算不足以支撑一次调用时返回降级 reason，否则 None。
+
+    与"发出去然后超时"的区别：这里一秒都不烧，把时间留给还能成功的阶段
+    （通常是最终合成）。
+
+    ``min_viable_seconds`` 为 None 时不设闸门——这是默认值，因为 ``timeout``
+    参数本身无法区分两种来源：调用方主动配置的策略超时（该照发），和被
+    deadline 钳制后剩下的残余预算（该跳过）。只有知道自己处在预算压力下的
+    调用方才该显式传入（见 MIN_VIABLE_LLM_SECONDS 的实测依据）。
+    """
+    if min_viable_seconds is None or timeout >= min_viable_seconds:
+        return None
+    return (
+        f"LLM 预算不足（剩余 {timeout:.1f}s < 最小可行 "
+        f"{min_viable_seconds:.0f}s），已跳过调用以保留合成预算"
+    )
+
+
+def _tally_failure_reasons(records: list[LLMCallRecord]) -> dict[str, int]:
+    """按原因聚合失败次数，让 trace 一眼看出是超时、限流还是别的。"""
+    tally: dict[str, int] = {}
+    for record in records:
+        if record.status == "success":
+            continue
+        key = record.reason or "unknown"
+        tally[key] = tally.get(key, 0) + 1
+    return tally
+
+
+_CALL_LEDGER: ContextVar[LLMCallLedger | None] = ContextVar(
+    "llm_call_ledger",
+    default=None,
+)
+
+
+@contextmanager
+def call_ledger_scope(
+    max_calls: int | None = None,
+    *,
+    reuse_existing: bool = True,
+) -> Iterator[LLMCallLedger]:
+    """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。
+
+    ``max_calls`` 只在新建台账时生效；嵌套复用时以外层限额为准。"""
+    existing = _CALL_LEDGER.get()
+    if existing is not None and reuse_existing:
+        yield existing
+        return
+    ledger = LLMCallLedger(max_calls=max_calls)
+    token = _CALL_LEDGER.set(ledger)
+    try:
+        yield ledger
+    finally:
+        _CALL_LEDGER.reset(token)
+
+
+def _budget_rejection() -> str | None:
+    """入口预算检查：超额时返回拒发 reason，未超额/无台账返回 None。"""
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and ledger.over_budget():
+        return ledger.reject()
+    return None
+
+
+def _reserve_llm_call() -> None:
+    """Reserve one attempt at the actual HTTP boundary.
+
+    Public-entry checks remain a cheap fast path, but this reservation is the
+    authoritative guard because provider fallback, retries and concurrent
+    callers can all pass an earlier check.
+    """
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and not ledger.try_reserve():
+        raise LLMCallBudgetExceeded(ledger.rejection_reason())
+
+
+def current_call_ledger() -> LLMCallLedger | None:
+
+[truncated; total lines=2605, selected=786:870; request a later offset]

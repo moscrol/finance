@@ -1,0 +1,36 @@
+...FF..........                                                          [100%]
+=================================== FAILURES ===================================
+____________ test_live_gate_checks_receipt_identity[revision-wrong] ____________
+
+gate = (<function gate.<locals>.run at 0x1065dee80>, PosixPath('/private/tmp/pytest-of-a77/pytest-1385/test_live_gate_checks_...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'revision', value = 'wrong'
+
+    @pytest.mark.parametrize("field,value", [("revision", "wrong"), ("tree", "/other/tree")])
+    def test_live_gate_checks_receipt_identity(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run().returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_0/repo/run_m...p/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_0/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_0/repo/run_m...p/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_0/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='') = <function gate.<locals>.run at 0x1065dee80>()
+
+tests/test_run_main_gate.py:94: AssertionError
+___________ test_live_gate_checks_receipt_identity[tree-/other/tree] ___________
+
+gate = (<function gate.<locals>.run at 0x1065de840>, PosixPath('/private/tmp/pytest-of-a77/pytest-1385/test_live_gate_checks_...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'tree', value = '/other/tree'
+
+    @pytest.mark.parametrize("field,value", [("revision", "wrong"), ("tree", "/other/tree")])
+    def test_live_gate_checks_receipt_identity(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run().returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_1/repo/run_m...p/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_1/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_1/repo/run_m...p/pytest-of-a77/pytest-1385/test_live_gate_checks_receipt_1/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='') = <function gate.<locals>.run at 0x1065de840>()
+
+tests/test_run_main_gate.py:94: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_main_gate.py::test_live_gate_checks_receipt_identity[revision-wrong]
+FAILED tests/test_run_main_gate.py::test_live_gate_checks_receipt_identity[tree-/other/tree]
+2 failed, 13 passed in 7.19s

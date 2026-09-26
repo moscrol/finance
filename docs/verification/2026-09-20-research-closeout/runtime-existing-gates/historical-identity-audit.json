@@ -1,0 +1,94 @@
+{
+  "revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+  "original_root": "/Users/a77/.finance-runtime/reviews/runtime-contracts-a7f5cc06",
+  "kind": "historical fixed-revision evidence audit, not a new full test run or current-main admission",
+  "groups": [
+    {
+      "name": "evidence-mutations",
+      "mutations": 18,
+      "definitions_sha256": "57e2e3fcbfd446e950c61c142937c062d96465e1cd96af86b0863b4f55f837db",
+      "results_sha256": "a4e975cb210b48a9ba523c2d6fcf71b3dfe63e80008b7066572a3dbaa69b5896",
+      "run_count": 38
+    },
+    {
+      "name": "fixture-mutations",
+      "mutations": 4,
+      "definitions_sha256": "a71431d2baae3c066ac960eb5b74a87cfbc88b9f88227096d757c6a38824af77",
+      "results_sha256": "da98a69595cf98010c4605d5d48637f850aab1d82dd7dd5cdbbcd29f1ad611c8",
+      "run_count": 10
+    },
+    {
+      "name": "p0-mutations-regression",
+      "mutations": 13,
+      "definitions_sha256": "aea689b4e669ab33127b02ffc1cc16ab006719412e978c4578992a71ffa9807a",
+      "results_sha256": "625ff2e4cdc501d2b4888d7e9f46a8aab5258377cad92947d1db11e154ab1bd7",
+      "run_count": 28
+    },
+    {
+      "name": "child-mutations-regression",
+      "mutations": 14,
+      "definitions_sha256": "fe08dca219f95193e1e4064ff13d240b9edf8776b179acf67f3eaaf5d3729844",
+      "results_sha256": "08caccff7a865bc67b63600bd12685bb25942e9dab905b1d7049ae2a3ad2930a",
+      "run_count": 30
+    },
+    {
+      "name": "restore-mutations-regression",
+      "mutations": 7,
+      "definitions_sha256": "6eea92029e3931414c0bc013e9baa00e8a59c576d3c7a5d073e16c609986528c",
+      "results_sha256": "91e474176b0c625d1632a2d90ba3721c4817489c57c1e479716b4677ed8eff37",
+      "run_count": 16
+    },
+    {
+      "name": "budget-mutations-regression",
+      "mutations": 17,
+      "definitions_sha256": "e5fa4204f4616760e0eae5df00cb471f26aeea87a8d64c30b93f5af7766c9b90",
+      "results_sha256": "58d9769d1995a9a246ed8548198f971be72416bf802310c7ad5bc8a267c1e9a4",
+      "run_count": 36
+    },
+    {
+      "name": "authorization-mutations-regression",
+      "mutations": 22,
+      "definitions_sha256": "af9031976bc3dff0732f27aebc59f3244270e6a2fe97709cca587688bdf4482f",
+      "results_sha256": "ccd3b0932c4998c64b6e3e05bb72e8d7dce1671beab7f80a6b76c67ea83b25af",
+      "run_count": 46
+    }
+  ],
+  "exits": {
+    "ruff.exit": "0",
+    "frontend-typecheck.exit": "0",
+    "budget-mutations-regression.exit": "0",
+    "registry-check-parseability.exit": "0",
+    "registry-check.exit": "0",
+    "frontend-build.exit": "0",
+    "frontend-test.exit": "0",
+    "frontend-install.exit": "0",
+    "e2e.exit": "0",
+    "unread-fields.exit": "0",
+    "evidence-mutations.exit": "0",
+    "registry-generate-views.exit": "0",
+    "child-mutations-regression.exit": "0",
+    "registry-backfill-tables.exit": "0",
+    "frontend-lint.exit": "0",
+    "crosswalk.exit": "0",
+    "authorization-mutations-regression.exit": "0",
+    "pytest.exit": "0",
+    "fixture-mutations.exit": "0",
+    "restore-mutations-regression.exit": "0",
+    "p0-mutations-regression.exit": "0",
+    "runtime-catalog.exit": "0"
+  },
+  "python_receipt": {
+    "path": "/Users/a77/.finance-runtime/test-receipts/20260918T184130Z-a7f5cc06.json",
+    "sha256": "403efde3ad19cf853023997bac15895fa1675bf030fc67c34b81c0e8361de37f",
+    "counts": {
+      "passed": 11766,
+      "failed": 0,
+      "error": 0,
+      "skipped": 81
+    }
+  },
+  "identity_current": {
+    "revision": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+    "dirty": false
+  }
+}

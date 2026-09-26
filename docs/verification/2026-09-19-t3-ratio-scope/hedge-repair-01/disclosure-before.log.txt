@@ -1,0 +1,96 @@
+.....FF                                                                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T083816Z-58f38d89.json
+
+=================================== FAILURES ===================================
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a\uff0c\u672c\u671f\u4e3a\u96f6\u62ab\u9732\u3002-\u6536\u5165\u53ef\u6838[E1]-\u96f6\u62ab\u9732] _
+
+draft = '收入可核[E1]，查询返回空白，因此可以认定没有公告，本期为零披露。', good = '收入可核[E1]', bad = '零披露'
+
+    @pytest.mark.parametrize("draft,good,bad", [
+        (
+            "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+            "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+            "利润可核[E2]", "据此建议观望",
+        ),
+        (
+            "收入可核[E1] 查询空白进而可以认定没有公告。",
+            "收入可核[E1]", "查询空白进",
+        ),
+        (
+            "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+            "收入可核[E1]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，巨潮资讯网显示公司本期无新增公告[E2]。",
+            "巨潮资讯网显示公司本期无新增公告[E2]", "因此可以认定没有公告",
+        ),
+    ])
+    def test_review_second_round_disclosure_controls(draft, good, bad):
+        findings = disclosure_absence_findings(draft, (TRACE,))
+        assert findings
+        kept = remove_findings(draft, findings)
+>       assert good in kept and bad not in kept
+E       AssertionError: assert ('收入可核[E1]' in '收入可核[E1]，查询返回空白，本期为零披露。' and '零披露' not in '收入可核[E1]，查询返回空白，本期为零披露。'
+E         
+E         '零披露' is contained here:
+E           收入可核[E1]，查询返回空白，本期为零披露。
+E         ?                    +++)
+
+intelligence/tests/test_research_delivery_review_regressions.py:258: AssertionError
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a\uff0c\u5de8\u6f6e\u8d44\u8baf\u7f51\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]\u3002-\u5de8\u6f6e\u8d44\u8baf\u7f51\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]-\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a] _
+
+draft = '收入可核[E1]，查询返回空白，因此可以认定没有公告，巨潮资讯网显示公司本期无新增公告[E2]。'
+good = '巨潮资讯网显示公司本期无新增公告[E2]', bad = '因此可以认定没有公告'
+
+    @pytest.mark.parametrize("draft,good,bad", [
+        (
+            "收入可核[E1]，查询空白因此没有公告，交易所披露平台显示公司本期无新增公告[E2]。",
+            "交易所披露平台显示公司本期无新增公告[E2]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询空白因此没有公告，利润可核[E2]，据此建议观望。",
+            "利润可核[E2]", "据此建议观望",
+        ),
+        (
+            "收入可核[E1] 查询空白进而可以认定没有公告。",
+            "收入可核[E1]", "查询空白进",
+        ),
+        (
+            "收入可核[E1] 公告检索接口返回空白因此没有公告。",
+            "收入可核[E1]", "因此没有公告",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，即本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，本期为零披露。",
+            "收入可核[E1]", "零披露",
+        ),
+        (
+            "收入可核[E1]，查询返回空白，因此可以认定没有公告，巨潮资讯网显示公司本期无新增公告[E2]。",
+            "巨潮资讯网显示公司本期无新增公告[E2]", "因此可以认定没有公告",
+        ),
+    ])
+    def test_review_second_round_disclosure_controls(draft, good, bad):
+        findings = disclosure_absence_findings(draft, (TRACE,))
+        assert findings
+        kept = remove_findings(draft, findings)
+>       assert good in kept and bad not in kept
+E       AssertionError: assert ('巨潮资讯网显示公司本期无新增公告[E2]' in '收入可核[E1]，查询返回空白。')
+
+intelligence/tests/test_research_delivery_review_regressions.py:258: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a\uff0c\u672c\u671f\u4e3a\u96f6\u62ab\u9732\u3002-\u6536\u5165\u53ef\u6838[E1]-\u96f6\u62ab\u9732]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a\uff0c\u5de8\u6f6e\u8d44\u8baf\u7f51\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]\u3002-\u5de8\u6f6e\u8d44\u8baf\u7f51\u663e\u793a\u516c\u53f8\u672c\u671f\u65e0\u65b0\u589e\u516c\u544a[E2]-\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u516c\u544a]
+2 failed, 5 passed, 61 deselected in 0.28s

@@ -1,0 +1,79 @@
+{
+  "pr": "910",
+  "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+  "baseline": "64847b7a173bfb7191012638e8ec044ea31e0513",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "steps": [
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "targeted",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "targeted-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "python-full",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "full-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "model_requests": 0,
+  "independent_review": false,
+  "status": "STOPPED_INCOMPLETE",
+  "python_receipt": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/receipts/gate-0df6qTxE/pytest.json",
+  "python_counts": {
+    "passed": 16232,
+    "failed": 0,
+    "error": 0,
+    "skipped": 75,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "error": "resource admission denied: frontend",
+  "finished_at": "2026-09-25T09:50:35.983351+00:00"
+}

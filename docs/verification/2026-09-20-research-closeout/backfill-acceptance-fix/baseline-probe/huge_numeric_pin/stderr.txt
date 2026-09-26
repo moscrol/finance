@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py", line 724, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py", line 423, in main
+    bad = _validate_receipt(tag, r, want, args.expected_revision)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py", line 260, in _validate_receipt
+    req(_is_num(tp[k]), f"spec.pinned_technical_0911.{k}")
+        ^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py", line 132, in _is_num
+    and math.isfinite(v)
+        ^^^^^^^^^^^^^^^^
+OverflowError: int too large to convert to float

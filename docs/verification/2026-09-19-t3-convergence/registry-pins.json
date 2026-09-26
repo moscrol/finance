@@ -1,0 +1,20 @@
+{
+  "finance-workspace-private": {
+    "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+    "path": "/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-workspace-private",
+    "resolved": "/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-workspace-private",
+    "status": ""
+  },
+  "knowledge-base-private": {
+    "revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+    "path": "/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/knowledge-base-private",
+    "resolved": "/Users/a77/.finance-runtime/kb-v4-merge-20260919/closeout/knowledge-base-private",
+    "status": ""
+  },
+  "finance-research-site": {
+    "revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+    "path": "/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-research-site",
+    "resolved": "/Users/a77/.finance-runtime/convergence-20260919/registry-pinned/finance-research-site",
+    "status": ""
+  }
+}

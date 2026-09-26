@@ -1,0 +1,246 @@
+FFFFFFFFFFFFFFFFFFFF.FFFFF......F                                        [100%]
+=================================== FAILURES ===================================
+_ test_elliptical_continuation_inherits_read_ceiling[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+tests/test_history_permission_inheritance.py:39: in test_elliptical_continuation_inherits_read_ceiling
+    assert_local(_decide(query, previous, history), tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+_ test_elliptical_continuation_inherits_read_ceiling[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b] _
+tests/test_history_permission_inheritance.py:39: in test_elliptical_continuation_inherits_read_ceiling
+    assert_local(_decide(query, previous, history), tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+__________ test_replay_keeps_ceiling_across_multiple_elliptical_turns __________
+tests/test_history_permission_inheritance.py:50: in test_replay_keeps_ceiling_across_multiple_elliptical_turns
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records0] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records1] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records2] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records3] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records4] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records5] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records6] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records0] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records1] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records2] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records3] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records4] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records5] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records6] _
+tests/test_history_permission_inheritance.py:67: in test_stale_intent_without_trusted_history_chain_clarifies
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_ test_quoted_scope_relaxation_does_not_change_inherited_ceiling[\u89e3\u91ca\u8fd9\u53e5\u8bdd\uff1a\u300c{text}\u300d] _
+tests/test_history_permission_inheritance.py:77: in test_quoted_scope_relaxation_does_not_change_inherited_ceiling
+    assert_local(_decide(query, previous, history), tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+___ test_quoted_scope_relaxation_does_not_change_inherited_ceiling[> {text}] ___
+tests/test_history_permission_inheritance.py:77: in test_quoted_scope_relaxation_does_not_change_inherited_ceiling
+    assert_local(_decide(query, previous, history), tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+_ test_quoted_scope_relaxation_does_not_change_inherited_ceiling[```text\n{text}\n```] _
+tests/test_history_permission_inheritance.py:77: in test_quoted_scope_relaxation_does_not_change_inherited_ceiling
+    assert_local(_decide(query, previous, history), tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+_ test_external_runner_denied_before_execution[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+tests/test_history_permission_inheritance.py:106: in test_external_runner_denied_before_execution
+    registry.execute(name, {"query": "forbidden"}, context=context, step_id=name)
+intelligence/services/research_tool_registry.py:1510: in execute
+    return ledger_call()
+intelligence/services/query_ledger.py:390: in executed
+    return fetch()
+intelligence/services/research_tool_registry.py:1293: in fetch
+    run_result = spec.runner(
+intelligence/services/research_tool_registry.py:834: in __call__
+    raw = agent_research._run_tool(self._runner, value, context)
+intelligence/services/agent_research.py:2087: in _run_tool
+    return runner(query, context)
+tests/test_history_permission_inheritance.py:98: in forbidden
+    raise AssertionError("External runner must not be reached")
+E   AssertionError: External runner must not be reached
+_ test_external_runner_denied_before_execution[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b] _
+tests/test_history_permission_inheritance.py:106: in test_external_runner_denied_before_execution
+    registry.execute(name, {"query": "forbidden"}, context=context, step_id=name)
+intelligence/services/research_tool_registry.py:1510: in execute
+    return ledger_call()
+intelligence/services/query_ledger.py:390: in executed
+    return fetch()
+intelligence/services/research_tool_registry.py:1293: in fetch
+    run_result = spec.runner(
+intelligence/services/research_tool_registry.py:834: in __call__
+    raw = agent_research._run_tool(self._runner, value, context)
+intelligence/services/agent_research.py:2087: in _run_tool
+    return runner(query, context)
+tests/test_history_permission_inheritance.py:98: in forbidden
+    raise AssertionError("External runner must not be reached")
+E   AssertionError: External runner must not be reached
+________ test_generic_history_backfill_requires_the_same_ceiling[True] _________
+tests/test_history_permission_inheritance.py:115: in test_generic_history_backfill_requires_the_same_ceiling
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+________ test_generic_history_backfill_requires_the_same_ceiling[False] ________
+tests/test_history_permission_inheritance.py:118: in test_generic_history_backfill_requires_the_same_ceiling
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_______ test_truncated_history_does_not_authorize_elliptical_inheritance _______
+tests/test_history_permission_inheritance.py:127: in test_truncated_history_does_not_authorize_elliptical_inheritance
+    assert control.terminal_kind == "clarification"
+E   AssertionError: assert 'research' == 'clarification'
+E     
+E     - clarification
+E     + research
+_______________ test_real_orchestrator_replays_elliptical_turns ________________
+tests/test_history_permission_inheritance.py:194: in test_real_orchestrator_replays_elliptical_turns
+    assert_local(decision, tmp_path)
+tests/test_history_permission_inheritance.py:26: in assert_local
+    assert context.contract.material_contract.data_scope == "local_only"
+E   AssertionError: assert 'full' == 'local_only'
+E     
+E     - local_only
+E     + full
+=========================== short test summary info ============================
+FAILED tests/test_history_permission_inheritance.py::test_elliptical_continuation_inherits_read_ceiling[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f]
+FAILED tests/test_history_permission_inheritance.py::test_elliptical_continuation_inherits_read_ceiling[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b]
+FAILED tests/test_history_permission_inheritance.py::test_replay_keeps_ceiling_across_multiple_elliptical_turns
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records0]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records1]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records2]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records3]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records4]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records5]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-records6]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records0]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records1]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records2]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records3]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records4]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records5]
+FAILED tests/test_history_permission_inheritance.py::test_stale_intent_without_trusted_history_chain_clarifies[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-records6]
+FAILED tests/test_history_permission_inheritance.py::test_quoted_scope_relaxation_does_not_change_inherited_ceiling[\u89e3\u91ca\u8fd9\u53e5\u8bdd\uff1a\u300c{text}\u300d]
+FAILED tests/test_history_permission_inheritance.py::test_quoted_scope_relaxation_does_not_change_inherited_ceiling[> {text}]
+FAILED tests/test_history_permission_inheritance.py::test_quoted_scope_relaxation_does_not_change_inherited_ceiling[```text\n{text}\n```]
+FAILED tests/test_history_permission_inheritance.py::test_external_runner_denied_before_execution[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f]
+FAILED tests/test_history_permission_inheritance.py::test_external_runner_denied_before_execution[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b]
+FAILED tests/test_history_permission_inheritance.py::test_generic_history_backfill_requires_the_same_ceiling[True]
+FAILED tests/test_history_permission_inheritance.py::test_generic_history_backfill_requires_the_same_ceiling[False]
+FAILED tests/test_history_permission_inheritance.py::test_truncated_history_does_not_authorize_elliptical_inheritance
+FAILED tests/test_history_permission_inheritance.py::test_real_orchestrator_replays_elliptical_turns
+26 failed, 7 passed in 2.58s

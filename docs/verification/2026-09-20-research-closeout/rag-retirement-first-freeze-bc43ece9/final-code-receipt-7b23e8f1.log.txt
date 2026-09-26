@@ -1,0 +1,8 @@
+revision=7b23e8f15a77270a36087047b8b1fa061c76d3d7
+dirty=0
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_receipt_integration.py intelligence/tests/test_kb_filter_receipt.py intelligence/tests/test_workbench_api.py -k rag-or-generation-or-worker-or-readiness
+........................................................................ [ 75%]
+ss.....................                                                  [100%]
+93 passed, 2 skipped, 126 deselected in 7.39s
+command=/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check <changed-and-adjacent-files>
+All checks passed!

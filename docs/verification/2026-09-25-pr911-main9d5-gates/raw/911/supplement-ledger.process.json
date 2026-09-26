@@ -1,0 +1,26 @@
+{
+  "label": "supplement-ledger",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "scripts/audit_ledger_spec_crosswalk.py"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "8dec2a856b76cec21fae6daae1ed7505fb838dcc",
+  "started_at": "2026-09-25T05:43:32.072163+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 62942,
+  "process_group": 62942,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T05:43:32.379959+00:00",
+  "elapsed_seconds": 0.3074480830691755
+}

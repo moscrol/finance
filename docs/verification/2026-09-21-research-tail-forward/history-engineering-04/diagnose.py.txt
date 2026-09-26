@@ -1,0 +1,84 @@
+"""Record bounded diagnostics separately from the interrupted engineering attempt."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+from run_checks import MIN_FREE, OUT, PROFILE, PY, ROOT, SHA, identity, now, save
+import shutil
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('name')
+    parser.add_argument('--seconds', type=int, default=180)
+    parser.add_argument('--webapp', action='store_true')
+    parser.add_argument('--native-sandbox-probes', action='store_true')
+    parser.add_argument('command', nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    command = args.command
+    if command and command[0] == '--':
+        command = command[1:]
+    assert command
+    folder = OUT / args.name
+    folder.mkdir(exist_ok=False)
+    before = identity()
+    assert before['head'] == SHA and not before['status']
+    env = json.loads((OUT / 'start.json').read_text())['env']
+    env['PYTHONUNBUFFERED'] = '1'
+    env['RE06_E2E_URL'] = 'http://127.0.0.1:19854'
+    cwd = ROOT / 'intelligence/webapp' if args.webapp else ROOT
+    prefix = ['/usr/bin/sandbox-exec', '-p', PROFILE]
+    if args.native_sandbox_probes:
+        allowed = {
+            'intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_network_even_with_python_guard_off',
+            'intelligence/tests/test_calculation_sandbox.py::test_seatbelt_alone_denies_writes_outside_workdir_and_fork',
+            'intelligence/tests/test_calculation_sandbox.py::test_default_enforcement_on_this_machine_is_both_layers',
+            'intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket',
+        }
+        assert command[:6] == [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider']
+        assert set(command[6:]) == allowed and not args.webapp
+        prefix = []
+    record = {'command': command, 'started_at': now(), 'before': before,
+              'timeout_seconds': args.seconds, 'cwd': str(cwd), 'signals': [],
+              'outer_sandbox': bool(prefix), 'RE06_E2E_URL': env['RE06_E2E_URL']}
+    save(folder / 'start.json', record)
+    began = time.monotonic()
+    reason = None
+    with (folder / 'output.txt').open('x') as log:
+        proc = subprocess.Popen([*prefix, *command],
+                                cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT,
+                                start_new_session=True)
+        while proc.poll() is None:
+            if shutil.disk_usage(OUT).free < MIN_FREE:
+                reason = 'disk-space-floor'
+            elif time.monotonic() - began >= args.seconds:
+                reason = 'timeout'
+            if reason:
+                for sig, grace in ((signal.SIGINT, 20), (signal.SIGTERM, 8), (signal.SIGKILL, 5)):
+                    try:
+                        os.killpg(proc.pid, sig)
+                        record['signals'].append(sig.name)
+                    except ProcessLookupError:
+                        break
+                    try:
+                        proc.wait(timeout=grace)
+                        break
+                    except subprocess.TimeoutExpired:
+                        pass
+                break
+            time.sleep(1)
+        rc = proc.wait(timeout=5)
+    record.update({'finished_at': now(), 'elapsed_seconds': time.monotonic() - began,
+                   'exit_code': rc, 'stop_reason': reason, 'after': identity(),
+                   'log_sha256': hashlib.sha256((folder / 'output.txt').read_bytes()).hexdigest()})
+    save(folder / 'result.json', record)
+    print(json.dumps(record))
+
+
+if __name__ == '__main__':
+    main()

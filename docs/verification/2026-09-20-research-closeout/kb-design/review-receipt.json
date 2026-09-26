@@ -1,0 +1,47 @@
+{
+  "candidate": "3a21010323eababb54ce8519093fd60dbacb9451",
+  "equivalent_code_candidate": "7e07addb466385085e21ccaf3d06bf23c6e4b0a1",
+  "finance_candidate": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "independent_original_cases": 11,
+  "independent_worker_probe": "passed; changed v2 sources, both indexes, negative filters, retire, restart, rollback; six child processes closed",
+  "authored_regressions_reexecuted": "12 passed, 61 deselected",
+  "new_finance_finding": "retired workers still report ready; readiness component inference only, not live endpoint test",
+  "files": {
+    "verified-results.json": {
+      "sha256": "be9babdab73e7278a4be01e64397df8bef25056fdcef2a258db06ac8aee2fa54",
+      "bytes": 4306
+    },
+    "commands.json": {
+      "sha256": "691efd3aa544e905436459cf7e2a48f8642e9d47cd08aaa21715841f8de0ce35",
+      "bytes": 2511
+    },
+    "worker/results.json": {
+      "sha256": "d255d2b42be6e1d421308a7e736dd4a91dfc18559eb0b510ced6beaf6363b34c",
+      "bytes": 16924
+    },
+    "worker.log": {
+      "sha256": "4f92638509a6b3d3ebcce5c9e1dfb59fe9d2ca83dd346ec5eb2796a8a93f0cc6",
+      "bytes": 169
+    },
+    "probe_finance_worker.py": {
+      "sha256": "a4de73d46ceadb31c17488cb318ca0b8e9ae864789fa72b11f0cc0a545114714",
+      "bytes": 7007
+    },
+    "replay_activation.py": {
+      "sha256": "e243fdf4a6ade5ca7cac45a333a852de1b0fc01f461d7c5cb4a193ca441b54d7",
+      "bytes": 2381
+    },
+    "run_independent.py": {
+      "sha256": "5da845bb01c15d245ae13852294a9a7f0415f90fa2223fe72c9f41d03a9316e6",
+      "bytes": 4869
+    },
+    "final-control-regressions.log": {
+      "sha256": "7cff6f16d5b16bde7e0e14e45507965a92f8f67225c7bc6fa543822d2f1c6c91",
+      "bytes": 115
+    },
+    "REVIEW.md": {
+      "sha256": "d17dcb0fb5ce361e79b2f7578a70b725e5e29c3a8831a473028b836b99705f97",
+      "bytes": 7318
+    }
+  }
+}

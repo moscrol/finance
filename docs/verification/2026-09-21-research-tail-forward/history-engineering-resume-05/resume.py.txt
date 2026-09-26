@@ -1,0 +1,76 @@
+"""Resume the frozen revision's Python test coverage with explicit native probes."""
+from __future__ import annotations
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+
+ROOT = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+OUT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SHA = '442476f7def1013f1fadebaf6594971921147edc'
+MIN_FREE = 2 * 1024**3
+PROFILE = '''(version 1)
+(allow default)
+(deny network-outbound)
+(allow network-outbound (remote ip "localhost:*"))
+(deny file-write* (subpath "/Users/a77/finance-workspace-private"))
+(deny file-write* (subpath "/Users/a77/agent-memory"))
+'''
+PLUGIN = OUT / 'coverage_plugin.py'
+
+def now(): return datetime.now(timezone.utc).isoformat()
+def git(*a): return subprocess.check_output(['git','-C',str(ROOT),*a],text=True,timeout=20)
+def ident(): return {'head':git('rev-parse','HEAD').strip(),'status':git('status','--porcelain=v1','--untracked-files=all'),'index_sha256':hashlib.sha256(git('ls-files','-s').encode()).hexdigest()}
+def save(path, value):
+    with path.open('x') as s: json.dump(value,s,ensure_ascii=False,indent=2); s.write('\n')
+
+def main():
+    before=ident(); assert before['head']==SHA and not before['status']
+    common=[PY,'-m','pytest','-q','-p','no:cacheprovider','--tb=short']
+    results=[]
+    for mode in ('ordinary','native'):
+        folder=OUT/mode; folder.mkdir(exist_ok=False)
+        assert ident()==before
+        env={'HOME':'/Users/a77','PATH':'/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+             'LANG':'en_US.UTF-8','TMPDIR':'/tmp','PYTHONDONTWRITEBYTECODE':'1','FWP_TEST_RECEIPT':'0',
+             'PYTHONPATH':str(OUT)+os.pathsep+str(ROOT),'HISTORY_CHECK_OUTPUT':str(folder),'HISTORY_CHECK_MODE':mode}
+        cmd=[*common,'-p','coverage_plugin','--basetemp',str(folder/'tmp'),'--junitxml',str(folder/'junit.xml')]
+        if mode=='native':
+            cmd.extend(['intelligence/tests/test_calculation_sandbox.py','intelligence/tests/test_codex_headless_runtime.py'])
+        limit=2400 if mode=='ordinary' else 120
+        record={'mode':mode,'command':cmd,'before':ident(),'started_at':now(),'outer_sandbox':mode!='native',
+                'timeout_seconds':limit,'min_free_bytes':MIN_FREE,'plugin_sha256':hashlib.sha256(PLUGIN.read_bytes()).hexdigest()}
+        print(now(), 'START', mode, flush=True)
+        save(folder/'start.json',record)
+        start=time.monotonic(); reason=None
+        with (folder/'pytest.log').open('x') as log:
+            prefix=['/usr/bin/sandbox-exec','-p',PROFILE] if mode!='native' else []
+            proc=subprocess.Popen([*prefix,*cmd],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            while proc.poll() is None:
+                if shutil.disk_usage(OUT).free<MIN_FREE: reason='disk-space-floor'
+                elif time.monotonic()-start>=limit: reason='timeout'
+                if reason:
+                    for sig,grace in ((signal.SIGINT,20),(signal.SIGTERM,8),(signal.SIGKILL,5)):
+                        try: os.killpg(proc.pid,sig)
+                        except ProcessLookupError: break
+                        try: proc.wait(timeout=grace); break
+                        except subprocess.TimeoutExpired: pass
+                    break
+                time.sleep(1)
+            rc=proc.wait(timeout=5)
+        record.update({'finished_at':now(),'elapsed_seconds':time.monotonic()-start,'exit_code':rc,'stop_reason':reason,'after':ident(),'log_sha256':hashlib.sha256((folder/'pytest.log').read_bytes()).hexdigest()})
+        save(folder/'result.json',record); results.append(record)
+        print(now(), 'END', mode, rc, reason, flush=True)
+        if reason=='disk-space-floor': break
+    after=ident()
+    save(OUT/'complete.json',{'before':before,'after':after,'coverage_plugin_sha256':hashlib.sha256(PLUGIN.read_bytes()).hexdigest(),'results':results,'source_sha':SHA})
+    print(json.dumps({'exits':{r['mode']:r['exit_code'] for r in results},'clean':before==after}))
+
+if __name__=='__main__': main()

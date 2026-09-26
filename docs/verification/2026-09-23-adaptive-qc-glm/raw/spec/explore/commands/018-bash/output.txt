@@ -1,0 +1,108 @@
+                f"待审答案：\n{grounded_answer}\n\n"
+                f"用户问题：{query}"
+            ),
+        },
+    ]
+
+
+# 追问时附在用户问题前的薄约束：复用首轮已给证据、不引入新事实、不暴露内部编号。
+_FOLLOWUP_NUDGE = (
+    "（追问，请仅基于本次对话前面已经给出的多源证据回答：不要引入证据里没有的新公司/"
+    "数字/催化，不要显示内部编号、字段名或工程诊断；若已有证据不足以回答就直说「证据不足」，"
+    "不要编造。结尾仍以「（非投资建议）」收尾。）\n\n"
+)
+
+
+def followup_user_content(question: str) -> str:
+    """Wrap a follow-up question with the grounding nudge sent to the model.
+
+    The raw ``question`` is what the caller should display in a transcript; the
+    wrapped form is what actually goes into the ``messages`` list."""
+    return _FOLLOWUP_NUDGE + question
+
+
+def synthesize_messages(
+    messages: list[dict],
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.3,
+    *,
+    deadline: Deadline | None = None,
+    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
+    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
+) -> tuple[SynthesisResult | None, str]:
+    """Run a synthesis turn from a full ``messages`` list (system + history).
+
+    Shared by single-turn :func:`synthesize` and the multi-turn driver. Returns
+    ``(result, reason)``; on any failure ``result`` is ``None`` and ``reason``
+    explains why so the caller degrades gracefully."""
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, rejection
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, (
+            "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
+        )
+    shared_deadline = deadline or Deadline.from_timeout(timeout)
+    # 时间片是**这一段**的预算，不是「每次尝试」的预算。先把片折成一个子 deadline，
+    # 重试在它内部消耗——否则 N 次重试就是 N × 片，实测 22s 的片跑出 44.5s（2 次尝试
+    # 各超时一次），跟修好前的「片形同虚设」只差一个倍数。
+    phase_deadline = Deadline(
+        min(
+            shared_deadline.expires_at,
+            time.monotonic() + max(0.0, float(timeout or 0.0)),
+        )
+        if timeout
+        else shared_deadline.expires_at
+    )
+    # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
+    # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
+    #
+    # CLI judge 分支与 complete() 对齐：judge_provider() 在 LLM_JUDGE_BACKEND=grok-cli
+    # 时返回 base_url="cli://grok" 的 provider，走 HTTP 会在发包前抛
+    # URLError(unknown url type: 'cli')——shadow 链的 grounding judge 曾因此每轮
+    # judge_unavailable（存证误标 zhipu，实际记录的是 composer 的 provider）。
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
+    last_exc: Exception | None = None
+    content = None
+    finish_reason: str | None = None
+=====
+    messages: list[dict],
+    *,
+    on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None = None,
+    on_finish_reason: Callable[[str | None], None] | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.3,
+    deadline: Deadline | None = None,
+    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
+    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
+) -> tuple[SynthesisResult | None, str]:
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, rejection
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, (
+            "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
+        )
+    shared_deadline = deadline or Deadline.from_timeout(timeout)
+    shared_deadline = Deadline(min(
+        shared_deadline.expires_at, time.monotonic() + float(timeout),
+    )) if timeout else shared_deadline
+    # 流式已经吐给用户多少字。下面两条回退非流式的路径必须先看它——见
+    # ``_stream_fallback_blocked``。
+    streamed_chars = 0
+
+    def _tracked_delta(delta: str) -> None:
+        nonlocal streamed_chars
+        streamed_chars += len(delta)
+        on_delta(delta)
+
+    try:

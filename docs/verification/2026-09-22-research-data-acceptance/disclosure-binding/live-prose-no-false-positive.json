@@ -1,0 +1,28 @@
+{
+  "scope": "real producer prose replayed through the widened absence rule; no model calls",
+  "revision": "332b50782b6b0843e7a16d3333c0368c753dea11",
+  "source_answer": "/Users/a77/.finance-runtime/reviews/research-data-acceptance-20260922-01/live-6fb37a6e-k3-shim/historical-iso-public-message.json",
+  "source_episode": "/Users/a77/.finance-runtime/reviews/research-data-acceptance-20260922-01/users/probe-data-acceptance-0922/runs/run_20260922_184630_938943/continuous-episode.json",
+  "model_calls": 0,
+  "network_calls": 0,
+  "whole_answer_findings": 0,
+  "disclosure_sentences": [
+    {
+      "text": "- 解禁数据源（东财汇总口径）对「2025-08-01 时点的未来 90 天解禁」明确拒绝查询：该源是滚动日程，只提供抓取日（2026-09-22）起未来 90 天的安排，且**不带披露日期**，无法证明某条解禁在 2025-08-01 当时已被市场知晓。",
+      "withheld": false
+    },
+    {
+      "text": "- 官方公告通道（限售股上市流通公告）本轮查询失败（上游接口报错、未解析到可用证据），不能据此断言没有相关公告，只能记为证据缺口。",
+      "withheld": false
+    },
+    {
+      "text": "等巨潮资讯网该时段的「限售股份上市流通提示性公告」或公司 2025 年半年报/年报中的限售股份变动表可证实。",
+      "withheld": false
+    },
+    {
+      "text": "- 补关键缺口：在巨潮资讯网按 600519 检索 2025-05 至 2025-11 的限售流通类公告；有公告则按公告日期与数量回答，无公告则结合年报限售股表判断该窗口无解禁。",
+      "withheld": false
+    }
+  ],
+  "status": "passed"
+}
