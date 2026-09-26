@@ -57,17 +57,29 @@ def valid_name(name) -> bool:
             and not any(ord(char) < 32 or ord(char) == 127 for char in name))
 
 
-def load_capture(capture_dir: Path, trade_date: date) -> tuple[dict, dict[str, dict]]:
-    """用仓内既有验证器验整份捕获，再取逐只报价（每批读取时再核一次 sha256）。"""
+def load_capture(capture_dir: Path, trade_date: date, *,
+                 expect_receipt_sha256: str | None = None) -> tuple[dict, dict[str, dict]]:
+    """用仓内既有验证器验整份捕获，再取逐只报价（每批读取时再核一次 sha256）。
+
+    receipt.json 会被读两次（验证器一次、取报价一次）：两次的 sha256 必须相同，
+    否则中途被换过的 receipt 可以带着自己的批次哈希绕过范围校验。给了
+    expect_receipt_sha256 时还要等于封存清单里记的那个值。
+    """
     from scripts.audit_dated_quote_capture import audit_capture, checked_raw, parse_quotes
 
+    receipt_path = capture_dir / "receipt.json"
+    before = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
+    if expect_receipt_sha256 is not None and before != expect_receipt_sha256:
+        raise ValueError(f"capture receipt sha256 {before} != pinned {expect_receipt_sha256}")
     audit = audit_capture(capture_dir, trade_date)
-    receipt_bytes = (capture_dir / "receipt.json").read_bytes()
+    receipt_bytes = receipt_path.read_bytes()
+    if hashlib.sha256(receipt_bytes).hexdigest() != before:
+        raise ValueError("capture receipt changed during validation")
     receipt = json.loads(receipt_bytes)
     quotes: dict[str, dict] = {}
     for batch in receipt["batches"]:
         quotes.update(parse_quotes(checked_raw(capture_dir, batch), trade_date))
-    audit["receipt_sha256"] = hashlib.sha256(receipt_bytes).hexdigest()
+    audit["receipt_sha256"] = before
     return audit, quotes
 
 
@@ -147,7 +159,7 @@ def attach(con, trade_date: date, targets: list[dict]) -> None:
 
 
 def run(trade_date: date, capture_dir: Path, receipt_path: Path, *, db_path: Path,
-        dry_run: bool = False) -> dict:
+        dry_run: bool = False, expect_receipt_sha256: str | None = None) -> dict:
     import duckdb
 
     from market_feature_store.write_path import is_canonical_production
@@ -156,7 +168,7 @@ def run(trade_date: date, capture_dir: Path, receipt_path: Path, *, db_path: Pat
         raise AttachRefused(f"目标 {db_path} 是 canonical 生产库；只在 staging 上跑，经正式换库发布")
     if receipt_path.exists():
         raise AttachRefused(f"收据 {receipt_path} 已存在；旧证据不覆盖，换一个新路径")
-    audit, quotes = load_capture(capture_dir, trade_date)
+    audit, quotes = load_capture(capture_dir, trade_date, expect_receipt_sha256=expect_receipt_sha256)
     con = duckdb.connect(str(db_path))
     try:
         targets = plan_targets(con, trade_date, quotes)
@@ -183,11 +195,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--capture-dir", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True, help="新收据文件路径（已存在则拒跑）")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--expect-receipt-sha256", help="封存清单里记的 receipt.json sha256（建议总是给）")
     args = parser.parse_args(argv)
     from market_feature_store.db import DB_PATH
 
     try:
-        result = run(args.trade_date, args.capture_dir, args.receipt, db_path=DB_PATH, dry_run=args.dry_run)
+        result = run(args.trade_date, args.capture_dir, args.receipt, db_path=DB_PATH,
+                     dry_run=args.dry_run, expect_receipt_sha256=args.expect_receipt_sha256)
     except (AttachRefused, OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({"attached": False, "error_type": type(exc).__name__, "error": str(exc)},
                          ensure_ascii=False))
