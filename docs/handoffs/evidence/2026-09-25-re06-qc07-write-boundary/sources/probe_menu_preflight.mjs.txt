@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import { baselineRoles, executionPayload, runBaseline } from './probe_execution_menu.mjs';
+const results = [];
+const payload = { tools: ['read', 'write', 'bash', 'run_probe'].map(name => ({ function: { name, parameters: { properties: { role: {} } } } })) };
+const counts = { tests: 1, collected: 1, passed: 0, failed: 1, errors: 0, skipped: 0, xfailed: 0 };
+for (const group of ['e2', 'timer', 'consent']) {
+  const first = executionPayload(payload, { group, baselineFinished: false, blocked: null });
+  assert.deepEqual(first.tools.map(t => t.function.name), ['run_probe']);
+  assert.deepEqual(first.tools[0].function.parameters.properties.role.enum, ['baseline']);
+  const seen = [];
+  const outcome = await runBaseline(group, async role => {
+    seen.push(role);
+    return { role, exit_code: role === 'positive_control' ? 1 : 0, counts: role === 'positive_control' ? counts : { ...counts, failed: 0, passed: 1 } };
+  });
+  assert.deepEqual(seen, baselineRoles(group));
+  assert.equal(outcome.baseline_finished, true);
+  const after = executionPayload(payload, { group, baselineFinished: true, blocked: null });
+  assert(!after.tools.some(t => t.function.name === 'bash'));
+  for (const bad of [{ blocked: 'BLOCKED_RESOURCE_GATE', counts: null }, { exit_code: 0, counts }, { exit_code: 1, counts: { ...counts, collected: 2 } }]) {
+    let calls = 0;
+    const stopped = await runBaseline(group, async () => { calls++; return bad; });
+    assert.equal(calls, 1);
+    assert.equal(stopped.baseline_finished, false);
+    assert(stopped.blocked);
+    assert.deepEqual(executionPayload(payload, { group, baselineFinished: false, blocked: stopped.blocked }).tools.map(t => t.function.name), ['write']);
+  }
+  results.push({ group, checks: ['typed-first-tool', 'sequential-roles', 'no-bash', 'resource-stop', 'wrong-control-exit', 'wrong-control-count'] });
+}
+assert.deepEqual(payload.tools[3].function.parameters.properties.role, {});
+const sha = name => createHash('sha256').update(fs.readFileSync(new URL(name, import.meta.url))).digest('hex');
+const record = { status: 'PASS', model_requests: 0, results, source_sha256: { 'probe_execution_menu.mjs': sha('./probe_execution_menu.mjs') } };
+fs.writeFileSync(new URL(process.argv[2] || './probe-menu-preflight.json', import.meta.url), JSON.stringify(record, null, 2), { flag: 'wx' });
+console.log(JSON.stringify(record));

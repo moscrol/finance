@@ -1,0 +1,19 @@
+{
+  "at": "2026-09-25T10:47:57.372759+00:00",
+  "stage": "execute",
+  "group": "e2",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "allowed": true,
+  "reasons": [],
+  "artifact_sha256": {
+    "EXPLORE.md": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5",
+    "probes/test_reviewer.py": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18",
+    "probes/test_positive_control.py": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0"
+  },
+  "credential_access_before_check": false,
+  "model_requests_before_check": 0,
+  "runner_sha256": "edc245bbfe47f66e92158c73e5d51de42b391b74c5600d7699e2ca3ec736d3fb",
+  "semantic_candidate_verdict": null,
+  "check_only": false,
+  "prepare_only": true
+}

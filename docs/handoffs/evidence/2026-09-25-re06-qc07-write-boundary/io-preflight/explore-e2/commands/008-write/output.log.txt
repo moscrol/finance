@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/review_artifact_writer.py", line 56, in write_artifact
+    relative = target.relative_to(root / group)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py", line 682, in relative_to
+    raise ValueError(f"{str(self)!r} is not in the subpath of {str(other)!r}")
+ValueError: '/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/work/timer/EXPLORE.md' is not in the subpath of '/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/work/e2'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/file_tool.py", line 19, in <module>
+    write_artifact(work, group, stage, lexical, params['content'])
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/review_artifact_writer.py", line 58, in write_artifact
+    raise PermissionError('artifact outside assigned group') from error
+PermissionError: artifact outside assigned group

@@ -1,0 +1,238 @@
+{
+  "at": "2026-09-25T16:51:06.662254+00:00",
+  "scope": "e2 slice only; timer/consent not admitted",
+  "prior_real_requests": 186,
+  "ceiling": 218,
+  "max_new_requests": 11,
+  "automatic_retries": 0,
+  "dynamic_verdicts_inherited": false,
+  "old_batches_not_reexecuted": true,
+  "evidence_groups_prepared_before_freeze": [
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3",
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/e2",
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/timer",
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/consent"
+  ],
+  "sources": {
+    "gateway.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/gateway.mjs",
+      "source_sha256": "7296e0a184517333c5400fb9785b76cff97170cf9954e62ecf46f4f120b8a244",
+      "prepared_sha256": "7296e0a184517333c5400fb9785b76cff97170cf9954e62ecf46f4f120b8a244"
+    },
+    "run_gateway.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/run_gateway.py",
+      "source_sha256": "4cef6d45bd0a0ee525dff649fb1af8610c05b6592f6c27ebc0f1691ca011d3c1",
+      "prepared_sha256": "4cef6d45bd0a0ee525dff649fb1af8610c05b6592f6c27ebc0f1691ca011d3c1"
+    },
+    "probe_execution_menu.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/probe_execution_menu.mjs",
+      "source_sha256": "227530d607b6eb435325ecff1b38211a9a0ee08f3eaf1e4df9e77fc2a352606f",
+      "prepared_sha256": "227530d607b6eb435325ecff1b38211a9a0ee08f3eaf1e4df9e77fc2a352606f"
+    },
+    "run_stage_v3.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/run_stage_v3.py",
+      "source_sha256": "fae524ab4fd5833366029b3b478d9b96feda6f3c9c3c7c25eeb3bb79e488c289",
+      "prepared_sha256": "fae524ab4fd5833366029b3b478d9b96feda6f3c9c3c7c25eeb3bb79e488c289"
+    },
+    "run_probe_v3.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/run_probe_v3.py",
+      "source_sha256": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786",
+      "prepared_sha256": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786"
+    },
+    "stage_admission_v3.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/stage_admission_v3.py",
+      "source_sha256": "edc245bbfe47f66e92158c73e5d51de42b391b74c5600d7699e2ca3ec736d3fb",
+      "prepared_sha256": "edc245bbfe47f66e92158c73e5d51de42b391b74c5600d7699e2ca3ec736d3fb"
+    },
+    "check_execution_v3.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/check_execution_v3.py",
+      "source_sha256": "a1a7f656b6100dfa0a9f7951afcc20bf86ce3f157c1b31e782bd1c4cbe246d99",
+      "prepared_sha256": "a1a7f656b6100dfa0a9f7951afcc20bf86ce3f157c1b31e782bd1c4cbe246d99"
+    },
+    "file_tool.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/file_tool.py",
+      "source_sha256": "3abdab5f93a01578855a549c43c6e47a50156604bdf39188380a509e8f5ca057",
+      "prepared_sha256": "3abdab5f93a01578855a549c43c6e47a50156604bdf39188380a509e8f5ca057"
+    },
+    "tools-v3.sb": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/tools-v3.sb",
+      "source_sha256": "ca1d0ac4f98d379efe8bd1ef5a8fc9f2124d578c9cc234329c92fe2de06f2b1a",
+      "prepared_sha256": "86c29102858dc5dff4fbd0ba12e78602aa4ba12373cf22c60ea7d0bdf927dbb9"
+    },
+    "stage_boundary_preflight_v3.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/stage_boundary_preflight_v3.mjs",
+      "source_sha256": "33052f330b18a89b49a3fe96e79b6f2cd7fcf3e753c9d2de8b078366bea36cc7",
+      "prepared_sha256": "33052f330b18a89b49a3fe96e79b6f2cd7fcf3e753c9d2de8b078366bea36cc7"
+    },
+    "execution_boundary_preflight_v3.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/execution_boundary_preflight_v3.py",
+      "source_sha256": "353852e358b0af7b7d29fbba709b119ac59d2acc46a5b92cb9f28e33947ed3bb",
+      "prepared_sha256": "353852e358b0af7b7d29fbba709b119ac59d2acc46a5b92cb9f28e33947ed3bb"
+    },
+    "artifact_checkpoint_preflight.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/artifact_checkpoint_preflight.mjs",
+      "source_sha256": "8d3148d1147663f58e51d1996cd94021644628e3de524a61f1195cf7adbfed18",
+      "prepared_sha256": "8d3148d1147663f58e51d1996cd94021644628e3de524a61f1195cf7adbfed18"
+    },
+    "probe_menu_preflight.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/probe_menu_preflight.mjs",
+      "source_sha256": "8495324f0ebbbd6ec1d0583f84f4e08aff7bfb55aface022809fdd82d52ca903",
+      "prepared_sha256": "8495324f0ebbbd6ec1d0583f84f4e08aff7bfb55aface022809fdd82d52ca903"
+    },
+    "probe_transport_preflight.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/probe_transport_preflight.mjs",
+      "source_sha256": "bf4b25316783610c278290812486b216f6818744508f9c19504575172c0ec084",
+      "prepared_sha256": "bf4b25316783610c278290812486b216f6818744508f9c19504575172c0ec084"
+    },
+    "provider-template.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/provider-template.json",
+      "source_sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "prepared_sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4"
+    },
+    "resource_pytest.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/resource_pytest.py",
+      "source_sha256": "e84b2846f40e05f4c0cb51286ee5d4506cb9c7e248173e0b7fabfb9b31474ec5",
+      "prepared_sha256": "e84b2846f40e05f4c0cb51286ee5d4506cb9c7e248173e0b7fabfb9b31474ec5"
+    },
+    "verify_transaction_inventory.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/verify_transaction_inventory.py",
+      "source_sha256": "5ad1baa44e135710926457f7e75f125b6a27b931e4374b03728a503c7af6f49a",
+      "prepared_sha256": "5ad1baa44e135710926457f7e75f125b6a27b931e4374b03728a503c7af6f49a"
+    },
+    "prepare_write_profiles.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/prepare_write_profiles.py",
+      "source_sha256": "d0cac6275dc0d443185249646b2931be25ab4278144b91d58ca4c87705625d0c",
+      "prepared_sha256": "d0cac6275dc0d443185249646b2931be25ab4278144b91d58ca4c87705625d0c"
+    },
+    "io_boundary_preflight.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/io_boundary_preflight.mjs",
+      "source_sha256": "017593a7473de85fc3b530307adbae2ba82b3d1256e7473071b89cca2777d218",
+      "prepared_sha256": "017593a7473de85fc3b530307adbae2ba82b3d1256e7473071b89cca2777d218"
+    },
+    "inputs/ui.vitest-v3.config.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/ui.vitest-v3.config.mjs",
+      "source_sha256": "456a4daf6326ac720aeb624bbb5e04f3398c309d44f50caca8318143f458818c",
+      "prepared_sha256": "456a4daf6326ac720aeb624bbb5e04f3398c309d44f50caca8318143f458818c"
+    },
+    "inputs/claims.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/claims.md",
+      "source_sha256": "b7e4a8a2fc1a1cb76eb4f58f05cdadb01a690dd7620f046b02832f5cbca9474f",
+      "prepared_sha256": "b7e4a8a2fc1a1cb76eb4f58f05cdadb01a690dd7620f046b02832f5cbca9474f"
+    },
+    "pi-config/settings.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/pi-config/settings.json",
+      "source_sha256": "bcd27e52f5ffdd3a19890f35f71a586d6824ca259704c2a630d7ea7c59242f7f",
+      "prepared_sha256": "bcd27e52f5ffdd3a19890f35f71a586d6824ca259704c2a630d7ea7c59242f7f"
+    },
+    "prompt-execute-e2-v3.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/prompt-execute-e2-v3.md",
+      "source_sha256": "25479c62fcf26258a38320c9615d7f8f58a489d140b3c0a55946e11fd8098a89",
+      "prepared_sha256": "685d87f314abbe34c39b001d9f7fe195f6f14fd0efc9e3ff2b51f18d01dd2139"
+    },
+    "prompt-report-e2-v3.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/prompt-report-e2-v3.md",
+      "source_sha256": "0efd18f3983c470782904799e40931a31d428ac2c650bdc1b1b2d3b5f0494548",
+      "prepared_sha256": "be5a0c875d20b0d47c65a608dc82123df303a33fb2e2262b042af489556d34eb"
+    },
+    "credential-bootstrap.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/credential-bootstrap.mjs",
+      "source_sha256": "bc8370943522c32f72d26c23fc905d661c76fda6f12337a9dd3709d049688ee8",
+      "prepared_sha256": "bc8370943522c32f72d26c23fc905d661c76fda6f12337a9dd3709d049688ee8"
+    },
+    "review_v3.mjs": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/review_v3.mjs",
+      "source_sha256": "c5b287ce178cd57550999221c49944e4e8f6c9add6fea6b90429c0fdcb7b92e8",
+      "prepared_sha256": "c5b287ce178cd57550999221c49944e4e8f6c9add6fea6b90429c0fdcb7b92e8"
+    },
+    "inputs/source-map-e2.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/source-map-e2.md",
+      "source_sha256": "a88248b85cdcd907305d4dbf9cb19eae2d703239eb2beae6bbd75ce41b0a1068",
+      "prepared_sha256": "a88248b85cdcd907305d4dbf9cb19eae2d703239eb2beae6bbd75ce41b0a1068"
+    },
+    "inputs/source-identity-timer.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/source-identity-timer.json",
+      "source_sha256": "2d47df476ccdbb5a2c9615611cde39d28dce7d977471c9371a237226958c20f5",
+      "prepared_sha256": "2d47df476ccdbb5a2c9615611cde39d28dce7d977471c9371a237226958c20f5"
+    },
+    "inputs/source-identity-consent.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/source-identity-consent.json",
+      "source_sha256": "e92a526b6f3f3bfa54b391afc98ebe54360c07fc923d24aaea8ea1be7c7f5bf3",
+      "prepared_sha256": "e92a526b6f3f3bfa54b391afc98ebe54360c07fc923d24aaea8ea1be7c7f5bf3"
+    },
+    "inputs/source-map-consent.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/source-map-consent.md",
+      "source_sha256": "3c57fde9b245eb0cfcf2f274741df211a6fb48b1fccb9525872b4582fe120bb7",
+      "prepared_sha256": "3c57fde9b245eb0cfcf2f274741df211a6fb48b1fccb9525872b4582fe120bb7"
+    },
+    "inputs/source-map-timer.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/source-map-timer.md",
+      "source_sha256": "c92f938ad3d2b1fd6659eeeebee2038f3e3052068664e761d1d2f3bb327d1643",
+      "prepared_sha256": "c92f938ad3d2b1fd6659eeeebee2038f3e3052068664e761d1d2f3bb327d1643"
+    },
+    "inputs/source-identity-e2.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/source-identity-e2.json",
+      "source_sha256": "bc0c71ad98037ec7ca6b80a6bb7b08c8c5645f159fbc09ef8d8b60459aafef12",
+      "prepared_sha256": "bc0c71ad98037ec7ca6b80a6bb7b08c8c5645f159fbc09ef8d8b60459aafef12"
+    },
+    "work/controller-v3/probes/controller.test.tsx": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/work/controller-v3/probes/controller.test.tsx",
+      "source_sha256": "ff6a7be14ca7adb23a866c7c28bd058e7e97b5bcc3e653734ff8c0356d8ba4f7",
+      "prepared_sha256": "ff6a7be14ca7adb23a866c7c28bd058e7e97b5bcc3e653734ff8c0356d8ba4f7"
+    },
+    "work/controller-v3/probes/test_controller.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/work/controller-v3/probes/test_controller.py",
+      "source_sha256": "5eeac19dd2acec57f846e9de32818e2802c9587febb6240c0a7619efd00ac829",
+      "prepared_sha256": "5eeac19dd2acec57f846e9de32818e2802c9587febb6240c0a7619efd00ac829"
+    },
+    "review_artifact_writer.py": {
+      "source": "/Users/a77/fwp-wt-re06-closeout-refresh-0925/scripts/review_probes/review_artifact_writer.py",
+      "source_sha256": "8d66b0cc21351540246870b468d542cb90bc3d0e555f5fc3abbf4738240ff750",
+      "prepared_sha256": "8d66b0cc21351540246870b468d542cb90bc3d0e555f5fc3abbf4738240ff750"
+    },
+    "review_io_sandbox.py": {
+      "source": "/Users/a77/fwp-wt-re06-closeout-refresh-0925/scripts/review_probes/review_io_sandbox.py",
+      "source_sha256": "64393725f88b6a691be52418ebf23b51a4b7185bae32c60f985e7a955ec6300a",
+      "prepared_sha256": "64393725f88b6a691be52418ebf23b51a4b7185bae32c60f985e7a955ec6300a"
+    },
+    "inputs/qc_userspace_isolation.py": {
+      "source": "/Users/a77/fwp-wt-re06-closeout-refresh-0925/scripts/review_probes/qc_userspace_isolation.py",
+      "source_sha256": "a9b93fbf5ff230e651d7835b3355619aa7a0091f24f8a36797f6d22d18418551",
+      "prepared_sha256": "a9b93fbf5ff230e651d7835b3355619aa7a0091f24f8a36797f6d22d18418551"
+    },
+    "inputs/frozen-explore-e2-v3/EXPLORE.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/EXPLORE.md",
+      "source_sha256": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5",
+      "prepared_sha256": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5"
+    },
+    "work/e2/EXPLORE.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/EXPLORE.md",
+      "source_sha256": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5",
+      "prepared_sha256": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5"
+    },
+    "inputs/frozen-explore-e2-v3/probes/test_reviewer.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/probes/test_reviewer.py",
+      "source_sha256": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18",
+      "prepared_sha256": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18"
+    },
+    "work/e2/probes/test_reviewer.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/probes/test_reviewer.py",
+      "source_sha256": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18",
+      "prepared_sha256": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18"
+    },
+    "inputs/frozen-explore-e2-v3/probes/test_positive_control.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/probes/test_positive_control.py",
+      "source_sha256": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0",
+      "prepared_sha256": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0"
+    },
+    "work/e2/probes/test_positive_control.py": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/probes/test_positive_control.py",
+      "source_sha256": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0",
+      "prepared_sha256": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0"
+    },
+    "inputs/frozen-explore-e2-v3/manifest.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/manifest.json",
+      "source_sha256": "3bef299d2d812c479d99016994f32d6fad8eca8f7498c33577a5d8a42b335ced",
+      "prepared_sha256": "3bef299d2d812c479d99016994f32d6fad8eca8f7498c33577a5d8a42b335ced"
+    }
+  }
+}

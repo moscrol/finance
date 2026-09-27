@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0
+rootdir: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09
+plugins: anyio-4.14.1
+collected 10 items
+
+../../work/controller-v3/probes/test_controller.py F.........            [100%]
+
+=================================== FAILURES ===================================
+________________________ test_deliberate_controller_red ________________________
+
+    def test_deliberate_controller_red():
+>       assert 1 == 2
+E       assert 1 == 2
+
+../../work/controller-v3/probes/test_controller.py:10: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/scratch/controller-v3/controller_preflight-1790355110619075000/junit.xml -
+=========================== short test summary info ============================
+FAILED ../../work/controller-v3/probes/test_controller.py::test_deliberate_controller_red - assert 1 == 2
+========================= 1 failed, 9 passed in 0.03s ==========================
+
+EXECUTION_RECEIPT {"path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/controller_preflight-1790355110619075000/receipt.json", "sha256": "7ccc9358c87f6a7fdf8066a317952e8524ab68b38ce34d888e44bc79ad4f64a0", "exit_code": 1, "counts": {"tests": 10, "passed": 9, "failed": 1, "errors": 0, "skipped": 0, "xfailed": 0, "collected": 10, "collected_source": "pytest_stdout"}, "blocked": null}

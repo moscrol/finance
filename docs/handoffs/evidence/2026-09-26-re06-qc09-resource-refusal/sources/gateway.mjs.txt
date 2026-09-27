@@ -1,0 +1,40 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import bootstrap from './credential-bootstrap.mjs';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+export default function (pi) {
+  bootstrap(pi);
+  const out = process.env.REVIEW_OUTPUT_DIR;
+  const fixture = path.join(out, 'work', 'fixture.txt');
+  let requests = 0;
+  const started = Date.now();
+  const log = (name, value) => fs.appendFileSync(path.join(out, name), JSON.stringify(value) + '\n');
+  pi.on('before_provider_request', event => {
+    if (++requests > 2) process.exit(75);
+    const payload = { ...event.payload };
+    const removedTemperature = Object.hasOwn(payload, 'temperature');
+    delete payload.temperature;
+    log('payload-shapes.jsonl', {request: requests, elapsed_ms: Date.now() - started,
+      model: payload.model, stream: payload.stream, fields: Object.keys(payload).sort(),
+      tools: payload.tools?.map(t => t.function?.name),
+      roles: payload.messages?.map(m => m.role), reasoning_effort: payload.reasoning_effort,
+      max_tokens: payload.max_tokens, max_completion_tokens: payload.max_completion_tokens,
+      temperature_removed: removedTemperature});
+    return payload;
+  });
+  pi.on('after_provider_response', event => log('responses.jsonl', {
+    request: requests, elapsed_ms: Date.now() - started, status: event.status
+  }));
+  pi.on('tool_call', event => {
+    if (event.toolName !== 'read' || path.resolve(ROOT, event.input?.path || '') !== fixture)
+      return {block: true, terminate: true, reason: 'Gateway probe only permits reading its fixture.'};
+  });
+  pi.on('message_end', event => {
+    const m = event.message;
+    if (m.role !== 'assistant') return;
+    log('model-results.jsonl', {request: requests, stop_reason: m.stopReason,
+      error: m.errorMessage || null, provider: m.provider, model: m.model});
+  });
+}

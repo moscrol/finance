@@ -4524,9 +4524,16 @@ def _can_semantically_release_partial(
         return False
     from intelligence.services.material_delivery import material_question_outputs
 
-    if verified.contract is not None and material_question_outputs(verified.contract):
+    if (
+        verified.contract is not None
+        and material_question_outputs(verified.contract)
+        and grounding_scope(verified.contract) == "material_only"
+    ):
         # 材料题所有题目都须至少交代：旧的「一格 fulfilled + 可放行 issue」
         # 不能让 evidence_boundary 替漏答的一题挣到语义放行资格。
+        # local_only 同样逐题交付，但不走这条：它没有 legal_gap 可结清，套上去等于
+        # 把「一题答出、一题如实说读不到」也堵成不可发布，反而逼出编造。它按原有
+        # RELEASE_POLICY 走普通 partial，而逐题正文缺失已在结构层先一步拦下。
         return _material_questions_settled(verified) or _contract_slots_all_fulfilled(verified)
     if not any(
         item.status == "fulfilled" for item in verified.completion.outputs

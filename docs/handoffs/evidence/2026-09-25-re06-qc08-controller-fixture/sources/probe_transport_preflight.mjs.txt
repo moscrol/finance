@@ -1,0 +1,32 @@
+// Exercise the installed SDK's nonzero-exit behavior without spawning any child.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createBashTool } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js';
+import { executionTransportResult } from './probe_execution_menu.mjs';
+const observed = [];
+for (const exitCode of [0, 1, 75, 127]) {
+  const raw = { exitCode };
+  for (const controlled of [false, true]) {
+    const tool = createBashTool(process.cwd(), { operations: { async exec(command, cwd, options) {
+      assert.equal(command, 'fixture-only-not-a-shell-command');
+      options.onData(Buffer.from('fixture receipt output\n'));
+      return executionTransportResult(raw, controlled);
+    } } });
+    if (!controlled && exitCode) {
+      await assert.rejects(tool.execute('fixture', { command: 'fixture-only-not-a-shell-command' }), new RegExp(`Command exited with code ${exitCode}`));
+    } else {
+      const result = await tool.execute('fixture', { command: 'fixture-only-not-a-shell-command' });
+      assert.match(result.content[0].text, /fixture receipt output/);
+    }
+    assert.deepEqual(raw, { exitCode });
+    observed.push({ actual_exit_code: exitCode, controlled, raw_result_unchanged: true });
+  }
+}
+assert.deepEqual(executionTransportResult({ exitCode: null }, true), { exitCode: null });
+const failure = createBashTool(process.cwd(), { operations: { async exec() { throw new Error('spawn failure'); } } });
+await assert.rejects(failure.execute('fixture', { command: 'fixture-only-not-a-shell-command' }), /spawn failure/);
+const source_sha256 = Object.fromEntries(['probe_execution_menu.mjs', 'review_v3.mjs'].map(name => [name, createHash('sha256').update(fs.readFileSync(new URL(name, import.meta.url))).digest('hex')]));
+const record = { status: 'PASS', model_requests: 0, pytest_invocations: 0, child_processes: 0, observed, source_sha256, scope: 'SDK delivery semantics only; raw receipt identity and real sandbox execution still require boundary preflight' };
+fs.writeFileSync(new URL('./probe-transport-preflight.json', import.meta.url), JSON.stringify(record, null, 2), { flag: 'wx' });
+console.log(JSON.stringify(record));

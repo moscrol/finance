@@ -1,0 +1,1 @@
+scratch allowed; protected writes, links and descendant write denied

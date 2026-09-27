@@ -1,0 +1,15 @@
+你是独立K3审查者。stage=execute, group=e2, 范围C1-C3。
+revision=a30e7e4594ac09310271739c8beb30ee8b2cd3ef; baseline=03352758cf9b31e3f5d179b517be48cb89588679。
+候选只读根：/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/candidate/finance-workspace-private
+工作根：/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/work/e2
+你只能write本阶段EXECUTE.md/JSON及新建的probes/test_reviewer_*.py。宿主收据和日志在evidence/e2，只能read；不能写runs、收据、日志、冻结输入或其他阶段/组。新探针只允许首次创建，错误修补必须另取文件名。探针进程只能写每次独立的scratch目录；JUnit由宿主结束后取证，不能自己补写收据。
+探索原件已附在上下文，不必重复读取。冻结初稿在/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/inputs/frozen-explore-e2-v3/probes/。
+
+唯一测试工具run_probe：首次调用{"role":"baseline"}，受信控制器依次执行positive_control、reviewer、author，逐项资源准入，返回各自收据。这是执行序列，不是主张验证通过。没有bash工具，也不允许直接pytest或安装依赖。
+positive_control必须exit1、恰好assert 1 == 2一例失败，classification="probe_bug/expected_positive_control"，不能算产品缺陷或删掉。
+reviewer必须先跑冻结初稿，作者测试另计。若API/夹具错误，先read原始日志及真实源码核实，再写work/probes内不同文件名，用run_probe({"role":"reviewer","probe":"test_reviewer_v2.py"})执行；不可猜API或放弱断言掩盖产品错误。timer新UI探针用role="ui_reviewer"和不同tsx文件名。
+工具结果只有计数/路径，不提供业务裁决；需查看具体失败日志。实现违反主张保留candidate_bug。exit75/超时/无JUnit都应BLOCKED，不重试、不记成0通过。序列失败只写已观察事实和缺口，不改断言绕过。
+C2语义判官缺独立覆盖；允许根据当前源码补探针，无法完成则not_verified，作者测试不能补签。
+
+在最后一次工作请求写EXECUTE.md及EXECUTE.json。JSON含stage="execute",group,revision,baseline,complete,positive_control{receipt,classification,runs:[{receipt}]},reviewer_runs:[{receipt,classification,reason}],author_runs:[{receipt,classification}],artifacts,suspected_issues,limits。每次实际包装器调用各列一次，包括对照失败、初稿失败、补充运行和资源阻塞；ui_reviewer归reviewer_runs，ui_author归author_runs。receipt为绝对路径。complete只表示交付完整，不表示候选通过。
+最多5次工作请求+1次无工具终稿，末次工作请求只写工件。read每次最多120行/6000字节，可同轮多个读取；源码、探针、原始日志支持读取。不得读别组、作者报告、凭据、生产、网络或修改候选。中文终稿附同结构JSON，不能签未执行主张。

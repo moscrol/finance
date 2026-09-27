@@ -1,0 +1,43 @@
+"""Archive bounded offline sources/receipts byte-for-byte; exclude secrets and fixtures."""
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-07'
+DEST = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925/docs/handoffs/evidence/2026-09-25-re06-qc07-write-boundary')
+DEST.mkdir(parents=True, exist_ok=False)
+files = {}
+def add(source, relative):
+    assert source.is_file() and not source.is_symlink()
+    files[source] = Path(relative)
+for source in QC.iterdir():
+    if source.suffix in {'.py', '.mjs', '.sb'}:
+        add(source, 'sources/' + source.name + '.txt')
+for name in ('config.json', 'preparation.json', 'provider-template.json', 'io-boundary-preflight.json', 'stage-boundary-preflight-v3-0925.json', 'probe-menu-preflight-0925.json', 'probe-transport-preflight.json', 'artifact-checkpoint-preflight-0925.json', 'offline-validation-completion.json'):
+    add(QC / name, 'receipts/' + name)
+for folder in ('offline-validation', 'stage-admissions', 'inputs/frozen-explore-e2-v3', 'work/controller-v3/probes'):
+    for source in (QC / folder).rglob('*'):
+        if source.is_file() and not source.is_symlink() and '__pycache__' not in source.parts:
+            add(source, 'artifacts/' + str(source.relative_to(QC)) + ('.txt' if source.suffix in {'.py', '.tsx'} else ''))
+for name in ('inputs/ui.vitest-v3.config.mjs', 'inputs/qc_userspace_isolation.py', 'work/reviewer-pytest-admissions.jsonl', 'prompt-execute-e2-v3.md', 'prompt-report-e2-v3.md'):
+    add(QC / name, 'artifacts/' + name + '.txt')
+io = Path(json.loads((QC / 'io-boundary-preflight.json').read_text())['evidence'])
+for source in io.rglob('*'):
+    if source.is_file() and not source.is_symlink() and not source.is_relative_to(io / 'fixture') and source.name != 'credential.json':
+        add(source, 'io-preflight/' + str(source.relative_to(io)))
+for name in ('prepare_qc07.py', 'record_qc07_offline.py', 'finalize_qc07_offline.py', 'archive_qc07_offline.py'):
+    add(ROOT / name, 'sources/' + name + '.txt')
+rows = []
+for source, relative in sorted(files.items(), key=lambda item: str(item[1])):
+    data = source.read_bytes()
+    destination = DEST / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open('xb') as stream:
+        stream.write(data)
+    digest = hashlib.sha256(data).hexdigest()
+    assert hashlib.sha256(destination.read_bytes()).hexdigest() == digest
+    rows.append({'source': str(source), 'archive': str(relative), 'bytes': len(data), 'sha256': digest})
+manifest = {'scope': 'QC07 offline write-boundary evidence, not dynamic candidate review', 'model_requests': 0, 'pytest_invocations': 0, 'archive_count': len(rows), 'artifacts': rows}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+print(json.dumps({'archive': str(DEST), 'count': len(rows), 'bytes': sum(row['bytes'] for row in rows)}))

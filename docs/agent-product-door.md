@@ -706,6 +706,15 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 备忘录只由明确题意触发，与该题共用一个槽；T3 q8 上限200字（保守计入正文
 所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
 零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
+
+`fix/e2-re06-resume-0922` 把这套逐题交付扩到 `local_only`：用户自己编了号就按原号
+冻结 `answer_qN` 必需槽（未编号的本地题与 full 题形状不变），写作提示词、判官载荷、
+语义修复保号与公开稿复验共用同一份实现，第二题不再被卷进 `direct_answer` 一格。
+分界只写在结清口径上——`local_only` 手里仍有本地读工具，所以「缺少X，无法Y」不是
+可结清的 `legal_gap`，只按普通 `required_output_gap` 记 `partial` 并进修复，也不套用
+「仅凭本轮材料」那句全缺口声明；每题仍须本轮实际读到的本地证据，claims 不能替代
+证据，IO 纯度与读权限上限照旧。跨轮恢复不得删除、降 optional 或把这些槽改成推理槽。
+这一片是作者回归加变异验证，不是 P7 验收。
 前置同时修了题内案例弱分区吞题、验收采集 followup 错开会话/误收旧答。
 公开稿的两处再出口（投影后复验、判官拒绝重开）只经 `session_projection.view()`
 并已登记，不另开拼串路径。证据：离线反例与定向回归（`docs/handoffs/2026-09-16-e2-delivery-p4.md`）；
@@ -750,8 +759,9 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
 「非事实、无 IO」不越 P3 红线，答案质量影响归 P4/P6 再议。引擎 B 内部仍无合同
 意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
-（P3c 声明）。local_only 原题号槽、材料题真实模型交付及可信跨轮继承五格全链
-仍待验收；纯度与材料锚点已有上述候选实现，普通上下文不是按来源过滤后的安全输入。
+（P3c 声明）。local_only 原题号槽已按上述实现并有作者回归，但它与材料题的真实模型
+交付、可信跨轮继承五格全链同样仍待真实模型验收；纯度与材料锚点已有上述候选
+实现，普通上下文不是按来源过滤后的安全输入。
 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
@@ -855,9 +865,11 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 ### 会话使用计时（分支候选，非试点效果）
 
-研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。
+研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。计时授权使用独立范围 `activity-timer`（`workbench-activity-v2`）：开始、停止、切会话和 `pagehide` 都不改变研究测量同意。测量门仍要求 `research`+`logging`，真正的撤回仍会停掉自用测量（`run_started` / `run_finished` / `cost_recorded`），计时按钮不能重新授予它们。写侧无测量域记录仍按自用默认放行，读侧仍判未知，不把计时授权充作试点授权。
 
 这里只产生 `workbench:<conversation_id>` 自用事件，`task_id=null`；优先队列候选不是冻结试点分配，不能拿它填身份。可见时间不等于键鼠操作时间；隐藏原因 `tab_hidden` 不代表获准扣减端到端时间，也不推断外部查阅。真正的配对效果仍需授权、冻结分配、任务终态和05测量收据，不由计时按钮创建。当前接线和隔离测试不等于生产部署。
+
+旧记录读取兼容集中在 `product_value/consent.py::measurement_scopes`，读写两侧共用：仅当 `workbench-activity-v1` 同时满足原范围恰为 `research`+`logging`、来源为前端、协议为 `workbench-self-use/v1`、`pilot_id` 为 `workbench:` 前缀、参与者是 owner 且无任务时，才把授权和撤回都解释为纯计时意愿。不同来源、协议、身份、任务或混合范围不套用别名。纯计时记录不翻掉自用默认，也不授予试点测量；其余部分授权、空范围和撤回仍按原规则折叠。只改读取解释，不改历史内容、事件哈希或生产台账；涉及旧计时记录的重新计算结果可能变化，旧收据不冒充新口径。用例见 `intelligence/tests/test_re06_activity_consent_gate_effect.py`。
 
 ### 历史发现研究
 
