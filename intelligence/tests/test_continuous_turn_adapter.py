@@ -6356,3 +6356,155 @@ def test_unrestricted_deterministic_owner_types_still_decline(contract_kind) -> 
         semantic_verifier=Semantic(),
     ).handle(frame=frame, control=_control(frame))
     assert result.handled is False
+
+
+def test_repair_window_floor_reads_rejected_turns_not_only_the_draft() -> None:
+    """被结构拒收的 finish 不进 draft；修复窗地板要按各轮模型正文里最长的那份算。"""
+    from intelligence.runtime.continuous_turn_adapter import largest_model_output_chars
+
+    outcome = AgentOutcome(
+        task_frame_hash="frame",
+        status="partial",  # type: ignore[arg-type]
+        draft="",
+        evidence=(),
+        traces=(),
+        gaps=(),
+        stop_reason="invalid_model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": "frame"}),
+            EpisodeEvent(2, "model_turn", {"content": "甲" * 7189}),
+            EpisodeEvent(3, "model_turn", {"content": "乙" * 9388}),
+            EpisodeEvent(4, "invalid_action", {"code": "bad_claim_binding"}),
+        ),
+        bindings=(),
+        usage=AgentUsage(llm_calls=2, tool_calls=0),
+    )
+    assert largest_model_output_chars(outcome) == 9388
+    assert largest_model_output_chars(
+        AgentOutcome(
+            task_frame_hash="frame",
+            status="completed",  # type: ignore[arg-type]
+            draft="短答。",
+            evidence=(),
+            traces=(),
+            gaps=(),
+            stop_reason="model_finish",
+            events=(EpisodeEvent(1, "task", {"task_frame_hash": "frame"}),),
+            bindings=(),
+            usage=AgentUsage(llm_calls=1, tool_calls=0),
+        )
+    ) == 3
+
+
+def test_repair_admission_cap_is_lifted_for_a_long_rejected_draft(monkeypatch) -> None:
+    """接线：两个修复准入点按最长一轮模型正文给窗（Knevo r2：9388 字稿，40s 修复窗截断）。"""
+    import intelligence.runtime.continuous_turn_adapter as adapter_module
+
+    seen: list[float] = []
+    real_admit = adapter_module.admit_repair
+
+    def spy_admit(*args, **kwargs):
+        seen.append(kwargs["seconds_cap"])
+        return real_admit(*args, **kwargs)
+
+    monkeypatch.setattr(adapter_module, "admit_repair", spy_admit)
+    monkeypatch.delenv("ASK_REPAIR_SECONDS_CAP", raising=False)
+    frame = _frame(required_outputs=("direct_assessment", "counterpoint"))
+    control = _control(frame, capabilities=("market_data",))
+    context = build_episode_context(
+        frame,
+        task_id="adapter-resume-long-draft",
+        capabilities=control.capabilities,
+        timeout=60.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复但反方仍待确认",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="resume-evidence-1",
+        supports=("direct_assessment", "counterpoint"),
+        independent_key="market",
+    )
+    initial_events = (
+        EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash, "content": "长" * 9388}),
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="partial",
+        draft="当前偏修复，但反方证据仍缺。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=("counterpoint",),
+        stop_reason="model_finish",
+        events=initial_events,
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("resume-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", (), "缺少反方证据"),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    repaired = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前偏修复，但量能回落构成反方约束。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(*initial_events, EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash})),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("resume-evidence-1",), ""),
+            OutputEvidenceBinding("counterpoint", ("resume-evidence-1",), ""),
+        ),
+        usage=AgentUsage(2, 1, 0),
+    )
+    calls = {"start": 0, "resume": 0, "run": 0}
+
+    class Runtime:
+        def run(self, **_kwargs):
+            calls["run"] += 1
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+            calls["start"] += 1
+
+            def resume(previous, goal):
+                assert previous is initial
+                assert goal.episode_id == context.contract.task_id
+                calls["resume"] += 1
+                return repaired
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    class Semantic:
+        def verify(self, *, frame, structurally_verified, deadline):
+            del frame, deadline
+            return SemanticEpisodeOutcome(
+                verified=structurally_verified,
+                status="completed",
+                public_answer=structurally_verified.outcome.draft,
+                judge_status="passed",
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "completed"
+    assert calls == {"start": 1, "resume": 1, "run": 0}
+    assert result.private_artifact["repair_cycles"] == 1
+    assert seen and seen[0] > 90.0
+    assert seen[0] == pytest.approx(15.0 + 9388 / 120.0)

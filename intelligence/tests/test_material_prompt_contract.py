@@ -79,7 +79,7 @@ def test_writer_gets_sentence_construction_checks_without_changing_template(case
 
 
 @pytest.mark.parametrize("scope,clarify", [
-    ("full", False), ("local_only", False), (None, True), ("material_only", True),
+    ("full", False), (None, True), ("material_only", True),
 ])
 def test_unsettled_or_non_material_scope_keeps_legacy_prompt(scope, clarify):
     frame, context = context_for(PACKS[0])
@@ -91,6 +91,20 @@ def test_unsettled_or_non_material_scope_keeps_legacy_prompt(scope, clarify):
         classification="boundary_uncertain" if clarify else "constraint_confirmed",
     )))
     assert _question_type_rules(frame, changed) == expected
+
+
+def test_settled_local_only_numbered_questions_follow_numbered_delivery():
+    """main 8fd6882ea（09-22，经 #942 合入）：local_only 也按原题号逐题交付，编号交付合同
+    决定答案形状，旧版题型关键词模板不再叠加——与 material_only 编号题同一条路。
+    本分支原测试把 local_only 归入「保留旧提示词」，前向合并后按后定的产品决定改钉。"""
+    frame, context = context_for(PACKS[0])
+    changed = replace(context, contract=replace(context.contract, material_contract=replace(
+        context.contract.material_contract, data_scope="local_only",
+        classification="constraint_confirmed",
+    )))
+    assert _question_type_rules(frame, changed) == (
+        workflow_guidance(frame.question_type) + reasoning_guidance(frame.question_type)
+    )
 
 
 def test_material_prompt_preserves_typed_discipline_and_opt_in_reasoning(monkeypatch):

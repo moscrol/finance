@@ -61,6 +61,7 @@ from intelligence.services.honesty_gates import with_calendar_disclosure
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
+    with_rewrite_floor,
 )
 from intelligence.services.repair_coordinator import (
     describe_rejected_claims,
@@ -149,6 +150,24 @@ DETERMINISTIC_OWNER_TYPES = frozenset(
 
 def _new_task_id() -> str:
     return str(uuid4())
+
+
+
+def largest_model_output_chars(outcome: AgentOutcome) -> int:
+    """最长一次模型正文的字数，给修复窗做地板。
+
+    修复通常是整篇重写；被结构拒收的 finish（如 ``bad_claim_binding``）不进 ``draft``，
+    所以同时看本 Episode 各轮 ``model_turn`` 的正文长度（2026-09-27 Knevo r2：draft 为空，
+    被拒的两稿 7.2K / 9.4K 字）。
+    """
+
+    sizes = [len(outcome.draft or "")]
+    for event in outcome.events:
+        if event.kind == "model_turn":
+            content = event.payload.get("content")
+            if isinstance(content, str):
+                sizes.append(len(content))
+    return max(sizes)
 
 
 @dataclass(frozen=True)
@@ -1551,7 +1570,9 @@ class ContinuousTurnAdapter:
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
             evidence_count=len(outcome.evidence),
-            seconds_cap=self._repair_seconds_cap,
+            seconds_cap=with_rewrite_floor(
+                self._repair_seconds_cap, largest_model_output_chars(outcome)
+            ),
             rejected_claim_notes=rejected_claim_notes,
         )
         if admission is None:
@@ -1640,7 +1661,9 @@ class ContinuousTurnAdapter:
             cycle=1,
             root_budget=root_budget,
             tools_open=tools_open,
-            seconds_cap=self._repair_seconds_cap,
+            seconds_cap=with_rewrite_floor(
+                self._repair_seconds_cap, largest_model_output_chars(outcome)
+            ),
         )
         if admission is None or not admission.backfill:
             return None

@@ -383,3 +383,18 @@ def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
     with pytest.raises(ValueError) as error:
         validate_episode_finish(payload, context=context, evidence=())
     assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
+
+
+
+def test_hard_format_rules_lead_the_writer_rule_with_a_split_example():
+    """2026-09-27 Knevo r2：一条多句与正文带编号两类拒收，硬格式放在规则最前并给正反例。"""
+    frame, context = setup()
+    prompt = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    rule = prompt["material_grounding"]["finish_format"]["rule"]
+    assert rule.startswith("【三条硬格式")
+    head = rule[: rule.index("按 wire_template 的结构填写答案")]
+    assert "一条 claim 恰好一句" in head and "分号或换行" in head
+    assert "不写 material_id" in head and "逐条自查" in head
+    assert "错：" in head and "对：" in head
+    # 原规则保留在后面
+    assert "所有claims.text合计" in rule and "每条 claim 只含一句" in rule

@@ -467,7 +467,15 @@ _JUDGE_WINDOW_PER_RESERVE = 50.0 / 48.0
 # Floor standard to deep's 50s. 08-20: first attempt uses the full window
 # (cap 50), not window×0.5. Does not change synthesis_reserve or tool_batch.
 _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
-# max 档判官：单次尝试 75s、共享窗 150s（= 两次完整尝试）。
+# max 档判官：单次尝试 120s、共享窗 240s（= 两次完整尝试）。
+#
+# 2026-09-27 按 GLM 重标定（用户决定三处都改、判官默认关）：grok-4.6 判官 09-12 起停用，
+# 现判官是强制思考的 GLM。Knevo K260917-pack1 冻结判官请求（47 条材料结论）重放：
+# glm-5.3-flash low 两发各 75s 均未返回；glm-5.3 low（LLM_JUDGE_MODEL，同端点独立判官）
+# 实测 93s 返回有效内容。120 = 93 + 约 29% 余量；窗仍取两次完整尝试（240）。
+# 判官默认关（judge_mode.py），本帽只在显式开启时生效。收据
+# ~/.finance-runtime/reviews/unclosed-inventory-20260926/takeover/L8/judge-replay-glm53-300/。
+# 以下为 75s 的原标定依据（grok 时代），保留作历史：
 #
 # 2026-09-07 max 档 D5 两发 judge=unavailable（glm-5.3-flash 思考臂，答案 21/27 句、
 # 判官载荷 13.3K/13.6K 字符）。把留在收据里的 judge_request 原样重放 grok-4.6
@@ -480,7 +488,7 @@ _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
 #
 # 只加 max 档：quick / standard / deep 的窗与帽一字不变（standard 地板 50、deep
 # 48×50/48=50 仍由上面两条钉住）。收据 ~/.finance-runtime/glm-ceiling-20260907/。
-_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 75.0
+_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 120.0
 _MAX_TIER_JUDGE_WINDOW_FLOOR = 2.0 * _MAX_TIER_JUDGE_ATTEMPT_SECONDS
 
 

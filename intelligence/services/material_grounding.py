@@ -323,7 +323,16 @@ def claim_finish_format(contract: ResearchTaskContract) -> dict[str, object] | N
                           "evidence_hashes": [], "gap": "", "claims": []}
                          for spec in contract.required_outputs if spec.required],
         }, ensure_ascii=False),
-        "rule": "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
+        # 2026-09-27 Knevo live r2：flash 两稿都因「一条 claim 多句」与「正文带材料编号」被拒，
+        # 这两条原本埋在下面一长段规则中部。放到最前并给正反例；下面原规则一字未动。
+        "rule": "【三条硬格式，任一违反整稿退回重写】"
+                "①一条 claim 恰好一句：text 里出现句号、问号、感叹号、分号或换行，就拆成多条 claim，"
+                "每条各自带支持本句的 material_anchors；"
+                "②claims.text 与 gap 不写 material_id、材料编号或消息坐标，它们只放在引用字段；"
+                "③提交前逐条自查这两点再提交。"
+                "错：{\"text\": \"出货降至110。库存升至40。\"}；"
+                "对：[{\"text\": \"出货降至110。\"}, {\"text\": \"库存升至40。\"}]。"
+                "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
                 "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
                 "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
                 "draft为空不代表正文不限长，终局正文精简要求适用于所有claims.text合计，以1000汉字内为目标。"
