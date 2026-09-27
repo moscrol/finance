@@ -1,0 +1,42 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_history_recovery_selection.py",
+    "tests/test_history_date_scope.py",
+    "tests/test_historical_episode_branching.py",
+    "tests/test_history_case_patch.py",
+    "intelligence/tests/test_prior_evidence.py",
+    "intelligence/tests/test_historical_research_episode.py",
+    "intelligence/tests/test_episode_verifier.py"
+  ],
+  "identity_before": {
+    "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+    "status": "M docs/agent-product-door.md\n M intelligence/services/historical_research/episode.py\n M intelligence/services/run_store.py\n M tests/test_history_artifact_scope.py\n M tests/test_run_store_history_artifacts.py",
+    "diff_sha256": "8a879f75ce16f6df3f78eaecc9d0aecfd17d29f2660f8d7ea7d382526f42c2c8"
+  },
+  "started_at": "2026-09-21T13:13:25.996359+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 8666021888
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 8633872384
+    }
+  ],
+  "pid": 84443,
+  "exit_code": 1,
+  "identity_after": {
+    "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+    "status": "M docs/agent-product-door.md\n M intelligence/services/historical_research/episode.py\n M intelligence/services/run_store.py\n M tests/test_history_artifact_scope.py\n M tests/test_run_store_history_artifacts.py",
+    "diff_sha256": "8a879f75ce16f6df3f78eaecc9d0aecfd17d29f2660f8d7ea7d382526f42c2c8"
+  },
+  "finished_at": "2026-09-21T13:13:30.063935+00:00",
+  "identity_stable": true,
+  "receipt_source": "/Users/a77/.finance-runtime/test-receipts/20260921T131328Z-bbd948a6.json"
+}

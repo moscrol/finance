@@ -1,0 +1,46 @@
+import http from 'node:http';
+
+export async function startFixture(mode = 'normal') {
+  let calls = 0;
+  const seen = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== 'POST' || req.url !== '/v1/chat/completions') {
+      res.writeHead(404).end();
+      return;
+    }
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks));
+    calls += 1;
+    seen.push({ call: calls, toolCount: body.tools?.length || 0, hasToolResults: body.messages.some(m => m.role === 'tool'), tools: body.tools?.map(t => t.function.name) || [] });
+    if (mode === 'error') { res.writeHead(503, { 'content-type': 'application/json' }).end(JSON.stringify({error: {message: 'offline simulated unavailable'}})); return; }
+    res.writeHead(200, { 'content-type': 'text/event-stream', connection: 'close', 'cache-control': 'no-cache' });
+    const write = obj => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+    const base = { id: `fixture-${calls}`, object: 'chat.completion.chunk', created: 1, model: 'kimi-k3' };
+    if (mode === 'stall') { res.write(': fixture stream stalled\n\n'); return; }
+    if (calls === 1 || mode === 'loop') {
+      const requests = mode === 'loop' ? [['git', {action:'identity'}]] : [
+        ['git', {action:'identity'}],
+        ['read', {path:'intelligence/services/run_store.py', offset:1, limit:5}],
+        ['search', {pattern:'read_history_artifact', paths:['intelligence/services/run_store.py']}],
+        ['read', {path:'../quality/QUALITY.md', offset:1, limit:5}],
+      ];
+      write({ ...base, choices: [{ index: 0, delta: { role: 'assistant', tool_calls: requests.map(([name,args], index) => ({ index, id: `call-${calls}-${index}`, type:'function', function:{name, arguments:JSON.stringify(args)} })) }, finish_reason: null }] });
+      write({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+    } else {
+      write({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: 'BLOCKED fixture report: tool path completed; tests_run=0; verdict BLOCKED.' }, finish_reason: null }] });
+      write({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
+    }
+    res.write('data: [DONE]\n\n');
+    res.end();
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  return { url: `http://127.0.0.1:${server.address().port}`, seen, close: () => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); } };
+}
+
+if (process.argv[1] === new URL(import.meta.url).pathname) {
+  const { url, seen, close } = await startFixture();
+  console.log(JSON.stringify({ url }));
+  process.on('SIGTERM', async () => { await close(); process.exit(0); });
+  setInterval(() => {}, 60_000);
+}

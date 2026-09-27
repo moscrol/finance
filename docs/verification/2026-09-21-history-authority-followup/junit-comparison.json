@@ -1,0 +1,153 @@
+{
+  "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+  "previous_revision": "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+  "current": {
+    "source": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full.xml",
+    "sha256": "f4ffe4c15c48da2999d8c7e1998d6d15fcce35b13c5c2d3a4ce42df4784965c3",
+    "cases": 12748,
+    "failures": 0,
+    "errors": 0,
+    "skipped_types": {
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    },
+    "passed": 12659
+  },
+  "previous": {
+    "source": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final.xml",
+    "sha256": "e513f761a17eef8b5e1c934a0d90ef294d06d4b48e2d6d4a7d7d4ba50cba3908",
+    "cases": 12724,
+    "failures": 0,
+    "errors": 0,
+    "skipped_types": {
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    },
+    "passed": 12635
+  },
+  "added": [
+    [
+      "tests.test_history_artifact_scope",
+      "test_authorized_history_read_verifies_content_once[False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_authorized_history_read_verifies_content_once[True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[body-False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[body-True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[downloadable-False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[downloadable-True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[registration-False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[registration-True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[user-False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[user-True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[visibility-False]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[visibility-True]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_refresh_removes_stale_references_without_rewriting_artifacts[conversation]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_refresh_removes_stale_references_without_rewriting_artifacts[registration]",
+      1
+    ],
+    [
+      "tests.test_history_artifact_scope",
+      "test_refresh_removes_stale_references_without_rewriting_artifacts[visibility]",
+      1
+    ],
+    [
+      "tests.test_run_store_history_artifacts",
+      "test_history_read_enforces_requested_conversation_before_opening_content[conversation-a]",
+      1
+    ],
+    [
+      "tests.test_run_store_history_artifacts",
+      "test_history_read_enforces_requested_conversation_before_opening_content[conversation-b]",
+      1
+    ],
+    [
+      "tests.test_run_store_history_artifacts",
+      "test_history_read_holds_run_lock_through_byte_verification",
+      1
+    ],
+    [
+      "tests.test_run_store_history_artifacts",
+      "test_history_read_rechecks_metadata_after_waiting_for_writer[conversation]",
+      1
+    ],
+    [
+      "tests.test_run_store_history_artifacts",
+      "test_history_read_rechecks_metadata_after_waiting_for_writer[user]",
+      1
+    ],
+    [
+      "tests.test_run_store_history_artifacts",
+      "test_history_read_rechecks_metadata_after_waiting_for_writer[visibility]",
+      1
+    ]
+  ],
+  "removed": [],
+  "skip_xfail_names_types_reasons_equal": true,
+  "scope": "fixed-revision author engineering, not moving-main integration"
+}

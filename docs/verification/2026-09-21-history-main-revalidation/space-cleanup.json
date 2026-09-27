@@ -1,0 +1,744 @@
+{
+  "started_at": "2026-09-21T14:44:31.038393+00:00",
+  "free_before": 16237211648,
+  "removed": [
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pycache",
+      "allocated_bytes_before": 218202112
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/river-frozen0",
+      "allocated_bytes_before": 7901184
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/dependence0",
+      "allocated_bytes_before": 19161088
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/replay-synthetic0",
+      "allocated_bytes_before": 17588224
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/bias-mini0",
+      "allocated_bytes_before": 2637824
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/parity0",
+      "allocated_bytes_before": 7102464
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/event_pricing0",
+      "allocated_bytes_before": 34869248
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/synthetic0",
+      "allocated_bytes_before": 19161088
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/mini0",
+      "allocated_bytes_before": 16277504
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/e0070",
+      "allocated_bytes_before": 798720
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-temp/event_pricing_narrative0",
+      "allocated_bytes_before": 24174592
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/pycache",
+      "allocated_bytes_before": 218292224
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/river-frozen0",
+      "allocated_bytes_before": 7901184
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/dependence0",
+      "allocated_bytes_before": 19161088
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/replay-synthetic0",
+      "allocated_bytes_before": 17588224
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/bias-mini0",
+      "allocated_bytes_before": 2637824
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/parity0",
+      "allocated_bytes_before": 7102464
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/event_pricing0",
+      "allocated_bytes_before": 34869248
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/synthetic0",
+      "allocated_bytes_before": 19161088
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/mini0",
+      "allocated_bytes_before": 16277504
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/e0070",
+      "allocated_bytes_before": 798720
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-temp/event_pricing_narrative0",
+      "allocated_bytes_before": 24174592
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/pycache-full",
+      "allocated_bytes_before": 218324992
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/river-frozen0",
+      "allocated_bytes_before": 7901184
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/dependence0",
+      "allocated_bytes_before": 19161088
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/replay-synthetic0",
+      "allocated_bytes_before": 17588224
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/bias-mini0",
+      "allocated_bytes_before": 2637824
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/parity0",
+      "allocated_bytes_before": 7102464
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/event_pricing0",
+      "allocated_bytes_before": 34869248
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/synthetic0",
+      "allocated_bytes_before": 19161088
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/mini0",
+      "allocated_bytes_before": 16277504
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/e0070",
+      "allocated_bytes_before": 798720
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp/event_pricing_narrative0",
+      "allocated_bytes_before": 24174592
+    }
+  ],
+  "preserved_evidence": [
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pr-832-before.json",
+      "sha256": "f4f488fd09590ddf96d877728f18dc5dc620eb94cb2a278e58dccdbbee0984fa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks-1.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/k3-launcher.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks-0.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/prs-final-closeout.json",
+      "sha256": "5b9c9bd652b675166f372419bed528aa3f82ca5551b6703cb333b879d13db3c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-new-probes-before.log",
+      "sha256": "a8367721f0738ce3e20dd93c41e3c3b156fa06797e86f919777aeb866c7d1d8e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/condition-artifact-replay-a140.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks-2.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pr-829-status.json",
+      "sha256": "6d73b6110bbe86bd44f8fd8b3c055f9258a919350bfb4a7d6c16f7fa421eb067"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks-3.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pr-809-before.json",
+      "sha256": "0997aea6b07a4e6ac89dcc34733663330ab6bead7f769b2e6b375e14e3ffe296"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/launches.json",
+      "sha256": "c44c66ab3e9dd8814d793930c12f9091c3f69c83818b99eab85eaf0993092b95"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-branch-a140-baseline.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/k3.sb",
+      "sha256": "9e96f5f8bd5b3f50ff7346eafc222335a1662deb045427979b7b30a44ebb2d44"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final.xml",
+      "sha256": "9cd592b27fb440b3c4e41edaf81f3215fa6e4a674aec8e48135974633a948781"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-branch-a140-baseline.log",
+      "sha256": "8b1ccf42b10a8f07416ce588b60410da7386c5f024118226fe3b47459cd829e3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-committed-archive-check.json",
+      "sha256": "547e8f613db3b87a3e584deeb75928be7305486b985325d24f4007720449fcfd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks-4.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pr-832-final.json",
+      "sha256": "dc4e1a72110245be1c26e36d992d0eb1bfcce347195338e8f9c13bdbb6cfafcb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-block-probes-before.log",
+      "sha256": "1c1bb348cf18ca2cd572a54f21b1f33ba5243495cd1c5b06cebe3f0fd9462f80"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/receipt-check-a140.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/PR-history-integration.md",
+      "sha256": "f5aeb0247880ae4839a202ed788165c04869d4330dc82918261a0aefba19f643"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/mutate_history_integration.py",
+      "sha256": "1b1c6c0bf53b11b746542d9b24111391cc12b861735105f341e257a6edcc1b5d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks-5.log",
+      "sha256": "2fd4cb9385b52dccf69b2298e3403a36dc29fed2febbcc742a6448a071a8b73e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/condition-artifact-replay-a140.json",
+      "sha256": "2e9c274f8b2f0da130cb3621ccb1c7838e8139a85ac19e4a4679d632f6e591cc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-code-map-build.json",
+      "sha256": "c1bb936f04841fdadcedc0328f49557feb5853b6b7a3f83798090fd662fca446"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/memory-graph-before.log",
+      "sha256": "d2a67befcf66a2604ad6b9bf212f4b78bf8657659e67b5a96f34c019b12d649f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-integrated-focused-before.log",
+      "sha256": "0db51a8e4e7aa2d2f3c5ca1580fc22492d62e2cc4f9d3b2578320b6c87221d2c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-agent-research-before.py.txt",
+      "sha256": "e413459912b4cbfcd3218ea1f723e973113ba9a2b7e846f569167b1e47fd61c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/run_python_final.py",
+      "sha256": "de356f32a17dca550353d130ba8f675593e5c01c4fd950d500fa9b0b4215ec5c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-canonical-order-v3.log",
+      "sha256": "2db9bb1bca0c453e8c2fbb360c3aae429e9b87fbdc130e841ac2bc37f5cff4b0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-launcher.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/frontend-launcher.log",
+      "sha256": "e4d19a2d03193445df716a6d08da622eb3f83f3e60b829459867dba29693c25b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/memory-graph-after.log",
+      "sha256": "d7a5b596f47a25a52a05b0bcc80322d0e63dc9108e1517a1bf324af83d68df02"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/final-identity-and-archive-check.json",
+      "sha256": "c04e03bbce2154f8450679fd7eeac3f9cae349e1b338565b8d4d39cd9de5cb5e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-broad-precommit.log",
+      "sha256": "cb884562dd6c5082943100bb80dc208325bb090d7c9ce96c719d0fa7eed340a2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-broad-precommit-v2.log",
+      "sha256": "bc22b293e7fa8426e7e22ada7be47b7545ea7c0cfd15b23485149face00d4d44"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/memory-graph-before.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/checks.json",
+      "sha256": "36a4bc2daebe4b038ab9c1f9ffd7481cf489de3aa5ec4f593c014f094a233e2c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutation-execution.log",
+      "sha256": "52bec06f81917abe41e7e28e31c0f6a06ccc6f9660b071edbdc930cc556fbfea"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-new-probes-after-v4.log",
+      "sha256": "790a4596a76df1fdd9828652ad3dec85d29574a12de6bd78f18151af8c8da4b5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/k3-prompt.md",
+      "sha256": "8d043a130679d7457b0055ca2fffa5a9987690b8f64aceabad2fee87e13b5d2d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-broad-precommit.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final-execution.json",
+      "sha256": "bb125f486620e78bd14e63b2338bcf8539809635d84cce62487b54e6db780f54"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/junit-comparison.json",
+      "sha256": "87653cf1e797e4290cccb771c4e061b7b4fb0151950a0874d963ad8c1249ea9b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/replay_history_identity.py",
+      "sha256": "02ee3a09365956b5963eaeda950826602afc6f4012477a3f7b63aa778710c341"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/receipt-check-a140.log",
+      "sha256": "3f40ec7e50868b3427cdcce8308a45b28ccf79580f375da6b2220f45b3a80c24"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-new-probes-after-v1.log",
+      "sha256": "14ed9984dff4bdc02661cd80d9a9ed16ec5818488f27fcbb568f0b61cbdeef01"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-broad-precommit-v2.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-new-probes-after-v2.log",
+      "sha256": "5064437b22d1ad4b884023aa78374c1815cd505400adb8ad9c9c61c132b133b7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-new-probes-after-v4.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-prior-restore-before.log",
+      "sha256": "22bb0426837120f91914f9465b609cfc2548d1a15b5e93b9fa2581e9af833887"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/memory-graph-after.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-branch-diagnostic.log",
+      "sha256": "a7d90eadd9c7177610f242e217fdd59881df29c6517f582a116ff5ed9488737b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/run_k3.py",
+      "sha256": "baedd35afb1564a734fb861c005ed3eb529c6d213ffef1adcdbb4f41d68650e0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pr-history-open.json",
+      "sha256": "5c00b17195aec6511da87ab328e8cfe61d09c2a757fdc732961c57b4dbdfe0a0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/python-final.log",
+      "sha256": "34500edd288baecd165acc792d0e877a053e15a7d0e829df9af5e24bcb209694"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/PR-832-integration.md",
+      "sha256": "a7c368b78bc84fc3b8991f099cf47c55829bcddfc8a8cfda35cd0ffc8358fee1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-code-map-query.json",
+      "sha256": "cca34e231df3b95c462fbce06fefb7d40819c917adbca0a6faa31b469977a827"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-canonical-order-v3.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-new-probes-before.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutation-execution.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/pr-829-successor-pointer.json",
+      "sha256": "c1525c9aeb473cb14ed7d844f654dc37630a21bb63ee7de31566e530f4aef7c4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks-1.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks-0.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/artifact-replay.json",
+      "sha256": "c0a5eefd643bb5a9ddc2644b972f86aef10b4ea1d02f0e97543440d2b29d4536"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks-2.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks-3.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/launches.json",
+      "sha256": "c975146ad5bcd53e1220e44b318496962b1a933a587916b0d6e758b8d3dbe7e9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final.xml",
+      "sha256": "e513f761a17eef8b5e1c934a0d90ef294d06d4b48e2d6d4a7d7d4ba50cba3908"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks-4.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks-5.log",
+      "sha256": "846a954b246e7882d99c42a29e5540f416273385cad4627707f108a1f5318650"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/artifact-replay.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/focused.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/artifact-replay.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/run_python_final.py",
+      "sha256": "665034eb16621cc2306ef632ec7f30e4c4ad17e9d4dfbbbc4d3b3b3b78735ea8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-launcher.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/frontend-launcher.log",
+      "sha256": "12e98ee1852be0c5a247760726d729fcdc8b07a6d7bc9b13b9ba67c4841410bc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/receipt-check.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/checks.json",
+      "sha256": "563951c5656f732acd0c9f9e5721ead32018402fd64039366c70cada4a41a053"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final-execution.json",
+      "sha256": "9d6bdba1dc25d46364c56c63f911f815655a488ff95b357e074f7f8a6eb0492d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/junit-comparison.json",
+      "sha256": "58539c4d44d5129e0bebf688f1dbf9bcd76d3b9676ced388ebe2f6c0ba6a4f4c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/receipt-check.log",
+      "sha256": "fd36aad2075c195de6fd38431d9c5fe9de9919dd6dcaee18c26a40217349ba96"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/python-final.log",
+      "sha256": "940484316865c877fbf0a395cfc9e88b42511a6c576748f251fa950373d658a3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/focused.log",
+      "sha256": "bc6cf097dfe7dcf318d3459e72a91ff3ca403821791dbd8a3c68c7115bb73123"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-consumers-receipt.json",
+      "sha256": "f4909051493248d4bed162ce15197bc7b6ea3351903406bb9d07e8cf3f1a2bfb"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/summary.json",
+      "sha256": "aeca52395c6b7c85ef85adb552b2120cec82ae4067cee767e335fd6c3f6edeb7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-views-execution.json",
+      "sha256": "59c9056e1d5d5a0f9210c2b3f9f6b2101c6fe9f3ea00f11ff539d704a0cdf54f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/precommit-targeted-execution.json",
+      "sha256": "ecd496f20ba786b835bc1c4462c9b36a013d6893356badcd0f54eed3d28bff66"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/receipt-exact-execution.json",
+      "sha256": "52a083f4fe8b6317d5b1bdd5aca24b8ef3873b773782bb01686e2605fccff358"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-consumers-execution.json",
+      "sha256": "7039e12a919914afaa6a540d0afbc00f94f5e77cb63d6e18bfee07024ce952d4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/final-closeout.json",
+      "sha256": "ffddf2af005e210b337e4df63dd02e200af0e98fb234c4e417dd696266b75de4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-graph-rebased.log.txt",
+      "sha256": "060308c446ac75fd1eb40e19f953eb23eceb17c72b6bb287a942e1ded1b3354c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/seal_evidence.py",
+      "sha256": "27a58f13ac6a578fe013a8424e5ebb278125366b4d95795868377de033899206"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-execution.json",
+      "sha256": "8656326fa52e900f19485d0b58d0906d3317ab4e49cac334dadf97327b119cc8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-check-execution.json",
+      "sha256": "323bb4fe63caf2a1d77d8e4bda650f30c71029725da60b86635c9837fe925a16"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-graph-before-execution.json",
+      "sha256": "b7e0cbc03beea4dac99f4cc7478c71a827abc8b4b65254eb4accfde835544dfe"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/crosswalk.log",
+      "sha256": "5b8676fd9e9b8eb3356218f35812116cdf393f6eb319ce898f194e56305bae25"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-combined-receipt.json",
+      "sha256": "7a83fdb1c223d4b7c7a589553bad32955c6f40be34a63e9c13b88cf1e19f37de"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/focused-execution.json",
+      "sha256": "9ca8c00a8cbfa4d081681aed2112a3802300ee453ae0cc6dd36dfe2e1fa1f415"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full.xml",
+      "sha256": "f4ffe4c15c48da2999d8c7e1998d6d15fcce35b13c5c2d3a4ce42df4784965c3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-graph-before.log",
+      "sha256": "0b3666b0b40db52e89dee6a93d6d8b4553aa24b418a7fe3e2569a1b55d7909bf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/run_full.py",
+      "sha256": "ca9e8e2b6ae6f73b0fde0e4b1db794df6d2ea335215aa6c5fb5995b4835b9570"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/focused-receipt.json",
+      "sha256": "800ebfd226a1f16f93821a62b3c63b6f07210b352db6bcaf74ffefe0b172d5a1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/receipt-drift-execution.json",
+      "sha256": "a0b9f117fe2cc0391d29a2ab957b704a9205a524a4d3f667f4ed3cae8757da2b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-v2-receipt.json",
+      "sha256": "878295e51dd4e3f099b52359817065ca007c2aaa5ad4db977b8b51c678f5685c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-check.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-receipt.json",
+      "sha256": "af16f69b6749804c07af64ea14de17978ecb108ea81f21741c922891c4003365"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/prior-archive-check.json",
+      "sha256": "2327e210b5951a027cf6f5c96f30b4465c369397e28fb8b5ea850fac16805a2e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-graph-after-execution.json",
+      "sha256": "5a1c431c3480dbf670947d5252abbcb9f493890f22bee22adef0f3e1f4541a7f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/pr-841-followup.json",
+      "sha256": "387f3b6d5758150e77da2d90c7926594450ccf218aa18c924ba4f94625c55bf4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-v2.log",
+      "sha256": "60d7ec8d371d4d1e6a55bed88833772d78955cb2934ea5a5d14f5a1be015ed8c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-tables-execution.json",
+      "sha256": "d3d36bb9e02bb9a12d9fb102ffa1036978bd979c7eb04e16e319820015ebf2fe"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-v3-receipt.json",
+      "sha256": "98510aaf200128f1127bd08d8b4ce519738d3eedbd2186fc36cdb4a8441f9995"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-parse-execution.json",
+      "sha256": "56d6708f8f0ad026c07cb3b7f17754023050c39d7c4c8f0ff8c3f5ac5a0970f3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/mutate_authority.py",
+      "sha256": "7f7b69774c804696eef10a71c576d1bb178b9d52080b5480323952b32daa4648"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-graph-after.log",
+      "sha256": "68a9b608de98c785a00c72c8e804346e16a7460263f7a176675e3e3165c31e1f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/precommit-targeted.log",
+      "sha256": "fdc2704539880cd84ffa696e14dc80aef7fbcc90b92f172af6b405732b9edcd9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-v3.log",
+      "sha256": "a29502095aed99e00207d65007025ffa87d05115c97c9d02b26cee4e2cc1e140"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope.log",
+      "sha256": "3ddd840b4de60e9889bb556e14a0260cb856044fd31f7b8fda55d4a74808c640"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/receipt-drift-receipt.json",
+      "sha256": "e9982bac6f1ef1575ef506d404fd8a8da7157917d177e4c45f54e4b9ffe3bb45"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-parse.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-v2-execution.json",
+      "sha256": "2bceaf51118fb438392fe0d2873d5920462d8896d46392e46f51211e41e7adc0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/pr-841-before-followup.json",
+      "sha256": "d4a65e778de0f98b99a9628dc3ce0358359f9eae2bdf34486804b9f502ac5a75"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-graph-final.log.txt",
+      "sha256": "47227fe3308de87d2002260f179bf9cf38db97b378770d212350aea007cb89d0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/junit-comparison.json",
+      "sha256": "fd2c6cbcf6021e346d54897c4c6a0e31ab2b61a8415b331b3e072b3350cc1e08"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/ruff-execution.json",
+      "sha256": "ee62740e4cbb4daaa7fd62f33ee6b3491a8cee09e9f0a4ebc7ffee0032da7508"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-consumers.log",
+      "sha256": "996afd2086c3351a0a617e754e56a9ed094cb9b9f4db5d260ca70b96732edaa6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-scope-v3-execution.json",
+      "sha256": "1dc5556c639495997088120c04ea5e57a3a9a0f4c88bfb3f5b564397542ada33"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/replay.log",
+      "sha256": "c0a5eefd643bb5a9ddc2644b972f86aef10b4ea1d02f0e97543440d2b29d4536"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/crosswalk-execution.json",
+      "sha256": "a501fe1e0a0c4731ab81e3849226de45665fa1dbc86b4baf691261a4e3fc6051"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/precommit-session-binding-red.log.txt",
+      "sha256": "02ccdf2e7265fb8794be875a8cf18b99f18d23e87a6e721295f3e9e241b2fd49"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/run_check.py",
+      "sha256": "9b18334ec16cafafb274a0d765a1a2c5bef0971f0239e9a2aea0b5dab885a0bc"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/receipt-exact-receipt.json",
+      "sha256": "e9982bac6f1ef1575ef506d404fd8a8da7157917d177e4c45f54e4b9ffe3bb45"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/frontend-runner.log",
+      "sha256": "e8f4e1b9cf6274a02cdf0fb10ebf1ba3ba9070f275b22ec67ccb37309a7f2f09"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-combined.log",
+      "sha256": "52e7cc212c12df78d30669aaabc7c70a25f1bb5495847ca435778f65f5892877"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-runner.log",
+      "sha256": "eb79775d8652bc2ffb19f095d43498192e24b4ab83c0dd3bae5e48bc2965764f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/dirty-combined-execution.json",
+      "sha256": "320b9b136fed614baba543f273fdbd6860a03cbddc6a67617e60475ca10efaf6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/PR-followup.md",
+      "sha256": "924a85f291d690188f5e749caedd4c46b56a819949022b53d0cba0761cbf06d2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/receipt-drift.log",
+      "sha256": "599594081911b1dc435b9322c5e8905be3dfafd9e1158beaee3900ac3f7470d9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/registry-tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/precommit-targeted-receipt.json",
+      "sha256": "4a5d38437b4714c70fb1fbf99ed6043551310e0fb4fe0255f3e0f69ae6f88e13"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-execution.json",
+      "sha256": "e57d3f3ae4023cbf2ea4461b4ad826ea6a736e2c8f015ffbafff9299d13eef49"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/receipt-exact.log",
+      "sha256": "0f2f6146506b9330857cacacd45d7be1157e9892b245e448d47aea54d054d1d6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/committed-archive-check.json",
+      "sha256": "805d47e533ba9a85d9b5cd16fb74de7601fc83fb594d218be94a3f70092e03f6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/focused.log",
+      "sha256": "fad0e8da3cbeec68bf12d96f592d4e2904ce72d12d811ac183b39b133180420e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/replay-execution.json",
+      "sha256": "6d14289eac9d89b90f7cdc1aa66b53142cf75a27771921d972fbf546cee6359e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full.log",
+      "sha256": "6a0b7355d0eb9ef1204c0a9c2d9db2cc5d7f1e5cad214803ccc54306138e8bd5"
+    }
+  ],
+  "finished_at": "2026-09-21T14:44:41.932465+00:00",
+  "free_after": 17204867072,
+  "preserved_hashes_unchanged": true,
+  "allocated_bytes_removed": 1103835136
+}

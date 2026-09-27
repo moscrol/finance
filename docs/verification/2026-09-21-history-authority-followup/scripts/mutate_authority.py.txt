@@ -1,0 +1,89 @@
+"""Author-only mutation checks against a frozen commit, without source edits.
+
+Each child changes one protection in memory and runs committed behavior tests.
+Only assertion failures with exit 1 and no collection/errors count as caught.
+These diagnostics never provide independent review or release authorization.
+"""
+import importlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+EXPECTED = '7249378a5bdb9b01cc62ec3bca13af3149bd48df'
+TREE = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+OUT = Path(__file__).resolve().parent / 'mutations'
+SESSION = 'intelligence.services.historical_research.episode'
+STORE = 'intelligence.services.run_store'
+SCOPE_TEST = 'tests/test_history_artifact_scope.py::'
+STORE_TEST = 'tests/test_run_store_history_artifacts.py::'
+MUTATIONS = {
+    'session_binding': (SESSION,
+        'run_id, filename, conversation_id=self.conversation_id,',
+        'run_id, filename,',
+        [SCOPE_TEST + 'test_history_reader_rechecks_authority_and_preserves_state_on_rejection']),
+    'store_conversation': (STORE,
+        'run.user != self.user_id or run.session_id != conversation_id',
+        'run.user != self.user_id',
+        [STORE_TEST + 'test_history_read_enforces_requested_conversation_before_opening_content']),
+    'stale_metadata': (STORE,
+        'self._history_run(run_id, conversation_id=conversation_id)\n            with self._run_state_lock(run_id):\n                run, run_dir = self._history_run(run_id, conversation_id=conversation_id)',
+        'run, run_dir = self._history_run(run_id, conversation_id=conversation_id)\n            with self._run_state_lock(run_id):\n                pass',
+        [STORE_TEST + 'test_history_read_rechecks_metadata_after_waiting_for_writer']),
+    'missing_read_lock': (STORE,
+        'with self._run_state_lock(run_id):\n                run, run_dir = self._history_run(run_id, conversation_id=conversation_id)',
+        'with __import__("contextlib").nullcontext():\n                run, run_dir = self._history_run(run_id, conversation_id=conversation_id)',
+        [STORE_TEST + 'test_history_read_holds_run_lock_through_byte_verification']),
+    'refresh_accumulates': (SESSION,
+        'self.refs = refreshed', 'self.refs.update(refreshed)',
+        [SCOPE_TEST + 'test_refresh_removes_stale_references_without_rewriting_artifacts']),
+    'downloadable_index': (SESSION,
+        'and artifact.get("downloadable", True) is True', 'and True',
+        [SCOPE_TEST + 'test_refresh_removes_stale_references_without_rewriting_artifacts']),
+    'duplicate_read': (SESSION,
+        '        self.refs[ref] = (run_id, filename)\n        return payload',
+        '        self.store.read_history_artifact(run_id, filename, conversation_id=self.conversation_id)\n        self.refs[ref] = (run_id, filename)\n        return payload',
+        [SCOPE_TEST + 'test_authorized_history_read_verifies_content_once']),
+}
+
+
+def identity():
+    return {key: subprocess.check_output(['git', *args], cwd=TREE, text=True).strip()
+            for key, args in [('revision', ['rev-parse', 'HEAD']),
+                              ('status', ['status', '--porcelain'])]}
+
+
+if len(sys.argv) > 1 and sys.argv[1] == 'child':
+    import pytest
+    module_name, old, new, tests = MUTATIONS[sys.argv[2]]
+    module = importlib.import_module(module_name)
+    source_path = Path(module.__file__)
+    assert source_path.is_relative_to(TREE), source_path
+    source = source_path.read_text()
+    assert source.count(old) == 1, (sys.argv[2], source.count(old))
+    exec(compile(source.replace(old, new), str(source_path), 'exec'), module.__dict__)
+    raise SystemExit(pytest.main(['-q', *tests, '--junitxml', sys.argv[3]]))
+
+assert identity() == {'revision': EXPECTED, 'status': ''}
+OUT.mkdir(exist_ok=False)
+rows = []
+for name in MUTATIONS:
+    env = {key: os.environ[key] for key in ('HOME', 'PATH') if key in os.environ}
+    env.update(PYTHONPATH=str(TREE), FWP_TEST_RECEIPT='0')
+    with (OUT / (name + '.log.txt')).open('x') as log:
+        result = subprocess.run([sys.executable, __file__, 'child', name, str(OUT / (name + '.xml'))],
+                                cwd=TREE, env=env, stdout=log, stderr=subprocess.STDOUT,
+                                timeout=60, umask=0o022)
+    root = ET.parse(OUT / (name + '.xml')).getroot()
+    failures = [node.attrib['name'] for node in root.findall('.//testcase')
+                if node.find('failure') is not None]
+    row = {'mutation': name, 'exit_code': result.returncode, 'failures': failures,
+           'errors': len(root.findall('.//error'))}
+    rows.append(row)
+    print(json.dumps(row), flush=True)
+record = {'revision': EXPECTED, 'identity_after': identity(), 'mutations': rows,
+          'all_caught': all(row['exit_code'] == 1 and row['failures'] and not row['errors'] for row in rows)}
+(OUT / 'summary.json').write_text(json.dumps(record, indent=2) + '\n')
+assert record['all_caught'] and identity() == {'revision': EXPECTED, 'status': ''}

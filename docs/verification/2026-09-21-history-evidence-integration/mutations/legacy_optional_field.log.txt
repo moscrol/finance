@@ -1,0 +1,38 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+____ test_nullable_history_metadata_preserves_ordinary_prior_evidence[True] ____
+
+source = (<intelligence.services.run_store.RunStore object at 0x10ebb79b0>, Run(run_id='run_20260921_193031_747555', user='alic...text': {'information_cutoff': {'as_of_date': '2026-09-18'}}, ...}, <function source.<locals>.save at 0x10eb27f60>, ...)
+legacy = True
+
+    @pytest.mark.parametrize("legacy", [False, True])
+    def test_nullable_history_metadata_preserves_ordinary_prior_evidence(source, legacy):
+        _, _, _, _, payload, save, load = source
+        if legacy:
+            for row in payload["outcome"]["evidence"]:
+                row.pop("history_provenance")
+        save()
+>       assert load().entries[0][1] == replace(_atom(), supports=())
+
+intelligence/tests/test_prior_evidence.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/tests/test_prior_evidence.py:52: in load
+    return load_previous_evidence(frame, messages=messages, store=store,
+intelligence/services/prior_evidence.py:223: in load_previous_evidence
+    atom = _original_atom(row)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'external', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        expected = {field.name for field in fields(AgentEvidence)}
+        if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
+>           raise ValueError("incomplete or unknown prior evidence schema")
+E           ValueError: incomplete or unknown prior evidence schema
+
+intelligence/services/prior_evidence.py:111: ValueError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/legacy_optional_field.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_prior_evidence.py::test_nullable_history_metadata_preserves_ordinary_prior_evidence[True]
+1 failed, 1 passed in 2.06s

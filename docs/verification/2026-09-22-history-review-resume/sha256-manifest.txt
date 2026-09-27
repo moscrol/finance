@@ -1,0 +1,10 @@
+a80ab51c1e27b3e780152181678097214753009070910404b3f923e3fd1a406a  docs/verification/2026-09-22-history-review-resume/summary.json
+cdf9be9f58e9c449184a91e39a4e4db66e7d492ebd713048104a1971938d13bb  docs/verification/2026-09-22-history-review-resume/quality-execution.json
+9b18334ec16cafafb274a0d765a1a2c5bef0971f0239e9a2aea0b5dab885a0bc  docs/verification/2026-09-22-history-review-resume/run_check.py.txt
+4b9decca62350fba761f11c6b619251f6bb8ffb905fb97a46298e974abe618c3  docs/verification/2026-09-22-history-review-resume/spec-execution.json
+04ae00063b99c86695144f455d038e8f6172339e2dbb836d5abc6f6e9ec15b28  docs/verification/2026-09-22-history-review-resume/quality-prompt.txt
+941e2d59eee2c437f2a148060ffd0d123a0c3624bc145efc0b691126535d308d  docs/verification/2026-09-22-history-review-resume/transport-probe.txt
+17e6dfa3204fa7370360b61b59120af12c133a5a65ce5336dc6ac42eee6a49af  docs/verification/2026-09-22-history-review-resume/README.md
+c872bf3810db37c9595aa05873133df951844eda620d73d9d747ec898f9af1ba  docs/verification/2026-09-22-history-review-resume/spec-prompt.txt
+611b04c2d371bd90c1dcd078c2b5ae668c594a743b9fbdd45c62974c4422cc54  docs/verification/2026-09-22-history-review-resume/seal_resume.py.txt
+0c9ec5427af8e815c1ec73e5db0d243b94a6242f7bfe0dcbea16ccb77ffa65d3  docs/verification/2026-09-22-history-review-resume/EXTERNAL-SHA256SUMS

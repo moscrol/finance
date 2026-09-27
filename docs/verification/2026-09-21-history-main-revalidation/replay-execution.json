@@ -1,0 +1,35 @@
+{
+  "command": [
+    "env",
+    "PYTHONPATH=/Users/a77/fwp-wt-history-evidence-integration-0921",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/replay_history_identity.py",
+    "/Users/a77/.finance-runtime/reviews/react-trace-closeout-0921/users-after/probe-react-trace-after-0921/runs/run_20260921_022024_613518/history-query-98b3746f5cc71027c3a5756ada1057f433a84acb98b65f3106b8c5c95e42d933.json"
+  ],
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T14:55:31.104109+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 14103674880
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 14110859264
+    }
+  ],
+  "pid": 1593,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T14:55:35.248435+00:00",
+  "identity_stable": true
+}

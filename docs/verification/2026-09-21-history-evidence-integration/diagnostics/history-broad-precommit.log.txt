@@ -1,0 +1,37 @@
+........................................................................ [  9%]
+.............................................................F.......... [ 18%]
+........................................................................ [ 28%]
+........................................................................ [ 37%]
+........................................................................ [ 47%]
+........................................................................ [ 56%]
+........................................................................ [ 66%]
+........................................................................ [ 75%]
+........................................................................ [ 84%]
+........................................................................ [ 94%]
+...........................................                              [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T112419Z-c827ed74.json
+
+=================================== FAILURES ===================================
+_ test_same_question_counterevidence_changes_real_tool_branch_and_saved_hypothesis _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1401/test_same_question_counterevid0')
+
+    def test_same_question_counterevidence_changes_real_tool_branch_and_saved_hypothesis(
+        tmp_path,
+    ):
+        positive, positive_model, positive_cases, positive_queries, question = _run(
+            tmp_path / "positive", final_return=2
+        )
+        negative, negative_model, negative_cases, negative_queries, same_question = _run(
+            tmp_path / "negative", final_return=-10
+        )
+        assert question == same_question
+>       assert positive.stop_reason == negative.stop_reason == "model_finish"
+E       AssertionError: assert 'finalization_recovery_failed' == 'model_finish'
+E         
+E         - model_finish
+E         + finalization_recovery_failed
+
+tests/test_historical_episode_branching.py:212: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_historical_episode_branching.py::test_same_question_counterevidence_changes_real_tool_branch_and_saved_hypothesis
+1 failed, 762 passed in 38.18s

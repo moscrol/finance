@@ -1,0 +1,88 @@
+{
+  "sealedAt": "2026-09-21T19:31:51.497327+00:00",
+  "candidateRevision": "fedce252330dce1065238f58e6c914417219ec53",
+  "runtimeRevision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+  "businessHeadAtSeal": "f6053f43463a5d989efcda7f6a08e5d6889a4661",
+  "offlineAcceptance": {
+    "status": "PASS",
+    "checks": 29,
+    "realModelRequests": 0,
+    "credentialsRead": 0,
+    "limits": "Local gateway dispatches are counted. Sidecar-internal provider attempts are not observed. This receipt does not approve review content.",
+    "checkBreakdown": {
+      "worker_policy": 18,
+      "sdk_sessions": 5,
+      "gateway_and_credential": 6
+    }
+  },
+  "liveAttempts": {
+    "spec": {
+      "status": "BLOCKED_NO_FINAL",
+      "exitCode": 71,
+      "gatewayRequestCount": 1,
+      "gatewayRequestCap": 24,
+      "providerError": "credit_exhausted_5h",
+      "credentialBootstrapExitCode": 0,
+      "credentialTokenPersisted": false,
+      "modelRequestFinal": false,
+      "candidateBefore": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      },
+      "candidateAfter": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      }
+    },
+    "quality": {
+      "status": "BLOCKED_NO_FINAL",
+      "exitCode": 71,
+      "gatewayRequestCount": 1,
+      "gatewayRequestCap": 24,
+      "providerError": "credit_exhausted_5h",
+      "credentialBootstrapExitCode": 0,
+      "credentialTokenPersisted": false,
+      "modelRequestFinal": false,
+      "candidateBefore": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      },
+      "candidateAfter": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      }
+    }
+  },
+  "independentReports": {
+    "spec": false,
+    "quality": false
+  },
+  "tests_run": 0,
+  "retries": 0,
+  "fallback": false,
+  "naturalFinancialProbes": 0,
+  "productionChanges": false,
+  "mergeOrDeployment": false,
+  "verdict": "BLOCKED_PROVIDER_QUOTA_NO_FINAL_REPORT",
+  "knownLimits": [
+    "The local gateway counted one admitted dispatch per axis; provider-side internal attempts were not observable.",
+    "A successful credential refresh proves access bootstrap only, not model availability or an independent review.",
+    "No source was read by the independent reviewers and neither axis produced a final report.",
+    "No access/refresh tokens or account databases are archived. Actual HTTP 429 error content is retained; no successful model answer exists.",
+    "Symlink canonical-target validation was implemented but no dedicated adversarial symlink case was run.",
+    "The controller is trusted and unsandboxed. Model tools alone use the single-layer OS sandbox and restricted worker protocol.",
+    "No live source-tool or final-report path was exercised: both calls failed before any source access.",
+    "The finalizing timer shuts exploration but cannot guarantee the model writes a final report.",
+    "The executor remains a task-local prototype, not a published or independently audited general review runner.",
+    "No business regression was rerun. The old fedce 599-case regression is prior evidence, not part of these 29 infrastructure checks."
+  ],
+  "businessTreeCleanBeforeArchiveCreation": true,
+  "businessTreeDuringArchiveCreation": "dirty only with this new uncommitted evidence archive",
+  "failureHistory": {
+    "worker_first": "Interpreter path metadata denied; negative cases are NOT accepted as valid rejections.",
+    "fixture_first": "Fake upstream shared call counter caused quality to return immediately; combined check failed.",
+    "premature_acceptance_file": "An early PASS file covered only worker checks. Replaced before live by final 29-check acceptance; early bytes were not separately preserved.",
+    "git_check_before_commit": "Expected failure: new archive not present in f605. Must validate committed blobs after commit.",
+    "host_python": "Initial preparation and syntax compilation used host python3; all policy/bootstrap fixture execution used the required absolute venv interpreter. py_compile wrote local pycache, excluded from archive."
+  }
+}

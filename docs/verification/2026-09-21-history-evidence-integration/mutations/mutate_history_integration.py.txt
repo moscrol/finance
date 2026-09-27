@@ -1,0 +1,95 @@
+"""Exercise committed history protections with isolated in-memory reversals.
+
+No working-tree source is edited. Each child runs a real regression assertion;
+collection errors and zero failures do not count as a caught mutation. This is
+an author diagnostic, not a second independent review or a release gate.
+"""
+from pathlib import Path
+import importlib
+import json
+import os
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+BINDING = "tests/test_history_evidence_binding.py"
+MUTATIONS = {
+    "legacy_optional_field": (
+        "intelligence.services.prior_evidence",
+        'set(raw) not in (expected, expected - {"history_provenance"})',
+        'set(raw) != expected',
+        ["intelligence/tests/test_prior_evidence.py::test_nullable_history_metadata_preserves_ordinary_prior_evidence"],
+    ),
+    "nested_validation": (
+        "intelligence.services.agent_research", '        result.validate()\n', '',
+        [BINDING + "::test_history_metadata_shape_is_strict_even_with_updated_hash"],
+    ),
+    "source_digest": (
+        "intelligence.services.prior_evidence",
+        'atom.content_hash != evidence_content_hash(atom)', 'False',
+        [BINDING + "::test_history_reconstruction_does_not_drop_or_rebind_identity"],
+    ),
+    "reader_identity": (
+        "intelligence.services.agent_research",
+        '["history_result", item.title.strip(), item.detail.strip(), item.source.strip(),',
+        '[item.tool, item.title.strip(), item.detail.strip(), item.source.strip(),',
+        [BINDING + "::test_same_source_row_keeps_hash_across_query_and_reader_tools"],
+    ),
+    "stable_packing": (
+        "intelligence.services.historical_research.episode",
+        'for name, value in sorted(row.get("features", {}).items()):',
+        'for name, value in row.get("features", {}).items():',
+        [BINDING + "::test_persisted_key_order_does_not_change_chunk_boundaries"],
+    ),
+    "block_observations": (
+        "intelligence.services.historical_research.episode",
+        'detail, source_date, row_index, row_identity, row_hash, block_observations)',
+        'detail, source_date, row_index, row_identity, row_hash, observations)',
+        [BINDING + "::test_split_card_only_carries_its_own_visible_observations"],
+    ),
+    "qualification_identity": (
+        "intelligence.services.episode_verifier",
+        'and not _valid_history_identity(item)', 'and False',
+        [BINDING + "::test_history_verifier_qualification"],
+    ),
+    "public_chunk_identity": (
+        "intelligence.services.historical_research.episode",
+        'f"{title}·块{block_index + 1}" if row_identity else title', 'title',
+        [BINDING + "::test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page"],
+    ),
+}
+
+if len(sys.argv) > 1 and sys.argv[1] == "child":
+    import pytest
+    name = sys.argv[2]
+    module_name, old, new, tests = MUTATIONS[name]
+    module = importlib.import_module(module_name)
+    path = Path(module.__file__)
+    assert path.is_relative_to(Path.cwd()), path
+    source = path.read_text()
+    assert source.count(old) == 1, (name, source.count(old))
+    exec(compile(source.replace(old, new), str(path), "exec"), module.__dict__)
+    raise SystemExit(pytest.main(["-q", *tests, "--junitxml", sys.argv[3]]))
+
+out = Path(__file__).resolve().parent / "history-mutations"
+out.mkdir(exist_ok=False)
+identity = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+assert identity == "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682"
+assert not subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()
+rows = []
+for name in MUTATIONS:
+    env = {key: os.environ[key] for key in ("HOME", "PATH") if key in os.environ}
+    env.update(PYTHONPATH=str(Path.cwd()), FWP_TEST_RECEIPT="0")
+    with (out / f"{name}.log").open("w") as log:
+        run = subprocess.run([sys.executable, __file__, "child", name, str(out/f"{name}.xml")],
+                             env=env, stdout=log, stderr=subprocess.STDOUT, timeout=120, umask=0o022)
+    root = ET.parse(out / f"{name}.xml").getroot()
+    failures = [node.attrib["name"] for node in root.findall(".//testcase") if node.find("failure") is not None]
+    errors = len(root.findall(".//error"))
+    row = dict(name=name, exit_code=run.returncode, failures=failures, errors=errors)
+    rows.append(row)
+    print(json.dumps(row), flush=True)
+(out/"summary.json").write_text(json.dumps(dict(revision=identity, mutations=rows), indent=2) + "\n")
+assert all(row["exit_code"] == 1 and row["failures"] and not row["errors"] for row in rows)
+assert subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() == identity
+assert not subprocess.check_output(["git", "status", "--porcelain"], text=True).strip()

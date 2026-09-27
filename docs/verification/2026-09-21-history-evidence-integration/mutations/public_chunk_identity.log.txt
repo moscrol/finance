@@ -1,0 +1,39 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page __
+
+    def test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page():
+        from intelligence.runtime.continuous_turn_adapter import _public_citation_projection
+    
+        row = _row(1)
+        row["features"].update({f"feature_{index}": index for index in range(20)})
+        first = _hashed_result(_payload([_row(0), row]))
+        page = _hashed_result(_payload([row], offset=1), offset=1)
+        cards = tuple(
+            card for card in first.evidence if card.history_provenance.row_index == 1
+        )
+        page_cards = tuple(
+            card for card in page.evidence if card.history_provenance.row_index == 1
+        )
+        assert len(cards) > 1
+        assert [card.content_hash for card in cards] == [card.content_hash for card in page_cards]
+        outcome = AgentOutcome(
+            task_frame_hash="history-chunks", status="completed", draft="历史观察",
+            evidence=cards, traces=(), gaps=(), stop_reason="model_finish",
+            events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-chunks"}),),
+            bindings=(OutputEvidenceBinding("direct_assessment", tuple(card.content_hash for card in cards)),),
+            usage=AgentUsage(),
+        )
+        citations = _public_citation_projection(
+            outcome, frozenset(), allowed_output_ids=frozenset({"direct_assessment"})
+        )
+>       assert len(citations) == len(cards)
+E       assert 1 == 7
+E        +  where 1 = len(({'date': '2025-08-28', 'source': '本地历史研究 · 可复算原件', 'title': '历史观察样本 A.1 2025-08-01 2025-08-28｜history-·2'},))
+E        +  and   7 = len((AgentEvidence(tool='history_query', title='历史观察样本 A.1 2025-08-01 2025-08-28｜history-·2', detail='{"end":"2025-08-28",...one, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown'), ...))
+
+tests/test_history_evidence_binding.py:427: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/public_chunk_identity.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_chunked_row_has_distinct_public_citations_and_stable_overlapping_page
+1 failed in 0.54s

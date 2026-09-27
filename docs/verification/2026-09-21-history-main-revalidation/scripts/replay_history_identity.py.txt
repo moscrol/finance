@@ -1,0 +1,99 @@
+"""Offline model-projection replay of a real immutable query, without a database.
+
+This checks pages, strict evidence reconstruction and cross-reader card identity;
+it does not claim a natural model selected/bound the cards or verified finance.
+"""
+from dataclasses import asdict, replace
+from datetime import date
+import hashlib
+import json
+from pathlib import Path
+import sys
+import tempfile
+
+from intelligence.services.agent_research import evidence_content_hash
+from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.historical_research.episode import HistorySession, _result, history_tool_specs
+from intelligence.services.prior_evidence import _original_atom
+from intelligence.services.query_understanding import understand_query
+from intelligence.services.research_contract import InformationCutoff
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.run_store import RunStore
+
+source = Path(sys.argv[1])
+raw = source.read_bytes()
+payload = json.loads(raw)
+with tempfile.TemporaryDirectory(prefix="history-identity-replay-") as directory:
+    root = Path(directory)
+    store = RunStore("identity-replay", root=root / "runs")
+    question = "之前有没有类似情况？找找失败案例"
+    run = store.create_run(question, "ask", session_id="offline-identity")
+    session = HistorySession(store, run.run_id, "offline-identity")
+    ref = session.save("query", payload)
+    saved = session.read(ref)
+    frame = understand_query(question).task_frame
+    context = build_episode_context(
+        frame, task_id=run.run_id, capabilities=("finance_query",),
+        information_cutoff=InformationCutoff(date.fromisoformat(payload["knowledge_cutoff"]), "requested"),
+    )
+    registry = ResearchToolRegistry(tuple(history_tool_specs(frame, context, root/"absent.duckdb", session)))
+    initial = _result(payload, result_ref=ref)
+    initial_cards = [replace(item, content_hash=evidence_content_hash(item)) for item in initial.evidence]
+    def row_cards(items):
+        return [item for item in items if item.history_provenance.row_index is not None]
+    first_hashes = [item.content_hash for item in row_cards(initial_cards)]
+    offset, indexes, pages, restored = 0, [], [], 0
+    evidence = {}
+    row_hashes = {}
+    while offset is not None:
+        observed = registry.execute("read_history_result", {"result_ref": ref, "offset": offset, "limit": 25},
+                                    context=context, step_id=f"page-{offset}")
+        assert observed.evidence, observed
+        if offset == 0:
+            assert first_hashes == [item.content_hash for item in row_cards(observed.evidence)]
+        for item in observed.evidence:
+            assert _original_atom(json.loads(json.dumps(asdict(item)))) == item
+            restored += 1
+            if item.history_provenance.row_index is not None:
+                row_hashes.setdefault(item.history_provenance.row_index, []).append(item.content_hash)
+            evidence.setdefault(item.content_hash, item)
+        projection = FinanceResearchHarness().project_tool_result(
+            observed, evidence_so_far=tuple(evidence.values()), seen_prose=set())
+        model = json.loads(projection.model_content)
+        blocks = [json.loads(item["detail"]) for item in model["evidence"]]
+        assert all(len(item["detail"]) <= 240 for item in model["evidence"])
+        actual = sorted({item["sample"] for item in blocks if type(item.get("sample")) is int})
+        assert actual == list(range(offset, min(offset+25, len(payload["rows"]))))
+        for index in actual:
+            features = {}
+            for item in blocks:
+                if item.get("sample") == index:
+                    features.update(item.get("features", {}))
+            assert features == payload["rows"][index]["features"]
+        scope = next(item for item in blocks if "total_matched" in item)
+        assert scope["total_matched"] == payload["total_matched"]
+        assert scope["offset"] == offset
+        assert scope["returned_count"] == len(actual)
+        next_offset = scope["next_offset"]
+        assert next_offset is None or next_offset > offset
+        pages.append(dict(offset=offset, next_offset=next_offset, rows=len(actual)))
+        indexes.extend(actual)
+        offset = next_offset
+    overlap = registry.execute("read_history_result", {"result_ref": ref, "offset": 24, "limit": 25},
+                               context=context, step_id="overlap")
+    overlap_hashes = {}
+    for item in row_cards(overlap.evidence):
+        overlap_hashes.setdefault(item.history_provenance.row_index, []).append(item.content_hash)
+    assert overlap_hashes
+    assert all(row_hashes[index] == hashes for index, hashes in overlap_hashes.items())
+    assert indexes == list(range(len(payload["rows"])))
+    assert session.read(ref) == saved
+    assert source.read_bytes() == raw
+    print(json.dumps(dict(source=str(source), source_sha256=hashlib.sha256(raw).hexdigest(),
+        query_id=payload["query_id"], pages=pages, visited_rows=len(indexes),
+        strict_restored_cards=restored, initial_projection_equals_authorized_reader=True,
+        overlapping_page_hashes_equal=True, all_features_equal_to_source=True,
+        original_unchanged=True, natural_model_calls=0,
+        scope="author offline projection/reconstruction only; not natural finance acceptance"),
+        indent=2, ensure_ascii=False))

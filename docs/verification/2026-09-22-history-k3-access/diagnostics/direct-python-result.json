@@ -1,0 +1,53 @@
+{
+  "method": "same resolver Python body, sqlite/urlopen fixtures, existing network-denying tools sandbox",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "resolver_sha256": "602a59daf33af6b27c3c7504881001c6aafc4d92d96f40580069c11641a83e36",
+  "cases": [
+    {
+      "case": "success",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "stdout_matches_fixture": true,
+      "stderr": "",
+      "passed": true,
+      "real_http_requests": 0,
+      "real_credentials_read": 0,
+      "model_requests": 0
+    },
+    {
+      "case": "missing_database",
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "stdout_matches_fixture": true,
+      "stderr": "mirasim-kimi-token: state.sqlite missing\n",
+      "passed": true,
+      "real_http_requests": 0,
+      "real_credentials_read": 0,
+      "model_requests": 0
+    },
+    {
+      "case": "missing_account",
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "stdout_matches_fixture": true,
+      "stderr": "mirasim-kimi-token: no usable account\n",
+      "passed": true,
+      "real_http_requests": 0,
+      "real_credentials_read": 0,
+      "model_requests": 0
+    },
+    {
+      "case": "missing_access",
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "stdout_matches_fixture": true,
+      "stderr": "mirasim-kimi-token: refresh returned no access token\n",
+      "passed": true,
+      "real_http_requests": 0,
+      "real_credentials_read": 0,
+      "model_requests": 0
+    }
+  ],
+  "all_passed": true,
+  "limit": "No Pi bootstrap integration or real credential/model request was rerun."
+}

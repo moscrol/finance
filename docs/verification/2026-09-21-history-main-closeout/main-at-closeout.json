@@ -1,0 +1,9 @@
+{
+  "tested_revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+  "observed_main": "e82717d9a7c3dfa811a4538bd44985b61258355a",
+  "merge_base": "028a251a1b2ca98245326a6b59376f4f7f8e5e81",
+  "merge_count": 1,
+  "base_drift_ok": true,
+  "message": "基座漂移 1 ≤ 5",
+  "scope": "base_drift_only_not_latest_main_validation"
+}

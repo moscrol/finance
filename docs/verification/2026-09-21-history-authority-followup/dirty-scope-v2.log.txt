@@ -1,0 +1,109 @@
+..............................F......................................... [ 72%]
+...........................                                              [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T131126Z-bbd948a6.json
+
+=================================== FAILURES ===================================
+___ test_history_read_rechecks_metadata_after_waiting_for_writer[visibility] ___
+
+store = <intelligence.services.run_store.RunStore object at 0x10e49d850>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10e49d7f0>
+mutation = 'visibility'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility"])
+    def test_history_read_rechecks_metadata_after_waiting_for_writer(
+        store, monkeypatch, mutation,
+    ):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        peer = RunStore(user_id=store.user_id, root=store.root)
+        waiting = Event()
+        lock = store._run_state_lock
+    
+        @contextmanager
+        def signal_lock(run_id):
+            waiting.set()
+            with lock(run_id):
+                yield
+    
+        monkeypatch.setattr(store, "_run_state_lock", signal_lock)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with peer._run_state_lock(run.run_id):
+                future = pool.submit(
+                    store.read_history_artifact, run.run_id, artifact.path,
+                    conversation_id="conversation-a",
+                )
+                assert waiting.wait(5)
+                updated = peer.load_run(run.run_id)
+                if mutation == "conversation":
+                    updated.session_id = "conversation-b"
+                elif mutation == "user":
+                    updated.user = "other-user"
+                else:
+                    updated.artifacts[0]["visibility"] = "internal"
+                peer._write_run(updated)
+            with pytest.raises(ValueError, match="outside this conversation"):
+>               future.result(timeout=5)
+
+tests/test_run_store_history_artifacts.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.run_store.RunStore object at 0x10e49d850>
+run_id = 'run_20260921_211124_332862'
+filename = 'history-query-6c45288a5e9d1444ab024fac905b02495e73426d74e22544bbf867e5f4811680.json'
+
+    def read_history_artifact(
+        self,
+        run_id: str,
+        filename: str,
+        *,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Read one registered public original with optional conversation binding.
+    
+        The conversation check belongs in this same read transaction as the
+        registration and byte-integrity checks. Callers that need a
+        conversation-scoped reference must pass ``conversation_id``; the
+        legacy direct-reader contract remains user-scoped when it is omitted.
+        """
+        with self._state_lock:
+            try:
+                self._history_run(run_id)  # Validate before opening the per-run lock.
+            except PermissionError as exc:
+                if conversation_id is not None:
+                    raise ValueError(
+                        "history artifact is outside this conversation"
+                    ) from exc
+                raise
+            with self._run_state_lock(run_id):
+                try:
+                    run, run_dir = self._history_run(run_id)
+                except PermissionError as exc:
+                    if conversation_id is not None:
+                        raise ValueError(
+                            "history artifact is outside this conversation"
+                        ) from exc
+                    raise
+                if conversation_id is not None and run.session_id != conversation_id:
+                    raise ValueError("history artifact is outside this conversation")
+                path = self._history_path(run_dir, filename)
+                registered = [a for a in run.artifacts if a.get("path") == filename]
+                if len(registered) > 1:
+                    raise ValueError("history artifact integrity: duplicate registration")
+                if (
+                    not registered
+                    or artifact_visibility(registered[0]) != "public"
+                    or registered[0].get("downloadable", True) is not True
+                ):
+>                   raise FileNotFoundError(f"history artifact not available: {filename}")
+E                   FileNotFoundError: history artifact not available: history-query-6c45288a5e9d1444ab024fac905b02495e73426d74e22544bbf867e5f4811680.json
+
+intelligence/services/run_store.py:588: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/test_run_store_history_artifacts.py::test_history_read_rechecks_metadata_after_waiting_for_writer[visibility]
+1 failed, 98 passed in 4.18s

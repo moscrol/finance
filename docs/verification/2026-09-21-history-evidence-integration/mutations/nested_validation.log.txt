@@ -1,0 +1,359 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes0] ____
+
+changes = {'row_index': True}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:311: Failed
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes1] ____
+
+changes = {'row_index': -1}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:311: Failed
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes2] ____
+
+changes = {'row_hash': 'forged'}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:311: Failed
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes3] ____
+
+changes = {'result_ref': '../history-query-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json'}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+        with pytest.raises(ValueError, match="invalid historical"):
+>           _original_atom(raw)
+
+tests/test_history_evidence_binding.py:312: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': 'e454056c75023d70', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        expected = {field.name for field in fields(AgentEvidence)}
+        if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
+            raise ValueError("incomplete or unknown prior evidence schema")
+        # Explicit additive-schema compatibility, not a general missing-field escape.
+        # Old ordinary atoms had no historical metadata; old history atoms cannot
+        # acquire source identity merely by taking the None default.
+        raw = {"history_provenance": None, **raw}
+        values = dict(raw)
+        history = raw["history_provenance"]
+        if not isinstance(raw["tool"], str):
+            raise ValueError("invalid evidence text field")
+        if history is not None:
+            if raw["tool"] not in {"history_query", "read_history_result"}:
+                raise ValueError("historical provenance on non-historical evidence")
+            values["history_provenance"] = HistoricalEvidenceProvenance.from_dict(history)
+        elif raw["tool"] in {"history_query", "read_history_result"}:
+            raise ValueError("missing historical provenance")
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read", "history_provenance"}:
+            if not isinstance(raw[key], str):
+                raise ValueError("invalid evidence text field")
+        for key in sequences - {"observations"}:
+            if not isinstance(raw[key], list) or any(not isinstance(v, str) for v in raw[key]):
+                raise ValueError("invalid evidence sequence")
+            values[key] = tuple(raw[key])
+        if type(raw["deep_read"]) is not bool or (
+            raw["reexcerpted"] is not None and type(raw["reexcerpted"]) is not bool
+        ):
+            raise ValueError("invalid evidence boolean")
+        for key in ("pointer_dropped", "structural_neighbor_demoted"):
+            if raw[key] is not None and (type(raw[key]) is not int or raw[key] < 0):
+                raise ValueError("invalid evidence counter")
+        if raw["source_date"] is not None and not isinstance(raw["source_date"], str):
+            raise ValueError("invalid evidence date")
+        if not raw["content_hash"].strip() or raw["content_hash"] != raw["content_hash"].strip():
+            raise ValueError("missing evidence identity")
+        if not isinstance(raw["observations"], list):
+            raise ValueError("invalid observations")
+        observations = []
+        for row in raw["observations"]:
+            if (not isinstance(row, dict) or set(row) != {"subject", "as_of", "metric", "value"}
+                    or any(not isinstance(row[k], str) for k in ("subject", "as_of", "metric"))
+                    or type(row["value"]) not in (int, float) or not math.isfinite(row["value"])):
+                raise ValueError("invalid structured observation")
+            observations.append(StructuredObservation(**row))
+        values["observations"] = tuple(observations)
+        atom = AgentEvidence(**values)
+        if json.loads(json.dumps(asdict(atom), allow_nan=False)) != raw:
+            raise ValueError("lossy evidence reconstruction")
+        if atom.history_provenance is not None and (
+            atom.content_hash != evidence_content_hash(atom)
+            or atom.internal_locator != atom.history_provenance.result_ref
+            or atom.independent_key != atom.history_provenance.query_id
+        ):
+>           raise ValueError("historical evidence identity mismatch")
+E           ValueError: historical evidence identity mismatch
+
+intelligence/services/prior_evidence.py:164: ValueError
+
+During handling of the above exception, another exception occurred:
+
+changes = {'result_ref': '../history-query-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json'}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'invalid historical'
+E        Input: 'historical evidence identity mismatch'
+
+tests/test_history_evidence_binding.py:311: AssertionError
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes4] ____
+
+changes = {'result_ref': 'run/history-query-invalid.json'}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+        with pytest.raises(ValueError, match="invalid historical"):
+>           _original_atom(raw)
+
+tests/test_history_evidence_binding.py:312: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+raw = {'content_hash': '76fb2778c3d24435', 'contradicts': [], 'deep_read': False, 'derived_from': [], ...}
+
+    def _original_atom(raw: object) -> AgentEvidence:
+        """Reconstruct the complete stored schema without coercing or dropping fields."""
+        expected = {field.name for field in fields(AgentEvidence)}
+        if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
+            raise ValueError("incomplete or unknown prior evidence schema")
+        # Explicit additive-schema compatibility, not a general missing-field escape.
+        # Old ordinary atoms had no historical metadata; old history atoms cannot
+        # acquire source identity merely by taking the None default.
+        raw = {"history_provenance": None, **raw}
+        values = dict(raw)
+        history = raw["history_provenance"]
+        if not isinstance(raw["tool"], str):
+            raise ValueError("invalid evidence text field")
+        if history is not None:
+            if raw["tool"] not in {"history_query", "read_history_result"}:
+                raise ValueError("historical provenance on non-historical evidence")
+            values["history_provenance"] = HistoricalEvidenceProvenance.from_dict(history)
+        elif raw["tool"] in {"history_query", "read_history_result"}:
+            raise ValueError("missing historical provenance")
+        sequences = {"supports", "contradicts", "derived_from", "observations"}
+        nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+        for key in set(raw) - sequences - nullable - {"deep_read", "history_provenance"}:
+            if not isinstance(raw[key], str):
+                raise ValueError("invalid evidence text field")
+        for key in sequences - {"observations"}:
+            if not isinstance(raw[key], list) or any(not isinstance(v, str) for v in raw[key]):
+                raise ValueError("invalid evidence sequence")
+            values[key] = tuple(raw[key])
+        if type(raw["deep_read"]) is not bool or (
+            raw["reexcerpted"] is not None and type(raw["reexcerpted"]) is not bool
+        ):
+            raise ValueError("invalid evidence boolean")
+        for key in ("pointer_dropped", "structural_neighbor_demoted"):
+            if raw[key] is not None and (type(raw[key]) is not int or raw[key] < 0):
+                raise ValueError("invalid evidence counter")
+        if raw["source_date"] is not None and not isinstance(raw["source_date"], str):
+            raise ValueError("invalid evidence date")
+        if not raw["content_hash"].strip() or raw["content_hash"] != raw["content_hash"].strip():
+            raise ValueError("missing evidence identity")
+        if not isinstance(raw["observations"], list):
+            raise ValueError("invalid observations")
+        observations = []
+        for row in raw["observations"]:
+            if (not isinstance(row, dict) or set(row) != {"subject", "as_of", "metric", "value"}
+                    or any(not isinstance(row[k], str) for k in ("subject", "as_of", "metric"))
+                    or type(row["value"]) not in (int, float) or not math.isfinite(row["value"])):
+                raise ValueError("invalid structured observation")
+            observations.append(StructuredObservation(**row))
+        values["observations"] = tuple(observations)
+        atom = AgentEvidence(**values)
+        if json.loads(json.dumps(asdict(atom), allow_nan=False)) != raw:
+            raise ValueError("lossy evidence reconstruction")
+        if atom.history_provenance is not None and (
+            atom.content_hash != evidence_content_hash(atom)
+            or atom.internal_locator != atom.history_provenance.result_ref
+            or atom.independent_key != atom.history_provenance.query_id
+        ):
+>           raise ValueError("historical evidence identity mismatch")
+E           ValueError: historical evidence identity mismatch
+
+intelligence/services/prior_evidence.py:164: ValueError
+
+During handling of the above exception, another exception occurred:
+
+changes = {'result_ref': 'run/history-query-invalid.json'}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'invalid historical'
+E        Input: 'historical evidence identity mismatch'
+
+tests/test_history_evidence_binding.py:311: AssertionError
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes5] ____
+
+changes = {'purpose': ''}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:311: Failed
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes6] ____
+
+changes = {'research_only': 'true'}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:311: Failed
+____ test_history_metadata_shape_is_strict_even_with_updated_hash[changes7] ____
+
+changes = {'decision_eligible': 0}
+
+    @pytest.mark.parametrize("changes", [
+        {"row_index": True}, {"row_index": -1}, {"row_hash": "forged"},
+        {"result_ref": "../history-query-" + "a" * 64 + ".json"},
+        {"result_ref": "run/history-query-invalid.json"},
+        {"purpose": ""}, {"research_only": "true"}, {"decision_eligible": 0},
+    ])
+    def test_history_metadata_shape_is_strict_even_with_updated_hash(changes):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        changed = replace(card, history_provenance=replace(card.history_provenance, **changes))
+        changed = replace(changed, content_hash=evidence_content_hash(changed))
+        raw = json.loads(json.dumps(asdict(changed)))
+>       with pytest.raises(ValueError, match="invalid historical"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:311: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/nested_validation.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes0]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes1]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes2]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes3]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes4]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes5]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes6]
+FAILED tests/test_history_evidence_binding.py::test_history_metadata_shape_is_strict_even_with_updated_hash[changes7]
+8 failed in 0.51s

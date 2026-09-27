@@ -1,0 +1,17 @@
+{
+  "worker.py": "docs/verification/2026-09-22-history-k3-runner-v2/executor/worker.py.txt",
+  "prepare.py": "docs/verification/2026-09-22-history-k3-runner-v2/executor/prepare.py.txt",
+  "session.mjs": "docs/verification/2026-09-22-history-k3-runner-v2/executor/session.mjs.txt",
+  "bounded-gateway.mjs": "docs/verification/2026-09-22-history-k3-runner-v2/executor/bounded-gateway.mjs.txt",
+  "controller.mjs": "docs/verification/2026-09-22-history-k3-runner-v2/executor/controller.mjs.txt",
+  "fixture-upstream.mjs": "docs/verification/2026-09-22-history-k3-runner-v2/executor/fixture-upstream.mjs.txt",
+  "check_worker.py": "docs/verification/2026-09-22-history-k3-runner-v2/executor/check_worker.py.txt",
+  "run_fixture.mjs": "docs/verification/2026-09-22-history-k3-runner-v2/executor/run_fixture.mjs.txt",
+  "test_boundaries.mjs": "docs/verification/2026-09-22-history-k3-runner-v2/executor/test_boundaries.mjs.txt",
+  "spec/config.json": "docs/verification/2026-09-22-history-k3-runner-v2/executor-inputs/spec/config.json",
+  "spec/prompt.md": "docs/verification/2026-09-22-history-k3-runner-v2/executor-inputs/spec/prompt.md",
+  "spec/tools.sb": "docs/verification/2026-09-22-history-k3-runner-v2/executor-inputs/spec/tools.sb.txt",
+  "quality/config.json": "docs/verification/2026-09-22-history-k3-runner-v2/executor-inputs/quality/config.json",
+  "quality/prompt.md": "docs/verification/2026-09-22-history-k3-runner-v2/executor-inputs/quality/prompt.md",
+  "quality/tools.sb": "docs/verification/2026-09-22-history-k3-runner-v2/executor-inputs/quality/tools.sb.txt"
+}

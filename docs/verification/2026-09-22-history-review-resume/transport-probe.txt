@@ -1,0 +1,15 @@
+Current revision: `43511e3f15bd18bfd49868dfbac5b1d3774fd0bc`
+
+`RunStore.read_history_artifact` signature:
+
+```python
+def read_history_artifact(
+    self,
+    run_id: str,
+    filename: str,
+    *,
+    conversation_id: str | None = None,
+) -> dict[str, Any]:
+```
+
+Reference: [intelligence/services/run_store.py:545](/Users/a77/fwp-wt-history-evidence-integration-0921/intelligence/services/run_store.py:545)

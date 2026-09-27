@@ -1,0 +1,11 @@
+{
+  "old_pr": 829,
+  "old_head": "9fabd688f588377a429d494f83fd9d6c3775e64b",
+  "successor_pr": 841,
+  "successor_code": "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+  "base_ref": "fix/react-trace-qc-0921",
+  "comment_id": 5416,
+  "old_state": "open",
+  "old_merged": false,
+  "old_guarded": true
+}

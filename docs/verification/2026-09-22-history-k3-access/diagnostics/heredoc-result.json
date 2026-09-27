@@ -1,0 +1,33 @@
+{
+  "original_error_sha256": "36f2867300835bbadbc2f2497d1792b7c759ef223194f71b6ac13fd87afbfe58",
+  "cases": [
+    {
+      "case": "default_tmp",
+      "exit_code": 1,
+      "stderr": "/Users/a77/.claude/mirasim-kimi-token.sh: line 5: cannot create temp file for here document: Operation not permitted\n",
+      "stderr_sha256": "36f2867300835bbadbc2f2497d1792b7c759ef223194f71b6ac13fd87afbfe58",
+      "matches_original_failure": true,
+      "python_replaced_by": "/usr/bin/true",
+      "http_requests": 0,
+      "model_requests": 0
+    },
+    {
+      "case": "scoped_tmp",
+      "exit_code": 1,
+      "stderr": "/Users/a77/.claude/mirasim-kimi-token.sh: line 5: cannot create temp file for here document: Operation not permitted\n",
+      "stderr_sha256": "36f2867300835bbadbc2f2497d1792b7c759ef223194f71b6ac13fd87afbfe58",
+      "matches_original_failure": true,
+      "python_replaced_by": "/usr/bin/true",
+      "http_requests": 0,
+      "model_requests": 0
+    },
+    {
+      "case": "no_heredoc_stub",
+      "exit_code": 0,
+      "stderr": "",
+      "http_requests": 0,
+      "model_requests": 0
+    }
+  ],
+  "scope": "shell startup only; no credentials read/refreshed, no live provider retest"
+}

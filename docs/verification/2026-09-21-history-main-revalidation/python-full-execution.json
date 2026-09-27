@@ -1,0 +1,680 @@
+{
+  "started_at": "2026-09-21T14:54:06.729097+00:00",
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": ""
+  },
+  "timeout_seconds": 1800,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 14050017280
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 14044581888
+    },
+    {
+      "elapsed": 20,
+      "free_bytes": 13856190464
+    },
+    {
+      "elapsed": 30,
+      "free_bytes": 14018527232
+    },
+    {
+      "elapsed": 40,
+      "free_bytes": 14003048448
+    },
+    {
+      "elapsed": 50,
+      "free_bytes": 14000816128
+    },
+    {
+      "elapsed": 60,
+      "free_bytes": 13995950080
+    },
+    {
+      "elapsed": 70,
+      "free_bytes": 13993537536
+    },
+    {
+      "elapsed": 80,
+      "free_bytes": 14128873472
+    },
+    {
+      "elapsed": 90,
+      "free_bytes": 14110224384
+    },
+    {
+      "elapsed": 100,
+      "free_bytes": 14117933056
+    },
+    {
+      "elapsed": 110,
+      "free_bytes": 14112624640
+    },
+    {
+      "elapsed": 120,
+      "free_bytes": 14114185216
+    },
+    {
+      "elapsed": 130,
+      "free_bytes": 14095400960
+    },
+    {
+      "elapsed": 140,
+      "free_bytes": 14075105280
+    },
+    {
+      "elapsed": 150,
+      "free_bytes": 14069747712
+    },
+    {
+      "elapsed": 160,
+      "free_bytes": 14047051776
+    },
+    {
+      "elapsed": 170,
+      "free_bytes": 14037958656
+    },
+    {
+      "elapsed": 180,
+      "free_bytes": 13993037824
+    },
+    {
+      "elapsed": 190,
+      "free_bytes": 13999501312
+    },
+    {
+      "elapsed": 200,
+      "free_bytes": 13887623168
+    },
+    {
+      "elapsed": 210,
+      "free_bytes": 13898649600
+    },
+    {
+      "elapsed": 220,
+      "free_bytes": 13856448512
+    },
+    {
+      "elapsed": 230,
+      "free_bytes": 13810208768
+    },
+    {
+      "elapsed": 240,
+      "free_bytes": 13798522880
+    },
+    {
+      "elapsed": 250,
+      "free_bytes": 13773615104
+    },
+    {
+      "elapsed": 260,
+      "free_bytes": 13712744448
+    },
+    {
+      "elapsed": 270,
+      "free_bytes": 13703585792
+    },
+    {
+      "elapsed": 280,
+      "free_bytes": 13662433280
+    },
+    {
+      "elapsed": 290,
+      "free_bytes": 13665603584
+    },
+    {
+      "elapsed": 300,
+      "free_bytes": 13664223232
+    },
+    {
+      "elapsed": 310,
+      "free_bytes": 13647523840
+    },
+    {
+      "elapsed": 320,
+      "free_bytes": 13630046208
+    },
+    {
+      "elapsed": 330,
+      "free_bytes": 13522382848
+    },
+    {
+      "elapsed": 340,
+      "free_bytes": 13454032896
+    },
+    {
+      "elapsed": 350,
+      "free_bytes": 13247193088
+    },
+    {
+      "elapsed": 360,
+      "free_bytes": 13218828288
+    },
+    {
+      "elapsed": 370,
+      "free_bytes": 13199265792
+    },
+    {
+      "elapsed": 380,
+      "free_bytes": 13162397696
+    },
+    {
+      "elapsed": 390,
+      "free_bytes": 13093359616
+    },
+    {
+      "elapsed": 400,
+      "free_bytes": 13070270464
+    },
+    {
+      "elapsed": 410,
+      "free_bytes": 13019090944
+    },
+    {
+      "elapsed": 420,
+      "free_bytes": 12978884608
+    },
+    {
+      "elapsed": 430,
+      "free_bytes": 12968689664
+    },
+    {
+      "elapsed": 440,
+      "free_bytes": 12954066944
+    },
+    {
+      "elapsed": 450,
+      "free_bytes": 12941090816
+    },
+    {
+      "elapsed": 460,
+      "free_bytes": 12928069632
+    },
+    {
+      "elapsed": 470,
+      "free_bytes": 12922359808
+    },
+    {
+      "elapsed": 480,
+      "free_bytes": 12917235712
+    },
+    {
+      "elapsed": 490,
+      "free_bytes": 12894826496
+    },
+    {
+      "elapsed": 500,
+      "free_bytes": 12877946880
+    },
+    {
+      "elapsed": 510,
+      "free_bytes": 12805050368
+    },
+    {
+      "elapsed": 520,
+      "free_bytes": 12788506624
+    },
+    {
+      "elapsed": 530,
+      "free_bytes": 12820975616
+    },
+    {
+      "elapsed": 540,
+      "free_bytes": 12780560384
+    },
+    {
+      "elapsed": 550,
+      "free_bytes": 12731846656
+    },
+    {
+      "elapsed": 560,
+      "free_bytes": 12664074240
+    },
+    {
+      "elapsed": 570,
+      "free_bytes": 12611600384
+    },
+    {
+      "elapsed": 580,
+      "free_bytes": 12640403456
+    },
+    {
+      "elapsed": 590,
+      "free_bytes": 12626137088
+    },
+    {
+      "elapsed": 600,
+      "free_bytes": 12456390656
+    },
+    {
+      "elapsed": 610,
+      "free_bytes": 12436996096
+    },
+    {
+      "elapsed": 620,
+      "free_bytes": 12433428480
+    },
+    {
+      "elapsed": 630,
+      "free_bytes": 11671027712
+    },
+    {
+      "elapsed": 640,
+      "free_bytes": 11665043456
+    },
+    {
+      "elapsed": 651,
+      "free_bytes": 11761782784
+    },
+    {
+      "elapsed": 661,
+      "free_bytes": 11743719424
+    },
+    {
+      "elapsed": 671,
+      "free_bytes": 11696066560
+    },
+    {
+      "elapsed": 681,
+      "free_bytes": 11597672448
+    },
+    {
+      "elapsed": 691,
+      "free_bytes": 11483332608
+    },
+    {
+      "elapsed": 701,
+      "free_bytes": 11308527616
+    },
+    {
+      "elapsed": 711,
+      "free_bytes": 11309191168
+    },
+    {
+      "elapsed": 721,
+      "free_bytes": 11258957824
+    },
+    {
+      "elapsed": 731,
+      "free_bytes": 11206610944
+    },
+    {
+      "elapsed": 741,
+      "free_bytes": 11095011328
+    },
+    {
+      "elapsed": 751,
+      "free_bytes": 11090427904
+    },
+    {
+      "elapsed": 761,
+      "free_bytes": 10975617024
+    },
+    {
+      "elapsed": 771,
+      "free_bytes": 10914381824
+    },
+    {
+      "elapsed": 781,
+      "free_bytes": 10826285056
+    },
+    {
+      "elapsed": 791,
+      "free_bytes": 10786783232
+    },
+    {
+      "elapsed": 801,
+      "free_bytes": 10782371840
+    },
+    {
+      "elapsed": 811,
+      "free_bytes": 10778832896
+    },
+    {
+      "elapsed": 821,
+      "free_bytes": 10773245952
+    },
+    {
+      "elapsed": 831,
+      "free_bytes": 10770579456
+    },
+    {
+      "elapsed": 841,
+      "free_bytes": 10719084544
+    },
+    {
+      "elapsed": 851,
+      "free_bytes": 10700570624
+    },
+    {
+      "elapsed": 861,
+      "free_bytes": 10679046144
+    },
+    {
+      "elapsed": 871,
+      "free_bytes": 10671783936
+    },
+    {
+      "elapsed": 881,
+      "free_bytes": 10666708992
+    },
+    {
+      "elapsed": 891,
+      "free_bytes": 10659692544
+    },
+    {
+      "elapsed": 901,
+      "free_bytes": 10642796544
+    },
+    {
+      "elapsed": 911,
+      "free_bytes": 10684071936
+    },
+    {
+      "elapsed": 921,
+      "free_bytes": 10678894592
+    },
+    {
+      "elapsed": 931,
+      "free_bytes": 10689847296
+    },
+    {
+      "elapsed": 941,
+      "free_bytes": 10687414272
+    },
+    {
+      "elapsed": 951,
+      "free_bytes": 10689675264
+    },
+    {
+      "elapsed": 961,
+      "free_bytes": 10682105856
+    },
+    {
+      "elapsed": 971,
+      "free_bytes": 10666258432
+    },
+    {
+      "elapsed": 981,
+      "free_bytes": 10650206208
+    },
+    {
+      "elapsed": 991,
+      "free_bytes": 10705567744
+    },
+    {
+      "elapsed": 1001,
+      "free_bytes": 10678255616
+    },
+    {
+      "elapsed": 1011,
+      "free_bytes": 10676498432
+    },
+    {
+      "elapsed": 1021,
+      "free_bytes": 10668630016
+    },
+    {
+      "elapsed": 1031,
+      "free_bytes": 10667196416
+    },
+    {
+      "elapsed": 1041,
+      "free_bytes": 10658906112
+    },
+    {
+      "elapsed": 1051,
+      "free_bytes": 10580738048
+    },
+    {
+      "elapsed": 1061,
+      "free_bytes": 10521038848
+    },
+    {
+      "elapsed": 1071,
+      "free_bytes": 10490834944
+    },
+    {
+      "elapsed": 1081,
+      "free_bytes": 10356465664
+    },
+    {
+      "elapsed": 1091,
+      "free_bytes": 10245812224
+    },
+    {
+      "elapsed": 1101,
+      "free_bytes": 10206248960
+    },
+    {
+      "elapsed": 1111,
+      "free_bytes": 10198773760
+    },
+    {
+      "elapsed": 1121,
+      "free_bytes": 10135400448
+    },
+    {
+      "elapsed": 1131,
+      "free_bytes": 10100727808
+    },
+    {
+      "elapsed": 1141,
+      "free_bytes": 10003927040
+    },
+    {
+      "elapsed": 1151,
+      "free_bytes": 9902489600
+    },
+    {
+      "elapsed": 1161,
+      "free_bytes": 9756020736
+    },
+    {
+      "elapsed": 1171,
+      "free_bytes": 9571041280
+    },
+    {
+      "elapsed": 1181,
+      "free_bytes": 9532792832
+    },
+    {
+      "elapsed": 1191,
+      "free_bytes": 9493561344
+    },
+    {
+      "elapsed": 1201,
+      "free_bytes": 9386942464
+    },
+    {
+      "elapsed": 1211,
+      "free_bytes": 9210925056
+    },
+    {
+      "elapsed": 1221,
+      "free_bytes": 9141350400
+    },
+    {
+      "elapsed": 1231,
+      "free_bytes": 9074601984
+    },
+    {
+      "elapsed": 1241,
+      "free_bytes": 9051586560
+    },
+    {
+      "elapsed": 1251,
+      "free_bytes": 9036877824
+    },
+    {
+      "elapsed": 1261,
+      "free_bytes": 9012789248
+    },
+    {
+      "elapsed": 1271,
+      "free_bytes": 9004617728
+    },
+    {
+      "elapsed": 1281,
+      "free_bytes": 9007263744
+    },
+    {
+      "elapsed": 1291,
+      "free_bytes": 9001545728
+    },
+    {
+      "elapsed": 1301,
+      "free_bytes": 8997203968
+    },
+    {
+      "elapsed": 1311,
+      "free_bytes": 9006424064
+    },
+    {
+      "elapsed": 1321,
+      "free_bytes": 9034690560
+    },
+    {
+      "elapsed": 1331,
+      "free_bytes": 9044254720
+    },
+    {
+      "elapsed": 1341,
+      "free_bytes": 8936325120
+    },
+    {
+      "elapsed": 1351,
+      "free_bytes": 9076473856
+    },
+    {
+      "elapsed": 1361,
+      "free_bytes": 8908308480
+    },
+    {
+      "elapsed": 1371,
+      "free_bytes": 8809373696
+    },
+    {
+      "elapsed": 1381,
+      "free_bytes": 8750252032
+    },
+    {
+      "elapsed": 1391,
+      "free_bytes": 8607113216
+    },
+    {
+      "elapsed": 1401,
+      "free_bytes": 8428695552
+    },
+    {
+      "elapsed": 1411,
+      "free_bytes": 8353898496
+    },
+    {
+      "elapsed": 1421,
+      "free_bytes": 8307314688
+    },
+    {
+      "elapsed": 1431,
+      "free_bytes": 8024932352
+    },
+    {
+      "elapsed": 1441,
+      "free_bytes": 7854899200
+    },
+    {
+      "elapsed": 1451,
+      "free_bytes": 7665762304
+    },
+    {
+      "elapsed": 1461,
+      "free_bytes": 7607226368
+    },
+    {
+      "elapsed": 1471,
+      "free_bytes": 7483494400
+    },
+    {
+      "elapsed": 1481,
+      "free_bytes": 7317553152
+    },
+    {
+      "elapsed": 1491,
+      "free_bytes": 7243395072
+    },
+    {
+      "elapsed": 1501,
+      "free_bytes": 7175536640
+    },
+    {
+      "elapsed": 1511,
+      "free_bytes": 7133954048
+    },
+    {
+      "elapsed": 1521,
+      "free_bytes": 7124934656
+    },
+    {
+      "elapsed": 1531,
+      "free_bytes": 7116525568
+    },
+    {
+      "elapsed": 1541,
+      "free_bytes": 7103578112
+    },
+    {
+      "elapsed": 1551,
+      "free_bytes": 7107702784
+    },
+    {
+      "elapsed": 1561,
+      "free_bytes": 7102431232
+    },
+    {
+      "elapsed": 1571,
+      "free_bytes": 7106781184
+    },
+    {
+      "elapsed": 1581,
+      "free_bytes": 6953443328
+    },
+    {
+      "elapsed": 1591,
+      "free_bytes": 6855761920
+    },
+    {
+      "elapsed": 1601,
+      "free_bytes": 6743449600
+    },
+    {
+      "elapsed": 1611,
+      "free_bytes": 6731993088
+    }
+  ],
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/python-full.xml",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/python-full-temp",
+    "-o",
+    "tmp_path_retention_policy=failed",
+    "-o",
+    "tmp_path_retention_count=1"
+  ],
+  "pid": 97166,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": ""
+  },
+  "finished_at": "2026-09-21T15:21:08.087906+00:00",
+  "identity_stable": true
+}

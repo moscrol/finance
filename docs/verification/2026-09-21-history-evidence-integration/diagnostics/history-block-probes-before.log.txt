@@ -1,0 +1,131 @@
+..FFF.........F..                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T104104Z-c827ed74.json
+
+=================================== FAILURES ===================================
+_ test_history_verifier_rejects_forced_decision_qualification_and_wrong_operation _
+
+    def test_history_verifier_rejects_forced_decision_qualification_and_wrong_operation():
+        result = _hashed_result(_payload([_row(0)]))
+        card = next(item for item in result.evidence if item.history_provenance and item.history_provenance.row_index == 0)
+        forced = replace(
+            card,
+            history_provenance=replace(card.history_provenance, decision_eligible=True),
+        )
+        wrong = replace(
+            card,
+            history_provenance=replace(card.history_provenance, operation="inspect_history"),
+        )
+        contract = ResearchTaskContract(
+            task_id="history-negative",
+            question="历史类比",
+            subject="AI行情",
+            subject_kind="theme",
+            question_type="comparison_analog",
+            required_outputs=(
+                RequiredOutput(
+                    "analog_similarities",
+                    "相似点",
+                    ("history_query",),
+                    allowed_history_operations=("find_analogues",),
+                ),
+            ),
+            allowed_capabilities=("finance_query",),
+            task_frame_hash="history-negative",
+        )
+    
+        def outcome(evidence):
+            return AgentOutcome(
+                task_frame_hash="history-negative",
+                status="completed",
+                draft="相似点",
+                evidence=(evidence,),
+                traces=(),
+                gaps=(),
+                stop_reason="model_finish",
+                events=(EpisodeEvent(1, "task", {"task_frame_hash": "history-negative"}),),
+                bindings=(OutputEvidenceBinding("analog_similarities", (evidence.content_hash,)),),
+                usage=AgentUsage(),
+            )
+    
+        missing = replace(card, history_provenance=None)
+        forged = replace(card, history_provenance=replace(card.history_provenance, row_hash="f" * 16))
+        malformed = replace(card, history_provenance={"operation": "find_analogues"})
+        for candidate in (forced, wrong, missing, forged, malformed):
+            verified = verify_episode_outcome(contract, outcome(candidate))
+>           assert any(item.code == IssueCode.HISTORY_OPERATION_UNSUPPORTED for item in verified.issue_items)
+E           assert False
+E            +  where False = any(<generator object test_history_verifier_rejects_forced_decision_qualification_and_wrong_operation.<locals>.<genexpr> at 0x10b3b5d80>)
+
+tests/test_history_evidence_binding.py:239: AssertionError
+__________ test_split_card_only_carries_its_own_visible_observations ___________
+
+    def test_split_card_only_carries_its_own_visible_observations():
+        row = _row(0)
+        row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+        result = _hashed_result(_payload([row]))
+        cards = [card for card in result.evidence if card.history_provenance.row_index == 0]
+        assert len(cards) > 1
+        recovered = {}
+        for card in cards:
+            detail = json.loads(card.detail)
+            visible = detail.get("features", {})
+>           assert {obs.metric: obs.value for obs in card.observations} == visible
+E           AssertionError: assert {'feature_0':...: 1011.0, ...} == {'feature_0':...rn_pct': 12.6}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Left contains 18 more items:
+E             {'feature_10': 1010.0,
+E              'feature_11': 1011.0,
+E              'feature_12': 1012.0,
+E              'feature_13': 1013.0,...
+E             
+E             ...Full output truncated (15 lines hidden), use '-vv' to show
+
+tests/test_history_evidence_binding.py:253: AssertionError
+__________ test_persisted_key_order_does_not_change_chunk_boundaries ___________
+
+    def test_persisted_key_order_does_not_change_chunk_boundaries():
+        row = _row(0)
+        row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+        original = _payload([row])
+        stored = json.loads(json.dumps(original, sort_keys=True))
+        before = _hashed_result(original)
+        after = _hashed_result(stored)
+>       assert [card.content_hash for card in before.evidence] == [card.content_hash for card in after.evidence]
+E       AssertionError: assert ['3c3f2321ba6...48cdb27', ...] == ['3c3f2321ba6...fcf92b8', ...]
+E         
+E         At index 3 diff: 'daf5c7823ad3b748' != 'eb159da75724d017'
+E         Use -v to get more diff
+
+tests/test_history_evidence_binding.py:265: AssertionError
+________ test_same_source_row_keeps_hash_across_query_and_reader_tools _________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1397/test_same_source_row_keeps_has0')
+
+    def test_same_source_row_keeps_hash_across_query_and_reader_tools(tmp_path):
+        from intelligence.tests.test_historical_research_episode import _registry
+    
+        registry, context, session = _registry(tmp_path)
+        query = registry.execute("history_query", {
+            "operation": "compute_history", "start": "2026-08-03", "end": "2026-08-04",
+            "entity_codes": ["A.FP"], "features": ["return_pct", "amount_ratio"],
+        }, context=context, step_id="query")
+        ref = query.telemetry["result_ref"]
+        original = session.read(ref)
+        read = registry.execute("read_history_result", {"result_ref": ref, "offset": 0, "limit": 1},
+                                context=context, step_id="read")
+        def row_cards(result):
+            return [item for item in result.evidence if item.history_provenance.row_index == 0]
+        assert row_cards(query)
+>       assert [item.content_hash for item in row_cards(query)] == [item.content_hash for item in row_cards(read)]
+E       AssertionError: assert ['903e6a96a9a4ffc5'] == ['afa1e0ac33fbe7fe']
+E         
+E         At index 0 diff: '903e6a96a9a4ffc5' != 'afa1e0ac33fbe7fe'
+E         Use -v to get more diff
+
+tests/test_history_evidence_binding.py:309: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_history_verifier_rejects_forced_decision_qualification_and_wrong_operation
+FAILED tests/test_history_evidence_binding.py::test_split_card_only_carries_its_own_visible_observations
+FAILED tests/test_history_evidence_binding.py::test_persisted_key_order_does_not_change_chunk_boundaries
+FAILED tests/test_history_evidence_binding.py::test_same_source_row_keeps_hash_across_query_and_reader_tools
+4 failed, 13 passed in 0.61s

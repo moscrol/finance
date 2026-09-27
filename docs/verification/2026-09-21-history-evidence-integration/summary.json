@@ -1,0 +1,31 @@
+{
+  "revision": "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+  "code_base": "a14005fc9a9d671d178da6fc91be9cb69ae67e77",
+  "main_included": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "python": {
+    "passed": 12635,
+    "skipped": 87,
+    "xfailed": 2,
+    "failed": 0,
+    "errors": 0,
+    "warnings": 17,
+    "seconds": 1178.14
+  },
+  "frontend": {
+    "unit_passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "checks_exit_zero": 6
+  },
+  "checks_exit_zero": 6,
+  "focused_passed": 763,
+  "mutations_caught": 8,
+  "independent_review": "not_performed_on_history_candidate",
+  "finance": {
+    "status": "not_passed_unchanged",
+    "natural_model_calls": 0
+  },
+  "merge_authorized": false,
+  "deploy_authorized": false,
+  "production_write": false
+}

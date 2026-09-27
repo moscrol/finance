@@ -1,0 +1,17 @@
+{
+  "worker.py": "dfef1085b29702314389311595441bde0b7baae9068f80a8a84b9380c73bcd1d",
+  "prepare.py": "6800f748cc91808baee0c730ec4df94fd612c171a6d892d70c85a5e0756716e2",
+  "session.mjs": "b91fec7d9817624e73cfbde125e155d419f14b89ed21ee00db4b35a32dafa855",
+  "bounded-gateway.mjs": "79f065fd51c949d930d3413d255edb0452d5c7d2608c342ff79d83688459080f",
+  "controller.mjs": "22f6feff4e56618af453bdb13019ca1a210123f90dd122b72506f5005aad5ea2",
+  "fixture-upstream.mjs": "26188146f331e667117b228e750ed6c8bf8be916f5dcc02f6fb582aa102d6273",
+  "check_worker.py": "2a6ac38b33898fa026c39c3fd88a948600ac8218242e5fe40751a25af5d62a19",
+  "run_fixture.mjs": "125e3e673b27bedfb1df606b60ca5fb4e54bdf9e64d3cc790cc6a04b304a5b28",
+  "test_boundaries.mjs": "75f6e576a806ea18bd54bd2a5c201363d8756f9a0d3da5a466b89fad92d1aa9d",
+  "spec/config.json": "fe83ea30baeed9563324f040a8ea5153ffc219926c1f045227750f3c5d63ac52",
+  "spec/prompt.md": "9e270323a940f3244e7df0ce25aa19a976c2e1ebc2c1cc6f55476fac1822968a",
+  "spec/tools.sb": "20b69e3bccdd801d6b595b5a245f5ec67a0367242d14093be1b4689711f5561a",
+  "quality/config.json": "9b4d15e61a86598f501d77bbf642e4ac55ade462e7f04624c39bdeb1950269f6",
+  "quality/prompt.md": "da57b74437012944bd9e36d2be762717b1eadf54e4af65770cc03019f07235b6",
+  "quality/tools.sb": "bc9950bb72f1dabef66d9cb0b9ac4831384aabb2ead5a20b4c071208bda2c360"
+}

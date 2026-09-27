@@ -1,0 +1,15 @@
+{
+  "axis": "spec",
+  "root": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/spec",
+  "candidate": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/spec-candidate",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "worker": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/worker.py",
+  "sandbox": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/spec/tools.sb",
+  "prompt": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/spec/prompt.md",
+  "fixture": false,
+  "maxRequests": 24,
+  "deadlineMs": 600000,
+  "finalizeAfter": 17,
+  "finalizeMs": 400000,
+  "revision": "fedce252330dce1065238f58e6c914417219ec53"
+}

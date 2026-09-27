@@ -1,0 +1,134 @@
+"""Seal one pinned integration run, preserving original failures and gate scope.
+
+One-off evidence packer for this revision, not a new test runner or a release gate.
+Raw full JUnit remains external with its digest; small diagnostics are Git blobs.
+"""
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+SHA = 'f73d2133968d51d3c782d3e12ee9aa4d0618ef45'
+MAIN = '028a251a1b2ca98245326a6b59376f4f7f8e5e81'
+OLD = '7249378a5bdb9b01cc62ec3bca13af3149bd48df'
+ARCHIVE = TREE / 'docs/verification/2026-09-21-history-main-revalidation'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+
+def dump(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+
+def junit(path):
+    root = ET.parse(path).getroot()
+    cases = root.findall('.//testcase')
+    identities = Counter((c.get('classname'), c.get('name')) for c in cases)
+    skips = Counter((c.get('classname'), c.get('name'), s.get('type'), s.get('message'), s.text or '')
+                    for c in cases for s in c.findall('skipped'))
+    return {'cases': len(cases), 'passed': sum(not any(c.find(t) is not None for t in ('failure', 'error', 'skipped')) for c in cases),
+            'failures': len(root.findall('.//failure')), 'errors': len(root.findall('.//error')),
+            'skipped_types': dict(Counter(s.get('type') for s in root.findall('.//skipped'))),
+            'sha256': digest(path)}, identities, skips
+
+
+def copy(source, target):
+    target.parent.mkdir(parents=True, exist_ok=True)
+    assert not target.exists(), target
+    shutil.copyfile(source, target)
+    assert digest(source) == digest(target)
+
+
+def main():
+    assert git('rev-parse', 'HEAD') == SHA and not git('status', '--porcelain')
+    assert git('merge-base', SHA, MAIN) == MAIN
+    current, ids, skips = junit(ROOT / 'python-full.xml')
+    previous, prior_ids, prior_skips = junit(ROOT.parent / 'history-authority/python-full.xml')
+    assert not current['failures'] and not current['errors']
+    assert current['skipped_types'] == {'pytest.skip': 87, 'pytest.xfail': 2}
+    added, removed = ids - prior_ids, prior_ids - ids
+    assert not removed and skips == prior_skips
+    dump(ROOT / 'junit-comparison.json', {'revision': SHA, 'previous_revision': OLD,
+        'current': current, 'previous': previous, 'added': [list(k) + [v] for k, v in sorted(added.items())],
+        'removed': [], 'skip_xfail_names_types_reasons_equal': True})
+    full = load(ROOT / 'python-full-execution.json')
+    assert full['exit_code'] == 0 and full['identity_stable']
+    assert full['identity_before'] == full['identity_after'] == {'revision': SHA, 'status': ''}
+    assert not full.get('low_disk') and not full.get('timed_out')
+    log = (ROOT / 'python-full.log').read_text()
+    source = re.findall(r'/Users/a77/\.finance-runtime/test-receipts/[A-Za-z0-9-]+\.json', log)[-1]
+    receipt = load(Path(source))
+    assert receipt['revision'] == SHA and not receipt['dirty']
+    assert receipt['counts']['passed'] == current['passed']
+    assert receipt['counts'].get('failed', 0) == receipt['counts'].get('error', 0) == 0
+    checks = {}
+    for label in ('focused', 'ruff', 'registry-parse', 'registry-check', 'registry-tables', 'registry-views',
+                  'crosswalk', 'replay', 'precommit', 'receipt-exact', 'receipt-drift', 'mutations-run'):
+        rec = load(ROOT / (label + '-execution.json'))
+        assert rec['identity_stable'] and rec['exit_code'] == 0, label
+        assert all(rec[side]['revision'] == SHA and rec[side]['status'] == '' for side in ('identity_before', 'identity_after'))
+        checks[label] = {'exit_code': 0, 'log_sha256': digest(ROOT / (label + '.log'))}
+    front = load(ROOT / 'frontend/frontend.json')
+    assert front['revision'] == SHA and front['complete'] and front['identity_stable'] and not front['dirty']
+    assert front['exit_code'] == 0 and len(front['checks']) == 6
+    for rec in front['checks']:
+        path = ROOT / 'frontend' / rec['log']
+        assert rec['exit_code'] == 0 and rec['log_bytes'] == path.stat().st_size and rec['log_sha256'] == digest(path)
+    mutations = load(ROOT / 'mutations/summary.json')
+    assert mutations['all_caught'] and mutations['revision'] == SHA and len(mutations['mutations']) == 7
+    for row in mutations['mutations']:
+        root = ET.parse(ROOT / 'mutations' / (row['mutation'] + '.xml')).getroot()
+        assert row['exit_code'] == 1 and root.findall('.//failure') and not root.findall('.//error')
+        assert all('assert' in f.get('message', '') or 'DID NOT RAISE' in f.get('message', '') for f in root.findall('.//failure'))
+    replay = load(ROOT / 'replay.log')
+    assert replay['visited_rows'] == 225 and replay['strict_restored_cards'] == 905 and replay['natural_model_calls'] == 0
+    assert all(replay[k] for k in ('initial_projection_equals_authorized_reader', 'overlapping_page_hashes_equal',
+                                  'all_features_equal_to_source', 'original_unchanged'))
+    assert digest(Path(replay['source'])) == replay['source_sha256']
+    summary = {'revision': SHA, 'first_parent': git('rev-parse', SHA + '^1'), 'main_included': MAIN,
+        'main_observed': git('rev-parse', 'gitea/main'), 'python': current,
+        'python_summary': log.splitlines()[-1], 'added_test_count': sum(added.values()),
+        'focused_passed': 370, 'frontend': {'unit_passed': 110, 'e2e_passed': 34, 'e2e_skipped': 2},
+        'checks': checks, 'mutations': mutations, 'crosswalk_reverse_warnings': 98,
+        'candidate_engineering': 'passed', 'main_tip_batch_gate': 'not_run_not_merged',
+        'independent_review': 'not_performed', 'natural_finance': 'not_passed_unchanged', 'natural_model_calls': 0,
+        'merged_to_main': False, 'deployed': False, 'production_write': False,
+        'min_disk_free_bytes': min(s['free_bytes'] for s in full['disk_free_samples'])}
+    dump(ROOT / 'summary.json', summary)
+    ARCHIVE.mkdir(exist_ok=False)
+    for path in sorted(ROOT.iterdir()):
+        if not path.is_file() or path.name == 'python-full.xml':
+            continue
+        target = ('scripts/' + path.name + '.txt') if path.suffix == '.py' else path.name + '.txt' if path.suffix in ('.log', '.xml') else path.name
+        copy(path, ARCHIVE / target)
+    copy(Path(source), ARCHIVE / 'python-full-receipt.json')
+    for directory in ('frontend', 'mutations'):
+        for path in sorted((ROOT / directory).iterdir()):
+            if path.is_file():
+                copy(path, ARCHIVE / directory / (path.name + '.txt' if path.suffix == '.xml' else path.name))
+    copy(ROOT.parent / 'space-cleanup-20260921.json', ARCHIVE / 'space-cleanup.json')
+    copy(ROOT.parent / 'history-authority/cleanup_owned.py', ARCHIVE / 'scripts/cleanup_owned.py.txt')
+    copy(ROOT.parent / 'replay_history_identity.py', ARCHIVE / 'scripts/replay_history_identity.py.txt')
+    external = [ROOT / 'python-full.xml', ROOT.parent / 'history-authority/python-full.xml', Path(replay['source'])]
+    (ARCHIVE / 'EXTERNAL-SHA256SUMS').write_text(''.join(f'{digest(p)}  {p}\n' for p in external))
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

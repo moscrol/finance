@@ -1,0 +1,38 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/memory-writeback/scripts/graph_audit.py",
+    "--repos-root",
+    "/Users/a77"
+  ],
+  "identity_before": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T13:52:06.627317+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 9510596608
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 9510629376
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 9510621184
+    }
+  ],
+  "pid": 36837,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T13:52:12.719947+00:00",
+  "identity_stable": true
+}
