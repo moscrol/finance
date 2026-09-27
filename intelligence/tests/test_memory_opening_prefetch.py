@@ -12,7 +12,7 @@ import pytest
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.runtime.conversation_orchestrator import ConversationContext, TurnOrchestrator
-from intelligence.services import corrections, episode_tools, memory_prefetch, user_memory
+from intelligence.services import corrections, episode_tools, judgments, memory_prefetch, user_memory
 from intelligence.services.agent_research import AgentEvidence, evidence_content_hash
 from intelligence.services.agent_runtime import ModelTurn
 from intelligence.services.conversation_store import ConversationStore, Message
@@ -79,6 +79,56 @@ def test_hit_has_same_hash_as_explicit_tool(tmp_path, frame):
     assert "客户验证进度" in item.detail
     explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="probe")
     assert item.content_hash == explicit.evidence[0].content_hash
+
+
+def test_memory_budget_is_shared_and_prioritizes_corrections(tmp_path, frame, monkeypatch):
+    root = tmp_path / "users" / "alice"
+    for index in range(5):
+        judgments.record_judgment(
+            root / "judgments.jsonl", memo=f"旧判断{index}：" + "只看产能。" * 2000,
+            themes=["甲公司"], ts=f"2026-07-0{index + 1}T00:00:00+00:00",
+        )
+        corrections.record_correction(
+            root / "corrections.jsonl", correction=f"新纠偏{index}：先看客户验证。" + "不能只看产能。" * 2000,
+            themes=["甲公司"], ts=f"2026-07-1{index + 1}T00:00:00+00:00",
+        )
+    monkeypatch.setattr(user_memory, "_method_records", lambda *a, **kw: [{
+        "detail": "甲公司方法验证读数：" + "需真实前向验证。" * 2000,
+        "date": "2026-07-20", "method_id": "fixture-method",
+    }])
+    originals = {path: path.read_bytes() for path in root.glob("*.jsonl")}
+
+    registry, context = registry_for(tmp_path, frame)
+    explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="bounded")
+
+    # This is the returned recall text budget, including notice text and titles.
+    assert len(explicit.observation) <= 6000
+    assert all(len(item.detail) <= 1000 for item in explicit.evidence)
+    assert "截断" in explicit.observation and "省略" in explicit.observation
+    assert explicit.evidence[0].title == "用户纠偏原则"
+    assert "新纠偏4" in explicit.evidence[0].detail
+    assert sum(item.title == "用户纠偏原则" for item in explicit.evidence) == 5
+    assert [item.content_hash for item in registry.opening_prefetch] == [
+        item.content_hash for item in explicit.evidence
+    ]
+    assert all(item.content_hash == evidence_content_hash(item) for item in explicit.evidence)
+    assert {path: path.read_bytes() for path in originals} == originals
+
+
+def test_single_method_memory_is_also_bounded(tmp_path, frame, monkeypatch):
+    monkeypatch.setattr(user_memory, "_method_records", lambda *a, **kw: [{
+        "detail": "甲公司方法验证读数：" + "需真实前向验证。" * 2000,
+        "date": "2026-07-20", "method_id": "fixture-method",
+    }])
+    registry, context = registry_for(tmp_path, frame)
+    explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="method")
+    method = next(item for item in explicit.evidence if item.title == "方法验证读数")
+    assert len(method.detail) <= 1000
+    assert "截断" in method.detail
+    assert len(explicit.observation) <= 6000
+    assert [item.content_hash for item in registry.opening_prefetch] == [
+        item.content_hash for item in explicit.evidence
+    ]
 
 
 def test_cross_user_empty_and_no_identity_never_reads_default(tmp_path, frame, monkeypatch):
@@ -266,6 +316,52 @@ def test_opening_memory_does_not_use_undated_legacy_note_for_explicit_cutoff(fra
     assert opening[0].evidence_tier == "user_memory_gap"
     assert "status=date_unavailable" in opening[0].detail
     assert "无日期记忆" not in opening[0].detail
+
+
+def test_historical_cutoff_discloses_partial_undated_omission(frame):
+    context = build_episode_context(
+        frame, task_id="opening-mixed-dates", capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+    dated = AgentEvidence(
+        tool="memory_lookup", title="有日期记忆", detail="先核验客户进度",
+        source="private-ledger", source_date="2026-07-23", evidence_tier="user_memory",
+    )
+    undated = replace(dated, title="无日期记忆", detail="不可泄露的无日期原文", source_date=None)
+    opening = memory_prefetch.collect_opening_memory(
+        lambda _query, _tool_context: _scripted_memory_result(dated, undated),
+        query=frame.raw_question, context=context,
+    )
+    assert any(item.detail == dated.detail for item in opening)
+    assert any(item.evidence_tier == "user_memory_gap" and "status=date_unavailable" in item.detail for item in opening)
+    assert all(undated.detail not in item.detail for item in opening)
+
+
+def test_explicit_historical_memory_uses_same_filtered_projection(tmp_path, frame):
+    path = tmp_path / "users" / "alice" / "corrections.jsonl"
+    corrections.record_correction(
+        path, correction="甲公司应先核验客户进度", themes=["甲公司"], ts="2026-07-23T00:00:00+00:00",
+    )
+    corrections.record_correction(
+        path, correction="甲公司未来才出现的纠偏" * 2000, themes=["甲公司"], ts="2026-07-25T00:00:00+00:00",
+    )
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"correction": "甲公司不可泄露的无日期原文", "themes": ["甲公司"]}) + "\n")
+    context = build_episode_context(
+        frame, task_id="explicit-mixed-dates", capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path / "finance", knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None, memory_user="alice",
+    )
+    explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="dated")
+    assert "先核验客户进度" in explicit.observation
+    assert "status=date_unavailable" in explicit.observation
+    assert "不可泄露" not in explicit.observation and "未来才出现" not in explicit.observation
+    assert [item.content_hash for item in registry.opening_prefetch] == [
+        item.content_hash for item in explicit.evidence
+    ]
 
 
 @pytest.mark.parametrize("source", ["runtime_default", "latest_available"])

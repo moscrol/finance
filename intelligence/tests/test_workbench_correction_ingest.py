@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 from pathlib import Path
+from threading import BrokenBarrierError
 
 import pytest
 
@@ -11,7 +13,7 @@ from intelligence.runtime.conversation_orchestrator import (
     previous_completed_assistant_message,
     workbench_correction_guard_reason,
 )
-from intelligence.services import workbench_correction_ingest
+from intelligence.services import corrections, workbench_correction_ingest
 from intelligence.services.conversation_store import ConversationStore, Message
 from intelligence.services.run_store import RunStore
 
@@ -106,6 +108,13 @@ def test_engineering_text_is_not_written(tmp_path: Path, previous_answer) -> Non
         "明天应该会继续涨吧",
         "我觉得这个板块应该还有一波",
         "那应该是什么原因导致的?",
+        "我觉得应该是情绪退潮了",
+        "今天应该是科技股领涨",
+        "这波应为正常的技术回调",
+        "不是退潮，是主线切换",
+        "不是放量上涨，是缩量反弹",
+        "你觉得应该是科技股领涨",
+        "这里应该是情绪退潮了",
     ],
 )
 def test_follow_up_question_or_guess_is_not_a_correction(
@@ -129,18 +138,23 @@ def test_follow_up_question_or_guess_is_not_a_correction(
 
 
 @pytest.mark.parametrize(
-    "user_text,correction",
+    "user_text,correction,prior_content",
     [
-        ("你刚才说双红就能上，不对，应该先看容量", "先看容量"),
-        ("错了，应为先看客户验证进度", "先看客户验证进度"),
-        ("你理解错了，这里应为先看订单再看产能", "先看订单再看产能"),
-        ("这里应该是先看客户验证进度再谈弹性", "先看客户验证进度再谈弹性"),
-        ("不是产能公告，是客户验证进度", "客户验证进度"),
+        ("你刚才说双红就能上，不对，应该先看容量", "先看容量", None),
+        ("错了，应为先看客户验证进度", "先看客户验证进度", None),
+        ("你理解错了，这里应为先看订单再看产能", "先看订单再看产能", None),
+        ("这里应该是先看客户验证进度再谈弹性", "先看客户验证进度再谈弹性", None),
+        ("你刚才的回答应该是先看客户验证进度", "先看客户验证进度", None),
+        ("上一条应为先核验订单再讨论弹性", "先核验订单再讨论弹性", None),
+        # The replacement form has an actual target in the previous answer.
+        ("不是产能公告，是客户验证进度", "客户验证进度", "判断依据是产能公告。"),
     ],
 )
 def test_design_payload_forms_still_write(
-    tmp_path: Path, previous_answer, user_text: str, correction: str
+    tmp_path: Path, previous_answer, user_text: str, correction: str, prior_content: str | None
 ) -> None:
+    if prior_content is not None:
+        previous_answer = {**previous_answer, "content": prior_content}
     path = tmp_path / "corrections.jsonl"
     result = workbench_correction_ingest.maybe_record_workbench_correction(
         path,
@@ -177,6 +191,84 @@ def test_duplicate_within_24_hours_is_skipped(tmp_path: Path, previous_answer) -
     assert second.status == "skipped"
     assert second.reason == "dedup"
     assert len(path.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def _concurrent_correction(path, previous_answer, start, after_read, results) -> None:
+    # Rendezvous immediately after the real ledger read. Without an enclosing
+    # cross-process lock both writers necessarily inspect the same empty ledger.
+    real_load = corrections.load_corrections
+
+    def synchronized_load(*args, **kwargs):
+        result = real_load(*args, **kwargs)
+        try:
+            after_read.wait(timeout=2)
+        except BrokenBarrierError:
+            pass  # A correct lock keeps the other process outside this read.
+        return result
+
+    corrections.load_corrections = synchronized_load
+    start.wait(timeout=10)
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path,
+        user_text="不对，应该先看板块容量再下结论",
+        previous_assistant=previous_answer,
+        conversation_id="conv-concurrent",
+        corrected_message_id="msg-answer-1",
+        ts="2026-09-25T02:00:00+00:00",
+    )
+    results.put((result.status, result.reason))
+
+
+def test_duplicate_is_atomic_across_processes(tmp_path, previous_answer) -> None:
+    path = tmp_path / "corrections.jsonl"
+    ctx = multiprocessing.get_context("spawn")
+    start, after_read, results = ctx.Barrier(2), ctx.Barrier(2), ctx.Queue()
+    processes = [
+        ctx.Process(
+            target=_concurrent_correction,
+            args=(path, previous_answer, start, after_read, results),
+        )
+        for _ in range(2)
+    ]
+    try:
+        for process in processes:
+            process.start()
+        received = [results.get(timeout=15) for _ in processes]
+        for process in processes:
+            process.join(timeout=5)
+            assert process.exitcode == 0
+        assert sorted(received) == [("recorded", "recorded"), ("skipped", "dedup")]
+        assert len(path.read_text(encoding="utf-8").splitlines()) == 1
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+        results.close()
+
+
+def test_dedup_read_failure_is_fail_open(tmp_path, previous_answer, monkeypatch) -> None:
+    def failed_read(*args, **kwargs):
+        raise OSError("private ledger unavailable")
+
+    monkeypatch.setattr(corrections, "load_corrections", failed_read)
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        tmp_path / "corrections.jsonl",
+        user_text="不对，应该先看板块容量再下结论",
+        previous_assistant=previous_answer,
+        conversation_id="conv-1",
+        corrected_message_id="msg-answer-1",
+    )
+    assert result.status == "failed"
+    assert result.reason == "write_failed"
+    assert result.error_type == "OSError"
+
+
+def test_manual_writer_still_records_repeated_explicit_requests(tmp_path) -> None:
+    path = tmp_path / "corrections.jsonl"
+    for _ in range(2):
+        corrections.record_correction(path, correction="先核验订单再看产能")
+    assert len(path.read_text(encoding="utf-8").splitlines()) == 2
 
 
 def test_runtime_finds_completed_assistant_not_latest_intent_message() -> None:

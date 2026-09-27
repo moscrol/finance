@@ -1937,6 +1937,8 @@ def build_episode_registry(
             query: str,
             tool_context: agent_research.AgentToolContext,
         ):
+            from intelligence.services.memory_prefetch import project_memory_evidence
+
             tool_context.check_cancelled()
             recall = user_memory.relevant_memory_records(
                 query,
@@ -2034,22 +2036,25 @@ def build_episode_registry(
                     )
                 )
             tool_context.check_cancelled()
+            projected = project_memory_evidence(
+                tuple(evidence), information_cutoff=tool_context.information_cutoff,
+            )
             observation = (
-                "；".join(f"{item.title}：{item.detail}" for item in evidence)
+                "；".join(f"{item.title}：{item.detail}" for item in projected)
                 or "用户记忆无相关命中（该题材/标的此前没有留下判断或纠偏）"
             )
             trace = ProviderTrace(
                 provider="episode:memory_lookup",
                 capability="memory_lookup",
-                status="success" if evidence else "empty",
+                status="success" if projected else "empty",
                 detail=query[:120],
-                result_count=len(evidence),
+                result_count=len(projected),
             )
             return ToolRunResult(
-                evidence=tuple(evidence),
+                evidence=projected,
                 observation=observation,
                 trace=trace,
-                gaps=() if evidence else ("用户记忆中没有与本题相关的历史判断",),
+                gaps=() if projected else ("用户记忆中没有与本题相关的历史判断",),
             )
 
         memory_opening_runner = memory_lookup_runner

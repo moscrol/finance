@@ -5783,6 +5783,14 @@ def _cited_outside_slot_binding_indexes(
     return tuple(flagged)
 
 
+def _can_support_market_quantity(item: AgentEvidence) -> bool:
+    # Match the structural verifier's authority boundary. A bound user prior
+    # (or machine-shaped value attached to one) does not become a market fact.
+    return item.tool != "memory_lookup" and item.evidence_tier not in {
+        "user_memory", "user_memory_gap",
+    }
+
+
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
     bound_hashes = {
         content_hash
@@ -5792,7 +5800,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
     fields: list[str] = []
     currency_quantities: set[str] = set()
     for item in outcome.evidence:
-        if item.content_hash not in bound_hashes:
+        if item.content_hash not in bound_hashes or not _can_support_market_quantity(item):
             continue
         # Bind the field's explicit currency unit before normalizing its value.
         # Bare numbers, unknown fields and share counts cannot authorize money.
@@ -5830,6 +5838,8 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
     # 只放宽到结构化值，不放宽到未绑定证据的**文本**：前者是机器可核的投递物，
     # 后者仍需引用卫生把关。
     for item in outcome.evidence:
+        if not _can_support_market_quantity(item):
+            continue
         for obs in item.observations:
             token = _normalize_quantity(f"{obs.value:g}")
             if token:
@@ -5860,6 +5870,8 @@ def _bound_observation_values(outcome: AgentOutcome) -> frozenset[str]:
 
     values: set[str] = set()
     for item in outcome.evidence:
+        if not _can_support_market_quantity(item):
+            continue
         for obs in item.observations:
             token = _normalize_quantity(f"{obs.value:g}")
             if token:

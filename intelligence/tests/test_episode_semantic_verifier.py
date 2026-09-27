@@ -1679,6 +1679,57 @@ def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> 
     assert all("3870点" not in item for item in first_sentences)
 
 
+@pytest.mark.parametrize("tool,tier,structured,bound,market_support", [
+    ("memory_lookup", "user_memory", False, True, False),
+    ("memory_lookup", "user_memory", True, True, False),
+    ("market_data", "user_memory", True, True, False),
+    ("memory_lookup", "", True, True, False),
+    ("memory_lookup", "user_memory_gap", True, False, False),
+    ("memory_lookup", "user_memory", True, True, True),
+])
+def test_memory_numbers_cannot_authorize_market_conditions(
+    tool, tier, structured, bound, market_support,
+) -> None:
+    prior = "你曾记录的指数观察位是3870点（E2）。" if bound else ""
+    condition = "若指数跌破3870点则行情失效。"
+    observation = StructuredObservation(
+        subject="上证指数", as_of="2026-07-22", metric="close", value=3870.0,
+    )
+    frame, baseline = _structural(
+        prior + "当前市场结构仍需验证。" + condition,
+        observations=(observation,) if market_support else (),
+    )
+    memory = AgentEvidence(
+        tool=tool, title="用户历史判断", source="用户记忆，先验而非市场事实",
+        detail="此前的观察线=3870" if structured else "此前的观察位是3870点",
+        evidence_tier=tier, source_date="2026-07-21", content_hash="USER_MEMORY_HASH",
+        observations=(observation,) if structured else (),
+    )
+    contract = replace(
+        baseline.contract,
+        allowed_capabilities=("market_data", "memory_lookup"),
+        required_outputs=(*baseline.contract.required_outputs, RequiredOutput(
+            "prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise",
+        )),
+    )
+    outcome = replace(
+        baseline.outcome, evidence=(*baseline.outcome.evidence, memory),
+        bindings=(*baseline.outcome.bindings, OutputEvidenceBinding(
+            "prior_recall", (memory.content_hash,) if bound else (), basis="user_premise",
+        )),
+    )
+    structural = verify_episode_outcome(contract, outcome)
+    assert structural.verified_status == "completed"
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert (condition in result.public_answer) is market_support
+    assert (condition in result.verified.outcome.draft) is market_support
+    if bound:
+        assert prior in result.public_answer
+
+
 def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     judge = _judge(True)
     frame, structural = _structural(

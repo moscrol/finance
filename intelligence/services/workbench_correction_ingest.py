@@ -8,6 +8,7 @@ answer rather than a market comment.
 
 from __future__ import annotations
 
+import fcntl
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -41,7 +42,13 @@ _ENGINEERING_TERMS = (
     "合入",
     "强推",
 )
-_REFERENCE_TERMS = ("你", "刚才", "上一条", "这个回答", "上一篇", "你说")
+_ANSWER_REFERENCE_PATTERN = re.compile(
+    r"你(?:刚才|上次|之前)?(?:的)?(?:说|提到|写|判断|理解|回答)|"
+    r"(?:刚才|上次|之前)(?:的)?(?:回答|说法|判断|结论)|"
+    r"上一(?:条|轮)(?:回答|回复)?|这个回答|上一篇"
+)
+_LOCAL_METHOD_REFERENCE_PATTERN = re.compile(r"(?:这里|这一步|这一点)\s*$")
+_METHOD_PAYLOAD_PATTERN = re.compile(r"先(?:看|核验|核实|确认|验证|检查|区分|比较|分析)")
 _MARKET_INDICATOR_PATTERN = re.compile(
     r"(?:这波|这轮|今天|大盘|行情|这只|它)$",
 )
@@ -122,18 +129,32 @@ def _is_market_commentary(text: str) -> bool:
         return False
     left = text[: match.start()]
     left = re.sub(r"[\s，,：:]+$", "", left)
-    if any(term in left for term in _REFERENCE_TERMS):
+    if _ANSWER_REFERENCE_PATTERN.search(left):
         return False
     return bool(_MARKET_INDICATOR_PATTERN.search(left))
 
 
-def _extract_correction(text: str) -> str | None:
+def _extract_correction(text: str, previous_content: str) -> str | None:
     for pattern in _PAYLOAD_PATTERNS:
         match = pattern.search(text)
         if match is None:
             continue
         correction = _trim_payload(match.group("correction"))
-        if correction:
+        prefix = text[: match.start()]
+        wrong = _compact(match.groupdict().get("wrong")).strip("「」『』\"'“”")
+        # Payload wording alone also describes a market opinion. Require an
+        # answer target: explicit denial/reference, or A actually in the answer.
+        # "这里应该是先看…" is a local method correction; "这里应该是退潮" isn't.
+        targets_answer = (
+            _DENIAL_PATTERN.search(text[: match.start("correction")])
+            or _ANSWER_REFERENCE_PATTERN.search(prefix)
+            or (wrong and wrong in _compact(previous_content))
+            or (
+                _LOCAL_METHOD_REFERENCE_PATTERN.search(prefix)
+                and _METHOD_PAYLOAD_PATTERN.match(correction)
+            )
+        )
+        if correction and targets_answer:
             return correction
     return None
 
@@ -156,7 +177,9 @@ def _within_dedup_window(
     correction: str,
     now: datetime,
 ) -> bool:
-    records, _ = corrections.load_corrections(path, window=0)
+    records, warning = corrections.load_corrections(path, window=0, strict=True)
+    if warning:
+        raise OSError("correction ledger unavailable")
     normalized = _compact(correction)
     for record in records:
         if _compact(record.get("correction")) != normalized:
@@ -206,7 +229,7 @@ def maybe_record_workbench_correction(
     if _QUESTION_PATTERN.search(text):
         return CorrectionIngestResult("skipped", "no_payload")
 
-    correction = _extract_correction(text)
+    correction = _extract_correction(text, previous_content)
     if not correction:
         return CorrectionIngestResult("skipped", "no_payload")
     if _is_market_commentary(text):
@@ -217,21 +240,26 @@ def maybe_record_workbench_correction(
     now = _parse_timestamp(record_ts)
     if now is None:
         return CorrectionIngestResult("failed", "write_failed", error_type="invalid_timestamp")
-    if _within_dedup_window(target, correction, now):
-        return CorrectionIngestResult("skipped", "dedup")
-
     try:
-        _, record = corrections.record_correction(
-            target,
-            correction=correction,
-            original=previous_content[:240],
-            themes=list(themes),
-            ts=record_ts,
-            source="workbench_conversation",
-            conversation_id=conversation_id,
-            corrected_message_id=corrected_message_id or previous_id,
-            plane="user_method",
-        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # One inode lock covers both checking and the canonical append. A local
+        # threading lock would still race between Workbench worker processes.
+        # Closing this handle releases the lock on success, skip, and failure.
+        with target.open("a", encoding="utf-8") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if _within_dedup_window(target, correction, now):
+                return CorrectionIngestResult("skipped", "dedup")
+            _, record = corrections.record_correction(
+                target,
+                correction=correction,
+                original=previous_content[:240],
+                themes=list(themes),
+                ts=record_ts,
+                source="workbench_conversation",
+                conversation_id=conversation_id,
+                corrected_message_id=corrected_message_id or previous_id,
+                plane="user_method",
+            )
     except Exception as exc:  # fail-open is completed by the runtime caller
         return CorrectionIngestResult(
             "failed",
