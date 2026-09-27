@@ -480,7 +480,7 @@ _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
 #
 # 只加 max 档：quick / standard / deep 的窗与帽一字不变（standard 地板 50、deep
 # 48×50/48=50 仍由上面两条钉住）。收据 ~/.finance-runtime/glm-ceiling-20260907/。
-_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 75.0
+_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 120.0  # EXPERIMENT 2026-09-27: glm-5.3 judge measured 93 s on the 47-claim Knevo payload; not for merge
 _MAX_TIER_JUDGE_WINDOW_FLOOR = 2.0 * _MAX_TIER_JUDGE_ATTEMPT_SECONDS
 
 
