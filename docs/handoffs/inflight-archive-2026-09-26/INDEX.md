@@ -211,3 +211,11 @@
 |---|---|---|---|
 | [`feat-claim-scope-runtime-0923.md`](./feat-claim-scope-runtime-0923.md) | A | 合入 PR #890 · 2026-09-27 · 4c04bb185 | 2684 |
 | [`fix-backfill-302132-0923.md`](./fix-backfill-302132-0923.md) | A | 合入 PR #813 · 2026-09-27 · 34dd58468；生产回填 run bca04f90362f（37/37） | 2400 |
+
+## 2026-09-27 追加（接手收尾第四批）
+
+#877 合入后其在途交接失效；判据同上。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`feat-knevo-absorption-closure-0923.md`](./feat-knevo-absorption-closure-0923.md) | A | 合入 PR #877 · 2026-09-27 · 4c111aa1d | 2387 |

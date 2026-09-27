@@ -623,3 +623,53 @@ def test_memory_cannot_fill_fact_slot_or_turn_gap_into_prior(tmp_path, frame, ti
             ]},
             context=replace(context, contract=contract), evidence=(item,),
         )
+
+
+
+def test_prior_recall_bound_only_to_the_gap_becomes_a_disclosed_gap(tmp_path, frame):
+    """2026-09-27 生产 2/2：写手把记忆缺口条目当 user_premise 绑到 prior_recall，整稿被拒后降级。
+    合同本意是写 binding.gap；只引用缺口条目的 prior_recall 按此改写，不把缺口变成先验。"""
+    from intelligence.services.episode_protocol import validate_episode_finish
+    from intelligence.services.research_contract import RequiredOutput
+
+    _, context = registry_for(tmp_path, frame)
+    contract = replace(context.contract, required_outputs=(
+        RequiredOutput("direct_assessment", "判断", ("market_data",)),
+        RequiredOutput("prior_recall", "用户先验", ("memory_lookup",), required=False, grounding_mode="user_premise"),
+    ))
+    gap = AgentEvidence(tool="memory_lookup", title="用户记忆缺口", detail="status=empty", source="fixture",
+                        evidence_tier="user_memory_gap", content_hash="gap-hash")
+    fact = AgentEvidence(tool="market_data", title="行情", detail="收跌 4.17%", source="fixture", content_hash="fact-hash")
+    finish = validate_episode_finish(
+        {"status": "completed", "draft": "长电科技当日收跌4.17%。", "gaps": [], "bindings": [
+            {"output_id": "direct_assessment", "basis": "evidence", "evidence_hashes": [fact.content_hash], "gap": ""},
+            {"output_id": "prior_recall", "basis": "user_premise", "evidence_hashes": [gap.content_hash], "gap": ""},
+        ]},
+        context=replace(context, contract=contract), evidence=(gap, fact),
+    )
+    recall = next(b for b in finish.bindings if b.output_id == "prior_recall")
+    assert recall.evidence_hashes == ()
+    assert recall.gap == "用户记忆无相关命中"
+    assert recall.basis == "user_premise"
+
+
+def test_prior_recall_mixing_gap_and_real_memory_is_still_rejected(tmp_path, frame):
+    from intelligence.services.episode_protocol import validate_episode_finish
+    from intelligence.services.research_contract import RequiredOutput
+
+    _, context = registry_for(tmp_path, frame)
+    contract = replace(context.contract, required_outputs=(
+        RequiredOutput("prior_recall", "用户先验", ("memory_lookup",), required=False, grounding_mode="user_premise"),
+    ))
+    gap = AgentEvidence(tool="memory_lookup", title="用户记忆缺口", detail="status=empty", source="fixture",
+                        evidence_tier="user_memory_gap", content_hash="gap-hash")
+    memory = AgentEvidence(tool="memory_lookup", title="用户判断", detail="看好封测", source="fixture",
+                           evidence_tier="user_memory", content_hash="memory-hash")
+    with pytest.raises(ValueError, match="用户记忆只能绑定"):
+        validate_episode_finish(
+            {"status": "completed", "draft": "用户此前看好封测。", "gaps": [], "bindings": [
+                {"output_id": "prior_recall", "basis": "user_premise",
+                 "evidence_hashes": [gap.content_hash, memory.content_hash], "gap": ""},
+            ]},
+            context=replace(context, contract=contract), evidence=(gap, memory),
+        )
