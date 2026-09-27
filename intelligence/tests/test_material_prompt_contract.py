@@ -167,3 +167,46 @@ def test_material_pack_floor_joins_the_repair_cap_but_env_override_still_wins():
     assert with_rewrite_floor(40.0, 0, floor_seconds=150.0, env={}) == 150.0
     assert with_rewrite_floor(40.0, 0, floor_seconds=0.0, env={}) == 40.0
     assert with_rewrite_floor(40.0, 0, floor_seconds=150.0, env={"ASK_REPAIR_SECONDS_CAP": "40"}) == 40.0
+
+
+def test_material_pack_writer_is_glm53_only_on_glm53_deployments(monkeypatch):
+    from intelligence.services.material_delivery import material_pack_writer_model
+
+    frame, context = context_for(PACKS[0])
+    ordinary = replace(context, contract=replace(context.contract, material_contract=None))
+    monkeypatch.delenv("MATERIAL_PACK_WRITER_MODEL", raising=False)
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_MODEL", "glm-5.3-flash")
+    assert material_pack_writer_model(context.contract) == "glm-5.3"
+    assert material_pack_writer_model(ordinary.contract) is None
+    # 别家 provider 不被硬塞 GLM 模型名
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_MODEL", "gpt-5.6-sol")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    assert material_pack_writer_model(context.contract) is None
+    # 显式配置优先：指定模型 / 关掉
+    monkeypatch.setenv("MATERIAL_PACK_WRITER_MODEL", "glm-5.2")
+    assert material_pack_writer_model(context.contract) == "glm-5.2"
+    monkeypatch.setenv("MATERIAL_PACK_WRITER_MODEL", "off")
+    assert material_pack_writer_model(context.contract) is None
+
+
+def test_episode_run_scopes_the_material_pack_writer(monkeypatch):
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.services import llm_refine
+
+    monkeypatch.delenv("MATERIAL_PACK_WRITER_MODEL", raising=False)
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_MODEL", "glm-5.3-flash")
+    frame, context = context_for(PACKS[0])
+    ordinary = replace(context, contract=replace(context.contract, material_contract=None))
+    seen: list[object] = []
+
+    class Drive:
+        def run_to_end(self):
+            seen.append(llm_refine.writer_model_override())
+            return "outcome"
+
+    episode = ContinuousAgentEpisode(object(), llm_timeout=75.0)
+    monkeypatch.setattr(episode, "manual_drive", lambda **_kwargs: Drive())
+    assert episode.run(task_frame=frame, context=context, registry=None) == "outcome"
+    assert episode.run(task_frame=frame, context=ordinary, registry=None) == "outcome"
+    assert seen == ["glm-5.3", None]
+    assert llm_refine.writer_model_override() is None

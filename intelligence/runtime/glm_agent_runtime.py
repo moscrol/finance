@@ -212,7 +212,7 @@ class GLMModelClient:
             message, provider, reason = self._complete(
                 messages=messages,
                 tools=tools,
-                model_override=self._model,
+                model_override=llm_refine.writer_model_override() or self._model,
                 timeout=remaining,
                 temperature=0.0,
                 tool_choice="auto",
@@ -339,7 +339,7 @@ class GLMModelClient:
                     message, returned_provider, reason = self._complete(
                         messages=messages,
                         tools=tools,
-                        model_override=self._model,
+                        model_override=llm_refine.writer_model_override() or self._model,
                         timeout=remaining,
                         temperature=0.0,
                         tool_choice="auto",

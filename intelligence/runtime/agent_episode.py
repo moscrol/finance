@@ -69,7 +69,11 @@ from intelligence.services.provider_observability import (
     ProviderTrace,
     provider_trace_tool_name,
 )
-from intelligence.services.material_delivery import material_pack_turn_seconds
+from intelligence.services import llm_refine
+from intelligence.services.material_delivery import (
+    material_pack_turn_seconds,
+    material_pack_writer_model,
+)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
@@ -1364,12 +1368,13 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """跑到终态。控制流全在 ``_drive`` 里；这里只是把生成器排空（P4 ``step()``）。"""
 
-        return self.manual_drive(
-            task_frame=task_frame,
-            context=context,
-            registry=registry,
-            _continuation_sink=_continuation_sink,
-        ).run_to_end()
+        with llm_refine.writer_model_scope(material_pack_writer_model(context.contract)):
+            return self.manual_drive(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                _continuation_sink=_continuation_sink,
+            ).run_to_end()
 
     def manual_drive(
         self,
@@ -2533,7 +2538,10 @@ class ContinuousAgentEpisode:
                 if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:
                     raise RestoreUnavailable("repair continuation no longer matches the stored episode")
             try:
-                return self._resume_owned(state, previous, goal)
+                with llm_refine.writer_model_scope(
+                    material_pack_writer_model(state.context.contract)
+                ):
+                    return self._resume_owned(state, previous, goal)
             except BaseException:
                 if self._active_inbox is not None:
                     self._active_inbox.suspend()

@@ -471,6 +471,31 @@ def stable_llm_fallback_reason(reason: str) -> str:
     return "provider_unavailable"
 
 
+_WRITER_MODEL_OVERRIDE: ContextVar[str | None] = ContextVar("writer_model_override", default=None)
+
+
+@contextmanager
+def writer_model_scope(model: str | None) -> Iterator[None]:
+    """本任务的写手模型（2026-09-27：编号材料题包换 glm-5.3 写）；None / 空串 = 不换。
+
+    只由 Episode 在 ``run`` / ``resume`` 入口按合同设置，写手客户端算 ``model_override`` 时读；
+    判官与 Episode 之外的调用不受影响。
+    """
+
+    if not model:
+        yield
+        return
+    token = _WRITER_MODEL_OVERRIDE.set(model)
+    try:
+        yield
+    finally:
+        _WRITER_MODEL_OVERRIDE.reset(token)
+
+
+def writer_model_override() -> str | None:
+    return _WRITER_MODEL_OVERRIDE.get()
+
+
 @contextmanager
 def provider_override(provider: LLMProvider) -> Iterator[None]:
     token = _PROVIDER_OVERRIDE.set(provider)
