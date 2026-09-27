@@ -5398,10 +5398,12 @@ def _novel_numeric_condition_indexes(
         candidate = _QUARTER_TOKEN_RE.sub("", candidate)
         if personal_recall:
             # The frozen personal scope supplies the semantic role, not a prose
-            # prefix. Compare every stated quantity with the exact bound/cited
-            # originals; never add these values to the market-evidence pool.
+            # prefix. The sole output binding covers the recall when no inline
+            # citation is present; explicit citations narrow that support set.
+            # Never add these values to the market-evidence pool.
+            cited = cited_evidence_ordinals(text)
             allowed = frozenset().union(*(personal_quantities.get(ordinal, frozenset())
-                                          for ordinal in cited_evidence_ordinals(text)))
+                                          for ordinal in (cited or personal_quantities)))
             candidate = _ALNUM_IDENTIFIER_RE.sub(" ", _LEADING_LIST_LABEL_RE.sub("", candidate))
             quantities = (*_ARABIC_QUANTITY_RE.findall(candidate), *_CHINESE_QUANTITY_RE.findall(candidate))
             if any(_normalize_quantity(quantity) not in allowed for quantity in quantities):
@@ -5959,7 +5961,7 @@ def _bound_personal_recall_quantities(verified: VerifiedEpisodeOutcome) -> dict[
         return {}
     bound = {
         digest for binding in verified.outcome.bindings
-        if binding.output_id == "prior_recall" and binding.basis == "user_premise"
+        if binding.output_id == "prior_recall" and binding.basis == "user_premise" and not binding.gap
         for digest in binding.evidence_hashes
     }
     ordinals = evidence_ordinal_table(verified.outcome.evidence)

@@ -113,6 +113,9 @@ def test_recent_reader_applies_cutoff_before_record_limit(tmp_path, monkeypatch)
     f"你此前的纠偏是：{NUMERIC_PRIOR}（E1）。",
     f"用户自己的记录是：{NUMERIC_PRIOR}（E1）。",
     "你原来的要求是：客户验证如果连续3日没有达标，应先暂缓形成结论（E1）。",
+    f"你此前纠偏：{NUMERIC_PRIOR}。",
+    "- 若**连续3日客户验证进度未达标**，就应暂缓下结论。",
+    "- 配套的纠偏规则：**若连续 3 日客户验证进度未达标，就应暂缓下结论**。",
 ])
 def test_bound_personal_number_uses_contract_and_original_not_prefix(tmp_path, monkeypatch, draft):
     corrections.record_correction(
@@ -135,16 +138,50 @@ def test_bound_personal_number_uses_contract_and_original_not_prefix(tmp_path, m
     "此前的要求是连续5日客户验证未达标就暂缓结论（E1）。",
     "此前的要求是连续3周客户验证未达标就暂缓结论（E1）。",
     "此前的要求是股价达到3元就暂缓结论（E1）。",
-    "此前的要求是连续3日客户验证未达标就暂缓结论。",
     "此前的要求是连续3日客户验证未达标就暂缓结论（E2）。",
+    "此前的要求是连续5日客户验证未达标就暂缓结论。",
+    "此前的要求是连续3周客户验证未达标就暂缓结论。",
+    "此前的要求是股价达到3元就暂缓结论。",
 ])
-def test_personal_number_requires_matching_unit_and_cited_original(tmp_path, monkeypatch, draft):
+def test_personal_number_requires_matching_unit_and_bound_original(tmp_path, monkeypatch, draft):
     corrections.record_correction(
         tmp_path / "users" / "alice" / "corrections.jsonl", correction=NUMERIC_PRIOR, themes=["长电科技"],
     )
     _, context, outcome, _ = _episode(tmp_path, monkeypatch)
     structural = verify_episode_outcome(context.contract, replace(outcome, draft=draft))
     assert numeric_condition_unsupported(structural)
+
+
+@pytest.mark.parametrize("binding_state", ["unbound", "gap", "wrong-hash"])
+def test_no_inline_citation_does_not_support_unqualified_binding(tmp_path, monkeypatch, binding_state):
+    corrections.record_correction(
+        tmp_path / "users" / "alice" / "corrections.jsonl", correction=NUMERIC_PRIOR, themes=["长电科技"],
+    )
+    _, context, outcome, _ = _episode(tmp_path, monkeypatch, draft=f"你曾纠偏：{NUMERIC_PRIOR}。")
+    binding = outcome.bindings[0]
+    binding = (replace(binding, gap="缺少可用记录") if binding_state == "gap" else
+               replace(binding, evidence_hashes=() if binding_state == "unbound" else ("wrong-hash",)))
+    structural = verify_episode_outcome(context.contract, replace(outcome, bindings=(binding,)))
+    assert structural.verified_status != "completed"
+    assert numeric_condition_unsupported(structural)
+
+
+@pytest.mark.parametrize(("citation", "unsupported"), [("", False), ("（E1）", True), ("（E2）", False), ("（E3）", True)])
+def test_explicit_citation_narrows_unique_recall_slot_binding(tmp_path, monkeypatch, citation, unsupported):
+    from intelligence.services.agent_research import evidence_content_hash
+
+    corrections.record_correction(
+        tmp_path / "users" / "alice" / "corrections.jsonl", correction=NUMERIC_PRIOR, themes=["长电科技"],
+    )
+    _, context, outcome, _ = _episode(tmp_path, monkeypatch)
+    second = replace(outcome.evidence[0], detail="若连续7日客户验证进度未达标，就应暂缓下结论")
+    second = replace(second, content_hash=evidence_content_hash(second))
+    outcome = replace(
+        outcome, evidence=(*outcome.evidence, second),
+        bindings=(replace(outcome.bindings[0], evidence_hashes=(outcome.evidence[0].content_hash, second.content_hash)),),
+        draft=f"若连续7日客户验证进度未达标，就应暂缓下结论{citation}。",
+    )
+    assert numeric_condition_unsupported(verify_episode_outcome(context.contract, outcome)) is unsupported
 
 
 def test_personal_number_rejects_invalid_original_hash(tmp_path, monkeypatch):
