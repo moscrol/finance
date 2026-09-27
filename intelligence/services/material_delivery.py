@@ -14,6 +14,8 @@ for not reading. local_only gaps stay ordinary partials.
 """
 from __future__ import annotations
 
+import os
+
 from dataclasses import asdict, dataclass
 import re
 from typing import TYPE_CHECKING
@@ -72,6 +74,38 @@ def question_delivery_scope(contract: ResearchTaskContract) -> str | None:
     if material.data_scope in {"material_only", "local_only"}:
         return material.data_scope
     return None
+
+
+MATERIAL_PACK_WRITER_MODEL_ENV = "MATERIAL_PACK_WRITER_MODEL"
+_WRITER_OFF = frozenset({"", "off", "0", "none", "same"})
+
+
+def material_pack_writer_model(contract: ResearchTaskContract) -> str | None:
+    """编号材料题包的写手模型；None = 沿用部署的写手。
+
+    2026-09-27 Knevo K260917-pack1：glm-5.3-flash 写手（合同已前置硬格式）r4 仍在 q6 把未知
+    基线下的库存 30 写成「回归健康」（触发失败规则 2）；同配置换 glm-5.3 写手 r5 硬规则全过、
+    43.5s 写完（flash 97s）。默认只在部署本来就用 GLM-5.3 家族时换成 ``glm-5.3``，不给别家
+    provider 硬塞 GLM 模型名；``MATERIAL_PACK_WRITER_MODEL`` 显式指定别的模型或设 ``off``。
+    """
+
+    if not material_question_outputs(contract):
+        return None
+    configured = os.environ.get(MATERIAL_PACK_WRITER_MODEL_ENV)
+    if configured is not None:
+        value = configured.strip()
+        return None if value.lower() in _WRITER_OFF else value
+    deployed = str(
+        os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL") or os.environ.get("LLM_MODEL") or ""
+    ).strip().lower()
+    return "glm-5.3" if deployed.startswith("glm-5.3") else None
+
+
+def material_pack_turn_seconds(contract: ResearchTaskContract) -> float:
+    """编号材料题包的单次调用 / 修复窗地板；其他题 0（不抬）。见 provider_latency.MATERIAL_PACK_TURN_SECONDS。"""
+    from intelligence.services.provider_latency import MATERIAL_PACK_TURN_SECONDS
+
+    return MATERIAL_PACK_TURN_SECONDS if material_question_outputs(contract) else 0.0
 
 
 def material_question_outputs(contract: ResearchTaskContract) -> tuple[MaterialQuestionOutput, ...]:

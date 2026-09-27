@@ -18,9 +18,23 @@ CLAIM_CHECK_SCHEMA = {
             "supported": {"type": "boolean"},
             "reason": {"type": "string"},
             "support_kind": {"type": "string", "enum": ["bound_material", "historical_quote", "nonfactual", "unsupported", "contradicted"]},
-            "anchor_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True},
+            "anchor_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True,
+                               "description": "bound_material支持或contradicted拒绝须有本句锚点序号；nonfactual、historical_quote、unsupported必须为[]，即使本句附有锚点。"},
         },
         "required": ["claim_id", "supported", "reason", "support_kind", "anchor_indexes"],
+        # Mirror cross-field invariants already enforced by reconcile_claim_checks.
+        # This constrains generation; the receiving validator still rejects violations.
+        "anyOf": [
+            {"properties": {"support_kind": {"enum": ["bound_material"]}},
+             "anyOf": [{"properties": {"supported": {"enum": [False]}}},
+                       {"properties": {"anchor_indexes": {"minItems": 1}}}]},
+            {"properties": {"support_kind": {"enum": ["historical_quote", "nonfactual"]},
+                            "anchor_indexes": {"maxItems": 0}}},
+            {"properties": {"support_kind": {"enum": ["unsupported"]},
+                            "supported": {"enum": [False]}, "anchor_indexes": {"maxItems": 0}}},
+            {"properties": {"support_kind": {"enum": ["contradicted"]},
+                            "supported": {"enum": [False]}, "anchor_indexes": {"minItems": 1}}},
+        ],
     },
 }
 
@@ -28,6 +42,8 @@ MATERIAL_REVIEW_RULE = (
     "你是仅依据用户材料的语义审查器，不是作者。只审查给定原题与编号句子，不重写、不调用外部知识。"
     "material_claims 是逐句来源身份，material_outputs 是唯一需要回答完整性回执的清单；"
     "output_bindings 只说明原稿归属，不是另一份回执清单，evidence_boundary 的句子也必须逐句审核。"
+    "其中 claim_ids 按原顺序指向 material_claims 的同名条目，是重复绑定的引用，不是额外证据；"
+    "每条句子仍只使用自己的 material_anchors，不能共享邻句输入。"
     "先逐句核对事实、假设、主体、期间、单位、计算与因果，再独立检查是否回答所问。"
     "给定的虚构/真实前提均按用户材料作条件推理，不要求外部验真，也不能冒充核验后的市场事实。"
     "冻结材料目录仅供核对来源及缺项陈述，不能为未绑定的事实或计算补输入。"
@@ -42,6 +58,7 @@ CLAIM_CHECK_RULE = (
     " 本轮必须额外返回 material_claim_checks 数组，逐项覆盖 material_claims 的 claim_id，不能遗漏或重复。"
     "每项仅含 claim_id、supported(boolean)、reason(非空的具体判断依据)、support_kind、anchor_indexes。"
     "support_kind=bound_material 时，anchor_indexes 列出本条 material_anchors 从1开始的序号，"
+    "即所引锚点的 anchor_index（每条 claim 各自从1计数，与 sentence_index 无关），"
     "supported=true 必须有真实存在的序号；本条锚点为空就不能声称材料支持，不得捏造序号或借邻句的序号。"
     "historical_quote 只用于已绑定历史旧答；nonfactual 只用于确实不含事实或计算的句子；"
     "unsupported 表示无有效支持，必须 supported=false，且 anchor_indexes=[]；historical_quote 与 nonfactual 也一律 anchor_indexes=[]。"

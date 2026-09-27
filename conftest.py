@@ -488,6 +488,9 @@ _FORCED_TEST_ENV = (
     # 不一致即抛（生产只记账不炸）。全量套件里每一次脚本化模型请求都因此在验它，
     # 不另写一套「覆盖」它的用例。见 intelligence/services/episode_messages.py 文首。
     ("FORESIGHT_STRICT_DERIVATION", "1"),
+    # 语义判官生产默认关（2026-09-27，intelligence/services/judge_mode.py）。套件里大量用例
+    # 注入 judge_fn 验判官路径，在这里显式开着；验「默认关」的用例自己 delenv。
+    ("ASK_SEMANTIC_JUDGE", "llm"),
 )
 
 

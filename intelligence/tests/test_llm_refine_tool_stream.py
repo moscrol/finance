@@ -103,6 +103,43 @@ def test_reasoning_effort_env_forces_thinking_on_and_overrides_disable(monkeypat
     }
 
 
+@pytest.mark.parametrize("global_effort", [None, "max"])
+def test_judge_effort_is_scoped_and_preserves_writer_payload(monkeypatch, global_effort) -> None:
+    monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
+    if global_effort is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT", global_effort)
+    original = _captured_payload(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_REASONING_EFFORT", " low ")
+    assert _captured_payload(monkeypatch) == original
+    with llm_refine.call_purpose("judge"):
+        judge = _captured_payload(monkeypatch)
+        assert judge["thinking"] == {"type": "enabled"}
+        assert judge["reasoning_effort"] == "low"
+        with llm_refine.call_purpose("writer"):
+            assert _captured_payload(monkeypatch) == original
+        assert _captured_payload(monkeypatch) == judge
+    assert _captured_payload(monkeypatch) == original
+    controls = {"thinking", "reasoning_effort"}
+    assert {k: v for k, v in judge.items() if k not in controls} == {
+        k: v for k, v in original.items() if k not in controls
+    }
+
+
+@pytest.mark.parametrize("judge_effort", [None, "", "  "])
+def test_unconfigured_judge_effort_keeps_global_controls(monkeypatch, judge_effort) -> None:
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "high")
+    monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
+    if judge_effort is None:
+        monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_JUDGE_REASONING_EFFORT", judge_effort)
+    with llm_refine.call_purpose("judge"):
+        payload = _captured_payload(monkeypatch)
+    assert payload["thinking"] == {"type": "enabled"}
+    assert payload["reasoning_effort"] == "high"
 WRITER = llm_refine.LLMProvider("zhipu", "test-key", "https://example.invalid/v4", "glm-5.3")
 JUDGE = llm_refine.LLMProvider("zhipu", "test-key", "https://example.invalid/v4", "glm-5.3-flash")
 
@@ -179,6 +216,25 @@ def test_compat_payload_env_rewrites_only_matched_model(monkeypatch: pytest.Monk
     monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "glm-5.2:temperature:0.6")
     rewarmed = _captured_payload(monkeypatch)
     assert rewarmed["temperature"] == 0.6
+
+
+def test_judge_scope_wins_over_per_model_effort_only_inside_judge_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both knobs exist after the #930 merge: purpose scope first, then model table, then global."""
+
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", "glm-5.3-flash:low")
+    monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    with llm_refine.call_purpose("judge"):
+        assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
+        assert "reasoning_effort" not in _captured_payload(monkeypatch, provider=WRITER)
+    monkeypatch.setenv("LLM_JUDGE_REASONING_EFFORT", "high")
+    with llm_refine.call_purpose("judge"):
+        assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "high"
+        assert _captured_payload(monkeypatch, provider=WRITER)["reasoning_effort"] == "high"
+        with llm_refine.call_purpose("writer"):
+            assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
+            assert "reasoning_effort" not in _captured_payload(monkeypatch, provider=WRITER)
+    assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
 
 
 def test_content_reaches_the_callback_piece_by_piece() -> None:

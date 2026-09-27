@@ -2392,15 +2392,21 @@ class TurnOrchestrator:
                         self.run_store.add_degrade(run_id, warning)
                     else:
                         continuous_control = replace(continuous_control, prior_evidence=prior_evidence)
-                with bind_run_hunger(
-                    self.run_store.run_dir(run_id), run_id=run_id
-                ):
-                    continuous_result = self.continuous_turn_adapter.handle(
-                        frame=task_frame,
-                        control=continuous_control,
-                    )
-                self._check_cancelled()
+                try:
+                    with bind_run_hunger(
+                        self.run_store.run_dir(run_id), run_id=run_id
+                    ):
+                        continuous_result = self.continuous_turn_adapter.handle(
+                            frame=task_frame,
+                            control=continuous_control,
+                        )
+                    self._check_cancelled()
+                except Exception:
+                    self._trace_llm_call_ledger(run_id, assistant_message_id, conversation_id)
+                    raise
                 if continuous_result.handled:
+                    # This return bypasses the legacy path's budget trace.
+                    self._trace_llm_call_ledger(run_id, assistant_message_id, conversation_id)
                     return self._complete_continuous_turn(
                         conversation_id=conversation_id,
                         run_id=run_id,
@@ -3973,22 +3979,7 @@ class TurnOrchestrator:
             llm_ledger = llm_refine.current_call_ledger()
             if llm_ledger is not None and llm_ledger.records:
                 ledger_summary = llm_ledger.summary()
-                self._trace(
-                    run_id,
-                    assistant_message_id,
-                    conversation_id,
-                    "llm_budget",
-                    "llm_call_ledger",
-                    {
-                        "summary": (
-                            f"本轮 LLM 调用 {ledger_summary['call_count']} 次"
-                            f"（失败 {ledger_summary['failure_count']} 次，"
-                            f"合计 {ledger_summary['total_elapsed_ms']}ms）"
-                        ),
-                        "by_caller": ledger_summary["by_caller"],
-                        "records": ledger_summary["records"],
-                    },
-                )
+                self._trace_llm_call_ledger(run_id, assistant_message_id, conversation_id)
             turn_query_ledger = query_ledger.current_query_ledger()
             if turn_query_ledger is not None and turn_query_ledger.entries:
                 query_summary = turn_query_ledger.summary()
@@ -5166,6 +5157,24 @@ class TurnOrchestrator:
             progress_open.clear()
             if future is not None and not future.done():
                 future.cancel()
+
+    def _trace_llm_call_ledger(self, run_id: str, message_id: str, conversation_id: str) -> None:
+        ledger = llm_refine.current_call_ledger()
+        if ledger is None or not ledger.records:
+            return
+        summary = ledger.summary()
+        self._trace(
+            run_id, message_id, conversation_id, "llm_budget", "llm_call_ledger",
+            {
+                "summary": (
+                    f"本轮 LLM 调用 {summary['call_count']} 次"
+                    f"（失败 {summary['failure_count']} 次，"
+                    f"合计 {summary['total_elapsed_ms']}ms）"
+                ),
+                "by_caller": summary["by_caller"],
+                "records": summary["records"],
+            },
+        )
 
     def _trace(
         self,

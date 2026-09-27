@@ -38,6 +38,9 @@ revise 消息终稿，所以 run=completed 而消息内容还是空是**合法�
 ``--question`` 与 ``--question-file`` 二选一；长题面走文件，省掉 shell 引号那一层
 （整段喂进 argv 时的引号/分词错误会伪造出一个读起来很合理的结果）。
 
+揭盲回归：--case-set <JSON> --case-id <ID> --port <显式端口> 可替代题面参数。
+只发送题面，不发送评审规则；通过运行不等于语义验收通过。Q18材料代理不验真实存储。
+
 输出：conversation_id、run_id、run 状态迁移、公开答案全文、run 工件目录提示。
 """
 
@@ -99,7 +102,10 @@ def _find_message(
 
 
 def _artifacts_hint(user: str, run_id: str) -> str:
-    return f"~/.local/share/finance-workbench/users/{user}/runs/{run_id}/"
+    return (
+        f"<服务实际 FORESIGHT_USERS_DIR>/{user}/runs/{run_id}/"
+        "（用户根以服务 /api/health 为准）"
+    )
 
 
 def main() -> int:
@@ -112,7 +118,9 @@ def main() -> int:
         dest="question_file",
         help="题面文件（UTF-8）；与 --question 二选一，长题面用它避开 shell 引号",
     )
-    parser.add_argument("--port", type=int, default=8792)
+    parser.add_argument("--case-set", type=Path, help="揭盲回归题集；不向模型发送评审规则")
+    parser.add_argument("--case-id", help="回归题ID；与 --case-set 同用")
+    parser.add_argument("--port", type=int, default=None)
     parser.add_argument(
         "--conversation",
         default=None,
@@ -126,15 +134,33 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=int, default=15)
     args = parser.parse_args()
 
-    if bool(args.question) == bool(args.question_file):
-        parser.error("--question 与 --question-file 必须且只能给一个")
-    question = (
-        args.question
-        if args.question
-        else Path(args.question_file).read_text(encoding="utf-8")
-    )
+    if sum(bool(item) for item in (args.question, args.question_file, args.case_set)) != 1:
+        parser.error("--question / --question-file / --case-set 必须且只能给一个")
+    if bool(args.case_set) != bool(args.case_id):
+        parser.error("--case-set 与 --case-id 必须同用")
+    if args.port is not None and not 1 <= args.port <= 65535:
+        parser.error("--port 必须在 1..65535")
+    if args.case_set:
+        if args.port is None:
+            parser.error("回归题集必须显式指定 --port，避免误打生产")
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from intelligence.eval.knevo_regression import select_case
 
-    base = f"http://localhost:{args.port}"
+        try:
+            case = select_case(args.case_set, args.case_id)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
+        question = case.question
+        print(f"case_id={case.case_id} question_sha256={case.question_sha256}", flush=True)
+        print(f"scope={case.mode}; delivery is not semantic acceptance", flush=True)
+    else:
+        question = (
+            args.question
+            if args.question
+            else Path(args.question_file).read_text(encoding="utf-8")
+        )
+    port = args.port if args.port is not None else 8792
+    base = f"http://localhost:{port}"
     try:
         if args.conversation:
             conversation_id = args.conversation

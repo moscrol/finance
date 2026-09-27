@@ -119,6 +119,8 @@ def offline_workbench(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request):
         "FORESIGHT_EPISODE_STORE": str(tmp_path / "episodes"),
         "AGENT_RUNTIME_BACKEND": "continuous_glm",
         "ASK_CONTINUOUS_RUNTIME": "on",
+        # 语义判官生产默认关（2026-09-27）；本链路测试要验判官收到的请求，显式开。
+        "ASK_SEMANTIC_JUDGE": "llm",
         "WORKBENCH_ADAPTIVE_RESEARCH": request.param,
         "FORESIGHT_STRICT_DERIVATION": "1",
         "WORKBENCH_RESEARCH_PROGRESS": "on",

@@ -23,6 +23,7 @@ from intelligence.services.query_understanding import (
     is_market_watch_query,
     is_watchlist_digest_query,
     market_review_requested_date,
+    material_request_question_type,
     project_task_frame,
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
@@ -1127,8 +1128,9 @@ def decide_turn(
         ) if parts.regions else None
         if material and (material.data_scope == "material_only" or material.needs_clarification
                          or material.premise_calculation):
+            question_type = material_request_question_type(parts) if not material.needs_clarification else "general_finance_qa"
             envelope = QueryEnvelope(
-                "general_finance_qa", "unknown", None,
+                question_type, "unknown", None,
                 "逐题依据用户材料回答，分开事实前提、推导与缺口", None, "explicit", 1.0,
             )
             frame = build_task_frame(

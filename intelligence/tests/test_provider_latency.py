@@ -334,3 +334,37 @@ def test_repair_cap_floors_by_thinking_model_and_keeps_provider_table_otherwise(
     assert repair_seconds_cap_for("zhipu", model_name="glm-5.2", reasoning_effort="max", env=env) == 40.0
     # 地板只抬不压；env 逃生阀仍覆盖一切。
     assert repair_seconds_cap_for("zhipu", model_name="glm-5.3-flash", reasoning_effort="max", env={ENV_OVERRIDE: "55"}) == 55.0
+
+
+# ---------------------------------------------------------------- 修复轮按重写长度给地板（2026-09-27）
+
+
+def test_rewrite_floor_scales_with_length_and_is_capped() -> None:
+    from intelligence.services.provider_latency import (
+        REWRITE_FLOOR_CEILING_SECONDS,
+        rewrite_seconds_floor,
+    )
+
+    assert rewrite_seconds_floor(None) == 0.0
+    assert rewrite_seconds_floor(0) == 0.0
+    # Knevo r2：被拒的 9388 字稿，40s 修复窗截断在 9.2K 字
+    assert rewrite_seconds_floor(9388) == pytest.approx(15.0 + 9388 / 120.0)
+    assert rewrite_seconds_floor(9388) > 90.0
+    assert rewrite_seconds_floor(10**7) == REWRITE_FLOOR_CEILING_SECONDS
+
+
+def test_short_drafts_keep_the_provider_cap_long_drafts_are_lifted() -> None:
+    from intelligence.services.provider_latency import with_rewrite_floor
+
+    assert with_rewrite_floor(40.0, 2000, env={}) == 40.0
+    assert with_rewrite_floor(40.0, 9388, env={}) == pytest.approx(15.0 + 9388 / 120.0)
+    # 地板只抬不压
+    assert with_rewrite_floor(200.0, 9388, env={}) == 200.0
+
+
+def test_env_override_still_wins_over_the_rewrite_floor() -> None:
+    from intelligence.services.provider_latency import with_rewrite_floor
+
+    assert with_rewrite_floor(40.0, 9388, env={"ASK_REPAIR_SECONDS_CAP": "40"}) == 40.0
+    # 非法覆盖值被忽略，照常按长度抬
+    assert with_rewrite_floor(40.0, 9388, env={"ASK_REPAIR_SECONDS_CAP": "x"}) > 90.0

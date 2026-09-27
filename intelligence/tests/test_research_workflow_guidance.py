@@ -21,6 +21,7 @@ CASES = (
     ("event_forecast", "推演政策落地的情景", "事件发生概率"),
     ("kol_review", "这段研报观点站得住吗", "不自动扩写成作者的长期画像"),
     ("fact_check", "核对这份报告中的事实", "未查到不等于正确"),
+    ("news_impact", "这条消息有什么影响", "主张身份的区分"),
     ("comparison_analog", "和历史上那轮行情有何异同", "案例不能代替完整样本"),
 )
 
@@ -41,7 +42,9 @@ def test_episode_receives_only_its_workflow_in_dynamic_input(
     assert HEADING not in build_episode_instructions(frame, context, registry)
     assert context.contract.allowed_capabilities == ("market_data",)
     for other_type, _, other_marker in CASES:
-        if other_type != question_type:
+        if other_type != question_type and not (
+            question_type == "fact_check" and other_type == "news_impact"
+        ):
             assert other_marker not in rules
 
     monkeypatch.setenv(ENV_FLAG, "off")
@@ -135,6 +138,42 @@ def test_legacy_classifier_financial_route_is_not_lost_to_generic_envelope(monke
     assert plan.question_type == "financial_analysis"
     messages = _ask_messages(monkeypatch, tmp_path, plan.question_type, question, plan=plan)
     assert workflow_guidance("financial_analysis") in "\n".join(m["content"] for m in messages)
+
+
+def test_ask_news_query_reaches_q14_layers_without_type_override(monkeypatch, tmp_path):
+    from intelligence.eval.knevo_regression import DEFAULT_SUITE, select_case
+
+    question = select_case(DEFAULT_SUITE, "Q14-news-layers").question
+    plan = plan_answer_question(question)
+    assert plan.question_type == "news_impact"
+    messages = _ask_messages(monkeypatch, tmp_path, plan.question_type, question, plan=plan)
+    assert "主张身份的区分" in "\n".join(m["content"] for m in messages)
+
+
+def test_episode_natural_news_route_receives_q14_without_type_override(monkeypatch):
+    from intelligence.services.query_understanding import understand_query
+
+    monkeypatch.delenv(ENV_FLAG, raising=False)
+    # The material-proxy query takes a different real route; this checks the
+    # existing news door, not a claim that every news-like material reaches it.
+    frame = understand_query("这条消息对液冷有什么影响？").task_frame
+    assert frame.question_type == "news_impact"
+    payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
+    assert "主张身份的区分" in payload["question_type_rules"]
+
+
+def test_q14_layers_keep_fact_inference_and_price_boundaries(monkeypatch):
+    monkeypatch.delenv(ENV_FLAG, raising=False)
+    for question_type in ("news_impact", "fact_check"):
+        text = workflow_guidance(question_type)
+        assert "事实、解读与情绪表达" in text
+        assert "来源、对象、时间和确认阶段" in text
+        assert "传播次数与独立来源数分开" in text
+        assert "已证实事实也不自动成为交易指令" in text
+        assert "不用实际涨幅减一个猜测的合理涨幅" in text
+        assert "摘要保留原有条件" in text
+    monkeypatch.setenv(ENV_FLAG, "0")
+    assert workflow_guidance("news_impact") == workflow_guidance("fact_check") == ""
 
 
 def test_explicit_route_override_does_not_inherit_envelope_workflow(monkeypatch, tmp_path):
