@@ -532,7 +532,8 @@ def test_first_managed_capture_failure_does_not_fallback_to_cli(
         )
 
     cli.assert_not_called()
-    assert result.telemetry.fallback_reason == "persistent_worker_generation_unavailable"
+    # Identity now fails at the shared CLI/cache boundary, before worker setup.
+    assert result.telemetry.fallback_reason == "managed_generation_unavailable"
     assert result.telemetry.status == "error"
     assert reason in (result.warning or "")
     assert rag_worker.status()["configured_workers"] == 0
@@ -560,7 +561,7 @@ def test_looped_managed_interpreter_does_not_fallback_to_cli(
         )
 
     cli.assert_not_called()
-    assert result.telemetry.fallback_reason == "persistent_worker_generation_unavailable"
+    assert result.telemetry.fallback_reason == "managed_generation_unavailable"
     assert result.telemetry.status == "error"
     assert "interpreter_replaced" in (result.warning or "")
     assert rag_worker.status()["configured_workers"] == 0

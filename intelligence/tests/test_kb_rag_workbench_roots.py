@@ -134,10 +134,13 @@ def test_filtered_cli_receipt_uses_frozen_source(split_knowledge_roots, full_ind
 
 
 @pytest.mark.parametrize("filtered", [False, True])
+@pytest.mark.parametrize("configured", [False, True])
 def test_other_explicit_wiki_is_not_replaced_by_managed_snapshot(
-    split_knowledge_roots, tmp_path, filtered
+    split_knowledge_roots, tmp_path, filtered, configured, monkeypatch
 ):
     _, _binding = split_knowledge_roots
+    if not configured:
+        monkeypatch.delenv("WORKBENCH_KNOWLEDGE_WIKI")
     other_wiki = tmp_path / "other-kb" / "wiki"
     other_wiki.mkdir(parents=True)
     kwargs = {"evidence_layer": "L2"} if filtered else {}
@@ -183,16 +186,37 @@ def test_incomplete_binding_is_rejected_before_cached_results_or_cli(
     assert kb_rag.probe_rag_cli(full_wiki).failure_kind == "generation_unavailable"
 
 
-def test_retired_binding_cannot_return_cached_hits(split_knowledge_roots, tmp_path):
-    full_wiki, _binding = split_knowledge_roots
-    assert kb_rag.retrieve("liquid", full_wiki, mode="bm25", cache_scope="test").ok
+@pytest.mark.parametrize("configured", [False, True])
+def test_retired_binding_cannot_return_cached_hits(split_knowledge_roots, tmp_path, configured, monkeypatch):
+    full_wiki, binding = split_knowledge_roots
+    if not configured:
+        monkeypatch.delenv("WORKBENCH_KNOWLEDGE_WIKI")
+    wiki = full_wiki if configured else Path(binding["wiki"])
+    assert kb_rag.retrieve("liquid", wiki, mode="bm25", cache_scope="test").ok
     _activate(_managed_generation(tmp_path, "replacement"))
 
-    result = kb_rag.retrieve("liquid", full_wiki, mode="bm25", cache_scope="test")
+    result = kb_rag.retrieve("liquid", wiki, mode="bm25", cache_scope="test")
 
     assert result.ok is False
     assert result.telemetry.cache_hit is False
     assert "current_generation_changed" in result.warning
+
+
+@pytest.mark.parametrize("absolute", [False, True])
+@pytest.mark.parametrize("filtered", [False, True])
+def test_missing_explicit_index_cannot_fall_back_under_managed_binding(
+    split_knowledge_roots, tmp_path, absolute, filtered,
+):
+    full_wiki, _binding = split_knowledge_roots
+    missing = tmp_path / 'missing-index' if absolute else Path('missing-index')
+    kwargs = {"evidence_layer": "L2"} if filtered else {}
+    with mock.patch.object(
+        kb_rag.subprocess, "run", return_value=rag_worker.WorkerResponse(0, "[]", "")
+    ) as cli:
+        result = kb_rag.retrieve("liquid", full_wiki, mode="bm25", index_dir=missing, **kwargs)
+    assert result.ok is False
+    assert "managed_binding_mismatch" in result.warning
+    cli.assert_not_called()
 
 
 @pytest.mark.parametrize("override", ["code_root", "python_executable", "index_dir"])

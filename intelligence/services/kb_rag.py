@@ -565,9 +565,7 @@ def _resolve_rag_wiki(kb_wiki: str | Path) -> Path:
     """Map only the configured complete Workbench root to a verified RAG snapshot."""
     wiki = Path(kb_wiki).expanduser().resolve()
     configured = os.environ.get("WORKBENCH_KNOWLEDGE_WIKI")
-    if not configured:
-        return wiki
-    matches_workbench = wiki == Path(configured).expanduser().resolve()
+    matches_workbench = bool(configured) and wiki == Path(configured).expanduser().resolve()
     candidate = (
         Path(os.environ.get("KB_VAULT") or wiki).expanduser()
         if matches_workbench else wiki
@@ -1680,16 +1678,19 @@ def retrieve(
         if python_executable is not None
         else _resolve_rag_python(runtime_root)
     )
-    if os.environ.get("WORKBENCH_KNOWLEDGE_WIKI"):
-        # Explicit executor/index overrides must also match before CLI or cache use.
-        try:
-            capture_generation(rag_python, runtime_root, chosen, wiki_root).require_available()
-        except rag_worker.RagGenerationUnavailable as exc:
-            res.warning = f"wiki-rag 代际身份不可用（{exc.reason}）"
-            tel.status, tel.warning = "error", res.warning
-            tel.degraded = True
-            tel.fallback_reason = "managed_generation_unavailable"
-            return res
+    # Validate the request before any legacy missing-index fallback can hide a
+    # managed identity mismatch. A genuinely legacy capture remains a no-op.
+    # Managed validation is required even without a complete Workbench root.
+    try:
+        capture_generation(
+            rag_python, runtime_root, requested or chosen, wiki_root,
+        ).require_available()
+    except rag_worker.RagGenerationUnavailable as exc:
+        res.warning = f"wiki-rag 代际身份不可用（{exc.reason}）"
+        tel.status, tel.warning = "error", res.warning
+        tel.degraded = True
+        tel.fallback_reason = "managed_generation_unavailable"
+        return res
     generation_evidence_chars = min(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
