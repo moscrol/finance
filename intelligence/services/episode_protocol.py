@@ -1054,6 +1054,26 @@ def validate_episode_finish(
 
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")
+    # prior_recall 是咨询槽（episode_factory._ADVISORY_OUTPUT_IDS），合同要求记忆空命中时写
+    # binding.gap「用户记忆无相关命中」。写手常把记忆缺口条目本身当 user_premise 绑上——
+    # 2026-09-27 生产探针 2/2（run_20260927_211317_791596、run_20260927_215652_267095），
+    # 整稿因下面的 evidence_type_floor 拒收、收尾兜底再拒一次而降级。只引用了缺口条目的
+    # prior_recall 按合同本意改写成披露缺口：不留证据引用，缺口不会变成先验。其他格子、
+    # 混有真实记忆的引用，照旧走下面的整稿拒收。
+    for index, binding in enumerate(bindings):
+        if (
+            binding.output_id == "prior_recall"
+            and binding.evidence_hashes
+            and all(
+                evidence_by_hash[digest].evidence_tier == "user_memory_gap"
+                for digest in binding.evidence_hashes
+            )
+        ):
+            bindings[index] = replace(
+                binding,
+                evidence_hashes=(),
+                gap=binding.gap or "用户记忆无相关命中",
+            )
     for binding in bindings:
         if any(
             evidence_by_hash[digest].evidence_tier == "user_memory_gap"
