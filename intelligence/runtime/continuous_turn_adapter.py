@@ -9,8 +9,10 @@ verification gates.
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import asdict, dataclass, replace
 from datetime import date
+import hashlib
 import inspect
 import os
 import re
@@ -20,6 +22,7 @@ from uuid import uuid4
 
 from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
+from intelligence.services.material_delivery import material_pack_turn_seconds
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_issues import (
@@ -59,6 +62,7 @@ from intelligence.services.honesty_gates import with_calendar_disclosure
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
+    with_rewrite_floor,
 )
 from intelligence.services.repair_coordinator import (
     describe_rejected_claims,
@@ -147,6 +151,24 @@ DETERMINISTIC_OWNER_TYPES = frozenset(
 
 def _new_task_id() -> str:
     return str(uuid4())
+
+
+
+def largest_model_output_chars(outcome: AgentOutcome) -> int:
+    """最长一次模型正文的字数，给修复窗做地板。
+
+    修复通常是整篇重写；被结构拒收的 finish（如 ``bad_claim_binding``）不进 ``draft``，
+    所以同时看本 Episode 各轮 ``model_turn`` 的正文长度（2026-09-27 Knevo r2：draft 为空，
+    被拒的两稿 7.2K / 9.4K 字）。
+    """
+
+    sizes = [len(outcome.draft or "")]
+    for event in outcome.events:
+        if event.kind == "model_turn":
+            content = event.payload.get("content")
+            if isinstance(content, str):
+                sizes.append(len(content))
+    return max(sizes)
 
 
 @dataclass(frozen=True)
@@ -515,6 +537,7 @@ class ContinuousTurnAdapter:
         outcome: AgentOutcome | None = None
         structural: VerifiedEpisodeOutcome | None = None
         semantic: SemanticEpisodeOutcome | None = None
+        semantic_verifier_attempts: list[dict[str, object]] = []
         session: object | None = None
         repair_cycles = 0
         repair_attempts = 0
@@ -840,6 +863,9 @@ class ContinuousTurnAdapter:
                 deadline=root_deadline,
                 retrieve_fn=guided_retriever,
             )
+            semantic_verifier_attempts.append(
+                _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
+            )
             semantic = _with_semantic_contract_gaps(semantic_candidate, context)
             _phase_note(
                 phase_recorder,
@@ -951,6 +977,9 @@ class ContinuousTurnAdapter:
                     deadline=root_deadline,
                     retrieve_fn=guided_retriever,
                 )
+                semantic_verifier_attempts.append(
+                    _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
+                )
                 semantic = _with_semantic_contract_gaps(semantic_candidate, context)
                 _phase_note(
                     phase_recorder,
@@ -982,6 +1011,7 @@ class ContinuousTurnAdapter:
                 "repair_attempts": repair_attempts,
                 "repair_cycles": repair_cycles,
                 "backfill_turns": backfill_turns,
+                "semantic_verifier_attempts": semantic_verifier_attempts,
                 "failure": {
                     "type": type(exc).__name__,
                     "message": str(exc),
@@ -1237,6 +1267,7 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
+            "semantic_verifier_attempts": semantic_verifier_attempts,
             "publication_assessment": asdict(publication),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
@@ -1540,7 +1571,11 @@ class ContinuousTurnAdapter:
             tools_open=tools_open,
             allow_delivery_repair=allow_delivery_repair,
             evidence_count=len(outcome.evidence),
-            seconds_cap=self._repair_seconds_cap,
+            seconds_cap=with_rewrite_floor(
+                self._repair_seconds_cap,
+                largest_model_output_chars(outcome),
+                floor_seconds=material_pack_turn_seconds(context.contract),
+            ),
             rejected_claim_notes=rejected_claim_notes,
         )
         if admission is None:
@@ -1629,7 +1664,11 @@ class ContinuousTurnAdapter:
             cycle=1,
             root_budget=root_budget,
             tools_open=tools_open,
-            seconds_cap=self._repair_seconds_cap,
+            seconds_cap=with_rewrite_floor(
+                self._repair_seconds_cap,
+                largest_model_output_chars(outcome),
+                floor_seconds=material_pack_turn_seconds(context.contract),
+            ),
         )
         if admission is None or not admission.backfill:
             return None
@@ -2162,6 +2201,19 @@ def _declined_result() -> ContinuousTurnResult:
         private_artifact=None,
         events=(),
     )
+
+
+def _semantic_verification_snapshot(
+    semantic: SemanticEpisodeOutcome,
+    structural: VerifiedEpisodeOutcome,
+    repair_attempts: int,
+) -> dict[str, object]:
+    # A later repair verdict must not erase the earlier private review or inherit its pass.
+    return {
+        "repair_attempts": repair_attempts,
+        "input_draft_sha256": hashlib.sha256(structural.outcome.draft.encode("utf-8")).hexdigest(),
+        "semantic_verifier": deepcopy(semantic.to_dict()),
+    }
 
 
 def _cancelled_result() -> ContinuousTurnResult:

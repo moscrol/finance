@@ -407,10 +407,16 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> No
     """
 
     # Freeze only the deadline module's clock, not the shared time module or worker clocks.
+    now = [1000.0]
     monkeypatch.setattr(
-        research_contract, "time", SimpleNamespace(monotonic=lambda: 1_000.0)
+        research_contract, "time", SimpleNamespace(monotonic=lambda: now[0])
     )
     frame = _frame()
+
+    class AdvancingModel(_ScriptedModel):
+        def complete(self, **kwargs):
+            now[0] += 0.01
+            return super().complete(**kwargs)
 
     def narrow_window_context() -> ResearchRunContext:
         # 总窗 30s、reserve 15s → 本轮工具窗 15s < kb_search 的 20s。
@@ -424,8 +430,8 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> No
         )
 
     script = [_tool_turn(), _finish_turn()]
-    episode_model = _ScriptedModel(list(script))
-    reference_model = _ScriptedModel(list(script))
+    episode_model = AdvancingModel(list(script))
+    reference_model = AdvancingModel(list(script))
     episode = ContinuousAgentEpisode(episode_model).run(
         task_frame=frame, context=narrow_window_context(), registry=_registry_with_slow_kb()
     )
@@ -438,7 +444,7 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> No
         assert names == ["market_data"], names
     assert episode_model.calls[0]["tools"] == reference_model.calls[0]["tools"]
 
-    # Ignore ledger timestamps; with equal clocks, menu decisions and grants must match exactly.
+    # 菜单与额度都逐项比较；每次模型调用固定消耗10ms，不依赖两条loop的机器调度差。
     menu_keys = ("visible", "hidden", "min_window_seconds", "reason")
 
     def menu_events(outcome):
@@ -455,7 +461,7 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> No
     assert left and left == right
     left_grants, right_grants = menu_grants(episode), menu_grants(reference)
     assert len(left_grants) == len(right_grants) == len(left)
-    assert left_grants == right_grants == [15.0] * len(left)
+    assert left_grants == right_grants == [15.0, 14.99]
     first = {**left[0], "would_grant": left_grants[0]}
     assert first["hidden"] == ["kb_search"]
     assert first["visible"] == ["market_data"]

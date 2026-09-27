@@ -831,3 +831,24 @@ def test_glm_runtime_allocates_budget_by_task_shape(
         )
         == expected
     )
+
+
+def test_writer_model_scope_reaches_the_provider_chain_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2026-09-27：编号材料题包换写手——作用域里的模型进 model_override，出了作用域复原。"""
+
+    provider = _provider("glm")
+    seen: list[object] = []
+
+    def chat_with_tools(**kwargs):
+        seen.append(kwargs.get("model_override"))
+        return {"content": "ok", "tool_calls": []}, provider, ""
+
+    monkeypatch.setattr(llm_refine, "chat_with_tools", chat_with_tools)
+    client = GLMModelClient("glm-5.3-flash", providers=(provider,))
+    with llm_refine.writer_model_scope("glm-5.3"):
+        client.complete(messages=[], tools=[], timeout=30)
+    client.complete(messages=[], tools=[], timeout=30)
+    with llm_refine.writer_model_scope(None):
+        client.complete(messages=[], tools=[], timeout=30)
+    assert seen == ["glm-5.3", "glm-5.3-flash", "glm-5.3-flash"]
+    assert llm_refine.writer_model_override() is None

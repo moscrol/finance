@@ -259,6 +259,9 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
     questions = {item.output_id: item.question_id for item in material_question_outputs(contract)}
     blocks = []
     seen = set()
+    sentence_errors = []
+    private_locations = []
+    private_tokens = material_private_tokens(contract)
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise ValueError("claim rendering requires binding objects")
@@ -274,18 +277,31 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
             raise ValueError("a gap cannot carry answered claims")
         if not gap.strip() and not claims:
             raise ValueError("claim rendering requires sentences or a disclosed gap")
+        if any(token in gap.casefold() for token in private_tokens):
+            private_locations.append(f"{output_id}.gap")
         for index, claim in enumerate(claims):
+            if any(token in claim.text.casefold() for token in private_tokens):
+                private_locations.append(f"{output_id}.claims[{index}]")
             count = len(claim_sentences(claim.text))
             if count != 1:
-                # 病灶坐标进错误文本：作者要改的是哪一条，不能靠猜。修复轮把这句原样回灌，
-                # 只说「需要一句一条」时，作者只会把同一份 bindings 再发一次。
-                raise ValueError(
-                    "claim rendering requires one sentence per claim: "
-                    f"{output_id}.claims[{index}] has {count} sentences"
-                )
+                # 一次反馈各槽位的错误，避免有限续修机会逐个消耗在首错上；不改写正文或来源。
+                sentence_errors.append(f"{output_id}.claims[{index}] has {count} sentences")
         title = questions.get(output_id) or ("证据边界" if output_id == "evidence_boundary" else "")
         body = gap.strip() if gap else "\n\n".join(claim.text.strip() for claim in claims)
         blocks.append(("## " + title + "\n" if title else "") + body)
+    if sentence_errors:
+        locations = "; ".join(sentence_errors[:16])
+        remainder = len(sentence_errors) - 16
+        if remainder > 0:
+            locations += f"; {remainder} further invalid claims"
+        if private_locations:
+            locations += "; private material references in " + ", ".join(private_locations[:16])
+        raise ValueError(
+            "claim rendering requires one sentence per claim: " + locations
+            + ". Split at sentence punctuation (including semicolons) and line breaks; "
+            "recheck every binding and bind each resulting claim to its own supporting sources. "
+            "Keep material IDs and message coordinates in private bindings, never in public text."
+        )
     return "\n\n".join(blocks)
 
 
@@ -307,9 +323,32 @@ def claim_finish_format(contract: ResearchTaskContract) -> dict[str, object] | N
                           "evidence_hashes": [], "gap": "", "claims": []}
                          for spec in contract.required_outputs if spec.required],
         }, ensure_ascii=False),
-        "rule": "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
+        # 2026-09-27 Knevo live r2：flash 两稿都因「一条 claim 多句」与「正文带材料编号」被拒，
+        # 这两条原本埋在下面一长段规则中部。放到最前并给正反例；下面原规则一字未动。
+        "rule": "【三条硬格式，任一违反整稿退回重写】"
+                "①一条 claim 恰好一句：text 里出现句号、问号、感叹号、分号或换行，就拆成多条 claim，"
+                "每条各自带支持本句的 material_anchors；"
+                "②claims.text 与 gap 不写 material_id、材料编号或消息坐标，它们只放在引用字段；"
+                "③提交前逐条自查这两点再提交。"
+                "错：{\"text\": \"出货降至110。库存升至40。\"}；"
+                "对：[{\"text\": \"出货降至110。\"}, {\"text\": \"库存升至40。\"}]。"
+                "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
                 "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
                 "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
+                "draft为空不代表正文不限长，终局正文精简要求适用于所有claims.text合计，以1000汉字内为目标。"
+                "逐问直接作答，删去重复复述与套话，不重复题号或原题；不能省略子问、计算步骤或本句输入锚点来凑字数，"
+                "完整回答与来源绑定优先于字数目标，不合并多个句子来绕过逐句绑定。"
+                "句号、问号、感叹号、分号和换行均为分句边界，不要在一条text里列多句或多行；"
+                "多个论点拆成多个claim，各自绑定支持本句的来源，不能只改已报错的第一条。"
+                "逐句构造：先找齐本句使用的原始输入，再写一句text及其material_anchors；"
+                "即使输入来自同一材料或已在前句引用，本句也要绑定全部输入片段，不用问句替代数值依据。"
+                "含具体对象的数字、计算、事实比较或事实前提的句子用material_fact，不因结论属于推断就改成无锚点reasoning；"
+                "reasoning只留给不含待证事实的纯方法推理，自设阈值须明说是待校准假设而非材料事实。"
+                "每次比较都在本句写清同一主体、指标、单位及各自期间，情景用题定基期，不在句中切换基期；"
+                "厂商出货、渠道库存、终端消耗不能互换，绝对库存与库存/消耗比也分别计算。"
+                "缺少成本口径时不能把收入方向等同于利润方向，未给正常库存基准时不把库存增减直接定性为过剩或安全；"
+                "先给材料能确定的变化，再明说条件与缺项，不用模糊条件词补造未给前提。"
+                "claims.text与gap就是公开正文，不能含material_id或消息坐标；这些只留在引用绑定字段。"
                 "无法回答时 claims=[]，原样写 binding.gap；有答案的 gap=空字符串。"
                 "每个必需 output 都须提供，basis 逐项复制 required_outputs 的 grounding_mode，不按材料真实性猜。"
                 "不得同时提交另一份 draft。旧格式 render_from_claims=false 时仍须严格逐句复制正文。",
@@ -329,8 +368,11 @@ def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, obje
         **(catalogue.to_dict() if catalogue else {}),
         "rule": (
             "纯度由 data_scope 决定，不由真实性决定：material_only 的每个市场事实/计算结果必须在对应 binding.claims 中"
-            "给出 text（逐句原文）、kind=material_fact、material_anchors=[{material_id,quote}]；quote 必须逐字来自用户材料，"
-            "多材料计算列出全部输入锚点，正文交代推导。不得绑定工具证据。local_only 只接受实际本地 IO 来源；full 不作材料纯度限制。"
+            "给出 text（逐句原文）、kind=material_fact、material_anchors=[{material_id,quote}]；quote 必须逐字来自该material_id对应条目的text，"
+            "逐条核对坐标，不沿用首项或前一句的material_id；题目中的情景若单独编目，须引用该情景自己的条目。"
+            "quote不改写日期、数字或标点，不用省略号，不拼接原文中被换行或其它文字分开的片段；多个片段分别给锚点，正文可以解释。"
+            "计算或比较的每句话都列出全部输入锚点（包括同一材料内的不同输入），正文交代推导与比较基期。"
+            "不得绑定工具证据。local_only 只接受实际本地 IO 来源；full 不作材料纯度限制。"
             "basis=user_premise 仅是范围声明标签，不替事实绑定；fictional 前提按给定假设推理，不要求证明它，也不取消 full 的真实检索。"
             "非事实推理可标 reasoning，范围声明可标 premise_declaration；标签不能掩盖未绑定的当前事实。"
             "范围声明若重复收入、订单等数值，重复部分也是事实，须在该句重新绑定输入锚点；"

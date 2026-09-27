@@ -69,6 +69,11 @@ from intelligence.services.provider_observability import (
     ProviderTrace,
     provider_trace_tool_name,
 )
+from intelligence.services import llm_refine
+from intelligence.services.material_delivery import (
+    material_pack_turn_seconds,
+    material_pack_writer_model,
+)
 from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
@@ -1370,12 +1375,13 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """跑到终态。控制流全在 ``_drive`` 里；这里只是把生成器排空（P4 ``step()``）。"""
 
-        return self.manual_drive(
-            task_frame=task_frame,
-            context=context,
-            registry=registry,
-            _continuation_sink=_continuation_sink,
-        ).run_to_end()
+        with llm_refine.writer_model_scope(material_pack_writer_model(context.contract)):
+            return self.manual_drive(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                _continuation_sink=_continuation_sink,
+            ).run_to_end()
 
     def manual_drive(
         self,
@@ -1638,7 +1644,7 @@ class ContinuousAgentEpisode:
 
             remaining_seconds_at_entry = context.deadline.remaining()
             timeout = (
-                context.deadline.synthesis_timeout(self._llm_timeout)
+                context.deadline.synthesis_timeout(self._turn_ceiling(context))
                 if finalization_started
                 else planning_timeout
             )
@@ -2460,7 +2466,7 @@ class ContinuousAgentEpisode:
                 and is_transient_model_error(turn.error)
             ):
                 retry_timeout = (
-                    repair_deadline.stage_timeout(self._llm_timeout)
+                    repair_deadline.stage_timeout(self._turn_ceiling(repair_context))
                     if budget_alive
                     else 0.0
                 )
@@ -2494,7 +2500,7 @@ class ContinuousAgentEpisode:
                             deadline=repair_deadline,
                         )
                         retry_timeout = repair_deadline.stage_timeout(
-                            self._llm_timeout
+                            self._turn_ceiling(repair_context)
                         )
                 if retry_timeout > 0.001:
                     transient_retries_left -= 1
@@ -2540,7 +2546,10 @@ class ContinuousAgentEpisode:
                 if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:
                     raise RestoreUnavailable("repair continuation no longer matches the stored episode")
             try:
-                return self._resume_owned(state, previous, goal)
+                with llm_refine.writer_model_scope(
+                    material_pack_writer_model(state.context.contract)
+                ):
+                    return self._resume_owned(state, previous, goal)
             except BaseException:
                 if self._active_inbox is not None:
                     self._active_inbox.suspend()
@@ -2625,7 +2634,7 @@ class ContinuousAgentEpisode:
         # 修复轮同样是 ``min(configured, remaining)``，而 ``repair_deadline`` 的
         # ``synthesis_reserve`` 是 0，拿到的就是纯残余时钟。没有这三个数，收据里只剩
         # 一个 TimeoutError，分不清「时钟被前面吃光」还是「provider 这次真慢」。
-        repair_timeout_asked = repair_deadline.stage_timeout(self._llm_timeout)
+        repair_timeout_asked = repair_deadline.stage_timeout(self._turn_ceiling(context))
         ledger.add(
             "repair_reentry",
             {
@@ -2824,7 +2833,7 @@ class ContinuousAgentEpisode:
                 content=self._harness.steering_message("repair_finalize", detail=""),
                 source="steering_repair_finalize",
             )
-            final_timeout = repair_deadline.synthesis_timeout(self._llm_timeout)
+            final_timeout = repair_deadline.synthesis_timeout(self._turn_ceiling(context))
             if final_timeout <= 0.001:
                 return self._stopped_outcome(
                     task_frame=task_frame,
@@ -3121,6 +3130,12 @@ class ContinuousAgentEpisode:
             return max(1, int(context.policy.max_steps))
         return max(1, min(MAX_EPISODE_TOOL_CALLS, root_budget.hard_calls_cap))
 
+    def _turn_ceiling(self, context: ResearchRunContext) -> float:
+        """单次模型调用上限：provider 标定的 ``llm_timeout``（生产 75s）；编号材料题包抬到
+        ``MATERIAL_PACK_TURN_SECONDS``（2026-09-27 Knevo r3：强制思考首字前 62s）。其他题不变。"""
+
+        return max(float(self._llm_timeout), material_pack_turn_seconds(context.contract))
+
     def _opening_planning_timeout(self, context: ResearchRunContext) -> float:
         """首轮窗口 = 常规切法 + 向 ``synthesis_reserve`` 借来的**余量**。
 
@@ -3151,12 +3166,12 @@ class ContinuousAgentEpisode:
         上，替身立刻 ``AttributeError``——这里只用替身已有的接口。
         """
 
-        baseline = context.deadline.stage_timeout(self._llm_timeout)
+        baseline = context.deadline.stage_timeout(self._turn_ceiling(context))
         reserve = float(getattr(context.deadline, "synthesis_reserve", 0.0) or 0.0)
         borrowable = max(0.0, reserve - MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS)
         if borrowable <= 0.0:
             return baseline
-        return max(0.0, min(float(self._llm_timeout), baseline + borrowable))
+        return max(0.0, min(float(self._turn_ceiling(context)), baseline + borrowable))
 
     def _followup_planning_timeout(self, context: ResearchRunContext) -> float:
         """证据到手后的规划窗：预扣后不够一次写作时，向 reserve 借到地板。
@@ -3171,13 +3186,13 @@ class ContinuousAgentEpisode:
         与首轮「只借余量」对称。
         """
 
-        baseline = context.deadline.stage_timeout(self._llm_timeout)
+        baseline = context.deadline.stage_timeout(self._turn_ceiling(context))
         floor = MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
         if baseline + 1e-9 >= floor:
             return baseline
         remaining = float(context.deadline.remaining())
         protected = max(0.0, remaining - floor)
-        return max(0.0, min(float(self._llm_timeout), max(baseline, min(floor, protected))))
+        return max(0.0, min(float(self._turn_ceiling(context)), max(baseline, min(floor, protected))))
 
     def _decide_mode(
         self,
@@ -3667,7 +3682,7 @@ class ContinuousAgentEpisode:
         materials_hook = getattr(self._harness, "finalization_materials", None)
         has_materials = bool(materials_hook(context=context)) if callable(materials_hook) else False
         return (bool(evidence) or has_materials) and (
-            context.deadline.synthesis_timeout(self._llm_timeout)
+            context.deadline.synthesis_timeout(self._turn_ceiling(context))
             >= MIN_FINALIZATION_RECOVERY_SECONDS
         )
 
@@ -3802,7 +3817,7 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
             )
         if (
-            context.deadline.synthesis_timeout(self._llm_timeout)
+            context.deadline.synthesis_timeout(self._turn_ceiling(context))
             < MIN_FINALIZATION_RECOVERY_SECONDS
         ):
             reason = "finalization_recovery_deadline_exhausted"

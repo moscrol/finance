@@ -36,7 +36,31 @@ def test_nonfactual_second_look_cannot_see_adjacent_calculation_or_catalogue():
     assert len(calls) == 2
     assert result.status != "completed" and UNBOUND_REPEAT not in result.public_answer
     assert result.material_nonfactual_checks
-    assert len(result.to_dict()["material_review_calls"]) == 2
+    stages = result.to_dict()["material_review_calls"]
+    assert [stage["stage"] for stage in stages] == ["material_review", "nonfactual_review"]
+    assert all(stage["elapsed_seconds"] >= 0 for stage in stages)
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_first_material_review_always_keeps_stage_timing(failure, monkeypatch):
+    from intelligence.services import episode_semantic_verifier as module
+
+    frame, context = setup()
+    clock = [100.0]
+    monkeypatch.setattr(module.time, "monotonic", lambda: clock[0])
+
+    def judge(request):
+        clock[0] += 2.5
+        return {} if failure else reviewed(request)
+
+    result = verify(frame, context, outcome(context), judge)
+    stages = result.to_dict()["material_review_calls"]
+    assert len(stages) == 1
+    stage = stages[0]
+    assert stage["stage"] == "material_review" and stage["elapsed_seconds"] == 2.5
+    assert stage["unavailable"] is failure
+    assert (stage["report"] is None) is failure
+    assert (result.judge_status == "unavailable") is failure
 
 
 def test_nonfactual_second_look_outage_cannot_inherit_first_pass():

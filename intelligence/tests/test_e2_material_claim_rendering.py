@@ -25,6 +25,9 @@ def test_writer_receives_parseable_claim_template_with_exact_frozen_basis():
     frame, context = setup()
     registry = ResearchToolRegistry(())
     prompt = json.loads(build_episode_input(frame, context, registry))
+    format_rule = prompt["material_grounding"]["finish_format"]["rule"]
+    assert "所有claims.text合计" in format_rule and "1000" in format_rule
+    assert "不能省略子问、计算步骤或本句输入锚点" in format_rule
     template = json.loads(prompt["material_grounding"]["finish_format"]["wire_template"])
     assert template["draft"] == "" and template["render_from_claims"] is True
     assert {b["output_id"]: b["basis"] for b in template["bindings"]} == {
@@ -182,6 +185,66 @@ def test_multisentence_error_locates_claim_without_rewriting_payload():
     assert payload["bindings"][1]["claims"][0]["text"] == text
 
 
+def test_multisentence_feedback_batches_locations_and_private_references_without_mutation():
+    from copy import deepcopy
+
+    _, context = setup()
+    payload = claim_finish(context)
+    source_id = context.contract.material_grounding.materials[0].material_id
+    payload["bindings"][0]["claims"][0]["text"] = "收入100万元；订单20万元。"
+    payload["bindings"][1]["claims"][0]["text"] = f"仅依据{source_id}。不引入外部事实。"
+    saved = deepcopy(payload)
+    with pytest.raises(ValueError) as error:
+        validate_episode_finish(payload, context=context, evidence=())
+    message = str(error.value)
+    assert error.value.code == "bad_claim_binding"
+    assert "answer_q1.claims[0] has 2 sentences" in message
+    assert "evidence_boundary.claims[0] has 2 sentences" in message
+    assert "private material references in evidence_boundary.claims[0]" in message
+    assert source_id not in message and payload == saved
+
+
+def test_multisentence_feedback_is_bounded_and_reports_remaining_errors():
+    from copy import deepcopy
+
+    _, context = setup()
+    payload = claim_finish(context)
+    claim = deepcopy(payload["bindings"][0]["claims"][0])
+    claim["text"] = "收入100万元；订单20万元。"
+    payload["bindings"][0]["claims"] = [deepcopy(claim) for _ in range(20)]
+    with pytest.raises(ValueError) as error:
+        validate_episode_finish(payload, context=context, evidence=())
+    message = str(error.value)
+    assert "claims[15]" in message and "claims[16]" not in message
+    assert "4 further invalid claims" in message
+
+
+@pytest.mark.parametrize("reference_loop", [False, True])
+def test_one_format_retry_receives_all_claim_locations_and_preserves_bindings(reference_loop):
+    from copy import deepcopy
+    from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+
+    frame, context = setup()
+    good = claim_finish(context)
+    bad = deepcopy(good)
+    bad["bindings"][0]["claims"][0]["text"] = "收入100万元；订单20万元。"
+    bad["bindings"][1]["claims"][0]["text"] = "仅依据用户材料。结论限于材料。"
+    calls = []
+
+    class Writer:
+        def complete(self, *, messages, tools, timeout):
+            calls.append(deepcopy(messages))
+            if len(calls) == 2:
+                feedback = str(messages)
+                assert "answer_q1.claims[0]" in feedback and "evidence_boundary.claims[0]" in feedback
+            return ModelTurn(json.dumps(bad if len(calls) == 1 else good, ensure_ascii=False), (), "offline")
+
+    loop = HarnessReferenceLoop(Writer()) if reference_loop else ContinuousAgentEpisode(Writer())
+    result = loop.run(task_frame=frame, context=context, registry=ResearchToolRegistry(()))
+    assert len(calls) == 2 and result.status == "completed" and result.usage.tool_calls == 0
+    assert result.bindings[0].claims == outcome(context).bindings[0].claims
+
+
 @pytest.mark.parametrize("reference_loop", [False, True])
 def test_last_format_error_reaches_repair_writer_without_extra_attempt(reference_loop):
     from copy import deepcopy
@@ -306,6 +369,11 @@ def test_repair_round_restates_the_frozen_wire_format_it_still_demands(reference
     restated = json.loads(repair[0]).get("finish_format")
     # 同一份冻结模板，逐字节相同：修复轮不得另起一套说法。
     assert restated == frozen
+    assert "所有claims.text合计" in restated["rule"]
+    assert "不能省略子问、计算步骤或本句输入锚点" in restated["rule"]
+    assert "先找齐本句使用的原始输入" in restated["rule"]
+    assert "数字、计算、事实比较或事实前提" in restated["rule"]
+    assert "同一主体、指标、单位及各自期间" in restated["rule"]
 
 
 def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
@@ -315,3 +383,18 @@ def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
     with pytest.raises(ValueError) as error:
         validate_episode_finish(payload, context=context, evidence=())
     assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
+
+
+
+def test_hard_format_rules_lead_the_writer_rule_with_a_split_example():
+    """2026-09-27 Knevo r2：一条多句与正文带编号两类拒收，硬格式放在规则最前并给正反例。"""
+    frame, context = setup()
+    prompt = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    rule = prompt["material_grounding"]["finish_format"]["rule"]
+    assert rule.startswith("【三条硬格式")
+    head = rule[: rule.index("按 wire_template 的结构填写答案")]
+    assert "一条 claim 恰好一句" in head and "分号或换行" in head
+    assert "不写 material_id" in head and "逐条自查" in head
+    assert "错：" in head and "对：" in head
+    # 原规则保留在后面
+    assert "所有claims.text合计" in rule and "每条 claim 只含一句" in rule

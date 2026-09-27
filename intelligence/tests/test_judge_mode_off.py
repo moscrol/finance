@@ -69,20 +69,26 @@ def _verify(verifier: SemanticEpisodeVerifier, pair):
         ("false", JUDGE_MODE_OFF),
         (" NO ", JUDGE_MODE_OFF),
         ("deterministic", JUDGE_MODE_OFF),
+        ("", JUDGE_MODE_OFF),
+        ("typo", JUDGE_MODE_OFF),
         ("llm", JUDGE_MODE_LLM),
+        (" LLM ", JUDGE_MODE_LLM),
         ("on", JUDGE_MODE_LLM),
-        ("", JUDGE_MODE_LLM),
-        ("typo", JUDGE_MODE_LLM),
+        ("1", JUDGE_MODE_LLM),
+        ("true", JUDGE_MODE_LLM),
+        ("yes", JUDGE_MODE_LLM),
+        ("enabled", JUDGE_MODE_LLM),
     ],
 )
-def test_mode_parsing_only_explicit_off_spellings_disable(monkeypatch, raw, expected):
+def test_mode_parsing_only_explicit_enable_spellings_turn_the_judge_on(monkeypatch, raw, expected):
     monkeypatch.setenv(ENV_SEMANTIC_JUDGE, raw)
     assert semantic_judge_mode() == expected
 
 
-def test_unset_defaults_to_llm_and_labels_are_stable(monkeypatch):
+def test_unset_defaults_to_off_and_labels_are_stable(monkeypatch):
+    """2026-09-27 用户决定判官默认关；测试套件在 conftest 里显式设 llm 走判官路径。"""
     monkeypatch.delenv(ENV_SEMANTIC_JUDGE, raising=False)
-    assert semantic_judge_mode() == JUDGE_MODE_LLM
+    assert semantic_judge_mode() == JUDGE_MODE_OFF
     assert judge_mode_label(JUDGE_MODE_OFF) == "deterministic"
     assert judge_mode_label(JUDGE_MODE_LLM) == "llm"
 
@@ -293,7 +299,7 @@ def test_engine_b_skips_the_judge_and_marks_deterministic_only(monkeypatch):
     assert shadow.presented_answer
     assert not shadow.presented_answer.startswith(ask_synthesis._JUDGE_OUTAGE_NOTICE)
 
-    monkeypatch.delenv(ENV_SEMANTIC_JUDGE, raising=False)
+    monkeypatch.setenv(ENV_SEMANTIC_JUDGE, "llm")  # 对照组显式开；默认已是关（2026-09-27）
     control_result, _options, control_calls = _shadow(monkeypatch)
     assert control_result.grounded_composer_shadow.status == "accepted"
     assert control_calls["n"] == calls["n"] + 1  # 差的那一发就是判官

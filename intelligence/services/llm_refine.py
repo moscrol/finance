@@ -471,6 +471,31 @@ def stable_llm_fallback_reason(reason: str) -> str:
     return "provider_unavailable"
 
 
+_WRITER_MODEL_OVERRIDE: ContextVar[str | None] = ContextVar("writer_model_override", default=None)
+
+
+@contextmanager
+def writer_model_scope(model: str | None) -> Iterator[None]:
+    """本任务的写手模型（2026-09-27：编号材料题包换 glm-5.3 写）；None / 空串 = 不换。
+
+    只由 Episode 在 ``run`` / ``resume`` 入口按合同设置，写手客户端算 ``model_override`` 时读；
+    判官与 Episode 之外的调用不受影响。
+    """
+
+    if not model:
+        yield
+        return
+    token = _WRITER_MODEL_OVERRIDE.set(model)
+    try:
+        yield
+    finally:
+        _WRITER_MODEL_OVERRIDE.reset(token)
+
+
+def writer_model_override() -> str | None:
+    return _WRITER_MODEL_OVERRIDE.get()
+
+
 @contextmanager
 def provider_override(provider: LLMProvider) -> Iterator[None]:
     token = _PROVIDER_OVERRIDE.set(provider)
@@ -520,6 +545,7 @@ class LLMCallRecord:
     result_hash_kind: str | None = None
     started_at: str | None = None
     completed_at: str | None = None
+    stream_progress: dict[str, int | bool | None] | None = None
 
 
 @dataclass
@@ -585,6 +611,7 @@ class _LLMCallAttempt:
     response_id: str | None = None
     result_sha256: str | None = None
     result_hash_kind: str | None = None
+    stream_progress: dict[str, int | bool | None] | None = None
 
     def observe_response(self, body: object = None, response: object = None) -> None:
         headers = getattr(response, "headers", None)
@@ -989,6 +1016,7 @@ def _record_llm_call(
             phase=context.phase if context else None,
             identity_state=identity_state,
             completed_at=datetime.now(timezone.utc).isoformat(),
+            stream_progress=dict(attempt.stream_progress) if attempt.stream_progress is not None else None,
         )
     ledger = _CALL_LEDGER.get()
     if ledger is None:
@@ -1029,6 +1057,7 @@ def synthesis_thinking_disabled() -> bool:
 # 设了本 env 就压过 disable_thinking：thinking=enabled + reasoning_effort=值；没设则老行为一字不变。
 # 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
 REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
+JUDGE_REASONING_EFFORT_ENV = "LLM_JUDGE_REASONING_EFFORT"
 
 # 按模型设推理强度（2026-09-25）。全局 LLM_REASONING_EFFORT 让写手与判官一起变；#76 L6 两次
 # 自然运行（09-23 / 09-25）判官 glm-5.3-flash 非流式按默认强度思考，0/10 在 75s 单次上限内作答，
@@ -1100,7 +1129,13 @@ def _apply_compat_payload(payload: dict, *, model: str) -> None:
 def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
     """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
 
-    effort = effective_reasoning_effort(payload.get("model"))
+    # Judge calls may carry their own effort; the call-purpose scope keeps nested
+    # writer repairs on the writer's controls. Otherwise use the per-model/global
+    # value that the provider_latency tables also read (effective_reasoning_effort).
+    effort: str | None = None
+    if current_call_purpose() == "judge":
+        effort = str(os.environ.get(JUDGE_REASONING_EFFORT_ENV) or "").strip() or None
+    effort = effort or effective_reasoning_effort(payload.get("model"))
     if effort:
         payload["thinking"] = {"type": "enabled"}
         payload["reasoning_effort"] = effort
@@ -1489,10 +1524,19 @@ def _post_chat_message_stream(
     served_model = ""
     saw_any_chunk = False
     call_deadline = deadline or Deadline.from_timeout(timeout)
+    # Counts describe received transport content, not public prose or billed tokens.
+    progress: dict[str, int | bool | None] = {
+        "requested_timeout_ms": max(0, round(timeout * 1000)),
+        "headers_elapsed_ms": None, "first_content_elapsed_ms": None,
+        "content_chars": 0, "reasoning_chars": 0, "tool_argument_chars": 0,
+        "deadline_expired": False,
+    }
+    attempt.stream_progress = progress
     try:
         with _open_deadline_http_response(
             request, timeout=timeout, deadline=call_deadline, is_cancelled=is_cancelled,
         ) as response:
+            progress["headers_elapsed_ms"] = max(0, round((time.monotonic() - started) * 1000))
             attempt.observe_response(response=response)
             for raw_line in response:
                 if is_cancelled is not None and is_cancelled():
@@ -1527,8 +1571,15 @@ def _post_chat_message_stream(
                 if not isinstance(delta, dict):
                     continue
                 calls.add(delta.get("tool_calls"))
+                progress["tool_argument_chars"] = sum(len(call["function"]["arguments"]) for call in calls.assembled())
+                reasoning = delta.get("reasoning_content")
+                if isinstance(reasoning, str):
+                    progress["reasoning_chars"] += len(reasoning)
                 piece = delta.get("content")
                 if isinstance(piece, str) and piece:
+                    if progress["first_content_elapsed_ms"] is None:
+                        progress["first_content_elapsed_ms"] = max(0, round((time.monotonic() - started) * 1000))
+                    progress["content_chars"] += len(piece)
                     content_chunks.append(piece)
                     # 回调放在**收集之后**：即便下游抛异常，已收到的正文也已
                     # 记账，重试资格的判断不会因为回调炸了而误判成"还没吐字"。
@@ -1537,6 +1588,7 @@ def _post_chat_message_stream(
             if call_deadline.remaining() <= 0:
                 raise LLMDeadlineExceeded()
     except Exception as exc:
+        progress["deadline_expired"] = call_deadline.remaining() <= 0
         attempt.observe_result({"content": "".join(content_chunks), "tool_calls": calls.assembled()})
         _record_llm_call(
             "chat_tools_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
