@@ -219,3 +219,11 @@
 | 文件 | 类 | 证据 | 字节 |
 |---|---|---|---|
 | [`feat-knevo-absorption-closure-0923.md`](./feat-knevo-absorption-closure-0923.md) | A | 合入 PR #877 · 2026-09-27 · 4c111aa1d | 2387 |
+
+## 2026-09-28 追加
+
+#946 合入并切上 8792 后其在途交接失效；判据同上。切流回执见 `docs/verification/2026-09-27-cutover-post946.md`。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`fix-llm-host-suspend-observability.md`](./fix-llm-host-suspend-observability.md) | A | 合入 PR #946 · 2026-09-27 · 7a405e1b0；同夜切上 8792 | 2806 |
