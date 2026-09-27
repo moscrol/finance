@@ -91,6 +91,8 @@ def _run_nightly_finalize(
     missing_launcher: bool = False,
     receive: bool = False,
     script_text: str | None = None,
+    knowledge_roots: tuple[Path, Path] | None = None,
+    code_symlink: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], str, str]:
     """真启动 `nightly_full_review.sh finalize`，外呼与写库全换成假执行器。
 
@@ -169,6 +171,12 @@ def _run_nightly_finalize(
             "FAKE_GENERATION_RC": str(generation_rc),
         }
     )
+    if code_symlink:
+        runtime = tmp_path / "runtime-link"
+        runtime.symlink_to(code_root, target_is_directory=True)
+        env["FINANCE_CODE_ROOT"] = str(runtime)
+    if knowledge_roots:
+        env.update(WORKBENCH_KNOWLEDGE_WIKI=str(knowledge_roots[0]), KNOWLEDGE_WIKI=str(knowledge_roots[1]))
     proc = subprocess.run(
         ["/bin/zsh", "-x", str(script), "finalize", "2026-09-11"],
         capture_output=True,
@@ -491,13 +499,14 @@ def test_generation_failure_is_not_reported_as_complete(tmp_path: Path) -> None:
     assert "全量复盘完成" not in proc.stdout
 
 
-def test_finalize_template_pins_generation_separately_from_l2() -> None:
+def test_finalize_template_uses_accepted_runtime_and_separate_kb_archive() -> None:
     with SPLIT_REVIEW_PLISTS[1].open("rb") as handle:
         env = plistlib.load(handle)["EnvironmentVariables"]
-    assert env["FINANCE_CODE_ROOT"].endswith("/finance-l2-adcda94b5e40")
-    assert env["FINANCE_GENERATION_CODE_ROOT"].endswith("/finance-generation-adcda94b5e40")
+    assert env["FINANCE_CODE_ROOT"] == RUNTIME
+    assert "FINANCE_GENERATION_CODE_ROOT" not in env
+    assert env["WORKBENCH_KNOWLEDGE_WIKI"] != env["KNOWLEDGE_WIKI"]
     assert env["FINANCE_SYNC_CODE_ROOT"] == SYNC_CODE_ROOT
-    assert len({env[key] for key in ("FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT", "FINANCE_DATA_ROOT")}) == 3
+    assert env["FINANCE_CODE_ROOT"] != env["FINANCE_DATA_ROOT"]
 
 
 def test_nightly_finalize_never_invokes_s7(tmp_path: Path) -> None:
@@ -550,3 +559,20 @@ def test_checkpoint_installer_defaults_to_venv_and_runtime() -> None:
         'os.environ.get("RECHECK_CLONE", os.path.join(HOME, "finance-workspace-recheck"))'
         not in text
     )
+
+
+def test_nightly_passes_separate_read_and_archive_roots(tmp_path):
+    read = tmp_path / "sealed knowledge" / "wiki"
+    write = tmp_path / "writable knowledge" / "wiki"
+    proc, calls, _ = _run_nightly_finalize(tmp_path, knowledge_roots=(read, write))
+    assert proc.returncode == 0, proc.stderr
+    generation = next(line for line in calls.splitlines() if "run_daily_generation.py" in line)
+    assert f"--kb-wiki {read} --kb-receive-wiki {write}" in generation
+
+
+def test_nightly_captures_runtime_target_before_starting_work(tmp_path):
+    proc, calls, _ = _run_nightly_finalize(tmp_path, separate_generation=False, code_symlink=True)
+    assert proc.returncode == 0, proc.stderr
+    assert "runtime-link" not in calls
+    assert f"code={tmp_path / 'code'}" in calls
+    assert f"{tmp_path / 'code'}/scripts/run_daily_generation.py" in calls

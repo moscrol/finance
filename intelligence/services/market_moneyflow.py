@@ -87,6 +87,7 @@ class MoneyflowSnapshot:
     # 每次都会出现的口径说明——降级归因就是这样被稀释的。
     disclosures: tuple[str, ...] = ()
     source: str = "feature_l2_capital_flow_daily + feature_l2_quant_orders_daily"
+    covered_stock_count: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -273,6 +274,7 @@ def load_moneyflow_snapshot(
             quant_orders=quant_orders,
             warnings=tuple(warnings),
             disclosures=tuple(disclosures),
+            covered_stock_count=len({row[0] for row in raw_leaders if row[0]}),
         )
     except Exception:
         return missing
@@ -352,10 +354,10 @@ def moneyflow_block_for_llm(
                 f"""
                 select trade_date, scan_type, main_buy_net_wan, total_buy_net_wan, score, rank, pct_change
                 from feature_l2_capital_flow_daily
-                where stock_name = ?
+                where stock_name = ? and trade_date <= ?
                 order by trade_date desc limit {int(window)}
                 """,
-                [stock],
+                [stock, latest_date],
             ).fetchall()
             if not rows:
                 missing.append(stock)
@@ -374,10 +376,10 @@ def moneyflow_block_for_llm(
                 f"""
                 select trade_date, quant_amount_wan, quant_pct_of_big_buy, cluster_count, biggest_cluster
                 from feature_l2_quant_orders_daily
-                where stock_name = ?
+                where stock_name = ? and trade_date <= ?
                 order by trade_date desc limit {int(window)}
                 """,
-                [stock],
+                [stock, latest_date],
             ).fetchall()
             if quant:
                 lines.append("| 日期 | 量化单总额(万) | 占大单买入% | 簇数 | 最大簇 |")

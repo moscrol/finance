@@ -81,6 +81,49 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
             self.assertIn("--knowledge-root", by_name["cockpit"].argv)
             self.assertIn(str(synced_kb.parent), by_name["cockpit"].argv)
 
+    def test_cli_separates_snapshot_reads_from_queue_archive(self):
+        from intelligence.cli import build_parser, daily_options_from_args
+        from intelligence.services.kb_queue_receive import receive_kb_ingest_queue
+        import json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = self.make_paths(root)
+            snapshot = root / "sealed snapshot" / "wiki"
+            writable = root / "writable vault" / "wiki"
+            snapshot.mkdir(parents=True)
+            writable.mkdir(parents=True)
+            (snapshot / "marker").write_text("unchanged")
+            receiver = writable.parent / "scripts" / "kb_ingest_queue.py"
+            receiver.parent.mkdir()
+            receiver.write_text(
+                "import json, pathlib, sys\n"
+                "assert sys.argv[1] == 'receive'\n"
+                "destination = pathlib.Path(sys.argv[sys.argv.index('--wiki-root') + 1])\n"
+                "(destination / 'received.json').write_text(pathlib.Path(sys.argv[2]).read_text())\n"
+                "print(json.dumps({'idempotent': False}))\n"
+            )
+            day = "2026-09-24"
+            queue = paths.market_exports / f"{day}-kb-ingest-queue.json"
+            queue.write_text(json.dumps({"date": day, "items": []}))
+            args = build_parser().parse_args([
+                "daily", "--date", day, "--skip-sync", "--plan", "local",
+                "--kb-wiki", str(snapshot), "--kb-receive-wiki", str(writable),
+            ])
+            options = daily_options_from_args(args)
+            by_name = {step.name: step for step in build_daily_review_plan(options, paths)}
+            for name in ("agent-daily", "checkpoint-recheck", "ima-gap-report"):
+                argv = by_name[name].argv
+                self.assertEqual(argv[argv.index("--kb-wiki") + 1], str(snapshot))
+            argv = by_name["kb-ingest-receive"].argv
+            target = argv[argv.index("--kb-wiki") + 1]
+            self.assertEqual(target, str(writable))
+            result = receive_kb_ingest_queue(date=day, finance_root=paths.finance_root, kb_wiki=target)
+            self.assertEqual(result.status, "received", result)
+            self.assertEqual(json.loads((writable / "received.json").read_text()), {"date": day, "items": []})
+            self.assertEqual([item.name for item in snapshot.iterdir()], ["marker"])
+            self.assertEqual((snapshot / "marker").read_text(), "unchanged")
+
     def test_workbench_discovers_agent_brief_tab(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

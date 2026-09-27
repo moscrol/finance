@@ -45,6 +45,7 @@ class DailyReviewOptions:
     only_step: str | None = None
     continue_on_warn: bool = False
     kb_wiki: str | Path | None = None
+    kb_receive_wiki: str | Path | None = None
     step_timeout_sec: float = 1800
     alerts_enabled: bool = True
     alert_on_warn: bool = False
@@ -69,6 +70,11 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             vector_index_dir=vector_index_dir_for(knowledge_wiki),
         )
     date = options.date
+    # Reading may use a sealed snapshot; receive still archives to the writable vault.
+    receive_wiki = (
+        Path(options.kb_receive_wiki).expanduser()
+        if options.kb_receive_wiki else paths.knowledge_wiki
+    )
     exports = paths.market_exports
     daily_dir = paths.review_daily_root / date
     plan: list[CommandSpec] = []
@@ -257,7 +263,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                     "--finance-root",
                     str(paths.finance_root),
                     "--kb-wiki",
-                    str(paths.knowledge_wiki),
+                    str(receive_wiki),
                 ],
                 outputs=[],
             ))

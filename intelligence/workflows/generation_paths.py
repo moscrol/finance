@@ -83,6 +83,9 @@ def validate_generation_paths(
                data / "skills/daily-full-review/state"]
     if "export-increment" in names:
         targets.append(Path(os.environ.get("DUCKDB_SNAPSHOT_OUT_ROOT") or data / "db/snapshots") / "increments")
+    if "kb-ingest-receive" in names:
+        receive_wiki = Path(options.kb_receive_wiki or options.kb_wiki or paths.knowledge_wiki)
+        targets.append(receive_wiki / "raw" / "cross-repo-ingest-queue")
     if "checkpoint-recheck" in names:
         from intelligence.services.checkpoints import RECHECK_VAULT_SUBDIR, resolve_recheck_vault
 

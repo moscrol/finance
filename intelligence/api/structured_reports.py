@@ -581,15 +581,28 @@ def daily_agent_projection_modules(
 
 
 def moneyflow_module(snapshot: MoneyflowSnapshot) -> dict[str, Any]:
-    coverage_total = sum(snapshot.coverage.values())
+    coverage_total = snapshot.covered_stock_count
+    coverage_deduplicated = coverage_total is not None
+    if coverage_total is None:
+        coverage_total = sum(snapshot.coverage.values())
     leader = snapshot.leaders[0] if snapshot.leaders else None
+    leader_label, leader_context = "扫描样本", None
+    if leader and leader.score is not None:
+        leader_label, leader_context = "净流入强度首位", f"{leader.score:.2f}%"
+    elif leader and leader.main_buy_net_wan is not None:
+        leader_label = "主买净额首位"
+        leader_context = f"{leader.main_buy_net_wan:.1f} 万；缺同日市值，强度未计算"
     metrics = [
         {"label": "扫描日期", "value": snapshot.trade_date or "无数据"},
-        {"label": "覆盖股票", "value": str(coverage_total), "context": "涨停股 + 成交额前100"},
         {
-            "label": "净流入强度首位",
+            "label": "覆盖股票" if coverage_deduplicated else "榜单覆盖合计",
+            "value": str(coverage_total),
+            "context": "跨榜去重" if coverage_deduplicated else "各榜合计，跨榜可能重复",
+        },
+        {
+            "label": leader_label,
             "value": leader.stock_name if leader else "无数据",
-            "context": f"{leader.score:.2f}%" if leader and leader.score is not None else None,
+            "context": leader_context,
         },
         {"label": "量化单样本", "value": str(len(snapshot.quant_orders))},
     ]

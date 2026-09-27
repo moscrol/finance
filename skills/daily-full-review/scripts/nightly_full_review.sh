@@ -29,8 +29,11 @@ else
 fi
 
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
+# 运行开始时固定实际快照；随后切换部署软链不改变本次任务加载的代码。
+CODE_ROOT="$(cd "$CODE_ROOT" && pwd -P)" || exit 2
 # 生成段可独立部署；L2/质检/方法验证仍使用 CODE_ROOT，不能整树回退它们。
 GENERATION_CODE_ROOT="${FINANCE_GENERATION_CODE_ROOT:-$CODE_ROOT}"
+GENERATION_CODE_ROOT="$(cd "$GENERATION_CODE_ROOT" && pwd -P)" || exit 2
 DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
 WORKSPACE="$DATA_ROOT"
 
@@ -65,7 +68,8 @@ export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export FORESIGHT_USER="linxiaoqi5111"
 export FORESIGHT_USERS_DIR="${FORESIGHT_USERS_DIR:-/Users/a77/.local/share/finance-workbench/users}"
-export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
+export KNOWLEDGE_WIKI="${KNOWLEDGE_WIKI:-/Users/a77/knowledge-base-private/wiki}"
+export WORKBENCH_KNOWLEDGE_WIKI="${WORKBENCH_KNOWLEDGE_WIKI:-$KNOWLEDGE_WIKI}"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 # 复盘会会话卫生：默认不直连 urllib，请求间隔 0.8s。未合入/未切 runtime 前夜跑仍是旧代码，这两项只在新树上生效。
@@ -272,6 +276,7 @@ run_generation_and_finalize() {
     PYTHONSAFEPATH=1 PYTHONDONTWRITEBYTECODE=1 \
     "$OPS_PYTHON" -P "$generation_launcher" --date "$D" --skip-sync --from-step daily-review \
     --plan "$REVIEW_SYNC_PLAN" \
+    --kb-wiki "$WORKBENCH_KNOWLEDGE_WIKI" --kb-receive-wiki "$KNOWLEDGE_WIKI" \
     --summary-json "$DATA_ROOT/market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
 

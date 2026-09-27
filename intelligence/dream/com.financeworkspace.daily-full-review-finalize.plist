@@ -18,13 +18,15 @@
   <string>/Users/a77/finance-workspace-private</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <!-- 两个完整固定检出分别保留 L2/质检/方法与生成身份，可以独立回滚。
-         adcda94b 中 scripts/moneyflow 与原 d433b907 逐字一致，生成含已合 #796/#815。
-         这是部署候选模板；仓内合入不代表装机或真实夜跑验收完成。 -->
+    <!-- finalize 在启动时解析已验收部署的实际路径并固定至本次结束。
+         生成默认使用同一快照；显式 FINANCE_GENERATION_CODE_ROOT 仍可独立回滚。
+         sync 保持独立固定版本。读取知识快照与可写待办归档分开。 -->
     <key>FINANCE_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-l2-adcda94b5e40</string>
-    <key>FINANCE_GENERATION_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-generation-adcda94b5e40</string>
+    <string>/Users/a77/finance-workspace-runtime</string>
+    <key>WORKBENCH_KNOWLEDGE_WIKI</key>
+    <string>/Users/a77/kb-wt-8792-readiness-0927/wiki</string>
+    <key>KNOWLEDGE_WIKI</key>
+    <string>/Users/a77/knowledge-base-private/wiki</string>
     <key>FINANCE_DATA_ROOT</key>
     <string>/Users/a77/finance-workspace-private</string>
     <key>FINANCE_WS</key>

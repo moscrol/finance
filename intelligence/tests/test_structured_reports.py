@@ -402,3 +402,22 @@ def test_ask_warnings_mark_user_facing_modules_degraded() -> None:
     assert modules[0]["status"] == "degraded"
     assert modules[0]["warnings"] == result.warnings
     assert modules[1]["status"] == "degraded"
+
+
+def test_moneyflow_missing_score_does_not_imply_a_strength_ranking():
+    from dataclasses import replace
+    snapshot = MoneyflowSnapshot(
+        status="ok", target_date="2026-09-24", trade_date="2026-09-24",
+        coverage={"limitup": 51, "top100": 100}, covered_stock_count=146,
+        leaders=(MoneyflowRow("300454", "深信服", "top100", 12000, 15000, None, 1, 9.9),),
+        quant_orders=(), warnings=(),
+    )
+    module = moneyflow_module(snapshot)
+    assert module["metrics"][1] == {"label": "覆盖股票", "value": "146", "context": "跨榜去重"}
+    assert module["metrics"][2]["label"] == "主买净额首位"
+    assert "12000.0 万" in module["metrics"][2]["context"]
+    assert module["table"]["rows"][0]["score"] is None
+    with_score = replace(snapshot, leaders=(replace(snapshot.leaders[0], score=0.5),))
+    assert moneyflow_module(with_score)["metrics"][2]["label"] == "净流入强度首位"
+    without_values = replace(snapshot, leaders=(replace(snapshot.leaders[0], main_buy_net_wan=None),))
+    assert moneyflow_module(without_values)["metrics"][2]["label"] == "扫描样本"

@@ -1296,6 +1296,7 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
     parser.add_argument("--user", default=None, help="User id for runtime metrics isolation")
     parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；会传给 agent-daily，并用于刷新驾驶舱晨汇链接")
+    parser.add_argument("--kb-receive-wiki", default=None, help="待办归档的可写知识库根；默认与读取根相同，读取固定快照时须显式分开")
     parser.add_argument("--skip-sync", action="store_true", help="Skip market data sync")
     parser.add_argument("--skip-long", action="store_true", help="Pass --skip-long to daily-update")
     parser.add_argument("--skip-theme", action="store_true", help="Skip market-triggered theme brief")
@@ -1954,6 +1955,7 @@ def daily_options_from_args(args: argparse.Namespace):
         only_step=args.only_step,
         continue_on_warn=args.continue_on_warn,
         kb_wiki=args.kb_wiki,
+        kb_receive_wiki=args.kb_receive_wiki,
         step_timeout_sec=args.step_timeout_sec,
         alerts_enabled=not args.no_alert,
         alert_on_warn=args.alert_on_warn,

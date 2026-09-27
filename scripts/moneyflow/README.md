@@ -40,15 +40,15 @@ FINANCE_PYTHON=.venv-workbench/bin/python \
 
 `source` 默认 `baidu-share:xianyu-l2-7z`（环境变量 `L2_SOURCE` 可改）。
 
-join 示例：
+join 示例（限本库 A 股：L2 使用 `.XSHE/.XSHG`，技术表使用 `.SZ/.SH`，按六位代码对齐；技术特征缺失保留 NULL）：
 
 ```sql
 SELECT f.trade_date, f.stock_name, f.score, t.deviation_pct
 FROM feature_l2_capital_flow_daily f
-JOIN feature_stock_technical_daily t
-  ON t.trade_date = f.trade_date AND t.stock_ts_code = f.stock_ts_code
+LEFT JOIN feature_stock_technical_daily t
+  ON t.trade_date = f.trade_date AND split_part(t.stock_ts_code, '.', 1) = f.stock_code
 WHERE f.scan_type = 'top100' AND f.rank <= 20
-ORDER BY f.score DESC;
+ORDER BY f.score DESC NULLS LAST, f.main_buy_net_wan DESC NULLS LAST;
 ```
 
 ## 运维

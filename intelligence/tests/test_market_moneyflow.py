@@ -128,6 +128,7 @@ class MoneyflowBlockTests(unittest.TestCase):
             self.assertEqual(snapshot.trade_date, "2026-07-08")
             self.assertEqual([row.stock_name for row in snapshot.leaders].count("深信服"), 1)
             self.assertEqual(snapshot.coverage, {"limitup": 1, "top100": 2})
+            self.assertEqual(snapshot.covered_stock_count, 2)
             self.assertEqual(snapshot.quant_orders[0].stock_name, "深信服")
 
     def test_snapshot_uses_last_available_day_and_marks_stale(self) -> None:
@@ -180,6 +181,38 @@ class MoneyflowBlockTests(unittest.TestCase):
 
             self.assertIn("最新扫描日 2026-07-07", block)
             self.assertNotIn("京东方", block)
+
+    def test_stock_and_quant_history_share_the_report_cutoff(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            historical = moneyflow_block_for_llm("深信服的大单资金流", "深信服", db, as_of_date="2026-07-07")
+            self.assertIn("2026-07-07", historical)
+            self.assertIn("6000.0 | 7000.0", historical)
+            self.assertNotIn("2026-07-08", historical)
+            self.assertNotIn("量化单总额", historical)
+            latest = moneyflow_block_for_llm("深信服的大单资金流", "深信服", db)
+            self.assertIn("2026-07-08", latest)
+            self.assertIn("量化单总额", latest)
+            self.assertEqual(moneyflow_block_for_llm("深信服", "深信服", db, as_of_date="2026-07-06"), "")
+
+    def test_html_retains_each_records_scan_threshold_and_source(self) -> None:
+        from unittest.mock import patch
+        from scripts import render_moneyflow_html as renderer
+
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            with patch.object(renderer, "connect", side_effect=lambda **kwargs: duckdb.connect(str(db), **kwargs)):
+                data = renderer.fetch()
+            first = data["limitup"]["2026-07-08"][0]
+            other = data["top100"]["2026-07-08"][0]
+            quant = data["quant"]["2026-07-08"][0]
+            self.assertEqual(first["big_order_threshold_wan"], 500)
+            self.assertEqual(other["big_order_threshold_wan"], 800)
+            self.assertEqual(first["source"], "l2")
+            self.assertEqual(quant["quant_threshold_wan"], 200)
+            self.assertEqual(quant["big_order_threshold_wan"], 500)
 
     # ---- 时点限定（2026-08-26 blk-d9 实测：块尾口径行会被合成层丢弃，----
     # ---- 19 天前榜单被写成「当日榜单」。限定语必须排在被限定内容之前。----

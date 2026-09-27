@@ -31,13 +31,16 @@ FLOW_COLS = [
     ("rank", "名次"), ("stock_code", "代码"), ("stock_name", "名称"),
     ("score", "综合得分"), ("main_buy_net_wan", "主买净额(万)"),
     ("total_buy_net_wan", "总买净额(万)"), ("float_mktcap_yi", "流通市值(亿)"),
-    ("pct_change", "当日涨幅%"),
+    ("pct_change", "当日涨幅%"), ("big_order_threshold_wan", "大单阈值(万)"),
+    ("source", "来源"),
 ]
 QUANT_COLS = [
     ("rank", "名次"), ("stock_code", "代码"), ("stock_name", "名称"),
     ("quant_pct_of_big_buy", "量化占大单买入%"), ("quant_amount_wan", "量化单总额(万)"),
     ("cluster_count", "簇数"), ("order_count", "笔数"),
     ("biggest_cluster", "最大簇"), ("pct_change", "当日涨幅%"),
+    ("big_order_threshold_wan", "大单阈值(万)"),
+    ("quant_threshold_wan", "量化单阈值(万)"), ("source", "来源"),
 ]
 
 CSS = """
@@ -100,19 +103,19 @@ def fetch() -> dict:
         for st in ("limitup", "top100"):
             rows = con.execute(
                 "SELECT trade_date, rank, stock_code, stock_name, score, main_buy_net_wan, "
-                "total_buy_net_wan, float_mktcap_yi, pct_change "
+                "total_buy_net_wan, float_mktcap_yi, pct_change, big_order_threshold_wan, source "
                 "FROM feature_l2_capital_flow_daily WHERE scan_type=? ORDER BY trade_date, rank",
                 [st]).fetchall()
             for r in rows:
                 data[st].setdefault(str(r[0]), []).append(dict(zip(
-                    [c for c, _ in FLOW_COLS], [r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8]])))
+                    [c for c, _ in FLOW_COLS], r[1:])))
         rows = con.execute(
             "SELECT trade_date, rank, stock_code, stock_name, quant_pct_of_big_buy, quant_amount_wan, "
-            "cluster_count, order_count, biggest_cluster, pct_change "
+            "cluster_count, order_count, biggest_cluster, pct_change, big_order_threshold_wan, quant_threshold_wan, source "
             "FROM feature_l2_quant_orders_daily ORDER BY trade_date, rank").fetchall()
         for r in rows:
             data["quant"].setdefault(str(r[0]), []).append(dict(zip(
-                [c for c, _ in QUANT_COLS], [r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9]])))
+                [c for c, _ in QUANT_COLS], r[1:])))
         return data
     finally:
         con.close()
@@ -134,9 +137,10 @@ def main() -> int:
         f"<style>{CSS}</style></head><body><div class='wrap'>"
         '<a class="home" href="../index.html">← 驾驶舱总入口</a>'
         '<div class="kicker">L2 Capital Flow</div><h1>大单资金流看板</h1>'
-        '<div class="sub">数据源 ClickHouse 逐笔成交（自有大单口径：同一委托单当日累计≥50万，'
-        "委托编号判主动方向），综合得分 = (0.7×主买 + 0.3×总买) ÷ 流通市值 ×100。"
-        "结果由 scripts/moneyflow/ 扫描后写入 DuckDB 特征表，本页按日期展示全部入选股，"
+        '<div class="sub">自有逐笔成交口径：同一委托单当日累计达到扫描阈值，'
+        "委托编号判主动方向。综合得分 = (0.7×主买 + 0.3×总买) ÷ 流通市值 ×100。"
+        "不同日期的来源与金额阈值可能不同，见各行记录。缺同日流通市值时得分留空，按主买净额排序。"
+        "本页按日期展示全部入选股，"
         "点表头可排序。</div>"
         '<div class="bar"><div class="tabs">'
         '<button data-t="limitup">昨日涨停榜</button>'
@@ -145,8 +149,8 @@ def main() -> int:
         '<select id="date"></select><span class="meta"><span id="cnt"></span>'
         f" · BUILT {built}</span></div>"
         '<table id="tbl"></table>'
-        '<div class="note">量化单 = 金额±1%窄带、反复出现≥10笔的大买单簇（单笔≥200万）；'
-        "占比越高说明买盘越机器化。数据缺日期时先运行 scripts/moneyflow/ 的扫描脚本回填。</div>"
+        '<div class="note">量化单按扫描时的金额窄带与重复笔数条件识别，金额阈值见表；'
+        "占比仅表示程序化买入特征。缺日期表示本地尚无已发布结果。</div>"
         f"</div><script>{js}</script></body></html>"
     )
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

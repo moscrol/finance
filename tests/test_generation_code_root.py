@@ -559,3 +559,12 @@ def test_removed_guard_reproduces_defect_then_restore_blocks_it(rig, gate):
     assert restored.returncode == 2 and marker not in restored.stdout + restored.stderr
     if forbidden:
         assert not forbidden.exists()
+
+
+def test_queue_archive_cannot_write_inside_code_snapshot(rig):
+    code, data, _, _ = rig
+    before = inventory(code)
+    result = launch(rig, "--only-step", "kb-ingest-receive", "--kb-receive-wiki", str(code / "wiki"))
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "generation writable path is in CODE_ROOT" in result.stderr
+    assert inventory(code) == before
