@@ -130,3 +130,40 @@ def test_unnumbered_material_prompt_is_unchanged():
     rules = _question_type_rules(frame, context)
     assert all(heading in rules for heading in LEGACY_HEADINGS)
     assert rules == _question_type_rules(frame, ordinary)
+
+
+# ---------------------------------------------------------------- 编号材料题包的调用上限（2026-09-27）
+
+
+def test_numbered_material_pack_gets_the_pack_turn_floor_others_do_not():
+    from intelligence.services.material_delivery import material_pack_turn_seconds
+    from intelligence.services.provider_latency import MATERIAL_PACK_TURN_SECONDS
+
+    frame, context = context_for(PACKS[0])
+    assert material_pack_turn_seconds(context.contract) == MATERIAL_PACK_TURN_SECONDS == 150.0
+    unnumbered = replace(context, contract=replace(context.contract, material_contract=replace(
+        context.contract.material_contract, questions=(),
+    )))
+    assert material_pack_turn_seconds(unnumbered.contract) == 0.0
+    ordinary = replace(context, contract=replace(context.contract, material_contract=None))
+    assert material_pack_turn_seconds(ordinary.contract) == 0.0
+
+
+def test_episode_turn_ceiling_is_lifted_only_for_material_packs():
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+
+    frame, context = context_for(PACKS[0])
+    ordinary = replace(context, contract=replace(context.contract, material_contract=None))
+    episode = ContinuousAgentEpisode(object(), llm_timeout=75.0)
+    assert episode._turn_ceiling(context) == 150.0
+    assert episode._turn_ceiling(ordinary) == 75.0
+    # provider 标定更高时不被压低
+    assert ContinuousAgentEpisode(object(), llm_timeout=300.0)._turn_ceiling(context) == 300.0
+
+
+def test_material_pack_floor_joins_the_repair_cap_but_env_override_still_wins():
+    from intelligence.services.provider_latency import with_rewrite_floor
+
+    assert with_rewrite_floor(40.0, 0, floor_seconds=150.0, env={}) == 150.0
+    assert with_rewrite_floor(40.0, 0, floor_seconds=0.0, env={}) == 40.0
+    assert with_rewrite_floor(40.0, 0, floor_seconds=150.0, env={"ASK_REPAIR_SECONDS_CAP": "40"}) == 40.0

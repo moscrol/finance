@@ -126,6 +126,12 @@ REWRITE_BASE_SECONDS = 15.0
 REWRITE_CHARS_PER_SECOND = 120.0
 REWRITE_FLOOR_CEILING_SECONDS = 200.0
 
+# 编号材料题包（Knevo 型：一条消息 8 道编号题、答案 7–9K 字）的单次模型调用上限与修复窗地板。
+# 2026-09-27 live r3（K260917-pack1，glm-5.3-flash）：首字前思考 61.7s，75s 帽内写到 2.5K 字被截断、
+# 整发作废；修复轮思考 35.8s、40s 窗内写到 413 字又截断。r2 同题首稿 63s 完成——强制思考的时长
+# 波动五倍。150 = 思考 ~62s + 按 120 字/秒写 ~8K 字 ~65s + 余量。只对编号材料题包生效。
+MATERIAL_PACK_TURN_SECONDS = 150.0
+
 
 def rewrite_seconds_floor(expected_chars: int | None) -> float:
     """Seconds a full rewrite of ``expected_chars`` needs; 0 for unknown/empty."""
@@ -140,9 +146,10 @@ def with_rewrite_floor(
     cap: float,
     expected_chars: int | None,
     *,
+    floor_seconds: float = 0.0,
     env: dict[str, str] | None = None,
 ) -> float:
-    """Lift one repair cap to fit a rewrite of the known size; the env override still wins."""
+    """Lift one repair cap to fit a rewrite of the known size (and a task floor); the env override still wins."""
 
     source = os.environ if env is None else env
     raw = str(source.get(ENV_OVERRIDE) or "").strip()
@@ -152,7 +159,7 @@ def with_rewrite_floor(
                 return float(cap)
         except ValueError:
             pass
-    return max(float(cap), rewrite_seconds_floor(expected_chars))
+    return max(float(cap), rewrite_seconds_floor(expected_chars), float(floor_seconds or 0.0))
 
 
 def _model_floor(

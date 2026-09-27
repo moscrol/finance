@@ -22,6 +22,7 @@ from uuid import uuid4
 
 from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
+from intelligence.services.material_delivery import material_pack_turn_seconds
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_issues import (
@@ -1571,7 +1572,9 @@ class ContinuousTurnAdapter:
             allow_delivery_repair=allow_delivery_repair,
             evidence_count=len(outcome.evidence),
             seconds_cap=with_rewrite_floor(
-                self._repair_seconds_cap, largest_model_output_chars(outcome)
+                self._repair_seconds_cap,
+                largest_model_output_chars(outcome),
+                floor_seconds=material_pack_turn_seconds(context.contract),
             ),
             rejected_claim_notes=rejected_claim_notes,
         )
@@ -1662,7 +1665,9 @@ class ContinuousTurnAdapter:
             root_budget=root_budget,
             tools_open=tools_open,
             seconds_cap=with_rewrite_floor(
-                self._repair_seconds_cap, largest_model_output_chars(outcome)
+                self._repair_seconds_cap,
+                largest_model_output_chars(outcome),
+                floor_seconds=material_pack_turn_seconds(context.contract),
             ),
         )
         if admission is None or not admission.backfill:

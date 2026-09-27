@@ -74,6 +74,13 @@ def question_delivery_scope(contract: ResearchTaskContract) -> str | None:
     return None
 
 
+def material_pack_turn_seconds(contract: ResearchTaskContract) -> float:
+    """编号材料题包的单次调用 / 修复窗地板；其他题 0（不抬）。见 provider_latency.MATERIAL_PACK_TURN_SECONDS。"""
+    from intelligence.services.provider_latency import MATERIAL_PACK_TURN_SECONDS
+
+    return MATERIAL_PACK_TURN_SECONDS if material_question_outputs(contract) else 0.0
+
+
 def material_question_outputs(contract: ResearchTaskContract) -> tuple[MaterialQuestionOutput, ...]:
     material = contract.material_contract
     if question_delivery_scope(contract) is None or material is None:
