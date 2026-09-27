@@ -1682,15 +1682,36 @@ def retrieve(
     # managed identity mismatch. A genuinely legacy capture remains a no-op.
     # Managed validation is required even without a complete Workbench root.
     try:
-        capture_generation(
+        generation = capture_generation(
             rag_python, runtime_root, requested or chosen, wiki_root,
-        ).require_available()
+        )
+        generation.require_available()
     except rag_worker.RagGenerationUnavailable as exc:
         res.warning = f"wiki-rag 代际身份不可用（{exc.reason}）"
         tel.status, tel.warning = "error", res.warning
         tel.degraded = True
         tel.fallback_reason = "managed_generation_unavailable"
         return res
+    def generation_failure(exc: rag_worker.RagGenerationUnavailable) -> WikiRagResult:
+        res.ok = False
+        res.hits = []
+        res.warning = f"wiki-rag 代际身份不可用（{exc.reason}）"
+        tel.status, tel.warning = "error", res.warning
+        tel.degraded = True
+        tel.fallback_reason = "managed_generation_unavailable"
+        return res
+
+    def run_cli(argv: list[str], *, cli_timeout: float):
+        # Retries share the original identity. Never launch or deliver a retired
+        # generation, even if a transport/dependency error caused the fallback.
+        generation.require_available()
+        result = subprocess.run(
+            argv, capture_output=True, text=True, timeout=cli_timeout,
+            cwd=str(runtime_root), env=env,
+        )
+        generation.require_available()
+        return result
+
     generation_evidence_chars = min(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
@@ -1718,6 +1739,10 @@ def retrieve(
     if cache_scope and not tel.filters:
         cached = _cache_get(cache_key, require_fresh=require_fresh)
         if cached is not None:
+            try:
+                generation.require_available()
+            except rag_worker.RagGenerationUnavailable as exc:
+                return generation_failure(exc)
             return cached
     legacy_options = _LEGACY_QUERY_OPTIONS.get(protocol_key, frozenset())
     constraint_options = {option for option, key in FILTER_OPTIONS.items() if key in tel.filters}
@@ -1831,14 +1856,7 @@ def retrieve(
             tel.query_protocol = "persistent_worker"
             tel.model_loaded = int(getattr(proc, "model_load_count", 0) or 0) > 0
         else:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=str(runtime_root),
-                env=env,
-            )
+            proc = run_cli(cmd, cli_timeout=timeout)
             # 每次都是新进程，必然重新加载模型与索引。
             tel.model_loaded = True
     # ⚠ 子句顺序是承重的，别按「宽的放前面」重排：``WorkerRequestAbandoned``
@@ -1882,14 +1900,9 @@ def retrieve(
         tel.degraded = True
         tel.fallback_reason = "persistent_worker_unavailable"
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=max(0.001, float(timeout) - (time.monotonic() - _t0)),
-                cwd=str(runtime_root),
-                env=env,
-            )
+            proc = run_cli(cmd, cli_timeout=max(0.001, float(timeout) - (time.monotonic() - _t0)))
+        except rag_worker.RagGenerationUnavailable as exc:
+            return generation_failure(exc)
         except subprocess.TimeoutExpired:
             res.warning = "wiki-rag worker 降级 CLI 后仍超时"
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
@@ -1958,14 +1971,9 @@ def retrieve(
                 )
                 tel.query_protocol = "persistent_worker_legacy"
             else:
-                proc = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=remaining,
-                    cwd=str(runtime_root),
-                    env=env,
-                )
+                proc = run_cli(cmd, cli_timeout=remaining)
+        except rag_worker.RagGenerationUnavailable as exc:
+            return generation_failure(exc)
         except (subprocess.TimeoutExpired, TimeoutError):
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
             res.warning = "wiki-rag legacy query 回退超时"
@@ -2013,14 +2021,9 @@ def retrieve(
             "（匹配 chunk 证据；dense 不可用时回退）"
         )
         try:
-            proc = subprocess.run(
-                fallback_cmd,
-                capture_output=True,
-                text=True,
-                timeout=remaining,
-                cwd=str(runtime_root),
-                env=env,
-            )
+            proc = run_cli(fallback_cmd, cli_timeout=remaining)
+        except rag_worker.RagGenerationUnavailable as exc:
+            return generation_failure(exc)
         except subprocess.TimeoutExpired:
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
             res.warning = "wiki-rag dense 依赖不可用，BM25 回退超时"
@@ -2240,6 +2243,10 @@ def retrieve(
         res.warning = "；".join(filter(None, [res.warning, "wiki-rag 无可用 chunk 命中"]))
         tel.status = "empty"
         tel.warning = res.warning
+    try:
+        generation.require_available()
+    except rag_worker.RagGenerationUnavailable as exc:
+        return generation_failure(exc)
     return _cache_put(cache_key, res) if cache_scope else res
 
 def rag_runtime_ready() -> bool:

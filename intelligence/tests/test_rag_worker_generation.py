@@ -720,3 +720,40 @@ def test_single_bad_query_does_not_reclassify_worker_as_retired(tmp_path: Path) 
         assert process is not None and process.poll() is None
     finally:
         worker.close()
+
+
+@pytest.mark.parametrize("scenario", [
+    "worker_failure", "legacy_retry", "dense_retry", "direct_cli",
+])
+def test_retrieve_rejects_cli_results_or_retries_after_retirement(tmp_path, monkeypatch, scenario):
+    alpha = _managed_generation(tmp_path, "alpha")
+    beta = _managed_generation(tmp_path, "beta")
+    _activate(alpha)
+    _bind(monkeypatch, alpha)
+    kb_rag.clear_result_cache()
+    cli_generations = []
+
+    def cli(*args, **kwargs):
+        pointer = json.loads((Path(alpha["root"]) / "current.json").read_text())
+        cli_generations.append(pointer["generation"])
+        _activate(beta)
+        if scenario == "legacy_retry":
+            return WorkerResponse(2, "", "error: unrecognized arguments: --evidence-chars 1000")
+        if scenario == "dense_retry":
+            return WorkerResponse(1, "", "No module named 'torch'")
+        return WorkerResponse(0, "[]", "")
+
+    def worker(**kwargs):
+        _activate(beta)
+        raise RuntimeError("transport failed after retirement")
+
+    with mock.patch.object(kb_rag.subprocess, "run", side_effect=cli), mock.patch.object(kb_rag.rag_worker, "query", side_effect=worker):
+        result = kb_rag.retrieve(
+            "orders", Path(alpha["wiki"]),
+            mode="hybrid" if scenario == "dense_retry" else "bm25",
+            worker_enabled=scenario == "worker_failure",
+        )
+    assert result.telemetry.status == "error"
+    assert "current_generation_changed" in result.warning
+    assert not result.hits
+    assert cli_generations == ([] if scenario == "worker_failure" else ["alpha"])
