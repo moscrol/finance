@@ -1033,10 +1033,11 @@ def _rebase_frame_for_decision(
         question_type=decision.question_type,
         subject=(
             decision.subject
-            if decision.subject is not None
+            if decision.subject is not None or decision.question_type == PERSONAL_MEMORY_RECALL
             else task_frame.subject
         ),
-        subject_kind=task_frame.subject_kind,
+        subject_kind=("unknown" if decision.question_type == PERSONAL_MEMORY_RECALL and decision.subject is None
+                      else task_frame.subject_kind),
         timeframe=(
             decision.timeframe
             if decision.timeframe is not None
@@ -1098,9 +1099,9 @@ def _pending_material_clarification(previous_intent: TurnIntent | None) -> TaskF
 
 
 def _arbitrate_personal_recall(
-    query: str, frame: TaskFrame, *,
+    query: str, frame: TaskFrame, *, verified_subject: bool,
     llm_complete: LLMComplete | None, deadline: ResearchDeadline | None,
-) -> TurnDecision | None:
+) -> tuple[TurnDecision | None, str, str]:
     """One bounded controller decision for an already-recognized prior reference.
 
     No new keyword routing and no Episode reframe: mixed/failed/uncertain
@@ -1108,7 +1109,7 @@ def _arbitrate_personal_recall(
     """
     timeout = min(8.0, deadline.remaining()) if deadline is not None else 8.0
     if timeout <= 0:
-        return None
+        return None, "personal_recall_timeout", "个人回顾仲裁未调用：全链预算已耗尽"
     expires_at = time.monotonic() + timeout
     messages = [
         {"role": "system", "content": (
@@ -1123,29 +1124,40 @@ def _arbitrate_personal_recall(
         {"role": "user", "content": json.dumps({"query": query}, ensure_ascii=False)},
     ]
     try:
-        content, _, _ = (
+        content, _, detail = (
             llm_complete(messages) if llm_complete is not None else llm_refine.complete(
                 messages, timeout=max(0.0, expires_at - time.monotonic()),
-                min_viable_seconds=0.001, max_tokens=64,
+                # Reasoning models spend completion tokens before producing the
+                # tiny JSON body. Keep a bounded allowance for both, within the
+                # same absolute time window; do not change provider controls.
+                min_viable_seconds=0.001, max_tokens=512,
             )
         )
-    except Exception:  # noqa: BLE001 - a failed optional arbitration keeps the original gate
-        return None
-    if not content or time.monotonic() >= expires_at or (deadline is not None and deadline.expired):
-        return None
+    except Exception as exc:  # noqa: BLE001 - a failed optional arbitration keeps the original gate
+        return None, "personal_recall_provider_error", f"个人回顾仲裁调用抛出（{type(exc).__name__}）"
+    if time.monotonic() >= expires_at or (deadline is not None and deadline.expired):
+        return None, "personal_recall_timeout", "个人回顾仲裁超出截止时间，保留原合同"
+    if content is None:
+        reason, detail = _controller_failure(detail)
+        return None, f"personal_recall_{reason}", detail or "个人回顾仲裁未获得 provider 响应"
+    if not content.strip():
+        return None, "personal_recall_empty_response", "个人回顾仲裁正文为空，未获得任务范围裁决"
     try:
         value = json.loads(content)
     except (json.JSONDecodeError, TypeError):
-        return None
-    if not isinstance(value, dict) or set(value) != {"personal_records_only"} or value["personal_records_only"] is not True:
-        return None
+        return None, "personal_recall_unparsable_response", "个人回顾仲裁未返回合法 JSON"
+    if (not isinstance(value, dict) or set(value) != {"personal_records_only"}
+            or not isinstance(value["personal_records_only"], bool)):
+        return None, "personal_recall_invalid_schema", "个人回顾仲裁字段或类型不符合两值合同"
+    if not value["personal_records_only"]:
+        return None, "", ""
     row = route_by_id(PERSONAL_MEMORY_RECALL)
     assert row is not None
     decision = _decision_from_route_row(
-        row, query=query, subject=frame.subject, timeframe=frame.timeframe,
+        row, query=query, subject=frame.subject if verified_subject else None, timeframe=frame.timeframe,
         confidence=1.0, reason="有限语义仲裁确认全部诉求仅回顾用户已有记录",
     )
-    return replace(decision, needs_memory=True, needs_template=False)
+    return replace(decision, needs_memory=True, needs_template=False), "", ""
 
 
 def decide_turn(
@@ -1498,20 +1510,36 @@ def decide_turn(
         skill_mode=skill_mode,
         selected_skill_ids=selected_skill_ids,
     )
-    if deterministic is not None:
-        if (
-            references_personal_prior(query)
-            and deterministic.lane == "research"
-            and task_frame.question_type in {"stock_deep_dive", "theme_analysis", "theme_track", "trade_advice"}
-            and task_frame.material_contract is None and task_frame.history_intent is None
-            and not selected_skill_ids
-        ):
-            recall = _arbitrate_personal_recall(
-                query, task_frame, llm_complete=llm_complete, deadline=deadline,
+    if (
+        references_personal_prior(query)
+        and (deterministic is None or deterministic.lane in {"knowledge", "research"})
+        and resolution.status != "candidate"
+        and task_frame.material_contract is None and task_frame.history_intent is None
+        and not selected_skill_ids
+    ):
+        # Prior references occur in definition-shaped and unanchored requests too.
+        # Resolve their scope before either deterministic return or the full
+        # Controller fallback; the latter retains its existing parser contract.
+        recall, recall_failure, recall_detail = _arbitrate_personal_recall(
+            query, task_frame, verified_subject=envelope.matched_by in _VERIFIED_SUBJECT_MATCHES,
+            llm_complete=llm_complete, deadline=deadline,
+        )
+        if recall is not None:
+            task_frame = _rebase_frame_for_decision(task_frame, recall)
+            return _attach_turn_intent(recall, intent, task_frame=task_frame)
+        if recall_failure:
+            # A failed optional request must not silently trigger the full
+            # classifier and its repair calls. A valid false result, however,
+            # continues the original routing path below without changing it.
+            fallback = deterministic or _enforce_task_frame_route(
+                _safe_fallback(effective_query, envelope), task_frame,
             )
-            if recall is not None:
-                task_frame = _rebase_frame_for_decision(task_frame, recall)
-                return _attach_turn_intent(recall, intent, task_frame=task_frame)
+            fallback = replace(
+                fallback, llm_failure_reason=recall_failure, llm_failure_detail=recall_detail,
+            )
+            task_frame = _rebase_frame_for_decision(task_frame, fallback)
+            return _attach_turn_intent(fallback, intent, task_frame=task_frame)
+    if deterministic is not None:
         task_frame = _rebase_frame_for_decision(task_frame, deterministic)
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     if resolution.status == "candidate" and resolution.candidates:

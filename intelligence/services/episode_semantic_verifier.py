@@ -71,7 +71,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.personal_memory_recall import (
-    is_personal_recall_contract, is_recall_gap_delivery, memory_gap_public_notice,
+    is_personal_memory_original, is_personal_recall_contract, is_recall_gap_delivery, memory_gap_public_notice,
 )
 from intelligence.services.episode_answer_hygiene import (
     choose_repair_rollback,
@@ -5376,7 +5376,9 @@ def _novel_numeric_condition_indexes(
     if contract is not None and grounding_scope(contract) == "material_only":
         return ()
     historical = historical_claim_texts(contract, verified.outcome.bindings, verified.outcome.draft) if contract else frozenset()
-    memory_restatements = _bound_memory_restatement_indexes(sentences, verified)
+    personal_recall = is_personal_recall_contract(contract)
+    memory_restatements = frozenset() if personal_recall else _bound_memory_restatement_indexes(sentences, verified)
+    personal_quantities = _bound_personal_recall_quantities(verified) if personal_recall else {}
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
@@ -5394,6 +5396,17 @@ def _novel_numeric_condition_indexes(
         # ordinals must not trigger a numeric backfill or sentence deletion.
         candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(candidate))
         candidate = _QUARTER_TOKEN_RE.sub("", candidate)
+        if personal_recall:
+            # The frozen personal scope supplies the semantic role, not a prose
+            # prefix. Compare every stated quantity with the exact bound/cited
+            # originals; never add these values to the market-evidence pool.
+            allowed = frozenset().union(*(personal_quantities.get(ordinal, frozenset())
+                                          for ordinal in cited_evidence_ordinals(text)))
+            candidate = _ALNUM_IDENTIFIER_RE.sub(" ", _LEADING_LIST_LABEL_RE.sub("", candidate))
+            quantities = (*_ARABIC_QUANTITY_RE.findall(candidate), *_CHINESE_QUANTITY_RE.findall(candidate))
+            if any(_normalize_quantity(quantity) not in allowed for quantity in quantities):
+                rejected.add(index)
+            continue
         # Heading context stops at the next heading; ordinary facts in another
         # section must not inherit a condition label. Formatting is analysis-only.
         heading = re.match(
@@ -5934,6 +5947,35 @@ _MEMORY_RESTATEMENT_PREFIX_RE = re.compile(
     r"(?:记录|记下|提出|设定|判断|认为|提到|说过)"
     r"(?:的(?:规则|判断|原则|看法|条件|观察位|观察线))?(?:是|为)?[：:]?"
 )
+
+
+def _bound_personal_recall_quantities(verified: VerifiedEpisodeOutcome) -> dict[str, frozenset[str]]:
+    """Original quantities support personal paraphrases, not new conditions.
+
+    Numeric identity is deterministic; meaning, including reversed conditions,
+    remains the existing semantic judge's responsibility when enabled.
+    """
+    if not is_personal_recall_contract(verified.contract):
+        return {}
+    bound = {
+        digest for binding in verified.outcome.bindings
+        if binding.output_id == "prior_recall" and binding.basis == "user_premise"
+        for digest in binding.evidence_hashes
+    }
+    ordinals = evidence_ordinal_table(verified.outcome.evidence)
+    result = {}
+    for item in verified.outcome.evidence:
+        if (
+            item.content_hash not in bound or item.content_hash not in ordinals
+            or not is_personal_memory_original(item)
+        ):
+            continue
+        text = _ALNUM_IDENTIFIER_RE.sub(" ", strip_evidence_ordinals(item.detail))
+        result[ordinals[item.content_hash]] = frozenset(
+            _normalize_quantity(quantity)
+            for quantity in (*_ARABIC_QUANTITY_RE.findall(text), *_CHINESE_QUANTITY_RE.findall(text))
+        )
+    return result
 
 
 def _bound_memory_restatement_indexes(

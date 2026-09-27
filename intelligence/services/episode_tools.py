@@ -1993,13 +1993,16 @@ def build_episode_registry(
             tool_context: agent_research.AgentToolContext,
         ):
             from intelligence.services.memory_prefetch import project_memory_evidence
+            from intelligence.services.personal_memory_recall import is_personal_recall_contract
 
             tool_context.check_cancelled()
+            recent_recall = is_personal_recall_contract(context.contract) and not context.contract.subject
             recall = user_memory.relevant_memory_records(
                 query,
                 user=memory_user,
                 users_root=memory_users_root,
                 strict=True,
+                **({"recent": True, "limit": user_memory.DEFAULT_LOAD_WINDOW} if recent_recall else {}),
                 **_memory_recall_intent(
                     context.contract.subject,
                     context.contract.subject_kind,
@@ -2094,6 +2097,7 @@ def build_episode_registry(
             projected = project_memory_evidence(
                 tuple(evidence), information_cutoff=tool_context.information_cutoff,
                 history_intent=tool_context.history_intent,
+                **({"record_limit": user_memory.DEFAULT_LIMIT} if recent_recall else {}),
             )
             observation = (
                 "；".join(f"{item.title}：{item.detail}" for item in projected)

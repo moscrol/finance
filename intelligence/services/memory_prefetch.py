@@ -47,11 +47,12 @@ def _gap(reason: str, *, message: str | None = None) -> tuple[AgentEvidence, ...
     return (replace(item, content_hash=evidence_content_hash(item)),)
 
 
-def _budget_notice(truncated: int, omitted: int) -> AgentEvidence:
+def _budget_notice(truncated: int, omitted: int, *, record_limit: int | None = None) -> AgentEvidence:
+    limits = f"每类{record_limit}条与" if record_limit is not None else ""
     return _gap(
         "bounded",
         message=(
-            f"用户记忆按{MEMORY_RECALL_MAX_CHARS}字符预算展示；"
+            f"用户记忆按{limits}{MEMORY_RECALL_MAX_CHARS}字符预算展示；"
             f"{truncated}条正文已截断，{omitted}条记录已省略；"
             "完整内容保留在原台账；仅作先验，非市场事实。"
         ),
@@ -63,6 +64,7 @@ def project_memory_evidence(
     *,
     information_cutoff: InformationCutoff | None,
     history_intent: HistoryIntent | None = None,
+    record_limit: int | None = None,
 ) -> tuple[AgentEvidence, ...]:
     """One idempotent, dated and bounded view for opening and explicit recall.
 
@@ -100,6 +102,21 @@ def project_memory_evidence(
         gaps.extend(_gap("future_of_cutoff"))
 
     eligible.sort(key=lambda item: item.title != "用户纠偏原则")
+    omitted_by_limit = 0
+    if record_limit is not None:
+        # Recent unscoped recall reads the loader's bounded window, then selects
+        # within the allowed dates. Newer ineligible rows must not hide older
+        # eligible records. Ordinary relevance recall does not use this option.
+        counts: dict[str, int] = {}
+        selected = []
+        for item in eligible:
+            count = counts.get(item.title, 0)
+            if count < max(0, record_limit):
+                selected.append(item)
+                counts[item.title] = count + 1
+            else:
+                omitted_by_limit += 1
+        eligible = selected
     capped = [
         replace(item, detail=item.detail[: MEMORY_RECALL_ITEM_MAX_CHARS - len(_TRUNCATION_MARK)] + _TRUNCATION_MARK)
         if len(item.detail) > MEMORY_RECALL_ITEM_MAX_CHARS else item
@@ -110,15 +127,17 @@ def project_memory_evidence(
         return len(item.title) + len(item.detail) + 2  # colon and join separator
 
     needs_notice = (
-        any(len(item.detail) > MEMORY_RECALL_ITEM_MAX_CHARS for item in eligible)
+        omitted_by_limit > 0
+        or any(len(item.detail) > MEMORY_RECALL_ITEM_MAX_CHARS for item in eligible)
         or sum(cost(item) for item in (*capped, *gaps)) > MEMORY_RECALL_MAX_CHARS
     )
     remaining = MEMORY_RECALL_MAX_CHARS - sum(cost(item) for item in gaps)
     if needs_notice:
         # Reserve the longest count representation before selecting any record.
-        remaining -= cost(_budget_notice(len(capped), len(capped)))
+        remaining -= cost(_budget_notice(len(capped), len(capped) + omitted_by_limit, record_limit=record_limit))
     kept = []
-    truncated = omitted = 0
+    truncated = 0
+    omitted = omitted_by_limit
     for original, item in zip(eligible, capped, strict=True):
         if cost(item) > remaining:
             omitted += 1
@@ -127,7 +146,7 @@ def project_memory_evidence(
         remaining -= cost(item)
         truncated += item.detail != original.detail
     if truncated or omitted:
-        gaps.append(_budget_notice(truncated, omitted))
+        gaps.append(_budget_notice(truncated, omitted, record_limit=record_limit))
     return tuple(
         replace(item, content_hash=evidence_content_hash(item), io_effect="local_read")
         for item in (*kept, *gaps)

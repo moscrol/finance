@@ -40,6 +40,16 @@ def is_personal_recall_contract(contract: ResearchTaskContract | None) -> bool:
     )
 
 
+def is_personal_memory_original(item: AgentEvidence) -> bool:
+    """A collected private prior, with the identity of its delivered excerpt."""
+    from intelligence.services.agent_research import evidence_content_hash
+
+    return bool(
+        item.tool == "memory_lookup" and item.evidence_tier == "user_memory"
+        and item.io_effect == "local_read" and item.content_hash == evidence_content_hash(item)
+    )
+
+
 _GAP_NOTICES = {
     "empty": "本次在你的可用个人记录中未找到相关内容，暂时无法回顾你此前的判断或纠偏。这不代表你从未表达过。",
     "future_of_cutoff": "相关个人记录晚于本次信息截止日，未纳入本次回顾；这不代表没有记录。",

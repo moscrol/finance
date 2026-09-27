@@ -431,8 +431,14 @@ def relevant_memory_records(
     users_root: str | Path | None = None,
     *,
     strict: bool = False,
+    recent: bool = False,
 ) -> MemoryRecall:
-    """Recall relevant judgments/corrections as records, not rendered markdown."""
+    """Recall records; unscoped personal recall may request the recent window.
+
+    ``recent`` changes selection only, after the canonical loader has applied
+    withdrawals. Callers still own identity, historical cutoff and text limits.
+    Ordinary research leaves it false and keeps relevance filtering.
+    """
 
     j_path, c_path, _ck_path, _v_path = _ledger_paths(user, users_root)
     read_options = {"strict": True} if strict else {}
@@ -441,15 +447,17 @@ def relevant_memory_records(
     if strict and (j_warning or c_warning):
         raise OSError("user memory ledger unavailable")
     return MemoryRecall(
-        judgments=select_relevant(
+        judgments=(sorted(j_records, key=lambda row: str(row.get("ts") or ""), reverse=True)[:max(0, limit)]
+                   if recent else select_relevant(
             j_records,
             query,
             theme,
             entity,
             text_keys=("memo",),
             limit=limit,
-        ),
-        corrections=select_relevant(
+        )),
+        corrections=(sorted(c_records, key=lambda row: str(row.get("ts") or ""), reverse=True)[:max(0, limit)]
+                     if recent else select_relevant(
             c_records,
             query,
             theme,
@@ -457,7 +465,7 @@ def relevant_memory_records(
             text_keys=("correction", "original", "principle"),
             tag_keys=("themes",),
             limit=limit,
-        ),
+        )),
         judgments_path=j_path,
         corrections_path=c_path,
         methods=_method_records(query, user, users_root, strict=strict),

@@ -18,7 +18,7 @@ from intelligence.services.agent_research import (
     evidence_content_hash,
 )
 from intelligence.services.agent_runtime import AgentOutcome
-from intelligence.services.personal_memory_recall import is_personal_recall_contract, is_recall_gap_delivery
+from intelligence.services.personal_memory_recall import is_personal_memory_original, is_personal_recall_contract, is_recall_gap_delivery
 from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
 from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
@@ -302,6 +302,7 @@ def verify_episode_outcome(
             for item in evidence_items
             if (required.evidence_types and item.tool not in required.evidence_types)
             or item.evidence_tier == "user_memory_gap"
+            or (is_personal_recall_contract(contract) and not is_personal_memory_original(item))
             or (required.grounding_mode == "evidence" and (
                 item.tool == "memory_lookup" or item.evidence_tier == "user_memory"
             ))

@@ -11,7 +11,7 @@ from typing import cast
 
 from intelligence.services import compliance_gate
 from intelligence.services.agent_research import AgentEvidence
-from intelligence.services.personal_memory_recall import is_personal_recall_contract, memory_gap_public_notice
+from intelligence.services.personal_memory_recall import is_personal_memory_original, is_personal_recall_contract, memory_gap_public_notice
 from intelligence.services.agent_runtime import (
     EpisodeStatus,
     OutputEvidenceBinding,
@@ -1094,6 +1094,11 @@ def validate_episode_finish(
                 gap=binding.gap or "用户记忆无相关命中",
             )
     for binding in bindings:
+        if is_personal_recall_contract(context.contract) and any(
+            not is_personal_memory_original(evidence_by_hash[digest])
+            for digest in binding.evidence_hashes
+        ):
+            raise _reject("evidence_type_floor", "个人回顾必须绑定身份与内容哈希一致的用户记忆原件")
         if any(
             evidence_by_hash[digest].evidence_tier == "user_memory_gap"
             or (binding.basis == "evidence" and (
