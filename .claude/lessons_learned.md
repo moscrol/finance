@@ -441,6 +441,13 @@
 
 ## Agent Runtime / 预算诊断（2026-08-08）
 
+- **[2026-09-27] 「75 秒截止拖了 38 分钟才切断」——其实是 Mac 合盖睡了 2253 秒，截止按醒着的时间守住了。**
+  生产 deploy-probe turn-3：`model_intent` 21:13:33、`model_turn`（LLMDeadlineExceeded）21:52:13，差点按「连接卡死 / 滴流重置 socket 超时」去改传输层。
+  三条对账就定性：①下一轮 `remaining_seconds_at_entry` 509.5、本轮 584.7，预算只走 75.2s；②`pmset -g log` 21:14:20 `Clamshell Sleep`、21:51:57 开盖 Wake，睡 978+976+299=2253s；
+  ③本机 `time.get_clock_info('monotonic')` 是 `mach_absolute_time()`，睡眠时停走（此刻比 `CLOCK_MONOTONIC_RAW` 落后 61.6h）。停滞 / 滴流由 `test_llm_timeout_diagnostic` 真实端点场景守，照旧全绿。
+  做法：墙钟空档远大于截止时，先拿预算字段与墙钟对账，对不上就 `pmset -g log | grep -E "Sleep|Wake"`，别先怀疑传输层。现在 `model_turn` 与 LLM 调用记录带 `host_suspended_seconds`：墙钟 ≈ 预算耗时 + 该值。
+  **可迁移原则：monotonic 不等于墙钟。** macOS `time.monotonic()` 与 Linux `CLOCK_MONOTONIC` 都不计休眠，要计休眠用 `CLOCK_MONOTONIC_RAW`（macOS）/ `CLOCK_BOOTTIME`（Linux）。计不计是语义决定（本仓选「睡眠即暂停」，用户 2026-09-27 拍板），选完要让日志分得清两者。见 `docs/handoffs/2026-09-27-llm-deadline-host-sleep.md`。
+
 - **[2026-09-18] R4边界返修：关系先于共现，日期角色先于位置，同一断言换排版不应换判据。**
   “有搜索词”不能全局豁免缺附件；“有数字”不等坏条件，表格/标题里的坏阈值也不能绕门；独立回执不算清单项，报告期不能抢复查日。成对测试拒绝与放行，再撤保护要求真实断言失败（不是加载报错/0tests）。97ca干净工程11852P仍不倒签R3四题0/4；E2E首轮漏URL的33P1F2S与浏览器trace保留，补运行参数同rev后34P2S。见`docs/handoffs/2026-09-18-8792-boundary-r4.md`。
 
