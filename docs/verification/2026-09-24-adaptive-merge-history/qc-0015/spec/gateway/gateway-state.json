@@ -1,0 +1,32 @@
+{
+  "phase": "failed",
+  "requests": 2,
+  "history": [
+    {
+      "event": "start",
+      "phase": "read",
+      "request": 0
+    },
+    {
+      "event": "request",
+      "phase": "read",
+      "request": 1
+    },
+    {
+      "event": "tool_result",
+      "phase": "write",
+      "request": 1
+    },
+    {
+      "event": "request",
+      "phase": "write",
+      "request": 2
+    },
+    {
+      "event": "blocked",
+      "phase": "failed",
+      "request": 2,
+      "reason": "exact_copy_to_fresh_echo_required"
+    }
+  ]
+}

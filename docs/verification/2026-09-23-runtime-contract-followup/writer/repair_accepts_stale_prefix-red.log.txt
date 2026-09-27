@@ -1,0 +1,15 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_stale_repair_never_appends_or_calls_model[event] _____________
+intelligence/tests/test_episode_writer.py:357: in test_stale_repair_never_appends_or_calls_model
+    with pytest.raises(RestoreUnavailable, match="no longer matches"):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>
+____________ test_stale_repair_never_appends_or_calls_model[state] _____________
+intelligence/tests/test_episode_writer.py:357: in test_stale_repair_never_appends_or_calls_model
+    with pytest.raises(RestoreUnavailable, match="no longer matches"):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_accepts_stale_prefix-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_stale_repair_never_appends_or_calls_model[event]
+FAILED intelligence/tests/test_episode_writer.py::test_stale_repair_never_appends_or_calls_model[state]
+2 failed, 21 deselected in 3.57s

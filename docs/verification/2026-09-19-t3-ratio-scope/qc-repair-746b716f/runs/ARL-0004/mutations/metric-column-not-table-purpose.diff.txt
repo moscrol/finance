@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 07f48a5e..8f2798df 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -188,7 +188,7 @@ def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
+             # For tables inspect the COLUMN, not a 'cash ratio' purpose/table
+             # name covering unrelated revenue columns. Row label supplies time.
+             column = obs.metric.rsplit(".", 1)[-1].split("[", 1)[0]
+-            if not _absolute_ratio_label(column):
++            if False and not _absolute_ratio_label(column):
+                 continue
+             # A year in the table name must not override the row's report period.
+             label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric

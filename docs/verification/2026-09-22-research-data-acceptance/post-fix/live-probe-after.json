@@ -1,0 +1,114 @@
+{
+  "scope": "live draft x live calculation record; guard behavior only, not answer grading",
+  "model_calls": 0,
+  "network_calls": 0,
+  "probe_sha256": "fdbfbefe3369667d340b475d7ca2343ee5a0f01c958b83b4b295481a8dc463e3",
+  "run_dir": "/Users/a77/.finance-runtime/reviews/research-data-acceptance-20260922-01/users-postfix/probe-postfix-0922/runs/run_20260922_204734_634133",
+  "before": {
+    "code_root": "/Users/a77/fwp-wt-research-data-acceptance-0922",
+    "revision": "7687a0e276bb2b606b349ec15afb8a9eaf6082f8",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "e716508f200b1e18f1bf51b3cd61852fcea80a85aae16b637ba02258195e7a57",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "graded_text": "public_answer",
+  "draft_sha256": "9954cc7e060e16d517444f897dbe8ed967363259e26458b8a4bf1ad7c25fa78f",
+  "public_answer": "**贵州茅台（600519）最近六期累计经营现金流净额与利润含金量（OCF/归母净利润）**，均为报告期累计口径，同一报告期相除，计算编号 8c6f21288d723235（明细表已落盘为 calc-8c6f21288d723235-t1.csv / .html，可下载）：\n| 报告期 | 截止日 | 披露日 | 累计经营现金流净额（亿元） | 累计归母净利润（亿元） | OCF/归母净利润 |\n|---|---|---|---|---|---|\n| 2025一季报 | 2025-03-31 | 2025-04-30 | 88.09 | 268.47 | 0.3281 |\n| 2025中报 | 2025-06-30 | 2025-08-13 | 131.19 | 454.03 | 0.2889 |\n| 2025三季报 | 2025-09-30 | 2025-10-30 | 381.97 | 646.27 | 0.5910 |\n| 2025年报 | 2025-12-31 | 2026-04-17 | 615.22 | 823.20 | 0.7474 |\n| 2026一季报 | 2026-03-31 | 2026-04-25 | 269.10 | 272.43 | 0.9878 |\n| 2026中报 | 2026-06-30 | 2026-08-15 | 706.91 | 445.17 | 1.5880 |\n**直接判断**：六期平均比值 0.7552，整体利润有现金流支撑但含金量波动大。2025 年前三期比值持续低于 0.6（中报最低 0.2889），利润明显跑在现金前面；2025 年报回升至 0.7474，2026 年一季报接近 1（0.9878），2026 中报升至 1.5880，为六期最高——上半年经营现金流 706.91 亿元已显著超过同期归母净利润 445.17 亿元，当期利润含金量明显改善。\n**反证与竞争性解释**：\n- 比值低不等于利润造假：白酒企业现金流受经销商打款节奏、税费缴纳时点影响，季度间波动大，2025 中报 0.2889 的低点部分被后续季度回补（三季报 0.5910、年报 0.7474 逐期抬升），呈季节性收敛特征。\n- 2026 中报 1.5880 的高比值同样可能含节奏因素（如前期递延的现金回笼集中在上半年），单期超过 1 不宜直接外推为全年水平；且同期归母净利润同比 -1.95%，分母走弱也推高了比值。\n- 合同负债从 2025 一季报末 87.88 亿元降至 2026 中报末 31.78 亿元，预收蓄水池明显收缩，是观察后续现金流持续性的反向信号。\n六期数据均完整，无缺数。",
+  "judge_status": "repaired",
+  "calculation_products": {
+    "六期平均OCF/归母净利润": 0.7552,
+    "期数": 6.0,
+    "茅台六期现金流含金量.累计经营现金流净额（亿元）[2025一季报]": 88.09,
+    "茅台六期现金流含金量.累计归母净利润（亿元）[2025一季报]": 268.47,
+    "茅台六期现金流含金量.OCF/归母净利润[2025一季报]": 0.3281,
+    "茅台六期现金流含金量.累计经营现金流净额（亿元）[2025中报]": 131.19,
+    "茅台六期现金流含金量.累计归母净利润（亿元）[2025中报]": 454.03,
+    "茅台六期现金流含金量.OCF/归母净利润[2025中报]": 0.2889,
+    "茅台六期现金流含金量.累计经营现金流净额（亿元）[2025三季报]": 381.97,
+    "茅台六期现金流含金量.累计归母净利润（亿元）[2025三季报]": 646.27,
+    "茅台六期现金流含金量.OCF/归母净利润[2025三季报]": 0.591,
+    "茅台六期现金流含金量.累计经营现金流净额（亿元）[2025年报]": 615.22,
+    "茅台六期现金流含金量.累计归母净利润（亿元）[2025年报]": 823.2,
+    "茅台六期现金流含金量.OCF/归母净利润[2025年报]": 0.7474,
+    "茅台六期现金流含金量.累计经营现金流净额（亿元）[2026一季报]": 269.1,
+    "茅台六期现金流含金量.累计归母净利润（亿元）[2026一季报]": 272.43,
+    "茅台六期现金流含金量.OCF/归母净利润[2026一季报]": 0.9878,
+    "茅台六期现金流含金量.累计经营现金流净额（亿元）[2026中报]": 706.91,
+    "茅台六期现金流含金量.累计归母净利润（亿元）[2026中报]": 445.17,
+    "茅台六期现金流含金量.OCF/归母净利润[2026中报]": 1.588
+  },
+  "input_metric_names": [
+    "contract_liability_yi",
+    "gross_margin_pct",
+    "holder_change_pct",
+    "holder_num",
+    "inventory_yi",
+    "net_margin_pct",
+    "net_profit_cum_yi",
+    "net_profit_yoy_pct",
+    "ocf_cum_yi",
+    "revenue_cum_yi",
+    "revenue_yoy_pct"
+  ],
+  "ratio_label_recognized": {
+    "报告期": false,
+    "报告期截止日": false,
+    "披露日": false,
+    "累计经营现金流净额（亿元）": false,
+    "累计归母净利润（亿元）": false,
+    "OCF/归母净利润": true,
+    "含金量": true,
+    "比值": false,
+    "比率": false
+  },
+  "ratio_products_from_live_record": {
+    "2025-03-31": [
+      0.3281
+    ],
+    "2025-06-30": [
+      0.2889
+    ],
+    "2025-09-30": [
+      0.591
+    ],
+    "2025-12-31": [
+      0.7474
+    ],
+    "2026-03-31": [
+      0.9878
+    ],
+    "2026-06-30": [
+      1.588
+    ]
+  },
+  "minimal_pair": {
+    "live_column_live_prose": [],
+    "fixture_column_live_prose": [],
+    "fixture_column_fixture_prose": [
+      "calculation_value_mismatch"
+    ]
+  },
+  "findings": [],
+  "independent_mismatches": {},
+  "checks": {
+    "guard_bound_any_ratio_product": true,
+    "guard_bound_the_inputs": true,
+    "model_did_not_miscopy": true,
+    "guard_raised_nothing_on_a_correct_draft": true
+  },
+  "after": {
+    "code_root": "/Users/a77/fwp-wt-research-data-acceptance-0922",
+    "revision": "7687a0e276bb2b606b349ec15afb8a9eaf6082f8",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "e716508f200b1e18f1bf51b3cd61852fcea80a85aae16b637ba02258195e7a57",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "target_unchanged": true,
+  "status": "passed"
+}

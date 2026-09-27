@@ -1,0 +1,5 @@
+{"admission":1,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","inspect","run_tests","submit_report"],"temperature_removed":false,"max_completion_tokens":8192}
+{"admission":2,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","inspect","run_tests","submit_report"],"temperature_removed":false,"max_completion_tokens":8192}
+{"admission":3,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","inspect","run_tests","submit_report"],"temperature_removed":false,"max_completion_tokens":8192}
+{"admission":4,"stage":"execute","stream":true,"model":"glm-5.3","tools":["write","run_tests","submit_report"],"temperature_removed":false,"max_completion_tokens":8192}
+{"admission":5,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","write","inspect","run_tests","submit_report"],"temperature_removed":false,"max_completion_tokens":8192}

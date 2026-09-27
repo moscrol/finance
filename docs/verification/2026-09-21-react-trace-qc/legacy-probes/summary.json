@@ -1,0 +1,20 @@
+[
+  {
+    "source": "docs/verification/2026-09-21-react-trace-closeout/independent/probes/probe_s1_refs.py.txt",
+    "source_sha256": "855d6f04780b772b8c691cf971c7e0c38773fc382e364c268761cb1294226549",
+    "change": "import-path assertion only; root replay, not new independent approval",
+    "exit_code": 1
+  },
+  {
+    "source": "docs/verification/2026-09-21-react-trace-closeout/independent/probes/probe_s2_diag.py.txt",
+    "source_sha256": "ec81688a24d7a78b5d11a13f272de72b248ee804a77d8164a010b51e8e15694e",
+    "change": "import-path assertion only; root replay, not new independent approval",
+    "exit_code": 0
+  },
+  {
+    "source": "docs/verification/2026-09-21-react-trace-closeout/independent/probes/probe_s4_frozen.py.txt",
+    "source_sha256": "42bd45bcc779b9d464861aaf20786bab67e9f23dea295c9c3bfbf2882716a803",
+    "change": "import-path assertion only; root replay, not new independent approval",
+    "exit_code": 0
+  }
+]

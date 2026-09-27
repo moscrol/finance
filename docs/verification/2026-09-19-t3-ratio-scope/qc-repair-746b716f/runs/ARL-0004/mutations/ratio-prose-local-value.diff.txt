@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 07f48a5e..8088cb86 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -222,7 +222,7 @@ def _prose_value_finding(
+         marks = ""
+     else:
+         marks = internal
+-    return DeliveryFinding(offset + raw_start, offset + raw_end, code, "待核对" + marks)
++    return DeliveryFinding(offset, offset + len(raw), code)
+ 
+ 
+ _VALUE_PREFIX = r"\s*(?:实际为|该值为|本期为|比率为|分别为|为|是|=|：|:)?\s*"

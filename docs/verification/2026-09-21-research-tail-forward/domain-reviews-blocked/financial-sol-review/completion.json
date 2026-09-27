@@ -1,0 +1,42 @@
+{
+  "started_at": "2026-09-21T10:37:22.125604+00:00",
+  "head": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+  "identity_before": {
+    "revision": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+    "status": ""
+  },
+  "command": [
+    "/Applications/ChatGPT.app/Contents/Resources/codex",
+    "exec",
+    "-m",
+    "gpt-5.6-sol",
+    "-c",
+    "model_reasoning_effort=\"high\"",
+    "-c",
+    "service_tier=\"default\"",
+    "-s",
+    "workspace-write",
+    "--add-dir",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review",
+    "-C",
+    "/Users/a77/fwp-wt-financial-forward-review-0921",
+    "--json",
+    "-o",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-sol-review/report.md",
+    "-"
+  ],
+  "auth": "existing ChatGPT subscription",
+  "overall_timeout_seconds": 1200,
+  "scope": "single independent session: Spec then Quality; no retry",
+  "pid": 29136,
+  "finished_at": "2026-09-21T10:41:32.152201+00:00",
+  "exit_code": 1,
+  "timed_out": false,
+  "identity_after": {
+    "revision": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+    "status": ""
+  },
+  "identity_stable": true,
+  "report_exists": false,
+  "note": "Process completion is not an acceptance verdict; operator must check report and raw evidence."
+}

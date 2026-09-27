@@ -1,0 +1,8 @@
+direct_mkdir_exit=0
+py_makedirs_ok
+py_exit=0
+total 0
+drwxr-xr-x@  4 a77  staff  128 Sep 23 23:13 .
+drwxr-xr-x@ 12 a77  staff  384 Sep 23 23:11 ..
+drwxr-xr-x@  2 a77  staff   64 Sep 23 23:04 jiti
+drwxr-xr-x@  2 a77  staff   64 Sep 23 23:13 probe-c5-fn

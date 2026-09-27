@@ -1,0 +1,614 @@
+{
+  "schema_version": 1,
+  "scope": "offline tiny 30-trading-day fixture acceptance closeout",
+  "tree": "/Users/a77/fwp-wt-backfill-acceptance-closeout-0920",
+  "branch": "fix/backfill-acceptance-closeout-0920",
+  "fixed_source": "3736d5bfa9978dfa0a264bb2e44795c4bc29b27d",
+  "code_freeze": "be3f29306739ff55ac7f40adbbc9f55503c26abf",
+  "status_at_manifest": "",
+  "original_probe": {
+    "path": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill302132-design/probe.py",
+    "sha256": "546a0b7c1683544d099f04cdf7ff90d2b79344a3f9853da94feea6de59e8920e"
+  },
+  "source_files": {
+    "scripts/verify_302132_backfill_acceptance.py": "e786c626d5a56d333d33c38249d4f4a8f8055010ee8286764a2396f4a4db8048",
+    "tests/test_repair_backfill_stock_history.py": "a0c0ecd6a825e6a172bbda49e822c553cf0bdbee694d6688440b94b67795e645"
+  },
+  "results": {
+    "baseline_probe": {
+      "control": "rc0 PASS 37 checks",
+      "spec_other_code": "rc0 PASS 37 checks (counterexample)",
+      "huge_numeric_pin": "rc1, no JSON (counterexample)"
+    },
+    "fixed_probe_code_freeze": {
+      "control": "rc0 PASS 37 checks",
+      "spec_other_code": "rc2 structured FAIL 22 checks",
+      "huge_numeric_pin": "rc2 structured FAIL 22 checks"
+    },
+    "focused_red": "8 failed, 8 passed, 88 deselected",
+    "focused_green": "16 passed, 88 deselected",
+    "code_mutation": "3 failed, 101 deselected",
+    "overflow_mutation": "5 failed, 7 passed, 92 deselected",
+    "restored_green": "15 passed, 89 deselected",
+    "full_module": "104 passed (original 89 + new 15)",
+    "ruff": "all checks passed"
+  },
+  "limitations": [
+    "No production or old rehearsal database/parquet read or copied.",
+    "No production backfill, live model, API, merge, deployment, or PR.",
+    "Probe parent receipts are fixture receipts; evidence covers real child writes plus independent acceptance over the tiny fixture, not a production full parent-chain rehearsal.",
+    "Historical 49/49 and 9706-pass receipts belong to 00d64e37 and are not re-signed here."
+  ],
+  "files": [
+    {
+      "path": "baseline-probe/control/acceptance.json",
+      "bytes": 5527,
+      "sha256": "621990387ffd42cbb27f6866ff4f7ef0882039731c4a750d7fd5e39be5c3b111"
+    },
+    {
+      "path": "baseline-probe/control/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "baseline-probe/control/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "baseline-probe/control/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "177cf155f887fa1ce37e5767d7e16710fda17ff19563ca36e821645a0e4bda25"
+    },
+    {
+      "path": "baseline-probe/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2840,
+      "sha256": "cc373298fa285555a77bd610b557849c1568aba743d6dd13d62bae1fcafd86e8"
+    },
+    {
+      "path": "baseline-probe/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2846,
+      "sha256": "303b60e68b17709c8ad0e7b19b4ded5fa41995f062e2b23b9481a18f49659e0f"
+    },
+    {
+      "path": "baseline-probe/control/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "baseline-probe/control/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "baseline-probe/fixture/baseline.duckdb",
+      "bytes": 6828032,
+      "sha256": "6babdb55221b0956a20f6c535891e0517596db491a345af1a902ac91fd073739"
+    },
+    {
+      "path": "baseline-probe/fixture/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "baseline-probe/fixture/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "baseline-probe/fixture/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "177cf155f887fa1ce37e5767d7e16710fda17ff19563ca36e821645a0e4bda25"
+    },
+    {
+      "path": "baseline-probe/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2840,
+      "sha256": "3aa6000045168cb3883bbd2114f50b33947fc33e142ccc9d0d155c70590fe8a9"
+    },
+    {
+      "path": "baseline-probe/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2846,
+      "sha256": "207f05310fdcb09ea3d71f2966060ac86be063a7a101af1c5f4e7990dfda3e22"
+    },
+    {
+      "path": "baseline-probe/fixture/tail.parquet",
+      "bytes": 1549,
+      "sha256": "17bec6487e29ae6c2239197a1beb653eeebeaa1f35d697d5e944abc8981fe117"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "177cf155f887fa1ce37e5767d7e16710fda17ff19563ca36e821645a0e4bda25"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 3245,
+      "sha256": "f18aed970fbdbe7a260b33696076eb3cd0fc0ca8ea41089602db72c6f8a16461"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 3251,
+      "sha256": "8678b7ff4365c03c13760f16f50f736ec1e6b80292d15adaa895550adfa1a9f2"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/stderr.txt",
+      "bytes": 925,
+      "sha256": "bc5fae5a8311e8b7ba915e0d545adff5a8e3d6be76542a5469bfc80592a233d0"
+    },
+    {
+      "path": "baseline-probe/huge_numeric_pin/stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "baseline-probe/identity-after-probe.json",
+      "bytes": 73,
+      "sha256": "e8d90b92a085572906de86fe9d8cf31c135df5b1ace46819118ca4d4b4111d38"
+    },
+    {
+      "path": "baseline-probe/identity-before.json",
+      "bytes": 311,
+      "sha256": "15d3a6acfe4e96f1b127ef9dfbfb243ce5af869b8f25374cc04a408cba00642a"
+    },
+    {
+      "path": "baseline-probe/probe-results.json",
+      "bytes": 1428,
+      "sha256": "b048784fec92d4426accc21fbc4d962f09e37b638abab4e1f8ec2dd248420611"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/acceptance.json",
+      "bytes": 5535,
+      "sha256": "36ce2e5686bbb7f7770523a8b79b915fe80bd08f647827115e5853a5622331c6"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/child-apply.json",
+      "bytes": 694,
+      "sha256": "5c41d5025bfeb023283079e6cb21150bafd5deb80b61740c1ef7b287784376db"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/child-verify.json",
+      "bytes": 696,
+      "sha256": "4a0e2a78a99f242ab3eca2d25b26a31b39433529f36ac3af8094d43e1027740c"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "177cf155f887fa1ce37e5767d7e16710fda17ff19563ca36e821645a0e4bda25"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2848,
+      "sha256": "143ab6391ccad6948cb2398bcd6e30835f42df3e773abd479a177b1ab1b44851"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2854,
+      "sha256": "e22cbf360a8c48587218d85d69b0463b5aacb34c567e4f507f3af7e5430a5bb0"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "baseline-probe/spec_other_code/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "baseline-probe.log.txt",
+      "bytes": 1327,
+      "sha256": "69ae6097921b5d8649ccdfc8b9c77bd93bb711f649ca7f26b7678049e807b50e"
+    },
+    {
+      "path": "commands.txt",
+      "bytes": 7451,
+      "sha256": "1087ae37ec80157dfa86cfea9b1f02f456a73299929e246890d9dd932929ea93"
+    },
+    {
+      "path": "fixed-probe/control/acceptance.json",
+      "bytes": 5521,
+      "sha256": "1a01398b6fb4e48793fe2a23855d78f4719ce5ebc11e162f25dc3aa3808f857d"
+    },
+    {
+      "path": "fixed-probe/control/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "fixed-probe/control/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "fixed-probe/control/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "19351df2bb7dfab0455c2ddc950e2ec24f0950b70c3e2307f818c8b3b12c4181"
+    },
+    {
+      "path": "fixed-probe/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2834,
+      "sha256": "c696b95b7f458b30bbb565abb12a5defb48c7df0457150fedcb49041cc982be7"
+    },
+    {
+      "path": "fixed-probe/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2840,
+      "sha256": "95b4d1a34ba19883eb7f1be36e857ff5e06b06747db3811bd64f32d94df0154b"
+    },
+    {
+      "path": "fixed-probe/control/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-probe/control/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "fixed-probe/fixture/baseline.duckdb",
+      "bytes": 6828032,
+      "sha256": "6babdb55221b0956a20f6c535891e0517596db491a345af1a902ac91fd073739"
+    },
+    {
+      "path": "fixed-probe/fixture/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "fixed-probe/fixture/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "fixed-probe/fixture/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "19351df2bb7dfab0455c2ddc950e2ec24f0950b70c3e2307f818c8b3b12c4181"
+    },
+    {
+      "path": "fixed-probe/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2834,
+      "sha256": "7a6231ea99506b4b1b4f618482078116ea9904361c1d1394e27f9ab6bcc288a9"
+    },
+    {
+      "path": "fixed-probe/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2840,
+      "sha256": "a09c1db5750799c70f8de7b0e61a0d82b9b2fe62b722de0c8f0e88cc5b946b6c"
+    },
+    {
+      "path": "fixed-probe/fixture/tail.parquet",
+      "bytes": 1549,
+      "sha256": "17bec6487e29ae6c2239197a1beb653eeebeaa1f35d697d5e944abc8981fe117"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/acceptance.json",
+      "bytes": 3673,
+      "sha256": "9f37e93beb32875970b1df960a603cbc68a2af519885aca5ae2fabb02fbe1e6d"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "19351df2bb7dfab0455c2ddc950e2ec24f0950b70c3e2307f818c8b3b12c4181"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 3239,
+      "sha256": "f99ac05f4b477da88b4a729a93edc7a49a955849b8d7198186a8b30d1da40f9e"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 3245,
+      "sha256": "fac034c9aabe1b6c6cad91051ae4cbc94a84ddf0c2b803b5b39a2bc62b0f8500"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-probe/huge_numeric_pin/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "fixed-probe/identity-after-probe.json",
+      "bytes": 167,
+      "sha256": "71bcf5451c3697dc834c35cd03880557e35c4fdf44b00195b123d78a7f7c9261"
+    },
+    {
+      "path": "fixed-probe/identity-before.json",
+      "bytes": 405,
+      "sha256": "f942ef01acce6f95a042153002bcbbadbfa58c1c986d1b248e552402ef72910c"
+    },
+    {
+      "path": "fixed-probe/probe-results.json",
+      "bytes": 669,
+      "sha256": "ff991e12660e361fae019c755921f7080321c7bf229f4515bafc36f94aa90d1b"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/acceptance.json",
+      "bytes": 3628,
+      "sha256": "9a521b43f0c9f5eece5b7e6fbedf8d2f00b7bccfd2554c47780a18084fb49f9c"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/child-apply.json",
+      "bytes": 694,
+      "sha256": "5c41d5025bfeb023283079e6cb21150bafd5deb80b61740c1ef7b287784376db"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/child-verify.json",
+      "bytes": 696,
+      "sha256": "4a0e2a78a99f242ab3eca2d25b26a31b39433529f36ac3af8094d43e1027740c"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "19351df2bb7dfab0455c2ddc950e2ec24f0950b70c3e2307f818c8b3b12c4181"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2842,
+      "sha256": "89c50d3a9f5b84db76cbc04b0d13f21f552f8d364d9798db6efcba507cf0dc6b"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2848,
+      "sha256": "1be39ac0da8fec24cc42bd35bcf46c9460dfd47dc7e979820a9a8746ad5850c2"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-probe/spec_other_code/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/acceptance.json",
+      "bytes": 5545,
+      "sha256": "9791f7771d0f0e002c6d55467f138d8cc22d7d243e76f35b7e8d748f23efd4ae"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "e4c3c63f1af1e8d4bf92abf98335ff61fa4dc7cb34c5867480301ce39363c5d8"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2858,
+      "sha256": "20dcd12bf95d90d19206c640c5262e727434cb3cabf5abcdde108142b81832a5"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2864,
+      "sha256": "3696dc4ed5b5c49713249ac718ff7123d03af0695b55511a46ba2ad84e4a4114"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-probe-code-freeze/control/stdout.txt",
+      "bytes": 43,
+      "sha256": "ddb909ef7d149fc529a5d4685f3ed12d1df37e4409648e894d7adca7b99d0009"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/baseline.duckdb",
+      "bytes": 6828032,
+      "sha256": "6babdb55221b0956a20f6c535891e0517596db491a345af1a902ac91fd073739"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "e4c3c63f1af1e8d4bf92abf98335ff61fa4dc7cb34c5867480301ce39363c5d8"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2858,
+      "sha256": "c7fdef8d65dce064b4cb1d0401b66f170675f0e7d40138a3470d9743857d8a48"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2864,
+      "sha256": "e67c9afc5b64ee804ee4cb5ab4904cbab252505a2e2b49fba41cf2dfb9b4a1dd"
+    },
+    {
+      "path": "fixed-probe-code-freeze/fixture/tail.parquet",
+      "bytes": 1549,
+      "sha256": "17bec6487e29ae6c2239197a1beb653eeebeaa1f35d697d5e944abc8981fe117"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/acceptance.json",
+      "bytes": 3697,
+      "sha256": "02d33af2895b0f2317ae91bace40e9b7e18b1e1da0d281fdc393b608cdd66c69"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/child-apply.json",
+      "bytes": 694,
+      "sha256": "387a5cd3cec1d8af2b997fff056d72e921210106a83c22d837ec582f484659a2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/child-verify.json",
+      "bytes": 696,
+      "sha256": "383a6d45049bf308306b7555a0e65b05fd07244851cad429f18a29d9c4ee93d2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "e4c3c63f1af1e8d4bf92abf98335ff61fa4dc7cb34c5867480301ce39363c5d8"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 3263,
+      "sha256": "83ad22ca53f8742a65b9cd0e1f3520abc59bfb4e1bd5bff4d28af85fcbed2b79"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 3269,
+      "sha256": "bb5e9ecb17de74fd2affba2e0cc9024b1686647b8f92409a1da19a727073e210"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-probe-code-freeze/huge_numeric_pin/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "fixed-probe-code-freeze/identity-after-probe.json",
+      "bytes": 73,
+      "sha256": "037d9ddeac2d3d8064f8801930e9eca6fce9e72978d2182a1b4e6a26987e3a95"
+    },
+    {
+      "path": "fixed-probe-code-freeze/identity-before.json",
+      "bytes": 311,
+      "sha256": "e329196c09c9fa7170da384a38da098e9be0f2806093607871377e39e4fb6542"
+    },
+    {
+      "path": "fixed-probe-code-freeze/probe-results.json",
+      "bytes": 669,
+      "sha256": "ff991e12660e361fae019c755921f7080321c7bf229f4515bafc36f94aa90d1b"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/acceptance.json",
+      "bytes": 3652,
+      "sha256": "14e2246c6ea275ffe17362857fd93e05ff20f022c51aee3849670e6aeed7c285"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/child-apply.json",
+      "bytes": 694,
+      "sha256": "5c41d5025bfeb023283079e6cb21150bafd5deb80b61740c1ef7b287784376db"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/child-verify.json",
+      "bytes": 696,
+      "sha256": "4a0e2a78a99f242ab3eca2d25b26a31b39433529f36ac3af8094d43e1027740c"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/clone.duckdb",
+      "bytes": 11808768,
+      "sha256": "e4c3c63f1af1e8d4bf92abf98335ff61fa4dc7cb34c5867480301ce39363c5d8"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/clone.duckdb.repair-backfill-execution.run-apply-001.json",
+      "bytes": 2866,
+      "sha256": "5d0ae07599e7c1cd06100c1acff26d4282a745291e13e34712f356065095119e"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/clone.duckdb.repair-backfill-execution.run-verify-001.json",
+      "bytes": 2872,
+      "sha256": "0a027da385e4aea363fcf5421876b7db006aef960e361d50f284052242c827f1"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-probe-code-freeze/spec_other_code/stdout.txt",
+      "bytes": 114,
+      "sha256": "e2f3f3b7d823e6622878a09a806cea2e16ac05475cfb34485079899c3b3c59d2"
+    },
+    {
+      "path": "fixed-probe-code-freeze.log.txt",
+      "bytes": 520,
+      "sha256": "21dc5bcfaecc36f3afa042c2a3ac5778b9e35c8478090ac9d01b757367326d03"
+    },
+    {
+      "path": "fixed-probe.log.txt",
+      "bytes": 520,
+      "sha256": "21dc5bcfaecc36f3afa042c2a3ac5778b9e35c8478090ac9d01b757367326d03"
+    },
+    {
+      "path": "focused-green.log.txt",
+      "bytes": 313,
+      "sha256": "5a19de76922f4e58d09d373121beb4d1d1f5e446ac9b90d19ef2143537285ce4"
+    },
+    {
+      "path": "full-module-code-freeze.log.txt",
+      "bytes": 1173,
+      "sha256": "14333ea4cf7bfcdb429baab1f38e30824f49c746872b6d0bd6aad25a0599a180"
+    },
+    {
+      "path": "full-module.log.txt",
+      "bytes": 1173,
+      "sha256": "5cd625a0e028fd358c122183f1c406ad99d44d4e0b29b9ff92036ed439f5fb52"
+    },
+    {
+      "path": "mutation-code-guard-removed.log.txt",
+      "bytes": 10430,
+      "sha256": "b02f2850f00794594ea29fdc34f50770ba5552153ae1ae5de936ce6812952ed3"
+    },
+    {
+      "path": "mutation-overflow-guard-removed.log.txt",
+      "bytes": 13808,
+      "sha256": "914fc4ed46745379024c41492fc0116bb237b4383278f2d8d15fdfd3371ed3b1"
+    },
+    {
+      "path": "post-mutation-restored-green.log.txt",
+      "bytes": 304,
+      "sha256": "175a39b72e349da5299521a72b172b5c1042f7749d73a452132ee29c78a6b095"
+    },
+    {
+      "path": "red-tests.log.txt",
+      "bytes": 23819,
+      "sha256": "f0daf0469557eac11ff56086b7f5941068783c97974eb41d03e52035abe8f707"
+    },
+    {
+      "path": "ruff-code-freeze.log.txt",
+      "bytes": 24,
+      "sha256": "026f9b21fdb4bddfc8d62966afcc43236c291557bf5b4a5a6fdb9a2a6cd9574c"
+    },
+    {
+      "path": "ruff-targets.log.txt",
+      "bytes": 24,
+      "sha256": "026f9b21fdb4bddfc8d62966afcc43236c291557bf5b4a5a6fdb9a2a6cd9574c"
+    }
+  ]
+}

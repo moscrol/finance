@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/quality/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-c",
+    "assert 1 == 2, \"intentional_positive_control\""
+  ],
+  "shell": false,
+  "target_exit_code": 1,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 74,
+  "output_sha256": "c0441086a31b6eacefccdba15ddcb8f7496ecd7f7f468759cc3094e462a39d8c",
+  "suite": "control",
+  "files": [],
+  "counts": null,
+  "input_sha256": {},
+  "inputs_unchanged": true,
+  "junit_sha256": null,
+  "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/quality/sandbox-preflight/commands/006-run_tests/result.json",
+  "output": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/quality/sandbox-preflight/commands/006-run_tests/output.log"
+}

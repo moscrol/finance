@@ -1,0 +1,15 @@
+{
+  "red_exit": 1,
+  "green_exit": 0,
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "intelligence/tests/test_episode_evidence_presentations.py",
+    "-k",
+    "future_presentation_restores or unadmitted_presentations or reader_rechecks_future"
+  ],
+  "source_sha256": "3da3b96630b6eb656469056cd719c79c4f68dbffcde405779b4546daa9aafed5",
+  "mutation": "remove normalization and complete calendar-shape guard"
+}

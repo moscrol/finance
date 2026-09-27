@@ -1,0 +1,71 @@
+{
+  "revision": "0099486f67070055f10343643ff63b3f89c84f9c",
+  "suite": "custom",
+  "tree": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/scratch/contract-mutations-amjljpvc/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "tests": [
+    "scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py"
+  ],
+  "definitions": "scripts/review_probes/episode_inbox_mutations.json",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "inbox_storage_failure_deletes_spool-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "scripts.review_probes.runtime_identity_effects.probe.inbox_checks",
+          "name": "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]",
+          "message": "AssertionError: insert 没落账就不许销毁运输副本\nassert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x106fae540>.ingest_spool"
+        },
+        {
+          "class": "scripts.review_probes.runtime_identity_effects.probe.inbox_checks",
+          "name": "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]",
+          "message": "AssertionError: insert 没落账就不许销毁运输副本\nassert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x107966e70>.ingest_spool"
+        }
+      ]
+    },
+    {
+      "label": "inbox_storage_failure_deletes_spool-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "inbox_storage_failure_deletes_spool",
+      "path": "intelligence/services/episode_inbox.py",
+      "before_sha256": "6d494fa221b4227c08ead0beb65e31ca424ed2ea9d4177454f99270ef6e700d6",
+      "mutated_sha256": "8ffa37b6a1c8835cc4cf082e57774ac4d73a14114ee3d5439de8b061caeb12bb",
+      "restored_sha256": "6d494fa221b4227c08ead0beb65e31ca424ed2ea9d4177454f99270ef6e700d6"
+    }
+  ],
+  "definitions_sha256": "554241f9c470e40a70b276251f8139a1b1c725a5622eabe19a348d5bfc3e1d8b",
+  "final_status": ""
+}

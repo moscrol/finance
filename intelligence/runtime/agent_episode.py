@@ -29,6 +29,10 @@ from intelligence.runtime.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
     EpisodeFinalizer,
 )
+from intelligence.services.adaptive_research import (
+    needs_perspective_checkpoint,
+    perspective_checkpoint_message,
+)
 from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
@@ -1528,6 +1532,7 @@ class ContinuousAgentEpisode:
         finish_failures = 0
         plan_failures = 0
         plan_turns = 0
+        perspective_checkpoint_sent = False
         system, user = self._harness.assemble_prompt(task_frame, context, registry)
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
         # rebuild each turn. cache_control is not implemented this increment.
@@ -1650,6 +1655,22 @@ class ContinuousAgentEpisode:
             if self._claim_inbox(messages=messages, ledger=ledger, target="next_step"):
                 # 外部递了话（用户改方向 / 分支回灌）：新方向的第一批不算原地踏步。
                 accumulator.progress.note_external_input()
+            perspective_checkpoint = (
+                not finalization_started
+                and not perspective_checkpoint_sent
+                and plan_turns < MAX_PLAN_TURNS
+                and tool_calls > 0
+                and needs_perspective_checkpoint(
+                    ledger.plan, research_tier=context.policy.tier,
+                )
+            )
+            if perspective_checkpoint:
+                perspective_checkpoint_sent = True
+                append_model_input(
+                    messages, ledger,
+                    content=perspective_checkpoint_message(ledger.plan),
+                    source="adaptive_research_checkpoint",
+                )
             # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
             # ``history_compacted`` 事件承载替换后的正文，所以对账必须在它之后。
             self._compact_history_for_model(
@@ -1664,7 +1685,7 @@ class ContinuousAgentEpisode:
             # INV-R2：模型请求前的意图（含预留 turn_id）。菜单在意图之前算——它只读状态，
             # 不是外部效果；``tool_menu`` 事件因此仍先于 ``model_intent``。
             definitions = (
-                [] if finalization_started else self._available_tool_definitions(
+                [] if finalization_started or perspective_checkpoint else self._available_tool_definitions(
                     tool_session=tool_session,
                     registry=registry,
                     context=context,
@@ -1952,6 +1973,10 @@ class ContinuousAgentEpisode:
                     else:
                         plan_turns += 1
                         ledger.record_plan(plan_result.plan)
+                        progress.record_plan(
+                            plan_result.plan,
+                            evidence=tuple(accumulator.evidence),
+                        )
                         if not mode_decided:
                             context, pending_mode_message = self._decide_mode(
                                 task_frame=task_frame,
@@ -1995,6 +2020,10 @@ class ContinuousAgentEpisode:
                         continue
                 else:
                     ledger.record_plan(plan_result.plan)
+                    progress.record_plan(
+                        plan_result.plan,
+                        evidence=tuple(accumulator.evidence),
+                    )
                     if not mode_decided:
                         context, pending_mode_message = self._decide_mode(
                             task_frame=task_frame,

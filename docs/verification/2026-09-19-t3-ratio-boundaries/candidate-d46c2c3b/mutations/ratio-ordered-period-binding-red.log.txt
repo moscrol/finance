@@ -1,0 +1,29 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/ratio-ordered-period-binding-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_ratio_locates_value_not_year_or_period"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-yckwbe8x/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+.FF..                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_review_ratio_locates_value_not_year_or_period[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.587\u4e0e0.289\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002-\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a\u5f85\u6838\u5bf9\u4e0e0.289\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:125: in test_review_ratio_locates_value_not_year_or_period
+    assert kept == expected
+E   AssertionError: assert '含金量对照：2026中报...289，收入可核[E1]。' == '含金量对照：2026中报...289，收入可核[E1]。'
+E     
+E     - 含金量对照：2026中报 2025中报分别为待核对与0.289，收入可核[E1]。
+E     + 含金量对照：2026中报 〔比率对应关系待核对〕2025中报分别为待核对与0.289，收入可核[E1]。
+E     ?              +++++++++++
+_ test_review_ratio_locates_value_not_year_or_period[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a**2026\u4e2d\u62a5**\u3001**2025\u4e2d\u62a5**\u5206\u522b\u4e3a**1.587**\u4e0e`0.288`\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002-\u542b\u91d1\u91cf\u5bf9\u7167\uff1a**2026\u4e2d\u62a5**\u3001**2025\u4e2d\u62a5**\u5206\u522b\u4e3a**\u5f85\u6838\u5bf9**\u4e0e`\u5f85\u6838\u5bf9`\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002] _
+intelligence/tests/test_research_delivery_review_regressions.py:125: in test_review_ratio_locates_value_not_year_or_period
+    assert kept == expected
+E   AssertionError: assert '含金量对照：**2026...88`，收入可核[E1]。' == '含金量对照：**2026...核对`，收入可核[E1]。'
+E     
+E     - 含金量对照：**2026中报**、**2025中报**分别为**待核对**与`待核对`，收入可核[E1]。
+E     ?                                        ^^^
+E     + 含金量对照：**2026中报**、〔比率对应关系待核对〕**2025中报**分别为**待核对**与`0.288`，收入可核[E1]。
+E     ?                  +++++++++++                      ^^^^^
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/ratio-ordered-period-binding-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_locates_value_not_year_or_period[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.587\u4e0e0.289\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002-\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a\u5f85\u6838\u5bf9\u4e0e0.289\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_ratio_locates_value_not_year_or_period[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a**2026\u4e2d\u62a5**\u3001**2025\u4e2d\u62a5**\u5206\u522b\u4e3a**1.587**\u4e0e`0.288`\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002-\u542b\u91d1\u91cf\u5bf9\u7167\uff1a**2026\u4e2d\u62a5**\u3001**2025\u4e2d\u62a5**\u5206\u522b\u4e3a**\u5f85\u6838\u5bf9**\u4e0e`\u5f85\u6838\u5bf9`\uff0c\u6536\u5165\u53ef\u6838[E1]\u3002]
+2 failed, 3 passed, 596 deselected in 1.01s
+
+STDERR:
+
+EXIT=1

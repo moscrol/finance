@@ -70,9 +70,13 @@ _MD_RANGE_RE = re.compile(
 )
 _TIMELINE_LOOKBACK_DAYS = 30
 
+# amount 的单位只住在逐日行的列名里（成交额亿=…），口径原文是裸数。模型按人话写
+# 「成交额>500亿」时，数字门（episode_semantic_verifier）在证据里只找得到无单位的 500，
+# 维度对不上就整句删——2026-09-25 L6-T3 实测一句有证据的双红条件因此被删。口径后补一句
+# 带单位的同值说明：抄裸数的写法照旧对得上，带单位的写法也有同维度的证据。
 _CALIBER = (
     f"pct_chg>{DOUBLE_RED_PCT:g} 且 diff_ratio>{DOUBLE_RED_DIFF:g} "
-    f"且 amount>{DOUBLE_RED_AMOUNT:g}"
+    f"且 amount>{DOUBLE_RED_AMOUNT:g}，amount 单位为亿（即 {DOUBLE_RED_AMOUNT:g}亿）"
 )
 
 
@@ -181,6 +185,29 @@ def format_dual_red_counts(counts: dict[str, str]) -> str:
 _TIMELINE_METRICS = ("pct_chg", "amount", "diff_ratio")
 
 
+def _timeline_day_counts(
+    rows: list[dict[str, Any]], *, start: str, end: str
+) -> tuple[int, int, str | None]:
+    """窗口内可作证据的交易日数、其中的双红天数、最后一个可作证据的交易日。
+
+    与 ``format_sector_timeline`` 同口径：同日多行是供应商口径分歧，该日不作为证据，
+    也不计数。模型据逐日行写「本期 30 日 2 天」是对证据的计数，不是新数量；把计数
+    写明并作为观察值投递，数字门才认得出（2026-09-25 L6-T3 实测「30 日」被判无出处）。
+    计数观察值记在最后一个可用交易日上：它是真实交易日、不会是分歧日，也不越过站立日。
+    """
+
+    per_day: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        day = str(row.get("trade_date") or "")[:10]
+        if start <= day <= end:
+            per_day.setdefault(day, []).append(row)
+    usable = sorted(
+        (day, same_day[0]) for day, same_day in per_day.items() if len(same_day) == 1
+    )
+    last_day = usable[-1][0] if usable else None
+    return len(usable), sum(1 for _day, row in usable if is_double_red(row)), last_day
+
+
 def sector_timeline_observations(
     rows: list[dict[str, Any]],
     *,
@@ -217,12 +244,23 @@ def sector_timeline_observations(
     # 这里宁可少给（该格降为结构缺口）也不给一个随便挑的值：静默挑第一行
     # 会让「有分歧」和「就是这个数」在下游长得一样，正是本模块一贯禁的近似。
     # 值相同的重复行无害，照常产出。
-    return tuple(
+    per_cell = tuple(
         StructuredObservation(
             subject=sector_name, as_of=day, metric=metric, value=next(iter(values))
         )
         for (day, metric), values in seen.items()
         if len(values) == 1
+    )
+    trading_days, double_red_days, last_day = _timeline_day_counts(rows, start=start, end=end)
+    if last_day is None:
+        return per_cell
+    return per_cell + (
+        StructuredObservation(
+            subject=sector_name, as_of=last_day, metric="trading_days", value=float(trading_days)
+        ),
+        StructuredObservation(
+            subject=sector_name, as_of=last_day, metric="double_red_days", value=float(double_red_days)
+        ),
     )
 
 
@@ -257,8 +295,10 @@ def format_sector_timeline(
     start: str,
     end: str,
 ) -> str:
+    trading_days, double_red_days, _last_day = _timeline_day_counts(rows, start=start, end=end)
     lines = [
-        f"板块={sector_name}；窗口 {start}..{end}；口径 {_CALIBER}",
+        f"板块={sector_name}；窗口 {start}..{end}；口径 {_CALIBER}；"
+        f"交易日数={trading_days}；双红天数={double_red_days}",
     ]
     # 同日多行 = 供应商口径分歧（板块名撞多个 sector_ts_code）。并排列成两条
     # 事实会逼模型写区间，再被判官按「不等于任何注册数字」判编造——生产实锤
@@ -1329,9 +1369,18 @@ def format_opening_prefetch_message(items: tuple[PrefetchItem, ...] | tuple[Agen
         digest = str(getattr(item, "content_hash", "") or "").strip()
         eid = table.get(digest)
         head = f"[{eid}] {item.title}" if eid else item.title
-        blocks.append(f"{head}\n{item.detail}")
+        if item.tool == "memory_lookup":
+            blocks.append(f"{head}\n{item.source}\n{item.detail}")
+        else:
+            blocks.append(f"{head}\n{item.detail}")
+    memory_rule = (
+        "用户记忆只作历史先验，不是市场事实；价格、订单、产能等须以本轮硬数据为准。"
+        "记忆缺口不是用户判断，禁止据此编造‘你此前认为’。\n"
+        if any(item.tool == "memory_lookup" for item in items) else ""
+    )
     return (
-        "问句日预取（harness 进场事实，不是工具调用；"
-        "下列 [E 号] 与证据注册表同号，写结论时可直接引用）：\n"
+        "问句日预取（harness 进场观察，不是工具调用；"
+        "下列 [E 号] 与证据注册表同号，引用须遵守各项来源与证据等级）：\n"
+        + memory_rule
         + "\n\n".join(blocks)
     )

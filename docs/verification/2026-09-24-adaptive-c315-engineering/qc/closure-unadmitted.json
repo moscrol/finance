@@ -1,0 +1,47 @@
+{
+  "state": "BLOCKED_NO_RETRY",
+  "do_not_resume": true,
+  "reason": "engineering gate RED before paid/offline admission",
+  "closed_at": "2026-09-23T19:05:18.332091+00:00",
+  "candidate": "c315cfdaa96a5b18cedb060b09ddc92ec2a14559",
+  "candidate_dirty": false,
+  "result_sha256": "198238612fc2c62fc35438a585bafe2ac760e9cb4b081106916acd88b197f418",
+  "new_model_requests": 0,
+  "natural_submissions": 0,
+  "sidecar_started": false,
+  "offline_strict_or_retrieval_executed": false,
+  "production_identity_compared": false,
+  "no_owned_listeners": true,
+  "port_observations": [
+    {
+      "port": 19897,
+      "pids": [],
+      "ownership": "unoccupied"
+    },
+    {
+      "port": 19898,
+      "pids": [],
+      "ownership": "unoccupied"
+    },
+    {
+      "port": 19899,
+      "pids": [
+        15151
+      ],
+      "ownership": "other_task"
+    },
+    {
+      "port": 19981,
+      "pids": [],
+      "ownership": "unoccupied"
+    },
+    {
+      "port": 19984,
+      "pids": [],
+      "ownership": "unoccupied"
+    }
+  ],
+  "historical_qc_consumed": 74,
+  "qc_cumulative_cap": 152,
+  "host_record_not_reviewer_verdict": true
+}

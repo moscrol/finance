@@ -1,0 +1,107 @@
+"""Seal only explicit text evidence; preserve failed attempts and revision boundaries."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+OUT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+CODE = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+REL = Path('docs/verification/2026-09-21-research-tail-forward/history-engineering-04')
+SHA = '442476f7def1013f1fadebaf6594971921147edc'
+BASE = 'b6de1a38c2a66fd4c9f94fda1c29d0b22e29bc16'
+
+
+def save(path, data):
+    with path.open('x') as stream:
+        json.dump(data, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def main():
+    assert subprocess.check_output(['git', '-C', str(CODE), 'rev-parse', 'HEAD']).decode().strip() == SHA
+    assert not subprocess.check_output(['git', '-C', str(CODE), 'status', '--porcelain'])
+    frozen = OUT / 'frozen-gap-fix'
+    complete = json.loads((frozen / 'complete.json').read_text())
+    groups = {}
+    for name in ('history-controller', 'conversation-delivery', 'partition-neighbors', 'history-assembly', 'e2-extra', 'gap-neighbors'):
+        suites = list(ET.parse(frozen / f'{name}.xml').iter('testsuite'))
+        assert len(suites) == 1
+        data = suites[0].attrib
+        values = {k: int(data[k]) for k in ('tests', 'failures', 'errors', 'skipped')}
+        values['passed'] = values['tests'] - values['failures'] - values['errors'] - values['skipped']
+        assert values['failures'] == values['errors'] == 0
+        groups[name] = values
+    assert sum(v['passed'] for v in groups.values()) == 1014
+    assert sum(v['skipped'] for v in groups.values()) == 4
+    probes = {}
+    for path in sorted(frozen.glob('probe-*/result.json')):
+        value = json.loads(path.read_text())
+        assert value['before'] == value['after']
+        assert value['before']['head'] == SHA and not value['before']['status']
+        assert value['expected_outcome_observed'] and not value['outcomes']['errors']
+        outcome = value['outcomes']
+        if value['mode'] != 'normal':
+            assert value['pytest_exit'] == 1 and outcome['assertion_failures']
+        probes[value['mode']] = {'passed': outcome['passed'], 'failed': len(outcome['failed']),
+                                 'assertion_failures': len(outcome['assertion_failures']), 'errors': len(outcome['errors'])}
+    assert len(probes) == 16 and probes['normal']['passed'] == 178
+    assert all(r['before'] == r['after'] for r in complete['stages'])
+    e2e = next(r for r in complete['stages'] if r['stage'] == 'e2e')
+    assert e2e['exit_code'] == 130 and e2e['stop_reason'] == 'disk-space-floor'
+    assert all(r['exit_code'] == 0 for r in complete['stages'] if r['stage'] != 'e2e')
+    summary = {'source_revision': SHA, 'parent_revision': BASE,
+               'focused_groups': groups, 'focused_passed': 1014, 'focused_skipped': 4,
+               'overlapping_normal_probe_passed': 178, 'probes': probes,
+               'new_revision_frontend': 'lint/typecheck/110 component tests/build passed',
+               'new_revision_e2e': {'passed': 9, 'interrupted': 1, 'did_not_run': 26, 'exit_code': 130, 'stop_reason': 'disk-space-floor'},
+               'new_revision_full_python': 'NOT_RUN', 'overall': 'CHANGES_REQUIRED / NOT_ACCEPTED',
+               'parent_engineering': {'python': 'SIGTERM operator interruption at 741.94s; exit -15; no JUnit or final summary',
+                                      'focused_diagnostics': '6 failed / 48 passed / 1 skipped',
+                                      'native_sandbox_probes': '5 passed without outer sandbox, using their own OS sandboxes',
+                                      'frontend': 'lint/typecheck/110 component tests/build passed',
+                                      'e2e_first': '1 failed / 33 passed / 2 skipped; RE06_E2E_URL omitted',
+                                      'e2e_corrected': '34 passed / 2 skipped; same clean parent SHA'},
+               'non_actions': ['no merge', 'no deployment', 'no production writes', 'no paid review restart'],
+               'runner_provenance_note': 'diagnose.py was extended with environment/native-sandbox options after collection and initial focused checks; early receipts describe actual earlier argv, do not attest the final helper bytes.',
+               'scope_label_note': 'probe result scope retains H-01/H-02/H-03 wording; gap suite/mutation identity and exact sources are recorded separately.'}
+    save(OUT / 'summary.json', summary)
+    archive = DOCS / REL
+    archive.mkdir(parents=True, exist_ok=False)
+    chosen = [p for p in OUT.iterdir() if p.is_file() and p.suffix in {'.py', '.json', '.xml', '.log', '.md'}]
+    for name in ('collect-only', 'focused-failures', 'native-sandbox-probes', 'e2e-corrected',
+                 'before-gap-normal', 'dirty-gap-normal', 'dirty-gap-mutant', 'frozen-gap-normal'):
+        chosen.extend(p for p in (OUT / name).iterdir() if p.is_file() and p.suffix in {'.json', '.txt'})
+    chosen.extend(p for p in frozen.iterdir() if p.is_file() and p.suffix in {'.json', '.xml', '.log'})
+    chosen.extend(p for d in frozen.glob('probe-*') if d.is_dir() for p in d.iterdir()
+                  if p.is_file() and p.suffix in {'.json', '.txt'})
+    records = []
+    for source in sorted(set(chosen)):
+        relative = source.relative_to(OUT)
+        if source.suffix in {'.py', '.log'}:
+            relative = relative.with_name(relative.name + '.txt')
+        target = archive / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        content = target.read_bytes()
+        assert content == source.read_bytes()
+        records.append({'source': str(source), 'target': target.relative_to(DOCS).as_posix(),
+                        'bytes': len(content), 'sha256': hashlib.sha256(content).hexdigest()})
+    (archive / 'candidate.patch').write_bytes(subprocess.check_output(['git', '-C', str(CODE), 'diff', BASE, SHA], timeout=20))
+    traces = []
+    for path in sorted((OUT / 'e2e-first-test-results').rglob('trace.zip')):
+        traces.append({'source': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'bytes': path.stat().st_size,
+                       'archived': False, 'reason': 'Binary trace retained locally only; repository forbids zip files.'})
+    save(archive / 'sources.json', {'source_revision': SHA, 'parent_revision': BASE, 'files': records,
+                                   'local_only_trace_hashes': traces, 'generated': ['candidate.patch', 'sources.json', 'sha256-manifest.txt']})
+    lines = [hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.relative_to(DOCS).as_posix()
+             for p in sorted(archive.rglob('*')) if p.is_file()]
+    (archive / 'sha256-manifest.txt').write_text('\n'.join(lines) + '\n')
+    print(json.dumps({'archive': str(archive), 'members': len(lines), 'copied': len(records),
+                      'bytes': sum(p.stat().st_size for p in archive.rglob('*') if p.is_file())}))
+
+
+if __name__ == '__main__':
+    main()

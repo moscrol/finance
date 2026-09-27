@@ -1,0 +1,3 @@
+{"at": "2026-09-25T10:41:00.411452+00:00", "load_1m": 3.37548828125, "existing_pytest": 3, "projected_pytest": 4, "free_gib": 46.12665557861328, "allowed": false, "argv": ["--dry-run"], "inspection": "aggregate only; process commands are not returned"}
+{"at": "2026-09-25T15:14:13.576751+00:00", "load_1m": 6.62841796875, "existing_pytest": 1, "projected_pytest": 2, "free_gib": 45.063655853271484, "allowed": true, "argv": ["--dry-run"], "inspection": "aggregate only; process commands are not returned"}
+{"at": "2026-09-25T15:14:51.450552+00:00", "load_1m": 4.92529296875, "existing_pytest": 1, "projected_pytest": 2, "free_gib": 45.050724029541016, "allowed": true, "argv": ["--dry-run"], "inspection": "aggregate only; process commands are not returned"}

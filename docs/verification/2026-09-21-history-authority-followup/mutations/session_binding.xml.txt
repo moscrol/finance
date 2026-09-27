@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="12" time="0.956" timestamp="2026-09-21T21:35:25.511306+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-False]" time="0.487"><failure message="Failed: DID NOT RAISE (&lt;class 'ValueError'&gt;, &lt;class 'OSError'&gt;)">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1445/test_history_reader_rechecks_a0')
+cached = False, mutation = 'conversation'
+
+    @pytest.mark.parametrize("cached", [False, True])
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility", "downloadable", "registration", "body"])
+    def test_history_reader_rechecks_authority_and_preserves_state_on_rejection(
+        tmp_path, cached, mutation,
+    ):
+        registry, context, session = _registry(tmp_path)
+        query = _query(registry, context)
+        ref = query.telemetry["result_ref"]
+        reader, read_context, next_session = _next_turn(
+            tmp_path, session, context, "继续找农业的历史失败案例"
+        )
+        if not cached:
+            next_session.refs.clear()
+        assert (ref in next_session.refs) is cached
+        run = session.store.load_run(session.run_id)
+        path = session.store.run_dir(run.run_id) / ref.split("/", 1)[1]
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "user":
+            run.user = "other-user"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        elif mutation == "registration":
+            run.artifacts.clear()
+        else:
+            path.write_text('{"tampered":true}\n')
+        session.store._write_run(run)
+        state = (dict(next_session.refs), dict(next_session.query_aliases), set(next_session.definition_refs))
+        original = path.read_bytes()
+        metadata = session.store.run_path(run.run_id).read_bytes()
+    
+&gt;       with pytest.raises((ValueError, OSError)):
+E       Failed: DID NOT RAISE (&lt;class 'ValueError'&gt;, &lt;class 'OSError'&gt;)
+
+tests/test_history_artifact_scope.py:121: Failed</failure></testcase><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-True]" time="0.031"><failure message="Failed: DID NOT RAISE (&lt;class 'ValueError'&gt;, &lt;class 'OSError'&gt;)">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1445/test_history_reader_rechecks_a1')
+cached = True, mutation = 'conversation'
+
+    @pytest.mark.parametrize("cached", [False, True])
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility", "downloadable", "registration", "body"])
+    def test_history_reader_rechecks_authority_and_preserves_state_on_rejection(
+        tmp_path, cached, mutation,
+    ):
+        registry, context, session = _registry(tmp_path)
+        query = _query(registry, context)
+        ref = query.telemetry["result_ref"]
+        reader, read_context, next_session = _next_turn(
+            tmp_path, session, context, "继续找农业的历史失败案例"
+        )
+        if not cached:
+            next_session.refs.clear()
+        assert (ref in next_session.refs) is cached
+        run = session.store.load_run(session.run_id)
+        path = session.store.run_dir(run.run_id) / ref.split("/", 1)[1]
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "user":
+            run.user = "other-user"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        elif mutation == "registration":
+            run.artifacts.clear()
+        else:
+            path.write_text('{"tampered":true}\n')
+        session.store._write_run(run)
+        state = (dict(next_session.refs), dict(next_session.query_aliases), set(next_session.definition_refs))
+        original = path.read_bytes()
+        metadata = session.store.run_path(run.run_id).read_bytes()
+    
+&gt;       with pytest.raises((ValueError, OSError)):
+E       Failed: DID NOT RAISE (&lt;class 'ValueError'&gt;, &lt;class 'OSError'&gt;)
+
+tests/test_history_artifact_scope.py:121: Failed</failure></testcase><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[user-False]" time="0.028" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[user-True]" time="0.028" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[visibility-False]" time="0.029" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[visibility-True]" time="0.029" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[downloadable-False]" time="0.032" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[downloadable-True]" time="0.037" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[registration-False]" time="0.036" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[registration-True]" time="0.041" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[body-False]" time="0.038" /><testcase classname="tests.test_history_artifact_scope" name="test_history_reader_rechecks_authority_and_preserves_state_on_rejection[body-True]" time="0.035" /></testsuite></testsuites>

@@ -1,0 +1,29 @@
+"""Adapt historical host checks without altering their frozen originals."""
+import ast
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+REV = '27034ce44ed41b1af0a570c2ccc534066a1656f6'
+PRIOR = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+mutation = (TREE/'docs/verification/2026-09-21-react-trace-qc/mutate_seams_v2.py.txt').read_text()
+module = 'intelligence/services/episode_semantic_verifier.py'
+def definition(source):
+    for node in ast.parse(source).body:
+        if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id == '_CONDITION_DEFINITION_RE' for t in node.targets):
+            return ast.get_source_segment(source,node)
+    raise AssertionError('missing definition pattern')
+new = definition((TREE/module).read_text())
+old = definition(subprocess.check_output(['git','-C',str(TREE),'show',PRIOR+':'+module],text=True))
+mutation = mutation.replace('\ndef child(', '\nMUTATIONS["listed_definition_recognition"] = '+repr((new,old))+'\n\ndef child(')
+mutation = mutation.replace('len(cases) == 37','len(cases) == 83')
+mutation = mutation.replace('pytest.main(["-q", TEST,','pytest.main(["-q", "-p", "no:cacheprovider", TEST,')
+mutation = mutation.replace('FWP_TEST_RECEIPT="0"','FWP_TEST_RECEIPT="0", PYTHONDONTWRITEBYTECODE="1"')
+(ROOT/'mutate_seams_v3.py').write_text(mutation)
+light = (ROOT.parent/'pr832-glm-qc-20260924-0148/run_light_gates.py').read_text()
+light = light.replace(PRIOR,REV).replace('d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c',PRIOR)
+light = light.replace("len(mutations) == 10", "len(mutations) == 11").replace("row['tests'] == 37", "row['tests'] == 83")
+light = light.replace("'mutation_baseline_passed':37", "'mutation_baseline_passed':83").replace("'mutations_caught':9", "'mutations_caught':10")
+light = light.replace("'modules_unchanged_from_prior':unchanged", "'modules_unchanged_from_prior':unchanged,'intentional_changed_module':'episode_semantic_verifier._CONDITION_DEFINITION_RE'")
+(ROOT/'run_light_gates.py').write_text(light)

@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index d34bf08e..6849c72e 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -37,7 +37,7 @@ _UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着
+ _CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
+ # Keep raw offsets: deleting formatting before locating edits corrupts spans.
+ _ASSERTION_SEPARATOR = r"[,，、—]+|--+|但是|然而|不过|但|而|(?<=\])[ \t]+(?=(?:查询|检索|搜索|接口|窗口))"
+-_ASSERTION_PART = re.compile(rf"(?:^|{_ASSERTION_SEPARATOR})(?P<claim>(?:(?!{_ASSERTION_SEPARATOR}).)+)")
++_ASSERTION_PART = re.compile(r"(?:^|[,，]|但是|但)(?P<claim>(?:(?!但是|但)[^,，])+)")
+ _ATTRIBUTED = re.compile(r"(?:官方公告|公告原文|公司原文)(?:称|明确说明|说明)")
+ _HYPOTHESIS = re.compile(r"^(?:若|如果|假设)")
+ _DEPENDENT = re.compile(r"^(?:即|也就是说|换言之|据此|因此|由此)")

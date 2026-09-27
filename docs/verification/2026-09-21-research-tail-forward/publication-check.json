@@ -1,0 +1,119 @@
+{
+  "recorded_at": "2026-09-21T11:11:16.685864+00:00",
+  "checked_commit": "c47b2751f29e08ee6ff0848603adf3c3c4d03ffe",
+  "worktree_clean": true,
+  "checks": [
+    {
+      "revision": "c47b2751f29e08ee6ff0848603adf3c3c4d03ffe",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/author-and-small-review",
+      "manifest_files": 281,
+      "committed_files": 281,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "c47b2751f29e08ee6ff0848603adf3c3c4d03ffe",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/domain-reviews-blocked",
+      "manifest_files": 28,
+      "committed_files": 28,
+      "ok": true,
+      "errors": []
+    }
+  ],
+  "scope": "exact committed archive members and bytes; not new source acceptance",
+  "source_candidates_final_identity": [
+    {
+      "tree": "/Users/a77/fwp-wt-research-tail-integration-0921",
+      "revision": "ea5c3a94618a15e37f914c8b1a13e271875e4337",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-history-forward-0921",
+      "revision": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-runtime-forward-0921",
+      "revision": "cb16cd463db5c19b3187a5137009791082874653",
+      "status": ""
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-financial-forward-0921",
+      "revision": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+      "status": ""
+    }
+  ],
+  "source_prs": {
+    "recorded_at": "2026-09-21T11:18:29.770290+00:00",
+    "archive_revision": "c47b2751f29e08ee6ff0848603adf3c3c4d03ffe",
+    "docs_pr": 838,
+    "source_prs": [
+      {
+        "pr": 831,
+        "head": "ea5c3a94618a15e37f914c8b1a13e271875e4337",
+        "state": "open",
+        "wip": true,
+        "merged": false,
+        "body_verified": true,
+        "archive_pointer_comment": 5386
+      },
+      {
+        "pr": 833,
+        "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+        "state": "open",
+        "wip": true,
+        "merged": false,
+        "body_verified": true,
+        "archive_pointer_comment": 5387
+      },
+      {
+        "pr": 834,
+        "head": "cb16cd463db5c19b3187a5137009791082874653",
+        "state": "open",
+        "wip": true,
+        "merged": false,
+        "body_verified": true,
+        "archive_pointer_comment": 5388
+      },
+      {
+        "pr": 835,
+        "head": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+        "state": "open",
+        "wip": true,
+        "merged": false,
+        "body_verified": true,
+        "archive_pointer_comment": 5389
+      }
+    ]
+  },
+  "docs_pr": {
+    "number": 838,
+    "head": "c47b2751f29e08ee6ff0848603adf3c3c4d03ffe",
+    "state": "open",
+    "merged": false,
+    "wip": true,
+    "creation_result": "POST timed out; exactly one PR verified by head via GET; no duplicate POST"
+  },
+  "memory_writeback": {
+    "revision": "94fb8acf5960925a09d3efdce87eb264ee9aad19",
+    "writer": "existing vault auto-sync",
+    "files": [
+      "10_knowledge/evidence-hygiene-three-failure-shapes.md",
+      "10_knowledge/finance-agent-capability-graph.md",
+      "20_projects/finance-workspace-private.md"
+    ],
+    "git_blob_bytes_checked": true,
+    "tracking_difference_observed": "0 0 against gitea/main",
+    "graph_audit_exit": 0,
+    "graph_audit_scope": "path/symbol audit; unrelated UNVERIFIED entries retained; MERGED wording is symbol occurrence not semantic merge proof; no branch suffix removed",
+    "graph_audit_log_sha256": "ea60301d99d2bc4fc38dc56977deca2d2fa8dd334c4a2d437223f010161028d9"
+  },
+  "published_observation_at": "2026-09-21T11:19:09.552721+00:00",
+  "format_check": {
+    "all_staged_diff_check_exit": 2,
+    "reason": "verbatim pytest logs and patches contain trailing whitespace and blank EOF",
+    "operator_authored_docs_exit": 0,
+    "raw_artifacts_reformatted": false,
+    "pre_commit_bypassed": false
+  }
+}

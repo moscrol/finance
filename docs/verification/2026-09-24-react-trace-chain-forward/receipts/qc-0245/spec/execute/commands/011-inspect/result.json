@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "def _result",
+    "def _model_projection",
+    "offset",
+    "next_offset"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 43,
+  "output_sha256": "f5a46b313c4040ee1e80e0ad23c910bd413b5192f1a4cf9703d3f3e48040f8af"
+}

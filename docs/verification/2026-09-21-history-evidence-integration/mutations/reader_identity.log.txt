@@ -1,0 +1,32 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_same_source_row_keeps_hash_across_query_and_reader_tools _________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1406/test_same_source_row_keeps_has0')
+
+    def test_same_source_row_keeps_hash_across_query_and_reader_tools(tmp_path):
+        from intelligence.tests.test_historical_research_episode import _registry
+    
+        registry, context, session = _registry(tmp_path)
+        query = registry.execute("history_query", {
+            "operation": "compute_history", "start": "2026-08-03", "end": "2026-08-04",
+            "entity_codes": ["A.FP"], "features": ["return_pct", "amount_ratio"],
+        }, context=context, step_id="query")
+        ref = query.telemetry["result_ref"]
+        original = session.read(ref)
+        read = registry.execute("read_history_result", {"result_ref": ref, "offset": 0, "limit": 1},
+                                context=context, step_id="read")
+        def row_cards(result):
+            return [item for item in result.evidence if item.history_provenance.row_index == 0]
+        assert row_cards(query)
+>       assert [item.content_hash for item in row_cards(query)] == [item.content_hash for item in row_cards(read)]
+E       AssertionError: assert ['3a4ce9c4f5fc5dd2'] == ['80161f6c720c2ec5']
+E         
+E         At index 0 diff: '3a4ce9c4f5fc5dd2' != '80161f6c720c2ec5'
+E         Use -v to get more diff
+
+tests/test_history_evidence_binding.py:358: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/reader_identity.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_same_source_row_keeps_hash_across_query_and_reader_tools
+1 failed in 1.17s

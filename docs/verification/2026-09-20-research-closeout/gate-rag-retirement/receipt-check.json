@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate-rag-retirement/receipts/20260920T070122Z-e51c5157.json",
+    "--expect-revision",
+    "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+    "--base-drift-max",
+    "0",
+    "--main-ref",
+    "gitea/main"
+  ],
+  "exit_code": 0,
+  "sha256": "b2f59d7a932575ca390207e7a295897af7a0ea7908fb3e652c68141cbb578b21",
+  "remote_main": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "expected_revision": "e51c5157c9ea9aa86491c486663700e7d7696a6f"
+}

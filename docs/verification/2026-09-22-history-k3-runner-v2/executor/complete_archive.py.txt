@@ -1,0 +1,125 @@
+"""Complete the uncommitted archive; do not touch live or offline run originals."""
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+OUT = REPO / 'docs/verification/2026-09-22-history-k3-runner-v2'
+
+
+def digest(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def copy(src, dst):
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists():
+        assert dst.read_bytes() == src.read_bytes(), dst
+    else:
+        with dst.open('xb') as stream:
+            stream.write(src.read_bytes())
+
+
+def evidence_path(path):
+    return Path(str(path) + '.txt') if path.suffix in {'.py', '.mjs', '.log', '.jsonl', '.sb'} else path
+
+
+frozen = json.loads((ROOT / 'frozen-inputs.json').read_text())
+for name, sha in frozen.items():
+    assert digest(ROOT / name) == sha, name
+for p in list(OUT.rglob('*')):
+    if p.is_file() and evidence_path(p) != p:
+        p.rename(evidence_path(p))
+for p in ROOT.iterdir():
+    if p.is_file() and p.suffix in {'.py', '.mjs'}:
+        copy(p, evidence_path(OUT / 'executor' / p.name))
+for axis in ('spec', 'quality'):
+    for name in ('STARTED.json', 'session-result.json'):
+        copy(ROOT / axis / name, OUT / 'live' / axis / name)
+    execution = json.loads((ROOT / axis / 'execution.json').read_text())
+    assert execution['before'] == execution['after']
+    assert execution['before']['status'] == ''
+    assert execution['gateway']['requestCount'] == 1 and not execution['reportPresent']
+    events = [json.loads(x) for x in (ROOT / axis / 'events.jsonl').read_text().splitlines()]
+    assert not any(x['type'] in {'tool_execution_start', 'worker_result', 'auto_retry_start'} for x in events)
+
+# Preserve failed attempts too; fake reports are fixture outputs, never reviewer verdicts.
+for folder in sorted(ROOT.iterdir()):
+    if folder.is_dir() and folder.name.startswith(('offline-', 'boundaries-', 'fixture-')):
+        for p in folder.rglob('*'):
+            if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc':
+                copy(p, evidence_path(OUT / 'offline-originals' / p.relative_to(ROOT)))
+copy(ROOT / 'fixture-summary.json', OUT / 'offline-originals/first-fixture-summary.json')
+copy(ROOT / 'live-input-sha256.json', OUT / 'preliminary-live-input-sha256.json')
+
+summary = json.loads((OUT / 'summary.json').read_text())
+summary.pop('businessTreeCleanAtSeal', None)
+summary['businessTreeCleanBeforeArchiveCreation'] = True
+summary['businessTreeDuringArchiveCreation'] = 'dirty only with this new uncommitted evidence archive'
+summary['offlineAcceptance']['checkBreakdown'] = {'worker_policy': 18, 'sdk_sessions': 5, 'gateway_and_credential': 6}
+summary['knownLimits'][-1] = 'No access/refresh tokens or account databases are archived. Actual HTTP 429 error content is retained; no successful model answer exists.'
+summary['knownLimits'] += [
+    'Symlink canonical-target validation was implemented but no dedicated adversarial symlink case was run.',
+    'The controller is trusted and unsandboxed. Model tools alone use the single-layer OS sandbox and restricted worker protocol.',
+    'No live source-tool or final-report path was exercised: both calls failed before any source access.',
+    'The finalizing timer shuts exploration but cannot guarantee the model writes a final report.',
+    'The executor remains a task-local prototype, not a published or independently audited general review runner.',
+    'No business regression was rerun. The old fedce 599-case regression is prior evidence, not part of these 29 infrastructure checks.',
+]
+summary['failureHistory'] = {
+    'worker_first': 'Interpreter path metadata denied; negative cases are NOT accepted as valid rejections.',
+    'fixture_first': 'Fake upstream shared call counter caused quality to return immediately; combined check failed.',
+    'premature_acceptance_file': 'An early PASS file covered only worker checks. Replaced before live by final 29-check acceptance; early bytes were not separately preserved.',
+    'git_check_before_commit': 'Expected failure: new archive not present in f605. Must validate committed blobs after commit.',
+    'host_python': 'Initial preparation and syntax compilation used host python3; all policy/bootstrap fixture execution used the required absolute venv interpreter. py_compile wrote local pycache, excluded from archive.',
+}
+(OUT / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n')
+(OUT / 'README.md').write_text('''# K3 审查执行器 v2：离线通过，真实审查额度阻塞
+
+## 结论
+固定候选 `fedce252330dce1065238f58e6c914417219ec53`，业务实现仍 `f73d2133968d51d3c782d3e12ee9aa4d0618ef45`。本包不含业务代码修改。
+
+- 最终离线 29 项通过：18 项 worker 策略检查、5 项 Pi SDK 完整会话、6 项请求预算/凭证替身检查。无真实凭证读取、无真实模型请求；使用回环 HTTP 假服务，因此不是“零网络系统调用”。
+- 真实 Spec 2.795 秒、Quality 2.770 秒，均凭证初始化 exit0、向 sidecar 发出 1 次请求、HTTP 429 `credit_exhausted_5h`、进程 exit71。未重试/切通道；两轴没有调用源码工具、没有终稿，仍 `BLOCKED_PROVIDER_QUOTA_NO_FINAL_REPORT`。
+- 首尾候选 SHA 相同且 clean。业务测试/自然金融探针均 0；没有改生产写手、服务、配置，未合并或部署。旧 fedce 599P 不移签为本轮测试。
+
+## 文件与证据
+`executor/` 是运行代码原样副本，脚本加 `.txt` 后缀仅作证据，不注册成项目工具。`executor-inputs/` 是两轴输入，`live/` 是真实原件。`offline/` 是最终摘要；`offline-originals/` 保留失败和成功的完整离线原件，其中 SPEC/QUALITY.md 均是**假模型输出**，不是独立审查结论。
+
+`executor/frozen-inputs.json` 的路径相对外部运行根；原始脚本对应 `executor/<name>.txt`，轴输入对应 `executor-inputs/<axis>/<name>`（策略另加 `.txt`）。`preliminary-live-input-sha256.json` 仅是较早准备记录，不用于最终身份校验。最终身份看 frozen-inputs 和 offline-acceptance。
+
+最终执行文件的字节与冻结哈希已回读一致。manifest 覆盖本包完整文件集合；提交后还须使用 `scripts/check_evidence_archive.py` 核 Git blob，不能用磁盘校验冒充。
+
+## 设计与边界
+可信宿主持凭证并发送模型请求；Pi 仅加载明确模型与 read/search/git 三工具，不发现个人扩展、技能或记忆。模型工具使用单层 sandbox worker、清洁环境和路径白名单，不暴露任意 shell。第18次本地请求或400秒关闭探索，24次/600秒硬帽；最终输出由宿主保存，不给写盘工具。
+
+预算闸门位于真实发送前，SDK和网关无自动 retry/fallback；sidecar内部尝试不可观测，不能将本地计数称为供应商全链硬帽。可信宿主不是OS沙箱；worker符号链接规范目标检查已实现，但没有专门的符号链接攻击测试。离线收口通过不保证真实模型收口，此轮真实路径在首个429即停。
+
+本包保留HTTP 429错误正文，没有access/refresh token、账号库或成功模型输出。哈希只证明字节一致，不证明来源真实性。额度恢复时间仅是当时响应估计，不是当前可用性保证。
+
+## 失败原件与纠正
+首轮worker正向全部因Python路径解析失败；同原因的负向失败不能算拒绝成功。后改为先确认目标启动，再验拒绝。首轮两轴假服务共用计数，Quality首请求直接回报告，整组FAIL；后每轴独立假服务重验通过。
+
+早期offline-acceptance曾过早写PASS（只有worker检查），在真实请求前已被29项完整验收替换；未保留其旧字节，不补造。未提交时对f605做Git包核验失败是收口顺序错误，不证明包丢失。summary的clean字段明确指封存前，封存写入后文档树当然不clean。
+
+本执行器仍是任务级实验，不注册通用能力；后续需新授权、新目录、重验冻结输入、复采磁盘，并补凭证/取消/符号链接及sidecar内部请求边界审计。不得直接刷新旧目录或重启旧会话。
+''')
+# This only detects obvious token-shaped values; manual field/value review remains necessary.
+for p in OUT.rglob('*'):
+    if p.is_file():
+        text = p.read_text()
+        assert not re.search(r'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', text), p
+mapping = {}
+for name, expected in frozen.items():
+    src = Path(name)
+    destination = OUT / ('executor-inputs' if len(src.parts) > 1 else 'executor') / src
+    destination = evidence_path(destination)
+    assert digest(destination) == expected, destination
+    mapping[name] = str(destination.relative_to(REPO))
+(OUT / 'frozen-input-archive-map.json').write_text(json.dumps(mapping, indent=2) + '\n')
+files = sorted(p for p in OUT.rglob('*') if p.is_file() and p.name != 'sha256-manifest.txt')
+(OUT / 'sha256-manifest.txt').write_text(''.join(f'{digest(p)}  {p.relative_to(REPO).as_posix()}\n' for p in files))
+print(json.dumps({'members': len(files), 'frozenInputsVerified': len(mapping), 'bytes': sum(p.stat().st_size for p in files)}, indent=2))

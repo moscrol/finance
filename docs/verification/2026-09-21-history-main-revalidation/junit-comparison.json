@@ -1,0 +1,140 @@
+{
+  "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+  "previous_revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+  "current": {
+    "cases": 12770,
+    "passed": 12681,
+    "failures": 0,
+    "errors": 0,
+    "skipped_types": {
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    },
+    "sha256": "eaa737650aa5bf1c988654bac929cd70236990ca6e962bf6cafa6551692a0440"
+  },
+  "previous": {
+    "cases": 12748,
+    "passed": 12659,
+    "failures": 0,
+    "errors": 0,
+    "skipped_types": {
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    },
+    "sha256": "f4ffe4c15c48da2999d8c7e1998d6d15fcce35b13c5c2d3a4ce42df4784965c3"
+  },
+  "added": [
+    [
+      "tests.test_eval_launchd_installer",
+      "test_default_preserves_existing_six_job_install_contract",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_explicit_kickstart_is_order_independent_and_scoped[args0]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_explicit_kickstart_is_order_independent_and_scoped[args1]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_full_preview_does_not_create_launchagent_directories",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_nightly_only_changes_exactly_two_jobs_and_wrappers",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[missing_helper]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[missing_script]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[plist]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[run_at_load]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[scalar_plist]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[shared_helper]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[shell]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preflight_failure_prevents_partial_install[wrong_label]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preview_has_no_file_or_launchctl_side_effects[args0]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preview_has_no_file_or_launchctl_side_effects[args1]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_preview_has_no_file_or_launchctl_side_effects[args2]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_unknown_or_contradictory_options_fail_before_side_effects[args0]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_unknown_or_contradictory_options_fail_before_side_effects[args1]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_unknown_or_contradictory_options_fail_before_side_effects[args2]",
+      1
+    ],
+    [
+      "tests.test_eval_launchd_installer",
+      "test_unknown_or_contradictory_options_fail_before_side_effects[args3]",
+      1
+    ],
+    [
+      "tests.test_ima_gap_report.ImaGapReportTest",
+      "test_classify_page_depths",
+      1
+    ],
+    [
+      "tests.test_ima_gap_report.ImaGapReportTest",
+      "test_queue_splits_run_and_skips",
+      1
+    ]
+  ],
+  "removed": [],
+  "skip_xfail_names_types_reasons_equal": true
+}

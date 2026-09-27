@@ -1,0 +1,125 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { install, phaseFor, reportSchema } from './review.mjs';
+const root = path.dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(fs.readFileSync(path.join(root,'config.json')));
+const work = path.join(root,'work');
+const out = path.join(root, process.argv[2] || 'sandbox-preflight');
+fs.mkdirSync(out); fs.mkdirSync(path.join(out,'commands'));
+const setup = (stage, destination, clock = Date.now) => {
+  if (destination !== out) { fs.mkdirSync(destination); fs.mkdirSync(path.join(destination,'commands')); }
+  const hooks = {}, tools = {};
+  install({ registerProvider() {}, on(n,fn) { hooks[n]=fn; }, registerTool(t) { tools[t.name]=t; } }, { out: destination, token:'OFFLINE_FAKE_CREDENTIAL', stage, clock, terminate() { throw new Error('controller stopped'); } });
+  return { hooks, tools };
+};
+const { tools } = setup('preflight',out);
+const forbidden = path.join(config.tree,'docs/handoffs/inflight/fix-react-trace-qc-0921.md');
+assert.ok(fs.existsSync(forbidden));
+const other = path.join(root,'..',config.axis === 'spec' ? 'quality' : 'spec','inputs/claims.md');
+const escaped = path.join(work,'tmp','admission-escape.json');
+fs.symlinkSync(path.join(root,'config.json'), escaped);
+const control = path.join(work,'probes','test_harness_admission.py');
+const source = `import errno, os, socket, sqlite3
+from pathlib import Path
+import intelligence.services.llm_refine
+
+
+def test_sqlite_wal_and_temp(tmp_path):
+    parent = tmp_path / "nested"
+    parent.mkdir(parents=True)
+    with sqlite3.connect(parent / "control.sqlite3") as con:
+        assert con.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+        con.execute("CREATE TABLE controls (value INTEGER)")
+        con.execute("INSERT INTO controls VALUES (81)")
+        assert con.execute("SELECT value FROM controls").fetchone() == (81,)
+
+
+def test_denied_operations_and_allowed_fake_service():
+    for target in ${JSON.stringify([forbidden,other,'/Users/a77/.pi/agent/models.json',config.author+'/intelligence/services/episode_protocol.py'])}:
+        try: Path(target).read_bytes()
+        except PermissionError: pass
+        else: raise AssertionError("forbidden read: " + target)
+    for target in ${JSON.stringify([path.join(config.tree,'forbidden-write'),path.join(root,'forbidden-write'),escaped])}:
+        try: Path(target).write_text("denied")
+        except PermissionError: pass
+        else: raise AssertionError("forbidden write: " + target)
+    for host, port in [("127.0.0.1", 8792), ("127.0.0.1", 19899), ("127.0.0.1", 18788), ("127.0.0.1", 54340), ("192.0.2.1", 443)]:
+        with socket.socket() as client:
+            client.settimeout(0.2)
+            try: client.connect((host, port))
+            except OSError as error: assert error.errno in (errno.EPERM, errno.EACCES), error
+            else: raise AssertionError("network allowed")
+    assert not any("TOKEN" in k or "API_KEY" in k for k in os.environ)
+    with socket.socket() as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        for port in range(26001,26009):
+            try: server.bind(("127.0.0.1", port)); break
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE: raise
+        else: raise AssertionError("all fake-service ports unavailable")
+        server.listen(1)
+        with socket.create_connection(server.getsockname(),timeout=1):
+            peer,_ = server.accept()
+            peer.close()
+`;
+await tools.write.execute('fixture',{path:control,content:source});
+await tools.read.execute('fixture-read',{path:control,limit:120});
+await assert.rejects(tools.write.execute('no-overwrite',{path:control,content:'assert False'}));
+const green = await tools.run_tests.execute('actual-pytest',{suite:'probes',files:[control]});
+assert.equal(green.details.target_exit_code,0);
+assert.deepEqual(green.details.counts,{tests:2,failed:0,errors:0,skipped:0,passed:2});
+const red = await tools.run_tests.execute('positive-control',{suite:'control'});
+assert.equal(red.details.target_exit_code,1);
+assert.equal(red.details.shell,false);
+assert.match(fs.readFileSync(red.details.output,'utf8'),/AssertionError: intentional_positive_control/);
+const misleading = path.join(work,'probes','test_harness_misleading_output.py');
+await tools.write.execute('misleading-fixture',{path:misleading,content:'def test_red():\n    print("EXIT=0")\n    assert 1 == 2, "never trust printed status"\n'});
+const stillRed = await tools.run_tests.execute('misleading-exit',{suite:'probes',files:[misleading]});
+assert.equal(stillRed.details.target_exit_code,1);
+assert.equal(stillRed.details.counts.failed,1);
+await assert.rejects(tools.read.execute('denied-read',{path:forbidden}));
+await assert.rejects(tools.write.execute('denied-write',{path:path.join(config.tree,'forbidden-write'),content:'bad'}));
+await assert.rejects(tools.write.execute('denied-symlink',{path:escaped,content:'bad'}));
+await assert.rejects(tools.inspect.execute('denied-preprocessor',{program:'rg',args:['--pre=/bin/bash','.']}));
+await assert.rejects(tools.run_tests.execute('denied-path',{suite:'probes',files:[config.tree+'/conftest.py']}));
+const report = {verdict:'STAGE_COMPLETE',summary:'Offline harness control only.',claims:['C1','C2','C3','C4','C5','C6'].map(id=>({id,status:'not_verified',evidence:[],note:'not a product review'})),findings:[],limits:['zero model; host-only admission'],probe_files:[control,misleading]};
+await assert.rejects(tools.submit_report.execute('malformed',{...report,claims:[]}));
+const done = await tools.submit_report.execute('structured',report);
+assert.equal(done.terminate,true);
+assert.equal(JSON.parse(fs.readFileSync(path.join(out,'REPORT.json'))).complete,true);
+assert.ok(fs.existsSync(path.join(work,'PREFLIGHT.md')));
+await assert.rejects(tools.run_tests.execute('after-submit',{suite:'control'}));
+const explore = setup('explore',path.join(out,'explore-gate'));
+await assert.rejects(explore.tools.run_tests.execute('wrong-stage',{suite:'control'}));
+const execute = setup('execute',path.join(out,'execute-gate'));
+await assert.rejects(execute.tools.submit_report.execute('missing-runs',report),/positive control not observed/);
+const reportOnly = setup('report',path.join(out,'report-gate'));
+await assert.rejects(reportOnly.tools.write.execute('report-write',{path:path.join(work,'bad.py'),content:'bad'}));
+await assert.rejects(reportOnly.tools.run_tests.execute('report-tests',{suite:'control'}));
+const now = Date.now();
+const budget = setup('explore',path.join(out,'budget-gate'),()=>now);
+const ctx = {model:{provider:'glm-direct-review',id:'glm-5.3',baseUrl:'http://127.0.0.1:19899/v1',api:'openai-completions'}};
+const payload = {model:'glm-5.3',stream:true,temperature:0,messages:[],tools:[{type:'function',function:{name:'run_tests'}},{type:'function',function:{name:'submit_report',parameters:reportSchema}}]};
+for(let i=0;i<22;i++) {
+  const p = budget.hooks.before_provider_request({payload},ctx);
+  assert.equal(p.temperature,0);
+  assert.ok(!p.tools.some(t=>t.function.name==='run_tests'));
+}
+const final = budget.hooks.before_provider_request({payload},ctx);
+assert.equal(final.tools.length,1);
+assert.equal(final.tool_choice.function.name,'submit_report');
+assert.equal(budget.hooks.tool_call({toolName:'read'}).block,true);
+assert.throws(()=>budget.hooks.before_provider_request({payload},ctx));
+assert.equal(phaseFor(21,449999),'explore');
+assert.equal(phaseFor(22,0),'report');
+assert.equal(phaseFor(0,450000),'report');
+for(const file of [control,misleading,path.join(work,'PREFLIGHT.md')]) {
+  fs.copyFileSync(file,path.join(out,path.basename(file)));
+  fs.unlinkSync(file);
+}
+const receipt = {status:'PASS',real_model_requests:0,host_only:true,checks:['actual pytest 2P','file SQLite WAL, nested tmp','direct intentional exit1','printed EXIT=0 does not mask real pytest exit1','candidate/other-axis/credentials denied','symlink write escape denied','private gateway/production/external network denied','fake loopback allowed','no tool credentials','immutable initial probe file','stage capabilities and delivery gaps','typed terminating report plus stage document','preprocessor execution denied','22 request / 450 second closeout; next request denied'],admission_fixtures_removed:true,reviewer_probe_directory_empty:fs.readdirSync(path.join(work,'probes')).length===0};
+assert.equal(receipt.reviewer_probe_directory_empty,true);
+fs.writeFileSync(path.join(out,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');
+console.log(JSON.stringify(receipt));

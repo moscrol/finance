@@ -1,0 +1,4 @@
+{"label": "registry-parse", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "scripts/build_registry.py", "check-parseability"], "cwd": "/Users/a77/fwp-wt-pr911-main-0925", "revision": "a52a3a9759a1d1d33fc5e19c86e35576394dd546", "started_at": "2026-09-25T09:55:30.654235+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+[check-parseability] 全部 61 个 SKILL.md frontmatter 可解析、name 与目录名一致。
+
+EXIT=0 STATUS=completed

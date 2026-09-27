@@ -1,0 +1,26 @@
+{
+  "scope": "literal_match_diagnostic_only_not_semantic_approval",
+  "case_id": "spt-draft-opportunity-1",
+  "profile_sha256": "01611ea02994286031603f5ecf126b937cbee69a4ddb70afbdf5c8b39e88b8da",
+  "proposal_sha256": "6f627694b119109156d3cbdf52fe32382cdd52ec50ee2f3cbcee6e06d456e933",
+  "candidate_entries": [
+    {
+      "profile_index": 20,
+      "field": "opportunity_preferences",
+      "value_sha256": "114166bebb2f39c9259fa9347b59d93ab3885f39f131f1930e2b7b84788540e4",
+      "all_expected_terms_present": true,
+      "literal_fact_match": false,
+      "patch_receipts": [
+        {
+          "patch_id": "pp-ed109ca9f818",
+          "status": "approved",
+          "patch_sha256": "9ae86ce19276d87eb58930e2293850b70c004e64866df59db05a9a3ac6eefd81",
+          "article_ids": [
+            "pa-af47be9c26e3"
+          ]
+        }
+      ]
+    }
+  ],
+  "inputs_unchanged": true
+}

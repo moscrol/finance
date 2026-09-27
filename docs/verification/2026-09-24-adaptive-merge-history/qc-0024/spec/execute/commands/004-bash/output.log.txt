@@ -1,0 +1,5 @@
+cp: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate/intelligence/users: Operation not permitted
+cp: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate/.agents: Operation not permitted
+cp: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate/.claude: Operation not permitted
+cp: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate/docs: Operation not permitted
+cp: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate/.git: Operation not permitted

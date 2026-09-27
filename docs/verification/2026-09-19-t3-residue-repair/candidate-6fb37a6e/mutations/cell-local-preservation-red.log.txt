@@ -1,0 +1,27 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/cell-local-preservation-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_copy_guard_binds_period_and_column_not_a_bag_of_numbers or test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_________ test_copy_guard_binds_period_and_column_not_a_bag_of_numbers _________
+intelligence/tests/test_research_delivery_checks.py:116: in test_copy_guard_binds_period_and_column_not_a_bag_of_numbers
+    assert "2026中报 | 2026-08-15 | 706.91 | 445.17 | 待核对 |" in kept
+E   AssertionError: assert '2026中报 | 2026-08-15 | 706.91 | 445.17 | 待核对 |' in '| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\n|---|---|---|---|---|\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |'
+_ test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[off] __
+intelligence/tests/test_research_delivery_checks.py:270: in test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts
+    assert "706.91" in result.public_answer and "445.17" in result.public_answer
+E   AssertionError: assert ('706.91' in '收入数据可核。[E1]。\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\n|---|---|---|---|---|\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。')
+E    +  where '收入数据可核。[E1]。\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\n|---|---|---|---|---|\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[llm] __
+intelligence/tests/test_research_delivery_checks.py:270: in test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts
+    assert "706.91" in result.public_answer and "445.17" in result.public_answer
+E   AssertionError: assert ('706.91' in '收入数据可核。[E1]。\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\n|---|---|---|---|---|\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。')
+E    +  where '收入数据可核。[E1]。\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\n|---|---|---|---|---|\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/cell-local-preservation-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_copy_guard_binds_period_and_column_not_a_bag_of_numbers
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[off]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[llm]
+3 failed, 684 deselected in 1.01s
+
+STDERR:
+
+EXIT=1

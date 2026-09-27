@@ -1,0 +1,78 @@
+{
+  "claims": [
+    {
+      "evidence": [
+        "work/probes/test_qc_c1_ordinals.py"
+      ],
+      "id": "C1",
+      "note": "探针就绪：E 序号被掩盖而数字事实保留；未执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "work/probes/test_qc_c2_diagnostics.py"
+      ],
+      "id": "C2",
+      "note": "探针就绪：parse_error 结构化诊断、无路径泄漏、无证据；未执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "work/probes/test_qc_c3_feedback.py"
+      ],
+      "id": "C3",
+      "note": "探针就绪：invalid_arguments 回馈同 Episode、证据保留、预算不扩；未执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "work/probes/test_qc_c4_progress.py"
+      ],
+      "id": "C4",
+      "note": "探针就绪：冻结嵌套 Mapping 记录且未知对象仍拒；未执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "work/probes/test_qc_c5_pagination.py"
+      ],
+      "id": "C5",
+      "note": "探针就绪：绝对 sample 序号、offset/next_offset、末页 null、截断；未执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "work/probes/test_qc_c6_repair.py",
+        "work/probes/test_qc_c6_exit.py"
+      ],
+      "id": "C6",
+      "note": "探针就绪：含真实 verify/repair 出口（借作者 _judge/_structural 夹具）、幸存定义保留计数、N条豁免不扩大、同行混合标签、行尾保留；未执行",
+      "status": "not_verified"
+    }
+  ],
+  "findings": [],
+  "limits": [
+    "本阶段为 explore，探针全部只通过语法/断言资格检查，未在 pytest 中执行；所有 claims 待 execute 阶段运行为准",
+    "C3/C6 出口探针借用作者测试夹具（_frame/_context/_finish_turn/_tool_turn/ScriptedModel/_judge/_structural），测试预期由主张独立推导",
+    "C5 的 read_history_result 分页路径只覆盖 _result/_model_projection 单元层，未驱动 history_tool_specs 完整分页循环"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit.py"
+  ],
+  "summary": "Explore 阶段完成：读取 claims.md 与 source.diff 全量（1109行），确认 C5/C6 为产品增量、C1-C4 与 baseline 无产品 diff。已落盘 7 份独立 pytest 探针，覆盖全部 C1-C6。优先落实 C5 分页身份（绝对 sample 行号、offset/next_offset、末页 null、截断语义）与 C6：既有 _repair_dangling_condition_references 的直接行为探针（无删除定义不改写、幸存定义保留计数、同行混合标签、行尾/列表符保留、多种列表定义形态对称识别），也有真实 SemanticEpisodeVerifier verify/repair 出口探针（judge_status=repaired、public_answer 无孤儿计数、definition 删除记录在 sentence_verdicts），借作者 _judge/_structural 夹具但预期从主张推导。C2/C3 用作者 episode registry 夹具验证结构化诊断与同 Episode 回馈、预算不扩；C4 用 MappingProxyType 验证冻结映射记录与未知对象拒绝。本阶段未执行任何测试，所有 claims 仅记探针就绪，不做 verified 结论。",
+  "verdict": "STAGE_COMPLETE",
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "complete": true,
+  "delivery_gaps": [],
+  "test_runs": [],
+  "host_bound": true
+}

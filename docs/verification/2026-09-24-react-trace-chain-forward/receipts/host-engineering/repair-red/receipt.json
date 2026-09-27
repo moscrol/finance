@@ -1,0 +1,24 @@
+{
+  "label": "red",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "intelligence/tests/test_condition_reference_seams.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/red/tmp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/react-trace-c6-list-fix-20260924/red/junit.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-react-trace-chain-0923",
+  "exit_code": 1,
+  "elapsed_seconds": 2.7422680829185992,
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "status": " M intelligence/tests/test_condition_reference_seams.py\n",
+  "files_sha256": {
+    "/Users/a77/fwp-wt-react-trace-chain-0923/intelligence/services/episode_semantic_verifier.py": "43152ac1f569c2abeb496106e2798dc3f923f62fd7e325eb4c1415c6abe10657",
+    "/Users/a77/fwp-wt-react-trace-chain-0923/intelligence/tests/test_condition_reference_seams.py": "1da6c231ec6f6dbf7c59f33421bd993e627eadef0af862525705c6e06615eccf"
+  },
+  "log_sha256": "3bef3861da2f6585f22bd514814ad6459e1f720f278cbea3d91b1f152977419b"
+}

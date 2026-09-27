@@ -1,0 +1,30 @@
+"""Read this candidate's live request ledger; never schedule or approve work."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+
+root = Path(__file__).parent
+records = []
+requests = 147
+batches = ['qc', 'qc-bounded-02', 'qc-delivery-03', 'qc-execution-menu-04', 'qc-execution-final-06']
+for folder in sorted(root.glob('qc-evidence-isolated-*')):
+    assert folder.is_dir() and not folder.is_symlink(), str(folder)
+    config = json.loads((folder / 'config.json').read_text())
+    assert config['revision'] == 'a30e7e4594ac09310271739c8beb30ee8b2cd3ef', str(folder)
+    batches.append(folder.name)
+for batch in batches:
+    folder = root / batch
+    stage_folders = [folder / 'gateway']
+    stage_folders += sorted(p for p in folder.iterdir() if p.is_dir() and p.name.startswith(('explore-', 'execute-', 'report-')))
+    for stage in stage_folders:
+        ledger = stage / 'request-admissions.jsonl'
+        if not ledger.is_file():
+            continue
+        rows = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
+        admissions = [row['admission'] for row in rows]
+        assert admissions == list(range(1, len(rows) + 1)), str(ledger)
+        requests += len(rows)
+        path = stage / ('receipt.json' if stage.name == 'gateway' else 'execution.json')
+        record = json.loads(path.read_text()) if path.exists() else {}
+        records.append({'batch': batch, 'stage': stage.name, 'requests': len(rows), 'status': record.get('status'), 'complete': record.get('complete'), 'pid': record.get('pid'), 'ledger': str(ledger)})
+print(json.dumps({'observed_at': datetime.now(timezone.utc).isoformat(), 'revision': 'a30e7e4594ac09310271739c8beb30ee8b2cd3ef', 'historical_requests': 147, 'used': requests, 'ceiling': 218, 'remaining': 218 - requests, 'ceiling_exceeded': requests > 218, 'stages': records, 'scope': 'budget and execution facts only; no independent semantic or deployment verdict'}, indent=2))

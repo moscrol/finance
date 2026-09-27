@@ -1348,7 +1348,8 @@ def cmd_ima_gap_report(args: argparse.Namespace) -> int:
     queue_path = finance_root / "market_feature_store" / "exports" / f"{args.date}-research-queue.json"
     if not queue_path.is_file():
         print(json.dumps({"ok": False, "error": f"missing {queue_path}"}, ensure_ascii=False, indent=2))
-        return 0
+        # 缺少当日 research queue 时没有生成报告；非零让 nightly runner 记 FAIL，避免假成功。
+        return 2
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     report = build_ima_gap_report(payload, wikis=[kb_wiki, *extras], date=args.date)
     exports = finance_root / "market_feature_store" / "exports"

@@ -1,0 +1,23 @@
+{
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "group": "e2",
+  "artifacts_sha256": {
+    "EXPLORE.md": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5",
+    "probes/test_reviewer.py": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18",
+    "probes/test_positive_control.py": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0"
+  },
+  "execution_tools_sha256": {
+    "run_probe_v3.py": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786",
+    "resource_pytest.py": "e84b2846f40e05f4c0cb51286ee5d4506cb9c7e248173e0b7fabfb9b31474ec5",
+    "review_io_sandbox.py": "64393725f88b6a691be52418ebf23b51a4b7185bae32c60f985e7a955ec6300a",
+    "tools-v3.sb": "86c29102858dc5dff4fbd0ba12e78602aa4ba12373cf22c60ea7d0bdf927dbb9",
+    "inputs/ui.vitest-v3.config.mjs": "456a4daf6326ac720aeb624bbb5e04f3398c309d44f50caca8318143f458818c",
+    "inputs/qc_userspace_isolation.py": "a9b93fbf5ff230e651d7835b3355619aa7a0091f24f8a36797f6d22d18418551"
+  },
+  "prior_explore": {
+    "execution": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-bounded-02/explore-e2-v3/execution.json",
+    "sha256": "a3cb7bc5e5f1616d7068e94f34cee79d6190d42fe1cef8f759e6f22d4e859158",
+    "work": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/inputs/frozen-explore-e2-v3"
+  }
+}

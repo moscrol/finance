@@ -1,0 +1,250 @@
+ss..................s...........FFFFF....FF..                            [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T081738Z-f783f19c.json
+
+=================================== FAILURES ===================================
+_______________________ test_structure_probe_daily_full ________________________
+
+    @pytest.mark.skipif(not _graph_searchable(), reason="CI 不上传 graph.db；本机有图才跑结构探针")
+    def test_structure_probe_daily_full():
+        payload, _ = _query_json("daily-full")
+        blob = json.dumps(payload["layers"]["structure"]["hits"])
+>       assert "market_feature_store" in blob
+E       AssertionError: assert 'market_feature_store' in '[]'
+
+tests/test_code_map.py:594: AssertionError
+__________________ test_search_graph_parses_crg_json_results ___________________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1353/test_search_graph_parses_crg_j0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10701fad0>
+
+    def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        stdout = json.dumps(
+            {
+                "status": "ok",
+                "results": [
+                    {
+                        "name": "cmd_daily_full",
+                        "file_path": str(root / "market_feature_store" / "cli.py"),
+                        "qualified_name": "market_feature_store/cli.py::cmd_daily_full",
+                        "signature": "def cmd_daily_full(args) -> int",
+                    },
+                    {
+                        "name": str(root / "tests" / "test_daily_full_preflight.py"),
+                        "file_path": str(root / "tests" / "test_daily_full_preflight.py"),
+                        "qualified_name": "tests/test_daily_full_preflight.py",
+                    },
+                ],
+            }
+        )
+    
+        def fake(args, cwd):
+            return subprocess.CompletedProcess(["uvx"], 0, stdout, "")
+    
+        monkeypatch.setattr(cm, "run_crg_cli", fake)
+        hits, unavailable_reason = cm.search_graph("daily-full", root)
+>       assert unavailable_reason is None
+E       AssertionError: assert {'excerpt': 'tests/test_daily_full_preflight.py', 'path': 'tests/test_daily_full_preflight.py', 'retired': [], 'symbol': None, ...} is None
+
+tests/test_code_map.py:625: AssertionError
+_ test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1353/test_search_graph_dispatches_h0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107022ab0>
+
+    def test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup(
+        tmp_path, monkeypatch
+    ):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        calls = []
+>       monkeypatch.setattr(cm, "STRUCTURE_HIT_CAP", 3)
+E       AttributeError: <module 'code_map' from '/Users/a77/fwp-wt-research-tail-integration-0921/scripts/code_map.py'> has no attribute 'STRUCTURE_HIT_CAP'
+
+tests/test_code_map.py:641: AttributeError
+_____________ test_search_graph_ordinary_query_is_dispatched_once ______________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1353/test_search_graph_ordinary_que0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107023740>
+
+    def test_search_graph_ordinary_query_is_dispatched_once(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        calls = []
+    
+        def fake(args, cwd):
+            calls.append(list(args))
+            return subprocess.CompletedProcess(
+                ["uvx"], 0, json.dumps({"status": "ok", "results": []}), ""
+            )
+    
+        monkeypatch.setattr(cm, "run_crg_cli", fake)
+>       hits, unavailable_reason = cm.search_graph("rank_history", root)
+E       ValueError: not enough values to unpack (expected 2, got 0)
+
+tests/test_code_map.py:689: ValueError
+______ test_query_distinguishes_missing_structure_backend_from_zero_hits _______
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1353/test_query_distinguishes_missi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107020b60>
+
+    def test_query_distinguishes_missing_structure_backend_from_zero_hits(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        head = _git(root, "rev-parse", "HEAD")
+        _make_graph(root, n_nodes=1, git_head_sha=head)
+        (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
+        (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
+    
+        monkeypatch.setattr(cm, "_uvx_path", lambda: None)
+        unavailable, code = cm.collect_query(root, "daily-full")
+        assert code == 0
+>       assert unavailable["layers"]["structure"]["state"] == "unavailable"
+E       AssertionError: assert 'missing' == 'unavailable'
+E         
+E         - unavailable
+E         + missing
+
+tests/test_code_map.py:706: AssertionError
+_________________ test_query_narrative_hits_steered_wiki_page __________________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1353/test_query_narrative_hits_stee0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1070218b0>
+
+    def test_query_narrative_hits_steered_wiki_page(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        head = _git(root, "rev-parse", "HEAD")
+        _make_graph(root, n_nodes=3, git_head_sha=head)
+        (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
+        (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
+        wiki = root / ".code-review-graph" / "wiki" / "doors"
+        wiki.mkdir(parents=True)
+        (wiki / "daily-review-door.md").write_text(
+            "# 复盘写入正门\n\nquery: daily-full\n正门是 market_feature_store.cli\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
+>       payload, code = cm.collect_query(root, "daily-full")
+
+tests/test_code_map.py:800: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/code_map.py:720: in collect_query
+    conflicts = detect_conflicts(door_hits, structure_hits, narrative_hits)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+door_hits = [{'excerpt': 'daily-full gate', 'path': 'AGENTS.md', 'retired': [], 'symbol': None, ...}, {'excerpt': 'daily-full gate', 'path': 'CLAUDE.md', 'retired': [], 'symbol': None, ...}]
+structure_hits = ([], None)
+narrative_hits = [{'excerpt': 'query: daily-full', 'path': '.code-review-graph/wiki/doors/daily-review-door.md', 'retired': [], 'symbol': None, ...}]
+
+    def detect_conflicts(
+        door_hits: list[dict[str, Any]],
+        structure_hits: list[dict[str, Any]],
+        narrative_hits: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
+        """机械 drift：excerpt 含 retired 字面且没有退役语境词。禁止 LLM。"""
+        retired_items: list[str] = []
+        for hit in door_hits:
+            for item in hit.get("retired") or []:
+                if item and item not in retired_items:
+                    retired_items.append(str(item))
+        needles: list[tuple[str, str]] = []
+        for item in retired_items:
+            needles.append((item, item))
+            stripped = DRIFT_CONTEXT_RE.sub("", item)
+            stripped = re.sub(r"\s+", " ", stripped).strip()
+            if stripped and stripped != item:
+                needles.append((item, stripped))
+        conflicts: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for layer, hits in (
+            ("structure", structure_hits),
+            ("narrative", narrative_hits),
+        ):
+            for hit in hits:
+>               excerpt = str(hit.get("excerpt") or "")
+E               AttributeError: 'list' object has no attribute 'get'
+
+scripts/code_map.py:580: AttributeError
+__________________ test_query_narrative_drift_sets_conflicts ___________________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1353/test_query_narrative_drift_set0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10701f9e0>
+
+    def test_query_narrative_drift_sets_conflicts(tmp_path, monkeypatch):
+        cm = _cm()
+        root = _init_repo(tmp_path)
+        head = _git(root, "rev-parse", "HEAD")
+        _make_graph(root, n_nodes=2, git_head_sha=head)
+        (root / "AGENTS.md").write_text("daily-full\n", encoding="utf-8")
+        (root / "CLAUDE.md").write_text("飞书 Bitable 写入已废弃\n", encoding="utf-8")
+        wiki = root / ".code-review-graph" / "wiki" / "doors"
+        wiki.mkdir(parents=True)
+        (wiki / "oops.md").write_text("继续用飞书 Bitable 写复盘\n", encoding="utf-8")
+        monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
+        monkeypatch.setattr(
+            cm,
+            "search_doors",
+            lambda root, tokens: (
+                "ok",
+                [
+                    {
+                        "title": "飞书",
+                        "path": "CLAUDE.md",
+                        "symbol": None,
+                        "excerpt": "飞书 Bitable 写入已废弃",
+                        "retired": ["飞书 Bitable"],
+                    }
+                ],
+            ),
+        )
+>       payload, code = cm.collect_query(root, "飞书")
+
+tests/test_code_map.py:836: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/code_map.py:720: in collect_query
+    conflicts = detect_conflicts(door_hits, structure_hits, narrative_hits)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+door_hits = [{'excerpt': '飞书 Bitable 写入已废弃', 'path': 'CLAUDE.md', 'retired': ['飞书 Bitable'], 'symbol': None, ...}]
+structure_hits = ([], None)
+narrative_hits = [{'excerpt': '继续用飞书 Bitable 写复盘', 'path': '.code-review-graph/wiki/doors/oops.md', 'retired': [], 'symbol': None, ...}]
+
+    def detect_conflicts(
+        door_hits: list[dict[str, Any]],
+        structure_hits: list[dict[str, Any]],
+        narrative_hits: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
+        """机械 drift：excerpt 含 retired 字面且没有退役语境词。禁止 LLM。"""
+        retired_items: list[str] = []
+        for hit in door_hits:
+            for item in hit.get("retired") or []:
+                if item and item not in retired_items:
+                    retired_items.append(str(item))
+        needles: list[tuple[str, str]] = []
+        for item in retired_items:
+            needles.append((item, item))
+            stripped = DRIFT_CONTEXT_RE.sub("", item)
+            stripped = re.sub(r"\s+", " ", stripped).strip()
+            if stripped and stripped != item:
+                needles.append((item, stripped))
+        conflicts: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for layer, hits in (
+            ("structure", structure_hits),
+            ("narrative", narrative_hits),
+        ):
+            for hit in hits:
+>               excerpt = str(hit.get("excerpt") or "")
+E               AttributeError: 'list' object has no attribute 'get'
+
+scripts/code_map.py:580: AttributeError
+=========================== short test summary info ============================
+FAILED tests/test_code_map.py::test_structure_probe_daily_full - AssertionErr...
+FAILED tests/test_code_map.py::test_search_graph_parses_crg_json_results - As...
+FAILED tests/test_code_map.py::test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup
+FAILED tests/test_code_map.py::test_search_graph_ordinary_query_is_dispatched_once
+FAILED tests/test_code_map.py::test_query_distinguishes_missing_structure_backend_from_zero_hits
+FAILED tests/test_code_map.py::test_query_narrative_hits_steered_wiki_page - ...
+FAILED tests/test_code_map.py::test_query_narrative_drift_sets_conflicts - At...
+7 failed, 35 passed, 3 skipped in 5.68s

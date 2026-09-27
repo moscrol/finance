@@ -1,0 +1,71 @@
+........................................................................ [ 49%]
+........F............................................................... [ 99%]
+.                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T131328Z-bbd948a6.json
+
+=================================== FAILURES ===================================
+__ test_registered_query_persists_complete_result_and_reads_by_controlled_ref __
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1417/test_registered_query_persists0')
+
+    def test_registered_query_persists_complete_result_and_reads_by_controlled_ref(
+        tmp_path,
+    ):
+        registry, context, session = _registry(tmp_path)
+        result = registry.execute(
+            "history_query",
+            {
+                "operation": "inspect_history",
+                "start": "2026-08-03",
+                "end": "2026-08-04",
+                "entity_codes": ["A.FP"],
+                "preview_limit": 1,
+            },
+            context=context,
+            step_id="query",
+        )
+        assert result.trace.status == "success"
+        ref = result.telemetry["result_ref"]
+        payload = session.read(ref)
+        assert len(payload["rows"]) == 2
+        assert payload["returned_count"] == 1
+        assert payload["pending_sources"][0]["status"] == "pending_sync"
+        second = registry.execute(
+            "read_history_result",
+            {"result_ref": ref, "offset": 1, "limit": 1},
+            context=context,
+            step_id="read",
+        )
+        assert "2026-08-04" in second.evidence[-1].detail
+        with pytest.raises(ValueError, match="outside this conversation"):
+>           session.read("another-run/history-query-any.json")
+
+intelligence/tests/test_historical_research_episode.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/historical_research/episode.py:78: in read
+    payload = self.store.read_history_artifact(
+intelligence/services/run_store.py:561: in read_history_artifact
+    self._history_run(run_id, conversation_id=conversation_id)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.run_store.RunStore object at 0x1140925d0>
+run_id = 'another-run'
+
+    def _history_run(
+        self, run_id: str, *, conversation_id: str | None = None,
+    ) -> tuple[Run, Path]:
+        if not isinstance(run_id, str) or not run_id:
+            raise ValueError("invalid history run path")
+        run_dir = self.run_dir(run_id)
+        if run_dir.is_symlink() or run_dir.resolve().parent != self.root.resolve():
+            raise ValueError("invalid history run path")
+        run_path = run_dir / "run.json"
+        if run_path.is_symlink():
+            raise ValueError("invalid history run metadata path")
+        if not run_path.is_file():
+>           raise FileNotFoundError(f"run not found: {run_id}")
+E           FileNotFoundError: run not found: another-run
+
+intelligence/services/run_store.py:645: FileNotFoundError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_historical_research_episode.py::test_registered_query_persists_complete_result_and_reads_by_controlled_ref
+1 failed, 144 passed in 2.83s

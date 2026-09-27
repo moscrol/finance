@@ -1,0 +1,303 @@
+{
+ "db": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+ "db_size": 3855626240,
+ "db_mtime": "2026-09-22T21:47:45+0800",
+ "read_at": "2026-09-22T18:01:33Z",
+ "read_only": true,
+ "n_tables": 36,
+ "tables": {
+  "fact_auction_hithink": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 6,
+   "rows_0922": 5582,
+   "rows_0918": 6
+  },
+  "fact_auction_stock_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_core_leader_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 20
+  },
+  "fact_core_stock_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 50
+  },
+  "fact_dragon_hot_money_hithink": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 42,
+   "rows_0922": 49,
+   "rows_0918": 42
+  },
+  "fact_dragon_seat_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_dragon_summary_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_dragon_tiger_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_dragon_tiger_hithink": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 60,
+   "rows_0922": 66,
+   "rows_0918": 50
+  },
+  "fact_global_index_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_global_stock_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_hot_stock_rank_hithink": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 30,
+   "rows_0922": 30,
+   "rows_0918": 30
+  },
+  "fact_leader_height_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 1
+  },
+  "fact_limit_advance_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 12
+  },
+  "fact_limit_advance_presence": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-02",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_limit_pool_hithink": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 130,
+   "rows_0922": 86,
+   "rows_0918": 104
+  },
+  "fact_mainline_sector_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 71
+  },
+  "fact_mainline_stock_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 80
+  },
+  "fact_mainline_theme_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 4
+  },
+  "fact_market_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 0,
+   "rows_0922": 1,
+   "rows_0918": 1
+  },
+  "fact_polymarket_macro_odds_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": null,
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_sector_daily": {
+   "type": "VIEW",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 403
+  },
+  "fact_sector_daily_generation": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 403
+  },
+  "fact_sector_kline_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 855,
+   "rows_0922": 855,
+   "rows_0918": 854
+  },
+  "fact_sector_period_rank_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 40
+  },
+  "fact_sector_stock_daily": {
+   "type": "VIEW",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 52769
+  },
+  "fact_sector_stock_daily_generation": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 52769
+  },
+  "fact_sector_universe_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 0,
+   "rows_0922": 403,
+   "rows_0918": 403
+  },
+  "fact_stock_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 5551,
+   "rows_0922": 5551,
+   "rows_0918": 5553
+  },
+  "fact_stock_daily_hithink": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 5553,
+   "rows_0922": 5554,
+   "rows_0918": 5553
+  },
+  "fact_stock_high_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 445
+  },
+  "fact_stock_technical_snapshot": {
+   "type": "BASE TABLE",
+   "max_trade_date": null,
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_sw_l1_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-22",
+   "rows_0921": 0,
+   "rows_0922": 31,
+   "rows_0918": 31
+  },
+  "fact_theme_flow_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-15",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 0
+  },
+  "fact_theme_limit_heat_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 234
+  },
+  "fact_theme_limit_stock_daily": {
+   "type": "BASE TABLE",
+   "max_trade_date": "2026-09-18",
+   "rows_0921": 0,
+   "rows_0922": 0,
+   "rows_0918": 705
+  }
+ },
+ "recent_source_rows": {
+  "fact_market_daily": [
+   [
+    "2026-09-17",
+    "local:overview",
+    "1"
+   ],
+   [
+    "2026-09-18",
+    "local:overview",
+    "1"
+   ],
+   [
+    "2026-09-22",
+    "?",
+    "1"
+   ]
+  ],
+  "fact_stock_daily": [
+   [
+    "2026-09-17",
+    "eastmoney:snapshot",
+    "5553"
+   ],
+   [
+    "2026-09-18",
+    "eastmoney:snapshot",
+    "5553"
+   ],
+   [
+    "2026-09-21",
+    "hithink:daily-k-10d",
+    "5551"
+   ],
+   [
+    "2026-09-22",
+    "hithink:daily-k-10d",
+    "5551"
+   ]
+  ]
+ }
+}

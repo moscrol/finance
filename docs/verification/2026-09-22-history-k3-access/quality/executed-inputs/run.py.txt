@@ -1,0 +1,150 @@
+"""One authorized K3 review; reserve output before auth, never retry or fall back."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+os.umask(0o022)
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / "candidate"
+AUTHOR = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+OUT = ROOT / "k3"
+WORK = OUT / "work"
+REV = 'fedce252330dce1065238f58e6c914417219ec53'
+BASE = '0888ea98477bf07292f41336538d7b3b904b1248'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+
+def git(tree, *args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True, env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'}).strip()
+
+
+def digest(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def identity(tree):
+    return {'revision': git(tree, 'rev-parse', 'HEAD'), 'status': git(tree, 'status', '--porcelain', '--untracked-files=all')}
+
+
+def save(record):
+    (OUT / 'execution.json').write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+
+
+OUT.mkdir(exist_ok=False)
+(ROOT / 'pi-config').mkdir(exist_ok=False)
+(ROOT / 'pi-config' / 'settings.json').write_text(json.dumps({
+    'retry': {'enabled': False, 'maxRetries': 0, 'provider': {'timeoutMs': 90000, 'maxRetries': 0, 'maxRetryDelayMs': 1000}},
+    'compaction': {'enabled': False}, 'enableInstallTelemetry': False, 'enableAnalytics': False,
+    'defaultProjectTrust': 'never', 'packages': [], 'extensions': [], 'skills': [], 'prompts': [], 'themes': [],
+}) + '\n')
+for item in (WORK, WORK / 'tmp', WORK / 'users'):
+    item.mkdir()
+for name, args in {
+    'pr.diff': ['diff', '--stat', BASE, REV, '--', 'intelligence', 'tests'],
+    'runtime.diff': ['diff', BASE, REV, '--', 'intelligence/runtime', 'intelligence/services', 'intelligence/api'],
+    'changed-paths.txt': ['diff', '--name-only', BASE, REV],
+    'prior-docs-to-tip.diff': ['diff', '--stat', '43511e3f15bd18bfd49868dfbac5b1d3774fd0bc', REV],
+}.items():
+    (ROOT / name).write_text(git(TREE, *args) + '\n')
+for name in ('models.json', 'auth.json'):
+    (ROOT / 'pi-config' / name).write_text('{}\n')
+(ROOT / 'controller.sb').write_text(f'''(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "{OUT}") (literal "/dev/null"))
+''')
+(ROOT / 'tools.sb').write_text(f'''(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "{WORK}") (literal "/dev/null"))
+(deny network*)
+(deny file-read* (subpath "/Users/a77/.claude") (subpath "/Users/a77/.pi") (subpath "/Users/a77/.ssh") (subpath "/Users/a77/Library/Keychains") (subpath "/Users/a77/Library/Application Support/mirasim-sidecar") (subpath "/Users/a77/.local/share/finance-workbench") (subpath "/Users/a77/agent-memory") (subpath "{TREE}/docs/handoffs") (subpath "{TREE}/docs/verification") (subpath "{TREE}/intelligence/users") (subpath "{TREE}/db") (subpath "{AUTHOR}/db") (subpath "{ROOT.parent / ('quality' if ROOT.name == 'spec' else 'spec')}"))
+''')
+inputs = [ROOT / name for name in ('run.py', 'prompt.md', 'credential-bootstrap.mjs', 'provider-template.json', 'tools.mjs', 'controller.sb', 'tools.sb', 'pr.diff', 'runtime.diff', 'changed-paths.txt', 'prior-docs-to-tip.diff')] + list((ROOT / 'pi-config').iterdir())
+before = identity(TREE)
+assert before == {'revision': REV, 'status': ''}
+assert identity(AUTHOR) == before
+watched = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'TMPDIR': str(WORK / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+       'PYTHONPATH': str(TREE), 'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0',
+       'FORESIGHT_USERS_DIR': str(WORK / 'users'), 'PI_CODING_AGENT_DIR': str(ROOT / 'pi-config'),
+       'PI_OFFLINE': '1', 'PI_TELEMETRY': '0', 'REVIEW_OUTPUT_DIR': str(OUT)}
+command = ['/usr/bin/sandbox-exec', '-f', str(ROOT / 'controller.sb'), '/opt/homebrew/bin/pi',
+           '--provider', 'mirasim-kimi', '--model', 'kimi-k3', '--thinking', 'xhigh',
+           '--models', 'mirasim-kimi/kimi-k3', '--no-session', '--no-extensions',
+           '-e', str(ROOT / 'credential-bootstrap.mjs'), '-e', str(ROOT / 'tools.mjs'),
+           '--no-skills', '--no-prompt-templates', '--no-context-files', '--no-themes',
+           '--no-approve', '--offline', '--tools', 'read,bash,write', '--mode', 'json', '-p',
+           '--', (ROOT / 'prompt.md').read_text()]
+record = {'revision': REV, 'baseline': BASE, 'identity_before': before, 'author_before': identity(AUTHOR),
+          'inputs_sha256': watched, 'time_before': datetime.now(timezone.utc).isoformat(),
+          'complete': False, 'timeout_seconds': 600, 'max_provider_requests': 24,
+          'billing': 'existing Plus route only; zero model price metadata is not an invoice',
+          'authorization': 'user asked next step then continue; one fresh bounded K3 review per axis on existing subscription; no prior session resume, purchase, merge or deployment',
+          'command': command[:-1] + ['<prompt.md>']}
+save(record)
+preflight = subprocess.run(['/usr/bin/sandbox-exec', '-f', str(ROOT / 'tools.sb'), PYTHON, '-B', '-c',
+    'from pathlib import Path; import intelligence.runtime.agent_episode as a; '
+    f'assert Path(a.__file__).resolve().is_relative_to(Path({str(TREE)!r})); print(a.__file__)'],
+    cwd=TREE, env=env, capture_output=True, text=True, timeout=30)
+(OUT / 'preflight.log').write_text(preflight.stdout + preflight.stderr)
+record['import_preflight_rc'] = preflight.returncode
+if preflight.returncode:
+    record.update(complete=True, stop_reason='preflight', exit_code=preflight.returncode)
+    save(record)
+    raise SystemExit(2)
+started = time.monotonic()
+reason = None
+with (OUT / 'events.jsonl').open('xb') as stdout, (OUT / 'stderr.log').open('xb') as stderr:
+    proc = subprocess.Popen(command, cwd=TREE, env=env, stdin=subprocess.DEVNULL,
+                            stdout=stdout, stderr=stderr, start_new_session=True)
+    record['pid'] = proc.pid
+    save(record)
+    try:
+        proc.wait(timeout=600)
+    except subprocess.TimeoutExpired:
+        reason = 'deadline'
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+messages = []
+counts = {}
+for line in (OUT / 'events.jsonl').read_text().splitlines():
+    try:
+        event = json.loads(line)
+    except ValueError:
+        counts['invalid_json_line'] = counts.get('invalid_json_line', 0) + 1
+        continue
+    kind = event.get('type', 'unknown')
+    counts[kind] = counts.get(kind, 0) + 1
+    if kind == 'message_end' and event.get('message', {}).get('role') == 'assistant':
+        messages.append(event['message'])
+after = identity(TREE)
+admission_file = OUT / 'request-admissions.jsonl'
+rows = [json.loads(line) for line in admission_file.read_text().splitlines()] if admission_file.exists() else []
+record.update(complete=True, exit_code=proc.returncode, stop_reason=reason, identity_after=after,
+              author_after=identity(AUTHOR), candidate_untouched=before == after,
+              inputs_unchanged=watched == {str(p.relative_to(ROOT)): digest(p) for p in inputs},
+              elapsed_seconds=round(time.monotonic() - started, 3), time_after=datetime.now(timezone.utc).isoformat(),
+              event_counts=counts, provider_request_admissions=len(rows),
+              admissions_valid=len(rows) <= 24 and [r['admission'] for r in rows] == list(range(1, len(rows) + 1)),
+              model_identities=sorted({str(m.get('provider')) + '/' + str(m.get('model')) for m in messages}),
+              model_errors=[m.get('errorMessage', m.get('stopReason')) for m in messages if m.get('stopReason') in {'error', 'aborted'}],
+              usage={k: sum(m.get('usage', {}).get(k, 0) or 0 for m in messages) for k in ('input', 'output', 'cacheRead', 'cacheWrite', 'totalTokens')})
+if messages and messages[-1].get('stopReason') == 'stop':
+    content = '\n'.join(part.get('text', '') for part in messages[-1].get('content', []) if part.get('type') == 'text')
+    if content.strip():
+        (OUT / 'final-response.md').write_text(content + '\n')
+record['final_response_present'] = (OUT / 'final-response.md').is_file()
+record['sha256'] = {str(p.relative_to(OUT)): digest(p) for p in OUT.rglob('*') if p.is_file() and p.name != 'execution.json'}
+save(record)
+print(json.dumps({k: record[k] for k in ('complete', 'exit_code', 'stop_reason', 'candidate_untouched', 'provider_request_admissions', 'model_errors')}, ensure_ascii=False))

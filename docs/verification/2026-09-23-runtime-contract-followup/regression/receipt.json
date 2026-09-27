@@ -1,0 +1,25 @@
+{
+  "role": "host replay; not independent K3 acceptance",
+  "before": {
+    "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+    "status": ""
+  },
+  "after": {
+    "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+    "status": ""
+  },
+  "tests": [
+    "test_episode_store.py",
+    "test_episode_restore.py",
+    "test_episode_restore_persistence.py",
+    "test_episode_restore_repeatability.py",
+    "test_episode_entry_identity.py",
+    "test_episode_effects.py",
+    "test_root_budget_snapshot.py",
+    "test_episode_progress.py"
+  ],
+  "total": 178,
+  "nonpass": [],
+  "exit": 0,
+  "accepted": true
+}

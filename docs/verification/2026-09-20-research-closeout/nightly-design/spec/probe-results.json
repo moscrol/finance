@@ -1,0 +1,2182 @@
+{
+  "candidate_good": {
+    "case": "candidate-good",
+    "integrated_plan": false,
+    "key_stub": true,
+    "failed_leaf": null,
+    "rc": 0,
+    "error": null,
+    "wrote_success_status": true,
+    "calls": [
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-16",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed",
+          "--no-caps"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-17",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-16",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-16.json",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "export-increment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/export_increment.py",
+          "--date",
+          "2026-09-16",
+          "--db",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/candidate-good-cpq5r4xw/sample.duckdb.staging"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-17",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-17.json",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "export-increment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/export_increment.py",
+          "--date",
+          "2026-09-17",
+          "--db",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/candidate-good-cpq5r4xw/sample.duckdb.staging"
+        ]
+      },
+      {
+        "label": "backfill-alignment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/duckdb-backfill/scripts/qa_backfill_align.py",
+          "2026-09-16",
+          "2026-09-17",
+          "--plan",
+          "local",
+          "--json",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/candidate-good-cpq5r4xw/receipt.alignment.json"
+        ]
+      }
+    ]
+  },
+  "required_step_failure": {
+    "case": "required-step-failure",
+    "integrated_plan": false,
+    "key_stub": true,
+    "failed_leaf": "index-daily",
+    "rc": null,
+    "error": "2026-09-16 index-daily failed; no publish",
+    "wrote_success_status": false,
+    "calls": [
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--no-fupanhui-fallback"
+        ]
+      }
+    ]
+  },
+  "same_day_failure": {
+    "case": "same-day-failure",
+    "integrated_plan": false,
+    "key_stub": true,
+    "failed_leaf": "same-day-gate",
+    "rc": null,
+    "error": "2026-09-16 quality gates failed; no publish",
+    "wrote_success_status": false,
+    "calls": [
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-16",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed",
+          "--no-caps"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-17",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-16",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      }
+    ]
+  },
+  "cross_day_failure": {
+    "case": "cross-day-failure",
+    "integrated_plan": false,
+    "key_stub": true,
+    "failed_leaf": "cross-day-gate",
+    "rc": null,
+    "error": "2026-09-16 quality gates failed; no publish",
+    "wrote_success_status": false,
+    "calls": [
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-16",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed",
+          "--no-caps"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-17",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-16",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-16.json",
+          "--plan",
+          "local"
+        ]
+      }
+    ]
+  },
+  "alignment_failure": {
+    "case": "alignment-failure",
+    "integrated_plan": false,
+    "key_stub": true,
+    "failed_leaf": "backfill-alignment",
+    "rc": null,
+    "error": "baseline alignment failed; no publish",
+    "wrote_success_status": false,
+    "calls": [
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-16",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed",
+          "--no-caps"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-17",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-16",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-16.json",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "export-increment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/export_increment.py",
+          "--date",
+          "2026-09-16",
+          "--db",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/alignment-failure-sqywor7w/sample.duckdb.staging"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-17",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-17.json",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "export-increment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/export_increment.py",
+          "--date",
+          "2026-09-17",
+          "--db",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/alignment-failure-sqywor7w/sample.duckdb.staging"
+        ]
+      },
+      {
+        "label": "backfill-alignment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/duckdb-backfill/scripts/qa_backfill_align.py",
+          "2026-09-16",
+          "2026-09-17",
+          "--plan",
+          "local",
+          "--json",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/alignment-failure-sqywor7w/receipt.alignment.json"
+        ]
+      }
+    ]
+  },
+  "integrated_hithink_no_key": {
+    "case": "integrated-hithink-no-key",
+    "integrated_plan": true,
+    "key_stub": false,
+    "failed_leaf": null,
+    "rc": null,
+    "error": "2026-09-16 hithink-stock-daily failed; no publish",
+    "wrote_success_status": false,
+    "calls": []
+  },
+  "integrated_hithink_good": {
+    "case": "integrated-hithink-good",
+    "integrated_plan": true,
+    "key_stub": true,
+    "failed_leaf": null,
+    "rc": 0,
+    "error": null,
+    "wrote_success_status": true,
+    "calls": [
+      {
+        "label": "hithink-stock-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-stock-daily",
+          "--incremental"
+        ]
+      },
+      {
+        "label": "hithink-sector-kline",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-sector-kline",
+          "--incremental",
+          "--end-date",
+          "2026-09-16",
+          "--skip-constituents"
+        ]
+      },
+      {
+        "label": "hithink-limit-pools",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-limit-pools",
+          "--incremental",
+          "--end-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "hithink-dragon-auction",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-dragon-auction",
+          "--incremental",
+          "--end-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-16",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed",
+          "--no-caps"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-16"
+        ]
+      },
+      {
+        "label": "hithink-stock-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-stock-daily",
+          "--incremental"
+        ]
+      },
+      {
+        "label": "hithink-sector-kline",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-sector-kline",
+          "--incremental",
+          "--end-date",
+          "2026-09-17",
+          "--skip-constituents"
+        ]
+      },
+      {
+        "label": "hithink-limit-pools",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-limit-pools",
+          "--incremental",
+          "--end-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "hithink-dragon-auction",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-hithink-dragon-auction",
+          "--incremental",
+          "--end-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "index-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-index-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--no-fupanhui-fallback"
+        ]
+      },
+      {
+        "label": "sw-l1-daily",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sw-l1-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--days",
+          "20"
+        ]
+      },
+      {
+        "label": "carry-forward-universe",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "carry-forward-universe",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stitch-sector-stocks",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "stitch-sector-stocks",
+          "--trade-date",
+          "2026-09-17",
+          "--max-baseline-age-days",
+          "180",
+          "--include-completed"
+        ]
+      },
+      {
+        "label": "sector-daily-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "sync-sector-daily-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "limit-stats-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-limit-stats-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-overview-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-overview-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-editorial-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-editorial-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "market-stage-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-market-stage-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "stock-high-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-stock-high-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "mainline-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-mainline-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-stock-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-stock-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "core-leader-local",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "compute-core-leader-local",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "features",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "scripts.compute_features",
+          "--trade-date",
+          "2026-09-17"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-16",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-16",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-16.json",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "export-increment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/export_increment.py",
+          "--date",
+          "2026-09-16",
+          "--db",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/integrated-hithink-good-s_1te91g/sample.duckdb.staging"
+        ]
+      },
+      {
+        "label": "same-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_daily_review_data.py",
+          "2026-09-17",
+          "--phase",
+          "data",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "cross-day-gate",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "market_feature_store.cli",
+          "check-daily",
+          "--trade-date",
+          "2026-09-17",
+          "--json",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/state/quality-2026-09-17.json",
+          "--plan",
+          "local"
+        ]
+      },
+      {
+        "label": "export-increment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/daily-full-review/scripts/export_increment.py",
+          "--date",
+          "2026-09-17",
+          "--db",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/integrated-hithink-good-s_1te91g/sample.duckdb.staging"
+        ]
+      },
+      {
+        "label": "backfill-alignment",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/fwp-wt-nightly-review-0917/skills/duckdb-backfill/scripts/qa_backfill_align.py",
+          "2026-09-16",
+          "2026-09-17",
+          "--plan",
+          "local",
+          "--json",
+          "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/integrated-hithink-good-s_1te91g/receipt.alignment.json"
+        ]
+      }
+    ]
+  },
+  "dated_replay": [
+    {
+      "replay_clock": "2026-09-17T22:00:00",
+      "input_date_validated": true,
+      "snapshot_sha256": "e4d3e9a827620222a16362a1ba9fd5e70d1609d9a79a748ea6f71b7729b05733",
+      "actual_snapshot_date": "2026-09-17",
+      "failures": [],
+      "snapshot_stitch_argv": [
+        "python",
+        "-m",
+        "market_feature_store.cli",
+        "stitch-sector-stocks",
+        "--trade-date",
+        "2026-09-17",
+        "--max-baseline-age-days",
+        "180",
+        "--include-completed"
+      ]
+    },
+    {
+      "replay_clock": "2026-09-18T00:01:00",
+      "input_date_validated": true,
+      "snapshot_sha256": "e4d3e9a827620222a16362a1ba9fd5e70d1609d9a79a748ea6f71b7729b05733",
+      "actual_snapshot_date": "2026-09-17",
+      "failures": [
+        {
+          "level": "FAIL",
+          "date": "2026-09-17",
+          "check": "source-semantics",
+          "message": "fact_stock_daily 有 1 行「取最新」来源（source = 'eastmoney:snapshot'）不是交易日当天写的——历史日只能用日期参数化源（mootdx / index_hist_sw / 东财 hist kline）"
+        }
+      ],
+      "snapshot_stitch_argv": [
+        "python",
+        "-m",
+        "market_feature_store.cli",
+        "stitch-sector-stocks",
+        "--trade-date",
+        "2026-09-17",
+        "--max-baseline-age-days",
+        "180",
+        "--include-completed"
+      ]
+    }
+  ],
+  "completed_refresh_no_baseline": {
+    "command": [
+      "python",
+      "-m",
+      "market_feature_store.cli",
+      "stitch-sector-stocks",
+      "--trade-date",
+      "2026-09-17",
+      "--max-baseline-age-days",
+      "180",
+      "--include-completed",
+      "--no-caps"
+    ],
+    "cli_rc": 0,
+    "summary": {
+      "trade_date": "2026-09-17",
+      "snapshot_id": "dcd8c78761a7546d97a90da2cd3007516ff55de9d81cf5fec5213106c5d25b01",
+      "identity": "2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0",
+      "candidates": 3,
+      "stitched": 0,
+      "skipped": {
+        "no_baseline": 3
+      },
+      "skipped_codes": {
+        "no_baseline": [
+          "990001.FP",
+          "990002.FP",
+          "990003.FP"
+        ]
+      },
+      "failed": [],
+      "dropped_members": 0,
+      "baseline_dates": {},
+      "pending_for_provider": 3,
+      "caps_fetched": 0,
+      "audit": "2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-",
+      "audit_complete": true,
+      "dry_run": false
+    },
+    "stale_member_price": 10.0,
+    "base_fact_price": 12,
+    "normal_control_age": 365,
+    "normal_stitched": 3,
+    "refreshed_member_price": 12.0
+  },
+  "identity": {
+    "candidate": "6356ffd5e703b30948f687baaaf60102bf97f0a5",
+    "main": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+    "main_source_sha256": "7700f9a0a11e847c80fc1eacb7dc28bef656efbcde33f4a2390b01f5152761de",
+    "integration_source_sha256": "1130e5a26d6465b6b8d28ca462b27f696c3f37aec00bd8bd9a375f9979ae37b3",
+    "integration_change": "Exact main HITHINK_STEPS/sync_hithink_step/build_local_plan copied as AST into candidate sync module; candidate local index flag retained. Callable-level integration only; original checkout unchanged."
+  }
+}

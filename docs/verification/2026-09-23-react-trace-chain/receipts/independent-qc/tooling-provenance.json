@@ -1,0 +1,92 @@
+[
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/glm_credential.py",
+    "destination": "glm_credential.py",
+    "sha256": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/glm_review_shim.py",
+    "destination": "glm_review_shim.py",
+    "sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/run_stage.py",
+    "destination": "spec/run_stage.py",
+    "sha256": "e13b8783c15b1c6e1c9db8b6fa8e46af1085255b7c4b5b0b767e0310393a7d8a"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/run_control.py",
+    "destination": "spec/run_control.py",
+    "sha256": "5a6cca30b3e6fc39bd8a69670bc53864c92f2a5b69f7ad7c0507e655d2a07d39"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/review.mjs",
+    "destination": "spec/review.mjs",
+    "sha256": "881d6f8d38936d863c4b5762ce60f9ac4fb5d7ecea97129eecd71627acf1fc13"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/gateway.mjs",
+    "destination": "spec/gateway.mjs",
+    "sha256": "756a1096ba8a74fa24102183aea93f0069d772c421c66ad884e80544be1bb759"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/sandbox_preflight.mjs",
+    "destination": "spec/sandbox_preflight.mjs",
+    "sha256": "516f02c2d0ba165d2b1974f54d3644293d67e2384afe76d1f56956150023bb85"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/file_tool.py",
+    "destination": "spec/file_tool.py",
+    "sha256": "7c4a6f89387b318e87cc54d606ac398a85cfd43115e82b5a1c719f4037e97f87"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/provider-template.json",
+    "destination": "spec/provider-template.json",
+    "sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/pi-config/settings.json",
+    "destination": "spec/pi-config/settings.json",
+    "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/run_stage.py",
+    "destination": "quality/run_stage.py",
+    "sha256": "e13b8783c15b1c6e1c9db8b6fa8e46af1085255b7c4b5b0b767e0310393a7d8a"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/run_control.py",
+    "destination": "quality/run_control.py",
+    "sha256": "5a6cca30b3e6fc39bd8a69670bc53864c92f2a5b69f7ad7c0507e655d2a07d39"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/review.mjs",
+    "destination": "quality/review.mjs",
+    "sha256": "881d6f8d38936d863c4b5762ce60f9ac4fb5d7ecea97129eecd71627acf1fc13"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/gateway.mjs",
+    "destination": "quality/gateway.mjs",
+    "sha256": "756a1096ba8a74fa24102183aea93f0069d772c421c66ad884e80544be1bb759"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/sandbox_preflight.mjs",
+    "destination": "quality/sandbox_preflight.mjs",
+    "sha256": "516f02c2d0ba165d2b1974f54d3644293d67e2384afe76d1f56956150023bb85"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/file_tool.py",
+    "destination": "quality/file_tool.py",
+    "sha256": "7c4a6f89387b318e87cc54d606ac398a85cfd43115e82b5a1c719f4037e97f87"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/provider-template.json",
+    "destination": "quality/provider-template.json",
+    "sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/pi-config/settings.json",
+    "destination": "quality/pi-config/settings.json",
+    "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417"
+  }
+]

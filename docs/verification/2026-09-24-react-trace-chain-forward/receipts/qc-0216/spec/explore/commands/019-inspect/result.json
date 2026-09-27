@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-rn",
+    "end requires ISO date",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/candidate/finance-workspace-private/intelligence/services/historical_research/",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/candidate/finance-workspace-private/intelligence/services/research_tool_registry.py"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 54,
+  "output_sha256": "613f219b2e8e8c74904bf38450b0ffc9eecd6e1b5ffff2b6a1b43a2dd2206dbe"
+}

@@ -1,0 +1,42 @@
+{
+  "status": "BLOCKED_WALL_DEADLINE",
+  "exitCode": null,
+  "started": 1790018440941,
+  "elapsedMs": 3622,
+  "before": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "after": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "gateway": {
+    "requestCount": 1,
+    "maxRequests": 24,
+    "startedAt": 1790018441036,
+    "deadlineAt": 1790018444441,
+    "elapsedMs": 3527,
+    "closed": true,
+    "finalizing": true
+  },
+  "fixture": true,
+  "tests_run": 0,
+  "retries": 0,
+  "fallback": false,
+  "reportPresent": false,
+  "reportSha256": null,
+  "disk": [
+    {
+      "timestamp": 1790018441036,
+      "availableBytes": 51828871168
+    },
+    {
+      "timestamp": 1790018444563,
+      "availableBytes": 51828756480
+    }
+  ],
+  "sandbox_layers_per_tool": 1,
+  "controller_trusted_unsandboxed": true,
+  "production_changes": false
+}

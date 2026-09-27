@@ -1,0 +1,72 @@
+def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when the draft has a novel numeric condition G11 would redact.
+
+    Adapter runs this *before* the judge so a backfill turn can fetch the
+    missing number via the subject-anchored capability instead of thinning
+    the answer.
+    """
+
+    return bool(
+        _novel_numeric_condition_indexes(
+            _numbered_sentences(verified.outcome.draft),
+            verified,
+        )
+    )
+
+
+def _mismatched_weekday_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Reject date/weekday labels that contradict a bound calendar date."""
+
+    evidence_dates = _bound_evidence_dates(verified.outcome)
+    historical = historical_claim_texts(verified.contract, verified.outcome.bindings, verified.outcome.draft) if verified.contract else frozenset()
+    rejected: set[int] = set()
+    for item in sentences:
+        index = item.get("index")
+        text = str(item.get("text") or "")
+        if not isinstance(index, int):
+            continue
+        if text in historical:
+            continue
+        for match in _DATE_WEEKDAY_RE.finditer(text):
+            month = int(match.group("month"))
+            day = int(match.group("day"))
+            raw_year = match.group("year")
+            candidates = {
+                value
+                for value in evidence_dates
+                if value.month == month
+                and value.day == day
+                and (raw_year is None or value.year == int(raw_year))
+            }
+            expected = {value.weekday() for value in candidates}
+            stated = _WEEKDAY_INDEX.get(match.group("label")[-1])
+            if len(expected) == 1 and stated not in expected:
+                rejected.add(index)
+                break
+    return tuple(sorted(rejected))
+
+
+def _mismatched_path_trend_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """Reject all-window path language contradicted by bound turnover points.
+
+    Endpoint movement can be correct while the path between those endpoints is
+    not monotonic.  The narrow all-path gate covers ``一路`` plus unbounded
+    ``持续/连续`` language only when at least three dated turnover observations
+    are bound. Explicitly local statements such as ``连续两个交易日回落`` do not
+    match these patterns and remain the semantic judge's responsibility.
+    """
+
+    series = _bound_turnover_series(verified.outcome)
+    historical = historical_claim_texts(verified.contract, verified.outcome.bindings, verified.outcome.draft) if verified.contract else frozenset()
+    if len(series) < 3:
+        return ()
+    values = [value for _trade_date, value in series]
+    is_non_increasing = all(
+
+[truncated; total lines=6936, selected=5045:5114; next_offset=5115]

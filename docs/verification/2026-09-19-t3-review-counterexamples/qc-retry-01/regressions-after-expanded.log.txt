@@ -1,0 +1,68 @@
+....................................FF.................................. [ 25%]
+........................................................................ [ 51%]
+........................................................................ [ 77%]
+...............................................................          [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T064035Z-ec692b53.json
+
+=================================== FAILURES ===================================
+_ test_review_counterexamples_reach_real_public_exit[\u6536\u5165\u53ef\u6838[E1]--\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\u56e0\u6b64\u516c\u53f8\u6ca1\u6709\u516c\u544a\u3002-good3-bad3-off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a15c830>
+mode = 'off', draft = '收入可核[E1]--查询返回空白因此公司没有公告。', good = ('收入可核[E1]',)
+bad = ('因此公司没有公告',)
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("draft,good,bad", [
+        DISCLOSURE_CASES[0],
+        DISCLOSURE_CASES[3],
+        DISCLOSURE_CASES[7],
+        ("收入可核[E1]--查询返回空白因此公司没有公告。",  ("收入可核[E1]",), ("因此公司没有公告",)),
+        (RATIO_CASES[0][0], ("收入可核[E1]", "2026中报", "3年新高"), ("1.587",)),
+        (RATIO_CASES[1][0], ("收入可核[E1]", "2026中报", "2025中报", "0.289"), ("1.587",)),
+    ])
+    def test_review_counterexamples_reach_real_public_exit(monkeypatch, mode, draft, good, bad):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, structural = _structural(draft, detail="收入可核。", traces=(TRACE,))
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert all(item in result.public_answer for item in good)
+E       assert False
+E        +  where False = all(<generator object test_review_counterexamples_reach_real_public_exit.<locals>.<genexpr> at 0x1098e7ac0>)
+
+intelligence/tests/test_research_delivery_review_regressions.py:160: AssertionError
+_ test_review_counterexamples_reach_real_public_exit[\u6536\u5165\u53ef\u6838[E1]--\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\u56e0\u6b64\u516c\u53f8\u6ca1\u6709\u516c\u544a\u3002-good3-bad3-llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a16ddc0>
+mode = 'llm', draft = '收入可核[E1]--查询返回空白因此公司没有公告。', good = ('收入可核[E1]',)
+bad = ('因此公司没有公告',)
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    @pytest.mark.parametrize("draft,good,bad", [
+        DISCLOSURE_CASES[0],
+        DISCLOSURE_CASES[3],
+        DISCLOSURE_CASES[7],
+        ("收入可核[E1]--查询返回空白因此公司没有公告。",  ("收入可核[E1]",), ("因此公司没有公告",)),
+        (RATIO_CASES[0][0], ("收入可核[E1]", "2026中报", "3年新高"), ("1.587",)),
+        (RATIO_CASES[1][0], ("收入可核[E1]", "2026中报", "2025中报", "0.289"), ("1.587",)),
+    ])
+    def test_review_counterexamples_reach_real_public_exit(monkeypatch, mode, draft, good, bad):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, structural = _structural(draft, detail="收入可核。", traces=(TRACE,))
+        structural = replace(structural, outcome=replace(
+            structural.outcome, evidence=(*structural.outcome.evidence, *_financial_evidence()),
+        ))
+        result = SemanticEpisodeVerifier(judge_fn=lambda request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }).verify(frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(10))
+>       assert all(item in result.public_answer for item in good)
+E       assert False
+E        +  where False = all(<generator object test_review_counterexamples_reach_real_public_exit.<locals>.<genexpr> at 0x10a163100>)
+
+intelligence/tests/test_research_delivery_review_regressions.py:160: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_counterexamples_reach_real_public_exit[\u6536\u5165\u53ef\u6838[E1]--\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\u56e0\u6b64\u516c\u53f8\u6ca1\u6709\u516c\u544a\u3002-good3-bad3-off]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_counterexamples_reach_real_public_exit[\u6536\u5165\u53ef\u6838[E1]--\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\u56e0\u6b64\u516c\u53f8\u6ca1\u6709\u516c\u544a\u3002-good3-bad3-llm]
+2 failed, 277 passed in 1.40s

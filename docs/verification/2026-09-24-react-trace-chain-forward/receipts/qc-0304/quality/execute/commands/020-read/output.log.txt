@@ -1,0 +1,32 @@
+def _numbered_sentences(draft: str) -> list[dict[str, object]]:
+    sentences: list[dict[str, object]] = []
+    for text in claim_sentences(str(draft or "")):
+        sentences.append({"index": len(sentences) + 1, "text": text})
+    return sentences
+
+
+def _mechanical_reasons_by_index(
+    *,
+    numeric: tuple[int, ...] = (),
+    weekday: tuple[int, ...] = (),
+    path: tuple[int, ...] = (),
+    ordinal: tuple[int, ...] = (),
+    evidence_date: tuple[int, ...] = (),
+    stock_code: tuple[int, ...] = (),
+    financial: tuple[int, ...] = (),
+) -> dict[int, tuple[str, ...]]:
+    """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
+
+    reasons: dict[int, list[str]] = {}
+    for code, indexes in (
+        (VERDICT_REASON_NUMERIC, numeric),
+        (VERDICT_REASON_WEEKDAY, weekday),
+        (VERDICT_REASON_PATH, path),
+        (VERDICT_REASON_ORDINAL, ordinal),
+        (VERDICT_REASON_EVIDENCE_DATE, evidence_date),
+        (VERDICT_REASON_STOCK_CODE, stock_code),
+        (VERDICT_REASON_FINANCIAL, financial),
+    ):
+        for index in indexes:
+
+[truncated; total lines=6937, selected=4292:4321; next_offset=4322]

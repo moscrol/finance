@@ -1,0 +1,72 @@
+"""Historical values must survive the actual model-facing observation budget."""
+
+from copy import deepcopy
+from dataclasses import replace
+import json
+
+import pytest
+
+from intelligence.services.agent_research import evidence_content_hash
+from intelligence.services.historical_research.episode import _result, history_tool_specs
+from intelligence.services.historical_research.features import FEATURES, FEATURE_VERSION
+from intelligence.services.query_understanding import understand_query
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import ToolObservation
+from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+from intelligence.tests.test_historical_research_episode import _registry
+
+
+REF = "run-history-review/history-query-" + "a" * 64 + ".json"
+
+
+def _project(observation):
+    if not isinstance(observation, ToolObservation):
+        evidence = tuple(
+            replace(item, content_hash=evidence_content_hash(item))
+            for item in observation.evidence
+        )
+        observation = ToolObservation(
+            tool="history_query",
+            query="projection contract",
+            evidence=evidence,
+            evidence_hashes=tuple(item.content_hash for item in evidence),
+            observation=observation.observation,
+            trace=observation.trace,
+            gaps=observation.gaps,
+            telemetry=observation.telemetry,
+        )
+    projected = FinanceResearchHarness().project_tool_result(
+        observation, evidence_so_far=observation.evidence, seen_prose=set()
+    )
+    model = json.loads(projected.model_content)
+    details = []
+    for item in model["evidence"]:
+        assert len(item["detail"]) <= MAX_EVIDENCE_DETAIL_CHARS
+        assert not item["detail"].endswith("…")
+        details.append(json.loads(item["detail"]))
+    assert len(model["evidence"]) == len(observation.evidence)
+    return model, details
+
+
+def _payload(rows, *, operation="compute_history"):
+    return {
+        "query_id": "q-projection",
+        "operation": operation,
+        "status": "research_only",
+        "total_matched": len(rows),
+        "returned_count": len(rows),
+        "truncated": False,
+        "preview": rows,
+        "rows": deepcopy(rows),
+        "coverage": {"large": {"missing_dates": ["2024-01-01"] * 300}},
+        "feature_definitions": {
+            name: dict(value, version=FEATURE_VERSION) for name, value in FEATURES.items()
+        },
+    }
+
+
+def test_real_query_projection_keeps_values_status_definition_ref_and_original(tmp_path):
+    registry, context, session = _registry(tmp_path)
+    observed = registry.execute(
+
+[truncated; total lines=408, selected=1:70; request a later offset]

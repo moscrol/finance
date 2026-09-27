@@ -1,0 +1,50 @@
+"""PR832 spec probe 7 (C6b): count-reference exemption is not widened.
+
+The N-条 reference exemption must stay anchored to live condition labels;
+genuine unsupported numbers next to it are still rejected, and a count whose
+definition survives is left untouched.
+"""
+from __future__ import annotations
+
+from intelligence.services.episode_semantic_verifier import (
+    SemanticEpisodeVerifier,
+    numeric_condition_unsupported,
+)
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+
+
+def test_live_definition_keeps_its_count_while_real_number_is_still_rejected():
+    frame, structural = _structural(
+        "升级条件：放量站稳长期均线并突破平台，则升级。\n"
+        "今日涨停62家，情绪过热。\n"
+        "缩量整理，满足升级条件中的1条，波动收敛。"
+    )
+    assert numeric_condition_unsupported(structural) is True  # 62家 fires the gate
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    public = str(result.public_answer)
+    # Gate not relaxed: the unsupported number is removed from the public answer.
+    assert "62家" not in public
+    assert "涨停" not in public
+    # Exemption not widened into deletion: definition and its live count survive.
+    assert "升级条件：放量站稳长期均线并突破平台" in result.verified.outcome.draft
+    assert "满足升级条件中的1条" in result.verified.outcome.draft
+    assert "满足升级条件中的1条" in public
+    assert "缩量整理" in public and "波动收敛" in public
+
+
+def test_count_reference_without_deletion_passes_through_verifier_untouched():
+    draft = "升级条件：放量突破平台则升级。当前满足升级条件中的1条。"
+    frame, structural = _structural(draft)
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    # No numeric sentence was rejected, so nothing may rewrite the draft.
+    assert result.verified.outcome.draft == draft
+    assert "满足升级条件中的1条" in str(result.public_answer)

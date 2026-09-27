@@ -1,0 +1,21 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /tmp/architecture-http-validation-78b25943f.3dbLzZ/regression-receipts/20260925T103514Z-78b25943-5a23162f5d8c.json
+  产生于   2026-09-25T10:35:14+00:00
+  来自树   /Users/a77/fwp-wt-architecture-audit-0924
+  目标     intelligence/tests/test_workbench_correction_http.py intelligence/tests/test_workbench_api.py intelligence/tests/test_workbench_conversation_integration.py intelligence/tests/test_memory_opening_prefetch.py intelligence/tests/test_workbench_correction_ingest.py intelligence/tests/test_episode_factory.py intelligence/tests/test_episode_tools.py intelligence/tests/test_episode_protocol.py intelligence/tests/test_episode_verifier.py intelligence/tests/test_user_memory.py intelligence/tests/test_corrections.py intelligence/tests/test_judgments.py intelligence/tests/test_memory_status.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_evidence_capabilities.py intelligence/tests/test_agent_episode.py intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_capability_wiring_closeout.py intelligence/tests/test_capability_monotonicity.py intelligence/tests/test_asof_prefetch_calendar.py intelligence/tests/test_asof_prefetch_dual_red.py intelligence/tests/test_asof_prefetch_regime_analog.py intelligence/tests/test_asof_prefetch_theme_snapshot.py
+  读数     passed=824 failed=0 error=0 skipped=0
+
+  ✓ 执行读数 824 条（passed+failed+error）
+  ✓ 收集面未被收窄（collected=824）
+  ✓ 收执对账平：collected=824 == 读数合计=824
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == 78b25943fb12
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。

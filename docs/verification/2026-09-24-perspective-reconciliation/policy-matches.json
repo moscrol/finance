@@ -1,0 +1,45 @@
+{
+  "scope": "exact_whitespace_normalized_text_match_only; not_authority_or_approval",
+  "profile_sha256": "9600cc38038ec64aef8ccb975f51668c90c6f293ef582d2e15a12853fc21eba9",
+  "source_sha256": {
+    "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch2.md": "9fbb7843432525d7ea38db6c35e38c82c4f1d140f3d66c8a9e15289cd87cd1e4",
+    "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch3.md": "1bbd00539f89ab4e439e1cc0f7240d542e90b95677402428f3db44dcd4d11b9c",
+    "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch4.md": "4871b36284200be96a2a6cd0baf71ab00f94d2f2f1c44a06a87cfdc8f9896a69",
+    "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy.md": "941ecdc73fc89d8b777e392da03e66d7f1cea0bfa10b2c7765e124cbdfeaa8a2"
+  },
+  "matches": [
+    {
+      "field": "opportunity_preferences",
+      "profile_index": 27,
+      "value_sha256": "7813773577f7c5b0c611ca71802eff6d98f018c316a6f322f7dd2ba5723f3aca",
+      "policy_files": [
+        "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch2.md"
+      ]
+    },
+    {
+      "field": "opportunity_preferences",
+      "profile_index": 30,
+      "value_sha256": "259a9e996357b9914acafd11504d46a34f54b7399329f60a1f37e26099bcde7d",
+      "policy_files": [
+        "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch3.md"
+      ]
+    },
+    {
+      "field": "opportunity_preferences",
+      "profile_index": 31,
+      "value_sha256": "1553b05fdf9bab4b38786bb7f8cf04623f10f7546d22a176e112208147c08659",
+      "policy_files": [
+        "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch3.md"
+      ]
+    },
+    {
+      "field": "risk_triggers",
+      "profile_index": 37,
+      "value_sha256": "0f7ccf82eb681d4a7de2eab2a9e9c89df55c22905df7fa46fc68a8a3f04b372f",
+      "policy_files": [
+        "/Users/a77/.local/share/finance-workbench/private-distillation/fengyuan-20260916/review-policy-batch3.md"
+      ]
+    }
+  ],
+  "match_count": 4
+}

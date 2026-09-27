@@ -1,0 +1,235 @@
+{
+  "recorded_at": "2026-09-21T19:21:57.774872+00:00",
+  "scope": "Publication/archive integrity; complete predeclared Python partition is not an official #814 receipt or independent acceptance.",
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "archive_revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+  "archive_check": {
+    "recorded_at": "2026-09-21T19:13:25.523693+00:00",
+    "archive_revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+    "archives": [
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/author-and-small-review",
+        "manifest_files": 281,
+        "committed_files": 281,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01",
+        "manifest_files": 38,
+        "committed_files": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/domain-reviews-blocked",
+        "manifest_files": 28,
+        "committed_files": 28,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01",
+        "manifest_files": 45,
+        "committed_files": 45,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-04",
+        "manifest_files": 212,
+        "committed_files": 212,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05",
+        "manifest_files": 49,
+        "committed_files": 49,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-06",
+        "manifest_files": 33,
+        "committed_files": 33,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02",
+        "manifest_files": 58,
+        "committed_files": 58,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+        "archive": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03",
+        "manifest_files": 81,
+        "committed_files": 81,
+        "ok": true,
+        "errors": []
+      }
+    ],
+    "originals": [
+      {
+        "archive": "history-engineering-04",
+        "whole_originals_matching": 210,
+        "chunked_originals_matching": 0
+      },
+      {
+        "archive": "history-engineering-resume-05",
+        "whole_originals_matching": 44,
+        "chunked_originals_matching": 2
+      },
+      {
+        "archive": "history-engineering-resume-06",
+        "whole_originals_matching": 28,
+        "chunked_originals_matching": 2
+      }
+    ],
+    "old_eight_unchanged_from": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+    "total_manifest_members": 825
+  },
+  "publications": [
+    {
+      "recorded_at": "2026-09-21T19:14:38.799581+00:00",
+      "number": 845,
+      "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+      "archive_revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "head_at_publication": "442476f7def1013f1fadebaf6594971921147edc",
+      "body_sha256": "877f5d62a4975cb536b4ee61b3ba9ae7d14b61bc4984a77da680ec8792a6b861",
+      "comment_id": 5562,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/845#issuecomment-5562",
+      "write_errors_readback_resolved": [],
+      "overall": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    },
+    {
+      "recorded_at": "2026-09-21T19:14:29.287254+00:00",
+      "number": 838,
+      "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+      "archive_revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "head_at_publication": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "body_sha256": "56198e6722bc7ba5456fb9239f3bf09b710136fb3c9de202ea980b151cd76465",
+      "comment_id": 5560,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838#issuecomment-5560",
+      "write_errors_readback_resolved": [],
+      "overall": "CHANGES_REQUIRED",
+      "independent_review": "NOT_RESTARTED",
+      "merge_deploy_production": "NOT_PERFORMED"
+    }
+  ],
+  "original_pr833_unchanged": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+  "remote_heads_at_publication": {
+    "refs/heads/docs/research-tail-closeout-0921": "3fd631017b4b40eec4926024f68af0976161da8f",
+    "refs/heads/fix/history-forward-0921": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "refs/heads/fix/history-forward-boundary-0921": "442476f7def1013f1fadebaf6594971921147edc"
+  },
+  "memory": {
+    "commit": "9d692cbddea614df03e54649bdc8f12870e774ef",
+    "files": [
+      {
+        "path": "20_projects/finance-workspace-private.md",
+        "committed_sha256": "9c38103b6b8614bbfc3155b155d296e9c3194de27ccd8eef29da43e68100ae87",
+        "working_sha256": "9c38103b6b8614bbfc3155b155d296e9c3194de27ccd8eef29da43e68100ae87",
+        "working_matches": true
+      },
+      {
+        "path": "10_knowledge/finance-agent-capability-graph.md",
+        "committed_sha256": "1d051c5aabb67f7c1c94a06dad84ecbeea8a6faac469b00e59804643bcde9071",
+        "working_sha256": "1d051c5aabb67f7c1c94a06dad84ecbeea8a6faac469b00e59804643bcde9071",
+        "working_matches": true
+      }
+    ]
+  },
+  "static_graph_audit": {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/agent-memory/scripts/graph_audit.py"
+    ],
+    "exit_code": 0,
+    "recorded_at": "2026-09-21T19:20:19.195274+00:00",
+    "output_sha256": "0201b38952d47ab09bc866cfdd3aea4bf90557d329345bd044938486859ff395",
+    "scope": "Static symbol assertions only; not behavioral acceptance or merge approval."
+  },
+  "publication_metadata_files": [
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/archive-check.json",
+      "sha256": "2e6126331cda80bf275e440e13e1c2ca9aaa1e217b3fdc8b3328609e7e36507f"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/finalize.py.txt",
+      "sha256": "1a122279dc919e202878260340726b70f73c1dd25e213ffecb61c68ac655b364"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/graph-audit-result.json",
+      "sha256": "adf28a8b65312c6e5edaa78ae5b0bd5b2fb9e40d555364ca530b317e0e3d4139"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/graph-audit.txt",
+      "sha256": "0201b38952d47ab09bc866cfdd3aea4bf90557d329345bd044938486859ff395"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/memory-sync.json",
+      "sha256": "eacc96ac54b7ebe5d7f752893229a4405f73f9761bd2bb51c6dd016481f7eb83"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-838/before.json",
+      "sha256": "a09a217eaaa2190b4ab067c9ab7a208875ce5807865e21d9e12cfb1d57f75c95"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-838/body-verified.json",
+      "sha256": "ee40cad49f01008af8cdcec534216f5813ea8bd16593a8534aeef21cb0364669"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-838/comment-verified.json",
+      "sha256": "95fcc65027d657f6c09e078706366416fc31ea59d737375a81b8181b88a36e83"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-838/result.json",
+      "sha256": "b526e95604774bbb634f4aef6def1868ff32d2e0556df0ca2584cfc70fad5403"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-845/before.json",
+      "sha256": "65ed4890adb3b03391d6a14ed7279d845dcb48ed82ad693297370297c45b42db"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-845/body-verified.json",
+      "sha256": "a029cd29038210a187437d4daa074716c94c366fba28d17a0662191018f5794f"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-845/comment-verified.json",
+      "sha256": "974e362c41cb51f5e46d28f290326b7e92be7434585d02471f5d4b7e013aa645"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/pr-845/result.json",
+      "sha256": "6e10844448019c6bfd8419d1690edeb6f59f490c3db40844db37766817c269e7"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/publish.py.txt",
+      "sha256": "e8c6400ce87097c2b58d46c92d065d24f210af8653eb39e0941402097b4ff169"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/section.md",
+      "sha256": "85485d5d49837ec611610dac6adb2235f58c8c4791a5bca0e1ff87588c0d0a46"
+    },
+    {
+      "path": "docs/verification/2026-09-21-research-tail-forward/history-engineering-06-publication/verify_archives.py.txt",
+      "sha256": "9f2f230eef78b1f797911de64e68df9757720349fa42cfbde5ca10e1a98da90a"
+    }
+  ],
+  "overall": "CHANGES_REQUIRED",
+  "no_merge_deploy_production_or_paid_review": true,
+  "future_docs_tip_note": "A later docs-only commit adds this receipt and final handoff; all nine test archives stay bound to archive_revision."
+}

@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 07f48a5e..01226dfb 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -249,7 +249,7 @@ def _parallel_ratio_values(value: str, periods: list[re.Match]) -> tuple[dict[in
+     """Only an explicit ordered 'periods 分别为 values' binds adjacent period labels."""
+     if len(periods) < 2:
+         return {}, 0
+-    if any(not re.fullmatch(r"[\s、，,和与及/]*", value[a.end():b.start()].replace(_UNLOCATED_RATIO_MARK, ""))
++    if any(not re.fullmatch(r"[\s、，,和与及/]*", value[a.end():b.start()])
+            for a, b in zip(periods, periods[1:])):
+         return {}, 0
+     marker = re.match(r"\s*分别为", value[periods[-1].end():])

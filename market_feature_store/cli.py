@@ -1020,21 +1020,29 @@ def cmd_sync_limit_advance_range(args) -> int:
 
 
 def cmd_sync_stock_daily(args) -> int:
+    from .mootdx_source import MootdxSourceUnavailable
     from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
 
-    stats = sync_fact_stock_daily(
-        start_date=args.start_date,
-        offset=args.offset,
-        limit=args.limit,
-        only_missing=not args.refresh,
-        sleep=args.sleep,
-        qfq=args.qfq,
-        timeout=args.timeout,
-        progress_every=args.progress_every,
-        end_date=args.end_date,
-        ohlc_only=args.ohlc_only,
-        skip=args.skip,
-    )
+    try:
+        stats = sync_fact_stock_daily(
+            start_date=args.start_date,
+            offset=args.offset,
+            limit=args.limit,
+            only_missing=not args.refresh,
+            sleep=args.sleep,
+            qfq=args.qfq,
+            timeout=args.timeout,
+            progress_every=args.progress_every,
+            end_date=args.end_date,
+            ohlc_only=args.ohlc_only,
+            skip=args.skip,
+        )
+    except MootdxSourceUnavailable as exc:
+        # 源不可用必须退非零码: 以前无论写了多少行都 return 0,
+        # 夜跑编排看不到红灯, 断供两周无人发现。
+        print(f"源不可用, 未写入(或已部分写入后中止): {exc}")
+        print(f"诊断: {json.dumps(exc.health.as_dict(), ensure_ascii=False)}")
+        return 2
     mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
     print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
@@ -1043,7 +1051,24 @@ def cmd_sync_stock_daily(args) -> int:
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
     if stats["failures"]:
         print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+        print(f"失败分类: {stats['failure_kinds']}")
     return 0
+
+
+def cmd_bridge_stock_daily(args) -> int:
+    from .sync.bridge_hithink_stock_daily import BridgeRefused
+    from .sync.sync_daily_full import run_bridge_stock_daily_step
+
+    refused = _refuse_production_write(False)
+    if refused is not None:
+        return refused
+    try:
+        stats = run_bridge_stock_daily_step(args.trade_date, skip_existing=False)
+    except BridgeRefused as exc:
+        print(f"同花顺日线桥拒绝写入: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False, default=str))
+    return 0 if stats.get("written_rows", 0) > 0 else 1
 
 
 def cmd_fill_stock_daily_fallback(args) -> int:
@@ -1286,6 +1311,29 @@ def cmd_sync_hithink_dragon_auction(args) -> int:
     return 0
 
 
+def cmd_sync_hithink_research(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_research import (
+        PARTIAL_EXIT_CODE,
+        HithinkResearchError,
+        sync_hithink_research,
+    )
+
+    try:
+        stats = sync_hithink_research(
+            end_date=_date.fromisoformat(args.end_date) if args.end_date else None,
+            codes=args.thscodes.split(",") if args.thscodes is not None else None,
+            lookback_days=args.lookback_days,
+            history_only=args.history_only,
+        )
+    except (HithinkResearchError, ValueError) as exc:
+        print(f"hithink-research: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False))
+    return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
+
+
 def _daily_preflight_or_exit() -> int | None:
     """开跑前拦下「这个环境注定跑不完」的情况，exit 2 并说清缺什么、会挂哪几步。
 
@@ -1508,6 +1556,190 @@ def _refuse_production_write_direct(target) -> int | None:
         return None
     print(reason)
     return 2
+
+
+def cmd_repair_backfill_302132(args) -> int:
+    """302132.SZ 历史回填父命令：staging 回填 + scoped 派生重建 + 验收 + 原子换库。
+
+    合同 `docs/handoffs/2026-09-14-302132-prep-review.md`（P1-1/P1-2/执行前合同）：
+    复用 run_daily_full_staged 的锁/克隆/第三方守卫/同轮状态/备份/原子发布；
+    独立 kind=repair-backfill-302132；pre_swap_backup=True；回填、scoped 派生与
+    验收全部在父流程创建的 staging 副本内完成，失败不发布。普通 daily-full 会
+    重新克隆并跑全管道，不能用来发布已验 staging（评审退回草案第六节的根因）。
+    --child 是 staging 子进程模式：写 MARKET_FEATURE_STORE_DB（或 --db）指向的
+    副本，直写 canonical 生产库被 write_path 闸门拦死——不新增直写 canonical
+    的通道。
+    """
+    from .sync.repair_backfill_stock_history import BackfillSpec, run_backfill_child
+    from .sync.repair_hithink_stock_day import RepairRefused
+    from .sync.sync_daily_full import run_daily_full_staged
+
+    if args.db is not None and not args.child:
+        print("--db 仅供内部 --child 使用；父命令目标由 MARKET_FEATURE_STORE_DB 解析，拒绝忽略显式目标。")
+        return 2
+
+    parquet = Path(args.parquet)
+    if not parquet.exists():
+        print(f"parquet 不存在: {parquet}")
+        return 2
+    spec = BackfillSpec()
+
+    if args.child:
+        # 目标解析与 run_repair 同一顺序：--db > MARKET_FEATURE_STORE_DB > 包默认。
+        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+        target = Path(args.db or env_db) if (args.db or env_db) else None
+        if target is None:
+            print("--child 需要 --db 或 MARKET_FEATURE_STORE_DB（收据必须有主）")
+            return 2
+        refused = _refuse_production_write_direct(target)
+        if refused is not None:
+            return refused
+        import duckdb
+
+        status_json = Path(str(target) + ".status.json")
+        try:
+            con = duckdb.connect(str(target))
+            try:
+                report = run_backfill_child(con, spec, parquet)
+            finally:
+                con.close()
+        except RepairRefused as exc:
+            print(f"回填护栏/验收不通过，未发布: {exc}")
+            return 2
+        from datetime import datetime, timezone
+
+        from .sync.repair_backfill_stock_history import _guarded_write_json
+        from .write_path import canonical_production_candidates
+
+        run_id = (os.environ.get("MARKET_FEATURE_STORE_RUN_ID")
+                  or "norun-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                  + f"-{os.getpid()}")
+        report["run_id"] = run_id
+        report["trade_date"] = spec.window_end
+        report["kind"] = "repair-backfill-302132"
+        report["ok"] = True
+        protected = {target, parquet, *canonical_production_candidates()}
+        report_path = (
+            Path(args.report_path)
+            if args.report_path
+            else Path(str(target) + f".backfill-report.{run_id}.json")
+        )
+        try:
+            _guarded_write_json(report_path, report, protected)
+        except RepairRefused as exc:
+            print(f"报告路径护栏不通过，未发布: {exc}")
+            return 2
+        status_json.write_text(
+            json.dumps({
+                "trade_date": spec.window_end,
+                "ok": True,
+                "run_id": run_id,
+                "steps": [{"name": "repair-backfill-302132", "ok": True,
+                           "technical_rows": report["technical_rows"],
+                           "window_rows": report["window_rows"]}],
+            }, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            f"回填完成: {report['code']} 窗内 {report['technical_rows']} technical / "
+            f"{report['window_rows']} window，保护切片指纹不变，报告 {report_path}"
+        )
+        return 0
+
+    child_argv = [
+        sys.executable, "-m", "market_feature_store.cli",
+        "repair-backfill-302132", "--child",
+        "--parquet", str(parquet),
+    ]
+    if args.report_path:
+        child_argv += ["--report-path", args.report_path]
+    # 换库前预校验本轮收据可写（评审：收据在换库后才发现不可写 = 数据已发布、
+    # 证据缺失的窗口）。两条铁律：用户传入路径只纯校验（不创建、不删除——绝不
+    # 触碰用户已有文件）；可写性探针用独立 pid 命名，且仅本轮成功创建才删除。
+    from .sync.repair_backfill_stock_history import (
+        _code_revision, _guarded_write_json, _validate_receipt_path)
+    from .write_path import canonical_production_candidates
+
+    env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+    from . import db as _dbmod_pre
+    pre_target = Path(env_db) if env_db else _dbmod_pre.DB_PATH
+    protected = {pre_target, parquet, *canonical_production_candidates()}
+    if args.report_path:
+        try:
+            _validate_receipt_path(Path(args.report_path), protected)
+        except RepairRefused as exc:
+            print(f"报告路径预校验不通过（换库前拦截）: {exc}")
+            return 2
+    probe = Path(str(pre_target)
+                 + f".repair-backfill-execution.probe-{os.getpid()}.json")
+    probe_created = False
+    try:
+        _guarded_write_json(probe, {"probe": True}, protected)
+        probe_created = True
+    except RepairRefused as exc:
+        print(f"执行收据路径预校验不通过（换库前拦截）: {exc}")
+        return 2
+    finally:
+        if probe_created:  # 只清理本轮自己成功创建的探针
+            probe.unlink(missing_ok=True)
+    result = run_daily_full_staged(
+        trade_date=spec.window_end,
+        child_argv=child_argv,
+        kind="repair-backfill-302132",
+        pre_swap_backup=True,
+    )
+    if result["swapped"]:
+        print(f"回填状态: {'OK' if result['rc'] == 0 else 'CHECK'} | 已原子换库")
+        if result.get("backup"):
+            print(
+                f"换库前备份: {result['backup']['backup_path']} "
+                f"(sha256={result['backup']['backup_sha256'][:16]}…, "
+                "恢复步骤见同级 .receipt.json)"
+            )
+        # 每轮不可覆盖执行收据（评审 P2-3）：绑定 revision/dirty、run_id、spec、
+        # 两源指纹、备份身份与验收摘要。
+        from dataclasses import asdict
+
+        from . import db as _dbmod
+
+        run_id = result.get("run_id")
+        target = pre_target if pre_target is not None else _dbmod.DB_PATH
+        child_report, child_err = None, None
+        cand = (Path(args.report_path) if args.report_path else (
+            Path(str(_dbmod.staging_path(target))
+                 + f".backfill-report.{run_id}.json") if run_id else None))
+        if cand is not None:
+            try:
+                child_report = json.loads(cand.read_text(encoding="utf-8"))
+            except OSError as exc:
+                child_err = f"{type(exc).__name__}: {exc}"
+        revision, dirty = _code_revision()
+        receipt = {
+            "kind": "repair-backfill-302132",
+            "trade_date": spec.window_end,
+            "run_id": run_id,
+            "code_revision": revision,
+            "code_dirty": dirty,
+            "interpreter": sys.executable,
+            "spec": asdict(spec),
+            "child_report_path": str(cand) if cand else None,
+            "child_report": child_report,
+            "child_report_error": child_err,
+            "backup": result.get("backup"),
+            "parent": {"swapped": result["swapped"], "rc": result["rc"],
+                       "run_id": run_id},
+        }
+        try:
+            receipt_path = _guarded_write_json(
+                Path(str(target) + f".repair-backfill-execution.{run_id}.json"),
+                receipt, {target, parquet, *canonical_production_candidates()})
+        except RepairRefused as exc:
+            print(f"执行收据写出失败（数据已换库；子报告与 ops 台账仍在）: {exc}")
+            return 2
+        print(f"执行收据: {receipt_path}")
+    else:
+        print(f"回填状态: BLOCKED | 生产库未动 | {result['reason']}")
+    return result["rc"]
 
 
 def cmd_daily_full_exec(args) -> int:
@@ -2444,6 +2676,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--progress-every", type=int, default=200, help="每处理多少只打一行心跳进度, 默认200; 0=关闭")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
 
+    p_bridge = sub.add_parser(
+        "bridge-stock-daily", help="同花顺日线补 canonical 当日缺口（仅副本，拒绝覆盖已有日线）",
+    )
+    p_bridge.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_bridge.set_defaults(func=cmd_bridge_stock_daily)
+
     p_fsf = sub.add_parser("fill-stock-daily-fallback",
                            help="当日兜底: 用 fact_sector_stock_daily 行情聚合补 fact_stock_daily(标 fallback)")
     p_fsf.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
@@ -2537,6 +2775,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_htd.set_defaults(func=cmd_sync_hithink_dragon_auction)
 
+    p_htr = sub.add_parser(
+        "sync-hithink-research",
+        help="同花顺异动、热度轨迹、估值观察值；仅 staging/隔离库，非历史估值回填",
+    )
+    p_htr.add_argument("--end-date", default=None, help="自然日窗口末日，默认上海今天")
+    p_htr.add_argument("--thscodes", default=None, help="显式代码，逗号分隔；默认目标日热榜前30")
+    p_htr.add_argument("--lookback-days", type=int, default=30, help="热度自然日窗口，1..365")
+    p_htr.add_argument("--history-only", action="store_true", help="只取可回溯的热度，不取最新快照")
+    p_htr.set_defaults(func=cmd_sync_hithink_research)
+
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_du.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
@@ -2592,6 +2840,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_rsd.add_argument("--db", default=None,
                        help="(内部/干跑) 子进程显式目标库; 缺省读 MARKET_FEATURE_STORE_DB")
     p_rsd.set_defaults(func=cmd_repair_stock_daily_hithink)
+
+    p_rsb = sub.add_parser(
+        "repair-backfill-302132",
+        help="(修复) 302132.SZ 历史回填 + scoped 派生重建 (staging 写+原子换库)",
+    )
+    p_rsb.add_argument("--parquet", required=True, help="冻结 daily-k-10d parquet 路径")
+    p_rsb.add_argument("--report-path", default=None,
+                       help="回填报告 JSON 落盘路径 (缺省落 <staging>.backfill-report.json)")
+    p_rsb.add_argument("--child", action="store_true",
+                       help="(内部) staging 子进程模式, 勿直接使用")
+    p_rsb.add_argument("--db", default=None,
+                       help="(内部/干跑) 子进程显式目标库; 缺省读 MARKET_FEATURE_STORE_DB")
+    p_rsb.set_defaults(func=cmd_repair_backfill_302132)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
 

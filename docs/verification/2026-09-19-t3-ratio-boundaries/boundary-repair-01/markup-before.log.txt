@@ -1,0 +1,21 @@
+........................................................................ [ 65%]
+..............................FFF.....                                   [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T104541Z-d402a563.json
+
+=================================== FAILURES ===================================
+___________ test_semicolon_markdown_keeps_continuation_scope[**{}**] ___________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:150: in test_semicolon_markdown_keeps_continuation_scope
+    assert findings and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   assert (())
+____________ test_semicolon_markdown_keeps_continuation_scope[`{}`] ____________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:150: in test_semicolon_markdown_keeps_continuation_scope
+    assert findings and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   assert (())
+__ test_semicolon_markdown_keeps_continuation_scope[**\u5b9e\u9645\u4e3a**{}] __
+intelligence/tests/test_research_delivery_ratio_boundaries.py:150: in test_semicolon_markdown_keeps_continuation_scope
+    assert findings and {f.code for f in findings} == {"calculation_value_mismatch"}
+E   assert (())
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_semicolon_markdown_keeps_continuation_scope[**{}**]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_semicolon_markdown_keeps_continuation_scope[`{}`]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_semicolon_markdown_keeps_continuation_scope[**\u5b9e\u9645\u4e3a**{}]
+3 failed, 107 passed in 0.34s

@@ -1,0 +1,44 @@
+{
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "start": {
+    "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "status": ""
+  },
+  "finish": {
+    "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "status": ""
+  },
+  "identity_stable": true,
+  "steps": [
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.29,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "pytest",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-python/pytest.xml",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/main-python/scratch",
+        "-o",
+        "tmp_path_retention_policy=failed"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 900.84,
+      "sha256": "fe910bd6724cca36ec99139b8058fbf962a7cd500143350d1b34a0779a2b9fac"
+    }
+  ],
+  "ok": true
+}

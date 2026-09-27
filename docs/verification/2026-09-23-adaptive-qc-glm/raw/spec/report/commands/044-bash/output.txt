@@ -1,0 +1,1 @@
+264:    timer = threading.Timer(remaining, os._exit, args=(124,))

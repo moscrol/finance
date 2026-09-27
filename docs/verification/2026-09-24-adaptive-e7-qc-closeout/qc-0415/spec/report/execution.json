@@ -1,0 +1,124 @@
+{
+  "stage": "report",
+  "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "started_at": "2026-09-23T20:20:13.520902+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "de00b216be580590bffec369212f93d076ac2d0c3ef6fcc9e84eb192f2889139",
+    "review.mjs": "7cb9e4921e4a1918f4f45ff4d949a2de5bccc0de7ed3d8e52fb8ebd55250b803",
+    "pi_review_protocol.mjs": "05360fd5433f0af6f6a8c5c8c37289a3008be1803d9e898a4caef62049e03492",
+    "tools.sb": "f7f94c8f7386e42489075aceb3c31b33a73ae8f4092e8d4ddd19fb40322dfc47",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "pi-config/settings.json": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "prompt-report.md": "7812f7171c0e744e3138d899c5f95852f77bbb33548b49d4cce8599fe115968d"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 1,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/spec/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 88085,
+  "probe_sha256": {
+    "work/probes/judge_startup_probe.py": "45f4fe87d9f0e4500864ea4f9caa3636d4d8f5e6000b3df6b41d6ff55e62b537",
+    "work/probes/llm_paths_probe.py": "ea4af48fbfc4a8e060fcb310721d5d8c3f8c5beabed928ac59eaa884f5fff4b0",
+    "work/probes/llm_paths_probe_v2.py": "04bdbe6a8fcf0fb65a3cfd6cd023d720e847ced9d94d592be5b68dfffa04677d",
+    "work/probes/transport_boundary_probe.py": "bf6cfab8ef58ed271969b0f45c355e77b2f3bba09feb32a60f5480300005e59e",
+    "work/probes/transport_boundary_probe_v2.py": "84013d6c03d9a940c675fd5b4b9b354d188e601df8a39468996f4b10d2493df5"
+  },
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 17.334,
+  "timed_out": false,
+  "requests": 1,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 1,
+    "message_start": 3,
+    "message_end": 3,
+    "message_update": 91,
+    "tool_execution_start": 1,
+    "tool_execution_end": 1,
+    "turn_end": 1,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 30335,
+    "output": 1524,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "totalTokens": 31859
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "payload-shapes.jsonl": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "c7b7dcff3d60c83fcc1207c6770fce2c10c113f5be215ff78d6455c783ed795c",
+    "REPORT.md": "356540e9882f906abc276d27d3f128025b4ebb68790aa9a5729998fefe9a707b",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "60197da0220047c600b788d1f103fafb281db18f79870d13037032da5a5d4691",
+    "responses.jsonl": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "events.jsonl": "fd8d637817d37989bbdcbb8165baee91878f07c566821be627b7acaffbcaf5e2",
+    "submission.json": "c7b7dcff3d60c83fcc1207c6770fce2c10c113f5be215ff78d6455c783ed795c",
+    "commands/001-deliver_stage/request.json": "4e7c4278ca6f4bd3a3d534066685a3588798e37c07c57426152527bf7c07bd35",
+    "commands/001-deliver_stage/result.json": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1"
+  }
+}

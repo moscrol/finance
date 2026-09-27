@@ -1,0 +1,42 @@
+{
+  "status": "BLOCKED_NO_FINAL",
+  "exitCode": 71,
+  "started": 1790018815416,
+  "elapsedMs": 2795,
+  "before": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "after": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": ""
+  },
+  "gateway": {
+    "requestCount": 1,
+    "maxRequests": 24,
+    "startedAt": 1790018817149,
+    "deadlineAt": 1790019415416,
+    "elapsedMs": 1062,
+    "closed": true,
+    "finalizing": false
+  },
+  "fixture": false,
+  "tests_run": 0,
+  "retries": 0,
+  "fallback": false,
+  "reportPresent": false,
+  "reportSha256": null,
+  "disk": [
+    {
+      "timestamp": 1790018815627,
+      "availableBytes": 51993182208
+    },
+    {
+      "timestamp": 1790018818211,
+      "availableBytes": 51991564288
+    }
+  ],
+  "sandbox_layers_per_tool": 1,
+  "controller_trusted_unsandboxed": true,
+  "production_changes": false
+}

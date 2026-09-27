@@ -1,0 +1,42 @@
+...F.                                                                    [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260924T140858Z-2631202b-e13893c571ab.json
+
+=================================== FAILURES ===================================
+___ test_ranking_coverage_uses_same_market_inputs_as_builder[33.333333-3-0] ____
+
+inputs = Namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-4230/test_rankin...est-of-a77/pytest-4230/test_ranking_coverage_uses_sam3/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl'))
+capsys = <_pytest.capture.CaptureFixture object at 0x108ad2750>
+hit_value = 33.333333, source_count = 3, expected_exit = 0
+
+    @pytest.mark.parametrize("hit_value,source_count,expected_exit", [
+        (100.0, 1, 0), (0.0, 1, 1), (None, 1, 1),
+        (33.333333, 3, 0), (33.333334, 3, 1),
+    ])
+    def test_ranking_coverage_uses_same_market_inputs_as_builder(inputs, capsys, hit_value, source_count, expected_exit):
+        _add_landing_day(inputs)
+        with duckdb.connect(str(inputs.db)) as con:
+            con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-15'), ('2026-09-16'), ('2026-09-17')")
+            con.execute(
+                "INSERT INTO fact_sector_daily_generation "
+                "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+                "diff_ratio, source, updated_at) "
+                "SELECT trade_date, 'legacy', 'test', 'test', 1.0, 100.0, 11.0, 'fixture', '2026-09-19 08:00:00' "
+                "FROM fact_market_daily WHERE trade_date < '2026-09-19'"
+            )
+        event = json.loads(inputs.projection.read_text())
+        event["theme"] = "test"
+        events = [event, *[{**event, "theme": f"unmatched-{i}"} for i in range(source_count - 1)]]
+        inputs.projection.write_text("\n".join(json.dumps(e) for e in events) + "\n")
+        _add_briefing_labels(inputs, hit_value=hit_value, tier2_value=float(source_count))
+>       assert main() == expected_exit
+E       assert 1 == 0
+E        +  where 1 = main()
+
+tests/test_verify_briefing_consumption.py:152: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-19 briefing_hit_rps5_pct"
+}
+=========================== short test summary info ============================
+FAILED tests/test_verify_briefing_consumption.py::test_ranking_coverage_uses_same_market_inputs_as_builder[33.333333-3-0]
+1 failed, 4 passed, 10 deselected in 1.59s

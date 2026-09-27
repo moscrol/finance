@@ -1,0 +1,15 @@
+{
+  "admitted": false,
+  "foreign_pytest": [
+    {
+      "pid": 52606,
+      "pgid": 52582,
+      "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-integration-fa7b80942/pytest-temp"
+    }
+  ],
+  "disk_free_bytes": 40769761280,
+  "minimum_free_bytes": 21474836480,
+  "excluded_groups": [],
+  "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+  "observed_at": "2026-09-25T05:36:05.851668+00:00"
+}

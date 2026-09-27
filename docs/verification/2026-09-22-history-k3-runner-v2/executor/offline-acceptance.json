@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "method": "offline-worker-plus-pi-sdk-sessions-plus-budget-and-bootstrap-boundaries",
+  "workerChecks": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/offline-1790018663025080000/worker-checks.json",
+  "fixtureChecks": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/fixture-suite-1790018689562/summary.json",
+  "boundaryChecks": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/boundaries-1790018663074/summary.json",
+  "receiptsSha256": {
+    "offline-1790018663025080000/worker-checks.json": "90ba5fdfc40dcae3c18463781eea688d2b9fbf8c6ebba08b004069e74407f707",
+    "fixture-suite-1790018689562/summary.json": "e2b8dd427dd1ec68db18532b0abbd2f77a1e44e6c3b054465dd4f7639ade0d53",
+    "boundaries-1790018663074/summary.json": "1c6f17581959fcf4a47d0dea59ddf0cb11b9d4de2aa3c3bafb4ea0790bf85778"
+  },
+  "checks": 29,
+  "limits": "Local gateway dispatches are counted. Sidecar-internal provider attempts are not observed. This receipt does not approve review content.",
+  "realModelRequests": 0,
+  "credentialsRead": 0,
+  "frozenInputsSha256": "81a9ed1d1c46e745a7192ac5dd5e141ad66d8019b1db6ba51cbe9e8c266a5d53",
+  "candidateRevision": "fedce252330dce1065238f58e6c914417219ec53"
+}

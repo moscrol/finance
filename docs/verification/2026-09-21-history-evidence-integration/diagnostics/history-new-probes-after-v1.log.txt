@@ -1,0 +1,32 @@
+............F...........................................                 [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T100510Z-c827ed74.json
+
+=================================== FAILURES ===================================
+________ test_same_source_row_keeps_hash_across_query_and_reader_tools _________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1394/test_same_source_row_keeps_has0')
+
+    def test_same_source_row_keeps_hash_across_query_and_reader_tools(tmp_path):
+        from intelligence.tests.test_historical_research_episode import _registry
+    
+        registry, context, session = _registry(tmp_path)
+        query = registry.execute("history_query", {
+            "operation": "compute_history", "start": "2026-08-03", "end": "2026-08-04",
+            "entity_codes": ["A.FP"], "features": ["return_pct", "amount_ratio"],
+        }, context=context, step_id="query")
+        ref = query.telemetry["result_ref"]
+        original = session.read(ref)
+        read = registry.execute("read_history_result", {"result_ref": ref, "offset": 0, "limit": 1},
+                                context=context, step_id="read")
+        def row_cards(result):
+            return [item for item in result.evidence if item.history_provenance.row_index == 0]
+        assert row_cards(query)
+>       assert [item.content_hash for item in row_cards(query)] == [item.content_hash for item in row_cards(read)]
+E       AssertionError: assert ['e91f4a40a5177134'] == ['ce945d6e12c121ca']
+E         
+E         At index 0 diff: 'e91f4a40a5177134' != 'ce945d6e12c121ca'
+E         Use -v to get more diff
+
+tests/test_history_evidence_binding.py:281: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_same_source_row_keeps_hash_across_query_and_reader_tools
+1 failed, 55 passed in 7.08s

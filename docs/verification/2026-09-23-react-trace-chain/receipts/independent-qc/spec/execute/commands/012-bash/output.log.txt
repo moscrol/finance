@@ -1,0 +1,5 @@
+touch_exit=0
+jiti
+ls_exit=0
+touch: /tmp/.wtest2: Operation not permitted
+tmp_touch=1

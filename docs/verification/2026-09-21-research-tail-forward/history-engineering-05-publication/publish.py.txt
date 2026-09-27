@@ -1,0 +1,108 @@
+"""Publish only #845/#838; bind current heads and read back every write without POST retry."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import urllib.error
+import urllib.request
+
+OUT = Path(__file__).resolve().parent
+API = 'http://127.0.0.1:3300/api/v1/repos/a77/finance-workspace-private'
+CODE = '442476f7def1013f1fadebaf6594971921147edc'
+ARCHIVE = '57f187de9c89f528bb79fdd8928c4a862b27fa60'
+HEADS = {845: CODE, 838: ARCHIVE}
+MARKER = '<!-- history-engineering-05:57f187de9 -->'
+SECTION = '''## 最新接替：补缺口续问已修，工程续验有条件完成，整体仍未验收
+
+#845源码固定`442476f7def1013f1fadebaf6594971921147edc`（父b6de），clean且已推；原#833 `7edfe24e76afbd5c365fbf97dd2414847b086f88`不移动。下方旧结论保留为各旧SHA历史，本节是最新状态。
+
+- 修复来源投影隐藏引用标题后漏识别“上一轮…未完成核验”：只读引文外句式，不恢复被掩码权限；展望续问保题型，历史补格保可信用户链/local_only/窗口/截止，缺链澄清。新增21例旧实现4F/17P，修后21P；材料/引号/围栏反例不继承。
+- 同SHA六组定向1014P/4S，正常178P重叠不加总；十五种变异均真实断言红、零夹具错、首尾哈希一致。Ruff、registry四项、ledger crosswalk、前端lint/typecheck/110P/build通过。
+- 05完整Python收集面12898ID，普通组与五条原生系统沙箱例无重叠/漏项。原始合计**12807P/2F/87S/2X**，普通组exit1，原生5P/exit0。两F为RSS观察：同env外层Seatbelt下两F且/bin/ps exit71；无外层两P、ps正常。**环境对照解释失败，不把定向2P移签成原始全量绿；#814正式全绿收据仍缺。**
+- 新SHA E2E整组**34P/2S、0重试/0flaky**。首轮9P/27F均因共享浏览器可执行文件不存在；官方安装锁定1179到专用目录后，同36ID复验通过。首错/安装/复验分账。04磁盘中止9P/1中断/26未跑和父b6de整组34P/2S也保留，不改原件。
+- 04父b6de完整Python尝试被操作员误SIGTERM（741.94秒exit-15），无摘要/XML，不是超时；不抹早期操作失误或迁移旧SHA绿。
+
+永久证据在#838固定提交`57f187de9c89f528bb79fdd8928c4a862b27fa60`：`docs/verification/2026-09-21-research-tail-forward/history-engineering-04/`（212成员）和`history-engineering-resume-05/`（49成员）。八包792成员Git提交字节通过，04/05原件及无损JSONL分片重组一致，旧七包不改。04首次封存锚28bbf474b。快照`docs/handoffs/2026-09-22-history-engineering-resume.md`，接手看集中docs枝inflight。发布回执在冻结包外。
+
+**整体CHANGES_REQUIRED / 未验收**：无保留完整Python绿/正式门禁、三领域独立终审、历史四自然题仍欠；旧自然not_passed不翻，Node26与CI Node22差异仍记录。不签新main/#841/联合树，不接管#814及邻线。所有本轮测试和临时服务已退出，未重启付费审核，未合并/部署/生产回填/清树。下一工程轮先确认七个环境相关ID的完整分组或正式安全环境，再取新的精确SHA全量收据。'''
+
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def project(pr):
+    return {**{k: pr[k] for k in ('number','title','body','state','merged','draft','updated_at','html_url')},
+            'head': {'sha': pr['head']['sha'], 'ref': pr['head']['ref']}}
+
+
+def main(number):
+    folder = OUT / f'pr-{number}'
+    folder.mkdir(exist_ok=False)
+    token = subprocess.check_output(['security','find-generic-password','-s','gitea-local','-a','a77-token','-w'], timeout=15).decode().strip()
+    def api(path, payload=None, method=None):
+        req = urllib.request.Request(API + path, method=method,
+            headers={'Authorization':'token ' + token,'Content-Type':'application/json'},
+            data=json.dumps(payload).encode() if payload is not None else None)
+        with urllib.request.urlopen(req, timeout=15) as response:
+            return json.load(response)
+    def comments():
+        items = []
+        for page in range(1, 7):
+            batch = api(f'/issues/{number}/comments?limit=50&page={page}')
+            items.extend(batch)
+            if len(batch) < 50:
+                return items
+        raise RuntimeError('pagination limit; no write')
+    before = api(f'/pulls/{number}')
+    assert before['head']['sha'] == HEADS[number] and before['state'] == 'open' and not before['merged']
+    assert before['title'].lower().startswith('wip')
+    save(folder / 'before.json', project(before))
+    addition = MARKER + '\n' + SECTION
+    matches = [i for i in comments() if MARKER in i['body']]
+    assert len(matches) <= 1
+    assert not matches or matches[0]['body'] == addition
+    body = before['body'] if MARKER in before['body'] else addition + '\n\n---\n\n' + before['body']
+    assert body.startswith(addition)
+    title = 'WIP: fix(history) 补缺口续问已修，工程环境两红分账，待独立验收' if number == 845 else before['title']
+    latest = api(f'/pulls/{number}')
+    assert project(latest) == project(before), 'PR changed during preflight'
+    errors = []
+    if body != before['body'] or title != before['title']:
+        try:
+            api(f'/pulls/{number}', {'body': body, 'title': title}, 'PATCH')
+        except (TimeoutError, urllib.error.URLError) as e:
+            errors.append({'operation': 'PATCH', 'exception': type(e).__name__})
+    after = api(f'/pulls/{number}')
+    assert after['body'] == body and after['title'] == title and after['head']['sha'] == HEADS[number]
+    assert after['state'] == 'open' and not after['merged']
+    save(folder / 'body-verified.json', project(after))
+    if matches:
+        comment = matches[0]
+    else:
+        try:
+            comment = api(f'/issues/{number}/comments', {'body': addition}, 'POST')
+        except (TimeoutError, urllib.error.URLError) as e:
+            errors.append({'operation': 'POST', 'exception': type(e).__name__})
+            found = [i for i in comments() if i['body'] == addition]
+            assert len(found) == 1, 'uncertain POST, do not retry'
+            comment = found[0]
+    checked = api(f'/issues/comments/{comment["id"]}')
+    assert checked['body'] == addition
+    save(folder / 'comment-verified.json', {k: checked[k] for k in ('id','body','html_url','created_at','updated_at')})
+    result = {'recorded_at': datetime.now(timezone.utc).isoformat(), 'number':number, 'source_revision':CODE,
+              'archive_revision':ARCHIVE,'head_at_publication':HEADS[number],'body_sha256':hashlib.sha256(body.encode()).hexdigest(),
+              'comment_id':checked['id'],'url':checked['html_url'],'write_errors_readback_resolved':errors,
+              'overall':'CHANGES_REQUIRED','independent_review':'NOT_RESTARTED','merge_deploy_production':'NOT_PERFORMED'}
+    save(folder / 'result.json', result)
+    print(json.dumps(result, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('number', type=int, choices=HEADS)
+    main(parser.parse_args().number)

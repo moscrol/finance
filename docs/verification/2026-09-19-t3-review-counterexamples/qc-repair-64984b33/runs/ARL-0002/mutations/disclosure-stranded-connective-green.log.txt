@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33/runs/ARL-0002/mutations/disclosure-stranded-connective-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_disclosure_residue_is_not_republished"], "cwd": "/private/tmp/extraction-closeout-mutations-_154ra9n/tree", "revision": "64984b33e6f38eccc50c004b7b79120f1f45a775"}
+..........                                                               [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33/runs/ARL-0002/mutations/disclosure-stranded-connective-green.xml -
+10 passed, 295 deselected in 0.89s
+
+STDERR:
+
+EXIT=0

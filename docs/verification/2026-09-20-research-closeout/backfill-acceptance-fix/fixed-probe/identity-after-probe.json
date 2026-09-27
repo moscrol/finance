@@ -1,0 +1,4 @@
+{
+  "head": "3736d5bfa9978dfa0a264bb2e44795c4bc29b27d",
+  "status": "M scripts/verify_302132_backfill_acceptance.py\n M tests/test_repair_backfill_stock_history.py"
+}

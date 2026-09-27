@@ -1,0 +1,28 @@
+[
+  {
+    "name": "python",
+    "pid": 80122,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/run_python_final.py"
+    ]
+  },
+  {
+    "name": "frontend",
+    "pid": 80123,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/fwp-wt-history-evidence-integration-0921/scripts/run_frontend_gate.py",
+      "--tree",
+      "/Users/a77/fwp-wt-history-evidence-integration-0921",
+      "--expect-revision",
+      "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+      "--output",
+      "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-final-f90fd3dc/frontend",
+      "--workbench-port",
+      "19481",
+      "--re06-port",
+      "19484"
+    ]
+  }
+]

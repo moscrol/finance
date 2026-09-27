@@ -1,0 +1,64 @@
+"""Seal this one offline diagnosis and clean only its successful test basetemp."""
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+ARCHIVE = TREE / 'docs/verification/2026-09-23-admission-diagnostic'
+REVISION = 'fe548838b21f5c0a605f73333593cbd1ce805c2f'
+RECEIPT = Path('/Users/a77/.finance-runtime/test-receipts/20260923T142411Z-fe548838-63d172dd3cd2.json')
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+
+def load(name):
+    return json.loads((ROOT / name).read_text())
+
+
+def dump(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+result = load('tests-result.json')
+assert result['exit_code'] == 0
+assert result['identity_before'] == result['identity_after'] == {'revision': REVISION, 'status': ''}
+for name, expected in load('closure.json')['source_after']['source_sha256'].items():
+    data = subprocess.check_output(['git', '-C', str(TREE), 'show', REVISION + ':' + name])
+    assert sha(data) == expected, name
+with (ROOT / 'receipt-check.log').open('xb') as log:
+    subprocess.run([PYTHON, 'scripts/check_test_receipt.py', str(RECEIPT), '--expect-revision', REVISION],
+                   cwd=TREE, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=30)
+with (ROOT / 'ruff.log').open('xb') as log:
+    subprocess.run([PYTHON, '-m', 'ruff', 'check', '.'], cwd=TREE,
+                   stdout=log, stderr=subprocess.STDOUT, check=True, timeout=30)
+shutil.rmtree(ROOT / 'pytest')
+dump(ROOT / 'cleanup.json', {'removed': [str(ROOT / 'pytest')], 'reason': 'fixed clean targeted tests exit 0',
+                           'failure_mutation_artifacts_preserved': True, 'candidate_worktree_removed': False})
+ARCHIVE.mkdir(parents=True, exist_ok=False)
+manifest = {}
+for source in [*sorted(ROOT.iterdir()), RECEIPT]:
+    if not source.is_file():
+        continue
+    data = source.read_bytes()
+    assert not re.search(rb'-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY|\bsk-[A-Za-z0-9]{24,}|Bearer [A-Za-z0-9._-]{24,}', data), source
+    name = 'test-receipt.json' if source == RECEIPT else source.name
+    if name.endswith('.py'):
+        name += '.txt'
+    target = ARCHIVE / name
+    with target.open('xb') as stream:
+        stream.write(data)
+    manifest[name] = {'source': str(source), 'bytes': len(data), 'sha256': sha(data)}
+for name, row in manifest.items():
+    assert sha((ARCHIVE / name).read_bytes()) == row['sha256']
+dump(ARCHIVE / 'archive-manifest.json', manifest)
+print(json.dumps({'archive': str(ARCHIVE), 'files': len(manifest), 'candidate_revision': REVISION,
+                  'source_hash_equivalence': True, 'natural_acceptance': 'NOT_EXERCISED'}))

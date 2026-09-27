@@ -544,6 +544,14 @@ def history_research_prompt(
     if "read_history_result" in tools:
         policy += "\n追问时先用 read_history_result 读取相关已存 case/query，再续查或修订，避免遗忘原假设和失败样本。case 中的候选解释是研究草稿，不能当成新增事实证据。"
         policy += "\ncase读取返回完整紧凑JSON摘要和假设分页；statement_truncated是明确摘要标志，next_offset非空时可按offset续读全部hypothesis_id。完整旧记录留在原件，由patch服务端合并保留。"
+    if not intent.requires_full_comparison:
+        # 描述性回合就把经过说清楚，不必为凑一份条件全集比较而花掉有限的工具预算；
+        # 要声称规律则仍然必须先有 compare_cases 原件，这条不松。
+        policy += (
+            "\n本轮用户问的是具体经过而不是规律：把该算的算完、该说的缺口说清就可以交付，"
+            "不必另起 compare_cases 凑条件全集比较；但只要你要说「有规律」，claim_level 就得是 "
+            "historical_comparison 并附上 compare_cases 原件，否则不得写成结论。"
+        )
     if intent.analysis_window_source != "none":
         policy += (
             "\n本轮必须绑定历史参照窗：先read_history_result读取相关原件；rank_history/trace_history/compute_history"
@@ -642,8 +650,12 @@ def assess_history_finish(
         and isinstance(ref := result.get("result_ref"), str)
         and ref
     }
+    # 逐轮判据，不是对话级 purpose：purpose 会被跟问继承，用它会把「当时谁走强」
+    # 这类描述性回合也当成「没做完的比较」。模型若真去声明规律（claim_level=
+    # historical_comparison）却没引 compare_cases 原件，下方 history_missing_comparison
+    # 仍会直接拒收；本条只管「用户这一轮有没有要求样本全集」。
     comparison_missing = (
-        intent.purpose == "historical_comparison"
+        intent.requires_full_comparison
         and not any(result.get("operation") == "compare_cases" for result in successful)
     )
     comparison_gap = "已有历史观察，但尚未完成声明条件全集的历史比较；单案例和相似列表不能作为规律验证。"

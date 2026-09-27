@@ -1,0 +1,13 @@
+diff --git a/intelligence/api/app.py b/intelligence/api/app.py
+index 267b813cb..d33164eb9 100644
+--- a/intelligence/api/app.py
++++ b/intelligence/api/app.py
+@@ -3409,7 +3409,7 @@ def create_app(
+                         # A commit event can arrive between the reads above.
+                         # Drain it on the next pass before the terminal run.
+                         pending = store.load_stream_events(run_id, after=current_cursor)
+-                        if pending:
++                        if False:
+                             continue
+                         yield (
+                             "event: run\n"

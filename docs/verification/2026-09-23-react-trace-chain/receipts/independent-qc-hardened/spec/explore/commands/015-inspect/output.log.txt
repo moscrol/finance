@@ -1,0 +1,4 @@
+285:    r"(?P<opening>\*{2})?\s*满足"
+5705:    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+5816:    # A count may have several modifiers ("当前仅已满足…"). Remove only
+5831:    # line: "观察。目前满足…" must not leave the fragment "目前。".

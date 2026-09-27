@@ -1,0 +1,100 @@
+{
+  "scope": "ARL-0003 finite real-exit counterexample; not natural QA",
+  "model_calls": 0,
+  "probe_sha256": "a967a1a96438c19e6a23d4b056bdcf80255930a672d224127b1e7c78b5703c9c",
+  "before": {
+    "code_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+    "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "313cd6bfc698502add815502e69ec1e14d855ab05da068a1a0b7f512ad7bf857",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "financial_fixture_sha256": "74cc6f1788cd5443713cc007b59ac5fc2a8290a942719200d3f94fdd79956e91",
+  "after": {
+    "code_root": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-79dba348/registry-pinned/finance-workspace-private",
+    "revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "313cd6bfc698502add815502e69ec1e14d855ab05da068a1a0b7f512ad7bf857",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "target_unchanged": true,
+  "cases": [
+    {
+      "draft": "收入可核[E1]，2026中报含金量待核对，实际为1.587。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "public_answer": "收入可核[E1]，2026中报含金量待核对，实际为1.587。",
+      "status": "completed",
+      "checks": {
+        "local_check_exercised": false,
+        "unverified_not_completed": false,
+        "same_turn_repair_requested": false,
+        "wrong_value_withheld_or_explicitly_unverified": false,
+        "fact_and_citation_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": false
+    },
+    {
+      "draft": "收入可核[E1]，2026中报含金量为待核对，实际为1.587。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "public_answer": "收入可核[E1]，2026中报含金量为待核对，实际为1.587。",
+      "status": "completed",
+      "checks": {
+        "local_check_exercised": false,
+        "unverified_not_completed": false,
+        "same_turn_repair_requested": false,
+        "wrong_value_withheld_or_explicitly_unverified": false,
+        "fact_and_citation_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": false
+    },
+    {
+      "draft": "收入可核[E1]，2026中报含金量待核对，实际为1.587。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "public_answer": "收入可核[E1]，2026中报含金量待核对，实际为1.587。",
+      "status": "completed",
+      "checks": {
+        "local_check_exercised": false,
+        "unverified_not_completed": false,
+        "same_turn_repair_requested": false,
+        "wrong_value_withheld_or_explicitly_unverified": false,
+        "fact_and_citation_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": false
+    },
+    {
+      "draft": "收入可核[E1]，2026中报含金量为待核对，实际为1.587。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "public_answer": "收入可核[E1]，2026中报含金量为待核对，实际为1.587。",
+      "status": "completed",
+      "checks": {
+        "local_check_exercised": false,
+        "unverified_not_completed": false,
+        "same_turn_repair_requested": false,
+        "wrong_value_withheld_or_explicitly_unverified": false,
+        "fact_and_citation_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true
+      },
+      "passed": false
+    }
+  ],
+  "passed": 0,
+  "failed": 4,
+  "status": "not_passed"
+}

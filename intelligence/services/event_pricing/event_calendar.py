@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,7 @@ import duckdb
 
 from market_feature_store.db import DB_PATH as CANONICAL_DB_PATH
 
+from intelligence.services.opinion_events import LOCAL_TZ
 from intelligence.services.methodology_backtest.store import (
     SOURCE_ALIAS,
     BuildReport,
@@ -163,16 +164,17 @@ def _read_sector_series(con: duckdb.DuckDBPyConnection) -> dict[str, list[Sector
 
 
 def _narrative_rows(
-    con: duckdb.DuckDBPyConnection, params: EventParams, tds: list[date], kb_wiki: str | Path | None
+    con: duckdb.DuckDBPyConnection, params: EventParams, tds: list[date], kb_wiki: str | Path | None,
+    *, as_of: str,
 ) -> tuple[dict[tuple[str, str, str], CalendarRow], list[ClassifyGap], dict[str, Any]]:
     """知识库卖方观点事件文件 → narrative 等级的板块日历行。没给 kb_wiki / 文件不存在：记一条 source_absent，零行。"""
     if not params.narrative_classes:
         return {}, [], {"status": "no_narrative_classes"}
     if not kb_wiki:
         return {}, [ClassifyGap("kb_wiki", "", GAP_SOURCE_ABSENT, "build-calendar 未给 --kb-wiki")], {"status": "absent"}
-    rows, row_gaps = load_opinion_events(kb_wiki, params.narrative_relpath)
+    rows, row_gaps = load_opinion_events(kb_wiki, params.narrative_relpath, as_of=as_of)
     if not rows:
-        return {}, [ClassifyGap("kb_wiki", "", GAP_SOURCE_ABSENT, f"{kb_wiki}/{params.narrative_relpath} 不存在或为空")], {"status": "missing"}
+        return {}, row_gaps + [ClassifyGap("kb_wiki", "", GAP_SOURCE_ABSENT, f"{kb_wiki}/{params.narrative_relpath} 无合格记录")], {"status": "missing", "knowledge_cutoff": as_of}
     series = _read_sector_series(con)
     events, gaps, stats = narrative_events(rows, params, tds, sector_resolver(series), set(series))
     # 源断更是缺口不是 0：最后一条报告日离日历末端超过 stale_after_days 就写出来（历史锚点照常有效）。
@@ -180,8 +182,10 @@ def _narrative_rows(
     stale_days = (tds[-1] - date.fromisoformat(last_report)).days if tds else 0
     if stale_days > params.narrative_stale_after_days:
         gaps.append(ClassifyGap("kb_wiki", "", GAP_SOURCE_STALE, f"last_report_date={last_report} calendar_end={tds[-1].isoformat()} stale_days={stale_days}"))
-    stats["status"] = "stale" if stale_days > params.narrative_stale_after_days else "ok"
+    stats["status"] = "stale" if stale_days > params.narrative_stale_after_days else "partial" if row_gaps else "ok"
     stats["row_gaps"] = len(row_gaps)
+    stats["knowledge_cutoff"] = as_of
+    stats["temporal_semantics"] = "ex_post_research_not_point_in_time"
     return _editorial_rows(events, params, tds, grade=SOURCE_GRADE_NARRATIVE), row_gaps + gaps, stats
 
 
@@ -401,7 +405,10 @@ def build_calendar(
             official = _official_rows(entries, params, tds)
             editorial = _editorial_rows(events, params, tds)
             rows, conflicts, absorbed = merge_rows(official, editorial, tds)
-            narrative, narrative_gaps, narrative_stats = _narrative_rows(con, params, tds, kb_wiki)
+            cutoff = computed_at.replace(tzinfo=timezone.utc)
+            narrative, narrative_gaps, narrative_stats = _narrative_rows(
+                con, params, tds, kb_wiki, as_of=cutoff.astimezone(LOCAL_TZ).date().isoformat(),
+            )
             rows = sorted(rows + list(narrative.values()), key=lambda r: (r.event_class, r.indicator, r.event_date))
 
             reset_event_tables(con, CALENDAR_TABLES)

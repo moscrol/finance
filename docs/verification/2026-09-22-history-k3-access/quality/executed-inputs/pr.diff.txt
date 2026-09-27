@@ -1,0 +1,25 @@
+intelligence/cli.py                                |  42 ++
+ ...nanceworkspace.daily-full-review-finalize.plist |  10 +-
+ ...m.financeworkspace.daily-full-review-sync.plist |  15 +-
+ intelligence/services/agent_research.py            |  90 ++++-
+ intelligence/services/agent_runtime.py             |  17 +-
+ intelligence/services/episode_factory.py           |  89 ++++-
+ intelligence/services/episode_issues.py            |   2 +
+ intelligence/services/episode_semantic_verifier.py |  24 ++
+ intelligence/services/episode_verifier.py          |  66 ++++
+ .../services/historical_research/episode.py        | 148 +++++--
+ intelligence/services/ima_gap_report.py            | 253 ++++++++++++
+ intelligence/services/prior_evidence.py            |  28 +-
+ intelligence/services/research_contract.py         |   6 +
+ intelligence/services/research_state.py            |   2 +
+ intelligence/services/run_store.py                 |  59 ++-
+ intelligence/tests/test_prior_evidence.py          |  19 +
+ intelligence/workflows/daily_review.py             |  19 +
+ tests/test_eval_launchd_installer.py               | 181 +++++++++
+ tests/test_eval_launchd_wiring.py                  |  13 +-
+ tests/test_historical_episode_branching.py         |   8 +-
+ tests/test_history_artifact_scope.py               |  83 ++++
+ tests/test_history_evidence_binding.py             | 427 +++++++++++++++++++++
+ tests/test_ima_gap_report.py                       |  83 ++++
+ tests/test_run_store_history_artifacts.py          | 104 +++++
+ 24 files changed, 1689 insertions(+), 99 deletions(-)

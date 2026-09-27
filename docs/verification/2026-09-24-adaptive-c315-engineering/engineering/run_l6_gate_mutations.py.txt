@@ -1,0 +1,30 @@
+"""Run each admission mutation once, then a fresh unmodified restoration."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT=Path(__file__).resolve().parent
+TREE=ROOT/'candidate'
+PY='/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+source=TREE/'scripts/review_probes/prepare_adaptive_l6_runner.py'
+before=hashlib.sha256(source.read_bytes()).hexdigest()
+rows=[]
+for mode in ('coverage','wiring','restored'):
+ env={key:os.environ[key] for key in ('PATH','HOME','LANG','TMPDIR') if key in os.environ}
+ env.update(PYTHONDONTWRITEBYTECODE='1',PYTHONPATH=str(ROOT)+os.pathsep+str(TREE),FWP_TEST_RECEIPT='0')
+ cmd=[PY,'-B','-m','pytest','-q','-p','no:cacheprovider','--basetemp='+str(ROOT/('mutation-tmp-'+mode))]
+ if mode!='restored':
+  env['L6_GATE_MUTANT']=mode
+  cmd+=['-p','l6_gate_mutant']
+ if mode in ('coverage','restored'): cmd+=['tests/test_l6_deadline_admission.py']
+ if mode in ('wiring','restored'): cmd+=['tests/test_adaptive_l6_audit.py::test_fresh_runner_wires_source_audit_and_inherits_no_receipts']
+ with (ROOT/('admission-mutation-'+mode+'.log.txt')).open('xb') as log:
+  code=subprocess.run(cmd,cwd=TREE,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=40).returncode
+ rows.append({'mode':mode,'exit_code':code,'command':cmd})
+ assert code==(0 if mode=='restored' else 1),(mode,code)
+assert hashlib.sha256(source.read_bytes()).hexdigest()==before
+record={'scope':'author in-memory negative controls, not independent review','source_sha256':before,'source_unchanged':True,'runs':rows,'real_model_requests':0}
+with (ROOT/'admission-mutations.json').open('x') as f: json.dump(record,f,indent=2)
+print(json.dumps(record))

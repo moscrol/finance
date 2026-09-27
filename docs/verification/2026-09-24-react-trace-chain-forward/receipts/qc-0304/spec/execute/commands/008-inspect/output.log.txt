@@ -1,0 +1,1 @@
+rg: /Users/a77/finance-workspace-private/intelligence/services/episode_protocol.py: IO error for operation on /Users/a77/finance-workspace-private/intelligence/services/episode_protocol.py: Operation not permitted (os error 1)

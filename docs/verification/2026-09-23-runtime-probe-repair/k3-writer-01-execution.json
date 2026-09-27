@@ -1,0 +1,123 @@
+{
+  "revision": "760248ecebc79fbe4f2686ddd42255c1a00ec862",
+  "baseline": "da761024ed54c46b8e650d1b86076e1f9d261ed2",
+  "role": "writer",
+  "authorization": "live user explicitly authorized K3 as writer; no retry, purchase, merge or deployment",
+  "identity_before": {
+    "revision": "760248ecebc79fbe4f2686ddd42255c1a00ec862",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4",
+    "status": ""
+  },
+  "source_receipt_sha256": "e1d8afbf2206ac285bedd5618ce382288e8abf51402110f06538592f8b661736",
+  "original_probe_hashes": {
+    "/Users/a77/.finance-runtime/reviews/runtime-postmerge-k3-20260923-r2/k3/work/k3-20260923/probe_a/k3_fixtures.py": "4011e52952221d97afd1fb65659916dd7ad15acbd2429311faed257e56154d2c",
+    "/Users/a77/.finance-runtime/reviews/runtime-postmerge-k3-20260923-r2/k3/work/k3-20260923/probe_a/test_k3_effects.py": "37ef56bb9490ca51a5a17401df420f2c7c2410daa6af2c5707aa913aab284d0e",
+    "/Users/a77/.finance-runtime/reviews/runtime-postmerge-k3-20260923-r2/k3/work/k3-20260923/probe_a/test_k3_identity.py": "14231628e83deb86cac471b664bed4282786516a3229fa1c0d11c9bc9b9ec316"
+  },
+  "inputs_sha256": {
+    "run.py": "4ef9d9a38c27ebedade933134411caa52776fea289ccc750f42aa6ad2cac2df7",
+    "config.json": "c7bb158b18be4ac2f1553de4cbc0ac238bba294f3514bcb49cfd8dec38dbdebb",
+    "tools.sb": "ce9c2e1830f68ce44cba80dd306718a175cd1ece35344ec2fe4dca45147bd1eb",
+    "prompt.md": "3019c18a9f937212b79907aaf2ce55761a9354b9dd8ecf28de72179bca6b6938",
+    "authorization.json": "23fc66d1d8184b475ceb2204d683a12ced242c9151f849780fc41a0bb02b429b",
+    "preflight.mjs": "d4c1e1f0a468a4ef6e1f394cab5387ac40d4cefce8cc714e93e1cd25e03363bb",
+    "launch.py": "ac832683322304bd0af2e922b9e9e136eafeec89415d2a03e421c5d46b3ff3af",
+    "file_tool.py": "e4d05b866120b07aa917a896940605aab16b0b0bb52467ba7f48421ccc262e92",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "review.mjs": "4c13b1824875f57dc6f74e5be34e69a2fa193a6f6c06b45dcb097e8df84713f6",
+    "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "pi-config/settings.json": "847b7832d62d9a85e8d6a93a56e8e8ab5c1bdaddb17a6fd085dd2bba624b9cca",
+    "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "complete": true,
+  "exploration_max_requests": 32,
+  "max_requests": 40,
+  "report_requests": 1,
+  "timeout_seconds": 1200,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-01/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt.md>"
+  ],
+  "started_at": "2026-09-23T04:21:07.377313+00:00",
+  "pid": 16755,
+  "exit_code": 0,
+  "stop_reason": "missing_report",
+  "identity_after": {
+    "revision": "760248ecebc79fbe4f2686ddd42255c1a00ec862",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4",
+    "status": ""
+  },
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "inputs_unchanged": true,
+  "provider_request_admissions": 1,
+  "request_phases": [
+    "explore"
+  ],
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 1,
+    "message_start": 2,
+    "message_end": 2,
+    "turn_end": 1,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "elapsed_seconds": 124.769,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [
+    "Request timed out."
+  ],
+  "last_stop_reason": "error",
+  "report_structurally_complete": false,
+  "host_acceptance": "PENDING",
+  "original_probes_unchanged": true,
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "totalTokens": 0
+  },
+  "sha256": {
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "173132b0059dfa3e14199d33ba555c765a584e2c23acb801d4dbbf43f9a7f5a3",
+    "request-admissions.jsonl": "7a36939de2ce8593fe50dc4486d150d726e28688483b8cb4fc8e8f4fc8989d54",
+    "model-failure.json": "fe7d46ffdb7c3e985f0a68cb02f4cf940f2c8326be5db4f2877808680a9ec17f",
+    "events.jsonl": "8fb382b67134d0cc137b3be5c7d8911af3f5993a011f403f404c497bae3559c8"
+  }
+}

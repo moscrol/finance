@@ -1,0 +1,14 @@
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index f00579e64..0cf92e4b3 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -1297,8 +1297,7 @@ class ResearchToolRegistry:
+         def fetch() -> ToolObservation:
+             # A queued task may start after cancellation/storage failure. Checking
+             # only after runner() would prevent publication, but not the effect.
+-            if is_cancelled is not None and is_cancelled():
+-                raise RuntimeError("agent tool cancelled before execution")
++            # removed queued-runner fence
+             if scope is not None:
+                 # 登记必须在 runner 真的被调起时发生，不在「决定要调」时。
+                 # 这个闭包由 query_ledger.executed 决定跑不跑——被去重挡掉的调用

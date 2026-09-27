@@ -1,0 +1,20 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-residual-unit-not-blind-waiver-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_ambiguous_residue_still_unknown_without_deleting_independent_text"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-6w1b5xh6/tree", "revision": "6fb37a6e191185daef832369677af15b0d56afb2"}
+.FF.....                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_ambiguous_residue_still_unknown_without_deleting_independent_text[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u53e6\u67091.587\u5143/\u5143\u3002] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:232: in test_ambiguous_residue_still_unknown_without_deleting_independent_text
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())
+_ test_ambiguous_residue_still_unknown_without_deleting_independent_text[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u53e6\u6709158.7\u4e2a\u767e\u5206\u70b9\u3002] _
+intelligence/tests/test_research_delivery_ratio_boundaries.py:232: in test_ambiguous_residue_still_unknown_without_deleting_independent_text
+    assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E   assert (())
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-6fb37a6e/mutations/ratio-residual-unit-not-blind-waiver-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_ambiguous_residue_still_unknown_without_deleting_independent_text[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u53e6\u67091.587\u5143/\u5143\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_ambiguous_residue_still_unknown_without_deleting_independent_text[2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a1.588\uff0c\u53e6\u6709158.7\u4e2a\u767e\u5206\u70b9\u3002]
+2 failed, 6 passed, 679 deselected in 1.08s
+
+STDERR:
+
+EXIT=1

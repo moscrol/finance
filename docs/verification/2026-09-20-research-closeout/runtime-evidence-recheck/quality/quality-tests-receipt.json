@@ -1,0 +1,29 @@
+{
+  "before": {
+    "revision": "d197450d90ba88716bc1346ae741113bce0dd888",
+    "status": ""
+  },
+  "after": {
+    "revision": "d197450d90ba88716bc1346ae741113bce0dd888",
+    "status": ""
+  },
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/pytest-temp",
+    "--rootdir",
+    "/Users/a77/fwp-wt-runtime-evidence-closeout-0920",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/runtime-evidence-recheck/quality/test_quality_edges.py",
+    "intelligence/tests/test_api_fixture_lifecycle.py",
+    "intelligence/tests/test_episode_evidence_snapshot.py::test_restore_keeps_original_capture_position_when_synthesizing_settlements"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.555,
+  "external_model_calls": 0
+}

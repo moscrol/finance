@@ -1,0 +1,86 @@
+...........FFFFF....F...                                                 [100%]
+=================================== FAILURES ===================================
+____________________ test_projection_row_identity_absolute _____________________
+
+    def test_projection_row_identity_absolute():
+        rows = [{"i": i} for i in range(6)]
+        proj = _model_projection(_payload(rows, total=6, offset=2), "ref-1")
+        texts = [t for t in proj if isinstance(t[0], int)]
+        # second page rows should be numbered 2,3 not 0,1
+>       assert [t[0] for t in texts] == [2, 3], texts
+E       AssertionError: []
+E       assert [] == [2, 3]
+E         
+E         Right contains 2 more items, first extra item: 2
+E         Use -v to get more diff
+
+../../spec/work/probes/test_c5_history_paging.py:32: AssertionError
+_____________________ test_result_metadata_carries_offsets _____________________
+
+    def test_result_metadata_carries_offsets():
+        rows = [{"i": i} for i in range(6)]
+        res = _result(_payload(rows, total=6), result_ref="ref-1", offset=2)
+>       md = res.metadata
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../spec/work/probes/test_c5_history_paging.py:38: AttributeError
+_______________________ test_final_page_next_offset_none _______________________
+
+    def test_final_page_next_offset_none():
+        rows = [{"i": i} for i in range(3)]
+        res = _result(_payload(rows, total=3), result_ref="ref-1", offset=2)
+        # page 2 = rows[2:4] -> returned 1, end=3 == total -> None
+>       assert res.metadata["next_offset"] is None
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../spec/work/probes/test_c5_history_paging.py:48: AttributeError
+_________________________ test_truncated_hint_on_page __________________________
+
+    def test_truncated_hint_on_page():
+        rows = [{"i": i} for i in range(6)]
+        res = _result(_payload(rows, total=6), result_ref="ref-1", offset=0)
+>       assert res.metadata["truncated"] is False
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../spec/work/probes/test_c5_history_paging.py:54: AttributeError
+_________________________ test_orphaned_count_removed __________________________
+
+    def test_orphaned_count_removed():
+        before = "1. 升级条件：a\n2. b\n3. 满足升级条件中的2条，需继续观察。"
+        draft = "1. b\n2. 满足升级条件中的2条，需继续观察。"
+        out = _repair(draft, before, [0])
+>       assert "2条" not in out, out
+E       AssertionError: 1. b
+E         2. 满足升级条件中的2条，需继续观察。
+E       assert '2条' not in '1. b\n2. 满足升级条件中的2条，需继续观察。'
+E         
+E         '2条' is contained here:
+E           1. b
+E           2. 满足升级条件中的2条，需继续观察。
+E         ?            ++
+
+../../spec/work/probes/test_c6_dangling_repair_basic.py:23: AssertionError
+_______________ test_pipeline_removes_count_and_restores_number ________________
+
+    def test_pipeline_removes_count_and_restores_number():
+        out, restored = _pipeline([0])
+>       assert "2条" not in out, out
+E       AssertionError: 1. 升级条件：
+E         2. 2026-09-01 收盘价为 100.5 元。
+E         3. 满足升级条件中的2条，继续观察。
+E       assert '2条' not in '1. 升级条件：\n2...条件中的2条，继续观察。'
+E         
+E         '2条' is contained here:
+E           . 满足升级条件中的2条，继续观察。
+E         ?           ++
+
+../../spec/work/probes/test_c6_repair_pipeline_order.py:36: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/tmp/execute-007-run_tests.xml -
+=========================== short test summary info ============================
+FAILED ::test_projection_row_identity_absolute - AssertionError: []
+FAILED ::test_result_metadata_carries_offsets - AttributeError: 'ToolRunResul...
+FAILED ::test_final_page_next_offset_none - AttributeError: 'ToolRunResult' o...
+FAILED ::test_truncated_hint_on_page - AttributeError: 'ToolRunResult' object...
+FAILED ::test_orphaned_count_removed - AssertionError: 1. b
+FAILED ::test_pipeline_removes_count_and_restores_number - AssertionError: 1....
+6 failed, 18 passed in 0.87s

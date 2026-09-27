@@ -1,0 +1,9 @@
+1348:    def _finalize_outcome(
+2716:        # public-draft recheck compares like with like (see _without_deleted_claims).
+2718:            _without_deleted_claims(binding, frozenset(deleted_claims.get(binding.output_id, ())))
+3720:        draft = _repair_dangling_condition_references(
+3731:        draft, _restored = _restore_lost_observations(
+4689:    连坐的有据数值另由 ``_restore_lost_observations`` 补回。
+5644:def _restore_lost_observations(
+5697:def _repair_dangling_condition_references(
+5867:def _without_deleted_claims(

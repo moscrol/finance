@@ -1,0 +1,93 @@
+72:def _structural(
+73-    draft: str,
+74-    *,
+75-    status: str = "completed",
+76-    detail: str = "市场成交额与结构观察",
+77-    title: str = "A股市场快照",
+78-    source: str = "行情快照",
+79-    gaps: tuple[str, ...] = (),
+80-    traces: tuple[ProviderTrace, ...] = (),
+81-    required_outputs: tuple[RequiredOutput, ...] | None = None,
+82-    research_tier: str = "standard",
+83-):
+84-    frame = _frame()
+85-    evidence = AgentEvidence(
+86-        tool="market_data",
+87-        title=title,
+88-        detail=detail,
+89-        source=source,
+90-        source_date="2026-07-22",
+91-        content_hash="HASH_PRIVATE_SENTINEL",
+92-    )
+93-    if required_outputs is None:
+94-        required_outputs = (
+95-            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+96-        )
+97-    contract = ResearchTaskContract(
+98-        task_id="semantic-test",
+99-        question=frame.raw_question,
+100-        subject=frame.subject,
+101-        subject_kind=frame.subject_kind,
+102-        question_type=frame.question_type,
+103-        required_outputs=required_outputs,
+104-        allowed_capabilities=("market_data",),
+105-        research_tier=research_tier,
+106-        evidence_plan=EvidencePlan(),
+107-        task_frame_hash=frame.task_frame_hash,
+108-    )
+109-    outcome = AgentOutcome(
+110-        task_frame_hash=frame.task_frame_hash,
+111-        status=status,
+112-        draft=draft,
+113-        evidence=(evidence,),
+114-        traces=traces,
+115-        gaps=gaps,
+116-        stop_reason="model_finish",
+117-        events=(
+--
+213:def _judge(
+214-    passed: bool, *, rejected: tuple[int, ...] = (), issues: tuple[str, ...] = ()
+215-):
+216-    calls: list[dict[str, object]] = []
+217-
+218-    def run(request):
+219-        calls.append(request)
+220-        if calls.__len__() > 1:
+221-            return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+222-        return {
+223-            "passed": passed,
+224-            "rejected_sentence_indexes": list(rejected),
+225-            "issues": list(issues),
+226-        }
+227-
+228-    run.calls = calls  # type: ignore[attr-defined]
+229-    return run
+230-
+231-
+232-class _RecordingJudgeModel:
+233-    def __init__(self) -> None:
+234-        self.calls: list[dict[str, object]] = []
+235-
+236-    def complete(self, *, messages, tools, timeout):
+237-        self.calls.append(
+238-            {
+239-                "messages": messages,
+240-                "tools": tools,
+241-                "timeout": timeout,
+242-            }
+243-        )
+244-        return ModelTurn(
+245-            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+246-            (),
+247-            "recording",
+248-            "",
+249-        )
+250-
+251-
+252-def test_judge_receives_typed_claim_policy_for_requested_forecast(
+253-    monkeypatch,
+254-) -> None:
+255-    frame, structural = _structural(
+256-        "截至最新交易日，成交额缩量。我的基准判断是反弹仍有数日窗口，"
+257-        "这是基于当前量价结构的主观估计。"
+258-    )

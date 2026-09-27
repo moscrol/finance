@@ -1,0 +1,29 @@
+{
+  "recorded_at": "2026-09-21T11:29:23.376396+00:00",
+  "authorization_quote": "执行",
+  "scope": "resume original reviewer threads once per domain serially, 1200s maximum each, same subscription; stop remaining on shared capacity error; no source writes/merge/deploy/paid provider",
+  "main_observed": "5a5334712cb148d386a1fd5f0b112a75b5aeea76",
+  "prs": [
+    {
+      "pr": 833,
+      "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "state": "open",
+      "title": "WIP: history forward integration preserving material contracts",
+      "base": "fix/research-tail-integration-0921"
+    },
+    {
+      "pr": 834,
+      "head": "cb16cd463db5c19b3187a5137009791082874653",
+      "state": "open",
+      "title": "WIP: runtime forward integration with v3 IO provenance",
+      "base": "fix/research-tail-integration-0921"
+    },
+    {
+      "pr": 835,
+      "head": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+      "state": "open",
+      "title": "WIP: 财务比例与交付合同前向整合（保主干发布/材料保护）",
+      "base": "fix/research-tail-integration-0921"
+    }
+  ]
+}

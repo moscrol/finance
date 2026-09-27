@@ -1,0 +1,110 @@
+"""Prepare one user-authorized ARL-0005 retry; never overwrite the timed-out root.
+
+No business/request/claim/check-manifest changes. Only the operational deadline
+is predeclared as 1200 seconds for this one call; no subsequent retries.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+BASE = Path('/Users/a77/.finance-runtime/convergence-20260919/retention-repair')
+REPO = Path('/Users/a77/fwp-q-research-data-readiness')
+PRIOR = BASE / 'qc-repair-d46c2c3b'
+STATE = BASE / 'qc-retry-d46c2c3b-01'
+OPS = Path(__file__).parent
+REV = 'd46c2c3b10221483c811426e99ad379314289871'
+TIP = 'b78dbe3be97b846ea2bd8093ae16f5d0bbfc73a8'
+EXPECTED_REQUEST = '5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6'
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def replace_once(text, old, new):
+    assert text.count(old) == 1, old
+    return text.replace(old, new, 1)
+
+
+assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip() == TIP
+assert not subprocess.check_output(['git', 'status', '--porcelain'], cwd=REPO, text=True).strip()
+assert not subprocess.check_output(['git', 'diff', REV + '..' + TIP, '--', 'intelligence', 'market_feature_store'], cwd=REPO)
+assert sha(PRIOR / 'requests/ARL-0005.json') == EXPECTED_REQUEST
+# Verify all old review originals against the committed archive, before copying.
+archive = REPO / 'docs/verification/2026-09-19-t3-ratio-boundaries'
+manifest = json.loads((archive / 'manifest.json').read_text())
+for row in manifest['files']:
+    stored = archive / row['archive']
+    assert len(stored.read_bytes()) == row['bytes'] and sha(stored) == row['sha256']
+    source = Path(row['source'])
+    assert source.read_bytes() == stored.read_bytes(), source
+STATE.mkdir(exist_ok=False)
+rows = []
+
+
+def copy(source, relative):
+    dest = STATE / relative
+    dest.parent.mkdir(exist_ok=True, parents=True)
+    assert not dest.exists()
+    shutil.copyfile(source, dest)
+    assert source.read_bytes() == dest.read_bytes()
+    rows.append({'source': str(source), 'copy': relative, 'bytes': dest.stat().st_size, 'sha256': sha(dest)})
+
+
+for folder in ('requests', 'claims', 'verdicts'):
+    (STATE / folder).mkdir()
+    for source in sorted((PRIOR / folder).glob('ARL-*.json')):
+        copy(source, folder + '/' + source.name)
+for source in sorted((PRIOR / 'prior-invalid').iterdir()):
+    if source.is_file():
+        copy(source, 'prior-invalid/' + source.name)
+for name in ('invocation.json', 'invocation-result.json', 'reviewer-stream.jsonl', 'reviewer-stderr.log'):
+    copy(PRIOR / 'runs/ARL-0005' / name, 'prior-timeout/' + name)
+copy(PRIOR / 'dispatch-result.json', 'prior-timeout/dispatch-result.json')
+settings = json.loads((PRIOR / 'cli-auth-settings.json').read_text())
+assert set(settings) == {'apiKeyHelper', 'env', 'disableAllHooks', 'enabledPlugins'}
+assert isinstance(settings['apiKeyHelper'], str) and settings['apiKeyHelper'].startswith('/Users/a77/')
+assert not any('TOKEN' in key or key.endswith('_KEY') for key in settings['env'])
+copy(PRIOR / 'cli-auth-settings.json', 'cli-auth-settings.json')
+(STATE / 'inherited-chain.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2) + '\n')
+policy = {
+    'created_at': datetime.now(timezone.utc).isoformat(), 'authorization': 'User said 继续 after the prior timeout closeout; one bounded manual continuation, no automatic retries.',
+    'revision': REV, 'producer_tip': TIP, 'review_id': 'ARL-0005', 'request_sha256': EXPECTED_REQUEST,
+    'prior_state_root': str(PRIOR), 'new_state_root': str(STATE),
+    'max_cli_calls_this_window': 1, 'deadline_seconds': 1200, 'max_budget_usd': 6,
+    'changes_to_request_claim_business_or_required_checks': False,
+    'tools': [], 'automatic_retry': False, 'automatic_fallback': False,
+    'prior_timeout_is_not_approval_or_changes_required': True,
+}
+(STATE / 'retry-policy.json').write_text(json.dumps(policy, ensure_ascii=False, indent=2) + '\n')
+
+source = PRIOR / 'qc_repair_once.py'
+s = source.read_text()
+s = replace_once(s, 'One bounded external CLI call for THIS NEW revision/request (no retry on invalid output/timeout).',
+    'One user-authorized bounded continuation for the SAME immutable ARL-0005 request and d46 revision, in a NEW exclusive root. The prior single 600-second attempt timed out without a final result or verdict; it is preserved and is neither approval nor rejection. This window has one CLI call only, a predeclared 1200-second deadline and unchanged $6 cap, with no automatic retry/fallback or mid-flight extension. Request, claim, cumulative business scope, required checks and validator are unchanged.')
+s = replace_once(s, "'timeout_seconds': 600, 'automatic_fallback': False", "'timeout_seconds': 1200, 'automatic_fallback': False")
+s = replace_once(s, "'cli_attempt': 1, 'prior_attempts_same_request': 0, 'prior_attempts_previous_requests': 6", "'cli_attempt': 2, 'prior_attempts_same_request': 1, 'prior_attempts_previous_requests': 6")
+s = replace_once(s, 'process.communicate(input=prompt.encode(), timeout=600)', 'process.communicate(input=prompt.encode(), timeout=1200)')
+s = replace_once(s, "PRIOR INVALID OUTPUT (read only as leads, no authority):", "PRIOR SAME-REQUEST TIMEOUT (not a verdict):\\n{(STATE / 'prior-timeout/invocation-result.json').read_text()}\\nRETRY POLICY:\\n{(STATE / 'retry-policy.json').read_text()}\\nPRIOR INVALID OUTPUT (read only as leads, no authority):")
+compile(s, str(STATE / 'qc_repair_once.py'), 'exec')
+(STATE / 'qc_repair_once.py').write_text(s)
+
+src_dispatch = BASE / 'boundary-repair-01/dispatch_review.py'
+d = src_dispatch.read_text()
+d = replace_once(d, "STATE = BASE / 'qc-repair-d46c2c3b'", "STATE = BASE / 'qc-retry-d46c2c3b-01'")
+d = replace_once(d, "assert git('rev-parse','HEAD') == REV and not git('status','--porcelain')", "assert git('rev-parse','HEAD') == '" + TIP + "' and not git('status','--porcelain')\nassert not git('diff', REV+'..HEAD', '--', 'intelligence', 'market_feature_store')")
+d = replace_once(d, 'CLEAN_REVIEW_TARGET=str(ROOT)', "CLEAN_REVIEW_TARGET=str(BASE/'candidate-d46c2c3b/registry-pinned/finance-workspace-private')")
+d = replace_once(d, 'proc.wait(timeout=1500)', 'proc.wait(timeout=2100)')
+compile(d, str(OPS / 'dispatch_retry.py'), 'exec')
+(OPS / 'dispatch_retry.py').write_text(d)
+(STATE / 'adapter-provenance.json').write_text(json.dumps({
+    'adapter_source': str(source), 'adapter_source_sha256': sha(source), 'new_adapter_sha256': sha(STATE / 'qc_repair_once.py'),
+    'dispatch_source': str(src_dispatch), 'dispatch_source_sha256': sha(src_dispatch), 'new_dispatch_sha256': sha(OPS / 'dispatch_retry.py'),
+    'protocol_implementation_changed': False, 'dispatch': 'explicit ARL-0005 manual retry, not worker queue selection',
+}, indent=2) + '\n')
+assert sha(STATE / 'requests/ARL-0005.json') == EXPECTED_REQUEST
+assert not (STATE / 'verdicts/ARL-0004.json').exists() and not (STATE / 'verdicts/ARL-0005.json').exists()
+print(json.dumps({'state': str(STATE), 'copied': len(rows), 'request_sha256': EXPECTED_REQUEST, 'max_cli_calls': 1, 'timeout_seconds': 1200}))

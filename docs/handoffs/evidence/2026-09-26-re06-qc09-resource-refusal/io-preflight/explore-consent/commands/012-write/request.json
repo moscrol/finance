@@ -1,0 +1,1 @@
+{"toolCallId":"new-probe","params":{"path":"/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/io-boundary-preflight-1790355094537/fixture/work/consent/probes/test_reviewer_explore.py","content":"def test_example():\n    assert True\n"}}

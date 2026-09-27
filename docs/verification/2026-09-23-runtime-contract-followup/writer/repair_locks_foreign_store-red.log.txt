@@ -1,0 +1,10 @@
+F...                                                                     [100%]
+=================================== FAILURES ===================================
+______ test_repair_rejects_foreign_owner_or_task_before_any_effect[store] ______
+intelligence/tests/test_episode_writer.py:381: in test_repair_rejects_foreign_owner_or_task_before_any_effect
+    with pytest.raises(RestoreUnavailable, match="identity mismatch"):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_locks_foreign_store-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_repair_rejects_foreign_owner_or_task_before_any_effect[store]
+1 failed, 3 passed, 19 deselected in 3.51s

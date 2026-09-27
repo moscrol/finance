@@ -1,0 +1,115 @@
+"""Read immutable Git archive bytes and resolve the append-only round-04 supplement."""
+import argparse
+import hashlib
+import io
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+sys.path.insert(0, str(TREE))
+from scripts.check_evidence_archive import _git, check_archive, reject_inherited_git_redirection
+
+ARCHIVES = ('docs/verification/2026-09-23-runtime-contract-followup',
+            'docs/verification/2026-09-23-pr884-gates',
+            'docs/verification/2026-09-23-pr884-closeout-04')
+SUPPLEMENT = 'docs/verification/2026-09-24-pr884-round04-log-supplement'
+OLD_HASH = '7b528c677c4d286a855bfa637f3633660e2233bf5497dcbe3b51c0a92fc55b25'
+
+
+def validate(payloads):
+    mapping = json.loads(payloads[SUPPLEMENT + '/MAPPING.json'])
+    assert mapping['original_manifest'] == ARCHIVES[2] + '/MANIFEST.json'
+    assert mapping['original_manifest_sha256'] == OLD_HASH
+    replacements = {item['original_archived_path']: item for item in mapping['mappings']}
+    assert len(replacements) == len(mapping['mappings']) == mapping['files']
+    results = []
+    used = set()
+    for archive in ARCHIVES:
+        raw = payloads[archive + '/MANIFEST.json']
+        manifest = json.loads(raw)
+        if archive == ARCHIVES[2]:
+            assert hashlib.sha256(raw).hexdigest() == OLD_HASH
+        entries = (list(manifest['files'].items()) if isinstance(manifest.get('files'), dict)
+                   else [(item['archived_path'], item) for item in manifest['artifacts']])
+        assert len(entries) == len({path for path, _ in entries})
+        direct = supplemented = total_bytes = 0
+        for relative, entry in entries:
+            path = archive + '/' + relative
+            if path in payloads:
+                data = payloads[path]
+                direct += 1
+            else:
+                assert archive == ARCHIVES[2], path
+                replacement = replacements[relative]
+                assert replacement['bytes'] == entry['bytes']
+                assert replacement['sha256'] == entry['sha256']
+                assert replacement['supplement_path'].startswith(SUPPLEMENT + '/logs/')
+                data = payloads[replacement['supplement_path']]
+                used.add(relative)
+                supplemented += 1
+            assert len(data) == entry['bytes'], path
+            assert hashlib.sha256(data).hexdigest() == entry['sha256'], path
+            total_bytes += len(data)
+        results.append({'archive': archive, 'files': len(entries), 'bytes': total_bytes,
+                        'direct_git_blobs': direct, 'supplemented_git_blobs': supplemented})
+    assert used == set(replacements)
+    assert sum(replacements[key]['bytes'] for key in used) == mapping['bytes']
+    return results
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--revision', required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args()
+    reject_inherited_git_redirection()
+    revision = _git(TREE, 'rev-parse', '--verify', '--end-of-options', args.revision + '^{commit}').decode().strip()
+    supplement = check_archive(TREE, SUPPLEMENT, revision)
+    assert supplement['ok'], supplement
+    raw = _git(TREE, 'archive', '--format=tar', revision, '--', *ARCHIVES, SUPPLEMENT)
+    payloads = {}
+    with tarfile.open(fileobj=io.BytesIO(raw), mode='r:') as stream:
+        for item in stream.getmembers():
+            if item.isdir():
+                continue
+            assert item.isfile(), item.name
+            payloads[item.name] = stream.extractfile(item).read()
+    results = validate(payloads)
+    original_mapping = payloads[SUPPLEMENT + '/MAPPING.json']
+    mapping = json.loads(original_mapping)
+    target = mapping['mappings'][0]['supplement_path']
+    tampered = dict(payloads)
+    tampered[target] = tampered[target] + b'changed'
+    try:
+        validate(tampered)
+    except AssertionError:
+        tamper_rejected = True
+    else:
+        raise AssertionError('tampered payload accepted')
+    missing = dict(payloads)
+    del missing[target]
+    try:
+        validate(missing)
+    except KeyError:
+        missing_rejected = True
+    else:
+        raise AssertionError('missing payload accepted')
+    assert validate(payloads) == results
+    result = {'accepted': True, 'revision': revision, 'archives': results,
+              'supplement_check': supplement,
+              'negative_controls': {'tampered_payload_rejected': tamper_rejected,
+                                    'missing_payload_rejected': missing_rejected, 'restored_passed': True},
+              'kind': 'Git archive closure only, not full gates or independent runtime approval',
+              'source': 'git archive of fixed commit, no fallback to ignored worktree files'}
+    with args.output.open('x') as output:
+        json.dump(result, output, indent=2)
+        output.write('\n')
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == '__main__':
+    main()

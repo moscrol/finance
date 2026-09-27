@@ -1,0 +1,38 @@
+[
+  {
+    "path": "spec/run.py",
+    "draft_sha256": "e3f35a1b5a3ca4b338ae40db4331f87506675d18796a2746b4a4fac5f12c1d72",
+    "restored_sha256": "fbb8b5c8442cd5ddf213caf2fb9f7dce8a18579500add8b2e515b0f24bf22315",
+    "recorded_sha256": "fbb8b5c8442cd5ddf213caf2fb9f7dce8a18579500add8b2e515b0f24bf22315",
+    "source": "quality copy; axis substitution for controller only",
+    "hash_bound": true,
+    "note": "matches execution-time hash"
+  },
+  {
+    "path": "spec/credential-bootstrap.mjs",
+    "draft_sha256": "092e0668d80a5b3d0d417ad613240084d18f81858ed3b089f05648294b1cc47d",
+    "restored_sha256": "8625e0f312f4caed6ef01e631f8b7105b217255fbba3b7a4be68143643bf06c0",
+    "recorded_sha256": "8625e0f312f4caed6ef01e631f8b7105b217255fbba3b7a4be68143643bf06c0",
+    "source": "quality copy; axis substitution for controller only",
+    "hash_bound": true,
+    "note": "matches execution-time hash"
+  },
+  {
+    "path": "spec/controller.sb",
+    "draft_sha256": "8a145ce732e4b01a42f2daf720e5b3ff39a64b40f7c6db1cb5491f9f5976e368",
+    "restored_sha256": "fbd85d779f9531e1f19922ff6aaf752c943c23a7dc4376b76f857b18bd53994d",
+    "recorded_sha256": "fbd85d779f9531e1f19922ff6aaf752c943c23a7dc4376b76f857b18bd53994d",
+    "source": "quality copy; axis substitution for controller only",
+    "hash_bound": true,
+    "note": "matches execution-time hash"
+  },
+  {
+    "path": "spec/launch.py",
+    "draft_sha256": "be60026b6fd1ff965e4e22e915cb8ea5aec2b1459688a5b6e593a85bb2e5f55d",
+    "restored_sha256": "5504b4b0b30e666e3df128faf1810172992f3d54933e1c51a1824effb5f9d33d",
+    "recorded_sha256": null,
+    "source": "quality copy; axis substitution for controller only",
+    "hash_bound": false,
+    "note": "launch.py was not hashed at execution; reconstruction is not authentication"
+  }
+]

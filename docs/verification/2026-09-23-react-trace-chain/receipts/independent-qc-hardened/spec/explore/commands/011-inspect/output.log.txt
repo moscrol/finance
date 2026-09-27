@@ -1,0 +1,15 @@
+281:_DANGLING_CONDITION_COUNT_RE = re.compile(
+2049:        first = _apply_meta_disclosure_exemption(first, sentences)
+2238:        second = _apply_meta_disclosure_exemption(second, repaired_sentences)
+2650:        Ordinary v8 semantic demotion and meta-disclosure exemption cannot
+2666:            # a rejected material claim through meta exemption or v8 demotion.
+4013:            # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
+4733:def _apply_meta_disclosure_exemption(
+4750:    exempted = {
+4755:    if not exempted:
+4758:        index for index in report.rejected_sentence_indexes if index not in exempted
+4763:        if not any(f"第{index}句" in issue for index in exempted)
+4909:def _novel_numeric_condition_indexes(
+4985:                # A layout heading can itself make a claim. It is not exempt
+5705:    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+5762:                for found in _DANGLING_CONDITION_COUNT_RE.finditer(repaired)

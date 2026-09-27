@@ -1,0 +1,53 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0
+rootdir: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08
+plugins: anyio-4.14.1
+collected 10 items
+
+../../work/controller-v3/probes/test_controller.py F......F..            [100%]
+
+=================================== FAILURES ===================================
+________________________ test_deliberate_controller_red ________________________
+
+    def test_deliberate_controller_red():
+>       assert 1 == 2
+E       assert 1 == 2
+
+../../work/controller-v3/probes/test_controller.py:10: AssertionError
+___________ test_other_artifacts_and_frozen_probes_are_not_writable ____________
+
+    def test_other_artifacts_and_frozen_probes_are_not_writable():
+        for target in [ROOT/'work/e2/EXECUTE.md', ROOT/'work/timer/FINAL.md',
+                       ROOT/'inputs/frozen-explore-e2-v3/probes/test_reviewer.py',
+                       ROOT/'evidence/e2/counterfeit.json']:
+            with pytest.raises(PermissionError):
+>               target.write_text('corrupt')
+
+../../work/controller-v3/probes/test_controller.py:55: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1047: in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/e2/counterfeit.json')
+mode = 'w', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/e2/counterfeit.json'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1013: FileNotFoundError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/scratch/controller-v3/controller_preflight-1790351478303257000/junit.xml -
+=========================== short test summary info ============================
+FAILED ../../work/controller-v3/probes/test_controller.py::test_deliberate_controller_red - assert 1 == 2
+FAILED ../../work/controller-v3/probes/test_controller.py::test_other_artifacts_and_frozen_probes_are_not_writable - FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/e2/counterfeit.json'
+========================= 2 failed, 8 passed in 0.11s ==========================
+
+EXECUTION_RECEIPT {"path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/controller-v3/controller_preflight-1790351478303257000/receipt.json", "sha256": "0b814c942e11c191c441c61e6b10ec9e9a50999eb91afc5e43a41775a07c4b76", "exit_code": 1, "counts": {"tests": 10, "passed": 8, "failed": 2, "errors": 0, "skipped": 0, "xfailed": 0, "collected": 10, "collected_source": "pytest_stdout"}, "blocked": null}

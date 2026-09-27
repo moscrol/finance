@@ -1,0 +1,99 @@
+F.F                                                                      [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260924T135253Z-2631202b-454927814051.json
+
+=================================== FAILURES ===================================
+______ test_ranking_coverage_uses_same_market_inputs_as_builder[100.0-0] _______
+
+inputs = Namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-4227/test_rankin...est-of-a77/pytest-4227/test_ranking_coverage_uses_sam0/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl'))
+capsys = <_pytest.capture.CaptureFixture object at 0x10b2bb9e0>
+hit_value = 100.0, expected_exit = 0
+
+    @pytest.mark.parametrize("hit_value,expected_exit", [(100.0, 0), (0.0, 1), (None, 1)])
+    def test_ranking_coverage_uses_same_market_inputs_as_builder(inputs, capsys, hit_value, expected_exit):
+        _add_landing_day(inputs)
+        with duckdb.connect(str(inputs.db)) as con:
+            con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-15'), ('2026-09-16'), ('2026-09-17')")
+            con.execute(
+                "INSERT INTO fact_sector_daily_generation "
+                "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+                "diff_ratio, source, updated_at) "
+                "SELECT trade_date, 'legacy', 'test', 'test', 1.0, 100.0, 11.0, 'fixture', '2026-09-19 08:00:00' "
+                "FROM fact_market_daily WHERE trade_date < '2026-09-19'"
+            )
+        event = json.loads(inputs.projection.read_text())
+        event["theme"] = "test"
+        inputs.projection.write_text(json.dumps(event) + "\n")
+        _add_briefing_labels(inputs, hit_value=hit_value)
+>       assert main() == expected_exit
+E       assert 1 == 0
+E        +  where 1 = main()
+
+tests/test_verify_briefing_consumption.py:148: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{
+  "status": "FAIL",
+  "error": "Label mismatch: 2026-09-19 briefing_hit_rps5_pct"
+}
+_______ test_ranking_coverage_uses_same_market_inputs_as_builder[None-1] _______
+
+inputs = Namespace(db=PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-4227/test_rankin...est-of-a77/pytest-4227/test_ranking_coverage_uses_sam2/wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl'))
+capsys = <_pytest.capture.CaptureFixture object at 0x10d444380>
+hit_value = None, expected_exit = 1
+
+    @pytest.mark.parametrize("hit_value,expected_exit", [(100.0, 0), (0.0, 1), (None, 1)])
+    def test_ranking_coverage_uses_same_market_inputs_as_builder(inputs, capsys, hit_value, expected_exit):
+        _add_landing_day(inputs)
+        with duckdb.connect(str(inputs.db)) as con:
+            con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-15'), ('2026-09-16'), ('2026-09-17')")
+            con.execute(
+                "INSERT INTO fact_sector_daily_generation "
+                "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+                "diff_ratio, source, updated_at) "
+                "SELECT trade_date, 'legacy', 'test', 'test', 1.0, 100.0, 11.0, 'fixture', '2026-09-19 08:00:00' "
+                "FROM fact_market_daily WHERE trade_date < '2026-09-19'"
+            )
+        event = json.loads(inputs.projection.read_text())
+        event["theme"] = "test"
+        inputs.projection.write_text(json.dumps(event) + "\n")
+        _add_briefing_labels(inputs, hit_value=hit_value)
+>       assert main() == expected_exit
+E       assert 0 == 1
+E        +  where 0 = main()
+
+tests/test_verify_briefing_consumption.py:148: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{
+  "status": "PASS",
+  "scope": "explicit_inputs_only; live_market_read_only; not_production_readiness",
+  "market_latest": "2026-09-19",
+  "briefings": [
+    {
+      "briefing_date": "2026-09-18",
+      "source_rows": 1,
+      "available_from": "2026-09-19",
+      "landing_briefing_dates": [
+        "2026-09-18"
+      ],
+      "status": "PASS",
+      "landing": "2026-09-19",
+      "labels": {
+        "briefing_tier1_items": 0.0,
+        "briefing_tier2_items": 1.0,
+        "briefing_tier3_items": 0.0,
+        "briefing_market_confirmed": null,
+        "briefing_dimensions": 2.0,
+        "briefing_hit_rps5_pct": null,
+        "briefing_lag_days": 2.0
+      },
+      "source_recorded_at": "2026-09-21",
+      "object_recorded_at": "2026-09-22T08:00:00",
+      "river_ref": "history_teaching_labels:2026-09-19:market:briefing",
+      "river_pit_grade": "trade_date_only",
+      "late_teaching_objects_filtered": 1,
+      "disabled_sidecar_unchanged": true
+    }
+  ]
+}
+=========================== short test summary info ============================
+FAILED tests/test_verify_briefing_consumption.py::test_ranking_coverage_uses_same_market_inputs_as_builder[100.0-0]
+FAILED tests/test_verify_briefing_consumption.py::test_ranking_coverage_uses_same_market_inputs_as_builder[None-1]
+2 failed, 1 passed, 10 deselected in 1.77s

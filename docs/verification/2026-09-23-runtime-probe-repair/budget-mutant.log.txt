@@ -1,0 +1,50 @@
+.FF..                                                                    [100%]
+=================================== FAILURES ===================================
+______ test_spend_gate_refuses_unreconciled_and_has_no_forgetful_default _______
+
+    def test_spend_gate_refuses_unreconciled_and_has_no_forgetful_default() -> None:
+        episode = f"k3-gate-{uuid4().hex[:8]}"
+        snap = budget_snapshot(episode, calls=3)
+        effects = (_model_effect(),)
+>       with pytest.raises(ValueError, match="unreconciled"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py:62: Failed
+_____ test_restore_registers_the_window_once_and_never_spends_the_balance ______
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-probe-host-repair-20260923/runs/portable/budget-mutant/pytest/test_restore_registers_the_win0')
+
+    def test_restore_registers_the_window_once_and_never_spends_the_balance(tmp_path) -> None:
+        import intelligence.services.episode_restore as restore_mod
+    
+        episode, store, context, registry = dangling_model_episode(tmp_path, retries=2, with_budget=True)
+        first = restore_mod.restore_episode(episode, store, now=NOW, context=context, registry=registry)
+        assert first.plan is not None and first.plan.action == "retry_model"
+        assert [e.kind for e in first.synthesized] == ["effects_unknown"]
+        assert len(first.unreconciled_effects) == 1
+        effect = first.unreconciled_effects[0]
+        assert effect.disposition == "retry_proposed"
+        assert (effect.effect, effect.reserved_id) == ("model", "turn-1")
+    
+        for _ in range(3):
+            again = restore_mod.restore_episode(episode, store, now=NOW, context=context, registry=registry)
+            assert again.plan == first.plan
+            assert again.synthesized == (), "repeated restores must not inflate the receipt list"
+            assert len(again.unreconciled_effects) == 1
+    
+        # Cross-instance reread from disk: exactly one receipt persisted; restore did
+        # NOT settle it (balance still at the pre-crash value - no charge smuggled in).
+        reread = JsonlEpisodeStore(tmp_path).load(episode)[1]
+        assert reread is not None
+        assert len(reread.unreconciled_effects) == 1
+        assert reread.budget_snapshot is not None and reread.budget_snapshot["remaining_calls"] == 3
+    
+>       with pytest.raises(ValueError, match="unreconciled"):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py:101: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-probe-host-repair-20260923/runs/portable/budget-mutant/junit.xml -
+=========================== short test summary info ============================
+FAILED ../../../../fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py::test_spend_gate_refuses_unreconciled_and_has_no_forgetful_default
+FAILED ../../../../fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py::test_restore_registers_the_window_once_and_never_spends_the_balance
+2 failed, 3 passed in 0.79s

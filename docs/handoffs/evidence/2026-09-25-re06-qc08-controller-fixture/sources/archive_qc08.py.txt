@@ -1,0 +1,137 @@
+"""Archive QC08 rejection and offline fixture repair without changing the batch."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-08'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+PYTHON = str(ROOT / 'candidate/.venv-workbench/bin/python')
+OUT = ROOT / 'qc08-controller-incident-0925'
+DEST = TREE / 'docs/handoffs/evidence/2026-09-25-re06-qc08-controller-fixture'
+OUT.mkdir(exist_ok=False)
+DEST.mkdir(parents=True, exist_ok=False)
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+
+child = next((QC / 'evidence/controller-v3').glob('controller_preflight-*/receipt.json'))
+data = json.loads(child.read_text())
+assert data['complete'] and data['exit_code'] == 1
+assert data['counts'] == {'tests': 10, 'passed': 8, 'failed': 2, 'errors': 0, 'skipped': 0, 'xfailed': 0, 'collected': 10, 'collected_source': 'pytest_stdout'}
+assert data['sources_unchanged'] and sha(Path(data['log'])) == data['log_sha256']
+assert sha(Path(data['junit'])) == data['junit_sha256']
+cases = list(ET.parse(data['junit']).getroot().iter('testcase'))
+failures = {case.get('name'): case.find('failure').get('message') for case in cases if case.find('failure') is not None}
+assert set(failures) == {'test_deliberate_controller_red', 'test_other_artifacts_and_frozen_probes_are_not_writable'}
+assert 'FileNotFoundError' in failures['test_other_artifacts_and_frozen_probes_are_not_writable']
+assert not (QC / 'evidence/e2').exists()
+for name in ('gateway', 'execute-e2-v3', 'report-e2-v3', 'execution-boundary-preflight-v3.json'):
+    assert not (QC / name).exists()
+checks = []
+commands = {
+    'unittest': [PYTHON, '-B', '-m', 'unittest', 'tests.test_review_io_sandbox', 'tests.test_review_artifact_writer', 'tests.test_qc_userspace_isolation', '-v'],
+    'ruff': [PYTHON, '-m', 'ruff', 'check', 'scripts/review_probes/review_io_sandbox.py',
+             'scripts/review_probes/review_artifact_writer.py', 'scripts/review_probes/qc_userspace_isolation.py',
+             'tests/test_review_io_sandbox.py', 'tests/test_review_artifact_writer.py', 'tests/test_qc_userspace_isolation.py'],
+}
+for name, command in commands.items():
+    with (OUT / (name + '.log.txt')).open('xb') as stream:
+        result = subprocess.run(command, cwd=TREE, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0'),
+                                stdout=stream, stderr=subprocess.STDOUT, timeout=90)
+    checks.append({'name': name, 'command': command, 'exit_code': result.returncode, 'log_sha256': sha(OUT / (name + '.log.txt'))})
+    assert result.returncode == 0
+budget = json.loads(subprocess.check_output([PYTHON, str(ROOT / 'inspect_status.py')], text=True))
+assert budget['used'] == 186 and budget['remaining'] == 32
+save(OUT / 'budget-after.json', budget)
+# Compare old source snapshots, never rewrite their manifests to follow new bytes.
+old_checks = []
+for name in ('2026-09-25-re06-qc07-write-boundary', '2026-09-25-re06-qc07-userspace-rejection'):
+    old = TREE / 'docs/handoffs/evidence' / name
+    manifest = json.loads((old / 'manifest.json').read_text())
+    unchanged, exceptions = 0, []
+    for row in manifest['artifacts']:
+        archived = old / row['archive']
+        assert sha(archived) == row['sha256']
+        source = Path(row['source'])
+        if sha(source) == row['sha256']:
+            unchanged += 1
+        elif source.name == 'reviewer-pytest-admissions.jsonl':
+            assert source.read_bytes().startswith(archived.read_bytes())
+            exceptions.append({'source': str(source), 'reason': 'previously recorded append-only resource ledger'})
+        elif source == TREE / 'scripts/review_probes/review_io_sandbox.py':
+            exceptions.append({'source': str(source), 'reason': 'new source repair; prior archived bytes remain immutable'})
+        else:
+            raise AssertionError(str(source))
+    old_checks.append({'archive': name, 'all_archived_bytes_unchanged': True, 'unchanged_sources': unchanged, 'exceptions': exceptions})
+config = json.loads((QC / 'config.json').read_text())
+for tree in (config['author'], config['tree']):
+    assert subprocess.check_output(['git', '-C', tree, 'rev-parse', 'HEAD'], text=True).strip() == config['revision']
+    assert not subprocess.check_output(['git', '-C', tree, 'status', '--porcelain'], text=True).strip()
+incident = {'at': datetime.now(timezone.utc).isoformat(), 'status': 'BLOCKED_CONTROLLER_FIXTURE',
+            'revision': config['revision'], 'baseline': config['baseline'], 'model_requests_added': 0,
+            'automatic_dynamic_retries': 0, 'pytest_invocations': 1, 'controller_counts': data['counts'],
+            'failures': failures, 'actual_receipt': str(child), 'actual_receipt_sha256': sha(child),
+            'userspace_plugin_reached_test_collection': True, 'controller_extra_failure': 'missing evidence/e2 parent before permission assertion',
+            'fixture_repair_installed_in_qc08': False, 'ui_and_gateway_and_independent_review_started': False,
+            'offline_repair_checks': checks, 'old_archives': old_checks,
+            'host_invocation_error': {'source': 'observed command-tool result, not raw process-log archive',
+                'command': [PYTHON, '-B', '-m', 'unittest', 'discover', '-s', str(TREE / 'tests'), '-p', 'test_review_io_sandbox.py', '-v'],
+                'cwd': '/Users/a77/finance-workspace-private', 'exit_code': 1, 'error': "ModuleNotFoundError: No module named 'scripts.review_probes'",
+                'correction': 'explicit unittest top-level worktree; subsequent scoped checks recorded separately'},
+            'not_verified': ['new fixture through full executor', 'UI controller', 'author collection', 'gateway', 'E2 independent review', 'C1-C10', 'natural acceptance', 'new main integration']}
+save(OUT / 'incident.json', incident)
+
+files = {}
+def add(source, relative):
+    assert source.is_file() and not source.is_symlink()
+    relative = Path(relative)
+    if relative.suffix == '.log':
+        relative = Path(str(relative) + '.txt')
+    files[source] = relative
+for source in QC.iterdir():
+    if source.suffix in {'.py', '.mjs', '.sb'}:
+        add(source, 'sources/' + source.name + '.txt')
+for name in ('config.json', 'preparation.json', 'provider-template.json', 'io-boundary-preflight.json',
+             'stage-boundary-preflight-v3-0925.json', 'probe-menu-preflight-0925.json',
+             'probe-transport-preflight.json', 'artifact-checkpoint-preflight-0925.json'):
+    add(QC / name, 'receipts/' + name)
+folders = ['offline-validation', 'stage-admissions', 'inputs/frozen-explore-e2-v3', 'work/controller-v3/probes', 'host-steps', 'evidence']
+folders += [p.name for p in QC.glob('execution-boundary-preflight-v3-*') if p.is_dir()]
+for folder in folders:
+    for source in (QC / folder).rglob('*'):
+        if source.is_file() and not source.is_symlink() and '__pycache__' not in source.parts:
+            add(source, 'artifacts/' + str(source.relative_to(QC)) + ('.txt' if source.suffix in {'.py', '.tsx'} else ''))
+for name in ('inputs/ui.vitest-v3.config.mjs', 'inputs/qc_userspace_isolation.py', 'work/reviewer-pytest-admissions.jsonl', 'prompt-execute-e2-v3.md', 'prompt-report-e2-v3.md'):
+    add(QC / name, 'artifacts/' + name + '.txt')
+io = Path(json.loads((QC / 'io-boundary-preflight.json').read_text())['evidence'])
+for source in io.rglob('*'):
+    if source.is_file() and not source.is_symlink() and not source.is_relative_to(io / 'fixture') and source.name != 'credential.json':
+        add(source, 'io-preflight/' + str(source.relative_to(io)))
+for source in OUT.iterdir():
+    add(source, 'repair-validation/' + source.name)
+for name in ('prepare_qc08.py', 'preflight_qc08_offline.py', 'run_qc08_step.py', 'inspect_status.py', 'inspect_status_before_qc08.py', 'archive_qc08.py'):
+    add(ROOT / name, 'sources/' + name + '.txt')
+for name in ('scripts/review_probes/review_io_sandbox.py', 'tests/test_review_io_sandbox.py'):
+    add(TREE / name, 'repair/' + Path(name).name + '.txt')
+rows = []
+for source, relative in sorted(files.items(), key=lambda item: str(item[1])):
+    destination = DEST / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open('xb') as stream:
+        stream.write(source.read_bytes())
+    assert sha(destination) == sha(source)
+    rows.append({'source': str(source), 'archive': str(relative), 'bytes': source.stat().st_size, 'sha256': sha(source)})
+save(DEST / 'manifest.json', {'scope': 'QC08 controller fixture rejection, offline boundaries and separate source repair',
+                            'archive_count': len(rows), 'artifacts': rows})
+print(json.dumps({'archive': str(DEST), 'count': len(rows), 'status': incident['status'], 'model_requests_added': 0,
+                  'budget_used': budget['used'], 'remaining': budget['remaining'], 'offline_checks': checks}, indent=2))

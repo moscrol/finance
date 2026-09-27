@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.484" timestamp="2026-09-21T21:35:30.004656+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_history_artifact_scope" name="test_authorized_history_read_verifies_content_once[False]" time="0.335"><failure message="AssertionError: assert 2 == 1&#10; +  where 2 = len([PosixPath('/private/tmp/pytest-of-a77/pytest-1451/test_authorized_history_read_v0/runs/run_20260921_213530_126172/his.../runs/run_20260921_213530_126172/history-query-6e506b5649287107bcc9f32f0e6cb163c0947bf4b52eea0abcae226abf005749.json')])">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1451/test_authorized_history_read_v0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10998b830&gt;
+cached = False
+
+    @pytest.mark.parametrize("cached", [False, True])
+    def test_authorized_history_read_verifies_content_once(tmp_path, monkeypatch, cached):
+        registry, context, session = _registry(tmp_path)
+        query = _query(registry, context)
+        ref = query.telemetry["result_ref"]
+        expected = session.read(ref)
+        if not cached:
+            session.refs.clear()
+        original_verify = session.store._verified_history_bytes
+        calls = []
+    
+        def verify(path, artifact):
+            calls.append(path)
+            return original_verify(path, artifact)
+    
+        monkeypatch.setattr(session.store, "_verified_history_bytes", verify)
+        assert session.read(ref) == expected
+&gt;       assert len(calls) == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len([PosixPath('/private/tmp/pytest-of-a77/pytest-1451/test_authorized_history_read_v0/runs/run_20260921_213530_126172/his.../runs/run_20260921_213530_126172/history-query-6e506b5649287107bcc9f32f0e6cb163c0947bf4b52eea0abcae226abf005749.json')])
+
+tests/test_history_artifact_scope.py:146: AssertionError</failure></testcase><testcase classname="tests.test_history_artifact_scope" name="test_authorized_history_read_verifies_content_once[True]" time="0.033"><failure message="AssertionError: assert 2 == 1&#10; +  where 2 = len([PosixPath('/private/tmp/pytest-of-a77/pytest-1451/test_authorized_history_read_v1/runs/run_20260921_213530_462045/his.../runs/run_20260921_213530_462045/history-query-ec0a0558769fa71d5d8bc32bbf34250f79acb9b274501bca57c3213e2e5ca97c.json')])">tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1451/test_authorized_history_read_v1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10c0cf260&gt;
+cached = True
+
+    @pytest.mark.parametrize("cached", [False, True])
+    def test_authorized_history_read_verifies_content_once(tmp_path, monkeypatch, cached):
+        registry, context, session = _registry(tmp_path)
+        query = _query(registry, context)
+        ref = query.telemetry["result_ref"]
+        expected = session.read(ref)
+        if not cached:
+            session.refs.clear()
+        original_verify = session.store._verified_history_bytes
+        calls = []
+    
+        def verify(path, artifact):
+            calls.append(path)
+            return original_verify(path, artifact)
+    
+        monkeypatch.setattr(session.store, "_verified_history_bytes", verify)
+        assert session.read(ref) == expected
+&gt;       assert len(calls) == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len([PosixPath('/private/tmp/pytest-of-a77/pytest-1451/test_authorized_history_read_v1/runs/run_20260921_213530_462045/his.../runs/run_20260921_213530_462045/history-query-ec0a0558769fa71d5d8bc32bbf34250f79acb9b274501bca57c3213e2e5ca97c.json')])
+
+tests/test_history_artifact_scope.py:146: AssertionError</failure></testcase></testsuite></testsuites>

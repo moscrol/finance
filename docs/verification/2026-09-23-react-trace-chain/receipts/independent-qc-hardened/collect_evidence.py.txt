@@ -1,0 +1,120 @@
+"""Collect immutable stage evidence after the one authorized batch stops."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-react-trace-chain-docs-0923')
+DEST = DOCS/'docs/verification/2026-09-23-react-trace-chain/receipts/independent-qc-hardened'
+REV = 'd1b30e1a068ccd0559f091f3c664ca2ca82f1e7c'
+BASE = '626d8a508c1c988ff094110b371987e6afdcdd15'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+batch = load(ROOT/'batch.json')
+assert batch['status'] != 'RUNNING'
+assert not DEST.exists()
+for name, sha in load(ROOT/'harness-lock.json')['files'].items():
+    assert digest(ROOT/name) == sha, name
+requests = 0
+stages = {}
+checked = 0
+for axis in ['spec', 'quality']:
+    stages[axis] = {}
+    for stage in ['gateway', 'explore', 'execute', 'report']:
+        controller_path = ROOT/axis/(stage+'.controller.json')
+        if not controller_path.exists():
+            stages[axis][stage] = {'status': 'NOT_STARTED', 'requests': 0}
+            continue
+        controller = load(controller_path)
+        counts = load(ROOT/axis/(stage+'-shim')/'counts.json')
+        assert counts['active'] == 0 and counts['shutdown_complete']
+        assert counts['requests'] == counts['dispatched']
+        assert counts['dispatched'] == counts['completed'] + counts['failed'] + counts['cancelled']
+        assert controller['request_counts_agree']
+        requests += counts['dispatched']
+        stages[axis][stage] = controller
+        if stage != 'gateway':
+            execution = load(ROOT/axis/stage/'execution.json')
+            expected = {'revision': REV, 'status': ''}
+            assert execution['candidate_before'] == execution['candidate_after'] == expected
+            assert execution['author_before'] == execution['author_after'] == expected
+            assert execution['inputs_unchanged']
+            for name, sha in execution['artifact_sha256'].items():
+                assert digest(ROOT/axis/stage/name) == sha, (axis, stage, name)
+                checked += 1
+            stages[axis][stage]['delivery'] = {
+                'report_structural': execution['report_structural'],
+                'errors': execution['errors'], 'timed_out': execution['timed_out'],
+                'requests': execution['requests'], 'elapsed_seconds': execution['elapsed_seconds'],
+            }
+            p = ROOT/axis/stage/'REPORT.json'
+            if p.exists():
+                stages[axis][stage]['report'] = load(p)
+assert requests == batch['requests'] <= 152
+identities = {}
+for name, tree in [('candidate', ROOT/'candidate/finance-workspace-private'),
+                   ('author', Path('/Users/a77/fwp-wt-react-trace-chain-0923'))]:
+    sha = subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip()
+    status = subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain', '--untracked-files=all'], text=True)
+    assert sha == REV and not status
+    identities[name] = {'tree': str(tree), 'revision': sha, 'dirty': False}
+remote = subprocess.check_output(['git', '-C', str(DOCS), 'ls-remote', 'gitea', 'refs/heads/main', 'refs/heads/fix/react-trace-qc-0921'], text=True)
+refs = {row.split()[1]: row.split()[0] for row in remote.splitlines()}
+assert refs['refs/heads/fix/react-trace-qc-0921'] == REV
+host = load(ROOT/'host-review.json')
+assert host['revision'] == REV and host['model_requests_added'] == 0
+summary = {'finished_at': datetime.now(timezone.utc).isoformat(), 'workorder': 75, 'candidate_workorder': 81, 'pr': 832,
+           'revision': REV, 'baseline': BASE, 'verdict': host['verdict'], 'host_review': host,
+           'engineering_verdict': 'ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS',
+           'previous_batch_verdict': 'BLOCKED_HARNESS_AND_INCOMPLETE_REPORT', 'previous_batch_requests': 49,
+           'model': 'glm-direct-review/glm-5.3', 'model_requests': requests, 'max_batch_requests': 152,
+           'automatic_retries': 0, 'stages': stages, 'identities': identities,
+           'remote_refs_at_closeout': refs, 'stage_artifact_hashes_checked': checked,
+           'natural_finance_requests': 0, 'product_changed': False, 'merged': False, 'deployed': False,
+           'limits': ['Old E2E timing failures remain; no stability claim.',
+                      'No acceptance of integration with later main.', '#76 separately authorized; previous not_passed unchanged.',
+                      'Host admission controls are not independent product coverage.']}
+(ROOT/'SUMMARY.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2)+'\n')
+selected = {p for p in ROOT.iterdir() if p.is_file() and p.suffix in {'.py', '.mjs', '.json', '.md', '.txt'}}
+for axis in ['spec', 'quality']:
+    folder = ROOT/axis
+    selected.update(p for p in folder.iterdir() if p.is_file())
+    selected.update((folder/'inputs').glob('*'))
+    selected.add(folder/'pi-config/settings.json')
+    for name in ['sandbox-preflight', 'gateway', 'explore', 'execute', 'report',
+                 'gateway-shim', 'explore-shim', 'execute-shim', 'report-shim']:
+        selected.update(p for p in (folder/name).rglob('*') if p.is_file() and not p.is_symlink()
+                        and p.name not in {'events.jsonl', 'credential.json'})
+    selected.update(p for p in (folder/'work').glob('*.md'))
+    selected.update((folder/'work/probes').glob('*.py'))
+for name in ['read-delivery-control', 'read-delivery-control-v2']:
+    selected.update(p for p in (ROOT/name).rglob('*') if p.is_file() and not p.is_symlink()
+                    and p.name != 'credential.json')
+DEST.mkdir()
+entries = []
+for source in sorted(selected):
+    assert source.is_file() and not source.is_symlink()
+    relative = source.relative_to(ROOT)
+    if source.suffix in {'.py', '.mjs', '.sb', '.log'}:
+        relative = Path(str(relative)+'.txt')
+    target = DEST/relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, target)
+    entries.append({'path': str(relative), 'source': str(source), 'bytes': source.stat().st_size, 'sha256': digest(source)})
+manifest = {'schema': 1, 'candidate': REV, 'verdict': summary['verdict'], 'entries': entries,
+            'scope': 'Full command/output/exit receipts and typed reports; events stay external and execution-hashed. No secrets, databases, caches or candidate source copy.'}
+(DEST/'MANIFEST.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n')
+print(json.dumps({'status': 'ARCHIVED', 'verdict': summary['verdict'], 'requests': requests,
+                  'files': len(entries), 'bytes': sum(e['bytes'] for e in entries),
+                  'checked_stage_artifacts': checked, 'remote_main': refs['refs/heads/main']}, indent=2))

@@ -610,29 +610,24 @@ def test_prior_reference_opens_a_user_premise_slot_for_the_recall(
 
 
 @pytest.mark.parametrize(
-    ("question", "why"),
+    ("question", "expected"),
     (
-        ("液冷题材现在怎么看", "泛问：没有引用任何历史判断"),
-        ("液冷的产业链结构是什么", "结构题：与用户先验无关"),
-        ("固态电池现在的强度排名", "取值查询：不该背一个先验槽位"),
+        ("液冷题材现在怎么看", True),
+        ("液冷的产业链结构是什么", False),
+        ("固态电池现在的强度排名", True),
     ),
 )
-def test_questions_without_a_prior_reference_get_no_recall_slot(
+def test_automatic_opening_recall_has_an_optional_slot_only_for_research(
     question: str,
-    why: str,
+    expected: bool,
 ) -> None:
-    """没引用历史判断就不注入——这一条比上面那条更重要。
-
-    无条件注入会给每道题多加一格必须交付的内容，而绝大多数问题里用户并没有可复述
-    的先验；模型要么编一段「你此前认为…」，要么每次多烧一次工具预算去查一个注定
-    空手的台账。实测预算只有 4 次（``MAX_BATCH_TOOL_CALLS``），一次空查就是 25%。
-    """
-
+    """研究题预取有先验落点；空命中不变必交项，也不消耗模型工具调用。"""
     context = _prior_recall_context(question, f"prior-recall-skip-{hash(question)}")
-
-    assert "prior_recall" not in {
-        item.output_id for item in context.contract.required_outputs
-    }, f"不该注入却注入了（{why}）"
+    slot = next((item for item in context.contract.required_outputs if item.output_id == "prior_recall"), None)
+    assert (slot is not None) == expected
+    if slot is not None:
+        assert slot.grounding_mode == "user_premise"
+        assert slot.required is False
 
 
 def test_prior_recall_slot_is_scoped_to_subject_bearing_question_types() -> None:

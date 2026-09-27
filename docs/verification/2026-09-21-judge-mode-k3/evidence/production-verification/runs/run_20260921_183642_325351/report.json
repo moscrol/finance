@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "report_id": "run_20260921_183642_325351",
+  "title": "请复盘长电科技（600584）最近一个交易日的表现：涨跌幅、成交额、所属板块的表现，并明确说明数据日期。",
+  "task_type": "research",
+  "status": "completed",
+  "as_of": "2026-09-18",
+  "llm": {
+    "used": true,
+    "provider": "zhipu",
+    "model": "kimi-k3"
+  },
+  "modules": [],
+  "warnings": [],
+  "task_frame": {
+    "raw_question": "请复盘长电科技（600584）最近一个交易日的表现：涨跌幅、成交额、所属板块的表现，并明确说明数据日期。",
+    "user_goal": "形成条件化判断",
+    "question_type": "stock_deep_dive",
+    "subject": "长电科技",
+    "subject_kind": "company",
+    "market_scope": "A股",
+    "timeframe": null,
+    "required_outputs": [
+      "direct_assessment",
+      "supporting_evidence",
+      "counterpoint"
+    ],
+    "assumptions": [
+      "用户未明确市场范围，按A股市场理解"
+    ],
+    "ambiguities": [],
+    "clarification_question": null,
+    "evidence_policy": "company_multi_layer_evidence",
+    "confidence": 1.0,
+    "task_frame_hash": "5f1fc4fade665e8a701109594b34348b93a6924aa46ea4919c7120100b0139de"
+  },
+  "task_frame_hash": "5f1fc4fade665e8a701109594b34348b93a6924aa46ea4919c7120100b0139de",
+  "execution_kind": "continuous_episode",
+  "turn_intent": {
+    "primary_subject": "长电科技",
+    "secondary_topics": [],
+    "question_type": "stock_deep_dive",
+    "answer_owner": "stock-产业链研究",
+    "comparison_entities": [],
+    "inherited_from_turn": null,
+    "evidence_atom_ids": [],
+    "skill_ids": [],
+    "stage_artifact_ids": [],
+    "time_horizon": "unspecified",
+    "operators": [],
+    "required_outputs": [
+      "direct_assessment",
+      "supporting_evidence",
+      "counterpoint"
+    ],
+    "timeframe": null,
+    "task_frame_hash": "5f1fc4fade665e8a701109594b34348b93a6924aa46ea4919c7120100b0139de",
+    "pending_task_frame": null,
+    "clarification_rounds": 0,
+    "history_intent": null
+  },
+  "answer_marker_coverage": {
+    "task_frame_hash": "5f1fc4fade665e8a701109594b34348b93a6924aa46ea4919c7120100b0139de",
+    "question_type": "stock_deep_dive",
+    "required_output_count": 3,
+    "checked_count": 3,
+    "present": [
+      "supporting_evidence",
+      "counterpoint"
+    ],
+    "absent": [
+      "direct_assessment"
+    ],
+    "uncheckable": [],
+    "marker_coverage": "incomplete",
+    "observation_only": true,
+    "warnings": []
+  },
+  "context_growth": {
+    "sub_agent_provenance": "unavailable",
+    "sub_agent_branch_count": 0,
+    "sub_agent_input_tokens": null,
+    "provenance": "per_turn",
+    "turn_count": 5,
+    "per_turn_input_tokens": [
+      22596,
+      24630,
+      31459,
+      33417,
+      34861
+    ],
+    "max_turn_input_tokens": 34861,
+    "cumulative_input_tokens": 146963,
+    "growth_ratio": 1.543,
+    "observation_only": true
+  },
+  "transport_status": "completed",
+  "research_status": "complete",
+  "answer_status": "complete",
+  "business_status": "complete",
+  "completed_at": "2026-09-21T10:39:10+00:00",
+  "gate_receipt": {
+    "schema_version": 1,
+    "engine": "episode",
+    "rev": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "verified_status": "completed",
+    "judge_status": "passed",
+    "issues": [],
+    "judge_unavailable_count": 0,
+    "content_degraded_count": 0,
+    "timings": {
+      "elapsed_seconds": null,
+      "retrieve_seconds": null,
+      "judge_seconds": null,
+      "timeout_asked": null
+    },
+    "correlated_judge": null
+  }
+}

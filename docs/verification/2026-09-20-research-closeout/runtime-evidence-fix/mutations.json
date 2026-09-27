@@ -1,0 +1,214 @@
+[
+  {
+    "name": "M1-hash-only",
+    "source": "intelligence/services/episode_evidence.py",
+    "original_sha256": "f1ffd3f68e2363e4e61e4d1616f732530051d2d897f39e006a3d0ecec2837941",
+    "red": {
+      "label": "M1-hash-only-red",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "-k",
+        "same_hash_presentations or v2_digest"
+      ],
+      "returncode": 1,
+      "seconds": 0.36539196968078613,
+      "log": "M1-hash-only-red.log"
+    },
+    "green": {
+      "label": "M1-hash-only-green",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "-k",
+        "same_hash_presentations or v2_digest"
+      ],
+      "returncode": 0,
+      "seconds": 0.2676520347595215,
+      "log": "M1-hash-only-green.log"
+    }
+  },
+  {
+    "name": "M2-unknown-as-future",
+    "source": "intelligence/services/episode_evidence.py",
+    "original_sha256": "f1ffd3f68e2363e4e61e4d1616f732530051d2d897f39e006a3d0ecec2837941",
+    "red": {
+      "label": "M2-unknown-as-future-red",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "-k",
+        "unadmitted_presentations or reader_rechecks_future"
+      ],
+      "returncode": 1,
+      "seconds": 0.32155799865722656,
+      "log": "M2-unknown-as-future-red.log"
+    },
+    "green": {
+      "label": "M2-unknown-as-future-green",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "-k",
+        "unadmitted_presentations or reader_rechecks_future"
+      ],
+      "returncode": 0,
+      "seconds": 0.26641416549682617,
+      "log": "M2-unknown-as-future-green.log"
+    }
+  },
+  {
+    "name": "M3-upgrade-v1-on-read",
+    "source": "intelligence/services/episode_evidence.py",
+    "original_sha256": "f1ffd3f68e2363e4e61e4d1616f732530051d2d897f39e006a3d0ecec2837941",
+    "red": {
+      "label": "M3-upgrade-v1-on-read-red",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "intelligence/tests/test_episode_evidence_snapshot.py",
+        "-k",
+        "v1_read_preserves or restore_keeps_original_capture_position"
+      ],
+      "returncode": 1,
+      "seconds": 0.43044519424438477,
+      "log": "M3-upgrade-v1-on-read-red.log"
+    },
+    "green": {
+      "label": "M3-upgrade-v1-on-read-green",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "intelligence/tests/test_episode_evidence_snapshot.py",
+        "-k",
+        "v1_read_preserves or restore_keeps_original_capture_position"
+      ],
+      "returncode": 0,
+      "seconds": 0.4331681728363037,
+      "log": "M3-upgrade-v1-on-read-green.log"
+    }
+  },
+  {
+    "name": "M4-future-in-restored-ledger",
+    "source": "intelligence/services/evidence_ledger.py",
+    "original_sha256": "ef1232f088d9f3544fd18bbbf49d09e7f212f1f7d348fb66793d2e2c93c84034",
+    "red": {
+      "label": "M4-future-in-restored-ledger-red",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "-k",
+        "future_presentation_restores"
+      ],
+      "returncode": 1,
+      "seconds": 0.2611062526702881,
+      "log": "M4-future-in-restored-ledger-red.log"
+    },
+    "green": {
+      "label": "M4-future-in-restored-ledger-green",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_episode_evidence_presentations.py",
+        "-k",
+        "future_presentation_restores"
+      ],
+      "returncode": 0,
+      "seconds": 0.26025986671447754,
+      "log": "M4-future-in-restored-ledger-green.log"
+    }
+  },
+  {
+    "name": "M5-skip-timer-join",
+    "source": "intelligence/tests/fixtures/run_supervisor.py",
+    "original_sha256": "f1e3e2fc22ddf7835d80a9b2303b7bee85ed5ad49b74fdf88385ad8ed209158f",
+    "red": {
+      "label": "M5-skip-timer-join-red",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_api_fixture_lifecycle.py",
+        "-k",
+        "fired_timer"
+      ],
+      "returncode": 1,
+      "seconds": 1.0793299674987793,
+      "log": "M5-skip-timer-join-red.log"
+    },
+    "green": {
+      "label": "M5-skip-timer-join-green",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_api_fixture_lifecycle.py",
+        "-k",
+        "fired_timer"
+      ],
+      "returncode": 0,
+      "seconds": 0.9410901069641113,
+      "log": "M5-skip-timer-join-green.log"
+    }
+  },
+  {
+    "name": "M6-forget-retired-timers",
+    "source": "intelligence/tests/fixtures/run_supervisor.py",
+    "original_sha256": "f1e3e2fc22ddf7835d80a9b2303b7bee85ed5ad49b74fdf88385ad8ed209158f",
+    "red": {
+      "label": "M6-forget-retired-timers-red",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_api_fixture_lifecycle.py",
+        "-k",
+        "fired_timer"
+      ],
+      "returncode": 1,
+      "seconds": 0.970451831817627,
+      "log": "M6-forget-retired-timers-red.log"
+    },
+    "green": {
+      "label": "M6-forget-retired-timers-green",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "intelligence/tests/test_api_fixture_lifecycle.py",
+        "-k",
+        "fired_timer"
+      ],
+      "returncode": 0,
+      "seconds": 0.9576101303100586,
+      "log": "M6-forget-retired-timers-green.log"
+    }
+  }
+]

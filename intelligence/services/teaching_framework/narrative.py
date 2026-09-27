@@ -10,7 +10,8 @@
   多是没有叙事的纯盘面异动，主线成形时叙事跟上（先量：底部 10% / 顶部 20% / 2.0 45%）。
 
 两条时钟：``report_date`` 是报告日（当晚出的研报，下一交易日可知），按它算读数；``ingested_at`` 是**我们**什么时候入库，
-作河对象的 ``recorded_at``——入库普遍滞后（实测 4.6% 同日），回放 / 校准的无前视门该滤就滤。
+原版本的 ``recorded_at`` 取入库时刻，订正版本取订正发布时刻。读取器按构建日终截止并应用订正；
+这里的全历史聚合仍是事后研究，不代表每个历史开盘时已知，也不构成整条河的 PIT 验收。
 源断更（最新报告日距 as_of 超过 ``stale_after_days``）时读数全部记缺口 ``narrative_stale``，不给 0——0 条事件和没有事件源是两回事。
 概念名与板块名只做**精确**匹配（实测 83 个板块名与概念名完全重合），不做模糊匹配。
 
@@ -30,6 +31,8 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+from intelligence.services.opinion_events import known_at, load_events
 
 OPINION_EVENTS_RELPATH = Path("raw/theme-radar/opinion-store/opinion-events.jsonl")
 BRIEFING_EVENTS_RELPATH = Path("raw/theme-radar/opinion-store/briefing-tier-events.jsonl")
@@ -78,9 +81,11 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     return out
 
 
-def load_opinion_events(kb_wiki: str | Path) -> list[dict[str, Any]]:
-    """Read the KB's opinion events; a missing file is a missing source (empty list), never an error here."""
-    return _load_jsonl(Path(kb_wiki).expanduser() / OPINION_EVENTS_RELPATH)
+def load_opinion_events(
+    kb_wiki: str | Path, *, as_of: str | None = None, warnings: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Read the reviewed projection at an end-of-day cutoff; corrupt reviews raise."""
+    return load_events(Path(kb_wiki).expanduser(), as_of=as_of or date.today().isoformat(), warnings=warnings)
 
 
 def load_briefing_tier_events(kb_wiki: str | Path) -> list[dict[str, Any]]:
@@ -164,7 +169,7 @@ def narrative_daily(
             "narrative_bull_share_pct": (100.0 * sum(1 for e in evs if e.get("stance") in BULL_STANCES) / len(evs)) if evs else None,
             "narrative_top3_share_pct": None,
             "narrative_cover_rps5_pct": None,
-            "recorded_at": max((str(e.get("ingested_at")) for e in evs if e.get("ingested_at")), default=None),
+            "recorded_at": max((str(e.get("recorded_at") or e.get("ingested_at")) for e in evs if e.get("recorded_at") or e.get("ingested_at")), key=known_at, default=None),
         }
         if concepts:
             c = Counter(concepts)

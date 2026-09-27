@@ -1,0 +1,6 @@
+{"type":"request_dispatch","requestId":1,"finalizing":false,"tools":["read","search","git"],"elapsedMs":395}
+{"type":"request_complete","requestId":1,"status":200,"elapsedMs":396}
+{"type":"finalizing","requestCount":2,"elapsedMs":894}
+{"type":"request_dispatch","requestId":2,"finalizing":true,"tools":[],"elapsedMs":894}
+{"type":"request_complete","requestId":2,"status":200,"elapsedMs":896}
+{"type":"request_rejected","reason":"request_cap","requestCount":2}

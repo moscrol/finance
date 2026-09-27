@@ -1,0 +1,54 @@
+"""Archive original offline gate artifacts; keep large JUnit external with a hash."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SPECS = {'910': '167c9ffac1b428164e7906861438eb1757895dc5',
+         '911': '8dec2a856b76cec21fae6daae1ed7505fb838dcc'}
+assert (ROOT / 'wait-result.json').is_file(), 'wait/run supervisor has not completed'
+for pr, revision in SPECS.items():
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip() == revision
+    assert not subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True).strip()
+    folder = tree / 'docs/verification' / f'2026-09-25-pr{pr}-main9d5-gates'
+    folder.mkdir(exist_ok=False)
+    paths = [p for p in ROOT.iterdir() if p.is_file()]
+    for attempt in (ROOT, ROOT / 'attempt02'):
+        paths += [p for p in (attempt / pr).glob('*') if p.is_file()]
+        paths += [p for p in (attempt / pr / 'frontend').glob('*') if p.is_file()]
+        paths += list((attempt / pr / 'receipts').glob('gate-*/*'))
+        tmp = attempt / pr / 'targeted-tmp'
+        for xml in tmp.glob('test_real_author_checks_execut*/sandbox-inputs/*/work/author-checks.xml'):
+            paths.append(xml)
+            paths += list(xml.parent.glob('author-ports.*'))
+            paths += [p for p in (xml.parent.parent / 'offline-tool-run').rglob('*') if p.is_file()]
+    paths += [p for p in (ROOT / 'attempt02').glob('*') if p.is_file()]
+    records = []
+    for source in sorted(set(paths)):
+        if not source.is_file():
+            continue
+        data = source.read_bytes()
+        record = {'source': str(source), 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)}
+        if len(data) > 500000:
+            record['storage'] = 'external-large-original'
+        else:
+            relative = source.relative_to(ROOT)
+            target = folder / 'raw' / relative
+            if target.suffix in {'.py', '.log'}:
+                target = target.with_name(target.name + '.txt')
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            assert target.read_bytes() == data
+            record.update(path=target.relative_to(folder).as_posix(), storage='git-original')
+        records.append(record)
+    manifest = {'pr': pr, 'revision': revision,
+                'baseline': '9d5b9800a5500e6f64875432f8df3a06713d6f52',
+                'created_at': datetime.now(timezone.utc).isoformat(), 'files': records,
+                'scope': 'original gate evidence; conflict-targeted ran on an uncommitted merge',
+                'independent_review': False, 'paid_model_requests': 0}
+    (folder / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'pr': pr, 'originals': len(records), 'archive': str(folder)}))

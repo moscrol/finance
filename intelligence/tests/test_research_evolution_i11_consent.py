@@ -80,7 +80,9 @@ def test_withdraw_logging_stops_self_use_measurement_but_research_completes(worl
 def test_granted_required_scopes_keep_measurement_flowing(world):
     _consent(world, "grant", ["research", "logging"], "b")
     run_id = _run_once(world, "Research with consent in force")
-    seen = _wait_measurements(world, run_id, {"run_started", "run_finished"})
+    # cost_recorded 必须一起等：它在终态事件之后才追加，只等 run_finished 会在机器
+    # 繁忙时抢在它前面返回（实测 load 44 的全量回归里偷发红，单跑则稳绿）。
+    seen = _wait_measurements(world, run_id, {"run_started", "run_finished", "cost_recorded"})
     assert "cost_recorded" in seen  # 假 turn 记了 120 tokens → 终态多写一条 certainty=unknown 的成本
 
 
@@ -94,3 +96,47 @@ def test_withdrawing_an_unrelated_scope_does_not_stop_measurement(world):
 def test_no_consent_record_keeps_self_use_default(world):
     run_id = _run_once(world, "Owner observing themselves without any consent record")
     _wait_measurements(world, run_id, {"run_started", "run_finished"})
+
+
+def _timer(world: World, action: str, version: str) -> None:
+    event_id = f"timer-{version}-{action}"
+    response = world.events([{
+        "event_id": event_id,
+        "event_type": "consent_changed",
+        "participant_id": fx.OWNER,
+        "payload": {
+            "consent_version": version,
+            "scopes": ["research", "logging"] if version == "workbench-activity-v1" else ["activity-timer"],
+            "effective_at": world.clock().isoformat(),
+            "action": action,
+            "terms_hash": "sha256:" + "a" * 64,
+            "initiator": "user",
+            "assistance_source": "workbench",
+        },
+    }])
+    response.raise_for_status()
+    assert response.json()["accepted"] == [event_id], response.text
+    world.clock.advance(seconds=1)
+
+
+@pytest.mark.parametrize("version", ["workbench-activity-v1", "workbench-activity-v2"])
+@pytest.mark.parametrize("explicit_grant", [False, True])
+def test_timer_stop_preserves_all_three_measurement_events(world, version, explicit_grant):
+    if explicit_grant:
+        _consent(world, "grant", ["research", "logging"], "measure")
+    _timer(world, "grant", version)
+    _timer(world, "withdraw", version)
+    run_id = _run_once(world, "Research after stopping independent timer")
+    assert _wait_measurements(world, run_id, {"run_started", "run_finished", "cost_recorded"}) == [
+        "cost_recorded", "run_finished", "run_started",
+    ]
+
+
+@pytest.mark.parametrize("version", ["workbench-activity-v1", "workbench-activity-v2"])
+def test_timer_start_does_not_reauthorize_withdrawn_measurement(world, version):
+    _consent(world, "grant", ["research", "logging"], "measure")
+    _consent(world, "withdraw", ["logging"], "revoke")
+    _timer(world, "grant", version)
+    run_id = _run_once(world, "Research still works without measurement consent")
+    time.sleep(0.5)
+    assert _measurements_for(world, run_id) == []

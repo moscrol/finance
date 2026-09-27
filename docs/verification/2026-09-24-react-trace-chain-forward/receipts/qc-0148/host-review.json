@@ -1,0 +1,16 @@
+{
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "verdict": "BLOCKED_AUTHOR_COLLECTION_AND_PROVIDER_STREAM",
+  "model_requests_added": 0,
+  "model_requests_in_batch": 29,
+  "stages": {"spec_gateway": "PASS_4_REQUESTS", "spec_explore": "COMPLETE_20_REQUESTS_7_PROBES", "spec_execute": "BLOCKED_5_REQUESTS", "spec_report": "NOT_STARTED", "quality": "NOT_STARTED"},
+  "actual_independent_probe_execution": {"tests": 32, "passed": 16, "failed": 16, "errors": 0, "exit_code": 1},
+  "author_regression_execution": {"collected_product_tests": 0, "exit_code": 4, "reason": "pytest collection stat of candidate/.agents denied by sandbox"},
+  "provider_failure": {"request": 5, "headers_status": 200, "completed": false, "elapsed_seconds": 120.031897, "stage_error": "terminated"},
+  "final_model_report": "ABSENT",
+  "progress_gate_observation": "First probe saved in request5;7 immutable probe files delivered; no longer a zero-probe exploration batch.",
+  "failure_classification": "Probe assertion failures have not been fully triaged by the reviewer. Some use outdated diagnostic/observation contracts; no blanket product or infrastructure attribution.",
+  "continuation": "pr832-glm-qc-20260924-0210 adds metadata-only protected roots and exact seven-file author suite to admission; original tools, failures and probe bytes unchanged.",
+  "limits": ["No independent signoff", "No natural-finance quality verdict", "No merge or deployment", "Host admission and mutation checks do not replace reviewer execution"]
+}

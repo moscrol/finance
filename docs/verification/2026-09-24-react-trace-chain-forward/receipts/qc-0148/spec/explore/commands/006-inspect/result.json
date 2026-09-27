@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "intelligence/services/historical_research/episode.py",
+    "history_tool_specs",
+    "-n",
+    "20"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 23,
+  "output_sha256": "18c8238e7da67d26d9701f13763b40c1350741d9a691038b55d43376d30c2f7d"
+}

@@ -1,0 +1,62 @@
+def _judge(
+    passed: bool, *, rejected: tuple[int, ...] = (), issues: tuple[str, ...] = ()
+):
+    calls: list[dict[str, object]] = []
+
+    def run(request):
+        calls.append(request)
+        if calls.__len__() > 1:
+            return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
+        return {
+            "passed": passed,
+            "rejected_sentence_indexes": list(rejected),
+            "issues": list(issues),
+        }
+
+    run.calls = calls  # type: ignore[attr-defined]
+    return run
+
+
+class _RecordingJudgeModel:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def complete(self, *, messages, tools, timeout):
+        self.calls.append(
+            {
+                "messages": messages,
+                "tools": tools,
+                "timeout": timeout,
+            }
+        )
+        return ModelTurn(
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}',
+            (),
+            "recording",
+            "",
+        )
+
+
+def test_judge_receives_typed_claim_policy_for_requested_forecast(
+    monkeypatch,
+) -> None:
+    frame, structural = _structural(
+        "截至最新交易日，成交额缩量。我的基准判断是反弹仍有数日窗口，"
+        "这是基于当前量价结构的主观估计。"
+    )
+    model = _RecordingJudgeModel()
+    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
+
+    result = SemanticEpisodeVerifier(primary_judge=model).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "completed"
+    sent = model.calls[0]
+    assert len(sent["tools"]) == 1
+    assert sent["tools"][0]["function"]["name"] == "submit_grounding_report"
+    request = json.loads(sent["messages"][1]["content"])
+
+[truncated; total lines=5180, selected=213:272; request a later offset]

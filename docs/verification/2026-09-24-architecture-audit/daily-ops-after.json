@@ -1,0 +1,207 @@
+{
+  "date": "2026-09-24",
+  "scope": "file_inventory_only",
+  "generated_at": "2026-09-24T20:48:00",
+  "paths": {
+    "finance_root": "/Users/a77/finance-workspace-private",
+    "knowledge_wiki": "/Users/a77/knowledge-base-private/wiki",
+    "market_exports": "/Users/a77/finance-workspace-private/market_feature_store/exports"
+  },
+  "sections": {
+    "market_review": {
+      "status": "WARN",
+      "checks": [
+        {
+          "name": "daily_review_md",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-daily-review.md",
+          "exists": false
+        },
+        {
+          "name": "advancers_ma5_png",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-advancers-ma5.png",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-candidates.json",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_md",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-candidates.md",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_queue_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-backfill-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-backfill-review-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_md",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-backfill-review-queue.md",
+          "exists": false
+        },
+        {
+          "name": "daily_review_html",
+          "path": "/Users/a77/finance-workspace-private/复盘/daily/2026-09-24/2026-09-24-daily-review.html",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_html",
+          "path": "/Users/a77/finance-workspace-private/复盘/daily/2026-09-24/2026-09-24-theme-candidates.html",
+          "exists": false
+        },
+        {
+          "name": "daily_workflow_summary_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-daily-workflow-summary.json",
+          "exists": false
+        }
+      ],
+      "missing_count": 10,
+      "missing": [
+        {
+          "name": "daily_review_md",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-daily-review.md",
+          "exists": false
+        },
+        {
+          "name": "advancers_ma5_png",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-advancers-ma5.png",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-candidates.json",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_md",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-candidates.md",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_queue_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-backfill-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-backfill-review-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_md",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-theme-backfill-review-queue.md",
+          "exists": false
+        },
+        {
+          "name": "daily_review_html",
+          "path": "/Users/a77/finance-workspace-private/复盘/daily/2026-09-24/2026-09-24-daily-review.html",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_html",
+          "path": "/Users/a77/finance-workspace-private/复盘/daily/2026-09-24/2026-09-24-theme-candidates.html",
+          "exists": false
+        },
+        {
+          "name": "daily_workflow_summary_json",
+          "path": "/Users/a77/finance-workspace-private/market_feature_store/exports/2026-09-24-daily-workflow-summary.json",
+          "exists": false
+        }
+      ]
+    },
+    "morning_briefing": {
+      "status": "WARN",
+      "root": "/Users/a77/knowledge-base-private/wiki/briefings",
+      "count": 0,
+      "files": []
+    },
+    "ima_stock": {
+      "status": "WARN",
+      "raw_root": "/Users/a77/knowledge-base-private/wiki/raw/ima-stock/ingested/2026-09-24",
+      "raw_md_count": 0,
+      "incoming_uningested_md_count": 0,
+      "done_folder_md_count": 0,
+      "manual_review_md_count": 0,
+      "folders": {
+        "inbox": "/Users/a77/knowledge-base-private/未入库",
+        "done": "/Users/a77/knowledge-base-private/已入库",
+        "manual_review": "/Users/a77/knowledge-base-private/待人工确认"
+      },
+      "missing_folders": [
+        "inbox",
+        "done",
+        "manual_review"
+      ]
+    },
+    "relations": {
+      "status": "PASS",
+      "root": "/Users/a77/knowledge-base-private/wiki/relations",
+      "checks": [
+        {
+          "name": "evidence_index.json",
+          "path": "/Users/a77/knowledge-base-private/wiki/relations/evidence_index.json",
+          "exists": true
+        },
+        {
+          "name": "entity_exposures.json",
+          "path": "/Users/a77/knowledge-base-private/wiki/relations/entity_exposures.json",
+          "exists": true
+        },
+        {
+          "name": "concept_graph.json",
+          "path": "/Users/a77/knowledge-base-private/wiki/relations/concept_graph.json",
+          "exists": true
+        },
+        {
+          "name": "theme_signals.json",
+          "path": "/Users/a77/knowledge-base-private/wiki/relations/theme_signals.json",
+          "exists": true
+        },
+        {
+          "name": "catalyst_calendar.json",
+          "path": "/Users/a77/knowledge-base-private/wiki/relations/catalyst_calendar.json",
+          "exists": true
+        },
+        {
+          "name": "mention_frequency.json",
+          "path": "/Users/a77/knowledge-base-private/wiki/relations/mention_frequency.json",
+          "exists": true
+        }
+      ],
+      "missing": []
+    }
+  },
+  "debts": {
+    "status": "WARN",
+    "missing_concepts": {
+      "count": 0,
+      "path": "/Users/a77/knowledge-base-private/wiki/raw/theme-radar/missing-concept-audit.json",
+      "error": null
+    },
+    "missing_sources": {
+      "count": 21,
+      "path": "/Users/a77/knowledge-base-private/wiki/raw/theme-radar/missing-evidence-source-audit.json",
+      "error": null
+    },
+    "ima_stock_coverage": {
+      "missing_count": 468,
+      "path": "/Users/a77/knowledge-base-private/wiki/raw/ima-stock/audits/entity-stock-ima-coverage-20260621.v2.json",
+      "error": null
+    }
+  },
+  "status": "WARN",
+  "next_actions": [
+    "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
+    "Ingest or render the morning briefing into wiki/briefings for this date.",
+    "Verify IMA inventory folder paths; missing folders do not prove the queues are empty.",
+    "Backfill source manifests for missing evidence sources before trusting traceability metrics.",
+    "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
+  ]
+}

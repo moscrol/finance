@@ -1,0 +1,25 @@
+"""Reproduce local credential prerequisites, without reading token values or HTTP."""
+import json
+from pathlib import Path
+import socket
+import sqlite3
+import ssl
+import sys
+
+record = {'python': sys.executable, 'version': sys.version.split()[0], 'http_requests': 0, 'model_requests': 0}
+stage = 'state_readonly'
+try:
+    p = Path.home() / 'Library/Application Support/mirasim-sidecar/data/state.sqlite'
+    c = sqlite3.connect(p.as_uri() + '?mode=ro', uri=True)
+    count = c.execute("SELECT count(*) FROM accounts WHERE COALESCE(suspended,0)=0 AND COALESCE(needs_relogin,0)=0 AND refresh_token IS NOT NULL AND trim(refresh_token) != ''").fetchone()[0]
+    c.close()
+    record['eligible_accounts'] = count
+    stage = 'default_ssl_context'
+    ssl.create_default_context()
+    record['ssl_context'] = 'ok'
+    stage = 'dns_only'
+    record['dns_address_count'] = len(socket.getaddrinfo('auth.mirasim.ai', 443))
+    record['status'] = 'LOCAL_PREREQUISITES_OK'
+except Exception as exc:
+    record.update(status='LOCAL_PREREQUISITE_FAILED', stage=stage, error_type=type(exc).__name__, errno=getattr(exc, 'errno', None))
+print(json.dumps(record, indent=2))

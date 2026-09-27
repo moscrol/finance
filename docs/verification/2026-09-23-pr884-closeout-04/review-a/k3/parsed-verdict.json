@@ -1,0 +1,55 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "baseline": "da761024ed54c46b8e650d1b86076e1f9d261ed2",
+  "verdict": "BLOCKED",
+  "checks": [
+    {
+      "id": "C1",
+      "status": "NOT_REVIEWED",
+      "evidence": "核心子合同已动态验证：work/test_k3_c1.py 3例绿（model_turn ACK失败→failed/storage_failed、模型锁1次、工具零派发、零后写、usage/草稿留私有、磁盘前缀；model_complete与record_dispatch_intent共用闸门），junit_probes.xml。但父子树FencedEpisodeStore探针因夹具错误（mappingproxy deepcopy）未出判断、变异实验未执行，子合同证据不全，按规则不计PASS"
+    },
+    {
+      "id": "C2",
+      "status": "NOT_REVIEWED",
+      "evidence": "6例绿：restore_root_budget非空未清拒绝/空清单精确恢复；charge_unknown_effects扣格不扣秒、无负余额、无快照抛错；unknown按可能已计费；授权快照四类篡改全拒；io_effect域外值拒；门内跨用户/跨会话即拒；恢复身份双向匹配（junit_probes.xml）。但证据快照v3/v1/v2两探针因deepcopy夹具错误未出判断、变异实验未执行，证据不全"
+    },
+    {
+      "id": "C3",
+      "status": "PASS",
+      "evidence": "work/test_k3_c3.py 4/4绿：重复restore保持phase/reserved_ids/执行前缀、计划逐字段相同、synthesized为空、effects按call/effect identity去重不膨胀、计划不执行不结算、close后already_terminal零新字节且不抹未清凭证；junit_probes.xml"
+    },
+    {
+      "id": "C4",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C5",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C6",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C7",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C8",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    }
+  ],
+  "issues": [],
+  "limits": [
+    "撤保护变异实验未在预算内执行（硬性要求缺口）",
+    "C1父子树failure fence、C2证据快照v3/v1/v2保守兼容两子合同缺本人动态证据（探针夹具错误，首红保留于junit_probes.xml，非产品缺陷）",
+    "真实费用、跨进程/跨机锁、完整崩溃续跑driver、多worker不在本场可证明范围",
+    "作者374例仅作环境/回归对照，不计入本人动态判断"
+  ],
+  "complete": true
+}

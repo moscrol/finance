@@ -1,0 +1,106 @@
+{
+  "status": "PASS_OFFLINE_SCHEMA_ONLY",
+  "model_requests": 0,
+  "network_attempts": 0,
+  "tests": [
+    {
+      "variant": "before",
+      "stage": "explore",
+      "advertised_verdicts": [
+        "STAGE_COMPLETE",
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ],
+      "accepted_verdicts": [
+        "STAGE_COMPLETE",
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ]
+    },
+    {
+      "variant": "before",
+      "stage": "execute",
+      "advertised_verdicts": [
+        "STAGE_COMPLETE",
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ],
+      "accepted_verdicts": [
+        "STAGE_COMPLETE",
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ]
+    },
+    {
+      "variant": "before",
+      "stage": "report",
+      "advertised_verdicts": [
+        "STAGE_COMPLETE",
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ],
+      "accepted_verdicts": [
+        "STAGE_COMPLETE",
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ]
+    },
+    {
+      "variant": "after",
+      "stage": "explore",
+      "advertised_verdicts": [
+        "STAGE_COMPLETE",
+        "BLOCKED"
+      ],
+      "accepted_verdicts": [
+        "STAGE_COMPLETE",
+        "BLOCKED"
+      ]
+    },
+    {
+      "variant": "after",
+      "stage": "execute",
+      "advertised_verdicts": [
+        "STAGE_COMPLETE",
+        "BLOCKED"
+      ],
+      "accepted_verdicts": [
+        "STAGE_COMPLETE",
+        "BLOCKED"
+      ]
+    },
+    {
+      "variant": "after",
+      "stage": "report",
+      "advertised_verdicts": [
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ],
+      "accepted_verdicts": [
+        "PASS",
+        "PASS_WITH_LIMITS",
+        "CHANGES_REQUIRED",
+        "BLOCKED"
+      ]
+    }
+  ],
+  "limits": [
+    "Does not fix missing C3 coverage or replace any stopped batch report.",
+    "Original stage guard still rejects illegal values; this corrects the choices advertised to the model.",
+    "No guarantee an unconstrained provider will obey JSON Schema; runtime validation remains."
+  ]
+}

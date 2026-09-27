@@ -1,0 +1,44 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/mutate_authority.py"
+  ],
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T15:23:04.740677+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 9640091648
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 9729421312
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 10924883968
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 12210130944
+    },
+    {
+      "elapsed": 8,
+      "free_bytes": 12994154496
+    }
+  ],
+  "pid": 44106,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T15:23:14.849727+00:00",
+  "identity_stable": true
+}

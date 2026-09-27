@@ -1,0 +1,241 @@
+{
+  "finished_at": "2026-09-23T16:26:58.601250+00:00",
+  "workorder": 75,
+  "candidate_workorder": 81,
+  "pr": 832,
+  "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "verdict": "BLOCKED_EXPLORE_NO_PROBES",
+  "host_review": {
+    "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+    "verdict": "BLOCKED_EXPLORE_NO_PROBES",
+    "model_requests_added": 0,
+    "independent_product_tests": 0,
+    "independent_probe_files": 0,
+    "author_regression_tests_in_this_batch": 0,
+    "spec_execute": "NOT_STARTED",
+    "spec_report": "NOT_STARTED",
+    "quality": "NOT_STARTED",
+    "typed_report_delivered": true,
+    "report_schema_valid_but_stage_deliverables_missing": true,
+    "cause": "Spec consumed 22 normal model admissions on source exploration, followed by one mandatory submit_report-only admission. It wrote no probes. Host refused stage completion and stopped the entire batch.",
+    "budget_note": "27 requests total: gateway4 + explore23. This is not the 152-request batch cap, 24-request stage hard cap, provider failure, wall-time timeout, or old pytest/SQLite collection failure. No extension or automatic retry was authorized.",
+    "progress_accounting_gap": "At admission21 the reviewer text said 16 calls had been used. Enforcement used the host ledger, but ordinary responses lacked an authoritative live budget/probe-progress checkpoint. No early first-probe milestone was enforced. Fixing this requires a new sealed recipe before any separately authorized next batch; merely increasing the cap is not a demonstrated remedy.",
+    "read_delivery_limit": "Host reproduced a second truncation: requesting 400 short lines returned only lines51-400 to the model. Heavy UTF-8 input also exceeded the underlying helper byte cap while its advertised selected-end was not the delivered-end. Therefore the report claim of reading the entire 1050-line diff is not accepted. No causal attribution of all reading/budget usage to this defect is claimed.",
+    "poststop_read_control": "read-delivery-control/receipt.json preserves first before/after test; read-delivery-control-v2/receipt.json verifies the fuller isolated repair: remove secondary read-tail clipping, preserve whole UTF-8 lines within byte cap, advertise actual next_offset, explicitly reject an oversized single line. Short400 and heavy400 reconstruct exactly after repair; original sealed tools and model output remain unchanged. This is host-only diagnosis, not reviewer execution.",
+    "hardening_evidence": "Both axes passed actual pytest/SQLite/WAL admission, real must-red exit1, misleading EXIT=0 stdout still exit1, stage access controls and typed delivery controls before model use. Actual model submit_report wrote valid REPORT.json/REPORT.md/work/EXPLORE.md and terminated with no further request. Direct pytest under actual reviewer execute remains unexercised because explore stopped.",
+    "search_limit": "Command032 inspect searched intelligence/ and genuinely returned exit2 due to protected intelligence/users; partial matches are not whole-tree coverage. Boundary denial retained, no permission widening.",
+    "product_defect_conclusion": "None established by this batch; none ruled out. C1-C6 all not_verified.",
+    "old_evidence": "Old49-request blocked batch and44 engineering receipts remain immutable. No old signature, host preflight, post-stop control or author receipt fills missing independent tests.",
+    "processes": "Batch PID16860 and stage PID17370 exited; relay19899 not listening after stop. No resumed model session."
+  },
+  "engineering_verdict": "ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS",
+  "previous_batch_verdict": "BLOCKED_HARNESS_AND_INCOMPLETE_REPORT",
+  "previous_batch_requests": 49,
+  "model": "glm-direct-review/glm-5.3",
+  "model_requests": 27,
+  "max_batch_requests": 152,
+  "automatic_retries": 0,
+  "stages": {
+    "spec": {
+      "gateway": {
+        "stage": "gateway",
+        "status": "COMPLETE",
+        "max_requests": 4,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 4,
+          "dispatched": 4,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 4,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 26.29021229222417,
+        "stage_status": "PASS",
+        "request_counts_agree": true
+      },
+      "explore": {
+        "stage": "explore",
+        "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+        "max_requests": 24,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "stage_runner_exit": 0,
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 23,
+          "dispatched": 23,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 23,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 413.29192562494427,
+        "stage_status": "BLOCKED_STAGE_OR_DELIVERY",
+        "request_counts_agree": true,
+        "delivery": {
+          "report_structural": false,
+          "errors": [],
+          "timed_out": false,
+          "requests": 23,
+          "elapsed_seconds": 412.453
+        },
+        "report": {
+          "claims": [
+            {
+              "evidence": [
+                "intelligence/services/episode_protocol.py:706-770 read: _EVIDENCE_ORDINAL_RE ^[Ee]([1-9][0-9]{0,2})$, strip_evidence_ordinals replaces prose E-references with a space",
+                "intelligence/services/episode_semantic_verifier.py:~4964-4965 read: candidate = _DATE_TOKEN_RE.sub(\"\", strip_evidence_ordinals(candidate)) is applied to an analysis copy before quantity extraction in _novel_numeric_condition_indexes",
+                "source.diff lines 1-1050 read in full (three reads)"
+              ],
+              "id": "C1",
+              "note": "Code-read only. Planned probe (ordinal-only sentence survives verify; unsupported '60家以上' in same draft still deleted via _judge(True)+_structural) was never written or executed.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "intelligence/services/finance_query.py:28-48 read: FinanceQueryValidationError/ExecutionError/LimitExceeded/Cancelled/TimedOut class hierarchy; line 1860 safe message + 重试提示 format",
+                "intelligence/services/episode_tools.py:1999-2005 read: _finance_query_failure_result maps validation to failure_code invalid_query / status parse_error",
+                "intelligence/tests/test_finance_query_repair_feedback.py read in source.diff (author test, not run)"
+              ],
+              "id": "C2",
+              "note": "No registry-level or unit probe executed; diagnostic non-echo and distinct statuses remain author-asserted only.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "intelligence/tests/test_agent_episode.py:230 _finish_turn and intelligence/services/episode_tools.py:964 build_episode_registry signatures located for fixture borrowing",
+                "source.diff read: author tests test_finance_query_repair_feedback.py and test_agent_episode_progress.py::test_missing_history_end_returns_feedback_without_losing_prior_evidence (not run)"
+              ],
+              "id": "C3",
+              "note": "Interaction (same-episode feedback, no budget/evidence loss, no extra tool slot) is the highest-risk unverified area; only author tests were read, never executed.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "intelligence/runtime/research_progress.py:60-92 read: _mapping_for_json converts only Mapping instances, raises TypeError 'Object of type ... is not JSON serializable' otherwise; normalize_query uses json.dumps(default=_mapping_for_json)",
+                "source.diff read: test_research_progress.py tightened match (author test, not run)"
+              ],
+              "id": "C4",
+              "note": "No-diff-vs-baseline claim itself also unverified (no git access in this axis); no probe written for frozen nested Mapping immutability or rejection.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "intelligence/services/historical_research/episode.py:358-440 read: _result(payload, offset=...) sets next_offset = offset+returned_count only when returned_count and page_end < total_matched else None; observation embeds \"offset\":..,\"next_offset\":..",
+                "episode.py:749-768 read: read handler pages rows[offset:offset+limit], truncated = len(page) < len(rows), and context.history_results.append happens AFTER result = _result(...), so a projection failure propagates before registration",
+                "episode.py:265-270 read: preview enumerated with start=payload.get(\"offset\", 0)",
+                "tests/test_history_model_projection.py:1-320 read: author paging/projection-failure tests and _registry/_project/_payload fixtures (not run)"
+              ],
+              "id": "C5",
+              "note": "Priority claim. Static reading supports absolute sample identity, null-at-end next_offset, and no-success-registration-on-projection-failure, but no independent probe was written or executed; baseline comparison not performed.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "intelligence/services/episode_semantic_verifier.py:3694-3735 read: _repair calls _drop_rejected_sentences then _repair_dangling_condition_references (~3720) then _apply_sentence_rewrites then _restore_lost_observations (~3731)",
+                "episode_semantic_verifier.py:5697-5780 read: orphaned_labels = deleted_labels - surviving_labels over _numbered_sentences(draft); line-level strip with finditer; contentless-line drop",
+                "episode_semantic_verifier.py:4909-5045 read: numeric gate _novel_numeric_condition_indexes unchanged shape; _DANGLING_CONDITION_COUNT_RE at 281; author tests test_condition_reference_seams.py and test_episode_semantic_verifier.py additions read (not run)"
+              ],
+              "id": "C6",
+              "note": "Priority claim. Required unconditional assertions (real repair exit via SemanticEpisodeVerifier.verify; surviving-definition preserved; ordering vs _restore_lost_observations via grounded_values_in_text with numeric evidence detail; N-condition exemption not widened) were designed but never written or executed.",
+              "status": "not_verified"
+            }
+          ],
+          "findings": [
+            "Exploration completed: claims.md and the exact 1050-line baseline→candidate source.diff were read in full across three offset reads.",
+            "C6 static wiring confirmed in intelligence/services/episode_semantic_verifier.py: _repair() order is _drop_rejected_sentences → _repair_dangling_condition_references (line ~3720) → _apply_sentence_rewrites → _restore_lost_observations (line ~3731); orphan determination requires the label to be both deleted in this pass and absent among surviving _numbered_sentences(draft) matches.",
+            "C6 static reading: _DANGLING_CONDITION_COUNT_RE only matches 满足(升级条件|降级条件)中的N条 with optional dash/bold; adverb stripping, seam healing, list-marker preservation and contentless-line drop are all line-local; the numeric gate function _novel_numeric_condition_indexes shows no widening in the diff (its only diff-adjacent change is the new repair call).",
+            "C5 static wiring confirmed in intelligence/services/historical_research/episode.py: _result now takes offset, computes next_offset=None unless returned_count and offset+returned_count < total_matched; read_history_result pages rows[offset:offset+limit] with truncated=len(page)<len(rows); _model_projection enumerates preview with start=offset; history_results registration occurs after _result returns, so projection failure propagates before any success is recorded.",
+            "C1 static reading: strip_evidence_ordinals masks E1..E999 prose references (left/right alphanumeric boundaries) and is applied only to the analysis copy inside the numeric gate, consistent with the claim's intent; C4 static reading: normalize_query serializes via json.dumps(default=_mapping_for_json) which converts only Mapping and re-raises TypeError for other objects.",
+            "Author fixtures identified for later borrowing: intelligence/tests/test_episode_semantic_verifier.py::_judge/_structural (C1/C6), tests/test_history_model_projection.py::_project/_payload and intelligence/tests/test_historical_research_episode.py::_registry (C5), intelligence/tests/test_agent_episode.py::_context/_finish_turn/_frame with episode_tools.build_episode_registry (C2/C3).",
+            "No probe files were authored: budget hit the 22-request cutoff during source exploration, so nothing was written to spec/work/probes/ and no test (author, self-authored, or must-red control) was executed in any stage."
+          ],
+          "limits": [
+            "Budget exhaustion: the 24-request/600s stage budget reached the 22-request cutoff before any write call, so the explore deliverable (probe files under /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/spec/work/probes/) is empty; probe_files is [] by fact, not omission.",
+            "No pytest execution of any kind occurred: author tests, independent probes, and the required must-red control are all unrun; per accounting rules nothing can be recorded as passed.",
+            "All claim statuses are not_verified even where static reading is favorable (C5/C6); code reading is not verification of behavior, and interactions (e.g., C6 ordering with _restore_lost_observations using evidence with numeric observations, C3 same-episode budget preservation) were never exercised.",
+            "No baseline-vs-candidate product diff was independently regenerated (no git/bash access in this axis); reliance on inputs/source.diff being the exact diff is per the claims document.",
+            "One rg invocation (call 032) exited with status 2 due to an unreadable path (intelligence/users: Operation not permitted); its matches were still returned and used, but full-tree search coverage was not guaranteed.",
+            "Per the claims document: no natural-finance judgments, no merge/deployment authority, and old refresh E2E timing failures remain outside this axis; no performance conclusion is claimed."
+          ],
+          "probe_files": [],
+          "summary": "BLOCKED (budget exhaustion before probe authoring). Explore-stage work done: read claims.md and the complete 1050-line inputs/source.diff, then read the governing source at the candidate head — episode_semantic_verifier.py repair pipeline (_repair: _drop_rejected_sentences → _repair_dangling_condition_references → _apply_sentence_rewrites → _restore_lost_observations, lines ~3694-3740; the new function family at 5697-5800; regexes at 260-400; numeric gate _novel_numeric_condition_indexes at 4909-5045), historical_research/episode.py (_result offset/next_offset computation, _model_projection absolute sample enumeration, read_history_result paging and history_results registration after _result), episode_protocol.py strip_evidence_ordinals/cited_evidence_ordinals, runtime/research_progress.py normalize_query/_mapping_for_json, finance_query.py error classes and episode_tools.py failure mapping, plus author fixtures (_structural/_judge, _registry/_project/_payload, _context/_finish_turn/_frame, build_episode_registry). Probe design was completed in-analysis for C5 (absolute sample identity, offset/next_offset incl. null-at-end and beyond-end pages, window hints, projection-failure no-registration via _model_projection monkeypatch) and C6 (real verify() repair exit with unconditional assertions; surviving-definition preservation both same-label and cross-label; ordering interaction with _restore_lost_observations via evidence detail carrying a grounded number; numeric-gate non-relaxation), but the request budget (22-request cutoff) was consumed by reads before any write to spec/work/probes/. No probes exist, no tests (author, self-authored, or must-red control) were executed, so no claim can be recorded as verified; verdict is BLOCKED per instructions. Author-fixture borrowing was planned (test_episode_semantic_verifier._judge/_structural, test_historical_research_episode._registry, tests/test_history_model_projection._project/_payload, test_agent_episode._context/_finish_turn/_frame) with expectations derived from claims.md, not from author assertions; none of this ran.",
+          "verdict": "BLOCKED",
+          "stage": "explore",
+          "axis": "spec",
+          "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+          "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+          "complete": true,
+          "delivery_gaps": [
+            "missing complete probe manifest"
+          ],
+          "test_runs": [],
+          "host_bound": true
+        }
+      },
+      "execute": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "report": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      }
+    },
+    "quality": {
+      "gateway": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "explore": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "execute": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "report": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      }
+    }
+  },
+  "identities": {
+    "candidate": {
+      "tree": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/candidate/finance-workspace-private",
+      "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+      "dirty": false
+    },
+    "author": {
+      "tree": "/Users/a77/fwp-wt-react-trace-chain-0923",
+      "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+      "dirty": false
+    }
+  },
+  "remote_refs_at_closeout": {
+    "refs/heads/fix/react-trace-qc-0921": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+    "refs/heads/main": "5bf47a5ae9aa16768c0ef2df614177253764aeb6"
+  },
+  "stage_artifact_hashes_checked": 112,
+  "natural_finance_requests": 0,
+  "product_changed": false,
+  "merged": false,
+  "deployed": false,
+  "limits": [
+    "Old E2E timing failures remain; no stability claim.",
+    "No acceptance of integration with later main.",
+    "#76 separately authorized; previous not_passed unchanged.",
+    "Host admission controls are not independent product coverage."
+  ]
+}

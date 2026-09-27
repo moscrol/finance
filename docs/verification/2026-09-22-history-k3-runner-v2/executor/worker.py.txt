@@ -1,0 +1,99 @@
+"""Constrained static-review tools; always launched under one OS sandbox."""
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+SOURCE_DIRS = ("intelligence", "tests", "market_feature_store")
+DOCS = (
+    "AGENTS.md",
+    "docs/agent-product-door.md",
+    "docs/superpowers/specs/2026-09-09-historical-discovery-research-design.md",
+)
+REVISIONS = (
+    "HEAD", "0888ea98477bf07292f41336538d7b3b904b1248",
+    "a69b822b0", "c827ed749", "f90fd3dc3", "7249378a5",
+)
+LIMIT = 40000
+
+
+def allowed(root, value, directory=False):
+    if not isinstance(value, str) or value.startswith("-"):
+        raise ValueError("invalid path")
+    rel = Path(value)
+    if rel.is_absolute() or ".." in rel.parts:
+        raise ValueError("path outside allowed source")
+    if value not in DOCS:
+        if not rel.parts or rel.parts[0] not in SOURCE_DIRS:
+            raise ValueError("path outside allowed source")
+        if any(p.startswith(".") or p in ("users", "node_modules", "__pycache__") for p in rel.parts):
+            raise ValueError("private/generated path")
+        if not directory and rel.suffix not in (".py", ".ts", ".tsx", ".sql", ".md"):
+            raise ValueError("non-source file")
+    resolved = (root / rel).resolve(strict=True)
+    if not resolved.is_relative_to(root):
+        raise ValueError("symlink outside candidate")
+    canonical = resolved.relative_to(root)
+    if canonical.as_posix() not in DOCS:
+        if not canonical.parts or canonical.parts[0] not in SOURCE_DIRS or any(p.startswith(".") or p in ("users", "node_modules", "__pycache__") for p in canonical.parts):
+            raise ValueError("symlink target outside source allowlist")
+    return resolved
+
+
+def execute(root, tool, args):
+    if tool == "read":
+        target = allowed(root, args["path"])
+        start = max(1, min(int(args.get("offset", 1)), 1000000))
+        count = max(1, min(int(args.get("limit", 1)), 450))
+        if target.stat().st_size > 5_000_000:
+            raise ValueError("file too large")
+        lines = target.read_text().splitlines()
+        return "\n".join(f"{i + 1}: {line}" for i, line in enumerate(lines) if start <= i + 1 < start + count)
+    if tool == "search":
+        paths = args.get("paths") or ["intelligence", "tests"]
+        if not isinstance(paths, list) or not 1 <= len(paths) <= 8:
+            raise ValueError("invalid search paths")
+        targets = [str(allowed(root, p, directory=True)) for p in paths]
+        cmd = ["/opt/homebrew/bin/rg", "--no-config", "-n", "-m", "40", "--glob", "*.py", "--glob", "*.ts", "--glob", "*.tsx", "--glob", "!**/users/**", "--glob", "!**/node_modules/**", "--", str(args["pattern"]), *targets]
+    elif tool == "git":
+        action = args.get("action")
+        cmd = ["/usr/bin/git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "diff.external=", "--no-pager"]
+        if action == "identity":
+            outputs = []
+            for more in (["rev-parse", "HEAD"], ["status", "--porcelain", "--untracked-files=all"]):
+                p = subprocess.run(cmd + more, cwd=root, text=True, capture_output=True, timeout=8, check=True)
+                outputs.append(p.stdout)
+            return json.dumps({"head": outputs[0].strip(), "status": outputs[1]})
+        rev = args.get("revision", "HEAD")
+        if rev not in REVISIONS:
+            raise ValueError("revision is outside review set")
+        if action == "show":
+            cmd += ["show", "--format=fuller", "--no-ext-diff", "--no-textconv", "--unified=3", rev, "--", "intelligence/**/*.py", "tests/**/*.py", *DOCS, ":(exclude)intelligence/users/**"]
+        elif action == "diff":
+            cmd += ["diff", "--no-ext-diff", "--no-textconv", "--stat", "0888ea98477bf07292f41336538d7b3b904b1248", "HEAD", "--", "intelligence", "tests"]
+        else:
+            raise ValueError("unknown git action")
+    else:
+        raise ValueError("unknown tool")
+    p = subprocess.run(cmd, cwd=root, text=True, capture_output=True, timeout=8)
+    if p.returncode not in (0, 1) or (tool == "git" and p.returncode):
+        raise ValueError(f"tool subprocess exit {p.returncode}: {p.stderr[:1200]}")
+    return p.stdout + p.stderr
+
+
+def main():
+    request = json.load(sys.stdin)
+    root = Path(request["candidate"]).resolve(strict=True)
+    try:
+        text = execute(root, request["tool"], request["args"])
+        if len(text.encode()) > LIMIT:
+            text = text.encode()[:LIMIT].decode(errors="ignore") + "\n[truncated: narrow search/read range]"
+        print(json.dumps({"ok": True, "text": text}))
+    except Exception as exc:
+        print(json.dumps({"ok": False, "text": f"{type(exc).__name__}: {exc}"}))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

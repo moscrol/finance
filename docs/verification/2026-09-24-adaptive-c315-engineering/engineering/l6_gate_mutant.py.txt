@@ -1,0 +1,41 @@
+"""In-memory author negative controls; never writes candidate source."""
+import ast
+import inspect
+import os
+from pathlib import Path
+
+from scripts.review_probes import prepare_adaptive_l6_runner as runner
+
+
+def pytest_configure(config):
+    mode=os.environ['L6_GATE_MUTANT']
+    if mode=='coverage':
+        original=runner.validate_deadline_admission
+        tree=ast.parse(inspect.getsource(original))
+        node=tree.body[0]
+        assert isinstance(node.body[-1],ast.If) and 'probe.coverage_gaps' in ast.unparse(node.body[-1])
+        node.body[-1]=ast.Pass()
+        scope={}
+        exec(compile(ast.fix_missing_locations(tree),'<coverage-guard-removed>','exec'),runner.__dict__,scope)
+        original.__code__=scope[original.__name__].__code__
+    elif mode=='wiring':
+        original=runner.prepare
+        def disconnected(*args,**kwargs):
+            result=original(*args,**kwargs)
+            path=Path(args[0])/'run_live_l6.py'
+            tree=ast.parse(path.read_text())
+            class Remove(ast.NodeTransformer):
+                count=0
+                def visit_Expr(self,node):
+                    if isinstance(node.value,ast.Call) and isinstance(node.value.func,ast.Name) and node.value.func.id=='validate_deadline_admission':
+                        self.count+=1
+                        return ast.copy_location(ast.Pass(),node)
+                    return self.generic_visit(node)
+            transform=Remove()
+            tree=transform.visit(tree)
+            assert transform.count==1
+            path.write_text(ast.unparse(ast.fix_missing_locations(tree))+'\n')
+            return result
+        runner.prepare=disconnected
+    else:
+        raise AssertionError('unknown mutation')

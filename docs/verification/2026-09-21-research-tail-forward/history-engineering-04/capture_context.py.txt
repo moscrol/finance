@@ -1,0 +1,63 @@
+"""Read-only dependency and PR preflight; save no credentials."""
+import hashlib
+import importlib.metadata
+import json
+import platform
+from pathlib import Path
+import subprocess
+import sys
+import urllib.request
+from datetime import datetime, timezone
+
+OUT = Path(__file__).resolve().parent
+CODE = Path('/Users/a77/fwp-wt-history-forward-boundary-0921')
+DOCS = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+API = 'http://127.0.0.1:3300/api/v1/repos/a77/finance-workspace-private'
+
+
+def run(args, cwd=CODE):
+    return subprocess.check_output(args, cwd=cwd, text=True, timeout=30).strip()
+
+
+def main():
+    package = json.loads((CODE / 'intelligence/webapp/package.json').read_text())
+    web = CODE / 'intelligence/webapp'
+    versions = {}
+    for name, wanted in (package['dependencies'] | package['devDependencies']).items():
+        actual = json.loads((web / 'node_modules' / name / 'package.json').read_text())['version']
+        versions[name] = {'wanted': wanted, 'actual': actual, 'match': wanted == actual}
+    hashes = {name: hashlib.sha256((web / name).read_bytes()).hexdigest() for name in
+              ('package.json', 'pnpm-lock.yaml', 'node_modules/.pnpm/lock.yaml')}
+    assert all(v['match'] for v in versions.values())
+    assert hashes['pnpm-lock.yaml'] == hashes['node_modules/.pnpm/lock.yaml']
+    token = run(['security', 'find-generic-password', '-s', 'gitea-local', '-a', 'a77-token', '-w'])
+    prs = {}
+    for number in (845, 833, 838):
+        request = urllib.request.Request(f'{API}/pulls/{number}', headers={'Authorization': 'token ' + token})
+        with urllib.request.urlopen(request, timeout=15) as response:
+            value = json.load(response)
+        prs[number] = {k: value[k] for k in ('number', 'title', 'body', 'state', 'merged', 'updated_at', 'html_url')}
+        prs[number]['head'] = {k: value['head'][k] for k in ('sha', 'ref')}
+        prs[number]['body_sha256'] = hashlib.sha256(value['body'].encode()).hexdigest()
+    record = {'recorded_at': datetime.now(timezone.utc).isoformat(),
+              'source_head': run(['git', 'rev-parse', 'HEAD']),
+              'docs_head': run(['git', 'rev-parse', 'HEAD'], DOCS),
+              'remote_refs': run(['git', 'ls-remote', 'gitea', 'refs/heads/fix/history-forward-boundary-0921', 'refs/heads/fix/history-forward-0921', 'refs/heads/docs/research-tail-closeout-0921']),
+              'platform': platform.platform(), 'python': sys.version, 'executable': sys.executable,
+              'node': run(['node', '--version']), 'pnpm': run(['pnpm', '--version']),
+              'python_packages': {name: importlib.metadata.version(name) for name in ('pytest', 'ruff', 'duckdb', 'numpy', 'pandas', 'requests')},
+              'frontend_direct_dependencies': versions, 'frontend_hashes': hashes,
+              'ci_node': '22', 'ci_environment_reproduced_exactly': False,
+              'dependency_install_run': False,
+              'data_quality_trigger_diff': run(['git', 'diff', 'f783f19c8a01fbe8d0ed70d851df7ed14598c051', 'HEAD', '--name-only', '--', 'scripts/db_delta_*.py', 'tests/test_db_delta.py', 'skills/report-search/scripts/**', '.github/workflows/data-quality-check.yml']),
+              'pull_requests': prs}
+    with (OUT / 'context.json').open('x') as stream:
+        json.dump(record, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+    print(json.dumps({'source_head': record['source_head'], 'direct_dependencies': len(versions),
+                      'node': record['node'], 'pnpm': record['pnpm'],
+                      'prs': {n: {'head': p['head']['sha'], 'state': p['state'], 'merged': p['merged']} for n, p in prs.items()}}, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

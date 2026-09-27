@@ -1,0 +1,252 @@
++    assert "重试提示" in diagnostic.message
++
++
++@pytest.mark.parametrize(("error_type", "expected"), [
++    (finance_query.FinanceQueryTimedOut, "结构化查询超时"),
++    (finance_query.FinanceQueryCancelled, "结构化查询已取消"),
++    (finance_query.FinanceQueryLimitExceeded, "结构化查询结果超过资源上限"),
++    (finance_query.FinanceQueryExecutionError, "结构化数据源暂不可用"),
++])
++def test_runtime_errors_keep_safe_distinct_diagnostics(tmp_path, monkeypatch, error_type, expected):
++    _, context, registry, _ = _setup(tmp_path)
++
++    def fail(*args, **kwargs):
++        raise error_type("secret/path physical_table forbidden-provider-text")
++
++    monkeypatch.setattr(finance_query.FinanceQuery, "run", fail)
++    result = _execute(registry, context, _request(metrics=["index_return_pct"]))
++    assert not result.evidence
++    assert expected in result.observation
++    assert "secret/path" not in result.observation
++    assert "forbidden-provider-text" not in result.observation
++    assert "重试提示" not in result.observation
++
++
++class _RepairConsumer:
++    def __init__(self, *, cancel=None, correct_first=False):
++        self.cancel = cancel
++        self.correct_first = correct_first
++        self.seen = []
++
++    def complete(self, *, messages, tools, timeout):
++        observed = [json.loads(m["content"]) for m in messages if m.get("role") == "tool"]
++        self.seen = observed
++        if not observed:
++            arguments = _request(metrics=["index_return_pct"]) if self.correct_first else _request()
++        elif len(observed) == 1 and not self.correct_first:
++            assert "stage_day→market_daily.dimension" in observed[-1]["observation"]
++            assert "重试提示" in observed[-1]["observation"]
++            assert not observed[-1]["evidence"]
++            arguments = _request(
++                dimensions=["trade_date", "stage_day"], metrics=["index_return_pct"],
++            )
++            if self.cancel is not None:
++                self.cancel.set()
++        else:
++            assert observed[-1]["evidence"]
++            return _finish_turn(
++                status="partial", draft="Only diagnostic delivery is exercised.",
++                hashes=(), gap="Full research quality is not exercised.",
++            )
++        return ModelTurn(
++            "", (ModelToolCall(f"query-{len(observed)}", "finance_query", arguments),),
++            "scripted-feedback", "",
++        )
++
++
++@pytest.mark.parametrize("correct_first", [False, True])
++def test_episode_delivers_feedback_and_executes_only_requested_queries(tmp_path, correct_first):
++    frame, context, registry, path = _setup(tmp_path)
++    before = path.read_bytes()
++    model = _RepairConsumer(correct_first=correct_first)
++    result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
++    assert result.stop_reason == "model_finish"
++    expected = 1 if correct_first else 2
++    assert result.usage.tool_calls == expected
++    assert len(model.seen) == expected
++    events = [event for event in result.events if event.kind == "tool_result"]
++    assert len(events) == expected
++    if not correct_first:
++        assert "stage_day→market_daily.dimension" in events[0].payload["model_content"]
++    assert path.read_bytes() == before
++
++
++def test_cancellation_after_feedback_prevents_repair_dispatch(tmp_path):
++    frame, context, registry, _ = _setup(tmp_path)
++    cancelled = Event()
++    model = _RepairConsumer(cancel=cancelled)
++    result = ContinuousAgentEpisode(model, is_cancelled=cancelled.is_set).run(
++        task_frame=frame, context=context, registry=registry,
++    )
++    assert result.stop_reason == "cancelled"
++    assert result.usage.tool_calls == 1
++    assert not result.evidence
++    assert len([event for event in result.events if event.kind == "tool_result"]) == 1
++
++
++def test_no_extra_tool_slot_is_minted_for_query_repair(tmp_path):
++    frame, context, registry, _ = _setup(tmp_path, max_steps=1)
++    model = _RepairConsumer()
++    result = ContinuousAgentEpisode(model).run(task_frame=frame, context=context, registry=registry)
++    assert result.usage.tool_calls == 1
++    assert not result.evidence
++    assert len([event for event in result.events if event.kind == "tool_result"]) == 1
+diff --git a/intelligence/tests/test_research_progress.py b/intelligence/tests/test_research_progress.py
+index 43477fa79..27e8726f8 100644
+--- a/intelligence/tests/test_research_progress.py
++++ b/intelligence/tests/test_research_progress.py
+@@ -74,7 +74,7 @@ def test_frozen_tool_arguments_have_the_same_progress_key_as_json(arguments) ->
+ def test_json_projection_still_rejects_unsupported_objects() -> None:
+     # 不准用 default=str 把类型错误伪装成可用的查询键。
+     for value in (object(), {1, 2}):
+-        with pytest.raises(TypeError, match="is not JSON serializable"):
++        with pytest.raises(TypeError, match=f"Object of type {type(value).__name__} is not JSON serializable"):
+             normalize_query(MappingProxyType({"filters": MappingProxyType({"value": value})}))
+ 
+ 
+diff --git a/tests/test_history_model_projection.py b/tests/test_history_model_projection.py
+index be604cca1..f89de1801 100644
+--- a/tests/test_history_model_projection.py
++++ b/tests/test_history_model_projection.py
+@@ -180,6 +180,141 @@ def test_all_preview_samples_survive_without_equating_cards_to_returned_rows():
+     assert "缩窄日期" not in model["observation"]
+ 
+ 
++@pytest.mark.parametrize("offset,limit,next_offset", [
++    (0, 1, 1), (0, 25, None), (1, 1, None), (1, 25, None), (2, 1, None), (9, 2, None),
++])
++def test_query_pages_keep_absolute_sample_coordinates_and_navigation(
++    tmp_path, offset, limit, next_offset
++):
++    registry, context, session = _registry(tmp_path)
++    first = registry.execute(
++        "history_query",
++        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
++         "entity_codes": ["A.FP"], "preview_limit": 1},
++        context=context, step_id="query",
++    )
++    ref = first.telemetry["result_ref"]
++    original = session.read(ref)
++    page = registry.execute(
++        "read_history_result", {"result_ref": ref, "offset": offset, "limit": limit},
++        context=context, step_id=f"read-{offset}",
++    )
++    model, details = _project(page)
++    samples = {row["sample"] for row in details if "entity_code" in row}
++    assert samples == set(range(offset, min(offset + limit, 2)))
++    scope = next(row for row in details if "total_matched" in row)
++    assert scope["total_matched"] == 2
++    assert scope["returned_count"] == len(samples)
++    assert scope["offset"] == offset
++    assert scope["next_offset"] == next_offset
++    # A last page is still only part of the complete result, even with no next page.
++    assert scope["truncated"] is (len(samples) < 2)
++    assert page.telemetry["offset"] == offset
++    assert page.telemetry["next_offset"] == next_offset
++    assert f'"offset":{offset}' in model["observation"]
++    assert f'"next_offset":{next_offset if next_offset is not None else "null"}' in model["observation"]
++    assert "保持所选窗口" in model["observation"]
++    assert "缩窄日期" not in model["observation"]
++    assert session.read(ref) == original
++    assert all(item.internal_locator == ref for item in page.evidence)
++    assert {item.independent_key for item in page.evidence} == {first.telemetry["query_id"]}
++
++
++def test_failed_page_projection_does_not_record_success(tmp_path, monkeypatch):
++    registry, context, session = _registry(tmp_path)
++    first = registry.execute(
++        "history_query",
++        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
++         "entity_codes": ["A.FP"], "preview_limit": 1},
++        context=context, step_id="query",
++    )
++    ref = first.telemetry["result_ref"]
++    original = deepcopy(session.read(ref))
++    before = deepcopy(context.history_results)
++
++    def fail_projection(payload, *, result_ref, tool, offset):
++        assert (result_ref, tool, offset) == (ref, "read_history_result", 1)
++        raise ValueError("projection failed")
++
++    monkeypatch.setattr(
++        "intelligence.services.historical_research.episode._result", fail_projection,
++    )
++    with pytest.raises(ValueError, match="projection failed"):
++        registry.execute(
++            "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
++            context=context, step_id="failed-page",
++        )
++    assert context.history_results == before
++    assert session.read(ref) == original
++
++
++def test_query_initial_preview_advertises_the_next_page(tmp_path):
++    registry, context, _session = _registry(tmp_path)
++    first = registry.execute(
++        "history_query",
++        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
++         "entity_codes": ["A.FP"], "preview_limit": 1},
++        context=context, step_id="query",
++    )
++    model, details = _project(first)
++    scope = next(row for row in details if "total_matched" in row)
++    assert (scope["offset"], scope["next_offset"]) == (0, 1)
++    assert '"next_offset":1' in model["observation"]
++
++
++def test_overlapping_query_pages_refer_to_the_same_source_row(tmp_path):
++    registry, context, session = _registry(tmp_path)
++    first = registry.execute(
++        "history_query",
++        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
++         "entity_codes": ["A.FP"]},
++        context=context, step_id="query",
++    )
++    ref = first.telemetry["result_ref"]
++    _model, before = _project(first)
++    page = registry.execute(
++        "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
++        context=context, step_id="overlap",
++    )
++    _model, after = _project(page)
++    before_row = [row for row in before if row.get("trade_date") == "2026-08-04"]
++    after_row = [row for row in after if row.get("trade_date") == "2026-08-04"]
++    assert before_row and before_row == after_row
++    assert {row["sample"] for row in after_row} == {1}
++    assert len(session.read(ref)["rows"]) == 2
++
++
++@pytest.mark.parametrize("operation", ["compute_history", "find_analogues", "compare_cases"])
++def test_page_coordinates_preserve_reference_and_complete_comparison(operation):
++    rows = [
++        {"entity_code": "A.FP", "start": "2026-08-03", "end": "2026-08-04",
++         "features": {"return_pct": value}}
++        for value in range(3)
++    ]
++    payload = _payload(rows, operation=operation)
++    payload.update(reference=rows[0], comparison={"enumerated": 3, "missing": 1})
++    original = deepcopy(payload)
++    page = dict(payload, preview=rows[2:], returned_count=1, truncated=True)
++    _model, details = _project(_result(page, result_ref=REF, offset=2))
++    candidates = [row for row in details if row.get("role") == "candidate"]
++    references = [row for row in details if row.get("role") == "reference"]
++    assert candidates and {row["sample"] for row in candidates} == {2}
++    assert references and {row["sample"] for row in references} == {"reference"}
++    assert next(row["enumerated"] for row in details if "enumerated" in row) == 3
++    assert next(row["missing"] for row in details if "missing" in row) == 1
++    assert payload == original
++
++
++def test_empty_query_result_has_no_next_page():
++    model, details = _project(_result(_payload([]), result_ref=REF))
++    scope = next(row for row in details if "total_matched" in row)
++    assert scope["offset"] == 0
++    assert scope["next_offset"] is None
++    assert scope["total_matched"] == scope["returned_count"] == 0
++    assert scope["truncated"] is False
++    assert '"next_offset":null' in model["observation"]
++
++
+ def test_oversized_field_is_explicitly_omitted_without_clipping_json():
+     payload = _payload([{"entity_code": "A.FP", "entity_name": "超长源名称" * 100, "trade_date": "2026-08-04", "sector": {"pct_chg": 1.25}}])
+     _, details = _project(_result(payload, result_ref=REF))

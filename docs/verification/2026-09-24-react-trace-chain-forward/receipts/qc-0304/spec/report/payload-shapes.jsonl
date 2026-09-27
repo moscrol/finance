@@ -1,0 +1,5 @@
+{"admission":1,"stage":"report","stream":true,"model":"glm-5.3","tools":["read","inspect","submit_report"],"temperature_removed":false,"thinking":{"type":"enabled","clear_thinking":false},"reasoning_effort":"low","max_tokens":8192}
+{"admission":2,"stage":"report","stream":true,"model":"glm-5.3","tools":["read","inspect","submit_report"],"temperature_removed":false,"thinking":{"type":"enabled","clear_thinking":false},"reasoning_effort":"low","max_tokens":8192}
+{"admission":3,"stage":"report","stream":true,"model":"glm-5.3","tools":["read","inspect","submit_report"],"temperature_removed":false,"thinking":{"type":"enabled","clear_thinking":false},"reasoning_effort":"low","max_tokens":8192}
+{"admission":4,"stage":"report","stream":true,"model":"glm-5.3","tools":["read","inspect","submit_report"],"temperature_removed":false,"thinking":{"type":"enabled","clear_thinking":false},"reasoning_effort":"low","max_tokens":8192}
+{"admission":5,"stage":"report","stream":true,"model":"glm-5.3","tools":["read","inspect","submit_report"],"temperature_removed":false,"thinking":{"type":"enabled","clear_thinking":false},"reasoning_effort":"low","max_tokens":8192}

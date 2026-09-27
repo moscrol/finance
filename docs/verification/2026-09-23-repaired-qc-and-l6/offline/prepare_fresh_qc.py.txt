@@ -1,0 +1,81 @@
+"""Pin freshly prepared review inputs to the repaired candidate; no model calls."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115')
+TREE = Path('/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate')
+REVISION = subprocess.check_output(['git', '-C', str(TREE), 'rev-parse', 'HEAD'], text=True).strip()
+BASE = '626d8a508c1c988ff094110b371987e6afdcdd15'
+assert REVISION == 'ac11027fa75ee6a988ab90ab81e0329159964643'
+assert not subprocess.check_output(['git', '-C', str(TREE), 'status', '--porcelain'], text=True).strip()
+assert not (ROOT / 'authorization.json').exists()
+for axis in ('spec', 'quality'):
+    folder = ROOT / axis
+    config = json.loads((folder / 'config.json').read_text())
+    old = dict(config)
+    for path in folder.rglob('*'):
+        if not path.is_file():
+            continue
+        body = path.read_text()
+        for before, after in [(old['tree'], str(TREE)), (old['author'], str(TREE)),
+                              (old['revision'], REVISION), (old['baseline'], BASE)]:
+            body = body.replace(before, after)
+        path.write_text(body)
+    config.update(tree=str(TREE), author=str(TREE), revision=REVISION, baseline=BASE)
+    (folder / 'config.json').write_text(json.dumps(config, indent=2) + '\n')
+    # Historical author receipts keep their original bytes and revision identifiers.
+    archive = TREE / 'docs/verification/2026-09-23-adaptive-qc-glm-roundtrip' / axis / 'inputs'
+    for name in ('author-summary.json', 'author-pytest-receipt.json'):
+        (folder / 'inputs' / name).write_bytes((archive / name).read_bytes())
+    claims = folder / 'inputs/claims.md'
+    lines = claims.read_text().splitlines()
+    lines = [('- C7: Historical engineering receipts belong only to clean revision '
+              '7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16. The current candidate includes a main '
+              'merge and product fixes, NOT a docs-only delta. Historical receipts do not cover '
+              'this candidate and cannot be relabeled as current or independent test counts.')
+             if line.startswith('- C7:') else line for line in lines]
+    lines = [line.replace('Later audit/preflight tooling added after the candidate is outside this frozen review.',
+                          'The repaired-candidate changes listed below are in scope for correctness findings.') for line in lines]
+    lines.extend(['', 'Additional repaired-candidate correctness scope (findings, not extra C claim IDs):',
+        '- Currency field units in episode_semantic_verifier.py must accept equivalent rounding while rejecting wrong currency scale, non-money fields and unbound evidence.',
+        '- pi_review_protocol.mjs and prepare_pi_review_repair.py bind stage/axis/revision/baseline in the controller. Reviewer identity injection, including matching identities, is forbidden. Request/deadline/one-closeout limits are unchanged.',
+        '- adaptive_l6_batch.py and prepare_adaptive_l6_runner.py must not submit a next question before an exact-Episode source audit PASS. Missing, failing, late and malformed audits must stop. Synthetic PASS is not a natural financial verdict.',
+        '- Offline CLI and archived-input fixture tests need files denied by this review sandbox. Do not weaken the sandbox. Distinguish unrun author tests from independent small probes.',
+    ])
+    claims.write_text('\n'.join(lines) + '\n')
+    index_path = folder / 'inputs/source-index.json'
+    names = [row['file'] for row in json.loads(index_path.read_text())]
+    names += ['scripts/review_probes/adaptive_l6_batch.py', 'scripts/review_probes/prepare_adaptive_l6_runner.py',
+              'scripts/review_probes/prepare_pi_review_repair.py', 'scripts/review_probes/pi_review_protocol.mjs',
+              'tests/test_adaptive_l6_audit.py', 'tests/test_pi_review_repair.py']
+    index = []
+    for name in dict.fromkeys(names):
+        path = TREE / name
+        row = {'file': name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'lines': len(path.read_text().splitlines()), 'symbols': []}
+        if path.suffix == '.py':
+            row['symbols'] = [{'name': n.name, 'start': n.lineno, 'end': n.end_lineno}
+                              for n in ast.walk(ast.parse(path.read_text()))
+                              if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+        index.append(row)
+    index_path.write_text(json.dumps(index, indent=2) + '\n')
+    diff = subprocess.check_output(['git', '-C', str(TREE), 'diff', '--stat', '7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16', REVISION], text=True)
+    (folder / 'inputs/code-tip-to-candidate.diffstat.txt').write_text(diff)
+    for stage in ('explore', 'execute', 'report'):
+        path = folder / f'prompt-{stage}.md'
+        body = path.read_text()
+        body += '\nRepaired-candidate scope is in claims.md. Baseline is current merged main; historical author receipts are NOT this candidate. Identity is controller-owned; submit only complete=true plus stage-content fields.\n'
+        path.write_text(body)
+receipt = {'schema': 'pr868-qc-repaired/v1', 'authorization': {'approved': True, 'quote': '执行',
+           'scope': 'three repairs then new bounded #75 and L6 verification; no merge or deployment'},
+           'candidate': REVISION, 'baseline': BASE, 'old_batches_resumed': False,
+           'real_model_requests': 0, 'stage_request_max': 24, 'stage_seconds': 600,
+           'request_seconds': 120, 'automatic_retries': 0, 'forced_closeout_at_normal_requests': 16,
+           'forced_closeout_at_seconds': 420, 'paid_batches_serial': True,
+           'inputs_sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                             for p in ROOT.rglob('*') if p.is_file()}}
+with (ROOT / 'authorization.json').open('x') as stream:
+    json.dump(receipt, stream, indent=2, ensure_ascii=False)
+print(json.dumps({'status': 'PREPARED', 'candidate': REVISION, 'files': len(receipt['inputs_sha256']), 'real_model_requests': 0}))

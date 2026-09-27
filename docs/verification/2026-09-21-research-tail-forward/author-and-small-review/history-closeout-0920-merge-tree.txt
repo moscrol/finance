@@ -1,0 +1,30 @@
+6738db3fd08fcf9c30888730b558b04b1e64d6da
+100644 f63af09f06fbc7b3300238df2dd916a844207750 1	intelligence/services/finance_query.py
+100644 629597f27cd09aa921143e4311aac0e1342dacc9 2	intelligence/services/finance_query.py
+100644 351f8acb60d282c743a40eee58023a52077cdb07 3	intelligence/services/finance_query.py
+100644 067d3a76d444f829fbc16b36f7262a30d6445b7d 1	intelligence/services/research_contract.py
+100644 349288bbbcd499efa3f477aa5204eda52131d077 2	intelligence/services/research_contract.py
+100644 f7eb9220bafcb696b675b1adb866bdfd5a560199 3	intelligence/services/research_contract.py
+100644 2d77a478ffb735d2df50789786fd7534ef79fae4 1	intelligence/services/user_task.py
+100644 2020ba8a2dfcaa393a6676c42ac07fdd81a02288 2	intelligence/services/user_task.py
+100644 4484eb3abf4abbaabb5d3c2a50405544722eeaaa 3	intelligence/services/user_task.py
+
+Auto-merging UBIQUITOUS_LANGUAGE.md
+Auto-merging docs/agent-product-door.md
+Auto-merging docs/runtime/harness-seams.md
+Auto-merging intelligence/runtime/agent_episode.py
+Auto-merging intelligence/runtime/continuous_turn_adapter.py
+Auto-merging intelligence/runtime/conversation_orchestrator.py
+Auto-merging intelligence/runtime/harness_reference_loop.py
+Auto-merging intelligence/services/episode_factory.py
+Auto-merging intelligence/services/episode_protocol.py
+Auto-merging intelligence/services/finance_query.py
+CONFLICT (content): Merge conflict in intelligence/services/finance_query.py
+Auto-merging intelligence/services/ranking_contract.py
+Auto-merging intelligence/services/research_contract.py
+CONFLICT (content): Merge conflict in intelligence/services/research_contract.py
+Auto-merging intelligence/services/research_harness.py
+Auto-merging intelligence/services/research_tool_registry.py
+Auto-merging intelligence/services/turn_controller.py
+Auto-merging intelligence/services/user_task.py
+CONFLICT (content): Merge conflict in intelligence/services/user_task.py

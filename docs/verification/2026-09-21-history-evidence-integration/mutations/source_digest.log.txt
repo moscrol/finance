@@ -1,0 +1,38 @@
+....F...                                                                 [100%]
+=================================== FAILURES ===================================
+____ test_history_reconstruction_does_not_drop_or_rebind_identity[row_hash] ____
+
+mutation = 'row_hash'
+
+    @pytest.mark.parametrize("mutation", [
+        "absent", "null", "extra", "missing_key", "row_hash", "locator", "query_key", "tool",
+    ])
+    def test_history_reconstruction_does_not_drop_or_rebind_identity(mutation):
+        from intelligence.services.prior_evidence import _original_atom
+    
+        card = _hashed_result(_payload([_row(0)])).evidence[-1]
+        raw = json.loads(json.dumps(asdict(card)))
+        if mutation == "absent":
+            raw.pop("history_provenance")
+        elif mutation == "null":
+            raw["history_provenance"] = None
+        elif mutation == "extra":
+            raw["history_provenance"]["unknown"] = True
+        elif mutation == "missing_key":
+            raw["history_provenance"].pop("promotion_eligible")
+        elif mutation == "row_hash":
+            raw["history_provenance"]["row_hash"] = "f" * 16
+        elif mutation == "locator":
+            raw["internal_locator"] = "other/" + REF.split("/", 1)[1]
+        elif mutation == "query_key":
+            raw["independent_key"] = "another-query"
+        else:
+            raw["tool"] = ["history_query"]
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_history_evidence_binding.py:339: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/source_digest.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_history_reconstruction_does_not_drop_or_rebind_identity[row_hash]
+1 failed, 7 passed in 0.42s

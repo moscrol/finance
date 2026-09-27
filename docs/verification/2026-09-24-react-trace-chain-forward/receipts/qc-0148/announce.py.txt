@@ -1,0 +1,37 @@
+"""Publish current identity without promoting pending validation."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+sys.path.insert(0, '/Users/a77/fwp-wt-react-trace-chain-0923')
+from scripts.gitea_pr import _api
+
+ROOT = Path(__file__).resolve().parent
+REV = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+intro = f'''## 09-24 推进中：新候选与新收据，尚不可合入
+
+- 用户授权原话：「推进，直到可以合并部署」。本轮按就绪准备推进，不以旧证据或在途进程代替通过结论。
+- #832 已前向合并固定主干 `3bb81b9638f97b4773ce0f338df3a505b7c0162f`，新 head `{REV}`，普通推送；merge-tree 无冲突，六项关键实现文件相对旧候选未新增修改，但主干带来的其他变化仍要重验。
+- **旧 d1b30e1 的工程及独审结论不可移签到新 head**。当前新 head 工程/独审均为 PENDING；#832 继续 WIP。
+- 新审查根 `~/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/`：读取实际游标修正、宿主权威预算/产物提示、第7发前首探针及后续写探针检查点、执行阶段强制先尝试三套测试。两轴离线准入通过，40份工装封存，152请求总帽/每阶段24/零自动重试，失败即停。
+- 新模型批正在运行；不在中途宣告独审通过。全量工程门禁等待共享资源准入（可用磁盘≥12GiB、无其他pytest、负载≤18连续两次），不干预别人的任务。
+- #76 自然金融质量未启动，旧not_passed保留；未合main、未切8792、未写生产数据。最终结论和原件仍归#892。
+'''
+results = []
+for number in [832,892]:
+    before = _api('GET', f'/pulls/{number}')
+    expected = REV if number == 832 else before['head']['sha']
+    assert before['head']['sha'] == expected and before['state'] == 'open' and not before.get('merged')
+    (ROOT/f'announce-pr-{number}-before.json').write_text(json.dumps(before, ensure_ascii=False, indent=2)+'\n')
+    body = intro+'\n<details>\n<summary>之前的状态与原始结论（历史，不代表新head）</summary>\n\n'+before['body']+'\n\n</details>\n'
+    error = None
+    try:
+        _api('PATCH', f'/issues/{number}', {'body':body})
+    except (Exception, SystemExit) as exc:
+        error = type(exc).__name__
+    after = _api('GET', f'/pulls/{number}')
+    assert after['body'] == body and after['head']['sha'] == expected and not after.get('merged')
+    results.append({'pr':number,'head':expected,'readback_equal':True,'body_sha256':hashlib.sha256(body.encode()).hexdigest(),'write_exception_type':error})
+    (ROOT/'announce-readback.json').write_text(json.dumps(results, indent=2)+'\n')
+    print(json.dumps(results[-1]), flush=True)

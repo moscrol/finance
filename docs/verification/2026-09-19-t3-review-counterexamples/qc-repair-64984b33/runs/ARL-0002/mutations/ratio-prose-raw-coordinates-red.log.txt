@@ -1,0 +1,51 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33/runs/ARL-0002/mutations/ratio-prose-raw-coordinates-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_ratio_prose_replaces_only_bad_value_not_its_neighbors"], "cwd": "/private/tmp/extraction-closeout-mutations-_154ra9n/tree", "revision": "64984b33e6f38eccc50c004b7b79120f1f45a775"}
+.FFF..F                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_ratio_prose_replaces_only_bad_value_not_its_neighbors[**\u6536\u5165\u53ef\u6838**[E1]\uff0c**2026\u4e2d\u62a5**\u542b\u91d1\u91cf\u4e3a**1.587**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-**\u6536\u5165\u53ef\u6838**[E1]\uff0c**2026\u4e2d\u62a5**\u542b\u91d1\u91cf\u4e3a**\u5f85\u6838\u5bf9**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_retention.py:178: in test_ratio_prose_replaces_only_bad_value_not_its_neighbors
+    assert kept == expected
+E   AssertionError: assert '**收入可核**[E1]...7**，利润可核[E2]。' == '**收入可核**[E1]...对**，利润可核[E2]。'
+E     
+E     - **收入可核**[E1]，**2026中报**含金量为**待核对**，利润可核[E2]。
+E     ?                    ^^^^^     ^^^
+E     + **收入可核**[E1]，**2026待核对金量为**1.587**，利润可核[E2]。
+E     ?                    ^^^     ^^^^^
+_ test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a**158.7**%\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a**\u5f85\u6838\u5bf9**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_retention.py:178: in test_ratio_prose_replaces_only_bad_value_not_its_neighbors
+    assert kept == expected
+E   AssertionError: assert '收入可核[E1]，202...**%，利润可核[E2]。' == '收入可核[E1]，202...对**，利润可核[E2]。'
+E     
+E     - 收入可核[E1]，2026中报含金量为**待核对**，利润可核[E2]。
+E     ?                    --
+E     + 收入可核[E1]，2026中报含金量为待核对7**%，利润可核[E2]。
+E     ?                       +  +
+_ test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a`1.587\u500d`\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a`\u5f85\u6838\u5bf9`\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_retention.py:178: in test_ratio_prose_replaces_only_bad_value_not_its_neighbors
+    assert kept == expected
+E   AssertionError: assert '收入可核[E1]，202...对倍`，利润可核[E2]。' == '收入可核[E1]，202...核对`，利润可核[E2]。'
+E     
+E     - 收入可核[E1]，2026中报含金量为`待核对`，利润可核[E2]。
+E     ?                    -
+E     + 收入可核[E1]，2026中报含金量为待核对倍`，利润可核[E2]。
+E     ?                       +
+_ test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b**\u91d1\u91cf**\u4e3a1.587\u3002\n\u5176\u4ed6\u4e8b\u5b9e\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b**\u91d1\u91cf**\u4e3a\u5f85\u6838\u5bf9\u3002\n\u5176\u4ed6\u4e8b\u5b9e\u53ef\u6838[E2]\u3002] _
+intelligence/tests/test_research_delivery_retention.py:178: in test_ratio_prose_replaces_only_bad_value_not_its_neighbors
+    assert kept == expected
+E   AssertionError: assert '收入可核[E1]，202...\n其他事实可核[E2]。' == '收入可核[E1]，202...\n其他事实可核[E2]。'
+E     
+E     - 收入可核[E1]，2026中报含**金量**为待核对。
+E     ?                    ----
+E     + 收入可核[E1]，2026中报含**金待核对.587。
+E     ?                       ++++
+E       其他事实可核[E2]。
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-repair-64984b33/runs/ARL-0002/mutations/ratio-prose-raw-coordinates-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_retention.py::test_ratio_prose_replaces_only_bad_value_not_its_neighbors[**\u6536\u5165\u53ef\u6838**[E1]\uff0c**2026\u4e2d\u62a5**\u542b\u91d1\u91cf\u4e3a**1.587**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-**\u6536\u5165\u53ef\u6838**[E1]\uff0c**2026\u4e2d\u62a5**\u542b\u91d1\u91cf\u4e3a**\u5f85\u6838\u5bf9**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a**158.7**%\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a**\u5f85\u6838\u5bf9**\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a`1.587\u500d`\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b\u91d1\u91cf\u4e3a`\u5f85\u6838\u5bf9`\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_ratio_prose_replaces_only_bad_value_not_its_neighbors[\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b**\u91d1\u91cf**\u4e3a1.587\u3002\n\u5176\u4ed6\u4e8b\u5b9e\u53ef\u6838[E2]\u3002-\u6536\u5165\u53ef\u6838[E1]\uff0c2026\u4e2d\u62a5\u542b**\u91d1\u91cf**\u4e3a\u5f85\u6838\u5bf9\u3002\n\u5176\u4ed6\u4e8b\u5b9e\u53ef\u6838[E2]\u3002]
+4 failed, 3 passed, 298 deselected in 0.88s
+
+STDERR:
+
+EXIT=1

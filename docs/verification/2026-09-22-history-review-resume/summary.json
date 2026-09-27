@@ -1,0 +1,44 @@
+{
+  "recorded_at": "2026-09-21T16:52:35.354684+00:00",
+  "reviewed_revision": "43511e3f15bd18bfd49868dfbac5b1d3774fd0bc",
+  "review_records": {
+    "spec": {
+      "status": "BLOCKED_USAGE_LIMIT_NO_FINAL_REPORT",
+      "elapsed_seconds": 395.183949,
+      "exit_code": 1,
+      "timeout_seconds": 600,
+      "timed_out": false,
+      "identity_stable": true,
+      "minimum_sampled_free_bytes": 4253126656,
+      "cli_tokens_used_display": 92622,
+      "exec_markers": 35,
+      "final_report_exists": false,
+      "tests_run": 0
+    },
+    "quality": {
+      "status": "BLOCKED_USAGE_LIMIT_NO_FINAL_REPORT",
+      "elapsed_seconds": 421.207607,
+      "exit_code": 1,
+      "timeout_seconds": 600,
+      "timed_out": false,
+      "identity_stable": true,
+      "minimum_sampled_free_bytes": 4253126656,
+      "cli_tokens_used_display": 201067,
+      "exec_markers": 17,
+      "final_report_exists": false,
+      "tests_run": 0
+    }
+  },
+  "source_diff_from_f73_excluding_docs": "",
+  "new_financial_probe_calls": 0,
+  "new_pytest_runs": 0,
+  "global_change": {
+    "path": "/Users/a77/.local/bin/codex-code-mode-host",
+    "type": "new_symlink",
+    "target": "/Applications/ChatGPT.app/Contents/Resources/codex-code-mode-host",
+    "config_toml_modified": false,
+    "sandbox_weakened": false
+  },
+  "raw_transcripts_external": true,
+  "preflight_note": "Initial --ask-for-approval placement failed CLI parsing before model; shell output only. Successful probe final saved, not full transcript."
+}

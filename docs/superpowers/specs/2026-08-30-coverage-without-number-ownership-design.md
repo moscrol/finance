@@ -1,7 +1,7 @@
 # 设计：覆盖追上 Knevo，数字所有权不交还
 
 - 日期：2026-08-30
-- 状态：Draft v1（只落本文。未改 `intelligence/`，未切 8792）
+- 状态：Draft v1；2026-09-25审计分支仅记忆预取切片已实现（`9533417c3`，干净641P），联想/并行不移签。记忆的首请求送达为无模型离线PASS；未合main、未切8792、真实采用与质量UNKNOWN。收据：`docs/verification/2026-09-25-workbench-correction-ingest/README.md`。下文“今天”是原设计基线。
 - 来源：2026-08-30 会话（Knevo 联想/记忆/并行仍常赢，与「模型不拥有数字」是否冲突）+ `docs/learning/knevo-vs-workbench-技能包对比台账.md` + `agent-memory/10_knowledge/knevo-reverse-engineering.md`
 - 姊妹单（本单不重做）：
   - `2026-08-30-engine-b-into-a-strangler-design.md`——D 块并进 A 预取（D8/D11 接线归那单）

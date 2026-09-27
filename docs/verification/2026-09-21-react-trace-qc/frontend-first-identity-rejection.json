@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "leaf": "frontend",
+  "tree": "/Users/a77/fwp-wt-react-trace-qc-0921",
+  "revision": "a412a56aa6d6adcc0",
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "started_at": "2026-09-21T08:18:15.819422+00:00",
+  "identity_before": {
+    "recorded_at": "2026-09-21T08:18:15.927648+00:00",
+    "revision": "a412a56aa757863a5c35bdbc2b71498827d2b278",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "identity_after": {
+    "recorded_at": "2026-09-21T08:18:16.072942+00:00",
+    "revision": "a412a56aa757863a5c35bdbc2b71498827d2b278",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "dirty": false,
+  "identity_stable": false,
+  "complete": false,
+  "checks": [],
+  "exit_code": 2,
+  "error": "initial checkout is dirty or differs from --expect-revision",
+  "finished_at": "2026-09-21T08:18:16.073004+00:00"
+}

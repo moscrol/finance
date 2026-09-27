@@ -1,0 +1,113 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_refresh_removes_stale_references_without_rewriting_artifacts[conversation] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1544/test_refresh_removes_stale_ref0')
+mutation = 'conversation'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "visibility", "downloadable", "registration"])
+    def test_refresh_removes_stale_references_without_rewriting_artifacts(tmp_path, mutation):
+        registry, context, session = _registry(tmp_path)
+        ref = _query(registry, context).telemetry["result_ref"]
+        run = session.store.load_run(session.run_id)
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        else:
+            run.artifacts.clear()
+        session.store._write_run(run)
+        before = session.store.run_path(run.run_id).read_bytes()
+        session.refresh()
+>       assert ref not in session.refs
+E       AssertionError: assert 'run_20260921_232312_555223/history-query-49938cca09ba4fd158fa48cb28ba01ab34c3ac92f4fe12b521ee3c15df91efbd.json' not in {'run_20260921_232312_555223/history-query-49938cca09ba4fd158fa48cb28ba01ab34c3ac92f4fe12b521ee3c15df91efbd.json': ('run_20260921_232312_555223', 'history-query-49938cca09ba4fd158fa48cb28ba01ab34c3ac92f4fe12b521ee3c15df91efbd.json')}
+E        +  where {'run_20260921_232312_555223/history-query-49938cca09ba4fd158fa48cb28ba01ab34c3ac92f4fe12b521ee3c15df91efbd.json': ('run_20260921_232312_555223', 'history-query-49938cca09ba4fd158fa48cb28ba01ab34c3ac92f4fe12b521ee3c15df91efbd.json')} = <intelligence.services.historical_research.episode.HistorySession object at 0x10743ef90>.refs
+
+tests/test_history_artifact_scope.py:166: AssertionError
+_ test_refresh_removes_stale_references_without_rewriting_artifacts[visibility] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1544/test_refresh_removes_stale_ref1')
+mutation = 'visibility'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "visibility", "downloadable", "registration"])
+    def test_refresh_removes_stale_references_without_rewriting_artifacts(tmp_path, mutation):
+        registry, context, session = _registry(tmp_path)
+        ref = _query(registry, context).telemetry["result_ref"]
+        run = session.store.load_run(session.run_id)
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        else:
+            run.artifacts.clear()
+        session.store._write_run(run)
+        before = session.store.run_path(run.run_id).read_bytes()
+        session.refresh()
+>       assert ref not in session.refs
+E       AssertionError: assert 'run_20260921_232312_768364/history-query-6766396d5fc315c08f08a12a11d993feda9a42fba2f24469fa7a91c1add4540b.json' not in {'run_20260921_232312_768364/history-query-6766396d5fc315c08f08a12a11d993feda9a42fba2f24469fa7a91c1add4540b.json': ('run_20260921_232312_768364', 'history-query-6766396d5fc315c08f08a12a11d993feda9a42fba2f24469fa7a91c1add4540b.json')}
+E        +  where {'run_20260921_232312_768364/history-query-6766396d5fc315c08f08a12a11d993feda9a42fba2f24469fa7a91c1add4540b.json': ('run_20260921_232312_768364', 'history-query-6766396d5fc315c08f08a12a11d993feda9a42fba2f24469fa7a91c1add4540b.json')} = <intelligence.services.historical_research.episode.HistorySession object at 0x10824f4d0>.refs
+
+tests/test_history_artifact_scope.py:166: AssertionError
+_ test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1544/test_refresh_removes_stale_ref2')
+mutation = 'downloadable'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "visibility", "downloadable", "registration"])
+    def test_refresh_removes_stale_references_without_rewriting_artifacts(tmp_path, mutation):
+        registry, context, session = _registry(tmp_path)
+        ref = _query(registry, context).telemetry["result_ref"]
+        run = session.store.load_run(session.run_id)
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        else:
+            run.artifacts.clear()
+        session.store._write_run(run)
+        before = session.store.run_path(run.run_id).read_bytes()
+        session.refresh()
+>       assert ref not in session.refs
+E       AssertionError: assert 'run_20260921_232312_789820/history-query-26ad44cfdcb09ef34fad16901a6cbbf568b8062224bf19973141437950fdb685.json' not in {'run_20260921_232312_789820/history-query-26ad44cfdcb09ef34fad16901a6cbbf568b8062224bf19973141437950fdb685.json': ('run_20260921_232312_789820', 'history-query-26ad44cfdcb09ef34fad16901a6cbbf568b8062224bf19973141437950fdb685.json')}
+E        +  where {'run_20260921_232312_789820/history-query-26ad44cfdcb09ef34fad16901a6cbbf568b8062224bf19973141437950fdb685.json': ('run_20260921_232312_789820', 'history-query-26ad44cfdcb09ef34fad16901a6cbbf568b8062224bf19973141437950fdb685.json')} = <intelligence.services.historical_research.episode.HistorySession object at 0x10ce34cb0>.refs
+
+tests/test_history_artifact_scope.py:166: AssertionError
+_ test_refresh_removes_stale_references_without_rewriting_artifacts[registration] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1544/test_refresh_removes_stale_ref3')
+mutation = 'registration'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "visibility", "downloadable", "registration"])
+    def test_refresh_removes_stale_references_without_rewriting_artifacts(tmp_path, mutation):
+        registry, context, session = _registry(tmp_path)
+        ref = _query(registry, context).telemetry["result_ref"]
+        run = session.store.load_run(session.run_id)
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        else:
+            run.artifacts.clear()
+        session.store._write_run(run)
+        before = session.store.run_path(run.run_id).read_bytes()
+        session.refresh()
+>       assert ref not in session.refs
+E       AssertionError: assert 'run_20260921_232312_810161/history-query-a6f51b4ff350331061e285d89b8d334d7b9736bc3eeb2e2d6ee1660f03e788d2.json' not in {'run_20260921_232312_810161/history-query-a6f51b4ff350331061e285d89b8d334d7b9736bc3eeb2e2d6ee1660f03e788d2.json': ('run_20260921_232312_810161', 'history-query-a6f51b4ff350331061e285d89b8d334d7b9736bc3eeb2e2d6ee1660f03e788d2.json')}
+E        +  where {'run_20260921_232312_810161/history-query-a6f51b4ff350331061e285d89b8d334d7b9736bc3eeb2e2d6ee1660f03e788d2.json': ('run_20260921_232312_810161', 'history-query-a6f51b4ff350331061e285d89b8d334d7b9736bc3eeb2e2d6ee1660f03e788d2.json')} = <intelligence.services.historical_research.episode.HistorySession object at 0x10ce37aa0>.refs
+
+tests/test_history_artifact_scope.py:166: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/mutations/refresh_accumulates.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_artifact_scope.py::test_refresh_removes_stale_references_without_rewriting_artifacts[conversation]
+FAILED tests/test_history_artifact_scope.py::test_refresh_removes_stale_references_without_rewriting_artifacts[visibility]
+FAILED tests/test_history_artifact_scope.py::test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]
+FAILED tests/test_history_artifact_scope.py::test_refresh_removes_stale_references_without_rewriting_artifacts[registration]
+4 failed in 0.35s

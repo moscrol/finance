@@ -28,7 +28,12 @@ from intelligence.tests.test_research_delivery_checks import TABLE, _financial_e
 @pytest.mark.parametrize("mode", ["off", "llm"])
 @pytest.mark.parametrize("repair_result", ["unchanged", "corrected", "timeout"])
 @pytest.mark.parametrize("window", ["reserved", "exhausted", "root_expired"])
-@pytest.mark.parametrize("case", ["disclosure", "calculation"])
+@pytest.mark.parametrize("case", [
+    "disclosure", "disclosure_comma", "disclosure_residue", "disclosure_dash",
+    "calculation", "calculation_prose", "calculation_ranking", "calculation_periods", "calculation_unlocated",
+    "calculation_hedge", "calculation_hedge_copula", "calculation_currency_unit",
+    "calculation_points_unit", "calculation_semicolon", "calculation_boundary_neighbors",
+])
 def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     monkeypatch, mode, repair_result, window, case
 ):
@@ -68,7 +73,7 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
         content_hash="repair-input",
     )
 
-    inputs = (evidence,) if case == "disclosure" else (evidence, *_financial_evidence())
+    inputs = (evidence,) if case.startswith("disclosure") else (evidence, *_financial_evidence())
 
     def fetch(query, _context):
         fetched.append(query)
@@ -94,8 +99,43 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     repair_inputs = []
     bad = "已核实中报收入。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。"
     good = "已核实中报收入。[E1]。公告来源仅部分返回，不能据此断言公司没有公告。"
-    if case == "calculation":
+    if case == "disclosure_comma":
+        bad = "已核实中报收入[E1]，但查询返回空白，因此公司没有公告。"
+    elif case == "disclosure_residue":
+        bad = "已核实中报收入[E1]，查询返回空白，因此没有新公告，即公司无新增公告。"
+    elif case == "disclosure_dash":
+        bad = "已核实中报收入[E1]——查询返回空白因此公司没有公告。"
+    elif case == "calculation":
         bad = "已核实中报收入。[E1]。\n" + TABLE
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_prose":
+        bad = "已核实中报收入[E1]，2026中报含金量为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_ranking":
+        bad = "已核实中报收入[E1]，2026中报含金量3年新高，实际为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_periods":
+        bad = "已核实中报收入[E1]，含金量对照：2026中报 2025中报分别为1.587与0.289。"
+        good = bad.replace("1.587", "1.588")
+
+    if case == "calculation_unlocated":
+        bad = "已核实中报收入[E1]，2026中报含金量3年最高，为1.587，2025中报含金量为0.289。"
+        good = "已核实中报收入[E1]，2026中报含金量为1.588，2025中报含金量为0.289。"
+    elif case in {"calculation_hedge", "calculation_hedge_copula"}:
+        hedge = "为待核对" if case == "calculation_hedge_copula" else "待核对"
+        bad = f"已核实中报收入[E1]，2026中报含金量{hedge}，实际为1.587，2025中报含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_currency_unit":
+        bad = "已核实中报收入[E1]，2026中报含金量为1.587元/元，2025中报的含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_points_unit":
+        bad = "已核实中报收入[E1]，2026中报含金量实际为158.7个百分点，2025中报的含金量为0.289。"
+        good = bad.replace("158.7个百分点", "1.588")
+    elif case == "calculation_semicolon":
+        bad = "已核实中报收入[E1]，2026中报含金量待核对；实际为1.587，2025中报的含金量为0.289。"
+        good = bad.replace("1.587", "1.588")
+    elif case == "calculation_boundary_neighbors":
+        bad = "已核实中报收入[E1]，2026中报含金量为1.587，行业排名第3，同期经营现金流1,234.56亿元[E1]，2025中报的含金量为0.289。"
         good = bad.replace("1.587", "1.588")
 
     def run(request):
@@ -106,7 +146,14 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
             clock["now"] = 121.0 if window == "root_expired" else 31.0
         else:
             assert request.tools == ()  # no extra lookup / tool grant
-            repair_input = json.loads(request.input)
+            envelope = json.loads(request.input)
+            repair_input = envelope
+            if envelope["kind"] == "REPAIR_CONTEXT":
+                # feat/adaptive-research-loop wraps the goal so review feedback
+                # survives the SDK hop: the REPAIR_GOAL itself is unchanged and
+                # the evidence rows move to the envelope.
+                repair_input = json.loads(envelope["repair_goal_message"])
+                repair_input.setdefault("evidence", envelope["evidence"])
             assert repair_input["kind"] == "REPAIR_GOAL"
             assert repair_input["episode_id"] == context.contract.task_id
             assert repair_input["evidence"][0]["content_hash"] == evidence.content_hash
@@ -160,7 +207,7 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
         assert len(repair_inputs) == 1
         expected_note = (
             "查询失败或空白不能推出没有公告"
-            if case == "disclosure"
+            if case.startswith("disclosure")
             else "按报告期及比率列重新对账"
         )
         assert any(
@@ -172,7 +219,15 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert budget.allocated_calls == 1
     assert budget.allocated_seconds <= budget.hard_seconds_cap
     assert "窗口内无新公告即" not in result.answer
-    assert "1.587" not in result.answer
+    assert "因此公司没有公告" not in result.answer
+    assert "因此没有新公告" not in result.answer
+    assert "即公司无新增公告" not in result.answer
+    if case == "calculation_unlocated" and not (can_repair and repair_result == "corrected") and window != "root_expired":
+        assert "〔比率对应关系待核对〕" in result.answer
+        assert "不能视为已核算结论" in result.answer
+        assert "1.587" in result.answer  # retained as explicitly unverified, not replaced by a guess
+    else:
+        assert "1.587" not in result.answer
     if window == "root_expired":
         # The root expires BEFORE any semantic verification. No trusted answer
         # exists yet; do not silently authenticate the unverified first draft.
@@ -184,10 +239,17 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert "已核实中报收入" in result.answer
     assert "[E1]" in result.answer
     assert {c["title"] for c in result.citations} == {evidence.title}
-    if case == "calculation":
-        assert "1.587" not in result.answer
-        assert "706.91" in result.answer and "445.17" in result.answer
+    if case.startswith("calculation"):
+        assert "158.7个百分点" not in result.answer
+        if case == "calculation_boundary_neighbors":
+            assert "行业排名第3" in result.answer and "1,234.56亿元[E1]" in result.answer
+        if case == "calculation":
+            assert "706.91" in result.answer and "445.17" in result.answer
         assert "0.289" in result.answer
+        if case in {"calculation_ranking", "calculation_periods"}:
+            assert "2026中报" in result.answer and "2025中报" in result.answer
+        if case == "calculation_ranking":
+            assert "3年新高" in result.answer
         assert (
             "1.588" if can_repair and repair_result == "corrected" else "待核对"
         ) in result.answer
@@ -200,7 +262,8 @@ def test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference(
     assert "scripted repair failure" not in result.answer
 
 
-def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch):
+@pytest.mark.parametrize("separator", ["。", "，", "但", "——", " "])
+def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch, separator):
     from intelligence.runtime import continuous_turn_adapter as adapter
     from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
     from intelligence.services.episode_session import CallbackEpisodeSession
@@ -264,7 +327,7 @@ def test_adapter_rechecks_nonmaterial_final_projection(monkeypatch):
     monkeypatch.setattr(
         adapter,
         "_with_calendar_disclosure",
-        lambda text, frame: text + "窗口内无新公告即无新增官方信息差。",
+        lambda text, frame: text.rstrip("。") + separator + "窗口内无新公告即无新增官方信息差。",
     )
     result = ContinuousTurnAdapter(
         runtime=Runtime(),

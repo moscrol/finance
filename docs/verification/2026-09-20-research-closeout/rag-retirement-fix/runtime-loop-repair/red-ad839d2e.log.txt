@@ -1,0 +1,1 @@
+{"message": "Symlink loop from '/private/tmp/rag-quality-k0hzoxs_/venv/bin/python3'", "outcome": "exception", "type": "RuntimeError"}

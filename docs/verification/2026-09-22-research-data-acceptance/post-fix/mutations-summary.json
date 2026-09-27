@@ -1,0 +1,429 @@
+{
+  "revision": "6a1fef3c730c4bae4654bf69cc85ccd563c601f2",
+  "suite": "research-delivery",
+  "complete": true,
+  "definitions_sha256": "31a8ddf5d3c6c103de4c6c122e0a47036b96f5b4f3e49083d5d1a3a520b03379",
+  "mutation_count": 57,
+  "baseline": {
+    "label": "baseline",
+    "exit": 0,
+    "executed": 695,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "failed_cases": []
+  },
+  "restored_full": {
+    "label": "restored-full",
+    "exit": 0,
+    "executed": 695,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "failed_cases": []
+  },
+  "all_red_failed": true,
+  "all_green_clean": true,
+  "final_status": "",
+  "mutations": [
+    {
+      "id": "result-success-admission",
+      "before_sha256": "490baa7c6f800fce",
+      "restored_sha256": "490baa7c6f800fce",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "strict-table-width",
+      "before_sha256": "81d56a1279a7326b",
+      "restored_sha256": "81d56a1279a7326b",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "domain-error-status",
+      "before_sha256": "10b11b6bab2421a7",
+      "restored_sha256": "10b11b6bab2421a7",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "harness-status-delivery",
+      "before_sha256": "808371c302b3ac6f",
+      "restored_sha256": "808371c302b3ac6f",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "public-disclosure-check",
+      "before_sha256": "ba971d71d1490bc4",
+      "restored_sha256": "ba971d71d1490bc4",
+      "red_failures": 10,
+      "green_failures": 0
+    },
+    {
+      "id": "public-calculation-check",
+      "before_sha256": "ba971d71d1490bc4",
+      "restored_sha256": "ba971d71d1490bc4",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "period-not-bag-of-numbers",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    {
+      "id": "metric-column-not-table-purpose",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    {
+      "id": "cell-local-preservation",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    {
+      "id": "same-turn-repair-note",
+      "before_sha256": "515b718db740f4db",
+      "restored_sha256": "515b718db740f4db",
+      "red_failures": 90,
+      "green_failures": 0
+    },
+    {
+      "id": "nonmaterial-final-projection",
+      "before_sha256": "515b718db740f4db",
+      "restored_sha256": "515b718db740f4db",
+      "red_failures": 5,
+      "green_failures": 0
+    },
+    {
+      "id": "retained-bound-citations",
+      "before_sha256": "ba971d71d1490bc4",
+      "restored_sha256": "ba971d71d1490bc4",
+      "red_failures": 91,
+      "green_failures": 0
+    },
+    {
+      "id": "missing-product-not-certified",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-narrow-edit-span",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 19,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-keep-sentence-context",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 7,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-prose-local-value",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 9,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-prose-raw-coordinates",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-no-residual-conclusion",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 11,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-extra-joiners",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 9,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-stranded-connective",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-new-announcement-wording",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-no-period-or-count-as-value",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-ordered-period-binding",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-ranking-preface-value",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-partial-token-markup",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-unlocated-is-not-validated",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 12,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-unlocated-repair-notice",
+      "before_sha256": "ba971d71d1490bc4",
+      "restored_sha256": "ba971d71d1490bc4",
+      "red_failures": 8,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-nonadjacent-dependent",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-withheld-only-one-slot",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 16,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-no-neighbor-period-residual",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-marker-local-position",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-located-value-not-blanket-waiver",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-marker-still-needs-review",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-parallel-binding-survives-marker",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-connective-free-residue",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "disclosure-explicit-venue-retention",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-grouped-number-is-one-token",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 10,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-ordinal-role-not-value",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 20,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-genitive-claim-not-reference",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 10,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-genitive-label-is-checked",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-compound-unit-not-amount",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 13,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-points-are-not-absolute",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-semicolon-context-not-cut",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 8,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-semicolon-value-not-just-unknown",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 8,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-residual-unit-not-blind-waiver",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-independent-delta-not-absolute",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 3,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-percent-delta-is-growth-rate",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 20,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-count-label-not-value",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 20,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-basis-points-not-absolute",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 4,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-basis-points-are-a-unit",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 19,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-anaphoric-continuation-label",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 12,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-marker-recognized-through-markup",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 9,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-column-bound-by-arithmetic",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    },
+    {
+      "id": "ratio-column-needs-two-rows",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "prose-near-miss-without-a-label",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "near-miss-skips-integer-tokens",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 1,
+      "green_failures": 0
+    },
+    {
+      "id": "dating-parenthesis-is-not-a-claim",
+      "before_sha256": "e716508f200b1e18",
+      "restored_sha256": "e716508f200b1e18",
+      "red_failures": 2,
+      "green_failures": 0
+    }
+  ]
+}

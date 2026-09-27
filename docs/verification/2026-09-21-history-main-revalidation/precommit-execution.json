@@ -1,0 +1,70 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pre_commit",
+    "run",
+    "--from-ref",
+    "b84eb2f647eb5ccbbb95b1fc2033c438ba64ce68",
+    "--to-ref",
+    "f73d2133968d51d3c782d3e12ee9aa4d0618ef45"
+  ],
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T14:55:31.103748+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 14103683072
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 14110859264
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 14110351360
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 14110044160
+    },
+    {
+      "elapsed": 8,
+      "free_bytes": 14109503488
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 14108803072
+    },
+    {
+      "elapsed": 12,
+      "free_bytes": 14118862848
+    },
+    {
+      "elapsed": 14,
+      "free_bytes": 14118363136
+    },
+    {
+      "elapsed": 16,
+      "free_bytes": 14117847040
+    },
+    {
+      "elapsed": 18,
+      "free_bytes": 14117269504
+    }
+  ],
+  "pid": 1592,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T14:55:51.275404+00:00",
+  "identity_stable": true
+}

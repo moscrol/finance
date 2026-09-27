@@ -1,0 +1,59 @@
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/explore/commands/:
+total 0
+drwxr-xr-x@ 32 a77  staff  1024 Sep 23 23:11 .
+drwxr-xr-x@ 13 a77  staff   416 Sep 23 23:12 ..
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:05 001-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:05 002-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:05 003-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:05 004-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:05 005-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:06 006-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:06 007-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:06 008-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:06 009-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:06 010-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:06 011-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 012-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 013-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 014-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 015-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 016-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 017-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 018-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 019-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 020-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:07 021-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:08 022-read
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:08 023-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:10 024-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:10 025-write
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:10 026-write
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:11 027-write
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:11 028-write
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:11 029-bash
+drwxr-xr-x@  5 a77  staff   160 Sep 23 23:11 030-write
+
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/:
+total 56
+drwxr-xr-x@ 12 a77  staff   384 Sep 23 23:11 .
+drwxr-xr-x@ 36 a77  staff  1152 Sep 23 23:12 ..
+-rw-r--r--@  1 a77  staff  4529 Sep 23 23:11 EXPLORE.md
+-rw-r--r--@  1 a77  staff     2 Sep 23 23:03 allowed.txt
+lrwxr-xr-x@  1 a77  staff    79 Sep 23 23:03 escape.json -> /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/config.json
+-rw-r--r--@  1 a77  staff    36 Sep 23 23:04 gateway-echo.txt
+-rw-r--r--@  1 a77  staff    36 Sep 23 23:04 gateway-fixture.txt
+-rw-r--r--@  1 a77  staff    47 Sep 23 23:03 positive_control.py
+drwxr-xr-x@  7 a77  staff   224 Sep 23 23:11 probes
+-rw-r--r--@  1 a77  staff  1913 Sep 23 23:03 sandbox_check.py
+drwxr-xr-x@  3 a77  staff    96 Sep 23 23:04 tmp
+drwxr-xr-x@  2 a77  staff    64 Sep 23 22:58 users
+
+/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/probes/:
+total 56
+drwxr-xr-x@  7 a77  staff   224 Sep 23 23:11 .
+drwxr-xr-x@ 12 a77  staff   384 Sep 23 23:11 ..
+drwxr-xr-x@  6 a77  staff   192 Sep 23 23:11 __pycache__
+-rw-r--r--@  1 a77  staff  4903 Sep 23 23:10 probe_c5_history_pages.py
+-rw-r--r--@  1 a77  staff  4729 Sep 23 23:10 probe_c5_registry_pages.py
+-rw-r--r--@  1 a77  staff  4285 Sep 23 23:11 probe_c6_dangling_repair.py
+-rw-r--r--@  1 a77  staff  3175 Sep 23 23:11 probe_c6_verifier_wiring.py

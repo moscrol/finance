@@ -1,0 +1,79 @@
+{
+  "observed_at": "2026-09-25T15:23:13.934643+00:00",
+  "status": "BLOCKED_EXECUTOR_PLUGIN_IMPORT",
+  "model_requests_added": 0,
+  "pytest_processes_started_in_attempt": 1,
+  "pytest_tests_collected": null,
+  "ui_processes_started": 0,
+  "gateway_started": false,
+  "repair_installed_in_frozen_QC07": false,
+  "automatic_retries": 0,
+  "actual_failure": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/evidence/controller-v3/controller_preflight-1790349291387123000/receipt.json",
+    "sha256": "a4e40d8388b03c9cc3cd1e22cca2f9be40d1c39360736ced6959d047408270d3",
+    "exit_code": 1,
+    "counts": null,
+    "reason": "old work-root guard rejected invocation scratch/users during plugin import",
+    "outer_receipt_status_preserved": "RUNNING"
+  },
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "prior_archive": {
+    "count": 482,
+    "unchanged_sources": 481,
+    "append_only_resource_ledger": [
+      {
+        "path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/work/reviewer-pytest-admissions.jsonl",
+        "old_sha256": "2ded247a04899e08161d2679efb55a2a36724ba08f48475beb25fa2d19466127",
+        "new_sha256": "48ff5d066ae593985fea658f7ed6cbcdfcabad0cca9e38bdb875234f67663111",
+        "appended_bytes": 506
+      }
+    ],
+    "archived_bytes_unchanged": true
+  },
+  "offline_checks": [
+    {
+      "name": "unittest",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_review_io_sandbox",
+        "tests.test_review_artifact_writer",
+        "tests.test_qc_userspace_isolation",
+        "-v"
+      ],
+      "exit_code": 0,
+      "log_sha256": "a7c7009930c2e9ead2360ec1973a766605705466c3d2b600125f746e228a3fd5"
+    },
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "scripts/review_probes/review_io_sandbox.py",
+        "scripts/review_probes/review_artifact_writer.py",
+        "scripts/review_probes/qc_userspace_isolation.py",
+        "tests/test_review_io_sandbox.py",
+        "tests/test_review_artifact_writer.py",
+        "tests/test_qc_userspace_isolation.py"
+      ],
+      "exit_code": 0,
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  ],
+  "offline_scope": "stdlib plugin import and user-store consumer checks plus OS write isolation; no real pytest/UI rerun",
+  "not_verified": [
+    "new plugin in a newly frozen full executor",
+    "gateway",
+    "E2 execute/report",
+    "timer/consent review",
+    "C1-C10",
+    "natural acceptance",
+    "new main combination",
+    "deployment"
+  ]
+}

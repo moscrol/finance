@@ -1,0 +1,1666 @@
+diff --git a/intelligence/services/financial_claim_checks.py b/intelligence/services/financial_claim_checks.py
+new file mode 100644
+index 000000000..1e4e54ab5
+--- /dev/null
++++ b/intelligence/services/financial_claim_checks.py
+@@ -0,0 +1,251 @@
++"""Finite financial contradictions, checked against bound structured observations.
++
++These checks reject specific arithmetic/duration contradictions, not arbitrary
++financial prose. They do not infer causes, fetch inputs, fix numbers silently,
++or treat a successful calculation id as proof of every sentence in an answer.
++Ambiguous subjects/versions are not resolved by picking a convenient value.
++"""
++from __future__ import annotations
++
++from collections.abc import Sequence
++from datetime import date
++from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
++import re
++
++from intelligence.services.agent_research import AgentEvidence
++
++_NUMBER = r"[+\-−]?\d+(?:\.\d+)?"
++_PERIOD = re.compile(
++    r"(?P<year>20\d{2})\s*年?\s*(?:"
++    r"(?P<iso>-(?:03-31|06-30|09-30|12-31))|"
++    r"(?P<label>一季报|一季度|中报|半年报|半年度|上半年|三季报|前三季度|年报|年度|全年|H1|Q[1-4]|FY))",
++    re.IGNORECASE,
++)
++_MONTH = {"一季报": 3, "一季度": 3, "Q1": 3, "中报": 6, "半年报": 6,
++          "半年度": 6, "上半年": 6, "H1": 6, "Q2": 6, "三季报": 9,
++          "前三季度": 9, "Q3": 9, "年报": 12, "年度": 12, "全年": 12, "FY": 12, "Q4": 12}
++_PERIOD_LABEL = re.compile("|".join(sorted(_MONTH, key=len, reverse=True)), re.I)
++_RATIO = r"(?:含金量|净现比|OCF\s*[/／÷]\s*(?:归母)?净利(?:润)?|经营现金流对归母净利的覆盖率)"
++_DELTA_UNIT = re.compile(r"百分点|基点|(?<![A-Za-z])bps?(?![A-Za-z])", re.I)
++_RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
++_RATIO_VALUE = re.compile(
++    rf"{_RATIO}\s*(?:[（(]\s*(?P<label_unit>{_RATIO_UNIT})\s*[）)])?"
++    rf"\s*(?:约为|为|约|是|[：:=])?\s*(?P<value>{_NUMBER})\s*(?P<unit>{_RATIO_UNIT})?", re.I,
++)
++_COMPARISON = re.compile(r"同累计长度|同口径对照|降至|降到|回升|走弱|恶化|改善|较.+(?:升|降)")
++_COMPARISON_CAVEAT = re.compile(r"(?:不能|不可|不宜|不应|不直接).{0,8}比较|仅.{0,6}列示|不据此判断")
++_EQUATION = re.compile(rf"(?P<a>{_NUMBER})\s*[−-]\s*(?P<b>{_NUMBER})\s*[=＝]\s*(?P<result>{_NUMBER})")
++_SINGLE_OCF = re.compile(
++    rf"(?P<quarter>[二三四234])季度?单季经营(?:活动)?现金流(?:量净额)?"
++    rf"(?:为|是|约为|约|[：:=])?\s*(?P<direction>净流出|净流入)?(?:约)?\s*(?P<value>{_NUMBER})\s*亿"
++)
++_STOCK_MOVE = re.compile(rf"(?P<a>{_NUMBER})\s*(?:亿元?|亿)?\s*→\s*(?P<b>{_NUMBER})")
++_DURATION = re.compile(r"(?P<half>半年)(?!度|报)|(?P<months>[一二三四六九十\d]+)个月")
++_CN_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "六": 6, "九": 9, "十": 10}
++
++
++def _decimal(raw: object) -> Decimal | None:
++    try:
++        value = Decimal(str(raw).replace("−", "-"))
++        return value if value.is_finite() else None
++    except InvalidOperation:
++        return None
++
++
++def _same_display(expected: Decimal, shown: str) -> bool:
++    actual = _decimal(shown)
++    if actual is None:
++        return False
++    # The claim's displayed precision is the tolerance, not a hard-coded epsilon.
++    try:
++        return expected.quantize(Decimal(1).scaleb(actual.as_tuple().exponent), rounding=ROUND_HALF_UP) == actual
++    except InvalidOperation:
++        # An absurd displayed precision is not a license to crash publication.
++        return False
++
++
++def _subject(value: str) -> str:
++    return value.upper().removesuffix(".SZ").removesuffix(".SH").removesuffix(".BJ")
++
++
++def _periods(text: str) -> list[tuple[int, int, str]]:
++    periods = []
++    for match in _PERIOD.finditer(text):
++        month = int(match["iso"][1:3]) if match["iso"] else _MONTH[match["label"].upper()]
++        day = 31 if month in (3, 12) else 30
++        periods.append((match.start(), match.end(), f"{match['year']}-{month:02}-{day}"))
++    return periods
++
++
++def _observations(evidence: Sequence[AgentEvidence], bound: set[str], subject: str | None):
++    items = [item for item in evidence if item.tool == "financial_data" and item.content_hash in bound]
++    subjects = {_subject(obs.subject) for item in items for obs in item.observations}
++    target = _subject(subject or "")
++    if target not in subjects:
++        matches = {_subject(obs.subject) for item in items if subject and subject in item.title
++                   for obs in item.observations}
++        if len(matches) != 1:
++            return {}
++        target = matches.pop()
++    values: dict[tuple[str, str], set[Decimal]] = {}
++    for item in items:
++        for obs in item.observations:
++            value = _decimal(obs.value)
++            try:
++                date.fromisoformat(obs.as_of)
++            except ValueError:
++                continue
++            if _subject(obs.subject) == target and value is not None:
++                values.setdefault((obs.as_of, obs.metric), set()).add(value)
++    return {key: next(iter(group)) for key, group in values.items() if len(group) == 1}
++
++
++def calculation_ratio_gaps(
++    evidence: Sequence[AgentEvidence], bound_hashes: Sequence[str], *, subject: str | None,
++) -> tuple[str, ...]:
++    """Cross-check named ratio result cells using their own finite input chain.
++
++    The renderer encodes table columns as table.column[row label]. Ignore
++    non-ratio columns even in a table named '净现比', and never use calc.as_of
++    as the report period (it is the oldest input's disclosure date).
++    """
++    bound = set(bound_hashes)
++    gaps = []
++    for item in evidence:
++        if item.tool != "derived_calculation" or item.content_hash not in bound:
++            continue
++        inputs = [row for row in evidence if row.content_hash in item.derived_from]
++        input_subjects = {_subject(obs.subject) for row in inputs for obs in row.observations
++                          if obs.metric in {"ocf_cum_yi", "net_profit_cum_yi"}}
++        if len(input_subjects) != 1:
++            # Product rows have no typed company key. Do not assign a peer's
++            # result to the requested company, even when both inputs exist.
++            continue
++        values = _observations(inputs, set(item.derived_from), subject)
++        for obs in item.observations:
++            column = obs.metric.split("[", 1)[0].rsplit(".", 1)[-1]
++            if not re.search(_RATIO, column, re.I) or re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", column):
++                continue
++            label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric
++            periods = {period for _start, _end, period in _periods(label)}
++            if len(periods) != 1:
++                continue
++            period = periods.pop()
++            ocf, profit = values.get((period, "ocf_cum_yi")), values.get((period, "net_profit_cum_yi"))
++            if ocf is not None and profit and _DELTA_UNIT.search(column):
++                gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 使用差值单位，不适用于绝对比例核验")
++                continue
++            multiplier = 100 if "%" in column or "百分比" in column else 1
++            if ocf is not None and profit and not _same_display(ocf / profit * multiplier, str(obs.value)):
++                gaps.append(f"计算产物 {item.source.removeprefix('sandbox:')} 的 {obs.metric} 与同报告期原始输入复算不一致")
++    return tuple(dict.fromkeys(gaps))
++
++
++def financial_claim_mismatches(
++    sentences: Sequence[dict[str, object]], evidence: Sequence[AgentEvidence],
++    bound_hashes: Sequence[str], *, subject: str | None,
++) -> tuple[int, ...]:
++    """Return sentence indexes with a provable, scoped numeric/period mismatch.
++
++    Supported shapes: explicit subtraction; period-labelled OCF/profit ratio;
++    uniquely dated single-quarter OCF; inventory endpoints plus elapsed months;
++    cumulative-ratio comparisons across unequal lengths. No general NLP claim.
++    """
++    values = _observations(evidence, set(bound_hashes), subject)
++    if not values:
++        return ()
++    rejected = []
++    previous_period: str | None = None
++    for sentence in sentences:
++        index = sentence.get("index")
++        text = str(sentence.get("text") or "").replace("**", "").replace("__", "")
++        if not isinstance(index, int):
++            continue
++        periods = _periods(text)
++        if re.search(r"(?:假设|例如|举例|反例|错误写法).{0,8}[：:]|(?:不是|并非).{0,8}[=＝]", text):
++            # Quoted counterexamples are not presented as computed results.
++            continue
++        mentioned_codes = set(re.findall(r"(?<!\d)[0368]\d{5}(?!\d)", text))
++        if mentioned_codes and mentioned_codes != {_subject(subject or "")}:
++            # Do not use the requested company's inputs to disprove a peer.
++            continue
++        bad = False
++        financial = bool(re.search(r"现金流|OCF|存货|净利润", text, re.I) or re.search(_RATIO, text, re.I))
++        if financial:
++            for equation in _EQUATION.finditer(text):
++                a, b = _decimal(equation["a"]), _decimal(equation["b"])
++                if a is not None and b is not None:
++                    bad |= not _same_display(a - b, equation["result"])
++            for ratio in _RATIO_VALUE.finditer(text):
++                preceding = [item for item in periods if item[1] <= ratio.start()]
++                # Only an explicitly labelled ratio is recomputed. A nearer
++                # yearless label must not borrow a DIFFERENT period's inputs;
++                # skip ambiguity rather than guessing a report year.
++                if not preceding:
++                    continue
++                _start, end, period = preceding[-1]
++                if _PERIOD_LABEL.search(text[end:ratio.start()]):
++                    continue
++                ocf = values.get((period, "ocf_cum_yi"))
++                profit = values.get((period, "net_profit_cum_yi"))
++                if ocf is not None and profit:
++                    unit, label_unit = ratio["unit"] or "", ratio["label_unit"] or ""
++                    if _DELTA_UNIT.search(unit) or _DELTA_UNIT.search(label_unit):
++                        bad = True
++                    else:
++                        multiplier = 100 if (unit or label_unit) in {"%", "百分比"} else 1
++                        bad |= not _same_display(ocf / profit * multiplier, ratio["value"])
++            for quarter in _SINGLE_OCF.finditer(text):
++                q = _CN_NUM.get(quarter["quarter"], int(quarter["quarter"]) if quarter["quarter"].isdigit() else 0)
++                end_month, start_month = q * 3, (q - 1) * 3
++                pairs = []
++                preceding = [p for start, _end, p in periods if start < quarter.start()]
++                # A following annual comparison cannot change which year's Q2
++                # the preceding cumulative values describe.
++                anchor = preceding[-1] if preceding else None
++                for (period, metric), value in values.items():
++                    if metric != "ocf_cum_yi" or int(period[5:7]) != end_month:
++                        continue
++                    if anchor and period[:4] != anchor[:4]:
++                        continue
++                    prior = f"{period[:4]}-{start_month:02}-{'31' if start_month == 3 else '30'}"
++                    if (prior, metric) in values:
++                        pairs.append(value - values[prior, metric])
++                if len(pairs) == 1:
++                    expected = -pairs[0] if quarter["direction"] == "净流出" else pairs[0]
++                    bad |= not _same_display(expected, quarter["value"])
++            if "存货" in text and (duration := _DURATION.search(text)):
++                months_text = duration["months"] or ""
++                months = 6 if duration["half"] else _CN_NUM.get(months_text, int(months_text) if months_text.isdigit() else 0)
++                for move in _STOCK_MOVE.finditer(text):
++                    endpoints = []
++                    for group in ("a", "b"):
++                        endpoints.append([p for (p, metric), value in values.items()
++                                          if metric == "inventory_yi" and _same_display(value, move[group])])
++                    if all(len(dates) == 1 for dates in endpoints) and months:
++                        first, last = (date.fromisoformat(dates[0]) for dates in endpoints)
++                        actual_months = (last.year - first.year) * 12 + last.month - first.month
++                        bad |= actual_months != months
++            # A disclaimer before 'but' cannot excuse the assertion after it.
++            # Nor may an annual reference in an unrelated clause contaminate a
++            # correctly labelled H1/H1 comparison. Only borrow local context for
++            # an explicitly elided counterpart, or 'same cumulative length'.
++            context_period = previous_period
++            for segment in re.split(r"但是|但|然而|却", text):
++                for clause in re.split(r"[，,；;]", segment):
++                    clause_periods = _periods(clause)
++                    if (re.search(_RATIO, clause, re.I) and _COMPARISON.search(clause)
++                            and not _COMPARISON_CAVEAT.search(segment) and "单季" not in clause):
++                        months = {int(p[5:7]) for _s, _e, p in clause_periods}
++                        months.update(_MONTH[m.group().upper()] for m in _PERIOD_LABEL.finditer(clause))
++                        if (len(months) == 1 and context_period
++                                and re.search(r"同累计长度|从.+(?:降至|降到|回升)", clause)):
++                            months.add(int(context_period[5:7]))
++                        bad |= len(months) > 1
++                    if clause_periods:
++                        context_period = clause_periods[-1][2]
++        if periods and financial:
++            previous_period = periods[-1][2]
++        if bad:
++            rejected.append(index)
++    return tuple(rejected)
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+new file mode 100644
+index 000000000..74d4f9c9d
+--- /dev/null
++++ b/intelligence/services/research_delivery_checks.py
+@@ -0,0 +1,267 @@
++"""Finite, deterministic checks at the *delivered-text* boundary.
++
++Not a general semantic judge: catches explicit absence-from-search inferences
++and period-labeled OCF/net-profit ratio transcription. Never fetches, executes
++scripts, rewrites numbers or infers source completeness. A match withholds its
++clause or replaces its bad cell with a gap; unrelated facts survive.
++"""
++from __future__ import annotations
++
++import re
++from collections.abc import Sequence
++from dataclasses import dataclass
++from datetime import date
++from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
++
++from intelligence.services.agent_research import AgentEvidence
++from intelligence.services.provider_observability import ProviderTrace, provider_trace_tool_name
++
++
++@dataclass(frozen=True)
++class DeliveryFinding:
++    start: int
++    end: int
++    code: str
++    replacement: str = ""
++
++
++# The search outcome is NOT an assertion about the company's real-world state.
++# A failure elsewhere does not revoke an independently sourced company statement.
++_SEARCH_GAP = re.compile(
++    r"(?:查询|检索|搜索|接口|返回|清单|列表|抓取).{0,32}"
++    r"(?:失败|空白|为空|无结果|无记录|未返回|不完整|空集|未找到|查不到|没有结果)"
++)
++_ABSENCE = re.compile(r"(?:没有|并无|不存在|无(?:新增|新的|新)?|零|未发布(?:新)?)公告|(?:新增)?官方信息差|尚未兑现|没有兑现")
++_INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
++_UNKNOWN = re.compile(r"不能|无法|不足以|不代表|不等于|不意味着|不说明|不得|不可|未能|尚不能|不成立|无依据|错误推断")
++_CLAUSE = re.compile(r"[^。！？；;\n]+[。！？；;]?")
++
++
++def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> tuple[DeliveryFinding, ...]:
++    """Flag explicit inference from a search gap, not all negative prose.
++
++    Conditional 'if a query is empty, it proves no disclosure' is still an
++    invalid inference. 'If the company has no disclosures, then...' without a
++    query claim remains a hypothesis. Successful L3 lookups are not universe
++    completeness certificates either.
++    """
++    disclosure_traces = [t for t in traces if provider_trace_tool_name(t) == "l3_lookup"]
++    if not disclosure_traces:
++        return ()  # not a blanket ban on examples in a methodology/critique answer
++    incomplete = any(t.status not in {"success", "fallback_success"} for t in disclosure_traces)
++    findings = []
++    for clause in _CLAUSE.finditer(text):
++        value = re.sub(r"[*_`]+", "", clause.group())
++        if not _ABSENCE.search(value) or not _INFERENCE.search(value):
++            continue
++        # Scope disclaimers to their own comma clause, not the whole sentence.
++        # '不能查全，但无公告即...' must not inherit the first clause's exemption.
++        tails = re.split(r"[,，]|但是|但", value)
++        assertions = [p for p in tails if _ABSENCE.search(p) and _INFERENCE.search(p)]
++        if not assertions or all(_UNKNOWN.search(p) for p in assertions):
++            continue
++        search_claim = bool(_SEARCH_GAP.search(value))
++        collapsed_gap = incomplete and bool(re.search(r"(?:窗口|期间|期内|本期).*无.*公告.*即无", value))
++        if search_claim or collapsed_gap:
++            findings.append(DeliveryFinding(clause.start(), clause.end(), "disclosure_absence_inference"))
++    return tuple(findings)
++
++
++_PERIOD = re.compile(
++    r"20\d{2}-\d{2}-\d{2}|20\d{2}\s*年?\s*(?:半年度报告|年度报告|半年报|一季报|三季报|"
++    r"一季度|二季度|三季度|四季度|中报|年报|上半年|前三季|H1|FY|Q[1-4])", re.I,
++)
++_RATIO_NAME = re.compile(
++    r"含金量|净现比|(?:OCF|经营(?:活动)?现金流(?:量)?(?:净额)?)[\s_/(（÷]*"
++    r"(?:除以|对)?[\s_]*(?:归母)?(?:净利(?:润)?|net[_ ]?profit)", re.I,
++)
++_NUMBER = r"[-+]?\d+(?:\.\d+)?"
++_DELTA_UNIT = re.compile(r"百分点|基点|(?<![A-Za-z])bps?(?![A-Za-z])", re.I)
++_RATIO_UNIT = r"个百分点|百分点|基点|bps?|百分比|%|倍"
++_NUMBER_CELL = re.compile(rf"^\s*({_NUMBER})\s*({_RATIO_UNIT})?\s*$", re.I)
++_PROSE_VALUE = re.compile(
++    rf"\s*(?:[（(]\s*(?P<label_unit>{_RATIO_UNIT})\s*[）)])?"
++    rf"\s*(?:为|是|=|：|:)?\s*(?P<value>{_NUMBER})\s*(?P<unit>{_RATIO_UNIT})?", re.I,
++)
++
++
++def _ratio_unit(value: str) -> str:
++    # A difference unit cannot be hidden by a percent/multiple marker elsewhere
++    # in the same label. It is never converted into an absolute ratio level.
++    if delta := _DELTA_UNIT.search(value):
++        return delta.group().lower()
++    if "%" in value or "百分比" in value:
++        return "%"
++    return "倍" if "倍" in value else ""
++
++
++def _absolute_ratio_label(value: str) -> bool:
++    return bool(_RATIO_NAME.search(value)) and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value)
++
++
++def _period(value: str) -> str | None:
++    match = _PERIOD.search(value)
++    if not match:
++        return None
++    token = match.group()
++    try:
++        return date.fromisoformat(token).isoformat()
++    except ValueError:
++        from intelligence.services.market_financials import target_report_end_from_query
++        parsed = target_report_end_from_query(token)
++        return parsed.isoformat() if parsed else None
++
++
++def _display_matches(raw: str, value: float, unit: str = "") -> bool:
++    """Only declared precision rounding; not a tolerance over arbitrary numbers."""
++    try:
++        displayed = Decimal(raw)
++        expected = Decimal(str(value)) * (100 if unit == "%" else 1)
++        return displayed == expected.quantize(Decimal(1).scaleb(displayed.as_tuple().exponent), rounding=ROUND_HALF_EVEN)
++    except (InvalidOperation, ValueError):
++        return False
++
++
++def _ratio_products(evidence: Sequence[AgentEvidence]) -> dict[str, set[float]]:
++    by_hash = {e.content_hash: e for e in evidence}
++    # Multiple companies need an explicit subject-bearing result contract; do
++    # not certify or reject one company's number using another company's set.
++    subjects = {o.subject for e in evidence for o in e.observations
++                if o.metric in {"ocf_cum_yi", "net_profit_cum_yi"}}
++    if len(subjects) != 1:
++        return {}
++    products: dict[str, set[float]] = {}
++    inapplicable_periods: set[str] = set()
++    for item in evidence:
++        if item.tool != "derived_calculation" or not item.derived_from:
++            continue
++        inputs = [by_hash[h] for h in item.derived_from if h in by_hash]
++        metrics = {o.metric for e in inputs for o in e.observations}
++        if not {"ocf_cum_yi", "net_profit_cum_yi"} <= metrics:
++            continue
++        for obs in item.observations:
++            # For tables inspect the COLUMN, not a 'cash ratio' purpose/table
++            # name covering unrelated revenue columns. Row label supplies time.
++            column = obs.metric.rsplit(".", 1)[-1].split("[", 1)[0]
++            if not _absolute_ratio_label(column):
++                continue
++            # A year in the table name must not override the row's report period.
++            label = obs.metric.rsplit("[", 1)[-1].rstrip("]") if "[" in obs.metric else obs.metric
++            period = _period(label)
++            if period and _DELTA_UNIT.search(column):
++                inapplicable_periods.add(period)
++                continue
++            if period and Decimal(str(obs.value)).is_finite():
++                ratio = obs.value / 100 if _ratio_unit(column) == "%" else obs.value
++                products.setdefault(period, set()).add(ratio)
++    # An empty known period is an unverified product, distinct from no product.
++    # A second, valid-looking value cannot waive the first product's unit gap.
++    for period in inapplicable_periods:
++        products[period] = set()
++    return products
++
++
++def calculation_copy_findings(
++    text: str, evidence: Sequence[AgentEvidence], *, calculation_required: bool = False,
++) -> tuple[DeliveryFinding, ...]:
++    """Compare explicit period+ratio cells/prose to that period's actual product.
++
++    Does not prove the product's formula or that its script read the inputs.
++    Conflicting products remain unverifiable. No bag-of-numbers matching: the
++    same numeric token in another period/metric cannot certify this claim.
++    """
++    subjects = {o.subject for e in evidence for o in e.observations
++                if o.metric in {"ocf_cum_yi", "net_profit_cum_yi"}}
++    if len(subjects) != 1:
++        return ()
++    products = _ratio_products(evidence)
++    require_product = calculation_required or bool(re.search(r"计算编号\s*[0-9a-f]{16}", text))
++    if not products and not require_product:
++        return ()
++
++    def failure_code(values: set[float] | None, raw: str, unit: str, label_unit: str = "") -> str:
++        if _DELTA_UNIT.search(unit) or _DELTA_UNIT.search(label_unit):
++            return "calculation_value_unverified"
++        if values is None or len(values) != 1:
++            return "calculation_value_unverified" if require_product or values is not None else ""
++        unit = _ratio_unit(unit or label_unit)
++        return "" if _display_matches(raw, next(iter(values)), unit) else "calculation_value_mismatch"
++
++    findings: list[DeliveryFinding] = []
++    ratio_columns: tuple[tuple[int, str], ...] = ()
++    period_column: int | None = None
++    offset = 0
++    for line in text.splitlines(keepends=True):
++        if line.lstrip().startswith("|"):
++            cells = [re.sub(r"[*`]+", "", c.strip()) for c in line.strip().strip("|").split("|")]
++            headers = tuple((i, _ratio_unit(c))
++                            for i, c in enumerate(cells) if _absolute_ratio_label(c))
++            if headers:
++                ratio_columns = headers
++                period_column = next((i for i, c in enumerate(cells) if c in {"报告期", "期间", "期别"}), None)
++            elif period_column is not None and period_column < len(cells):
++                period = _period(cells[period_column])
++                values = products.get(period or "")
++                for index, header_unit in ratio_columns:
++                    match = _NUMBER_CELL.fullmatch(cells[index]) if index < len(cells) else None
++                    code = failure_code(values, match[1], match[2] or "", header_unit) if match and period else ""
++                    if code:
++                        # Remove only the incorrect cell, not the independent
++                        # OCF/profit facts in the same row. Never write a guessed
++                        # replacement number, even when a product exists.
++                        raw_cells = list(re.finditer(r"(?<=\|)[^|]*(?=\|)", line))
++                        if index < len(raw_cells):
++                            cell = raw_cells[index]
++                            findings.append(DeliveryFinding(
++                                offset + cell.start(), offset + cell.end(),
++                                code, " 待核对 ",
++                            ))
++        else:
++            ratio_columns, period_column = (), None
++            # Prose needs an explicit ratio label locally. Broader semantic
++            # matching (e.g. ambiguous bare 1.588) stays with the existing judge.
++            for clause in _CLAUSE.finditer(line):
++                value = re.sub(r"[*`]+", "", clause.group())
++                for period_match in _PERIOD.finditer(value):
++                    tail = value[period_match.end():]
++                    ratio = _RATIO_NAME.match(tail.lstrip())
++                    prefix_unit = ""
++                    if ratio is not None:
++                        remainder = tail.lstrip()[ratio.end():]
++                    elif (prefixes := tuple(re.finditer(
++                        r"(?:比率|净现比|含金量)[^。；;:：]*[:：]", value[:period_match.start()],
++                    ))) and not re.search(r"同比|环比|增长|增速|变化|变动|差额|增量", value[:period_match.start()]):
++                        # Explicitly labeled same-clause comparison, e.g.
++                        # '比率同期对照：2026中报1.588 vs 2025中报0.289'.
++                        # Only the nearest label supplies a unit; a preceding
++                        # period's value or another sentence cannot supply it.
++                        prefix_unit = _ratio_unit(prefixes[-1].group())
++                        remainder = tail
++                    else:
++                        continue
++                    number = _PROSE_VALUE.match(remainder)
++                    values = products.get(_period(period_match.group()) or "")
++                    code = failure_code(
++                        values, number["value"], number["unit"] or "",
++                        _ratio_unit(f"{prefix_unit} {number['label_unit'] or ''}"),
++                    ) if number else ""
++                    if code:
++                        findings.append(DeliveryFinding(offset + clause.start(), offset + clause.end(), code))
++                        break
++        offset += len(line)
++    return tuple(findings)
++
++
++def remove_findings(text: str, findings: Sequence[DeliveryFinding]) -> str:
++    """Exact spans, not global replacements; no computed numbers are inserted."""
++    spans: list[tuple[int, int, str]] = []
++    for f in sorted(set(findings), key=lambda f: (f.start, f.end)):
++        if spans and f.start < spans[-1][1]:
++            # Overlap may mix clause and cell checks. Conservatively omit the
++            # union rather than inserting one cell's label into unrelated prose.
++            spans[-1] = (spans[-1][0], max(spans[-1][1], f.end), "")
++        else:
++            spans.append((f.start, f.end, f.replacement))
++    for start, end, replacement in reversed(spans):
++        text = text[:start] + replacement + text[end:]
++    return text.strip()
+diff --git a/intelligence/tests/test_financial_delivery_integration.py b/intelligence/tests/test_financial_delivery_integration.py
+new file mode 100644
+index 000000000..9a9312f81
+--- /dev/null
++++ b/intelligence/tests/test_financial_delivery_integration.py
+@@ -0,0 +1,292 @@
++"""R6 + delivery guards at public/recovery seams; offline, not live acceptance."""
++from dataclasses import replace
++
++import pytest
++
++from intelligence.runtime import continuous_turn_adapter as adapter_module
++from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
++from intelligence.services import llm_refine
++from intelligence.services.agent_runtime import OutputEvidenceBinding
++from intelligence.services.episode_semantic_verifier import (
++    SemanticEpisodeOutcome, SemanticEpisodeVerifier, recheck_material_public_delivery,
++)
++from intelligence.services.episode_verifier import verify_episode_outcome
++from intelligence.services.provider_observability import ProviderTrace
++from intelligence.services.research_contract import ResearchDeadline, ResearchPolicy, ResearchRunContext
++from intelligence.tests.test_boundary_partial_delivery import _delivery
++from intelligence.tests.test_continuous_turn_adapter import _control
++from intelligence.tests.test_episode_semantic_verifier import _judge
++from intelligence.tests.test_financial_r6_regressions import SAFE, _financial
++from intelligence.tests.test_research_delivery_checks import _financial_evidence
++
++BAD = "二季度单季经营现金流=18−33.68=−15.66亿元。"
++GOOD = "二季度单季经营现金流=18−33.68=−15.68亿元。"
++ABSENCE = "窗口内无新公告即无新增官方信息差。"
++
++
++@pytest.fixture(autouse=True)
++def offline(monkeypatch):
++    def denied(*_args, **_kwargs):
++        pytest.fail("delivery integration attempted network IO")
++    for name in ("socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection"):
++        monkeypatch.setattr(name, denied)
++    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
++
++
++def _metric_only(draft):
++    frame, verified = _financial(draft)
++    contract = replace(verified.contract, required_outputs=verified.contract.required_outputs[1:])
++    outcome = replace(verified.outcome, bindings=(
++        OutputEvidenceBinding("metric_evidence", tuple(e.content_hash for e in verified.outcome.evidence)),
++    ))
++    return frame, verify_episode_outcome(contract, outcome)
++
++
++def _ratio_delivery(draft, *, product_value=1.588, product_unit=""):
++    frame, verified = _metric_only(draft)
++    source, calc = _financial_evidence()
++    source = replace(source, observations=tuple(
++        replace(obs, subject=frame.subject) for obs in source.observations
++    ))
++    calc = replace(calc, observations=(replace(
++        calc.observations[0], metric=f"现金流比率.含金量{product_unit}[2026中报]", value=product_value,
++    ),))
++    contract = replace(verified.contract, required_outputs=tuple(
++        replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
++        for required in verified.contract.required_outputs
++    ))
++    outcome = replace(verified.outcome, evidence=(source, calc), bindings=(
++        OutputEvidenceBinding("metric_evidence", (source.content_hash, calc.content_hash)),
++    ))
++    return frame, verify_episode_outcome(contract, outcome)
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize("header,cell", [
++    ("含金量(bp)", "1.588"),
++    ("含金量(BP)", "1.588倍"),
++    ("含金量（基点）", "1.588"),
++    ("含金量(百分点)", "1.588"),
++    ("含金量", "1.588bp"),
++])
++def test_ratio_unit_gap_reaches_real_exit_and_corrected_draft_clears_it(monkeypatch, mode, header, cell):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    table = f"|报告期|OCF累计|归母净利累计|{header}|\n|---|---|---|---|\n|2026中报|706.91|445.17|{cell}|"
++    draft = SAFE + "[E1]。\n" + table
++    frame, verified = _ratio_delivery(draft)
++    assert verified.verified_status == "completed"
++    verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
++    result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
++    assert "|2026中报|706.91|445.17| 待核对 |" in result.public_answer
++    assert SAFE in result.public_answer and "[E1]" in result.public_answer
++    assert result.status == "partial"
++    assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
++    assert result.verified.outcome == verified.outcome
++    assert result.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
++    assert any("calculation_value_unverified" in issue for issue in result.issues)
++    assert recheck_material_public_delivery(result) == result
++    corrected_draft = SAFE + "[E1]。\n|报告期|含金量(%)|\n|---|---|\n|2026中报|158.8|"
++    clean = verify_episode_outcome(verified.contract, replace(verified.outcome, draft=corrected_draft))
++    corrected = verifier.verify(frame=frame, structurally_verified=clean, deadline=ResearchDeadline.from_timeout(5))
++    assert corrected.status == "completed" and "158.8" in corrected.public_answer
++    assert corrected.gap_output_ids == corrected.repair_output_ids == ()
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize("product_value,product_unit,gap_note", [
++    (9.999, "", "复算不一致"),
++    (1.588, "(bp)", "差值单位"),
++])
++def test_ratio_product_gap_survives_the_real_financial_exit(monkeypatch, mode, product_value, product_unit, gap_note):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = SAFE + "[E1]。\n|报告期|含金量|\n|---|---|\n|2026中报|1.588|"
++    frame, verified = _ratio_delivery(draft, product_value=product_value, product_unit=product_unit)
++    assert verified.missing_outputs == ("metric_evidence",)
++    assert gap_note in verified.completion.outputs[0].gap
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert result.status == "partial" and result.repair_output_ids == ("metric_evidence",)
++    assert result.verified.outcome == verified.outcome
++    assert verified.outcome.draft == draft
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize("claim,rejected", [
++    ("含金量(bp)：2026中报1.588。", True),
++    ("含金量（基点）：2026中报1.588。", True),
++    ("含金量(百分点)：2026中报1.588。", True),
++    ("含金量(bp)：2026中报1.588倍。", True),
++    ("含金量：2026中报1.588。", False),
++    ("含金量：2026中报9.999。", True),
++    ("含金量(倍)：2026中报1.588。", False),
++    ("含金量(%)：2026中报158.8。", False),
++    ("含金量同比增长(bp)：2026中报9.999。", False),
++    ("含金量环比变化(基点)：2026中报9.999。", False),
++    ("利差以bp计。含金量：2026中报1.588。", False),
++    ("含金量：2024中报9.999。", False),
++])
++def test_ratio_prefix_unit_reaches_real_exit_without_widening_scope(monkeypatch, mode, claim, rejected):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = SAFE + "[E1]。\n" + claim
++    frame, verified = _ratio_delivery(draft)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert (claim not in result.public_answer) == rejected
++    assert result.status == ("partial" if rejected else "completed")
++    expected_ids = ("metric_evidence",) if rejected else ()
++    assert result.gap_output_ids == result.repair_output_ids == expected_ids
++    assert SAFE in result.public_answer and "[E1]" in result.public_answer
++    assert result.verified.outcome == verified.outcome
++    assert verified.outcome.draft == draft
++
++
++@pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
++@pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
++def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
++    _, verified = _metric_only(SAFE + "[E1]。")
++    initial = SemanticEpisodeOutcome(
++        verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
++    )
++    checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
++    assert bad not in checked.public_answer
++    assert SAFE in checked.public_answer and "[E1]" in checked.public_answer
++    assert checked.status == ("partial" if prior_status == "completed" else prior_status)
++    assert checked.gap_output_ids == checked.repair_output_ids == ("metric_evidence",)
++    assert checked.verified.missing_outputs == ("metric_evidence",)
++    assert checked.verified.outcome == initial.verified.outcome  # archive never rewritten
++    assert checked.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
++    assert any("financial_claim_mismatch" in row["reasons"] for row in checked.sentence_verdicts)
++    assert recheck_material_public_delivery(checked) == checked
++    assert recheck_material_public_delivery(checked, projected=SAFE).delivery_retained_evidence_hashes == ()
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it(monkeypatch, mode):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD + "\n" + ABSENCE)
++    verified = replace(verified, outcome=replace(verified.outcome, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
++    verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
++    result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
++    assert BAD not in result.public_answer and ABSENCE not in result.public_answer
++    assert SAFE in result.public_answer and result.status == "partial"
++    assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
++    assert result.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
++    assert any("差值" in note or "期间" in note for note in result.delivery_repair_notes)
++    assert any("查询失败" in note for note in result.delivery_repair_notes)
++    clean = verify_episode_outcome(verified.contract, replace(verified.outcome, draft=SAFE + "[E1]。\n" + GOOD))
++    corrected = verifier.verify(frame=frame, structurally_verified=clean, deadline=ResearchDeadline.from_timeout(5))
++    assert corrected.status == "completed" and corrected.gap_output_ids == ()
++    assert corrected.delivery_repair_notes == () and GOOD in corrected.public_answer
++
++
++@pytest.mark.parametrize("bad", [BAD, ABSENCE])
++def test_exception_recovery_checks_after_calendar_and_keeps_citations(monkeypatch, bad):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    original = adapter_module._with_calendar_disclosure
++    # Deliberate post-check injection, not a claim about natural calendar output.
++    monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: original(text, frame) + "\n" + bad)
++    frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD)
++    verified = replace(verified, outcome=replace(verified.outcome, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
++    semantic = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    context = ResearchRunContext(
++        contract=verified.contract, deadline=ResearchDeadline.from_timeout(60),
++        policy=ResearchPolicy("standard", 3, 60, 20), trace_parent_id=verified.contract.task_id,
++    )
++    result = ContinuousTurnAdapter(
++        runtime=object(), semantic_verifier=SemanticEpisodeVerifier(judge_fn=_judge(True)),
++    )._recover_verified_delivery(frame, context, semantic, {})
++    assert result is not None and result.status == "partial"
++    assert BAD not in result.answer and ABSENCE not in result.answer
++    assert SAFE in result.answer and "[E1]" in result.answer and result.citations
++    assert result.private_artifact["semantic_verifier"]["gap_output_ids"] == ["metric_evidence"]
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_adapter_final_financial_projection_is_guarded_and_cited(monkeypatch, mode):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    frame, verified = _metric_only(SAFE + "[E1]。\n" + GOOD)
++    context = ResearchRunContext(
++        contract=verified.contract, deadline=ResearchDeadline.from_timeout(60),
++        policy=ResearchPolicy("standard", 3, 60, 20), trace_parent_id=verified.contract.task_id,
++    )
++    class Runtime:
++        def run(self, **kwargs):
++            return verified.outcome
++    monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: text + "\n" + BAD)
++    result = ContinuousTurnAdapter(
++        runtime=Runtime(), mode="on", context_factory=lambda *a, **k: context,
++        registry_factory=lambda *a, **k: "registry",
++        semantic_verifier=SemanticEpisodeVerifier(judge_fn=_judge(True)),
++    ).handle(frame=frame, control=_control(frame))
++    assert result.status == "partial" and BAD not in result.answer
++    assert GOOD in result.answer and SAFE in result.answer and result.citations
++    assert result.private_artifact["repair_attempts"] == 0  # final seam grants no extra loop
++
++
++@pytest.mark.parametrize("prior_gap", [False, True])
++def test_final_financial_recheck_never_revives_unbound_or_previously_gapped_cards(prior_gap):
++    _, verified = _metric_only(SAFE + "[E1]。")
++    verified = replace(verified, outcome=replace(verified.outcome, bindings=(
++        replace(verified.outcome.bindings[0], evidence_hashes=(verified.outcome.evidence[0].content_hash,)),
++    )))
++    initial = SemanticEpisodeOutcome(
++        verified=verified, status="partial" if prior_gap else "completed",
++        public_answer=verified.outcome.draft, judge_status="passed",
++        gap_output_ids=("metric_evidence",) if prior_gap else (),
++    )
++    checked = recheck_material_public_delivery(
++        initial, projected=initial.public_answer + "\n尚未绑定的内容。[E2]。\n" + BAD,
++    )
++    assert BAD not in checked.public_answer
++    assert checked.delivery_retained_evidence_hashes == (
++        () if prior_gap else (verified.outcome.evidence[0].content_hash,)
++    )
++
++
++def test_final_financial_recheck_keeps_legal_prose_and_prior_repair_debt():
++    _, verified = _metric_only(SAFE)
++    initial = SemanticEpisodeOutcome(
++        verified=verified, status="partial", public_answer=SAFE, judge_status="repaired",
++        gap_output_ids=("metric_evidence",), repair_output_ids=("metric_evidence",),
++    )
++    checked = recheck_material_public_delivery(initial, projected=SAFE + "\n" + GOOD)
++    assert GOOD in checked.public_answer and checked.status == "partial"
++    assert checked.gap_output_ids == checked.repair_output_ids == ("metric_evidence",)
++    assert not checked.sentence_verdicts  # only a new full verify may clear old debt
++
++
++def test_delivery_verdicts_do_not_mask_preflight_ledger(monkeypatch):
++    from intelligence.services import episode_semantic_verifier as module
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD)
++    original = module.recheck_material_public_delivery
++    def inject(outcome, *, projected=None):
++        if outcome.gap_output_ids:
++            projected = outcome.public_answer + "\n2026中报净现比0.133。"
++        return original(outcome, projected=projected)
++    monkeypatch.setattr(module, "recheck_material_public_delivery", inject)
++    checked = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    stages = {row["stage"] for row in checked.sentence_verdicts if "financial_claim_mismatch" in row["reasons"]}
++    assert "preflight" in stages and "delivery" in stages
++    assert "0.133" not in checked.public_answer and BAD not in checked.public_answer
++
++
++def test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference(monkeypatch):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    # Existing real adapter exception path, with no new tool permission.
++    original = adapter_module._with_calendar_disclosure
++    monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: original(text, frame) + "\n查询空白，因此公司没有公告。")
++    # Add an actual trace to the scripted outcome; no external lookup.
++    from intelligence.tests import test_boundary_partial_delivery as structural
++    build = structural._structural
++    monkeypatch.setattr(structural, "_structural", lambda *a, **k: build(*a, **k, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
++    result, goals, _ = _delivery(repair="recheck_raises")
++    assert "delivery_recovery" in result.private_artifact and goals
++    assert "查询空白，因此公司没有公告" not in result.answer
++    assert result.status == "partial" and result.citations
+diff --git a/intelligence/tests/test_financial_r6_regressions.py b/intelligence/tests/test_financial_r6_regressions.py
+new file mode 100644
+index 000000000..0ff8c09cf
+--- /dev/null
++++ b/intelligence/tests/test_financial_r6_regressions.py
+@@ -0,0 +1,399 @@
++"""R6 first-submission failures, reduced without changing the sealed answers.
++
++Source: 8792-financial-live-r6-20260918/{quality-review.json,cases/*/public-message.json}.
++Offline behavioral checks, not a new live acceptance or an oracle for causality.
++"""
++from __future__ import annotations
++
++from dataclasses import replace
++
++import pytest
++
++from intelligence.services import llm_refine
++from intelligence.services.agent_research import AgentEvidence, StructuredObservation
++from intelligence.services.agent_runtime import EpisodeEvent, OutputEvidenceBinding
++from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
++from intelligence.services.episode_verifier import verify_episode_outcome
++from intelligence.services.research_contract import RequiredOutput, ResearchDeadline
++from intelligence.services.track_contract import (
++    ingest_next_watch, missing_contract_elements, parse_next_watch_items,
++)
++from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
++
++SAFE = "应收账款明细尚未取得，回款变化原因仍待核实。"
++HEAD = "无上期基线，本期建立基线。复核期限：2026-10-22。\n"
++WATCH = (
++    "指标/事件——公司披露的2026三季报中的经营活动现金流量净额及存货、应收类科目；"
++    "时间节点——在2026-10-22复查日核对其是否已披露；可证伪触发条件——"
++    "若回款恶化，则削弱判断；若回款改善，则重新评估。"
++)
++TAIL = "单季口径为推算值，非官方披露。不构成买卖建议，本次研究不登记为长期跟踪、不写入投资观点。"
++
++
++@pytest.fixture(autouse=True)
++def offline(monkeypatch):
++    def denied(*_args, **_kwargs):
++        pytest.fail("R6 regression attempted network IO")
++    for name in ("socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection"):
++        monkeypatch.setattr(name, denied)
++    monkeypatch.setattr(llm_refine, "judge_provider", lambda: None)
++
++
++@pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
++@pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
++def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
++    answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
++    assert missing_contract_elements(answer) == ()
++    items = parse_next_watch_items(answer, as_of="2026-09-18")
++    assert len(items) == 1 and items[0].due == "2026-10-22"
++    assert footer not in items[0].claim
++    path = tmp_path / "checkpoints.jsonl"
++    assert ingest_next_watch(path, answer, query="跟踪旭创，不要登记长期跟踪") == []
++    assert not path.exists()
++    rows = ingest_next_watch(path, answer, query="跟踪旭创，请登记长期跟踪", session_id="r6-repair")
++    assert len(rows) == 1 and rows[0]["session_id"] == "r6-repair"
++
++
++@pytest.mark.parametrize("suffix", [
++    "指标=存货；时间节点=2026-10-22。",
++    "2. 指标=存货；时间节点=2026-10-22。",
++    "单季口径为推算值，非官方披露；指标=存货；时间节点=2026-10-22。",
++])
++def test_footer_does_not_excuse_a_real_incomplete_watch(suffix):
++    answer = HEAD + "下期关注清单：" + WATCH + "\n" + suffix
++    assert missing_contract_elements(answer) == ("next_watch",)
++
++
++@pytest.mark.parametrize("condition", [
++    "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
++    "三季报净现比是否回到0.6以上？",
++    "三季报净现比能否恢复至0.6？",
++    "三季报净现比能不能达到60%？",
++    "三季报净现比可否回升到六成？",
++    "净现比回到0.6以上才上调判断。",
++    "| 净现比 | 是否回到0.6以上 |",
++])
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert SAFE in result.public_answer
++    assert condition not in result.public_answer
++    assert any("novel_numeric_condition" in row["reasons"] for row in result.sentence_verdicts)
++
++
++@pytest.mark.parametrize("text", [
++    "三季报净现比是否改善？", "于2026-10-22复查净现比。", "2026年中报净现比为0.132。",
++])
++def test_qualitative_questions_and_raw_facts_are_retained(monkeypatch, text):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    frame, verified = _structural(SAFE + text, detail=SAFE)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert text in result.public_answer
++
++
++def _financial(draft, *, question="请比较中际旭创的利润与回款，注明可比口径。"):
++    frame, initial = _structural(draft)
++    frame = replace(frame, raw_question=question, user_goal=question, question_type="financial_analysis",
++                    subject="300308", subject_kind="company")
++    evidence = []
++    # Finite obtained values used by R6. No new retrieval, no inference from titles.
++    for period, ocf, profit, inventory in (
++        ("2026-06-30", 18.0, 136.51, 198.26),
++        ("2026-03-31", 33.68, 57.35, 156.72),
++        ("2025-12-31", 108.96, 107.97, 126.81),
++        ("2025-06-30", 32.18, 39.95, 91.68),
++        ("2025-03-31", 21.64, 15.83, 78.19),
++    ):
++        evidence.append(AgentEvidence(
++            "financial_data", f"300308 {period}", f"{period}累计经营现金流{ocf}亿元，归母净利{profit}亿元，存货{inventory}亿元。",
++            "结构化财报", source_date="2026-08-22", content_hash=f"financial-{period}",
++            observations=tuple(StructuredObservation("300308.SZ", period, metric, value) for metric, value in (
++                ("ocf_cum_yi", ocf), ("net_profit_cum_yi", profit), ("inventory_yi", inventory),
++            )),
++        ))
++    contract = replace(
++        initial.contract, question=question, question_type=frame.question_type, subject=frame.subject,
++        task_frame_hash=frame.task_frame_hash,
++        required_outputs=(RequiredOutput("financial_assessment", "判断", ("financial_data",), True),
++                          RequiredOutput("metric_evidence", "财务依据", ("financial_data", "web_fetch", "l3_lookup"), True)),
++    )
++    outcome = replace(initial.outcome, task_frame_hash=frame.task_frame_hash, evidence=tuple(evidence),
++                      events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
++                      bindings=tuple(OutputEvidenceBinding(o.output_id, tuple(e.content_hash for e in evidence))
++                                     for o in contract.required_outputs))
++    return frame, verify_episode_outcome(contract, outcome)
++
++
++@pytest.mark.parametrize("claim", [
++    "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
++    "二季度单季经营现金流=18−33.68=−15.66亿元。",
++    "2026中报净现比0.133。",
++    "2026中报含金量为0.133。",
++    "2026中报含金量为0.132bp。",
++    "2026中报含金量为0.132基点。",
++    "2026中报含金量为0.132个百分点。",
++    "2026中报含金量(bp)为0.132倍。",
++    "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
++    "2026中报OCF/净利从2025年报的1.009降至0.132。",
++    "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
++    "若三季报累计经营现金流对归母净利的覆盖率较中报的0.132明显回升，则改变判断。",
++    "2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。",
++    "2026中报累计净现比0.133。",
++    "2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。",
++])
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    frame, verified = _financial(SAFE + "\n" + claim)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert SAFE in result.public_answer
++    assert claim not in result.public_answer
++    assert any("financial_claim_mismatch" in row["reasons"] for row in result.sentence_verdicts)
++    assert result.status == "partial"
++    assert "metric_evidence" in result.gap_output_ids
++    assert "metric_evidence" in result.repair_output_ids
++    # Existing marker-loss gaps (e.g. the entire assessment was in this one
++    # sentence) must not be erased merely because this gate adds a metric gap.
++    assert set(result.verified.missing_outputs) <= set(result.repair_output_ids)
++
++
++@pytest.mark.parametrize("claim", [
++    "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.68亿元。",
++    "二季度单季经营现金流=18−33.68=−15.68亿元。",
++    "二季度单季经营现金流约-15.7亿元。",
++    "2026中报净现比0.132。",
++    "2026中报含金量为0.132。",
++    "2026中报含金量为0.132倍。",
++    "2026中报含金量为13.2%。",
++    "2026中报含金量同比增长13.2%。",
++    "2026中报和2025全年累计长度不同，不能直接比较净现比改善与否。",
++    "2026中报净现比0.132，2025全年1.009；仅分别列示，不据此判断恶化。",
++    "存货三个月内增加约41.5亿元（156.72→198.26亿元）。",
++    "存货半年内增加71.45亿元（126.81→198.26亿元）。",
++    "2026中报净现比13.2%。",
++    "2026中报净现比同比增长13.2%。",
++    "2026中报净现比0.132，2025全年仅作历史参考，2025中报净现比0.806，同比走弱。",
++    "2026中报累计净现比0.132，2026一季报0.587，仅分别列示，不能直接比较。",
++    "例如：二季度单季经营现金流=18−33.68=−15.66亿元是错误写法。",
++    "2026半年度报告显示，存货三个月内增加41.54亿元（156.72→198.26亿元）。",
++    "2026中报净现比0.132，一季报净现比0.587。",
++    "2026中报存货在半年报披露前三个月从156.72→198.26亿元。",
++])
++def test_correct_arithmetic_and_explicit_noncomparison_are_retained(monkeypatch, claim):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    frame, verified = _financial(SAFE + "\n" + claim)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert claim in result.public_answer
++
++
++@pytest.mark.parametrize("claim", [
++    "2026中报净现比0.132，同比2025中报0.806走弱。",
++    "2026中报比2025中报回款走弱，但不能把2025全年当同累计长度比较。",
++    "2026中报存货增长快于收入只是待验证假设，目前无法归因。",
++])
++def test_no_rejection_for_comparable_ratios_or_explicit_uncertainty(monkeypatch, claim):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    frame, verified = _financial(SAFE + "\n" + claim)
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert claim in result.public_answer
++
++
++def test_structured_rows_cannot_fulfil_explicit_document_request():
++    question = "选用一份你确实检索到、带明确发布日期的公告或定期报告，分析利润与回款。"
++    _, verified = _financial(SAFE, question=question)
++    assert verified.verified_status == "partial"
++    assert verified.missing_outputs == ("metric_evidence",)
++    assert verified.outcome.draft == SAFE
++    assert "文档" in verified.completion.outputs[1].gap
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_missing_document_stays_partial_without_losing_safe_prose_or_review_date(monkeypatch, mode):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    claim = "本次实际取得并引用的报告为中际旭创2026年半年度报告。"
++    review = "请于2026-10-22复查现金回款。"
++    frame, verified = _financial(
++        SAFE + "\n" + claim + "\n" + review,
++        question="选用一份你确实检索到、带明确发布日期的公告或定期报告，分析利润与回款。",
++    )
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert result.status == "partial"
++    assert claim not in result.public_answer
++    assert SAFE in result.public_answer and review in result.public_answer
++    assert result.verified.missing_outputs == ("metric_evidence",)
++
++
++def test_financial_repair_debt_is_local_and_not_sticky_after_correction(monkeypatch):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
++    frame, verified = _financial(SAFE + "\n2026中报净现比0.133。")
++    first = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
++    assert first.gap_output_ids == ("metric_evidence",)
++    assert first.verified.completion.outputs[0].status == "fulfilled"
++    corrected = verify_episode_outcome(verified.contract, replace(verified.outcome, draft=SAFE + "\n2026中报净现比0.132。"))
++    second = verifier.verify(frame=frame, structurally_verified=corrected, deadline=ResearchDeadline.from_timeout(5))
++    assert second.status == "completed"
++    assert second.gap_output_ids == second.repair_output_ids == ()
++    assert "净现比0.132" in second.public_answer
++
++
++def _document(**kwargs):
++    return replace(AgentEvidence(
++        "web_fetch", "中际旭创（300308）2026年半年度报告", "中际旭创（300308）2026年半年度报告正文：经营活动现金流净额18亿元。",
++        "https://www.cninfo.com.cn/report", source_date="2026-08-22", content_hash="report-doc",
++        document_type="periodic_report", publisher_kind="official_disclosure",
++    ), **kwargs)
++
++
++@pytest.mark.parametrize("overrides,accepted", [
++    ({}, True),
++    ({"tool": "web_search"}, False),
++    ({"tool": "financial_data"}, False),
++    ({"document_type": "webpage"}, False),
++    ({"source_date": None}, False),
++    ({"source_date": "not-a-date"}, False),
++    ({"detail": " "}, False),
++    ({"source": "file:///report.pdf"}, False),
++    ({"title": "其他公司2026年半年度报告", "detail": "其他公司报告正文"}, False),
++])
++def test_report_delivery_requires_subject_body_date_and_document_type(overrides, accepted):
++    from intelligence.services.financial_report_contract import report_document_binding_gaps
++    doc = _document(**overrides)
++    gaps = report_document_binding_gaps(
++        "选用一份你确实检索到、带明确发布日期的公告或定期报告。", (doc,), (doc.content_hash,), subject="300308",
++    )
++    assert bool(gaps) != accepted
++    assert report_document_binding_gaps(
++        "不用获取公告原文，只比较已有财务数据。", (), (), subject="300308",
++    ) == ()
++    assert report_document_binding_gaps(
++        "请取得公告原文。", (doc,), (), subject="300308",
++    )
++
++
++@pytest.mark.parametrize("overrides,claim,rejected", [
++    ({}, "本次实际取得并引用的报告为中际旭创2026年半年度报告。", False),
++    ({"title": "其他公司报告", "detail": "其他公司报告正文"}, "本次实际取得并引用的报告为中际旭创2026年半年度报告。", True),
++    ({"tool": "financial_data"}, "本次实际取得并引用的报告为中际旭创2026年半年度报告。", True),
++    ({"tool": "financial_data"}, "未能取得报告文档，目前只有结构化代理数据。", False),
++])
++def test_document_claim_does_not_borrow_an_unrelated_company(monkeypatch, overrides, claim, rejected):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    frame, verified = _financial(SAFE + "\n" + claim)
++    doc = _document(**overrides)
++    outcome = replace(verified.outcome, evidence=(*verified.outcome.evidence, doc), bindings=tuple(
++        replace(binding, evidence_hashes=(*binding.evidence_hashes, doc.content_hash))
++        for binding in verified.outcome.bindings
++    ))
++    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
++        frame=frame, structurally_verified=verify_episode_outcome(verified.contract, outcome),
++        deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert SAFE in result.public_answer
++    assert (claim not in result.public_answer) == rejected
++
++
++@pytest.mark.parametrize("metric,value,rejected", [
++    ("净现比.净现比[2026中报]", 0.132, False),
++    ("净现比.净现比[2026中报]", 0.133, True),
++    ("2025年报汇总.净现比[2026中报]", 0.132, False),
++    ("净现比.净现比%[2026中报]", 13.2, False),
++    ("净现比.营收[2026中报]", 417.78, False),
++    ("净现比.净现比同比增长[2026中报]", 13.2, False),
++    ("现金流.含金量(bp)[2026中报]", 0.132, True),
++    ("现金流.净现比(BP)[2026中报]", 0.132, True),
++    ("现金流.OCF/净利润（基点）[2026中报]", 0.132, True),
++    ("现金流.含金量(百分点)[2026中报]", 0.132, True),
++    ("现金流.含金量(倍)[2026中报]", 0.132, False),
++    ("现金流.含金量增长(bp)[2026中报]", 9.999, False),
++    ("现金流.含金量环比变化(基点)[2026中报]", 9.999, False),
++    ("现金流.含金量[2024中报]", 9.999, False),
++    ("净现比.净现比[2026中报]", float("nan"), True),
++])
++def test_result_ratio_is_recomputed_only_from_its_own_inputs(metric, value, rejected):
++    from intelligence.services.financial_claim_checks import calculation_ratio_gaps
++    _, verified = _financial(SAFE)
++    inputs = verified.outcome.evidence
++    calc = AgentEvidence(
++        "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
++        derived_from=tuple(item.content_hash for item in inputs),
++        observations=(StructuredObservation("计算任务", "2025-04-21", metric, value),),
++    )
++    evidence = (*inputs, calc)
++    assert bool(calculation_ratio_gaps(evidence, ("calc",), subject="300308")) == rejected
++    assert calculation_ratio_gaps(evidence, (), subject="300308") == ()
++    assert calculation_ratio_gaps((*inputs, replace(calc, derived_from=())), ("calc",), subject="300308") == ()
++    peer = replace(inputs[0], content_hash="peer", observations=tuple(
++        replace(obs, subject="000001.SZ") for obs in inputs[0].observations
++    ))
++    mixed = replace(calc, derived_from=(*calc.derived_from, "peer"))
++    assert calculation_ratio_gaps((*inputs, peer, mixed), ("calc",), subject="300308") == ()
++
++
++@pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
++def test_wrong_product_reopens_metric_slot_not_the_whole_research(ratio_name):
++    _, verified = _financial(SAFE)
++    inputs = verified.outcome.evidence
++    calc = AgentEvidence(
++        "derived_calculation", "净现比计算", "计算结果", "sandbox:0000000000000001", content_hash="calc",
++        derived_from=tuple(item.content_hash for item in inputs),
++        observations=(StructuredObservation("计算任务", "2025-04-21", f"{ratio_name}[2026中报]", 0.133),),
++    )
++    contract = replace(verified.contract, required_outputs=tuple(
++        replace(required, evidence_types=(*required.evidence_types, "derived_calculation"))
++        for required in verified.contract.required_outputs
++    ))
++    outcome = replace(verified.outcome, evidence=(*inputs, calc), bindings=tuple(
++        replace(binding, evidence_hashes=(*binding.evidence_hashes, "calc"))
++        for binding in verified.outcome.bindings
++    ))
++    checked = verify_episode_outcome(contract, outcome)
++    assert checked.missing_outputs == ("metric_evidence",)
++    assert checked.completion.outputs[0].status == "fulfilled"
++    assert "复算不一致" in checked.completion.outputs[1].gap
++    assert checked.outcome.draft == SAFE
++    assert calc in checked.outcome.evidence
++
++
++@pytest.mark.parametrize("ratio_name", ["含金量", "净现比", "OCF/净利润"])
++@pytest.mark.parametrize("value,rejected", [(9.999, True), (1.588, False)])
++def test_ratio_alias_recomputation_uses_the_same_bound_input_chain(ratio_name, value, rejected):
++    from intelligence.services.financial_claim_checks import calculation_ratio_gaps
++    from intelligence.tests.test_research_delivery_checks import _financial_evidence
++
++    source, calc = _financial_evidence()
++    calc = replace(calc, observations=(replace(
++        calc.observations[0], metric=f"现金流比率.{ratio_name}[2026中报]", value=value,
++    ),))
++    evidence = (source, calc)
++    assert bool(calculation_ratio_gaps(evidence, (calc.content_hash,), subject="600519.SH")) == rejected
++    assert calculation_ratio_gaps(evidence, (), subject="600519.SH") == ()
++    assert calculation_ratio_gaps(evidence, (calc.content_hash,), subject="000858.SZ") == ()
++
++
++def test_conflicting_financial_inputs_are_not_cherry_picked():
++    from intelligence.services.financial_claim_checks import financial_claim_mismatches
++    _, verified = _financial(SAFE)
++    evidence = verified.outcome.evidence
++    conflicting = replace(evidence[0], content_hash="conflict", observations=(
++        StructuredObservation("300308.SZ", "2026-06-30", "ocf_cum_yi", 19.0),
++    ))
++    rows = [{"index": 1, "text": "2026中报净现比0.133。"}]
++    assert financial_claim_mismatches(rows, evidence, (), subject="300308") == ()
++    assert financial_claim_mismatches(rows, (*evidence, conflicting), tuple(
++        e.content_hash for e in (*evidence, conflicting)
++    ), subject="300308") == ()
+diff --git a/intelligence/tests/test_research_delivery_checks.py b/intelligence/tests/test_research_delivery_checks.py
+new file mode 100644
+index 000000000..b476e1d1f
+--- /dev/null
++++ b/intelligence/tests/test_research_delivery_checks.py
+@@ -0,0 +1,427 @@
++"""Fixed local failure checks: never erase the entire independently useful answer."""
++
++from dataclasses import replace
++import json
++
++import pytest
++
++from intelligence.services.agent_research import AgentEvidence, StructuredObservation
++from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
++from intelligence.services.provider_observability import ProviderTrace
++from intelligence.services.research_contract import ResearchDeadline
++from intelligence.services.research_delivery_checks import (
++    calculation_copy_findings,
++    disclosure_absence_findings,
++    remove_findings,
++)
++from intelligence.tests.test_episode_semantic_verifier import _structural
++
++
++TRACE = ProviderTrace(
++    provider="agent:l3_lookup",
++    capability="l3_lookup",
++    status="request_error",
++    detail="private-path secret-token",
++)
++
++
++def _financial_evidence():
++    source = AgentEvidence(
++        tool="financial_data",
++        title="财报",
++        detail="财报输入",
++        source="F10",
++        content_hash="input-hash",
++        observations=(
++            StructuredObservation("600519.SH", "2026-06-30", "ocf_cum_yi", 706.91),
++            StructuredObservation(
++                "600519.SH", "2026-06-30", "net_profit_cum_yi", 445.17
++            ),
++        ),
++    )
++    calc = AgentEvidence(
++        tool="derived_calculation",
++        title="计算",
++        detail="含金量",
++        source="sandbox:0123456789abcdef",
++        content_hash="calc-hash",
++        derived_from=(source.content_hash,),
++        observations=(
++            StructuredObservation(
++                "现金流", "2025-04-30", "现金流比率.含金量[2026中报]", 1.588
++            ),
++            StructuredObservation(
++                "现金流", "2025-04-30", "现金流比率.含金量[2025中报]", 0.289
++            ),
++            # Same token in an unrelated metric must not green-light the typo.
++            StructuredObservation(
++                "现金流", "2025-04-30", "现金流比率.无关指标[2026中报]", 1.587
++            ),
++        ),
++    )
++    return source, calc
++
++
++@pytest.mark.parametrize(
++    "claim",
++    [
++        "窗口内无新公告即无新增官方信息差。",
++        "若返回空白则可坐实窗口内无公告。",
++        "接口失败，因此公司没有公告。",
++        "检索无结果，所以尚未兑现。",
++        "无法完整查询，但窗口内无新公告即无新增官方信息差。",
++    ],
++)
++def test_search_failure_cannot_prove_absence(claim):
++    draft = "中报原文披露了收入。[E1]。" + claim + "利润数据仍可核对。"
++    findings = disclosure_absence_findings(draft, (TRACE,))
++    assert findings
++    kept = remove_findings(draft, findings)
++    assert claim not in kept
++    assert "中报原文披露了收入" in kept and "利润数据仍可核对" in kept
++
++
++@pytest.mark.parametrize(
++    "claim",
++    [
++        "不能据此断言公司没有公告或尚未兑现。",
++        "查询失败不代表没有公告。",
++        "若公司确实无新公告，则研究重点转向已披露信息。",
++        "本轮未查到公告，不能证明没有公告。",
++        "公告原文说明：截至该日没有新增订单。[E1]",
++        "官方公告称，公司尚未兑现某项安排。[E1]",
++        "查询到公司原文明确说明，截至该日没有公告应披露而未披露事项。[E1]",
++        "查询为空，但不能证明公司没有公告。",
++        "‘查询空白即可证明没有公告’是错误推断，不成立。",
++        "窗口内存在两份已核实公告，但查询并不完整。",
++    ],
++)
++def test_honest_gaps_hypotheses_and_independent_facts_survive(claim):
++    assert disclosure_absence_findings(claim, (TRACE,)) == ()
++
++
++def test_successful_lookup_is_not_universe_completeness_certificate():
++    assert disclosure_absence_findings(
++        "查询返回空白，所以公司没有公告。", (replace(TRACE, status="success"),)
++    )
++
++
++TABLE = "| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\n|---|---|---|---|---|\n| 2026中报 | 2026-08-15 | 706.91 | 445.17 | 1.587 |\n| 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\n"
++
++
++def test_copy_guard_binds_period_and_column_not_a_bag_of_numbers():
++    findings = calculation_copy_findings(TABLE, _financial_evidence())
++    assert len(findings) == 1
++    kept = remove_findings(TABLE, findings)
++    assert "2026中报 | 2026-08-15 | 706.91 | 445.17 | 待核对 |" in kept
++    assert "2025中报 |" in kept and "1.587" not in kept
++
++
++@pytest.mark.parametrize(
++    "draft",
++    [
++        "2026中报含金量为1.587。",
++        "**2026中报**含金量为**1.587**。",
++        "比率只应与上年同期对照：2026中报1.587 vs 2025中报0.289。",
++    ],
++)
++def test_ratio_typo_in_prose_is_not_left_behind(draft):
++    assert calculation_copy_findings(draft, _financial_evidence())
++
++
++@pytest.mark.parametrize(
++    "draft",
++    [
++        TABLE.replace("1.587", "1.588"),
++        TABLE.replace("1.587", "1.59"),
++        "2026中报含金量为158.8%。",
++        "2026中报收入为1.587亿元。",
++        "2026中报含金量缺少可核验计算。",
++        "含金量同比增速：2026中报449.8% vs 2025中报28.9%。",
++    ],
++)
++def test_correct_rounding_percent_and_unrelated_numbers_not_rejected(draft):
++    assert calculation_copy_findings(draft, _financial_evidence()) == ()
++
++
++@pytest.mark.parametrize("header,cell", [
++    ("含金量(bp)", "1.588"),
++    ("含金量(BP)", "1.588"),
++    ("含金量（基点）", "1.588"),
++    ("含金量(百分点)", "1.588"),
++    ("含金量(bp)", "1.588倍"),
++    ("含金量(%)", "158.8bp"),
++    ("含金量", "1.588bp"),
++    ("含金量", "1.588基点"),
++    ("含金量", "1.588个百分点"),
++])
++def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
++    draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
++    draft = draft.replace("含金量占位", header)
++    findings = calculation_copy_findings(draft, _financial_evidence())
++    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
++    kept = remove_findings(draft, findings)
++    assert f"| 报告期 | OCF累计 | {header} |" in kept
++    assert "|2026中报|706.91| 待核对 |" in kept
++
++
++@pytest.mark.parametrize("claim", [
++    "2026中报含金量为1.588bp。",
++    "2026中报含金量为1.588基点。",
++    "2026中报含金量为1.588百分点。",
++    "2026中报含金量为1.588个百分点。",
++    "2026中报含金量(bp)为1.588倍。",
++])
++def test_explicit_ratio_prose_does_not_drop_a_delta_unit(claim):
++    findings = calculation_copy_findings(claim, _financial_evidence())
++    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
++
++
++@pytest.mark.parametrize("draft", [
++    "含金量(%)：2026中报158.8，含金量(倍)：2025中报0.289。",
++    "含金量(倍)：2026中报1.588，含金量(%)：2025中报28.9。",
++    "含金量：2026中报1.588，2025中报0.289。",
++    "含金量(%)：2026中报158.8，2025中报28.9。",
++    "含金量(bp)需要另行核验。含金量：2026中报1.588。",
++])
++def test_ratio_prefix_unit_belongs_to_its_label_not_another_period_or_sentence(draft):
++    assert calculation_copy_findings(draft, _financial_evidence()) == ()
++
++
++@pytest.mark.parametrize("unit", ["bp", "BP", "基点", "百分点"])
++@pytest.mark.parametrize("with_valid_product", [False, True])
++def test_delta_unit_product_cannot_certify_a_level(unit, with_valid_product):
++    source, calc = _financial_evidence()
++    invalid = replace(calc, content_hash="delta-calc", observations=(replace(
++        calc.observations[0], metric=f"现金流比率.含金量({unit})[2026中报]",
++    ),))
++    evidence = (source, invalid, calc) if with_valid_product else (source, invalid)
++    findings = calculation_copy_findings("2026中报含金量为1.588。", evidence)
++    assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
++
++
++@pytest.mark.parametrize("header,cell", [
++    ("含金量", "1.588"),
++    ("含金量(倍)", "1.588"),
++    ("含金量", "1.588倍"),
++    ("含金量(%)", "158.8"),
++    ("含金量", "158.8%"),
++    ("含金量同比增长(bp)", "9.999"),
++    ("含金量增长(bp)", "9.999"),
++    ("含金量环比变化(基点)", "9.999"),
++    ("收入(亿元)", "9.999"),
++])
++def test_ratio_units_preserve_absolute_values_and_excluded_column_roles(header, cell):
++    draft = f"|报告期|{header}|\n|---|---|\n|2026中报|{cell}|"
++    assert calculation_copy_findings(draft, _financial_evidence()) == ()
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++@pytest.mark.parametrize(
++    "status", ["request_error", "partial", "empty", "not_attempted"]
++)
++def test_success_exit_also_checks_absence_and_preserves_neighbors(
++    monkeypatch, mode, status
++):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    draft = "已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。"
++    frame, structural = _structural(draft, traces=(replace(TRACE, status=status),))
++    verifier = SemanticEpisodeVerifier(
++        judge_fn=lambda request: {
++            "passed": True,
++            "rejected_sentence_indexes": [],
++            "issues": [],
++        }
++    )
++    result = verifier.verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(10),
++    )
++    assert "窗口内无新公告即" not in result.public_answer
++    assert (
++        "已取得中报原文" in result.public_answer
++        and "收入数据可核" in result.public_answer
++    )
++    assert "不能据此断言公司没有公告" in result.public_answer
++    assert result.status == "partial"
++    assert any("disclosure_absence_inference" in issue for issue in result.issues)
++    assert (
++        "private-path" not in result.public_answer
++        and "secret-token" not in result.public_answer
++    )
++    assert result.verified.outcome.evidence == structural.outcome.evidence
++    assert result.gap_output_ids  # existing repair loop, no new budget or fetch
++
++
++def test_percent_units_period_labels_and_growth_are_not_conflated():
++    source, calc = _financial_evidence()
++    percent_calc = replace(
++        calc,
++        observations=(
++            replace(
++                calc.observations[0], metric="2025现金流.含金量%[2026中报]", value=158.8
++            ),
++            calc.observations[1],
++        ),
++    )
++    assert (
++        calculation_copy_findings(
++            TABLE.replace("1.587", "1.588"), (source, percent_calc)
++        )
++        == ()
++    )
++    assert (
++        calculation_copy_findings(
++            TABLE.replace("含金量", "含金量同比增速"), (source, calc)
++        )
++        == ()
++    )
++    # Methodology examples with no disclosure lookup aren't this guard's domain.
++    assert disclosure_absence_findings("查询返回空白，所以公司没有公告。", ()) == ()
++
++
++def test_missing_and_conflicting_products_are_not_certified_by_numeric_presence():
++    source, calc = _financial_evidence()
++    assert all(
++        f.code == "calculation_value_unverified"
++        for f in calculation_copy_findings(
++            TABLE,
++            (source,),
++            calculation_required=True,
++        )
++    )
++    assert (
++        len(calculation_copy_findings(TABLE, (source,), calculation_required=True)) == 2
++    )
++    conflicting = replace(
++        calc,
++        content_hash="other-calc",
++        observations=(replace(calc.observations[0], value=1.6),),
++    )
++    result = calculation_copy_findings(
++        TABLE.replace("1.587", "1.588"),
++        (source, calc, conflicting),
++        calculation_required=True,
++    )
++    assert len(result) == 1 and result[0].code == "calculation_value_unverified"
++    # Explicitly outside this finite single-company contract.
++    other_company = replace(
++        source,
++        content_hash="other-input",
++        observations=(replace(source.observations[0], subject="000858.SZ"),),
++    )
++    assert calculation_copy_findings(TABLE, (source, calc, other_company)) == ()
++
++
++@pytest.mark.parametrize("mode", ["off", "llm"])
++def test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts(
++    monkeypatch, mode
++):
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
++    frame, structural = _structural("收入数据可核。[E1]。\n" + TABLE)
++    structural = replace(
++        structural,
++        outcome=replace(
++            structural.outcome,
++            evidence=(*structural.outcome.evidence, *_financial_evidence()),
++        ),
++    )
++    result = SemanticEpisodeVerifier(
++        judge_fn=lambda request: {
++            "passed": True,
++            "rejected_sentence_indexes": [],
++            "issues": [],
++        }
++    ).verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(10),
++    )
++    assert "1.587" not in result.public_answer and "待核对" in result.public_answer
++    assert "706.91" in result.public_answer and "445.17" in result.public_answer
++    assert "2025中报" in result.public_answer and "0.289" in result.public_answer
++    assert result.status == "partial" and result.gap_output_ids
++    assert result.verified.outcome.evidence == structural.outcome.evidence
++    # Idempotent final recheck must not duplicate gaps or restore the bad cell.
++    from intelligence.services.episode_semantic_verifier import (
++        recheck_material_public_delivery,
++    )
++
++    checked = recheck_material_public_delivery(result)
++    assert checked == result
++
++
++def test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence(
++    monkeypatch,
++):
++    from intelligence.services.episode_semantic_verifier import (
++        SemanticEpisodeOutcome,
++        recheck_material_public_delivery,
++    )
++
++    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
++    frame, structural = _structural(
++        "可信事实。[E1]。无绑定内容。[E2]。查询空白因此没有公告。", traces=(TRACE,)
++    )
++    structural = replace(
++        structural,
++        outcome=replace(
++            structural.outcome,
++            evidence=(
++                *structural.outcome.evidence,
++                AgentEvidence(
++                    tool="market_data",
++                    title="未绑定",
++                    detail="未绑定",
++                    source="fixture",
++                    content_hash="unbound",
++                ),
++            ),
++        ),
++    )
++    initial = SemanticEpisodeOutcome(
++        verified=structural,
++        status="completed",
++        public_answer=structural.outcome.draft,
++        judge_status="passed",
++    )
++    checked = recheck_material_public_delivery(initial)
++    assert checked.delivery_retained_evidence_hashes == (
++        structural.outcome.evidence[0].content_hash,
++    )
++    assert "unbound" not in checked.delivery_retained_evidence_hashes
++    # A prior judge gap must not acquire citations merely via this local check.
++    prior_gap = recheck_material_public_delivery(
++        replace(initial, gap_output_ids=("direct_assessment",))
++    )
++    assert prior_gap.delivery_retained_evidence_hashes == ()
++    # Adapter sanitizer removes the retained citation: don't keep a stale card.
++    projected = recheck_material_public_delivery(checked, projected="只剩覆盖缺口。")
++    assert projected.delivery_retained_evidence_hashes == ()
++
++
++def test_actual_failure_flag_reaches_model_and_audit_not_transport_ok():
++    from intelligence.services import derived_calculation as dc
++    from intelligence.services.research_harness import FinanceResearchHarness
++    from intelligence.services.research_tool_registry import ToolObservation
++
++    result = dc.to_tool_result(
++        dc.CalculationError("invalid_result_contract", "summary_non_scalar")
++    )
++    observation = ToolObservation(
++        tool="derived_calculation",
++        query="calc",
++        evidence=result.evidence,
++        observation=result.observation,
++        trace=result.trace,
++        gaps=result.gaps,
++        telemetry=dict(result.telemetry),
++    )
++    projection = FinanceResearchHarness().project_tool_result(
++        observation, evidence_so_far=(), seen_prose=frozenset()
++    )
++    model = json.loads(projection.model_content)
++    assert projection.audit_payload["ok"] is False and model["ok"] is False
++    assert model["error"] == "invalid_result_contract" and model["gaps"]
++    assert "telemetry" not in model and "telemetry" in projection.audit_payload

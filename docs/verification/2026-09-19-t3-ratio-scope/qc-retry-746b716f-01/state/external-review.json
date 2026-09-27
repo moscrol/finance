@@ -1,0 +1,9 @@
+{
+  "attempt": 1,
+  "failure_kind": "invalid_verdict",
+  "next_retry_at": 1789809822.1962242,
+  "review_id": "ARL-0004",
+  "schema_version": 1,
+  "status": "REVIEWER_INACTIVE",
+  "updated_at": 1789809762.1962242
+}

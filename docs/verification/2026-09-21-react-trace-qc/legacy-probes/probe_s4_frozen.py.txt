@@ -1,0 +1,73 @@
+# K3 probe S4: recursive read-only Mapping copied only at JSON projection boundary.
+import json
+import sys
+from types import MappingProxyType
+
+from intelligence.runtime import research_progress as rp
+
+assert rp.__file__.startswith("/Users/a77/fwp-wt-react-trace-qc-0921/"), rp.__file__
+
+fails = []
+
+# 1) recursive mappingproxy args (ModelToolCall shape) on the rejected path -> no crash
+frozen = MappingProxyType({
+    "dataset": "stock_daily",
+    "filters": MappingProxyType({"field": "pe_ttm", "op": "lt", "value": 25}),
+    "order_by": (MappingProxyType({"field": "trade_date", "direction": "desc"}),),
+    "limit": 50,
+})
+try:
+    digest = rp.ToolCallDigest("finance_query", frozen, "rejected")
+except Exception as exc:  # pre-fix this raised TypeError: mappingproxy not serializable
+    fails.append(f"frozen args crashed digest: {type(exc).__name__}: {exc}")
+else:
+    if not digest.query or "pe_ttm" not in digest.query:
+        fails.append(f"frozen args normalized badly: {digest.query!r}")
+    # original frozen object untouched (still a mappingproxy, same content)
+    if not isinstance(frozen, MappingProxyType) or frozen["limit"] != 50:
+        fails.append("frozen input mutated")
+    if isinstance(frozen["filters"], dict):
+        fails.append("nested mappingproxy replaced")
+
+# 2) pre-fix control: plain json.dumps without default really did fail (bug was real)
+try:
+    json.dumps(frozen, ensure_ascii=False, sort_keys=True)
+    fails.append("control: mappingproxy unexpectedly serializable without default")
+except TypeError:
+    pass
+
+# 3) tuple handled by JSON itself (tuple of scalars inside mapping)
+d = rp.ToolCallDigest("t", MappingProxyType({"k": ("a", "b")}), "error")
+if '["a", "b"]' not in d.query:
+    fails.append(f"tuple not JSON-handled: {d.query!r}")
+
+# 4) unknown objects still rejected, not str()-swallowed
+for bad in ({"x": {1, 2}}, {"x": b"bytes"}, {"x": object()}):
+    try:
+        rp.ToolCallDigest("t", bad, "error")
+        fails.append(f"unknown object swallowed: {bad!r}")
+    except TypeError:
+        pass
+    except Exception as exc:
+        fails.append(f"unknown object raised {type(exc).__name__} not TypeError: {exc}")
+
+# 5) parity control: plain dict output identical to baseline json.dumps (no default)
+plain = {"b": 1, "a": "x"}
+if rp.normalize_query(plain) != json.dumps(plain, ensure_ascii=False, sort_keys=True):
+    fails.append(f"plain-dict parity broken: {rp.normalize_query(plain)!r}")
+# query-key fast path unchanged
+if rp.normalize_query({"query": "  Hello   World "}) != "hello world":
+    fails.append("query fast-path changed")
+# empty mapping -> empty string
+if rp.normalize_query(MappingProxyType({})) != "":
+    fails.append("empty mapping not empty string")
+
+# 6) tracker end-to-end: rejected call with frozen args closes a batch without crash
+tr = rp.ResearchProgressTracker()
+tr.record_call(rp.ToolCallDigest("finance_query", frozen, "rejected"))
+batch = tr.close_batch()
+if batch is None or batch.calls[0].status != "rejected":
+    fails.append("tracker batch lost rejected call")
+
+print("S4 FAILS:" if fails else "S4 ALL PASS", *fails, sep="\n")
+sys.exit(1 if fails else 0)

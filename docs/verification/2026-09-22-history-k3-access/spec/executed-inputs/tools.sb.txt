@@ -1,0 +1,6 @@
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/spec/k3/work") (literal "/dev/null"))
+(deny network*)
+(deny file-read* (subpath "/Users/a77/.claude") (subpath "/Users/a77/.pi") (subpath "/Users/a77/.ssh") (subpath "/Users/a77/Library/Keychains") (subpath "/Users/a77/Library/Application Support/mirasim-sidecar") (subpath "/Users/a77/.local/share/finance-workbench") (subpath "/Users/a77/agent-memory") (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/spec/candidate/docs/handoffs") (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/spec/candidate/docs/verification") (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/spec/candidate/intelligence/users") (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/spec/candidate/db") (subpath "/Users/a77/fwp-wt-history-evidence-integration-0921/db") (subpath "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/quality"))

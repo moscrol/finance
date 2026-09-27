@@ -1,0 +1,21 @@
+{
+  "step": "execute-e2",
+  "command": [
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/run_stage_v3.py",
+    "execute",
+    "e2"
+  ],
+  "started_at": "2026-09-25T16:53:03.039078+00:00",
+  "complete": true,
+  "automatic_retries": 0,
+  "worker_pid": 74722,
+  "child_pid": 74725,
+  "exit_code": 75,
+  "elapsed_seconds": 0.143,
+  "status": "BLOCKED",
+  "child_receipt": null,
+  "child_status": null,
+  "stdout_sha256": "011dcd61ee0ee37413daa826a1b9cc12cce9c4a80abe9696fe82e065cf234f35"
+}

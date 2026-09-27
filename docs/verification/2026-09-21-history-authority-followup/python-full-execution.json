@@ -1,0 +1,360 @@
+{
+  "started_at": "2026-09-21T13:37:08.168418+00:00",
+  "identity_before": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": ""
+  },
+  "timeout_seconds": 1800,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 11007115264
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 10969337856
+    },
+    {
+      "elapsed": 20,
+      "free_bytes": 10999279616
+    },
+    {
+      "elapsed": 30,
+      "free_bytes": 10998001664
+    },
+    {
+      "elapsed": 40,
+      "free_bytes": 10969645056
+    },
+    {
+      "elapsed": 50,
+      "free_bytes": 10962739200
+    },
+    {
+      "elapsed": 60,
+      "free_bytes": 10978091008
+    },
+    {
+      "elapsed": 70,
+      "free_bytes": 10971230208
+    },
+    {
+      "elapsed": 80,
+      "free_bytes": 10970279936
+    },
+    {
+      "elapsed": 90,
+      "free_bytes": 10960875520
+    },
+    {
+      "elapsed": 100,
+      "free_bytes": 10937024512
+    },
+    {
+      "elapsed": 110,
+      "free_bytes": 10952704000
+    },
+    {
+      "elapsed": 120,
+      "free_bytes": 10951319552
+    },
+    {
+      "elapsed": 130,
+      "free_bytes": 10954117120
+    },
+    {
+      "elapsed": 140,
+      "free_bytes": 10943062016
+    },
+    {
+      "elapsed": 150,
+      "free_bytes": 10939404288
+    },
+    {
+      "elapsed": 160,
+      "free_bytes": 10944196608
+    },
+    {
+      "elapsed": 170,
+      "free_bytes": 10942779392
+    },
+    {
+      "elapsed": 180,
+      "free_bytes": 10934296576
+    },
+    {
+      "elapsed": 190,
+      "free_bytes": 10934018048
+    },
+    {
+      "elapsed": 200,
+      "free_bytes": 10928025600
+    },
+    {
+      "elapsed": 210,
+      "free_bytes": 10927792128
+    },
+    {
+      "elapsed": 220,
+      "free_bytes": 10932940800
+    },
+    {
+      "elapsed": 230,
+      "free_bytes": 10937147392
+    },
+    {
+      "elapsed": 240,
+      "free_bytes": 10935078912
+    },
+    {
+      "elapsed": 250,
+      "free_bytes": 10933567488
+    },
+    {
+      "elapsed": 260,
+      "free_bytes": 10929553408
+    },
+    {
+      "elapsed": 270,
+      "free_bytes": 10929291264
+    },
+    {
+      "elapsed": 280,
+      "free_bytes": 10928975872
+    },
+    {
+      "elapsed": 290,
+      "free_bytes": 10880098304
+    },
+    {
+      "elapsed": 300,
+      "free_bytes": 10863263744
+    },
+    {
+      "elapsed": 310,
+      "free_bytes": 10860654592
+    },
+    {
+      "elapsed": 320,
+      "free_bytes": 10860355584
+    },
+    {
+      "elapsed": 330,
+      "free_bytes": 10851069952
+    },
+    {
+      "elapsed": 340,
+      "free_bytes": 10845425664
+    },
+    {
+      "elapsed": 350,
+      "free_bytes": 10812551168
+    },
+    {
+      "elapsed": 360,
+      "free_bytes": 10812911616
+    },
+    {
+      "elapsed": 370,
+      "free_bytes": 10790739968
+    },
+    {
+      "elapsed": 380,
+      "free_bytes": 10793250816
+    },
+    {
+      "elapsed": 390,
+      "free_bytes": 10771550208
+    },
+    {
+      "elapsed": 400,
+      "free_bytes": 10744647680
+    },
+    {
+      "elapsed": 410,
+      "free_bytes": 10777137152
+    },
+    {
+      "elapsed": 420,
+      "free_bytes": 10777165824
+    },
+    {
+      "elapsed": 430,
+      "free_bytes": 10778824704
+    },
+    {
+      "elapsed": 440,
+      "free_bytes": 10787524608
+    },
+    {
+      "elapsed": 450,
+      "free_bytes": 10708922368
+    },
+    {
+      "elapsed": 460,
+      "free_bytes": 10707636224
+    },
+    {
+      "elapsed": 470,
+      "free_bytes": 10704261120
+    },
+    {
+      "elapsed": 480,
+      "free_bytes": 10710011904
+    },
+    {
+      "elapsed": 490,
+      "free_bytes": 10706956288
+    },
+    {
+      "elapsed": 500,
+      "free_bytes": 10705846272
+    },
+    {
+      "elapsed": 510,
+      "free_bytes": 10705768448
+    },
+    {
+      "elapsed": 520,
+      "free_bytes": 10705453056
+    },
+    {
+      "elapsed": 530,
+      "free_bytes": 10688200704
+    },
+    {
+      "elapsed": 540,
+      "free_bytes": 10593402880
+    },
+    {
+      "elapsed": 550,
+      "free_bytes": 9518993408
+    },
+    {
+      "elapsed": 560,
+      "free_bytes": 9515270144
+    },
+    {
+      "elapsed": 570,
+      "free_bytes": 9515085824
+    },
+    {
+      "elapsed": 580,
+      "free_bytes": 9514696704
+    },
+    {
+      "elapsed": 590,
+      "free_bytes": 9506734080
+    },
+    {
+      "elapsed": 600,
+      "free_bytes": 9506246656
+    },
+    {
+      "elapsed": 610,
+      "free_bytes": 9528991744
+    },
+    {
+      "elapsed": 620,
+      "free_bytes": 9535807488
+    },
+    {
+      "elapsed": 630,
+      "free_bytes": 9527771136
+    },
+    {
+      "elapsed": 640,
+      "free_bytes": 9527345152
+    },
+    {
+      "elapsed": 650,
+      "free_bytes": 9525542912
+    },
+    {
+      "elapsed": 660,
+      "free_bytes": 9532108800
+    },
+    {
+      "elapsed": 670,
+      "free_bytes": 9535471616
+    },
+    {
+      "elapsed": 680,
+      "free_bytes": 9541824512
+    },
+    {
+      "elapsed": 690,
+      "free_bytes": 9524047872
+    },
+    {
+      "elapsed": 700,
+      "free_bytes": 9536983040
+    },
+    {
+      "elapsed": 710,
+      "free_bytes": 9543036928
+    },
+    {
+      "elapsed": 721,
+      "free_bytes": 9531072512
+    },
+    {
+      "elapsed": 731,
+      "free_bytes": 9522364416
+    },
+    {
+      "elapsed": 741,
+      "free_bytes": 9532784640
+    },
+    {
+      "elapsed": 751,
+      "free_bytes": 9539301376
+    },
+    {
+      "elapsed": 761,
+      "free_bytes": 9531117568
+    },
+    {
+      "elapsed": 771,
+      "free_bytes": 9531842560
+    },
+    {
+      "elapsed": 781,
+      "free_bytes": 9525309440
+    },
+    {
+      "elapsed": 791,
+      "free_bytes": 9530388480
+    },
+    {
+      "elapsed": 801,
+      "free_bytes": 9518899200
+    },
+    {
+      "elapsed": 811,
+      "free_bytes": 9514127360
+    }
+  ],
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full.xml",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/python-full-temp",
+    "-o",
+    "tmp_path_retention_policy=failed",
+    "-o",
+    "tmp_path_retention_count=1"
+  ],
+  "pid": 17482,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": ""
+  },
+  "finished_at": "2026-09-21T13:50:48.940014+00:00",
+  "identity_stable": true
+}

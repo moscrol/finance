@@ -1,0 +1,6 @@
+PASS A_success_body_received :: status=200 len=180
+PASS B_trickle_deadline :: elapsed=1.03
+FAIL C_stalled_parent_killed :: HTTPDeadlineExceeded()
+PASS D_stream_cancel :: HTTPStreamCancelled raised
+PASS E_expired_immediate :: immediate reject
+[{"name": "A_success_body_received", "pass": true, "detail": "status=200 len=180"}, {"name": "B_trickle_deadline", "pass": true, "detail": "elapsed=1.03"}, {"name": "C_stalled_parent_killed", "pass": false, "detail": "HTTPDeadlineExceeded()"}, {"name": "D_stream_cancel", "pass": true, "detail": "HTTPStreamCancelled raised"}, {"name": "E_expired_immediate", "pass": true, "detail": "immediate reject"}]

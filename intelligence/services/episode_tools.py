@@ -27,6 +27,7 @@ from intelligence.services import (
     finance_query,
     kb_rag,
     l3_evidence,
+    market_capital,
     market_financials,
     market_news,
     market_technical,
@@ -130,7 +131,7 @@ def attach_financial_observations(
     evidence: list[agent_research.AgentEvidence],
     bundle: market_financials.FinancialsBundle,
 ) -> list[agent_research.AgentEvidence]:
-    """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
+    """同批 D7 数据行投影为机器观察值与自解释文本，不解析单元格。
 
     键是规范渲染行，不解析单元格。沿 research-data-readiness/a9a7ce92、d77383ac
     的已提交修复给模型补主体/报告期/指标口径；本片另保留披露日。标签改变后重算哈希，
@@ -288,6 +289,7 @@ class SealedFixturePolicy:
     external_search_enabled: bool = False
     external_valuation_enabled: bool = False
     external_financials_enabled: bool = False
+    external_capital_enabled: bool = False
     require_fresh_kb: bool = True
     market_db_path: Path | None = None
     knowledge_index_dir: Path | None = None
@@ -510,7 +512,10 @@ def _subject_exited_universe(
     dataset_max_date: str | None,
     floor: date,
 ) -> bool:
-    """被筛子集停在更早，但数据集本身是新的 → 该主体退出了集合，不是管道陈旧。
+    """检测子集日期落后于已更新数据集，允许交付带日期的历史匹配。
+
+    名称保留旧调用合同；此判据不证明现实退出或逐日覆盖完整。
+    `_exited_universe_result` 负责把这个限制与历史行一起交付。
 
     2026-08-17 用户口径：新鲜度按**数据类**分档，不是整体放宽。
 
@@ -554,7 +559,7 @@ def _probe_filtered_universe_exit(
     tool_context: agent_research.AgentToolContext,
     dataset_label: str,
 ) -> ToolRunResult | None:
-    """问句日无行时，探测「该筛选条件最后一次出现」是否构成要素退出。
+    """问句日无行时，找同条件的历史匹配，不把本地缺行当现实退出。
 
     与 stale 路径的差别：历史授权的定点查询 served_date 为空，不会走进
     `_is_current_query_stale`。空结果若只说「无结果」，模型会把「航空发动机」
@@ -618,19 +623,18 @@ def _exited_universe_result(
     detail: str,
     spec: finance_query.FinanceQuerySpec | None = None,
 ) -> ToolRunResult:
-    """交付「退出集合」这一生命周期事实，连同退出前的行。
+    """Deliver dated historical matches, without certifying real-world absence.
 
-    与 `_stale_structured_result` 的关键差别：**证据照常交付**。那些行确实早于
-    floor，但它们不是「冒充当前状态的旧数据」——它们是「该主体最后一次出现时
-    长什么样」，配合退出事实一起读才完整。每条证据自带 `source_date`，日期在场，
-    不会被误读成当前盘面。
+    A newer dataset row distinguishes this from a wholly stale dataset, but
+    neither MAX(date) nor a filtered nonmatch certifies complete daily coverage.
+    Keep the existing historical evidence; qualify it before model compaction.
     """
 
     served = str(result.served_date or "未知日期")
     fact = (
-        f"{dataset_label} 中该筛选条件最后一次出现是 {served}；"
-        f"数据集已更新到 {dataset_max_date}，其后未再出现"
-        "（构成要素退出，非数据陈旧）。"
+        f"{dataset_label} 中本次交付的历史匹配记录日期截至 {served}；"
+        f"数据集最新可见日期为 {dataset_max_date}。"
+        "未命中不证明事件未发生；最新日期不证明逐日覆盖完整。"
     )
     observation = f"{fact}{result.observation}" if result.observation else fact
     payload = _finance_payload_kwargs(spec, result) if spec is not None else {}
@@ -646,7 +650,10 @@ def _exited_universe_result(
             served_date=result.served_date,
             result_count=len(result.evidence),
         ),
-        gaps=(),
+        gaps=(
+            "当前筛选缺少请求时点记录；历史记录不代替请求窗口内缺失的事实，"
+            "也不能据此断言事件未发生。",
+        ),
         **payload,
     )
 
@@ -1328,6 +1335,12 @@ def build_episode_registry(
                         (*_NON_EVIDENCE_PREFIXES, "口径说明：")
                     )
                 )
+                qualifiers = [
+                    line.strip().removeprefix("- ") for line in bundle.block.splitlines()
+                    if line.strip().removeprefix("- ").startswith((*_NON_EVIDENCE_PREFIXES, "口径说明："))
+                ]
+                if qualifiers:
+                    notes.extend(qualifiers)
                 evidence.extend(attach_financial_observations(items, bundle))
                 hint = structured_observation_hint(bundle)
                 if hint:
@@ -1362,6 +1375,81 @@ def build_episode_registry(
             ),
             gaps=tuple(gaps),
             telemetry={"financial_report_selection": selections},
+        )
+
+    def capital_data_runner(
+        query: str,
+        tool_context: agent_research.AgentToolContext,
+    ):
+        tool_context.check_cancelled()
+        cutoff = tool_context.information_cutoff or context.information_cutoff
+        bundle = market_capital.capital_bundle_for_llm(
+            query,
+            market_db_path,
+            task_query=f"{frame.raw_question} {frame.timeframe or ''}",
+            as_of=cutoff.as_of_date.isoformat(),
+            timeout=8.0,
+            deadline=tool_context.deadline,
+            check_cancelled=tool_context.check_cancelled,
+        )
+        evidence = []
+        gaps = [bundle.diagnostic] if bundle.diagnostic else []
+        # 只把真实数据行变成证据。标题、表头、错误文案和空结果都不能充当命中数。
+        for item in bundle.slices:
+            if item.detail:
+                gaps.append(f"{item.kind} [{item.status}]：{item.detail}")
+            elif item.status == "empty":
+                gaps.append(f"{item.kind}：本次来源未返回记录，不是否定证据")
+            for row in item.rows:
+                if isinstance(row, market_capital.MarginRow):
+                    source_date = row.trade_date
+                    title = f"{bundle.name} 两融 {source_date}"
+                    detail = (
+                        f"融资余额 {row.financing_yi} 亿元；融资买入 {row.financing_buy_yi} 亿元；"
+                        f"融券余额 {row.short_yi} 亿元"
+                    )
+                    metrics = {"financing_balance_yi": row.financing_yi,
+                               "financing_buy_yi": row.financing_buy_yi, "short_balance_yi": row.short_yi}
+                    report = "RPTA_WEB_RZRQ_GGMX"
+                elif isinstance(row, market_capital.BlockTradeRow):
+                    source_date = row.trade_date
+                    title = f"{bundle.name} 大宗 {source_date}"
+                    detail = (
+                        f"成交价 {row.price} 元；溢价 {row.premium_pct}%；成交额 {row.amount_wan} 万元；"
+                        f"买方 {row.buyer}；卖方 {row.seller}"
+                    )
+                    metrics = {"block_price_yuan": row.price, "block_premium_pct": row.premium_pct,
+                               "block_amount_wan": row.amount_wan}
+                    report = "RPT_DATA_BLOCKTRADE"
+                else:
+                    source_date = bundle.fetched_date
+                    title = f"{bundle.name} 解禁日程 {row.free_date}"
+                    detail = (
+                        f"抓取日 {bundle.fetched_date}（非披露日）；计划解禁日 {row.free_date}；"
+                        f"类型 {row.share_type}；数量 {row.shares_wan} 万股；占比 {row.ratio_pct}%；"
+                        "日程不是实际减持或涨跌预测"
+                    )
+                    metrics = {"unlock_shares_wan": row.shares_wan, "unlock_ratio_pct": row.ratio_pct}
+                    report = "RPT_LIFT_STAGE"
+                evidence.append(agent_research.AgentEvidence(
+                    tool="capital_data", title=title, detail=detail.replace("None", "缺"),
+                    source=f"东财 datacenter · {report}", source_date=source_date,
+                    evidence_tier="L2_structured", freshness="current",
+                    observations=tuple(
+                        agent_research.StructuredObservation(bundle.ts_code, source_date, metric, value)
+                        for metric, value in metrics.items() if value is not None
+                    ),
+                ))
+        tool_context.check_cancelled()
+        return ToolRunResult(
+            evidence=tuple(evidence), observation=bundle.block,
+            trace=ProviderTrace(
+                provider="agent:capital_data", capability="capital_data", status=bundle.status,
+                detail="; ".join(f"{item.kind}={item.status}" for item in bundle.slices) or bundle.diagnostic,
+                requested_date=bundle.as_of, result_count=len(evidence),
+                reason_code=bundle.reason_code,
+            ),
+            gaps=tuple(gaps),
         )
 
     def mainline_runner(
@@ -1454,7 +1542,7 @@ def build_episode_registry(
             ProviderTrace(
                 provider="+".join(providers) or "l3_lookup",
                 capability="l3_lookup",
-                status="success" if evidence else "empty",
+                status=bundle.status,
                 detail="；".join(bundle.warnings) or "official disclosure lookup",
                 result_count=len(evidence),
             ),
@@ -1464,6 +1552,12 @@ def build_episode_registry(
         tools["market_data"] = market_data_runner
     if "financial_data" in context.contract.allowed_capabilities:
         tools["financial_data"] = financial_data_runner
+    if (
+        "capital_data" in context.contract.allowed_capabilities
+        and not local_only
+        and (fixture_policy is None or fixture_policy.external_capital_enabled)
+    ):
+        tools["capital_data"] = capital_data_runner
     if "mainline_context" in context.contract.allowed_capabilities:
         tools["mainline_context"] = mainline_runner
     selected_l3_runner = (
@@ -1668,7 +1762,7 @@ def build_episode_registry(
             gaps = (
                 ()
                 if result.evidence
-                else (f"{value.dataset} 在指定条件与时点内没有结构化结果",)
+                else (f"{value.dataset} 在指定条件与时点内未命中本地记录；不证明事件未发生或覆盖完整",)
             )
             # 三条限定语**排在数据行之前**（BUILD 模式 4）。它们此前追加在
             # observation 末尾，而 ``tool_result_budget`` 从头数满 900 字符就切，
@@ -1686,6 +1780,7 @@ def build_episode_registry(
             notice = finance_query.truncation_notice(
                 result.audit,
                 covered_range=covered_range,
+                group_by=bounded_value.group_by,
             )
             if notice:
                 notices.append(notice)
@@ -1694,12 +1789,15 @@ def build_episode_registry(
             # 观测型：不改 observation 一个字节，写失败也不进工具路径。
             from intelligence.services.tool_hunger import record_window_uncovered
 
-            record_window_uncovered(
-                bounded_value,
-                covered_range=covered_range,
-                row_count=len(result.evidence),
-                applied_limit=result.audit.applied_limit,
-            )
+            # Grouped source_date is MAX(date), not the covered date range.
+            # Empty groups still prove no match; nonempty groups cannot prove gaps.
+            if finance_query.result_has_date_axis(bounded_value) or not result.evidence:
+                record_window_uncovered(
+                    bounded_value,
+                    covered_range=covered_range,
+                    row_count=len(result.evidence),
+                    applied_limit=result.audit.applied_limit,
+                )
             # 代偿必须让模型看见：查询成功但写法被改过，不说它下一轮还会照原样写。
             if normalization_notes:
                 notices.extend(normalization_notes)
@@ -1820,10 +1918,20 @@ def build_episode_registry(
     memory_identity_resolved = (
         str(memory_user or "").strip() != "" or memory_users_root is not None
     )
+    memory_opening_runner = None
     if (
         "memory_lookup" in context.contract.allowed_capabilities
         and memory_identity_resolved
     ):
+
+        # Freeze the user root before dispatching a background opening read.
+        if memory_users_root is None:
+            from intelligence import userspace
+
+            try:
+                memory_users_root = userspace.user_space(memory_user).root
+            except ValueError:
+                pass  # Invalid audit identities remain registrable, never readable.
 
         def memory_lookup_runner(
             query: str,
@@ -1834,6 +1942,7 @@ def build_episode_registry(
                 query,
                 user=memory_user,
                 users_root=memory_users_root,
+                strict=True,
                 **_memory_recall_intent(
                     context.contract.subject,
                     context.contract.subject_kind,
@@ -1924,6 +2033,7 @@ def build_episode_registry(
                         independent_key=str(record.get("method_id") or ""),
                     )
                 )
+            tool_context.check_cancelled()
             observation = (
                 "；".join(f"{item.title}：{item.detail}" for item in evidence)
                 or "用户记忆无相关命中（该题材/标的此前没有留下判断或纠偏）"
@@ -1942,6 +2052,7 @@ def build_episode_registry(
                 gaps=() if evidence else ("用户记忆中没有与本题相关的历史判断",),
             )
 
+        memory_opening_runner = memory_lookup_runner
         specs.append(
             ToolSpec(
                 name="memory_lookup",
@@ -1979,16 +2090,23 @@ def build_episode_registry(
             # Audit probe / illegal id: skip live weekly, keep assembling tools.
             live_us = None
     require_tool_contracts(specs)
+    opening = _opening_prefetch_evidence(
+        frame,
+        context,
+        market_db_path,
+        user_space=live_us,
+        perspective_ids=tuple(perspective_ids),
+        perspective_mode=perspective_mode,
+    )
+    if memory_opening_runner is not None and evidence_capabilities.needs_opening_memory(frame):
+        from intelligence.services.memory_prefetch import collect_opening_memory
+
+        opening += collect_opening_memory(
+            memory_opening_runner, query=frame.raw_question, context=context,
+        )
     return ResearchToolRegistry(
         tuple(specs),
-        opening_prefetch=_opening_prefetch_evidence(
-            frame,
-            context,
-            market_db_path,
-            user_space=live_us,
-            perspective_ids=tuple(perspective_ids),
-            perspective_mode=perspective_mode,
-        ),
+        opening_prefetch=opening,
         # 与 memory_lookup 共用同一个身份输入：``derived_calculation`` 的
         # ``inputs_from_calc``（改假设重算）要去「这一轮用户的 runs 目录」找上一次的
         # 计算记录，而 episode 层刻意不认识用户。身份缺席时留 None = 沿用默认解析。

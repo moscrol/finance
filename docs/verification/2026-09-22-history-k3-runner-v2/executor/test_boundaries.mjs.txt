@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {createBoundedGateway} from './bounded-gateway.mjs';
+import {credential} from './controller.mjs';
+
+const ROOT=path.dirname(fileURLToPath(import.meta.url));
+const dir=path.join(ROOT,`boundaries-${Date.now()}`);
+fs.mkdirSync(dir,{mode:0o700});
+const rows=[];
+let received=0;
+const upstream=http.createServer(async(req,res)=>{
+  for await(const c of req) {}
+  received++;
+  assert.equal(req.headers.authorization,'Bearer FAKE_UPSTREAM_SECRET');
+  res.writeHead(200,{'content-type':'text/event-stream'}).end('data: [DONE]\n\n');
+});
+await new Promise(r=>upstream.listen(0,'127.0.0.1',r));
+const request={model:'kimi-k3',stream:true,messages:[{role:'user',content:'offline'}]};
+const gw=await createBoundedGateway({upstream:`http://127.0.0.1:${upstream.address().port}`,token:'FAKE_UPSTREAM_SECRET',gatewayKey:'FAKE_GATEWAY_KEY',maxRequests:2,deadlineMs:5000,finalizeMs:4000});
+try {
+  const bad=await fetch(`${gw.baseUrl}/chat/completions`,{method:'POST',body:JSON.stringify(request)});
+  assert.equal(bad.status,403);assert.equal(received,0);
+  rows.push({name:'gateway_auth_before_dispatch',ok:true});
+  const statuses=await Promise.all(Array.from({length:12},async()=>{
+    const r=await fetch(`${gw.baseUrl}/chat/completions`,{method:'POST',headers:{authorization:'Bearer FAKE_GATEWAY_KEY','content-type':'application/json'},body:JSON.stringify(request)});await r.text();return r.status;
+  }));
+  assert.equal(received,2);assert.equal(gw.snapshot().requestCount,2);assert.equal(statuses.filter(x=>x===200).length,2);assert.equal(statuses.filter(x=>x===429).length,10);
+  rows.push({name:'concurrent_pre_dispatch_reservation',ok:true,requests:12,admitted:2,rejected:10});
+} finally {await gw.close();upstream.closeAllConnections();await new Promise(r=>upstream.close(r));}
+const py='/Users/a77/finance-workspace-private/.venv-workbench/bin/python';
+const policy=path.join(ROOT,'spec/tools.sb');
+for(const test of ['success','missing_database','missing_account','missing_access']) {
+  const out=path.join(dir,test);fs.mkdirSync(out,{mode:0o700});
+  let threw=false,token;
+  const execute=(exe,args,options)=>{
+    assert.equal(exe,py);assert.deepEqual(args.slice(0,3),['-I','-B','-c']);
+    const fixture=`import io,json,sqlite3,urllib.request\nfrom pathlib import Path\nPath.exists=lambda self: ${test==='missing_database'?'False':'True'}\nclass Connection:\n def execute(self,sql): return self\n def fetchone(self): return ${test==='missing_account'?'None':"('FAKE_REFRESH_VALUE',)"}\nsqlite3.connect=lambda *a,**kw: Connection()\ndef fake_urlopen(req,timeout):\n assert json.loads(req.data)['refresh_token']=='FAKE_REFRESH_VALUE'\n return io.BytesIO(json.dumps({'access_token':${test==='missing_access'?"''":"'FAKE_ACCESS_VALUE'"}}).encode())\nurllib.request.urlopen=fake_urlopen\n`;
+    return spawnSync('/usr/bin/sandbox-exec',['-f',policy,exe,'-I','-B','-c',fixture+'\nexec('+JSON.stringify(args[3])+')'],options);
+  };
+  try {token=credential({fixture:false,root:out,python:py},execute);} catch {threw=true;}
+  assert.equal(threw,test!=='success');
+  if(test==='success') assert.equal(token,'FAKE_ACCESS_VALUE');
+  const receipt=fs.readFileSync(path.join(out,'credential.json'),'utf8');
+  assert(!receipt.includes('FAKE_ACCESS_VALUE')&&!receipt.includes('FAKE_REFRESH_VALUE'));
+  rows.push({name:`credential_${test}`,ok:true,real_credentials_read:0,real_http_requests:0});
+}
+fs.writeFileSync(path.join(dir,'summary.json'),JSON.stringify({status:'PASS',rows,real_model_requests:0},null,2)+'\n',{flag:'wx',mode:0o600});
+console.log(JSON.stringify({root:dir,status:'PASS',checks:rows.length}));

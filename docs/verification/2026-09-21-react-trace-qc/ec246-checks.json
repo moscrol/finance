@@ -1,0 +1,47 @@
+[
+  {
+    "command": [
+      "-m",
+      "ruff",
+      "check",
+      "."
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "scripts/build_registry.py",
+      "check-parseability"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "scripts/build_registry.py",
+      "check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "scripts/build_registry.py",
+      "backfill-tables",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "scripts/build_registry.py",
+      "generate-views",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "scripts/audit_ledger_spec_crosswalk.py"
+    ],
+    "exit_code": 0
+  }
+]

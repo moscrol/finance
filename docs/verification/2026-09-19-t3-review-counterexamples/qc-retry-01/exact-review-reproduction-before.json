@@ -1,0 +1,84 @@
+[
+  {
+    "draft": "2026中报含金量3年新高，实际为1.587。",
+    "findings": [
+      {
+        "start": 9,
+        "end": 10,
+        "code": "calculation_value_mismatch",
+        "replacement": "待核对"
+      }
+    ],
+    "delivered": "2026中报含金量待核对年新高，实际为1.587。"
+  },
+  {
+    "draft": "含金量对照：2026中报 2025中报分别为1.587与0.289",
+    "findings": [
+      {
+        "start": 13,
+        "end": 17,
+        "code": "calculation_value_mismatch",
+        "replacement": "待核对"
+      }
+    ],
+    "delivered": "含金量对照：2026中报 待核对中报分别为1.587与0.289"
+  },
+  {
+    "draft": "公告检索接口返回空白，因此可以认定没有新公告，即公司无新增公告。",
+    "findings": [],
+    "delivered": "公告检索接口返回空白，因此可以认定没有新公告，即公司无新增公告。"
+  },
+  {
+    "draft": "收入可核[E1]——查询返回空白因此公司没有公告。",
+    "findings": [
+      {
+        "start": 0,
+        "end": 25,
+        "code": "disclosure_absence_inference",
+        "replacement": ""
+      }
+    ],
+    "delivered": ""
+  },
+  {
+    "draft": "收入可核[E1] 查询返回空白因此公司没有公告。",
+    "findings": [
+      {
+        "start": 0,
+        "end": 24,
+        "code": "disclosure_absence_inference",
+        "replacement": ""
+      }
+    ],
+    "delivered": ""
+  },
+  {
+    "draft": "收入可核[E1]，但因此没有公告，利润可核[E2]。",
+    "findings": [],
+    "delivered": "收入可核[E1]，但因此没有公告，利润可核[E2]。"
+  },
+  {
+    "draft": "查询空白即可证明没有公告，据此建议观望。",
+    "findings": [
+      {
+        "start": 0,
+        "end": 13,
+        "code": "disclosure_absence_inference",
+        "replacement": ""
+      }
+    ],
+    "delivered": "据此建议观望。"
+  },
+  {
+    "draft": "2026中报含金量为1.**587**。",
+    "findings": [
+      {
+        "start": 10,
+        "end": 17,
+        "code": "calculation_value_mismatch",
+        "replacement": "待核对**"
+      }
+    ],
+    "delivered": "2026中报含金量为待核对****。"
+  }
+]

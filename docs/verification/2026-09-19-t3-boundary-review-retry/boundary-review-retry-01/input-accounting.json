@@ -1,0 +1,94 @@
+{
+  "scope": "read-only input accounting; not token count, provider diagnosis, verdict, or permission for another call",
+  "request_sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6",
+  "prompt_sha256": "a087adcb9b0920c9951d5e15039ca840e73e2b84f19e5a9078923a6a0207f5c7",
+  "prompt_utf8_bytes": 512055,
+  "sections": [
+    {
+      "section": "instructions",
+      "utf8_bytes": 5475,
+      "characters": 5469,
+      "sha256": "b3990ea0c2723ab366dc36ba08d4e8f598afcc3c7051a3a1aefea4c3ab3f2315"
+    },
+    {
+      "section": "PRIOR SAME-REQUEST TIMEOUT (not a verdict):",
+      "utf8_bytes": 647,
+      "characters": 647,
+      "sha256": "77c6a25398cb70e02664fde014edf78c3225b2ebedf85eccad8a135656ecbf78"
+    },
+    {
+      "section": "RETRY POLICY:",
+      "utf8_bytes": 938,
+      "characters": 934,
+      "sha256": "a0a153ef5fc9a571d48b3f094c897cd795d0bfdd69499fc20f7ea677643b1e9b"
+    },
+    {
+      "section": "PRIOR INVALID OUTPUT (read only as leads, no authority):",
+      "utf8_bytes": 45728,
+      "characters": 43282,
+      "sha256": "f1ec13cfb18e1fcdbce0faadf269f2009d440cce4a562b87119c37485f9f0a9a"
+    },
+    {
+      "section": "PREVIOUS EXTERNAL VERDICT:",
+      "utf8_bytes": 86994,
+      "characters": 81988,
+      "sha256": "d4452673a481b4c1ed51960454f33916a97265662c678fc01e6e57f500792eb6"
+    },
+    {
+      "section": "EXACT COUNTEREXAMPLE REPRODUCTIONS (some review explanations were inaccurate):",
+      "utf8_bytes": 23442,
+      "characters": 20976,
+      "sha256": "6dcd49c90785d0f5ec556d0fc4b061a6495282e333c62be694e6b21c12822443"
+    },
+    {
+      "section": "ARCHIVE INTEGRITY CONTEXT:",
+      "utf8_bytes": 11768,
+      "characters": 7936,
+      "sha256": "7b3f6b4302b78df7ea7d2819124eda40a11d700f56fd35402000774d160667b2"
+    },
+    {
+      "section": "REQUEST:",
+      "utf8_bytes": 14060,
+      "characters": 14060,
+      "sha256": "e4d0c83ee91afc392c5107fb6b273137a94ce22c12900130e1a20dc0c3388be2"
+    },
+    {
+      "section": "CLAIM:",
+      "utf8_bytes": 290,
+      "characters": 290,
+      "sha256": "4e880c251d5198e47bc0a1755395b94ff29f3a33168cf7068a6802101f6128f2"
+    },
+    {
+      "section": "INDEPENDENT PREFLIGHT:",
+      "utf8_bytes": 40230,
+      "characters": 37600,
+      "sha256": "3d75394c0af26da5334f78456b037c45f306efae037a0abd3faa889475e5fab6"
+    },
+    {
+      "section": "PRODUCER FROZEN ENGINEERING RECEIPT (NOT INDEPENDENT VERDICT):",
+      "utf8_bytes": 9569,
+      "characters": 9569,
+      "sha256": "5c19d17c8acf231b08112b4c6d096872a2ec1c1883076793df477944a2b4e69d"
+    },
+    {
+      "section": "FULL DIFF:",
+      "utf8_bytes": 144992,
+      "characters": 112747,
+      "sha256": "40a29c51b9a37df7720362a7ff700d65536fa10567a38f89eab08c0b1a9c33fe"
+    },
+    {
+      "section": "SOURCE CONTEXT:",
+      "utf8_bytes": 91570,
+      "characters": 81367,
+      "sha256": "91e982b1cabd9882365963b5ed0b620f50d29806215d4fcea3eb85036b9b8fde"
+    },
+    {
+      "section": "REVIEW PROTOCOL (reference material, not a request to implement the plan):",
+      "utf8_bytes": 36352,
+      "characters": 36352,
+      "sha256": "796e1eaaecf8d8aca3f3c050c686ce24561cef270b4e47c2a8017f9e52451e83"
+    }
+  ],
+  "observed_process": "No final result yet; repeated stream compacting events, cause unknown.",
+  "next_review_design_option": "Avoid repeating identical source/test text already represented in full diff; preserve complete semantic scope and immutable request. No change or new dispatch in this window."
+}

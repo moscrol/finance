@@ -1,0 +1,7 @@
+Standards：**需返修，新增 1 项 P2**。只审 `6b70e540...a7f5cc06c087c2d9db896450bb6033851e8e5789`；候选首尾同 SHA、`git status --short` 为空。
+
+- **[P2] 混合工具批次的正常重复证据触发全树保存故障。** 新增 [evidence_ledger.py:230](/Users/a77/fwp-wt-runtime-contracts-0918/intelligence/services/evidence_ledger.py:230) 全对象检查，经 [agent_episode.py:512](/Users/a77/fwp-wt-runtime-contracts-0918/intelligence/runtime/agent_episode.py:512) 接入必需检查点，却未统一异步入账与父展示的原子选择。父同批调用 `market_data` 和 `sub_research`；子先入父账本，父随后按调用顺序先展示 direct 返回。两者正文完全相同、用真实 `evidence_content_hash()` 得到同一哈希，仅 `supports` 不同，就在下一 planning 检查点抛 `ValueError`，结果变成 `failed/storage_failed`，父模型仅调用 1 次，不能继续综合。规范依据：`agent_research.py:179` 与 `evidence_content_hash():1984` 明确身份不签全部字段；`EvidenceLedger.append():126` 声明同身份保留首次原件。新增持久化接线应遵守这些既有接口合同。建议在入账/展示交界统一采用已接纳的原件并保持引用顺序，补混合批次回归；**保留全对象、完整摘要和故障 fence 守卫**。
+
+证据：纯本地真实 `GLMAgentRuntime` + 脚本模型/假工具，无外呼。相同 metadata 对照在两版都 `durable/partial`、父 2 次；仅 `supports` 不同的相同输入在基线 `6b70e540` 仍 `durable/partial`、父 2 次，候选变 `failed/storage_failed`、父 1 次。基线从 Git archive 导出，相关 8 份源文件哈希逐一与原提交核对，未修改候选。见 [探针](probe_mixed_duplicate.py)、[候选结果](candidate-mixed-duplicate-results.json)、[基线结果](base-6b70e540-mixed-duplicate-results.json)、[对照收据](comparison-receipt.json)。首次基线探针因未导出 `market_feature_store` 在导入期停止；补齐同 SHA 依赖后才获得行为结果，不把导入失败算产品反例。
+
+独立有限验证：证据快照、API 夹具后台排空及关联恢复门共 **80 passed**；[命令、解释器与首尾绑定](targeted-receipt.json)，[原日志](targeted.log)。未发现新增锁生命周期、恢复补写前授权/证据门或 API 生产鉴权/额度放宽问题；未重复整仓、未跑真实模型。旧验收与交接停在 6b70 的状态差异由主协调回写，不另计代码发现。本结论不代表恢复 driver、模型质量、当前 main 准入或合入完成。

@@ -1,0 +1,114 @@
+{
+  "report.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/report.json",
+    "sha256": "9a8b2b62cac3acd0e118a98d6fde1fc112a2e384aa5ba7621aa3ca7de9f0b9a6"
+  },
+  "raw/key-scan.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/key-scan.json",
+    "sha256": "6ef51b8e816d5e250887b5f461e657b189be8fd4e5a84e54c79bece66f6d41b8"
+  },
+  "raw/private-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/private-manifest.json",
+    "sha256": "76a4b6884ad1faef807e7da7983732aa5f7c7951c5c4c312028ae5ca1a7be0b5"
+  },
+  "raw/reviewer-tool-summary.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/reviewer-tool-summary.json",
+    "sha256": "56d3b8b31409ee7454d1befd1b06f3917511624980cbf32f6d63de2056cea96c"
+  },
+  "raw/cancellation-triplet.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/host-probes/cancellation-triplet.json",
+    "sha256": "49fa85a1cf0b4e9f57637ae6071a6092a5bac3132f39c1fb9856e3c2ed89d01f"
+  },
+  "raw/host-targeted-pytest-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/test-receipts/20260923T073620Z-2f4b5f08-5a926a26676f.json",
+    "sha256": "23cb2dc9cac7777f4a1fff8e321fe4591fc5c16fdddbad35e53bc46cdce34a69"
+  },
+  "raw/gateway-controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/gateway.controller.json",
+    "sha256": "a8edaf6b109bb4208f1af636944fcba2f492a2cb09bda3392b82e516fc00dc2f"
+  },
+  "raw/gateway-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/gateway/receipt.json",
+    "sha256": "c6906f191f9c920ba4b97142f139d5fd626469ac52d36549ea7aeb3c123e8510"
+  },
+  "raw/gateway-tiny.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/gateway/tiny.json",
+    "sha256": "a723cbd5ca04c1a3ec3e7a7b3b792b159e77bbf080e588bbdd636a2e7c694286"
+  },
+  "raw/gateway-requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/gateway-shim/requests.jsonl",
+    "sha256": "0674d1730da5699c5463657e42aba78bf3d229f28d21c97a3026d1536e511853"
+  },
+  "raw/spec-explore-controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/explore.controller.json",
+    "sha256": "13694e7fd37b2e2b885a56b2a88eebc4ee299a7b6bc110ce18f9062f5f62b763"
+  },
+  "raw/spec-explore-execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/explore/execution.json",
+    "sha256": "636adb6d3953947e9fe4bbc5f10a9144ef7b66e6fdd7a83ec9f75d7cf085cfae"
+  },
+  "raw/spec-explore-requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/explore-shim/requests.jsonl",
+    "sha256": "ec334b73a4c6727e14997ea31b90ecd78a1176d445883d3251ec51edb06b59da"
+  },
+  "raw/spec-sandbox-preflight.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/sandbox-preflight-04/receipt.json",
+    "sha256": "31dddb8ee92871c1980d3ee1428428cb7020e15a093ec2d24c2bcd004339facc"
+  },
+  "raw/quality-sandbox-preflight.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/quality/sandbox-preflight-04/receipt.json",
+    "sha256": "31dddb8ee92871c1980d3ee1428428cb7020e15a093ec2d24c2bcd004339facc"
+  },
+  "tooling/review.mjs.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/review.mjs",
+    "sha256": "50913b821771c2f78a5ad3bb561ca99269274c4bac10b559bfc73459a9634cff"
+  },
+  "tooling/gateway.mjs.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/gateway.mjs",
+    "sha256": "977ad565397352e140eb570e0aa5faf1bf3a7de99396d7393ece7fc4a7d38f91"
+  },
+  "tooling/run_stage.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/run_stage.py",
+    "sha256": "9c346fe26a7e32417e6daeaccea62b85193139c25f3c77238a9f584397e6c3a6"
+  },
+  "tooling/run_control.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/run_control.py",
+    "sha256": "b56c5f7bf34ce05f181b99a1b2356d342deffb6541f101d4084de7437341373a"
+  },
+  "tooling/file_tool.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/file_tool.py",
+    "sha256": "7c4a6f89387b318e87cc54d606ac398a85cfd43115e82b5a1c719f4037e97f87"
+  },
+  "tooling/tools.sb.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/tools.sb",
+    "sha256": "45e930f7f327a89ca9da1d48fbbc3449fcc51447e8b7270d17cb9c7a2a4025f1"
+  },
+  "tooling/sandbox_preflight.mjs.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/sandbox_preflight.mjs",
+    "sha256": "7968551425d3e376258e99508101be9d8d8b86f26468bbd27a3fb4dff03e62ec"
+  },
+  "tooling/config.json.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/config.json",
+    "sha256": "5e1e41334ad5dd816f4ea6a0f6d831be80a8b2c7f52caa5122d4d1f9c07062d8"
+  },
+  "tooling/provider-template.json.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/provider-template.json",
+    "sha256": "44f8add86b4fea2cf052854abef2648c65178fc71646f00f7689c69d71ab1235"
+  },
+  "tooling/prompt-explore.md.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/prompt-explore.md",
+    "sha256": "28e6b7e2438d99ea43c0f713aa901c2654052aaa5839b4ac39093f96f14822c4"
+  },
+  "tooling/prompt-execute.md.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/prompt-execute.md",
+    "sha256": "48291be6f0acb0d9263cc6fe41bdba0b71617e2cd89a97625fc19a2b525bb13d"
+  },
+  "tooling/prompt-report.md.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/prompt-report.md",
+    "sha256": "be5a95967447c630abebb5c9d3173e5e4b0056c6cdc396f1e8a517d184e39067"
+  },
+  "tooling/pi-config-settings.json.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/pi-config/settings.json",
+    "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417"
+  }
+}

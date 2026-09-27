@@ -1,0 +1,1 @@
+BLOCKED fixture report: tool path completed; tests_run=0; verdict BLOCKED.

@@ -1,0 +1,63 @@
+"""Full Python gate for one clean, version-bound history integration revision."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import time
+
+TREE = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+OUT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+EXPECTED = 'f73d2133968d51d3c782d3e12ee9aa4d0618ef45'
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=TREE, text=True).strip()
+
+
+def identity():
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain')}
+
+
+record = {'started_at': datetime.now(timezone.utc).isoformat(),
+          'identity_before': identity(), 'timeout_seconds': 1800,
+          'disk_free_samples': []}
+assert record['identity_before'] == {'revision': EXPECTED, 'status': ''}
+log_path = OUT / 'python-full.log'
+xml_path = OUT / 'python-full.xml'
+assert not log_path.exists()
+env = {key: os.environ[key] for key in ('HOME', 'PATH') if key in os.environ}
+env['PYTHONDONTWRITEBYTECODE'] = '1'
+command = [PY, '-m', 'pytest', '-q', '--junitxml', str(xml_path),
+           '--basetemp', str(OUT / 'python-full-temp'),
+           '-o', 'tmp_path_retention_policy=failed', '-o', 'tmp_path_retention_count=1']
+record['command'] = command
+with log_path.open('xb') as log:
+    proc = subprocess.Popen(command, cwd=TREE, env=env, stdout=log,
+                            stderr=subprocess.STDOUT, start_new_session=True, umask=0o022)
+    record['pid'] = proc.pid
+    started = time.monotonic()
+    while proc.poll() is None:
+        record['disk_free_samples'].append({'elapsed': round(time.monotonic() - started),
+                                             'free_bytes': shutil.disk_usage(TREE).free})
+        (OUT / 'python-full-execution.json').write_text(json.dumps(record, indent=2) + '\n')
+        if time.monotonic() - started > record['timeout_seconds'] or shutil.disk_usage(TREE).free < 6 * 1024**3:
+            record['timed_out'] = time.monotonic() - started > record['timeout_seconds']
+            record['low_disk'] = shutil.disk_usage(TREE).free < 6 * 1024**3
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+            break
+        time.sleep(10)
+    record['exit_code'] = proc.wait()
+record.update(identity_after=identity(), finished_at=datetime.now(timezone.utc).isoformat())
+record['identity_stable'] = record['identity_before'] == record['identity_after'] == {'revision': EXPECTED, 'status': ''}
+(OUT / 'python-full-execution.json').write_text(json.dumps(record, indent=2) + '\n')
+print(json.dumps({key: value for key, value in record.items() if key != 'disk_free_samples'}, indent=2))
+print(log_path.read_text(errors='replace').splitlines()[-25:])
+raise SystemExit(record['exit_code'] if record['identity_stable'] else 2)

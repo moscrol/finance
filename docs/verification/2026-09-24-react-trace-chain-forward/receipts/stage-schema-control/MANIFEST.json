@@ -1,0 +1,65 @@
+{
+  "classification": "OFFLINE_POST_BATCH_CONTROL_NO_SIGNOFF",
+  "files": [
+    {
+      "path": "prepare.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/prepare.py",
+      "bytes": 1584,
+      "sha256": "aac1b0d20c965faa750676e26dfb6c704b88e1ee845e4d9e0811fecfef7d0e60"
+    },
+    {
+      "path": "check.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/check.mjs",
+      "bytes": 2317,
+      "sha256": "b8ad10edec8fb91c125f2b79b10b3993e5a6bc8305271ecfc6896ad06e72cb87"
+    },
+    {
+      "path": "source-hashes.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/source-hashes.json",
+      "bytes": 572,
+      "sha256": "5bb5d7da8eb719915febd419df4c54fc00a3fa63f63e82bd0a13dbc8b6fe758a"
+    },
+    {
+      "path": "result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/result.json",
+      "bytes": 2314,
+      "sha256": "34eb3bbbba58e6fd7d5c63eabe4618027fa78438081bb654e251ac9bbf1e01ae"
+    },
+    {
+      "path": "before/review.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/before/review.mjs",
+      "bytes": 22431,
+      "sha256": "4657033dfe955ad92cecb6ef58086d22da15f981789ecb38f897fbe799113a43"
+    },
+    {
+      "path": "before/config.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/before/config.json",
+      "bytes": 580,
+      "sha256": "0d514dd5a8280976718d1aca13d2d3b04144316a5c3b58021acaf8dcdfda2a01"
+    },
+    {
+      "path": "before/provider-template.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/before/provider-template.json",
+      "bytes": 846,
+      "sha256": "d320be9d290c5e31d458ad8daa6e03901302e5070a03fc21908a5cfa8661aa02"
+    },
+    {
+      "path": "after/review.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/after/review.mjs",
+      "bytes": 22800,
+      "sha256": "1961d3e68341cea490595c4cfc8cba5d01f81c0f2f1aa0ae254b6a8fd3e5098f"
+    },
+    {
+      "path": "after/config.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/after/config.json",
+      "bytes": 580,
+      "sha256": "0d514dd5a8280976718d1aca13d2d3b04144316a5c3b58021acaf8dcdfda2a01"
+    },
+    {
+      "path": "after/provider-template.json",
+      "source": "/Users/a77/.finance-runtime/reviews/react-trace-stage-schema-control-20260924/after/provider-template.json",
+      "bytes": 846,
+      "sha256": "d320be9d290c5e31d458ad8daa6e03901302e5070a03fc21908a5cfa8661aa02"
+    }
+  ]
+}

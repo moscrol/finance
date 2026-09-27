@@ -1,0 +1,26 @@
+"""Capture environment provenance during the running attempt; no retroactive start claim."""
+import hashlib
+import importlib.metadata
+import platform
+from pathlib import Path
+import sys
+
+from run import OUT, PY, ROOT, ident, now, save
+
+
+def main():
+    files = [Path(PY), ROOT / 'requirements-consumer.lock', ROOT / 'conftest.py']
+    record = {'captured_at': now(), 'timing': 'During ordinary group; not a pre-start snapshot',
+              'identity': ident(), 'python_executable': sys.executable,
+              'python_version': platform.python_version(), 'system': platform.system(),
+              'mac_version': platform.mac_ver()[0], 'machine': platform.machine(),
+              'installed_distributions': sorted({(d.metadata['Name'], d.version)
+                                                 for d in importlib.metadata.distributions()
+                                                 if d.metadata.get('Name')}),
+              'file_sha256': {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}}
+    save(OUT / 'environment.json', record)
+    print('Environment metadata recorded; source revision', record['identity']['head'])
+
+
+if __name__ == '__main__':
+    main()

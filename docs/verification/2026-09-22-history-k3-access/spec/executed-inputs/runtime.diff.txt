@@ -1,0 +1,1174 @@
+diff --git a/intelligence/services/agent_research.py b/intelligence/services/agent_research.py
+index 095fdc150..a6a65b08c 100644
+--- a/intelligence/services/agent_research.py
++++ b/intelligence/services/agent_research.py
+@@ -154,6 +154,62 @@ class StructuredObservation:
+     value: float
+ 
+ 
++@dataclass(frozen=True)
++class HistoricalEvidenceProvenance:
++    """Immutable identity of one historical result projection.
++
++    This is deliberately separate from ``evidence_content_hash``: the latter
++    identifies the model-facing evidence card, while this record identifies the
++    source query, artifact and immutable source row.  ``research_only`` is a
++    qualification, not a promotion signal.
++    """
++
++    query_id: str
++    operation: str
++    purpose: str
++    result_ref: str
++    row_index: int | None = None
++    row_identity: str = ""
++    row_hash: str = ""
++    research_only: bool = True
++    decision_eligible: bool = False
++    promotion_eligible: bool = False
++
++    def validate(self) -> None:
++        """Validate shape/qualification, not authenticity of the upstream artifact."""
++        text = (self.query_id, self.operation, self.purpose, self.result_ref,
++                self.row_identity, self.row_hash)
++        if any(not isinstance(value, str) for value in text):
++            raise ValueError("invalid historical provenance text")
++        if (not self.query_id.strip()
++                or self.operation not in {"inspect_history", "compute_history", "find_analogues", "compare_cases"}
++                or self.purpose not in {"retrospective_discovery", "historical_comparison"}
++                or re.fullmatch(r"[A-Za-z0-9_-]+/history-query-[0-9a-f]{64}\.json", self.result_ref) is None):
++            raise ValueError("invalid historical source identity")
++        if (self.research_only is not True or self.decision_eligible is not False
++                or self.promotion_eligible is not False):
++            raise ValueError("invalid historical research qualification")
++        if self.row_index is not None:
++            if (type(self.row_index) is not int or self.row_index < 0
++                    or self.row_identity != f"{self.query_id}:row:{self.row_index}"):
++                raise ValueError("invalid historical row coordinate")
++        elif self.row_identity not in {"", f"{self.query_id}:row:reference"}:
++            raise ValueError("invalid historical reference coordinate")
++        if (self.row_identity and re.fullmatch(r"[0-9a-f]{16}", self.row_hash) is None
++                or not self.row_identity and self.row_hash):
++            raise ValueError("invalid historical row digest")
++
++    @classmethod
++    def from_dict(cls, value: object) -> HistoricalEvidenceProvenance:
++        from dataclasses import fields
++
++        if not isinstance(value, dict) or set(value) != {f.name for f in fields(cls)}:
++            raise ValueError("incomplete or unknown historical provenance schema")
++        result = cls(**value)
++        result.validate()
++        return result
++
++
+ @dataclass(frozen=True)
+ class AgentEvidence:
+     """一条 agent 补检索证据：来源可回查（kb 路径 / web url / 资讯链接）。"""
+@@ -174,9 +230,12 @@ class AgentEvidence:
+     content_hash: str = ""
+     # 结构化观察值：``detail`` 是给模型看的文本，这里是同一批数的机器可读形态。
+     # 下游（槽填数、删句连坐检测）读它，**不回头解析 detail 自由文本**。
+-    # 不进 ``evidence_content_hash``（该哈希只吃 tool/title/detail/source），
+-    # 因此补上本字段不会改变任何既有证据身份。
++    # 不进 ``evidence_content_hash``：普通卡按 tool/title/detail/source，
++    # 历史卡另绑来源元数据；补上 observations 本身不改变证据身份。
+     observations: tuple[StructuredObservation, ...] = ()
++    # Historical results remain auditable research evidence, never decision
++    # evidence merely because a query id or artifact reference is present.
++    history_provenance: HistoricalEvidenceProvenance | None = None
+     # 派生证据的输入哈希链（spec capability-amplification §3.4 ``input_evidence_hashes``）：
+     # ``derived_calculation`` 产物必带、其余工具为空。``validate_episode_finish`` 读它——
+     # 绑定到一条没有输入链的派生证据的结论会被驳回（derived_without_inputs）。
+@@ -212,6 +271,22 @@ class AgentEvidence:
+             independent_key=self.independent_key,
+             freshness=self.freshness,
+             content_hash=self.content_hash,
++            provenance=(
++                {
++                    "query_id": self.history_provenance.query_id,
++                    "operation": self.history_provenance.operation,
++                    "purpose": self.history_provenance.purpose,
++                    "result_ref": self.history_provenance.result_ref,
++                    "row_index": self.history_provenance.row_index,
++                    "row_identity": self.history_provenance.row_identity,
++                    "row_hash": self.history_provenance.row_hash,
++                    "research_only": self.history_provenance.research_only,
++                    "decision_eligible": self.history_provenance.decision_eligible,
++                    "promotion_eligible": self.history_provenance.promotion_eligible,
++                }
++                if self.history_provenance is not None
++                else {}
++            ),
+         )
+ 
+ 
+@@ -1990,6 +2065,17 @@ def evidence_content_hash(item: AgentEvidence) -> str:
+     payload = "|".join(
+         (item.tool, item.title.strip(), item.detail.strip(), item.source.strip())
+     )
++    if item.tool in {"history_query", "read_history_result"} and item.history_provenance is not None:
++        from dataclasses import asdict
++
++        # Query and authorized reader are two views of the same immutable card.
++        # Bind control metadata too: changing operation/ref/row is not a new view
++        # of the old evidence. Ordinary evidence retains its existing identity.
++        payload = json.dumps(
++            ["history_result", item.title.strip(), item.detail.strip(), item.source.strip(),
++             asdict(item.history_provenance)],
++            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
++        )
+     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+ 
+ 
+diff --git a/intelligence/services/agent_runtime.py b/intelligence/services/agent_runtime.py
+index edfef7836..0cf41f74b 100644
+--- a/intelligence/services/agent_runtime.py
++++ b/intelligence/services/agent_runtime.py
+@@ -8,7 +8,7 @@ implementations return one immutable :class:`AgentOutcome` for verification.
+ from __future__ import annotations
+ 
+ from collections.abc import Mapping
+-from dataclasses import dataclass
++from dataclasses import asdict, dataclass
+ import math
+ from types import MappingProxyType
+ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+@@ -339,6 +339,8 @@ class AgentUsage:
+ 
+ 
+ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
++    """Return the bounded model/public view; control metadata stays private."""
++
+     return {
+         "tool": item.tool,
+         "title": item.title,
+@@ -355,6 +357,17 @@ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
+     }
+ 
+ 
++def private_agent_evidence(item: AgentEvidence) -> dict[str, object]:
++    """Persist structured observations/provenance without widening model input."""
++
++    payload = public_agent_evidence(item)
++    if item.observations:
++        payload["observations"] = [asdict(observation) for observation in item.observations]
++    if item.history_provenance is not None:
++        payload["history_provenance"] = asdict(item.history_provenance)
++    return payload
++
++
+ @dataclass(frozen=True)
+ class AgentOutcome:
+     task_frame_hash: str
+@@ -445,7 +458,7 @@ class AgentOutcome:
+             "task_frame_hash": self.task_frame_hash,
+             "status": self.status,
+             "draft": self.draft,
+-            "evidence": [public_agent_evidence(item) for item in self.evidence],
++            "evidence": [private_agent_evidence(item) for item in self.evidence],
+             "traces": [trace.to_dict() for trace in self.traces],
+             "gaps": list(self.gaps),
+             "stop_reason": self.stop_reason,
+diff --git a/intelligence/services/episode_factory.py b/intelligence/services/episode_factory.py
+index 27d04024c..0366de830 100644
+--- a/intelligence/services/episode_factory.py
++++ b/intelligence/services/episode_factory.py
+@@ -96,6 +96,7 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
+     "financial_assessment": "公司财务表现的直接判断",
+     "metric_evidence": "支撑财务判断的指标证据",
+     "comparison_dimensions": "列出比较维度与各自的观察口径",
++    "comparison_assumptions": "列出待验证的类比假设，并明确哪些只是解释而非已验证规律",
+     "key_differences": "说明候选之间的关键差异",
+     "transmission_chain": "说明情景向结果的传导链",
+     "direct_explanation": "解释所问方法或概念的要点",
+@@ -352,10 +353,43 @@ def _has_owned_premise_calculation(frame: TaskFrame) -> bool:
+     return calculation_for_frame(frame) is not None
+ 
+ 
++_COMPARISON_ANALOG_OUTPUT_IDS: tuple[str, ...] = (
++    "comparison_dimensions",
++    "comparison_assumptions",
++    "analog_similarities",
++    "key_differences",
++    "limits_of_analogy",
++    "counterpoint",
++    "evidence_boundary",
++)
++_ALL_HISTORY_OPERATIONS = (
++    "inspect_history",
++    "compute_history",
++    "find_analogues",
++    "compare_cases",
++)
++_COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
++    "direct_assessment": ("compare_cases", "find_analogues"),
++    "comparison_dimensions": ("inspect_history", "compute_history", "compare_cases"),
++    "analog_similarities": ("find_analogues",),
++    "key_differences": ("find_analogues", "compare_cases"),
++    "limits_of_analogy": ("find_analogues", "compare_cases"),
++    "counterpoint": ("find_analogues", "compare_cases"),
++    "evidence_boundary": (
++        "inspect_history",
++        "compute_history",
++        "find_analogues",
++        "compare_cases",
++    ),
++}
++
++
+ def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
+     if _has_owned_premise_calculation(frame):
+         return ("direct_answer", "evidence_boundary")
+     outputs = frame.required_outputs
++    if frame.question_type == "comparison_analog":
++        outputs = tuple(dict.fromkeys((*outputs, *_COMPARISON_ANALOG_OUTPUT_IDS)))
+     if frame.question_type == "valuation_estimate":
+         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
+     from intelligence.services.research_contract import compile_research_program
+@@ -457,24 +491,20 @@ def _with_residual_prime(
+ def _required_output_evidence_types(
+     output_id: str,
+     capabilities: tuple[str, ...],
++    *,
++    history_comparison: bool = False,
+ ) -> tuple[str, ...]:
++    if history_comparison and output_id in _COMPARISON_ANALOG_HISTORY_OPERATIONS:
++        return (
++            ("history_query", "read_history_result")
++            if "finance_query" in capabilities
++            else ()
++        )
++    if output_id == "comparison_assumptions":
++        return ()
+     if output_id in {"prior_recall", "prime_memory"}:
+-        # 这一格只有 memory_lookup 的产出能填：它装的是用户自己的历史判断，
+-        # 市场侧工具（kb_search / graph_lookup / news_search ...）返回的都是
+-        # 当前世界事实，格式与 grounding_mode=user_premise 不兼容。
+-        #
+-        # 为什么收窄而不是加强提示词：上一轮决证（run_20260808_102708）里
+-        # prior_recall 槽位、memory_lookup 授权、"必须优先调用"的提示词三样
+-        # 都在，模型仍在第一轮把 7 次工具预算全投给市场侧检索。原因是这格的
+-        # evidence_types 是全量能力列表——模型从契约里读不出"哪个工具能填它"，
+-        # 而其余三格都是 evidence，市场侧工具对它们的贡献是确定的。
+-        #
+-        # 收窄后契约自身就携带了工具→槽位的映射，模型靠自主推理即可选中
+-        # memory_lookup，不需要任何强制调用顺序。这保住了 agentic RAG：
+-        # 其余槽位的 evidence_types 不变，市场侧工具照常参与竞争。
+         return tuple(
+-            capability for capability in ("memory_lookup",)
+-            if capability in capabilities
++            capability for capability in ("memory_lookup",) if capability in capabilities
+         )
+     if output_id == "prime_quote":
+         return tuple(
+@@ -541,11 +571,12 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
+         if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
+             # 只给范围声明前提资格；其它事实槽仍需证据，A轴不能取消B轴检索。
+             return "user_premise"
+-    if output_id in {"prior_recall", "prime_memory"}:
+-        # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
+-        # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
+-        # 已有对应契约：user_premise 题「用户明确给出的前提视为真的假设，不能
+-        # 要求先证明前提」——正是这份先验需要的待遇。
++    if output_id in {"prior_recall", "prime_memory", "comparison_assumptions"}:
++        # 用户先验和比较题的待验证解释都不是当前世界事实。比较假设
++        # 允许模型推理，但不能通过证据绑定伪装成已验证规律。
++        if output_id == "comparison_assumptions":
++            return "model_reasoning"
++        # 这格装的是用户自己的历史判断，不能让它被当成当前事实证据。
+         return "user_premise"
+     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
+         return "model_reasoning"
+@@ -762,6 +793,10 @@ def build_episode_context(
+                     else _required_output_evidence_types(
+                         output_id,
+                         capability_tuple,
++                        history_comparison=(
++                            frame.history_intent is not None
++                            and frame.question_type == "comparison_analog"
++                        ),
+                     )
+                 ),
+                 # prior_recall 是**可选**槽位，这一点是设计核心而不是保守：
+@@ -800,6 +835,20 @@ def build_episode_context(
+                     if output_id in forward_slots
+                     else _grounding_mode(frame, output_id)
+                 ),
++                allowed_history_operations=(
++                    _COMPARISON_ANALOG_HISTORY_OPERATIONS.get(output_id, ())
++                    if frame.history_intent is not None
++                    and frame.question_type == "comparison_analog"
++                    else (
++                        _ALL_HISTORY_OPERATIONS
++                        if frame.history_intent is not None
++                        and "finance_query" in _required_output_evidence_types(
++                            output_id,
++                            capability_tuple,
++                        )
++                        else ()
++                    )
++                ),
+             )
+             for output_id in output_ids
+         ),
+diff --git a/intelligence/services/episode_issues.py b/intelligence/services/episode_issues.py
+index b98625401..767683d40 100644
+--- a/intelligence/services/episode_issues.py
++++ b/intelligence/services/episode_issues.py
+@@ -37,6 +37,7 @@ class IssueCode(str, Enum):
+     AMBIGUOUS_EVIDENCE_HASH = "ambiguous_evidence_hash"
+     EVIDENCE_TYPE_STRIPPED = "evidence_type_stripped"
+     EVIDENCE_TYPE_UNSUPPORTED = "evidence_type_unsupported"
++    HISTORY_OPERATION_UNSUPPORTED = "history_operation_unsupported"
+     FINANCIAL_ANCHOR_MISSING = "financial_anchor_missing"
+     MISSING_MANDATORY_CAPABILITY = "missing_mandatory_capability"
+     REQUIRED_OUTPUT_NO_SUBSTANCE = "required_output_no_substance"
+@@ -80,6 +81,7 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
+     IssueCode.AMBIGUOUS_EVIDENCE_HASH: ReleaseAction.BLOCK,
+     IssueCode.EVIDENCE_TYPE_STRIPPED: ReleaseAction.STRIP_OK,
+     IssueCode.EVIDENCE_TYPE_UNSUPPORTED: ReleaseAction.PARTIAL_OK,
++    IssueCode.HISTORY_OPERATION_UNSUPPORTED: ReleaseAction.BLOCK,
+     IssueCode.FINANCIAL_ANCHOR_MISSING: ReleaseAction.BLOCK,
+     IssueCode.MISSING_MANDATORY_CAPABILITY: ReleaseAction.PARTIAL_OK,
+     IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE: ReleaseAction.BLOCK,
+diff --git a/intelligence/services/episode_semantic_verifier.py b/intelligence/services/episode_semantic_verifier.py
+index 79144e43c..cb75ef998 100644
+--- a/intelligence/services/episode_semantic_verifier.py
++++ b/intelligence/services/episode_semantic_verifier.py
+@@ -6074,6 +6074,30 @@ def _project_semantic_evidence(
+             projected["contradicts"] = list(item.contradicts)
+         if item.independent_key:
+             projected["independent_key"] = item.independent_key
++        if item.observations:
++            projected["observations"] = [
++                {
++                    "subject": observation.subject,
++                    "as_of": observation.as_of,
++                    "metric": observation.metric,
++                    "value": observation.value,
++                }
++                for observation in item.observations
++            ]
++        if item.history_provenance is not None:
++            provenance = item.history_provenance
++            projected["research_only"] = provenance.research_only
++            projected["decision_eligible"] = provenance.decision_eligible
++            projected["promotion_eligible"] = provenance.promotion_eligible
++            projected["history_provenance"] = {
++                "query_id": provenance.query_id,
++                "operation": provenance.operation,
++                "purpose": provenance.purpose,
++                "result_ref": provenance.result_ref,
++                "row_index": provenance.row_index,
++                "row_identity": provenance.row_identity,
++                "row_hash": provenance.row_hash,
++            }
+         if title and "title" not in projected:
+             dropped_field_chars += len(title)
+         if detail and "detail" not in projected:
+diff --git a/intelligence/services/episode_verifier.py b/intelligence/services/episode_verifier.py
+index 669877a93..9ad3cf4a3 100644
+--- a/intelligence/services/episode_verifier.py
++++ b/intelligence/services/episode_verifier.py
+@@ -11,6 +11,11 @@ from __future__ import annotations
+ from dataclasses import dataclass
+ from typing import Literal
+ 
++from intelligence.services.agent_research import (
++    AgentEvidence,
++    HistoricalEvidenceProvenance,
++    evidence_content_hash,
++)
+ from intelligence.services.agent_runtime import AgentOutcome
+ from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
+ from intelligence.services.episode_output_substance import (
+@@ -68,6 +73,22 @@ class VerifiedEpisodeOutcome:
+         }
+ 
+ 
++def _valid_history_identity(item: AgentEvidence) -> bool:
++    provenance = item.history_provenance
++    if not isinstance(provenance, HistoricalEvidenceProvenance):
++        return False
++    try:
++        provenance.validate()
++    except ValueError:
++        return False
++    return (
++        item.tool in {"history_query", "read_history_result"}
++        and item.content_hash == evidence_content_hash(item)
++        and item.internal_locator == provenance.result_ref
++        and item.independent_key == provenance.query_id
++    )
++
++
+ def verify_episode_outcome(
+     contract: ResearchTaskContract,
+     outcome: AgentOutcome,
+@@ -268,6 +289,47 @@ def verify_episode_outcome(
+             for item in evidence_items
+             if required.evidence_types and item.tool not in required.evidence_types
+         )
++        history_items = tuple(
++            item for item in evidence_items
++            if item.tool in {"history_query", "read_history_result"}
++            or item.history_provenance is not None
++        )
++        unsupported_history = tuple(
++            item
++            for item in history_items
++            if required.allowed_history_operations
++            and isinstance(item.history_provenance, HistoricalEvidenceProvenance)
++            and (
++                item.history_provenance.operation
++                not in required.allowed_history_operations
++                or item.tool not in {"history_query", "read_history_result"}
++            )
++        )
++        invalid_history_qualification = tuple(
++            item
++            for item in history_items
++            if required.allowed_history_operations
++            and not _valid_history_identity(item)
++        )
++        if unsupported_history or invalid_history_qualification:
++            details = tuple(
++                (item.history_provenance.operation or "unknown")
++                if isinstance(item.history_provenance, HistoricalEvidenceProvenance)
++                and isinstance(item.history_provenance.operation, str)
++                else "missing_provenance" if item.history_provenance is None
++                else "invalid_provenance"
++                for item in (*unsupported_history, *invalid_history_qualification)
++            )
++            issues.append(
++                Issue(
++                    IssueCode.HISTORY_OPERATION_UNSUPPORTED,
++                    required.output_id,
++                    (
++                        f"history evidence is not eligible for {required.output_id}: "
++                        + ",".join(details)
++                    ),
++                )
++            )
+         # 类型白名单按「剔除非法、保留合法」执行，不再整槽作废（2026-08-19，
+         # run_20260819_130854：prime_quote 绑了 market_data + finance_query
+         # 各若干条，旧判据把合法行情哈希一并清掉 → 整篇换缺口模板）。
+@@ -283,6 +345,8 @@ def verify_episode_outcome(
+                 not required.evidence_types
+                 or evidence_by_hash[content_hash].tool in required.evidence_types
+             )
++            and evidence_by_hash[content_hash] not in unsupported_history
++            and evidence_by_hash[content_hash] not in invalid_history_qualification
+         )
+         kept_items = tuple(
+             evidence_by_hash[content_hash] for content_hash in kept_hashes
+@@ -342,6 +406,8 @@ def verify_episode_outcome(
+             and (not wrong_types or bool(kept_hashes))
+             and not missing_floor
+             and not basis_mismatch
++            and not unsupported_history
++            and not invalid_history_qualification
+             and len(evidence_items) == len(binding.evidence_hashes)
+         )
+         if valid:
+diff --git a/intelligence/services/historical_research/episode.py b/intelligence/services/historical_research/episode.py
+index 69b6ebcd7..d00cd7df5 100644
+--- a/intelligence/services/historical_research/episode.py
++++ b/intelligence/services/historical_research/episode.py
+@@ -8,7 +8,11 @@ import json
+ from pathlib import Path
+ from typing import TYPE_CHECKING
+ 
+-from intelligence.services.agent_research import AgentEvidence
++from intelligence.services.agent_research import (
++    AgentEvidence,
++    HistoricalEvidenceProvenance,
++    StructuredObservation,
++)
+ from intelligence.services.provider_observability import ProviderTrace
+ from intelligence.services.research_tool_registry import ToolRunResult, ToolSpec
+ 
+@@ -38,14 +42,17 @@ class HistorySession:
+             for item in self.store.list_runs()
+             if item.user == self.store.user_id and item.session_id == self.conversation_id
+         ]
++        refreshed: dict[str, tuple[str, str]] = {}
+         for item in related:
+             for artifact in item.artifacts:
+                 filename = str(artifact.get("path", ""))
+                 if (
+                     filename.startswith("history-")
+                     and artifact.get("visibility") == "public"
++                    and artifact.get("downloadable", True) is True
+                 ):
+-                    self.refs[f"{item.run_id}/{filename}"] = (item.run_id, filename)
++                    refreshed[f"{item.run_id}/{filename}"] = (item.run_id, filename)
++        self.refs = refreshed
+ 
+     def save(self, kind: str, payload: dict) -> str:
+         envelope = dict(
+@@ -64,21 +71,14 @@ class HistorySession:
+         return ref
+ 
+     def read(self, ref: str) -> dict:
+-        if ref not in self.refs:
+-            if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
+-                raise ValueError("history result reference is outside this conversation")
+-            run_id, filename = ref.split("/", 1)
+-            try:
+-                run = self.store.load_run(run_id)
+-            except (ValueError, FileNotFoundError) as exc:
+-                raise ValueError("history result reference is outside this conversation") from exc
+-            if run.user != self.store.user_id or run.session_id != self.conversation_id:
+-                raise ValueError("history result reference is outside this conversation")
+-            # The display index is bounded; same-conversation authorization isn't.
+-            self.store.read_history_artifact(run_id, filename)
+-            self.refs[ref] = (run_id, filename)
+-        run_id, filename = self.refs[ref]
+-        payload = self.store.read_history_artifact(run_id, filename)
++        # The display cache never grants authority, even for a previously read ref.
++        if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
++            raise ValueError("history result reference is outside this conversation")
++        run_id, filename = ref.split("/", 1)
++        payload = self.store.read_history_artifact(
++            run_id, filename, conversation_id=self.conversation_id,
++        )
++        self.refs[ref] = (run_id, filename)
+         return payload
+ 
+     def remember(self, ref: str, payload: dict):
+@@ -168,7 +168,7 @@ def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
+     from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+ 
+     def encode(value):
+-        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
++        return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
+ 
+     def merge(left, right):
+         result = dict(left)
+@@ -202,24 +202,64 @@ def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
+     return blocks
+ 
+ 
+-def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
+-    """Project data and definitions, keeping row count distinct from card count."""
++def _model_projection(
++    payload: dict, result_ref: str
++) -> list[tuple[str, str, str | None, int | None, str, str, tuple[StructuredObservation, ...]]]:
++    """Project data and definitions, keeping row count distinct from card count.
++
++    The extra identity fields are control-plane metadata. They let every model
++    card point back to one immutable query row without making page coordinates
++    or free-form detail text carry provenance.
++    """
+     projected = []
++    query_id = str(payload.get("query_id") or "")
++
++    def add(
++        title,
++        identity,
++        atoms,
++        source_date=None,
++        *,
++        row_index: int | None = None,
++        row_identity: str = "",
++        row_hash: str = "",
++        observations: tuple[StructuredObservation, ...] = (),
++    ):
++        # Row identity must be stable across pages, but is not a card identity:
++        # a row may span several public citations with different fields.
++        for block_index, detail in enumerate(_model_blocks(identity, atoms)):
++            visible = json.loads(detail)
++            visible_values = {**visible, **visible.get("features", {})}
++            block_observations = tuple(
++                observation for observation in observations
++                if type(visible_values.get(observation.metric)) in (int, float)
++                and visible_values[observation.metric] == observation.value
++            )
++            projected.append(
++                (f"{title}·块{block_index + 1}" if row_identity else title,
++                 detail, source_date, row_index, row_identity, row_hash, block_observations)
++            )
+ 
+-    def add(title, identity, atoms, source_date=None):
+-        projected.extend(
+-            (title, detail, source_date) for detail in _model_blocks(identity, atoms)
++    scope_observations = tuple(
++        StructuredObservation(
++            subject=query_id,
++            as_of=str(payload.get("end") or payload.get("spec", {}).get("end") or ""),
++            metric=key,
++            value=float(payload[key]),
+         )
+-
++        for key in ("total_matched", "returned_count")
++        if isinstance(payload.get(key), (int, float)) and not isinstance(payload.get(key), bool)
++    )
+     add("历史研究范围与完整分母", {}, [
+         {key: payload.get(key)}
+         for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
+-    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
++    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}], observations=scope_observations)
+     add("历史研究原件引用", {}, [{"result_ref": result_ref}])
+     add("历史研究使用边界", {}, [{
+         "pit_grade": payload.get("pit_grade", "hindsight_reconstruction"),
+         "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
+     }])
++
+     spec = payload.get("spec", {})
+     comparison = payload.get("comparison")
+     if isinstance(comparison, dict):
+@@ -227,15 +267,15 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+             {"condition": spec.get("condition")},
+             {"outcome_definition": payload.get("outcome_definition")},
+         ])
+-        add("历史条件比较完整统计", {}, [{key: value} for key, value in comparison.items()])
++        add("历史条件比较完整统计", {}, [{key: value} for key, value in sorted(comparison.items())])
+     universe = payload.get("universe")
+     if isinstance(universe, dict):
+         add("历史比较宇宙与窗口", {}, [
+-            {key: value} for key, value in universe.items() if key != "entity_codes"
++            {key: value} for key, value in sorted(universe.items()) if key != "entity_codes"
+         ] + [{"entity_count": len(universe.get("entity_codes", []))}])
+     if payload.get("matching_use"):
+         add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
+-    for name, definition in payload.get("feature_definitions", {}).items():
++    for name, definition in sorted(payload.get("feature_definitions", {}).items()):
+         add("历史特征严格定义", {"feature": name}, [
+             {key: definition[key]} for key in ("rule", "unit", "version") if key in definition
+         ])
+@@ -258,6 +298,9 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+     for index, row in records:
+         if not isinstance(row, dict):
+             continue
++        row_index = index if isinstance(index, int) else None
++        row_identity = f"{query_id}:row:{index}"
++        row_hash = hashlib.sha256(_compact(row).encode("utf-8")).hexdigest()[:16]
+         identity = {"sample": index, "entity_code": row.get("entity_code")}
+         if isinstance(reference, dict):
+             identity["role"] = "reference" if index == "reference" else "candidate"
+@@ -273,14 +316,16 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+             atoms.extend({key: row[key]} for key in (
+                 "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
+             ) if key in row)
+-        for name, value in row.get("features", {}).items():
++        # Stored artifacts use sorted keys. Order semantic atoms before packing,
++        # not just the final JSON: block boundaries must also survive a reread.
++        for name, value in sorted(row.get("features", {}).items()):
+             atoms.append({
+                 "features": {name: value},
+                 "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
+             })
+         atoms.extend(
+             {"feature_differences": {name: value}}
+-            for name, value in row.get("feature_differences", {}).items()
++            for name, value in sorted(row.get("feature_differences", {}).items())
+         )
+         for kind in ("sector", "stock"):
+             values = row.get(kind)
+@@ -300,7 +345,31 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+             atoms.append({"market_status": "missing_or_ambiguous" if row["market"] is None else "observed"})
+         date_value = str(row.get("trade_date", row.get("end", ""))) or None
+         sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
+-        add(f"历史观察样本 {sample_scope}", identity, atoms, date_value)
++        row_observations: list[StructuredObservation] = []
++        as_of = date_value or ""
++        subject = str(row.get("entity_code") or row.get("entity_name") or query_id)
++        for metric, value in sorted(row.get("features", {}).items()):
++            if isinstance(value, (int, float)) and not isinstance(value, bool):
++                row_observations.append(
++                    StructuredObservation(subject, as_of, str(metric), float(value))
++                )
++        for metric, value in sorted(row.items()):
++            if metric in {"features", "feature_coverage", "entity_code", "entity_name", "start", "end"}:
++                continue
++            if isinstance(value, (int, float)) and not isinstance(value, bool):
++                row_observations.append(
++                    StructuredObservation(subject, as_of, str(metric), float(value))
++                )
++        add(
++            f"历史观察样本 {sample_scope}",
++            identity,
++            atoms,
++            date_value,
++            row_index=row_index,
++            row_identity=row_identity,
++            row_hash=row_hash,
++            observations=tuple(row_observations),
++        )
+     return projected
+ 
+ 
+@@ -362,7 +431,7 @@ def _result(
+             tool=tool,
+             # Citation UI deduplicates by title/source/date. A block is a public
+             # observation, not an independent sample; independent_key stays qid.
+-            title=f"{title}｜{query_id[:8]}·{index + 1}｜{scope}".rstrip("｜"),
++            title=f"{title}｜{query_id[:8]}·{(row_index + 1) if row_index is not None else card_index + 1}｜{scope}".rstrip("｜"),
+             detail=detail,
+             source="本地历史研究 · 可复算原件",
+             internal_locator=result_ref,
+@@ -370,8 +439,21 @@ def _result(
+             evidence_tier="L4_market_signal",
+             freshness="historical",
+             independent_key=query_id,
++            observations=observations,
++            history_provenance=HistoricalEvidenceProvenance(
++                query_id=query_id,
++                operation=str(payload.get("operation") or ""),
++                purpose=str(payload.get("purpose") or ""),
++                result_ref=result_ref,
++                row_index=row_index,
++                row_identity=row_identity,
++                row_hash=row_hash,
++                research_only=True,
++                decision_eligible=False,
++                promotion_eligible=False,
++            ),
+         )
+-        for index, (title, detail, source_date) in enumerate(projection)
++        for card_index, (title, detail, source_date, row_index, row_identity, row_hash, observations) in enumerate(projection)
+     ]
+     return ToolRunResult(
+         evidence=tuple(evidence),
+diff --git a/intelligence/services/ima_gap_report.py b/intelligence/services/ima_gap_report.py
+new file mode 100644
+index 000000000..8aa8ca3ae
+--- /dev/null
++++ b/intelligence/services/ima_gap_report.py
+@@ -0,0 +1,253 @@
++"""After daily-full: list theme DeepDive gaps and stock-card gaps. Does not ask IMA."""
++from __future__ import annotations
++
++import json
++import re
++from pathlib import Path
++from typing import Any
++
++from intelligence.services.concept_page_gate import (
++    STUB_BODY_MARKERS,
++    STUB_TAG_RE,
++    find_concept_path,
++    is_stub_concept,
++    parse_frontmatter_tags,
++)
++from intelligence.services.research_queue import QUEUE_DO_IMA, QUEUE_FIND_OFFICIAL, extract_queue
++
++MEGA_UMBRELLA = frozenset(
++    {
++        "碳中和",
++        "新能源车",
++        "一带一路",
++        "新型工业化",
++        "高端装备",
++        "化工",
++        "医药",
++        "医疗",
++        "医疗服务",
++        "光伏概念",
++        "芯片概念",
++        "机器人概念",
++        "石油",
++        "非银金融",
++        "信创",
++        "半导体",
++    }
++)
++DENY_STOCKS = frozenset(
++    {
++        "*ST威领",
++        "中关村",
++        "中国石油",
++        "宇树科技",
++        "德源药业",
++        "汉森制药",
++        "湘财股份",
++        "锦龙股份",
++    }
++)
++NEED_CARD = ("type: stock_research", "Entity Baseline", "后续跟踪", "原始资料", "预期差")
++DEEPDIVE_HINT = re.compile(r"DeepDive_ThemeRadar|ima_deep_dive|题材DeepDive|_DeepDive_")
++L1_MARKERS = ("## 核心机制", "## 产业链", "## 产业链位置", "## 关键公司", "## 定义")
++
++
++def _norm_queue(payload: dict[str, Any]) -> dict[str, Any]:
++    return extract_queue(payload) or payload
++
++
++def _theme_name(item: dict[str, Any]) -> str:
++    return str(item.get("目标") or item.get("theme") or "").strip()
++
++
++def _stocks(item: dict[str, Any]) -> list[str]:
++    raw = item.get("强势股") or item.get("stocks") or []
++    return [str(x).strip() for x in raw if str(x).strip() and str(x).strip() != "-"]
++
++
++def _read_concept(wiki: Path, theme: str) -> tuple[Path | None, str]:
++    path = find_concept_path(wiki / "concepts", theme)
++    if path is None:
++        return None, ""
++    return path, path.read_text(encoding="utf-8", errors="replace")
++
++
++def classify_page(text: str) -> str:
++    """stub | thin_card | l1 | has_deepdive"""
++    if not text.strip():
++        return "missing"
++    if DEEPDIVE_HINT.search(text) or "ima_deep_dive" in parse_frontmatter_tags(text):
++        return "has_deepdive"
++    if (
++        "别名卡" in text
++        or "不必再跑 DeepDive" in text
++        or "不新跑 IMA" in text
++        or "不伪造 15 章" in text
++    ):
++        return "l1"
++    if is_stub_concept(text) or any(m in text for m in STUB_BODY_MARKERS) or any(
++        STUB_TAG_RE.search(tag) for tag in parse_frontmatter_tags(text)
++    ):
++        return "stub"
++    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
++    headings = {ln for ln in lines if ln.startswith("## ")}
++    marker_hits = sum(1 for marker in L1_MARKERS if marker in headings)
++    if marker_hits >= 2 and len(lines) >= 20:
++        return "l1"
++    return "thin_card"
++
++
++def best_page_class(theme: str, wikis: list[Path]) -> dict[str, Any]:
++    best = "missing"
++    rank = {"missing": 0, "stub": 1, "thin_card": 2, "l1": 3, "has_deepdive": 4}
++    chosen = ""
++    wiki_hit = ""
++    for wiki in wikis:
++        _path, text = _read_concept(wiki, theme)
++        if not text:
++            continue
++        kind = classify_page(text)
++        if rank[kind] >= rank[best]:
++            best = kind
++            chosen = text
++            wiki_hit = str(wiki)
++    return {"page_class": best, "wiki": wiki_hit, "chars": len(chosen)}
++
++
++def has_full_stock_card(name: str, wikis: list[Path]) -> bool:
++    for wiki in wikis:
++        sources = wiki / "sources"
++        if not sources.is_dir():
++            continue
++        for path in sources.glob(f"*{name}*"):
++            if path.suffix != ".md" or "逻辑" not in path.name:
++                continue
++            text = path.read_text(encoding="utf-8", errors="replace")
++            if all(token in text for token in NEED_CARD) and len(text) >= 8000:
++                return True
++    return False
++
++
++def entity_exists(name: str, wikis: list[Path]) -> bool:
++    for wiki in wikis:
++        if (wiki / "entities" / f"{name}.md").is_file():
++            return True
++    return False
++
++
++def classify_theme(theme: str, page_class: str, bucket: str) -> dict[str, str]:
++    if bucket == QUEUE_FIND_OFFICIAL:
++        return {"action": "route_disclosure", "reason": "复盘已标找公告，不重复做题材 DeepDive"}
++    if theme in MEGA_UMBRELLA:
++        return {"action": "skip_mega", "reason": "过宽伞页，15 章会写成行业综述"}
++    if page_class == "has_deepdive":
++        return {"action": "skip_have_deepdive", "reason": "已有 ThemeRadar / ima_deep_dive 15 章材料"}
++    if page_class == "l1":
++        return {"action": "skip_have_l1", "reason": "已有 L1（核心机制/产业链），不重复 IMA"}
++    if page_class == "stub":
++        return {"action": "run_deepdive", "reason": "占位页，走 15 章升 L1"}
++    if page_class == "thin_card":
++        return {"action": "run_deepdive", "reason": "概念卡偏薄，缺 15 章边界/分篮"}
++    if page_class == "missing":
++        return {"action": "skip_missing", "reason": "无概念页，fail closed 不空建"}
++    return {"action": "skip_other", "reason": page_class}
++
++
++def build_ima_gap_report(
++    payload: dict[str, Any],
++    *,
++    wikis: list[Path],
++    date: str = "",
++) -> dict[str, Any]:
++    queue = _norm_queue(payload)
++    wikis = [Path(w) for w in wikis]
++    theme_rows: list[dict[str, Any]] = []
++    seen: set[str] = set()
++    for bucket in (QUEUE_DO_IMA, QUEUE_FIND_OFFICIAL):
++        for item in queue.get(bucket) or []:
++            theme = _theme_name(item)
++            if not theme or theme in seen:
++                continue
++            seen.add(theme)
++            page = best_page_class(theme, wikis)
++            decision = classify_theme(theme, page["page_class"], bucket)
++            theme_rows.append(
++                {
++                    "theme": theme,
++                    "bucket": bucket,
++                    "priority": item.get("优先级") or item.get("priority"),
++                    "stocks": _stocks(item),
++                    **page,
++                    **decision,
++                }
++            )
++
++    stock_rows: list[dict[str, Any]] = []
++    stock_seen: set[str] = set()
++    for item in queue.get(QUEUE_DO_IMA) or []:
++        for name in _stocks(item):
++            if name in stock_seen:
++                continue
++            stock_seen.add(name)
++            if name in DENY_STOCKS:
++                action, reason = "skip_deny", "deny：不建卡"
++            elif not entity_exists(name, wikis):
++                action, reason = "skip_no_entity", "无实体页，不空建"
++            elif has_full_stock_card(name, wikis):
++                action, reason = "skip_have_card", "已有 12 章逻辑卡"
++            else:
++                action, reason = "run_stock_card", "有实体、无完整 12 章卡"
++            stock_rows.append({"company": name, "theme": _theme_name(item), "action": action, "reason": reason})
++
++    run_themes = [r["theme"] for r in theme_rows if r["action"] == "run_deepdive"]
++    run_stocks = [r["company"] for r in stock_rows if r["action"] == "run_stock_card"]
++    return {
++        "schema_version": "ima-gap/v1",
++        "date": date or str(payload.get("date") or ""),
++        "auto_fetch": False,
++        "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
++        "theme_run": run_themes,
++        "stock_run": run_stocks,
++        "themes": theme_rows,
++        "stocks": stock_rows,
++        "counts": {
++            "theme_run": len(run_themes),
++            "stock_run": len(run_stocks),
++            "themes": len(theme_rows),
++            "stocks": len(stock_rows),
++        },
++    }
++
++
++def render_markdown(report: dict[str, Any]) -> str:
++    lines = [
++        f"# IMA 缺口 · {report.get('date') or '-'}",
++        "",
++        f"- 该跑题材 DeepDive：**{report['counts']['theme_run']}**",
++        f"- 该补个股逻辑卡：**{report['counts']['stock_run']}**",
++        f"- 不自动问 IMA（{report.get('note')}）",
++        "",
++        "## 题材",
++        "",
++        "| 题材 | 动作 | 页 | 理由 |",
++        "|---|---|---|---|",
++    ]
++    for row in report.get("themes") or []:
++        lines.append(f"| {row['theme']} | {row['action']} | {row['page_class']} | {row['reason']} |")
++    lines += ["", "## 个股", "", "| 公司 | 动作 | 题材 | 理由 |", "|---|---|---|---|"]
++    for row in report.get("stocks") or []:
++        lines.append(f"| {row['company']} | {row['action']} | {row['theme']} | {row['reason']} |")
++    return "\n".join(lines) + "\n"
++
++
++def write_ima_gap_report(report: dict[str, Any], json_path: Path, md_path: Path | None = None) -> dict[str, Path]:
++    json_path = Path(json_path)
++    json_path.parent.mkdir(parents=True, exist_ok=True)
++    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
++    written = {"json": json_path}
++    if md_path:
++        md_path = Path(md_path)
++        md_path.parent.mkdir(parents=True, exist_ok=True)
++        md_path.write_text(render_markdown(report), encoding="utf-8")
++        written["md"] = md_path
++    return written
+diff --git a/intelligence/services/prior_evidence.py b/intelligence/services/prior_evidence.py
+index e7fc9be39..900e359ce 100644
+--- a/intelligence/services/prior_evidence.py
++++ b/intelligence/services/prior_evidence.py
+@@ -12,7 +12,9 @@ import json
+ import math
+ from typing import TYPE_CHECKING, Sequence
+ 
+-from intelligence.services.agent_research import AgentEvidence, StructuredObservation
++from intelligence.services.agent_research import (
++    AgentEvidence, HistoricalEvidenceProvenance, StructuredObservation, evidence_content_hash,
++)
+ from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
+ from intelligence.services.user_task import requests_previous_answer_review, requests_previous_evidence_only
+ 
+@@ -104,12 +106,26 @@ def restored_prior_hashes(events: Sequence[object]) -> frozenset[str]:
+ 
+ def _original_atom(raw: object) -> AgentEvidence:
+     """Reconstruct the complete stored schema without coercing or dropping fields."""
+-    if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
++    expected = {field.name for field in fields(AgentEvidence)}
++    if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
+         raise ValueError("incomplete or unknown prior evidence schema")
++    # Explicit additive-schema compatibility, not a general missing-field escape.
++    # Old ordinary atoms had no historical metadata; old history atoms cannot
++    # acquire source identity merely by taking the None default.
++    raw = {"history_provenance": None, **raw}
+     values = dict(raw)
++    history = raw["history_provenance"]
++    if not isinstance(raw["tool"], str):
++        raise ValueError("invalid evidence text field")
++    if history is not None:
++        if raw["tool"] not in {"history_query", "read_history_result"}:
++            raise ValueError("historical provenance on non-historical evidence")
++        values["history_provenance"] = HistoricalEvidenceProvenance.from_dict(history)
++    elif raw["tool"] in {"history_query", "read_history_result"}:
++        raise ValueError("missing historical provenance")
+     sequences = {"supports", "contradicts", "derived_from", "observations"}
+     nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+-    for key in set(raw) - sequences - nullable - {"deep_read"}:
++    for key in set(raw) - sequences - nullable - {"deep_read", "history_provenance"}:
+         if not isinstance(raw[key], str):
+             raise ValueError("invalid evidence text field")
+     for key in sequences - {"observations"}:
+@@ -140,6 +156,12 @@ def _original_atom(raw: object) -> AgentEvidence:
+     atom = AgentEvidence(**values)
+     if json.loads(json.dumps(asdict(atom), allow_nan=False)) != raw:
+         raise ValueError("lossy evidence reconstruction")
++    if atom.history_provenance is not None and (
++        atom.content_hash != evidence_content_hash(atom)
++        or atom.internal_locator != atom.history_provenance.result_ref
++        or atom.independent_key != atom.history_provenance.query_id
++    ):
++        raise ValueError("historical evidence identity mismatch")
+     return atom
+ 
+ 
+diff --git a/intelligence/services/research_contract.py b/intelligence/services/research_contract.py
+index 349288bbb..5b1adfc49 100644
+--- a/intelligence/services/research_contract.py
++++ b/intelligence/services/research_contract.py
+@@ -838,6 +838,9 @@ class RequiredOutput:
+     grounding_mode: GroundingMode = "evidence"
+     # W2：静态预检 / 动态不可达降级预置的缺口声明。空串表示没有预置。
+     preplaced_gap: str = ""
++    # History is an operation-scoped contract, not a blanket capability grant.
++    # Empty means this output accepts ordinary evidence only.
++    allowed_history_operations: tuple[str, ...] = ()
+ 
+ 
+ @dataclass(frozen=True)
+@@ -992,6 +995,9 @@ class ResearchTaskContract:
+                     required=bool(raw.get("required", True)),
+                     grounding_mode=str(raw.get("grounding_mode") or "evidence"),
+                     preplaced_gap=str(raw.get("preplaced_gap") or ""),
++                    allowed_history_operations=tuple(
++                        str(item) for item in raw.get("allowed_history_operations", ())
++                    ) if isinstance(raw.get("allowed_history_operations", ()), (list, tuple)) else (),
+                 )
+             )
+         capabilities = value.get("allowed_capabilities", ())
+diff --git a/intelligence/services/research_state.py b/intelligence/services/research_state.py
+index b732d609d..9568a7cbe 100644
+--- a/intelligence/services/research_state.py
++++ b/intelligence/services/research_state.py
+@@ -28,6 +28,8 @@ class EvidenceObservation:
+     independent_key: str = ""
+     freshness: str = "unknown"
+     content_hash: str = ""
++    # Optional structured source identity; unlike detail this is machine-checkable.
++    provenance: dict[str, object] = field(default_factory=dict)
+ 
+ 
+ @dataclass
+diff --git a/intelligence/services/run_store.py b/intelligence/services/run_store.py
+index f8689ac27..413080d3c 100644
+--- a/intelligence/services/run_store.py
++++ b/intelligence/services/run_store.py
+@@ -542,24 +542,39 @@ class RunStore:
+                 self._write_run(run)
+                 return artifact
+ 
+-    def read_history_artifact(self, run_id: str, filename: str) -> dict[str, Any]:
+-        """Read only a registered, public original owned by this store's user."""
++    def read_history_artifact(
++        self,
++        run_id: str,
++        filename: str,
++        *,
++        conversation_id: str | None = None,
++    ) -> dict[str, Any]:
++        """Read one registered public original with optional conversation binding.
++
++        The conversation check belongs in this same read transaction as the
++        registration and byte-integrity checks. Callers that need a
++        conversation-scoped reference must pass ``conversation_id``; the
++        legacy direct-reader contract remains user-scoped when it is omitted.
++        """
+         with self._state_lock:
+-            run, run_dir = self._history_run(run_id)
+-            path = self._history_path(run_dir, filename)
+-            registered = [a for a in run.artifacts if a.get("path") == filename]
+-            if len(registered) > 1:
+-                raise ValueError("history artifact integrity: duplicate registration")
+-            if (
+-                not registered
+-                or artifact_visibility(registered[0]) != "public"
+-                or registered[0].get("downloadable", True) is not True
+-            ):
+-                raise FileNotFoundError(f"history artifact not available: {filename}")
+-            data = self._verified_history_bytes(path, registered[0])
+-            payload = json.loads(data)
+-            self._history_json_bytes(payload)
+-            return payload
++            # Validate the directory before opening its lock, then reload under it.
++            self._history_run(run_id, conversation_id=conversation_id)
++            with self._run_state_lock(run_id):
++                run, run_dir = self._history_run(run_id, conversation_id=conversation_id)
++                path = self._history_path(run_dir, filename)
++                registered = [a for a in run.artifacts if a.get("path") == filename]
++                if len(registered) > 1:
++                    raise ValueError("history artifact integrity: duplicate registration")
++                if (
++                    not registered
++                    or artifact_visibility(registered[0]) != "public"
++                    or registered[0].get("downloadable", True) is not True
++                ):
++                    raise FileNotFoundError(f"history artifact not available: {filename}")
++                data = self._verified_history_bytes(path, registered[0])
++                payload = json.loads(data)
++                self._history_json_bytes(payload)
++                return payload
+ 
+     def read_episode_artifact(self, run_id: str, *, conversation_id: str) -> tuple[dict[str, Any], str]:
+         """Read one owned, registered private original; never follow caller paths."""
+@@ -615,7 +630,9 @@ class RunStore:
+         with _file_transaction_lock(path):
+             yield
+ 
+-    def _history_run(self, run_id: str) -> tuple[Run, Path]:
++    def _history_run(
++        self, run_id: str, *, conversation_id: str | None = None,
++    ) -> tuple[Run, Path]:
+         if not isinstance(run_id, str) or not run_id:
+             raise ValueError("invalid history run path")
+         run_dir = self.run_dir(run_id)
+@@ -625,8 +642,14 @@ class RunStore:
+         if run_path.is_symlink():
+             raise ValueError("invalid history run metadata path")
+         if not run_path.is_file():
++            if conversation_id is not None:
++                raise ValueError("history artifact is outside this conversation")
+             raise FileNotFoundError(f"run not found: {run_id}")
+         run = self.load_run(run_id)
++        if conversation_id is not None and (
++            run.user != self.user_id or run.session_id != conversation_id
++        ):
++            raise ValueError("history artifact is outside this conversation")
+         if run.user != self.user_id:
+             raise PermissionError("history artifact belongs to another user")
+         if run.run_id != run_id:

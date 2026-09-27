@@ -1,0 +1,44 @@
+83:def _history_root(tmp_path):
+104:def _registry(tmp_path, question="这一波农业是怎么走出来的？"):
+116:    run = store.create_run(question, "ask", session_id="conversation-history")
+117:    session = HistorySession(store, run.run_id, "conversation-history")
+126:        tuple(history_tool_specs(frame, context, path, session))
+128:    return registry, context, session
+134:    registry, context, session = _registry(tmp_path)
+149:    payload = session.read(ref)
+161:        session.read("another-run/history-query-any.json")
+167:    registry, context, session = _registry(
+200:    assert history_tool_specs(frame, context, tmp_path / "absent.duckdb", None) == []
+210:    registry, context, session = _registry(tmp_path)
+217:                history_tool_specs(
+221:                    kwargs.get("history_session"),
+229:        history_session=api._history_session_for_run(
+230:            session.store, session.run_id, session.conversation_id
+237:    assert received[-1]["history_session"].run_id == session.run_id
+240:    assert "history_session" not in received[-1]
+243:def _history_user_records(question):
+295:    registry, context, session = _registry(tmp_path)
+336:    run2 = session.store.create_run(
+337:        "再看反例", "ask", session_id=session.conversation_id
+339:    session2 = HistorySession(session.store, run2.run_id, session.conversation_id)
+344:            history_tool_specs(
+348:                session2,
+352:    revised = deepcopy(session.read(ref)["draft"])
+367:    stored = session2.read(saved.telemetry["result_ref"])["draft"]
+369:    assert session.read(ref)["draft"]["revision"] == 1
+375:    registry, context, session = _registry(tmp_path)
+378:        run = session.store.create_run(
+379:            str(i), "ask", session_id=session.conversation_id
+381:        s = HistorySession(session.store, run.run_id, session.conversation_id)
+383:    newest = HistorySession(session.store, run.run_id, session.conversation_id)
+411:    registry, context, session = _registry(tmp_path)
+431:            history_tool_specs(
+432:                frame, earlier, tmp_path / "db" / "market_feature_store.duckdb", session
+449:    registry, context, session = _registry(
+460:        history_session=session,
+476:def test_precreated_second_session_cannot_reset_case_lineage(tmp_path):
+483:    registry, context, session = _registry(tmp_path)
+484:    run2 = session.store.create_run(
+485:        "这一波农业是怎么走出来的？", "ask", session_id=session.conversation_id
+487:    second = HistorySession(session.store, run2.run_id, session.conversation_id)
+492:            history_tool_specs(

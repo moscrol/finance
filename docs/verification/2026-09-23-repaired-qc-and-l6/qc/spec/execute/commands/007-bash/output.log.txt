@@ -1,0 +1,12 @@
+28:class HTTPDeadlineExceeded(RuntimeError):
+75:    def __init__(self, process: subprocess.Popen, expires_at: float, is_cancelled=None, observer=None):
+78:        self.is_cancelled = is_cancelled
+87:        if self.is_cancelled is not None and self.is_cancelled():
+91:            raise HTTPDeadlineExceeded()
+99:                min(remaining, 0.05) if self.is_cancelled is not None else remaining,
+213:def urlopen(request, timeout: float, *, deadline=None, is_cancelled=None, loopback_only: bool = False, observer=None):
+225:        raise HTTPDeadlineExceeded()
+226:    if is_cancelled is not None and is_cancelled():
+237:        raise HTTPDeadlineExceeded()
+243:    response = HTTPResponse(process, expires_at, is_cancelled, observer)
+264:    timer = threading.Timer(remaining, os._exit, args=(124,))

@@ -1,7 +1,7 @@
 import json
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -676,11 +676,17 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
 
 
-def _glm_thinking_adapter(monkeypatch, tmp_path: Path, *, model: str, effort: str | None):
+def _glm_thinking_adapter(
+    monkeypatch, tmp_path: Path, *, model: str, effort: str | None, effort_by_model: str | None = None
+):
     if effort is None:
         monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
     else:
         monkeypatch.setenv("LLM_REASONING_EFFORT", effort)
+    if effort_by_model is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", effort_by_model)
     monkeypatch.delenv("ASK_SYNTHESIS_RESERVE_FLOOR", raising=False)
     providers = (
         app_module.LLMProvider(
@@ -750,6 +756,29 @@ def test_continuous_adapter_keeps_tier_reserve_for_sol_and_non_thinking_glm(
         glm_unset._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
         == 75.0
     )
+
+
+def test_continuous_adapter_budgets_read_the_per_model_effort_like_the_payload(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """按模型设的推理档必须同时进请求体与时限表：链首命中 max 就取 240 / 200 的地板；
+    只给判官设低档时写手链首不命中，预算逐字节同前（与全局未设一致）。"""
+
+    head_max = _glm_thinking_adapter(
+        monkeypatch, tmp_path, model="glm-5.3-flash", effort=None, effort_by_model="glm-5.3-flash:max"
+    )
+    assert head_max._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 240.0
+    assert head_max._repair_seconds_cap == 200.0
+
+    judge_only = _glm_thinking_adapter(
+        monkeypatch, tmp_path, model="glm-5.3", effort=None, effort_by_model="glm-5.3-flash:low"
+    )
+    unset = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3", effort=None)
+    for tier, question_type in (("max", "theme_analysis"), ("standard", "market_cause")):
+        assert judge_only._synthesis_reserve_for_task(
+            tier=tier, question_type=question_type
+        ) == unset._synthesis_reserve_for_task(tier=tier, question_type=question_type)
+    assert judge_only._repair_seconds_cap == unset._repair_seconds_cap
 
 
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
@@ -2236,6 +2265,9 @@ def test_readiness_fails_when_rag_query_protocol_is_incompatible(
             supported_options=("--k", "--mode"),
             missing_required_options=("--json",),
             warning="RAG CLI 缺少必要 query 参数",
+            elapsed_ms=12,
+            timeout_seconds=5.0,
+            failure_kind="protocol_incompatible",
         ),
     )
 
@@ -2248,6 +2280,91 @@ def test_readiness_fails_when_rag_query_protocol_is_incompatible(
     assert payload["checks"]["rag_query_protocol"] is False
     assert payload["missing_critical"] == ["rag_query_protocol"]
     assert payload["rag"]["missing_required_options"] == ["--json"]
+    assert payload["rag"]["elapsed_ms"] == 12
+    assert payload["rag"]["timeout_seconds"] == 5.0
+    assert payload["rag"]["failure_kind"] == "protocol_incompatible"
+
+
+@pytest.mark.parametrize("endpoint", ["/api/readiness", "/api/health/ready"])
+def test_readiness_exposes_safe_real_probe_timeout(client, monkeypatch, endpoint) -> None:
+    run = app_module.kb_rag.subprocess.run
+    probe_calls = []
+
+    def fail_help(cmd, **kwargs):
+        if cmd[-2:] == ["query", "--help"]:
+            probe_calls.append(kwargs["timeout"])
+            raise app_module.kb_rag.subprocess.TimeoutExpired(
+                cmd, kwargs["timeout"], output="secret-out", stderr="secret-err"
+            )
+        return run(cmd, **kwargs)
+
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", fail_help)
+    response = client.get(endpoint)
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["missing_critical"] == ["rag_query_protocol"]
+    assert payload["rag"]["failure_kind"] == "timeout"
+    assert payload["rag"]["timeout_seconds"] == 5.0
+    assert isinstance(payload["rag"]["elapsed_ms"], int)
+    assert payload["rag"]["elapsed_ms"] >= 0
+    assert payload["rag"]["supported_options"] == []
+    assert payload["rag"]["available"] is False
+    assert "secret" not in response.text
+    assert probe_calls == [5]
+
+
+@pytest.mark.parametrize("failure", ["timeout", "code_changed"])
+def test_readiness_shares_inflight_failure_and_rechecks_after_completion(client, monkeypatch, failure):
+    entered, joined, release = threading.Event(), threading.Event(), threading.Event()
+    original_run = app_module.kb_rag.subprocess.run
+    original_identity = app_module.kb_rag._probe_code_identity
+    changed = threading.Event()
+    calls = []
+
+    class ObservedFuture(Future):
+        def result(self, timeout=None):
+            joined.set()
+            return super().result(timeout=timeout)
+
+    def run(cmd, **kwargs):
+        if cmd[-2:] != ["query", "--help"]:
+            return original_run(cmd, **kwargs)
+        calls.append(cmd)
+        entered.set()
+        assert release.wait(3)
+        if failure == "timeout":
+            raise app_module.kb_rag.subprocess.TimeoutExpired(cmd, 5, stderr="secret-error")
+        changed.set()
+        return app_module.kb_rag.subprocess.CompletedProcess(
+            cmd, 0, " ".join(app_module.kb_rag.REQUIRED_QUERY_OPTIONS), "",
+        )
+
+    monkeypatch.setattr(app_module.kb_rag, "Future", ObservedFuture)
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", run)
+    monkeypatch.setattr(app_module.kb_rag, "_probe_code_identity", lambda root: (
+        original_identity(root) + ("changed" if changed.is_set() else "")
+    ))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        try:
+            owner = pool.submit(client.get, "/api/readiness")
+            assert entered.wait(3)
+            follower = pool.submit(client.get, "/api/health/ready")
+            assert joined.wait(3)
+        finally:
+            release.set()
+        responses = [owner.result(5), follower.result(5)]
+    assert len(calls) == 1
+    for response in responses:
+        assert response.status_code == 503
+        assert response.json()["missing_critical"] == ["rag_query_protocol"]
+        assert response.json()["rag"]["failure_kind"] == failure
+        assert "secret" not in response.text
+    assert not app_module.kb_rag._PROBE_FLIGHTS
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", original_run)
+    later = client.get("/api/readiness")
+    assert later.status_code == 200
+    assert "shared_inflight" not in later.json()["rag"]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(

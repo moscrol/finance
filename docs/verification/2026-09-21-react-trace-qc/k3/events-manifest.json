@@ -1,0 +1,7 @@
+{
+  "original": "/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/k3/events.jsonl",
+  "original_sha256": "46f323d891676767ab0d0aa3f96fdcfdf4a1315dee4d04478f32d3fbb39d5773",
+  "compact_sha256": "afb677e429aaa332880d3379d8b0c94f31cb9c134c33614929646f3c7a65044f",
+  "rule": "session/tool_execution_start/tool_execution_end/auto_retry_start plus message_end stopReason=error; no streaming deltas or duplicated agent_end array",
+  "records": 37
+}

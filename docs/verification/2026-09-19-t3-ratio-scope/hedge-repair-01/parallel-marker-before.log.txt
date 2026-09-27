@@ -1,0 +1,45 @@
+................................F.F.                                     [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260919T082539Z-58f38d89.json
+
+=================================== FAILURES ===================================
+_ test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.588\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002] _
+
+draft = '含金量对照：2026中报 2025中报分别为1.588与0.289，实际为1.587。'
+
+    @pytest.mark.parametrize("draft", [
+        "2026中报含金量待核对，实际为1.588，该值为1.587。",
+        "2026中报含金量为1.588，另有1.587。",
+        "2026中报含金量待核对，实际为1.588，另有1.587。",
+        "含金量对照：2026中报 2025中报分别为待核对与0.289，实际为1.587。",
+        "含金量对照：2026中报 2025中报分别为1.588与0.289，实际为1.587。",
+    ])
+    def test_located_or_parallel_value_does_not_exempt_residual_numbers(draft):
+        findings = calculation_copy_findings(draft, _financial_evidence())
+        assert findings
+        kept = remove_findings(draft, findings)
+        assert "1.587" not in kept or MARK in kept
+>       assert remove_findings(kept, calculation_copy_findings(kept, _financial_evidence())) == kept
+E       AssertionError: assert '含金量对照：2026中报...289，实际为1.587。' == '含金量对照：2026中报...289，实际为1.587。'
+E         
+E         - 含金量对照：2026中报 〔比率对应关系待核对〕2025中报分别为1.588与0.289，实际为1.587。
+E         ?                                  ^^^^^
+E         + 含金量对照：2026中报 〔比率对应关系待核对〕2025中报分别为待核对与0.289，实际为1.587。
+E         ?                                  ^^^
+
+intelligence/tests/test_research_delivery_ratio_scope.py:95: AssertionError
+________ test_parallel_list_binding_survives_a_local_uncertainty_marker ________
+
+    def test_parallel_list_binding_survives_a_local_uncertainty_marker():
+        draft = f"含金量对照：2026中报 {MARK}2025中报分别为1.588与0.289，实际为1.587。"
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert findings and {f.code for f in findings} == {"calculation_value_unlocated"}
+E       AssertionError: assert ((DeliveryFinding(start=33, end=38, code='calculation_value_mismatch', replacement='待核对'), DeliveryFinding(start=24, end=24, code='calculation_value_unlocated', replacement='')) and {'calculation...ue_unlocated'} == {'calculation...ue_unlocated'}
+E         
+E         Extra items in the left set:
+E         'calculation_value_mismatch'
+E         Use -v to get more diff)
+
+intelligence/tests/test_research_delivery_ratio_scope.py:111: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_located_or_parallel_value_does_not_exempt_residual_numbers[\u542b\u91d1\u91cf\u5bf9\u7167\uff1a2026\u4e2d\u62a5 2025\u4e2d\u62a5\u5206\u522b\u4e3a1.588\u4e0e0.289\uff0c\u5b9e\u9645\u4e3a1.587\u3002]
+FAILED intelligence/tests/test_research_delivery_ratio_scope.py::test_parallel_list_binding_survives_a_local_uncertainty_marker
+2 failed, 34 passed in 0.29s

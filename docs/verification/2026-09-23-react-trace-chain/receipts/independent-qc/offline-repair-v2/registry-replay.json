@@ -1,0 +1,25 @@
+{
+  "scope": "HOST_TOOLING_DIAGNOSIS_NOT_REVIEWER_EXECUTION",
+  "model_requests": 0,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/after.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/probe_c5_registry_pages.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/tmp/registry-replay"
+  ],
+  "exit_code": 0,
+  "probe_source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/probes/probe_c5_registry_pages.py",
+  "probe_copy_sha256": "d893e688dfbc1e5e3a64ea7b105b7dd99d489b219215239ee459ec5e7944c4be",
+  "probe_bytes_unchanged": true,
+  "output_sha256": "790a42237a3984060c86e1c79f113afdba63f8e87fcf18005e87d928dca6bce4",
+  "old_failures_preserved": true,
+  "independent_qc_still_blocked": true
+}

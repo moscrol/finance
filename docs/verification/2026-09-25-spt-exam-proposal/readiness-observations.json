@@ -1,0 +1,28 @@
+{
+  "scope": "two_readonly_observations_not_recovery_or_stability_acceptance",
+  "observations": [
+    {
+      "response_timestamp": "2026-09-25T00:29:08+08:00",
+      "source": "terminal_jq_summary_only",
+      "raw_response_saved": false,
+      "http_status": null,
+      "status": "not_ready",
+      "missing_critical": ["rag_query_protocol", "market_data_consistency"],
+      "market_data_consistency": false,
+      "rag_failure_cause": "UNKNOWN"
+    },
+    {
+      "response_timestamp": "2026-09-25T00:32:32+08:00",
+      "source": "readiness.json_and_readiness-http.txt",
+      "raw_response_saved": true,
+      "http_status": 503,
+      "status": "not_ready",
+      "missing_critical": ["market_data_consistency"],
+      "market_data_consistency": false,
+      "rag_query_protocol_compatible": true,
+      "rag_warning": "legacy query protocol; optional options missing"
+    }
+  ],
+  "production_changes_made": false,
+  "root_cause_established": false
+}

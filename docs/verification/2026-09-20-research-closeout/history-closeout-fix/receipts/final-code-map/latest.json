@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-closeout-0920",
+  "revision": "7e5f2ccdfdb8a80c2248f7a04b42afe3805311df",
+  "branch": "fix/history-closeout-0920",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_code_map.py",
+  "counts": {
+    "passed": 42,
+    "failed": 0,
+    "error": 0,
+    "skipped": 3
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T05:08:31+00:00"
+}

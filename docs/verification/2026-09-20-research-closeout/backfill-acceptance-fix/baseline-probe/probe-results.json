@@ -1,0 +1,29 @@
+[
+  {
+    "case": "control",
+    "rc": 0,
+    "verdict": "PASS",
+    "failed": [],
+    "output_exists": true,
+    "checks": 37,
+    "stderr_tail": ""
+  },
+  {
+    "case": "spec_other_code",
+    "rc": 0,
+    "verdict": "PASS",
+    "failed": [],
+    "output_exists": true,
+    "checks": 37,
+    "stderr_tail": ""
+  },
+  {
+    "case": "huge_numeric_pin",
+    "rc": 1,
+    "verdict": null,
+    "failed": null,
+    "output_exists": false,
+    "checks": 0,
+    "stderr_tail": "Traceback (most recent call last):\n  File \"/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py\", line 724, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py\", line 423, in main\n    bad = _validate_receipt(tag, r, want, args.expected_revision)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py\", line 260, in _validate_receipt\n    req(_is_num(tp[k]), f\"spec.pinned_technical_0911.{k}\")\n        ^^^^^^^^^^^^^^\n  File \"/Users/a77/fwp-wt-backfill-acceptance-closeout-0920/scripts/verify_302132_backfill_acceptance.py\", line 132, in _is_num\n    and math.isfinite(v)\n        ^^^^^^^^^^^^^^^^\nOverflowError: int too large to convert to float\n"
+  }
+]

@@ -1,0 +1,61 @@
+"""Audit stopped reviewer outputs and diagnose one fixture without changing it."""
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT/'candidate/finance-workspace-private'
+sys.path.insert(0,str(TREE))
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+records = []
+for axis in ['spec','quality']:
+    for line in (ROOT/axis/'execute/test-runs.jsonl').read_text().splitlines():
+        run = json.loads(line)
+        xml = next((a.split('=',1)[1] for a in run['command'] if a.startswith('--junitxml=')),None)
+        cases = []
+        if xml:
+            data = Path(xml).read_bytes()
+            assert hashlib.sha256(data).hexdigest() == run['junit_sha256']
+            for case in ET.fromstring(data).findall('.//testcase'):
+                status = 'failed' if case.find('failure') is not None else 'error' if case.find('error') is not None else 'skipped' if case.find('skipped') is not None else 'passed'
+                cases.append({'name':case.attrib['name'],'classname':case.attrib.get('classname'),'status':status})
+        records.append({'axis':axis,**{k:run[k] for k in ['suite','target_exit_code','counts','files','receipt']},'cases':cases})
+source = ROOT/'quality/work/probes/test_qc_c3_feedback_final.py'
+spec = importlib.util.spec_from_file_location('host_replay_c3',source)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+diagnosis = {'source':str(source),'sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'classification':'HOST_REPLAY_NOT_INDEPENDENT_COVERAGE'}
+with tempfile.TemporaryDirectory(prefix='pr832-host-c3-') as temp:
+    try:
+        module.test_invalid_tool_call_feedback_returns_to_same_episode(Path(temp))
+    except AssertionError as error:
+        trace = error.__traceback__
+        while trace and trace.tb_frame.f_code.co_name != 'test_invalid_tool_call_feedback_returns_to_same_episode':
+            trace = trace.tb_next
+        assert trace is not None
+        values = trace.tb_frame.f_locals
+        outcome, model = values['outcome'], values['model']
+        diagnosis.update(assertion_failed_at=trace.tb_lineno,tool_calls=outcome.usage.tool_calls,invalid_actions=outcome.usage.invalid_actions,
+                         llm_calls=outcome.usage.llm_calls,stop_reason=outcome.stop_reason,
+                         tool_events=[{'kind':e.kind,'payload':dict(e.payload)} for e in outcome.events if e.kind in ['tool_error','tool_result']],
+                         last_model_tool_messages=[dict(m) for m in model.calls[-1]['messages'] if m.get('role') == 'tool'],
+                         feedback_assertion_reached=False)
+    else:
+        raise AssertionError('original model assertion unexpectedly passed')
+result = {'revision':'27034ce44ed41b1af0a570c2ccc534066a1656f6','classification':'HOST_AUDIT_NO_NEW_MODEL_REQUESTS','runs':records,'c3_diagnosis':diagnosis,
+          'spec_errata':['Run 004 is the first probe suite (14P/4F); 005 is second after adding candidate-positive tests (16P/4F).',
+                         '005 C1/C4 file is 4P/1F, not all green. E5x preservation fails and remains an out-of-scope token-boundary observation in the model limits; no corrected passing C1 boundary probe exists.',
+                         '005 four failures are C1 E5x, C5 page unit helper assumptions, C6 survivor fixture count, C6 own startswith prefix helper. The truncated interpretation failure arose later at 019, not 005.'],
+          'quality_limits':['No accepted execute final deliverable and no report session. Submitted PASS_WITH_LIMITS was invalid for execute and C3 was explicitly not_verified.',
+                            'C5 fixed probe uses _result/_model_projection unit inputs; full history_tool_specs failure/no-success-registration path remains unverified by this axis.',
+                            'A mixed run with passing replacement tests is not exit0; do not quote run027 as a green suite.',
+                            'Host diagnosis neither edits the failed assertion nor gives a model signoff.']}
+with (ROOT/'host-probe-audit.json').open('x') as stream:
+    json.dump(result,stream,ensure_ascii=False,indent=2,default=str)
+    stream.write('\n')
+print(json.dumps({'runs':len(records),'c3_diagnosis':diagnosis},ensure_ascii=False,default=str))

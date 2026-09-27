@@ -1,0 +1,87 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "baseline": "da761024ed54c46b8e650d1b86076e1f9d261ed2",
+  "contracts": [
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "role": "independent reviewer",
+  "identity_before": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "identity_after": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "inputs_sha256": {
+    "review.mjs": "4c13b1824875f57dc6f74e5be34e69a2fa193a6f6c06b45dcb097e8df84713f6",
+    "file_tool.py": "e4d05b866120b07aa917a896940605aab16b0b0bb52467ba7f48421ccc262e92",
+    "preflight.mjs": "d4c1e1f0a468a4ef6e1f394cab5387ac40d4cefce8cc714e93e1cd25e03363bb",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "tools.sb": "6ce9fea06cdb00a8452c08d3c3f683fef30c6b804778c02f87c9562199fae1d3",
+    "prompt.md": "fd92a284839f647fced58d71046254c7a6e68b6e54b481d3f8d9ed8fa0f2fef2",
+    "config.json": "2519d110706da0fe4c77813aa9c979919ed185967ac480211afdcf96210819ae",
+    "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "pi-config/settings.json": "bcd27e52f5ffdd3a19890f35f71a586d6824ca259704c2a630d7ea7c59242f7f",
+    "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+  },
+  "provider_requests": 33,
+  "max_requests": 33,
+  "report_structurally_complete": true,
+  "reviewer_verdict": "BLOCKED",
+  "execution": {
+    "command": [
+      "/Users/a77/.finance-runtime/reviews/pr884-toolchain-20260923/node_modules/.bin/node",
+      "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js",
+      "--provider",
+      "mirasim-kimi",
+      "--model",
+      "kimi-k3",
+      "--thinking",
+      "medium",
+      "--models",
+      "mirasim-kimi/kimi-k3",
+      "--no-session",
+      "--no-extensions",
+      "-e",
+      "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-b/review.mjs",
+      "--no-skills",
+      "--no-prompt-templates",
+      "--no-context-files",
+      "--no-themes",
+      "--no-approve",
+      "--offline",
+      "--tools",
+      "read,bash,write",
+      "--mode",
+      "json",
+      "-p",
+      "--",
+      "<prompt.md>"
+    ],
+    "started_at": "2026-09-23T11:00:33.855655+00:00",
+    "timeout_seconds": 1200,
+    "pid": 80086,
+    "exit_code": 0,
+    "elapsed_seconds": 505.724,
+    "stdout_sha256": "4da6d4e4b6a5da1353ab8af1c2dfc2de8c8b8a896c9bfbe21834ad7e118c0175",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [],
+  "usage": {
+    "input": 76355,
+    "output": 15585,
+    "cacheRead": 933590,
+    "cacheWrite": 0,
+    "totalTokens": 1025530
+  },
+  "host_evidence_acceptance": "PENDING",
+  "report_sha256": "69898d3191917a1d37755ac14ea4f6212450409a63418d190296a31c1a3a524b"
+}

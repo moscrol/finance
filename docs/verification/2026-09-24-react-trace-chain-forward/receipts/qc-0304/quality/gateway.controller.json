@@ -1,0 +1,22 @@
+{
+  "stage": "gateway",
+  "status": "COMPLETE",
+  "max_requests": 4,
+  "automatic_retries": 0,
+  "shim_sha256": "f89f82aace152d357a2791fb3cd3894e8f389e81af51a03d8df1ef241ed5c48c",
+  "shim_exit": 0,
+  "shim_counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 4,
+    "dispatched": 4,
+    "dropped_temperature": 0,
+    "failed": 0,
+    "requests": 4,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "elapsed_seconds": 15.937959457980469,
+  "stage_status": "PASS",
+  "request_counts_agree": true
+}

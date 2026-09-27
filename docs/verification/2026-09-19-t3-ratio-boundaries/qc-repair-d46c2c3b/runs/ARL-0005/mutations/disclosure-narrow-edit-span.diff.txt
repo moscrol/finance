@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index e3d5a090..93b359cc 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -123,7 +123,7 @@ def disclosure_absence_findings(text: str, traces: Sequence[ProviderTrace]) -> t
+         collapsed_gap = incomplete and bool(re.search(r"(?:窗口|期间|期内|本期).*无.*公告.*即无", value))
+         if search_claim or collapsed_gap:
+             findings.extend(
+-                DeliveryFinding(clause.start() + start, clause.start() + end, "disclosure_absence_inference")
++                DeliveryFinding(clause.start(), clause.end(), "disclosure_absence_inference")
+                 for start, end in _rejected_assertion_spans(clause.group())
+             )
+     return tuple(findings)

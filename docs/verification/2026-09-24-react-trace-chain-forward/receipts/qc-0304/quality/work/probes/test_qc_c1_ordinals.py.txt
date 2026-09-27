@@ -1,0 +1,16 @@
+"""QC probes C1 & C2: E-ordinals masked, finance_query structured diagnostics."""
+import sys
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+from intelligence.services.episode_protocol import strip_evidence_ordinals
+
+
+def test_c1_ordinal_masked_but_numbers_kept():
+    text = "如E1所述，涨幅为2条；E12亦然。"
+    out = strip_evidence_ordinals(text)
+    assert "E1" not in out and "E12" not in out
+    assert "2条" in out  # real numeric facts untouched
+
+
+def test_c1_plain_number_not_stripped():
+    assert strip_evidence_ordinals("共3条线索") == "共3条线索"

@@ -1,0 +1,2024 @@
+{
+  "created_at": "2026-09-19T13:04:59.013967+00:00",
+  "scope": "Single 1200s ARL-0005 retry returned CHANGES_REQUIRED but original validator rejected check_manifest; local residue 4P10F, no business fix/approval/natural QA/merge/deployment.",
+  "business_revision": "d46c2c3b10221483c811426e99ad379314289871",
+  "read_only_probe_revision": "52f6dee7e197d005442bda1da58f9f94f813c8a8",
+  "excluded_directory_names": [
+    ".pytest_cache",
+    "__pycache__",
+    "locks",
+    "registry-pinned",
+    "worktrees"
+  ],
+  "raw_bytes_preserved": true,
+  "historic_archives_verified_unchanged": [
+    {
+      "path": "docs/verification/2026-09-19-t3-retention-repair",
+      "files": 225,
+      "manifest_sha256": "121b58b69457c75f60a4481590914d6a5f16b4613783f6bdc15fadaa6ee23a89"
+    },
+    {
+      "path": "docs/verification/2026-09-19-t3-review-counterexamples",
+      "files": 796,
+      "manifest_sha256": "6b4ab61fc90e2d1b7254d5dad91c34066f64eee6c91c139a2c1a55cb4c7f08cf"
+    },
+    {
+      "path": "docs/verification/2026-09-19-t3-ratio-scope",
+      "files": 681,
+      "manifest_sha256": "fcb11922e5017569629e205166102b33fd9af85677c1ea211e86a13e5f32266e"
+    },
+    {
+      "path": "docs/verification/2026-09-19-t3-ratio-boundaries",
+      "files": 561,
+      "manifest_sha256": "eff656d2b4cfb05d3bd3b3ea3a2483cf65bfa8450547630b5c634506252249ff"
+    }
+  ],
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/archive_boundary_retry.py",
+      "archive": "archive_boundary_retry.py.txt",
+      "bytes": 3776,
+      "sha256": "a0d2aa3cdbc73de251405fbb4ccb34dfdef05b422b69c88c16047361ca65064f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-retry-closeout-outcome.json",
+      "archive": "boundary-retry-closeout-outcome.json",
+      "bytes": 11018,
+      "sha256": "74140e9abd9d5018956e46923835c3f0657d19c55ebc6816299bca4a34de4db3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/boundaries.exit",
+      "archive": "boundary-review-retry-01/boundaries.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/boundaries.json",
+      "archive": "boundary-review-retry-01/boundaries.json",
+      "bytes": 15459,
+      "sha256": "8d2a649afff77a3692cbab8961e3d571c28e0ad637508988f2f19961b3d830f0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/boundaries.stderr",
+      "archive": "boundary-review-retry-01/boundaries.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/closeout_retry.py",
+      "archive": "boundary-review-retry-01/closeout_retry.py.txt",
+      "bytes": 7293,
+      "sha256": "081150b9e9672a4e6f893457f353ae7d47b4844962acab880c0ad287d2ac5a02"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/code-map-query.json",
+      "archive": "boundary-review-retry-01/code-map-query.json",
+      "bytes": 4395,
+      "sha256": "6c2c1d443a213f034f0e8049a6e3b1f18f89b8c8a1b6676dbad180c177770332"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/diagnose_retry.py",
+      "archive": "boundary-review-retry-01/diagnose_retry.py.txt",
+      "bytes": 10151,
+      "sha256": "d44790303c575bc37eeff496d670ff811d3c8e86911f89901b264114bccd6875"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/dispatch_retry.py",
+      "archive": "boundary-review-retry-01/dispatch_retry.py.txt",
+      "bytes": 5319,
+      "sha256": "2cc4ff320cf5207c09e31886cba3b4ef63bb894a4aba7f3a4bc825e8dbc3dce9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/hedge.exit",
+      "archive": "boundary-review-retry-01/hedge.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/hedge.json",
+      "archive": "boundary-review-retry-01/hedge.json",
+      "bytes": 4714,
+      "sha256": "5c8504d193620af106d1829d89d9e4f4f0511f03789b131b9017e674c7d7196b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/hedge.stderr",
+      "archive": "boundary-review-retry-01/hedge.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/input-accounting.json",
+      "archive": "boundary-review-retry-01/input-accounting.json",
+      "bytes": 3483,
+      "sha256": "67afefca8c27ee12a3738384f709c5cae3af00c464744585dec068a84251a5c3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/post-return-diagnosis.json",
+      "archive": "boundary-review-retry-01/post-return-diagnosis.json",
+      "bytes": 25004,
+      "sha256": "e835e8232f485d48edbd427d660e722d72600d7dcc5ae46f795ca4a64162c0d3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/prepare_retry.py",
+      "archive": "boundary-review-retry-01/prepare_retry.py.txt",
+      "bytes": 7161,
+      "sha256": "5ddffb633a9b21bfa7a1fe169a4a3db3002b2003f46b720c3fdbd1fbf9109b31"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-commit.exit",
+      "archive": "boundary-review-retry-01/probe-commit.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-commit.log",
+      "archive": "boundary-review-retry-01/probe-commit.log.txt",
+      "bytes": 5665,
+      "sha256": "0660d262cf6bb206e42adb5502ac0615e72bf43e0a86ffbea0d4c17a23335cb3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-boundaries.exit",
+      "archive": "boundary-review-retry-01/probe-tip-boundaries.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-boundaries.json",
+      "archive": "boundary-review-retry-01/probe-tip-boundaries.json",
+      "bytes": 15287,
+      "sha256": "fb3a7376c6db3c370b95d7b0abb1a73a8008cce26cb53ca8a8dfdfde6f012c5c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-boundaries.stderr",
+      "archive": "boundary-review-retry-01/probe-tip-boundaries.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-hedge.exit",
+      "archive": "boundary-review-retry-01/probe-tip-hedge.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-hedge.json",
+      "archive": "boundary-review-retry-01/probe-tip-hedge.json",
+      "bytes": 4542,
+      "sha256": "d58bc979e1eedbe88c311cc3a51bd640c510b1f946bd896d84168790457a76f1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-hedge.stderr",
+      "archive": "boundary-review-retry-01/probe-tip-hedge.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-residue.exit",
+      "archive": "boundary-review-retry-01/probe-tip-residue.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-residue.json",
+      "archive": "boundary-review-retry-01/probe-tip-residue.json",
+      "bytes": 18987,
+      "sha256": "91b827743ed7586b79f816aa76eb8705f23f6257b45b966e32022fe311b07379"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-residue.stderr",
+      "archive": "boundary-review-retry-01/probe-tip-residue.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-retention.exit",
+      "archive": "boundary-review-retry-01/probe-tip-retention.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-retention.json",
+      "archive": "boundary-review-retry-01/probe-tip-retention.json",
+      "bytes": 6684,
+      "sha256": "90cac15578585f721ea08e760e72b6cc49dbaad578c12813ee904467a3d3bc29"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/probe-tip-retention.stderr",
+      "archive": "boundary-review-retry-01/probe-tip-retention.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-746b716f.exit",
+      "archive": "boundary-review-retry-01/residue-746b716f.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-746b716f.json",
+      "archive": "boundary-review-retry-01/residue-746b716f.json",
+      "bytes": 18399,
+      "sha256": "4358092defb91bb620159a19ef632fcca5394762b82416d7ceab25567ae51569"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-746b716f.stderr",
+      "archive": "boundary-review-retry-01/residue-746b716f.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-79dba348.exit",
+      "archive": "boundary-review-retry-01/residue-79dba348.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-79dba348.json",
+      "archive": "boundary-review-retry-01/residue-79dba348.json",
+      "bytes": 15354,
+      "sha256": "5fd28dfea5661a429f7a5e4a44946614f6400d214d97206b60e4b1152f4080f0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-79dba348.stderr",
+      "archive": "boundary-review-retry-01/residue-79dba348.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-d46c2c3b.exit",
+      "archive": "boundary-review-retry-01/residue-d46c2c3b.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-d46c2c3b.json",
+      "archive": "boundary-review-retry-01/residue-d46c2c3b.json",
+      "bytes": 19159,
+      "sha256": "99e451755c5b76f2b3515034fd59f767be6652437c3aa160490a9728a29e7387"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/residue-d46c2c3b.stderr",
+      "archive": "boundary-review-retry-01/residue-d46c2c3b.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/retention.exit",
+      "archive": "boundary-review-retry-01/retention.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/retention.json",
+      "archive": "boundary-review-retry-01/retention.json",
+      "bytes": 6856,
+      "sha256": "5c2f321e1c46b1fbefa45dc5eef5cf5dd78a997af8e5f5226a28771b79ba30d0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/retention.stderr",
+      "archive": "boundary-review-retry-01/retention.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/ruff-probe.exit",
+      "archive": "boundary-review-retry-01/ruff-probe.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/boundary-review-retry-01/ruff-probe.log",
+      "archive": "boundary-review-retry-01/ruff-probe.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/adapter-provenance.json",
+      "archive": "qc-retry-d46c2c3b-01/adapter-provenance.json",
+      "bytes": 753,
+      "sha256": "abe16958444a77b44992e7a4b29d8782105de37f006176ad40ef90384f175496"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/claims/ARL-0001.json",
+      "archive": "qc-retry-d46c2c3b-01/claims/ARL-0001.json",
+      "bytes": 283,
+      "sha256": "36c87d88038fea7b6fe8f8f8ac025f5ea3ec78364dca995be4c6e3b9469aeb0f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/claims/ARL-0002.json",
+      "archive": "qc-retry-d46c2c3b-01/claims/ARL-0002.json",
+      "bytes": 283,
+      "sha256": "cbb03622a69df8d1a45a7e2e4cebd7ac04079dedb0be4518e5e1d9b92b928957"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/claims/ARL-0003.json",
+      "archive": "qc-retry-d46c2c3b-01/claims/ARL-0003.json",
+      "bytes": 283,
+      "sha256": "35ba5efaeec5eba4f04053db4ee1269ce1d920b0f4ec047e10de1ea27e7b7a86"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/claims/ARL-0004.json",
+      "archive": "qc-retry-d46c2c3b-01/claims/ARL-0004.json",
+      "bytes": 283,
+      "sha256": "a8e4bc71a8e5ff9abbe58b5d66135c7cf8df9b88d1601d57f4a318b9016391f7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/claims/ARL-0005.json",
+      "archive": "qc-retry-d46c2c3b-01/claims/ARL-0005.json",
+      "bytes": 283,
+      "sha256": "3fba513ca112caedffe8d0d8442ceda944512c3f72a7d8f0f161b91b92c1ba8c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/cli-auth-settings.json",
+      "archive": "qc-retry-d46c2c3b-01/cli-auth-settings.json",
+      "bytes": 397,
+      "sha256": "0de71fe14fadb27a5a23d1213e16a8df4345114e0830476e0bfdf908fb1e8180"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/dispatch-process.json",
+      "archive": "qc-retry-d46c2c3b-01/dispatch-process.json",
+      "bytes": 15,
+      "sha256": "c1464f14094b42387738ca5e3d7c3335325550767b77b27fe3c047219022f3a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/dispatch-result.json",
+      "archive": "qc-retry-d46c2c3b-01/dispatch-result.json",
+      "bytes": 297,
+      "sha256": "161e2e45980e3238db9ebf26f697d5d9c9b304928455c095a05bbe5540b08160"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/dispatch.log",
+      "archive": "qc-retry-d46c2c3b-01/dispatch.log.txt",
+      "bytes": 412,
+      "sha256": "cb5238c48031e12c1854f722c57568197c525224c5565fdcc84b3bf59a87e63f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/inherited-chain.json",
+      "archive": "qc-retry-d46c2c3b-01/inherited-chain.json",
+      "bytes": 5849,
+      "sha256": "10ea01ffc4bfb4feb540cf0754b2b26d05efa8c6429db49037201ac3448c3188"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-invalid/invalid-verdict.json",
+      "archive": "qc-retry-d46c2c3b-01/prior-invalid/invalid-verdict.json",
+      "bytes": 45671,
+      "sha256": "a9a4102e7145e867c2ef87189613e652e56d709ab081ea1033d4ea453ef0acab"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-invalid/invocation-result.json",
+      "archive": "qc-retry-d46c2c3b-01/prior-invalid/invocation-result.json",
+      "bytes": 601,
+      "sha256": "b1ff9f4e7c8c4cf94c68580920bfd862e76acfc0745a5c3327549b7df0b6cbf7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-timeout/dispatch-result.json",
+      "archive": "qc-retry-d46c2c3b-01/prior-timeout/dispatch-result.json",
+      "bytes": 237,
+      "sha256": "5c64acf5277ed2a14a95ebbd4f335fc0e6044f42bba44da27a1836f3c189530d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-timeout/invocation-result.json",
+      "archive": "qc-retry-d46c2c3b-01/prior-timeout/invocation-result.json",
+      "bytes": 602,
+      "sha256": "c300a259afc682ffcb47ff19e9801331cff94cd4b7c1e007171f9b432c6464c1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-timeout/invocation.json",
+      "archive": "qc-retry-d46c2c3b-01/prior-timeout/invocation.json",
+      "bytes": 479,
+      "sha256": "ba89939b10b28463efe760a6ceb25439ccc0174cc547f0a399f2cea56abdac24"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-timeout/reviewer-stderr.log",
+      "archive": "qc-retry-d46c2c3b-01/prior-timeout/reviewer-stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/prior-timeout/reviewer-stream.jsonl",
+      "archive": "qc-retry-d46c2c3b-01/prior-timeout/reviewer-stream.jsonl",
+      "bytes": 191353,
+      "sha256": "e58aaf8e1b3b6002383f2ab997806c988648db6cccceda34c30b1d4dedb9da48"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/qc_repair_once.py",
+      "archive": "qc-retry-d46c2c3b-01/qc_repair_once.py.txt",
+      "bytes": 21370,
+      "sha256": "b3a8431e9e1e7845f418ebb48148986dadc9985e8332413898da6b4a59bb5e94"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/requests/ARL-0001.json",
+      "archive": "qc-retry-d46c2c3b-01/requests/ARL-0001.json",
+      "bytes": 3084,
+      "sha256": "f788d85a8717eb73aa5d33476317ea4e9ae85def9fc1084213908fb9c69646be"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/requests/ARL-0002.json",
+      "archive": "qc-retry-d46c2c3b-01/requests/ARL-0002.json",
+      "bytes": 102661,
+      "sha256": "18e1ee2b6e6d564b8e2c71a4ebb74e13c109ae0fbbf04782d02b584ab41e3e0a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/requests/ARL-0003.json",
+      "archive": "qc-retry-d46c2c3b-01/requests/ARL-0003.json",
+      "bytes": 104954,
+      "sha256": "c08e93ed354460983e2fc2c55f3c535a815189a28a07b16662689046427c6c79"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/requests/ARL-0004.json",
+      "archive": "qc-retry-d46c2c3b-01/requests/ARL-0004.json",
+      "bytes": 545856,
+      "sha256": "ed52088dda5b401ec1289bbe225cfa2bbd8c3191ec67baa9b4ef1a768495b84f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/requests/ARL-0005.json",
+      "archive": "qc-retry-d46c2c3b-01/requests/ARL-0005.json",
+      "bytes": 1023566,
+      "sha256": "5fa3e7b7215bc83243e5f4a3e429cbca7770c791579cdce5d27d7a9cd13169d6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/retry-policy.json",
+      "archive": "qc-retry-d46c2c3b-01/retry-policy.json",
+      "bytes": 923,
+      "sha256": "48993d06b857ef4a2dbd3b0b37dc733ad15feb4ef166c691446c0b9e2a4414c7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/adapter-process.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/adapter-process.json",
+      "bytes": 19,
+      "sha256": "3c596d1e4b69a90130c0a69528ff83fa7e7a9356a148239f3c3f2c27769ac539"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/artifact-tests.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/artifact-tests.log.txt",
+      "bytes": 1628,
+      "sha256": "66ce143930f228fab30473c423904f5fd4cbafaca892d4c6fd3f7b5d5440f0da"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/claimed-request.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/claimed-request.json",
+      "bytes": 291,
+      "sha256": "d5e7b51dd7a261e19b489818c63e8c9a2edb9a761f3f3eef138ee379ccf2e12e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/git-diff-check-all.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/git-diff-check-all.log.txt",
+      "bytes": 986511,
+      "sha256": "85b4ce547f26df0af8f5461e6eb75015efee2ada3b3bc5a0924948ca86817c05"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/git-diff-check-archive-docs.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/git-diff-check-archive-docs.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/git-diff-check-fresh.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/git-diff-check-fresh.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/invalid-verdict.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/invalid-verdict.json",
+      "bytes": 29931,
+      "sha256": "64647e94587131c12211ef805fc277a97fc61aea2cb2f90afa3879d03d4caefd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/invocation-result.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/invocation-result.json",
+      "bytes": 603,
+      "sha256": "a3693fec15d87a8501a2bf69dcde44cd110d079b88db13b14d8f76ffc0d0336e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/invocation.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/invocation.json",
+      "bytes": 480,
+      "sha256": "d6137349b1c9377dfe5d57079955a27bd6d1832eecf1f18b50b009bd2cd6f6e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/baseline.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/baseline.log.txt",
+      "bytes": 1812,
+      "sha256": "26f94b34bbdb0b828938b04d92ddf1b73ce66aeec6b9574df2ece1ea1b9a2942"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/baseline.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/baseline.xml",
+      "bytes": 135733,
+      "sha256": "7f2e303f6fd238eff9040c6265151fdd4b3e9be619db151192bcb2b8261f0a55"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-green.log.txt",
+      "bytes": 1372,
+      "sha256": "900c50cf9559b1173e30dea541ed23e19d24f30ebb4c190a3f0c12f3e47c84cd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-green.xml",
+      "bytes": 729,
+      "sha256": "66b32a055b00145c0f3ecb32b9bc05e038c80d3148c70b22fa3053060f8db156"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-red.log.txt",
+      "bytes": 4854,
+      "sha256": "cbee0f4ec825ed382913d2faf30d57f097b76c1bfc502ed34a22f787a516c457"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation-red.xml",
+      "bytes": 5582,
+      "sha256": "9cd15fa8e45da0ef205287d8012b0b1e5b59d6a10742b01542be8e8a4104fc59"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/cell-local-preservation.diff.txt",
+      "bytes": 716,
+      "sha256": "bd7d3bd39d3395005fdcd3461ced4dfc11628cfe171fdf6bc4e916518219a1aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/definitions.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/definitions.json",
+      "bytes": 16828,
+      "sha256": "c186a4f796ce0c5617caef71ed2f1f28a6ba514d15ade10b3e9a58f1980e3268"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-green.log.txt",
+      "bytes": 1304,
+      "sha256": "2465d2eb4c897b571ee46bc797329cb1c2440ae652a44072d94dbdc6996df41e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-green.xml",
+      "bytes": 3167,
+      "sha256": "32b5cc55d89dcd62a62ac87dc4212fd78fb41ffaeb1578241ccf094ac99d673f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-red.log.txt",
+      "bytes": 2614,
+      "sha256": "c172bd5e4125f3c81cdd7ac6f520c9a5d5f8829c2903214fac3bdb2cf595f2aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue-red.xml",
+      "bytes": 4055,
+      "sha256": "57745c4b050cb1be60b1369648ef5c3568df821901039bd697056f415cfe3f55"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-connective-free-residue.diff.txt",
+      "bytes": 1150,
+      "sha256": "b21f6d40055dc9909ba08138431a0922ac3c86e7e2cde30f062bab5da5a33242"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-green.log.txt",
+      "bytes": 1306,
+      "sha256": "bee2a00fc563317a08fa3f3ce40f0949c027da5235061a9df8e8b4a4fce0b014"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-green.xml",
+      "bytes": 3167,
+      "sha256": "1bd3632a945d609b81888c95fd325dbd68829924a702e7189ce0a1a217dba971"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-red.log.txt",
+      "bytes": 2755,
+      "sha256": "4e3c936cca7cd29e4a53582962198d99e768cef5bb760d18659e15b542735d9e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention-red.xml",
+      "bytes": 3621,
+      "sha256": "fffb537dc4c17f39e0d5f7bb269291f081936a659af85a9e7d492326ca29f05a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-explicit-venue-retention.diff.txt",
+      "bytes": 1028,
+      "sha256": "2cee007e20924f5fb2dd7e8929a9331f2d391038fc5fd9f750a8af93b71d9926"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-green.log.txt",
+      "bytes": 1282,
+      "sha256": "5aa5127b78cfd87a8123fb7e5f9c77bae3a69097d3d2194a26cd1e7215bc9d49"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-green.xml",
+      "bytes": 1646,
+      "sha256": "8921f448b5c1c7be1d67647484fd554555d4af4e669d4bbe2935aece519260ed"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-red.log.txt",
+      "bytes": 5189,
+      "sha256": "52aa181083611ee00b266d630cd51e13b29f805166e3961d373abb9356c67649"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners-red.xml",
+      "bytes": 4355,
+      "sha256": "229da1f8677ed92f514caf47c6234fe91454a0140f2eb90f851f4ad601468197"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-extra-joiners.diff.txt",
+      "bytes": 1076,
+      "sha256": "e7bbe578d971787ff0f5c16e883d3fd5db1497b4322207770a668f431fd78ba8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-green.log.txt",
+      "bytes": 1311,
+      "sha256": "28c069b0b53be74ad4bedcadc7ed2bf071402171a922f5c79a21377ce98f4e04"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-green.xml",
+      "bytes": 3943,
+      "sha256": "d34532169009c2a818c000b6bccab5159dac35c3f4c3f4305d75ea82198e7df1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-red.log.txt",
+      "bytes": 6030,
+      "sha256": "d0dfbee73e0e67cd92129021a7b04dfd5a35501c4291305d47c7c40ed1bec45a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context-red.xml",
+      "bytes": 5329,
+      "sha256": "0626c77d8cdf720cb2ce645cc88e0f628ba1faf4686b69b17626924e9209e1d0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-keep-sentence-context.diff.txt",
+      "bytes": 873,
+      "sha256": "9cefba60f3cea917e62b525db955a778017b8020a4d04943d1a6f52ae3640709"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-green.log.txt",
+      "bytes": 1376,
+      "sha256": "0fb502940bc285b5a97999e8cb629bd9683d6d59ca15bdb635d3d4f3091d6402"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-green.xml",
+      "bytes": 6105,
+      "sha256": "ba3ad3341d801032c7ef9693b379f3ef21e25f01c021e12566c2ca3113de46b6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-red.log.txt",
+      "bytes": 18296,
+      "sha256": "69ee4fae54975f5f66ac73743e7ea12dfb5de60a81e8239a0ef26c513a7707ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span-red.xml",
+      "bytes": 22330,
+      "sha256": "39777e8278773186b7a6577c69fe153d8a0fd21270fa7b729726f2859b0bac91"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-narrow-edit-span.diff.txt",
+      "bytes": 879,
+      "sha256": "221ae6b64dd6536f31065b51e4aea61e1b53f8668299878e87d5ce1cf3c6dbb7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-green.log.txt",
+      "bytes": 1312,
+      "sha256": "e7c7359cef70cdfaca677a946a556d8661826cbfe27d41b3921219e67de7b5df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-green.xml",
+      "bytes": 3976,
+      "sha256": "8334447a84432849694bd29a5a448bed15882587d58c5685a05d62b3bfc765f5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-red.log.txt",
+      "bytes": 2288,
+      "sha256": "44a8bb59a10cc8f293f6edc121b4de4518fd60ea04ae437e42bb6bd7d6f9d0a4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording-red.xml",
+      "bytes": 4178,
+      "sha256": "34d1864d3fa347e2beb54ab32016d48df55abfa20b6f6a93cd6b5987fc6139b0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-new-announcement-wording.diff.txt",
+      "bytes": 1168,
+      "sha256": "6406e2fdbc45acbfc601e7afd8260581c4b4e4241f427a56313c2c9b05311fa1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-green.log.txt",
+      "bytes": 1362,
+      "sha256": "2d3fef8fe3f36f7332027844945349fa3e444fc3f6002fb483fdde7cec19c271"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-green.xml",
+      "bytes": 8812,
+      "sha256": "301f36939320a5215ac7a762c72ed71449d2f3730cfabc22a076028555421f45"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-red.log.txt",
+      "bytes": 12118,
+      "sha256": "435e5d3d2c1649dc23acbf8af5f63be297246e30205cf05b065ff1b1c4e084be"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion-red.xml",
+      "bytes": 14796,
+      "sha256": "4bf1f7a65da7aed9950cca696ef3aa99900f9cb157deb98ad12b180302979488"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-no-residual-conclusion.diff.txt",
+      "bytes": 718,
+      "sha256": "e96ecb222c6db3db8161bd3ed2676446ecbfab515b178e90476dec57c8987c8c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-green.log.txt",
+      "bytes": 1300,
+      "sha256": "5b8973b781b923403993ba2dbb54e33c0e682632d85455edc0048d0e903a1346"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-green.xml",
+      "bytes": 3167,
+      "sha256": "3b06ef3ad333dfb452ded66ccc3dafe6f7b3e420f0fdaf20327ad16167d91059"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-red.log.txt",
+      "bytes": 2644,
+      "sha256": "e527f8782360d8d55c934ba49462f8a586cb1a3a52fe4560e5248337436a4329"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent-red.xml",
+      "bytes": 4083,
+      "sha256": "8eb43fd629de05d28082f54d4eacf6951256a2b4f9c09adb7e1a7fda57029da2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-nonadjacent-dependent.diff.txt",
+      "bytes": 691,
+      "sha256": "c8d0b58d8b9f4c82efbd01ee348809fbb839d01636b71096fa72280a4f354349"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-green.log.txt",
+      "bytes": 1302,
+      "sha256": "d679f0511046d5e5cbc145fde57d6fd9383656a294bf3e34caa6c4531d0f68e2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-green.xml",
+      "bytes": 3976,
+      "sha256": "3da59d152c682cdc4aeb6c8d19e61d5328455804d6e283c37853eb5ffe4cb61a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-red.log.txt",
+      "bytes": 2301,
+      "sha256": "e1ded1cd047c27d68bde14d0668cdbdb1d9bfb8877074352ab5ae54a59a2b3ed"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective-red.xml",
+      "bytes": 4506,
+      "sha256": "0eab2d461b3fa96a1f9258d2b555f40d247d1908bad87205880e68193f9a21a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/disclosure-stranded-connective.diff.txt",
+      "bytes": 774,
+      "sha256": "2094a2e08d47761d48545c04187ee38601c997830fd50401e02ad1f9f0831d1f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-green.log.txt",
+      "bytes": 1295,
+      "sha256": "b6954bb4f9fa29ae2b46347633ada64ea13ac2997d7cf83f2854d09076a0f5b7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-green.xml",
+      "bytes": 396,
+      "sha256": "413d9bdd62f0f5fc1f3b5479d07be565f14fb8804657fae0475314c4ba99f0e8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-red.log.txt",
+      "bytes": 1889,
+      "sha256": "c207ee20e90c3c0c6f6d1104141a8e6e68db8270bd5af5cfeb9bd4561dc97571"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status-red.xml",
+      "bytes": 685,
+      "sha256": "662e448441133138098fe1eb4b5fb6f50eb6d28044f76cf8e7719548ed5c0a68"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/domain-error-status.diff.txt",
+      "bytes": 831,
+      "sha256": "61700953b3c1f37d1109f1353959656216fdaa4db2daacf667b780cb4a4d2365"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-green.log.txt",
+      "bytes": 1303,
+      "sha256": "b57e2bc4fabda5b7dd3305c99fd1b3f0832c2248b04d8796173d7a65ebaa77a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-green.xml",
+      "bytes": 396,
+      "sha256": "26a0c2ed214a17fcff009a08de51a3ccf4f4f71b8879afef08cd52e751211c46"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-red.log.txt",
+      "bytes": 1897,
+      "sha256": "8583a720c5e6e10bff20d865d6d066dcb13e87bcb870796cba09b85b8a1052f7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery-red.xml",
+      "bytes": 685,
+      "sha256": "385313a209c754d35810607ffc3ef41a7f2d311a1a886aa62b614bc704f41666"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/harness-status-delivery.diff.txt",
+      "bytes": 666,
+      "sha256": "5f98a21acfa8ec15c4868a0acb287420b97f140607ee95025d161f261f9ecfaf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-green.log.txt",
+      "bytes": 1318,
+      "sha256": "0c5060cff14d6d6287cd17822eaf3d6364e2fb1eb32960fadac38a51cc8fd967"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-green.xml",
+      "bytes": 2024,
+      "sha256": "c8e161337c40eebe0dccd67d75de490b9b72185f5e77796c43e8e628a4e87e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-red.log.txt",
+      "bytes": 4570,
+      "sha256": "11c5d91b1085903e66eba4383549152da5fa67f1996171fc8bef565f56d3793d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose-red.xml",
+      "bytes": 4161,
+      "sha256": "f10a3a61f92e17678f98ebffcc55dff212c083ea3e50fdff9ed8575a752b5897"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/metric-column-not-table-purpose.diff.txt",
+      "bytes": 910,
+      "sha256": "0c3134779fa0d450d85d9a836b92268fd6f8e9b92298429c789c6d59cffc5450"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-green.log.txt",
+      "bytes": 1392,
+      "sha256": "f04aa20ec71e7e4ade004f789a55fd03469f6c254e3d792920260e00925ede63"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-green.xml",
+      "bytes": 730,
+      "sha256": "9555f890f1feca98fd1851d713fad7a0e3bd331b3a3b0e25eb5e5aa95106d681"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-red.log.txt",
+      "bytes": 6077,
+      "sha256": "48526d29e634a0924d6288b3e2d1244877df1b927247d0a823f84f182bd8e515"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified-red.xml",
+      "bytes": 8118,
+      "sha256": "5e28aaa523f40dd58f160328aa195e0de9163e5fcb79b598fa9b70b76e3fa5c4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/missing-product-not-certified.diff.txt",
+      "bytes": 594,
+      "sha256": "d27a25bc9bc78b5fe88742cf940d00d7e244e58cebc555c0b6619abf1891e705"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-green.log.txt",
+      "bytes": 1298,
+      "sha256": "97292023898b06355a6464ad49ef807b942a3a46900992cb530d9bb6b872f483"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-green.xml",
+      "bytes": 998,
+      "sha256": "8505489881024abe5c81018cbea3578a11b01dff04d9d7f8278e6d0e255907f6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-red.log.txt",
+      "bytes": 5017,
+      "sha256": "0c7414428d5d9b7b01a1337b8501b2acd23fe4ebff39359cb2dbf3d1c1ad41dd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection-red.xml",
+      "bytes": 5413,
+      "sha256": "4376dccab5bf513393de81bb7a865d487a2e847132a15cc902df9cb4b67a0d13"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/nonmaterial-final-projection.diff.txt",
+      "bytes": 748,
+      "sha256": "495a1494f43271c3900377d29478fdc49ebc42405cbe1757ce773686a765510d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-green.log.txt",
+      "bytes": 1370,
+      "sha256": "c719405301c71011a4a947d4f139014f0445b22b868897ae7a523950e7ab5e0d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-green.xml",
+      "bytes": 2178,
+      "sha256": "dbbd7c98f9efe6133ec5528a14bb8ca84b2e5d55052f00c5f22ffff0ce961135"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-red.log.txt",
+      "bytes": 4531,
+      "sha256": "ba12722d778ff717abdcdacee04b4303c78dc78529d666e25c99eac731f64cbe"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers-red.xml",
+      "bytes": 4380,
+      "sha256": "f7a96f5399a93553fdbc988a30fc8821f7be7bcd036e0c47a6992f47679c4978"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/period-not-bag-of-numbers.diff.txt",
+      "bytes": 948,
+      "sha256": "dbd06cfa7e14f985cd970caf1a2e1d21ea98ba862c95828674f919df82e0fb94"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-green.log.txt",
+      "bytes": 1377,
+      "sha256": "e8526b9d63eccbcc11be9690a35bd25c8e17c5d01017f6e43e995a1ba7cd3006"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-green.xml",
+      "bytes": 899,
+      "sha256": "0521b01922ae1efd2732561ccccc310439b9282a0143db4f447c5ef49bfaa2c1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-red.log.txt",
+      "bytes": 6447,
+      "sha256": "5a37e0bc0bbaa64a178ccf8e16469bcc93d33ddce9e807957f25084a8d65c540"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check-red.xml",
+      "bytes": 8369,
+      "sha256": "6808b1c4cd0582118c240ce4234cfcf69e4bdd749b06c3c38b81e2dca6657a0c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-calculation-check.diff.txt",
+      "bytes": 730,
+      "sha256": "80fe71abacc3eb30163b8b2fa8dd520858d791b38b9a0238f269ccbf8c407c59"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-green.log.txt",
+      "bytes": 1360,
+      "sha256": "ff784935ebdaa0c1cdff37355bfaec031280f2248a8ab9a3045094a8d031f5f2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-green.xml",
+      "bytes": 1912,
+      "sha256": "f88586629b4704899b1472b8423f2bba2dfc38ce3494c34d8f8263fe3423427e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-red.log.txt",
+      "bytes": 10296,
+      "sha256": "d731d16945a666fe710fa6660aadd3a3ff898b260df70ba8141349285d469f20"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check-red.xml",
+      "bytes": 13541,
+      "sha256": "804d5a11bf8957a97221af7b4ca55c397f7b4c39924907e355aeb3f82064138e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/public-disclosure-check.diff.txt",
+      "bytes": 733,
+      "sha256": "f99920ba373fbee50117b13b402c1946f2de9713cf04f088360e9300118a7623"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-green.log.txt",
+      "bytes": 1357,
+      "sha256": "64224a6d9059fb367047aeba0f62502658e5184d70530d9acd5b436bc4e6e33c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-green.xml",
+      "bytes": 5986,
+      "sha256": "c5645230a5b52cdeb913d071d6b30529852b2baa0dec2804b5ebd0d669e3ade7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-red.log.txt",
+      "bytes": 10398,
+      "sha256": "99058249f2046cfff40bdcb1a48bca3c09aaaf5425592a1c1dccff99e63511e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount-red.xml",
+      "bytes": 15219,
+      "sha256": "d08593fadaf57e8bea9823857bef66dc78274c24b9cf550af356c0ac71e3edb5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-compound-unit-not-amount.diff.txt",
+      "bytes": 811,
+      "sha256": "28e482bdbe4a51995a71a115f451fb07ddc2cd5057bb3e43f3653683e004e82b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-green.log.txt",
+      "bytes": 1355,
+      "sha256": "3f11b3088a376d912f2025b83af72ea21452e6dc43c0ce9801333bb88daaddc2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-green.xml",
+      "bytes": 6010,
+      "sha256": "3ad3d3d9620fd7dc787571ca2731d28111a53cf4f2356d3abc9dc1b40a01da66"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-red.log.txt",
+      "bytes": 9058,
+      "sha256": "351209a07c428f60f7118e8892555c6593914498191a86059b9c7510d757b598"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference-red.xml",
+      "bytes": 14733,
+      "sha256": "5fcc17414a5e04ab88d24d79df1c29d04c8659061025ee6155dbbf2933813d52"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-claim-not-reference.diff.txt",
+      "bytes": 768,
+      "sha256": "78582ffebc576ee1b8b7267fefe99a2be43014b3f33e835b085c8068d2c005be"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-green.log.txt",
+      "bytes": 1297,
+      "sha256": "0849476b47f6528308bd1bb477d2e710e4bb34dd52dc00c46e2c71e08f854cab"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-green.xml",
+      "bytes": 2866,
+      "sha256": "cf5d9d114292ab29309915df135738bfb3474fa0fc8643ded1b3f0c6bed56f80"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-red.log.txt",
+      "bytes": 7802,
+      "sha256": "c80fc8ea35decc7d6d1fed789a1ce7e3494ab8256c423a9e2b851fce02a3041e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked-red.xml",
+      "bytes": 11066,
+      "sha256": "68dfed10c07d90c5f9601780f859ab6d9d84780927c1206d26356626e1892d34"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-genitive-label-is-checked.diff.txt",
+      "bytes": 852,
+      "sha256": "183ac09bc91ca23a8e9f552530e07c56c242c0b8ac9f92092781230b518ec664"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-green.log.txt",
+      "bytes": 1376,
+      "sha256": "f83b86ef089dd3f24df1a113725db44b6379e525fd812278f965e7bb2c27b4ab"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-green.xml",
+      "bytes": 8243,
+      "sha256": "015911c75561dc9a64fef0b111ce66664c1c9aef1196acbf52512cda2d4a7fc3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-red.log.txt",
+      "bytes": 9505,
+      "sha256": "64609af86fe76283e184c7c4b775f5290f4ef10b1512dc350a7513d58fb6dca6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token-red.xml",
+      "bytes": 16330,
+      "sha256": "492c1bc7d948b7146c6674c14439c3a4667d886b677733f56a4180979c45f89f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-grouped-number-is-one-token.diff.txt",
+      "bytes": 680,
+      "sha256": "70283959d40c27827b651e0dd972447118f005bb9f938bdc41193187baabfb66"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-green.log.txt",
+      "bytes": 1325,
+      "sha256": "12269145a7bc006be45bdb93a4f92f58b0f6462dce1a09b6405ab475031b4d33"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-green.xml",
+      "bytes": 8086,
+      "sha256": "94bd5848e7cd8162f359b20a953ad8003074fd725ab6910686fe220cce9a27c9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-red.log.txt",
+      "bytes": 3990,
+      "sha256": "f99c32ff8423f0e55066443546da25f1e69f04bbb593617f33fcd95fb80de03f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute-red.xml",
+      "bytes": 10548,
+      "sha256": "1062bb574a3ca7961296d347fc391ebfbde17a9f4ecac5a7d7acd1967bfa897e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-independent-delta-not-absolute.diff.txt",
+      "bytes": 832,
+      "sha256": "dd0e3d477366fbd599877e9976f2fc269cac0acd82025dad9f56539851fe6455"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-green.log.txt",
+      "bytes": 1331,
+      "sha256": "552a5fff0e455513c016fd1b0b03ef7e97a60f830812cd824311c889e6054aad"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-green.xml",
+      "bytes": 1646,
+      "sha256": "f74fe9a1913e74308d3f0579f4916fe8ad273206b88a794654aee4423a726679"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-red.log.txt",
+      "bytes": 3897,
+      "sha256": "7fe26ef1fa1eedbff5abd32a32a938483788b09e0bf6092386b91bdcfce561bc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver-red.xml",
+      "bytes": 2482,
+      "sha256": "306adb217d13b713bee076a1e87e69d63ad67491a4a09e41b70d710aa86500b5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-located-value-not-blanket-waiver.diff.txt",
+      "bytes": 970,
+      "sha256": "5824a5bcd025cb729e99825d6407bbd76f6882015abc14486476f204c2c726b5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-green.log.txt",
+      "bytes": 1354,
+      "sha256": "3b2b75efc675b831baa26fbb00ab88fd9bbb54a4560ecdd6803d0e1ab684d6e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-green.xml",
+      "bytes": 1073,
+      "sha256": "bc8b50c5ad9a4cb37ae1a71c1b104141661f30029b81c71c9b944659b0992c5f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-red.log.txt",
+      "bytes": 5376,
+      "sha256": "de80733dbb6a57433a7fdc724163683191afcfa77c2402af4d36e4f3543c90ff"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position-red.xml",
+      "bytes": 5762,
+      "sha256": "acf5c4044b70f70a9489318045af5b43f9702d883558034986663f0ee26fe507"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-local-position.diff.txt",
+      "bytes": 676,
+      "sha256": "c9a4cb44958f7aa47d87b2057fa20cf4b48f4f33f6186772ceddfc411220adf3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-green.log.txt",
+      "bytes": 1327,
+      "sha256": "d2565d33fe5b67aea1eff4237fe9ce9ca117fb899868fdd0f34ce9a2d1f0ece0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-green.xml",
+      "bytes": 409,
+      "sha256": "78d3b3549d880817d9c9329c495ad3b3d034ae13ff5d984b7a03bde3baa497ea"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-red.log.txt",
+      "bytes": 1946,
+      "sha256": "b9228eb7c97e0f27d743dbc7c6e818aa8ce7946a2f72bcaa9a024b289b884d2c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review-red.xml",
+      "bytes": 699,
+      "sha256": "d5c774c0d3b5dadd5131b105a57548dee3984882a1c641cf51f14d4f1b083c62"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-marker-still-needs-review.diff.txt",
+      "bytes": 935,
+      "sha256": "3c5c5c7e5e878ed3945f153838a0d3c5e0c3e93f2fa7476f85c9497a31e8c43a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-green.log.txt",
+      "bytes": 1378,
+      "sha256": "a1d21113aec5bcac190f09d23b6d385d92e1744699c61a7745136ad075eb290b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-green.xml",
+      "bytes": 3751,
+      "sha256": "a0dbe80fb919c08ccf2d89061bb28768e1ed9bf6e4a9f009b876ecfa70877b45"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-red.log.txt",
+      "bytes": 4189,
+      "sha256": "4a652d7869c71f3fdf4ac6e545d20df2c7efc258965073f3f769db70fa656bdb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual-red.xml",
+      "bytes": 6073,
+      "sha256": "57edf423e76b09e5b13b20b9993a9e48980b017fe4b7969dd5ff7f687fbbf911"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-neighbor-period-residual.diff.txt",
+      "bytes": 857,
+      "sha256": "d90653baba4ce71ec09884439c4a1a50b4c08747684c7f145960289297e152bb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-green.log.txt",
+      "bytes": 1374,
+      "sha256": "e0773943c4e0b93a04fef12f7b1853d8c08243359ea872411a27862955d3cb52"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-green.xml",
+      "bytes": 4372,
+      "sha256": "22cb592d44ba83cf186c7cfc59f46bcd48c5960c5428307fa37aeb1065c6a2b0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-red.log.txt",
+      "bytes": 2306,
+      "sha256": "f6b778150dc705f5612462c225a53d1ad8576796b06917315fc456a633eee4db"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value-red.xml",
+      "bytes": 5082,
+      "sha256": "7a54e1f0b954df566f2a789b284eebe88421974f0c3c8ce626ad411bb119b974"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-no-period-or-count-as-value.diff.txt",
+      "bytes": 730,
+      "sha256": "ab2e70d2817f345960717d86ec2c213574de0c4cc00049efa73bdef3986f72b3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-green.log.txt",
+      "bytes": 1298,
+      "sha256": "aff96c67e14936c307f11254368454eb2dbf6137045973512ce663c9abc46063"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-green.xml",
+      "bytes": 2516,
+      "sha256": "598b10a8cf9f41f4b5590d7b352c4e6b1f2d4527a5096ed71dc5ac4c4ef37841"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-red.log.txt",
+      "bytes": 4374,
+      "sha256": "08e821bb87c9888bc8d52b8ba450e19f26636f76a41354bde0e322ad24de97f2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding-red.xml",
+      "bytes": 4764,
+      "sha256": "79684cd7aa3cf5297e285043f4fe87921afe934d1ae004523f0a95e79fab4310"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordered-period-binding.diff.txt",
+      "bytes": 844,
+      "sha256": "e0f6f006b92ffe385b16a1b5ced97dee80036585b99eaf998b52fc7daeb0125f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-green.log.txt",
+      "bytes": 1361,
+      "sha256": "7c617d92703030ead4ba7ee81894e2ad48702e641f8aa7e68721a445bd562b5a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-green.xml",
+      "bytes": 11230,
+      "sha256": "26df5ff421a28cdb613385fc45d1dc24e57638ad6a2792c0b99609e8efc887b2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-red.log.txt",
+      "bytes": 16559,
+      "sha256": "a22eb000dcc9e55f2045d407903fd3f1a3f957794ee168dd234b4be00eb9f519"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value-red.xml",
+      "bytes": 26583,
+      "sha256": "800a4b5794c3c336b7b4b5d2cb55114d633792062d06048caf6ca002a7c24a75"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ordinal-role-not-value.diff.txt",
+      "bytes": 719,
+      "sha256": "3d6afbab24ec0578ecbd7d8eb14edb6f006300cbdaf1e8ee1e51ca0fe6037450"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-green.log.txt",
+      "bytes": 1397,
+      "sha256": "0b3aa19b63af2b799ff821fce105fa3294573e4e0e7fc8ad08c8006d969949a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-green.xml",
+      "bytes": 1807,
+      "sha256": "8cdd5bd093845c83ba1a1fcbd63aa37df52606de778ef6305c3749849d36b883"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-red.log.txt",
+      "bytes": 3571,
+      "sha256": "aa1862e23539346a292e5985c89f8611870ffaff34ed1a58a0d3f8cb687ca217"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker-red.xml",
+      "bytes": 4074,
+      "sha256": "75258884c81015fced8647265539d1966753a1ff75ffe9056aad12a189b50c13"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-parallel-binding-survives-marker.diff.txt",
+      "bytes": 841,
+      "sha256": "10524bf224c75a86929e792f1822ffd259e851510e959483e259de5a7f4caedf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-green.log.txt",
+      "bytes": 1294,
+      "sha256": "e2085af9445f43f62dc92de7967d55d80d74aec30c030d1cd18a1c0691604e2b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-green.xml",
+      "bytes": 2516,
+      "sha256": "b79d28cedb2f4eb69897ecd190d8b3dc338fd5a72ad9383205a5db1bdf884f27"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-red.log.txt",
+      "bytes": 3854,
+      "sha256": "7eb1c0f8d44dccba8ba7c2328897f4854b8e2e7b1ab40156699abc44c38f86cf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup-red.xml",
+      "bytes": 4288,
+      "sha256": "1fefefefb499f66995c63886e034277e13c0b1fbf1e8105854899686898edcc5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-partial-token-markup.diff.txt",
+      "bytes": 656,
+      "sha256": "bed86d9d346998843ad8f822d3bda0cc1ef4ebcc335233ca725389a59d6955f0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-green.log.txt",
+      "bytes": 1354,
+      "sha256": "6e61449a60cfd776715b57ae681c38680a530f5840578cbb3441cbb550825c70"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-green.xml",
+      "bytes": 1071,
+      "sha256": "2aa5b73bc8f60d3f50a2d51662d1502b9a03280bc5432c1624cea4054428e1b6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-red.log.txt",
+      "bytes": 2510,
+      "sha256": "2020def4783fbab1bbd58bfde88ab4ca174e0c325a6e5b246c7fa890f80527fb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute-red.xml",
+      "bytes": 1858,
+      "sha256": "5b49874bab1f1057a1c430bc0e15b5b3764f93bc863707957d543951112223f1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-points-are-not-absolute.diff.txt",
+      "bytes": 715,
+      "sha256": "dd1cc15fa342eeb3221ba909330e4b86b8d984a6e7f628d53f3c619eb3c18bf6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-green.log.txt",
+      "bytes": 1348,
+      "sha256": "789e58101ef256f5d7b3f53b342bdfcde0683bf1341b8b936bc673ecd05ffd3b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-green.xml",
+      "bytes": 3562,
+      "sha256": "4aae8be5ef18b11b229b255813f5a941b6b1f381dc2f77a02c0b7b88b25ef67c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-red.log.txt",
+      "bytes": 10860,
+      "sha256": "a044b4117d33c5575f744a2ce5099ed1751f0fed54ab520e1c274986d6d8b3b4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value-red.xml",
+      "bytes": 10043,
+      "sha256": "67ceddf88d16c632beb7082005c654b2afdb0d48fe54fcf1be4a9db0ff6cf3b1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-local-value.diff.txt",
+      "bytes": 617,
+      "sha256": "47cb261647d1d0398cc05c1c77da877468c8df51da1783b152f4177eba6777ec"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-green.log.txt",
+      "bytes": 1304,
+      "sha256": "71703e0b4e24096fa8eb68a9980d6728d1ecef6fccdf6eb9c63988d97838e425"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-green.xml",
+      "bytes": 3262,
+      "sha256": "3d16d6269d599d983d2406776924e58659fb47c6dc0f5fb9ed5c6e2088f34e20"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-red.log.txt",
+      "bytes": 6541,
+      "sha256": "67f07bab47a9ec4c66b21d836897252ade61bf421b7af2676f9f054424edde3b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates-red.xml",
+      "bytes": 7072,
+      "sha256": "3998af1fc341a0926e4510a7bc322d78c5a9bd262b52a27c9870b286d4e51c13"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-prose-raw-coordinates.diff.txt",
+      "bytes": 771,
+      "sha256": "697484aa3c1577fd1e5501705672055390d566019e23d92a1f67d937fa8b9fa5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-green.log.txt",
+      "bytes": 1295,
+      "sha256": "a76252ef27f05320b13ab12beb6eec2c71f6f43f09d29a853718aecd495bba25"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-green.xml",
+      "bytes": 1231,
+      "sha256": "5a583c8849577c05ddd020e1c9fdeda2752a160f54b5ef5e047712bbb7500401"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-red.log.txt",
+      "bytes": 4649,
+      "sha256": "6994c726860231d7c69482aabfb2a391d54c6195a219c411aff551d727fe3169"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value-red.xml",
+      "bytes": 4239,
+      "sha256": "0e46df14cd5467e305fe45b89460f752365dd3a1ec7c3c568f70ebfeaa491e21"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-ranking-preface-value.diff.txt",
+      "bytes": 955,
+      "sha256": "c63566977bc4b0f8e74e747058ee19e81301797dcc75869d8b113b2688abd7fa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-green.log.txt",
+      "bytes": 1334,
+      "sha256": "b2588f669b875cf85c71399bf8176a377204708e60155b1c1c034ed5f4c2751f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-green.xml",
+      "bytes": 1630,
+      "sha256": "64a93767bc55b16615df26acb8021b9d8a3ee63a85fcc8e5d79c2b3608bf0a1a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-red.log.txt",
+      "bytes": 2798,
+      "sha256": "71a81e7913786da6a8e04c7f250a65fda0c888e6943870c79f61fe7a73d1ff59"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver-red.xml",
+      "bytes": 2214,
+      "sha256": "6d9792166076a5dad5b0bbf661fd5380058787319297ddb1a02573047861c1ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-residual-unit-not-blind-waiver.diff.txt",
+      "bytes": 865,
+      "sha256": "472aeb52e9e98bb26441824445c728b081493a6186af42b64dfe56706f74f4bf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-green.log.txt",
+      "bytes": 1369,
+      "sha256": "ada2e719def8658dedcac9281809e2de9c6fee2cbec1c6220772169beb05b8c8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-green.xml",
+      "bytes": 5680,
+      "sha256": "c7a1af72d213d8f9124b9a780be86ba8b2c4e22737b9ca4dd96e95f08ef2009f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-red.log.txt",
+      "bytes": 5867,
+      "sha256": "821844958409d4ca63aada39733dd261e699b3b4342209ba598446db0126d06f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut-red.xml",
+      "bytes": 8196,
+      "sha256": "7835c68d4439764ca3974aad7a4eddc79d7b666ebf67288dadfaa7f0c811a58e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-context-not-cut.diff.txt",
+      "bytes": 838,
+      "sha256": "870a45a6d63d8504de75256acc0667c427415ca7104a33e66a78b0a6a799e8a0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-green.log.txt",
+      "bytes": 1383,
+      "sha256": "e67515ee9b4779f3b85b2561b8a1f48d32d1e741b9c5d008440f212c5f2e83b5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-green.xml",
+      "bytes": 5680,
+      "sha256": "9461850e81b59db80e29b3d207c0de787976e4451097c1c3229a2f2f2c1c0214"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-red.log.txt",
+      "bytes": 7605,
+      "sha256": "4f285f617b91fe7371e9aa9e4a52e7018796874dcdaaffb1ffc0f8fce6aae8cb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown-red.xml",
+      "bytes": 11594,
+      "sha256": "8abd3b5e5f5cead9eb48f43e99911d32ef0037e8a99abe76e04fc06f54164d42"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-semicolon-value-not-just-unknown.diff.txt",
+      "bytes": 996,
+      "sha256": "ded4cc919313654dea47efdb8d1d807509e2646b210abee150e53cd2d31acb59"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-green.log.txt",
+      "bytes": 1400,
+      "sha256": "aec111df49bb64806c6584699bf1cddbc2f1b24809602cfef8e45319b5fbdd1d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-green.xml",
+      "bytes": 3395,
+      "sha256": "7008c4249e5f894f1cdbd37bd9b042f6cc89fa4e7710f62318fa370c859c7996"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-red.log.txt",
+      "bytes": 9668,
+      "sha256": "9a248e1eb81a79a9ac0ea8d52bc47eb74111bc43d709506da39ec411f67ae8c2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated-red.xml",
+      "bytes": 8020,
+      "sha256": "4a130555b6b5664ebb80d436c1ce98d5453112b1c4d2dddbd9ab5e1ea65f819d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-is-not-validated.diff.txt",
+      "bytes": 795,
+      "sha256": "2789fd9e5e8589f4b29dfef6ee4ca535479b499a3eef6eadf72773da157d60b2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-green.log.txt",
+      "bytes": 1317,
+      "sha256": "98d0bee32ede9c5dce3e2c98887ff911270b2b5a6b81095966e7d0ea1b06951b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-green.xml",
+      "bytes": 2339,
+      "sha256": "487a76c8671d875546042300c1d691b3a36c24162ecb7010b49e27c8ab3b078d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-red.log.txt",
+      "bytes": 10527,
+      "sha256": "1c7c703c0e4131fc850dfe62eb898355e25158d27813c6bf169b57da02d73ec7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice-red.xml",
+      "bytes": 12803,
+      "sha256": "1ca8f815fd9ae0daa1ac04e7611f8b550017ff863a1b4fae12f1cb04d17307e3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-unlocated-repair-notice.diff.txt",
+      "bytes": 1233,
+      "sha256": "4a8e15a324ec125f2ab78b1530c28b063b4b83bbe958ceb1c7230c0bd89dfdc2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-green.log.txt",
+      "bytes": 1350,
+      "sha256": "c477efa317b06402d8b363a8fe1a7a950c72f4b27e32822f7a9eb8d6d7a08469"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-green.xml",
+      "bytes": 3802,
+      "sha256": "cb35335bd83060538978346f5536eb27f87beaa2c221c99ab1c52f0b49359897"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-red.log.txt",
+      "bytes": 9560,
+      "sha256": "c5813f4c7de4a2488d9aca7b3841e00ed391c509c0a37e1d2b0435097e822177"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot-red.xml",
+      "bytes": 7835,
+      "sha256": "1f61fbcd9803181035b4ef6d97133078135d2725eb1c483609ec7a49677791ca"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/ratio-withheld-only-one-slot.diff.txt",
+      "bytes": 641,
+      "sha256": "5976d11657b432591c474bfa9967d769ebd9ce3999e5ae90109d3af50608faf7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/restored-full.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/restored-full.log.txt",
+      "bytes": 1822,
+      "sha256": "e066fef57a1d6a6c467025ee4d5137a8fbd305e47f9f6180d658392260684679"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/restored-full.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/restored-full.xml",
+      "bytes": 135733,
+      "sha256": "895c2c0b1a1f0124ad4916e03b244116b9ee70ab5e4d2e330e5202067ad57685"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-green.log.txt",
+      "bytes": 1361,
+      "sha256": "e6b7113c6c664944ded2b8e9307827e8e8e815c46c10b24b1d88b0e91baa65d6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-green.xml",
+      "bytes": 545,
+      "sha256": "b2c2bb9c13f23b45fcba46d3db002afcef5f96fd1eb4f9194326115b0fd2a69e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-red.log.txt",
+      "bytes": 3222,
+      "sha256": "cf2d7616fd9a2ae2a58b1dc35911fe0423818bf6c5a0d97fb87bf7ff5b6bcf14"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission-red.xml",
+      "bytes": 2972,
+      "sha256": "273566411b74bc86339b9a81e90a0aaa9c49ad5939572b5abad4b38a519c30fb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/result-success-admission.diff.txt",
+      "bytes": 570,
+      "sha256": "72e463e3842ffe93da2e1ecef9ba3023658b376d36094240125080c57a59e9ef"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/results.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/results.json",
+      "bytes": 245686,
+      "sha256": "b5aefacfc487f85e4a435fa0e1bd363334d1b2be473d3c98cd23929974c029ac"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-green.log.txt",
+      "bytes": 1632,
+      "sha256": "2c9213f78e4f19740a2ad0a6440eb8813af80760dbde9a63f95810ba9fd56c72"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-green.xml",
+      "bytes": 57126,
+      "sha256": "c556bf1348041deaad001e0610d8288cca9ca7f1419f49800119d1cb3b61c092"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-red.log.txt",
+      "bytes": 62651,
+      "sha256": "c6e9e23193910be768ce0d8d837877414e24a1caa2ca0dde4aa0bd80468177b3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations-red.xml",
+      "bytes": 109598,
+      "sha256": "b7125d817467dec73c41e0191ce204e277c791cb9090f52d2c27fcc2b2e580fd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/retained-bound-citations.diff.txt",
+      "bytes": 864,
+      "sha256": "ba9487b4bc5adccb3a1f44bf61bf590f448eeca1d4502604fccf23ec585487c8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-green.log.txt",
+      "bytes": 1547,
+      "sha256": "fc415d2c7b388ba0ef1405ced3e906bfd362ff6456a9de4106bdbe925fe629de"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-green.xml",
+      "bytes": 56957,
+      "sha256": "3076240d51730c3b7d5e6fa44dc056bbe94aba8bb59d16fb20933f7eda717e84"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-red.log.txt",
+      "bytes": 56778,
+      "sha256": "8c63f8ec471cef081e6cabe6f66028bfbdfbf0819b98dc55ccb2bfb407b1854d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note-red.xml",
+      "bytes": 106908,
+      "sha256": "7b7709d3c913ecb5c8afad7784716db60075141426f37f448a7fdd3183930bf9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/same-turn-repair-note.diff.txt",
+      "bytes": 733,
+      "sha256": "af1c6bf4152517c874365b4c3bd7b04006fac40c25de7515e84cdaf038534300"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-green.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-green.log.txt",
+      "bytes": 1288,
+      "sha256": "4a81f0897b9945a6881d80860c4aa31ee985e0c3f0b3f02201d108ef0cc0e072"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-green.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-green.xml",
+      "bytes": 3202,
+      "sha256": "66845c44306bb145f7f41bf9fdc51aa52bc83b4e9340709a9ba8040c1804e09a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-red.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-red.log.txt",
+      "bytes": 1893,
+      "sha256": "00649a8293986bb3758c1fa3dead9d3d282ece0f0056cc5323900e89dbe223da"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-red.xml",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width-red.xml",
+      "bytes": 3486,
+      "sha256": "56fa9d4cbde214a17724dd513ef3eeb05dececbd643862f90c7c430cde10e921"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width.diff",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/mutations/strict-table-width.diff.txt",
+      "bytes": 728,
+      "sha256": "8a2e84e7a958d3d96d0685f1770c51c03bd708da7b616c3813415af63401551f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/original-fact-retention-probe.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/original-fact-retention-probe.log.txt",
+      "bytes": 6856,
+      "sha256": "5c2f321e1c46b1fbefa45dc5eef5cf5dd78a997af8e5f5226a28771b79ba30d0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/original-ratio-boundary-probe.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/original-ratio-boundary-probe.log.txt",
+      "bytes": 15459,
+      "sha256": "8d2a649afff77a3692cbab8961e3d571c28e0ad637508988f2f19961b3d830f0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/original-ratio-hedge-probe.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/original-ratio-hedge-probe.log.txt",
+      "bytes": 4714,
+      "sha256": "5c8504d193620af106d1829d89d9e4f4f0511f03789b131b9017e674c7d7196b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/preflight.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/preflight.json",
+      "bytes": 1245302,
+      "sha256": "831157a6643d473b20922f678f85f6edb0663de7812c03f0deadeacba044571f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/process.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/process.json",
+      "bytes": 64,
+      "sha256": "f6e458e386f63ffd4254561481b67e22aa15ae2d6e93bce03cb2aea5a9a068ed"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/research-delivery-mutations.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/research-delivery-mutations.log.txt",
+      "bytes": 201317,
+      "sha256": "d64cbe33016df81d57ae5b6c5dd7420e5bbfef20e1c26e4ee1e776274ea94052"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/review-context-view.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/review-context-view.json",
+      "bytes": 57078,
+      "sha256": "a0d220e278f5173855b0db69694a2ae06896aa23267479f48d79350875988925"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/review-prompt.txt",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/review-prompt.txt",
+      "bytes": 512055,
+      "sha256": "a087adcb9b0920c9951d5e15039ca840e73e2b84f19e5a9078923a6a0207f5c7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer-envelope.json",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer-envelope.json",
+      "bytes": 61275,
+      "sha256": "20f52f4a06861c562d55099e9588d939435e6672e51b4a88f023ede74e057ca6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer-stderr.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer-stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer-stream.jsonl",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer-stream.jsonl",
+      "bytes": 394641,
+      "sha256": "4b7ba1d073d474e5eb78d78db3342f597d7cf9803b30600035cff8cc6459adf8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer.log",
+      "archive": "qc-retry-d46c2c3b-01/runs/ARL-0005/reviewer.log.txt",
+      "bytes": 418,
+      "sha256": "a1a6e2d97a77626005d45293759e22681c50aa2bf27cd940c6bfd7ef80ce85bb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/state/external-review.json",
+      "archive": "qc-retry-d46c2c3b-01/state/external-review.json",
+      "bytes": 297,
+      "sha256": "161e2e45980e3238db9ebf26f697d5d9c9b304928455c095a05bbe5540b08160"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/verdict-validation.exit",
+      "archive": "qc-retry-d46c2c3b-01/verdict-validation.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/verdict-validation.json",
+      "archive": "qc-retry-d46c2c3b-01/verdict-validation.json",
+      "bytes": 199,
+      "sha256": "25c3dc624e8a1de7b2d56ed8b5b0e9e39bb95df391a67928fb3209f80e153585"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/verdicts/ARL-0001.json",
+      "archive": "qc-retry-d46c2c3b-01/verdicts/ARL-0001.json",
+      "bytes": 18800,
+      "sha256": "05ce4de4fde48733f265fbb4cd63633764c60ccfef06a3fca6ade1542d416b45"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/verdicts/ARL-0002.json",
+      "archive": "qc-retry-d46c2c3b-01/verdicts/ARL-0002.json",
+      "bytes": 27249,
+      "sha256": "0550354959bcd6c670abb0e6cb2dce44dcd28d60cf3b6eca0af0ab8c0d309cb0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-d46c2c3b-01/verdicts/ARL-0003.json",
+      "archive": "qc-retry-d46c2c3b-01/verdicts/ARL-0003.json",
+      "bytes": 39906,
+      "sha256": "b3f66af590510095b4c1ec2438bd00d00242643ef67dc03978aeaf4eb4463ab3"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.081" timestamp="2026-09-21T21:35:26.875142+08:00" hostname="77deMacBook-Air.local"><testcase classname="tests.test_run_store_history_artifacts" name="test_history_read_enforces_requested_conversation_before_opening_content[conversation-a]" time="0.014" /><testcase classname="tests.test_run_store_history_artifacts" name="test_history_read_enforces_requested_conversation_before_opening_content[conversation-b]" time="0.009"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">store = &lt;intelligence.services.run_store.RunStore object at 0x109dbebd0&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10ad14f80&gt;
+conversation_id = 'conversation-b'
+
+    @pytest.mark.parametrize("conversation_id", ["conversation-a", "conversation-b"])
+    def test_history_read_enforces_requested_conversation_before_opening_content(
+        store, monkeypatch, conversation_id,
+    ):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        original_verify = store._verified_history_bytes
+        reads = []
+    
+        def verify(path, registered):
+            reads.append(path)
+            return original_verify(path, registered)
+    
+        monkeypatch.setattr(store, "_verified_history_bytes", verify)
+        if conversation_id == "conversation-a":
+            assert store.read_history_artifact(
+                run.run_id, artifact.path, conversation_id=conversation_id,
+            ) == {"rows": []}
+            assert len(reads) == 1
+        else:
+&gt;           with pytest.raises(ValueError, match="outside this conversation"):
+E           Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+tests/test_run_store_history_artifacts.py:68: Failed</failure></testcase></testsuite></testsuites>

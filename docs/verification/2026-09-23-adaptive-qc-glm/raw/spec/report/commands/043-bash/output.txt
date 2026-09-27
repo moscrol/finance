@@ -1,0 +1,15 @@
+total 32
+drwxr-xr-x@  6 a77  staff   192 Sep 23 17:33 .
+drwxr-xr-x@ 12 a77  staff   384 Sep 23 17:28 ..
+-rw-r--r--@  1 a77  staff  3169 Sep 23 17:19 probe_c1_stalled_parent.py
+-rw-r--r--@  1 a77  staff  3219 Sep 23 17:19 probe_c1_stream_deadline.py
+-rw-r--r--@  1 a77  staff  3286 Sep 23 17:21 probe_c4_wrapper_deadline.py
+-rw-r--r--@  1 a77  staff  3577 Sep 23 17:33 probe_c4_wrapper_deadline_v2.py
+probe_c1_stalled_parent.py:4:Server on 127.0.0.1:26002 streams a large body immediately. The parent opens
+probe_c1_stalled_parent.py:19:HOST, PORT = "127.0.0.1", 26002
+probe_c1_stalled_parent.py:25:    srv.bind((HOST, PORT))
+probe_c1_stream_deadline.py:4:Fake loopback server on 127.0.0.1:26001 sends HTTP headers immediately, then
+probe_c1_stream_deadline.py:17:HOST, PORT = "127.0.0.1", 26001
+probe_c1_stream_deadline.py:24:    srv.bind((HOST, PORT))
+probe_c4_wrapper_deadline.py:20:HOST, PORT = "127.0.0.1", 26003
+probe_c4_wrapper_deadline_v2.py:25:HOST, PORT = "127.0.0.1", 26004

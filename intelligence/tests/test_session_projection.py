@@ -60,7 +60,7 @@ def test_three_causes_emit_distinct_first_sentences() -> None:
     firsts = {cause: _first_sentence(text) for cause, text in rendered.items()}
 
     assert firsts[CAUSE_TRANSIENT_VERIFIER_OUTAGE] == (
-        "本次未完成独立复核（复核服务超时）；内容与证据绑定已通过校验："
+        "本次未完成独立复核（复核服务超时）；仅通过证据关联的结构检查，不代表计算或结论正确。"
     )
     assert firsts[CAUSE_JUDGE_UNAVAILABLE_HELD] == (
         "本次未完成独立复核（复核服务不可用）。"
@@ -75,6 +75,8 @@ def test_three_causes_emit_distinct_first_sentences() -> None:
         "关于“当前市场怎么看？”，本轮核验未完成，已取得的观察不能当作完整结论。"
     )
     assert len(set(firsts.values())) == len(DEGRADED_CAUSES)
+    assert "以下为待复核内容" in rendered[CAUSE_TRANSIENT_VERIFIER_OUTAGE]
+    assert _PUBLIC in rendered[CAUSE_TRANSIENT_VERIFIER_OUTAGE]
 
 
 @pytest.mark.parametrize(

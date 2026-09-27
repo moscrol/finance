@@ -1,0 +1,97 @@
+"""QC probe C6 repair (fixed): list-marker definition recognition.
+
+Original test_qc_c6_repair.py::test_list_marker_definition_shapes_all_recognized used
+its own text.startswith() helper to detect definitions, which cannot see past list
+markers/bold. The product grammar is _CONDITION_DEFINITION_RE; this fixed probe uses
+that real grammar (same one the repair path uses) for every marker shape.
+"""
+import sys
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+from intelligence.services.episode_semantic_verifier import (
+    _CONDITION_DEFINITION_RE,
+    _numbered_sentences,
+    _repair_dangling_condition_references,
+)
+
+BEFORE = "升级条件：站稳20日线。降级条件：跌破前低。"
+
+
+def _labels(before):
+    return tuple(
+        match.group("label")
+        for item in _numbered_sentences(before)
+        for match in (_CONDITION_DEFINITION_RE.match(str(item["text"])),)
+        if match is not None
+    )
+
+
+def test_both_deleted_removes_orphaned_counts():
+    before = BEFORE + "\n当前观察如下。"
+    assert _labels(before) == ("升级条件", "降级条件")
+    repaired = _repair_dangling_condition_references(
+        "该股放量上攻，满足升级条件中的2条，值得跟踪。",
+        before=before, rejected_sentence_indexes=(1, 2),
+    )
+    assert "升级条件中的" not in repaired
+    assert repaired == "该股放量上攻，值得跟踪。", repaired
+
+
+def test_surviving_definition_keeps_its_count():
+    before = BEFORE + "\n已满足降级条件中的1条，需观察。"
+    repaired = _repair_dangling_condition_references(
+        "已满足降级条件中的1条，需观察。",
+        before=before, rejected_sentence_indexes=(1,),
+    )
+    assert repaired == "已满足降级条件中的1条，需观察。", repaired
+
+
+def test_no_removal_without_deleted_definition():
+    text = "满足升级条件中的2条，需观察。"
+    assert _repair_dangling_condition_references(
+        text, before=text, rejected_sentence_indexes=()
+    ) == text
+
+
+def test_unrelated_prose_and_linebreaks_preserved():
+    before = "**降级条件**：跌破前低。\n"
+    draft = "第一行保留。\n- 量能配合，满足降级条件中的2条。\r\n- 独立观察。\r\n"
+    repaired = _repair_dangling_condition_references(
+        draft, before=before + draft, rejected_sentence_indexes=(1,)
+    )
+    assert repaired == "第一行保留。\n- 量能配合。\r\n- 独立观察。\r\n", repr(repaired)
+
+
+def test_list_marker_definition_shapes_all_recognized():
+    shapes = {
+        "plain": "升级条件：A。\n",
+        "- ": "- 升级条件：A。\n",
+        "1. ": "1. 升级条件：A。\n",
+        "（2）": "（2）升级条件：A。\n",
+        "① ": "① 升级条件：A。\n",
+        "**": "**升级条件**：A。\n",
+        "- **": "- **降级条件**：A。\n",
+    }
+    for name, defn in shapes.items():
+        labels = _labels(defn)
+        assert labels, (name, labels)
+
+
+def test_list_marker_deletion_still_repairs_its_orphan():
+    for defn in ("- 升级条件：A。\n", "1. 升级条件：A。\n", "（2）升级条件：A。\n",
+                 "① 升级条件：A。\n", "**升级条件**：A。\n"):
+        repaired = _repair_dangling_condition_references(
+            "已满足升级条件中的2条，需观察。",
+            before=defn + "正文。", rejected_sentence_indexes=(1,),
+        )
+        assert "升级条件中的" not in repaired, (defn, repaired)
+
+
+def test_same_line_mixed_labels_all_removed():
+    before = BEFORE + "\n当前观察如下。"
+    repaired = _repair_dangling_condition_references(
+        "已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。",
+        before=before, rejected_sentence_indexes=(1, 2),
+    )
+    assert repaired == "需跟踪。", repaired

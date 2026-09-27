@@ -1,0 +1,42 @@
+[
+  {
+    "vary_links": false,
+    "persistence": "durable",
+    "status": "partial",
+    "stop_reason": "model_finish",
+    "parent_calls": 2,
+    "child_calls": 2,
+    "executed": [
+      "direct",
+      "child"
+    ],
+    "presented": [
+      {
+        "hash": "752004f28e62cfee",
+        "supports": []
+      }
+    ],
+    "failures": []
+  },
+  {
+    "vary_links": true,
+    "persistence": "durable",
+    "status": "partial",
+    "stop_reason": "model_finish",
+    "parent_calls": 2,
+    "child_calls": 2,
+    "executed": [
+      "direct",
+      "child"
+    ],
+    "presented": [
+      {
+        "hash": "752004f28e62cfee",
+        "supports": [
+          "direct-output"
+        ]
+      }
+    ],
+    "failures": []
+  }
+]

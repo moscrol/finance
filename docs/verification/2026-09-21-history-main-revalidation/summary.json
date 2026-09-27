@@ -1,0 +1,158 @@
+{
+  "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+  "first_parent": "b84eb2f647eb5ccbbb95b1fc2033c438ba64ce68",
+  "main_included": "028a251a1b2ca98245326a6b59376f4f7f8e5e81",
+  "main_observed": "028a251a1b2ca98245326a6b59376f4f7f8e5e81",
+  "python": {
+    "cases": 12770,
+    "passed": 12681,
+    "failures": 0,
+    "errors": 0,
+    "skipped_types": {
+      "pytest.skip": 87,
+      "pytest.xfail": 2
+    },
+    "sha256": "eaa737650aa5bf1c988654bac929cd70236990ca6e962bf6cafa6551692a0440"
+  },
+  "python_summary": "12681 passed, 87 skipped, 2 xfailed, 17 warnings in 1611.12s (0:26:51)",
+  "added_test_count": 22,
+  "focused_passed": 370,
+  "frontend": {
+    "unit_passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2
+  },
+  "checks": {
+    "focused": {
+      "exit_code": 0,
+      "log_sha256": "41d2de867191d9085ead34c11d7dae6a0a5e38fd996687c7c836c67f44aa22ee"
+    },
+    "ruff": {
+      "exit_code": 0,
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "registry-parse": {
+      "exit_code": 0,
+      "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    "registry-check": {
+      "exit_code": 0,
+      "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    "registry-tables": {
+      "exit_code": 0,
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    "registry-views": {
+      "exit_code": 0,
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    "crosswalk": {
+      "exit_code": 0,
+      "log_sha256": "5060e506b086dcedc764a165a529e4bd0e34cbf506659db0e20daf4b7a61d963"
+    },
+    "replay": {
+      "exit_code": 0,
+      "log_sha256": "c0a5eefd643bb5a9ddc2644b972f86aef10b4ea1d02f0e97543440d2b29d4536"
+    },
+    "precommit": {
+      "exit_code": 0,
+      "log_sha256": "7d3bbf6f0f7d3bdb8df09f60c2fcf88361c9def2df6c4cfe6a9c80f809042b9d"
+    },
+    "receipt-exact": {
+      "exit_code": 0,
+      "log_sha256": "e5c176c6c585fe3e37426abf9fa94e70af317799e5ac2a19cbea9291d65baba9"
+    },
+    "receipt-drift": {
+      "exit_code": 0,
+      "log_sha256": "901a1486c9cf8e63487de0a5833dd7fcd436e80fd6df32bc6ed427dee8d69f3a"
+    },
+    "mutations-run": {
+      "exit_code": 0,
+      "log_sha256": "dcdd1e0f0eb63e2c9149dbedbfa81a4ba6ce384a52ead51456d92796eb65315f"
+    }
+  },
+  "mutations": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "identity_after": {
+      "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+      "status": ""
+    },
+    "mutations": [
+      {
+        "mutation": "session_binding",
+        "exit_code": 1,
+        "failures": [
+          "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-False]",
+          "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-True]"
+        ],
+        "errors": 0
+      },
+      {
+        "mutation": "store_conversation",
+        "exit_code": 1,
+        "failures": [
+          "test_history_read_enforces_requested_conversation_before_opening_content[conversation-b]"
+        ],
+        "errors": 0
+      },
+      {
+        "mutation": "stale_metadata",
+        "exit_code": 1,
+        "failures": [
+          "test_history_read_rechecks_metadata_after_waiting_for_writer[conversation]",
+          "test_history_read_rechecks_metadata_after_waiting_for_writer[user]",
+          "test_history_read_rechecks_metadata_after_waiting_for_writer[visibility]"
+        ],
+        "errors": 0
+      },
+      {
+        "mutation": "missing_read_lock",
+        "exit_code": 1,
+        "failures": [
+          "test_history_read_holds_run_lock_through_byte_verification"
+        ],
+        "errors": 0
+      },
+      {
+        "mutation": "refresh_accumulates",
+        "exit_code": 1,
+        "failures": [
+          "test_refresh_removes_stale_references_without_rewriting_artifacts[conversation]",
+          "test_refresh_removes_stale_references_without_rewriting_artifacts[visibility]",
+          "test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]",
+          "test_refresh_removes_stale_references_without_rewriting_artifacts[registration]"
+        ],
+        "errors": 0
+      },
+      {
+        "mutation": "downloadable_index",
+        "exit_code": 1,
+        "failures": [
+          "test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]"
+        ],
+        "errors": 0
+      },
+      {
+        "mutation": "duplicate_read",
+        "exit_code": 1,
+        "failures": [
+          "test_authorized_history_read_verifies_content_once[False]",
+          "test_authorized_history_read_verifies_content_once[True]"
+        ],
+        "errors": 0
+      }
+    ],
+    "all_caught": true
+  },
+  "crosswalk_reverse_warnings": 98,
+  "candidate_engineering": "passed",
+  "main_tip_batch_gate": "not_run_not_merged",
+  "independent_review": "not_performed",
+  "natural_finance": "not_passed_unchanged",
+  "natural_model_calls": 0,
+  "merged_to_main": false,
+  "deployed": false,
+  "production_write": false,
+  "min_disk_free_bytes": 6731993088
+}

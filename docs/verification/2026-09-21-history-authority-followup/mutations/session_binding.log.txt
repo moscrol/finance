@@ -1,0 +1,91 @@
+FF..........                                                             [100%]
+=================================== FAILURES ===================================
+_ test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-False] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1445/test_history_reader_rechecks_a0')
+cached = False, mutation = 'conversation'
+
+    @pytest.mark.parametrize("cached", [False, True])
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility", "downloadable", "registration", "body"])
+    def test_history_reader_rechecks_authority_and_preserves_state_on_rejection(
+        tmp_path, cached, mutation,
+    ):
+        registry, context, session = _registry(tmp_path)
+        query = _query(registry, context)
+        ref = query.telemetry["result_ref"]
+        reader, read_context, next_session = _next_turn(
+            tmp_path, session, context, "继续找农业的历史失败案例"
+        )
+        if not cached:
+            next_session.refs.clear()
+        assert (ref in next_session.refs) is cached
+        run = session.store.load_run(session.run_id)
+        path = session.store.run_dir(run.run_id) / ref.split("/", 1)[1]
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "user":
+            run.user = "other-user"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        elif mutation == "registration":
+            run.artifacts.clear()
+        else:
+            path.write_text('{"tampered":true}\n')
+        session.store._write_run(run)
+        state = (dict(next_session.refs), dict(next_session.query_aliases), set(next_session.definition_refs))
+        original = path.read_bytes()
+        metadata = session.store.run_path(run.run_id).read_bytes()
+    
+>       with pytest.raises((ValueError, OSError)):
+E       Failed: DID NOT RAISE (<class 'ValueError'>, <class 'OSError'>)
+
+tests/test_history_artifact_scope.py:121: Failed
+_ test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-True] _
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1445/test_history_reader_rechecks_a1')
+cached = True, mutation = 'conversation'
+
+    @pytest.mark.parametrize("cached", [False, True])
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility", "downloadable", "registration", "body"])
+    def test_history_reader_rechecks_authority_and_preserves_state_on_rejection(
+        tmp_path, cached, mutation,
+    ):
+        registry, context, session = _registry(tmp_path)
+        query = _query(registry, context)
+        ref = query.telemetry["result_ref"]
+        reader, read_context, next_session = _next_turn(
+            tmp_path, session, context, "继续找农业的历史失败案例"
+        )
+        if not cached:
+            next_session.refs.clear()
+        assert (ref in next_session.refs) is cached
+        run = session.store.load_run(session.run_id)
+        path = session.store.run_dir(run.run_id) / ref.split("/", 1)[1]
+        if mutation == "conversation":
+            run.session_id = "other-conversation"
+        elif mutation == "user":
+            run.user = "other-user"
+        elif mutation == "visibility":
+            run.artifacts[0]["visibility"] = "internal"
+        elif mutation == "downloadable":
+            run.artifacts[0]["downloadable"] = False
+        elif mutation == "registration":
+            run.artifacts.clear()
+        else:
+            path.write_text('{"tampered":true}\n')
+        session.store._write_run(run)
+        state = (dict(next_session.refs), dict(next_session.query_aliases), set(next_session.definition_refs))
+        original = path.read_bytes()
+        metadata = session.store.run_path(run.run_id).read_bytes()
+    
+>       with pytest.raises((ValueError, OSError)):
+E       Failed: DID NOT RAISE (<class 'ValueError'>, <class 'OSError'>)
+
+tests/test_history_artifact_scope.py:121: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-authority/mutations/session_binding.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_artifact_scope.py::test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-False]
+FAILED tests/test_history_artifact_scope.py::test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-True]
+2 failed, 10 passed in 0.97s

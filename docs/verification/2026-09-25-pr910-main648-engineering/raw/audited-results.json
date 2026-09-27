@@ -1,0 +1,915 @@
+{
+  "observed_at": "2026-09-25T10:02:54.500370+00:00",
+  "baseline": "64847b7a173bfb7191012638e8ec044ea31e0513",
+  "revisions": {
+    "910": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+    "911": "a52a3a9759a1d1d33fc5e19c86e35576394dd546"
+  },
+  "independent_review": false,
+  "candidates": {
+    "910": {
+      "current_head": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+      "current_status": "",
+      "receipts": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/receipts/gate-0df6qTxE/pytest.json",
+          "sha256": "edbdde7dd40793e728f0665ae853abf0e0b0106f50c97f33f5f143a88b4cf504",
+          "bytes": 851,
+          "data": {
+            "interpreter": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+            "python_version": "3.12.13",
+            "dependency_fingerprint": "66726d345bf37ce5",
+            "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+            "revision": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+            "branch": "fix/pr910-main-0925",
+            "dirty": false,
+            "dirty_paths": [],
+            "worktree_dirty_total": 0,
+            "dependency_gate_bypassed": false,
+            "target": "/Users/a77/fwp-wt-pr910-main-0925",
+            "scope": {
+              "ignore": [],
+              "ignore_glob": [],
+              "deselect": [],
+              "keyword": "",
+              "markexpr": "",
+              "maxfail": 0,
+              "last_failed": false,
+              "collected": 16309
+            },
+            "counts": {
+              "passed": 16232,
+              "failed": 0,
+              "error": 0,
+              "skipped": 75,
+              "xfailed": 2,
+              "xpassed": 0
+            },
+            "failed_ids": [],
+            "exit_status": 0,
+            "finished_at": "2026-09-25T09:49:56+00:00"
+          },
+          "junit": {
+            "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full.xml",
+            "sha256": "1253ca991f138ac68e6faf5a7dc21663b331568fee70bba7d175e6a65ac7657d",
+            "bytes": 2615584,
+            "total": 16309,
+            "failures": 0,
+            "errors": 0,
+            "skipped": [
+              {
+                "classname": "intelligence.tests.conformance.test_inv3_deadline_reserve",
+                "name": "test_synthesis_survives_a_burned_research_window[dsh_stub]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.conformance.test_inv5_repair_reentry",
+                "name": "test_gap_triggers_resume_or_an_explicit_unsupported_receipt[codex_headless]",
+                "time": "0.378"
+              },
+              {
+                "classname": "intelligence.tests.conformance.test_inv6_trace_receipts",
+                "name": "test_runtime_handle_receipts_are_monotonic_when_attached[codex_headless]",
+                "time": "0.001"
+              },
+              {
+                "classname": "intelligence.tests.conformance.test_inv7_finish_protocol",
+                "name": "test_dangling_evidence_binding_is_rejected_not_shipped[dsh_stub]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_codex_headless_runtime",
+                "name": "test_real_codex_headless_smoke",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_e2_boundary_closeout",
+                "name": "test_closed_outer_quote_is_opaque_to_other_quote_types[\\u300c-outer0]",
+                "time": "0.002"
+              },
+              {
+                "classname": "intelligence.tests.test_e2_boundary_closeout",
+                "name": "test_closed_outer_quote_is_opaque_to_other_quote_types[\\u300e-outer1]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_e2_boundary_closeout",
+                "name": "test_closed_outer_quote_is_opaque_to_other_quote_types[\"-outer2]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_e2_boundary_closeout",
+                "name": "test_closed_outer_quote_is_opaque_to_other_quote_types[\\u201c-outer3]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_filter_executes_against_real_duckdb",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_matches_same_rows_as_equality",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_still_escapes_sql_wildcards",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_never_raises_on_ordinary_values[AI]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_never_raises_on_ordinary_values[\\u7b97\\u529b]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_never_raises_on_ordinary_values[\\u670d\\u52a1]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_never_raises_on_ordinary_values[%]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_finance_query_contains",
+                "name": "test_contains_never_raises_on_ordinary_values[\\\\]",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_fine_grained_route_length_gate",
+                "name": "test_kol_review_example_preexisting_miss",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_kb_receipt_integration",
+                "name": "test_real_cli_enforces_grade_review_and_available_time",
+                "time": "0.002"
+              },
+              {
+                "classname": "intelligence.tests.test_kb_receipt_integration",
+                "name": "test_real_worker_and_cli_preserve_context_then_recheck_source_conflict",
+                "time": "0.002"
+              },
+              {
+                "classname": "intelligence.tests.test_kb_receipt_integration",
+                "name": "test_deployed_code_root_binds_worker_and_cli_to_argument_wiki",
+                "time": "0.002"
+              },
+              {
+                "classname": "intelligence.tests.test_kb_receipt_integration",
+                "name": "test_real_old_metadata_empty_receipt_remains_visible",
+                "time": "0.002"
+              },
+              {
+                "classname": "intelligence.tests.test_openai_agents_runtime",
+                "name": "test_real_sdk_glm_smoke",
+                "time": "0.000"
+              },
+              {
+                "classname": "intelligence.tests.test_pytest_collection_scope",
+                "name": "test_the_gate_is_what_keeps_collection_clean",
+                "time": "0.011"
+              },
+              {
+                "classname": "intelligence.tests.test_teaching_framework_river_objects",
+                "name": "test_river_slice_is_byte_identical_without_the_sidecar_and_strict_pit_filters_it",
+                "time": "0.110"
+              },
+              {
+                "classname": "tests.test_code_map",
+                "name": "test_cli_empty_tree_exits_2_and_one_line_forbids_overview",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_code_map",
+                "name": "test_cli_empty_json_status_empty",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_code_map",
+                "name": "test_query_empty_graph_exits_0_and_refuses_structure",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_market_deviation_backfill",
+                "name": "test_周均线是日MA5不是55周均线",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_market_deviation_backfill",
+                "name": "test_偏离度就是收盘对周均线的百分比",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_market_deviation_backfill",
+                "name": "test_来源必须可分辨_不得把存量冒充抓取",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_market_deviation_backfill",
+                "name": "test_回填不覆盖任何已有值",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_market_deviation_backfill",
+                "name": "test_覆盖率与阈值线读数自洽",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_mootdx_source_health",
+                "name": "test_real_tdxpy_parser_chokes_on_production_stub_body",
+                "time": "0.005"
+              },
+              {
+                "classname": "tests.test_river_cutoff_guard.TestCutoffRejected",
+                "name": "test_future_cutoff_raises",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_cutoff_guard.TestCutoffRejected",
+                "name": "test_one_day_after_also_raises",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_cutoff_guard.TestCutoffRejected",
+                "name": "test_equal_cutoff_is_allowed",
+                "time": "0.001"
+              },
+              {
+                "classname": "tests.test_river_cutoff_guard.TestCutoffRejected",
+                "name": "test_earlier_cutoff_is_allowed",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_cutoff_guard.TestCutoffRejected",
+                "name": "test_explicit_opt_in_marks_the_slice",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_cutoff_guard.TestCutoffRejected",
+                "name": "test_hindsight_and_require_strict_are_mutually_exclusive",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_阳性对照_真值为强信号的队列必须判_supported",
+                "time": "0.001"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_阴性对照_随机队列必须判_not_distinguishable",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_队列小于_MIN_N_时不出率",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_市场阶段两套写法必须先归一",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_归一确实合并了库里真实存在的两套写法",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_舆论排序用近_90_日而不是累计",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_零覆盖不参与舆论分位",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_筛选结果满足两个显式阈值",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_query",
+                "name": "test_横扫幂等",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_六条轨都有结果_要么对象要么缺口",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_任何一条轨都不得用空列表冒充零",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_幂等_同一入参两次调用逐字段相同",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_每个对象都能回溯到主数据",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_索引层不持有主数据副本",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_实体解析不做模糊匹配",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_缺轨返回_Gap_且写明原因",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_require_strict_滤掉晚于_cutoff_的对象",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_空切片不得报_strict",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_判断轨的_ref_用记录自带的稳定_id",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_判断轨按实体精确匹配_不串轨",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_实体身份跨供应商换源必须稳定",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_归一的是身份不是可比性",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_ref_保留当天真实代码不被归一改写",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_题材轨用已解析的整数而不是字符串",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_六个维度就是终局钦定的那六条",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_舆论轨用_created_at_不用_updated_at",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_产业基本面文档接进舆论轨",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_产业文档不参与任何度量",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_slice",
+                "name": "test_舆论轨不发明阶段词",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_缺数留_None_不补零",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_区间特征可回溯到表和列",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_退出签名的维度必须如实报而不是当成零",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_窗口按交易日取而不是自然日",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_聚类幂等",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_阳性对照_量纲差很远的窗口必须被分开",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_阴性对照_阈值放大后会并成一簇",
+                "time": "0.000"
+              },
+              {
+                "classname": "tests.test_river_window",
+                "name": "test_无共有维的窗口单列而不是塞进簇",
+                "time": "0.000"
+              }
+            ]
+          }
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-receipt.json",
+          "sha256": "560156354547af075138239346c3e292cd92661e84be713306836b40ba45b665",
+          "bytes": 841,
+          "data": {
+            "interpreter": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+            "python_version": "3.12.13",
+            "dependency_fingerprint": "66726d345bf37ce5",
+            "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+            "revision": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+            "branch": "fix/pr910-main-0925",
+            "dirty": false,
+            "dirty_paths": [],
+            "worktree_dirty_total": 0,
+            "dependency_gate_bypassed": false,
+            "target": "tests/test_pi_review_repair.py",
+            "scope": {
+              "ignore": [],
+              "ignore_glob": [],
+              "deselect": [],
+              "keyword": "",
+              "markexpr": "",
+              "maxfail": 0,
+              "last_failed": false,
+              "collected": 74
+            },
+            "counts": {
+              "passed": 74,
+              "failed": 0,
+              "error": 0,
+              "skipped": 0,
+              "xfailed": 0,
+              "xpassed": 0
+            },
+            "failed_ids": [],
+            "exit_status": 0,
+            "finished_at": "2026-09-25T09:21:05+00:00"
+          },
+          "junit": {
+            "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted.xml",
+            "sha256": "ec8ca7ad5aff060a01b917eee154e47cacd3d043ba250b9fffebf7dccae52fb3",
+            "bytes": 10298,
+            "total": 74,
+            "failures": 0,
+            "errors": 0,
+            "skipped": []
+          }
+        }
+      ],
+      "frontend": []
+    },
+    "911": {
+      "current_head": "a52a3a9759a1d1d33fc5e19c86e35576394dd546",
+      "current_status": "",
+      "receipts": [],
+      "frontend": []
+    }
+  },
+  "nested_910_author_checks": [
+    {
+      "axis": "spec",
+      "claim": "C3",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-checks.xml",
+        "sha256": "56881110ffd096ac54e140edfcafcc49a462f12b9bc0f1b50a175697615e20c3",
+        "bytes": 691,
+        "total": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      },
+      "observations": [
+        {
+          "scenario": "judge_late_report",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8035369589924812,
+          "request_count": 1,
+          "attempts": [
+            {
+              "timeout_seconds": 0.7979098751675338,
+              "phase": "headers",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "headers",
+                  "elapsed_ms": 95,
+                  "status": 200
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 800,
+                  "returncode": 124,
+                  "reap_ms": 1
+                }
+              ],
+              "status": 200,
+              "headers_ms": 95,
+              "returncode": 124,
+              "reap_ms": 1,
+              "elapsed_ms": 800
+            }
+          ],
+          "remaining_root_seconds": 8.796306125121191,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 1,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 0,
+            "timeout_asked": 0.8,
+            "remaining_seconds_at_entry": 9.599900792120025,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 801,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_window_stalls",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8022922920063138,
+          "request_count": 2,
+          "attempts": [
+            {
+              "timeout_seconds": 0.399994749808684,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 401,
+                  "returncode": -9,
+                  "reap_ms": 1
+                }
+              ],
+              "returncode": -9,
+              "reap_ms": 1,
+              "elapsed_ms": 401
+            },
+            {
+              "timeout_seconds": 0.39861041703261435,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 400,
+                  "returncode": -9,
+                  "reap_ms": 2
+                }
+              ],
+              "returncode": -9,
+              "reap_ms": 2,
+              "elapsed_ms": 400
+            }
+          ],
+          "remaining_root_seconds": 8.797516167163849,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 2,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 1,
+            "timeout_asked": 0.3986164170317352,
+            "remaining_seconds_at_entry": 9.198555292095989,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 401,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            },
+            {
+              "caller": "chat",
+              "elapsed_ms": 400,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_root_expired",
+          "timeout_input_seconds": 0.0,
+          "wall_elapsed_seconds": 2.908310852944851e-05,
+          "request_count": 0,
+          "attempts": [],
+          "remaining_root_seconds": 0.0,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": null,
+          "final_exc_class": null,
+          "final_issue": "semantic judge deadline exhausted",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": null,
+          "records": []
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "claim": "C3",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-checks.xml",
+        "sha256": "2e23a6386af7272eb740f3b86140cb1b42464787b3506d9557627d3ee8ab6613",
+        "bytes": 691,
+        "total": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      },
+      "observations": [
+        {
+          "scenario": "judge_late_report",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8069522499572486,
+          "request_count": 1,
+          "attempts": [
+            {
+              "timeout_seconds": 0.7985504581592977,
+              "phase": "headers",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 3
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 3
+                },
+                {
+                  "event": "headers",
+                  "elapsed_ms": 52,
+                  "status": 200
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 803,
+                  "returncode": -9,
+                  "reap_ms": 3
+                }
+              ],
+              "status": 200,
+              "headers_ms": 52,
+              "returncode": -9,
+              "reap_ms": 3,
+              "elapsed_ms": 804
+            }
+          ],
+          "remaining_root_seconds": 8.792784624965861,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 1,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 0,
+            "timeout_asked": 0.8,
+            "remaining_seconds_at_entry": 9.599944083020091,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 804,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_window_stalls",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8044812500011176,
+          "request_count": 2,
+          "attempts": [
+            {
+              "timeout_seconds": 0.3999949998687953,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 3
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 3
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 402,
+                  "returncode": 124,
+                  "reap_ms": 1
+                }
+              ],
+              "returncode": 124,
+              "reap_ms": 1,
+              "elapsed_ms": 402
+            },
+            {
+              "timeout_seconds": 0.39661612501367927,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 5
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 5
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 400,
+                  "returncode": -9,
+                  "reap_ms": 2
+                }
+              ],
+              "returncode": -9,
+              "reap_ms": 2,
+              "elapsed_ms": 400
+            }
+          ],
+          "remaining_root_seconds": 8.795349083142355,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 2,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 1,
+            "timeout_asked": 0.3966249580960721,
+            "remaining_seconds_at_entry": 9.196397375082597,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 403,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            },
+            {
+              "caller": "chat",
+              "elapsed_ms": 400,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_root_expired",
+          "timeout_input_seconds": 0.0,
+          "wall_elapsed_seconds": 3.02919652312994e-05,
+          "request_count": 0,
+          "attempts": [],
+          "remaining_root_seconds": 0.0,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": null,
+          "final_exc_class": null,
+          "final_issue": "semantic judge deadline exhausted",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": null,
+          "records": []
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "claim": "C7",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/work/author-checks.xml",
+        "sha256": "5b7eeadaadeaef1173ea25f17cc0aebbd1283b331070a07a1b41a8ba490f512e",
+        "bytes": 8887,
+        "total": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      }
+    },
+    {
+      "axis": "quality",
+      "claim": "C7",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/work/author-checks.xml",
+        "sha256": "a3294186f051a91c22f2c669b8b3a8b553524d1d8257c8a2876285d5f3f974df",
+        "bytes": 8887,
+        "total": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      }
+    }
+  ],
+  "nested_counts_are_not_added_to_outer_totals": true
+}

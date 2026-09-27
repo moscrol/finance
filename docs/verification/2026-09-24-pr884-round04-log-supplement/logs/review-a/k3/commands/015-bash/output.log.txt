@@ -1,0 +1,5 @@
+977:    io_effect: Literal["local_read", "external_or_mixed", "unknown"] = "unknown"
+988:        if self.io_effect not in {"local_read", "external_or_mixed", "unknown"}:
+1077:        if "local_only" in scopes and spec.io_effect != "local_read":
+1110:            specs = tuple(spec for spec in specs if spec.io_effect == "local_read")
+1330:            evidence = [replace(item, io_effect=spec.io_effect) for item in run_result.evidence]

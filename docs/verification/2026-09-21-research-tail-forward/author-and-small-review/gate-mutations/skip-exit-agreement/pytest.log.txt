@@ -1,0 +1,17 @@
+.....F.........                                                          [100%]
+=================================== FAILURES ===================================
+__________________ test_measured_exit_must_agree_with_receipt __________________
+
+gate = (<function gate.<locals>.run at 0x106be7c40>, PosixPath('/private/tmp/pytest-of-a77/pytest-1386/test_measured_exit_mus...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+
+    def test_measured_exit_must_agree_with_receipt(gate):
+        run, _, _ = gate
+>       assert run(updates={"FAKE_EXIT": "1"}).returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1386/test_measured_exit_must_agree_0/repo/run_m...p/pytest-of-a77/pytest-1386/test_measured_exit_must_agree_0/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/tmp/pytest-of-a77/pytest-1386/test_measured_exit_must_agree_0/repo/run_m...p/pytest-of-a77/pytest-1386/test_measured_exit_must_agree_0/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='') = <function gate.<locals>.run at 0x106be7c40>(updates={'FAKE_EXIT': '1'})
+
+tests/test_run_main_gate.py:99: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_main_gate.py::test_measured_exit_must_agree_with_receipt
+1 failed, 14 passed in 8.60s

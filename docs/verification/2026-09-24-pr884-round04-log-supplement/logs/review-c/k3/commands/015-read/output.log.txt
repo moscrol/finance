@@ -1,0 +1,82 @@
+            outcome=outcome,
+            resume_callback=lambda previous, goal: self._episode.resume(
+                state,
+                previous,
+                goal,
+            ),
+            evidence_ledger=state.evidence_ledger,
+            initial_evidence_snapshot=state.initial_evidence_snapshot,
+            runtime_handle=handle,
+        )
+
+
+def _provider_trace_entry(
+    provider: object | None,
+    *,
+    status: str,
+    reason: str,
+) -> dict[str, object]:
+    """Build a private, secret-free adapter-attempt record."""
+
+    return {
+        "provider": _provider_name(provider),
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _turn_from_message(
+    message: object,
+    provider_name: str,
+    attempts: int,
+    *,
+    reject_empty: bool = True,
+) -> tuple[ModelTurn, str]:
+    """Check completion before parsing calls, preserving the provider receipt."""
+    reason = message.get("_finish_reason") if isinstance(message, dict) else None
+    reason = reason.strip().lower() if isinstance(reason, str) else None
+    if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
+        input_tokens, output_tokens = _message_token_usage(message)
+        content = message.get("content")
+        turn = ModelTurn(
+            content if isinstance(content, str) else "", (), provider_name,
+            provider_attempts=attempts, input_tokens=input_tokens, output_tokens=output_tokens,
+            served_model=_message_served_model(message), finish_reason=reason,
+        )
+        return turn, turn.error
+    turn, error = _parse_model_message(message, provider_name, attempts, reject_empty=reject_empty)
+    return replace(turn, finish_reason=reason), error
+
+
+def _parse_model_message(
+    message: object,
+    provider_name: str,
+    attempts: int,
+    *,
+    reject_empty: bool = True,
+) -> tuple[ModelTurn, str]:
+    """Validate and convert an adapter envelope without leaking raw payloads."""
+
+    if not isinstance(message, dict):
+        return (
+            ModelTurn(
+                "",
+                (),
+                provider_name,
+                "invalid_model_message",
+                provider_attempts=attempts,
+            ),
+            "invalid_model_message",
+        )
+    input_tokens, output_tokens = _message_token_usage(message)
+    served_model = _message_served_model(message)
+
+    raw_content = message.get("content")
+    if raw_content is None:
+        content = ""
+    elif isinstance(raw_content, str):
+        content = raw_content
+    else:
+        return (
+
+[truncated; total lines=884, selected=660:739; request a later offset]

@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "leaf": "frontend",
+  "tree": "/Users/a77/fwp-wt-history-evidence-integration-0921",
+  "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "started_at": "2026-09-21T13:37:08.180430+00:00",
+  "identity_before": {
+    "recorded_at": "2026-09-21T13:37:08.383737+00:00",
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "identity_after": {
+    "recorded_at": "2026-09-21T13:38:57.044141+00:00",
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "dirty": false,
+  "identity_stable": true,
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.78,
+      "log": "frontend-0.log.txt",
+      "log_bytes": 995,
+      "log_sha256": "8901de7baebcd1b686b88e0d5de93d417e97a4faeab93c3b5d0dd349945fd8f2"
+    },
+    {
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.7,
+      "log": "frontend-1.log.txt",
+      "log_bytes": 128,
+      "log_sha256": "140d8f39d02678a22f00f94de360900d20341d58ddbc50a1e403a3a0b08f2c3e"
+    },
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.4,
+      "log": "frontend-2.log.txt",
+      "log_bytes": 226,
+      "log_sha256": "42bd8dde187f8f20dde68abdd96383225f601c366cb39f0fb2e160fc57f1ec84"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 8.52,
+      "log": "frontend-3.log.txt",
+      "log_bytes": 1457,
+      "log_sha256": "55ff001af625a9f5bfa4f308915e6291b3ebff8156a20c27bcab657a70f946d5"
+    },
+    {
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.3,
+      "log": "frontend-4.log.txt",
+      "log_bytes": 943,
+      "log_sha256": "1ef1136160e2baabe5ea1651fb0fc78de4e4dfec4b8a35b06a1ffa022a7be5dd"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 82.81,
+      "log": "frontend-5.log.txt",
+      "log_bytes": 12767,
+      "log_sha256": "35e9d6f7693a46950471b8bab2114447227058d19dd364d49540fadaf5597920"
+    }
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-21T13:38:57.044229+00:00"
+}

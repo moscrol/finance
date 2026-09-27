@@ -1,0 +1,95 @@
+"""Bind focused verification and archived probes to the clean final revision."""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+
+ROOT = Path('/Users/a77/fwp-wt-runtime-evidence-closeout-0920')
+OUT = Path(__file__).resolve().parent
+BASE = 'a7f5cc06c087c2d9db896450bb6033851e8e5789'
+TESTS = [f'intelligence/tests/{name}.py' for name in (
+    'test_episode_evidence_snapshot', 'test_episode_evidence_presentations',
+    'test_evidence_ledger', 'test_episode_store', 'test_episode_restore',
+    'test_episode_restore_persistence', 'test_episode_authorization_snapshot',
+    'test_sub_research_persistence', 'test_api_fixture_lifecycle', 'test_api_quota',
+    'test_api_credits', 'test_api_run_admission',
+)]
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def checked_run(label, command):
+    started = time.time()
+    with (OUT / f'{label}.log').open('w') as log:
+        result = subprocess.run(command, cwd=ROOT, env={**os.environ, 'FWP_TEST_RECEIPT': '0'},
+                                stdout=log, stderr=subprocess.STDOUT, timeout=60)
+    value = {'command': command, 'cwd': str(ROOT), 'returncode': result.returncode,
+             'seconds': time.time() - started, 'log': f'{label}.log',
+             'log_sha256': sha(OUT / f'{label}.log')}
+    assert result.returncode == 0, value
+    return value
+
+
+revision = git('rev-parse', 'HEAD')
+assert not git('status', '--porcelain')
+files = git('diff', '--name-only', BASE, 'HEAD').splitlines()
+pytest = checked_run('final-related-green', [sys.executable, '-m', 'pytest', '-q', *TESTS])
+passed = int(re.search(r'(\d+) passed', (OUT / pytest['log']).read_text()).group(1))
+assert passed == 348
+ruff = checked_run('final-ruff-green', [sys.executable, '-m', 'ruff', 'check', *[p for p in files if p.endswith('.py')]])
+assert revision == git('rev-parse', 'HEAD') and not git('status', '--porcelain')
+receipt = {
+    'kind': 'focused_revision_receipt', 'created_at': datetime.now(timezone.utc).isoformat(),
+    'revision': revision, 'base_revision': BASE, 'branch': git('branch', '--show-current'),
+    'source_root': str(ROOT), 'interpreter': sys.executable,
+    'clean_before': True, 'clean_after': True, 'passed': passed,
+    'scope': TESTS, 'pytest': pytest, 'ruff': ruff,
+    'files_sha256': {path: sha(ROOT / path) for path in files},
+    'not_validated': ['whole-repository gates', 'live model / natural financial quality',
+                      'process-restart driver', 'cross-process lease / single-writer',
+                      'unknown-effect reconciliation', 'main merge / production deployment'],
+}
+(OUT / 'final-receipt.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+future_red = [json.loads(line) for line in (OUT / 'future-red.log').read_text().splitlines()]
+future_green = [json.loads(line) for line in (OUT / 'future-green.log').read_text().splitlines()]
+mixed_red = json.loads((OUT / 'mixed-red.log').read_text())
+mixed_green = json.loads((OUT / 'mixed-green.log').read_text())
+assert sum(p.get('error') is not None or p.get('stop_reason') == 'storage_failed' for p in future_red) == 2
+assert all(p['model_calls'] == 2 and p['stop_reason'] == 'model_finish' for p in future_green)
+assert mixed_red[1]['stop_reason'] == 'storage_failed' and mixed_red[1]['parent_calls'] == 1
+assert all(p['parent_calls'] == 2 and p['persistence'] == 'durable' for p in mixed_green)
+artifacts = {}
+for path in sorted(OUT.rglob('*')):
+    if path.is_file() and '__pycache__' not in path.parts and path.suffix in {'.log', '.json', '.jsonl', '.py'} and path.name != 'manifest.json':
+        artifacts[str(path.relative_to(OUT))] = {'sha256': sha(path), 'bytes': path.stat().st_size}
+manifest = {
+    'revision': revision, 'branch': receipt['branch'], 'base_revision': BASE,
+    'final_receipt': 'final-receipt.json', 'clean': True,
+    'original_probe_red': {
+        'future': {'exit_code': 1, 'failing_cells': 2, 'total_cells': 4, 'log': 'future-red.log'},
+        'mixed': {'exit_code': 0, 'result_failure': True, 'failing_cells': 1, 'total_cells': 2,
+                  'note': 'Raw JSON, not exit status, supplies the failure verdict', 'log': 'mixed-red.log'},
+        'timer': {'exit_code': 1, 'log': 'timer-red.log',
+                  'green_replacement': 'asynchronous teardown with explicit release event in test_api_fixture_lifecycle.py'},
+    },
+    'green_original_probes': {'future_cells': 4, 'mixed_cells': 2},
+    'bounded_mutations': json.loads((OUT / 'mutations.json').read_text()),
+    'artifacts': artifacts,
+    'no_live_model_calls': True, 'no_production_changes': True,
+    'review_status': 'awaiting independent Spec then Quality',
+}
+(OUT / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'revision': revision, 'passed': passed, 'clean': True, 'manifest': str(OUT / 'manifest.json')}, ensure_ascii=False))

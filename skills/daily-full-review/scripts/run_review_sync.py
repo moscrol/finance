@@ -18,7 +18,7 @@
           expected 变动的板块打复盘会，其余用最近 fupanhui 名单 × 当日东财真值本地拼接；
           板块日行情本地派生；公开资产里竞价停、席位走 akshare、研报增量翻页（≈30~45 请求/日）。
 - auto  ：周五 full（兜「一进一出数量不变」的成分换血盲区），其余交易日 cheap。
-- local ：零复盘会请求；同花顺四步并跑更新独立表，缺 key 明确 skip；旧复盘表仍走本地计算。
+- local ：零复盘会请求；同花顺五步并跑更新独立表，缺 key 明确 skip；旧复盘表仍走本地计算。
 各档的步骤名与 registry `plans` 段逐项一致，tests/test_consumption_registry.py 强制。
 """
 from __future__ import annotations
@@ -186,7 +186,9 @@ def _notify(msg: str) -> None:
         pass
 
 
-def run_step(label: str, argv: list[str], timeout: int) -> dict:
+def run_step(
+    label: str, argv: list[str], timeout: int, *, partial_exit_codes: tuple[int, ...] = (),
+) -> dict:
     """跑一个子进程模块，stdout 继承到终端（看得到进度），返回结果。"""
     print(f"\n>>> {label}: {' '.join(argv)} (timeout={timeout}s)", flush=True)
     started = time.time()
@@ -195,7 +197,9 @@ def run_step(label: str, argv: list[str], timeout: int) -> dict:
     try:
         proc = subprocess.run(argv, cwd=str(ROOT), timeout=timeout)
         code = proc.returncode
-        if code != 0:
+        if code in partial_exit_codes:
+            status = "partial"
+        elif code != 0:
             status = "fail"
     except subprocess.TimeoutExpired:
         status = "timeout"
@@ -307,9 +311,9 @@ def sync_limit_heat(trade_date: str, timeout: int) -> dict:
             "elapsed": res["elapsed"], "note": note}
 
 
-def sync_stock_daily(trade_date: str, timeout: int) -> dict:
+def sync_stock_daily(trade_date: str, timeout: int, *, hithink_fallback: bool = False) -> dict:
     """单日复盘默认走东财快照（snapshot，快，当日值与 mootdx 一致）；
-    失败 → 当日 fallback（sector_stock 聚合）。
+    失败 → 当日 fallback（sector_stock 聚合）→ local 整日缺行时同花顺桥。
     历史多日回填才用 mootdx（逐只慢，走 duckdb-backfill skill）。"""
     res = run_step(
         "stock-daily (snapshot)",
@@ -317,14 +321,31 @@ def sync_stock_daily(trade_date: str, timeout: int) -> dict:
         timeout,
     )
     if res["status"] == "ok" and _count("fact_stock_daily", trade_date) > 0:
-        return {**res, "label": "stock-daily", "note": "eastmoney snapshot ok"}
+        return {**res, "label": "stock-daily", "note": "eastmoney snapshot ok", "attempts": [res]}
     fb = run_step(
         "stock-daily fallback",
         CLI + ["fill-stock-daily-fallback", "--trade-date", trade_date],
         timeout,
     )
-    return {"label": "stock-daily", "status": fb["status"], "code": fb["code"],
-            "elapsed": res["elapsed"] + fb["elapsed"], "note": "used fill-stock-daily-fallback"}
+    if not hithink_fallback:
+        return {"label": "stock-daily", "status": fb["status"], "code": fb["code"],
+                "elapsed": res["elapsed"] + fb["elapsed"], "note": "used fill-stock-daily-fallback"}
+
+    attempts = [res, fb]
+    rows = _count("fact_stock_daily", trade_date)
+    if rows == 0:
+        attempts.append(run_step(
+            "bridge-stock-daily", CLI + ["bridge-stock-daily", "--trade-date", trade_date], timeout,
+        ))
+        rows = _count("fact_stock_daily", trade_date)
+    last = attempts[-1]
+    ok = last["status"] == "ok" and rows > 0
+    return {
+        "label": "stock-daily", "status": "ok" if ok else "fail",
+        "code": 0 if ok else (last["code"] or 1),
+        "elapsed": sum(attempt["elapsed"] for attempt in attempts),
+        "note": f"last source={last['label']}; canonical rows={rows}", "attempts": attempts,
+    }
 
 
 def stitch_sector_members(trade_date: str, timeout: int) -> dict:
@@ -356,7 +377,7 @@ def _count_by_source(table: str, trade_date: str, source: str) -> int:
 
 HITHINK_STEPS = (
     "hithink-stock-daily", "hithink-sector-kline",
-    "hithink-limit-pools", "hithink-dragon-auction",
+    "hithink-limit-pools", "hithink-dragon-auction", "hithink-research",
 )
 
 
@@ -375,6 +396,13 @@ def sync_hithink_step(label: str, trade_date: str, timeout: int) -> dict:
         print(f"<<< {label}: skip (no-key; 并跑源未更新)", flush=True)
         return {"label": label, "status": "skip", "code": None,
                 "elapsed": 0.0, "note": "no-key; 并跑源未更新，不代表换源完成"}
+    if label == "hithink-research":
+        from market_feature_store.sync.sync_hithink_research import PARTIAL_EXIT_CODE
+
+        return run_step(
+            label, CLI + ["sync-hithink-research", "--end-date", trade_date], timeout,
+            partial_exit_codes=(PARTIAL_EXIT_CODE,),
+        )
     argv = CLI + [f"sync-{label}", "--incremental"]
     if label != "hithink-stock-daily":
         argv += ["--end-date", trade_date]
@@ -390,16 +418,18 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
     stitch 用最后一份 fupanhui 成分 × 当日东财真值；加工层 limit-stats-local / market-overview-local
     按 skills/duckdb-backfill 双轨实测的公开规则算。顺序依赖：stock-daily 先于 stitch（拼接要当日真值），
     stitch 先于 sector-daily-local（成分求和），sector-daily-local 先于 limit-stats-local（题材涨停借名单），
-    index/sw 先于 market-overview-local（周均线、前三行业）。同花顺四步更新并跑表，
-    此片尚不投影到旧复盘表；名单可以换源，不要求复制复盘会，实际切换另验。"""
+    index/sw 先于 market-overview-local（周均线、前三行业）。同花顺五步更新并跑表；同花顺日线先入，
+    stock-daily 主源与成分兜底无行时才桥接 canonical，其他同花顺表仍仅并跑、尚不投影到旧复盘表；
+    名单可以换源，不要求复制复盘会，实际切换另验。"""
     hithink = [
         (label, lambda label=label: sync_hithink_step(label, trade_date, heavy_timeout))
         for label in HITHINK_STEPS
     ]
     return [
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
-        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
-        *hithink,
+        hithink[0],
+        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout, hithink_fallback=True)),
+        *hithink[1:],
         ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
         ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
@@ -483,6 +513,11 @@ def write_runlog(trade_date: str, results: list[dict], gate_ok: bool | None, pla
     lines.append("|---|---|---:|---|")
     for r in results:
         lines.append(f"| {r['label']} | {r['status']} | {r['elapsed']:.0f} | {r.get('note','')} |")
+        for attempt in r.get("attempts", ()):
+            lines.append(
+                f"| {r['label']} / {attempt['label']} | {attempt['status']} | "
+                f"{attempt['elapsed']:.0f} | code={attempt['code']} |"
+            )
     gate = "COMPLETE" if gate_ok else ("INCOMPLETE" if gate_ok is not None else "未检")
     lines.append(f"| quality-gate | {gate} | - | check_daily_review_data.py |")
     bad = [r["label"] for r in results if r["status"] in {"timeout", "fail", "partial"}]
@@ -555,23 +590,28 @@ def main() -> int:
     results: list[dict] = []
     for name, fn in steps:
         result = fn()
-        if name in HITHINK_STEPS and result["status"] not in {"ok", "skip"}:
-            # 后两步从 dump 取交易日历，不能先用旧日历跑，再到末尾仅重试 dump。
-            # 有凭证但失败在本步原地重试；曾请求失败后 key 丢失也不能用 skip 洗绿。
+        critical = name in HITHINK_STEPS or (plan == "local" and name == "stock-daily")
+        accepted = {"ok", "skip"} if name in HITHINK_STEPS else {"ok"}
+        if critical and result["status"] not in accepted:
+            # 行情与 dump 日历都是下游依赖，失败须原地重试，不能在派生后才补偿。
+            # 曾请求失败后 key 丢失也不能用 skip 洗绿。
             for round_no in range(1, max(args.retry_rounds, 0) + 1):
                 retry = fn()
                 if retry["status"] == "skip":
                     result["note"] = f"retry r{round_no} skipped; original failure retained"
                     break
+                if name == "stock-daily":
+                    retry["attempts"] = [*result.get("attempts", ()), *retry.get("attempts", ())]
+                    retry["elapsed"] += result["elapsed"]
                 result = retry
                 result["note"] = (str(result.get("note") or "") + f" [retry r{round_no}]").strip()
                 if result["status"] == "ok":
                     break
             if result["status"] != "ok":
                 results.append(result)
-                _notify(f"同花顺并跑 {args.date} {name} 未成功，停止下游与发布")
+                _notify(f"行情依赖 {args.date} {name} 未成功，停止下游与发布")
                 write_runlog(args.date, results, False, plan=plan)
-                print("\n== 同花顺并跑步骤未成功：停止下游/导出/换名 ==", flush=True)
+                print("\n== 行情依赖步骤未成功：停止下游/导出/换名 ==", flush=True)
                 return 1
         results.append(result)
 

@@ -1,0 +1,47 @@
+def _numbered_sentences(draft: str) -> list[dict[str, object]]:
+    sentences: list[dict[str, object]] = []
+    for text in claim_sentences(str(draft or "")):
+        sentences.append({"index": len(sentences) + 1, "text": text})
+    return sentences
+
+
+def _mechanical_reasons_by_index(
+    *,
+    numeric: tuple[int, ...] = (),
+    weekday: tuple[int, ...] = (),
+    path: tuple[int, ...] = (),
+    ordinal: tuple[int, ...] = (),
+    evidence_date: tuple[int, ...] = (),
+    stock_code: tuple[int, ...] = (),
+    financial: tuple[int, ...] = (),
+) -> dict[int, tuple[str, ...]]:
+    """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
+
+    reasons: dict[int, list[str]] = {}
+    for code, indexes in (
+        (VERDICT_REASON_NUMERIC, numeric),
+        (VERDICT_REASON_WEEKDAY, weekday),
+        (VERDICT_REASON_PATH, path),
+        (VERDICT_REASON_ORDINAL, ordinal),
+        (VERDICT_REASON_EVIDENCE_DATE, evidence_date),
+        (VERDICT_REASON_STOCK_CODE, stock_code),
+        (VERDICT_REASON_FINANCIAL, financial),
+    ):
+        for index in indexes:
+            reasons.setdefault(int(index), []).append(code)
+    return {index: tuple(codes) for index, codes in reasons.items()}
+
+
+def _issues_naming_sentence(issues: tuple[str, ...], index: int) -> tuple[str, ...]:
+    """判官 issue 里显式点到「第 N 句 / 句 N / sentence N」的那些条。"""
+
+    named: list[str] = []
+    for issue in issues:
+        for match in _ISSUE_SENTENCE_INDEX_RE.finditer(str(issue or "")):
+            raw = next((group for group in match.groups() if group), "")
+            if raw and int(raw) == index:
+                named.append(str(issue))
+                break
+    return tuple(named)
+
+[truncated; total lines=6936, selected=4291:4335; request a later offset]

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate/scripts/review_probes/diagnose_llm_timeout.py", line 32, in <module>
+    from intelligence.services import episode_semantic_verifier as semantic
+ModuleNotFoundError: No module named 'intelligence'

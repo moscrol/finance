@@ -1,0 +1,66 @@
+"""Prepare private review inputs without credentials or model calls."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+SOURCE = Path("/Users/a77/fwp-wt-history-evidence-integration-0921")
+REVISION = "fedce252330dce1065238f58e6c914417219ec53"
+OLD = ROOT.parent / "history-k3-access-fedce"
+
+
+def save(path, value, replace=False):
+    mode = "w" if replace else "x"
+    with path.open(mode) as out:
+        out.write(value if isinstance(value, str) else json.dumps(value, indent=2) + "\n")
+
+
+def sandbox(candidate, directory):
+    gitdir = Path(subprocess.check_output(["git", "rev-parse", "--absolute-git-dir"], cwd=candidate, text=True).strip()).resolve()
+    common = Path(subprocess.check_output(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=candidate, text=True).strip()).resolve()
+    q = lambda p: json.dumps(str(p))
+    roots = (candidate, gitdir, common / "objects", common / "refs", ROOT / "worker.py", Path(PYTHON).parent.parent, Path(PYTHON).resolve().parent.parent)
+    literals = (common / "HEAD", common / "config", common / "packed-refs", common / "commondir")
+    exceptions = ' '.join(f'(subpath {q(p)})' for p in roots) + ' ' + ' '.join(f'(literal {q(p)})' for p in literals)
+    policy = ['(version 1)', '(allow default)', '(deny network*)', '(deny file-write* (require-not (literal "/dev/null")))',
+              f'(deny file-read-data (require-all (require-any (subpath "/Users") (subpath "/private/tmp") (subpath "/private/var/folders")) (require-not (require-any {exceptions}))))']
+    for p in (candidate / "docs/handoffs", candidate / "docs/verification", candidate / "intelligence/users", candidate / "db", candidate / ".agent-memory", candidate / ".env"):
+        policy.append(f'(deny file-read-data (subpath {q(p)}))')
+    return "\n".join(policy) + "\n"
+
+
+def prepare(axis, directory, candidate, fixture=False, replace=False, **extras):
+    directory.mkdir(mode=0o700, exist_ok=True)
+    for name in ("agent", "empty-home"):
+        (directory / name).mkdir(mode=0o700, exist_ok=True)
+    save(directory / "tools.sb", sandbox(candidate, directory), replace=replace)
+    if fixture:
+        prompt = "Use git identity, read intelligence/example.py, and search the same file. Then output a final fixture report."
+    else:
+        prompt = (OLD / axis / "prompt.md").read_text()
+        prompt += "\n本轮执行器说明：没有bash/write工具。read/search/git是唯一可用工具，均单层只读禁网沙箱执行。git identity核HEAD及status，git show仅允许指定历史提交及源码路径。终稿完整输出最终回复，由宿主逐字保存为" + axis.upper() + ".md，不要试图写文件。第18次请求或400秒起强制关闭探索；已读不足就如实记partial/not_checked，不得用通过声明代替源码。宿主独立核首尾HEAD/status并存收据。\n"
+    save(directory / "prompt.md", prompt, replace=replace)
+    config = dict(axis=axis, root=str(directory), candidate=str(candidate), python=PYTHON, worker=str(ROOT / "worker.py"), sandbox=str(directory / "tools.sb"), prompt=str(directory / "prompt.md"), fixture=fixture, maxRequests=24, deadlineMs=600000, finalizeAfter=17, finalizeMs=400000, revision=REVISION)
+    config.update(extras)
+    save(directory / "config.json", config, replace=replace)
+    return config
+
+
+if __name__ == "__main__":
+    os.umask(0o077)
+    if sys.argv[1:] not in (["live"], ["refresh"]):
+        raise SystemExit("Explicit live preparation required")
+    replace = sys.argv[1] == "refresh"
+    for axis in ("spec", "quality"):
+        candidate = ROOT / (axis + "-candidate")
+        if not candidate.exists():
+            subprocess.run(["git", "-C", str(SOURCE), "worktree", "add", "--detach", str(candidate), REVISION], check=True)
+        prepare(axis, ROOT / axis, candidate, replace=replace)
+    inputs = [p for p in ROOT.iterdir() if p.is_file() and p.suffix in (".py", ".mjs")]
+    inputs += [ROOT / axis / name for axis in ("spec", "quality") for name in ("config.json", "prompt.md", "tools.sb")]
+    save(ROOT / "live-input-sha256.json", {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}, replace=replace)
+    print(json.dumps({"prepared": ["spec", "quality"], "revision": REVISION, "model_requests": 0, "replaced": replace}))

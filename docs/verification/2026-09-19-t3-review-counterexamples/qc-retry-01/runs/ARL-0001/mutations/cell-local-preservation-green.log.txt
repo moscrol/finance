@@ -1,0 +1,8 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/runs/ARL-0001/mutations/cell-local-preservation-green.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_copy_guard_binds_period_and_column_not_a_bag_of_numbers or test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts"], "cwd": "/private/tmp/extraction-closeout-mutations-g20g0z2l/tree", "revision": "a2a3301963d11a073f511e1552b53daee7ecd704"}
+...                                                                      [100%]
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/qc-retry-01/runs/ARL-0001/mutations/cell-local-preservation-green.xml -
+3 passed, 179 deselected in 0.82s
+
+STDERR:
+
+EXIT=0

@@ -1,0 +1,136 @@
+{
+  "pr": "911",
+  "revision": "eb59c4a2fb4dbe77a349bd8545b942aa4df8db14",
+  "baseline": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/code-map.log",
+      "path": "raw/911/code-map.log.txt",
+      "sha256": "17d0bc76804be5e25b813cf47897e73dc48febcfcc9675e6cf369c6cc7a081da",
+      "bytes": 753
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/code-map.process.json",
+      "path": "raw/911/code-map.process.json",
+      "sha256": "6b596e88e88fe4fa09f523ee60109334b75672d3091175e1a474aef2f9920a50",
+      "bytes": 747
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/diff-check.log",
+      "path": "raw/911/diff-check.log.txt",
+      "sha256": "4601dcffb037f1c7cd0565841a977391a27d68e64b96c2dc47091a64e62a523b",
+      "bytes": 532
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/diff-check.process.json",
+      "path": "raw/911/diff-check.process.json",
+      "sha256": "cf5d0427202ecd59bb8a1027ffaeb5835c2fe913304be14d73a2cbefd6141dc7",
+      "bytes": 740
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/doctor.log",
+      "path": "raw/911/doctor.log.txt",
+      "sha256": "de5c285464e74faa2dd2d5138b1fe020b5de8ebd238e196dcda9131e1c3698e4",
+      "bytes": 5151
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/doctor.process.json",
+      "path": "raw/911/doctor.process.json",
+      "sha256": "7db8d2166a2aeba518e9c97def9fbdc5a86b22a897fcb660fc6d5c454dd2f751",
+      "bytes": 748
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/ledger-crosswalk.log",
+      "path": "raw/911/ledger-crosswalk.log.txt",
+      "sha256": "fc6ce3d20f840096d14e69204e9e24d73919b903ad49bb74194f7558f70eced3",
+      "bytes": 2568
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/ledger-crosswalk.process.json",
+      "path": "raw/911/ledger-crosswalk.process.json",
+      "sha256": "3facc4e2916b9550181dc45bf1a4c1051a8458be492f01cf278c2c5e4067c2a4",
+      "bytes": 763
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-check.log",
+      "path": "raw/911/registry-check.log.txt",
+      "sha256": "dd55bd338f82a26e12ddaed33b408a151d3500141f666284b4fd7673d1c2b7c6",
+      "bytes": 590
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-check.process.json",
+      "path": "raw/911/registry-check.process.json",
+      "sha256": "37654cf45b4e49b456ad4bea345dcb7844bebaf74c42711dc5b2a901660e2b62",
+      "bytes": 761
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-parse.log",
+      "path": "raw/911/registry-parse.log.txt",
+      "sha256": "05b3feeb7d63aee8aa31c2f86923c44a12f994895679e1a67a8a7deee2542552",
+      "bytes": 665
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-parse.process.json",
+      "path": "raw/911/registry-parse.process.json",
+      "sha256": "46e454fb2318d6a8ede1fc33f6f38a2c1e5ab63641199f323ef30a0855ba9390",
+      "bytes": 774
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-tables.log",
+      "path": "raw/911/registry-tables.log.txt",
+      "sha256": "d624aa246e6e827dcb2a5a3c45d78db718cc1e70ca5e0c076bd81c59bbee2a4f",
+      "bytes": 695
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-tables.process.json",
+      "path": "raw/911/registry-tables.process.json",
+      "sha256": "bfd7565186a9c065807e16e3ed45e2524aa4026c1dd5a392ac0badbb5594eca9",
+      "bytes": 787
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-views.log",
+      "path": "raw/911/registry-views.log.txt",
+      "sha256": "b5ceac78452b7a7dca21887e7d2d2b4b55c1f37c78073259efa86229b42dedca",
+      "bytes": 645
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/registry-views.process.json",
+      "path": "raw/911/registry-views.process.json",
+      "sha256": "24e052af85d50c5bac286feab88353f76f82e9825d82c3f4501c9df87b98a102",
+      "bytes": 785
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/ruff.log",
+      "path": "raw/911/ruff.log.txt",
+      "sha256": "53a83138b7d848a1b79ca0e335bc57b8b459fc77c1950eaf77f4a7e418b72043",
+      "bytes": 556
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/ruff.process.json",
+      "path": "raw/911/ruff.process.json",
+      "sha256": "e83f8009359a4cb06486154a5da0a31db48e0afe91011461da9e9aee3ab044bc",
+      "bytes": 749
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/911/summary.json",
+      "path": "raw/911/summary.json",
+      "sha256": "8e480ae87411188ebdb8e5869b81b7109d61da32a2e94c5a102fce5d33234ebb",
+      "bytes": 2596
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/run_static.py",
+      "path": "raw/run_static.py.txt",
+      "sha256": "4f0752374abfd3f70dd2135ea2373e381393ae9b305e2ee28456bed25734f0d7",
+      "bytes": 3876
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-main643-20260925-01/seal_static.py",
+      "path": "raw/seal_static.py.txt",
+      "sha256": "9fc4e5ce7a91d6780ce9da9a948c44aff07c6e06a6512b6e4c36beedccd21663",
+      "bytes": 1582
+    }
+  ],
+  "dynamic_attempt_started": false,
+  "paid_model_requests": 0,
+  "independent_review": false
+}

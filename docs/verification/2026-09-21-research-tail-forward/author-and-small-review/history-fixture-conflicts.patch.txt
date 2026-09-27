@@ -1,0 +1,292 @@
+diff --cc intelligence/tests/fixtures/run_supervisor.py
+index 9dc82b62d,e6fbf34d4..000000000
+--- a/intelligence/tests/fixtures/run_supervisor.py
++++ b/intelligence/tests/fixtures/run_supervisor.py
+@@@ -1,57 -1,21 +1,72 @@@
+  """Keep test-owned workers inside the lifetime of their patched dependencies."""
+  from __future__ import annotations
+  
+++<<<<<<< HEAD
+ +from threading import Timer, current_thread
+++=======
+++>>>>>>> fix/history-closeout-0920
+  from typing import TYPE_CHECKING
+  
+  if TYPE_CHECKING:
+      from fastapi.testclient import TestClient
+  
+  
+++<<<<<<< HEAD
+ +class _OwnedTimers(dict[tuple[str, str], Timer]):
+ +    """Record this supervisor's timers even after its completion callback pops them.
+ +
+ +    The supervisor already serializes all writes with its lock. After the test
+ +    joins its executor, no worker can create/start another timer in this list.
+ +    No global Timer factory or unrelated process thread is patched or inspected.
+ +    """
+ +
+ +    def __init__(self, timers: dict[tuple[str, str], Timer]) -> None:
+ +        super().__init__(timers)
+ +        self.owned = list(timers.values())
+ +
+ +    def __setitem__(self, key: tuple[str, str], timer: Timer) -> None:
+ +        self.owned.append(timer)
+ +        super().__setitem__(key, timer)
+ +
+ +
+ +def track_test_client_timers(client: TestClient) -> None:
+ +    """Register ownership before a fixture yields its client or accepts test work."""
+ +    supervisor = client.app.state.supervisor
+ +    with supervisor._lock:
+ +        if not isinstance(supervisor._timers, _OwnedTimers):
+ +            supervisor._timers = _OwnedTimers(supervisor._timers)
+ +
+ +
+ +def drain_test_client(client: TestClient) -> None:
+ +    """Cancel queued work and join owned workers/timers before monkeypatch undo.
+++=======
++ def drain_test_client(client: TestClient) -> None:
++     """Cancel queued work and join running fakes before pytest undoes monkeypatch.
+++>>>>>>> fix/history-closeout-0920
+  
+      Production shutdown intentionally does not wait for slow IO. Tests own their
+      bounded runners and must release any gates before calling this helper. Access
+      to the private executor is confined to test infrastructure, not a new runtime
+++<<<<<<< HEAD
+ +    shutdown policy. Waiting also covers completion callbacks/credit settlement
+ +    and already-fired timeout callbacks no longer in the active task table.
+++=======
++     shutdown policy. Waiting also covers completion callbacks/credit settlement.
+++>>>>>>> fix/history-closeout-0920
+      """
+      supervisor = client.app.state.supervisor
+      supervisor.shutdown()
+      supervisor._executor.shutdown(wait=True, cancel_futures=True)
+++<<<<<<< HEAD
+ +    with supervisor._lock:
+ +        if not isinstance(supervisor._timers, _OwnedTimers):
+ +            raise RuntimeError("register test timer ownership before submitting work")
+ +        timers = tuple(supervisor._timers.owned)
+ +    for timer in timers:
+ +        timer.cancel()
+ +    for timer in timers:
+ +        if timer is not current_thread() and timer.ident is not None:
+ +            timer.join()
+++=======
+++>>>>>>> fix/history-closeout-0920
+      client.close()
+diff --cc intelligence/tests/test_api_credits.py
+index 77b8a9770,780c15efc..000000000
+--- a/intelligence/tests/test_api_credits.py
++++ b/intelligence/tests/test_api_credits.py
+@@@ -34,7 -34,7 +34,11 @@@ from intelligence.api.credits import 
+  from intelligence.api.quota import RunQuota  # noqa: E402
+  from intelligence.services import run_store as rs  # noqa: E402
+  from intelligence.services.run_store import RunStore  # noqa: E402
+++<<<<<<< HEAD
+ +from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+++=======
++ from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
+++>>>>>>> fix/history-closeout-0920
+  
+  REPO_ROOT = Path(__file__).resolve().parents[2]
+  CLI = REPO_ROOT / "scripts" / "workbench_credits.py"
+diff --cc intelligence/tests/test_api_fixture_lifecycle.py
+index 7a6a970db,d7044c5ae..000000000
+--- a/intelligence/tests/test_api_fixture_lifecycle.py
++++ b/intelligence/tests/test_api_fixture_lifecycle.py
+@@@ -1,14 -1,12 +1,20 @@@
+  """Force late API workers to resolve runners during fixture teardown, not after it."""
+  from __future__ import annotations
+  
+++<<<<<<< HEAD
+ +import os
+++=======
+++>>>>>>> fix/history-closeout-0920
+  import threading
+  
+  import pytest
+  
+  from intelligence.api import app as api_module
+  from intelligence.api.credits import CreditStore
+++<<<<<<< HEAD
+ +from intelligence.services.run_store import RunStore
+++=======
+++>>>>>>> fix/history-closeout-0920
+  from intelligence.tests import test_api_credits, test_api_quota, test_api_run_admission
+  
+  
+@@@ -80,127 -78,3 +86,130 @@@ def test_api_fixture_joins_late_worker_
+                  client.app.state.supervisor.shutdown()
+                  client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+                  client.close()
+++<<<<<<< HEAD
+ +
+ +
+ +@pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
+ +def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
+ +    entered = threading.Event()
+ +    release = threading.Event()
+ +    worker_release = threading.Event()
+ +    forgotten = threading.Event()
+ +    joining = threading.Event()
+ +    teardown_observed = threading.Event()
+ +    teardown_done = threading.Event()
+ +    callback_done = threading.Event()
+ +    unrelated_release = threading.Event()
+ +    unrelated = threading.Timer(0, unrelated_release.wait)
+ +    unrelated.start()
+ +    observed = []
+ +    timers = []
+ +    errors = []
+ +    fixture = client = teardown_thread = None
+ +    with pytest.MonkeyPatch.context() as patch:
+ +        original_claim = RunStore.claim_failed_run
+ +
+ +        def parked_claim(store, *args, **kwargs):
+ +            value = original_claim(store, *args, **kwargs)
+ +            if kwargs.get("error") == "executor_timeout":
+ +                assert value[1]
+ +                timers.append(threading.current_thread())
+ +                entered.set()
+ +                try:
+ +                    if not release.wait(5):
+ +                        raise RuntimeError("test did not release its timer")
+ +                    observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
+ +                finally:
+ +                    callback_done.set()
+ +            return value
+ +
+ +        patch.setattr(RunStore, "claim_failed_run", parked_claim)
+ +        factory = {
+ +            "quota": test_api_quota.quota_client,
+ +            "credits": test_api_credits.api,
+ +            "admission": test_api_run_admission.harness,
+ +        }[owner]
+ +        try:
+ +            fixture = factory.__wrapped__(tmp_path, patch)
+ +            value = next(fixture)
+ +            if owner == "quota":
+ +                client = value
+ +            elif owner == "credits":
+ +                client = value(CreditStore(enabled=False))
+ +            else:
+ +                client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
+ +                value.gate.release.set()
+ +            supervisor = client.app.state.supervisor
+ +            supervisor.timeout_sec = 0
+ +            fake_runner = api_module._run_ask
+ +            forget = supervisor._forget
+ +
+ +            def gated_runner(*args, **kwargs):
+ +                if not worker_release.wait(5):
+ +                    raise RuntimeError("test did not release its worker")
+ +                return fake_runner(*args, **kwargs)
+ +
+ +            def observed_forget(*args, **kwargs):
+ +                try:
+ +                    return forget(*args, **kwargs)
+ +                finally:
+ +                    forgotten.set()
+ +
+ +            patch.setattr(api_module, "_run_ask", gated_runner)
+ +            patch.setattr(supervisor, "_forget", observed_forget)
+ +            response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+ +            assert response.status_code == 200
+ +            assert entered.wait(5)
+ +            fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
+ +            worker_release.set()
+ +            assert forgotten.wait(5)
+ +            assert not supervisor._timers and supervisor.active_count() == 0
+ +            timer = timers[0]
+ +            join = timer.join
+ +
+ +            def observed_join(*args, **kwargs):
+ +                joining.set()
+ +                teardown_observed.set()
+ +                return join(*args, **kwargs)
+ +
+ +            patch.setattr(timer, "join", observed_join)
+ +
+ +            def teardown():
+ +                try:
+ +                    next(fixture)
+ +                except StopIteration:
+ +                    pass
+ +                except BaseException as exc:
+ +                    errors.append(exc)
+ +                finally:
+ +                    teardown_done.set()
+ +                    teardown_observed.set()
+ +
+ +            teardown_thread = threading.Thread(target=teardown)
+ +            teardown_thread.start()
+ +            assert teardown_observed.wait(5)
+ +            assert joining.is_set(), "fixture exited without joining its already-fired timer"
+ +            assert not teardown_done.is_set() and not callback_done.is_set()
+ +            release.set()
+ +            assert teardown_done.wait(5) and callback_done.is_set()
+ +            assert not errors and observed == [fixture_env]
+ +            assert unrelated.is_alive(), "fixture must not wait for unrelated process timers"
+ +            run = RunStore(user_id="owner").load_run(response.json()["run_id"])
+ +            assert run.status == "failed" and run.error == "executor_timeout"
+ +        finally:
+ +            release.set()
+ +            worker_release.set()
+ +            unrelated_release.set()
+ +            unrelated.join(5)
+ +            if teardown_thread is not None:
+ +                teardown_thread.join(5)
+ +            for timer in timers:
+ +                timer.join(5)
+ +            if fixture is not None:
+ +                fixture.close()
+ +            if client is not None:
+ +                client.app.state.supervisor.shutdown()
+ +                client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+ +                client.close()
+++=======
+++>>>>>>> fix/history-closeout-0920
+diff --cc intelligence/tests/test_api_quota.py
+index 02b321566,6b24c63c5..000000000
+--- a/intelligence/tests/test_api_quota.py
++++ b/intelligence/tests/test_api_quota.py
+@@@ -14,7 -14,7 +14,11 @@@ from intelligence.api import app as app
+  from intelligence.api.quota import RunQuota  # noqa: E402
+  from intelligence.services import run_store as rs  # noqa: E402
+  from intelligence.services.run_store import RunStore  # noqa: E402
+++<<<<<<< HEAD
+ +from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+++=======
++ from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
+++>>>>>>> fix/history-closeout-0920
+  
+  
+  @pytest.fixture()
+@@@ -126,7 -126,6 +130,10 @@@ def quota_client(tmp_path, monkeypatch)
+              run_quota=RunQuota(daily_limit=1, exempt_users=frozenset({"owner"})),
+          )
+      )
+++<<<<<<< HEAD
+ +    track_test_client_timers(client)
+++=======
+++>>>>>>> fix/history-closeout-0920
+      try:
+          yield client
+      finally:
+diff --cc intelligence/tests/test_api_run_admission.py
+index 49e9d0b5b,f0c8fa991..000000000
+--- a/intelligence/tests/test_api_run_admission.py
++++ b/intelligence/tests/test_api_run_admission.py
+@@@ -20,7 -20,7 +20,11 @@@ from intelligence.api.app import RunSup
+  from intelligence.api.quota import RunQuota  # noqa: E402
+  from intelligence.services import run_store as rs  # noqa: E402
+  from intelligence.services.run_store import RunStore  # noqa: E402
+++<<<<<<< HEAD
+ +from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+++=======
++ from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
+++>>>>>>> fix/history-closeout-0920
+  
+  
+  def _wait_for(predicate: Callable[[], bool], *, timeout: float = 5.0) -> None:

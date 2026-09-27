@@ -1,0 +1,1 @@
+{"toolCallId":"call_7e91dc99ff584a56b262beca","params":{"command":"grep -n -e os._exit -e Timer -e \"def urlopen\" -e HTTPDeadlineExceeded -e is_cancelled -e 124 intelligence/services/llm_http_transport.py","timeout":30}}

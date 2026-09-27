@@ -1,0 +1,3212 @@
+{
+  "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+  "classification": "HOST_AUDIT_NO_NEW_MODEL_REQUESTS",
+  "runs": [
+    {
+      "axis": "spec",
+      "suite": "control",
+      "target_exit_code": 1,
+      "counts": null,
+      "files": [],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/003-run_tests/result.json",
+      "cases": []
+    },
+    {
+      "axis": "spec",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 18,
+        "failed": 4,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 14
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c1_c4_ordinals_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c2_c3_finance_feedback.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c6_condition_repair.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/004-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_e_ordinal_masked_as_space_and_real_numbers_kept",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_plain_words_and_hex_like_tokens_are_not_ordinals",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_frozen_nested_mapping_normalized_to_json_key",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_mapping_not_mutated_by_normalization",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unsupported_objects_still_rejected",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_error_diagnostic_is_structured_and_prose_free",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_invalid_query_via_registry_keeps_db_untouched",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_repair_feedback_stays_in_same_episode_without_extra_budget",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_cancellation_after_feedback_stops_further_dispatch",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_second_page_sample_indices_are_absolute_not_page_relative",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_middle_page_reports_next_offset_and_keeps_identity",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_projection_failure_does_not_append_history_result",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unit_page_offsets_and_navigation",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_deleted_only_definition_removes_count_keeps_unrelated_prose",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_circled_and_ordered_definition_prefixes_are_recognized",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_non_definition_deleted_sentence_does_not_authorize_removal",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_verify_exit_delivers_repaired_public_answer",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 20,
+        "failed": 4,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 16
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c1_c4_ordinals_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c2_c3_finance_feedback.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c6_condition_repair.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_must_red_control.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/005-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_e_ordinal_masked_as_space_and_real_numbers_kept",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_plain_words_and_hex_like_tokens_are_not_ordinals",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_frozen_nested_mapping_normalized_to_json_key",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_mapping_not_mutated_by_normalization",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unsupported_objects_still_rejected",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_error_diagnostic_is_structured_and_prose_free",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_invalid_query_via_registry_keeps_db_untouched",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_repair_feedback_stays_in_same_episode_without_extra_budget",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_cancellation_after_feedback_stops_further_dispatch",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_second_page_sample_indices_are_absolute_not_page_relative",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_middle_page_reports_next_offset_and_keeps_identity",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_projection_failure_does_not_append_history_result",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unit_page_offsets_and_navigation",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_deleted_only_definition_removes_count_keeps_unrelated_prose",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_circled_and_ordered_definition_prefixes_are_recognized",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_non_definition_deleted_sentence_does_not_authorize_removal",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_verify_exit_delivers_repaired_public_answer",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_increment_exists_and_removes_dangling_count",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_history_pagination_increment_exists",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "suite": "author",
+      "target_exit_code": 0,
+      "counts": {
+        "tests": 232,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 232
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_condition_reference_seams.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_episode_numeric_citations.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_episode_protocol.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_finance_query_repair_feedback.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_agent_episode_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_research_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/tests/test_history_model_projection.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/006-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\uff1b\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761-\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c**\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[- **\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-- \\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff1b\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff1b\\u503c\\u5f97\\u8ddf\\u8e2a\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff1b\\u503c\\u5f97\\u8ddf\\u8e2a\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u76ee\\u524d\\u4e0d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u76ee\\u524d\\u4ecd\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u76ee\\u524d\\u5e76\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u5f53\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u5f53\\u524d\\u4ec5\\u5df2\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u4f46\\u5c1a\\u672a\\u6ee1\\u8db3\\u964d\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76841\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u4f46\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u89c2\\u5bdf\\u3002\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u89c2\\u5bdf\\u3002\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u89c2\\u5bdf\\u7ed3\\u679c\\u826f\\u597d\\u3002\\u5f53\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u89c2\\u5bdf\\u7ed3\\u679c\\u826f\\u597d\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u6682\\u65f6\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff1b\\u76ee\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff1b\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[- \\u91cf\\u80fd\\u914d\\u5408\\u3002**\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\u3002-- \\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff1a\\u76ee\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff1a\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u622a\\u81f3\\u76ee\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u4ec5\\u6ee1\\u8db3\\u5f53\\u524d\\u7814\\u7a76\\u9700\\u8981\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u91cf\\u80fd\\u4ec5\\u6ee1\\u8db3\\u5f53\\u524d\\u7814\\u7a76\\u9700\\u8981\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u5f53\\u524d\\u89c2\\u5bdf\\u826f\\u597d**\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-**\\u5f53\\u524d\\u89c2\\u5bdf\\u826f\\u597d**\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[1. \\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-1. \\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[1. \\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u91cf\\u80fd\\u914d\\u5408**\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c**\\u4ecd\\u9700\\u89c2\\u5bdf**\\u3002-**\\u91cf\\u80fd\\u914d\\u5408**\\uff0c**\\u4ecd\\u9700\\u89c2\\u5bdf**\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_retained_label_count_does_not_hide_later_orphaned_label_count",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_untouched_lines_and_their_line_endings_are_preserved",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_deleted_definition_means_no_prose_rewrite[\\u76ee\\u524d\\u4e0d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_deleted_definition_means_no_prose_rewrite[**\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_deleted_definition_means_no_prose_rewrite[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[- ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[* ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[+ ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\u2022 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[1. ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[2) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[3\\uff09 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[4\\u3001 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\u4e00\\u3001]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[(1) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\uff082\\uff09]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\u2460 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[10. **]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[- ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[* ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[+ ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\u2022 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[1. ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[2) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[3\\uff09 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[4\\u3001 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\u4e00\\u3001]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[(1) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\uff082\\uff09]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\u2460 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[10. **]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[- ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[* ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[+ ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\u2022 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[1. ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[2) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[3\\uff09 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[4\\u3001 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\u4e00\\u3001]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[(1) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\uff082\\uff09]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\u2460 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[10. **]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[\\u89c2\\u5bdf\\u5230]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[2026-09-24 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[1. \\u89c2\\u5bdf\\u5230]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[\\u666e\\u901a\\u6761\\u4ef6\\uff1a]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\uff08E27\\uff09]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[(e27)]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[[E27]]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\u3010E27\\u3011]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[E27]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\uff08E1\\u3001E27\\uff09]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\uff08E27\\uff0ce2\\uff09]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u4e3b\\u7ebf\\u8fde\\u7eed2\\u65e5\\u8d70\\u5f31]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u4e3b\\u7ebf\\u8fde\\u7eed\\u4e24\\u65e5\\u8d70\\u5f31]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u6da8\\u5e45\\u8fbe\\u5230100%]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u6307\\u6570\\u8dcc\\u78343870\\u70b9]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u4e0a\\u6da8\\u5bb6\\u6570\\u4e0d\\u8db31500\\u5bb6]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u8bc4\\u5206\\u4f4e\\u4e8e27]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_supported_threshold_survives_with_citation",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_unknown_citation_still_rejected_by_ordinal_gate_not_numeric_gate",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[E27-title]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[E27-detail]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[E27-source]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[e27-title]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[e27-detail]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[e27-source]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[\\uff08E27\\uff09-title]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[\\uff08E27\\uff09-detail]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[\\uff08E27\\uff09-source]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[PE10]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[1.5E8]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[CE4]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[E0]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[E027]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[E1000]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_finish_schema_is_closed_and_requires_all_fields",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_protocol_builds_task_bound_instructions_and_input",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_perspective_context_only_when_active",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_retrieval_stages_only_when_present",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_reading_baseline_by_default",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_reading_baseline_and_perspective_coexist_in_episode_input",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_instruction_reshape_kept_every_constraint_verbatim",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_instructions_are_grouped_not_one_flat_wall",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_system_instructions_are_byte_stable_across_task_frames",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_first_request_is_byte_stable_across_run_ids",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_hash_tools_rules_and_cutoff",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_runtimes_mark_system_prompt_dynamic_boundary",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_track_questions_get_episode_track_contract",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_track_questions_keep_instructions_unchanged",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_forecast_episode_gets_causal_hypothesis_contract",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_rejects_unknown_evidence_hash",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_returns_immutable_value",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_accepts_model_reasoning_without_fake_evidence",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_still_rejects_gap_without_any_evidence",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_rejects_basis_that_weakens_evidence_contract",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_every_rejection_code_is_classified",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_forged_hash_is_integrity_not_format",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_unique_one_char_truncated_hash_is_format_not_integrity",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_truncated_hash_stays_integrity_when_prefix_is_ambiguous_or_too_short",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_mixed_truncated_and_forged_hash_fails_closed_as_integrity",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_exact_hash_still_accepts_after_truncation_gate",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_every_rejection_kind_has_a_disposition",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_integrity_alone_is_denied_reinjection_and_recovery",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_caveat_slips_replays_r7_a7_frozen_finish",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_caveat_slips_zero_on_clean_finish",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_caveat_slips_not_emitted_on_true_gap_reject",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_r001_fixture_b5_all_slot_slip",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_r001_fixture_b7_mixed_true_gap_still_missing",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_r001_fixture_a6_all_slot_slip",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_ordinals_resolve_and_unknown_ordinal_rejects",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_hash_transcription_specimens_stay_rejected",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_hashes_for_model_keeps_ordinals_only",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_cited_evidence_ordinals_extracts_prose_refs_in_order",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_cited_evidence_ordinals_rejects_lookalike_tokens",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u82e5\\u8d70\\u5f31\\u5219\\u964d\\u7ea7\\uff08E27\\uff09\\u3002-\\u82e5\\u8d70\\u5f31\\u5219\\u964d\\u7ea7\\uff08 \\uff09\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u53c2\\u8003[E1, e27]\\u4e0e\\u3010E999\\u3011\\u3002-\\u53c2\\u8003[ ,  ]\\u4e0e\\u3010 \\u3011\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u636eE27\\u663e\\u793a\\u4f4e\\u4e8e27\\u5219\\u964d\\u7ea7\\u3002-\\u636e \\u663e\\u793a\\u4f4e\\u4e8e27\\u5219\\u964d\\u7ea7\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u82e5\\u6da8\\u5e45\\u8fbe\\u5230100%\\uff08E27\\uff09\\u5219\\u964d\\u7ea7\\u3002-\\u82e5\\u6da8\\u5e45\\u8fbe\\u5230100%\\uff08 \\uff09\\u5219\\u964d\\u7ea7\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[PE10\\uff1b1.5E8\\uff1bCE4\\uff1bE0\\uff1bE027\\uff1bE1000-PE10\\uff1b1.5E8\\uff1bCE4\\uff1bE0\\uff1bE027\\uff1bE1000]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[-]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_finish_rejection_fields_present_when_absent",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_error_empty_and_missing_table_are_distinct",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_diagnostic_does_not_echo_arbitrary_prose[metric]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_diagnostic_does_not_echo_arbitrary_prose[dataset]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_diagnostic_does_not_echo_arbitrary_prose[exception]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryTimedOut-\\u7ed3\\u6784\\u5316\\u67e5\\u8be2\\u8d85\\u65f6]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryCancelled-\\u7ed3\\u6784\\u5316\\u67e5\\u8be2\\u5df2\\u53d6\\u6d88]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryLimitExceeded-\\u7ed3\\u6784\\u5316\\u67e5\\u8be2\\u7ed3\\u679c\\u8d85\\u8fc7\\u8d44\\u6e90\\u4e0a\\u9650]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryExecutionError-\\u7ed3\\u6784\\u5316\\u6570\\u636e\\u6e90\\u6682\\u4e0d\\u53ef\\u7528]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_delivers_feedback_and_executes_only_requested_queries[False]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_delivers_feedback_and_executes_only_requested_queries[True]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_cancellation_after_feedback_prevents_repair_dispatch",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_extra_tool_slot_is_minted_for_query_repair",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_progress_block_rides_runtime_budget_and_is_durable",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_repeated_query_is_steered_then_stalled_then_finalized",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_new_evidence_resets_stall_and_finalization_does_not_fire",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_stall_finalization_default_off_only_steers",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_progress_off_switch_restores_previous_budget_payload",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_rejected_structured_arguments_do_not_crash_progress_recording",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode[file:///nonexistent-invalid_query-False]",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode[relative/path-invalid_query-False]",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode[https://example.org/report-tool_exception-True]",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_missing_history_end_returns_feedback_without_losing_prior_evidence",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_tool_error_after_success_keeps_evidence_and_reports_error",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_normalize_query_collapses_whitespace_and_reads_mapping_forms",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[rejected]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[error]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[timeout]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[empty]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments0]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments1]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments2]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments3]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments4]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_json_projection_still_rejects_unsupported_objects",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_digest_rejects_unknown_status",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_new_evidence_resets_stall_and_duplicates_accumulate",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_should_finalize_requires_evidence_and_threshold",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_rejected_duplicate_counts_as_no_progress",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_external_input_resets_stall_counter",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_branch_summary_shows_once_and_flags_failed_branch",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_model_view_shape_and_finalize_warning",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_stall_finalize_env_parsing",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_query_projection_keeps_values_status_definition_ref_and_original",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_inspect_projects_entity_values_before_large_members_and_market[sector]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_inspect_projects_entity_values_before_large_members_and_market[stock]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[observed-False-False--8.25]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[missing_feature-None-None-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[missing_outcome-True-None-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[immature-True-None-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_all_preview_samples_survive_without_equating_cards_to_returned_rows",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[0-1-1]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[0-25-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[1-1-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[1-25-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[2-1-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[9-2-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_failed_page_projection_does_not_record_success",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_initial_preview_advertises_the_next_page",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_overlapping_query_pages_refer_to_the_same_source_row",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_page_coordinates_preserve_reference_and_complete_comparison[compute_history]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_page_coordinates_preserve_reference_and_complete_comparison[find_analogues]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_page_coordinates_preserve_reference_and_complete_comparison[compare_cases]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_empty_query_result_has_no_next_page",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_oversized_field_is_explicitly_omitted_without_clipping_json",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_tool_schema_exposes_feature_rules_from_the_same_definition_source",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_public_citations_keep_distinct_query_blocks_and_sample_pages",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_wrong_save_parent_has_a_repairable_value_error[query]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_wrong_save_parent_has_a_repairable_value_error[missing_draft]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_wrong_save_parent_has_a_repairable_value_error[invalid_draft]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_analogue_projection_exposes_reference_vector_candidate_delta_and_cutoff",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 6,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination_v2.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c6_condition_repair_v2.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/019-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_unit_page_offsets_and_navigation",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_only_definition_removes_count_keeps_unrelated_prose",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_circled_and_ordered_definition_prefixes_are_recognized",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_deleted_sentence_does_not_authorize_removal",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_verify_exit_delivers_repaired_public_answer",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "suite": "probes",
+      "target_exit_code": 2,
+      "counts": {
+        "tests": 1,
+        "failed": 0,
+        "errors": 1,
+        "skipped": 0,
+        "passed": 0
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination_v3.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/022-run_tests/result.json",
+      "cases": [
+        {
+          "name": "",
+          "classname": "",
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "suite": "probes",
+      "target_exit_code": 0,
+      "counts": {
+        "tests": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 1
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination_v4.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/025-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_unit_page_offsets_and_navigation",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "suite": "probes",
+      "target_exit_code": 0,
+      "counts": {
+        "tests": 5,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c6_condition_repair_v2.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/execute/commands/027-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_only_definition_removes_count_keeps_unrelated_prose",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_circled_and_ordered_definition_prefixes_are_recognized",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_deleted_sentence_does_not_authorize_removal",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_verify_exit_delivers_repaired_public_answer",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "control",
+      "target_exit_code": 1,
+      "counts": null,
+      "files": [],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/002-run_tests/result.json",
+      "cases": []
+    },
+    {
+      "axis": "quality",
+      "suite": "probes",
+      "target_exit_code": 2,
+      "counts": {
+        "tests": 1,
+        "failed": 0,
+        "errors": 1,
+        "skipped": 0,
+        "passed": 0
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/003-run_tests/result.json",
+      "cases": [
+        {
+          "name": "",
+          "classname": "",
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 21,
+        "failed": 9,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 12
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/007-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_c1_ordinal_masked_but_numbers_kept",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_c1_plain_number_not_stripped",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_error_is_structured_not_arbitrary",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_bad_time_range_is_rejected_safely",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_invalid_tool_call_feedback_returns_to_same_episode",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_frozen_nested_mapping_normalizes",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unknown_object_still_rejected",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_tracker_records_digest_without_error",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_sample_indexes_carry_absolute_offset",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_result_next_offset_semantics",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_truncation_flag_reflects_partial_page",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_zero_return_sets_next_offset_none",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_repair_reaches_public_answer_after_definition_deletion",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_repair_survives_when_definition_survives",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_deleted_decision_recorded",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_both_deleted_removes_orphaned_counts",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_definition_keeps_its_count",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_removal_without_deleted_definition",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unrelated_prose_and_linebreaks_preserved",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_marker_definition_shapes_all_recognized",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_same_line_mixed_labels_all_removed",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "author",
+      "target_exit_code": 0,
+      "counts": {
+        "tests": 232,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 232
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_condition_reference_seams.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_episode_numeric_citations.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_episode_protocol.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_finance_query_repair_feedback.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_agent_episode_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_research_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/tests/test_history_model_projection.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/008-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\uff1b\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761-\\u8be5\\u80a1\\u653e\\u91cf\\u4e0a\\u653b]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c**\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[- **\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-- \\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff1b\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff1b\\u503c\\u5f97\\u8ddf\\u8e2a\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff1b\\u503c\\u5f97\\u8ddf\\u8e2a\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u76ee\\u524d\\u4e0d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u76ee\\u524d\\u4ecd\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u76ee\\u524d\\u5e76\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u5f53\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u5f53\\u524d\\u4ec5\\u5df2\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u4f46\\u5c1a\\u672a\\u6ee1\\u8db3\\u964d\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76841\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u4f46\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u89c2\\u5bdf\\u3002\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u89c2\\u5bdf\\u3002\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002-\\u591a\\u5934\\u7ed3\\u6784\\u672a\\u7834\\u574f\\u3002\\u9700\\u7ee7\\u7eed\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u89c2\\u5bdf\\u7ed3\\u679c\\u826f\\u597d\\u3002\\u5f53\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u89c2\\u5bdf\\u7ed3\\u679c\\u826f\\u597d\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u6682\\u65f6\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff1b\\u76ee\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff1b\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[- \\u91cf\\u80fd\\u914d\\u5408\\u3002**\\u76ee\\u524d\\u5c1a\\u672a\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\u3002-- \\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff1a\\u76ee\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\uff1a\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u622a\\u81f3\\u76ee\\u524d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[\\u91cf\\u80fd\\u4ec5\\u6ee1\\u8db3\\u5f53\\u524d\\u7814\\u7a76\\u9700\\u8981\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-\\u91cf\\u80fd\\u4ec5\\u6ee1\\u8db3\\u5f53\\u524d\\u7814\\u7a76\\u9700\\u8981\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u5f53\\u524d\\u89c2\\u5bdf\\u826f\\u597d**\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-**\\u5f53\\u524d\\u89c2\\u5bdf\\u826f\\u597d**\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[1. \\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002-1. \\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[1. \\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002-]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_removed_reference_heals_only_its_clause[**\\u91cf\\u80fd\\u914d\\u5408**\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c**\\u4ecd\\u9700\\u89c2\\u5bdf**\\u3002-**\\u91cf\\u80fd\\u914d\\u5408**\\uff0c**\\u4ecd\\u9700\\u89c2\\u5bdf**\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_retained_label_count_does_not_hide_later_orphaned_label_count",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_untouched_lines_and_their_line_endings_are_preserved",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_deleted_definition_means_no_prose_rewrite[\\u76ee\\u524d\\u4e0d\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\uff0c\\u9700\\u89c2\\u5bdf\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_deleted_definition_means_no_prose_rewrite[**\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761**\\uff0c\\u91cf\\u80fd\\u914d\\u5408\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_deleted_definition_means_no_prose_rewrite[\\u91cf\\u80fd\\u914d\\u5408\\uff0c\\u6ee1\\u8db3\\u5347\\u7ea7\\u6761\\u4ef6\\u4e2d\\u76842\\u6761\\u3002]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[- ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[* ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[+ ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\u2022 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[1. ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[2) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[3\\uff09 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[4\\u3001 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\u4e00\\u3001]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[(1) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\uff082\\uff09]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[\\u2460 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_deleted_list_definition_removes_only_its_count[10. **]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[- ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[* ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[+ ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\u2022 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[1. ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[2) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[3\\uff09 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[4\\u3001 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\u4e00\\u3001]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[(1) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\uff082\\uff09]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[\\u2460 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_list_definition_preserves_its_count[10. **]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[- ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[* ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[+ ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\u2022 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[1. ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[2) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[3\\uff09 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[4\\u3001 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\u4e00\\u3001]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[(1) ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\uff082\\uff09]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[\\u2460 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_definition_deletion_reaches_public_answer[10. **]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[\\u89c2\\u5bdf\\u5230]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[2026-09-24 ]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[1. \\u89c2\\u5bdf\\u5230]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_definition_prose_does_not_authorize_count_removal[\\u666e\\u901a\\u6761\\u4ef6\\uff1a]",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion",
+          "classname": "intelligence.tests.test_condition_reference_seams",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\uff08E27\\uff09]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[(e27)]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[[E27]]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\u3010E27\\u3011]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[E27]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\uff08E1\\u3001E27\\uff09]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_citation_only_condition_survives_numeric_preflight_and_verifier[\\uff08E27\\uff0ce2\\uff09]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u4e3b\\u7ebf\\u8fde\\u7eed2\\u65e5\\u8d70\\u5f31]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u4e3b\\u7ebf\\u8fde\\u7eed\\u4e24\\u65e5\\u8d70\\u5f31]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u6da8\\u5e45\\u8fbe\\u5230100%]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u6307\\u6570\\u8dcc\\u78343870\\u70b9]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u4e0a\\u6da8\\u5bb6\\u6570\\u4e0d\\u8db31500\\u5bb6]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_novel_threshold_remains_rejected_beside_valid_citation[\\u8bc4\\u5206\\u4f4e\\u4e8e27]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_supported_threshold_survives_with_citation",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_unknown_citation_still_rejected_by_ordinal_gate_not_numeric_gate",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[E27-title]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[E27-detail]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[E27-source]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[e27-title]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[e27-detail]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[e27-source]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[\\uff08E27\\uff09-title]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[\\uff08E27\\uff09-detail]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_citation_cannot_authorize_a_real_threshold[\\uff08E27\\uff09-source]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[PE10]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[1.5E8]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[CE4]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[E0]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[E027]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_citation_numeric_tokens_are_not_exempted[E1000]",
+          "classname": "intelligence.tests.test_episode_numeric_citations",
+          "status": "passed"
+        },
+        {
+          "name": "test_finish_schema_is_closed_and_requires_all_fields",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_protocol_builds_task_bound_instructions_and_input",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_perspective_context_only_when_active",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_retrieval_stages_only_when_present",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_reading_baseline_by_default",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_reading_baseline_and_perspective_coexist_in_episode_input",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_instruction_reshape_kept_every_constraint_verbatim",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_instructions_are_grouped_not_one_flat_wall",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_system_instructions_are_byte_stable_across_task_frames",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_first_request_is_byte_stable_across_run_ids",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_input_carries_hash_tools_rules_and_cutoff",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_runtimes_mark_system_prompt_dynamic_boundary",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_track_questions_get_episode_track_contract",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_non_track_questions_keep_instructions_unchanged",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_forecast_episode_gets_causal_hypothesis_contract",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_rejects_unknown_evidence_hash",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_returns_immutable_value",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_accepts_model_reasoning_without_fake_evidence",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_keeps_answer_when_supported_output_adds_a_caveat",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_relocates_all_slot_caveats_so_verifier_can_fulfill",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_still_rejects_gap_without_any_evidence",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_validate_finish_rejects_basis_that_weakens_evidence_contract",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_every_rejection_code_is_classified",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_forged_hash_is_integrity_not_format",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_unique_one_char_truncated_hash_is_format_not_integrity",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_truncated_hash_stays_integrity_when_prefix_is_ambiguous_or_too_short",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_mixed_truncated_and_forged_hash_fails_closed_as_integrity",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_exact_hash_still_accepts_after_truncation_gate",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_every_rejection_kind_has_a_disposition",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_integrity_alone_is_denied_reinjection_and_recovery",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_caveat_slips_replays_r7_a7_frozen_finish",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_caveat_slips_zero_on_clean_finish",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_caveat_slips_not_emitted_on_true_gap_reject",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_r001_fixture_b5_all_slot_slip",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_r001_fixture_b7_mixed_true_gap_still_missing",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_r001_fixture_a6_all_slot_slip",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_evidence_ordinals_resolve_and_unknown_ordinal_rejects",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_hash_transcription_specimens_stay_rejected",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_hashes_for_model_keeps_ordinals_only",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_cited_evidence_ordinals_extracts_prose_refs_in_order",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_cited_evidence_ordinals_rejects_lookalike_tokens",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u82e5\\u8d70\\u5f31\\u5219\\u964d\\u7ea7\\uff08E27\\uff09\\u3002-\\u82e5\\u8d70\\u5f31\\u5219\\u964d\\u7ea7\\uff08 \\uff09\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u53c2\\u8003[E1, e27]\\u4e0e\\u3010E999\\u3011\\u3002-\\u53c2\\u8003[ ,  ]\\u4e0e\\u3010 \\u3011\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u636eE27\\u663e\\u793a\\u4f4e\\u4e8e27\\u5219\\u964d\\u7ea7\\u3002-\\u636e \\u663e\\u793a\\u4f4e\\u4e8e27\\u5219\\u964d\\u7ea7\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[\\u82e5\\u6da8\\u5e45\\u8fbe\\u5230100%\\uff08E27\\uff09\\u5219\\u964d\\u7ea7\\u3002-\\u82e5\\u6da8\\u5e45\\u8fbe\\u5230100%\\uff08 \\uff09\\u5219\\u964d\\u7ea7\\u3002]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[PE10\\uff1b1.5E8\\uff1bCE4\\uff1bE0\\uff1bE027\\uff1bE1000-PE10\\uff1b1.5E8\\uff1bCE4\\uff1bE0\\uff1bE027\\uff1bE1000]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_strip_evidence_ordinals_uses_the_prose_citation_grammar[-]",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_finish_rejection_fields_present_when_absent",
+          "classname": "intelligence.tests.test_episode_protocol",
+          "status": "passed"
+        },
+        {
+          "name": "test_error_empty_and_missing_table_are_distinct",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_diagnostic_does_not_echo_arbitrary_prose[metric]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_diagnostic_does_not_echo_arbitrary_prose[dataset]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_diagnostic_does_not_echo_arbitrary_prose[exception]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryTimedOut-\\u7ed3\\u6784\\u5316\\u67e5\\u8be2\\u8d85\\u65f6]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryCancelled-\\u7ed3\\u6784\\u5316\\u67e5\\u8be2\\u5df2\\u53d6\\u6d88]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryLimitExceeded-\\u7ed3\\u6784\\u5316\\u67e5\\u8be2\\u7ed3\\u679c\\u8d85\\u8fc7\\u8d44\\u6e90\\u4e0a\\u9650]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_runtime_errors_keep_safe_distinct_diagnostics[FinanceQueryExecutionError-\\u7ed3\\u6784\\u5316\\u6570\\u636e\\u6e90\\u6682\\u4e0d\\u53ef\\u7528]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_delivers_feedback_and_executes_only_requested_queries[False]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_episode_delivers_feedback_and_executes_only_requested_queries[True]",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_cancellation_after_feedback_prevents_repair_dispatch",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_extra_tool_slot_is_minted_for_query_repair",
+          "classname": "intelligence.tests.test_finance_query_repair_feedback",
+          "status": "passed"
+        },
+        {
+          "name": "test_progress_block_rides_runtime_budget_and_is_durable",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_repeated_query_is_steered_then_stalled_then_finalized",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_new_evidence_resets_stall_and_finalization_does_not_fire",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_stall_finalization_default_off_only_steers",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_progress_off_switch_restores_previous_budget_payload",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_rejected_structured_arguments_do_not_crash_progress_recording",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode[file:///nonexistent-invalid_query-False]",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode[relative/path-invalid_query-False]",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode[https://example.org/report-tool_exception-True]",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_missing_history_end_returns_feedback_without_losing_prior_evidence",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_tool_error_after_success_keeps_evidence_and_reports_error",
+          "classname": "intelligence.tests.test_agent_episode_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_normalize_query_collapses_whitespace_and_reads_mapping_forms",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[rejected]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[error]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[timeout]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_structured_call_can_be_recorded_after_failure[empty]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments0]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments1]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments2]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments3]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_frozen_tool_arguments_have_the_same_progress_key_as_json[arguments4]",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_json_projection_still_rejects_unsupported_objects",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_digest_rejects_unknown_status",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_new_evidence_resets_stall_and_duplicates_accumulate",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_should_finalize_requires_evidence_and_threshold",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_rejected_duplicate_counts_as_no_progress",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_external_input_resets_stall_counter",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_branch_summary_shows_once_and_flags_failed_branch",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_model_view_shape_and_finalize_warning",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_stall_finalize_env_parsing",
+          "classname": "intelligence.tests.test_research_progress",
+          "status": "passed"
+        },
+        {
+          "name": "test_real_query_projection_keeps_values_status_definition_ref_and_original",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_inspect_projects_entity_values_before_large_members_and_market[sector]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_inspect_projects_entity_values_before_large_members_and_market[stock]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[observed-False-False--8.25]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[missing_feature-None-None-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[missing_outcome-True-None-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_comparison_projects_exact_x_y_definitions_denominator_and_states[immature-True-None-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_all_preview_samples_survive_without_equating_cards_to_returned_rows",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[0-1-1]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[0-25-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[1-1-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[1-25-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[2-1-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_pages_keep_absolute_sample_coordinates_and_navigation[9-2-None]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_failed_page_projection_does_not_record_success",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_query_initial_preview_advertises_the_next_page",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_overlapping_query_pages_refer_to_the_same_source_row",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_page_coordinates_preserve_reference_and_complete_comparison[compute_history]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_page_coordinates_preserve_reference_and_complete_comparison[find_analogues]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_page_coordinates_preserve_reference_and_complete_comparison[compare_cases]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_empty_query_result_has_no_next_page",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_oversized_field_is_explicitly_omitted_without_clipping_json",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_tool_schema_exposes_feature_rules_from_the_same_definition_source",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_public_citations_keep_distinct_query_blocks_and_sample_pages",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_wrong_save_parent_has_a_repairable_value_error[query]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_wrong_save_parent_has_a_repairable_value_error[missing_draft]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_wrong_save_parent_has_a_repairable_value_error[invalid_draft]",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        },
+        {
+          "name": "test_analogue_projection_exposes_reference_vector_candidate_delta_and_cutoff",
+          "classname": "tests.test_history_model_projection",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 27,
+        "failed": 6,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 21
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c1_ordinals.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c2_diagnostics_fixed.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed2.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c4_progress.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c5_pagination_fixed.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_exit_fixed.py",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c6_repair_fixed.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/027-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_c1_ordinal_masked_but_numbers_kept",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_c1_plain_number_not_stripped",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_validation_error_is_structured_not_arbitrary",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_bad_time_range_is_rejected_safely",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_bad_time_range_is_rejected_safely",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_invalid_tool_call_feedback_returns_to_same_episode",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_frozen_nested_mapping_normalizes",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unknown_object_still_rejected",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_tracker_records_digest_without_error",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_sample_indexes_carry_absolute_offset",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_result_next_offset_semantics",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_truncation_flag_reflects_partial_page",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_zero_return_sets_next_offset_none",
+          "classname": "",
+          "status": "failed"
+        },
+        {
+          "name": "test_sample_indexes_carry_absolute_offset",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_result_next_offset_semantics",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_truncation_flag_reflects_partial_page",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_zero_return_sets_next_offset_none",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_repair_reaches_public_answer_after_definition_deletion",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_orphaned_count_survives_when_definition_deleted",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_definition_count_not_orphan_repaired",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_both_deleted_removes_orphaned_counts",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_surviving_definition_keeps_its_count",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_no_removal_without_deleted_definition",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_unrelated_prose_and_linebreaks_preserved",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_marker_definition_shapes_all_recognized",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_list_marker_deletion_still_repairs_its_orphan",
+          "classname": "",
+          "status": "passed"
+        },
+        {
+          "name": "test_same_line_mixed_labels_all_removed",
+          "classname": "",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 1,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed3.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/030-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_invalid_tool_call_feedback_returns_to_same_episode",
+          "classname": "",
+          "status": "failed"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 1,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed4.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/032-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_invalid_tool_call_feedback_returns_to_same_episode",
+          "classname": "",
+          "status": "failed"
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "suite": "probes",
+      "target_exit_code": 1,
+      "counts": {
+        "tests": 1,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "files": [
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_final.py"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/034-run_tests/result.json",
+      "cases": [
+        {
+          "name": "test_invalid_tool_call_feedback_returns_to_same_episode",
+          "classname": "",
+          "status": "failed"
+        }
+      ]
+    }
+  ],
+  "c3_diagnosis": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_final.py",
+    "sha256": "60abcf7970e0545091d936f2c546efd5086a54e619de8ac95a265e741a8b8c1d",
+    "classification": "HOST_REPLAY_NOT_INDEPENDENT_COVERAGE",
+    "assertion_failed_at": 55,
+    "tool_calls": 0,
+    "invalid_actions": 3,
+    "llm_calls": 4,
+    "stop_reason": "finalization_recovery_failed",
+    "tool_events": [
+      {
+        "kind": "tool_error",
+        "payload": {
+          "ok": false,
+          "tool": "finance_query",
+          "error": "invalid_arguments",
+          "detail": "unknown query argument: query",
+          "call_id": "call-ok",
+          "model_content": "{\"ok\": false, \"tool\": \"finance_query\", \"error\": \"invalid_arguments\", \"detail\": \"unknown query argument: query\"}",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 29.835397500079125,
+          "episode_remaining_at_dispatch": 29.8353957911022,
+          "remaining_slots_at_dispatch": 3,
+          "turn_elapsed_at_dispatch": 0.0004054168239235878,
+          "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+          "at": "2026-09-24T03:21:51.021+08:00"
+        }
+      },
+      {
+        "kind": "tool_error",
+        "payload": {
+          "ok": false,
+          "tool": "finance_query",
+          "error": "invalid_arguments",
+          "detail": "time_range.start must be an ISO date",
+          "call_id": "bad-1",
+          "model_content": "{\"ok\": false, \"tool\": \"finance_query\", \"error\": \"invalid_arguments\", \"detail\": \"time_range.start must be an ISO date\"}",
+          "batch_grant_asked": 30.0,
+          "stage_timeout_granted": 29.767354333074763,
+          "episode_remaining_at_dispatch": 29.76735262502916,
+          "remaining_slots_at_dispatch": 3,
+          "turn_elapsed_at_dispatch": 0.0007008330430835485,
+          "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+          "at": "2026-09-24T03:21:51.089+08:00"
+        }
+      }
+    ],
+    "last_model_tool_messages": [],
+    "feedback_assertion_reached": false
+  },
+  "spec_errata": [
+    "Run 004 is the first probe suite (14P/4F); 005 is second after adding candidate-positive tests (16P/4F).",
+    "005 C1/C4 file is 4P/1F, not all green. E5x preservation fails and remains an out-of-scope token-boundary observation in the model limits; no corrected passing C1 boundary probe exists.",
+    "005 four failures are C1 E5x, C5 page unit helper assumptions, C6 survivor fixture count, C6 own startswith prefix helper. The truncated interpretation failure arose later at 019, not 005."
+  ],
+  "quality_limits": [
+    "No accepted execute final deliverable and no report session. Submitted PASS_WITH_LIMITS was invalid for execute and C3 was explicitly not_verified.",
+    "C5 fixed probe uses _result/_model_projection unit inputs; full history_tool_specs failure/no-success-registration path remains unverified by this axis.",
+    "A mixed run with passing replacement tests is not exit0; do not quote run027 as a green suite.",
+    "Host diagnosis neither edits the failed assertion nor gives a model signoff."
+  ]
+}

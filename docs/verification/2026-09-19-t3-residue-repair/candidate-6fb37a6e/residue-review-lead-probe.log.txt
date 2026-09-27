@@ -1,0 +1,464 @@
+{
+  "scope": "ARL-0005 invalid-output leads, finite engineering reproduction only",
+  "model_calls": 0,
+  "probe_sha256": "34ea6608e4f19305befd1b428c3ac9cfdf326a6bb0622fc2e221eb35ff01b736",
+  "before": {
+    "code_root": "/Users/a77/fwp-q-research-data-readiness",
+    "revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "ab737e34e6c166f81b2b94f4e2059eb07f99db21df86a39aac2a37f04ba69f71",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "financial_fixture_sha256": "74cc6f1788cd5443713cc007b59ac5fc2a8290a942719200d3f94fdd79956e91",
+  "after": {
+    "code_root": "/Users/a77/fwp-q-research-data-readiness",
+    "revision": "6fb37a6e191185daef832369677af15b0d56afb2",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "ab737e34e6c166f81b2b94f4e2059eb07f99db21df86a39aac2a37f04ba69f71",
+      "intelligence/services/episode_semantic_verifier.py": "ba971d71d1490bc495bcc7adfff0cc76368abed0f802703bbe56e3aaec2ea06e",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "target_unchanged": true,
+  "cases": [
+    {
+      "name": "independent-percent-delta",
+      "control": false,
+      "draft": "2026中报含金量为1.588，同比增长12%。",
+      "input_origin": "review-verbatim",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [],
+      "local_repaired": "2026中报含金量为1.588，同比增长12%。",
+      "public_answer": "2026中报含金量为1.588，同比增长12%。",
+      "status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "delivery_repair_notes": [],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "no_false_local_gap": true,
+        "no_false_partial": true,
+        "independent_content_unchanged": true,
+        "no_unnecessary_repair": true
+      },
+      "passed": true
+    },
+    {
+      "name": "independent-count",
+      "control": false,
+      "draft": "2026中报含金量为1.588，样本量120。",
+      "input_origin": "review-ellipsis-prefix-expanded",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [],
+      "local_repaired": "2026中报含金量为1.588，样本量120。",
+      "public_answer": "2026中报含金量为1.588，样本量120。",
+      "status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "delivery_repair_notes": [],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "no_false_local_gap": true,
+        "no_false_partial": true,
+        "independent_content_unchanged": true,
+        "no_unnecessary_repair": true
+      },
+      "passed": true
+    },
+    {
+      "name": "explicit-basis-points",
+      "control": false,
+      "draft": "2026中报含金量实际为158.7bp。",
+      "input_origin": "review-verbatim",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "calculation_value_mismatch"
+      ],
+      "local_repaired": "2026中报含金量实际为待核对。",
+      "public_answer": "2026中报含金量实际为待核对。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "wrong_value_withheld_or_explicitly_unverified": true
+      },
+      "passed": true
+    },
+    {
+      "name": "anaphoric-semicolon",
+      "control": false,
+      "draft": "收入可核[E1]，2026中报含金量待核对；该比率为1.587。",
+      "input_origin": "review-verbatim",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "calculation_value_mismatch"
+      ],
+      "local_repaired": "收入可核[E1]，2026中报含金量待核对；该比率为待核对。",
+      "public_answer": "收入可核[E1]，2026中报含金量待核对；该比率为待核对。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "wrong_value_withheld_or_explicitly_unverified": true
+      },
+      "passed": true
+    },
+    {
+      "name": "formatted-uncertainty-marker",
+      "control": false,
+      "draft": "〔比率对应关系**待核对**〕2026中报含金量为1.588。",
+      "input_origin": "review-marker-fragment-completed-with-matching-ratio",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "calculation_value_unlocated"
+      ],
+      "local_repaired": "〔比率对应关系**待核对**〕2026中报含金量为1.588。",
+      "public_answer": "〔比率对应关系**待核对**〕2026中报含金量为1.588。\n\n部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，明确报告期与数值对应关系；不得把年数或比较倍数当本期比率，无法对应则明确留缺口。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "first_local_edit_does_not_duplicate_marker": true,
+        "exactly_one_visible_marker": true,
+        "existing_marker_and_value_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "matching-ratio",
+      "control": true,
+      "draft": "2026中报含金量为1.588。",
+      "input_origin": "existing-control",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [],
+      "local_repaired": "2026中报含金量为1.588。",
+      "public_answer": "2026中报含金量为1.588。",
+      "status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "delivery_repair_notes": [],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "no_false_local_gap": true,
+        "no_false_partial": true,
+        "independent_content_unchanged": true,
+        "no_unnecessary_repair": true
+      },
+      "passed": true
+    },
+    {
+      "name": "explicit-semicolon",
+      "control": true,
+      "draft": "收入可核[E1]，2026中报含金量待核对；实际为1.587。",
+      "input_origin": "existing-control",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "calculation_value_mismatch"
+      ],
+      "local_repaired": "收入可核[E1]，2026中报含金量待核对；实际为待核对。",
+      "public_answer": "收入可核[E1]，2026中报含金量待核对；实际为待核对。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "wrong_value_withheld_or_explicitly_unverified": true
+      },
+      "passed": true
+    },
+    {
+      "name": "independent-percent-delta",
+      "control": false,
+      "draft": "2026中报含金量为1.588，同比增长12%。",
+      "input_origin": "review-verbatim",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [],
+      "local_repaired": "2026中报含金量为1.588，同比增长12%。",
+      "public_answer": "2026中报含金量为1.588，同比增长12%。",
+      "status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "delivery_repair_notes": [],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "no_false_local_gap": true,
+        "no_false_partial": true,
+        "independent_content_unchanged": true,
+        "no_unnecessary_repair": true
+      },
+      "passed": true
+    },
+    {
+      "name": "independent-count",
+      "control": false,
+      "draft": "2026中报含金量为1.588，样本量120。",
+      "input_origin": "review-ellipsis-prefix-expanded",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [],
+      "local_repaired": "2026中报含金量为1.588，样本量120。",
+      "public_answer": "2026中报含金量为1.588，样本量120。",
+      "status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "delivery_repair_notes": [],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "no_false_local_gap": true,
+        "no_false_partial": true,
+        "independent_content_unchanged": true,
+        "no_unnecessary_repair": true
+      },
+      "passed": true
+    },
+    {
+      "name": "explicit-basis-points",
+      "control": false,
+      "draft": "2026中报含金量实际为158.7bp。",
+      "input_origin": "review-verbatim",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "calculation_value_mismatch"
+      ],
+      "local_repaired": "2026中报含金量实际为待核对。",
+      "public_answer": "2026中报含金量实际为待核对。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "wrong_value_withheld_or_explicitly_unverified": true
+      },
+      "passed": true
+    },
+    {
+      "name": "anaphoric-semicolon",
+      "control": false,
+      "draft": "收入可核[E1]，2026中报含金量待核对；该比率为1.587。",
+      "input_origin": "review-verbatim",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "calculation_value_mismatch"
+      ],
+      "local_repaired": "收入可核[E1]，2026中报含金量待核对；该比率为待核对。",
+      "public_answer": "收入可核[E1]，2026中报含金量待核对；该比率为待核对。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "wrong_value_withheld_or_explicitly_unverified": true
+      },
+      "passed": true
+    },
+    {
+      "name": "formatted-uncertainty-marker",
+      "control": false,
+      "draft": "〔比率对应关系**待核对**〕2026中报含金量为1.588。",
+      "input_origin": "review-marker-fragment-completed-with-matching-ratio",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "calculation_value_unlocated"
+      ],
+      "local_repaired": "〔比率对应关系**待核对**〕2026中报含金量为1.588。",
+      "public_answer": "〔比率对应关系**待核对**〕2026中报含金量为1.588。\n\n部分比率的报告期与数值对应关系尚未核对，不能视为已核算结论；已保留原文并标明待核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，明确报告期与数值对应关系；不得把年数或比较倍数当本期比率，无法对应则明确留缺口。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "first_local_edit_does_not_duplicate_marker": true,
+        "exactly_one_visible_marker": true,
+        "existing_marker_and_value_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "matching-ratio",
+      "control": true,
+      "draft": "2026中报含金量为1.588。",
+      "input_origin": "existing-control",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [],
+      "local_repaired": "2026中报含金量为1.588。",
+      "public_answer": "2026中报含金量为1.588。",
+      "status": "completed",
+      "gap_output_ids": [],
+      "repair_output_ids": [],
+      "delivery_repair_notes": [],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "no_false_local_gap": true,
+        "no_false_partial": true,
+        "independent_content_unchanged": true,
+        "no_unnecessary_repair": true
+      },
+      "passed": true
+    },
+    {
+      "name": "explicit-semicolon",
+      "control": true,
+      "draft": "收入可核[E1]，2026中报含金量待核对；实际为1.587。",
+      "input_origin": "existing-control",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "calculation_value_mismatch"
+      ],
+      "local_repaired": "收入可核[E1]，2026中报含金量待核对；实际为待核对。",
+      "public_answer": "收入可核[E1]，2026中报含金量待核对；实际为待核对。\n\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "gap_output_ids": [
+        "direct_assessment"
+      ],
+      "repair_output_ids": [
+        "direct_assessment"
+      ],
+      "delivery_repair_notes": [
+        "按报告期及比率列重新对账本次计算产物，修正抄数错误；保留同一行原始数据，不借其他期别数字充证。"
+      ],
+      "checks": {
+        "fixture_structurally_complete": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "explicit_citation_retained": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "wrong_value_withheld_or_explicitly_unverified": true
+      },
+      "passed": true
+    }
+  ],
+  "passed": 14,
+  "failed": 0,
+  "status": "passed"
+}

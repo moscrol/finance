@@ -1,0 +1,111 @@
+"""Materialize a fresh #75 batch using the existing isolated GLM runner.
+
+No model calls. Only identity/path rebinding of the existing tooling; no old
+review outputs or probes are supplied to either independent axis.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SEED = Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707')
+TREE = ROOT / 'candidate/finance-workspace-private'
+AUTHOR = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+REV = 'd1b30e1a068ccd0559f091f3c664ca2ca82f1e7c'
+BASE = '626d8a508c1c988ff094110b371987e6afdcdd15'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+files = ['run_stage.py', 'run_control.py', 'review.mjs', 'gateway.mjs',
+         'sandbox_preflight.mjs', 'file_tool.py', 'provider-template.json', 'pi-config/settings.json']
+provenance = []
+for name in ['glm_credential.py', 'glm_review_shim.py']:
+    shutil.copyfile(SEED / name, ROOT / name)
+    provenance.append({'source': str(SEED/name), 'destination': name,
+                       'sha256': hashlib.sha256((ROOT/name).read_bytes()).hexdigest()})
+claims = '''# #81 / PR #832 engineering claims
+
+Candidate {rev}; baseline {base}. Claims are author statements to challenge, not verdicts.
+C1. Evidence ordinals such as E1 are not numeric facts; actual unsupported numeric claims remain checked. Owner: intelligence/services/episode_protocol.py strip_evidence_ordinals and episode_semantic_verifier.py.
+C2. finance_query validation errors return safe structured diagnostics, not arbitrary text, paths, or fabricated observations. Owner: finance_query.py and episode_tools.py.
+C3. A local tool validation failure can feed back into the same Episode and continue without losing existing evidence or extending tool/cancellation budgets. Relevant tests: test_finance_query_repair_feedback.py, test_agent_episode_progress.py.
+C4. Frozen nested Mapping tool parameters can record research progress without mutation; unknown objects remain rejected. Owner: intelligence/runtime/research_progress.py.
+C5. History read pages retain absolute row/sample identity, offset/next_offset, final-page truncation and selected-window hints; projection failure must not register a successful history read. Owner: intelligence/services/historical_research/episode.py; tests/test_history_model_projection.py.
+C6. Numeric-condition repair only removes dangling count references whose definition was actually removed in this repair and has no surviving definition. It preserves unrelated prose, bullets and line breaks, and is wired into the real repair exit without relaxing the numeric gate. Owner: episode_semantic_verifier.py; test_condition_reference_seams.py.
+
+Against baseline, C1-C4 product implementations have no diff; C5/C6 retain product increments. Independently verify the new head, including interactions; do not transplant old reviewer verdicts. inputs/source.diff is the exact baseline-to-candidate product/test diff. No natural-finance claims, merge or deployment authority. Old refresh E2E timing failures remain unexplained; no performance conclusion is claimed here.
+'''.format(rev=REV, base=BASE)
+author_tests = ' '.join(['intelligence/tests/test_condition_reference_seams.py',
+    'intelligence/tests/test_episode_numeric_citations.py', 'intelligence/tests/test_episode_protocol.py',
+    'intelligence/tests/test_finance_query_repair_feedback.py', 'intelligence/tests/test_agent_episode_progress.py',
+    'intelligence/tests/test_research_progress.py', 'tests/test_history_model_projection.py'])
+for axis in ['spec', 'quality']:
+    target = ROOT / axis
+    target.mkdir(exist_ok=False)
+    for directory in ['work/tmp', 'work/users', 'work/probes', 'inputs', 'pi-config']:
+        (target/directory).mkdir(parents=True, exist_ok=True)
+    for name in files:
+        shutil.copyfile(SEED/'spec'/name, target/name)
+        provenance.append({'source': str(SEED/'spec'/name), 'destination': f'{axis}/{name}',
+                           'sha256': hashlib.sha256((target/name).read_bytes()).hexdigest()})
+    config = json.loads((SEED/'spec/config.json').read_text())
+    old_tree = config['tree']
+    config.update(tree=str(TREE), author=str(AUTHOR), revision=REV, baseline=BASE, axis=axis)
+    (target/'config.json').write_text(json.dumps(config, indent=2)+'\n')
+    sandbox = (SEED/'spec/tools.sb').read_text().replace(str(SEED/'spec'), str(target)).replace(old_tree, str(TREE))
+    (target/'tools.sb').write_text(sandbox)
+    (target/'inputs/claims.md').write_text(claims)
+    diff = subprocess.check_output(['git', '-C', str(TREE), 'diff', BASE, REV, '--',
+                                    'intelligence/services', 'intelligence/runtime', 'intelligence/tests', 'tests'])
+    (target/'inputs/source.diff').write_bytes(diff)
+    common = f'''你是 #75 的独立 {axis} 审查者，只审 #81 / PR #832 的工程主张；不知道另一轴结论，不修产品、不做真实金融题。
+候选只读目录/cwd: {TREE}
+revision: {REV}
+baseline: {BASE}
+Python: {PYTHON}
+唯一可写 work: {target}/work
+主张: {target}/inputs/claims.md；准确差分: {target}/inputs/source.diff
+候选docs、作者树、其他轴/旧审查、生产数据与凭据均不可读。无网络（仅允许26001-26008自建假服务）。不运行git，不嵌套sandbox-exec。源码按需定位，不整仓通读。
+每阶段24请求/600秒/每请求120秒、重试0；工具在22次或450秒后关闭，保留一次终稿。请主动提前交付，不必用满预算。源码和测试不能修改。
+所有命令用绝对路径，环境里没有可猜的REVIEW_WORK。pytest用指定Python、-p no:cacheprovider、--basetemp={target}/work/tmp/<独占目录>。禁止; echo或管道tail掩盖子进程退出码，工具自动保存完整输出。现有作者测试和自造探针必须分账。预期值从行为契约推导，不抄实现输出。
+'''
+    stages = {
+        'explore': f'''只读源码并写自造探针，本阶段不跑测试、不裁决PASS。
+先读主张和source.diff；尽快写一个聚焦C5/C6增量的独立小探针（每文件约50-100行），再补其他主张的关键边界。无需读完巨大verifier才动笔。
+探针写入 {target}/work/probes/，在 {target}/work/EXPLORE.md 记录意图/命令/未覆盖项。一次写一个文件，不反复覆盖初稿；后续修正另建文件留原件。
+最终中文简报<=500字，附JSON: {{"stage":"explore","axis":"{axis}","revision":"{REV}","baseline":"{BASE}","complete":true,"probe_files":["已落盘绝对路径"],"claims_examined":[],"limits":[],"next_stage_commands":[]}}。
+''',
+        'execute': f'''全新execute会话。先读work/EXPLORE.md及本轴 {target}/explore/REPORT.md，并抽核explore/commands/原始输出；没有记录不得凭猜补。
+先单独运行 {PYTHON} -B {target}/work/positive_control.py，必须真实exit1且AssertionError，归intentional_positive_control/probe_bug，不修掉、不计产品失败或绿色数。
+运行本轴自造探针，原失败保持。探针自身有错则另存修正版、写明为何是probe_bug；不能放宽契约或丢掉原失败。
+适用作者回归文件: {author_tests}。分开运行和记账，不跑全仓。所有pytest将--rootdir显式指向候选，以加载正确配置；沙箱不能写候选，因此禁cache并用work/tmp。
+将三张账写work/EXECUTE.md，精确列命令、真实退出、计数、未跑项、原失败分类和证据路径。没有源码/行为依据不能将红判为probe_bug。
+最终中文简报<=500字，附JSON: {{"stage":"execute","axis":"{axis}","revision":"{REV}","baseline":"{BASE}","complete":true,"author_tests":{{"passed":0,"failed":0}},"reviewer_probes":{{"passed":0,"failed":0}},"positive_control":{{"classification":"probe_bug","observed_exit":null}},"product_findings":[],"limits":[]}}。
+''',
+        'report': f'''全新report会话，只核证据写结论，不补跑、不改探针。先读work/EXECUTE.md和本轴execute/REPORT.md，再抽核execute/commands的原始命令/输出/退出。摘要不能代替原件。
+Spec逐条C1-C6给verified/not_verified/out_of_scope和证据；Quality给具体正确性问题，无发现就写无发现不凑数。没有覆盖关键主张不可冒充全部通过。
+作者测试/审查者探针/必红对照三账独立；原失败、修正探针及分类都保留。预算/传输/证据缺失为BLOCKED，不包装为无发现。
+verdict仅PASS/PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED_<原因>。每个发现给文件:行、触发输入、实际输出和错误理由。真实金融、稳定性、合入/部署均不在范围。
+写 {target}/work/{axis.upper()}_REPORT.md，最终输出中文结论加JSON: {{"stage":"report","axis":"{axis}","revision":"{REV}","baseline":"{BASE}","complete":true,"verdict":"按证据选择","claims":[],"findings":[],"author_tests":{{"passed":0,"failed":0}},"reviewer_probes":{{"passed":0,"failed":0}},"positive_control":{{"classification":"probe_bug","observed_exit":null}},"limits":[]}}。
+''',
+    }
+    for stage, prompt in stages.items():
+        (target/f'prompt-{stage}.md').write_text(common+prompt)
+protocol = {
+    'created_at': datetime.now(timezone.utc).isoformat(), 'workorder': 75, 'candidate_workorder': 81, 'pr': 832,
+    'user_message': '推进',
+    'authorization_context': 'Current user reply after fixed-head engineering closure and next-step #75/#76 authorization boundary.',
+    'scope_interpretation': 'Proceed with one bounded #75 review of #832 only; no #76, merge, deployment or production writes.',
+    'budget_set_by_host': {'max_batch_requests': 152, 'per_axis_gateway_max': 4, 'per_stage_requests': 24,
+                           'per_stage_seconds': 600, 'per_request_seconds': 120, 'automatic_retries': 0, 'concurrency': 1},
+    'model': 'glm-5.3', 'provider': 'glm-direct-review', 'route': 'existing official coding endpoint and existing Keychain credential',
+    'billing_note': 'Existing route; zero provider price metadata is not a billing receipt.',
+    'revision': REV, 'baseline': BASE, 'candidate_tree': str(TREE), 'author_tree': str(AUTHOR),
+    'axes': ['spec', 'quality'], 'stages': ['explore', 'execute', 'report'],
+    'stop_policy': 'Any failed gateway/stage or missing final output stops this candidate; no automatic fallback or retry.',
+    'natural_finance_requests': 0, 'merged': False, 'deployed': False,
+}
+(ROOT/'protocol.json').write_text(json.dumps(protocol, ensure_ascii=False, indent=2)+'\n')
+(ROOT/'tooling-provenance.json').write_text(json.dumps(provenance, indent=2)+'\n')
+print(json.dumps({'prepared':str(ROOT), 'model_requests':0, 'copied_files':len(provenance)}))

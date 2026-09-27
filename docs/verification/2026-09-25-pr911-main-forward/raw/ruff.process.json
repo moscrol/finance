@@ -1,0 +1,29 @@
+{
+  "label": "ruff",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "-m",
+    "ruff",
+    "check",
+    "."
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "86da22fda1f8fa02c71cd5d8759ee55a65e6fd37",
+  "started_at": "2026-09-25T04:32:42.644151+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 91006,
+  "process_group": 91006,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T04:32:43.157611+00:00",
+  "elapsed_seconds": 0.5099590420722961
+}

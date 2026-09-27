@@ -1,0 +1,51 @@
+{
+  "reasoning_excluded": true,
+  "messages": [
+    {
+      "stop_reason": "toolUse",
+      "provider": "glm-direct-review",
+      "model": "glm-5.3",
+      "tool_calls": [
+        {
+          "type": "toolCall",
+          "id": "call_42b288f46fbb419fad818795",
+          "name": "read",
+          "arguments": {
+            "path": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1830/spec/work/gateway-fixture.txt"
+          }
+        },
+        {
+          "type": "toolCall",
+          "id": "call_76bb63e193194edf88428488",
+          "name": "write",
+          "arguments": {
+            "content": "GATEWAY-FIXTURE-868 quantum-ledger v3 :: checkpoint ok\n",
+            "path": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1830/spec/work/gateway-echo.txt"
+          }
+        }
+      ]
+    },
+    {
+      "stop_reason": "toolUse",
+      "provider": "glm-direct-review",
+      "model": "glm-5.3",
+      "tool_calls": [
+        {
+          "type": "toolCall",
+          "id": "call_741a3aed961c403f88c68b87",
+          "name": "write",
+          "arguments": {
+            "content": "GLM_TOOL_ROUNDTRIP_b302cc8d38acd1fd",
+            "path": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1830/spec/work/gateway-echo.txt"
+          }
+        }
+      ]
+    },
+    {
+      "stop_reason": "stop",
+      "provider": "glm-direct-review",
+      "model": "glm-5.3",
+      "tool_calls": []
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "status": "PASS",
+  "scope": "host author probe only",
+  "live_model_requests": 0,
+  "source_before": {
+    "revision": "c315cfdaa96a5b18cedb060b09ddc92ec2a14559",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/llm_refine.py": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+      "intelligence/services/llm_http_transport.py": "a34b6763ac82c6a44a975b9f93b5a5b2df4b866b4d2f859bb9f9b56949313d20"
+    }
+  },
+  "source_after": {
+    "revision": "c315cfdaa96a5b18cedb060b09ddc92ec2a14559",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/llm_refine.py": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+      "intelligence/services/llm_http_transport.py": "a34b6763ac82c6a44a975b9f93b5a5b2df4b866b4d2f859bb9f9b56949313d20"
+    }
+  },
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "probe_sha256": "65528a56589b352eebd70b4df796a684e080c427aad302c2a26d5582837b676d",
+  "mutation": "AST delete exactly one is_cancelled keyword at wrapper opener call",
+  "mutation_storage": "in process memory only; candidate files untouched",
+  "call_budget_seconds": 10,
+  "cancel_after_headers_seconds": 0.3,
+  "upstream_stall_seconds": 1.6,
+  "read_assertion_max_seconds": 1.0,
+  "cancel_to_stop_max_seconds": 0.7,
+  "phases": {
+    "baseline": [
+      {
+        "path": "wrapper",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.4934097081422806,
+        "headers_observed": true,
+        "read_elapsed_seconds": 0.3190286250319332,
+        "cancel_to_stop_seconds": 0.018268708139657974,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "tools_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.4555383340921253,
+        "headers_observed": true,
+        "read_elapsed_seconds": 0.31976883416064084,
+        "cancel_to_stop_seconds": 0.014664959162473679,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "synthesis_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.4343194579705596,
+        "headers_observed": true,
+        "read_elapsed_seconds": 0.3207713330630213,
+        "cancel_to_stop_seconds": 0.015608333051204681,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      }
+    ],
+    "mutation": [
+      {
+        "path": "wrapper",
+        "exception": null,
+        "elapsed_seconds": 1.7335887919180095,
+        "headers_observed": true,
+        "read_elapsed_seconds": 1.611043208045885,
+        "cancel_to_stop_seconds": 1.3071677079424262,
+        "requests": 1,
+        "attempts": 1,
+        "passed": false
+      },
+      {
+        "path": "tools_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 1.7686024580616504,
+        "headers_observed": true,
+        "read_elapsed_seconds": 1.62346745794639,
+        "cancel_to_stop_seconds": 1.3226329579483718,
+        "requests": 1,
+        "attempts": 1,
+        "passed": false
+      },
+      {
+        "path": "synthesis_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 1.882066042162478,
+        "headers_observed": true,
+        "read_elapsed_seconds": 1.609245042083785,
+        "cancel_to_stop_seconds": 1.3051134999841452,
+        "requests": 1,
+        "attempts": 1,
+        "passed": false
+      }
+    ],
+    "restored": [
+      {
+        "path": "wrapper",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.445320958038792,
+        "headers_observed": true,
+        "read_elapsed_seconds": 0.32072295784018934,
+        "cancel_to_stop_seconds": 0.020429665921255946,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "tools_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.4685898330062628,
+        "headers_observed": true,
+        "read_elapsed_seconds": 0.3250607911031693,
+        "cancel_to_stop_seconds": 0.022243875078856945,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "synthesis_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.467376375105232,
+        "headers_observed": true,
+        "read_elapsed_seconds": 0.31310416711494327,
+        "cancel_to_stop_seconds": 0.01173691707663238,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      }
+    ]
+  }
+}

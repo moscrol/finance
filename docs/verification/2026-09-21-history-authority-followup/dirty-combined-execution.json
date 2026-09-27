@@ -1,0 +1,55 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_history_artifact_scope.py",
+    "tests/test_history_evidence_binding.py",
+    "tests/test_history_model_projection.py",
+    "tests/test_historical_evidence_contract.py",
+    "tests/test_run_store_history_artifacts.py",
+    "tests/test_history_recovery_selection.py",
+    "tests/test_history_date_scope.py",
+    "tests/test_historical_episode_branching.py",
+    "tests/test_history_case_patch.py",
+    "intelligence/tests/test_prior_evidence.py",
+    "intelligence/tests/test_historical_research_episode.py",
+    "intelligence/tests/test_episode_verifier.py"
+  ],
+  "identity_before": {
+    "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+    "status": "M docs/agent-product-door.md\n M intelligence/services/historical_research/episode.py\n M intelligence/services/run_store.py\n M tests/test_history_artifact_scope.py\n M tests/test_run_store_history_artifacts.py",
+    "diff_sha256": "441c90d078e6482b3e241d3fa85bad273960923fad02dd0181702d3a0259a548"
+  },
+  "started_at": "2026-09-21T13:14:20.264825+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 8744194048
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 8717672448
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 8678154240
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 8659419136
+    }
+  ],
+  "pid": 85384,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+    "status": "M docs/agent-product-door.md\n M intelligence/services/historical_research/episode.py\n M intelligence/services/run_store.py\n M tests/test_history_artifact_scope.py\n M tests/test_run_store_history_artifacts.py",
+    "diff_sha256": "441c90d078e6482b3e241d3fa85bad273960923fad02dd0181702d3a0259a548"
+  },
+  "finished_at": "2026-09-21T13:14:28.354087+00:00",
+  "identity_stable": true,
+  "receipt_source": "/Users/a77/.finance-runtime/test-receipts/20260921T131427Z-bbd948a6.json"
+}

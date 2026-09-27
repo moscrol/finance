@@ -74,7 +74,7 @@ def test_frozen_tool_arguments_have_the_same_progress_key_as_json(arguments) -> 
 def test_json_projection_still_rejects_unsupported_objects() -> None:
     # 不准用 default=str 把类型错误伪装成可用的查询键。
     for value in (object(), {1, 2}):
-        with pytest.raises(TypeError, match="is not JSON serializable"):
+        with pytest.raises(TypeError, match=f"Object of type {type(value).__name__} is not JSON serializable"):
             normalize_query(MappingProxyType({"filters": MappingProxyType({"value": value})}))
 
 

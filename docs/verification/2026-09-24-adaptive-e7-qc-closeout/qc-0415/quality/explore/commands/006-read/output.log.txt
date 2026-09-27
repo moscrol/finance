@@ -1,0 +1,47 @@
+def _post_chat_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None,
+    is_cancelled: Callable[[], bool] | None,
+    deadline: Deadline,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[str, str | None]:
+    _reserve_llm_call()
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    try:
+        result = _post_chat_stream_raw(
+            provider,
+            messages,
+            timeout,
+            temperature,
+            on_delta,
+            on_connected,
+            is_cancelled,
+            deadline,
+            max_tokens,
+            max_chars,
+            attempt=attempt,
+        )
+        attempt.observe_result(result[0])
+    except Exception as exc:
+        attempt.observe_response(response=exc)
+        _record_llm_call(
+            "synthesis_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+        )
+        raise
+    _record_llm_call("synthesis_stream", provider, "success", started, attempt=attempt)
+    return result
+
+
+def _post_chat_stream_raw(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+
+[truncated; total lines=2605, selected=2236:2280; request a later offset]

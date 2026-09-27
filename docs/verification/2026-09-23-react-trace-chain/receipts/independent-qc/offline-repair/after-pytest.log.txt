@@ -1,0 +1,17 @@
+
+==================================== ERRORS ====================================
+________________________ ERROR collecting test session _________________________
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:341: in from_call
+    result: TResult | None = func()
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:389: in collect
+    return list(collector.collect())
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/main.py:523: in collect
+    for direntry in scandir(self.path):
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:971: in scandir
+    entry.is_file()
+E   PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/escape.json'
+=========================== short test summary info ============================
+ERROR ::offline-repair::work - PermissionError: [Errno 1] Operation not permi...
+1 error in 0.07s
+ERROR: found no collectors for /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/test_sandbox_controls.py
+

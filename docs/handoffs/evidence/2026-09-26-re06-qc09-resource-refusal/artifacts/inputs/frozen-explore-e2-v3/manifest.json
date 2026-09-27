@@ -1,0 +1,15 @@
+{
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "group": "e2",
+  "artifacts_sha256": {
+    "EXPLORE.md": "d39ec8bf6b90ffa1540162bbdd75d26b088be2e0919ca39b38105b2e24fb9ba5",
+    "probes/test_reviewer.py": "2bd4f2d5ecf7b5de2d1c241d86199e727075860e441563cbed9cdf4a267d2e18",
+    "probes/test_positive_control.py": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0"
+  },
+  "execution_tools_sha256": {
+    "run_probe_v3.py": "28e4a3b379b1b38aef4a16457a644e7273048634b4d641ad7f76b63a775f3f51",
+    "resource_pytest.py": "e84b2846f40e05f4c0cb51286ee5d4506cb9c7e248173e0b7fabfb9b31474ec5",
+    "inputs/ui.vitest-v3.config.mjs": "b4f5ae7dc9d9ffb23ab6dc5c315da99afc33c6fd4c67772d475777dcb2a89ebc",
+    "inputs/qc_userspace_isolation.py": "d132e700abfa926b5e87c3adeee84d152d705b43d7fead4f38c7a19b98b41b2e"
+  }
+}

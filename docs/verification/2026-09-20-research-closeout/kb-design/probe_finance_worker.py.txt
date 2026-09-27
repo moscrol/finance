@@ -1,0 +1,148 @@
+"""Independent real finance-worker check with changed v2 content and rollback."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+HERE = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/kb-wt-guarded-maintenance-0920')
+FINANCE = Path('/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private')
+EXPECTED = '3a21010323eababb54ce8519093fd60dbacb9451'
+FEXPECTED = '4ace5ec2e9b7735d90eb15bc2351fa193c1120b8'
+OUT = HERE / 'worker'
+OUT.mkdir()
+
+
+def git_identity(path):
+    head = subprocess.check_output(['git', '-C', str(path), 'rev-parse', 'HEAD'], text=True).strip()
+    dirty = subprocess.check_output(['git', '-C', str(path), 'status', '--porcelain'], text=True)
+    return {'sha': head, 'dirty': dirty}
+
+
+before = {'kb': git_identity(TREE), 'finance': git_identity(FINANCE)}
+assert before == {'kb': {'sha': EXPECTED, 'dirty': ''}, 'finance': {'sha': FEXPECTED, 'dirty': ''}}
+for key in list(os.environ):
+    if key.startswith(('RAG_', 'KB_RAG_')) or key in {'KB_VAULT', 'CONCEPT_VAULT', 'ENTITY_VAULT', 'VECTOR_INDEX_DIR', 'PYTHONPATH'}:
+        os.environ.pop(key)
+os.environ.update(PYTHONDONTWRITEBYTECODE='1', FINANCE_WS=str(FINANCE),
+                  KB_ACCESS_LOG_PATH=str(OUT / 'access-log.jsonl'),
+                  HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', RAG_WORKER_KEEPALIVE_SECONDS='0')
+sys.path[:0] = [str(TREE / 'skills/lib'), str(FINANCE)]
+from rag.embedder import get_embedder
+from rag.generation import activate, approve, consumer_environment, resolve_startup, verify_manifest
+from rag.maintenance import prepare
+from rag.store import build
+from intelligence.services.rag_worker import PersistentRagWorker
+
+wiki = OUT / 'source/wiki'
+(wiki / 'sources').mkdir(parents=True)
+(wiki.parent / 'raw').mkdir()
+root = OUT / 'generations-root'
+standard, full = OUT / 'legacy-standard', OUT / 'legacy-full'
+
+
+def source(epoch):
+    (wiki / 'sources/order.md').write_text('---\nevidence_layer: L3\nfact_hardness: hard_fact\n'
+        'source_type: official_disclosure\npublish_time: 2026-09-01\navailable_time: 2026-09-01\n'
+        'sources: [scratch-filing]\n---\n# Order\n\nepoch' + epoch + ' signed order confirmed.\n')
+    (wiki.parent / 'raw/original.md').write_text('# Original\n\nraw' + epoch + ' isolated source text.\n')
+
+
+def prepare_epoch(epoch):
+    probes = {
+        'standard': [{'query': 'epoch' + epoch, 'expected_paths': ['wiki/sources/order.md']},
+                     {'query': 'epoch' + epoch, 'filters': {'evidence_layer': 'L1'}, 'expect_empty': True}],
+        'full': [{'query': 'raw' + epoch, 'expected_paths': ['raw/original.md']},
+                 {'query': 'epoch' + epoch, 'filters': {'evidence_layer': 'L1'}, 'expect_empty': True}],
+    }
+    path = prepare(root, generation=epoch, vault=wiki, standard=standard, full=full, probes=probes)
+    approve(path, approved_by='independent scratch review')
+    activate(path)
+    return path
+
+
+all_workers = []
+rows = []
+
+
+def workers_for(path):
+    binding = resolve_startup(root=root)
+    assert binding['manifest'] == str(path)
+    # The launch environment must remove an unrelated higher-priority finance index override.
+    os.environ['VECTOR_INDEX_DIR'] = str(OUT / 'unrelated-index')
+    env = consumer_environment(binding)
+    assert 'VECTOR_INDEX_DIR' not in env
+    os.environ.clear()
+    os.environ.update(env)
+    workers = [PersistentRagWorker(binding['environment']['KB_RAG_PYTHON'],
+        Path(binding['environment']['KB_RAG_CODE_ROOT']), path.parent / kind,
+        Path(binding['environment']['KB_VAULT'])) for kind in ('standard', 'full')]
+    all_workers.extend(workers)
+    return workers
+
+
+def query(worker, word, extra=()):
+    return worker.query(['query', word, '--mode', 'bm25', '--json', *extra], timeout=20)
+
+
+def check_epoch(workers, epoch, stage):
+    for kind, worker, word, expected_path in zip(('standard', 'full'), workers,
+            ('epoch' + epoch, 'raw' + epoch), ('wiki/sources/order.md', 'raw/original.md')):
+        first = query(worker, word)
+        second = query(worker, word)
+        assert first.returncode == second.returncode == 0, (first.stderr, second.stderr)
+        hits = json.loads(second.stdout)
+        assert expected_path in {item['file_path'] for item in hits}, hits
+        assert word in second.stdout and second.model_load_count == 1, second
+        negative = query(worker, word, ['--evidence-layer', 'L1'])
+        assert negative.returncode == 0 and json.loads(negative.stdout) == [], negative
+        rows.append({'stage': stage, 'kind': kind, 'epoch': epoch,
+                     'pid': worker._process.pid, 'model_load_count': second.model_load_count,
+                     'hits': hits, 'negative_hits': [], 'status': worker.status()})
+
+
+try:
+    source('alpha')
+    for path, include_raw in ((standard, False), (full, True)):
+        build(get_embedder('hash'), wiki, include_raw=include_raw, max_files=0).save(path)
+    old = prepare_epoch('alpha')
+    old_hash = hashlib.sha256((old.parent / 'source/wiki/sources/order.md').read_bytes()).hexdigest()
+    old_workers = workers_for(old)
+    check_epoch(old_workers, 'alpha', 'initial-warm')
+    source('beta')
+    newer = prepare_epoch('beta')
+    assert old_hash == hashlib.sha256((old.parent / 'source/wiki/sources/order.md').read_bytes()).hexdigest()
+    assert verify_manifest(old)['generation'] == 'alpha'
+    for kind, worker in zip(('standard', 'full'), old_workers):
+        retired = query(worker, 'epochalpha')
+        assert retired.returncode != 0 and 'worker generation retired' in retired.stderr, retired
+        rows.append({'stage': 'retired-after-switch', 'kind': kind,
+                     'returncode': retired.returncode, 'stderr': retired.stderr,
+                     'status': worker.status()})
+        process = worker._process
+        worker.close()
+        assert process.poll() is not None
+    new_workers = workers_for(newer)
+    check_epoch(new_workers, 'beta', 'new-generation-warm')
+    for worker in new_workers:
+        worker.close()
+    activate(old)
+    rollback_workers = workers_for(old)
+    check_epoch(rollback_workers, 'alpha', 'explicit-rollback-warm')
+finally:
+    for worker in all_workers:
+        worker.close()
+after = {'kb': git_identity(TREE), 'finance': git_identity(FINANCE)}
+assert after == before
+report = {'passed': True, 'before': before, 'after': after,
+          'probe_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+          'rows': rows, 'real_finance_worker': True, 'changed_v2_source': True,
+          'closed_workers': len(all_workers), 'production_service': False,
+          'network': False, 'model': 'hash/offline; BM25 queries'}
+(OUT / 'results.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'passed': True, 'real_worker_rows': len(rows),
+                  'closed_workers': len(all_workers), 'evidence': str(OUT / 'results.json')}))

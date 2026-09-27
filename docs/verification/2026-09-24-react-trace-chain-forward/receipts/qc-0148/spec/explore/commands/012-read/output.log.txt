@@ -1,0 +1,62 @@
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert calls == 1
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert rejected_sentence in result.verified.outcome.draft
+    assert rejected_sentence in result.public_answer
+    assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
+
+
+def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "我的基准判断是反弹仍可持续2至5个交易日。若指数跌破3870点则失效。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert "2至5个交易日" in result.public_answer
+    assert "3870点" not in result.public_answer
+    assert "3870点" not in result.verified.outcome.draft
+    first_sentences = [
+        str(item["text"])
+        for item in judge.calls[0]["sentences"]  # type: ignore[attr-defined]
+    ]
+    assert any("2至5个交易日" in item for item in first_sentences)
+    assert all("3870点" not in item for item in first_sentences)
+
+
+def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
+    judge = _judge(True)
+    frame, structural = _structural(
+        "截至2026年7月23日，市场处于反弹阶段。"
+        "条件1：至少1至2个子板块走强才算成立。"
+        "条件2：上涨家数维持4000家以上才算成立。"
+        "失效信号3：若指数跌破3760至3800点区域则失效。"
+        "条件4：涨停仍维持百家左右才算成立。"
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert len(judge.calls) == 1  # type: ignore[attr-defined]
+    assert result.status == "completed"
+    assert result.judge_status == "repaired"
+    assert result.public_answer == "截至2026年7月23日，市场处于反弹阶段。"
+    assert judge.calls[0]["sentences"] == [  # type: ignore[attr-defined]
+        {"index": 1, "text": "截至2026年7月23日，市场处于反弹阶段。"}
+
+[truncated; total lines=5180, selected=1196:1255; next_offset=1256]

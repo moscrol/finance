@@ -1,0 +1,26 @@
+{
+  "axis": "Spec",
+  "scope": "only complete-date parsing residual",
+  "base": "56d6062e4544ae40d2e91c19968f4bfe8066e60c",
+  "head": "d197450d90ba88716bc1346ae741113bce0dd888",
+  "code_commit": "11216c81585188c7f2986622f6b84ac567538b44",
+  "initial_status": "clean (observed at review start)",
+  "final_status": "",
+  "result": "PASS",
+  "date_matrix_cases_passed": 12,
+  "minimal_adjacent_guard_groups_passed": 1,
+  "original_probe_sha256": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "finished_at": "2026-09-20T12:51:29.876584+08:00",
+  "artifacts_sha256": {
+    "copied-probe.json": "794865117db885a3e9a45b2e4ba4322a6ce9ffa9e3f17b5006f63211f3f9633a",
+    "date-forms-results.json": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4",
+    "date-forms.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "date-forms.log": "c294368f20d3d46e34f8c254f59438d6641eb6fdf4cc76d1904a1a8e2f72cfe4",
+    "minimal-guard.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "minimal-guard.log": "7b91b1f77cf40321ebbe844e36c1eb4ade3054f18274a1b415fcad3725e296fc",
+    "minimal_guard.py": "34c3eb0e1304d986b65084324d95f2575ea63f5bf84c69376ca9b59f05d1e8b7",
+    "probe_date_forms.py": "d42c3482cf1fa517401f16f0d6cf12da9e5e1052ef84af063947c1a3c420f43c",
+    "spec-review.md": "16558707c4ab1db40ec98588a41112d4a21257775cbaf7dbe2d57c8c9ae3729d"
+  }
+}

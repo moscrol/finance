@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "def grounded_values_in_text|class StructuredObservation|def _finish_turn|def build_episode_registry|def slot_line_for_observations",
+    "intelligence/",
+    "--glob",
+    "*.py"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 160,
+  "output_sha256": "f5c2e201a0c8cdfc06e1b10d005c75ca3d094f1bbeae5384c1b5b604c0c39dcf"
+}

@@ -1,0 +1,30 @@
+{
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "BLOCKED fixture report: tool path completed; tests_run=0; verdict BLOCKED."
+    }
+  ],
+  "api": "openai-completions",
+  "provider": "bounded-review",
+  "model": "kimi-k3",
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "totalTokens": 0,
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+    }
+  },
+  "stopReason": "stop",
+  "timestamp": 1790018691732,
+  "responseId": "fixture-2",
+  "rawStopReason": "stop"
+}

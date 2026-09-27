@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "checks": [
+    "candidate import",
+    "work writes",
+    "author/source docs read denied",
+    "credential read denied",
+    "source/outside write denied",
+    "symlink write escape denied",
+    "external network and gateway/8792 denied",
+    "offline loopback allowed",
+    "credential-free tool environment",
+    "assert 1==2 full output and exit 1",
+    "temperature stripping",
+    "phase request/time limit",
+    "one reserved closeout",
+    "post-closeout request denied"
+  ]
+}

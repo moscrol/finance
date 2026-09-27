@@ -16,46 +16,78 @@
 # 会变成每 10 秒重启一次的无限崩溃循环，生产彻底不可用且日志被刷爆。
 # 闸门必须放在部署这一侧——这里失败只是「没部署成」，可回退、可重试。
 set -euo pipefail
+
+usage() {
+  print -r -- 'Usage: WORKBENCH_REPO_ROOT=<clean-checkout> deploy_workbench_runtime.sh --apply --expect-revision <full-sha>
+       deploy_workbench_runtime.sh --help
+
+Only updates a standalone (non-Git) runtime directory. Git worktree snapshots
+must be switched using docs/workflows/acceptance-workflow.md, never overwritten.
+No arguments, unknown arguments, and revision mismatches refuse deployment.'
+}
+
+# Parse before any environment checks or commands: --help must never deploy.
+if (( $# == 1 )) && [[ "$1" == "--help" || "$1" == "-h" ]]; then
+  usage
+  exit 0
+fi
+APPLY=0
+EXPECTED_REV=""
+while (( $# > 0 )); do
+  case "$1" in
+    --apply)
+      (( APPLY == 0 )) || { usage >&2; exit 2; }
+      APPLY=1
+      shift
+      ;;
+    --expect-revision)
+      (( $# >= 2 )) && [[ -z "$EXPECTED_REV" ]] || { usage >&2; exit 2; }
+      EXPECTED_REV="$2"
+      shift 2
+      ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
+if (( APPLY != 1 )) || [[ ${#EXPECTED_REV} != 40 || "$EXPECTED_REV" == *[^0-9a-f]* ]]; then
+  usage >&2
+  exit 2
+fi
+[[ -n "${WORKBENCH_REPO_ROOT:-}" ]] || {
+  print -u2 -- 'WORKBENCH_REPO_ROOT must be explicitly set.'
+  exit 2
+}
+
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-REPO="${WORKBENCH_REPO_ROOT:-/Users/a77/finance-workspace-private}"
+REPO="$WORKBENCH_REPO_ROOT"
 RUNTIME_LINK="${WORKBENCH_RUNTIME_DIR:-/Users/a77/finance-workspace-runtime}"
 SERVICE="${WORKBENCH_SERVICE_LABEL:-com.a77.finance-workbench}"
 PYTHON="$REPO/.venv-workbench/bin/python"
 
 die() { print -u2 -- "✗ $1"; exit 1; }
 
-# 防呆闸：在别的树里运行、又没显式指源 → fail closed。
-#
-# 2026-08-22 事故：在 regcheck worktree 里裸跑本脚本，rsync 源默认成主树——
-# 当时主树停在另一条长期分支上，一次「部署最新 main」实际把 R2 批次从生产
-# 盖掉了 12 分钟。下面的一致性校验对「错的 repo」也会如实报 True：
-# 它防的是快照漂移，不防选错源。源的歧义只能在这里拦。
-if [[ -z "${WORKBENCH_REPO_ROOT:-}" ]]; then
-  CWD_ROOT="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
-  if [[ -n "$CWD_ROOT" && "$CWD_ROOT" != "$REPO" ]]; then
-    die "你在 $CWD_ROOT 里运行，但默认部署源是 $REPO。显式设 WORKBENCH_REPO_ROOT=<要部署的树> 再跑"
-  fi
-fi
-
 [[ -d "$REPO/intelligence" ]] || die "仓库缺 intelligence/：$REPO"
+SOURCE_REV="$(git -C "$REPO" rev-parse --verify HEAD)" || die "无法读取部署源 revision"
+[[ "$SOURCE_REV" == "$EXPECTED_REV" ]] || die "部署源 revision 与 --expect-revision 不一致"
+SOURCE_STATUS="$(git -C "$REPO" status --porcelain --untracked-files=all)" || die "无法检查部署源状态"
+[[ -z "$SOURCE_STATUS" ]] || die "部署源必须是干净工作树"
 [[ -x "$PYTHON" ]] || die "缺 venv 解释器：$PYTHON（别用宿主 python3，它没有依赖）"
 
 # symlink 要解析到真实目录再 rsync：直接对 symlink 用 --delete 会删错东西。
 SNAP="$(cd "$RUNTIME_LINK" 2>/dev/null && pwd -P)" || die "运行快照不可达：$RUNTIME_LINK"
 [[ -d "$SNAP/intelligence" ]] || die "快照缺 intelligence/：$SNAP"
+[[ ! -L "$SNAP/intelligence" ]] || die "运行目录 intelligence/ 不得是软链；禁止通过软链覆盖其他快照"
+# A versioned snapshot is also a rollback anchor; rsync would destroy its identity.
+[[ ! -e "$SNAP/.git" && ! -L "$SNAP/.git" ]] || die "禁止覆盖 Git 快照；请新建快照并切换运行软链"
+if git -C "$SNAP" rev-parse --show-toplevel >/dev/null 2>&1; then
+  die "禁止覆盖 Git 工作树内的运行目录"
+fi
 
 print -- "仓库    : $REPO"
 print -- "快照    : $SNAP"
 print -- "服务    : $SERVICE"
 
-# 部署前先报告仓库是否干净。不阻断：本仓常有多个 agent 同树作业，未提交改动是
-# 常态而非异常。但要说出来——部署的是**工作树当前内容**，不是某个 commit。
-if [[ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]]; then
-  print -- "revision: $(git -C "$REPO" rev-parse --short HEAD) ⚠️ 工作区有未提交改动（部署的是工作树当前内容）"
-else
-  print -- "revision: $(git -C "$REPO" rev-parse --short HEAD)（干净）"
-fi
+print -- "revision: $SOURCE_REV（干净，已核对目标版本）"
 
 # 部署前闸门：检索解释器必须可执行。
 #

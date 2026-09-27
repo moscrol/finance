@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/continuous_turn_adapter.py b/intelligence/runtime/continuous_turn_adapter.py
+index bbfa8538..be0588d4 100644
+--- a/intelligence/runtime/continuous_turn_adapter.py
++++ b/intelligence/runtime/continuous_turn_adapter.py
+@@ -838,7 +838,7 @@ class ContinuousTurnAdapter:
+                     cycle=repair_attempts,
+                     rejected_claims=(
+                         *(f"claim_index:{index}" for index in semantic.rejected_claim_indexes),
+-                        *semantic.delivery_repair_notes,
++                        *(),
+                     ),
+                     semantic_gap_outputs=semantic.gap_output_ids,
+                     allow_delivery_repair=not delivery_repair_attempted,
