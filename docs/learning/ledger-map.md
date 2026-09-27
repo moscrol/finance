@@ -6,6 +6,8 @@
 
 用户态路径以 `intelligence/userspace.py::users_dir/user_space` 为准：`FORESIGHT_USERS_DIR` 优先，未配置时源码仍回退到仓内 `intelligence/users/`。该回退是代码兼容行为，不是写入冻结存档的授权；正常运行须显式绑定外置用户根，离线测试使用临时根。下表以解析器表达落点，不硬编码本机目录。保鲜诊断是带日期的历史证据，不是当前覆盖率。
 
+Workbench 的双盲学习候选、已批准 lessons 和规则事件位于 `default_paths().finance_root / docs/learning/forecast-lessons`（`FINANCE_WS` 数据根），读取和审批共用此根，不能写到当前代码快照；换部署后仍消费同一台账。双盲夜跑已退役，旧 `pending_llm` 是历史候选，不能计为已学规则或自动批准。
+
 | 台账 | canonical 路径 | 格式 | 唯一写入者 | 提交? | 渲染物 |
 |---|---|---|---|---|---|
 | 部署与启动归属 | `deploy_ledger.resolve_ledger_path()`（默认 `~/.finance-runtime/deploy-ledger.jsonl`，显式路径或 `FINANCE_DEPLOY_LEDGER` 优先） | JSONL，startup / switch；`startup_port_attribution` 仅追加对无端口 startup 的归属，绑定原行规范化 SHA256、启动日志与 health 原件哈希。证据改变或冲突即不采信，不重排原事件 | `intelligence/runtime/deploy_ledger.py`；lifespan 自报、`audit_deploy_ledger.py record`，归属补记 `attribute-startup --apply`（默认 dry-run） | 否（机器状态）；证据须保留在稳定树外目录 | `audit_deploy_ledger.py check/homes`；`worktree_board` 仍只读 switch，归属补记不产生切换 |

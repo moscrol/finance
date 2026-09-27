@@ -4239,6 +4239,71 @@ def test_learning_feedback_can_be_reviewed_without_editing_verdict(
     )
 
 
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_learning_feedback_persists_in_data_root_across_code_deployments(
+    client: TestClient, tmp_path: Path, action: str,
+) -> None:
+    from intelligence.services.forecast_learning import render_learning_prompt
+
+    data_root = Path(client.app.state.finance_root)
+    learning = data_root / "docs/learning/forecast-lessons"
+    reflection = learning / "reflections/2026-09-24.reflection.codex.duckdb.json"
+    reflection.parent.mkdir(parents=True)
+    payload = {
+        "schema_version": "1.0", "date": "2026-09-24", "agent": "codex",
+        "source": "duckdb", "status": "pending_review", "review_status": "pending",
+        "source_fingerprint": "data-root-fixture",
+        "reflections": [{
+            "id": "direction:capacity", "category": "direction",
+            "failure_mode": "遗漏容量比较", "reusable_lesson": "方向排序前先核对容量。",
+            "proposed_rule": "先核对容量再比较弹性。",
+        }],
+    }
+    reflection.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    rules = learning / "rule_candidates.jsonl"
+    rules.write_text(json.dumps({
+        "schema_version": "1.0", "id": "data-rule", "status": "pending",
+        "date": "2026-09-24", "rule": "选股时同时说明筛选依据。",
+    }, ensure_ascii=False) + "\n", encoding="utf-8")
+    code_roots = [tmp_path / "runtime-a", tmp_path / "runtime-b"]
+    stale_bytes = json.dumps({**payload, "date": "2026-07-01"}).encode()
+    for code in code_roots:
+        old = code / "docs/learning/forecast-lessons/reflections/old.json"
+        old.parent.mkdir(parents=True)
+        old.write_bytes(stale_bytes)
+
+    with TestClient(app_module.create_app(repo_root=code_roots[0])) as first:
+        pending = first.get("/api/workbench/learning-feedback").json()
+        assert [row["date"] for row in pending["pending_reflections"]] == ["2026-09-24"]
+        assert len(pending["pending_rules"]) == 1
+        reviewed = first.post(
+            f"/api/workbench/learning-feedback/reflections/{reflection.name}/{action}",
+            json={"hypothesis_ids": ["direction:capacity"]},
+        )
+        assert reviewed.status_code == 200
+        assert reviewed.json()["pending_reflections"] == []
+        rule_response = first.post(
+            "/api/workbench/learning-feedback/rules/data-rule/status",
+            json={"status": "approved" if action == "approve" else "rejected"},
+        )
+        assert rule_response.status_code == 200
+
+    with TestClient(app_module.create_app(repo_root=code_roots[1])) as restarted:
+        feedback = restarted.get("/api/workbench/learning-feedback").json()
+        assert feedback["pending_reflections"] == []
+        assert feedback["pending_rules"] == []
+        assert feedback["approved_lesson_count"] == int(action == "approve")
+        assert feedback["approved_rule_count"] == int(action == "approve")
+    prompt = render_learning_prompt(learning / "lessons.jsonl", rules)
+    assert ("方向排序前先核对容量。" in prompt) == (action == "approve")
+    assert ("选股时同时说明筛选依据。" in prompt) == (action == "approve")
+    for code in code_roots:
+        old = code / "docs/learning/forecast-lessons/reflections/old.json"
+        assert old.read_bytes() == stale_bytes
+        assert not (code / "docs/learning/forecast-lessons/lessons.jsonl").exists()
+        assert not (code / "docs/learning/forecast-lessons/rule_candidates.jsonl").exists()
+
+
 def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> None:
     ledger = SelfUseLedger(
         userspace.user_space("demo").root / "self-use" / "events.jsonl"

@@ -3703,7 +3703,8 @@ def create_app(
             runtime_paths.knowledge_wiki,
         )
 
-    learning_root = root / "docs" / "learning" / "forecast-lessons"
+    # Reviewed learning survives immutable code-snapshot switches, like overview data.
+    learning_root = runtime_paths.finance_root / "docs" / "learning" / "forecast-lessons"
 
     @app.get("/api/workbench/learning-feedback")
     def workbench_learning_feedback() -> dict[str, object]:
