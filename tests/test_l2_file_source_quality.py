@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
@@ -32,7 +34,7 @@ def pipeline(tmp_path, monkeypatch):
     monkeypatch.setenv("L2_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("L2_SOURCE", "baidu-share:xianyu-l2-7z")
     monkeypatch.setenv("L2_TOP_N", "100")
-    for name in ("L2_FORCE_RESCAN", "L2_PAUSED", "L2_ALLOW_ALL_EMPTY"):
+    for name in ("L2_FORCE_RESCAN", "L2_PAUSED", "L2_ALLOW_ALL_EMPTY", "L2_SUSPENSION_EVIDENCE"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.syspath_prepend(str(MONEYFLOW))
     modules = {}
@@ -105,6 +107,119 @@ def _ledger(pipeline):
             "SELECT step, status, row_count, input_count, processed_count, failed_count "
             "FROM ops_pipeline_run_daily WHERE pipeline='l2-moneyflow' ORDER BY step"
         ).fetchall()
+
+
+def test_historical_archive_never_fetches_live_valuation(pipeline, monkeypatch):
+    monkeypatch.setattr(pipeline.processor, "_today", lambda: "2026-09-27", raising=False)
+    monkeypatch.setattr(
+        pipeline.processor, "stock_info",
+        lambda codes: pytest.fail("historical scan fetched current valuation"),
+    )
+    monkeypatch.setattr(pipeline.processor, "quant_from_ticks", lambda ticks: {
+        "量化单总额(万)": 2200.0, "占大单买入%": 11.0,
+        "簇数": 1, "笔数": 11, "最大簇": "fixture quant cluster",
+    })
+    pipeline.runner.run_date(DATE)
+    with duckdb.connect(str(pipeline.db), read_only=True) as con:
+        rows = con.execute(
+            "SELECT main_buy_net_wan, total_buy_net_wan, float_mktcap_yi, score "
+            "FROM feature_l2_capital_flow_daily"
+        ).fetchall()
+        assert len(rows) == 101
+        assert all(row[0] is not None and row[1] is not None for row in rows)
+        assert all(row[2:] == (None, None) for row in rows)
+        messages = con.execute(
+            "SELECT message FROM ops_pipeline_run_daily WHERE step IN ('limitup','top100')"
+        ).fetchall()
+        assert all("historical_valuation_unavailable" in row[0] for row in messages)
+        assert con.execute("SELECT count(*) FROM feature_l2_quant_orders_daily").fetchone()[0] == 100
+    assert checker.check_l2(DATE) == []
+
+
+def test_same_day_archive_keeps_same_day_valuation(pipeline, monkeypatch):
+    monkeypatch.setattr(pipeline.processor, "_today", lambda: DATE, raising=False)
+    pipeline.runner.run_date(DATE)
+    with duckdb.connect(str(pipeline.db), read_only=True) as con:
+        rows = con.execute("SELECT float_mktcap_yi, score FROM feature_l2_capital_flow_daily").fetchall()
+        assert len(rows) == 101
+        assert all(cap == 100.0 and score == pytest.approx(0.014) for cap, score in rows)
+
+
+def _suspension_input(tmp_path, *, date=DATE):
+    source = tmp_path / "official-notice.pdf"
+    source.write_bytes(b"offline authoritative-notice fixture")
+    manifest = tmp_path / "suspension-input.json"
+    manifest.write_text(json.dumps({
+        "trade_date": date,
+        "entries": [{
+            "stock_code": "002860", "reason": "开市起全天停牌",
+            "source_url": "https://static.cninfo.com.cn/finalpage/2026-09-16/fixture.PDF",
+            "evidence_path": str(source),
+            "evidence_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        }],
+    }), encoding="utf-8")
+    return manifest, source
+
+
+def test_verified_full_day_suspension_is_disclosed_not_fabricated_as_zero(
+    pipeline, monkeypatch, tmp_path,
+):
+    manifest, source = _suspension_input(tmp_path)
+    monkeypatch.setenv("L2_SUSPENSION_EVIDENCE", str(manifest))
+    monkeypatch.setattr(pipeline.processor, "duck_limitup_codes", lambda date: [*pipeline.codes[:1], "002860"])
+    pipeline.runner.run_date(DATE)
+    assert _ledger(pipeline)[0] == ("limitup", "complete", 1, 1, 1, 0)
+    with duckdb.connect(str(pipeline.db), read_only=True) as con:
+        assert con.execute(
+            "SELECT count(*) FROM feature_l2_capital_flow_daily WHERE stock_code='002860'"
+        ).fetchone()[0] == 0
+        message = con.execute(
+            "SELECT message FROM ops_pipeline_run_daily WHERE step='limitup'"
+        ).fetchone()[0]
+        assert "excluded_suspensions=002860" in message
+        assert "original_candidates=2" in message
+        assert '"evidence_sha256"' in message
+        assert hashlib.sha256(source.read_bytes()).hexdigest() in message
+    assert checker.check_l2(DATE) == []
+
+
+@pytest.mark.parametrize("damage", ["wrong_date", "changed_source", "has_market_row", "has_amount", "has_volume", "not_candidate"])
+def test_suspension_override_requires_matching_evidence_and_candidate(
+    pipeline, monkeypatch, tmp_path, damage,
+):
+    manifest, source = _suspension_input(tmp_path, date="2026-09-15" if damage == "wrong_date" else DATE)
+    monkeypatch.setenv("L2_SUSPENSION_EVIDENCE", str(manifest))
+    if damage != "not_candidate":
+        monkeypatch.setattr(pipeline.processor, "duck_limitup_codes", lambda date: [*pipeline.codes[:1], "002860"])
+    if damage == "changed_source":
+        source.write_bytes(b"changed notice")
+    if damage == "has_market_row":
+        monkeypatch.setattr(pipeline.processor, "duck_pct_chg_map", lambda date: {**dict.fromkeys(pipeline.codes, 1.0), "002860": 2.0})
+    if damage in {"has_amount", "has_volume"}:
+        with duckdb.connect(str(pipeline.db)) as con:
+            con.execute(
+                "INSERT INTO fact_stock_daily (trade_date,stock_ts_code,close,pre_close,pct_chg,amount,volume) "
+                "VALUES (?, '002860.XSHE', 11, 10, NULL, ?, ?)",
+                [DATE, 100 if damage == "has_amount" else None,
+                 10 if damage == "has_volume" else None],
+            )
+    with pytest.raises(ValueError, match="suspension"):
+        pipeline.runner.run_date(DATE)
+    with duckdb.connect(str(pipeline.db), read_only=True) as con:
+        assert con.execute("SELECT count(*) FROM feature_l2_capital_flow_daily").fetchone()[0] == 0
+
+
+def test_suspension_price_only_shell_is_not_trading_evidence(pipeline, monkeypatch, tmp_path):
+    manifest, _ = _suspension_input(tmp_path)
+    monkeypatch.setenv("L2_SUSPENSION_EVIDENCE", str(manifest))
+    monkeypatch.setattr(pipeline.processor, "duck_limitup_codes", lambda date: [*pipeline.codes[:1], "002860"])
+    with duckdb.connect(str(pipeline.db)) as con:
+        con.execute(
+            "INSERT INTO fact_stock_daily (trade_date,stock_ts_code,close,pre_close,pct_chg,amount,volume) "
+            "VALUES (?, '002860.XSHE', 10, 10, NULL, 0, 0)", [DATE],
+        )
+    pipeline.runner.run_date(DATE)
+    assert checker.check_l2(DATE) == []
 
 
 @pytest.mark.parametrize("mode", ["crc", "crc_full", "partial", "empty", "malformed"])

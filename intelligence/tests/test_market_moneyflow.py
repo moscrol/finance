@@ -86,6 +86,20 @@ class MoneyflowBlockTests(unittest.TestCase):
             self.assertIn("大单净流入榜", block)
             self.assertNotIn("瑞华泰 近", block)
 
+    def test_missing_historical_valuation_is_disclosed_with_cash_flow_order(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            with duckdb.connect(str(db)) as con:
+                con.execute("UPDATE feature_l2_capital_flow_daily SET score=NULL, float_mktcap_yi=NULL")
+                con.execute("UPDATE feature_l2_capital_flow_daily SET main_buy_net_wan=25000 WHERE stock_code='000725'")
+            snapshot = load_moneyflow_snapshot(db, as_of_date="2026-07-08")
+            self.assertEqual(snapshot.leaders[0].stock_code, "000725")
+            self.assertTrue(any("流通市值" in text and "留空" in text for text in snapshot.disclosures))
+            block = moneyflow_block_for_llm("大单资金流", None, db)
+            self.assertIn("流通市值", block)
+            self.assertIn("主买净额排序", block)
+
     def test_missing_db_returns_empty(self) -> None:
         self.assertEqual(
             moneyflow_block_for_llm("大单资金流", None, "/nonexistent/x.duckdb"), ""

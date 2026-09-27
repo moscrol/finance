@@ -40,3 +40,11 @@ FINANCE_PYTHON=.venv-workbench/bin/python \
 - 仅盘后运行；不做全市场逐笔扫描
 - 分享 URL / 网盘 Cookie / 密码不入库、不打印
 - outputs/ 与本地 7z 不提交；算完删本地副本
+
+## 历史恢复与停牌
+
+历史日包仍走 `process_l2_archive.py`，日期早于上海当天时只读取同日日线名称和涨幅，不调用即时行情；缺少同日流通市值时市值与综合得分写 NULL，净额保留，缺得分行按主买净额排序，榜单与回答披露限制。不能拿当前市值或按价格缩放的基线市值回填历史得分。
+
+缺 CSV 时先核供应商原包与公司/交易所公告。只有已人工核对的全天停牌才能通过 `L2_SUSPENSION_EVIDENCE` 指定本轮 JSON 输入：`trade_date` 必须精确等于目标日，`entries` 每项包含 `stock_code/reason/source_url/evidence_path/evidence_sha256`。URL 使用官方披露域，文件 SHA256 绑定归档原件；代码须在昨日涨停名单内、不能在当日 top100 或涨幅集合中，也不能有同日日线非零成交量/额（即使涨幅为 NULL）。该输入只用于本轮恢复，事实回执由现有 writer 写入 `ops_pipeline_run_daily.message`（原候选数、排除代码、公告 URL/哈希），不生成一条零资金流记录。缺证据、日期不符、原件变化或与行情矛盾均停止。
+
+生产恢复先持有全量复盘共享锁，再用 `market_feature_store.db.clone_to_staging` 的 APFS 克隆隔离重算；验各扫描 `processed_count=input_count`、top100=100、缺失市值明确 NULL，非空净额与当日日线涨幅一致后才按现有 S7 换库协议发布。失败保留原包和日志；正常夜跑的原包清理仍由现有入口负责。

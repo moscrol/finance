@@ -203,7 +203,7 @@ def load_moneyflow_snapshot(
                    total_buy_net_wan, score, rank, pct_change
             from feature_l2_capital_flow_daily
             where trade_date = ?
-            order by score desc nulls last, rank asc nulls last
+            order by score desc nulls last, main_buy_net_wan desc nulls last, rank asc nulls last
             """,
             [trade_date],
         ).fetchall()
@@ -257,6 +257,8 @@ def load_moneyflow_snapshot(
             "仅覆盖昨日涨停股和成交额前 100；缺行不等于无资金流入。",
             "大单方向由委托编号口径推断，不等同于问财或全市场资金流口径。",
         ]
+        if any(row.score is None for row in leaders):
+            disclosures.append("部分记录缺少同交易日流通市值，综合得分留空；这些记录按主买净额排序。")
         warnings: list[str] = []
         status = "ok"
         if as_of_date and trade_date < as_of_date:
@@ -366,6 +368,8 @@ def moneyflow_block_for_llm(
                 lines.append(
                     f"| {r[0]} | {r[1]} | {_fmt(r[2])} | {_fmt(r[3])} | {_fmt(r[4], 2)} | {r[5] if r[5] is not None else '—'} | {_fmt(r[6])} |"
                 )
+            if any(row[4] is None for row in rows):
+                lines.append("- 部分记录缺少同交易日流通市值，净流入强度留空，不能据此比较资金强度。")
             quant = con.execute(
                 f"""
                 select trade_date, quant_amount_wan, quant_pct_of_big_buy, cluster_count, biggest_cluster
@@ -385,7 +389,7 @@ def moneyflow_block_for_llm(
             f"""
             select rank, scan_type, stock_name, main_buy_net_wan, total_buy_net_wan, score, pct_change
             from feature_l2_capital_flow_daily
-            where trade_date = ? order by score desc nulls last limit {int(top_k)}
+            where trade_date = ? order by score desc nulls last, main_buy_net_wan desc nulls last limit {int(top_k)}
             """,
             [latest_date],
         ).fetchall()
@@ -393,6 +397,8 @@ def moneyflow_block_for_llm(
             lines.append("")
             stale_mark = "，非当日" if stale else ""
             lines.append(f"### 最新扫描日（{latest_date}{stale_mark}）大单净流入榜 top{len(top)}")
+            if any(row[5] is None for row in top):
+                lines.append("- 部分记录缺少同交易日流通市值，综合得分留空；这些记录按主买净额排序。")
             lines.append("| 口径内名次 | 扫描口径 | 股票 | 主买净额(万) | 总买净额(万) | 净流入强度% | 涨幅% |")
             lines.append("|" + "---|" * 7)
             for r in top:

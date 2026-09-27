@@ -37,6 +37,10 @@ Files: `intelligence/api/app.py`, `intelligence/tests/test_workbench_api.py`, `d
 
 ## Task 3: 数据与知识库恢复
 
+实施补充：L2 修改 `process_l2_archive.py`、`write_to_duckdb.py`，独立 `l2_recovery.py` 校验仅本轮的官方停牌输入，消费层 `market_moneyflow.py` 披露 NULL 得分与净额排序。用真实 CSV→临时 DuckDB→质量门回归，覆盖历史禁即时市值、同日保留、停牌精确日期/原件哈希/名单冲突拒收。09-22 星帅尔停牌公告与 09-25 休市公告证据在树外 data-audit，恢复输入不成为第二份事实台账。
+
+知识库部署需显式 `WORKBENCH_KNOWLEDGE_WIKI` 保留完整图谱/台账/脚本根；仅 RAG 边界把该默认根映射到 manifest 的 `KB_VAULT`，沿用严格身份验证。独立指定其它 wiki、旧未受管部署的语义保持，联合验证 relations 与受管普通/全文检索；不往封存代里临时添加软链。
+
 - [ ] 把只读审计落在 `~/.finance-runtime/reviews/8792-readiness-20260927/`，确认交易日历与最新可得交易日。
 - [ ] 恢复已下载 L2 历史原包时，先解决当日流通市值语义；通过原有 writer/staging 发布，校验非空值、日期和覆盖率。
 - [ ] 核清研究队列、知识晨汇、卖方观点的唯一写入者和已存在在途提交；采用可追溯输入推进日期，缺失原料如实展示。

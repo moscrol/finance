@@ -80,6 +80,9 @@ def _format_message(message, stats):
     parts = []
     if message:
         parts.append(str(message))
+    for key in ("valuation_gap", "original_candidates", "excluded_suspensions", "suspension_evidence"):
+        if key in (stats or {}):
+            parts.append(f"{key}={stats[key]}")
     shared = (stats or {}).get("shared_cache")
     if isinstance(shared, dict):
         parts.append(
@@ -372,7 +375,7 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
     """res 列: code,name,主买净额(万),总买净额(万),流通市值(亿),综合得分,当日涨幅%"""
     _require_valid_stats(date, scan_type, stats)
     df = (
-        res.sort_values("综合得分", ascending=False).reset_index(drop=True)
+        res.sort_values(["综合得分", "主买净额(万)"], ascending=False, na_position="last").reset_index(drop=True)
         if not res.empty
         else res
     )
@@ -381,7 +384,7 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
     now = datetime.now()
     rows = [(date, scan_type, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["主买净额(万)"]), float(r["总买净额(万)"]),
-             float(r["流通市值(亿)"]),
+             None if pd.isna(r["流通市值(亿)"]) else float(r["流通市值(亿)"]),
              None if pd.isna(r["综合得分"]) else float(r["综合得分"]),
              # 当日涨幅%：日线口径（收盘/前收）；行情缺口日为 NULL，不充日内口径
              None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),

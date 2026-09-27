@@ -17,6 +17,7 @@ description: "DuckDB market_feature_store 历史日回补与验收。触发：�
 3. **日历行最后写。** `fact_market_daily` 当日行一落库就进 `check-daily` 的 20 日日历；GAP_TABLES 齐了才跑 `sync-market-overview` / `sync-index-daily` / `sync-market-deviation`，否则当晚 cross-day-gate FAIL、S7 不换名，好数据也进不了生产库。
 4. **每步写完回读值，不数行。** `sync-market-overview` 撞 429 会把整行写成 NULL 仍 rc=0；`sync-limit-advance` 0 行也报 ok。回读用第 8 步的 `qa_backfill_align.py`。
 5. **写锁。** 开工 `python3 scripts/check_db_lock.py`；18:30 前释放（S7 `probe_no_active_writer` 拒开工）。DuckDB 写是本地状态，不提交 `*.duckdb` 与 exports，源码改动分开提交。
+6. **L2 历史日包**按 `skills/l2-moneyflow/SKILL.md` 的历史恢复分支：净额可回算，同日市值不可验证则市值/得分留空；缺逐笔文件须核官方全天停牌证据或补供应商包，行情缺行本身不能证明停牌。
 
 ## 标准流程（历史日 D；多日时逐日做完再做下一日，后一日的边际量依赖前一日全量板块额）
 

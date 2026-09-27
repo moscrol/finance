@@ -5,7 +5,9 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import date as Date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -13,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from config import DUCKDB_PATH  # noqa: E402
 from l2_paths import cache_dir, yyyymmdd  # noqa: E402
+from l2_recovery import suspension_exclusions  # noqa: E402
 from moneyflow import (  # noqa: E402
     analyze,
     detect_quant_orders,
@@ -180,13 +183,32 @@ def rows_for_codes(
     return pd.DataFrame(recs), stats
 
 
-def attach_info(res: pd.DataFrame) -> pd.DataFrame:
+def _today() -> str:
+    return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+
+
+def _dated_info(codes: list[str], date: str) -> dict:
+    if date == _today():
+        return stock_info(codes)
+    import duckdb
+
+    with duckdb.connect(DUCKDB_PATH, read_only=True) as con:
+        names = dict(con.execute(
+            "SELECT substr(stock_ts_code, 1, 6), stock_name FROM fact_stock_daily "
+            "WHERE trade_date = ?", [date],
+        ).fetchall())
+    return {code: {"name": names.get(code) or code, "cap": None} for code in codes}
+
+
+def attach_info(res: pd.DataFrame, date: str) -> pd.DataFrame:
     if res.empty:
         return res
-    info = stock_info(list(res["code"]))
+    info = _dated_info(list(res["code"]), date)
     out = res.copy()
     out["name"] = out["code"].map(lambda c: info.get(c, {}).get("name", ""))
-    out["流通市值(亿)"] = out["code"].map(lambda c: info.get(c, {}).get("cap", 0.0))
+    out["流通市值(亿)"] = pd.to_numeric(
+        out["code"].map(lambda c: info.get(c, {}).get("cap")), errors="coerce",
+    )
     weighted = 0.7 * out["主买净额(万)"] + 0.3 * out["总买净额(万)"]
     cap = (out["流通市值(亿)"] * 1e4).replace(0, float("nan"))
     out["综合得分"] = (weighted / cap * 100).round(3)
@@ -194,6 +216,8 @@ def attach_info(res: pd.DataFrame) -> pd.DataFrame:
 
 
 def process_date(date: str, archive: Path) -> dict[str, int]:
+    if Date.fromisoformat(date).isoformat() != date or date > _today():
+        raise ValueError("L2 requires a non-future trade date")
     if not archive.exists():
         raise FileNotFoundError(f"missing {archive}")
     day = yyyymmdd(date)
@@ -203,7 +227,6 @@ def process_date(date: str, archive: Path) -> dict[str, int]:
     print(f"{date} prev={prev} limitup={len(limitup)} top100={len(top100)}", flush=True)
     if len(top100) < 80:
         print(f"WARN {date} top100 名单只有 {len(top100)} 只", flush=True)
-    codes = sorted(set(limitup) | set(top100))
     pct_map = duck_pct_chg_map(date)
     if not pct_map:
         print(
@@ -218,12 +241,28 @@ def process_date(date: str, archive: Path) -> dict[str, int]:
             raise RuntimeError(
                 f"incomplete candidates: limitup={len(limitup)} top100={len(top100)}/{TOP_N}"
             )
+        original_candidates = len(limitup)
+        excluded, suspension_receipt = suspension_exclusions(
+            date, limitup, top100, pct_map, database_path=DUCKDB_PATH,
+        )
+        limitup = [code for code in limitup if code not in excluded]
+        codes = sorted(set(limitup) | set(top100))
+        if excluded:
+            print(f"verified full-day suspension excluded={','.join(sorted(excluded))}", flush=True)
         extracted = extract_trades(archive, day, codes, extract_dir)
         # Compute all three scans before publishing any result; missing ticks are not zero signals.
         lim_df, lim_stats = rows_for_codes(extracted, limitup, pct_map)
         top_df, top_stats = rows_for_codes(extracted, top100, pct_map)
-        lim_df = attach_info(lim_df)
-        top_df = attach_info(top_df)
+        lim_df = attach_info(lim_df, date)
+        top_df = attach_info(top_df, date)
+        if date < _today():
+            print("历史补算：同日流通市值不可核，市值与综合得分留空；按主买净额排序。", flush=True)
+            for stats in (lim_stats, top_stats):
+                stats["valuation_gap"] = "historical_valuation_unavailable"
+        if excluded:
+            lim_stats.update(original_candidates=original_candidates,
+                             excluded_suspensions=','.join(sorted(excluded)),
+                             suspension_evidence=suspension_receipt)
         qrecs = []
         qprocessed = 0
         for code in top100:
@@ -241,7 +280,7 @@ def process_date(date: str, archive: Path) -> dict[str, int]:
             qrecs.append(quant)
         qdf = pd.DataFrame(qrecs)
         if not qdf.empty:
-            info = stock_info(list(qdf["code"]))
+            info = _dated_info(list(qdf["code"]), date)
             qdf["name"] = qdf["code"].map(lambda c: info.get(c, {}).get("name", ""))
         qstats = {
             "input_count": len(top100),
