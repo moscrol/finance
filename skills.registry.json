@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-21T02:58:46Z",
+  "generated_at": "2026-09-27T14:31:37Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -224,7 +224,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3f76fadf4d03713f25c9adefffcf1aa9bc243932eca8ed22d6e5f6553ab2d74d",
+      "computedHash": "sha256:c80c99cc80b5772f53e0e2de085158d2a946e98993b091784c7fc5e4f732c619",
       "agentOnly": false,
       "views": [
         {
@@ -420,7 +420,7 @@
       ],
       "note": "问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "entrypoint": null,
-      "computedHash": "sha256:9d1342f31793544a444744c8acc22cdb2485a564403c1d34030ff1b0305cbc26",
+      "computedHash": "sha256:088174e93926e1e580e423c857e2d65a0816effe27583bf637481b27062df697",
       "agentOnly": false,
       "views": [
         {
