@@ -81,7 +81,8 @@ def test_regime_question_with_data_emits_real_d10_block(tmp_path: Path) -> None:
     blob = _blob(items)
     assert "[D10]" in blob
     assert "历史相似窗口" in blob
-    assert "后续5日" in blob
+    assert "后续5交易日" in blob
+    assert "上证指数累计终点收益" in blob
 
 
 @pytest.mark.skipif(duckdb is None, reason="duckdb 不可用")

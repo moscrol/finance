@@ -26,12 +26,15 @@ def local_db(tmp_path):
             ("2026-08-18", "600673.SH", 36.7),
             ("2026-09-18", "600001.SH", 10.0),
         ])
+        # A known stock with no high event is distinct from an unverifiable code.
+        con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR)")
+        con.execute("INSERT INTO fact_stock_daily VALUES ('2026-09-18', '600519.SH')")
         con.execute("CREATE TABLE fact_market_daily (trade_date DATE, limit_up INTEGER)")
         con.execute("INSERT INTO fact_market_daily VALUES ('2026-09-18', 0)")
     return path
 
 
-def arguments(code="999999.SH"):
+def arguments(code="600519.SH"):
     return dict(dataset="stock_high_daily", metrics=["price"], dimensions=["stock_code", "trade_date"],
                 filters=[{"field": "stock_code", "op": "eq", "value": code}],
                 time_range={"start": "2026-09-01", "end": "2026-09-18"}, limit=25)
@@ -50,6 +53,17 @@ def test_successful_empty_query_only_describes_local_match(local_db):
     assert "本次条件与截止时点内未命中本地记录" in result.observation
     assert "不证明事件未发生" in result.observation
     assert "不证明数据覆盖完整" in result.observation
+
+
+def test_unverifiable_identity_is_not_a_successful_empty_query(local_db):
+    with pytest.raises(finance_query.FinanceQueryEntityError) as raised:
+        finance_query.FinanceQuery(local_db).run(
+            finance_query.FinanceQuerySpec.from_arguments(arguments("999999.SH")),
+            information_cutoff=InformationCutoff(date(2026, 9, 18), "requested"),
+            deadline=ResearchDeadline.from_timeout(3),
+        )
+    assert "entity_catalog_unavailable" in str(raised.value)
+    assert "不能据此判定实体不存在" in str(raised.value)
 
 
 def test_recorded_zero_remains_evidence_not_an_empty_query(local_db):
@@ -96,7 +110,7 @@ def test_local_registry_preserves_absence_boundary_through_model_projection(loca
     )
     assert registry.read_scope == "local_only"
     assert set(registry.names()) == set(context.contract.allowed_capabilities) == LOCAL_READ_CAPABILITIES
-    result = registry.execute("finance_query", arguments("600673.SH" if mode != "empty" else "999999.SH"),
+    result = registry.execute("finance_query", arguments("600673.SH" if mode != "empty" else "600519.SH"),
                               context=context, step_id="absence")
     assert attempted == []
     projection = FinanceResearchHarness().project_tool_result(result, evidence_so_far=result.evidence, seen_prose=set())
