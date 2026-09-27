@@ -1,0 +1,82 @@
+{
+  "review": "#75 claim-scope runtime — GLM independent QC report (round 2, session 03)",
+  "channel": "zhipu/glm-5.3",
+  "revision": "14f885e01f4a538492b54a27f67ab5d33b58f875",
+  "candidate_path": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/qc/candidate",
+  "verdict": "PASS_WITH_LIMITS",
+  "claims": {
+    "C1_shared_build_context": "verified (static + dynamic function-object identity; scripts/check_answer_claims.py:37,75; intelligence/services/claim_scope_review.py:16,39)",
+    "C2_off_no_public_or_serialization_change": "verified (dynamic: off->None + ask passthrough identity; serialization conditional keys static only: output_review.py:100-102, episode_semantic_verifier.py:789-791,804-805)",
+    "C3_advisory_side_effect_free_and_tier_fallback": "verified (dynamic: revise/block/banana/ADVISORY -> mode off + private diagnostic; all checks WARN+advisory_only, warn_count==0, gate PASS; no-IO claim static via import surface)",
+    "C4_four_known_lexical_shapes_detector_not_judge": "verified (dynamic: 3 probe cases covering hit and boundary passthrough; answer_claim_scope.py:355 exactly 4 checks)",
+    "C5_fund_flow_evidence_source_rules": "verified (dynamic: search keywords not evidence; registry metric counts; negated ledger clause not exemption, positive clause counts; claim_scope_context.py:50-62,88-98)",
+    "C6_degraded_never_clean": "verified (dynamic: scope_total_not_provided / compared_scope_count_unavailable / context_mapping_failed:* all force clean=False; claim_scope_review.py:46-59; CLI exit 2 static at check_answer_claims.py:96)",
+    "C7_receipt_binds_delivered_text_hash": "verified with limits (static wiring: adapter.py:1183 final exit, :1377 recovery exit with evidence_outcome=trusted, verifier.py:1573, hash at claim_scope_review.py:62; dynamic only helper-level answer_sha256==sha256(answer); adapter/recovery integration NOT independently exercised — author tests corroborate but are not independent evidence)",
+    "C8_b_path_observable_with_explicit_degraded": "verified with limits (static: ask.py:1564-1565, ask_synthesis.py:1055-1057, conversation_orchestrator.py:3751-3753, ask_claim_scope.py:24-27 constant mapping_limit; dynamic only pipeline-level; B full chain not exercised — consistent with claim not asserting B completeness)",
+    "C9_private_receipt_after_terminal_claim": "verified static only (sole write point conversation_orchestrator.py:3942-3948 after _claim_terminal_run at :3941, visibility=internal; WARN excluded from warn_count/summary_lines/notes at output_review.py:86-90,105-106 and orchestrator:1493-1500,3747-3749; NO independent dynamic probe for write-timing/loser-not-writing)",
+    "C10_census_explicit_denominator": "verified (dynamic on synthetic fixtures: denominator/missing/invalid/degraded/presence_rate/hit_rate; static: census reads local json only; real artifact directories not run — out of scope per constraints)"
+  },
+  "findings": [
+    {
+      "kind": "observation",
+      "severity": "low",
+      "product_defect": false,
+      "location": "scripts/claim_scope_census.py:24-27",
+      "summary": "advisory receipt missing issue_count/rules_hit/degraded keys would raise uncaught KeyError in census; runtime receipts always emit these keys and C10 does not claim malformed-advisory handling; static observation, not dynamically triggered",
+      "blocks": false
+    }
+  ],
+  "product_defects_found": 0,
+  "independent_probe_counts": {
+    "source": "xml.etree.ElementTree parse of work/probes.xml (not hand-written count, not single-line grep)",
+    "first_run": {"tests": 15, "errors": 0, "failures": 0, "skipped": 0},
+    "after_repairs": {"tests": 15, "errors": 0, "failures": 0, "skipped": 0},
+    "repairs_applied": 0,
+    "case_breakdown": {"C1": 1, "C2": 1, "C3": 2, "C4": 3, "C5": 2, "C6": 3, "C7": 1, "C8": 1, "C10": 1},
+    "probe_file_sha256": "0366c0562541ee75a592998bd9b1a283c871bfa19ab1504b1569433e610119a3",
+    "probe_identical_to_executing_session": true
+  },
+  "author_test_counts": {
+    "source": "xml.etree.ElementTree parse of work/author.xml",
+    "tests": 22,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "role": "corroborating reference only; not counted as independent evidence for C1-C10"
+  },
+  "positive_control": {
+    "file": "work/probe_positive_control.py",
+    "junit": {"tests": 1, "errors": 0, "failures": 1, "skipped": 0},
+    "failure_location": "probe_positive_control.py:10",
+    "failure_detail": "AssertionError: assert 1 == 2 (inline device-control assertion)",
+    "classification": "probe_bug",
+    "is_product_defect": false,
+    "verdict": "VALID — device reports failures truthfully; failure is the assertion itself, not a collection/import error (errors=0)"
+  },
+  "probe_repairs": {
+    "count": 0,
+    "allowed": 1,
+    "details": "probes passed 15/15 on first (and only) run; no repair, no original/diff pair needed; explore.md '13 cases' is a documentation typo corrected by execute.md (XML says 15)"
+  },
+  "limitations": [
+    "C7: adapter-level integration of final and recovery delivery exits (real exception flow triggering evidence_outcome=trusted) not independently executed; only helper-level hash binding verified dynamically",
+    "C8: the three real B-side entry points (ask.py answer_query wrap, ask_synthesis deferred synthesis, orchestrator Workbench final) not independently executed; only the mapping-limit degradation pipeline verified; whether exits bypassing answer_query exist was not exhaustively enumerated",
+    "C9: private artifact write-timing race and loser-does-not-write behavior have no independent dynamic probe; static code order only (author tests green but not independent)",
+    "C10: census verified on synthetic fixtures only; not run against real production artifact directories (no production data access in this session, per constraints)",
+    "C2: serialization shape (conditional claim_scope keys) verified statically only; author tests corroborate",
+    "C3: 'no new model/data calls' verified via import-surface static review, not via call interception",
+    "This review does not run models, finance real tasks, or network; it does not prove K3 financial answer quality, production readiness, or authorize merge/deploy",
+    "Total requests/duration/input-hash are counted by the controller from raw events; not asserted here"
+  ],
+  "scope_statement": "zhipu/glm-5.3 channel review of fixed candidate only; not a K3 solo acceptance, not a production-readiness proof, not merge/deploy authorization",
+  "candidate_source_changed": false,
+  "candidate_source_changed_evidence": "git HEAD == 14f885e01f4a538492b54a27f67ab5d33b58f875; git status --porcelain -- intelligence scripts conftest.py pytest.ini empty; git diff --name-only HEAD -- intelligence scripts empty; no new __pycache__ under intelligence/scripts",
+  "spec_artifact": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/glm-qc-r2/glm-session-03/work/spec.md",
+  "quality_artifact": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/glm-qc-r2/glm-session-03/work/quality.md",
+  "evidence_files": [
+    "work/probes.xml", "work/probes.log", "work/probe_claim_scope.py",
+    "work/positive.xml", "work/positive.log", "work/probe_positive_control.py",
+    "work/author.xml", "work/author.log",
+    "work/explore.md", "work/execute.json", "work/execute.md"
+  ]
+}

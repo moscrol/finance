@@ -994,6 +994,14 @@ SDK 修订同样走 harness 的 `repair_goal_message`，不再另行裁剪原句
 标记 `before_backfill`，不是已删除/已裁决；不增加轮次、不绕无进展门或句数限制。
 离线 Episode 已覆盖 GLM/SDK、judge llm/off 的这两类诊断，以及“修订成功 / 无预算 / 忽略反馈”三种交付结果；不代表所有运行后端或自然模型纠错已验收。
 
+### 口径越界观察（接入候选，默认关闭）
+
+`ASK_CLAIM_SCOPE_REVIEW=advisory` 使用与离线 `check_answer_claims` 共用的证据解析和四条规则，只写私有收据，不改答案、不加模型调用、不触发修订、不改变完成状态。未设或 `off` 不新增序列化字段；非法值有效回落 off 并记原值，`revise/block` 当前未实施，记 unsupported，不能当成已硬拦。
+
+A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢复出口盖章，`answer_sha256` 绑定最终文本；恢复出口只用此前已核验答案的证据。B 的 `OutputReviewGate` 挂 advisory checks，`answer_query` 的早退和延后合成均覆盖，Workbench 最终交付另落内部 `claim-scope-review.json`。B 只读来源记录，不把模型生成的 claim 当作证据；现有结构无等价工具请求账，因此明确记录 `engine_b_tool_requests_unavailable`，不得解释成四规则完整通过。线上不预取板块全集；全称范围句缺分母/比较数写 degraded，不静默 clean。现有规则在比较数已知、全集未知时仍可命中越界。
+
+离线观察用 `scripts/claim_scope_census.py <明确指定的产物文件...>`，分母是输入产物数，不是质量样本通过率。实现单见 `2026-09-23-claim-scope-advisory-runtime-workorder.md`；工程、独立 QC、L5 及生产部署各自验收，本段不证明已上线。
+
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：

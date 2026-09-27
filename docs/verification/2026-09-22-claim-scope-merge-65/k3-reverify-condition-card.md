@@ -54,8 +54,8 @@
 - 行情题的「归属全集」= 该股在**答案所用交易日**的归属板块数，不沿用 09-18 的 20。查法（只读，冻结库上跑）：
 
   ```sql
-  SELECT count(DISTINCT sector_code) FROM fact_sector_stock_daily
-  WHERE ts_code = '600584.SH' AND trade_date = '<答案所用交易日>';
+  SELECT count(DISTINCT sector_ts_code) FROM fact_sector_stock_daily
+  WHERE stock_ts_code = '600584.SH' AND trade_date = '<答案所用交易日>';
   ```
 
   把交易日、结果与库文件哈希一起写进 `protocol.json`；查不到就不传 `--scope-total`，范围规则会沉默并记 degraded（判定项 3 随之不成立，如实记 NOT_EXERCISED）。
