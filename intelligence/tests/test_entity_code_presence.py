@@ -1,7 +1,7 @@
 """Exact entity identity is checked independently of interval data coverage."""
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 import hashlib
 import json
 from pathlib import Path
@@ -30,12 +30,15 @@ def entity_db(tmp_path):
             INSERT INTO ops_sector_universe_snapshot_daily VALUES
               ('2026-08-03', 'old', 'test', 2, 0, 'published', '2026-08-03'),
               ('2026-09-17', 'new', 'test', 2, 0, 'published', '2026-09-17'),
+              ('2026-09-18', 'current', 'test', 2, 0, 'published', '2026-09-18'),
               ('2026-09-17', 'candidate', 'test', 1, 0, 'candidate', '2026-09-17');
             INSERT INTO fact_sector_universe_daily VALUES
               ('2026-08-03', 'old', 'OLD.TI', '旧码', 0, 'test', '2026-08-03'),
               ('2026-08-03', 'old', 'NO_BAR.FP', '已知无行情', 0, 'test', '2026-08-03'),
               ('2026-09-17', 'new', 'NEW.FP', '新码', 0, 'test', '2026-09-17'),
               ('2026-09-17', 'new', 'NO_BAR.FP', '已知无行情', 0, 'test', '2026-09-17'),
+              ('2026-09-18', 'current', 'NEW.FP', '新码', 0, 'test', '2026-09-18'),
+              ('2026-09-18', 'current', 'NO_BAR.FP', '已知无行情', 0, 'test', '2026-09-18'),
               ('2026-09-17', 'candidate', 'CANDIDATE.BK', '未发布', 0, 'test', '2026-09-17');
             INSERT INTO fact_market_daily (trade_date, sh_index_pct_chg) VALUES
               ('2026-08-03', 0), ('2026-09-17', 0);
@@ -316,3 +319,72 @@ def test_finance_catalog_reads_share_the_existing_deadline_and_cancellation(enti
             deadline=ResearchDeadline.from_timeout(10), is_cancelled=lambda: state.cancelled,
         )
     assert state.catalog_read and state.closed
+
+
+@pytest.mark.parametrize("runner,error_type", [(_history, HistoryQueryError), (_finance, FinanceQueryError)])
+@pytest.mark.parametrize("requested_date", ["2026-09-18", "2026-08-08"])
+def test_missing_request_date_catalog_cannot_disprove_identity(entity_db, runner, error_type, requested_date):
+    with duckdb.connect(str(entity_db)) as con:
+        con.execute("DELETE FROM ops_sector_universe_snapshot_daily WHERE trade_date=?", [requested_date])
+        if requested_date == "2026-09-18":
+            con.execute("INSERT INTO fact_market_daily (trade_date, sh_index_pct_chg) VALUES ('2026-09-18', 0)")
+        # 08-08 is a Saturday. An older directory is not an implicit holiday rule.
+    with pytest.raises(error_type, match="entity_catalog_unavailable") as failure:
+        runner(entity_db, ("899050.BK",), end=requested_date)
+    assert failure.value.entity_check.unknown_codes == ()
+    runner(entity_db, ("OLD.TI",), end=requested_date)  # Positive identity does not need today's directory.
+
+
+@pytest.mark.parametrize("dataset,time_field,metric,knowledge_column,observation_date,known_at", [
+    ("stock_adjustment_hithink", "ex_date", "dividend_per_share", "updated_at", "2026-09-20", known_at)
+    for known_at in ("2026-09-01", "2026-09-18 15:00:00", "2026-09-19", None)
+] + [
+    (dataset, "observation_date", metric, "captured_date", "2026-09-01", known_at)
+    for dataset, metric in (("hot_stock_trend_hithink", "rank"), ("stock_valuation_hithink", "pe_ttm"))
+    for known_at in ("2026-09-01", "2026-09-18", "2026-09-19")
+])
+@pytest.mark.parametrize("empty_interval", [False, True])
+def test_dataset_identity_preserves_both_clocks_and_existing_null_policy(
+    entity_db, dataset, time_field, metric, knowledge_column, observation_date, known_at, empty_interval,
+):
+    values = {"stock_ts_code": "600005.SH", time_field: observation_date, metric: 4, knowledge_column: known_at}
+    if knowledge_column == "captured_date":
+        values.update(captured_at=known_at + " 15:00:00+08:00", request_id="test", source="test")
+    with duckdb.connect(str(entity_db)) as con:
+        con.execute(
+            f"INSERT INTO fact_{dataset} ({', '.join(values)}) VALUES ({', '.join('?' for _ in values)})",
+            list(values.values()),
+        )
+    requested_date = (date.fromisoformat(observation_date) + timedelta(days=int(empty_interval))).isoformat()
+    args = {"dataset": dataset, "dimensions": [time_field, "stock_code"], "metrics": [metric],
+            "filters": [{"field": "stock_code", "op": "eq", "value": "600005.SH"}],
+            "time_range": {"start": requested_date, "end": requested_date}}
+    query = FinanceQuery(entity_db)
+    common = {"information_cutoff": InformationCutoff(date(2026, 9, 18), "requested"),
+              "deadline": ResearchDeadline.from_timeout(10)}
+    if known_at == "2026-09-19":
+        with pytest.raises(FinanceQueryError, match="entity_catalog_unavailable"):
+            query.run(FinanceQuerySpec.from_arguments(args), **common)
+    else:
+        result = query.run(FinanceQuerySpec.from_arguments(args), **common)
+        expected = () if empty_interval else ({time_field: observation_date, "stock_code": "600005.SH", metric: 4.0},)
+        assert result.rows == expected
+
+
+def test_later_observation_cannot_prove_identity_for_an_earlier_window(entity_db):
+    with duckdb.connect(str(entity_db)) as con:
+        con.execute("""
+            INSERT INTO fact_hot_stock_trend_hithink
+              (observation_date, stock_ts_code, rank, captured_date, captured_at, request_id, source)
+            VALUES ('2026-09-02', '600006.SH', 4, '2026-09-18', '2026-09-18 15:00:00+08:00', 'test', 'test')
+        """)
+    with pytest.raises(FinanceQueryError, match="entity_catalog_unavailable"):
+        FinanceQuery(entity_db).run(
+            FinanceQuerySpec.from_arguments({
+                "dataset": "hot_stock_trend_hithink", "dimensions": ["stock_code"], "metrics": ["rank"],
+                "filters": [{"field": "stock_code", "op": "eq", "value": "600006.SH"}],
+                "time_range": {"start": "2026-09-01", "end": "2026-09-01"},
+            }),
+            information_cutoff=InformationCutoff(date(2026, 9, 18), "requested"),
+            deadline=ResearchDeadline.from_timeout(10),
+        )

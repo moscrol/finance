@@ -2474,19 +2474,38 @@ class FinanceQuery:
         )
         dataset = _DATASETS[spec.dataset]
         for kind in ("sector", "stock"):
+            code_field = f"{kind}_code"
             codes = []
             for item in spec.filters:
-                if item.field == f"{kind}_code" and item.op in {"eq", "in"}:
+                if item.field == code_field and item.op in {"eq", "in"}:
                     values = item.value if item.op == "in" else (item.value,)
                     codes.extend(str(value) for value in values if value is not None)
             if not codes:
                 continue
-            time_field = dataset.cutoff_column or (
-                dataset.fields[dataset.time_field].column if dataset.time_field else "trade_date"
+            codes = list(dict.fromkeys(codes))
+            # Identity survives an empty query interval, so remove its lower
+            # bound and non-identity filters. The existing compiler retains the
+            # observation upper bound, independent knowledge cutoff, date casts,
+            # nullable-cutoff policy and registered relation visibility.
+            identity_query = _compile_query(
+                FinanceQuerySpec(
+                    dataset=spec.dataset, metrics=(), dimensions=(code_field,),
+                    filters=(QueryFilter(code_field, "in", codes),),
+                    time_range=replace(spec.time_range, start=None) if spec.time_range else None,
+                    group_by=(code_field,), limit=len(codes),
+                ),
+                information_cutoff=information_cutoff, max_rows=len(codes),
             )
+
+            def observe_registered_codes() -> tuple[str, ...]:
+                check()
+                rows = connection.execute(identity_query.sql, list(identity_query.parameters)).fetchall()
+                check()
+                return tuple(row[0] for row in rows)
+
             entity_check = check_entity_codes(
                 connection, entity_kind=kind, codes=codes, as_of=as_of, check=check,
-                observed_table=dataset.table, observed_date_field=time_field,
+                observed_table=dataset.table, observe_registered_codes=observe_registered_codes,
             )
             if entity_check.failure_code:
                 raise FinanceQueryEntityError(entity_check)

@@ -1,8 +1,9 @@
 """Read-only identity checks; a missing price row never proves nonexistence.
 
-Published sector snapshots define a closed local catalog. Other dated records
-can prove that an exact code existed, including codes retired before the query
-window. The store has no complete stock directory: absence there is unverified.
+Complete sector snapshots on the requested date close the local catalog. Older
+snapshots and other dated records only prove that an exact code existed,
+including codes retired before the query window. The store has no complete
+stock directory: absence there is unverified.
 All reads use the caller's connection, transaction and deadline checks.
 """
 
@@ -66,12 +67,13 @@ def check_entity_codes(
     as_of: date,
     check: Callable[[], None],
     observed_table: str | None = None,
-    observed_date_field: str = "trade_date",
+    observe_registered_codes: Callable[[], Sequence[str]] | None = None,
 ) -> EntityCodeCheck:
     """Check exact codes without aliases, suffix repair or interval-row inference.
 
     ``observed_table`` is the caller's registered dataset, never model SQL.
-    Facts only provide positive identity evidence, across all dates up to as_of.
+    Its reader preserves the dataset's observation and information-cutoff rules.
+    Other facts provide positive identity evidence across dates up to as_of.
     Undated/current dimensions cannot close a historical directory.
     """
     requested = tuple(dict.fromkeys(codes))
@@ -97,6 +99,8 @@ def check_entity_codes(
         return '"' + identifier.replace('"', '""') + '"'
 
     def observed(table: str, time_field: str) -> None:
+        if table == observed_table and observe_registered_codes is not None:
+            return  # The registered dataset owns its temporal visibility rules.
         if not has(table, code_field, time_field):
             return
         check()
@@ -116,15 +120,18 @@ def check_entity_codes(
         ):
             check()
             snapshots = con.execute(
-                "SELECT h.sector_count, count(u.sector_ts_code) "
+                "SELECT h.trade_date, h.sector_count, count(u.sector_ts_code) "
                 "FROM ops_sector_universe_snapshot_daily h LEFT JOIN fact_sector_universe_daily u "
                 "ON u.trade_date = h.trade_date AND u.snapshot_id = h.snapshot_id "
                 "WHERE h.status = 'published' AND h.trade_date <= ? "
                 "GROUP BY h.trade_date, h.snapshot_id, h.sector_count",
                 [as_of],
             ).fetchall()
-            # An incomplete published directory cannot support a negative claim.
-            authoritative = bool(snapshots) and all(expected == actual and actual > 0 for expected, actual in snapshots)
+            # Older directories are positive evidence only. Without a directory
+            # on as_of (or an explicit trading-calendar rule), absence is unknown.
+            authoritative = any(day == as_of for day, _, _ in snapshots) and all(
+                expected == actual and actual > 0 for _, expected, actual in snapshots
+            )
             check()
             known.update(row[0] for row in con.execute(
                 "SELECT DISTINCT u.sector_ts_code FROM fact_sector_universe_daily u "
@@ -161,8 +168,11 @@ def check_entity_codes(
             ("fact_sector_constituent_hithink", "captured_at"),
         ):
             observed(table, time_field)
-    if observed_table is not None and observed_table not in sources:
-        observed(observed_table, observed_date_field)
+    if observe_registered_codes is not None:
+        check()
+        known.update(observe_registered_codes())
+        if observed_table is not None:
+            sources.append(observed_table)
     check()
     missing = set(requested) - known
     unknown = missing - undated if authoritative else set()
