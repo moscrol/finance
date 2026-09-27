@@ -8,7 +8,6 @@ from intelligence.services.answer_claim_scope import (
     FUND_FLOW_METRICS,
     RULE_FUND_FLOW,
     RULE_LATEST_TRADING_DAY,
-    RULE_ORDER,
     RULE_SCOPE_OVERREACH,
     RULE_UNIT_GAP,
     ClaimEvidenceContext,
@@ -346,7 +345,9 @@ class ReportShapeTests(unittest.TestCase):
             known_scope_total=20,
         )
         report = review_answer_claims(answer, context)
-        self.assertEqual(list(RULE_ORDER), report.rules_hit())
+        self.assertEqual([
+            RULE_LATEST_TRADING_DAY, RULE_SCOPE_OVERREACH, RULE_FUND_FLOW, RULE_UNIT_GAP,
+        ], report.rules_hit())
         self.assertFalse(report.clean)
         self.assertEqual(4, report.sentences_scanned)
 

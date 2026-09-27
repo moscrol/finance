@@ -442,6 +442,11 @@ def build_episode_input(
         "date_rule": (
             "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
             "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
+            "。latest_data_date 只证明库内更新到哪天，不证明市场最近收盘在哪天；"
+            "未取得对应时点的交易日历、时区与收盘证据时，必须写‘库内最新可用交易日’，"
+            "不得把库内日期称为‘最近一个已收盘交易日’。"
+            "历史类比须逐一对应窗口、后续期限和指标；累计终点涨跌不证明中间先涨或先跌。"
+            "择优时交代本轮实际比较范围及筛选维度，完整候选池规模未知就说明未知"
         ),
         "task_frame_hash": task_frame.task_frame_hash,
         "available_tools": registry.prompt_block(
