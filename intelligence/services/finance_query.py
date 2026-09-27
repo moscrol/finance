@@ -181,6 +181,11 @@ class FinanceQueryAudit:
     output_bytes: int
     elapsed_seconds: float
     requested_time_range: tuple[str | None, str | None] | None = None
+    information_cutoff: str | None = None
+    # Semantic field names only. Selection order applies before LIMIT; returned
+    # order can differ when an ascending date query fetches the most recent slice.
+    selection_order_by: tuple[Order, ...] = ()
+    order_by: tuple[Order, ...] = ()
 
 
 def covered_date_range(source_dates: Sequence[str | None]) -> str | None:
@@ -1540,12 +1545,13 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     # _DATASETS["sector_period_rank_daily"]）两次翻案都是这个前缀遮蔽的真缺口。
     # 留下的两类是真豁免，但理由换成回答「为什么模型不该/不需要够到」：
     "feature_l2_capital_flow_daily": (
-        "stale_since：2026-08-07 后断更（L2 侧线 ClickHouse→特征表未日更，"
-        "2026-08-27 实测落后 20 天）——注册停更表=喂模型旧数据。在更期消费方是 "
-        "D9 证据块 market_moneyflow.py。复活条件：恢复日更后按 #454 形状转正"
+        "candidate：L2 通用语义查询的字段与覆盖合同待核验；现由 D9 证据块 "
+        "market_moneyflow.py 消费。新鲜度以实际 max(trade_date) 与同步状态为准，"
+        "不从静态豁免文案推定断更；开放查询前按 #454 形状核对字段和覆盖口径"
     ),
     "feature_l2_quant_orders_daily": (
-        "stale_since：同上（06-15~08-07，2600 行），恢复日更后一并转正"
+        "candidate：L2 量化单通用查询的字段与覆盖合同同样待核验；"
+        "实际日期读取 max(trade_date) 与同步状态，不写固定断更日期"
     ),
     "fact_mainline_stock_daily": (
         "model_reachable_via：mainline_context 工具（episode 级快照注入，"
@@ -2294,6 +2300,8 @@ class _CompiledQuery:
     reverse_after_fetch: bool = False
     sector_universe_index: int | None = None
     return_dates_index: int | None = None
+    selection_order_by: tuple[Order, ...] = ()
+    order_by: tuple[Order, ...] = ()
 
 
 DuckDbConnect = Callable[..., Any]
@@ -2457,6 +2465,9 @@ class FinanceQuery:
             output_bytes=output_bytes,
             elapsed_seconds=round(elapsed, 6),
             requested_time_range=_requested_time_range(spec),
+            information_cutoff=information_cutoff.as_of_date.isoformat(),
+            selection_order_by=compiled.selection_order_by,
+            order_by=compiled.order_by,
         )
         return FinanceQueryResult(
             rows=rows,
@@ -2921,6 +2932,7 @@ def _compile_query(
         )
     elif dataset.time_field in aliases:
         sql += f" ORDER BY {aliases[dataset.time_field]} DESC"
+        fetch_orders = (Order(field=dataset.time_field, direction="desc"),)
     applied_limit = min(spec.limit, max_rows)
     sql += " LIMIT ?"
     parameters.append(applied_limit)
@@ -2933,6 +2945,8 @@ def _compile_query(
         reverse_after_fetch=reverse_after_fetch,
         sector_universe_index=sector_universe_index,
         return_dates_index=return_dates_index,
+        selection_order_by=fetch_orders,
+        order_by=spec.order_by if reverse_after_fetch else fetch_orders,
     )
 
 

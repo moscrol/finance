@@ -803,6 +803,9 @@ class ToolRunResult:
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
     diagnostics: tuple[ToolDiagnostic, ...] = ()
+    # Public execution semantics, unlike telemetry. Only explicit safe fields
+    # from the producer belong here; never SQL, local paths or provider internals.
+    query_basis: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         diagnostics = tuple(self.diagnostics)
@@ -835,6 +838,7 @@ class ToolRunResult:
         object.__setattr__(self, "payload_field_names", names)
         object.__setattr__(self, "payload_sha256", digest)
         object.__setattr__(self, "telemetry", dict(self.telemetry or {}))
+        object.__setattr__(self, "query_basis", dict(self.query_basis or {}))
 
 
 class ToolRunnerAdapter:
@@ -923,6 +927,7 @@ class ToolObservation:
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
+    query_basis: dict[str, object] = field(default_factory=dict)
 
     def result_status_fields(self) -> dict[str, object]:
         """Domain failure is not transport success; empty lookup remains distinct.
@@ -1531,6 +1536,8 @@ class ResearchToolRegistry:
                 }
                 if telemetry:
                     emitted["telemetry"] = telemetry
+                if run_result.query_basis:
+                    emitted["query_basis"] = run_result.query_basis
                 scope.emit(TOOL_RESULT, emitted)
             return ToolObservation(
                 tool=spec.name,
@@ -1545,6 +1552,7 @@ class ResearchToolRegistry:
                 payload_field_names=run_result.payload_field_names,
                 payload_sha256=run_result.payload_sha256,
                 telemetry=telemetry,
+                query_basis=run_result.query_basis,
             )
 
         ledger_call = partial(

@@ -400,11 +400,12 @@ def _summary_text(summary: dict[str, float | None]) -> str:
     return " · ".join(parts) if parts else "—"
 
 
-def _fwd_text(fwd: dict[str, Any] | None) -> str:
+def _fwd_text(fwd: dict[str, Any] | None, *, horizon: int) -> str:
     if fwd is None:
         return "—"
     return (
-        f"指数{_fmt(fwd['sh_index_cum_pct'], 2)}%/日均涨停{_fmt(fwd['avg_limit_up'], 0)}家"
+        f"上证指数累计终点收益{_fmt(fwd['sh_index_cum_pct'], 2)}%（后续{horizon}交易日）"
+        f"/日均涨停{_fmt(fwd['avg_limit_up'], 0)}家"
         f"/最高{_fmt(fwd['max_boards'], 0)}板/日均双红{_fmt(fwd['avg_double_red_themes'], 1)}个"
     )
 
@@ -435,11 +436,14 @@ def regime_block_for_llm(
     lines = ["## 市场情绪环境类比块 [D10]"]
     lines.extend(reading_baseline.block_rule_lines("D10"))
     lines.append(
+        "- 指标口径：各相似窗口结束后 5/10/20 个交易日的上证指数累计终点收益。"
+        "终点收益不描述区间内的涨跌路径；判断先涨、先跌或中途回调需逐日路径证据。"
+    )
+    lines.append(
         f"- 口径：把最近 {window} 个交易日的市场情绪向量（成交额/涨家数/涨停/跌停/偏离度/"
         "指数涨跌/连板高度/双红题材数/题材集中度/新高家数，逐特征对全历史 z 标准化）"
-        "压成窗口签名，在全历史滑窗中取加权距离最近的窗口，及其后续 5/10/20 日实际走法；"
+        "压成窗口签名，在全历史滑窗中取加权距离最近的窗口，及其后续 5/10/20 个交易日统计；"
         "本地 DuckDB 逐日行计算，非 LLM 生成。"
-        "表中指数是窗口结束后各期限的累计涨跌，不含中途回撤路径，不能据此推断先涨或先跌。"
     )
     if artifact.missing_features:
         labels = "、".join(
@@ -459,14 +463,14 @@ def regime_block_for_llm(
     lines.append(
         f"### 当前情绪环境（近 {window} 日均值）：{_summary_text(artifact.current_summary)}"
     )
-    lines.append("| 历史相似窗口 | 距离 | 窗口内环境（均值） | 后续5日 | 后续10日 | 后续20日 |")
+    lines.append("| 历史相似窗口 | 距离 | 窗口内环境（均值） | 后续5交易日 | 后续10交易日 | 后续20交易日 |")
     lines.append("|" + "---|" * 6)
     for a in artifact.analogs:
         lines.append(
             f"| {a['start_date']}~{a['end_date']} | {a['distance']} | "
             f"{_summary_text(a['raw_summary'])} | "
-            f"{_fwd_text(a['forwards'][5])} | {_fwd_text(a['forwards'][10])} | "
-            f"{_fwd_text(a['forwards'][20])} |"
+            f"{_fwd_text(a['forwards'][5], horizon=5)} | {_fwd_text(a['forwards'][10], horizon=10)} | "
+            f"{_fwd_text(a['forwards'][20], horizon=20)} |"
         )
     lines.append("")
     lines.append(

@@ -453,8 +453,8 @@ def test_sector_period_rank_is_registered_with_denominator_guards() -> None:
     原豁免理由「dedicated_path：adapter ALLOWED_TABLES 内，按需直查」——adapter
     直查是代码通路，不是模型的查询面，与 #454 翻案同形状。表是活的（实测
     05-06~08-27 日更、四档 period_type 各 top10），「近5日哪个板块最强 / 连续
-    在榜」正是查询面问题。同批：两张 L2 特征表断更 20 天改判 stale_since
-    （注册停更表=喂旧数据），mainline 个股表改判 model_reachable_via（经
+    在榜」正是查询面问题。L2 通用查询仍待字段/覆盖合同核验，静态豁免不判断
+    动态数据新鲜度；mainline 个股表为 model_reachable_via（经
     mainline_context 工具模型已可达，再开 dataset 双口径）。
     """
     from intelligence.services.finance_query import _DATASETS, _UNREGISTERED_TABLES
@@ -472,10 +472,10 @@ def test_sector_period_rank_is_registered_with_denominator_guards() -> None:
     # 豁免清单不得残留已转正表；改判后的前缀必须是白名单类别
     assert "fact_sector_period_rank_daily" not in _UNREGISTERED_TABLES
     assert _UNREGISTERED_TABLES["feature_l2_capital_flow_daily"].startswith(
-        "stale_since"
+        "candidate"
     )
     assert _UNREGISTERED_TABLES["feature_l2_quant_orders_daily"].startswith(
-        "stale_since"
+        "candidate"
     )
     assert _UNREGISTERED_TABLES["fact_mainline_stock_daily"].startswith(
         "model_reachable_via"

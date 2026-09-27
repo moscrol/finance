@@ -829,6 +829,10 @@ class FinanceResearchHarness:
             "payload_field_names": list(observation.payload_field_names),
             "payload_sha256": observation.payload_sha256,
         }
+        if observation.query_basis:
+            # Execution scope must survive prose pruning/900-char budgeting.
+            # It is writer input, not private runtime telemetry.
+            audit["query_basis"] = observation.query_basis
         telemetry = dict(getattr(observation, "telemetry", None) or {})
         if telemetry:
             # 控制面收据：只进 ledger，不进模型上下文。

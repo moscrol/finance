@@ -173,7 +173,12 @@ def _finance_payload_kwargs(
     spec: finance_query.FinanceQuerySpec,
     result: finance_query.FinanceQueryResult | None = None,
 ) -> dict[str, object]:
-    """Attach dataset/caliber/field names for a finance_query return. Never row values."""
+    """Attach payload identity and a safe, executed semantic query contract.
+
+    The public contract is deliberately selected from the bounded spec and
+    execution audit. Never serialize the audit wholesale: it contains SQL and
+    physical parameters. No executed result means no execution claim.
+    """
 
     requested = (*(spec.dimensions or ()), *(spec.metrics or ()))
     names = field_names_from_rows(
@@ -181,10 +186,52 @@ def _finance_payload_kwargs(
         requested=requested,
     )
     table = finance_query.dataset_physical_table(spec.dataset)
-    return {
+    payload: dict[str, object] = {
         "dataset": spec.dataset,
         "caliber": table or spec.dataset,
         "payload_field_names": names,
+    }
+    if result is not None:
+        payload["query_basis"] = _finance_query_basis(spec, result)
+    return payload
+
+
+def _finance_query_basis(
+    spec: finance_query.FinanceQuerySpec,
+    result: finance_query.FinanceQueryResult,
+) -> dict[str, object]:
+    audit = result.audit
+    window = audit.requested_time_range
+    return {
+        "dataset": spec.dataset,
+        "metrics": list(spec.metrics),
+        "dimensions": list(spec.dimensions),
+        "filters": [
+            {"field": item.field, "op": item.op, "value": item.value}
+            for item in spec.filters
+        ],
+        "group_by": list(spec.group_by),
+        "selection_order_by": [
+            {"field": item.field, "direction": item.direction}
+            for item in audit.selection_order_by
+        ],
+        "order_by": [
+            {"field": item.field, "direction": item.direction}
+            for item in audit.order_by
+        ],
+        "requested_time_range": (
+            {"start": window[0], "end": window[1]} if window is not None else None
+        ),
+        "information_cutoff": audit.information_cutoff,
+        "applied_limit": audit.applied_limit,
+        "returned_row_count": audit.row_count,
+        "row_unit": "groups" if spec.group_by else "rows",
+        "candidate_pool_size": None,
+        "candidate_pool_size_status": "unknown_not_counted",
+        "scope_note": (
+            "本次执行的查询口径；selection_order_by 是取样前排序，order_by 是返回顺序。"
+            "本次未统计候选全集数量；返回行/组数不证明完整候选池。"
+        ),
     }
 
 
@@ -609,7 +656,7 @@ def _probe_filtered_universe_exit(
         dataset_label=dataset_label,
         dataset_max_date=str(dataset_max),
         detail=f"dataset={spec.dataset}; subject_exited_universe",
-        spec=spec,
+        spec=last_spec,
     )
 
 
@@ -666,6 +713,7 @@ def _stale_structured_result(
     floor: date,
     detail: str,
     spec: finance_query.FinanceQuerySpec | None = None,
+    result: finance_query.FinanceQueryResult | None = None,
 ) -> ToolRunResult:
     served = str(served_date or "未知日期")
     required = floor.isoformat()
@@ -673,7 +721,7 @@ def _stale_structured_result(
         f"结构化市场数据仅更新到 {served}，早于当前所需 {required}；"
         "旧数据未用于当前判断"
     )
-    payload = _finance_payload_kwargs(spec) if spec is not None else {}
+    payload = _finance_payload_kwargs(spec, result) if spec is not None else {}
     return ToolRunResult(
         evidence=(),
         observation=gap,
@@ -1748,6 +1796,7 @@ def build_episode_registry(
                     floor=freshness_floor,
                     detail=f"dataset={value.dataset}; stale_current_data",
                     spec=bounded_value,
+                    result=result,
                 )
             if not result.evidence and bounded_value.filters:
                 exit_result = _probe_filtered_universe_exit(
@@ -1758,7 +1807,13 @@ def build_episode_registry(
                     dataset_label=value.dataset,
                 )
                 if exit_result is not None:
-                    return exit_result
+                    return replace(
+                        exit_result,
+                        query_basis={
+                            **_finance_query_basis(bounded_value, result),
+                            "historical_followup": exit_result.query_basis,
+                        },
+                    )
             gaps = (
                 ()
                 if result.evidence

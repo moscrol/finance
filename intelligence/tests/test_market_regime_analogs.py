@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import unittest
+import json
+from copy import deepcopy
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from intelligence.services import market_regime_analogs
 from intelligence.services.market_regime_analogs import (
     DEFAULT_WINDOW,
     FEATURES,
@@ -38,6 +41,67 @@ class ParseRegimeIntentTests(unittest.TestCase):
         # 题材级类比是 D8 的领地：只有类比词、没有环境词 → 不触发
         self.assertFalse(parse_regime_intent("历史上信创类似的走势后来怎么走"))
         self.assertFalse(parse_regime_intent(""))
+
+
+def test_frozen_d10_keeps_endpoint_values_and_labels_each_trading_window(monkeypatch):
+    """冻结案例是 5 日全正、10 日两负；不能把任一期限终点当成期间路径。"""
+    fixture = Path(__file__).parent / "fixtures/live_products/run_20260922_191550_067475/continuous-episode.json"
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
+    original = next(
+        item["detail"] for item in payload["outcome"]["evidence"]
+        if item["title"] == "市场情绪环境类比 [D10]"
+    )
+    analogs = []
+    old_cells = []
+    for line in original.splitlines():
+        if not line.startswith("| 2025-"):
+            continue
+        cells = [item.strip() for item in line.strip("|").split("|")]
+        start, end = cells[0].split("~")
+        forwards = {}
+        for horizon, cell in zip((5, 10, 20), cells[3:], strict=True):
+            parts = cell.split("/")
+            forwards[horizon] = {
+                "sh_index_cum_pct": float(parts[0].removeprefix("指数").removesuffix("%")),
+                "avg_limit_up": float(parts[1].removeprefix("日均涨停").removesuffix("家")),
+                "max_boards": float(parts[2].removeprefix("最高").removesuffix("板")),
+                "avg_double_red_themes": float(parts[3].removeprefix("日均双红").removesuffix("个")),
+            }
+            old_cells.append((horizon, cell))
+        analogs.append({
+            "start_date": start, "end_date": end, "distance": float(cells[1]),
+            "raw_summary": {}, "forwards": forwards,
+        })
+    assert len(analogs) == 3
+    assert all(item["forwards"][5]["sh_index_cum_pct"] > 0 for item in analogs)
+    assert sum(item["forwards"][10]["sh_index_cum_pct"] < 0 for item in analogs) == 2
+    artifact = market_regime_analogs.MarketRegimeArtifact(
+        window=20, current_summary={}, analogs=tuple(analogs), missing_features=(),
+    )
+    before = deepcopy(artifact.to_payload())
+    monkeypatch.setattr(market_regime_analogs, "load_market_regime_artifact", lambda *a, **kw: artifact)
+
+    block = regime_block_for_llm(None)
+
+    assert artifact.to_payload() == before
+    for horizon, old in old_cells:
+        old_return, *other_metrics = old.split("/")
+        expected = (
+            f"上证指数累计终点收益{old_return.removeprefix('指数')}（后续{horizon}交易日）/"
+            + "/".join(other_metrics)
+        )
+        assert expected in block
+    assert "终点收益不描述区间内的涨跌路径" in block[:240]
+    assert "判断先涨、先跌或中途回调需逐日路径证据" in block
+
+
+def test_forward_missing_values_remain_unknown():
+    assert market_regime_analogs._fwd_text(None, horizon=5) == "—"
+    text = market_regime_analogs._fwd_text({
+        "sh_index_cum_pct": None, "avg_limit_up": None,
+        "max_boards": None, "avg_double_red_themes": None,
+    }, horizon=10)
+    assert text == "上证指数累计终点收益—%（后续10交易日）/日均涨停—家/最高—板/日均双红—个"
 
 
 def _day(i: int) -> str:
@@ -285,7 +349,7 @@ class LoaderAndBlockTests(unittest.TestCase):
             block = regime_block_for_llm(db)
         self.assertIn("[D10]", block)
         self.assertIn("当前情绪环境", block)
-        self.assertIn("后续5日", block)
+        self.assertIn("后续5交易日", block)
         self.assertIn("不是概率预测", block)
 
     def test_missing_aux_tables_degrade_with_gap_line(self) -> None:
