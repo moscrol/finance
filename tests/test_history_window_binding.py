@@ -241,7 +241,7 @@ def test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff(tmp_path,
     # cross-turn workflow even though this direct test also delivered its query.
     _read(next_tools, next_context, trace_ref)
     continued = _execute(next_tools, next_context, **dict(
-        args, entity_kind="stock", window_ref={"result_ref": trace_ref}))
+        args, entity_kind="stock", entity_codes=["S1", "S2"], window_ref={"result_ref": trace_ref}))
     continued_binding = next_session.read(continued.telemetry["result_ref"])["window_binding"]
     assert continued_binding["root_query_id"] == binding["root_query_id"]
     assert continued_binding["root_sample_id"] == binding["root_sample_id"]

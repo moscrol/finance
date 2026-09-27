@@ -43,6 +43,8 @@ def stock_db(tmp_path):
             ("2026-08-31", "600673.SH", "sample", 900.0),
             ("2026-09-21", "600673.SH", "sample", 900.0),
             ("2026-09-18", "600001.SH", "other", 900.0),
+            # Known identity, no rows in the requested September interval.
+            ("2026-08-31", "600002.SH", "known-empty-window", 10.0),
         ])
     return path
 
@@ -106,7 +108,7 @@ def test_all_null_amounts_have_unknown_mean_and_zero_valid_samples(stock_db):
 
 
 def test_no_matching_rows_is_empty_not_zero_mean(stock_db):
-    result = run(stock_db, filters=[{"field": "stock_code", "op": "eq", "value": "999999.SH"}])
+    result = run(stock_db, filters=[{"field": "stock_code", "op": "eq", "value": "600002.SH"}])
     assert result.rows == result.evidence == ()
 
 
@@ -252,7 +254,7 @@ def test_local_registry_delivers_summary_without_external_io(stock_db, tmp_path,
 
     requested = arguments(limit=limit)
     if mode == "empty":
-        requested["filters"] = [{"field": "stock_code", "op": "eq", "value": "999999.SH"}]
+        requested["filters"] = [{"field": "stock_code", "op": "eq", "value": "600002.SH"}]
     elif mode == "date_groups":
         with duckdb.connect(str(stock_db)) as con:
             con.execute("DELETE FROM fact_stock_daily WHERE trade_date < '2026-09-14'")

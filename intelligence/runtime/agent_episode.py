@@ -979,6 +979,13 @@ class _EpisodeToolAccumulator:
             if cleaned and cleaned not in self.gaps:
                 self.gaps.append(cleaned)
 
+    def retain_entity_diagnostics(self, declared: tuple[str, ...]) -> tuple[str, ...]:
+        """A model finish cannot erase the tool's exact-identity diagnostic."""
+        return tuple(dict.fromkeys((
+            *declared,
+            *(gap for gap in self.gaps if gap.startswith(("fabricated_entity:", "entity_catalog_unavailable:"))),
+        )))
+
     def consume_sub_research(self, result: SubResearchResult) -> None:
         self.traces.extend(result.traces)
         self.progress.record_branches(
@@ -2323,7 +2330,8 @@ class ContinuousAgentEpisode:
 
             assert admission.status is not None
             status, draft = admission.status, admission.draft
-            bindings, current_gaps = admission.bindings, admission.gaps
+            bindings = admission.bindings
+            current_gaps = accumulator.retain_entity_diagnostics(admission.gaps)
             # P4 步点⑤：终局已获准入、finish 事件将落（其它停机路径经 _stopped_outcome /
             # _cancelled_outcome / _recover_finalization 直接返回，不设步点）。
             yield StepPoint("before_finish", llm_calls, tool_calls, turn_id=turn_id)
@@ -2955,6 +2963,7 @@ class ContinuousAgentEpisode:
             performed_tool_action=performed_tool_action,
         )
         stop_reason = "repair_model_finish" if verdict.progressed else "repair_model_stop"
+        current_gaps = accumulator.retain_entity_diagnostics(verdict.gaps)
         ledger.record_runtime_result()
         ledger.add(
             "finish",
@@ -2962,7 +2971,7 @@ class ContinuousAgentEpisode:
                 "status": verdict.status,
                 "stop_reason": stop_reason,
                 "bindings": [item.to_dict() for item in bindings],
-                "gaps": list(verdict.gaps),
+                "gaps": list(current_gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
             },
@@ -2973,7 +2982,7 @@ class ContinuousAgentEpisode:
             draft=admission.draft,
             evidence=tuple(accumulator.evidence),
             traces=tuple(accumulator.traces),
-            gaps=verdict.gaps,
+            gaps=current_gaps,
             stop_reason=stop_reason,
             events=tuple(ledger.events),
             bindings=bindings,
@@ -3867,7 +3876,8 @@ class ContinuousAgentEpisode:
 
         assert admission.status is not None
         status, draft = admission.status, admission.draft
-        bindings, current_gaps = admission.bindings, admission.gaps
+        bindings = admission.bindings
+        current_gaps = accumulator.retain_entity_diagnostics(admission.gaps)
         ledger.add(
             "finalization_recovery_outcome",
             {"status": "recovered", "answer_status": status},

@@ -19,6 +19,7 @@ import time
 from typing import Any, Literal
 
 from intelligence.services import agent_research
+from intelligence.services.entity_code_presence import EntityCodeCheck, check_entity_codes
 from intelligence.services.research_contract import (
     InformationCutoff,
     ResearchDeadline,
@@ -31,6 +32,12 @@ class FinanceQueryError(RuntimeError):
 
 class FinanceQueryValidationError(FinanceQueryError, ValueError):
     """The semantic query is outside the registered production surface."""
+
+
+class FinanceQueryEntityError(FinanceQueryError):
+    def __init__(self, entity_check: EntityCodeCheck) -> None:
+        self.entity_check = entity_check
+        super().__init__(entity_check.message)
 
 
 class FinanceQueryExecutionError(FinanceQueryError):
@@ -2367,10 +2374,15 @@ class FinanceQuery:
             )
             monitor_thread.start()
             try:
-                if cancelled():
-                    raise FinanceQueryCancelled("finance query cancelled")
-                if query_deadline.expired:
-                    raise FinanceQueryTimedOut("finance query deadline exhausted")
+                def check_query() -> None:
+                    if cancelled():
+                        raise FinanceQueryCancelled("finance query cancelled")
+                    if query_deadline.expired:
+                        raise FinanceQueryTimedOut("finance query deadline exhausted")
+
+                check_query()
+                self._check_entities(connection, spec, information_cutoff, check_query)
+                check_query()
                 cursor = connection.execute(
                     compiled.sql,
                     list(compiled.parameters),
@@ -2453,6 +2465,31 @@ class FinanceQuery:
             served_date=max(dates) if dates else None,
             audit=audit,
         )
+
+    @staticmethod
+    def _check_entities(connection, spec, information_cutoff, check) -> None:
+        as_of = min(
+            information_cutoff.as_of_date,
+            spec.time_range.end if spec.time_range and spec.time_range.end else information_cutoff.as_of_date,
+        )
+        dataset = _DATASETS[spec.dataset]
+        for kind in ("sector", "stock"):
+            codes = []
+            for item in spec.filters:
+                if item.field == f"{kind}_code" and item.op in {"eq", "in"}:
+                    values = item.value if item.op == "in" else (item.value,)
+                    codes.extend(str(value) for value in values if value is not None)
+            if not codes:
+                continue
+            time_field = dataset.cutoff_column or (
+                dataset.fields[dataset.time_field].column if dataset.time_field else "trade_date"
+            )
+            entity_check = check_entity_codes(
+                connection, entity_kind=kind, codes=codes, as_of=as_of, check=check,
+                observed_table=dataset.table, observed_date_field=time_field,
+            )
+            if entity_check.failure_code:
+                raise FinanceQueryEntityError(entity_check)
 
     def dataset_max_date(
         self,
@@ -3224,6 +3261,7 @@ __all__ = [
     "FinanceQueryAudit",
     "FinanceQueryCancelled",
     "FinanceQueryError",
+    "FinanceQueryEntityError",
     "FinanceQueryExecutionError",
     "FinanceQueryLimitExceeded",
     "FinanceQueryLimits",

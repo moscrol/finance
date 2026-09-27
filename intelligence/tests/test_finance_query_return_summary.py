@@ -123,7 +123,9 @@ def test_zero_total_loss_and_overflow(return_db, value, expected):
 
 
 def test_empty_is_not_zero_return(return_db):
-    result = run(return_db, filters=[{"field": "stock_code", "op": "eq", "value": "999999.SH"}])
+    with duckdb.connect(str(return_db)) as con:
+        con.execute("INSERT INTO fact_stock_daily VALUES ('2026-08-31', '600002.SH', 1)")
+    result = run(return_db, filters=[{"field": "stock_code", "op": "eq", "value": "600002.SH"}])
     assert result.rows == result.evidence == ()
 
 

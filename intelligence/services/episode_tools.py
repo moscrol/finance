@@ -2124,6 +2124,20 @@ def _finance_query_failure_result(
     spec: finance_query.FinanceQuerySpec,
     error: finance_query.FinanceQueryError,
 ) -> ToolRunResult:
+    if isinstance(error, finance_query.FinanceQueryEntityError):
+        entity_check = error.entity_check
+        return ToolRunResult(
+            evidence=(), observation="",
+            diagnostics=(ToolDiagnostic(code=entity_check.failure_code, message=entity_check.message),),
+            trace=ProviderTrace(
+                provider="duckdb_semantic_query", capability="finance_query",
+                status="request_error", result_count=0,
+                detail=f"dataset={spec.dataset}; failure={entity_check.failure_code}",
+            ),
+            gaps=entity_check.gaps,
+            telemetry={"entity_check": entity_check.to_dict()},
+            **_finance_payload_kwargs(spec),
+        )
     if isinstance(error, finance_query.FinanceQueryValidationError):
         failure_code = "invalid_query"
         status = "parse_error"

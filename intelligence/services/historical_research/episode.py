@@ -14,7 +14,7 @@ from intelligence.services.agent_research import (
     StructuredObservation,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_tool_registry import ToolRunResult, ToolSpec
+from intelligence.services.research_tool_registry import ToolDiagnostic, ToolRunResult, ToolSpec
 
 if TYPE_CHECKING:
     from intelligence.services.run_store import RunStore
@@ -598,6 +598,7 @@ def history_tool_specs(
         context.history_artifact_index[:] = session.index()
     from intelligence.services.historical_research.query import (
         HistoryQuery,
+        HistoryQueryEntityError,
         HistoryQuerySpec,
         history_query_parameters,
     )
@@ -686,13 +687,27 @@ def history_tool_specs(
         assert_history_window(frame.history_intent, spec.start, spec.end)
         if spec.search_start is not None:
             assert_history_window(frame.history_intent, spec.search_start, spec.search_end)
-        payload = HistoryQuery(db_path).run(
-            spec,
-            information_cutoff=context.information_cutoff,
-            deadline=tool_context.deadline,
-            is_cancelled=tool_context.is_cancelled,
-            **({"window_binding": binding} if binding is not None else {}),
-        )
+        try:
+            payload = HistoryQuery(db_path).run(
+                spec,
+                information_cutoff=context.information_cutoff,
+                deadline=tool_context.deadline,
+                is_cancelled=tool_context.is_cancelled,
+                **({"window_binding": binding} if binding is not None else {}),
+            )
+        except HistoryQueryEntityError as exc:
+            entity_check = exc.entity_check
+            return ToolRunResult(
+                evidence=(), observation="",
+                diagnostics=(ToolDiagnostic(code=entity_check.failure_code, message=entity_check.message),),
+                trace=ProviderTrace(
+                    provider="duckdb_history_query", capability="finance_query",
+                    status="request_error", detail=entity_check.failure_code, result_count=0,
+                ),
+                gaps=entity_check.gaps, dataset="historical_research",
+                caliber="retrospective_research_only",
+                telemetry={"entity_check": entity_check.to_dict()},
+            )
         payload["operation"] = spec.operation
         payload["purpose"] = frame.history_intent.purpose
         payload["knowledge_cutoff"] = context.information_cutoff.as_of_date.isoformat()

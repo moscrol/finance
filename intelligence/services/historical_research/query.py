@@ -20,6 +20,7 @@ from typing import Any
 
 import duckdb
 
+from intelligence.services.entity_code_presence import EntityCodeCheck, check_entity_codes
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.historical_research.features import (
     FEATURES,
@@ -61,6 +62,12 @@ class HistoryQueryCancelled(HistoryQueryError):
 
 class HistoryQueryTimedOut(HistoryQueryError):
     pass
+
+
+class HistoryQueryEntityError(HistoryQueryError):
+    def __init__(self, entity_check: EntityCodeCheck) -> None:
+        self.entity_check = entity_check
+        super().__init__(entity_check.message)
 
 
 def _json(value: Any) -> Any:
@@ -721,6 +728,12 @@ class HistoryQuery:
         reader = _Reader(con, check)
         try:
             con.execute("BEGIN TRANSACTION")
+            entity_check = check_entity_codes(
+                con, entity_kind=spec.entity_kind, codes=spec.entity_codes,
+                as_of=max(spec.end, spec.search_end or spec.end), check=check,
+            )
+            if entity_check.failure_code:
+                raise HistoryQueryEntityError(entity_check)
             rows, extra = self._execute(spec, reader, check, information_cutoff)
             check()
             con.execute("COMMIT")
