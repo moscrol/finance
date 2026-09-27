@@ -1,0 +1,54 @@
+"""QC probe C6: real verify/repair exit through SemanticEpisodeVerifier.
+
+Borrows author fixtures _judge/_structural from test_episode_semantic_verifier.
+Expectations derived from claims, not from author tests.
+"""
+import sys
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+
+
+def _verify(draft):
+    frame, structural = _structural(draft)
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    return result
+
+
+def test_repair_reaches_public_answer_after_definition_deletion():
+    result = _verify(
+        "1. 升级条件：若涨停60家以上，则升级。\n"
+        "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+    )
+    assert result.judge_status == "repaired"
+    assert "升级条件：" not in result.public_answer
+    assert "升级条件中的" not in result.public_answer
+    assert result.public_answer == "该股放量上攻。", repr(result.public_answer)
+    assert result.verified.outcome.draft == result.public_answer
+
+
+def test_repair_survives_when_definition_survives():
+    # Definition retained -> count must be preserved, no dangling repair.
+    result = _verify(
+        "升级条件：若涨停60家以上，则升级。该股放量上攻。"
+    )
+    assert "升级条件：" in result.public_answer
+
+
+def test_deleted_decision_recorded():
+    result = _verify(
+        "① 降级条件：跌破前低。\n"
+        "观察。尚未满足降级条件中的1条，需观察。"
+    )
+    assert any(
+        row["decision"] == "deleted" and "跌破前低" in row["sentence"]
+        for row in result.sentence_verdicts
+    ), result.sentence_verdicts
+    assert "降级条件中的" not in result.public_answer
+    assert "需观察" in result.public_answer

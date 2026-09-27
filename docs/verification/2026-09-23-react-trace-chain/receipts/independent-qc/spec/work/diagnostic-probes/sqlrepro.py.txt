@@ -1,0 +1,15 @@
+import os
+import sqlite3
+
+d = "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/sqlrepro"
+os.makedirs(d, exist_ok=True)
+p = os.path.join(d, "t.sqlite3")
+try:
+    conn = sqlite3.connect(p, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("CREATE TABLE t(x)")
+    conn.commit()
+    conn.close()
+    print("SQLITE_OK", os.listdir(d))
+except Exception as e:
+    print("SQLITE_FAIL", type(e).__name__, e)

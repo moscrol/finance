@@ -1,0 +1,4 @@
+{
+  "change": "root adaptation: no task-specific contract needed; use supported contract=None instead of stale SimpleNamespace missing material_contract",
+  "exit_code": 0
+}

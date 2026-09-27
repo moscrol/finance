@@ -1,0 +1,8 @@
+{"admission":2,"text":"Explore 阶段产物已读取（EXPLODE.md 内嵌完整报告，7 个合格探针）。现在按顺序执行三套必需套件，先跑必红对照："}
+{"admission":3,"text":"必红对照符合预期：真实 exit1 + `AssertionError: intentional_positive_control`，分类 intentional_positive_control，不计产品失败。继续跑全部自造探针："}
+{"admission":4,"text":"自造探针完整运行完毕（29 tests：20 passed / 9 failed）。先跑完第三套必需套件（作者回归），再抽核失败："}
+{"admission":5,"text":"三套必需套件均已实际完成（control=exit1 必红 ✓；probes=29 tests 20/9；author=186 全绿）。现在抽核 9 个探针失败，先定位相关源码与探针夹具："}
+{"admission":7,"text":"收到进度。已确认三处产品真源：`strip_evidence_ordinals` 是 `_PROSE_EVIDENCE_REF_RE.sub(\" \", ...)`（每个引用替成**单个**空格）；`normalize_query` 文档明确返回**字符串**（压空白/小写/截长，仅用于比较）；`numeric_condition_unsupported` 只对 **novel numeric condition** 开火。继续定位关键函数与主张原文："}
+{"admission":8,"text":"主张原文已核对。继续读数字门禁与修复函数的实现，判定三个语义分歧："}
+{"admission":9,"text":"继续诊断。读 C5 的 next_offset 真源与 C2/C3 探针夹具："}
+{"admission":11,"text":"三套必需套件已完成。剩余任务：诊断 9 个失败并落一份修正探针。先读三份原探针拿夹具与导入路径："}

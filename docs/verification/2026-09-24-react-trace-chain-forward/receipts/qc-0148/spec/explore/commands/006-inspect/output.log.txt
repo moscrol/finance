@@ -1,0 +1,2 @@
+rg: history_tool_specs: No such file or directory (os error 2)
+rg: 20: No such file or directory (os error 2)

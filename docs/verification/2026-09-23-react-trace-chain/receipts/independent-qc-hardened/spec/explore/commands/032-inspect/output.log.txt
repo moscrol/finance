@@ -1,0 +1,11 @@
+rg: intelligence/users: Operation not permitted (os error 1)
+intelligence/tests/test_tier_promotion.py:198:def _finish_turn() -> ModelTurn:
+intelligence/tests/test_market_financials.py:25:class StructuredObservationTests(unittest.TestCase):
+intelligence/tests/test_agent_episode.py:230:def _finish_turn(
+intelligence/tests/test_harness_reference_loop.py:179:def _finish_turn(*, hashes: tuple[str, ...] = ("evidence-1",)) -> ModelTurn:
+intelligence/services/episode_semantic_verifier.py:5616:def slot_line_for_observations(
+intelligence/tests/test_agent_episode_progress.py:143:def _finish_turn(hashes: tuple[str, ...]) -> ModelTurn:
+intelligence/tests/test_empty_pool_fallback.py:544:def _finish_turn(*, hashes: tuple[str, ...] = ()) -> ModelTurn:
+intelligence/services/episode_tools.py:964:def build_episode_registry(
+intelligence/services/agent_research.py:143:class StructuredObservation:
+intelligence/services/agent_research.py:1942:def grounded_values_in_text(

@@ -1,0 +1,5 @@
+286:    r"(?P<label>升级条件|降级条件)中的"
+327:    r"(?P<label>升级条件|降级条件)"
+4292:def _numbered_sentences(draft: str) -> list[dict[str, object]]:
+5698:def _repair_dangling_condition_references(
+5706:    A mechanical condition deletion must not leave prose such as "满足升级条件中的

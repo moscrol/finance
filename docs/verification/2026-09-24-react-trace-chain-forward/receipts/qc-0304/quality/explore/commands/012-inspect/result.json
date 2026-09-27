@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "def validate|def parse|class.*Error|def build_episode_registry",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/services/finance_query.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/services/episode_tools.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 30,
+  "output_sha256": "76f44b5fd50725474678390dde45fa98acd823a074caccf5d1e9097e0b37123c"
+}

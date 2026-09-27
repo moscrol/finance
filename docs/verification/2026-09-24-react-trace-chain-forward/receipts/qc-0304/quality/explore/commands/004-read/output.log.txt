@@ -1,0 +1,122 @@
++
++    assert repaired == "需继续观察。"
++
++
++def test_repair_drops_a_line_whose_only_content_was_the_count() -> None:
++    # 删完只剩「结论：」和标点，整行丢弃比留个孤零零的冒号好。
++    repaired = _repair_with_both_conditions_deleted("结论：满足升级条件中的2条。")
++
++    assert repaired == ""
++
++
++def test_repair_keeps_the_list_marker_of_the_line_it_edits() -> None:
++    # ASCII 连字符在行首是列表符，不是破折号；吃掉它整条列表项就塌了。
++    repaired = _repair_with_both_conditions_deleted(
++        "- 满足升级条件中的2条，量能配合。"
++    )
++
++    assert repaired == "- 量能配合。"
++
++
++def test_repair_does_not_open_a_line_with_a_comma() -> None:
++    repaired = _repair_with_both_conditions_deleted(
++        "满足升级条件中的2条，量能配合。"
++    )
++
++    assert repaired == "量能配合。"
++
++
++def test_repair_does_not_double_a_comma_that_already_precedes_the_count() -> None:
++    # 主路径形状：计数夹在两个逗号之间，盲补逗号会得到「上攻，，值得跟踪」。
++    repaired = _repair_with_both_conditions_deleted(
++        "该股放量上攻，满足升级条件中的2条，值得跟踪。"
++    )
++
++    assert repaired == "该股放量上攻，值得跟踪。"
++
++
+ def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
+     # 2026-08-19 生产实锤：视角层按规则输出的披露句「KOL原文未覆盖8月盘面，
+     # 映射为推理层」被判成无证据外部事实，repair 把最有价值的边界声明删出
+diff --git a/intelligence/tests/test_finance_query_repair_feedback.py b/intelligence/tests/test_finance_query_repair_feedback.py
+new file mode 100644
+index 000000000..a87bd3d5f
+--- /dev/null
++++ b/intelligence/tests/test_finance_query_repair_feedback.py
+@@ -0,0 +1,204 @@
++"""Offline feedback delivery, not an autonomous model-quality acceptance test."""
++
++from dataclasses import replace
++import json
++from threading import Event
++from uuid import uuid4
++
++import duckdb
++import pytest
++
++from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++from intelligence.services import episode_tools, finance_query
++from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
++from intelligence.services.research_tool_registry import ResearchToolRegistry
++from intelligence.tests.test_agent_episode import _context, _finish_turn, _frame
++
++
++def _request(**overrides):
++    return {
++        "dataset": "market_daily",
++        "dimensions": ["trade_date"],
++        "metrics": ["stage_day"],
++        "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
++        **overrides,
++    }
++
++
++def _setup(tmp_path, *, rows=True, table=True, max_steps=3):
++    path = tmp_path / "db" / "market_feature_store.duckdb"
++    path.parent.mkdir()
++    with duckdb.connect(str(path)) as con:
++        if table:
++            con.execute(
++                "CREATE TABLE fact_market_daily "
++                "(trade_date DATE, stage_day INTEGER, sh_index_pct_chg DOUBLE)"
++            )
++            if rows:
++                con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-21', 3, 1.25)")
++    frame = _frame()
++    context = replace(
++        _context(frame, max_steps=max_steps, allowed_capabilities=("finance_query",)),
++        trace_parent_id=uuid4().hex,
++    )
++    registry = episode_tools.build_episode_registry(
++        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
++    )
++    # Keep real query parsing, cutoff and runner, without unrelated prefetch/tools.
++    registry = ResearchToolRegistry((registry.resolve("finance_query"),))
++    return frame, context, registry, path
++
++
++def _execute(registry, context, arguments):
++    return registry.execute(
++        "finance_query", arguments, context=context, step_id=uuid4().hex,
++    )
++
++
++def test_error_empty_and_missing_table_are_distinct(tmp_path):
++    _, context, registry, path = _setup(tmp_path)
++    before = path.read_bytes()
++    invalid = _execute(registry, context, _request())
++    empty = _execute(registry, context, _request(
++        metrics=["index_return_pct"],
++        filters=[{"field": "stage_day", "op": "eq", "value": 99}],
++    ))
++    good = _execute(registry, context, _request(metrics=["index_return_pct"]))
++    assert invalid.trace.status == "parse_error"
++    assert "stage_day→market_daily.dimension" in invalid.observation
++    assert not invalid.evidence
++    assert empty.trace.status == "empty"
++    assert "重试提示" not in empty.observation
++    assert not empty.evidence
++    assert good.trace.status == "success"
++    assert len(good.evidence) == 1
+
+[truncated; total lines=1109, selected=701:820; next_offset=821]

@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "scope": "Post-stop isolated delivery fix only; no model signature, no changes to sealed batch.",
+  "results": [
+    {
+      "case": "before",
+      "heavy_utf8": false,
+      "calls": 1,
+      "received_lines": 350,
+      "first": 51,
+      "last": 400,
+      "complete": false
+    },
+    {
+      "case": "before",
+      "heavy_utf8": true,
+      "calls": 1,
+      "received_lines": 94,
+      "first": 160,
+      "last": 253,
+      "complete": false
+    },
+    {
+      "case": "after",
+      "heavy_utf8": false,
+      "calls": 1,
+      "received_lines": 400,
+      "first": 1,
+      "last": 400,
+      "complete": true
+    },
+    {
+      "case": "after",
+      "heavy_utf8": true,
+      "calls": 2,
+      "received_lines": 400,
+      "first": 1,
+      "last": 400,
+      "complete": true
+    }
+  ],
+  "oversize_line_fails_explicitly": true
+}

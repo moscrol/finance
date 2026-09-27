@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "-e",
+    "rejected_sentence_indexes",
+    "-e",
+    "def test_",
+    "intelligence/tests/test_condition_reference_seams.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 129,
+  "output_sha256": "0d9e15bd662c56cdd3c13d103c4e012011d0e53b6c20c8c0bcc971b1782170d7"
+}

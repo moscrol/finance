@@ -1,0 +1,1 @@
+{"toolCallId":"call_a7cc5e07c209413897656606","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private && grep -n \"def _compact\" -A 8 intelligence/services/historical_research/episode.py | head -12; grep -n \"class ToolRunResult\" -A 12 intelligence/services/historical_research/episode.py | head -16"}}

@@ -1,0 +1,65 @@
+"""QC probe C5: history pagination identity and projection failure."""
+import sys
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+from intelligence.services.historical_research.episode import (
+    _model_projection,
+    _result,
+)
+
+
+def _payload(rows, total=None):
+    return {
+        "operation": "find_analogues",
+        "status": "ok",
+        "total_matched": total if total is not None else len(rows),
+        "returned_count": len(rows),
+        "truncated": False,
+        "preview": rows,
+    }
+
+
+def test_sample_indexes_carry_absolute_offset():
+    payload = dict(_payload([{"a": 1}, {"a": 2}, {"a": 3}, {"a": 4}]), offset=10)
+    projected = _model_projection(payload, "ref-1")
+    # find the 范围与完整分母 block keys and sample index sequence
+    indexes = []
+    for name, _meta, records in projected:
+        if "分母" in name:
+            keys = {r.get("key") for r in records if isinstance(r, dict)}
+            assert "offset" in keys and "next_offset" in keys, keys
+        if "样本" in name or "sample" in name.lower():
+            for rec in records:
+                if isinstance(rec, tuple) and len(rec) >= 2:
+                    idx = rec[0]
+                    if isinstance(idx, int):
+                        indexes.append(idx)
+    assert indexes[:4] == [10, 11, 12, 13], indexes
+
+
+def test_result_next_offset_semantics():
+    rows = [{"a": i} for i in range(4)]
+    payload = _payload(rows, total=10)
+    r = _result(dict(payload), offset=2)
+    md = r.metadata
+    assert md["offset"] == 2
+    assert md["next_offset"] == 2 + 4
+    # final page -> next_offset None
+    payload2 = _payload(rows, total=6)
+    r2 = _result(dict(payload2), offset=2)
+    assert r2.metadata["next_offset"] is None
+    assert "next_offset" in r.observation and "null" in r.observation
+
+
+def test_truncation_flag_reflects_partial_page():
+    # read_history_result path: page smaller than rows -> truncated True
+    payload = _payload([{"a": 1}, {"a": 2}, {"a": 3}], total=3)
+    r = _result(dict(payload), offset=0)
+    assert r.metadata["truncated"] is False
+
+
+def test_zero_return_sets_next_offset_none():
+    payload = _payload([], total=5)
+    r = _result(dict(payload), offset=0)
+    assert r.metadata["next_offset"] is None
+    assert r.metadata["returned_count"] == 0

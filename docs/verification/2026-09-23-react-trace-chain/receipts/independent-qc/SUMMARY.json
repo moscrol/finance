@@ -1,0 +1,150 @@
+{
+  "finished_at": "2026-09-23T15:24:20.298746+00:00",
+  "workorder": 75,
+  "candidate_workorder": 81,
+  "pr": 832,
+  "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "verdict": "BLOCKED_HARNESS_AND_INCOMPLETE_REPORT",
+  "engineering_verdict": "ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS",
+  "model": "glm-direct-review/glm-5.3",
+  "model_requests": 49,
+  "max_batch_requests": 152,
+  "automatic_retries": 0,
+  "provider_failures": 0,
+  "wall_clock_timeouts": 0,
+  "request_accounting": "4 gateway + 22 spec explore + 23 spec execute; synthetic offline admissions excluded.",
+  "budget_boundary": "execute admission 23 was reserved report-only closeout; hard 24-request cap was not exceeded.",
+  "stages": {
+    "gateway": {
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "max_requests": 4,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 4,
+        "dispatched": 4,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 4,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 18.1621524579823,
+      "stage_status": "PASS",
+      "request_counts_agree": true
+    },
+    "explore": {
+      "stage": "explore",
+      "status": "COMPLETE",
+      "max_requests": 24,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 22,
+        "dispatched": 22,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 22,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 423.68997412500903,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    "execute": {
+      "stage": "execute",
+      "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+      "max_requests": 24,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 23,
+        "dispatched": 23,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 23,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 210.37230279203504,
+      "stage_status": "BLOCKED_STAGE_OR_PROVIDER",
+      "request_counts_agree": true
+    }
+  },
+  "execute_report_json_error": {
+    "message": "Extra data",
+    "line": 1,
+    "column": 843,
+    "position": 842
+  },
+  "stage_artifact_hashes_checked": 185,
+  "root_qc_observations": [
+    "Reviewer output logs show 5 passing C5 function probes and 3 failures in SQLite fixture construction; wrappers returned 0 for both.",
+    "execute/commands/005-bash used ; echo: tool exitCode=0, child output EXIT=1 and AssertionError. Report wording true exit 1 must not be read as tool exit 1.",
+    "Initial pytest collection was blocked by parent metadata EPERM. Later 5P/3F runs used additional -c/--confcutdir; not equivalent to the prescribed entry.",
+    "C6 probes and all seven author regression files were NOT_RUN; C1-C4 not independently probed.",
+    "Spec execute final exists but its JSON has a trailing extra quote; work/EXECUTE.md absent. Do not repair the report in place.",
+    "Spec report stage and all Quality model stages NOT_STARTED. No independent final verdict.",
+    "C6 surviving-definition probe has a conditional assertion; a green test alone would not prove that branch executed."
+  ],
+  "host_offline_diagnosis": {
+    "model_requests": 0,
+    "receipt": "offline-repair-v2/receipt.json",
+    "before": {
+      "pytest_exit": 2,
+      "sqlite_exit": 1
+    },
+    "after": {
+      "pytest_passed": 2,
+      "pytest_exit": 0,
+      "sqlite_exit": 0,
+      "positive_control_exit": 1
+    },
+    "rules_change": "Metadata only for batch root and candidate parent; deny read/write/symlink/network controls remain active.",
+    "original_probe_replay": {
+      "passed": 3,
+      "exit": 0,
+      "bytes_unchanged": true,
+      "classification": "HOST_TOOLING_DIAGNOSIS_NOT_REVIEWER_EXECUTION"
+    },
+    "initial_control_failure": "offline-repair v1 after-pytest exit4 caused by host control symlink placed in collection root; preserved. v2 moves that control under tmp, still tests escape denial."
+  },
+  "identities": {
+    "candidate": {
+      "tree": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+      "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+      "dirty": false
+    },
+    "author": {
+      "tree": "/Users/a77/fwp-wt-react-trace-chain-0923",
+      "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+      "dirty": false
+    }
+  },
+  "remote_refs_at_closeout": {
+    "refs/heads/fix/react-trace-qc-0921": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+    "refs/heads/main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "main_advanced": true,
+  "scope_limits": [
+    "No product edits or head movement.",
+    "No independent retry or automatic budget extension.",
+    "#76 natural finance remains separately authorized; previous not_passed unchanged.",
+    "No merge, deployment, production writes, or stability/performance certification.",
+    "Fixed engineering receipts do not certify integration with later main."
+  ]
+}

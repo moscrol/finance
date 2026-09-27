@@ -1,0 +1,37 @@
+"""证伪 _repair_dangling_condition_references 的边界行为。
+
+在 99c607671（分支尖）上跑，逐条打印输入 → 输出，人眼判语义是否残缺。
+放在中立目录，靠 cwd 决定测的是哪棵树。
+"""
+
+from intelligence.services.episode_semantic_verifier import (
+    _numbered_sentences,
+    _repair_dangling_condition_references,
+)
+
+# before 里必须存在「升级条件：…」「降级条件：…」两句定义，且被判为 rejected，
+# 这样两个标签才会进入 orphaned_labels。
+BEFORE = "升级条件：站稳20日线。降级条件：跌破前低。当前观察如下。"
+SENTS = _numbered_sentences(BEFORE)
+REJECTED = tuple(
+    item["index"]
+    for item in SENTS
+    if str(item["text"]).startswith(("升级条件", "降级条件"))
+)
+
+CASES = [
+    ("A 同行先降级后升级", "已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。"),
+    ("B 否定词残留", "目前尚未满足升级条件中的3条，需继续观察。"),
+    ("C 整句只剩计数", "结论：满足升级条件中的2条。"),
+    ("D 列表项被吃掉破折号", "- 满足升级条件中的2条，量能配合。"),
+    ("E 行首计数留前导逗号", "满足升级条件中的2条，量能配合。"),
+    ("F 正常中段（对照，应只删计数）", "该股放量上攻，满足升级条件中的2条，值得跟踪。"),
+]
+
+print(f"rejected={REJECTED}  sentences={[s['text'] for s in SENTS]}")
+print("=" * 72)
+for name, draft in CASES:
+    out = _repair_dangling_condition_references(
+        draft, before=BEFORE, rejected_sentence_indexes=REJECTED
+    )
+    print(f"{name}\n  IN : {draft}\n  OUT: {out}\n")

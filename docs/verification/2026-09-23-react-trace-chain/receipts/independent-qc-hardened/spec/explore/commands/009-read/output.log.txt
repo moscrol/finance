@@ -1,0 +1,142 @@
+def _restore_lost_observations(
+    *,
+    draft: str,
+    before: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, tuple[StructuredObservation, ...]]:
+    """判官删完之后，把被连坐掉的有据数值以槽的形态补回稿件。
+
+    只补**数值本身**，不补任何被驳回的叙述——被删的因果/判断不会借尸还魂。
+    Gate 1 现场活下来的是错口径的主线句，真值 4.74/3432.59 陪葬；
+    补回之后真值一定在稿子里，与它原先绑的那句叙述死活无关。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return draft, ()
+    survivors = {obs.value for obs in grounded_values_in_text(draft, evidence)}
+    missing = tuple(obs for obs in lost if obs.value not in survivors)
+    if not missing:
+        return draft, ()
+    return f"{draft.rstrip()}\n\n{slot_line_for_observations(missing)}", missing
+
+
+def _gaps_with_lost_observations(
+    *,
+    gaps: tuple[str, ...],
+    before: str,
+    after: str,
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """判官删句后，把被连坐掉的**有据数值**补记成缺口。
+
+    Gate 1 实锤（`docs/verification/2026-08-21-gate1-pcb-exact-name.md`）：判官
+    把「缩量洗盘后主升」整段判未核验删掉，真值 4.74/3432.59 绑在那段里一起没
+    了，活下来的反而是错口径的句子。**真话和编造绑同一段，一刀切下去真话陪葬。**
+
+    这里不改删除决定——给含真值的句子发免死金牌会让编造搭便车（那是「变错」，
+    必须硬）。改的是：删掉的真值**不再静默消失**，而是落成缺口，下游可按槽
+    重新呈现。拦的是信息丢失，不是模型的表达，所以是保下限不是封上限。
+    """
+
+    lost = grounded_values_in_text(before, evidence)
+    if not lost:
+        return gaps
+    survivors = {obs.value for obs in grounded_values_in_text(after, evidence)}
+    notes = tuple(
+        describe_lost_observation(obs) for obs in lost if obs.value not in survivors
+    )
+    if not notes:
+        return gaps
+    return tuple(dict.fromkeys((*gaps, *notes)))
+
+
+def _repair_dangling_condition_references(
+    draft: str,
+    *,
+    before: str,
+    rejected_sentence_indexes: tuple[int, ...],
+) -> str:
+    """Remove counts that refer to a condition definition deleted upstream.
+
+    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+    2条" behind.  That count is meaningful only while the referenced condition list
+    is still visible.  The repair is deliberately narrow: it targets labels that were
+    actually deleted in this pass, preserves the surrounding observations, and leaves
+    ordinary conditions untouched.
+    """
+
+    if not draft or not rejected_sentence_indexes:
+        return draft
+    rejected = frozenset(rejected_sentence_indexes)
+    deleted_labels = {
+        match.group("label")
+        for item in _numbered_sentences(before)
+        if item.get("index") in rejected
+        for match in (_CONDITION_DEFINITION_RE.match(str(item.get("text") or "")),)
+        if match is not None
+    }
+    if not deleted_labels:
+        return draft
+    # Use the deletion-side sentence grammar here too: a surviving definition
+    # may be the second sentence on a line, not just a line's first heading.
+    surviving_labels = {
+        match.group("label")
+        for item in _numbered_sentences(draft)
+        for match in (_CONDITION_DEFINITION_RE.match(str(item["text"])),)
+        if match is not None
+    }
+    orphaned_labels = deleted_labels - surviving_labels
+    if not orphaned_labels:
+        return draft
+
+    orphaned = frozenset(orphaned_labels)
+    lines: list[str] = []
+    for raw_line in str(draft).splitlines(keepends=True):
+        body = raw_line.rstrip("\r\n")
+        line = _strip_dangling_condition_counts(body, orphaned)
+        if line is None:
+            continue
+        lines.append(line + raw_line[len(body):])
+    return "".join(lines)
+
+
+def _strip_dangling_condition_counts(
+    line: str, orphaned_labels: frozenset[str]
+) -> str | None:
+    """Drop every orphaned count on one line; None means the line lost all content.
+
+    扫描用 ``finditer`` 而不是「search 到第一个就判标签」：同一行里先出现一个
+    未失联的计数时，后面失联的那个必须照样删得掉。
+    """
+
+    repaired = line
+    changed = False
+    while True:
+        match = next(
+            (
+                found
+                for found in _DANGLING_CONDITION_COUNT_RE.finditer(repaired)
+                if found.group("label") in orphaned_labels
+            ),
+            None,
+        )
+        if match is None:
+            break
+        repaired = _splice_out_condition_count(repaired, match)
+        changed = True
+    if not changed:
+        return line
+    return None if _is_contentless_after_repair(repaired) else repaired
+
+
+def _splice_out_condition_count(line: str, match: re.Match[str]) -> str:
+    """Remove one matched count and heal the seam it leaves behind."""
+
+    prefix = _drop_adverbs_bound_to_count(line[: match.start()])
+    suffix = line[match.end() :]
+    opening = bool(match.group("opening"))
+    # An opening emphasis marker can precede the removed time/adverb phrase.
+    # Do not take a *closing* marker off a surviving observation.
+
+[truncated; total lines=6936, selected=5644:5783; request a later offset]

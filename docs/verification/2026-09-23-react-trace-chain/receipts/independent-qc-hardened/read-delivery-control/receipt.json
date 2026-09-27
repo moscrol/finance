@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "scope": "Host read-tool delivery diagnostic only; sealed model-batch tooling unchanged.",
+  "cause": "Common tail truncation hid the beginning of read responses after the file helper had already applied its own read bounds.",
+  "fix": "Read returns the already-bounded file helper response without a second tail truncation; command logs still use bounded tail.",
+  "results": [
+    {
+      "case": "before",
+      "requested_lines": 400,
+      "returned_fixture_lines": 350,
+      "first_visible": "LINE_0051",
+      "last_visible": "LINE_0400",
+      "all_visible": false,
+      "target_exit_code": 0
+    },
+    {
+      "case": "after",
+      "requested_lines": 400,
+      "returned_fixture_lines": 400,
+      "first_visible": "LINE_0001",
+      "last_visible": "LINE_0400",
+      "all_visible": true,
+      "target_exit_code": 0
+    }
+  ]
+}

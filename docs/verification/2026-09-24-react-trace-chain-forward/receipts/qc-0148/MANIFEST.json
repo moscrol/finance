@@ -1,0 +1,2127 @@
+{
+  "schema": 1,
+  "candidate": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "verdict": "BLOCKED_AUTHOR_COLLECTION_AND_PROVIDER_STREAM",
+  "entries": [
+    {
+      "path": "SUMMARY.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/SUMMARY.json",
+      "bytes": 15943,
+      "sha256": "1d0dce2055454b00bae4734bf5ca714fde4f6e22cc8b4bce4b91ac4680103742"
+    },
+    {
+      "path": "announce-pr-832-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/announce-pr-832-before.json",
+      "bytes": 39001,
+      "sha256": "7cc1e823b4521623bf3426ba7dd3ce7da2747e2744d5f1790500fcf8129e2980"
+    },
+    {
+      "path": "announce-pr-892-before.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/announce-pr-892-before.json",
+      "bytes": 35179,
+      "sha256": "e1229b6e16d95a86ded1d6712982d9e59e60b40418a90af443fd069adc4406df"
+    },
+    {
+      "path": "announce-readback.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/announce-readback.json",
+      "bytes": 459,
+      "sha256": "45c0d14781f91eff0fdd9292e1482ff25462d5d6ec163e105c81c8f86ee84605"
+    },
+    {
+      "path": "announce.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/announce.py",
+      "bytes": 2701,
+      "sha256": "d8d01b514d888c9841123d0a40ea6449a864c4aebf7060db0c3aeb83d8fd6a76"
+    },
+    {
+      "path": "archive_batch.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/archive_batch.py",
+      "bytes": 5804,
+      "sha256": "4ad73e955ac02e38641779c348b349d93d50304b840055973d23076c04be7987"
+    },
+    {
+      "path": "batch.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/batch.json",
+      "bytes": 2376,
+      "sha256": "95a0f808da785dbe81b7713e5d9b023ddfbce12a121542ee50f0b2d9d9ce77ae"
+    },
+    {
+      "path": "batch.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/batch.log.txt",
+      "bytes": 1842,
+      "sha256": "00ada560ef4a1f714c25cc42abf7fe53d6baae1c7c3b0228b2ba688d811292bb"
+    },
+    {
+      "path": "candidate-identity.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/candidate-identity.json",
+      "bytes": 375,
+      "sha256": "3caffc8184f6c224b14bec79c30a4f6711ccc68bf534d5057a4e1c37a822f567"
+    },
+    {
+      "path": "finalize_inputs.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/finalize_inputs.py",
+      "bytes": 959,
+      "sha256": "030a828da2784fdbac848a4568b18dbc7c96237cd06e033f4893dfe01d9b7371"
+    },
+    {
+      "path": "finish_setup.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/finish_setup.py",
+      "bytes": 2118,
+      "sha256": "c84edde1b59cec5c24542b708e42edbf39c25032142d2b83b9d47718e4ef44f7"
+    },
+    {
+      "path": "glm_credential.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/glm_credential.py",
+      "bytes": 1478,
+      "sha256": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6"
+    },
+    {
+      "path": "glm_review_shim.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/glm_review_shim.py",
+      "bytes": 11782,
+      "sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5"
+    },
+    {
+      "path": "harness-lock.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/harness-lock.json",
+      "bytes": 4055,
+      "sha256": "2848ffcbfb3373da5a4039519f2d346c91c04aab7f8ccfb28923f7f1eb65274e"
+    },
+    {
+      "path": "host-review.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/host-review.json",
+      "bytes": 1581,
+      "sha256": "852417c590e0cfbdb06c17e1b7522b2854d60560586644793d4fe580c3460c77"
+    },
+    {
+      "path": "prepare.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/prepare.py",
+      "bytes": 3858,
+      "sha256": "a3485b1013e20060cf92c0124f3a25f6caab690f1ec7ea3c56be417a4d6169ec"
+    },
+    {
+      "path": "protocol.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/protocol.json",
+      "bytes": 1876,
+      "sha256": "79e0f41811bf6a10de0cfa6571ac8b0c6f3d76e1ce1d47ff7405c7d38ce81e0e"
+    },
+    {
+      "path": "quality/config.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/config.json",
+      "bytes": 583,
+      "sha256": "8b4e296fff10870f8d5a23b3d43b4a2c6ff26ee384c26a2ffc12f8da8f292d12"
+    },
+    {
+      "path": "quality/file_tool.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/file_tool.py",
+      "bytes": 2348,
+      "sha256": "9d3059fa839659ef935a40cbf4d9ea55ca2b69e1d40673e46864ffe8375a6fc7"
+    },
+    {
+      "path": "quality/gateway.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/gateway.mjs",
+      "bytes": 1019,
+      "sha256": "756a1096ba8a74fa24102183aea93f0069d772c421c66ad884e80544be1bb759"
+    },
+    {
+      "path": "quality/inputs/claims.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/inputs/claims.md",
+      "bytes": 2070,
+      "sha256": "079e04f4b15353792aa6f4a193502b310e56fae46f7b40df7d72a65ec3ff77d2"
+    },
+    {
+      "path": "quality/inputs/source.diff",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/inputs/source.diff",
+      "bytes": 48718,
+      "sha256": "7175d576c01be5fa3b3e92d5d7835d73ef95e0d3029b60df915d9b711373141f"
+    },
+    {
+      "path": "quality/junit_summary.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/junit_summary.py",
+      "bytes": 506,
+      "sha256": "b80627942d2f1d2c2043072a0d462cdc381f5993e01bf8a8baf52eb3562a3bcf"
+    },
+    {
+      "path": "quality/pi-config/settings.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/pi-config/settings.json",
+      "bytes": 396,
+      "sha256": "aeff678691199d9eb4e2544176197919d64b5142fb17689b5392e61d59529fc7"
+    },
+    {
+      "path": "quality/probe_inventory.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/probe_inventory.py",
+      "bytes": 1318,
+      "sha256": "362a4429c03e648db85a4de7b3cd835347890d6162f6aa7d0a68affa62e195b9"
+    },
+    {
+      "path": "quality/prompt-execute.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/prompt-execute.md",
+      "bytes": 3295,
+      "sha256": "1545da1e6048250a8ae2bd6bf9a2282eb93a0f04efeb4c73abe9446e2c188a32"
+    },
+    {
+      "path": "quality/prompt-explore.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/prompt-explore.md",
+      "bytes": 2984,
+      "sha256": "cda29b02dae250af002290d10e2146052ba9785cfc79434c1fd7663fad43f209"
+    },
+    {
+      "path": "quality/prompt-report.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/prompt-report.md",
+      "bytes": 2596,
+      "sha256": "da52ee8306beceedeb5c442e123ae68635c7bef58295b852244baef0e98e2674"
+    },
+    {
+      "path": "quality/provider-template.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/provider-template.json",
+      "bytes": 515,
+      "sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827"
+    },
+    {
+      "path": "quality/review.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/review.mjs",
+      "bytes": 21296,
+      "sha256": "72aaa053994af6c32febc1ebac64984feb1ff0db0ea18ed6185274269efdb4f5"
+    },
+    {
+      "path": "quality/run_control.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/run_control.py",
+      "bytes": 9353,
+      "sha256": "1644aeabbfaf91befbf84c98347139a6ea666e26698bc149b22d796e9bbe761d"
+    },
+    {
+      "path": "quality/run_stage.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/run_stage.py",
+      "bytes": 7446,
+      "sha256": "e01c946ca3782d3169c4ab356238d5ce041b3c90e9e63e7a6b665d402898ebd9"
+    },
+    {
+      "path": "quality/sandbox-preflight/PREFLIGHT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/PREFLIGHT.md",
+      "bytes": 6535,
+      "sha256": "5941552ca1bd339f20ff2041008b4e4b1742c70b580554dd9e48d546ae737d40"
+    },
+    {
+      "path": "quality/sandbox-preflight/REPORT.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/REPORT.json",
+      "bytes": 6492,
+      "sha256": "d0801d5aa81fdb81a6eafc1695af73f9dbc5489254ea155973b11af0b5864153"
+    },
+    {
+      "path": "quality/sandbox-preflight/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/REPORT.md",
+      "bytes": 6535,
+      "sha256": "5941552ca1bd339f20ff2041008b4e4b1742c70b580554dd9e48d546ae737d40"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/001-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/001-write/output.log",
+      "bytes": 122,
+      "sha256": "5b9d28ffebcd24566450a396f87dcf5192fa3fef7b3f43021f9c9dbbb124d137"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/001-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/001-write/request.json",
+      "bytes": 211,
+      "sha256": "5071ab46591fd71d9b76cf65eef965d1d5be5582afc29d5dc5db841355a1b557"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/001-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/001-write/result.json",
+      "bytes": 529,
+      "sha256": "eda182582e3a222da92829f93db0cd69fdb91659a3600589301d7f8862d84dcc"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/002-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/002-write/output.log",
+      "bytes": 123,
+      "sha256": "9b36f79bcb9dafd09b62c30b5ff7e9273486e9b6762cfa6fbef184a175340952"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/002-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/002-write/request.json",
+      "bytes": 212,
+      "sha256": "10e73c3e0577a001f5d1b7cf4e334dd0c15153fdd8a1dfd819087ca876af7124"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/002-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/002-write/result.json",
+      "bytes": 529,
+      "sha256": "055db41e32a0abc87cf51e4e40246d7ff76d23442bdcec667e070e9f45ee8784"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/003-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/003-write/output.log",
+      "bytes": 123,
+      "sha256": "5c2e610687c4c261b21d362ea819ca69348461da2afa890c0156cb54f5c55645"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/003-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/003-write/request.json",
+      "bytes": 212,
+      "sha256": "2f0edd991662e7161ccf93fcaa5fdae220c518a72a16ce550711959baa3b1d6f"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/003-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/003-write/result.json",
+      "bytes": 529,
+      "sha256": "21f721fcbd0b30ee36d196c73ead488b869b43abcd6bcc558182359748a698e0"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/004-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/004-write/output.log",
+      "bytes": 123,
+      "sha256": "2563db4df7fe351972f282865fb19039a51a559bc100939d4d855554d24861a3"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/004-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/004-write/request.json",
+      "bytes": 212,
+      "sha256": "a939bc97ffe0ae8089ae344f85dc816b32e9e12c7940e9ed1781d73c578a0f82"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/commands/004-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/commands/004-write/result.json",
+      "bytes": 529,
+      "sha256": "54081e138edccdd388689b571d53f4cca4ae002d172d9d37f9817822aced4963"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/controller-stop.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/controller-stop.json",
+      "bytes": 51,
+      "sha256": "ad76b0809a616ba691d3f858dbe7977cab951962036d2816c254211204c7fdc4"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/payload-shapes.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/payload-shapes.jsonl",
+      "bytes": 3256,
+      "sha256": "a2177428dc5b16e0c4d2b41d690f1e7eb92026ff470d40e94bf4e1117213b09b"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/progress.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/progress.jsonl",
+      "bytes": 9937,
+      "sha256": "661f5853170e3c7705f8ba89813943271de359f67f36737773710cdd2caa460f"
+    },
+    {
+      "path": "quality/sandbox-preflight/budget-gate/request-admissions.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/budget-gate/request-admissions.jsonl",
+      "bytes": 2821,
+      "sha256": "4b406a262ece741d9784d3ac0960ddaa2f528f0172d763f8f5df21a42f6c4f70"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/001-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/001-write/output.log",
+      "bytes": 129,
+      "sha256": "39d4fcb1ea3bf0b30c1698230b046e6408730eec64b1cd6545c0ca3265c1fd2e"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/001-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/001-write/request.json",
+      "bytes": 2858,
+      "sha256": "5d5d3f32cfd2c72c551c6fe8e5ff63c0931369e1d08d0a9c1a34d2edcfeeba7c"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/001-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/001-write/result.json",
+      "bytes": 531,
+      "sha256": "8986aafb98e9d285b56179fe33e9cc07bda32600df8380b9fed295b83974ce01"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/002-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/002-read/output.log",
+      "bytes": 2596,
+      "sha256": "f8c44ae5b019b6886df4394ceb31d6788ee68b255b1fe5eb92226dda52cac13d"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/002-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/002-read/request.json",
+      "bytes": 170,
+      "sha256": "6f3d5892641ffd330b6590b8bbe6379440636a4201711915eab94bd119179bea"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/002-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/002-read/result.json",
+      "bytes": 531,
+      "sha256": "5106484225d6913433a84316c0a9f820a0d05ac35755b40070bc939bb83dcc93"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/003-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/003-write/output.log",
+      "bytes": 643,
+      "sha256": "96fc6255acc8d5e367a4817889bb9fb12d2ee27bab39c3dde4ba43e06d30d8b2"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/003-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/003-write/request.json",
+      "bytes": 183,
+      "sha256": "68a0e16b3f62e5b1a134aa495e77306d3c16921d54f25547f0747ff9a8c5ab89"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/003-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/003-write/result.json",
+      "bytes": 531,
+      "sha256": "b6116cf5940339eaf2c6960c3f9b640e6c34a659d7f60de00382cb57a3aac283"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/004-run_tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/004-run_tests/junit.xml",
+      "bytes": 400,
+      "sha256": "b75760a70feead748adf598f019e634e02fda92d5742c0caf0a887748464d0cc"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/004-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/004-run_tests/output.log",
+      "bytes": 230,
+      "sha256": "38f9518ad6bccf1bf324e87c0146830661156b3c70e14b2b4735645ae11ecca1"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/004-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/004-run_tests/request.json",
+      "bytes": 179,
+      "sha256": "62ee1740ab8e3bdfe31fe07c87d6266a6c69010b38e17de4195bdaf541a21db1"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/004-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/004-run_tests/result.json",
+      "bytes": 1846,
+      "sha256": "2320619c50a5f89f5e51cdb5e43085357e8632ecb02b78102e391cedcc326f87"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/005-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/005-run_tests/output.log",
+      "bytes": 119,
+      "sha256": "c0441086a31b6eacefccdba15ddcb8f7496ecd7f7f468759cc3094e462a39d8c"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/005-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/005-run_tests/request.json",
+      "bytes": 62,
+      "sha256": "d8d33bea3c0aca506d085ea083d5daf37701aa8a15e5f27620a48541dd7cade2"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/005-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/005-run_tests/result.json",
+      "bytes": 911,
+      "sha256": "080d02f9df7f20093afde25c1f9d5b1f4a58ef390e0102fd4df00cc2e1fcbb28"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/006-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/006-write/output.log",
+      "bytes": 135,
+      "sha256": "dfe6ee529606a16c6b13a33a54af32ffeada433e2beef9a042648c12bf81dab0"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/006-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/006-write/request.json",
+      "bytes": 276,
+      "sha256": "d107a94f125ce91d88ff2942721cfd00c5b5e8b5ed67f1b1488995eace4ed74e"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/006-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/006-write/result.json",
+      "bytes": 531,
+      "sha256": "6b6feec664231e3cf0606c996fd4c0f48e20c14e03b787fc30beaa1ba6ad9de3"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/007-run_tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/007-run_tests/junit.xml",
+      "bytes": 636,
+      "sha256": "23acae01722f1e69bb80fa94eda313055ebca50997bdcca95b563bb053fbed82"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/007-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/007-run_tests/output.log",
+      "bytes": 873,
+      "sha256": "9529d19ac3a8de89a513eacdfc21bb4433b15ac292896ed578f0ac001bbcca15"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/007-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/007-run_tests/request.json",
+      "bytes": 189,
+      "sha256": "ac4b4fbeeeb32bd6b684298bf3cd5942c16c20efb5be812cde0386254ff9c996"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/007-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/007-run_tests/result.json",
+      "bytes": 1869,
+      "sha256": "260d911a43b7b866305ab5a93d7d7bf24ea9225ec8d4962701199e2631d45b48"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/008-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/008-read/output.log",
+      "bytes": 996,
+      "sha256": "ac7a6287aefda6b9ba71752bdcec29af4a9c172cdb9fd8d55f54da951c48fa1c"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/008-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/008-read/request.json",
+      "bytes": 197,
+      "sha256": "c5fccf7011fefcb5fd37593d4a74129d2a0b486420e5de8f4da26fb1b4605efd"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/008-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/008-read/result.json",
+      "bytes": 531,
+      "sha256": "ecae17695aa3dcc127e18072627df78863353350c3ec117d9b236b32437f5d11"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/009-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/009-write/output.log",
+      "bytes": 254,
+      "sha256": "753853ff4bfcba6617533ff6731d50ecc984282726145e1ddf891e239249442d"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/009-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/009-write/request.json",
+      "bytes": 180,
+      "sha256": "21177d7ffacf57ef82dc4353fb6275b11fcca2b1c1eea8c79180af27516ceb1f"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/009-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/009-write/result.json",
+      "bytes": 531,
+      "sha256": "ee8f8756fa1d45eb94a4a9cc981fe20a958a57fb1cf21f570fed08b2da42d71f"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/010-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/010-write/output.log",
+      "bytes": 254,
+      "sha256": "753853ff4bfcba6617533ff6731d50ecc984282726145e1ddf891e239249442d"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/010-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/010-write/request.json",
+      "bytes": 169,
+      "sha256": "1a5aa80a1c122553d0c4c7f7dd0fa6fe6eda2fa56797e46ae21a97bf6fd12603"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/010-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/010-write/result.json",
+      "bytes": 531,
+      "sha256": "d9d049e66e7d1abbb570bdf8922b2476bf13739fc289d12660e3575b2e5a2900"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/011-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/011-run_tests/request.json",
+      "bytes": 179,
+      "sha256": "8127fb525c9208c137d61d9ed3fc1d298026680bfea104d733d64533453e31c0"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/012-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/012-submit_report/request.json",
+      "bytes": 423,
+      "sha256": "2dd62f272806b6fb3d3c44e38cf3cdfefea83db556ac8c889bb896a9bef83b22"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/013-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/013-submit_report/request.json",
+      "bytes": 903,
+      "sha256": "9f75958c76b990b7816004a5632fa44a97ebd1fec8be8bf2825ef599db64318a"
+    },
+    {
+      "path": "quality/sandbox-preflight/commands/013-submit_report/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/commands/013-submit_report/result.json",
+      "bytes": 106,
+      "sha256": "bff4bd65abeefb2a4aaa6d0703861619b495ce6ac27d553caa292728c71596b2"
+    },
+    {
+      "path": "quality/sandbox-preflight/execute-gate/commands/001-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/execute-gate/commands/001-submit_report/request.json",
+      "bytes": 905,
+      "sha256": "307300b5eebbec2770e60136d5f7e644c17568386b5d3919c02c9081aa802f79"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/001-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/001-read/output.log",
+      "bytes": 3492,
+      "sha256": "ff849e1342261cd3f634177e7f9f6cccdd5bb5fa3ea63c1d83718ecdd3ac2fbd"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/001-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/001-read/request.json",
+      "bytes": 168,
+      "sha256": "8ce8bca2389bef1ddfbd9500d8fdc8a382a6503cdea2eba50904932a355969d8"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/001-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/001-read/result.json",
+      "bytes": 531,
+      "sha256": "7f097ebe9ee2b0a618c9cad1a7b3f37119decc09cecfebd50273ed9ba293f268"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/002-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/002-read/output.log",
+      "bytes": 48025,
+      "sha256": "45997eefbcdb6d23bef8846ec2cfb22d069a97a506247cad9e4733d4ccd5fd2f"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/002-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/002-read/request.json",
+      "bytes": 168,
+      "sha256": "68ee0a8310005b4e5ab972a1fbb62ff0054ec714d1889e20a76eb183daf140df"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/002-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/002-read/result.json",
+      "bytes": 531,
+      "sha256": "9e4e9e44c9dd7a369b83882de218bb2f702c872720ecd42dfe2a73f43da965b8"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/003-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/003-read/output.log",
+      "bytes": 27930,
+      "sha256": "5dfb9d398e9a80412f26b15e98a2d8d0a6fcfbeeefd075ede5a396e1f6958dd1"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/003-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/003-read/request.json",
+      "bytes": 170,
+      "sha256": "94015c9483668e20b94da3d0e0e0e467be3b3da44473b3be887424eddb1c75e6"
+    },
+    {
+      "path": "quality/sandbox-preflight/explore-gate/commands/003-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/explore-gate/commands/003-read/result.json",
+      "bytes": 531,
+      "sha256": "16bff6642d8172b8abe36f21af8a46b8501be24dd9316750b380b1f3bebd4726"
+    },
+    {
+      "path": "quality/sandbox-preflight/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/receipt.json",
+      "bytes": 1005,
+      "sha256": "32e8d2c6eceb565ea3d4ab4634d15472f37867d28c2f0b0da750fef120cda168"
+    },
+    {
+      "path": "quality/sandbox-preflight/test-runs.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test-runs.jsonl",
+      "bytes": 4147,
+      "sha256": "42ee03e331a10cbe15a7ac1a9d03c4c2de48ae2834f115cfb9fc2dd544c49b80"
+    },
+    {
+      "path": "quality/sandbox-preflight/test_checkpoint_12.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test_checkpoint_12.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "quality/sandbox-preflight/test_checkpoint_17.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test_checkpoint_17.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "quality/sandbox-preflight/test_checkpoint_22.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test_checkpoint_22.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "quality/sandbox-preflight/test_checkpoint_7.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test_checkpoint_7.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "quality/sandbox-preflight/test_harness_admission.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test_harness_admission.py",
+      "bytes": 2596,
+      "sha256": "f8c44ae5b019b6886df4394ceb31d6788ee68b255b1fe5eb92226dda52cac13d"
+    },
+    {
+      "path": "quality/sandbox-preflight/test_harness_misleading_output.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox-preflight/test_harness_misleading_output.py",
+      "bytes": 84,
+      "sha256": "a6fdfd3940384131de1c79d7f34296ce94e85bbebd19582777ed08e1b61e74d9"
+    },
+    {
+      "path": "quality/sandbox_preflight.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/sandbox_preflight.mjs",
+      "bytes": 10912,
+      "sha256": "20baedcd474097380f93d21a4171c8f219228b6d742441389fdb4a987539b5ed"
+    },
+    {
+      "path": "quality/tools.sb.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/tools.sb",
+      "bytes": 1988,
+      "sha256": "f3ad839796d8aace08f720ff7cf2706fecd28534d69b0867e039cb70953d7da7"
+    },
+    {
+      "path": "quality/work/junit/preflight-004-run_tests.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/work/tmp/preflight-004-run_tests.xml",
+      "bytes": 400,
+      "sha256": "b75760a70feead748adf598f019e634e02fda92d5742c0caf0a887748464d0cc"
+    },
+    {
+      "path": "quality/work/junit/preflight-007-run_tests.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/quality/work/tmp/preflight-007-run_tests.xml",
+      "bytes": 636,
+      "sha256": "23acae01722f1e69bb80fa94eda313055ebca50997bdcca95b563bb053fbed82"
+    },
+    {
+      "path": "run_batch.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/run_batch.py",
+      "bytes": 2764,
+      "sha256": "cd694ec0351c94793e119e8ad0e0b09ce60b07921bddc1b1b6298fb2bd9c89b8"
+    },
+    {
+      "path": "run_engineering.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/run_engineering.py",
+      "bytes": 5502,
+      "sha256": "23ef498840dcfb852b99b5c2f6adee850086c55a1c7da54a81d1fa40ac41df34"
+    },
+    {
+      "path": "run_light_gates.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/run_light_gates.py",
+      "bytes": 3522,
+      "sha256": "ee6790e058966d00dd6896ff88ead0d2498b115b373202a35a6254c3eb014d92"
+    },
+    {
+      "path": "spec/config.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/config.json",
+      "bytes": 580,
+      "sha256": "33cf30520a3bfddd3ea541440f8b62f186b6fd2db7740b62bf4d767a00de9977"
+    },
+    {
+      "path": "spec/execute/assistant-text.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/assistant-text.jsonl",
+      "bytes": 594,
+      "sha256": "0d2f8940aabc3306b02255d7623f7fcb78f97acd6ba1cd3df95525750ef60214"
+    },
+    {
+      "path": "spec/execute/auth-reserved.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/auth-reserved.json",
+      "bytes": 40,
+      "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04"
+    },
+    {
+      "path": "spec/execute/commands/001-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/001-read/output.log",
+      "bytes": 12093,
+      "sha256": "68e1cce102070b22ef5b82dad4b9fb18523678915955f84847545cd770b36697"
+    },
+    {
+      "path": "spec/execute/commands/001-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/001-read/request.json",
+      "bytes": 150,
+      "sha256": "0bf98958943df3674850d40ecbd06787ffbca34499acb91a9a951ac05da26bff"
+    },
+    {
+      "path": "spec/execute/commands/001-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/001-read/result.json",
+      "bytes": 524,
+      "sha256": "14aa260798192944745c7bcac947cf70183af59c7bf6f2de1fcf6a8882574650"
+    },
+    {
+      "path": "spec/execute/commands/002-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/002-read/output.log",
+      "bytes": 2070,
+      "sha256": "079e04f4b15353792aa6f4a193502b310e56fae46f7b40df7d72a65ec3ff77d2"
+    },
+    {
+      "path": "spec/execute/commands/002-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/002-read/request.json",
+      "bytes": 151,
+      "sha256": "44eeb1b42812d6837e6a9da14bffb7f40d07aea801c5fe69ecbad5c4cacab976"
+    },
+    {
+      "path": "spec/execute/commands/002-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/002-read/result.json",
+      "bytes": 524,
+      "sha256": "11f3d8491c90e59cf61e88c15ecf08c6dd63d1c756749c80064b349a2583791b"
+    },
+    {
+      "path": "spec/execute/commands/003-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/003-run_tests/output.log",
+      "bytes": 119,
+      "sha256": "c0441086a31b6eacefccdba15ddcb8f7496ecd7f7f468759cc3094e462a39d8c"
+    },
+    {
+      "path": "spec/execute/commands/003-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/003-run_tests/request.json",
+      "bytes": 75,
+      "sha256": "67308874c487e1cea71e100648df5b6af4df89b517de2512bf231b2734620924"
+    },
+    {
+      "path": "spec/execute/commands/003-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/003-run_tests/result.json",
+      "bytes": 882,
+      "sha256": "623f99685ede7a30f8fe624029322486f8e286a85852791b5ab29e3f0e20a059"
+    },
+    {
+      "path": "spec/execute/commands/004-run_tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/004-run_tests/junit.xml",
+      "bytes": 33726,
+      "sha256": "e3b01cbcb436c834fe4fb788ac8b76a0958d1ab19b28044593e8bac49b812344"
+    },
+    {
+      "path": "spec/execute/commands/004-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/004-run_tests/output.log",
+      "bytes": 24085,
+      "sha256": "d68a450fc19fcccad3b659b4b6999cb76c03f67a6f02848d3a0a11098b7aff38"
+    },
+    {
+      "path": "spec/execute/commands/004-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/004-run_tests/request.json",
+      "bytes": 74,
+      "sha256": "432aa4f1b58eb9626cdc212dd84c361a1f2004e0e25eb7a0f65f2627523a3b16"
+    },
+    {
+      "path": "spec/execute/commands/004-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/004-run_tests/result.json",
+      "bytes": 4447,
+      "sha256": "8c1e14dfa13f472479c38a1beeb3e7920492dd1077b0cb7ee29eb1d299289fed"
+    },
+    {
+      "path": "spec/execute/commands/005-run_tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/005-run_tests/junit.xml",
+      "bytes": 1400,
+      "sha256": "7cb5f2a356562d18a3ceb8ebd12a864e2907eccff995c1bdec97bbeb28170d76"
+    },
+    {
+      "path": "spec/execute/commands/005-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/005-run_tests/output.log",
+      "bytes": 2791,
+      "sha256": "04271cdd0fecbeed9f64d48552d9f3d8d017bb7216c3770d9119e75229f38f59"
+    },
+    {
+      "path": "spec/execute/commands/005-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/005-run_tests/request.json",
+      "bytes": 74,
+      "sha256": "1dd88581da6f075c55f5dff2de7f9f2bb67f0a7bd6e031370dde7c97af3c4ff1"
+    },
+    {
+      "path": "spec/execute/commands/005-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/commands/005-run_tests/result.json",
+      "bytes": 5115,
+      "sha256": "9fcd5f7afa82e6b0abce99b288531c51b90b6e313e99c343d7642eb1502fc4f6"
+    },
+    {
+      "path": "spec/execute/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/execution.json",
+      "bytes": 7095,
+      "sha256": "61eecf8488daa47cd4114616a29c26b0ba92866880a4931fd9beb629eadda8a1"
+    },
+    {
+      "path": "spec/execute/model-failures.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/model-failures.jsonl",
+      "bytes": 37,
+      "sha256": "49f34e00d450fea8052f4f2905aa078ac4b284f770498a49f0c63da8b93dc1c2"
+    },
+    {
+      "path": "spec/execute/payload-shapes.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/payload-shapes.jsonl",
+      "bytes": 913,
+      "sha256": "be4cb0581ff1432e7571c9e32ffcff1d0274ba10caf699c7c66e69317638f08c"
+    },
+    {
+      "path": "spec/execute/progress.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/progress.jsonl",
+      "bytes": 5557,
+      "sha256": "8d91b20537e7351690360b30cfd029d28fe6b305dd0a8ef233e95f7bc1e88f14"
+    },
+    {
+      "path": "spec/execute/request-admissions.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/request-admissions.jsonl",
+      "bytes": 610,
+      "sha256": "d3e3cc755fd8f4d2e4d0c48c806cd2cf6e2794e3da454117f308ec7220cdebb9"
+    },
+    {
+      "path": "spec/execute/responses.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/responses.jsonl",
+      "bytes": 145,
+      "sha256": "2f023a4b8de62ff4ca3582121fdb28e7d98c51ec7e483d5dcd9751920d2eb949"
+    },
+    {
+      "path": "spec/execute/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/execute/test-runs.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute/test-runs.jsonl",
+      "bytes": 9773,
+      "sha256": "7c9fbd8dfc5d99a61a2b37a882f706926b23071c898ba3a87f3d4ba9f72a3cb9"
+    },
+    {
+      "path": "spec/execute-shim/counts.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute-shim/counts.json",
+      "bytes": 165,
+      "sha256": "b567fd00b390b85688e3c97355f60e958e49f70772a95dda807a324d26038d61"
+    },
+    {
+      "path": "spec/execute-shim/requests.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute-shim/requests.jsonl",
+      "bytes": 2100,
+      "sha256": "a4d5f38c56a2d73f9b038ce1ea6691792f331293bf26440aa0ac89b63f8d12fa"
+    },
+    {
+      "path": "spec/execute.controller.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute.controller.json",
+      "bytes": 587,
+      "sha256": "bc2656a7843976f4bf12eeca9fdeb1a55d2448494110aa2d987d36e4e2e08758"
+    },
+    {
+      "path": "spec/execute.shim-stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/execute.shim-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/explore/REPORT.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/REPORT.json",
+      "bytes": 9937,
+      "sha256": "ed3cc73252885b5339604af39353c7c56a15f1f944419abef63e75762d439a3f"
+    },
+    {
+      "path": "spec/explore/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/REPORT.md",
+      "bytes": 12093,
+      "sha256": "68e1cce102070b22ef5b82dad4b9fb18523678915955f84847545cd770b36697"
+    },
+    {
+      "path": "spec/explore/assistant-text.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/assistant-text.jsonl",
+      "bytes": 351,
+      "sha256": "5546148ba7fe3903325bf7465efb5d1f92a1e644f2c8ea5d6bcb16c6490e7a53"
+    },
+    {
+      "path": "spec/explore/auth-reserved.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/auth-reserved.json",
+      "bytes": 40,
+      "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04"
+    },
+    {
+      "path": "spec/explore/commands/001-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/001-read/output.log",
+      "bytes": 2070,
+      "sha256": "079e04f4b15353792aa6f4a193502b310e56fae46f7b40df7d72a65ec3ff77d2"
+    },
+    {
+      "path": "spec/explore/commands/001-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/001-read/request.json",
+      "bytes": 151,
+      "sha256": "bec9df46bf7377af9aab2d440661b6bde2925378e95abe4f2a04d3e66aacb353"
+    },
+    {
+      "path": "spec/explore/commands/001-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/001-read/result.json",
+      "bytes": 525,
+      "sha256": "01d21eccdf26b1a044a66594ebf2be5ead863e18ed65177373bf46b0b28adbf4"
+    },
+    {
+      "path": "spec/explore/commands/002-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/002-read/output.log",
+      "bytes": 18310,
+      "sha256": "efb2256b6d1e9ea7b106e5026039d0bb6ff52ff8388a40a64e85681cbd54454c"
+    },
+    {
+      "path": "spec/explore/commands/002-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/002-read/request.json",
+      "bytes": 153,
+      "sha256": "3a437d49decaf340deae93ed83dce5abd3cfffad7696668b15499c286e3332e8"
+    },
+    {
+      "path": "spec/explore/commands/002-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/002-read/result.json",
+      "bytes": 525,
+      "sha256": "419b91467f17256abe0a54a968ee41b6aee8d2c90400bc61030ef817583a994c"
+    },
+    {
+      "path": "spec/explore/commands/003-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/003-read/output.log",
+      "bytes": 18491,
+      "sha256": "ca156e4197dd3d26fd4a10cc9048511a9fd213403c31f29dcdd79d8035a80df0"
+    },
+    {
+      "path": "spec/explore/commands/003-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/003-read/request.json",
+      "bytes": 166,
+      "sha256": "0af86bc58b4626984d396642dab833400418967251e33b43ceee295e0d1b277a"
+    },
+    {
+      "path": "spec/explore/commands/003-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/003-read/result.json",
+      "bytes": 525,
+      "sha256": "5da3b6fdf0dc662fb8868805f47eeaf6c15203bfec7148e2a70727aaa73b60f0"
+    },
+    {
+      "path": "spec/explore/commands/004-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/004-read/output.log",
+      "bytes": 12047,
+      "sha256": "e48c7bb3fbba15ae3c6450d380f68b5acfbe4b0c3d67b097705003717668b744"
+    },
+    {
+      "path": "spec/explore/commands/004-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/004-read/request.json",
+      "bytes": 166,
+      "sha256": "c173f5abbade9d4e597e419f586eea9e6754a4087127fc921bc6dcd68687bb04"
+    },
+    {
+      "path": "spec/explore/commands/004-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/004-read/result.json",
+      "bytes": 525,
+      "sha256": "b8e256ae87d35781a90c6a4623adb2eabb05a59069694fce890d682197b9dc4e"
+    },
+    {
+      "path": "spec/explore/commands/005-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/005-read/output.log",
+      "bytes": 5103,
+      "sha256": "d38fc91a459c18d050ba45dbf95c998ce9a58788ac2cc173684686c57f67f2cb"
+    },
+    {
+      "path": "spec/explore/commands/005-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/005-read/request.json",
+      "bytes": 117,
+      "sha256": "b865f763b4c2bbbe5e2d49bd542e7cf12b045871a8508e9d4f41122ead4996bf"
+    },
+    {
+      "path": "spec/explore/commands/005-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/005-read/result.json",
+      "bytes": 525,
+      "sha256": "40bfe2fb97d7b7ac9af7a79f9c685bcf7b34cfe1b55f6d954d36a9fdd4146d33"
+    },
+    {
+      "path": "spec/explore/commands/006-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/006-inspect/output.log",
+      "bytes": 110,
+      "sha256": "18c8238e7da67d26d9701f13763b40c1350741d9a691038b55d43376d30c2f7d"
+    },
+    {
+      "path": "spec/explore/commands/006-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/006-inspect/request.json",
+      "bytes": 167,
+      "sha256": "18e80c835913062ff623551bcf0ca92f51a5571be4581a291cc37494e48713a5"
+    },
+    {
+      "path": "spec/explore/commands/006-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/006-inspect/result.json",
+      "bytes": 489,
+      "sha256": "8c4dce623266721b96d9f3371ed044f704e742e43f74fb5c24dc2d3af53a3f21"
+    },
+    {
+      "path": "spec/explore/commands/007-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/007-write/output.log",
+      "bytes": 136,
+      "sha256": "437817fc961fcfb8f94804f40f0d9dc91274dd8136edd297ce111c45bddae67c"
+    },
+    {
+      "path": "spec/explore/commands/007-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/007-write/request.json",
+      "bytes": 5643,
+      "sha256": "720e3742b8526634d3f66560b9181f69c34a3cda336b9744fdd8e80edbac3aa8"
+    },
+    {
+      "path": "spec/explore/commands/007-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/007-write/result.json",
+      "bytes": 525,
+      "sha256": "59b184e0c882c4c3faca3765d2a8e17e9f36bbd5c02eaf59dd5eaae8235e7a27"
+    },
+    {
+      "path": "spec/explore/commands/008-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/008-inspect/output.log",
+      "bytes": 10136,
+      "sha256": "24639dd0d74dc13f4f43140b3d7ea55e1131f9a60e289be0cdead1cffed37b83"
+    },
+    {
+      "path": "spec/explore/commands/008-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/008-inspect/request.json",
+      "bytes": 154,
+      "sha256": "e17da5178989fa7da537d9acd4418c89e1db67f90167671c998cc4c29398afcd"
+    },
+    {
+      "path": "spec/explore/commands/008-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/008-inspect/result.json",
+      "bytes": 481,
+      "sha256": "b603232d9fd5f812c5bc4d442dae7fd3f31a6915c8aaa5c591ce36b066415536"
+    },
+    {
+      "path": "spec/explore/commands/009-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/009-inspect/output.log",
+      "bytes": 3120,
+      "sha256": "9f5098c2aca23c3cb9d84c79502dab15dd6df78b5ecd5e34c246ddc645e9454e"
+    },
+    {
+      "path": "spec/explore/commands/009-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/009-inspect/request.json",
+      "bytes": 180,
+      "sha256": "0f76394bc23f0119d824f1bf60984c6f34f102fc6e80b2f5ce400e83b3b15c68"
+    },
+    {
+      "path": "spec/explore/commands/009-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/009-inspect/result.json",
+      "bytes": 507,
+      "sha256": "51b03beb6e0e92f90cc3259cceaddf57811908645de7f605dd0656eafce9cd31"
+    },
+    {
+      "path": "spec/explore/commands/010-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/010-read/output.log",
+      "bytes": 4878,
+      "sha256": "1ba4a1f81c92aaa545e379fc0f836819467dd39a7ee6bcd4638a28165a3b3d69"
+    },
+    {
+      "path": "spec/explore/commands/010-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/010-read/request.json",
+      "bytes": 143,
+      "sha256": "97b5b7f17a4be86a9a22345f365bb9a5a44e45eb753b49af6546756475d4a2b6"
+    },
+    {
+      "path": "spec/explore/commands/010-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/010-read/result.json",
+      "bytes": 525,
+      "sha256": "419de4db2254d2d50a404d7bc4331bdd4a8f21801529709a25d94bab26b1b2b2"
+    },
+    {
+      "path": "spec/explore/commands/011-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/011-inspect/output.log",
+      "bytes": 6567,
+      "sha256": "9ec85875394a3fda05dcaf98a8c48fc7cdc13f20fc4e21e80a2703cea768d055"
+    },
+    {
+      "path": "spec/explore/commands/011-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/011-inspect/request.json",
+      "bytes": 161,
+      "sha256": "af72280bb68cf2c5c2f3fc9f9478e07070e5f7c8e571866d6f82bb2a5c2edc5c"
+    },
+    {
+      "path": "spec/explore/commands/011-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/011-inspect/result.json",
+      "bytes": 478,
+      "sha256": "e135e6d99e5e20537c43af11457fb7b58434fb0735fc251e102e89791875a27d"
+    },
+    {
+      "path": "spec/explore/commands/012-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/012-read/output.log",
+      "bytes": 2545,
+      "sha256": "e0da05ad47974f1ad21ba430d3ad18af44f7f84b1cca3adb18ad72e61215dcbe"
+    },
+    {
+      "path": "spec/explore/commands/012-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/012-read/request.json",
+      "bytes": 144,
+      "sha256": "6ad5397de6d30a5508152994833cfd014d2d6f12872857ee5f2bcc5a9d710004"
+    },
+    {
+      "path": "spec/explore/commands/012-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/012-read/result.json",
+      "bytes": 525,
+      "sha256": "d7e5302ff4a9d9df5b527098cf667babc8c36482915ded1988ebacb1ec2fa100"
+    },
+    {
+      "path": "spec/explore/commands/013-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/013-write/output.log",
+      "bytes": 134,
+      "sha256": "aa771c5d7dbfdb7e9ae148b9ea5deeda6fcdee37ed3e1318a2f3272a2b809649"
+    },
+    {
+      "path": "spec/explore/commands/013-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/013-write/request.json",
+      "bytes": 6115,
+      "sha256": "4e9df7d355ae466fa14d1344bdf4e8b397ed02227459a4b95de8ebe30bf8050e"
+    },
+    {
+      "path": "spec/explore/commands/013-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/013-write/result.json",
+      "bytes": 525,
+      "sha256": "20c8b8eac516528d111df684ea560bb9c063e2570f3ac93be2af8fa09d64f342"
+    },
+    {
+      "path": "spec/explore/commands/014-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/014-inspect/output.log",
+      "bytes": 1367,
+      "sha256": "c84bc5c9e03f6cf17db0cf9d4eb696936bebf5579d722de60a62c510e0a4fbe0"
+    },
+    {
+      "path": "spec/explore/commands/014-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/014-inspect/request.json",
+      "bytes": 170,
+      "sha256": "da6aa7a2f9981fc375a777d163c7645196b219aacb5f91a78d4362502242f5c4"
+    },
+    {
+      "path": "spec/explore/commands/014-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/014-inspect/result.json",
+      "bytes": 497,
+      "sha256": "b49a117fd09c749c0cf8d7c86fd37a2876557152609b31b05b99a43b613602bb"
+    },
+    {
+      "path": "spec/explore/commands/015-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/015-inspect/output.log",
+      "bytes": 5341,
+      "sha256": "7d7ade3151423a17063678b42f4dd6e5221796597aa0480bad586e1dc110d01f"
+    },
+    {
+      "path": "spec/explore/commands/015-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/015-inspect/request.json",
+      "bytes": 197,
+      "sha256": "2b1235cea78a9c43e71e25204aca0c0f3e93ddfbc7957f73e89085145f38f1cf"
+    },
+    {
+      "path": "spec/explore/commands/015-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/015-inspect/result.json",
+      "bytes": 524,
+      "sha256": "772d8a844d4c23d6f1917d08985c40e815ed47e1f63578f07c40a3c373e042a9"
+    },
+    {
+      "path": "spec/explore/commands/016-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/016-inspect/output.log",
+      "bytes": 645,
+      "sha256": "5c1996c9fe124580d626fdeabab2eecca8d6127e7dbc062d5427af25ab6073ab"
+    },
+    {
+      "path": "spec/explore/commands/016-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/016-inspect/request.json",
+      "bytes": 171,
+      "sha256": "3a8615f6b6175e205d2b7a0a9c701d53a61167f58b07a98f449c588a3d0b481a"
+    },
+    {
+      "path": "spec/explore/commands/016-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/016-inspect/result.json",
+      "bytes": 503,
+      "sha256": "7f350e480a1b618dc275e1f1c0e3791b8aae57f6038aa86d34d737ee82ef0cfb"
+    },
+    {
+      "path": "spec/explore/commands/017-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/017-inspect/output.log",
+      "bytes": 1886,
+      "sha256": "f219df0f0e1adaba6ea11d60cb793e83b0284b30f7492035ede9dda609672aa8"
+    },
+    {
+      "path": "spec/explore/commands/017-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/017-inspect/request.json",
+      "bytes": 160,
+      "sha256": "942bf77bd4e6ab9eb1d84bd4101d4a6f816b2fad783c49fc6f96254e014a64d3"
+    },
+    {
+      "path": "spec/explore/commands/017-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/017-inspect/result.json",
+      "bytes": 482,
+      "sha256": "395a82c76d4f284befc4aff733d35968d37fdb6bee1dec39207af79c00ab4ee4"
+    },
+    {
+      "path": "spec/explore/commands/018-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/018-write/output.log",
+      "bytes": 135,
+      "sha256": "413a7144609baef57ab6bd8ff8980ee8fdc584812d2bb8d9e87146687e5cb4c5"
+    },
+    {
+      "path": "spec/explore/commands/018-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/018-write/request.json",
+      "bytes": 2243,
+      "sha256": "4fba436b1e4d2ef462a384beaa1dca9e7a41e29e90c3bbe0ad92e37d0492feb0"
+    },
+    {
+      "path": "spec/explore/commands/018-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/018-write/result.json",
+      "bytes": 524,
+      "sha256": "2b390154e7882b8f83a98585e85eb3a117cec6bf34b8a10828708eb1636403c4"
+    },
+    {
+      "path": "spec/explore/commands/019-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/019-write/output.log",
+      "bytes": 143,
+      "sha256": "887ce6162172ba1ac246f0eb004e1f050fcde87fcd7a100bf71921f725b76146"
+    },
+    {
+      "path": "spec/explore/commands/019-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/019-write/request.json",
+      "bytes": 3043,
+      "sha256": "4b56fd71c7b05f86c5c2cbe7d7ceedc5a3f202a984c8b037fe65e3d3ff97528d"
+    },
+    {
+      "path": "spec/explore/commands/019-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/019-write/result.json",
+      "bytes": 524,
+      "sha256": "0a1e6f5fdde668981f58f4eff8472632bcddd0c10215b75c2f6854cfb8bd7283"
+    },
+    {
+      "path": "spec/explore/commands/020-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/020-write/output.log",
+      "bytes": 133,
+      "sha256": "b4aedcfbb36a82462ccd64ef62a4f3f24b211f1c938c8ee80549f4bf437db287"
+    },
+    {
+      "path": "spec/explore/commands/020-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/020-write/request.json",
+      "bytes": 5606,
+      "sha256": "37c8786e4a5a5d72e7e95fa47e2fa488e17d3cecc6aa9e20258456735cc756a7"
+    },
+    {
+      "path": "spec/explore/commands/020-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/020-write/result.json",
+      "bytes": 525,
+      "sha256": "7b3f88226d5211b491c589889fce5f34e209b7c2133042fee64f87495b0cbc40"
+    },
+    {
+      "path": "spec/explore/commands/021-inspect/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/021-inspect/output.log",
+      "bytes": 1013,
+      "sha256": "debedad57bed1350a61d4cce0940e5d247573af1942ca1ab75bf60bf318fba56"
+    },
+    {
+      "path": "spec/explore/commands/021-inspect/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/021-inspect/request.json",
+      "bytes": 174,
+      "sha256": "0d375b29e435196dd8ab7463833bbe5db0eb288a844592e01a761eaa12e35439"
+    },
+    {
+      "path": "spec/explore/commands/021-inspect/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/021-inspect/result.json",
+      "bytes": 492,
+      "sha256": "cf447b214d25188d897f992b5e6b128bf4384152007e49a834e4603669b52819"
+    },
+    {
+      "path": "spec/explore/commands/022-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/022-write/output.log",
+      "bytes": 133,
+      "sha256": "5912acb0dbb697e34e465de1cbabd211c7dbfa14e602e56ed4c4fa63f3a7428c"
+    },
+    {
+      "path": "spec/explore/commands/022-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/022-write/request.json",
+      "bytes": 2084,
+      "sha256": "e0092e540e078b7f79f1a22e44c82a4a68091629e8227f541534be5dc5449df5"
+    },
+    {
+      "path": "spec/explore/commands/022-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/022-write/result.json",
+      "bytes": 525,
+      "sha256": "a6e2ef42737d590ae45082ec2c567d5247342d73b3fe8a0b4f6cd2686a869b81"
+    },
+    {
+      "path": "spec/explore/commands/023-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/023-write/output.log",
+      "bytes": 136,
+      "sha256": "c8828499a76f6518cf1490f9f0c691a31e725ab307d053c44db226e4fc91998b"
+    },
+    {
+      "path": "spec/explore/commands/023-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/023-write/request.json",
+      "bytes": 5680,
+      "sha256": "ca76e321e3aed32f1fff652bc7fe4f9950569a1232d85b94b99b805c6501c2bd"
+    },
+    {
+      "path": "spec/explore/commands/023-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/023-write/result.json",
+      "bytes": 524,
+      "sha256": "26925cfb73de24ab307dcd4001fe4110198eb1cbb874494820186bdf2e4339e7"
+    },
+    {
+      "path": "spec/explore/commands/024-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/024-submit_report/request.json",
+      "bytes": 8551,
+      "sha256": "c18dbb26dee2fb294c521847928f052355f5e051e1d16fb7cbe1fe8b7733806d"
+    },
+    {
+      "path": "spec/explore/commands/025-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/025-submit_report/request.json",
+      "bytes": 9231,
+      "sha256": "e7db33196aae679ec5313e7bfb8b85f53100112887dba0bd93ec2e91bb44518f"
+    },
+    {
+      "path": "spec/explore/commands/025-submit_report/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/commands/025-submit_report/result.json",
+      "bytes": 106,
+      "sha256": "1df6890aa4a65f3da472df6d5ced874fd42695eb2be7dc3e82d396c5a712f97c"
+    },
+    {
+      "path": "spec/explore/execution.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/execution.json",
+      "bytes": 13839,
+      "sha256": "238363489155556a5613bf0bf75cbcba0de6cab74ee70558fdda8f20f76d252a"
+    },
+    {
+      "path": "spec/explore/parsed.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/parsed.json",
+      "bytes": 9937,
+      "sha256": "ed3cc73252885b5339604af39353c7c56a15f1f944419abef63e75762d439a3f"
+    },
+    {
+      "path": "spec/explore/payload-shapes.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/payload-shapes.jsonl",
+      "bytes": 3474,
+      "sha256": "8ad089903a538803a7e566bc7c946d62c314764a58a01e9fa22c91244de281db"
+    },
+    {
+      "path": "spec/explore/progress.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/progress.jsonl",
+      "bytes": 11226,
+      "sha256": "3cab04228c1ffc65e5530102fb9d9e004605cbd3d6ad2436155fc38fa909c1b1"
+    },
+    {
+      "path": "spec/explore/request-admissions.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/request-admissions.jsonl",
+      "bytes": 2451,
+      "sha256": "f5bf76ece89994c4290423faa54db9f7882340deaa52683307a01cf5bdff2d52"
+    },
+    {
+      "path": "spec/explore/responses.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/responses.jsonl",
+      "bytes": 591,
+      "sha256": "d7e50c7e4692de65e3b5c57a3e38df2248af7aac10f0991d476773e3d08a6a65"
+    },
+    {
+      "path": "spec/explore/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/explore-shim/counts.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore-shim/counts.json",
+      "bytes": 168,
+      "sha256": "d7dbe556ef0d07e0d90094763e217849e9994b2bb51ec7e39a29d33fb8b8033b"
+    },
+    {
+      "path": "spec/explore-shim/requests.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore-shim/requests.jsonl",
+      "bytes": 7919,
+      "sha256": "1ed53147ff4b1b7a01991f4561b1e2c000a4669fbdf7960d969f8ee027afe0d7"
+    },
+    {
+      "path": "spec/explore.controller.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore.controller.json",
+      "bytes": 560,
+      "sha256": "30f79057a7dc461fc3f5a83fcdd2d55f76b25c6bbdf395eb21498eb27f077bbf"
+    },
+    {
+      "path": "spec/explore.shim-stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/explore.shim-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/file_tool.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/file_tool.py",
+      "bytes": 2348,
+      "sha256": "9d3059fa839659ef935a40cbf4d9ea55ca2b69e1d40673e46864ffe8375a6fc7"
+    },
+    {
+      "path": "spec/gateway/assistant-text.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/assistant-text.jsonl",
+      "bytes": 61,
+      "sha256": "e6e96309c64719a4fe0c92434ad3f3985742b242e22aed658a9f1869de20ee75"
+    },
+    {
+      "path": "spec/gateway/auth-reserved.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/auth-reserved.json",
+      "bytes": 40,
+      "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04"
+    },
+    {
+      "path": "spec/gateway/commands/001-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/commands/001-read/output.log",
+      "bytes": 36,
+      "sha256": "b0dc391d971ba76e2258ae04b8ef4f228ab0d0db103c0b69e9052103a5453338"
+    },
+    {
+      "path": "spec/gateway/commands/001-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/commands/001-read/request.json",
+      "bytes": 180,
+      "sha256": "560af1b6167c936cccc8c5018d84bcc945b8e31f376ddc061bd465d27531e079"
+    },
+    {
+      "path": "spec/gateway/commands/001-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/commands/001-read/result.json",
+      "bytes": 525,
+      "sha256": "1d185bdfc7e09dcd0b6976c81a9843bfa6257ff943a123ee05c51656269fcdf4"
+    },
+    {
+      "path": "spec/gateway/commands/002-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/commands/002-write/output.log",
+      "bytes": 108,
+      "sha256": "eeb60e007aaec840cef7573190eee0e7f73321e31dc032d170e31a344cb98865"
+    },
+    {
+      "path": "spec/gateway/commands/002-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/commands/002-write/request.json",
+      "bytes": 206,
+      "sha256": "59019e4e8145d8b47cb45568e28b80b207739f0dca8a1dcf100f4561185f20cc"
+    },
+    {
+      "path": "spec/gateway/commands/002-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/commands/002-write/result.json",
+      "bytes": 525,
+      "sha256": "5dafb7f99ef614b6b0c04743a8ce8c5c74fd2f3300028c9b52e358addacec0ec"
+    },
+    {
+      "path": "spec/gateway/model-results.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/model-results.jsonl",
+      "bytes": 258,
+      "sha256": "f44c5dd7640d7d3ad88c34e9876b3bfa42bd06c064dad31dbc6a17a8579da85d"
+    },
+    {
+      "path": "spec/gateway/payload-shapes.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/payload-shapes.jsonl",
+      "bytes": 444,
+      "sha256": "fcc533e9806d85b67333c5ddbc0c4d3e723a618d22c6996a59e92aa94f9f2ef9"
+    },
+    {
+      "path": "spec/gateway/progress.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/progress.jsonl",
+      "bytes": 831,
+      "sha256": "900bdd08b9f2b75a51c28804e28d72cee6d94b8bce4ee758a29c1d9ead1b6288"
+    },
+    {
+      "path": "spec/gateway/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/receipt.json",
+      "bytes": 323,
+      "sha256": "c826eac7d87c9501744766ba32de7091f06050d07034807952448fd91bc1310c"
+    },
+    {
+      "path": "spec/gateway/request-admissions.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/request-admissions.jsonl",
+      "bytes": 366,
+      "sha256": "0e7e039ffa2760a2dff398cc79099981d47c51795dbea0efb014632a3c545a78"
+    },
+    {
+      "path": "spec/gateway/responses.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/responses.jsonl",
+      "bytes": 87,
+      "sha256": "80527bc76d9beb5b3ca6717cf268760df2e001550dae5de75f8a7110ecab32e2"
+    },
+    {
+      "path": "spec/gateway/stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/gateway/tiny.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway/tiny.json",
+      "bytes": 173,
+      "sha256": "674cd6d69d6763b26f07fbfe5b6501c4c5761228a3c540d293cfdf2dd5968b15"
+    },
+    {
+      "path": "spec/gateway-shim/counts.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway-shim/counts.json",
+      "bytes": 165,
+      "sha256": "6bd4b1f499d9a137902b1d0fca2b7865023503eafa721c188ba76b31bcac06ee"
+    },
+    {
+      "path": "spec/gateway-shim/requests.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway-shim/requests.jsonl",
+      "bytes": 1715,
+      "sha256": "c20815be9b9c20b78806c3fbf0f752f2999691565fa8c08333dfa1d24e3e828e"
+    },
+    {
+      "path": "spec/gateway.controller.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway.controller.json",
+      "bytes": 520,
+      "sha256": "b712b30d6bc75d686ef6a9863d3ff148b49cd99c90a7931faf81ed8ff45ec053"
+    },
+    {
+      "path": "spec/gateway.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway.mjs",
+      "bytes": 1019,
+      "sha256": "756a1096ba8a74fa24102183aea93f0069d772c421c66ad884e80544be1bb759"
+    },
+    {
+      "path": "spec/gateway.shim-stderr.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/gateway.shim-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "spec/inputs/claims.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/inputs/claims.md",
+      "bytes": 2070,
+      "sha256": "079e04f4b15353792aa6f4a193502b310e56fae46f7b40df7d72a65ec3ff77d2"
+    },
+    {
+      "path": "spec/inputs/source.diff",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/inputs/source.diff",
+      "bytes": 48718,
+      "sha256": "7175d576c01be5fa3b3e92d5d7835d73ef95e0d3029b60df915d9b711373141f"
+    },
+    {
+      "path": "spec/junit_summary.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/junit_summary.py",
+      "bytes": 506,
+      "sha256": "b80627942d2f1d2c2043072a0d462cdc381f5993e01bf8a8baf52eb3562a3bcf"
+    },
+    {
+      "path": "spec/pi-config/settings.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/pi-config/settings.json",
+      "bytes": 396,
+      "sha256": "aeff678691199d9eb4e2544176197919d64b5142fb17689b5392e61d59529fc7"
+    },
+    {
+      "path": "spec/probe_inventory.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/probe_inventory.py",
+      "bytes": 1318,
+      "sha256": "362a4429c03e648db85a4de7b3cd835347890d6162f6aa7d0a68affa62e195b9"
+    },
+    {
+      "path": "spec/prompt-execute.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/prompt-execute.md",
+      "bytes": 3280,
+      "sha256": "9e30e89ac04330e7c5c3cb2abc58cbc53a9ab0a36b357dfb34c9f3df794a4525"
+    },
+    {
+      "path": "spec/prompt-explore.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/prompt-explore.md",
+      "bytes": 2969,
+      "sha256": "9c1aa0b2dda7b70d7945fd91842b0c848f8d88424e28db6465b82319419f5b57"
+    },
+    {
+      "path": "spec/prompt-report.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/prompt-report.md",
+      "bytes": 2581,
+      "sha256": "a7c0e110b5171d948130b959f9607eaf7d15cbc065f270a4c1ee8b44003235ab"
+    },
+    {
+      "path": "spec/provider-template.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/provider-template.json",
+      "bytes": 515,
+      "sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827"
+    },
+    {
+      "path": "spec/review.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/review.mjs",
+      "bytes": 21296,
+      "sha256": "72aaa053994af6c32febc1ebac64984feb1ff0db0ea18ed6185274269efdb4f5"
+    },
+    {
+      "path": "spec/run_control.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/run_control.py",
+      "bytes": 9353,
+      "sha256": "1644aeabbfaf91befbf84c98347139a6ea666e26698bc149b22d796e9bbe761d"
+    },
+    {
+      "path": "spec/run_stage.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/run_stage.py",
+      "bytes": 7446,
+      "sha256": "e01c946ca3782d3169c4ab356238d5ce041b3c90e9e63e7a6b665d402898ebd9"
+    },
+    {
+      "path": "spec/sandbox-preflight/PREFLIGHT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/PREFLIGHT.md",
+      "bytes": 6471,
+      "sha256": "21061ea23b15e05abd7514febc68e1fa3c0b97b8e57e4545078f67642c718bdd"
+    },
+    {
+      "path": "spec/sandbox-preflight/REPORT.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/REPORT.json",
+      "bytes": 6428,
+      "sha256": "71b097133d451f05e3d8e8af0a4c36a9d0c84b932f09b74b13d94b020de1e673"
+    },
+    {
+      "path": "spec/sandbox-preflight/REPORT.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/REPORT.md",
+      "bytes": 6471,
+      "sha256": "21061ea23b15e05abd7514febc68e1fa3c0b97b8e57e4545078f67642c718bdd"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/001-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/001-write/output.log",
+      "bytes": 119,
+      "sha256": "fc9c9937ad406a403e79a9b91ee2742a757e94661805e329a5e044adc0ea06ba"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/001-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/001-write/request.json",
+      "bytes": 208,
+      "sha256": "1ea0f296500e5f5ab9f582315e0e62a5f5caa551a720c7d55d26d423a7c200bf"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/001-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/001-write/result.json",
+      "bytes": 523,
+      "sha256": "422fdd854fd8d9bbcbfb6b594977abce3ba1fe797f2fca658f39ad8e6599ce29"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/002-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/002-write/output.log",
+      "bytes": 120,
+      "sha256": "ac64b13d2254fcff7a7726f34605f37e7edd7e3e2d8e8f9da40f190c6f5f6f43"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/002-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/002-write/request.json",
+      "bytes": 209,
+      "sha256": "c36441345419e372260514b9f36e6cc9e55f888993e6ee8232abdc1f04b23663"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/002-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/002-write/result.json",
+      "bytes": 523,
+      "sha256": "257b403c0f4fb5d322e5e8511c995e2042a7618b8e5e44be31dcba57fcedaec6"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/003-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/003-write/output.log",
+      "bytes": 120,
+      "sha256": "d1e5f4661e562e11f5e87e9bf9c555bab03cd6d8b05efd59d05c0404652b1622"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/003-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/003-write/request.json",
+      "bytes": 209,
+      "sha256": "f91ae15ed7d10265e2a47b91663e5982097c974ad563c0421634a65cb5e5d81d"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/003-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/003-write/result.json",
+      "bytes": 523,
+      "sha256": "5b03ef85eb2a687918789e0ecf1fa36f3913f49c05695c109b49ce673539e1d9"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/004-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/004-write/output.log",
+      "bytes": 120,
+      "sha256": "3f3d3ae1e27c551a1e886d36a6aeb7f14ef0bbba9fc40e8ec60236d8314b6d49"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/004-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/004-write/request.json",
+      "bytes": 209,
+      "sha256": "46b77f5c59008b0169fac74d5eaa1001e4678d3606e0aec3b616cbcab068d9a0"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/commands/004-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/commands/004-write/result.json",
+      "bytes": 523,
+      "sha256": "74a7104074bc113f16d76f1e00c6909be5efddc70ae573dad607faa90687aaa7"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/controller-stop.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/controller-stop.json",
+      "bytes": 51,
+      "sha256": "ad76b0809a616ba691d3f858dbe7977cab951962036d2816c254211204c7fdc4"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/payload-shapes.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/payload-shapes.jsonl",
+      "bytes": 3256,
+      "sha256": "a2177428dc5b16e0c4d2b41d690f1e7eb92026ff470d40e94bf4e1117213b09b"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/progress.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/progress.jsonl",
+      "bytes": 9835,
+      "sha256": "c8f0fee2e90d89e00fc9aa69dcf3b4e86c8c44a589a90dfd2c578fd860d784f3"
+    },
+    {
+      "path": "spec/sandbox-preflight/budget-gate/request-admissions.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/budget-gate/request-admissions.jsonl",
+      "bytes": 2821,
+      "sha256": "3eaed00e3c84e5dc705685f67fc5f58556a8e7682c8dd72af6e23c51e12f2d76"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/001-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/001-write/output.log",
+      "bytes": 126,
+      "sha256": "441e87d4099e5dcecfef4b9ab3aa9bcdf5e2d846e7a9f32ef96acd9df45a1411"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/001-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/001-write/request.json",
+      "bytes": 2852,
+      "sha256": "9315e6e1cf854163f5a06cea427099e3d274ee1765d87dff1729c31857b3e2aa"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/001-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/001-write/result.json",
+      "bytes": 525,
+      "sha256": "8b23fa80915b8640f95e93cc105b00885177a0034d000eb239fd5de5de04bac1"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/002-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/002-read/output.log",
+      "bytes": 2593,
+      "sha256": "b03f90d7d48b84d9a67fd8d037107e8a5bfca8df0fca183ac22c92335605dac2"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/002-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/002-read/request.json",
+      "bytes": 167,
+      "sha256": "13a2bf88a09d2aac7b1178366c84fdd51fd2364555ecd9b5e9de1751d9e48cdd"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/002-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/002-read/result.json",
+      "bytes": 524,
+      "sha256": "57b4ceb87f661ac01c778014e622ebd11d3d5a0273f2e517b04057e61b18bc3b"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/003-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/003-write/output.log",
+      "bytes": 637,
+      "sha256": "4656e4435089a8d11e28053e5f2c92df847449c91f70a6df3a711466a7a97c99"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/003-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/003-write/request.json",
+      "bytes": 180,
+      "sha256": "91a6323ce7130443f7927c2439cd5bf8ebc9c2e3b6c88618e6e700c20c253ca0"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/003-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/003-write/result.json",
+      "bytes": 524,
+      "sha256": "eb07be52a2b9a2009175ce9e9efb9b2d5fbcb953798e41d121505b869a842d79"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/004-run_tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/004-run_tests/junit.xml",
+      "bytes": 400,
+      "sha256": "2816f418bf4373b75f4602c87ce05b438cd60845f8cd10d80f7ab82018bf5f69"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/004-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/004-run_tests/output.log",
+      "bytes": 227,
+      "sha256": "bcb2501b17d90e45c2ee463d7331e1d1cdf02070c946cf228271a720ff42cc7f"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/004-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/004-run_tests/request.json",
+      "bytes": 176,
+      "sha256": "d493cbf9de8c8d128b0aadf0241ebe3af975a8ed4036c65c64b40b60f16882b4"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/004-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/004-run_tests/result.json",
+      "bytes": 1822,
+      "sha256": "eb7c8fa934725de949a17662ca37eca4040bf8623fd14eaef05d4018b2a82437"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/005-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/005-run_tests/output.log",
+      "bytes": 119,
+      "sha256": "c0441086a31b6eacefccdba15ddcb8f7496ecd7f7f468759cc3094e462a39d8c"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/005-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/005-run_tests/request.json",
+      "bytes": 62,
+      "sha256": "d8d33bea3c0aca506d085ea083d5daf37701aa8a15e5f27620a48541dd7cade2"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/005-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/005-run_tests/result.json",
+      "bytes": 903,
+      "sha256": "229be5fd842229182288bee9ecffe908e1ade8f6366248873ccf556e66f58799"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/006-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/006-write/output.log",
+      "bytes": 132,
+      "sha256": "4245881490bbb469ae86a004b2390890519d0341d06b2559d35dbd8e0bf47dbb"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/006-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/006-write/request.json",
+      "bytes": 273,
+      "sha256": "5458a042cf16d276c6c58fb5965d195f7216cae3af60bda2dc60849d2230df7a"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/006-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/006-write/result.json",
+      "bytes": 524,
+      "sha256": "c4b4fb769c8b4cfa20f99232f93d9cb8b762309836eb2e8f7514b89c5b348efb"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/007-run_tests/junit.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/007-run_tests/junit.xml",
+      "bytes": 633,
+      "sha256": "ed96c339701ab8694f2a65fb62fd398025271387169fc5035c31a899d0ce0254"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/007-run_tests/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/007-run_tests/output.log",
+      "bytes": 867,
+      "sha256": "d4840b4c43e461bf9f2fc8ee1ff4b63802f865884577d4b14256474ed733d096"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/007-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/007-run_tests/request.json",
+      "bytes": 186,
+      "sha256": "03106c32b50c018c8f4ab03acba9c0c5d266e708f2e645ad62320596b92ffc17"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/007-run_tests/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/007-run_tests/result.json",
+      "bytes": 1846,
+      "sha256": "40ee518bcd271461e9867130b8938e4757b8078ff3ae79b18b4a46a18ca300d4"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/008-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/008-read/output.log",
+      "bytes": 993,
+      "sha256": "bd055f9fe155a102ba0f1b36ddd4a7d19234196dc5988e1b4a1d12097df76e1a"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/008-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/008-read/request.json",
+      "bytes": 197,
+      "sha256": "c5fccf7011fefcb5fd37593d4a74129d2a0b486420e5de8f4da26fb1b4605efd"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/008-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/008-read/result.json",
+      "bytes": 524,
+      "sha256": "c6365637ea9872c055c72450d49fce14458487841fbd208074b820d98d8d60f7"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/009-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/009-write/output.log",
+      "bytes": 251,
+      "sha256": "b080ab9765ab3d6874f58ecce962221ef719ff4230f1e611ea8334859ba37547"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/009-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/009-write/request.json",
+      "bytes": 180,
+      "sha256": "21177d7ffacf57ef82dc4353fb6275b11fcca2b1c1eea8c79180af27516ceb1f"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/009-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/009-write/result.json",
+      "bytes": 524,
+      "sha256": "873fa2477b191537e40f8f797613504a7e38cc8ad36b5bf4008d5215bdb4f49a"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/010-write/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/010-write/output.log",
+      "bytes": 251,
+      "sha256": "b080ab9765ab3d6874f58ecce962221ef719ff4230f1e611ea8334859ba37547"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/010-write/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/010-write/request.json",
+      "bytes": 166,
+      "sha256": "e66bb9cc1aad12ccb60f5e5000b621cbea1d25f52bb73cac7cb6701bef441b03"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/010-write/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/010-write/result.json",
+      "bytes": 525,
+      "sha256": "779d9a7ce2dee181160e99eda8b4f189ab3620b5e1b3eb60c3fc95c533fc5bb2"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/011-run_tests/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/011-run_tests/request.json",
+      "bytes": 179,
+      "sha256": "8127fb525c9208c137d61d9ed3fc1d298026680bfea104d733d64533453e31c0"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/012-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/012-submit_report/request.json",
+      "bytes": 417,
+      "sha256": "ff7135106e052da12a5295e4b3554a49b9fe414fffbdf2ccf0500f360a508ba0"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/013-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/013-submit_report/request.json",
+      "bytes": 897,
+      "sha256": "4ab20114c7439d00da7d9e9c1577ffe1a5f5825f5d6014f955f6f5490655d3a0"
+    },
+    {
+      "path": "spec/sandbox-preflight/commands/013-submit_report/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/commands/013-submit_report/result.json",
+      "bytes": 106,
+      "sha256": "c16cdae0b5d27c24e206e7166423f0bd8d0d7dffcfb137831caf9e8fe7fdfecb"
+    },
+    {
+      "path": "spec/sandbox-preflight/execute-gate/commands/001-submit_report/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/execute-gate/commands/001-submit_report/request.json",
+      "bytes": 899,
+      "sha256": "412dfbac600870d176c44da7d45b00ca89fcc9e55417d16575cce5ea49e39d08"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/001-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/001-read/output.log",
+      "bytes": 3492,
+      "sha256": "ff849e1342261cd3f634177e7f9f6cccdd5bb5fa3ea63c1d83718ecdd3ac2fbd"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/001-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/001-read/request.json",
+      "bytes": 165,
+      "sha256": "0eee0ee2d1db0779406ff131a5ed90a4e7fe9fd9d38663a4e0c6022c8753f666"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/001-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/001-read/result.json",
+      "bytes": 525,
+      "sha256": "457bf8611282888d7836b09d7f1491883e1679f91f2b5a01b1ab02d497d054fb"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/002-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/002-read/output.log",
+      "bytes": 48025,
+      "sha256": "45997eefbcdb6d23bef8846ec2cfb22d069a97a506247cad9e4733d4ccd5fd2f"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/002-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/002-read/request.json",
+      "bytes": 165,
+      "sha256": "89c4446b69613bbb5aa5621394137ea68407a84fa7cac7df59881dbddd99f65a"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/002-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/002-read/result.json",
+      "bytes": 525,
+      "sha256": "248f9f1b36f8fd7456e8537798bcd04b3dace89cab17c6cbbaad45c0198ff6ff"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/003-read/output.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/003-read/output.log",
+      "bytes": 27930,
+      "sha256": "5dfb9d398e9a80412f26b15e98a2d8d0a6fcfbeeefd075ede5a396e1f6958dd1"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/003-read/request.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/003-read/request.json",
+      "bytes": 167,
+      "sha256": "d2306920b69130a4bc97412c61bd22c256c9054b4ba447c77d3bc7e2c0eaecdf"
+    },
+    {
+      "path": "spec/sandbox-preflight/explore-gate/commands/003-read/result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/explore-gate/commands/003-read/result.json",
+      "bytes": 525,
+      "sha256": "a099abb54864e58da77d842d7882d19d3d298b1e38a111d8bf68ab75ef6dc904"
+    },
+    {
+      "path": "spec/sandbox-preflight/receipt.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/receipt.json",
+      "bytes": 1005,
+      "sha256": "32e8d2c6eceb565ea3d4ab4634d15472f37867d28c2f0b0da750fef120cda168"
+    },
+    {
+      "path": "spec/sandbox-preflight/test-runs.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test-runs.jsonl",
+      "bytes": 4092,
+      "sha256": "f2c9c7ac54d9f7ce009d4d4fa9c1ea61f72a0985113aa8f856eae1af9a1085c3"
+    },
+    {
+      "path": "spec/sandbox-preflight/test_checkpoint_12.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test_checkpoint_12.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "spec/sandbox-preflight/test_checkpoint_17.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test_checkpoint_17.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "spec/sandbox-preflight/test_checkpoint_22.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test_checkpoint_22.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "spec/sandbox-preflight/test_checkpoint_7.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test_checkpoint_7.py",
+      "bytes": 45,
+      "sha256": "92aac2adf9cc124e1dc412e1b54ae51f8818c7559989f4b4857243a5aabf7234"
+    },
+    {
+      "path": "spec/sandbox-preflight/test_harness_admission.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test_harness_admission.py",
+      "bytes": 2593,
+      "sha256": "b03f90d7d48b84d9a67fd8d037107e8a5bfca8df0fca183ac22c92335605dac2"
+    },
+    {
+      "path": "spec/sandbox-preflight/test_harness_misleading_output.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox-preflight/test_harness_misleading_output.py",
+      "bytes": 84,
+      "sha256": "a6fdfd3940384131de1c79d7f34296ce94e85bbebd19582777ed08e1b61e74d9"
+    },
+    {
+      "path": "spec/sandbox_preflight.mjs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/sandbox_preflight.mjs",
+      "bytes": 10912,
+      "sha256": "20baedcd474097380f93d21a4171c8f219228b6d742441389fdb4a987539b5ed"
+    },
+    {
+      "path": "spec/tools.sb.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/tools.sb",
+      "bytes": 1982,
+      "sha256": "8341390bccba7d583ed1b9bf07ad81e78cdad18906444bf06032b7f4ef2a5c72"
+    },
+    {
+      "path": "spec/work/EXPLORE.md",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/EXPLORE.md",
+      "bytes": 12093,
+      "sha256": "68e1cce102070b22ef5b82dad4b9fb18523678915955f84847545cd770b36697"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c1_evidence_ordinals.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c1_evidence_ordinals.py",
+      "bytes": 1979,
+      "sha256": "4e7ae05b4b3b4155d51b00ae5438b05c9d078db75b7be0c7417a2ceae637ddf1"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c2_finance_query_diagnostics.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c2_finance_query_diagnostics.py",
+      "bytes": 2682,
+      "sha256": "72c6cd399404360f6e70072c929df2d4895134deae24347eb491c4837522a37f"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c3_repair_feedback.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback.py",
+      "bytes": 5134,
+      "sha256": "ff4cf1144e48943b8213ed1131985aed8b74a4664a946797f2d29adef442c71c"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c3_repair_feedback_v2.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback_v2.py",
+      "bytes": 5238,
+      "sha256": "c17040fcacc65890bf55ed5a2b1e94d6f09467efa63db7096203e5341d8a6f73"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c4_frozen_progress.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c4_frozen_progress.py",
+      "bytes": 1794,
+      "sha256": "7b3e642b0e0866a41e007c9a0cc4a59674fe2dd07b65d6b8846cb7afb86b7859"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c5_history_pagination.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c5_history_pagination.py",
+      "bytes": 5159,
+      "sha256": "5629383123b8ef36c4f8444a71b0cea6d4b0917bb4a02ae9cc7bdb9606ee8e9f"
+    },
+    {
+      "path": "spec/work/probes/test_probe_c6_condition_repair.py.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c6_condition_repair.py",
+      "bytes": 5684,
+      "sha256": "63f898ab2d7388eb7525509ca2f640dd1b4f4485f7eb2f8a9760d880f7f5488a"
+    },
+    {
+      "path": "spec/work/junit/execute-004-run_tests.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-004-run_tests.xml",
+      "bytes": 33726,
+      "sha256": "e3b01cbcb436c834fe4fb788ac8b76a0958d1ab19b28044593e8bac49b812344"
+    },
+    {
+      "path": "spec/work/junit/execute-005-run_tests.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/execute-005-run_tests.xml",
+      "bytes": 1400,
+      "sha256": "7cb5f2a356562d18a3ceb8ebd12a864e2907eccff995c1bdec97bbeb28170d76"
+    },
+    {
+      "path": "spec/work/junit/preflight-004-run_tests.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/preflight-004-run_tests.xml",
+      "bytes": 400,
+      "sha256": "2816f418bf4373b75f4602c87ce05b438cd60845f8cd10d80f7ab82018bf5f69"
+    },
+    {
+      "path": "spec/work/junit/preflight-007-run_tests.xml",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/tmp/preflight-007-run_tests.xml",
+      "bytes": 633,
+      "sha256": "ed96c339701ab8694f2a65fb62fd398025271387169fc5035c31a899d0ce0254"
+    },
+    {
+      "path": "tooling-provenance.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/tooling-provenance.json",
+      "bytes": 9475,
+      "sha256": "c08f842e63cba86753948ec27a78125f78dc02d12795e224ca39196af57783e7"
+    }
+  ],
+  "scope": "Immutable tooling/inputs, complete raw command outputs, target exits, reports, JUnit. No credentials, databases, caches or source checkout. Stage events remain external and execution-hashed.",
+  "archive_path_note": "JUnit work/tmp/ is archived as work/junit/ to avoid repository tmp/ ignore; source path and exact bytes retained."
+}

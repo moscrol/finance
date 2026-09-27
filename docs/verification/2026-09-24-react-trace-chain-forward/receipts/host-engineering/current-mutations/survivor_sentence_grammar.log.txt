@@ -1,0 +1,25 @@
+..............................F......................................... [ 86%]
+...........                                                              [100%]
+=================================== FAILURES ===================================
+___ test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions ___
+
+    def test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions():
+        retained = "升级条件：量能改善。降级条件：风险可控。已满足降级条件中的1条。"
+        before = _DEFINITIONS + "\n" + retained
+        assert [item["index"] for item in _numbered_sentences(before)] == [1, 2, 3, 4, 5]
+        draft = _drop_rejected_sentences(before, (1, 2))
+        assert draft == retained
+>       assert _repair_dangling_condition_references(
+            draft, before=before, rejected_sentence_indexes=(1, 2)
+        ) == retained
+E       AssertionError: assert '升级条件：量能改善。降级条件：风险可控。' == '升级条件：量能改善。降级...。已满足降级条件中的1条。'
+E         
+E         - 升级条件：量能改善。降级条件：风险可控。已满足降级条件中的1条。
+E         ?                     ------------
+E         + 升级条件：量能改善。降级条件：风险可控。
+
+intelligence/tests/test_condition_reference_seams.py:74: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/survivor_sentence_grammar.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_condition_reference_seams.py::test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions
+1 failed, 82 passed in 0.54s

@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/file_tool.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 80,
+  "output_sha256": "ff849e1342261cd3f634177e7f9f6cccdd5bb5fa3ea63c1d83718ecdd3ac2fbd"
+}

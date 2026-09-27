@@ -1,0 +1,82 @@
+    if current != identity or (not atoms and len(encode(identity)) <= MAX_EVIDENCE_DETAIL_CHARS):
+        blocks.append(encode(current))
+    return blocks
+
+
+def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
+    """Project data and definitions, keeping row count distinct from card count."""
+    projected = []
+
+    def add(title, identity, atoms, source_date=None):
+        projected.extend(
+            (title, detail, source_date) for detail in _model_blocks(identity, atoms)
+        )
+
+    add("历史研究范围与完整分母", {}, [
+        {key: payload.get(key)}
+        for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
+    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
+    add("历史研究原件引用", {}, [{"result_ref": result_ref}])
+    add("历史研究使用边界", {}, [{
+        "pit_grade": payload.get("pit_grade", "hindsight_reconstruction"),
+        "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
+    }])
+    spec = payload.get("spec", {})
+    add("历史计算声明观察窗", {}, [{"observation_window": {
+        key: spec.get(key) for key in ("operation", "start", "end")
+    }}])
+    if isinstance(payload.get("window_binding"), dict):
+        binding = payload["window_binding"]
+        add("历史参照窗绑定", {}, [{key: binding[key] for key in (
+            "relation", "source_start", "source_end", "start", "end",
+        )}])
+        add("历史排名区间", {}, [{key: binding[key] for key in ("ranking_start", "ranking_end")}])
+        add("历史参照窗原件", {}, [
+            {key: value} for key, value in binding.get("source_reference", {}).items()
+        ] + [{key: binding.get(key)} for key in ("version", "source_query_id", "root_query_id", "root_sample_id")])
+    comparison = payload.get("comparison")
+    if isinstance(comparison, dict):
+        add("历史条件比较定义", {}, [
+            {"condition": spec.get("condition")},
+            {"outcome_definition": payload.get("outcome_definition")},
+        ])
+        add("历史条件比较完整统计", {}, [{key: value} for key, value in comparison.items()])
+    universe = payload.get("universe")
+    if isinstance(universe, dict):
+        add("历史比较宇宙与窗口", {}, [
+            {key: value} for key, value in universe.items() if key != "entity_codes"
+        ] + [{"entity_count": len(universe.get("entity_codes", []))}])
+    for key in ("analysis_definition",):
+        if isinstance(payload.get(key), dict):
+            add("行情过程的规则与边界", {}, [{name: value} for name, value in payload[key].items()])
+    if payload.get("independence_policy"):
+        add("样本独立性限制", {}, [{"independence_policy": payload["independence_policy"]}])
+    if payload.get("matching_use"):
+        add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
+    for name, definition in payload.get("feature_definitions", {}).items():
+        add("历史特征严格定义", {"feature": name}, [
+            {key: definition[key]} for key in ("rule", "unit", "version", "input_mapping") if key in definition
+        ])
+
+    names: dict[str, set[str]] = {}
+    for rows in payload.get("inputs", {}).values():
+        for row in rows:
+            for prefix in ("sector", "stock"):
+                code, name = row.get(f"{prefix}_ts_code"), row.get(f"{prefix}_name")
+                if code and name:
+                    names.setdefault(code, set()).add(name)
+    preview = payload.get("preview", [])
+    # A sample is a row in the immutable result, not a position within this page.
+    records = list(enumerate(
+        preview[:25] if isinstance(preview, list) else [], start=payload.get("offset", 0)
+    ))
+    reference = payload.get("reference")
+    if isinstance(reference, dict):
+        records.insert(0, ("reference", reference))
+    for index, row in records:
+        if not isinstance(row, dict):
+            continue
+        if row.get("record_kind") == "sector_succession":
+            from .succession_projection import succession_atoms
+
+[truncated; total lines=971, selected=200:279; next_offset=280]

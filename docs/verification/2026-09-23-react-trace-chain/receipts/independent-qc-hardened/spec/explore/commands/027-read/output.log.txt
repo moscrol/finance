@@ -1,0 +1,92 @@
+"""修复轮未进入 ``validate_episode_finish`` 的两条 ``invalid_repair_finish`` 原因码。
+
+只写事件，不进 ``REJECTION_KINDS``：它们不是 ``_reject`` 抛出的契约病因。
+"""
+
+# E1..E999。上限挡住「e + 15 位数字」这种 16-hex 哈希被误读成超大序号。
+_EVIDENCE_ORDINAL_RE = re.compile(r"^[Ee]([1-9][0-9]{0,2})$")
+
+
+def evidence_ordinal_table(evidence: tuple[AgentEvidence, ...]) -> dict[str, str]:
+    """``content_hash → E<n>``，按 episode 内首次出现顺序，从 1 起。"""
+
+    table: dict[str, str] = {}
+    for item in evidence:
+        digest = str(item.content_hash or "").strip()
+        if not digest or digest in table:
+            continue
+        table[digest] = f"E{len(table) + 1}"
+    return table
+
+
+def parse_evidence_ordinal(token: str) -> int | None:
+    """``E1`` / ``e12`` → 序号；对不上则 ``None``（交给哈希路径）。"""
+
+    match = _EVIDENCE_ORDINAL_RE.fullmatch(str(token or "").strip())
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+_PROSE_EVIDENCE_REF_RE = re.compile(
+    r"(?<![A-Za-z0-9])[Ee]([1-9][0-9]{0,2})(?![0-9])"
+)
+
+
+def cited_evidence_ordinals(text: str) -> tuple[str, ...]:
+    """正文里显式引用的 E 序号（写手空间，首现顺序去重）。
+
+    数字语法与 ``_EVIDENCE_ORDINAL_RE`` 同一套（E1..E999、无前导零）。
+    左界排除字母数字（``PE10`` 估值倍数、``1.5E8`` 科学计数、``CE4`` 认证名
+    都不是引用），右界排除续位数字（``E41`` 不拆成 ``E4``）。
+    只识别、不校验：表外序号由消费方反解失败自然落回既有删除路径。
+    """
+
+    seen: dict[str, None] = {}
+    for match in _PROSE_EVIDENCE_REF_RE.finditer(str(text or "")):
+        seen.setdefault(f"E{match.group(1)}", None)
+    return tuple(seen)
+
+
+def strip_evidence_ordinals(text: str) -> str:
+    """Mask prose E references in an analysis-only copy, using the citation grammar.
+
+    Citation IDs are not quantities. Replace them with a space rather than
+    joining adjacent tokens. This neither validates references nor changes the
+    public draft: consumers must still check unknown ordinals in the original.
+    """
+
+    return _PROSE_EVIDENCE_REF_RE.sub(" ", str(text or ""))
+
+
+def resolve_evidence_refs(
+    raw_refs: list[object],
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """把绑定里的 E1..En（或精确哈希）解析成 ``content_hash``。
+
+    序号优先：``E1`` 永不按哈希解释。越界序号硬拒。精确哈希仍接受，
+    供旧夹具与偶发抄对的路径；抄错的哈希走既有 forged/truncated，
+    **不做模糊纠正**（拼接标本会同时近配两条真哈希）。
+    """
+
+    table = evidence_ordinal_table(evidence)
+    by_id = {eid: digest for digest, eid in table.items()}
+    resolved: list[str] = []
+    for raw in raw_refs:
+        if not isinstance(raw, str):
+            raise _reject(
+                "hashes_not_list",
+                "binding evidence_hashes must be a string list",
+            )
+        token = raw.strip()
+        ordinal = parse_evidence_ordinal(token)
+        if ordinal is not None:
+            eid = f"E{ordinal}"
+            digest = by_id.get(eid)
+            if digest is None:
+                raise _reject(
+                    "unknown_evidence_ref",
+                    f"unknown evidence ordinal: {eid}",
+
+[truncated; total lines=1372, selected=700:789; request a later offset]

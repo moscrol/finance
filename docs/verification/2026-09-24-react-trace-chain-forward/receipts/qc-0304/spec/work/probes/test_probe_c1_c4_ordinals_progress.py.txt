@@ -1,0 +1,49 @@
+"""C1+C4 probe: E-ordinals masked, not treated as numeric facts; frozen nested
+Mapping parameters record progress without mutation; unknown objects rejected."""
+
+from types import MappingProxyType
+
+import pytest
+
+from intelligence.services.episode_protocol import strip_evidence_ordinals
+from intelligence.runtime.research_progress import normalize_query
+
+
+def test_e_ordinal_masked_as_space_and_real_numbers_kept():
+    text = "据E3与E41，区间涨幅2.3%，共E12和40家涨停。"
+    out = strip_evidence_ordinals(text)
+    assert "E3" not in out and "E41" not in out and "E12" not in out
+    assert "2.3%" in out and "40家" in out  # genuine numbers untouched
+    assert "区间涨幅" in out and "涨停" in out
+
+
+def test_plain_words_and_hex_like_tokens_are_not_ordinals():
+    text = "EX1 E E5x END 1234"
+    out = strip_evidence_ordinals(text)
+    assert "EX1" in out and " E " in out and "E5x" in out and "1234" in out
+
+
+def test_frozen_nested_mapping_normalized_to_json_key():
+    arguments = MappingProxyType({
+        "filters": MappingProxyType({"field": "stage_day", "op": "eq", "value": 3}),
+        "nested": MappingProxyType({"deep": MappingProxyType({"a": 1})}),
+    })
+    key = normalize_query(arguments)
+    assert isinstance(key, str)
+    assert '"stage_day"' in key
+    assert normalize_query({"filters": {"field": "stage_day", "op": "eq", "value": 3},
+                            "nested": {"deep": {"a": 1}}}) == key
+
+
+def test_frozen_mapping_not_mutated_by_normalization():
+    inner = MappingProxyType({"value": 1})
+    outer = MappingProxyType({"filters": inner})
+    normalize_query(outer)
+    assert dict(inner) == {"value": 1}
+    assert dict(outer) == {"filters": inner}
+
+
+def test_unsupported_objects_still_rejected():
+    for value in (object(), {1, 2}):
+        with pytest.raises(TypeError, match="is not JSON serializable"):
+            normalize_query(MappingProxyType({"filters": MappingProxyType({"value": value})}))

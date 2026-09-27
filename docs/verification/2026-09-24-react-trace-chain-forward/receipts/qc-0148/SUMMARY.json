@@ -1,0 +1,261 @@
+{
+  "recorded_at": "2026-09-23T18:48:12.448621+00:00",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "verdict": "BLOCKED_AUTHOR_COLLECTION_AND_PROVIDER_STREAM",
+  "host_review": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+    "verdict": "BLOCKED_AUTHOR_COLLECTION_AND_PROVIDER_STREAM",
+    "model_requests_added": 0,
+    "model_requests_in_batch": 29,
+    "stages": {
+      "spec_gateway": "PASS_4_REQUESTS",
+      "spec_explore": "COMPLETE_20_REQUESTS_7_PROBES",
+      "spec_execute": "BLOCKED_5_REQUESTS",
+      "spec_report": "NOT_STARTED",
+      "quality": "NOT_STARTED"
+    },
+    "actual_independent_probe_execution": {
+      "tests": 32,
+      "passed": 16,
+      "failed": 16,
+      "errors": 0,
+      "exit_code": 1
+    },
+    "author_regression_execution": {
+      "collected_product_tests": 0,
+      "exit_code": 4,
+      "reason": "pytest collection stat of candidate/.agents denied by sandbox"
+    },
+    "provider_failure": {
+      "request": 5,
+      "headers_status": 200,
+      "completed": false,
+      "elapsed_seconds": 120.031897,
+      "stage_error": "terminated"
+    },
+    "final_model_report": "ABSENT",
+    "progress_gate_observation": "First probe saved in request5;7 immutable probe files delivered; no longer a zero-probe exploration batch.",
+    "failure_classification": "Probe assertion failures have not been fully triaged by the reviewer. Some use outdated diagnostic/observation contracts; no blanket product or infrastructure attribution.",
+    "continuation": "pr832-glm-qc-20260924-0210 adds metadata-only protected roots and exact seven-file author suite to admission; original tools, failures and probe bytes unchanged.",
+    "limits": [
+      "No independent signoff",
+      "No natural-finance quality verdict",
+      "No merge or deployment",
+      "Host admission and mutation checks do not replace reviewer execution"
+    ]
+  },
+  "model_requests": 29,
+  "max_batch_requests": 152,
+  "stages": {
+    "spec": {
+      "gateway": {
+        "stage": "gateway",
+        "status": "COMPLETE",
+        "max_requests": 4,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 4,
+          "dispatched": 4,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 4,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 25.50876925000921,
+        "stage_status": "PASS",
+        "request_counts_agree": true
+      },
+      "explore": {
+        "stage": "explore",
+        "status": "COMPLETE",
+        "max_requests": 24,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "stage_runner_exit": 0,
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 20,
+          "dispatched": 20,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 20,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 441.0181077911984,
+        "stage_status": "STAGE_COMPLETE",
+        "request_counts_agree": true,
+        "delivery": {
+          "report_structural": true,
+          "errors": [],
+          "timed_out": false,
+          "requests": 20,
+          "elapsed_seconds": 438.768
+        },
+        "report": {
+          "claims": [
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c1_evidence_ordinals.py"
+              ],
+              "id": "C1",
+              "note": "Explore-stage only: probe written, not executed. Source read confirms strip_evidence_ordinals masks E1..E999 prose refs with a space (PE10/1.5E8/CE4 untouched); the numeric half is cross-covered in the C6 probe (3870点 redaction). Verdict reserved for the execute stage.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c2_finance_query_diagnostics.py"
+              ],
+              "id": "C2",
+              "note": "Probe written (offline failure-renderer checks: unknown validator text, known-prefix sanitization, runtime-error fixed observations); not executed yet. validation_diagnostic read: known prefixes + fixed safe messages + retry hint.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback_v2.py"
+              ],
+              "id": "C3",
+              "note": "v2 probe written (same-episode feedback, evidence retention, tool budget, cancellation); v1 kept on disk and superseded. Uses borrowed author fixtures _frame/_context/_finish_turn. Not executed yet.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c4_frozen_progress.py"
+              ],
+              "id": "C4",
+              "note": "Probe written (frozen nested MappingProxyType normalizes deterministically, equals plain-dict key, source unmutated, unknown objects raise typed TypeError); not executed yet.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c5_history_pagination.py"
+              ],
+              "id": "C5",
+              "note": "Probe written (absolute sample ids, offset/next_offset, final-page truncated hint, projection-failure no-success control); reuses the pre-existing _registry fixture only. Not executed yet.",
+              "status": "not_verified"
+            },
+            {
+              "evidence": [
+                "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c6_condition_repair.py"
+              ],
+              "id": "C6",
+              "note": "Probe written with unconditional assertions through SemanticEpisodeVerifier.verify (surviving definition and its live 1条 stay; orphaned count removed; N条 exemption scope sampled: 普通条件/2项目/均未满足 positions untouched; numeric gate still redacts 3870点 in the same draft). Order read in source: repair runs after _drop_rejected_sentences, before rewrites/_restore_lost_observations. Not executed yet.",
+              "status": "not_verified"
+            }
+          ],
+          "findings": [
+            "C6 wiring located in SemanticEpisodeVerifier._repair: _drop_rejected_sentences -> _repair_dangling_condition_references -> empty-draft early return None -> _apply_sentence_rewrites -> _restore_lost_observations -> re-verify; orphan detection requires the label to be both rejected in this pass and absent from surviving draft sentences.",
+            "C5 wiring located in historical_research/episode.py: read_history_result slices rows by absolute offset and calls _result(payload, offset=offset) before context.history_results.append, so a projection failure raises before a successful read is registered; preview enumerate starts at payload offset, keeping sample = absolute row index across pages.",
+            "truncated semantics changed to len(page) < len(rows), so a final page with no next_offset still advertises that it is only part of the complete result; next_offset is None when the page is empty or reaches total_matched.",
+            "strip_evidence_ordinals grammar: (?<![A-Za-z0-9])[Ee]([1-9][0-9]{0,2})(?![0-9]) replaced by a space; E0/E1000 are outside the ordinal range and stay, matching the documented E1..E999 citation grammar.",
+            "validation_diagnostic whitelists a fixed set of validator message prefixes and exact messages, falls back to 查询参数未通过校验, and appends a retry hint; _finance_query_failure_result maps validation to parse_error with structured diagnostics and no evidence.",
+            "Diff review is consistent with the claim that C1-C4 product code has no baseline diff (only tests reference them); C5/C6 carry the product increments shown above.",
+            "Author-provided tests exist for C2-C6 (test_finance_query_repair_feedback.py, test_agent_episode_progress.py, test_condition_reference_seams.py, test_history_model_projection.py additions); they were read for wiring only and are accounted separately from these independent probes."
+          ],
+          "limits": [
+            "Explore stage: no tests were executed; qualification covers syntax and nontrivial assertions only. All six claims remain not_verified until the execute stage runs the probes and the author suites with real exit codes.",
+            "C3 and C5 probes borrow pre-existing author fixtures (_frame/_context/_finish_turn, _registry, build_episode_registry) since building episode scaffolding from scratch was out of budget; this is disclosed here and in file headers. The finance_query feedback JSON shape was partially inferred from author tests (observation/evidence keys).",
+            "C6 numeric-gate non-relaxation is sampled at the observable level (novel 3870点 comparator redacted in a draft that also undergoes dangling-count repair) rather than by enumerating every numeric-exemption list in episode_semantic_verifier.py.",
+            "Exact-string expectations in the C6 unit parameterization were hand-traced through _splice_out_condition_count/_drop_adverbs_bound_to_count; any mismatch will surface at execution and needs a follow-up analysis file rather than silent relaxation.",
+            "No natural-finance judgments, merge/deployment authority, or performance conclusions; old refresh E2E timing failures remain unexplained and out of scope."
+          ],
+          "probe_files": [
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c1_evidence_ordinals.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c2_finance_query_diagnostics.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback_v2.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c4_frozen_progress.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c5_history_pagination.py",
+            "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c6_condition_repair.py"
+          ],
+          "summary": "Explore stage complete for PR #832/#81 spec review (candidate f7d525ca, baseline 3bb81b9). Read claims.md, the full baseline-to-candidate source.diff (1050 lines), and targeted source regions (episode_semantic_verifier._repair wiring, episode_protocol.strip_evidence_ordinals grammar, episode_tools._finance_query_failure_result, finance_query.validation_diagnostic, research_progress API). Wrote seven qualified pytest probes covering all six claims: C5 pagination (absolute row/sample identity, offset/next_offset in scope rows + telemetry + observation text, final-page truncation hint, projection-failure must not register a history read, with a successful-read control proving registration normally happens), C6 dangling-count repair (real SemanticEpisodeVerifier exit: surviving definition and its live count stay visible while the orphaned count and deleted definition disappear, unrelated prose and line breaks preserved, numeric gate still redacts a novel comparator number in the same draft, precondition tests proving removal only happens when the definition was rejected in this pass and has no surviving definition, N条 exemption scope sampled from the claim grammar), C1 ordinal masking (citation grammar vs lookalikes/real quantities, plus citation prose surviving while numbers are checked), C2 safe structured diagnostics for validation/runtime errors with secret-echo checks, C3 same-episode repair feedback with evidence retention, tool-budget non-extension and cancellation (v2 supersedes v1, both on disk), C4 frozen nested Mapping progress without mutation with typed rejection of unknown objects. All assertions are unconditional (no if-wrapped empty passes); expectations were derived from the claims and traced through the implementation, not copied from author tests. Borrowed fixtures are limited to pre-existing scaffolding (episode _frame/_context/_finish_turn, history _registry, verifier _judge/_structural) and are disclosed per file. No tests were executed in this stage, so no claim is marked verified; the probes and the author suites must run in the execute stage before any verdict beyond STAGE_COMPLETE.",
+          "superseded_probes": [
+            {
+              "original": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback.py",
+              "reason": "v1 contained an empty stub test with no assertions and a hard pytest.fail on any second model turn, which conflicts with the harness legitimately re-calling the model after feedback; v2 replaces it with three fully asserted tests.",
+              "replacement": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/spec/work/probes/test_probe_c3_repair_feedback_v2.py"
+            }
+          ],
+          "verdict": "STAGE_COMPLETE",
+          "stage": "explore",
+          "axis": "spec",
+          "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+          "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+          "complete": true,
+          "delivery_gaps": [],
+          "test_runs": [],
+          "host_bound": true
+        }
+      },
+      "execute": {
+        "stage": "execute",
+        "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+        "max_requests": 24,
+        "automatic_retries": 0,
+        "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+        "stage_runner_exit": 0,
+        "shim_exit": 0,
+        "shim_counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 4,
+          "dispatched": 5,
+          "dropped_temperature": 0,
+          "failed": 1,
+          "requests": 5,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 158.9316500411369,
+        "stage_status": "BLOCKED_STAGE_OR_DELIVERY",
+        "request_counts_agree": true,
+        "delivery": {
+          "report_structural": false,
+          "errors": [
+            "terminated"
+          ],
+          "timed_out": false,
+          "requests": 5,
+          "elapsed_seconds": 158.026
+        }
+      },
+      "report": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      }
+    },
+    "quality": {
+      "gateway": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "explore": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "execute": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      },
+      "report": {
+        "status": "NOT_STARTED",
+        "requests": 0
+      }
+    }
+  },
+  "sealed_inputs_checked": 40,
+  "stage_artifact_hashes_checked": 112,
+  "automatic_retries": 0,
+  "natural_finance_requests": 0,
+  "merged": false,
+  "deployed": false
+}

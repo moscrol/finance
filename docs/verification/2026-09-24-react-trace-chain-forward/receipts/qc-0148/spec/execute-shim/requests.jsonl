@@ -1,0 +1,23 @@
+{"event": "started", "monotonic": 1363519.4646245}
+{"event": "listening", "monotonic": 1363519.471786791, "port": 19899}
+{"event": "admitted", "monotonic": 1363523.099306791, "request": 1, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1363523.26758375, "request": 1}
+{"event": "headers", "monotonic": 1363527.499424958, "request": 1, "status": 200}
+{"elapsed_seconds": 5.925527, "event": "finished", "monotonic": 1363529.026848666, "outcome": "completed", "request": 1, "status": 200}
+{"event": "admitted", "monotonic": 1363529.279492416, "request": 2, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1363529.387221666, "request": 2}
+{"event": "headers", "monotonic": 1363533.833875625, "request": 2, "status": 200}
+{"elapsed_seconds": 6.48074, "event": "finished", "monotonic": 1363535.761063833, "outcome": "completed", "request": 2, "status": 200}
+{"event": "admitted", "monotonic": 1363535.935468875, "request": 3, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1363536.191321125, "request": 3}
+{"event": "headers", "monotonic": 1363539.172141416, "request": 3, "status": 200}
+{"elapsed_seconds": 4.247007, "event": "finished", "monotonic": 1363540.183489125, "outcome": "completed", "request": 3, "status": 200}
+{"event": "admitted", "monotonic": 1363549.743837583, "request": 4, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1363549.873027458, "request": 4}
+{"event": "headers", "monotonic": 1363553.593426041, "request": 4, "status": 200}
+{"elapsed_seconds": 6.480183, "event": "finished", "monotonic": 1363556.2258055, "outcome": "completed", "request": 4, "status": 200}
+{"event": "admitted", "monotonic": 1363557.014384166, "request": 5, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1363557.123378208, "request": 5}
+{"event": "headers", "monotonic": 1363560.782040333, "request": 5, "status": 200}
+{"elapsed_seconds": 120.031897, "event": "finished", "monotonic": 1363677.047564291, "outcome": "failed", "request": 5, "status": 200}
+{"event": "shutdown", "monotonic": 1363678.220967916}

@@ -1,0 +1,29 @@
+F.....                                                                   [100%]
+=================================== FAILURES ===================================
+____________________ test_unit_page_offsets_and_navigation _____________________
+
+    def test_unit_page_offsets_and_navigation():
+        rows = [{"entity_code": "A.FP", "trade_date": f"2026-08-0{i}"} for i in (3, 4)]
+        for offset, limit, nxt, trunc in ((0, 1, 1, True), (0, 2, None, False),
+                                          (1, 1, None, True), (5, 1, None, False)):
+            # real paging path slices preview and recomputes returned_count/truncated
+            # (episode.py read_history_result rows[offset:offset+limit]) before _result.
+            page = rows[offset:offset + limit]
+            payload = dict(
+                _payload(rows),
+                preview=page,
+                returned_count=len(page),
+                truncated=len(page) < len(rows),
+            )
+            model, details = _project(_result(payload, result_ref=REF, offset=offset))
+            scope = next(row for row in details if "total_matched" in row)
+            assert scope["offset"] == offset
+            assert scope["next_offset"] == nxt
+>           assert scope["truncated"] is trunc
+E           assert True is False
+
+../../spec/work/probes/test_probe_c5_pagination_v2.py:26: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/tmp/execute-019-run_tests.xml -
+=========================== short test summary info ============================
+FAILED ::test_unit_page_offsets_and_navigation - assert True is False
+1 failed, 5 passed in 4.35s

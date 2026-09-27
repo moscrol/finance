@@ -1,0 +1,1 @@
+{"toolCallId":"call_8ffab4282f5244029225b621","params":{"args":["-n","-B2","-A15","_DANGLING_CONDITION_COUNT_RE\\s*=","intelligence/services/episode_semantic_verifier.py"],"program":"rg"}}

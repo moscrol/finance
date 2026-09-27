@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="29" time="8.308" timestamp="2026-09-24T02:25:28.037547+08:00" hostname="77deMacBook-Air.local"><testcase classname="" name="test_strip_masks_ordinal_refs_with_space_not_join" time="0.002"><failure message="AssertionError: 缩量整理（ 、 ）后量能改善。&#10;assert '缩量整理（ 、 ）后量能改善。' == '缩量整理（  、  ）后量能改善。'&#10;  &#10;  - 缩量整理（  、  ）后量能改善。&#10;  ?       - -&#10;  + 缩量整理（ 、 ）后量能改善。">def test_strip_masks_ordinal_refs_with_space_not_join():
+        text = "缩量整理（E3、e12）后量能改善。"
+        out = strip_evidence_ordinals(text)
+&gt;       assert out == "缩量整理（  、  ）后量能改善。", out
+E       AssertionError: 缩量整理（ 、 ）后量能改善。
+E       assert '缩量整理（ 、 ）后量能改善。' == '缩量整理（  、  ）后量能改善。'
+E         
+E         - 缩量整理（  、  ）后量能改善。
+E         ?       - -
+E         + 缩量整理（ 、 ）后量能改善。
+
+../../spec/work/probes/test_c1_ordinals_not_numbers.py:18: AssertionError</failure></testcase><testcase classname="" name="test_strip_keeps_non_citation_tokens_intact" time="0.000" /><testcase classname="" name="test_citation_grammar_borders" time="0.001" /><testcase classname="" name="test_ordinal_only_draft_is_not_a_numeric_claim" time="0.005" /><testcase classname="" name="test_real_number_still_checked_even_next_to_ordinals" time="0.002"><failure message="AssertionError: assert False is True&#10; +  where False = numeric_condition_unsupported(VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()))">def test_real_number_still_checked_even_next_to_ordinals():
+        _f, structural = _structural("如E3所示，今日涨停52家，量能放大。")
+&gt;       assert numeric_condition_unsupported(structural) is True
+E       AssertionError: assert False is True
+E        +  where False = numeric_condition_unsupported(VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()))
+
+../../spec/work/probes/test_c1_ordinals_not_numbers.py:46: AssertionError</failure></testcase><testcase classname="" name="test_invalid_arguments_yield_structured_error_not_fabricated_rows" time="1.541" /><testcase classname="" name="test_failure_result_redacts_secret_paths_and_percent_prose" time="0.001" /><testcase classname="" name="test_local_validation_failure_feeds_back_same_episode_keeps_evidence_and_budget" time="0.569"><failure message="AssertionError: assert []&#10; +  where [] = &lt;built-in method get of dict object at 0x10b189900&gt;('evidence')&#10; +    where &lt;built-in method get of dict object at 0x10b189900&gt; = {'dataset': 'market_daily', 'error': 'parse_error', 'evidence': [], 'evidence_hashes': [], ...}.get">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/tmp/execute-004-run_tests/test_local_validation_failure_0')
+
+    def test_local_validation_failure_feeds_back_same_episode_keeps_evidence_and_budget(tmp_path):
+        frame, context, registry, path = _setup(tmp_path)
+        before = path.read_bytes()
+        model = _Scripted()
+        outcome = ContinuousAgentEpisode(model).run(
+            task_frame=frame, context=context, registry=registry,
+        )
+        assert outcome.stop_reason == "model_finish"
+        assert outcome.usage.tool_calls == 2          # no extra slot minted for the retry
+        assert len(model.calls) == 3                   # same episode, third turn still sees history
+        assert len(model.tool_messages) == 2
+        first = json.loads(model.tool_messages[0]["content"])
+        second = json.loads(model.tool_messages[1]["content"])
+&gt;       assert first.get("evidence")                   # good query returned evidence
+E       AssertionError: assert []
+E        +  where [] = &lt;built-in method get of dict object at 0x10b189900&gt;('evidence')
+E        +    where &lt;built-in method get of dict object at 0x10b189900&gt; = {'dataset': 'market_daily', 'error': 'parse_error', 'evidence': [], 'evidence_hashes': [], ...}.get
+
+../../spec/work/probes/test_c2c3_finance_query_feedback.py:117: AssertionError</failure></testcase><testcase classname="" name="test_cancellation_after_feedback_stops_without_extra_dispatch" time="0.678" /><testcase classname="" name="test_frozen_nested_mapping_normalizes_to_plain_json_shape" time="0.001"><failure message="assert '{&quot;dataset&quot;: &quot;market_daily&quot;, &quot;dimensions&quot;: [&quot;trade_date&quot;, &quot;stage_day&quot;], &quot;filters&quot;: [{&quot;field&quot;: &quot;stage_day&quot;, &quot;op&quot;: &quot;eq&quot;, &quot;v' == {'dataset': 'market_daily', 'dimensions': ('trade_date', 'stage_day'), 'filters': ({'field': 'stage_day', 'op': 'eq', 'value': 3},), 'nested': {'time_range': {'end': '2026-07-21', 'start': '2026-07-21'}}}">def test_frozen_nested_mapping_normalizes_to_plain_json_shape():
+        base, frozen = _frozen_query()
+        normalized = normalize_query(frozen)
+&gt;       assert normalized == base
+E       assert '{"dataset": "market_daily", "dimensions": ["trade_date", "stage_day"], "filters": [{"field": "stage_day", "op": "eq", "v' == {'dataset': 'market_daily', 'dimensions': ('trade_date', 'stage_day'), 'filters': ({'field': 'stage_day', 'op': 'eq', 'value': 3},), 'nested': {'time_range': {'end': '2026-07-21', 'start': '2026-07-21'}}}
+
+../../spec/work/probes/test_c4_frozen_mapping_progress.py:35: AssertionError</failure></testcase><testcase classname="" name="test_frozen_and_plain_arguments_share_one_normalized_identity" time="0.001" /><testcase classname="" name="test_unknown_objects_are_rejected_with_their_type_named" time="0.001" /><testcase classname="" name="test_rejection_still_fires_at_top_level_unknown_object" time="0.001" /><testcase classname="" name="test_projection_sample_identity_is_absolute_not_page_relative" time="0.001" /><testcase classname="" name="test_same_row_keeps_identity_across_pages" time="0.001" /><testcase classname="" name="test_denominator_card_exposes_offset_and_next_offset" time="0.001"><failure message="AssertionError: {&quot;operation&quot;:&quot;find_analogues&quot;,&quot;status&quot;:&quot;ok&quot;,&quot;total_matched&quot;:60,&quot;returned_count&quot;:25,&quot;truncated&quot;:true,&quot;offset&quot;:25,&quot;next_offset&quot;:null,&quot;research_only&quot;:true,&quot;decision_eligible&quot;:false,&quot;promotion_eligible&quot;:false}&#10;assert None&#10; +  where None = &lt;function search at 0x102e893a0&gt;('&quot;next_offset&quot;:\\s*50', '{&quot;operation&quot;:&quot;find_analogues&quot;,&quot;status&quot;:&quot;ok&quot;,&quot;total_matched&quot;:60,&quot;returned_count&quot;:25,&quot;truncated&quot;:true,&quot;offset&quot;:25,&quot;next_offset&quot;:null,&quot;research_only&quot;:true,&quot;decision_eligible&quot;:false,&quot;promotion_eligible&quot;:false}')&#10; +    where &lt;function search at 0x102e893a0&gt; = re.search">def test_denominator_card_exposes_offset_and_next_offset():
+        projection = _model_projection(_payload(25, [], total=60, returned=25), "ref")
+        head = projection[0][1]
+        assert re.search(r'"offset":\s*25', head), head
+&gt;       assert re.search(r'"next_offset":\s*50', head), head
+E       AssertionError: {"operation":"find_analogues","status":"ok","total_matched":60,"returned_count":25,"truncated":true,"offset":25,"next_offset":null,"research_only":true,"decision_eligible":false,"promotion_eligible":false}
+E       assert None
+E        +  where None = &lt;function search at 0x102e893a0&gt;('"next_offset":\\s*50', '{"operation":"find_analogues","status":"ok","total_matched":60,"returned_count":25,"truncated":true,"offset":25,"next_offset":null,"research_only":true,"decision_eligible":false,"promotion_eligible":false}')
+E        +    where &lt;function search at 0x102e893a0&gt; = re.search
+
+../../spec/work/probes/test_c5_history_pagination_identity.py:60: AssertionError</failure></testcase><testcase classname="" name="test_result_next_offset_math_and_final_page_null" time="0.003" /><testcase classname="" name="test_observation_carries_pagination_and_window_hints" time="0.003" /><testcase classname="" name="test_independent_key_stays_query_id_across_pages" time="0.002" /><testcase classname="" name="test_projection_failure_raises_out_of_result" time="0.006" /><testcase classname="" name="test_result_injects_offset_and_next_offset_before_projection" time="0.001" /><testcase classname="" name="test_final_page_injection_is_visible_to_projection" time="0.001" /><testcase classname="" name="test_surviving_definition_and_its_count_are_kept" time="0.001" /><testcase classname="" name="test_both_labels_orphaned_on_separate_lines_prose_and_breaks_kept" time="0.001"><failure message="AssertionError: assert ('升级条件' not in '- 缩量整理，满足升级...触及的独立观察保持原样。'&#10;  &#10;  '升级条件' is contained here:&#10;    - 缩量整理，满足升级条件中的3条，波动收敛。&#13;&#10;  ?          ++++&#10;    - 未触及的独立观察保持原样。)">def test_both_labels_orphaned_on_separate_lines_prose_and_breaks_kept():
+        before = (
+            "升级条件：若涨停60家以上，则升级。\r\n"
+            "降级条件：跌破前低。\r\n"
+            "- 缩量整理，满足升级条件中的3条，波动收敛。\r\n"
+            "- 未触及的独立观察保持原样。\r\n"
+        )
+        draft = _drop_rejected_sentences(before, (1, 2))
+&gt;       assert "升级条件" not in draft and "降级条件" not in draft
+E       AssertionError: assert ('升级条件' not in '- 缩量整理，满足升级...触及的独立观察保持原样。'
+E         
+E         '升级条件' is contained here:
+E           - 缩量整理，满足升级条件中的3条，波动收敛。
+E         ?          ++++
+E           - 未触及的独立观察保持原样。)
+
+../../spec/work/probes/test_c6_condition_repair_exit.py:57: AssertionError</failure></testcase><testcase classname="" name="test_repair_exit_keeps_surviving_definition_and_live_count_end_to_end" time="0.071"><failure message="AssertionError: assert '尚未满足降级条件中的1条' in '降级条件：跌破前低。'&#10; +  where '降级条件：跌破前低。' = AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b470b4d3', status='completed', d...llm_calls=1, tool_calls=1, invalid_actions=0, input_tokens=None, output_tokens=None), plan=None, persistence='unknown').draft&#10; +    where AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b470b4d3', status='completed', d...llm_calls=1, tool_calls=1, invalid_actions=0, input_tokens=None, output_tokens=None), plan=None, persistence='unknown') = VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()).outcome&#10; +      where VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).verified">def test_repair_exit_keeps_surviving_definition_and_live_count_end_to_end():
+        frame, structural = _structural(
+            "升级条件：若涨停60家以上，则升级。\n"
+            "降级条件：跌破前低。\n"
+            "量能温和，满足升级条件中的2条，尚未满足降级条件中的1条，需跟踪。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+        public = str(result.public_answer)
+        assert "满足升级条件中的2条" not in public
+        # Surviving definition really appears in the delivered draft and public answer.
+        assert "降级条件：跌破前低。" in result.verified.outcome.draft
+        assert "降级条件" in public
+&gt;       assert "尚未满足降级条件中的1条" in result.verified.outcome.draft
+E       AssertionError: assert '尚未满足降级条件中的1条' in '降级条件：跌破前低。'
+E        +  where '降级条件：跌破前低。' = AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b470b4d3', status='completed', d...llm_calls=1, tool_calls=1, invalid_actions=0, input_tokens=None, output_tokens=None), plan=None, persistence='unknown').draft
+E        +    where AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b470b4d3', status='completed', d...llm_calls=1, tool_calls=1, invalid_actions=0, input_tokens=None, output_tokens=None), plan=None, persistence='unknown') = VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()).outcome
+E        +      where VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).verified
+
+../../spec/work/probes/test_c6_condition_repair_exit.py:85: AssertionError</failure></testcase><testcase classname="" name="test_fully_collapsed_draft_exits_before_restore_and_leaks_nothing" time="0.016"><failure message="AssertionError: assert 'rejected' == 'repaired'&#10;  &#10;  - repaired&#10;  + rejected">def test_fully_collapsed_draft_exits_before_restore_and_leaks_nothing():
+        frame, structural = _structural(
+            "升级条件：若涨停60家以上，则升级。\n满足升级条件中的2条。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+&gt;       assert result.judge_status == "repaired"
+E       AssertionError: assert 'rejected' == 'repaired'
+E         
+E         - repaired
+E         + rejected
+
+../../spec/work/probes/test_c6_condition_repair_exit.py:98: AssertionError</failure></testcase><testcase classname="" name="test_numeric_gate_still_fires_on_novel_numeric_definitions" time="0.003" /><testcase classname="" name="test_live_definition_keeps_its_count_while_real_number_is_still_rejected" time="0.001"><failure message="AssertionError: assert False is True&#10; +  where False = numeric_condition_unsupported(VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()))">def test_live_definition_keeps_its_count_while_real_number_is_still_rejected():
+        frame, structural = _structural(
+            "升级条件：放量站稳长期均线并突破平台，则升级。\n"
+            "今日涨停62家，情绪过热。\n"
+            "缩量整理，满足升级条件中的1条，波动收敛。"
+        )
+&gt;       assert numeric_condition_unsupported(structural) is True  # 62家 fires the gate
+E       AssertionError: assert False is True
+E        +  where False = numeric_condition_unsupported(VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d407fa819f3bac9dcc0727ad456cb8d95b...alculation=None, material_grounding=None), missing_outputs=(), mandatory_missing_capabilities=(), extension_outputs=()))
+
+../../spec/work/probes/test_c6b_gate_exemption_scope.py:23: AssertionError</failure></testcase><testcase classname="" name="test_count_reference_without_deletion_passes_through_verifier_untouched" time="0.002" /></testsuite></testsuites>

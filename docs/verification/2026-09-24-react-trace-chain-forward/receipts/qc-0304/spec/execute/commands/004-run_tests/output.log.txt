@@ -1,0 +1,59 @@
+.F..........FF.F..                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_plain_words_and_hex_like_tokens_are_not_ordinals _____________
+
+    def test_plain_words_and_hex_like_tokens_are_not_ordinals():
+        text = "EX1 E E5x END 1234"
+        out = strip_evidence_ordinals(text)
+>       assert "EX1" in out and " E " in out and "E5x" in out and "1234" in out
+E       AssertionError: assert ('EX1' in 'EX1 E  x END 1234' and ' E ' in 'EX1 E  x END 1234' and 'E5x' in 'EX1 E  x END 1234')
+
+../../spec/work/probes/test_probe_c1_c4_ordinals_progress.py:23: AssertionError
+____________________ test_unit_page_offsets_and_navigation _____________________
+
+    def test_unit_page_offsets_and_navigation():
+        rows = [{"entity_code": "A.FP", "trade_date": f"2026-08-0{i}"} for i in (3, 4)]
+        payload = _payload(rows)
+        for offset, limit, nxt, trunc in ((0, 1, 1, True), (0, 2, None, False),
+                                          (1, 1, None, True), (5, 1, None, False)):
+            model, details = _project(_result(payload, result_ref=REF, offset=offset))
+            scope = next(row for row in details if "total_matched" in row)
+            assert scope["offset"] == offset
+>           assert scope["next_offset"] == nxt
+E           assert None == 1
+
+../../spec/work/probes/test_probe_c5_pagination.py:97: AssertionError
+_ test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it __
+
+    def test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it():
+        """Surviving definition (second sentence, not line head) must keep its count."""
+        before = DEFS + "\n降级条件：风险可控。已满足降级条件中的1条，需观察。"
+        rejected = _rejected(before)
+>       assert rejected == (1, 2)  # precondition: both original defs recognized
+E       assert (1, 2, 3) == (1, 2)
+E         
+E         Left contains one more item: 3
+E         Use -v to get more diff
+
+../../spec/work/probes/test_probe_c6_condition_repair.py:28: AssertionError
+_________ test_circled_and_ordered_definition_prefixes_are_recognized __________
+
+    def test_circled_and_ordered_definition_prefixes_are_recognized():
+        for prefix in ("① ", "一、", "（2）", "10. "):
+            before = f"{prefix}升级条件：若放量，则升级。\n满足升级条件中的2条，量能配合。"
+            rejected = _rejected(before)
+>           assert rejected == (1,), prefix
+E           AssertionError: ① 
+E           assert () == (1,)
+E             
+E             Right contains one more item: 1
+E             Use -v to get more diff
+
+../../spec/work/probes/test_probe_c6_condition_repair.py:54: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/tmp/execute-004-run_tests.xml -
+=========================== short test summary info ============================
+FAILED ::test_plain_words_and_hex_like_tokens_are_not_ordinals - AssertionErr...
+FAILED ::test_unit_page_offsets_and_navigation - assert None == 1
+FAILED ::test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it
+FAILED ::test_circled_and_ordered_definition_prefixes_are_recognized - Assert...
+4 failed, 14 passed in 9.45s

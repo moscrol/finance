@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "network_attempts": 0,
+  "actual_installed_sdk": true,
+  "results": [
+    {
+      "label": "old_nominal_off",
+      "max_completion_tokens": 8192
+    },
+    {
+      "label": "native_low",
+      "thinking": {
+        "type": "enabled",
+        "clear_thinking": false
+      },
+      "reasoning_effort": "low",
+      "max_tokens": 8192
+    }
+  ]
+}

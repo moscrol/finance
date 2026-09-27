@@ -1,0 +1,8 @@
+70:    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+73:def normalize_query(value: object) -> str:
+85:                value = json.dumps(
+93:class ToolCallDigest:
+118:class BatchDigest:
+132:class BranchDigest:
+142:class _QueryAttempts:
+147:class ResearchProgressTracker:

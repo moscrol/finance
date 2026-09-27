@@ -1,0 +1,71 @@
+244:VERDICT_REASON_NUMERIC = "novel_numeric_condition"
+271:_NUMERIC_COMPARATOR_RE = re.compile(
+275:    r"^(?:区分变量|判断标准|检验条件|改判条件(?:表)?|证伪条件|触发条件|失效条件|"
+276:    r"失效信号|降级信号|条件)\s*(?:\d+|[一二三四五六七八九十]+)?\s*[：:=]"
+279:    r"(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|失效信号|降级信号|条件)"
+283:    # 吃掉它会让整条列表项塌成一句没有标记的散文。
+286:    r"(?P<label>升级条件|降级条件)中的"
+287:    r"(?P<count>[0-9０-９一二两三四五六七八九十百千万]+)条"
+326:    r"(?P<label>升级条件|降级条件)"
+331:    r"(?:条件|失效信号|降级信号|触发条件)\s*"
+374:    r"(?P<label>依据|理由|原因|条件|要点|因素|信号|维度|方面)"
+377:    r"(?P<unit>点|条|项|个|方面|种)"
+382:    r"(?P<descriptor>[^，,。；;\n]{0,12}?(?:框架|方法|验证|条件|要点))"
+387:_NUMERIC_CONDITION_ISSUE = Issue(
+505:                    # 可选：每条拒句的理由码。不进 required——旧判官不回它时报告照旧有效。
+560:    "给出带不确定性和条件的主观区间；但发明外部原因、支持性统计或任意触发阈值仍"
+566:    "或“注册表无对应条目”，也不得因此摘除 required output。你要审的是这些数被"
+576:    "给出的条件，model_reasoning 可以在不伪造证据的前提下给出方法论推理。若 "
+579:    "已核验事实时才拒绝。若为 user_premise，用户明确给出的条件视为假设前提，不要求"
+587:    "可选字段 reason_codes（对象列表，每项 {sentence_index, code}）为每条拒句标注"
+711:    # P2 第一步（spec 2026-09-02 §3.3「先量后改」）：判官每条拒句的结构化账——
+1138:# 只在「纯语义早退」那条路上开火：首判拒了句、_plan_repair_indexes 为空（没有机械
+1139:# 句要删）、V8 已把语义拒句降成 issue 准备直接出门。此时用被拒句拼一条确定性 query
+1199:    规则：主体（空则取问句「怎么看/如何/为什么」之前的前缀）+ 最多 3 条被拒句
+1417:        的可靠代理——39 条实测账本里 L4_structured（本地行情，全系统最可信档）占 25 条，
+1496:        # 通过这个投影回到公开稿。这里仅保留控制面标记，公开文本不拼质检条。
+1525:        拒句账（``sentence_verdicts``）在这一层统一挂到返回值上：内层有十几条
+1526:        提前返回路径，逐条挂会漏；账本为空时不动返回值（历史夹具逐字节不变）。
+1578:        # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
+1895:                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
+2007:            # 窗被前一发吃光与根期限到点走同一条瞬态候选路：拆标签只为归因，
+2049:        first = _apply_meta_disclosure_exemption(first, sentences)
+2101:            # ★ V11 唯一入口：纯语义早退。开火与否都不改下面这条返回路径。
+2238:        second = _apply_meta_disclosure_exemption(second, repaired_sentences)
+2650:        Ordinary v8 semantic demotion and meta-disclosure exemption cannot
+2666:            # a rejected material claim through meta exemption or v8 demotion.
+3573:                f"{len(rejected_sentence_indexes)} 条未通过判官的表述",
+3713:        # 改写账先取走再动稿：本函数任何一条早退都不能把它留给下一轮 ``_repair``。
+3729:        # （真值已在稿里）；缺口这条留作兜底——补不回来时它仍会记账，
+3927:        「从不输出裸的不知道」那条；08-01 验收 C 组的诚实度失分同源）。
+3938:            # 禁语在下面的 evidence 分支，不看 cause。判官挂了必须改这条
+3944:                    f"本轮已取得 {len(evidence)} 条证据，暂不对外引用；可直接重试。"
+4006:                    f"{label}（{count} 条证据）" for label, count in kept[:3]
+4012:            # 但没走到 FINAL_JSON，一条都没绑定（08-12 A5 实测：25 条证据、
+4013:            # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
+4017:                f"本轮已取得 {len(verified.outcome.evidence)} 条证据，"
+4209:    # 其余任何 issue 仍让这条「诚实 runtime partial」升格失效。
+4312:        (VERDICT_REASON_NUMERIC, numeric),
+4326:    """判官 issue 里显式点到「第 N 句 / 句 N / sentence N」的那些条。"""
+4351:    """一条拒句账：句子 / 决定 / 理由 / 判官原话 / 理由码 / 引到的证据与来源档。
+4451:        *(_NUMERIC_CONDITION_ISSUE.message for _ in [0] if numeric),
+4611:    """一条语义拒句的动词：``(decision, rewritten_text)``。
+4686:    只做**分区**不做预检：它决定一条已被判官拒绝的句子是删还是降级，不替判官拒句——
+4688:    任一代码不在任何证据语料里即点名：保留一条带编造代码的句子比丢掉同句其他真值更糟，
+4733:def _apply_meta_disclosure_exemption(
+4750:    exempted = {
+4755:    if not exempted:
+4758:        index for index in report.rejected_sentence_indexes if index not in exempted
+4763:        if not any(f"第{index}句" in issue for index in exempted)
+4920:        # 条件槽豁免问的是另一个问题，故不带这个过滤——两块不对称是有意的，
+4928:        # 条件槽粒度豁免：契约把前瞻假设槽（情景/持续/证伪条件）签成
+4929:        # model_reasoning 时，条件句里的新阈值是模型受契约委托提出的判断，
+4985:                # A layout heading can itself make a claim. It is not exempt
+4997:                "变化", "条件", "触发条件", "改判条件", "证伪条件", "失效信号", "区分变量",
+5006:                    or _NUMERIC_COMPARATOR_RE.search(cell)
+5012:        if not (trigger or labelled or condition_section or _NUMERIC_COMPARATOR_RE.search(candidate)):
+5017:            prefix_comparator = _NUMERIC_COMPARATOR_RE.search(candidate[:trigger.start()])
+5328:_SOURCE_DATE_SUBJECT = r"(?:该|这[份条篇则]?|上述)?(?:公告|报告|研报|材料|证据|新闻)"
+5705:    A mechanical condition deletion must not leave prose such as "满足升级条件中的
+5706:    2条" behind.  That count is meaningful only while the referenced condition list
+6633:    # 会被下面那条 invalid 分支抢走并判成 retryable=False。

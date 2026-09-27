@@ -1,0 +1,402 @@
+diff --git a/intelligence/services/episode_semantic_verifier.py b/intelligence/services/episode_semantic_verifier.py
+index a4a40190b..5aca24a13 100644
+--- a/intelligence/services/episode_semantic_verifier.py
++++ b/intelligence/services/episode_semantic_verifier.py
+@@ -278,6 +278,54 @@ _CONDITION_LABEL_RE = re.compile(
+ _CONDITION_HEADING_RE = re.compile(
+     r"(?:区分变量|判断标准|改判条件(?:表)?|证伪条件|触发条件|失效条件|失效信号|降级信号|条件)"
+ )
++_DANGLING_CONDITION_COUNT_RE = re.compile(
++    # 破折号只认中文全角 — –：ASCII 连字符在行首是 markdown 列表符，
++    # 吃掉它会让整条列表项塌成一句没有标记的散文。
++    r"(?P<dash>[—–]+\s*)?"
++    r"(?P<opening>\*{2})?\s*满足"
++    r"(?P<label>升级条件|降级条件)中的"
++    r"(?P<count>[0-9０-９一二两三四五六七八九十百千万]+)条"
++    r"(?P<comma>[，,]\s*)?"
++)
++# 删掉计数后，接缝两侧已有这些字符之一就不再补标点，否则会出现「，，」。
++_CLAUSE_EDGE_CHARS = "，,、；;：:。．！？!?—–-"
++_LIST_MARKER_ONLY_RE = re.compile(r"^\s*(?:[-*+•>]|\d+[.、)）])?\s*$")
++_LIST_MARKER_PREFIX_RE = re.compile(r"^\s*(?:[-+•>]|\*(?!\*)|\d+[.、)）])\s*")
++# 只管住计数短语的副词：计数没了它们也就没了宾语，留着就是「目前尚未，需继续观察」。
++_COUNT_BOUND_ADVERBS = (
++    "均尚未",
++    "尚未",
++    "仍未",
++    "并未",
++    "还未",
++    "暂未",
++    "均未",
++    "已经",
++    "没有",
++    "仅仅",
++    "不",
++    "未",
++    "没",
++    "已",
++    "仅",
++    "只",
++    "共",
++)
++# 副词删完只剩时间状语时，它同样失去落点。
++_STANDALONE_TIME_ADVERBS = frozenset(
++    {"目前", "当前", "现阶段", "截至目前", "截至当前", "暂", "暂时", "眼下", "现在"}
++)
++_DANGLING_LEADING_CONJUNCTIONS = ("而且", "并且", "同时", "以及", "但是", "但", "且", "并", "又")
++# 「结论：」这类只剩标签、正文被删空的行，整行丢弃比留个孤零零的冒号好。
++_LABEL_ONLY_AFTER_REPAIR_RE = re.compile(
++    r"^[\s\-*+•>]*(?:\*{2})?[^：:。．！？\n]{0,16}[：:]\s*(?:\*{2})?[。．，,、；;\s]*$"
++)
++_SUBSTANTIVE_CHAR_RE = re.compile(r"[0-9A-Za-z一-鿿]")
++_CONDITION_DEFINITION_RE = re.compile(
++    r"^\s*(?:[-*]\s*)?(?:\*{2})?"
++    r"(?P<label>升级条件|降级条件)"
++    r"(?:\*{2})?\s*[:：]"
++)
+ _LEADING_CONDITION_LABEL_RE = re.compile(
+     r"^\s*(?:[-*]\s*)?"
+     r"(?:条件|失效信号|降级信号|触发条件)\s*"
+@@ -3669,6 +3717,11 @@ class SemanticEpisodeVerifier:
+             rejected_sentence_indexes,
+             preserve_numbering=bool(material_question_outputs(contract)),
+         )
++        draft = _repair_dangling_condition_references(
++            draft,
++            before=original.draft,
++            rejected_sentence_indexes=rejected_sentence_indexes,
++        )
+         if not draft:
+             return None
+         draft = _apply_sentence_rewrites(draft, rewrites)
+@@ -5641,6 +5694,176 @@ def _gaps_with_lost_observations(
+     return tuple(dict.fromkeys((*gaps, *notes)))
+ 
+ 
++def _repair_dangling_condition_references(
++    draft: str,
++    *,
++    before: str,
++    rejected_sentence_indexes: tuple[int, ...],
++) -> str:
++    """Remove counts that refer to a condition definition deleted upstream.
++
++    A mechanical condition deletion must not leave prose such as "满足升级条件中的
++    2条" behind.  That count is meaningful only while the referenced condition list
++    is still visible.  The repair is deliberately narrow: it targets labels that were
++    actually deleted in this pass, preserves the surrounding observations, and leaves
++    ordinary conditions untouched.
++    """
++
++    if not draft or not rejected_sentence_indexes:
++        return draft
++    rejected = frozenset(rejected_sentence_indexes)
++    deleted_labels = {
++        match.group("label")
++        for item in _numbered_sentences(before)
++        if item.get("index") in rejected
++        for match in (_CONDITION_DEFINITION_RE.match(str(item.get("text") or "")),)
++        if match is not None
++    }
++    if not deleted_labels:
++        return draft
++    # Use the deletion-side sentence grammar here too: a surviving definition
++    # may be the second sentence on a line, not just a line's first heading.
++    surviving_labels = {
++        match.group("label")
++        for item in _numbered_sentences(draft)
++        for match in (_CONDITION_DEFINITION_RE.match(str(item["text"])),)
++        if match is not None
++    }
++    orphaned_labels = deleted_labels - surviving_labels
++    if not orphaned_labels:
++        return draft
++
++    orphaned = frozenset(orphaned_labels)
++    lines: list[str] = []
++    for raw_line in str(draft).splitlines(keepends=True):
++        body = raw_line.rstrip("\r\n")
++        line = _strip_dangling_condition_counts(body, orphaned)
++        if line is None:
++            continue
++        lines.append(line + raw_line[len(body):])
++    return "".join(lines)
++
++
++def _strip_dangling_condition_counts(
++    line: str, orphaned_labels: frozenset[str]
++) -> str | None:
++    """Drop every orphaned count on one line; None means the line lost all content.
++
++    扫描用 ``finditer`` 而不是「search 到第一个就判标签」：同一行里先出现一个
++    未失联的计数时，后面失联的那个必须照样删得掉。
++    """
++
++    repaired = line
++    changed = False
++    while True:
++        match = next(
++            (
++                found
++                for found in _DANGLING_CONDITION_COUNT_RE.finditer(repaired)
++                if found.group("label") in orphaned_labels
++            ),
++            None,
++        )
++        if match is None:
++            break
++        repaired = _splice_out_condition_count(repaired, match)
++        changed = True
++    if not changed:
++        return line
++    return None if _is_contentless_after_repair(repaired) else repaired
++
++
++def _splice_out_condition_count(line: str, match: re.Match[str]) -> str:
++    """Remove one matched count and heal the seam it leaves behind."""
++
++    prefix = _drop_adverbs_bound_to_count(line[: match.start()])
++    suffix = line[match.end() :]
++    opening = bool(match.group("opening"))
++    # An opening emphasis marker can precede the removed time/adverb phrase.
++    # Do not take a *closing* marker off a surviving observation.
++    if prefix.endswith("**") and prefix.count("**") % 2:
++        prefix = prefix[:-2]
++        opening = True
++    if opening and "**" in suffix:
++        suffix = suffix.replace("**", "", 1)
++
++    # Heal only this seam, never punctuation elsewhere in the answer. A terminal
++    # count leaves the preceding comma behind; a separately bold count leaves
++    # its following delimiter outside the regex match.
++    head, tail = prefix.rstrip(), suffix.lstrip()
++    if head.endswith(tuple("，,、；;")) and (not tail or tail[0] in _CLAUSE_EDGE_CHARS):
++        prefix = head.rstrip("，,、；;")
++    if _LIST_MARKER_ONLY_RE.match(prefix):
++        suffix = suffix.lstrip("，,、；;。．！？!? ")
++        suffix = _drop_leading_conjunction(suffix)
++        if not suffix:
++            return ""
++        # The regex may consume the list marker's space, not the marker itself.
++        joint = " " if prefix.strip() and not prefix[-1:].isspace() else ""
++    elif prefix.rstrip().endswith(tuple("。．！？!?")):
++        suffix = suffix.lstrip("，,、；;。．！？!? ")
++        suffix = _drop_leading_conjunction(suffix)
++        joint = ""
++    else:
++        joint = "，" if _seam_needs_separator(prefix, suffix) else ""
++    return f"{prefix}{joint}{suffix}"
++
++
++def _drop_adverbs_bound_to_count(prefix: str) -> str:
++    """Drop a trailing adverb whose only object was the removed count."""
++
++    trimmed = prefix.rstrip()
++    # A count may have several modifiers ("当前仅已满足…"). Remove only
++    # adjacent modifiers, not words in earlier observations.
++    while True:
++        modifier = next(
++            (word for word in (*_COUNT_BOUND_ADVERBS, *_DANGLING_LEADING_CONJUNCTIONS)
++             if trimmed.endswith(word)),
++            None,
++        )
++        if modifier is None:
++            break
++        trimmed = trimmed[:-len(modifier)].rstrip()
++    marker_match = _LIST_MARKER_PREFIX_RE.match(trimmed)
++    marker = marker_match.group(0) if marker_match else ""
++    remainder = trimmed[len(marker):]
++    # A time phrase is standalone relative to its own clause, not the whole
++    # line: "观察。目前满足…" must not leave the fragment "目前。".
++    clause_start = max(remainder.rfind(char) for char in _CLAUSE_EDGE_CHARS) + 1
++    body = remainder[clause_start:]
++    if body.strip().strip("*") in _STANDALONE_TIME_ADVERBS:
++        body = "**" if body.strip().startswith("**") else ""
++    repaired = f"{marker}{remainder[:clause_start]}{body}"
++    return prefix if repaired == prefix.rstrip() else repaired
++
++
++def _drop_leading_conjunction(suffix: str) -> str:
++    head = suffix.lstrip()
++    padding = suffix[: len(suffix) - len(head)]
++    for conjunction in _DANGLING_LEADING_CONJUNCTIONS:
++        if head.startswith(conjunction):
++            return f"{padding}{head[len(conjunction):]}"
++    return suffix
++
++
++def _seam_needs_separator(prefix: str, suffix: str) -> bool:
++    head = prefix.rstrip()
++    tail = suffix.lstrip()
++    if not head or not tail:
++        return False
++    if _LIST_MARKER_ONLY_RE.match(prefix):
++        return False
++    return head[-1] not in _CLAUSE_EDGE_CHARS and tail[0] not in _CLAUSE_EDGE_CHARS
++
++
++def _is_contentless_after_repair(line: str) -> bool:
++    """Whether a repaired line still carries anything a reader can use."""
++
++    if not _SUBSTANTIVE_CHAR_RE.search(line):
++        return True
++    return bool(_LABEL_ONLY_AFTER_REPAIR_RE.match(line))
++
++
+ def _without_deleted_claims(
+     binding: OutputEvidenceBinding,
+     texts: frozenset[str],
+diff --git a/intelligence/services/historical_research/episode.py b/intelligence/services/historical_research/episode.py
+index 5ecd82f2b..708987b4b 100644
+--- a/intelligence/services/historical_research/episode.py
++++ b/intelligence/services/historical_research/episode.py
+@@ -213,7 +213,7 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+ 
+     add("历史研究范围与完整分母", {}, [
+         {key: payload.get(key)}
+-        for key in ("operation", "status", "total_matched", "returned_count", "truncated")
++        for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
+     ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
+     add("历史研究原件引用", {}, [{"result_ref": result_ref}])
+     add("历史研究使用边界", {}, [{
+@@ -265,7 +265,10 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+                 if code and name:
+                     names.setdefault(code, set()).add(name)
+     preview = payload.get("preview", [])
+-    records = list(enumerate(preview[:25] if isinstance(preview, list) else []))
++    # A sample is a row in the immutable result, not a position within this page.
++    records = list(enumerate(
++        preview[:25] if isinstance(preview, list) else [], start=payload.get("offset", 0)
++    ))
+     reference = payload.get("reference")
+     if isinstance(reference, dict):
+         records.insert(0, ("reference", reference))
+@@ -358,7 +361,18 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
+     return projected
+ 
+ 
+-def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query"):
++def _result(
++    payload: dict, *, result_ref: str = "", tool: str = "history_query", offset: int = 0
++):
++    returned_count = payload.get("returned_count", 0)
++    page_end = offset + returned_count
++    payload = dict(
++        payload,
++        offset=offset,
++        next_offset=(
++            page_end if returned_count and page_end < payload.get("total_matched", 0) else None
++        ),
++    )
+     metadata = {
+         key: payload[key]
+         for key in (
+@@ -369,6 +383,8 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
+             "total_matched",
+             "returned_count",
+             "truncated",
++            "offset",
++            "next_offset",
+             "coverage",
+             "definition_refs",
+             "gaps",
+@@ -422,9 +438,10 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
+         + _compact({"result_ref": result_ref, "query_id": query_id,
+                     "total_matched": payload.get("total_matched"), "returned_count": payload.get("returned_count"),
+                     "truncated": payload.get("truncated"),
++                    "offset": offset, "next_offset": payload["next_offset"],
+                     "projected_evidence_count": len(projection)})
+-        + "样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。"
+-        "大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。"
++        + "样本以完整JSON语义块展示，同result_ref内sample是原件行号（从0起），跨页不重置；特征定义卡给出真实rule/unit/version。"
++        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
+         "需未展示行请用read_history_result分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
+         trace=ProviderTrace(
+             provider="duckdb_history_query",
+@@ -732,11 +749,12 @@ def history_tool_specs(
+             )
+         rows = payload.get("rows", payload.get("cases", []))
+         if isinstance(rows, list):
++            page = rows[offset : offset + limit]
+             payload = dict(
+                 payload,
+-                preview=rows[offset : offset + limit],
+-                returned_count=len(rows[offset : offset + limit]),
+-                truncated=len(rows) > limit,
++                preview=page,
++                returned_count=len(page),
++                truncated=len(page) < len(rows),
+             )
+         metadata = {
+             key: payload.get(key)
+@@ -750,7 +768,7 @@ def history_tool_specs(
+                 "definition_refs",
+             )
+         }
+-        result = _result(payload, result_ref=ref, tool="read_history_result")
++        result = _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
+         context.history_results.append(
+             dict(metadata, result_ref=ref, execution_status="success",
+                  **({"window_binding": payload["window_binding"]} if "window_binding" in payload else {}))
+diff --git a/intelligence/tests/test_agent_episode_progress.py b/intelligence/tests/test_agent_episode_progress.py
+index c9e44d65d..37f952532 100644
+--- a/intelligence/tests/test_agent_episode_progress.py
++++ b/intelligence/tests/test_agent_episode_progress.py
+@@ -26,6 +26,8 @@ from intelligence.services.research_contract import (
+     ResearchRunContext,
+     ResearchTaskContract,
+ )
++from intelligence.services.historical_research.episode import history_tool_specs
++from intelligence.services.historical_research.intent import HistoryIntent
+ from intelligence.services.research_tool_registry import (
+     ResearchToolRegistry, ToolSpec, URL_TOOL_PARAMETERS, parse_url_arguments,
+ )
+@@ -380,6 +382,68 @@ def test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode(
+     assert progress["last_batch"][0]["result"] == ("error" if dispatched else "rejected")
+ 
+ 
++def test_missing_history_end_returns_feedback_without_losing_prior_evidence(
++    monkeypatch: pytest.MonkeyPatch, tmp_path,
++) -> None:
++    """真 parser + 真 loop；缺参仍拒绝，脚本模型可在同轮保留已有判断。"""
++    def denied(*_args, **_kwargs):
++        pytest.fail("invalid history arguments must not reach database or network")
++
++    monkeypatch.setattr("socket.socket.connect", denied)
++    monkeypatch.setattr("socket.create_connection", denied)
++    monkeypatch.setattr("intelligence.services.historical_research.query.HistoryQuery.run", denied)
++    monkeypatch.delenv("WORKBENCH_RESEARCH_PROGRESS", raising=False)
++    intent = HistoryIntent("historical_comparison")
++    frame = replace(_frame(), history_intent=intent)
++    base = _context(frame)
++    context = replace(base, history_intent=intent, contract=replace(
++        base.contract, allowed_capabilities=("market_data", "finance_query"),
++    ))
++    registry = ResearchToolRegistry((
++        _registry(_runner).resolve("market_data"),
++        *history_tool_specs(frame, context, tmp_path / "never-open.duckdb", None),
++    ))
++    # 2026-09-18 实际失败调用的参数形状：无 query、缺 end、嵌套 outcome。
++    call = ModelToolCall("history-missing-end", "history_query", {
++        "entity_codes": ["990089.FP"], "entity_kind": "sector",
++        "operation": "find_analogues", "outcome": {"horizon_days": 5, "threshold_pct": 3},
++        "search_start": "2025-03-01", "search_end": "2026-08-20",
++        "start": "2026-09-04", "window_days": 10,
++    })
++    before = call.to_dict()
++    finish = _finish_turn(("hash-q1",))
++    payload = json.loads(finish.content)
++    payload.update(status="partial", gaps=["历史查询缺结束日，尚未完成历史样本检验。"])
++    payload["history_research"] = {
++        "purpose": intent.purpose, "result_refs": [], "claim_level": "insufficient_evidence",
++        "research_only": True, "decision_eligible": False, "promotion_eligible": False,
++    }
++    model = ScriptedModel([
++        _tool_turn("q1", "c1"), ModelTurn("", (call,), "scripted"),
++        replace(finish, content=json.dumps(payload, ensure_ascii=False)),
++    ])
++    outcome = ContinuousAgentEpisode(model).run(
++        task_frame=frame, context=context, registry=registry,
++    )
+
+[truncated; total lines=1050, selected=1:400; request a later offset]

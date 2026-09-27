@@ -1,0 +1,572 @@
+{
+  "started_at": "2026-09-21T08:49:23.368088+00:00",
+  "identity_before": {
+    "revision": "a412a56aa757863a5c35bdbc2b71498827d2b278",
+    "status": ""
+  },
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/python-final.xml",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/python-final-temp",
+    "-o",
+    "tmp_path_retention_policy=failed",
+    "-o",
+    "tmp_path_retention_count=1"
+  ],
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 6154084352
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 7478071296
+    },
+    {
+      "elapsed": 20,
+      "free_bytes": 8491737088
+    },
+    {
+      "elapsed": 30,
+      "free_bytes": 8462278656
+    },
+    {
+      "elapsed": 40,
+      "free_bytes": 8460005376
+    },
+    {
+      "elapsed": 50,
+      "free_bytes": 8464302080
+    },
+    {
+      "elapsed": 60,
+      "free_bytes": 8462901248
+    },
+    {
+      "elapsed": 70,
+      "free_bytes": 8557088768
+    },
+    {
+      "elapsed": 80,
+      "free_bytes": 8648683520
+    },
+    {
+      "elapsed": 90,
+      "free_bytes": 8639492096
+    },
+    {
+      "elapsed": 100,
+      "free_bytes": 8506347520
+    },
+    {
+      "elapsed": 110,
+      "free_bytes": 8328691712
+    },
+    {
+      "elapsed": 120,
+      "free_bytes": 8184365056
+    },
+    {
+      "elapsed": 130,
+      "free_bytes": 8037625856
+    },
+    {
+      "elapsed": 140,
+      "free_bytes": 8130985984
+    },
+    {
+      "elapsed": 150,
+      "free_bytes": 8130027520
+    },
+    {
+      "elapsed": 160,
+      "free_bytes": 8105381888
+    },
+    {
+      "elapsed": 170,
+      "free_bytes": 8227700736
+    },
+    {
+      "elapsed": 180,
+      "free_bytes": 8229740544
+    },
+    {
+      "elapsed": 190,
+      "free_bytes": 8219013120
+    },
+    {
+      "elapsed": 200,
+      "free_bytes": 8207212544
+    },
+    {
+      "elapsed": 210,
+      "free_bytes": 8129261568
+    },
+    {
+      "elapsed": 220,
+      "free_bytes": 8101224448
+    },
+    {
+      "elapsed": 230,
+      "free_bytes": 8988602368
+    },
+    {
+      "elapsed": 240,
+      "free_bytes": 10658107392
+    },
+    {
+      "elapsed": 250,
+      "free_bytes": 11242758144
+    },
+    {
+      "elapsed": 260,
+      "free_bytes": 11251396608
+    },
+    {
+      "elapsed": 270,
+      "free_bytes": 11195129856
+    },
+    {
+      "elapsed": 280,
+      "free_bytes": 11179601920
+    },
+    {
+      "elapsed": 290,
+      "free_bytes": 11190632448
+    },
+    {
+      "elapsed": 300,
+      "free_bytes": 11132805120
+    },
+    {
+      "elapsed": 310,
+      "free_bytes": 11113336832
+    },
+    {
+      "elapsed": 320,
+      "free_bytes": 11036024832
+    },
+    {
+      "elapsed": 330,
+      "free_bytes": 10931998720
+    },
+    {
+      "elapsed": 340,
+      "free_bytes": 10724646912
+    },
+    {
+      "elapsed": 350,
+      "free_bytes": 10690211840
+    },
+    {
+      "elapsed": 360,
+      "free_bytes": 10574897152
+    },
+    {
+      "elapsed": 370,
+      "free_bytes": 10554093568
+    },
+    {
+      "elapsed": 380,
+      "free_bytes": 10530918400
+    },
+    {
+      "elapsed": 390,
+      "free_bytes": 10504667136
+    },
+    {
+      "elapsed": 400,
+      "free_bytes": 10457563136
+    },
+    {
+      "elapsed": 410,
+      "free_bytes": 10488975360
+    },
+    {
+      "elapsed": 420,
+      "free_bytes": 10471604224
+    },
+    {
+      "elapsed": 430,
+      "free_bytes": 10464141312
+    },
+    {
+      "elapsed": 440,
+      "free_bytes": 10457198592
+    },
+    {
+      "elapsed": 450,
+      "free_bytes": 10416758784
+    },
+    {
+      "elapsed": 460,
+      "free_bytes": 10410770432
+    },
+    {
+      "elapsed": 470,
+      "free_bytes": 10370166784
+    },
+    {
+      "elapsed": 480,
+      "free_bytes": 10392522752
+    },
+    {
+      "elapsed": 490,
+      "free_bytes": 10378948608
+    },
+    {
+      "elapsed": 500,
+      "free_bytes": 10356477952
+    },
+    {
+      "elapsed": 510,
+      "free_bytes": 10369892352
+    },
+    {
+      "elapsed": 520,
+      "free_bytes": 10307477504
+    },
+    {
+      "elapsed": 530,
+      "free_bytes": 10300768256
+    },
+    {
+      "elapsed": 540,
+      "free_bytes": 10295304192
+    },
+    {
+      "elapsed": 550,
+      "free_bytes": 10253606912
+    },
+    {
+      "elapsed": 560,
+      "free_bytes": 10198179840
+    },
+    {
+      "elapsed": 570,
+      "free_bytes": 10193027072
+    },
+    {
+      "elapsed": 580,
+      "free_bytes": 10167607296
+    },
+    {
+      "elapsed": 590,
+      "free_bytes": 10158407680
+    },
+    {
+      "elapsed": 600,
+      "free_bytes": 10155708416
+    },
+    {
+      "elapsed": 610,
+      "free_bytes": 10100674560
+    },
+    {
+      "elapsed": 620,
+      "free_bytes": 10024636416
+    },
+    {
+      "elapsed": 630,
+      "free_bytes": 9904439296
+    },
+    {
+      "elapsed": 640,
+      "free_bytes": 9886720000
+    },
+    {
+      "elapsed": 650,
+      "free_bytes": 9878773760
+    },
+    {
+      "elapsed": 660,
+      "free_bytes": 9858093056
+    },
+    {
+      "elapsed": 670,
+      "free_bytes": 9847017472
+    },
+    {
+      "elapsed": 680,
+      "free_bytes": 9848823808
+    },
+    {
+      "elapsed": 690,
+      "free_bytes": 9843183616
+    },
+    {
+      "elapsed": 700,
+      "free_bytes": 9847070720
+    },
+    {
+      "elapsed": 710,
+      "free_bytes": 9825705984
+    },
+    {
+      "elapsed": 720,
+      "free_bytes": 9770631168
+    },
+    {
+      "elapsed": 730,
+      "free_bytes": 9737494528
+    },
+    {
+      "elapsed": 740,
+      "free_bytes": 9698729984
+    },
+    {
+      "elapsed": 750,
+      "free_bytes": 9730600960
+    },
+    {
+      "elapsed": 760,
+      "free_bytes": 9703800832
+    },
+    {
+      "elapsed": 770,
+      "free_bytes": 9674227712
+    },
+    {
+      "elapsed": 781,
+      "free_bytes": 9584082944
+    },
+    {
+      "elapsed": 791,
+      "free_bytes": 9580503040
+    },
+    {
+      "elapsed": 801,
+      "free_bytes": 9553555456
+    },
+    {
+      "elapsed": 811,
+      "free_bytes": 9540231168
+    },
+    {
+      "elapsed": 821,
+      "free_bytes": 9366728704
+    },
+    {
+      "elapsed": 831,
+      "free_bytes": 9246781440
+    },
+    {
+      "elapsed": 841,
+      "free_bytes": 9195941888
+    },
+    {
+      "elapsed": 851,
+      "free_bytes": 9091526656
+    },
+    {
+      "elapsed": 861,
+      "free_bytes": 8920080384
+    },
+    {
+      "elapsed": 871,
+      "free_bytes": 8720502784
+    },
+    {
+      "elapsed": 881,
+      "free_bytes": 8538570752
+    },
+    {
+      "elapsed": 891,
+      "free_bytes": 8397950976
+    },
+    {
+      "elapsed": 901,
+      "free_bytes": 8286007296
+    },
+    {
+      "elapsed": 911,
+      "free_bytes": 8141565952
+    },
+    {
+      "elapsed": 921,
+      "free_bytes": 7982080000
+    },
+    {
+      "elapsed": 931,
+      "free_bytes": 8005939200
+    },
+    {
+      "elapsed": 941,
+      "free_bytes": 7920369664
+    },
+    {
+      "elapsed": 951,
+      "free_bytes": 8596258816
+    },
+    {
+      "elapsed": 961,
+      "free_bytes": 9571840000
+    },
+    {
+      "elapsed": 971,
+      "free_bytes": 10545999872
+    },
+    {
+      "elapsed": 981,
+      "free_bytes": 10579525632
+    },
+    {
+      "elapsed": 991,
+      "free_bytes": 10376761344
+    },
+    {
+      "elapsed": 1001,
+      "free_bytes": 10138771456
+    },
+    {
+      "elapsed": 1011,
+      "free_bytes": 9817686016
+    },
+    {
+      "elapsed": 1021,
+      "free_bytes": 9691406336
+    },
+    {
+      "elapsed": 1031,
+      "free_bytes": 9563049984
+    },
+    {
+      "elapsed": 1041,
+      "free_bytes": 9451343872
+    },
+    {
+      "elapsed": 1051,
+      "free_bytes": 9397592064
+    },
+    {
+      "elapsed": 1061,
+      "free_bytes": 9349476352
+    },
+    {
+      "elapsed": 1071,
+      "free_bytes": 9334272000
+    },
+    {
+      "elapsed": 1081,
+      "free_bytes": 9318486016
+    },
+    {
+      "elapsed": 1091,
+      "free_bytes": 9343229952
+    },
+    {
+      "elapsed": 1101,
+      "free_bytes": 9381232640
+    },
+    {
+      "elapsed": 1111,
+      "free_bytes": 9359155200
+    },
+    {
+      "elapsed": 1121,
+      "free_bytes": 9300283392
+    },
+    {
+      "elapsed": 1131,
+      "free_bytes": 9293344768
+    },
+    {
+      "elapsed": 1141,
+      "free_bytes": 9184874496
+    },
+    {
+      "elapsed": 1151,
+      "free_bytes": 9190719488
+    },
+    {
+      "elapsed": 1161,
+      "free_bytes": 9129594880
+    },
+    {
+      "elapsed": 1171,
+      "free_bytes": 9023373312
+    },
+    {
+      "elapsed": 1181,
+      "free_bytes": 9024872448
+    },
+    {
+      "elapsed": 1191,
+      "free_bytes": 9011585024
+    },
+    {
+      "elapsed": 1201,
+      "free_bytes": 9005473792
+    },
+    {
+      "elapsed": 1211,
+      "free_bytes": 8882937856
+    },
+    {
+      "elapsed": 1221,
+      "free_bytes": 8877969408
+    },
+    {
+      "elapsed": 1231,
+      "free_bytes": 8764166144
+    },
+    {
+      "elapsed": 1241,
+      "free_bytes": 8613556224
+    },
+    {
+      "elapsed": 1251,
+      "free_bytes": 8569241600
+    },
+    {
+      "elapsed": 1261,
+      "free_bytes": 8549101568
+    },
+    {
+      "elapsed": 1271,
+      "free_bytes": 8486842368
+    },
+    {
+      "elapsed": 1281,
+      "free_bytes": 8943640576
+    },
+    {
+      "elapsed": 1291,
+      "free_bytes": 10334765056
+    },
+    {
+      "elapsed": 1301,
+      "free_bytes": 11859533824
+    },
+    {
+      "elapsed": 1311,
+      "free_bytes": 11735662592
+    },
+    {
+      "elapsed": 1321,
+      "free_bytes": 11536375808
+    },
+    {
+      "elapsed": 1331,
+      "free_bytes": 11465797632
+    },
+    {
+      "elapsed": 1341,
+      "free_bytes": 11467948032
+    }
+  ],
+  "timeout_seconds": 1800,
+  "pid": 36305,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "a412a56aa757863a5c35bdbc2b71498827d2b278",
+    "status": ""
+  },
+  "finished_at": "2026-09-21T09:11:54.523855+00:00",
+  "identity_stable": true
+}

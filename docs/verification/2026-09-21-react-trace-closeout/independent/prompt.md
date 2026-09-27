@@ -1,0 +1,19 @@
+你是独立代码复核者 K3，不是作者。仅审 PR #809 的冻结候选，不做实现/提交/push/合并/部署，不启动子agent或应用模型探针。使用中文给出 Spec（规格符合性）和 Quality（代码/测试质量）两个章节；这是一个独立审查会话，不冒称两个互盲审查者。
+
+候选 cwd=/Users/a77/fwp-q-react-trace-0921，HEAD 必须为 dda5895aafc88e5fa20632cf4aaefea973940164，首尾 git status --porcelain 为空。比较基线 728f327160bbd2485cb635e7ef09d040d718d7b5，只有11个差异文件。源码、共享git、作者树、生产与记忆均由OS沙箱只读。只能在 /Users/a77/.finance-runtime/reviews/react-trace-closeout-0921/independent/k3 内写探针、tiny fixture、变异副本和报告，不能越权或降低沙箱。不要读凭据、生产DuckDB、大知识库、其他审查报告。无需记忆回写、code-map build 或handoff。源码按固定路径精读，不修改地图。
+
+规格与范围：
+S1. E27等合法协议证据序号只在数量分析副本中移除，不可当成阈值或数值支持；真实阈值、未知引用、日期核验与原文内容保护不变。检查正反例，不能简单删除所有数字或放宽引用门。
+S2. finance_query 参数校验反馈只发已知校验消息/受控schema标识及现有metadata提示，禁止任意错误散文、路径、物理表异常回显。诊断不是市场证据。合法空结果、缺表、超时、取消、执行异常不可伪装成可纠参数错误。
+S3. 复用原Episode反馈链，无新增重试机制、无额外预算、不绕过取消。脚本模型+临时真实DuckDB证明错误可反馈并取回正确查询，但不声称自然模型必然纠正。
+S4. 进展账 normalize_query 只在JSON投影边界复制Mapping（包括递归冻结参数），不修改冻结原对象；tuple按JSON既有处理，未知对象仍拒绝，禁止default=str吞错。工具拒参/执行失败/超时不应因mappingproxy JSON失败升级成整轮崩溃；已有证据与可继续状态保留。
+S5. docs/agent-product-door.md必须准确描述局部失败边界，不能声称修了整轮异常后的metrics或所有查询重试。
+范围外：#791集合/历史排序、#792方法与观察卡、#793比较合同/假设槽、#794按需预览与证据身份没有由本PR全部实现；不得给main/部署/金融质量放行。跨仓registry-check有基线相同漂移，不要求本PR顺手改另仓注册表。
+
+请独立检查这些主张，不按作者结论盖章：静态追上下游，自己至少造3组有区别于新增tests的反例（引用/安全诊断/冻结参数各一组）及正常对照；运行适量相关tests。若变异验证，仅在授权目录的副本中改，原候选只读。保留探针与日志。不要跑全仓25分钟套件或前端。
+
+Python只用 /Users/a77/finance-workspace-private/.venv-workbench/bin/python。继承环境已经固定 FWP_TEST_RECEIPT=0、PYTHONDONTWRITEBYTECODE=1、GIT_OPTIONAL_LOCKS=0、TMPDIR=授权目录/tmp；pytest加 -p no:cacheprovider，以免写候选树。外部探针可用 PYTHONPATH=/Users/a77/fwp-q-react-trace-0921；import正确源码必须核 __file__。只用合成JSON/tiny DuckDB，禁真实行情/模型/API外呼。模型传输由外层harness负责。
+
+作者原件可作为核对材料但不是你的实跑：/Users/a77/.finance-runtime/reviews/react-trace-closeout-0921/offline/ 与 frontend-final/frontend.json。新真实run已交付，但公开稿删掉条件后留下“满足两条”，ranking_intent=false；数字225/25、12.6/16.5原件存在但未绑定且无显式引用，未送核验视图。该金融质量仍not_passed，不要用代码审查替代。无需通读原金融答卷。
+
+在约8分钟、最多35次工具调用内收口；外层15分钟硬截止。不够覆盖写明未验，不延长或重发求绿。输出授权目录内 REPORT.md，包含：固定SHA、Spec结论和Quality结论（PASS / CHANGES_REQUESTED / BLOCKED）、逐项依据、发现（严重性、绝对文件:行号、可复现证据）、自跑命令/rc/分母、边界和首尾身份。最后回复报告要点。真实新增缺陷优先报告；工程绿不等于研究质量通过。

@@ -1,0 +1,7 @@
+364:def _result(
+642:        result = _result(payload, result_ref=ref)
+771:        result = _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
+834:    def saved_result(prepared, ref, *, unchanged=False):
+908:                return saved_result(prepared, head_ref, unchanged=True)
+925:        return saved_result(prepared, ref)
+104:def _registry(tmp_path, question="这一波农业是怎么走出来的？"):

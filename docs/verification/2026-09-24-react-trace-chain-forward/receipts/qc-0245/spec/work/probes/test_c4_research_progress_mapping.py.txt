@@ -1,0 +1,49 @@
+"""C4 probe: frozen nested Mapping tool params recorded without mutation."""
+import sys
+import types
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.runtime.research_progress import (  # noqa: E402
+    ResearchProgressTracker,
+    ToolCallDigest,
+    normalize_query,
+)
+
+
+def _frozen_nested():
+    inner = types.MappingProxyType({"query": "rev growth", "n": 1})
+    return types.MappingProxyType({"query": "rev growth", "params": inner})
+
+
+def test_normalize_frozen_mapping_no_mutation():
+    m = _frozen_nested()
+    out = normalize_query(m)
+    assert "rev growth" in out, out
+    # original untouched (and still read-only)
+    assert m["params"]["n"] == 1
+    assert isinstance(m, types.MappingProxyType)
+
+
+def test_tracker_records_frozen_mapping_call():
+    m = _frozen_nested()
+    t = ResearchProgressTracker()
+    t.record_call(ToolCallDigest(tool="finance_query", query=m, status="new", new_evidence=1))
+    batch = t.close_batch()
+    assert batch is not None and batch.calls[0].status == "new"
+    assert "rev growth" in batch.calls[0].query
+
+
+def test_unknown_object_still_rejected():
+    class Weird:
+        pass
+    try:
+        normalize_query({"query": 1, "params": Weird()})
+    except TypeError:
+        pass
+    else:
+        # object must not silently become a repr
+        out = normalize_query({"query": 1, "params": Weird()})
+        assert "Weird object" not in out and "at 0x" not in out, out

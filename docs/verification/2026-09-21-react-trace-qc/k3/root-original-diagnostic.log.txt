@@ -1,0 +1,47 @@
+esv.__file__ = /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/episode_semantic_verifier.py
+ep.__file__  = /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/historical_research/episode.py
+HEAD = a412a56aa757863a5c35bdbc2b71498827d2b278
+PASS pin-head :: a412a56aa757863a5c35bdbc2b71498827d2b278
+PASS pin-esv-file :: /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/episode_semantic_verifier.py
+PASS pin-ep-file :: /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/historical_research/episode.py
+A1: '多头结构未破坏。目前，需继续观察。'
+PASS A1.orphan-count-removed
+PASS A1.observation-kept
+FAIL A1.no-stranded-adverb :: 多头结构未破坏。目前，需继续观察。
+PASS A1.followup-kept
+A2: '满足升级条件中的3条，风险可控。'
+PASS A2.survivor-ref-kept
+PASS A2.orphan-removed
+PASS A2.no-double-punct :: 满足升级条件中的3条，风险可控。
+PASS A2.tail-kept
+A3: ''
+PASS A3.all-lines-dropped
+A4: '升级条件：连续3日站稳5日线。目前仅满足升级条件中的2条。'
+PASS A4.untouched-when-def-survives :: 升级条件：连续3日站稳5日线。目前仅满足升级条件中的2条。
+PASS A5.no-def-deleted-noop :: 满足升级条件中的2条，但基本面仍稳。
+A6: '各周期未共振。\n- 需警惕。'
+PASS A6.fullwidth-count-removed
+PASS A6.list-marker-kept :: 各周期未共振。
+- 需警惕。
+PASS A6.other-line-kept
+A7: ''
+PASS A7.label-only-dropped
+A8: ''
+PASS A8.marker-only-line-dropped
+B1 evidence count: 6
+B1 sample ids: [25, 26, 27]
+PASS B1.absolute-numbering :: [25, 26, 27]
+PASS B1.next-offset-28 :: None
+B2 metadata: {}
+PASS B2.empty-end-page-next-null :: {}
+PASS B2.empty-page-samples-empty
+PASS B3.past-end-next-null :: {}
+B4 scope card: ['{"operation":"similar_cases","status":"success","total_matched":60,"returned_count":3,"truncated":false,"offset":25,"next_offset":28,"research_only":true,"decision_eligible":false,"promotion_eligible":false}']
+FAIL B4.total-60-visible :: ['{"operation":"similar_cases","status":"success","total_matched":60,"returned_count":3,"truncated":false,"offset":25,"next_offset":28,"research_only":true,"decision_eligible":false,"promotion_eligible":false}']
+B5: [40, 41]
+PASS B5.projection-absolute :: [40, 41]
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/k3/probe_k3.py", line 177, in <module>
+    binding_all = OutputEvidenceBinding(output_id="o1", raw_refs=("E1", "E2"))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: OutputEvidenceBinding.__init__() got an unexpected keyword argument 'raw_refs'

@@ -1,0 +1,152 @@
+def _normalize_quantity(value: object) -> str:
+    return (
+        re.sub(r"[\s,，]", "", str(value or ""))
+        .replace("～", "至")
+        .replace("~", "至")
+        .replace("—", "至")
+        .replace("→", "至")
+    )
+
+
+def _quantity_supported_by_evidence(
+    quantity: object,
+    evidence_quantities: frozenset[str],
+    *,
+    sentence: str,
+) -> bool:
+    """Match exact quantities or deterministic same-unit rounding.
+
+    The tolerance is the half-unit implied by the answer's shown precision.
+    For example, ``17%`` may represent evidence ``-17.27%`` when the sentence
+    explicitly says the value fell, while ``3800点`` cannot represent
+    ``3876.777点``. Currency units are converted between 亿元 and 万亿元.
+    """
+
+    normalized = _normalize_quantity(quantity)
+    if normalized in evidence_quantities:
+        return True
+    candidate = _parse_quantity(normalized)
+    if candidate is None:
+        return False
+    for evidence in evidence_quantities:
+        observed = _parse_quantity(evidence)
+        if observed is None or not _same_quantity_dimension(candidate, observed):
+            continue
+        if _rounded_quantity_matches(candidate, observed, sentence=sentence):
+            return True
+    return False
+
+
+def _parse_quantity(
+    value: str,
+) -> tuple[tuple[float, ...], str, int] | None:
+    match = _QUANTITY_PARSE_RE.fullmatch(value)
+    if match is None:
+        return None
+    raw_values = tuple(
+        item
+        for item in (match.group("first"), match.group("second"))
+        if item is not None
+    )
+    if not raw_values:
+        return None
+    decimals = max(
+        len(item.partition(".")[2]) if "." in item else 0 for item in raw_values
+    )
+    return tuple(float(item) for item in raw_values), match.group("unit") or "", decimals
+
+
+def _quantity_dimension(unit: str) -> tuple[str, float]:
+    if unit in {"万亿元", "万亿"}:
+        return "currency_yi", 10000.0
+    if unit in {"亿元", "亿"}:
+        return "currency_yi", 1.0
+    return unit, 1.0
+
+
+def _same_quantity_dimension(
+    left: tuple[tuple[float, ...], str, int],
+    right: tuple[tuple[float, ...], str, int],
+) -> bool:
+    left_dimension, _left_scale = _quantity_dimension(left[1])
+    right_dimension, _right_scale = _quantity_dimension(right[1])
+    return bool(left_dimension and left_dimension == right_dimension)
+
+
+def _rounded_quantity_matches(
+    candidate: tuple[tuple[float, ...], str, int],
+    observed: tuple[tuple[float, ...], str, int],
+    *,
+    sentence: str,
+) -> bool:
+    candidate_values, candidate_unit, candidate_decimals = candidate
+    observed_values, observed_unit, _observed_decimals = observed
+    if len(candidate_values) != len(observed_values) and not (
+        len(candidate_values) == 1 and len(observed_values) > 1
+    ):
+        return False
+    _candidate_dimension, candidate_scale = _quantity_dimension(candidate_unit)
+    _observed_dimension, observed_scale = _quantity_dimension(observed_unit)
+    observed_in_candidate_unit = tuple(
+        value * observed_scale / candidate_scale for value in observed_values
+    )
+    tolerance = 0.5 * (10 ** (-candidate_decimals))
+    negative_context = bool(_NEGATIVE_CONTEXT_RE.search(sentence))
+    if len(candidate_values) == 1 and len(observed_in_candidate_unit) > 1:
+        expected_values = candidate_values * len(observed_in_candidate_unit)
+    else:
+        expected_values = candidate_values
+    matches: list[bool] = []
+    for expected, actual in zip(expected_values, observed_in_candidate_unit):
+        if expected * actual < 0:
+            if not (negative_context and expected >= 0 and actual < 0):
+                matches.append(False)
+                continue
+            actual = abs(actual)
+        matches.append(abs(expected - actual) <= tolerance + 1e-12)
+    if len(candidate_values) == 1 and len(observed_values) > 1:
+        return any(matches)
+    return all(matches)
+
+
+_SLOT_METRIC_LABELS = {
+    "pct_chg": "涨跌幅",
+    "amount": "成交额亿",
+    "diff_ratio": "边际量",
+}
+
+_SLOT_HEADING = "【预取事实】"
+
+
+def slot_line_for_observations(
+    observations: tuple[StructuredObservation, ...],
+) -> str:
+    """把观察值渲染成一行系统填的事实，**模型一个字没写**。
+
+    这是「槽」的最小形态：内容全部来自已投递的预取观察值，判官无据可删——
+    它要驳的是模型的未核验表述，而这一行不是模型写的。
+
+    与判官的分工由此变成结构性的，不再靠提示词自觉：
+    数字住在槽里（系统填、必真），叙述住在格间（模型写、判官可删）。
+    删叙述永远删不掉数字。
+    """
+
+    if not observations:
+        return ""
+    grouped: dict[tuple[str, str], list[StructuredObservation]] = {}
+    for obs in observations:
+        grouped.setdefault((obs.subject, obs.as_of), []).append(obs)
+    parts: list[str] = []
+    for (subject, as_of), items in grouped.items():
+        fields = "；".join(
+            f"{_SLOT_METRIC_LABELS.get(obs.metric, obs.metric)}={obs.value:g}"
+            for obs in items
+        )
+        parts.append(f"{subject} {as_of}：{fields}")
+    return _SLOT_HEADING + "｜".join(parts)
+
+
+def _restore_lost_observations(
+    *,
+
+[truncated; total lines=6936, selected=5496:5645; request a later offset]

@@ -1,0 +1,61 @@
+"""PR832 spec probe 6 (C4): frozen nested Mapping tool args record progress
+without mutation; unknown objects stay rejected (no default=str whitewash).
+"""
+from __future__ import annotations
+
+from types import MappingProxyType
+
+import pytest
+
+from intelligence.runtime.research_progress import normalize_query
+
+
+def _frozen_query():
+    base = {
+        "dataset": "market_daily",
+        "dimensions": ("trade_date", "stage_day"),
+        "filters": ({"field": "stage_day", "op": "eq", "value": 3},),
+        "nested": {"time_range": {"start": "2026-07-21", "end": "2026-07-21"}},
+    }
+    frozen = MappingProxyType(
+        dict(
+            base,
+            dimensions=base["dimensions"],
+            filters=base["filters"],
+            nested=MappingProxyType(dict(base["nested"],
+                                          time_range=MappingProxyType(base["nested"]["time_range"]))),
+        )
+    )
+    return base, frozen
+
+
+def test_frozen_nested_mapping_normalizes_to_plain_json_shape():
+    base, frozen = _frozen_query()
+    normalized = normalize_query(frozen)
+    assert normalized == base
+    assert type(normalized) is dict
+    # The frozen original must not have been swapped or mutated underneath.
+    assert frozen["nested"]["time_range"]["start"] == "2026-07-21"
+    normalized["dataset"] = "mutated-after-normalize"
+    assert frozen["dataset"] == "market_daily"
+
+
+def test_frozen_and_plain_arguments_share_one_normalized_identity():
+    base, frozen = _frozen_query()
+    assert normalize_query(frozen) == normalize_query(base)
+    assert normalize_query(frozen) == normalize_query(dict(base))
+
+
+def test_unknown_objects_are_rejected_with_their_type_named():
+    for value in (object(), {1, 2}, frozenset({"x"})):
+        with pytest.raises(TypeError) as excinfo:
+            normalize_query(MappingProxyType(
+                {"filters": MappingProxyType({"value": value})}
+            ))
+        assert type(value).__name__ in str(excinfo.value)
+        assert "not JSON serializable" in str(excinfo.value)
+
+
+def test_rejection_still_fires_at_top_level_unknown_object():
+    with pytest.raises(TypeError, match="not JSON serializable"):
+        normalize_query({"filters": object()})

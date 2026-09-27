@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "def _novel_numeric_condition_indexes|def _numeric|_DANGLING_CONDITION_COUNT|条件中的|N条|条数|exempt",
+    "intelligence/services/episode_semantic_verifier.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 46,
+  "output_sha256": "355d02c2f030b5ba61d4c79d5edc7d0248bcc09f2b0597a0edfcb46bf5620ff2"
+}

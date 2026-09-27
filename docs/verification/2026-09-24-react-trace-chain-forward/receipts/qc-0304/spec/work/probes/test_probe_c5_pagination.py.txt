@@ -1,0 +1,102 @@
+"""C5 probe: pagination identity (absolute sample coords, offset/next_offset,
+truncated, final page), projection failure must not register success."""
+
+from copy import deepcopy
+
+import pytest
+
+from intelligence.services.historical_research.episode import _result
+from intelligence.tests.test_historical_research_episode import _registry
+from tests.test_history_model_projection import _payload, _project, REF
+
+
+def test_second_page_sample_indices_are_absolute_not_page_relative(tmp_path):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    original = deepcopy(session.read(ref))
+    page = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+        context=context, step_id="read-1",
+    )
+    model, details = _project(page)
+    samples = {row["sample"] for row in details if "entity_code" in row}
+    assert samples == {1}  # absolute row index, not 0
+    scope = next(row for row in details if "total_matched" in row)
+    assert scope["offset"] == 1
+    assert scope["next_offset"] is None  # last page
+    assert scope["truncated"] is True  # final page still partial view of whole result
+    assert '"next_offset":null' in model["observation"]
+    assert page.telemetry["offset"] == 1
+    assert page.telemetry["next_offset"] is None
+    assert session.read(ref) == original  # paging does not mutate stored result
+
+
+def test_middle_page_reports_next_offset_and_keeps_identity(tmp_path):
+    registry, context, _session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    # initial preview advertises the next page
+    _, d0 = _project(first)
+    s0 = next(row for row in d0 if "total_matched" in row)
+    assert s0["offset"] == 0 and s0["next_offset"] == 1
+    page = registry.execute(
+        "read_history_result", {"result_ref": ref, "offset": 0, "limit": 1},
+        context=context, step_id="read-0",
+    )
+    _, d1 = _project(page)
+    s1 = next(row for row in d1 if "total_matched" in row)
+    assert s1["offset"] == 0 and s1["next_offset"] == 1
+    assert s1["returned_count"] == 1 and s1["total_matched"] == 2
+
+
+def test_projection_failure_does_not_append_history_result(tmp_path, monkeypatch):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    original = deepcopy(session.read(ref))
+    before = deepcopy(context.history_results)
+
+    def fail(payload, *, result_ref, tool, offset):
+        raise ValueError("boom-projection")
+
+    monkeypatch.setattr(
+        "intelligence.services.historical_research.episode._result", fail)
+    with pytest.raises(ValueError, match="boom-projection"):
+        registry.execute(
+            "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+            context=context, step_id="failed",
+        )
+    assert context.history_results == before
+    assert session.read(ref) == original
+
+
+def test_unit_page_offsets_and_navigation():
+    rows = [{"entity_code": "A.FP", "trade_date": f"2026-08-0{i}"} for i in (3, 4)]
+    payload = _payload(rows)
+    for offset, limit, nxt, trunc in ((0, 1, 1, True), (0, 2, None, False),
+                                      (1, 1, None, True), (5, 1, None, False)):
+        model, details = _project(_result(payload, result_ref=REF, offset=offset))
+        scope = next(row for row in details if "total_matched" in row)
+        assert scope["offset"] == offset
+        assert scope["next_offset"] == nxt
+        assert scope["truncated"] is trunc
+        rendered = "null" if nxt is None else str(nxt)
+        assert f'"next_offset":{rendered}' in model["observation"]
+        samples = {row["sample"] for row in details if "entity_code" in row}
+        assert samples == set(range(offset, min(offset + limit, 2)))
