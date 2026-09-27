@@ -202,3 +202,12 @@
 | [`fix-react-trace-qc-0921.md`](./fix-react-trace-qc-0921.md) | A | 合入提交 75cea8352 · 2026-09-27 | 2074 |
 | [`q-research-data-readiness.md`](./q-research-data-readiness.md) | C | 分支补丁已全在 main（git cherry +0） | 2387 |
 | [`test-pr911-main-0925.md`](./test-pr911-main-0925.md) | C | 分支补丁已全在 main（git cherry +0） | 179 |
+
+## 2026-09-27 追加（接手收尾第三批）
+
+工单 83 生产回填已执行、#890 已合入，下列在途交接随之失效；判据同上。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`feat-claim-scope-runtime-0923.md`](./feat-claim-scope-runtime-0923.md) | A | 合入 PR #890 · 2026-09-27 · 4c04bb185 | 2684 |
+| [`fix-backfill-302132-0923.md`](./fix-backfill-302132-0923.md) | A | 合入 PR #813 · 2026-09-27 · 34dd58468；生产回填 run bca04f90362f（37/37） | 2400 |
