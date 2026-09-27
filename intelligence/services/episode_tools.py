@@ -2038,6 +2038,7 @@ def build_episode_registry(
             tool_context.check_cancelled()
             projected = project_memory_evidence(
                 tuple(evidence), information_cutoff=tool_context.information_cutoff,
+                history_intent=tool_context.history_intent,
             )
             observation = (
                 "；".join(f"{item.title}：{item.detail}" for item in projected)

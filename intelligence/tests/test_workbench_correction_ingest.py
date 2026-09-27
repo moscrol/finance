@@ -4,6 +4,7 @@ import json
 import multiprocessing
 from pathlib import Path
 from threading import BrokenBarrierError
+import time
 
 import pytest
 
@@ -170,7 +171,12 @@ def test_design_payload_forms_still_write(
     assert record["correction"] == correction
 
 
-def test_duplicate_within_24_hours_is_skipped(tmp_path: Path, previous_answer) -> None:
+@pytest.mark.parametrize("later_ts,expected_status", [
+    ("2026-09-25T20:00:00+00:00", "skipped"),
+    ("2026-09-26T02:00:00+00:00", "skipped"),
+    ("2026-09-26T02:00:01+00:00", "recorded"),
+])
+def test_duplicate_respects_24_hour_boundary(tmp_path: Path, previous_answer, later_ts, expected_status) -> None:
     path = tmp_path / "corrections.jsonl"
     kwargs = {
         "path": path,
@@ -184,13 +190,13 @@ def test_duplicate_within_24_hours_is_skipped(tmp_path: Path, previous_answer) -
         **kwargs, ts="2026-09-25T02:00:00+00:00"
     )
     second = workbench_correction_ingest.maybe_record_workbench_correction(
-        **kwargs, ts="2026-09-25T20:00:00+00:00"
+        **kwargs, ts=later_ts,
     )
 
     assert first.status == "recorded"
-    assert second.status == "skipped"
-    assert second.reason == "dedup"
-    assert len(path.read_text(encoding="utf-8").splitlines()) == 1
+    assert second.status == expected_status
+    assert second.reason == ("dedup" if expected_status == "skipped" else "recorded")
+    assert len(path.read_text(encoding="utf-8").splitlines()) == (1 if expected_status == "skipped" else 2)
 
 
 def _concurrent_correction(path, previous_answer, start, after_read, results) -> None:
@@ -239,6 +245,59 @@ def test_duplicate_is_atomic_across_processes(tmp_path, previous_answer) -> None
             assert process.exitcode == 0
         assert sorted(received) == [("recorded", "recorded"), ("skipped", "dedup")]
         assert len(path.read_text(encoding="utf-8").splitlines()) == 1
+    finally:
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+        results.close()
+
+
+def _reordered_default_clock_writer(path, previous_answer, early, late_done, results, earlier_call):
+    if earlier_call:
+        real_flock = workbench_correction_ingest.fcntl.flock
+
+        def delayed_flock(fd, operation):
+            early.set()
+            if not late_done.wait(timeout=10):
+                raise TimeoutError("later writer did not finish")
+            return real_flock(fd, operation)
+
+        workbench_correction_ingest.fcntl.flock = delayed_flock
+    else:
+        if not early.wait(timeout=10):
+            raise TimeoutError("earlier writer did not reach lock")
+        # Default timestamps have second precision. The later caller must
+        # actually enter in a later second, without injecting a shared clock.
+        time.sleep(1.05)
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path, user_text="不对，应该先看板块容量再下结论",
+        previous_assistant=previous_answer, conversation_id="conv-reordered",
+        corrected_message_id=previous_answer["message_id"],
+    )
+    results.put((result.status, result.reason))
+    if not earlier_call:
+        late_done.set()
+
+
+def test_default_clock_deduplicates_when_processes_acquire_lock_in_reverse_order(tmp_path, previous_answer):
+    path = tmp_path / "corrections.jsonl"
+    ctx = multiprocessing.get_context("spawn")
+    early, late_done, results = ctx.Event(), ctx.Event(), ctx.Queue()
+    processes = [ctx.Process(
+        target=_reordered_default_clock_writer,
+        args=(path, previous_answer, early, late_done, results, earlier),
+    ) for earlier in (True, False)]
+    try:
+        for process in processes:
+            process.start()
+        outcomes = [results.get(timeout=15) for _ in processes]
+        for process in processes:
+            process.join(timeout=5)
+            assert process.exitcode == 0
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        assert sorted(outcomes) == [("recorded", "recorded"), ("skipped", "dedup")], rows
+        assert len(rows) == 1
     finally:
         for process in processes:
             if process.is_alive():

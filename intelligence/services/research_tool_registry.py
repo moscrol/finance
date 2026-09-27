@@ -1335,6 +1335,7 @@ class ResearchToolRegistry:
                     effective_context.deadline,
                     is_cancelled or (lambda: False),
                     effective_context.information_cutoff,
+                    history_intent=effective_context.history_intent,
                 ),
             )
             # The runner cannot self-certify local provenance. Stamp the same
@@ -1377,9 +1378,15 @@ class ResearchToolRegistry:
                 # undated formula metadata. Other tools may not launder unknown or
                 # pre-authorisation dates through a prose observation.
                 kept = [item for item in evidence if (
-                    (d := closed_loop_retrieval.parse_source_date(item.source_date)) is not None
-                    and (not history.requested_start or d.isoformat() >= history.requested_start)
-                    and (not history.requested_end or d.isoformat() <= history.requested_end)
+                    # The memory projector already filters and budgets facts.
+                    # Its gap cards describe withholding, not undated priors;
+                    # they must survive this final scope gate without a fake date.
+                    (spec.name == "memory_lookup" and item.evidence_tier == "user_memory_gap")
+                    or (
+                        (d := closed_loop_retrieval.parse_source_date(item.source_date)) is not None
+                        and (not history.requested_start or d.isoformat() >= history.requested_start)
+                        and (not history.requested_end or d.isoformat() <= history.requested_end)
+                    )
                 )]
                 # A diagnostic-only result carries no facts to date. Do not erase
                 # the repair hint or falsely report that its facts were withheld.

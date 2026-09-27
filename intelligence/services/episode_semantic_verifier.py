@@ -5239,6 +5239,7 @@ def _novel_numeric_condition_indexes(
     if contract is not None and grounding_scope(contract) == "material_only":
         return ()
     historical = historical_claim_texts(contract, verified.outcome.bindings, verified.outcome.draft) if contract else frozenset()
+    memory_restatements = _bound_memory_restatement_indexes(sentences, verified)
     rejected: set[int] = set()
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
@@ -5249,7 +5250,7 @@ def _novel_numeric_condition_indexes(
         text = str(item.get("text") or "")
         if not isinstance(index, int):
             continue
-        if text in historical:
+        if text in historical or index in memory_restatements:
             continue
         candidate = _mask_bound_short_date_heading(text, verified.outcome)
         # References remain in the draft for citation validation, but their
@@ -5789,6 +5790,60 @@ def _can_support_market_quantity(item: AgentEvidence) -> bool:
     return item.tool != "memory_lookup" and item.evidence_tier not in {
         "user_memory", "user_memory_gap",
     }
+
+
+_MEMORY_RESTATEMENT_PREFIX_RE = re.compile(
+    r"^(?:你|您|用户)(?:此前|之前|曾经|曾|过去|当时|先前)?"
+    r"(?:记录|记下|提出|设定|判断|认为|提到|说过)"
+    r"(?:的(?:规则|判断|原则|看法|条件|观察位|观察线))?(?:是|为)?[：:]?"
+)
+
+
+def _bound_memory_restatement_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> frozenset[int]:
+    """Recognize cited restatements, without granting their numbers to facts.
+
+    Only a full restatement of a bound prior is exempt. Appending a market
+    conclusion to that sentence fails the match; a neighboring condition never
+    sees the memory's quantities in the global market-evidence set.
+    """
+    contract = verified.contract
+    if contract is None or not any(
+        item.output_id == "prior_recall" and item.grounding_mode == "user_premise"
+        for item in contract.required_outputs
+    ):
+        return frozenset()
+    bound = {
+        digest for binding in verified.outcome.bindings
+        if binding.output_id == "prior_recall" and binding.basis == "user_premise"
+        for digest in binding.evidence_hashes
+    }
+    ordinals = evidence_ordinal_table(verified.outcome.evidence)
+
+    def normalized(text: str) -> str:
+        return re.sub(r"[\s，,]+", "", text).strip("。；;！？!?：:「」『』“”\"'()（）[]【】")
+
+    priors = {
+        ordinals[item.content_hash]: normalized(item.detail)
+        for item in verified.outcome.evidence
+        if item.content_hash in bound and item.content_hash in ordinals
+        and item.evidence_tier != "user_memory_gap"
+        and not _can_support_market_quantity(item)
+    }
+    retained = set()
+    for sentence in sentences:
+        text = str(sentence.get("text") or "")
+        cited = cited_evidence_ordinals(text)
+        candidate = _LEADING_LIST_LABEL_RE.sub("", text).replace("**", "").replace("__", "").lstrip("-* ")
+        candidate = re.sub(r"\s+", "", strip_evidence_ordinals(candidate))
+        prefix = _MEMORY_RESTATEMENT_PREFIX_RE.match(candidate)
+        if prefix and isinstance(sentence.get("index"), int):
+            restatement = normalized(candidate[prefix.end():])
+            if restatement and any(restatement == priors.get(ordinal) for ordinal in cited):
+                retained.add(sentence["index"])
+    return frozenset(retained)
 
 
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:

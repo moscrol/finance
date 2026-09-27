@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+    from intelligence.services.historical_research.intent import HistoryIntent
     from intelligence.services.research_contract import InformationCutoff, ResearchRunContext
     from intelligence.services.research_tool_registry import ToolRunResult
 
@@ -29,6 +30,7 @@ def _gap(reason: str, *, message: str | None = None) -> tuple[AgentEvidence, ...
     messages = {
         "empty": "用户记忆无相关命中；不得编造用户此前的看法。",
         "future_of_cutoff": "已找到相关用户记忆，但均晚于信息截止日，未交付正文；不代表没有记录。",
+        "outside_window": "已找到相关用户记忆，但均在历史授权范围之外，未交付正文；不代表没有记录。",
         "date_unavailable": "相关用户记忆中有记录日期无法核验的条目，已省略其正文；不代表没有记录。",
         "timeout": "用户记忆预取超时，尚未确认是否有相关记录。",
         "unavailable": "用户记忆读取失败，尚未确认是否有相关记录。",
@@ -60,6 +62,7 @@ def project_memory_evidence(
     evidence: tuple[AgentEvidence, ...],
     *,
     information_cutoff: InformationCutoff | None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[AgentEvidence, ...]:
     """One idempotent, dated and bounded view for opening and explicit recall.
 
@@ -75,11 +78,24 @@ def project_memory_evidence(
     eligible, future = filter_future_dated(
         records, information_cutoff=information_cutoff, date_getter=lambda item: item.source_date,
     )
-    if information_cutoff is not None and information_cutoff.source == "requested":
+    strict_window = history_intent is not None and history_intent.strict_window
+    if strict_window or (information_cutoff is not None and information_cutoff.source == "requested"):
         undated = [item for item in eligible if parse_source_date(item.source_date) is None]
         eligible = [item for item in eligible if parse_source_date(item.source_date) is not None]
         if undated:
             gaps.extend(_gap("date_unavailable"))
+    if strict_window:
+        assert history_intent is not None
+        start = parse_source_date(history_intent.requested_start)
+        end = parse_source_date(history_intent.requested_end)
+        in_window = [item for item in eligible if (
+            (day := parse_source_date(item.source_date)) is not None
+            and (start is None or day >= start)
+            and (end is None or day <= end)
+        )]
+        if eligible and not in_window and not gaps:
+            gaps.extend(_gap("outside_window"))
+        eligible = in_window
     if not eligible and not gaps and future:
         gaps.extend(_gap("future_of_cutoff"))
 
@@ -142,6 +158,7 @@ def collect_opening_memory(
         deadline=deadline,
         is_cancelled=lambda: cancelled.is_set() or deadline.expired,
         information_cutoff=context.information_cutoff,
+        history_intent=context.history_intent,
     )
     try:
         future = _POOL.submit(runner, query, tool_context)
@@ -158,6 +175,7 @@ def collect_opening_memory(
         return project_memory_evidence(
             result.evidence,
             information_cutoff=context.information_cutoff,
+            history_intent=context.history_intent,
         ) or _gap("empty")
     except FutureTimeout:
         return _gap("timeout")

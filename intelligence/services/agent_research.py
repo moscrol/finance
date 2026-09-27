@@ -40,6 +40,7 @@ from intelligence.services import (
     market_news,
     web_research,
 )
+from intelligence.services.historical_research.intent import HistoryIntent
 from intelligence.services.kb_selection_noise import filter_structural_noise
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
@@ -368,6 +369,8 @@ class AgentToolContext:
         compare=False,
     )
     information_cutoff: InformationCutoff | None = None
+    # Preserve the lower bound too, before runners spend their display budget.
+    history_intent: HistoryIntent | None = None
 
     @property
     def cancelled(self) -> bool:

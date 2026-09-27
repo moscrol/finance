@@ -236,9 +236,7 @@ def maybe_record_workbench_correction(
         return CorrectionIngestResult("skipped", "market_commentary")
 
     target = Path(path).expanduser()
-    record_ts = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
-    now = _parse_timestamp(record_ts)
-    if now is None:
+    if ts and _parse_timestamp(ts) is None:
         return CorrectionIngestResult("failed", "write_failed", error_type="invalid_timestamp")
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +245,12 @@ def maybe_record_workbench_correction(
         # Closing this handle releases the lock on success, skip, and failure.
         with target.open("a", encoding="utf-8") as lock:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            # Default time belongs to the locked transaction. An older request
+            # can acquire the lock after a newer writer; its request-start time
+            # would incorrectly treat that just-written row as being in future.
+            record_ts = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
+            now = _parse_timestamp(record_ts)
+            assert now is not None
             if _within_dedup_window(target, correction, now):
                 return CorrectionIngestResult("skipped", "dedup")
             _, record = corrections.record_correction(

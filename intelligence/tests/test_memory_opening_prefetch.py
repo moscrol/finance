@@ -18,6 +18,7 @@ from intelligence.services.agent_runtime import ModelTurn
 from intelligence.services.conversation_store import ConversationStore, Message
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.evidence_capabilities import runtime_capabilities_for_frame
+from intelligence.services.historical_research.intent import HistoryIntent
 from intelligence.services.memory_status import record_status
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
@@ -362,6 +363,98 @@ def test_explicit_historical_memory_uses_same_filtered_projection(tmp_path, fram
     assert [item.content_hash for item in registry.opening_prefetch] == [
         item.content_hash for item in explicit.evidence
     ]
+
+
+@pytest.mark.parametrize("strict", [True, False])
+def test_history_window_projection_matches_both_exits_before_budgeting(tmp_path, frame, strict):
+    path = tmp_path / "users" / "alice" / "corrections.jsonl"
+    for stamp, content in (
+        ("2026-06-30", "甲公司窗口前不可交付"),
+        ("2026-07-01", "甲公司窗口下界可交付"),
+        ("2026-07-24", "甲公司窗口上界可交付"),
+        ("2026-07-25", "甲公司窗口后不可交付"),
+    ):
+        corrections.record_correction(
+            path, correction=content + "核验客户进度。" * 2000,
+            themes=["甲公司"], ts=stamp + "T00:00:00+00:00",
+        )
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps({"correction": "甲公司无日期原文不可交付", "themes": ["甲公司"]}) + "\n")
+    original = path.read_bytes()
+    frame = replace(frame, history_intent=HistoryIntent(
+        "retrospective_discovery", requested_start="2026-07-01", requested_end="2026-07-24",
+        strict_window=strict, information_cutoff="2026-07-24",
+    ))
+    context = build_episode_context(
+        frame, task_id=f"history-memory-{strict}", capabilities=("memory_lookup",),
+        information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"),
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path / "finance", knowledge_wiki=tmp_path / "wiki",
+        l3_runner=None, memory_user="alice",
+    )
+    explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="history")
+    assert [item.content_hash for item in registry.opening_prefetch] == [
+        item.content_hash for item in explicit.evidence
+    ]
+    assert "窗口下界可交付" in explicit.observation
+    assert "窗口上界可交付" in explicit.observation
+    assert ("窗口前不可交付" in explicit.observation) is not strict
+    assert "窗口后不可交付" not in explicit.observation
+    assert "无日期原文" not in explicit.observation
+    assert "status=date_unavailable" in explicit.observation
+    assert "截断" in explicit.observation
+    assert len(explicit.observation) <= memory_prefetch.MEMORY_RECALL_MAX_CHARS
+    assert all(len(item.detail) <= memory_prefetch.MEMORY_RECALL_ITEM_MAX_CHARS for item in explicit.evidence)
+    assert all(item.source_date is None for item in explicit.evidence if item.evidence_tier == "user_memory_gap")
+    assert all(item.content_hash == evidence_content_hash(item) for item in explicit.evidence)
+    assert path.read_bytes() == original
+
+
+def test_strict_history_discards_old_priority_records_before_spending_budget(tmp_path, frame):
+    root = tmp_path / "users" / "alice"
+    for index in range(5):
+        corrections.record_correction(
+            root / "corrections.jsonl", correction=f"甲公司窗口外纠偏{index}：" + "先核验客户。" * 2000,
+            themes=["甲公司"], ts=f"2026-06-{index + 20}T00:00:00+00:00",
+        )
+    for day in (1, 12, 24):
+        judgments.record_judgment(
+            root / "judgments.jsonl", memo=f"甲公司窗口内判断{day}：" + "等待新证据。" * 2000,
+            themes=["甲公司"], ts=f"2026-07-{day:02d}T00:00:00+00:00",
+        )
+    frame = replace(frame, history_intent=HistoryIntent(
+        "retrospective_discovery", requested_start="2026-07-01", requested_end="2026-07-24",
+        strict_window=True, information_cutoff="2026-07-24",
+    ))
+    registry, context = registry_for(tmp_path, frame)
+    explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="budget")
+    assert [item.content_hash for item in registry.opening_prefetch] == [
+        item.content_hash for item in explicit.evidence
+    ]
+    assert "窗口外纠偏" not in explicit.observation
+    assert all(f"窗口内判断{day}" in explicit.observation for day in (1, 12, 24))
+    assert "3条正文已截断，0条记录已省略" in explicit.observation
+    assert len(explicit.observation) <= memory_prefetch.MEMORY_RECALL_MAX_CHARS
+
+
+def test_strict_history_only_outside_window_is_a_gap_at_both_exits(tmp_path, frame):
+    corrections.record_correction(
+        tmp_path / "users" / "alice" / "corrections.jsonl",
+        correction="甲公司窗口外原文", themes=["甲公司"], ts="2026-06-30T00:00:00+00:00",
+    )
+    frame = replace(frame, history_intent=HistoryIntent(
+        "retrospective_discovery", requested_start="2026-07-01", requested_end="2026-07-24",
+        strict_window=True, information_cutoff="2026-07-24",
+    ))
+    registry, context = registry_for(tmp_path, frame)
+    explicit = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="gap")
+    assert explicit.evidence == registry.opening_prefetch
+    assert len(explicit.evidence) == 1
+    assert explicit.evidence[0].source_date is None
+    assert explicit.evidence[0].evidence_tier == "user_memory_gap"
+    assert "status=outside_window" in explicit.observation
+    assert "窗口外原文" not in explicit.observation
 
 
 @pytest.mark.parametrize("source", ["runtime_default", "latest_available"])

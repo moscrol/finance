@@ -1730,6 +1730,46 @@ def test_memory_numbers_cannot_authorize_market_conditions(
         assert prior in result.public_answer
 
 
+@pytest.mark.parametrize("recall,bound,retained", [
+    ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E2）。", True, True),
+    ("你曾记录：若指数跌破 3870 点则暂缓追涨（E2）。", True, True),
+    ("你此前记录的规则是：「若指数跌破3,870点，则暂缓追涨」（E2）。", True, True),
+    ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E1）。", True, False),
+    ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E2）。", False, False),
+    ("若指数跌破3870点则暂缓追涨（E2）。", True, False),
+    ("你此前记录的规则是：若指数跌破3870点则行情失效（E2）。", True, False),
+    ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E2），若跌破3870点则行情失效。", True, False),
+])
+def test_bound_numeric_memory_rule_is_only_authoritative_for_its_restatement(recall, bound, retained):
+    external_condition = "若指数跌破3870点则行情失效。"
+    frame, baseline = _structural(recall + "当前市场结构仍需验证。" + external_condition)
+    memory = AgentEvidence(
+        tool="memory_lookup", title="用户历史判断", source="用户记忆，非市场事实",
+        detail="若指数跌破3870点则暂缓追涨。", evidence_tier="user_memory",
+        source_date="2026-07-21", content_hash="MEMORY_RULE",
+    )
+    contract = replace(
+        baseline.contract, allowed_capabilities=("market_data", "memory_lookup"),
+        required_outputs=(*baseline.contract.required_outputs, RequiredOutput(
+            "prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise",
+        )),
+    )
+    outcome = replace(
+        baseline.outcome, evidence=(*baseline.outcome.evidence, memory),
+        bindings=(*baseline.outcome.bindings, OutputEvidenceBinding(
+            "prior_recall", (memory.content_hash,) if bound else (), basis="user_premise",
+        )),
+    )
+    structural = verify_episode_outcome(contract, outcome)
+    assert structural.verified_status == "completed"
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert external_condition not in result.public_answer
+    assert (recall in result.public_answer) is retained
+    assert "当前市场结构仍需验证。" in result.public_answer
+
+
 def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     judge = _judge(True)
     frame, structural = _structural(
