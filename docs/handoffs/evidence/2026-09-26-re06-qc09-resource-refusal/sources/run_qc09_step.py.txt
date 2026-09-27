@@ -1,0 +1,72 @@
+"""Launch or record one explicitly selected QC09 step, never retry or chain steps."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-09'
+PYTHON = str(ROOT / 'candidate/.venv-workbench/bin/python')
+STEPS = {
+    'execution-preflight': (['execution_boundary_preflight_v3.py'], 370, 'execution-boundary-preflight-v3.json', 'status', 'PASS'),
+    'gateway': (['run_gateway.py'], 660, 'gateway/receipt.json', 'status', 'PASS'),
+    'execute-e2': (['run_stage_v3.py', 'execute', 'e2'], 1830, 'execute-e2-v3/execution.json', 'status', 'STAGE_COMPLETE'),
+    'execution-check-e2': (['check_execution_v3.py', 'e2'], 60, 'stage-execution-checks-v3/e2.json', 'complete_execution_evidence', True),
+    'report-e2': (['stage_admission_v3.py', 'report', 'e2'], 1830, 'report-e2-v3/execution.json', 'status', 'STAGE_COMPLETE'),
+}
+parser = argparse.ArgumentParser()
+parser.add_argument('step', choices=STEPS)
+parser.add_argument('--worker', action='store_true')
+args = parser.parse_args()
+out = QC / 'host-steps' / args.step
+if not args.worker:
+    out.mkdir(parents=True, exist_ok=False)
+    with (out / 'supervisor.log.txt').open('xb') as log:
+        child = subprocess.Popen([PYTHON, '-B', str(Path(__file__)), args.step, '--worker'],
+                                 stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                                 start_new_session=True, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0'))
+    with (out / 'launch.json').open('x') as stream:
+        json.dump({'pid': child.pid, 'step': args.step, 'launched_at': datetime.now(timezone.utc).isoformat()}, stream)
+    print(json.dumps({'pid': child.pid, 'step': args.step, 'out': str(out)}))
+    raise SystemExit(0)
+
+argv, timeout, receipt_name, field, expected = STEPS[args.step]
+command = [PYTHON, '-B', str(QC / argv[0]), *argv[1:]]
+receipt = out / 'receipt.json'
+record = {'step': args.step, 'command': command, 'started_at': datetime.now(timezone.utc).isoformat(),
+          'complete': False, 'automatic_retries': 0, 'worker_pid': os.getpid()}
+def save():
+    receipt.write_text(json.dumps(record, indent=2) + '\n')
+save()
+start = time.monotonic()
+with (out / 'stdout.log.txt').open('xb') as log:
+    child = subprocess.Popen(command, cwd=QC, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+    record['child_pid'] = child.pid
+    save()
+    try:
+        code = child.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        child.send_signal(signal.SIGTERM)
+        try:
+            child.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait()
+        code = child.returncode
+        record['outer_timeout'] = True
+bound = QC / receipt_name
+result = json.loads(bound.read_text()) if bound.exists() else {}
+passed = code == 0 and not record.get('outer_timeout') and result.get(field) == expected
+record.update(complete=True, exit_code=code, elapsed_seconds=round(time.monotonic()-start, 3),
+              status='PASS' if passed else 'BLOCKED', child_receipt=str(bound) if bound.exists() else None,
+              child_status=result.get(field), stdout_sha256=hashlib.sha256((out / 'stdout.log.txt').read_bytes()).hexdigest())
+if bound.exists():
+    record['child_receipt_sha256'] = hashlib.sha256(bound.read_bytes()).hexdigest()
+save()
+print(json.dumps(record))

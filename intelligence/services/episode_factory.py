@@ -776,6 +776,20 @@ def build_episode_context(
         if material_descriptions:
             output_ids = (*material_descriptions, "evidence_boundary")
         forward_slots = frozenset()
+    elif (
+        material is not None
+        and material.data_scope == "local_only"
+        and material.questions
+    ):
+        # 用户自己编了号，就按那个编号交付：每题一个必填槽，而不是把两三题卵进
+        # direct_answer 一格。让第二题消失在一个已履行的总槽里，是 D5 已经实证过的
+        # 漏答路径。跟 material_only 只差在“取数权限”：这里仍然有本地读工具，所以
+        # evidence_types / evidence_plan 照常挂，每题仍需真实本地证据；材料题那套
+        # 「交代缺口即可结清」的账不跟着过来（见 material_delivery 模块头注）。
+        # 未编号的本地题 questions 为空，形状不变；待澄清合同走上面 material_only 分支。
+        material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
+        output_ids = (*material_descriptions, "evidence_boundary")
+        forward_slots = frozenset()
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds

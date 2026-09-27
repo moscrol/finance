@@ -1,0 +1,67 @@
+"""Finish the offline audit from preserved outputs, correcting only recorder expectations."""
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-07'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+config = json.loads((QC / 'config.json').read_text())
+PYTHON = config['python']
+OUT = QC / 'offline-validation'
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+prior = OUT / 'receipt.json'
+record = json.loads(prior.read_text())
+assert record['status'] == 'RUNNING' and len(record['checks']) == 6
+assert all(row['exit_code'] == row['expected_exit'] and sha(Path(row['log'])) == row['sha256'] for row in record['checks'])
+assert 'Ran 25 tests' in (OUT / 'unittest.log.txt').read_text()
+assert 'execution-boundary-preflight-v3.json' in (OUT / 'gateway-not-admitted.log.txt').read_text()
+assert 'gateway/receipt.json' in (OUT / 'stage-not-admitted.log.txt').read_text()
+record['prior_recorder'] = {'path': str(prior), 'sha256': sha(prior), 'status': 'FAILED_ASSERTION', 'reason': 'recorder expected the execution preflight guard for both entry points; stage correctly stops earlier at missing gateway receipt', 'prior_outputs_overwritten': False}
+command = [PYTHON, '-B', str(QC / 'run_stage_v3.py'), 'execute', 'timer']
+result = subprocess.run(command, capture_output=True, text=True, timeout=15)
+log = OUT / 'other-group-not-admitted.log.txt'
+with log.open('x') as stream:
+    stream.write(result.stdout + result.stderr)
+assert result.returncode == 1 and 'Stage outside current bounded slice' in result.stderr
+record['checks'].append({'name': 'other-group-not-admitted', 'command': command, 'exit_code': result.returncode, 'expected_exit': 1, 'log': str(log), 'sha256': sha(log)})
+for source in [*QC.glob('*.py'), *QC.glob('inputs/*.py'), *QC.glob('work/controller-v3/probes/*.py')]:
+    ast.parse(source.read_bytes(), filename=str(source))
+incident = json.loads((ROOT / 'qc06-integrity-audit-0925/incident.json').read_text())
+assert all(sha(Path(name)) == expected for name, expected in incident['source_sha256'].items())
+record['qc06_incident_sources_unchanged'] = True
+record['qc06_overwritten_receipt_restored'] = False
+budget = json.loads(subprocess.check_output([PYTHON, str(ROOT / 'inspect_status.py')], text=True))
+assert budget['used'] == 186 and budget['remaining'] == 32
+record['budget'] = {key: budget[key] for key in ('used', 'ceiling', 'remaining')}
+resources = [json.loads(line) for line in (QC / 'work/reviewer-pytest-admissions.jsonl').read_text().splitlines()]
+assert len(resources) == 1 and resources[0]['allowed'] is False
+record['resource_admission'] = resources[0]
+record['resource_retries'] = 0
+record['offline_receipts'] = {}
+for name in ('io-boundary-preflight.json', 'stage-boundary-preflight-v3-0925.json', 'probe-menu-preflight-0925.json', 'probe-transport-preflight.json', 'artifact-checkpoint-preflight-0925.json'):
+    source = QC / name
+    value = json.loads(source.read_text())
+    assert value['status'] == 'PASS'
+    hashes = value.get('source_sha256', {})
+    if isinstance(hashes, str):
+        hashes = {'review_v3.mjs': hashes}
+    assert all(sha(QC / path) == expected for path, expected in hashes.items())
+    record['offline_receipts'][name] = sha(source)
+for tree in (config['tree'], config['author']):
+    assert subprocess.check_output(['git', '-C', tree, 'rev-parse', 'HEAD'], text=True).strip() == config['revision']
+    assert not subprocess.check_output(['git', '-C', tree, 'status', '--porcelain'], text=True).strip()
+assert not any((QC / name).exists() for name in ('gateway', 'execute-e2-v3', 'report-e2-v3', 'execution-boundary-preflight-v3.json'))
+assert all(not (QC / 'work/e2' / name).exists() for name in ('EXECUTE.md', 'EXECUTE.json', 'FINAL.md', 'FINAL.json'))
+record.update(at=datetime.now(timezone.utc).isoformat(), status='OFFLINE_PASS_DYNAMIC_NOT_ADMITTED', independent_candidate_verdict=None,
+              dynamic_wrapper_preflight='NOT_RUN_RESOURCE_GATE', gateway='NOT_STARTED',
+              execute='NOT_STARTED', report='NOT_STARTED', next_slice_max_new_requests=11,
+              candidate_and_author_clean=True,
+              helper_sha256={name: sha(TREE / name) for name in ['scripts/review_probes/review_io_sandbox.py','tests/test_review_io_sandbox.py']})
+with (QC / 'offline-validation-completion.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps({key: record[key] for key in ('status','budget','resource_admission','dynamic_wrapper_preflight','gateway','execute','report')}, indent=2))

@@ -257,7 +257,14 @@ def verify_episode_outcome(
                 )
             )
         if binding.gap:
-            spec = material_specs.get(required.output_id)
+            # 结清只属于 material_only：那里零读取权限，交代缺项是唯一诚实交付。
+            # local_only 手里有本地读工具，再认 legal_gap 等于用「缺少X」买断取数义务，
+            # 所以它的缺口回到普通 required_output_gap（partial + 修复）。
+            spec = (
+                material_specs.get(required.output_id)
+                if grounding_scope(contract) == "material_only"
+                else None
+            )
             legal_gap = bool(
                 spec is not None
                 and not basis_mismatch

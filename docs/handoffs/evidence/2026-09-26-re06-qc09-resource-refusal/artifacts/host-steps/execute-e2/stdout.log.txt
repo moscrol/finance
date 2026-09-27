@@ -1,0 +1,2 @@
+{"at": "2026-09-25T16:53:03.138745+00:00", "load_1m": 8.97412109375, "existing_pytest": 0, "projected_pytest": 1, "free_gib": 35.79228591918945, "allowed": false, "argv": ["--dry-run"], "inspection": "aggregate only; process commands are not returned"}
+

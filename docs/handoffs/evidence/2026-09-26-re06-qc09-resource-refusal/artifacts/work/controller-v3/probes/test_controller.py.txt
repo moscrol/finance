@@ -1,0 +1,73 @@
+"""Host infrastructure preflight only, not an independent candidate probe."""
+from pathlib import Path
+import json
+import socket
+import pytest
+
+ROOT=Path(__file__).resolve().parents[3]
+
+def test_deliberate_controller_red():
+    assert 1 == 2
+
+def test_owned_writes_work(tmp_path):
+    file=tmp_path/'allowed.txt'
+    file.write_text('allowed')
+    assert file.read_text()=='allowed'
+
+def test_external_writes_denied():
+    with pytest.raises(PermissionError):
+        (ROOT/'controller-denied-write.txt').write_text('must not be created')
+
+def test_host_sentinel_read_denied():
+    with pytest.raises(PermissionError):
+        (ROOT.parent/'sandbox-host-sentinel.txt').read_text()
+
+def test_restricted_directories_expose_metadata_not_contents():
+    tree=Path(json.loads((ROOT/'config.json').read_text())['tree'])
+    for name in ['.agents','.claude','docs','intelligence/users']:
+        folder=tree/name
+        assert folder.is_dir()
+        with pytest.raises(PermissionError):
+            list(folder.iterdir())
+
+def test_network_denied():
+    with socket.socket() as connection, pytest.raises(PermissionError):
+        connection.connect(('127.0.0.1',9))
+
+
+def test_current_host_receipt_is_not_writable():
+    import os
+    scratch=Path(os.environ['REVIEW_SCRATCH'])
+    receipt=ROOT/'evidence'/'controller-v3'/scratch.name/'receipt.json'
+    original=receipt.read_bytes()
+    with pytest.raises(PermissionError):
+        receipt.write_text('corrupt')
+    with pytest.raises(PermissionError):
+        receipt.unlink()
+    assert receipt.read_bytes()==original
+
+
+def test_other_artifacts_and_frozen_probes_are_not_writable():
+    for target in [ROOT/'work/e2/EXECUTE.md', ROOT/'work/timer/FINAL.md',
+                   ROOT/'inputs/frozen-explore-e2-v3/probes/test_reviewer.py',
+                   ROOT/'evidence/e2/counterfeit.json']:
+        with pytest.raises(PermissionError):
+            target.write_text('corrupt')
+
+
+def test_host_receipt_aliases_do_not_grant_write_access(tmp_path):
+    import os
+    scratch=Path(os.environ['REVIEW_SCRATCH'])
+    receipt=ROOT/'evidence'/'controller-v3'/scratch.name/'receipt.json'
+    original=receipt.read_bytes()
+    for name, link in [('soft',os.symlink),('hard',os.link)]:
+        with pytest.raises(PermissionError):
+            target=tmp_path/name
+            link(receipt,target)
+            target.write_text('corrupt')
+    assert receipt.read_bytes()==original
+
+
+def test_probe_environment_contains_no_credentials():
+    import os
+    assert not any('TOKEN' in name or 'API_KEY' in name for name in os.environ)

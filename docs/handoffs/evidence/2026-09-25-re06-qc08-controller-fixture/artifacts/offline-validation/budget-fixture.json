@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "valid": {
+    "observed_at": "2026-09-25T15:49:57.313645+00:00",
+    "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+    "historical_requests": 147,
+    "used": 150,
+    "ceiling": 218,
+    "remaining": 68,
+    "ceiling_exceeded": false,
+    "stages": [
+      {
+        "batch": "qc-evidence-isolated-08",
+        "stage": "gateway",
+        "requests": 2,
+        "status": null,
+        "complete": null,
+        "pid": null,
+        "ledger": "/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpzkmei4f7/qc-evidence-isolated-08/gateway/request-admissions.jsonl"
+      },
+      {
+        "batch": "qc-evidence-isolated-08",
+        "stage": "execute-e2-v3",
+        "requests": 1,
+        "status": null,
+        "complete": null,
+        "pid": null,
+        "ledger": "/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/tmpzkmei4f7/qc-evidence-isolated-08/execute-e2-v3/request-admissions.jsonl"
+      }
+    ],
+    "scope": "budget and execution facts only; no independent semantic or deployment verdict"
+  },
+  "duplicate_or_missing_sequence_rejected": true,
+  "offline_fixture_not_counted": true,
+  "inspector_sha256": "6c665fb832395b6ef44737b1811c0446f7f388f5218c1531e49c54dc5e7a1007"
+}

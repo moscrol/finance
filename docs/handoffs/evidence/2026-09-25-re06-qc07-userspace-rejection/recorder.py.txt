@@ -1,0 +1,125 @@
+"""Preserve QC07's first real controller failure; run only stdlib repair checks.
+
+Does not retry the frozen preflight, prepare another batch, or contact a model.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-07'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+PYTHON = str(ROOT / 'candidate/.venv-workbench/bin/python')
+OUT = ROOT / 'qc07-userspace-incident-0925'
+ARCHIVE = TREE / 'docs/handoffs/evidence/2026-09-25-re06-qc07-userspace-rejection'
+PREFLIGHT = QC / 'execution-boundary-preflight-v3-1790349291351155000'
+CHILD = QC / 'evidence/controller-v3/controller_preflight-1790349291387123000'
+OUT.mkdir(exist_ok=False)
+ARCHIVE.mkdir(exist_ok=False)
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+
+record = {'observed_at': datetime.now(timezone.utc).isoformat(),
+          'status': 'BLOCKED_EXECUTOR_PLUGIN_IMPORT', 'model_requests_added': 0,
+          'pytest_processes_started_in_attempt': 1, 'pytest_tests_collected': None,
+          'ui_processes_started': 0, 'gateway_started': False,
+          'repair_installed_in_frozen_QC07': False, 'automatic_retries': 0}
+original = json.loads((PREFLIGHT / 'receipt.json').read_text())
+child = json.loads((CHILD / 'receipt.json').read_text())
+marker = original['runs'][0]['markers'][0]
+assert original['status'] == 'RUNNING' and len(original['runs']) == 1
+assert marker['sha256'] == sha(CHILD / 'receipt.json')
+assert child['complete'] and child['exit_code'] == 1 and child['counts'] is None
+assert not (CHILD / 'junit.xml').exists()
+assert 'qc_userspace_isolation.py' in (CHILD / 'stdout.log.txt').read_text()
+assert "assert TARGET.is_relative_to((ROOT/'work').resolve())" in (CHILD / 'stdout.log.txt').read_text()
+record['actual_failure'] = {'receipt': str(CHILD / 'receipt.json'), 'sha256': sha(CHILD / 'receipt.json'),
+                            'exit_code': 1, 'counts': None,
+                            'reason': 'old work-root guard rejected invocation scratch/users during plugin import',
+                            'outer_receipt_status_preserved': 'RUNNING'}
+for name in ('execution-boundary-preflight-v3.json', 'gateway', 'execute-e2-v3', 'report-e2-v3'):
+    assert not (QC / name).exists(), name
+config = json.loads((QC / 'config.json').read_text())
+for candidate in (ROOT / 'candidate', Path(config['tree'])):
+    assert subprocess.check_output(['git', '-C', str(candidate), 'rev-parse', 'HEAD'], text=True).strip() == config['revision']
+    assert not subprocess.check_output(['git', '-C', str(candidate), 'status', '--porcelain'], text=True).strip()
+record['revision'] = config['revision']
+record['baseline'] = config['baseline']
+budget = json.loads(subprocess.check_output([PYTHON, str(ROOT / 'inspect_status.py')], text=True))
+assert budget['used'] == 186 and budget['remaining'] == 32 and not budget['ceiling_exceeded']
+save(OUT / 'budget.json', budget)
+
+# Old archived bytes stay immutable; the resource ledger legitimately appends.
+prior = TREE / 'docs/handoffs/evidence/2026-09-25-re06-qc07-write-boundary'
+prior_manifest = json.loads((prior / 'manifest.json').read_text())
+unchanged = 0
+appended = []
+for row in prior_manifest['artifacts']:
+    archive = prior / row['archive']
+    assert sha(archive) == row['sha256']
+    source = Path(row['source'])
+    if sha(source) == row['sha256']:
+        unchanged += 1
+    else:
+        assert source == QC / 'work/reviewer-pytest-admissions.jsonl'
+        assert source.read_bytes().startswith(archive.read_bytes())
+        appended.append({'path': str(source), 'old_sha256': row['sha256'], 'new_sha256': sha(source),
+                         'appended_bytes': source.stat().st_size - archive.stat().st_size})
+record['prior_archive'] = {'count': len(prior_manifest['artifacts']), 'unchanged_sources': unchanged,
+                           'append_only_resource_ledger': appended, 'archived_bytes_unchanged': True}
+
+checks = []
+env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0')
+commands = {
+    'unittest': [PYTHON, '-B', '-m', 'unittest', 'tests.test_review_io_sandbox',
+                 'tests.test_review_artifact_writer', 'tests.test_qc_userspace_isolation', '-v'],
+    'ruff': [PYTHON, '-m', 'ruff', 'check', 'scripts/review_probes/review_io_sandbox.py',
+             'scripts/review_probes/review_artifact_writer.py', 'scripts/review_probes/qc_userspace_isolation.py',
+             'tests/test_review_io_sandbox.py', 'tests/test_review_artifact_writer.py',
+             'tests/test_qc_userspace_isolation.py'],
+}
+for name, command in commands.items():
+    with (OUT / (name + '.log.txt')).open('xb') as stream:
+        result = subprocess.run(command, cwd=TREE, env=env, stdout=stream, stderr=subprocess.STDOUT, timeout=60)
+    checks.append({'name': name, 'command': command, 'exit_code': result.returncode,
+                   'log_sha256': sha(OUT / (name + '.log.txt'))})
+    assert result.returncode == 0, name
+record['offline_checks'] = checks
+record['offline_scope'] = 'stdlib plugin import and user-store consumer checks plus OS write isolation; no real pytest/UI rerun'
+record['not_verified'] = ['new plugin in a newly frozen full executor', 'gateway', 'E2 execute/report',
+                          'timer/consent review', 'C1-C10', 'natural acceptance', 'new main combination', 'deployment']
+save(OUT / 'incident.json', record)
+
+files = {source: Path('failure') / source.relative_to(QC) for folder in (PREFLIGHT, CHILD)
+         for source in folder.iterdir() if source.is_file()}
+for name in ('inputs/qc_userspace_isolation.py', 'run_probe_v3.py', 'execution_boundary_preflight_v3.py',
+             'work/reviewer-pytest-admissions.jsonl'):
+    files[QC / name] = Path('frozen-sources') / (name + '.txt')
+for source in OUT.iterdir():
+    files[source] = Path('offline') / source.name
+for name in ('scripts/review_probes/qc_userspace_isolation.py', 'tests/test_qc_userspace_isolation.py'):
+    files[TREE / name] = Path('repair') / (Path(name).name + '.txt')
+files[Path(__file__)] = Path('recorder.py.txt')
+rows = []
+for source, relative in sorted(files.items(), key=lambda item: str(item[1])):
+    assert source.is_file() and not source.is_symlink()
+    destination = ARCHIVE / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open('xb') as stream:
+        stream.write(source.read_bytes())
+    assert sha(destination) == sha(source)
+    rows.append({'source': str(source), 'archive': str(relative), 'bytes': source.stat().st_size,
+                 'sha256': sha(source)})
+save(ARCHIVE / 'manifest.json', {'scope': 'QC07 first real executor plugin rejection and separate offline repair',
+                                'status': record['status'], 'archive_count': len(rows), 'artifacts': rows})
+print(json.dumps({'status': record['status'], 'archive': str(ARCHIVE), 'count': len(rows),
+                  'offline_checks': checks, 'budget_used': budget['used'], 'remaining': budget['remaining']}, indent=2))

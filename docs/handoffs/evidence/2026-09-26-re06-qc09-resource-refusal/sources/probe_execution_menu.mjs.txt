@@ -1,0 +1,38 @@
+export function executionTransportResult(result, controlled) {
+  // The receipt retains the test exit; completed test failures are tool deliveries.
+  return controlled && Number.isInteger(result.exitCode) ? { ...result, exitCode: 0 } : result;
+}
+
+export function baselineRoles(group) {
+  if (!['e2', 'consent', 'timer'].includes(group)) throw new Error('unknown review group');
+  return ['positive_control', 'reviewer', 'author', ...(group === 'timer' ? ['ui_reviewer', 'ui_author'] : [])];
+}
+
+export function executionPayload(payload, { group, baselineFinished, blocked }) {
+  const allowed = blocked ? ['write'] : baselineFinished ? ['read', 'write', 'run_probe'] : ['run_probe'];
+  const tools = payload.tools.filter(tool => allowed.includes(tool.function?.name)).map(tool => structuredClone(tool));
+  if (!tools.length || (!blocked && !tools.some(tool => tool.function.name === 'run_probe'))) throw new Error('missing controlled execution tool');
+  const probe = tools.find(tool => tool.function.name === 'run_probe');
+  if (probe) probe.function.parameters.properties.role = { type: 'string', enum: baselineFinished ? baselineRoles(group).filter(role => role !== 'positive_control') : ['baseline'] };
+  return { ...payload, tools, parallel_tool_calls: false,
+    tool_choice: !blocked && !baselineFinished ? { type: 'function', function: { name: 'run_probe' } } : 'auto' };
+}
+
+export async function runBaseline(group, invoke) {
+  const runs = [];
+  let blocked = null;
+  for (const role of baselineRoles(group)) {
+    const record = await invoke(role);
+    runs.push(record);
+    if (record.blocked || !record.counts) {
+      blocked = record.blocked || 'MISSING_EXECUTION_COUNTS';
+      break;
+    }
+    const counts = record.counts;
+    if (role === 'positive_control' && !(record.exit_code === 1 && counts.collected === 1 && counts.failed === 1 && counts.passed === 0 && counts.errors === 0 && counts.skipped === 0 && counts.xfailed === 0)) {
+      blocked = 'INVALID_POSITIVE_CONTROL';
+      break;
+    }
+  }
+  return { baseline_finished: !blocked, blocked, runs };
+}

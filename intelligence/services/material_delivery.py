@@ -4,6 +4,13 @@ These are structural checks, not evidence support. A legal_gap means the writer
 has disclosed a specific missing input in the matching question section. The
 semantic judge must still review that disclosure and every remaining claim.
 Ordinary/full contracts do not gain this material-only settlement rule.
+
+Two separate things live here. *Delivery shape* (answer under the user's own
+number, one binding per question, memo limits) belongs to every scope that
+froze the numbering: material_only and local_only. *Settlement* (a disclosed
+gap discharging the slot) stays material_only, because a local_only run still
+holds read tools: letting 「缺少 X」 close a question there would pay the writer
+for not reading. local_only gaps stay ordinary partials.
 """
 from __future__ import annotations
 
@@ -41,18 +48,37 @@ _ALL_GAP_NOTICE = "仅凭本轮材料，以下各题均暂不能得出结论；�
 
 
 def material_input_output_ids(contract: ResearchTaskContract) -> frozenset[str]:
-    """Required deliveries reachable from settled input, regardless of numbering."""
+    """Required deliveries reachable from settled input, regardless of numbering.
+
+    material_only only. Callers use it to exempt slots from tool-evidence
+    reachability (repair goals, claim rendering); a local_only question is
+    reachable by reading the local store, so it must stay outside.
+    """
     material = contract.material_contract
     if material is None or material.data_scope != "material_only" or material.needs_clarification:
         return frozenset()
     return frozenset(item.output_id for item in contract.required_outputs if item.required)
 
 
-def material_question_outputs(contract: ResearchTaskContract) -> tuple[MaterialQuestionOutput, ...]:
-    required_ids = material_input_output_ids(contract)
+def question_delivery_scope(contract: ResearchTaskContract) -> str | None:
+    """Frozen scope that delivers by the user's original numbering, else None.
+
+    An unsettled contract keeps returning None: a clarification turn asks a
+    question instead of answering q1..qN, so it must not grow numbered slots.
+    """
     material = contract.material_contract
-    if not required_ids or material is None:
+    if material is None or material.needs_clarification:
+        return None
+    if material.data_scope in {"material_only", "local_only"}:
+        return material.data_scope
+    return None
+
+
+def material_question_outputs(contract: ResearchTaskContract) -> tuple[MaterialQuestionOutput, ...]:
+    material = contract.material_contract
+    if question_delivery_scope(contract) is None or material is None:
         return ()
+    required_ids = frozenset(item.output_id for item in contract.required_outputs if item.required)
     result = []
     for question in material.questions:
         output_id = f"answer_{question.question_id}"
@@ -186,6 +212,12 @@ def material_delivery_missing_outputs(
     answer: str,
     bindings: tuple[OutputEvidenceBinding, ...],
 ) -> tuple[str, ...]:
+    """Shape only: did every question get its own body under its own number.
+
+    A disclosed gap is a body, so it is not reported here in any scope. Whether
+    that disclosure *settles* the slot is the verifier's call, and only
+    material_only settles.
+    """
     by_id = {item.output_id: item for item in bindings}
     return tuple(
         spec.output_id for spec in material_question_outputs(contract)
@@ -198,6 +230,10 @@ def material_delivery_missing_outputs(
 def with_all_material_gaps_notice(
     contract: ResearchTaskContract, answer: str, bindings: tuple[OutputEvidenceBinding, ...],
 ) -> str:
+    # material_only only: the notice asserts 「仅凭本轮材料」, which is false for a
+    # local_only run that still could have read. Those turns stay ordinary partials.
+    if question_delivery_scope(contract) != "material_only":
+        return answer
     specs = material_question_outputs(contract)
     if not specs:
         return answer
@@ -217,17 +253,32 @@ def with_all_material_gaps_notice(
     return clean
 
 
+_NUMBERING_RULES = (
+    "按原编号逐题用独立标题 ## qN 作答；每题仅一个 answer_qN 绑定，不合并、不重复。"
+    "备忘录也是该题的交付形态，不另造第二个 memo 槽；max_chars 按正文非空白字符计数（含标点，不含题标题）。"
+)
+
+_MATERIAL_ONLY_RULES = (
+    "能回答的用证据支持；无法回答时在该题正文写‘缺少[具体输入]，无法[具体判断]’，"
+    "将同一句交代原样放入该题 binding.gap，evidence_hashes 留空，仍保持约定的 basis。"
+    "泛泛‘材料不足’或只在 binding 写缺口都算 missing。"
+    "legal_gap 只证明结构上交代了缺项，不证明材料确实缺失，仍须语义审核。"
+    "全部 answered 才可 completed；只要含 legal_gap 就只能 partial；遗漏须补交，不能冒充合法缺口。"
+    "全题 legal_gap 须顶部声明材料不足；evidence_boundary 不是额外一道已回答的题。"
+)
+
+# 同一份编号/备忘录规矩，结清口径相反：本地题有读取授权，「缺少 X」不是免答凭证。
+_LOCAL_ONLY_RULES = (
+    "本轮是 local_only：每题都要用本轮实际读到的本地证据作答，没取到就先去读，"
+    "不能用‘缺少X，无法Y’换取免答——本地题没有可结清的合法缺口。"
+    "确实读不到时在该题正文写明缺什么、同句放入该题 binding.gap，并把本轮报成 partial。"
+    "遗漏、重复、只写题标题或超字数都算 missing；evidence_boundary 不是额外一道已回答的题。"
+)
+
+
 def material_delivery_payload(contract: ResearchTaskContract) -> dict[str, object]:
+    local = question_delivery_scope(contract) == "local_only"
     return {
         "questions": [asdict(spec) for spec in material_question_outputs(contract)],
-        "rules": (
-            "按原编号逐题用独立标题 ## qN 作答；每题仅一个 answer_qN 绑定，不合并、不重复。"
-            "备忘录也是该题的交付形态，不另造第二个 memo 槽；max_chars 按正文非空白字符计数（含标点，不含题标题）。"
-            "能回答的用证据支持；无法回答时在该题正文写‘缺少[具体输入]，无法[具体判断]’，"
-            "将同一句交代原样放入该题 binding.gap，evidence_hashes 留空，仍保持约定的 basis。"
-            "泛泛‘材料不足’或只在 binding 写缺口都算 missing。"
-            "legal_gap 只证明结构上交代了缺项，不证明材料确实缺失，仍须语义审核。"
-            "全部 answered 才可 completed；只要含 legal_gap 就只能 partial；遗漏须补交，不能冒充合法缺口。"
-            "全题 legal_gap 须顶部声明材料不足；evidence_boundary 不是额外一道已回答的题。"
-        ),
+        "rules": _NUMBERING_RULES + (_LOCAL_ONLY_RULES if local else _MATERIAL_ONLY_RULES),
     }

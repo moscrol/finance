@@ -1,0 +1,19 @@
+{
+  "step": "execution-preflight",
+  "command": [
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/execution_boundary_preflight_v3.py"
+  ],
+  "started_at": "2026-09-25T15:51:18.156028+00:00",
+  "complete": true,
+  "automatic_retries": 0,
+  "worker_pid": 51867,
+  "child_pid": 51872,
+  "exit_code": 1,
+  "elapsed_seconds": 0.99,
+  "status": "BLOCKED",
+  "child_receipt": null,
+  "child_status": null,
+  "stdout_sha256": "cc6f330e71a446a73775714afe66e41801371b2412a510b15c19f20d95e4a10c"
+}

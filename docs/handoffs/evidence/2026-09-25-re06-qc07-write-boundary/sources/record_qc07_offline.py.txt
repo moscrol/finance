@@ -1,0 +1,70 @@
+"""Record QC07 offline checks and preserve resource rejection; no live retry."""
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-07'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+config = json.loads((QC / 'config.json').read_text())
+PYTHON = config['python']
+OUT = QC / 'offline-validation'
+OUT.mkdir()
+record = {'at': datetime.now(timezone.utc).isoformat(), 'revision': config['revision'], 'baseline': config['baseline'], 'status': 'RUNNING', 'real_model_requests': 0, 'pytest_invocations': 0, 'checks': []}
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+def run(name, command, expected=0):
+    result = subprocess.run(command, cwd=TREE, capture_output=True, text=True, timeout=60)
+    log = OUT / (name + '.log.txt')
+    log.write_text(result.stdout + result.stderr)
+    row = {'name': name, 'command': command, 'exit_code': result.returncode, 'expected_exit': expected, 'log': str(log), 'sha256': sha(log)}
+    record['checks'].append(row)
+    (OUT / 'receipt.json').write_text(json.dumps(record, indent=2) + '\n')
+    assert result.returncode == expected, row
+    return result
+
+run('unittest', [PYTHON, '-B', '-m', 'unittest', 'tests.test_review_io_sandbox', 'tests.test_review_artifact_writer', '-v'])
+run('ruff', [PYTHON, '-m', 'ruff', 'check', 'scripts/review_probes/review_io_sandbox.py', 'scripts/review_probes/review_artifact_writer.py', 'tests/test_review_io_sandbox.py', 'tests/test_review_artifact_writer.py'])
+run('environment', [PYTHON, '-I', '-c', 'import sys,httpx;print(sys.version);print(httpx.__version__);assert sys.version_info[:3]==(3,12,13);assert httpx.__version__=="0.28.1"'])
+run('freeze-e2-inputs', [PYTHON, '-B', str(QC / 'stage_admission_v3.py'), 'execute', 'e2', '--prepare-only'])
+for name, command in [('gateway', [PYTHON, '-B', str(QC / 'run_gateway.py')]), ('stage', [PYTHON, '-B', str(QC / 'run_stage_v3.py'), 'execute', 'e2'])]:
+    result = run(name + '-not-admitted', command, 1)
+    assert 'execution-boundary-preflight-v3.json' in result.stderr and 'FileNotFoundError' in result.stderr
+    assert not (QC / ('gateway' if name == 'gateway' else 'execute-e2-v3')).exists()
+run('other-group-not-admitted', [PYTHON, '-B', str(QC / 'run_stage_v3.py'), 'execute', 'timer'], 1)
+for source in [*QC.glob('*.py'), *QC.glob('inputs/*.py'), *QC.glob('work/controller-v3/probes/*.py')]:
+    ast.parse(source.read_bytes(), filename=str(source))
+incident = json.loads((ROOT / 'qc06-integrity-audit-0925/incident.json').read_text())
+assert all(sha(Path(name)) == expected for name, expected in incident['source_sha256'].items())
+record['qc06_incident_sources_unchanged'] = True
+record['qc06_overwritten_receipt_restored'] = False
+budget = json.loads(subprocess.check_output([PYTHON, str(ROOT / 'inspect_status.py')], text=True))
+assert budget['used'] == 186 and budget['remaining'] == 32
+record['budget'] = {key: budget[key] for key in ('used', 'ceiling', 'remaining')}
+resources = [json.loads(line) for line in (QC / 'work/reviewer-pytest-admissions.jsonl').read_text().splitlines()]
+assert len(resources) == 1 and resources[0]['allowed'] is False
+record['resource_admission'] = resources[0]
+record['resource_retries'] = 0
+record['offline_receipts'] = {}
+for name in ('io-boundary-preflight.json', 'stage-boundary-preflight-v3-0925.json', 'probe-menu-preflight-0925.json', 'probe-transport-preflight.json', 'artifact-checkpoint-preflight-0925.json'):
+    source = QC / name
+    value = json.loads(source.read_text())
+    assert value['status'] == 'PASS'
+    hashes = value.get('source_sha256', {})
+    if isinstance(hashes, str):
+        hashes = {'review_v3.mjs': hashes}
+    assert all(sha(QC / path) == expected for path, expected in hashes.items())
+    record['offline_receipts'][name] = sha(source)
+for tree in (config['tree'], config['author']):
+    assert subprocess.check_output(['git', '-C', tree, 'rev-parse', 'HEAD'], text=True).strip() == config['revision']
+    assert not subprocess.check_output(['git', '-C', tree, 'status', '--porcelain'], text=True).strip()
+record.update(status='OFFLINE_PASS_DYNAMIC_NOT_ADMITTED', independent_candidate_verdict=None,
+              dynamic_wrapper_preflight='NOT_RUN_RESOURCE_GATE', gateway='NOT_STARTED',
+              execute='NOT_STARTED', report='NOT_STARTED', next_slice_max_new_requests=11,
+              candidate_and_author_clean=True,
+              helper_sha256={name: sha(TREE / name) for name in ['scripts/review_probes/review_io_sandbox.py','tests/test_review_io_sandbox.py']})
+(OUT / 'receipt.json').write_text(json.dumps(record, indent=2) + '\n')
+print(json.dumps(record, indent=2))

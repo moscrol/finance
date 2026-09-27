@@ -1,0 +1,38 @@
+
+ RUN  v3.2.4 /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/candidate/finance-workspace-private/intelligence/webapp
+
+ ❯ ../../../../work/controller-v3/probes/controller.test.tsx (2 tests | 1 failed) 28ms
+   × controller deliberate red 3ms
+     → expected 1 to be 2 // Object.is equality
+   ✓ controller jsdom and React are usable 24ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../../../work/controller-v3/probes/controller.test.tsx > controller deliberate red
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ ../../../../work/controller-v3/probes/controller.test.tsx:7:53
+      5| 
+      6| afterEach(cleanup);
+      7| test('controller deliberate red', () => { expect(1).toBe(2); });
+       |                                                     ^
+      8| test('controller jsdom and React are usable', () => {
+      9|   render(<button>Controller Fixture</button>);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:51:52
+   Duration  987ms (transform 489ms, setup 608ms, collect 7ms, tests 28ms, environment 234ms, prepare 31ms)
+
+JUNIT report written to /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/scratch/controller-v3/ui_controller_preflight-1790355110929636000/junit.xml
+
+EXECUTION_RECEIPT {"path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/ui_controller_preflight-1790355110929636000/receipt.json", "sha256": "4c4c7528f72167e8f8c75c49aee64c1bc5ae3ea6a2890df9e98b91d1fa8bfb2d", "exit_code": 1, "counts": {"tests": 2, "passed": 1, "failed": 1, "errors": 0, "skipped": 0, "xfailed": 0, "collected": 2, "collected_source": "vitest_junit"}, "blocked": null}

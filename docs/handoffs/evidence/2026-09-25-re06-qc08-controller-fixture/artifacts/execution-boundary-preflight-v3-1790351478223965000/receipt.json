@@ -1,0 +1,30 @@
+{
+  "status": "RUNNING",
+  "real_model_requests": 0,
+  "independent_candidate_tests": 0,
+  "runs": [
+    {
+      "role": "controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/execution-boundary-preflight-v3-1790351478223965000/controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/controller-v3/controller_preflight-1790351478303257000/receipt.json",
+          "sha256": "0b814c942e11c191c441c61e6b10ec9e9a50999eb91afc5e43a41775a07c4b76",
+          "exit_code": 1,
+          "counts": {
+            "tests": 10,
+            "passed": 8,
+            "failed": 2,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 10,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    }
+  ]
+}

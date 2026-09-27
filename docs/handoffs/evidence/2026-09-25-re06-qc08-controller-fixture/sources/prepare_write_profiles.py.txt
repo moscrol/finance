@@ -1,0 +1,27 @@
+"""Generate stage write policies without granting shared-work write access."""
+import json
+from pathlib import Path
+import sys
+
+from review_artifact_writer import ARTIFACTS, GROUPS, _allowed_artifact
+from review_io_sandbox import narrow_write_policy
+
+
+def prepare(root):
+    config = json.loads((root / 'config.json').read_text())
+    base = (root / 'tools-v3.sb').read_text()
+    for group in GROUPS:
+        work = root / 'work' / group
+        (work / 'probes').mkdir(parents=True, exist_ok=True)
+        for stage, names in ARTIFACTS.items():
+            candidates = names | {'transaction-review.md', 'transaction-review.json'}
+            files = tuple(work / name for name in sorted(candidates) if _allowed_artifact(Path(name), stage, group))
+            directories = (work / 'probes',) if stage in {'explore', 'execute'} else ()
+            policy = narrow_write_policy(base, root / 'work', directories=directories, files=files,
+                                         protected=(root / 'evidence', root / 'inputs', Path(config['tree'])))
+            with (root / f'model-{stage}-{group}.sb').open('x') as stream:
+                stream.write(policy)
+
+
+if __name__ == '__main__':
+    prepare(Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else Path(__file__).resolve().parent)

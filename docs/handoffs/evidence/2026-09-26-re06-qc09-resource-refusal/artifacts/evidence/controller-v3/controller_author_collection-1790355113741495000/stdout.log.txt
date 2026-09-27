@@ -1,0 +1,135 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0
+解释器: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python
+树: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/candidate/finance-workspace-private  (unknown) @ (unknown)
+rootdir: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/candidate/finance-workspace-private
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collected 109 items
+
+<Dir finance-workspace-private>
+  <Package intelligence>
+    <Package tests>
+      <Module test_e2_local_question_delivery.py>
+        <Function test_local_numbered_contract_preserves_original_questions_and_read_ceiling>
+        <Function test_writer_and_finalizer_get_question_shape_without_zero_read_exemption>
+        <Function test_complete_bindings_do_not_hide_missing_or_invalid_question_bodies[omit]>
+        <Function test_complete_bindings_do_not_hide_missing_or_invalid_question_bodies[duplicate]>
+        <Function test_complete_bindings_do_not_hide_missing_or_invalid_question_bodies[title_only]>
+        <Function test_complete_bindings_do_not_hide_missing_or_invalid_question_bodies[quoted_only]>
+        <Function test_complete_bindings_do_not_hide_missing_or_invalid_question_bodies[memo_overflow]>
+        <Function test_numbered_delivery_does_not_relax_source_io_purity[local_read]>
+        <Function test_numbered_delivery_does_not_relax_source_io_purity[unknown]>
+        <Function test_numbered_delivery_does_not_relax_source_io_purity[external_or_mixed]>
+        <Function test_local_gaps_are_not_material_legal_gaps_or_completed>
+        <Function test_all_gap_local_turn_is_not_framed_as_a_material_shortage>
+        <Function test_local_answer_cannot_complete_with_only_reasoning_claims>
+        <Function test_restore_cannot_erase_or_weaken_a_local_question[remove]>
+        <Function test_restore_cannot_erase_or_weaken_a_local_question[optional]>
+        <Function test_restore_cannot_erase_or_weaken_a_local_question[reasoning]>
+        <Function test_semantic_and_final_public_projection_keep_question_ownership>
+        <Function test_local_gap_keeps_ordinary_partial_review_instead_of_material_only_settlement>
+        <Function test_local_unnumbered_and_full_numbered_tasks_keep_existing_slot_shape>
+        <Function test_real_episode_reads_local_source_then_delivers_numbered_answers>
+      <Module test_re06_activity_consent_gate_effect.py>
+        <Function test_timer_scope_is_not_a_measurement_scope>
+        <Function test_timer_does_not_disable_default_measurement_or_authorize_pilot[workbench-activity-v1-1]>
+        <Function test_timer_does_not_disable_default_measurement_or_authorize_pilot[workbench-activity-v1-6]>
+        <Function test_timer_does_not_disable_default_measurement_or_authorize_pilot[workbench-activity-v1-600]>
+        <Function test_timer_does_not_disable_default_measurement_or_authorize_pilot[workbench-activity-v2-1]>
+        <Function test_timer_does_not_disable_default_measurement_or_authorize_pilot[workbench-activity-v2-6]>
+        <Function test_timer_does_not_disable_default_measurement_or_authorize_pilot[workbench-activity-v2-600]>
+        <Function test_timer_never_revokes_explicit_measurement_consent[workbench-activity-v1-1]>
+        <Function test_timer_never_revokes_explicit_measurement_consent[workbench-activity-v1-6]>
+        <Function test_timer_never_revokes_explicit_measurement_consent[workbench-activity-v1-600]>
+        <Function test_timer_never_revokes_explicit_measurement_consent[workbench-activity-v2-1]>
+        <Function test_timer_never_revokes_explicit_measurement_consent[workbench-activity-v2-6]>
+        <Function test_timer_never_revokes_explicit_measurement_consent[workbench-activity-v2-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes0-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes0-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes0-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes1-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes1-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes1-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes2-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes2-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes2-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes3-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes3-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v1-scopes3-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes0-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes0-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes0-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes1-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes1-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes1-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes2-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes2-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes2-600]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes3-1]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes3-6]>
+        <Function test_timer_never_grants_missing_measurement_scope[workbench-activity-v2-scopes3-600]>
+        <Function test_real_withdrawal_survives_timer_restart[workbench-activity-v1-research]>
+        <Function test_real_withdrawal_survives_timer_restart[workbench-activity-v1-logging]>
+        <Function test_real_withdrawal_survives_timer_restart[workbench-activity-v2-research]>
+        <Function test_real_withdrawal_survives_timer_restart[workbench-activity-v2-logging]>
+        <Function test_legacy_and_new_records_can_coexist_without_migration>
+        <Function test_legacy_alias_requires_self_use_timer_shape[source_channel-server]>
+        <Function test_legacy_alias_requires_self_use_timer_shape[source_version-value1]>
+        <Function test_legacy_alias_requires_self_use_timer_shape[pilot_id-pilot-1]>
+        <Function test_legacy_alias_requires_self_use_timer_shape[participant_id-pilot-participant]>
+        <Function test_legacy_alias_requires_self_use_timer_shape[task_id-assigned-task]>
+        <Function test_version_alone_never_bypasses_a_real_measurement_withdrawal[workbench-activity-v1-scopes0]>
+        <Function test_version_alone_never_bypasses_a_real_measurement_withdrawal[workbench-activity-v1-scopes1]>
+        <Function test_version_alone_never_bypasses_a_real_measurement_withdrawal[workbench-activity-v2-scopes2]>
+        <Function test_version_alone_never_bypasses_a_real_measurement_withdrawal[workbench-activity-v3-scopes3]>
+        <Function test_version_alone_never_bypasses_a_real_measurement_withdrawal[other-entry-v1-scopes4]>
+        <Function test_version_alone_never_bypasses_a_real_measurement_withdrawal[other-entry-v1-scopes5]>
+        <Function test_any_entry_can_use_the_new_timer_scope_without_a_version_allowlist>
+        <Function test_read_and_write_share_scope_classification>
+      <Module test_research_evolution_i11_consent.py>
+        <Function test_withdraw_logging_stops_self_use_measurement_but_research_completes>
+        <Function test_granted_required_scopes_keep_measurement_flowing>
+        <Function test_withdrawing_an_unrelated_scope_does_not_stop_measurement>
+        <Function test_no_consent_record_keeps_self_use_default>
+        <Function test_timer_stop_preserves_all_three_measurement_events[False-workbench-activity-v1]>
+        <Function test_timer_stop_preserves_all_three_measurement_events[False-workbench-activity-v2]>
+        <Function test_timer_stop_preserves_all_three_measurement_events[True-workbench-activity-v1]>
+        <Function test_timer_stop_preserves_all_three_measurement_events[True-workbench-activity-v2]>
+        <Function test_timer_start_does_not_reauthorize_withdrawn_measurement[workbench-activity-v1]>
+        <Function test_timer_start_does_not_reauthorize_withdrawn_measurement[workbench-activity-v2]>
+      <Module test_re06_consent_fold_shared.py>
+        <Function test_shared_fold_orders_truncates_and_applies_grant_withdraw[entries0-when0-expected0]>
+        <Function test_shared_fold_orders_truncates_and_applies_grant_withdraw[entries1-when1-expected1]>
+        <Function test_shared_fold_orders_truncates_and_applies_grant_withdraw[entries2-when2-expected2]>
+        <Function test_shared_fold_orders_truncates_and_applies_grant_withdraw[entries3-when3-expected3]>
+        <Function test_shared_fold_orders_truncates_and_applies_grant_withdraw[entries4-when4-expected4]>
+        <Function test_shared_fold_orders_truncates_and_applies_grant_withdraw[entries5-when5-expected5]>
+        <Function test_shared_fold_treats_no_entries_as_empty_not_as_permission>
+        <Function test_required_scope_rule_is_one_rule_for_both_sides>
+        <Function test_write_gate_and_read_side_agree_on_the_same_ledger[0]>
+        <Function test_write_gate_and_read_side_agree_on_the_same_ledger[1]>
+        <Function test_write_gate_and_read_side_agree_on_the_same_ledger[5]>
+        <Function test_write_gate_and_read_side_agree_on_the_same_ledger[9]>
+        <Function test_write_gate_and_read_side_agree_on_the_same_ledger[10]>
+        <Function test_write_gate_and_read_side_agree_on_the_same_ledger[20]>
+        <Function test_no_record_keeps_self_use_default_on_write_and_unknown_on_read>
+        <Function test_owner_record_without_participant_id_counts_only_on_the_write_side>
+        <Function test_read_side_timeline_admits_pilot_records_only>
+        <Function test_both_sides_reach_the_fold_through_the_shared_function>
+      <Module test_re06_consent_gate_toctou.py>
+        <Function test_measurement_is_written_when_consent_holds_through_the_window>
+        <Function test_withdraw_landing_between_gate_and_append_is_not_written>
+        <Function test_future_dated_withdraw_in_the_window_does_not_retract_the_current_event>
+        <Function test_recheck_judges_at_event_time_not_at_write_time>
+        <Function test_closed_gate_never_contends_for_the_measurement_lock>
+        <Function test_authoritative_recheck_happens_inside_the_lock>
+
+=============================== warnings summary ===============================
+../../../candidate/.venv-workbench/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/scratch/controller-v3/controller_author_collection-1790355113741495000/junit.xml -
+========================= 109 tests collected in 1.76s =========================

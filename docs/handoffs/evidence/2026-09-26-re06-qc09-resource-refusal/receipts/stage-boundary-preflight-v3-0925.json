@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "pytest_invocations": 0,
+  "checks": [
+    "exact wrapper allowlist",
+    "variant ownership",
+    "metacharacter rejection",
+    "execute dispatch denial",
+    "report schema restriction",
+    "report dispatch denial",
+    "explore schema and dispatch denial"
+  ],
+  "source_sha256": {
+    "review_v3.mjs": "c5b287ce178cd57550999221c49944e4e8f6c9add6fea6b90429c0fdcb7b92e8"
+  }
+}

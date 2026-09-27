@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { postResearchEvolutionEvents } from "../api";
 import { startResearchActivity } from "../researchActivity";
 
-const TERMS = "仅记录本次会话的应用内可见区间和隐藏区间，不记录输入内容。可见不等于一直在操作；隐藏不扣端到端耗时，不推断外部查阅时间。关闭页面或切会话会停止，异常退出可能缺测。自用记录不计入配对任务效果。";
+const TERMS = "仅记录本次会话的应用内可见区间和隐藏区间，不记录输入内容。可见不等于一直在操作；隐藏不扣端到端耗时，不推断外部查阅时间。关闭页面或切会话会停止，异常退出可能缺测。自用记录不计入配对任务效果。计时同意独立于研究测量同意。";
 
 /** 默认关闭；只记会话级观测，不把优先队列的 task_id 冒充冻结试点分配。
  * 生命周期绑定 owner/会话，而非检查器当前 tab；pagehide（含 bfcache）停止且不自动恢复。
@@ -39,7 +39,7 @@ export function ResearchActivityControl({
         event_id: crypto.randomUUID(), event_type: "consent_changed", event_at: at,
         participant_id: user,
         payload: {
-          consent_version: "workbench-activity-v1", scopes: ["research", "logging"],
+          consent_version: "workbench-activity-v2", scopes: ["activity-timer"],
           effective_at: at, action, terms_hash: hash,
           initiator: "user", assistance_source: "workbench",
         },
@@ -120,7 +120,7 @@ export function ResearchActivityControl({
       <button type="button" disabled={busy} onClick={() => void (enabled ? actions.current.stop() : actions.current.start())}>
         {enabled ? "停止使用计时" : "同意并开始本次计时"}
       </button>
-      <p role="status">{enabled ? "正在记录；切到后台只暂停应用内活跃计时" : "使用计时已关闭；研究功能不受影响"}</p>
+      <p role="status">{enabled ? "正在记录；切到后台只暂停应用内活跃计时" : "使用计时已关闭；研究测量同意不变"}</p>
       {error && <p role="alert">计时有缺口（未确认保存）：{error}</p>}
     </section>
   );
