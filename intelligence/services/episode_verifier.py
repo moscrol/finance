@@ -18,6 +18,7 @@ from intelligence.services.agent_research import (
     evidence_content_hash,
 )
 from intelligence.services.agent_runtime import AgentOutcome
+from intelligence.services.personal_memory_recall import is_personal_recall_contract, is_recall_gap_delivery
 from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
 from intelligence.services.episode_output_substance import (
     required_output_evidence_floor,
@@ -273,6 +274,10 @@ def verify_episode_outcome(
                 and not binding.evidence_hashes
                 and has_disclosed_material_gap(spec, outcome.draft, binding.gap)
             )
+            legal_gap = legal_gap or bool(
+                not basis_mismatch and not source_errors and not unknown_hashes and not collided_hashes
+                and is_recall_gap_delivery(contract, outcome)
+            )
             statuses.append(OutputStatus(
                 required.output_id,
                 "legal_gap" if legal_gap else ("missing" if required.required else "gap"),
@@ -426,7 +431,7 @@ def verify_episode_outcome(
 
         valid = bool(
             (
-                required.grounding_mode != "evidence"
+                (required.grounding_mode != "evidence" and not is_personal_recall_contract(contract))
                 or bool(kept_hashes)
                 or (grounding_scope(contract) == "material_only" and bool(binding.claims))
             )

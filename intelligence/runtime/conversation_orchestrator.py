@@ -2129,6 +2129,8 @@ class TurnOrchestrator:
                 if accepts_materials and material_history is not None
                 else {}
             )
+            if self._uses_default_turn_controller:
+                controller_options["deadline"] = research_deadline
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,

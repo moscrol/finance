@@ -70,6 +70,9 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
+from intelligence.services.personal_memory_recall import (
+    is_personal_recall_contract, is_recall_gap_delivery, memory_gap_public_notice,
+)
 from intelligence.services.episode_answer_hygiene import (
     choose_repair_rollback,
     classify_asked_date_coverage,
@@ -3124,6 +3127,11 @@ class SemanticEpisodeVerifier:
         }
         if verified.outcome.gaps:
             payload["declared_gaps"] = list(verified.outcome.gaps)
+        if is_personal_recall_contract(contract):
+            payload["personal_memory_recall"] = {
+                "rule": "仅回顾本次召回的用户记录，不能把个人先验扩写成市场事实或凭空补出旧看法。原问题若还要求金融研究，只有回顾是不完整回答。",
+                "read_status_notice": memory_gap_public_notice(contract, verified.outcome.evidence),
+            }
         if parse_ranking_intent(frame.raw_question, frame.question_type):
             # 生产方（排序契约）要模型填 1..N 的优先级，检查方（判官）得知道那一列是研判。
             # 非排序题不加键，送判载荷逐字节不变。
@@ -4679,6 +4687,8 @@ def _can_semantically_release_partial(
         return False
     if not verified.outcome.draft.strip():
         return False
+    if is_recall_gap_delivery(verified.contract, verified.outcome):
+        return not verified.issue_items and not verified.missing_outputs and not verified.mandatory_missing_capabilities
     from intelligence.services.material_delivery import material_question_outputs
 
     if (
@@ -5334,7 +5344,7 @@ def _novel_numeric_condition_indexes(
         # 但它们不该把一份必需槽全 evidence 的契约说成 evidence-free。下面那块
         # 条件槽豁免问的是另一个问题，故不带这个过滤——两块不对称是有意的，
         # 别为了「统一风格」把这里也放宽。
-        if all(
+        if not is_personal_recall_contract(contract) and all(
             item.grounding_mode != "evidence"
             for item in contract.required_outputs
             if item.required
@@ -7165,6 +7175,14 @@ def _judge_system_prompt(request: Mapping[str, object]) -> str:
     # 缺口须知跟着基底走，材料/交付等附加规则再往后接；``nonfactual_review``
     # 是另一种审阅角色，按 main 的设计整段短路，不叠加本段。
     prompt += gap_guidance
+    if request.get("personal_memory_recall"):
+        prompt += (
+            " 本轮personal_memory_recall只回顾个人记录：每个旧判断/纠偏必须有已绑定的用户记忆直接支持，"
+            "不可从常识或当前事实补全。user_premise标签不等于授权编造个人历史。"
+            "read_status_notice是读取器返回状态的确定性投影，只证明本次读取状态，"
+            "空命中不证明用户从未说过；不要要求行情证据来支持个人记录回顾。"
+            "若原问题还要求当前金融判断或外部事实，则只有个人回顾仍属偏离/未完成原问题。"
+        )
     if request.get("material_grounding"):
         prompt += (
             " 本轮 material_grounding 是冻结的来源合同：优先按其 rule 和 data_scope 审核。"

@@ -210,6 +210,11 @@ runner 自动加入 opening_prefetch，首请求前进入证据账本；提供�
 默认用户。命中仍为 user_memory，不能绑定市场事实；缺口不能绑定判断，消息不含台账路径。
 material_only/local_only 保持既有不预取上限。离线定向收据见
 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`；不证明真实模型采用或金融质量。
+纯个人记录回顾使用 `personal_memory_recall` 合同，唯一必需输出为 `prior_recall/user_premise`，
+只授权 `memory_lookup`；有记录须绑定召回原件，无可用记录则按真实读取状态披露为 `partial/legal_gap`。
+已存在的个人先验引用信号仅触发至多一次 Controller 两值语义仲裁，窗口取 8 秒与全链剩余预算的较小值
+（现有单调钟语义，HTTP 子进程在截止后终止回收）；失败、混合诉求或不确定时保留原金融合同。
+普通金融咨询的先验槽、金融事实证据下限与发布门保持原语义；未引用先验的常规研究不新增仲裁调用。
 模型引用不用并行到账顺序重新编号。摘要不是私有原件，既有content_hash不是全字段签名；新摘要校验绑定整份快照但
 不证明来源真实性。仅数据重建不执行工具、不对外发布；恢复合成保留原捕获位置，不冒充
 后续工具结算已归齐。缺证据快照的非终态（含过期闭合）拒绝，截止须与重新确认的context一致；

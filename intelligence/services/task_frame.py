@@ -47,6 +47,7 @@ LLMComplete = Callable[
 ]
 
 _POLICY_BY_QUESTION_TYPE: dict[str, str] = {
+    "personal_memory_recall": "personal_memory_recall",
     "concept_definition": "stable_knowledge",
     "methodology_discussion": "model_reasoning",
     "market_watch": "current_a_share_market",
@@ -586,6 +587,15 @@ def rebase_task_frame(
     required_outputs: tuple[str, ...] = (),
 ) -> TaskFrame:
     """Apply validated conversation inheritance before downstream projection."""
+
+    if question_type == "personal_memory_recall":
+        if frame.material_contract is not None or frame.history_intent is not None:
+            return frame
+        return replace(
+            frame, question_type=question_type, subject=_safe_subject(subject, frame.raw_question),
+            subject_kind=subject_kind or frame.subject_kind, required_outputs=("prior_recall",),
+            evidence_policy="personal_memory_recall", timeframe=timeframe,
+        )
 
     if frame.history_intent is not None:
         question_type = (
@@ -1262,6 +1272,8 @@ def derive_required_outputs(
     the two producers of ``required_outputs`` cannot disagree.
     """
 
+    if question_type == "personal_memory_recall":
+        return ("prior_recall",)
     explicit_outputs = _explicit_required_outputs(question)
     if explicit_outputs:
         return explicit_outputs
@@ -1308,6 +1320,7 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
             "evidence_boundary",
         )
     defaults: dict[str, tuple[str, ...]] = {
+        "personal_memory_recall": ("prior_recall",),
         "concept_definition": ("direct_definition", "evidence_boundary"),
         "methodology_discussion": ("direct_explanation", "tradeoffs"),
         "market_watch": ("direct_assessment", "supporting_evidence", "risk_signals"),

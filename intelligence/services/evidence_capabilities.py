@@ -558,8 +558,8 @@ MEMORY_OPENING_QUESTION_TYPES = frozenset({
 
 
 def needs_opening_memory(frame: TaskFrame) -> bool:
-    """Only resolved company/theme research gets automatic private recall."""
-    return (
+    """Personal recall and resolved company/theme research get private recall."""
+    return frame.question_type == "personal_memory_recall" or (
         frame.question_type in MEMORY_OPENING_QUESTION_TYPES
         and str(frame.subject_kind or "").strip().lower() in {"company", "theme", "concept"}
         and len(str(frame.subject or "").strip()) >= 2
@@ -569,6 +569,8 @@ def needs_opening_memory(frame: TaskFrame) -> bool:
 def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     """Project task semantics into the continuous runtime's tool namespace."""
 
+    if frame.question_type == "personal_memory_recall":
+        return ("memory_lookup",)
     plan = resolve_evidence_plan(
         frame.raw_question,
         question_type=frame.question_type,

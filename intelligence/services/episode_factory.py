@@ -38,6 +38,7 @@ from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
 )
 from intelligence.services.material_permissions import restrict_read_capabilities
+from intelligence.services.personal_memory_recall import QUESTION_TYPE as PERSONAL_MEMORY_RECALL, references_personal_prior
 from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
 from intelligence.services.premise_financial_calculation import calculation_for_frame
 from intelligence.services.user_task import (
@@ -194,14 +195,6 @@ def _require_output_description(output_id: str) -> str:
 #
 # 所以补的是**槽位**不是措辞：给这份先验一个 `user_premise` 的落点，
 # 让「调它」这个动作对完成契约有贡献。
-_PRIOR_REFERENCE_RE = re.compile(
-    r"(?:我(?:之前|此前|过去|原来|先前|上次|当初)"
-    r"|之前(?:我|的)(?:判断|看法|观点|结论)"
-    r"|我(?:的)?(?:判断|看法|观点|逻辑)(?:还|是否|对不对|成立)"
-    r"|跟我(?:上次|之前)"
-    r"|(?:还|是否)(?:成立|站得住|有效))"
-)
-
 # 只在这三类问题上注入 prior_recall。判据是「用户点名了自己过去的看法」——
 # 与公司深挖 / 题材分析 / 题材跟踪三条策略上的 memory_lookup 授权配对。
 # residual 的 general_finance_evidence 现在也授权 memory_lookup，但用的是
@@ -258,6 +251,8 @@ def _authorized_capabilities(
             )
         )
     )
+    if frame.question_type == PERSONAL_MEMORY_RECALL:
+        return tuple(item for item in projected if item == "memory_lookup")
     projected = tuple(
         dict.fromkeys((*projected, *_MODEL_OWNED_READ_CAPABILITIES))
     )
@@ -269,6 +264,8 @@ def _authorized_capabilities(
 
 
 def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
+    if frame.question_type == PERSONAL_MEMORY_RECALL:
+        return EvidencePlan(profile=PERSONAL_MEMORY_RECALL, freshness="historical")
     plan = resolve_evidence_plan(
         frame.raw_question,
         question_type=frame.question_type,
@@ -341,7 +338,7 @@ def _references_prior_judgement(frame: TaskFrame) -> bool:
 
     if frame.question_type not in _PRIOR_RECALL_QUESTION_TYPES:
         return False
-    if _PRIOR_REFERENCE_RE.search(frame.raw_question):
+    if references_personal_prior(frame.raw_question):
         return True
     from intelligence.services.stance_pack import detect_stance_kinds
 
@@ -414,6 +411,8 @@ _COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
 
 
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
+    if frame.question_type == PERSONAL_MEMORY_RECALL:
+        return ("prior_recall",)
     if _has_owned_premise_calculation(frame):
         return ("direct_answer", "evidence_boundary")
     outputs = frame.required_outputs
@@ -642,6 +641,8 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
 
 
 def _is_evidence_free_task(frame: TaskFrame) -> bool:
+    if frame.question_type == PERSONAL_MEMORY_RECALL:
+        return False
     if _has_owned_premise_calculation(frame):
         return True
     if frame.material_contract is not None and frame.material_contract.data_scope_declared:
@@ -687,7 +688,7 @@ def _with_forward_hypothesis_slots(
     market_forecast 的**必选**前瞻槽也一起降掉。
     """
 
-    if not _OUTLOOK_JUDGMENT_RE.search(frame.raw_question):
+    if frame.question_type == PERSONAL_MEMORY_RECALL or not _OUTLOOK_JUDGMENT_RE.search(frame.raw_question):
         return output_ids, frozenset()
     if _is_evidence_free_task(frame):
         return output_ids, frozenset()
@@ -823,7 +824,12 @@ def build_episode_context(
         required_outputs=tuple(
             RequiredOutput(
                 output_id=output_id,
-                description=(material_descriptions[output_id] if output_id in material_descriptions else _require_output_description(output_id)),
+                description=(
+                    "仅回顾本次召回的用户历史记录；没有可用记录则明确披露召回状态，不形成市场判断"
+                    if frame.question_type == PERSONAL_MEMORY_RECALL
+                    else material_descriptions[output_id] if output_id in material_descriptions
+                    else _require_output_description(output_id)
+                ),
                 # 前瞻信号挂上的槽 evidence_types 必须是**空**：这几格由推理
                 # 填、没有任何工具能填。`_required_output_evidence_types` 对不
                 # 认识的 output_id 会回全量能力列表，那正是 prior_recall 踩过
@@ -842,7 +848,7 @@ def build_episode_context(
                         ),
                     )
                 ),
-                # prior_recall 是**可选**槽位，这一点是设计核心而不是保守：
+                # 金融研究中的 prior_recall 是**可选**槽位；纯个人回顾合同以它为唯一必需项。
                 # 生产 users 根下 24 个用户的 judgments/corrections 全为空，
                 # 台账为空时 memory_lookup 正确地返回零命中，这一格绑不上。
                 # 若设 required=True，`completed` 检查（episode_protocol:318）
@@ -865,7 +871,7 @@ def build_episode_context(
                 # 挂槽**这个事实，不是 `_ADVISORY_OUTPUT_IDS`：那个集合是全局的，
                 # 把三个 id 加进去会连 market_forecast 的必选前瞻槽一起降级。
                 required=(
-                    output_id not in _ADVISORY_OUTPUT_IDS
+                    (frame.question_type == PERSONAL_MEMORY_RECALL or output_id not in _ADVISORY_OUTPUT_IDS)
                     and output_id not in forward_slots
                 ),
                 # 同理直接给 model_reasoning，不进 `_grounding_mode`——那个函数

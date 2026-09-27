@@ -11,6 +11,7 @@ from typing import cast
 
 from intelligence.services import compliance_gate
 from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.personal_memory_recall import is_personal_recall_contract, memory_gap_public_notice
 from intelligence.services.agent_runtime import (
     EpisodeStatus,
     OutputEvidenceBinding,
@@ -240,6 +241,13 @@ def _question_type_rules(
         )
         else ""
     )
+    if is_personal_recall_contract(context.contract):
+        prior_recall_rule += (
+            "本题是纯个人记录回顾，唯一必需输出是 prior_recall。"
+            "只能复述本次召回记录，不推演当前金融事实；有记录时必须绑定其证据序号。"
+            "召回缺口只作为读取状态披露，不作为用户判断；此时返回partial，"
+            "只填prior_recall的gap，不声称用户从未说过或从未记录。"
+        )
     # 可选前瞻槽专用规则（R-20260824-20）：装配层给前瞻信号题挂上三槽时注入。
     #
     # 这条规则要做的事**只有一件**：告诉模型这三格欢迎具体的可核验阈值，别写
@@ -1059,6 +1067,12 @@ def validate_episode_finish(
 
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")
+    recall_notice = memory_gap_public_notice(context.contract, evidence)
+    if recall_notice and len(bindings) == 1 and bindings[0].output_id == "prior_recall":
+        # This is a typed read-result projection, not a free-prose exception.
+        # Preserve a partial and never turn an empty read into a user premise.
+        bindings[0] = replace(bindings[0], evidence_hashes=(), gap=recall_notice, claims=())
+        draft, gaps, status = recall_notice, (recall_notice,), "partial"
     # prior_recall 是咨询槽（episode_factory._ADVISORY_OUTPUT_IDS），合同要求记忆空命中时写
     # binding.gap「用户记忆无相关命中」。写手常把记忆缺口条目本身当 user_premise 绑上——
     # 2026-09-27 生产探针 2/2（run_20260927_211317_791596、run_20260927_215652_267095），
@@ -1209,7 +1223,7 @@ def validate_episode_finish(
             if binding.gap and not binding.evidence_hashes:
                 missing.append(required.output_id)
                 continue
-            if required.grounding_mode == "evidence" and not binding.evidence_hashes and not (
+            if (required.grounding_mode == "evidence" or is_personal_recall_contract(context.contract)) and not binding.evidence_hashes and not (
                 grounding_scope(context.contract) == "material_only" and binding.claims
             ):
                 missing.append(required.output_id)

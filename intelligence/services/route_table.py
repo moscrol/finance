@@ -173,6 +173,17 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=(),
     ),
     RouteRow(
+        route_id="personal_memory_recall",
+        description="仅回顾用户自己的已存判断、偏好或纠偏；若还要求核验当前事实、评价是否成立或行情判断，保持相应金融研究路由",
+        examples=("我上次记录的研究顺序是什么", "只回顾我此前的偏好"),
+        lane="research",
+        question_type="personal_memory_recall",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=False,
+        capabilities=("memory",),
+    ),
+    RouteRow(
         route_id="concept_definition",
         description="概念定义或静态知识解释，不依赖时效数据",
         examples=("卫星互联网是什么", "什么是EV/EBITDA"),
