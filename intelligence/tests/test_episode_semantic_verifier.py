@@ -5742,7 +5742,7 @@ def _freeze_clock(monkeypatch) -> list[float]:
 
 
 def test_max_tier_judge_survives_one_full_timeout(monkeypatch) -> None:
-    """max 档：首发 75s 超时后，第二发仍是一次完整尝试并能通过。
+    """max 档：首发 120s（2026-09-27 按 GLM 重标定）超时后，第二发仍是一次完整尝试并能通过。
 
     生产 ``run_20260907_224810_179995`` / ``..._223741_526797``（max 档）：判官
     首发吃满窗、第二发 asked=0.0、unavailable，公开稿整篇被扣；而判官窗当时
@@ -5761,10 +5761,10 @@ def test_max_tier_judge_survives_one_full_timeout(monkeypatch) -> None:
     )
     payload = result.to_dict()
 
-    assert model.calls == [75.0, 75.0], model.calls
+    assert model.calls == [120.0, 120.0], model.calls
     assert result.judge_status == "passed"
     assert payload["judge_attempt_index"] == 1
-    assert payload["timeout_configured"] == 75.0
+    assert payload["timeout_configured"] == 120.0
 
 
 def test_standard_tier_judge_caps_unchanged_and_window_starvation_is_labelled(
@@ -5847,7 +5847,7 @@ def test_starved_judge_keeps_last_dispatched_failure_separate(
     )
     payload = result.to_dict()
 
-    assert calls == [75.0, 75.0]
+    assert calls == [120.0, 120.0]
     assert result.status == "partial"
     assert result.judge_status == "unavailable"
     assert result.correlated_judge is (not independent)
@@ -5855,13 +5855,13 @@ def test_starved_judge_keeps_last_dispatched_failure_separate(
     assert ROOT_DEADLINE_EXHAUSTED_ISSUE not in result.issues
     assert payload["judge_attempt_index"] == 2
     assert payload["timeout_asked"] == 0.0
-    assert payload["remaining_seconds_at_entry"] == 450.0
+    assert payload["remaining_seconds_at_entry"] == 360.0
     assert payload["exc_class"] is None
     assert payload["http_status"] is None
     assert payload["last_dispatched_failure"] == {
         "judge_attempt_index": 1,
-        "timeout_asked": 75.0,
-        "remaining_seconds_at_entry": 525.0,
+        "timeout_asked": 120.0,
+        "remaining_seconds_at_entry": 480.0,
         "issue": "semantic judge transient provider error",
         "exc_class": exc_class,
         "http_status": http_status,
@@ -5923,7 +5923,7 @@ def test_judge_caps_follow_contract_tier_not_env(monkeypatch) -> None:
         deadline=ResearchDeadline.from_timeout(600.0),
     )
 
-    assert model.calls == [75.0, 75.0]
+    assert model.calls == [120.0, 120.0]
     assert result.judge_status == "passed"
 
 
