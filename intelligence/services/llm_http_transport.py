@@ -4,6 +4,10 @@ Only this stdlib-only file is executed in the worker, never the caller's main
 module. Prompts/credentials travel over anonymous pipes, not argv or files.
 The parent owns callbacks and accounting; killing/reaping the worker closes
 DNS/connect/TLS/proxy/body I/O without leaving a network thread behind.
+
+The deadline is absolute in time.monotonic(), which stops while the host is
+suspended: a closed laptop lid pauses the deadline instead of expiring it. Use
+host_suspended_since() to tell such a wall-clock gap from a stalled call.
 """
 
 from __future__ import annotations
@@ -36,6 +40,39 @@ class HTTPStreamCancelled(RuntimeError):
 # A response frame contains at most one 64 KiB byte chunk or HTTP headers.
 _CHUNK_BYTES = 64 * 1024
 _MAX_FRAME_BYTES = 256 * 1024
+
+# time.monotonic() is mach_absolute_time on macOS and CLOCK_MONOTONIC on Linux;
+# neither advances while the host is suspended. These clocks do, so their gap
+# to time.monotonic() grows only while the host sleeps.
+_SUSPEND_INCLUSIVE_CLOCK_ID = (
+    getattr(time, "CLOCK_MONOTONIC_RAW", None) if sys.platform == "darwin"
+    else getattr(time, "CLOCK_BOOTTIME", None)
+)
+
+
+def _suspend_inclusive_clock() -> float | None:
+    if _SUSPEND_INCLUSIVE_CLOCK_ID is None:
+        return None
+    return time.clock_gettime(_SUSPEND_INCLUSIVE_CLOCK_ID)
+
+
+def host_suspended_total() -> float | None:
+    """Seconds time.monotonic() has not counted because the host was suspended.
+
+    Only the difference of two readings means anything; None where the platform
+    has no suspend-inclusive clock.
+    """
+    now = _suspend_inclusive_clock()
+    return None if now is None else now - time.monotonic()
+
+
+def host_suspended_since(anchor: float | None) -> float | None:
+    """Suspended seconds since ``anchor``, an earlier host_suspended_total()."""
+    now = host_suspended_total()
+    if anchor is None or now is None:
+        return None
+    # Two clocks read back to back jitter by microseconds; never report < 0.
+    return round(max(0.0, now - anchor), 3)
 
 
 def _headers(items) -> Message:

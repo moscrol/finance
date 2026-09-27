@@ -6,11 +6,13 @@ from dataclasses import replace
 import json
 from pathlib import Path
 from threading import Event, Lock
+from time import monotonic
 
 import pytest
 
 import intelligence.runtime.agent_episode as agent_episode_module
 import intelligence.runtime.episode_tool_batch as episode_tool_batch_module
+import intelligence.services.llm_http_transport as llm_http_transport_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import (
     ContinuousAgentEpisode,
@@ -1342,6 +1344,111 @@ def test_finalization_timeout_error_model_turn_still_records_timeout_asked() -> 
     assert asked == pytest.approx(float(model.calls[1]["timeout"]))
     remaining = compose.payload.get("remaining_seconds_at_entry")
     assert isinstance(remaining, float) and remaining > 0.0
+
+
+# 墙钟 2320s − 预算走的 75s（2026-09-27 deploy-probe，见 test_host_suspend_clock）。
+LID_CLOSED_SECONDS = 2245.0
+
+
+@pytest.fixture
+def lid_clock(monkeypatch) -> dict[str, float]:
+    state = {"slept": 0.0}
+    monkeypatch.setattr(
+        llm_http_transport_module,
+        "_suspend_inclusive_clock",
+        lambda: monotonic() + state["slept"],
+    )
+    return state
+
+
+class LidClosingModel(ScriptedModel):
+    """每次模型调用中途主机都合盖睡一觉。"""
+
+    def __init__(self, turns: list[ModelTurn | Exception], lid_clock: dict[str, float]) -> None:
+        super().__init__(turns)
+        self._lid_clock = lid_clock
+
+    def complete(self, *, messages, tools, timeout):
+        self._lid_clock["slept"] += LID_CLOSED_SECONDS
+        return super().complete(messages=messages, tools=tools, timeout=timeout)
+
+
+def test_model_turn_shows_host_sleep_and_the_budget_pauses_through_it(lid_clock) -> None:
+    """合盖睡眠要在 model_turn 上看得见；预算照旧按 monotonic、睡眠即暂停。
+
+    2026-09-27 生产 deploy-probe：turn-3 意图与结算墙钟隔 2320s 才报
+    LLMDeadlineExceeded，被当成连接卡死去查；pmset 显示主机合盖睡了 2253s，
+    下一轮入场余量说明预算只走了 75.2s。截止守住了，缺的是事件上看不出睡过。
+    """
+
+    frame = _frame()
+    model = LidClosingModel([_tool_turn("最新行情"), _finish_turn()], lid_clock)
+    outcome = ContinuousAgentEpisode(model, llm_timeout=75.0).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    turns = [event.payload for event in outcome.events if event.kind == "model_turn"]
+    assert [turn["host_suspended_seconds"] for turn in turns] == [LID_CLOSED_SECONDS] * 2
+    # 根预算 30s：睡掉的 2245s 若计入预算，第二轮入场前就该 deadline_exhausted。
+    assert outcome.status == "completed"
+    assert turns[1]["remaining_seconds_at_entry"] > 25.0
+
+
+def _repair_retry_events(lid_clock: dict[str, float]):
+    frame = _frame()
+    context = _context(frame, max_steps=1)
+    model = LidClosingModel(
+        [
+            _finish_turn(status="partial", hashes=(), gap="缺少行情证据"),
+            ModelTurn("", (), "scripted", "LLM 调用失败（TimeoutError）"),
+            _tool_turn("补齐行情证据", call_id="repair-retry-call"),
+            _finish_turn(),
+        ],
+        lid_clock,
+    )
+    session = GLMAgentRuntime(client=model).start(
+        frame, context=context, registry=_market_registry(_successful_runner),
+    )
+    return session.resume(
+        RepairGoal(
+            episode_id=context.contract.task_id,
+            repair_goal_id="repair-episode-test-lid-closed",
+            cycle=1,
+            missing_answer_elements=("direct_assessment",),
+            unsupported_claims=(),
+            missing_evidence_modes=("market_data",),
+            attempted_actions=(),
+            evidence_progress=CoverageDelta(1, 0, 1),
+            remaining_calls=1,
+            remaining_seconds=10.0,
+        )
+    ).events
+
+
+def _recovery_events(lid_clock: dict[str, float]):
+    frame = _frame()
+    model = LidClosingModel(
+        [_tool_turn("A股 最新行情"), ModelTurn("", (), "glm", "provider unavailable"), _finish_turn()],
+        lid_clock,
+    )
+    # max_steps=1：工具关窗后的收尾轮失败才走兜底合成（compact recovery）。
+    return ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    ).events
+
+
+@pytest.mark.parametrize(
+    "scenario, phase",
+    [(_repair_retry_events, "repair"), (_recovery_events, "finalization_recovery")],
+)
+def test_repair_and_recovery_model_turns_also_show_host_sleep(lid_clock, scenario, phase) -> None:
+    turns = [event.payload for event in scenario(lid_clock) if event.kind == "model_turn"]
+    assert phase in {turn.get("phase") for turn in turns}
+    assert [turn["host_suspended_seconds"] for turn in turns] == [LID_CLOSED_SECONDS] * len(turns)
 
 
 def test_repair_does_not_retry_deterministic_model_error() -> None:

@@ -546,6 +546,9 @@ class LLMCallRecord:
     started_at: str | None = None
     completed_at: str | None = None
     stream_progress: dict[str, int | bool | None] | None = None
+    # elapsed_ms 与截止都按 time.monotonic() 计，主机睡眠（合盖）时它停走；这里记本次
+    # 尝试期间主机睡了几秒，墙钟跨度 ≈ elapsed_ms / 1000 + 本值。None = 平台量不到。
+    host_suspended_seconds: float | None = None
 
 
 @dataclass
@@ -612,6 +615,7 @@ class _LLMCallAttempt:
     result_sha256: str | None = None
     result_hash_kind: str | None = None
     stream_progress: dict[str, int | bool | None] | None = None
+    suspend_anchor: float | None = None
 
     def observe_response(self, body: object = None, response: object = None) -> None:
         headers = getattr(response, "headers", None)
@@ -657,6 +661,7 @@ def _new_call_attempt(provider: LLMProvider, messages: list[dict]) -> _LLMCallAt
         transport="cli" if provider.transport == "cli" or provider.base_url.startswith("cli://") else "http",
         request_sha256=_canonical_sha256(messages),
         started_at=datetime.now(timezone.utc).isoformat(),
+        suspend_anchor=llm_http_transport.host_suspended_total(),
     )
 
 
@@ -1017,6 +1022,7 @@ def _record_llm_call(
             identity_state=identity_state,
             completed_at=datetime.now(timezone.utc).isoformat(),
             stream_progress=dict(attempt.stream_progress) if attempt.stream_progress is not None else None,
+            host_suspended_seconds=llm_http_transport.host_suspended_since(attempt.suspend_anchor),
         )
     ledger = _CALL_LEDGER.get()
     if ledger is None:
