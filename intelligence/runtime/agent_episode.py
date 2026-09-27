@@ -70,6 +70,7 @@ from intelligence.services.provider_observability import (
     provider_trace_tool_name,
 )
 from intelligence.services import llm_refine
+from intelligence.services.llm_http_transport import host_suspended_since, host_suspended_total
 from intelligence.services.material_delivery import (
     material_pack_turn_seconds,
     material_pack_writer_model,
@@ -1709,6 +1710,7 @@ class ContinuousAgentEpisode:
             # P4 步点①：意图已 durable、结算未发——INV-R2 的「不确定窗口」入口。
             yield StepPoint("model_pending", llm_calls, tool_calls, turn_id=turn_id)
             model_started = monotonic()
+            suspend_anchor = host_suspended_total()
             try:
                 # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
                 turn = ledger.model_complete(
@@ -1803,6 +1805,10 @@ class ContinuousAgentEpisode:
                     "remaining_seconds_at_entry": float(
                         remaining_seconds_at_entry
                     ),
+                    # 预算按 monotonic 计，主机睡眠（合盖）时停走、醒来接着算。
+                    # 2026-09-27 deploy-probe：两条事件墙钟隔 2320s、预算只走 75s，
+                    # 被当成连接卡死 38 分钟去查——其实主机睡了 2253s。
+                    "host_suspended_seconds": host_suspended_since(suspend_anchor),
                 },
             )
             if not turn.tool_calls and not turn.error:
@@ -2428,6 +2434,7 @@ class ContinuousAgentEpisode:
                 context=repair_context,
             )
             model_started = monotonic()
+            suspend_anchor = host_suspended_total()
             try:
                 turn = ledger.model_complete(
                     self._model,
@@ -2445,7 +2452,10 @@ class ContinuousAgentEpisode:
                 )
             model_elapsed = max(0.0, monotonic() - model_started)
             llm_calls += turn.provider_attempts
-            ledger.add("model_turn", {"phase": phase, "turn_id": turn_id, **turn.to_dict()})
+            ledger.add("model_turn", {
+                "phase": phase, "turn_id": turn_id, **turn.to_dict(),
+                "host_suspended_seconds": host_suspended_since(suspend_anchor),
+            })
             budget_alive = _consume_root_seconds(repair_context, model_elapsed)
             if ledger.store_failures:
                 if not budget_alive and repair_context.root_budget is not None:
@@ -3733,6 +3743,7 @@ class ContinuousAgentEpisode:
                 raise RuntimeError("storage_failed")
 
         recovery_started = monotonic()
+        suspend_anchor = host_suspended_total()
         try:
             recovery_options = {}
             materials_hook = getattr(self._harness, "finalization_materials", None)
@@ -3793,7 +3804,10 @@ class ContinuousAgentEpisode:
         llm_calls += turn.provider_attempts
         ledger.add(
             "model_turn",
-            {"phase": "finalization_recovery", **turn.to_dict()},
+            {
+                "phase": "finalization_recovery", **turn.to_dict(),
+                "host_suspended_seconds": host_suspended_since(suspend_anchor),
+            },
         )
         if not _consume_root_seconds(context, recovery_elapsed):
             reason = "finalization_recovery_deadline_exhausted"
