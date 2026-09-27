@@ -5944,13 +5944,6 @@ def _can_support_market_quantity(item: AgentEvidence) -> bool:
     }
 
 
-_MEMORY_RESTATEMENT_PREFIX_RE = re.compile(
-    r"^(?:你|您|用户)(?:此前|之前|曾经|曾|过去|当时|先前)?"
-    r"(?:记录|记下|提出|设定|判断|认为|提到|说过)"
-    r"(?:的(?:规则|判断|原则|看法|条件|观察位|观察线))?(?:是|为)?[：:]?"
-)
-
-
 def _bound_personal_recall_quantities(verified: VerifiedEpisodeOutcome) -> dict[str, frozenset[str]]:
     """Original quantities support personal paraphrases, not new conditions.
 
@@ -5984,11 +5977,13 @@ def _bound_memory_restatement_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
 ) -> frozenset[int]:
-    """Recognize cited restatements, without granting their numbers to facts.
+    """Recognize exact bound originals, without granting their numbers to facts.
 
-    Only a full restatement of a bound prior is exempt. Appending a market
-    conclusion to that sentence fails the match; a neighboring condition never
-    sees the memory's quantities in the global market-evidence set.
+    The source and output binding authorize the original, not introductory
+    wording or inline-citation typography. A label/quote may wrap the full body;
+    extra clauses or quantities do not qualify. A neighboring condition never
+    sees the memory's quantities in the market-evidence set. This proves text
+    provenance, not the truth of an arbitrary label; that remains semantic review.
     """
     contract = verified.contract
     if contract is None or not any(
@@ -5998,32 +5993,85 @@ def _bound_memory_restatement_indexes(
         return frozenset()
     bound = {
         digest for binding in verified.outcome.bindings
-        if binding.output_id == "prior_recall" and binding.basis == "user_premise"
+        if binding.output_id == "prior_recall" and binding.basis == "user_premise" and not binding.gap
         for digest in binding.evidence_hashes
     }
     ordinals = evidence_ordinal_table(verified.outcome.evidence)
 
     def normalized(text: str) -> str:
-        return re.sub(r"[\s，,]+", "", text).strip("。；;！？!?：:「」『』“”\"'()（）[]【】")
+        compact = re.sub(r"\s+", "", text)
+        # Only numeric grouping commas are interchangeable; prose clause
+        # punctuation remains part of the original's full-body identity.
+        return re.sub(
+            r"(?<![\d.,])\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d.]|,\d)",
+            lambda match: match.group().replace(",", ""), compact,
+        ).strip("。；;！？!?")
 
-    priors = {
-        ordinals[item.content_hash]: normalized(item.detail)
+    def label_only(text: str) -> bool:
+        return not (
+            re.search(r"[，,。；;！？!?\n：:]", text)
+            or _ARABIC_QUANTITY_RE.search(text) or _CHINESE_QUANTITY_RE.search(text)
+        )
+
+    def quote_bodies(text: str) -> set[str]:
+        candidate = _LEADING_LIST_LABEL_RE.sub("", text).replace("**", "").replace("__", "").lstrip("-* ")
+        candidate = strip_evidence_ordinals(candidate)
+        # Citation wrappers are formatting; leave any actual parenthetical text.
+        candidate = re.sub(r"\(\s*\)|（\s*）|\[\s*\]|【\s*】", "", candidate).strip().rstrip("。；;！？!?")
+        bodies = [candidate]
+        separator = re.search(r"[：:]", candidate)
+        if separator is not None and label_only(candidate[:separator.start()]):
+            bodies.append(candidate[separator.end():].strip())
+        for body in tuple(bodies):
+            for opener, closer in (("「", "」"), ("『", "』"), ("“", "”"), ("‘", "’"), ('"', '"'), ("'", "'")):
+                start = body.find(opener)
+                if start >= 0 and body.endswith(closer) and label_only(body[:start]):
+                    bodies.append(body[start + 1:-1])
+        return {normalized(body) for body in bodies if body}
+
+    def leading_citations(text: str) -> tuple[str, ...]:
+        # A period can put a trailing citation at the start of the next claim
+        # row. Carry only that citation context, not the following assertion.
+        wrappers = " \t\r\n，,、。；;！？!?「」『』“”‘’\"'()（）[]【】*_"
+        rest = text.lstrip(wrappers)
+        refs = []
+        while rest:
+            cited = cited_evidence_ordinals(rest)
+            if not cited or not rest.upper().startswith(cited[0]):
+                break
+            refs.append(cited[0])
+            rest = rest[len(cited[0]):].lstrip(wrappers)
+        return tuple(refs)
+
+    originals = {
+        ordinals[item.content_hash]: item.detail
         for item in verified.outcome.evidence
         if item.content_hash in bound and item.content_hash in ordinals
-        and item.evidence_tier != "user_memory_gap"
-        and not _can_support_market_quantity(item)
+        and is_personal_memory_original(item)
+    }
+    priors = {
+        ordinal: normalized(detail) for ordinal, detail in originals.items()
+    }
+    # The shared claim splitter can split one quoted original at semicolons or
+    # periods. Check only windows as long as a complete original (plus one row
+    # for a closing quote/citation), never authorize its fragments separately.
+    spans = {
+        size for detail in originals.values()
+        for size in (len(claim_sentences(detail)), len(claim_sentences(detail)) + 1)
+        if size > 0
     }
     retained = set()
-    for sentence in sentences:
-        text = str(sentence.get("text") or "")
-        cited = cited_evidence_ordinals(text)
-        candidate = _LEADING_LIST_LABEL_RE.sub("", text).replace("**", "").replace("__", "").lstrip("-* ")
-        candidate = re.sub(r"\s+", "", strip_evidence_ordinals(candidate))
-        prefix = _MEMORY_RESTATEMENT_PREFIX_RE.match(candidate)
-        if prefix and isinstance(sentence.get("index"), int):
-            restatement = normalized(candidate[prefix.end():])
-            if restatement and any(restatement == priors.get(ordinal) for ordinal in cited):
-                retained.add(sentence["index"])
+    for start in range(len(sentences)):
+        for size in spans:
+            window = sentences[start:start + size]
+            if len(window) != size or any(not isinstance(row.get("index"), int) for row in window):
+                continue
+            text = "".join(str(row.get("text") or "") for row in window)
+            following = str(sentences[start + size].get("text") or "") if start + size < len(sentences) else ""
+            cited = (*cited_evidence_ordinals(text), *leading_citations(following))
+            bodies = quote_bodies(text)
+            if any(priors.get(ordinal) in bodies for ordinal in (cited or priors)):
+                retained.update(row["index"] for row in window)
     return frozenset(retained)
 
 

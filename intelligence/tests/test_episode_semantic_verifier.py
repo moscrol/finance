@@ -8,7 +8,7 @@ import pytest
 
 from intelligence.services import answer_model, llm_refine
 import intelligence.services.research_contract as research_contract_module
-from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation, evidence_content_hash
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -1733,21 +1733,45 @@ def test_memory_numbers_cannot_authorize_market_conditions(
 @pytest.mark.parametrize("recall,bound,retained", [
     ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E2）。", True, True),
     ("你曾记录：若指数跌破 3870 点则暂缓追涨（E2）。", True, True),
-    ("你此前记录的规则是：「若指数跌破3,870点，则暂缓追涨」（E2）。", True, True),
+    ("你此前记录的规则是：「若指数跌破3,870点则暂缓追涨」（E2）。", True, True),
+    ("你此前纠偏：若指数跌破3870点则暂缓追涨（E2）。", True, True),
+    ("你此前明确要求：若指数跌破3870点则暂缓追涨（E2）。", True, True),
+    ("原文：若指数跌破3870点则暂缓追涨（E2）。", True, True),
+    ("Original note: 若指数跌破3870点则暂缓追涨（E2）。", True, True),
+    ("「若指数跌破3870点则暂缓追涨」（E2）。", True, True),
+    ("原文“若指数跌破3870点则暂缓追涨”（E2）。", True, True),
+    ("- **原文**：**若指数跌破3870点则暂缓追涨**（E2）。", True, True),
     ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E1）。", True, False),
     ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E2）。", False, False),
-    ("若指数跌破3870点则暂缓追涨（E2）。", True, False),
+    ("原文：若指数跌破3870点则暂缓追涨。", True, True),
+    ("“若指数跌破3870点则暂缓追涨”。", True, True),
+    ("原文：若指数跌破3870点则暂缓追涨。", False, False),
+    ("若指数跌破3870点则暂缓追涨（E2）。", True, True),
+    ("若指数跌破3870点则暂缓追涨。", True, True),
+    ("若指数跌破3870点则暂缓追涨。", False, False),
     ("你此前记录的规则是：若指数跌破3870点则行情失效（E2）。", True, False),
     ("你此前记录的规则是：若指数跌破3870点则暂缓追涨（E2），若跌破3870点则行情失效。", True, False),
+    ("原文：若指数高于3870点则暂缓追涨（E2）。", True, False),
+    ("原文：若指数跌破3870元则暂缓追涨（E2）。", True, False),
+    ("原文：若指数跌破5000点则暂缓追涨（E2）。", True, False),
+    ("原文：若指数跌破38,70点则暂缓追涨（E2）。", True, False),
+    ("原文：若指数跌破3870点则暂缓追涨（E2），因此当前市场已失效。", True, False),
+    ("原文：若指数跌破3870点则暂缓追涨，因此当前市场已失效（E2）。", True, False),
+    ("“若指数跌破3870点则暂缓追涨”因此当前市场已失效（E2）。", True, False),
+    ("当前5000点规则：若指数跌破3870点则暂缓追涨（E2）。", True, False),
+    ("行情已经失效，原文：若指数跌破3870点则暂缓追涨（E2）。", True, False),
 ])
-def test_bound_numeric_memory_rule_is_only_authoritative_for_its_restatement(recall, bound, retained):
+@pytest.mark.parametrize("judge_mode", ["off", "llm"])
+def test_bound_numeric_memory_rule_is_only_authoritative_for_its_restatement(recall, bound, retained, judge_mode, monkeypatch):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
     external_condition = "若指数跌破3870点则行情失效。"
     frame, baseline = _structural(recall + "当前市场结构仍需验证。" + external_condition)
     memory = AgentEvidence(
         tool="memory_lookup", title="用户历史判断", source="用户记忆，非市场事实",
         detail="若指数跌破3870点则暂缓追涨。", evidence_tier="user_memory",
-        source_date="2026-07-21", content_hash="MEMORY_RULE",
+        source_date="2026-07-21", io_effect="local_read",
     )
+    memory = replace(memory, content_hash=evidence_content_hash(memory))
     contract = replace(
         baseline.contract, allowed_capabilities=("market_data", "memory_lookup"),
         required_outputs=(*baseline.contract.required_outputs, RequiredOutput(
@@ -1767,6 +1791,91 @@ def test_bound_numeric_memory_rule_is_only_authoritative_for_its_restatement(rec
     )
     assert external_condition not in result.public_answer
     assert (recall in result.public_answer) is retained
+    assert "当前市场结构仍需验证。" in result.public_answer
+
+
+@pytest.mark.parametrize("variant", ["decimal", "wrong_hash", "wrong_tool", "wrong_io", "wrong_tier", "memory_gap", "binding_gap"])
+@pytest.mark.parametrize("judge_mode", ["off", "llm"])
+def test_mixed_memory_quote_requires_qualified_original_and_non_gap_binding(variant, judge_mode, monkeypatch):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    recall = "你此前记录的规则是：若指数跌破 3,870.50 点，则暂缓追涨（E2）。"
+    external = "若指数跌破3870.50点则行情失效。"
+    frame, baseline = _structural(recall + "当前市场结构仍需验证。" + external)
+    memory = AgentEvidence(
+        tool="finance_query" if variant == "wrong_tool" else "memory_lookup",
+        title="用户历史判断", source="用户记忆，非市场事实",
+        detail="若指数跌破3870.50点，则暂缓追涨。", evidence_tier=(
+            "user_memory_gap" if variant == "memory_gap" else "primary" if variant == "wrong_tier" else "user_memory"
+        ),
+        source_date="2026-07-21", io_effect="remote_read" if variant == "wrong_io" else "local_read",
+    )
+    memory = replace(memory, content_hash="forged-hash" if variant == "wrong_hash" else evidence_content_hash(memory))
+    contract = replace(
+        baseline.contract, allowed_capabilities=("market_data", "memory_lookup", "finance_query"),
+        required_outputs=(*baseline.contract.required_outputs, RequiredOutput(
+            "prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise",
+        )),
+    )
+    outcome = replace(
+        baseline.outcome, evidence=(*baseline.outcome.evidence, memory),
+        bindings=(*baseline.outcome.bindings, OutputEvidenceBinding(
+            "prior_recall", (memory.content_hash,), basis="user_premise",
+            gap="未能确认该记录" if variant == "binding_gap" else "",
+        )),
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=verify_episode_outcome(contract, outcome),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert (recall in result.public_answer) is (variant == "decimal")
+    assert external not in result.public_answer
+    assert "当前市场结构仍需验证。" in result.public_answer
+
+
+@pytest.mark.parametrize("form", [
+    "{body}{inline}。", "你此前纠偏：{body}{inline}。", "“{body}”{inline}。", "原文：{body}。{inline}",
+])
+@pytest.mark.parametrize("inline", ["", "（E2）"])
+@pytest.mark.parametrize("mutation", ["", "wrong_reference", "fragment", "extra_clause", "reversed"])
+def test_mixed_full_original_spans_claim_rows_without_authorizing_fragments(form, inline, mutation, monkeypatch):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+    original = "先看客户验证进度再下结论；若连续3日客户验证进度未达标，就应暂缓下结论"
+    body = original
+    if mutation == "wrong_reference":
+        inline = "（E1）"
+    elif mutation == "fragment":
+        body = original.split("；")[1]
+    elif mutation == "extra_clause":
+        body += "，因此当前市场已经失效"
+    elif mutation == "reversed":
+        body = original.replace("暂缓", "立即")
+    quote = form.format(body=body, inline=inline)
+    external = "若连续3日客户验证进度未达标，就应立即下结论。"
+    frame, baseline = _structural(quote + "当前市场结构仍需验证。" + external)
+    memory = AgentEvidence(
+        tool="memory_lookup", title="用户历史判断", source="用户记忆，非市场事实",
+        detail=original, evidence_tier="user_memory", source_date="2026-07-21", io_effect="local_read",
+    )
+    memory = replace(memory, content_hash=evidence_content_hash(memory))
+    contract = replace(
+        baseline.contract, allowed_capabilities=("market_data", "memory_lookup"),
+        required_outputs=(*baseline.contract.required_outputs, RequiredOutput(
+            "prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise",
+        )),
+    )
+    outcome = replace(
+        baseline.outcome, evidence=(*baseline.outcome.evidence, memory),
+        bindings=(*baseline.outcome.bindings, OutputEvidenceBinding(
+            "prior_recall", (memory.content_hash,), basis="user_premise",
+        )),
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=verify_episode_outcome(contract, outcome),
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert (quote in result.public_answer) is (not mutation)
+    assert ("3日" in result.public_answer) is (not mutation)
+    assert external not in result.public_answer
     assert "当前市场结构仍需验证。" in result.public_answer
 
 
