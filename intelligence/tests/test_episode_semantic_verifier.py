@@ -4726,6 +4726,46 @@ def test_judge_accepts_one_strict_json_code_fence() -> None:
     assert result.judge_status == "passed"
 
 
+def test_judge_accepts_the_tool_name_envelope_then_checks_keys_strictly() -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    result = SemanticEpisodeVerifier(
+        judge_fn=lambda _request: (
+            '{"submit_grounding_report":'
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}}'
+        )
+    ).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "completed"
+    assert result.judge_status == "passed"
+
+
+@pytest.mark.parametrize(
+    "enveloped",
+    [
+        # envelope plus a sibling key is not the tool-call shape
+        '{"submit_grounding_report":{"passed":true,"rejected_sentence_indexes":[],"issues":[]},"note":"x"}',
+        # a different wrapper name stays invalid
+        '{"report":{"passed":true,"rejected_sentence_indexes":[],"issues":[]}}',
+        # the envelope does not relax the inner key check
+        '{"submit_grounding_report":{"passed":true,"rejected_sentence_indexes":[]}}',
+        # envelope value must be an object
+        '{"submit_grounding_report":"passed"}',
+    ],
+)
+def test_near_miss_envelopes_still_fail_closed(enveloped: str) -> None:
+    frame, structural = _structural("市场当前偏弱。")
+    result = SemanticEpisodeVerifier(judge_fn=lambda _request: enveloped).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert result.status == "partial"
+    assert result.judge_status == "unavailable"
+
+
 @pytest.mark.parametrize(
     "invalid",
     [

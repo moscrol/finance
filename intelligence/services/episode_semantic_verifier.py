@@ -3838,6 +3838,13 @@ class SemanticEpisodeVerifier:
                 return reject("report_type")
             if not isinstance(payload, dict):
                 return reject("report_type")
+            # 函数调用信封：有的模型（2026-09-27 glm-5.3 实测）把工具参数包进以工具名
+            # 为唯一键的对象当正文交回。只认「恰好一个键且等于工具名、值是对象」这一种
+            # 形状，拆开后照常走下面的完整键校验，不放宽任何字段要求。
+            if set(payload) == {_JUDGE_REPORT_TOOL_NAME} and isinstance(
+                payload[_JUDGE_REPORT_TOOL_NAME], Mapping
+            ):
+                payload = dict(payload[_JUDGE_REPORT_TOOL_NAME])
             # 必填键一个不能少（材料题按请求各加一个），也不能多出未知键；
             # ``reason_codes`` 是唯一可选键。
             required_keys = set(_JUDGE_REPORT_REQUIRED_KEYS)
