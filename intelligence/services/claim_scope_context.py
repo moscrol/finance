@@ -7,7 +7,6 @@ import re
 from typing import Any
 
 from intelligence.services.answer_claim_scope import FUND_FLOW_METRICS, ClaimEvidenceContext
-from intelligence.services.research_claim_scope import evidence_scope
 
 _SECTOR_FIELDS = {"sector_code", "sector_ts_code", "sector_name"}
 
@@ -113,7 +112,6 @@ def build_context(
     flow_metrics = _fund_flow_metrics(requests)
     ledger_positive, ledger_negated = _ledger_flow_clauses(episode)
     ledger_flow = bool(ledger_positive)
-    endpoints, observed_sectors = evidence_scope(evidence)
     context = ClaimEvidenceContext(
         question=str(run.get("question") or ""),
         evidence_dates=tuple(dates),
@@ -121,8 +119,6 @@ def build_context(
         compared_scope_count=len(codes) or None,
         known_scope_total=scope_total,
         fund_flow_evidence=bool(flow_metrics) or ledger_flow,
-        historical_endpoint_returns=endpoints,
-        observed_sector_names=observed_sectors,
     )
     degraded: list[str] = []
     if scope_total is not None and context.compared_scope_count is None:

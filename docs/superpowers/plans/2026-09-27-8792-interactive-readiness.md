@@ -48,11 +48,13 @@ Files: `intelligence/api/app.py`, `intelligence/tests/test_workbench_api.py`, `d
 
 ## Task 4: 已登记金融质量尾项
 
+2026-09-27 用户追加约束：个例回归用于揭示根因，不得扩张为易误伤全局能力的文字规则。初版新增的自由文本检出器已撤出候选；改为补齐证据输入的真实语义与正常路径回归。
+
 Specs: `2026-09-22-live-pullback-claim-vs-history-data-workorder.md` (#78), `2026-09-22-selection-criteria-disclosure-workorder.md` (#79), `2026-09-22-fabricated-entity-code-workorder.md` (#80)。
 
 - [ ] 对照冻结现场夹具逐项复现，先检查最新 main/其他在途 owner 是否已修，避免重复。
-- [ ] 确认「回调」与终点收益的不同含义，只有证据能确定的方向矛盾才阻断；缺路径证据要说明范围。
-- [ ] 候选筛选依据缺失先走现有 advisory 通道，不凭关键词创建容易误杀的硬门。
+- [ ] 确认「回调」与终点收益的不同含义，以证据生产者的窗口、指标与累计语义约束写手；不从自由文本关键词直接推断矛盾或阻断。
+- [ ] 候选筛选的实际过滤、排序、行数上限从执行后的查询合同投递给写手；不创建关键词式正文语义判断器。
 - [x] #80：history 的 entity_codes 与 finance 的精确代码 filters 共用只读检查；未知码与目录不可验证分开。真实 published 按日全集 42 日/16,926 日期×代码零误拦，历史码/legacy/candidate/股票非闭集有隔离回归；正常、恢复、修复终局保留身份诊断 gap。验收原件见 #80 工单，整仓门禁另属 Task 5。
 - [ ] 最新交易日措辞以日历与数据库日期共同约束；有证据才能声称最近收盘，无证据则披露库内日期。
 

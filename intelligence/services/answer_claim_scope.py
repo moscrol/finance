@@ -1,4 +1,4 @@
-"""口径越界 lint：识别答案说得比本轮证据宽的已知形状。
+"""口径越界 lint：答案说得比证据宽的四种确定性形状。
 
 来源是 2026-09-21 K3 写手 / 无判官首跑留证的四条实测反例（见
 `docs/verification/2026-09-22-k3-acceptance/`）：把库内最新日期说成"最近一个
@@ -9,10 +9,9 @@
 与邻居的分工：`honesty_gates` 管数值本身脏不脏，`conclusion_five_element_lint`
 管结论段结构缺不缺，本模块只管"这句话的适用范围有没有超过证据的适用范围"。
 
-另覆盖历史窗口方向、终点收益误作途中路径、板块择优缺少筛选口径。
-这些规则是有限的确定性提示，不是内容质量评分器，也不是判官替代品。
+**这是四个已知形状的检出器，不是内容质量评分器，也不是判官替代品。**
 它只认关键词和取数上下文：换一种说法绕过它很容易（漏报），把不同指标的单位
-缺口误判成同一个也可能（误报）。它能给的只有一件事——已覆盖的实测反例再犯时
+缺口误判成同一个也可能（误报）。它能给的只有一件事——这四条实测反例再犯时
 必被机器抓住，不必等人逐句读。
 """
 
@@ -38,9 +37,6 @@ RULE_ORDER = (
     RULE_SCOPE_OVERREACH,
     RULE_FUND_FLOW,
     RULE_UNIT_GAP,
-    "claim_direction_mismatch",
-    "historical_path_unverified",
-    "selection_criteria_missing",
 )
 
 # 证据判定按**注册表事实**，不按对 payload 做子串匹配：后者任何一段文本
@@ -177,8 +173,6 @@ class ClaimEvidenceContext:
     compared_scope_count: int | None = None
     known_scope_total: int | None = None
     fund_flow_evidence: bool = False
-    historical_endpoint_returns: tuple[tuple[str, str, int, float], ...] = ()
-    observed_sector_names: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -188,8 +182,6 @@ class ClaimEvidenceContext:
             "compared_scope_count": self.compared_scope_count,
             "known_scope_total": self.known_scope_total,
             "fund_flow_evidence": self.fund_flow_evidence,
-            "historical_endpoint_returns": [list(item) for item in self.historical_endpoint_returns],
-            "observed_sector_names": list(self.observed_sector_names),
         }
 
 
@@ -234,7 +226,7 @@ class ClaimScopeReport:
             "context": self.context.to_dict(),
             "issues": [issue.to_dict() for issue in self.issues],
             "boundary": (
-                "已知形状与已映射证据的有限检出器；干净不代表内容正确，"
+                "四个已知形状的关键词检出器；干净不代表内容正确，"
                 "命中也需人读原句确认"
             ),
         }
@@ -371,9 +363,9 @@ _RULE_CHECKS = (
 def review_answer_claims(
     answer: str, context: ClaimEvidenceContext | None = None
 ) -> ClaimScopeReport:
-    """检查已知口径越界；命中给出原句、理由与改写方向。
+    """逐句检四类口径越界；命中给出原句、理由与改写方向。
 
-    同一 (规则, 原句) 只报一次；基础规则在前，研究规则在后，顺序稳定。
+    同一 (规则, 原句) 只报一次；输出顺序固定为原文出现顺序，便于回归对比。
     """
 
     resolved = context or ClaimEvidenceContext()
@@ -388,13 +380,6 @@ def review_answer_claims(
             key = (issue.rule, issue.quote)
             if key in seen:
                 continue
-            seen.add(key)
-            issues.append(issue)
-    from intelligence.services.research_claim_scope import research_claim_issues
-
-    for issue in research_claim_issues(answer, resolved):
-        key = (issue.rule, issue.quote)
-        if key not in seen:
             seen.add(key)
             issues.append(issue)
     return ClaimScopeReport(
