@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import errno
+import fcntl
 import json
 from pathlib import Path
 import socket
@@ -17,6 +18,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from intelligence.api import app as app_module
+from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
 from intelligence.services import corrections, episode_tools, llm_refine, memory_prefetch, user_memory
 from intelligence.services.agent_research import evidence_content_hash
 from intelligence.services.conversation_store import ConversationStore
@@ -26,6 +28,7 @@ from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.memory_status import record_status
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.run_store import RunStore
+from intelligence.services.research_policy import ResearchExecutionPolicy
 
 
 QUERY = "光刻胶题材现在怎么看"
@@ -380,3 +383,65 @@ def test_http_write_failure_warns_and_keeps_research_running(
     _, text, memory = _fresh_memory_request(tmp_path, client, calls)
     assert memory.evidence_tier == "user_memory"
     assert rows[0]["correction"] in text
+
+
+@pytest.mark.parametrize("stop", ["deadline", "cancelled", "busy"])
+def test_http_correction_lock_contention_is_bounded_and_cannot_write_later(
+    tmp_path, monkeypatch, offline_http, stop,
+):
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    client, calls = offline_http
+    monkeypatch.setattr(app_module, "_deployment_execution_policy", lambda: ResearchExecutionPolicy(
+        max_elapsed_seconds=0.1 if stop == "deadline" else 5,
+        synthesis_reserve_seconds=0,
+    ))
+    original = _conversation(client, "alice")
+    ConversationStore("alice").append_message(
+        original, "assistant", "产能公告可以直接作为兑现依据。",
+        turn_intent={"question_type": "theme_analysis", "primary_subject": "光刻胶"},
+    )
+    path = tmp_path / "users" / "alice" / "corrections.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entered, returned = Event(), Event()
+    real_ingest = TurnOrchestrator._maybe_ingest_workbench_correction
+
+    def tracked_ingest(self, **kwargs):
+        entered.set()
+        try:
+            return real_ingest(self, **kwargs)
+        finally:
+            returned.set()
+
+    monkeypatch.setattr(TurnOrchestrator, "_maybe_ingest_workbench_correction", tracked_ingest)
+    with path.open("a") as held:
+        fcntl.flock(held.fileno(), fcntl.LOCK_EX)
+        created = client.post(
+            f"/api/conversations/{original}/messages",
+            json={"user": "alice", "content": CORRECTION, "skill_mode": "hybrid"},
+        ).json()
+        try:
+            assert entered.wait(3)
+            if stop == "cancelled":
+                client.post(f"/api/runs/{created['run_id']}/cancel", params={"user": "alice"}).raise_for_status()
+            returned_while_held = returned.wait(0.6)
+            assert not path.read_text()
+        finally:
+            fcntl.flock(held.fileno(), fcntl.LOCK_UN)
+    assert returned.wait(3)
+    assert returned_while_held, "optional ingest exceeded its root/cancellation/lock wait boundary"
+    assert not path.read_text(), "a departed ingest must not append when the old lock is released"
+    store = RunStore("alice")
+    failures = [step for step in store.load_trace(created["run_id"])
+                if step["step_id"] == "user_correction_ingest_failed"]
+    assert len(failures) == 1
+    payload = json.loads(failures[0]["output_summary"])
+    assert payload["reason"] == ("deadline_exhausted" if stop == "deadline" else stop)
+    assert payload["status"] == "failed"
+    assert "user_correction_ingest_failed" in store.load_run(created["run_id"]).degrades
+    assert str(path) not in json.dumps(failures, ensure_ascii=False)
+    assert CORRECTION not in json.dumps(failures, ensure_ascii=False)
+    if stop == "busy":
+        until = time.monotonic() + 3
+        while not calls and time.monotonic() < until:
+            time.sleep(0.01)
+        assert calls, "busy optional recording must keep ordinary research running"

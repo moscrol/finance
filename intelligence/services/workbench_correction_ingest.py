@@ -8,16 +8,23 @@ answer rather than a market comment.
 
 from __future__ import annotations
 
+import errno
 import fcntl
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import TYPE_CHECKING, Callable, Literal, Mapping
 
 from intelligence.services import corrections
 
+if TYPE_CHECKING:
+    from intelligence.services.research_contract import ResearchDeadline
+
 CorrectionStatus = Literal["recorded", "skipped", "failed"]
+_LOCK_WAIT_SECONDS = 0.2
+_LOCK_POLL_SECONDS = 0.01
 
 REASONS = frozenset(
     {
@@ -28,6 +35,9 @@ REASONS = frozenset(
         "dedup",
         "recorded",
         "write_failed",
+        "busy",
+        "deadline_exhausted",
+        "cancelled",
     }
 )
 
@@ -193,6 +203,41 @@ def _within_dedup_window(
     return False
 
 
+def _write_stop_reason(
+    deadline: ResearchDeadline | None, is_cancelled: Callable[[], bool] | None,
+) -> str | None:
+    if is_cancelled is not None and is_cancelled():
+        return "cancelled"
+    if deadline is not None and deadline.expired:
+        return "deadline_exhausted"
+    return None
+
+
+def _acquire_correction_lock(
+    fd: int, *, deadline: ResearchDeadline | None, is_cancelled: Callable[[], bool] | None,
+) -> str | None:
+    """Acquire the ledger inode without outliving the optional lock window."""
+    expires_at = time.monotonic() + _LOCK_WAIT_SECONDS
+    while True:
+        reason = _write_stop_reason(deadline, is_cancelled)
+        if reason is not None:
+            return reason
+        if time.monotonic() >= expires_at:
+            return "busy"
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return None
+        except OSError as exc:
+            if exc.errno not in {errno.EAGAIN, errno.EACCES}:
+                raise
+        remaining = expires_at - time.monotonic()
+        if deadline is not None:
+            remaining = min(remaining, deadline.remaining())
+        if remaining <= 0:
+            return _write_stop_reason(deadline, is_cancelled) or "busy"
+        time.sleep(min(_LOCK_POLL_SECONDS, remaining))
+
+
 def maybe_record_workbench_correction(
     path: str | Path,
     *,
@@ -202,6 +247,8 @@ def maybe_record_workbench_correction(
     corrected_message_id: str,
     themes: list[str] | tuple[str, ...] = (),
     ts: str | None = None,
+    deadline: ResearchDeadline | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
 ) -> CorrectionIngestResult:
     """Append one eligible Workbench correction, or return a bounded skip.
 
@@ -238,20 +285,39 @@ def maybe_record_workbench_correction(
     target = Path(path).expanduser()
     if ts and _parse_timestamp(ts) is None:
         return CorrectionIngestResult("failed", "write_failed", error_type="invalid_timestamp")
+
+    def stopped(reason: str) -> CorrectionIngestResult:
+        return CorrectionIngestResult(
+            "failed", reason, corrected_message_id=corrected_message_id or previous_id,
+        )
+
     try:
+        if reason := _write_stop_reason(deadline, is_cancelled):
+            return stopped(reason)
         target.parent.mkdir(parents=True, exist_ok=True)
+        if reason := _write_stop_reason(deadline, is_cancelled):
+            return stopped(reason)
         # One inode lock covers both checking and the canonical append. A local
         # threading lock would still race between Workbench worker processes.
         # Closing this handle releases the lock on success, skip, and failure.
         with target.open("a", encoding="utf-8") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if reason := _acquire_correction_lock(lock.fileno(), deadline=deadline, is_cancelled=is_cancelled):
+                return stopped(reason)
+            if reason := _write_stop_reason(deadline, is_cancelled):
+                return stopped(reason)
             # Default time belongs to the locked transaction. An older request
             # can acquire the lock after a newer writer; its request-start time
             # would incorrectly treat that just-written row as being in future.
             record_ts = ts or datetime.now(timezone.utc).isoformat(timespec="seconds")
             now = _parse_timestamp(record_ts)
             assert now is not None
-            if _within_dedup_window(target, correction, now):
+            duplicate = _within_dedup_window(target, correction, now)
+            # A read can finish after cancellation/deadline. Do not start a
+            # canonical append in that state. An append already entered is a
+            # synchronous filesystem operation and cannot be undone by cancel.
+            if reason := _write_stop_reason(deadline, is_cancelled):
+                return stopped(reason)
+            if duplicate:
                 return CorrectionIngestResult("skipped", "dedup")
             _, record = corrections.record_correction(
                 target,

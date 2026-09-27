@@ -1794,6 +1794,7 @@ class TurnOrchestrator:
         run_id: str,
         assistant_message_id: str,
         warnings: list[str],
+        deadline: ResearchDeadline | None = None,
     ) -> None:
         """Record a high-confidence user correction without blocking research."""
         user_id = str(getattr(self.run_store, "user_id", "") or "")
@@ -1826,6 +1827,8 @@ class TurnOrchestrator:
                     conversation_id=conversation_id,
                     corrected_message_id=(previous.message_id if previous else ""),
                     themes=themes,
+                    deadline=deadline,
+                    is_cancelled=self.is_cancelled,
                 )
             except Exception as exc:  # fail-open: research must still run
                 result = workbench_correction_ingest.CorrectionIngestResult(
@@ -2024,6 +2027,7 @@ class TurnOrchestrator:
                 run_id=run_id,
                 assistant_message_id=assistant_message_id,
                 warnings=warnings,
+                deadline=research_deadline,
             )
             inherited_message = previous_turn_message(context)
             inherited_intent = (

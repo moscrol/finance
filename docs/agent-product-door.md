@@ -210,6 +210,9 @@ runner 自动加入 opening_prefetch，首请求前进入证据账本；提供�
 默认用户。命中仍为 user_memory，不能绑定市场事实；缺口不能绑定判断，消息不含台账路径。
 material_only/local_only 保持既有不预取上限。离线定向收据见
 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`；不证明真实模型采用或金融质量。
+纠偏自动写侧使用同一台账 inode 锁包住查重与 canonical append；锁等待最多 0.2 秒，
+与本轮根期限取交集并检查取消，拿锁及查重后再核验状态。忙、截止或取消按受限原因留警告并继续原执行路径；
+不派后台写入，已进入的同步文件写入不能被事后取消回滚。
 纯个人记录回顾使用 `personal_memory_recall` 合同，唯一必需输出为 `prior_recall/user_premise`，
 只授权 `memory_lookup`；有记录须绑定来源身份与内容哈希一致的召回原件，无可用记录则按真实读取状态披露为 `partial/legal_gap`。
 无主体回顾从当前用户的既有读取窗口取近期合法记录，先过滤撤销与信息截止范围、再限条数和文本预算；

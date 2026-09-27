@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import multiprocessing
 from pathlib import Path
-from threading import BrokenBarrierError
+from threading import BrokenBarrierError, Event
 import time
 
 import pytest
@@ -17,6 +17,7 @@ from intelligence.runtime.conversation_orchestrator import (
 from intelligence.services import corrections, workbench_correction_ingest
 from intelligence.services.conversation_store import ConversationStore, Message
 from intelligence.services.run_store import RunStore
+from intelligence.services.research_contract import ResearchDeadline
 
 
 @pytest.fixture
@@ -243,7 +244,16 @@ def test_duplicate_is_atomic_across_processes(tmp_path, previous_answer) -> None
         for process in processes:
             process.join(timeout=5)
             assert process.exitcode == 0
-        assert sorted(received) == [("recorded", "recorded"), ("skipped", "dedup")]
+        # The artificial two-second read holds the inode beyond the optional
+        # lock window. The contender may fail open as busy, but cannot append.
+        assert received.count(("recorded", "recorded")) == 1
+        assert all(item in {("recorded", "recorded"), ("skipped", "dedup"), ("failed", "busy")} for item in received)
+        assert len(path.read_text(encoding="utf-8").splitlines()) == 1
+        retry = workbench_correction_ingest.maybe_record_workbench_correction(
+            path, user_text="不对，应该先看板块容量再下结论", previous_assistant=previous_answer,
+            conversation_id="conv-retry", corrected_message_id="msg-answer-1", ts="2026-09-25T02:00:00+00:00",
+        )
+        assert (retry.status, retry.reason) == ("skipped", "dedup")
         assert len(path.read_text(encoding="utf-8").splitlines()) == 1
     finally:
         for process in processes:
@@ -321,6 +331,68 @@ def test_dedup_read_failure_is_fail_open(tmp_path, previous_answer, monkeypatch)
     assert result.status == "failed"
     assert result.reason == "write_failed"
     assert result.error_type == "OSError"
+
+
+@pytest.mark.parametrize("stop", ["cancelled", "deadline_exhausted"])
+def test_known_stop_before_ingest_has_no_filesystem_side_effects(tmp_path, previous_answer, stop):
+    path = tmp_path / "new-user" / "corrections.jsonl"
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path, user_text="不对，应该先看板块容量再下结论", previous_assistant=previous_answer,
+        conversation_id="conv-stop", corrected_message_id="msg-answer-1",
+        deadline=ResearchDeadline.from_timeout(0 if stop == "deadline_exhausted" else 5),
+        is_cancelled=lambda: stop == "cancelled",
+    )
+    assert (result.status, result.reason) == ("failed", stop)
+    assert not path.parent.exists()
+
+
+def test_cancellation_after_lock_acquired_prevents_ledger_read_and_append(tmp_path, previous_answer, monkeypatch):
+    cancelled = Event()
+    real_flock = workbench_correction_ingest.fcntl.flock
+
+    def acquire_then_cancel(fd, operation):
+        assert operation & workbench_correction_ingest.fcntl.LOCK_NB
+        real_flock(fd, operation)
+        cancelled.set()
+
+    monkeypatch.setattr(workbench_correction_ingest.fcntl, "flock", acquire_then_cancel)
+    monkeypatch.setattr(corrections, "load_corrections", lambda *a, **kw: pytest.fail("read began after cancellation"))
+    monkeypatch.setattr(corrections, "record_correction", lambda *a, **kw: pytest.fail("write began after cancellation"))
+    path = tmp_path / "corrections.jsonl"
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path, user_text="不对，应该先看板块容量再下结论", previous_assistant=previous_answer,
+        conversation_id="conv-stop", corrected_message_id="msg-answer-1", is_cancelled=cancelled.is_set,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert (result.status, result.reason) == ("failed", "cancelled")
+    assert not path.read_text()
+
+
+@pytest.mark.parametrize("stop", ["cancelled", "deadline_exhausted"])
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_stop_during_dedup_read_is_rechecked_before_canonical_append(tmp_path, previous_answer, monkeypatch, stop, duplicate):
+    cancelled = Event()
+    deadline = ResearchDeadline.from_timeout(0.05 if stop == "deadline_exhausted" else 5)
+    real_read = workbench_correction_ingest._within_dedup_window
+
+    def read_then_stop(*args):
+        real_read(*args)
+        if stop == "cancelled":
+            cancelled.set()
+        else:
+            time.sleep(deadline.remaining() + 0.01)
+        return duplicate
+
+    monkeypatch.setattr(workbench_correction_ingest, "_within_dedup_window", read_then_stop)
+    monkeypatch.setattr(corrections, "record_correction", lambda *a, **kw: pytest.fail("write began after known stop"))
+    path = tmp_path / "corrections.jsonl"
+    result = workbench_correction_ingest.maybe_record_workbench_correction(
+        path, user_text="不对，应该先看板块容量再下结论", previous_assistant=previous_answer,
+        conversation_id="conv-stop", corrected_message_id="msg-answer-1", is_cancelled=cancelled.is_set,
+        deadline=deadline,
+    )
+    assert (result.status, result.reason) == ("failed", stop)
+    assert not path.read_text()
 
 
 def test_manual_writer_still_records_repeated_explicit_requests(tmp_path) -> None:
