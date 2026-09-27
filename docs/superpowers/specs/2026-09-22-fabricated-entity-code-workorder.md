@@ -22,7 +22,7 @@
 - [x] 真实库只读逐日期验证 published 全集：2026-07-27～2026-09-24，42 日、16,926 日期×代码、403 个不同代码，误拦 0；文件 inode/size/mtime 不变。结果：`~/.finance-runtime/reviews/8792-readiness-20260927/entity-presence-production-audit.json`。
 - [x] 合成真实 schema 覆盖已知缺行情、混合代码、candidate 隔离、可见/被遮蔽 legacy、历史换码、缺失/不完整/无日期目录、股票非闭集、contains、deadline/取消；旧空区间测试改为已证身份、区间无行，保留空结果断言。
 - [ ] `endpoint_not_path` 漏报登记在 #75 独立 QC 的复核清单里，有人认领后再开单。
-- [ ] 分支级四叶与部署验收由 8792 总任务执行，本单定向结果不代替整仓门禁。只提交 pathspec；不在子任务 push/merge/deploy。
+- [x] 8792 总任务已完成固定 `326aa553c` 四叶：Python 18,362P/0F、前端 125P、E2E 34P/2S、Ruff/registry 0；PR #948 快进合入并实际部署。生产 health/readiness 与真实 Episode 查数通过；只证明所验合同和样本，不代替上面 #75 独立语义 QC。收据入口：`docs/handoffs/2026-09-28-8792-interactive-readiness-closeout.md`。
 
 ## 独立复审修正
 

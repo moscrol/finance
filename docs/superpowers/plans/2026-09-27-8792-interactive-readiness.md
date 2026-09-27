@@ -25,7 +25,7 @@ Files: `intelligence/services/workbench_correction_ingest.py`, `corrections.py`�
 - [x] 对召回的个人记忆设置明确字符预算；开场预取与显式 memory_lookup 使用同一投影，哈希一致，截断/省略可见，原台账不改。历史截止日期过滤掉部分无日期记录时也披露缺口。
 - [x] 用户记忆的文字与 observations 不能给外部市场事实提供数字背书；真实市场结构化证据继续通过。用数字越权的红/绿对照验证，不能仅测试内部 helper。
 - [x] 使用 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q <上述相关测试>` 与限定路径 ruff；审查后只提交本任务路径。
-- [ ] 真实跨会话演练发现：个人纠偏召回成功，但纯回顾被分到个股研究合同，造成 `user_premise` 与金融必需证据槽冲突。沿既有历史引用候选与 Controller 语义分类修正合同，再独立复审和真实复验；不放松金融证据地板。
+- [x] 真实跨会话演练发现：个人纠偏召回成功，但纯回顾被分到个股研究合同，造成 `user_premise` 与金融必需证据槽冲突。已沿既有历史引用候选与 Controller 语义分类修正合同；固定 `326aa553c` 最终规格 701P、质量 579P，真实带主题/不带主题回顾、连续 3 日条件和撤回退出均通过；金融证据地板保留。
 
 ## Task 2: 学习台账在部署切换后持久可用
 
@@ -61,12 +61,14 @@ Specs: `2026-09-22-live-pullback-claim-vs-history-data-workorder.md` (#78), `202
 
 ## Task 5: 固定版本验收与部署
 
-- [ ] 汇总 Claude 的最终提交与本次收尾状态，独立 spec review 和 code-quality review，修完重要发现。
-- [ ] 按 `docs/workflows/acceptance-workflow.md` 执行四叶检查：Python、前端、E2E、registry；收据绑定最终干净代码 revision，不能沿用旧版本绿灯。
-- [ ] 通过后合入 Gitea main，建立新只读 runtime snapshot；用现有 launchd 切换 8792 并登记 deploy ledger，不覆盖旧快照。
-- [ ] 验收 health/readiness、数据新鲜度、严格知识筛选、真实 Episode 一轮问答和隔离用户纠偏→下一轮召回→撤销退出。实际用户学习库不得写入测试偏好。
-- [ ] 使用 handoff skill 写最终交接、更新能力图谱与工单状态，附部署/验证/回滚路径。必须区分已完成、可使用但证据不足、外部输入仍缺三种状态。
+- [x] 汇总 Claude #877、#945、#946 与本次收尾，完成独立规格和质量复审；文件锁越过截止/取消、混合记忆引言词表误删两个 P2 均修复，旧红例原样转绿。
+- [x] 固定干净 `326aa553c571eeeb5342f091a9672a9a9993ac3c` 四叶通过：Python 18,362P/0F/72S/2xf（18,436 项未收窄）、前端 125P、E2E 34P/2S、Ruff/注册表全绿；全 SHA、解释器、依赖和基座漂移 0 校验通过。
+- [x] PR #948 快进合入，受测 SHA 不变；新快照经 launchd 实际切换 8792，登记 canonical deploy ledger，保留旧快照与 launcher。首次 bootstrap exit 5 自动回退已验证；按既有运维规程短暂等待后重切成功，旧失败不改签。
+- [x] health 三读匹配，readiness 全绿；固定 KB 代四类过滤与回执实测，隔离六轮通过；生产 Episode `run_20260928_011332_274037` 正确查出 09-24 行情，事实表/列名/日期与 canonical 库相符，degrade/secret/public scan 均 0。测试纠偏只进入隔离用户；实际用户旧候选未审批。
+- [x] 交接、能力图谱和三项工单已回写，部署与回滚证据见 [09-28 收尾快照](../../handoffs/2026-09-28-8792-interactive-readiness-closeout.md)。收尾文档提交的最终合入、门禁和运行身份由树外 `final-release.json` 与 canonical deploy ledger 记录，不把旧 SHA 收据移签。
 
 2026-09-27 集成进展：Claude `4c111aa1d` 已合入候选 `d68913b27`。L2四日经staging发布并独立核值，日报/研究队列按9/20知识快照恢复，历史预测/个人学习未写；保留晨汇/研报缺档。新增消费复核修复历史资金流截止、NULL得分、去重覆盖与可变来源阈值。夜跑读取快照与待办写回目的地显式分开。四叶与真实隔离交互验证仍由Task5判定。
 
 22:50 复核：L2 消费层与夜跑读写根独立规格/质量均通过；正式资金流 HTML 已更新到 09-24 并查看实际页面。四天历史补建的市场复盘输入齐全，晨汇/个股深读缺档保留 WARN。`d68913b27` 前端与 E2E 通过，Python 全仓仍运行；registry 两个过期摘要已由生成器更新。新到主干 `85bcee6dc` 的记忆缺口修复待整合，纯回顾合同仍待修，故尚不发布。
+
+09-28 收口：以上进展段保留为当时记录，最新实际代码部署为 #948 / `326aa553c`。18:30 sync、20:40 finalize 两任务已安装、哈希与仓内源一致，安装后均 idle，未提前触发生产采集。13 个冲突 KB 页继续隔离，晨汇/IMA/卖方缺档保留。真实单日查数曾额外出现无比较证据的“放量”文字，旧分类 provider 超时也保留；本次不宣称所有金融语义正确、外部输入完整或未来夜跑已通过。
