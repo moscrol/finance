@@ -21,6 +21,31 @@
 - 联网操作统一经 `web-access` skill。
 - 日常复盘用默认东财快照（`--stock-source snapshot`）；`--stock-source mootdx` 只用于首次建库或多日历史回填，慢且当日值与快照一致。
 
+## Workbench 完整知识根与受管 RAG 根
+
+受管 RAG（检索增强生成）的 `generation/source/wiki` 只含进入索引的正文；
+Workbench 还需要 `relations`、观点/晨汇台账，以及 wiki 父目录下的研究地图和题材模块脚本。
+部署时用 `WORKBENCH_KNOWLEDGE_WIKI` 指向固定版本的完整知识库快照，
+不要把受管正文快照当成完整知识库，也不要从有未提交改动的 live 树补资料。
+
+`default_paths()` 优先读 `WORKBENCH_KNOWLEDGE_WIKI`。未配置时仍按
+`KB_VAULT → KNOWLEDGE_WIKI → CONCEPT_VAULT → ENTITY_VAULT` 的原顺序解析。
+显式完整根缺失时不会回退到别处；健康检查应如实失败。
+
+启动器在受管 `rag_maintenance.py launch` 前导出
+`WORKBENCH_KNOWLEDGE_WIKI="${TASK_KB_CODE}/wiki"`，其中 `TASK_KB_CODE`
+是本次生成索引时采用的固定、干净知识库快照。记录该快照的 Git SHA 和受管 manifest SHA，
+部署验收须确认两者同源。此变量本身不验证完整快照的资料哈希。
+`KB_VAULT`、普通/全文索引、解释器及 generation 身份仍全部由一次受管 resolve/launch 绑定，
+不要在 launch 之后分别覆盖这些字段。
+
+财经侧的 `kb_rag.prewarm/probe_rag_cli/retrieve` 只在受管模式、且调用方传入的 wiki
+等于显式完整根时，将检索输入映射到 manifest 绑定的 `KB_VAULT`。
+普通/全文检索、命中续读和结果缓存均沿该冻结根；带过滤回执的结果仍不缓存。
+其它显式 wiki 不被替换，受管身份不匹配、缺字段或已退役均拒绝使用，缓存也不能绕过。
+非受管调用保持原 wiki。上线验收要分别检查 `relations`/图谱/台账/模块与严格 RAG 回执，
+不能仅凭索引目录存在或 `relations` 目录存在宣称整机可用。
+
 ## 飞书（2026-09-11 已整体退役）
 
 自建应用连同仓内所有飞书代码于 2026-09-11 删除。**这一节保留是为了回答「那些数据去哪了」，不是操作指南。**

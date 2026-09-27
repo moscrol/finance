@@ -47,6 +47,7 @@ from intelligence.services.kb_window_reexcerpt import (
     resolve_wiki_page,
     split_sections,
 )
+from intelligence.services.rag_generation_identity import capture_generation
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
@@ -560,6 +561,29 @@ def _resolve_index_dir(root: Path) -> Path:
     return root / ".rag_index"
 
 
+def _resolve_rag_wiki(kb_wiki: str | Path) -> Path:
+    """Map only the configured complete Workbench root to a verified RAG snapshot."""
+    wiki = Path(kb_wiki).expanduser().resolve()
+    configured = os.environ.get("WORKBENCH_KNOWLEDGE_WIKI")
+    if not configured:
+        return wiki
+    matches_workbench = wiki == Path(configured).expanduser().resolve()
+    candidate = (
+        Path(os.environ.get("KB_VAULT") or wiki).expanduser()
+        if matches_workbench else wiki
+    )
+    root = kb_root(candidate)
+    runtime_root = _resolve_code_root(root)
+    generation = capture_generation(
+        _resolve_rag_python(runtime_root), runtime_root, _resolve_index_dir(root), candidate
+    )
+    if not generation.managed:
+        return wiki
+    # This also runs before result-cache reads: a retired binding cannot reuse a hit.
+    generation.require_available()
+    return candidate.resolve()
+
+
 def _index_fingerprint(index_dir: Path) -> str:
     parts: list[str] = []
     for name in ("meta.json", "chunks.jsonl", "bm25.pkl.gz", "dense.npy"):
@@ -661,7 +685,8 @@ def prewarm(
     try:
         if not kb_wiki:
             raise ValueError("knowledge wiki is required for RAG prewarm")
-        root = kb_root(kb_wiki)
+        wiki = _resolve_rag_wiki(kb_wiki)
+        root = kb_root(wiki)
         runtime_root = _resolve_code_root(root)
         script = runtime_root / RAG_SCRIPT_REL
         index_dir = _resolve_index_dir(root)
@@ -670,7 +695,6 @@ def prewarm(
         if not index_dir.is_dir():
             raise FileNotFoundError(index_dir)
         python = _resolve_rag_python(runtime_root)
-        wiki = Path(kb_wiki).expanduser().resolve()
     except Exception as exc:
         # No worker exists yet to carry this failure into readiness.
         rag_worker.record_startup_failure(exc)
@@ -776,7 +800,7 @@ def probe_rag_cli(
     if not kb_wiki:
         return finish(_probe_failure("未配置知识库 wiki 路径", "configuration"))
     try:
-        root = _resolve_code_root(kb_root(kb_wiki))
+        root = _resolve_code_root(kb_root(_resolve_rag_wiki(kb_wiki)))
         script = root / RAG_SCRIPT_REL
         if not script.is_file():
             return finish(_probe_failure("RAG CLI 脚本不存在", "missing_script"))
@@ -786,6 +810,10 @@ def probe_rag_cli(
         # Partition by the actual child environment, keeping secrets out of the key.
         env_digest = hashlib.sha256(json.dumps(env, sort_keys=True).encode()).digest()
         key = (str(root), tuple(command), revision, env_digest, timeout_seconds)
+    except rag_worker.RagGenerationUnavailable as exc:
+        return finish(_probe_failure(
+            f"RAG 代际身份不可用（{exc.reason}）", "generation_unavailable"
+        ))
     except OSError:
         return finish(_probe_failure("RAG CLI 能力探测失败", "os_error"))
     except Exception:
@@ -1571,7 +1599,14 @@ def retrieve(
         tel.status = "skipped"
         tel.warning = res.warning
         return res
-    wiki_root = Path(kb_wiki).expanduser().resolve()
+    try:
+        wiki_root = _resolve_rag_wiki(kb_wiki)
+    except rag_worker.RagGenerationUnavailable as exc:
+        res.warning = f"wiki-rag 代际身份不可用（{exc.reason}）"
+        tel.status, tel.warning = "error", res.warning
+        tel.degraded = True
+        tel.fallback_reason = "managed_generation_unavailable"
+        return res
     root = kb_root(wiki_root)
     runtime_root = _resolve_code_root(root, code_root)
     script = runtime_root / RAG_SCRIPT_REL
@@ -1645,6 +1680,16 @@ def retrieve(
         if python_executable is not None
         else _resolve_rag_python(runtime_root)
     )
+    if os.environ.get("WORKBENCH_KNOWLEDGE_WIKI"):
+        # Explicit executor/index overrides must also match before CLI or cache use.
+        try:
+            capture_generation(rag_python, runtime_root, chosen, wiki_root).require_available()
+        except rag_worker.RagGenerationUnavailable as exc:
+            res.warning = f"wiki-rag 代际身份不可用（{exc.reason}）"
+            tel.status, tel.warning = "error", res.warning
+            tel.degraded = True
+            tel.fallback_reason = "managed_generation_unavailable"
+            return res
     generation_evidence_chars = min(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,

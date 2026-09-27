@@ -70,13 +70,16 @@ def resolve_knowledge_wiki(
     变红，而不是假装馆藏还在桌面。
 
     探测顺序：
-    1. ``KB_VAULT`` / ``KNOWLEDGE_WIKI`` / ``CONCEPT_VAULT`` / ``ENTITY_VAULT``
+    1. ``WORKBENCH_KNOWLEDGE_WIKI``（完整资料/模块根；受管 RAG 可另绑正文快照）
+       → ``KB_VAULT`` / ``KNOWLEDGE_WIKI`` / ``CONCEPT_VAULT`` / ``ENTITY_VAULT``
     2. ``<home>/knowledge-base-private/wiki`` 若是目录
     3. ``<finance_root 的父目录>/knowledge-base-private/wiki`` 若是目录
     4. 规范身份（第 2 步那条，即使目录还不存在）
     """
 
-    env = _env_path("KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT")
+    env = _env_path(
+        "WORKBENCH_KNOWLEDGE_WIKI", "KB_VAULT", "KNOWLEDGE_WIKI", "CONCEPT_VAULT", "ENTITY_VAULT"
+    )
     if env:
         return env
     home_path = Path(home) if home is not None else Path.home()

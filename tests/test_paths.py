@@ -11,6 +11,7 @@ class DefaultPathsTest(unittest.TestCase):
             "FINANCE_WS",
             "FINANCE_ROOT",
             "KB_VAULT",
+            "WORKBENCH_KNOWLEDGE_WIKI",
             "KNOWLEDGE_WIKI",
             "CONCEPT_VAULT",
             "ENTITY_VAULT",
@@ -54,6 +55,27 @@ class DefaultPathsTest(unittest.TestCase):
         })
 
         self.assertEqual(paths.market_snapshot_dir, Path("/tmp/market-snapshot"))
+
+    def test_workbench_full_knowledge_root_keeps_relations_outside_rag_snapshot(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            full_wiki = root / "complete-kb" / "wiki"
+            rag_wiki = root / "generation" / "source" / "wiki"
+            (full_wiki / "relations").mkdir(parents=True)
+            rag_wiki.mkdir(parents=True)
+            paths = self._default_paths_with_env({
+                "WORKBENCH_KNOWLEDGE_WIKI": str(full_wiki),
+                "KB_VAULT": str(rag_wiki),
+                "KNOWLEDGE_WIKI": str(root / "legacy-wiki"),
+                "RAG_INDEX_DIR": str(root / "generation" / "standard"),
+            })
+
+            self.assertEqual(paths.knowledge_wiki, full_wiki)
+            self.assertTrue((paths.knowledge_wiki / "relations").is_dir())
+            self.assertFalse((rag_wiki / "relations").exists())
+            self.assertEqual(paths.vector_index_dir, root / "generation" / "standard")
 
     def test_vector_index_dir_env_override(self):
         paths = self._default_paths_with_env({
