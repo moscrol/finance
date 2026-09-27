@@ -1,0 +1,73 @@
+{
+  "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+  "identity_after": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": ""
+  },
+  "mutations": [
+    {
+      "mutation": "session_binding",
+      "exit_code": 1,
+      "failures": [
+        "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-False]",
+        "test_history_reader_rechecks_authority_and_preserves_state_on_rejection[conversation-True]"
+      ],
+      "errors": 0
+    },
+    {
+      "mutation": "store_conversation",
+      "exit_code": 1,
+      "failures": [
+        "test_history_read_enforces_requested_conversation_before_opening_content[conversation-b]"
+      ],
+      "errors": 0
+    },
+    {
+      "mutation": "stale_metadata",
+      "exit_code": 1,
+      "failures": [
+        "test_history_read_rechecks_metadata_after_waiting_for_writer[conversation]",
+        "test_history_read_rechecks_metadata_after_waiting_for_writer[user]",
+        "test_history_read_rechecks_metadata_after_waiting_for_writer[visibility]"
+      ],
+      "errors": 0
+    },
+    {
+      "mutation": "missing_read_lock",
+      "exit_code": 1,
+      "failures": [
+        "test_history_read_holds_run_lock_through_byte_verification"
+      ],
+      "errors": 0
+    },
+    {
+      "mutation": "refresh_accumulates",
+      "exit_code": 1,
+      "failures": [
+        "test_refresh_removes_stale_references_without_rewriting_artifacts[conversation]",
+        "test_refresh_removes_stale_references_without_rewriting_artifacts[visibility]",
+        "test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]",
+        "test_refresh_removes_stale_references_without_rewriting_artifacts[registration]"
+      ],
+      "errors": 0
+    },
+    {
+      "mutation": "downloadable_index",
+      "exit_code": 1,
+      "failures": [
+        "test_refresh_removes_stale_references_without_rewriting_artifacts[downloadable]"
+      ],
+      "errors": 0
+    },
+    {
+      "mutation": "duplicate_read",
+      "exit_code": 1,
+      "failures": [
+        "test_authorized_history_read_verifies_content_once[False]",
+        "test_authorized_history_read_verifies_content_once[True]"
+      ],
+      "errors": 0
+    }
+  ],
+  "all_caught": true
+}

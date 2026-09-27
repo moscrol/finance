@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/intentional_failure.py", line 1, in <module>
+    assert 1 == 2, "intentional_positive_control"
+           ^^^^^^
+AssertionError: intentional_positive_control

@@ -1,0 +1,14 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "author": "/Users/a77/fwp-wt-react-trace-chain-0923",
+  "revision": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "axis": "spec",
+  "thinking": "off",
+  "max_output_tokens": 8192,
+  "provider": "glm-direct-review",
+  "model": "glm-5.3",
+  "upstream_port": 443,
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4"
+}

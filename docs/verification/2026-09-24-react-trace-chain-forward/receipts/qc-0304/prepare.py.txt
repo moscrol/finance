@@ -1,0 +1,53 @@
+"""Review the repaired candidate once with native GLM settings and fresh axes."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SEED = ROOT.parent/'pr832-glm-qc-20260924-0245'
+AUTHOR = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+TREE = ROOT/'candidate/finance-workspace-private'
+REV = '27034ce44ed41b1af0a570c2ccc534066a1656f6'
+PRIOR = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+BASE = '3bb81b9638f97b4773ce0f338df3a505b7c0162f'
+assert subprocess.check_output(['git','-C',str(AUTHOR),'rev-parse','HEAD'],text=True).strip() == REV
+assert not subprocess.check_output(['git','-C',str(AUTHOR),'status','--porcelain'])
+subprocess.run(['git','-C',str(AUTHOR),'worktree','add','--detach',str(TREE),REV],check=True)
+lock = json.loads((SEED/'harness-lock.json').read_text())
+provenance = []
+for name, sha in lock['files'].items():
+    if '/sandbox-preflight/' in name:
+        continue
+    source = SEED/name
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == sha
+    dest = ROOT/name
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    text = source.read_text().replace(str(SEED),str(ROOT))
+    if name.endswith(('config.json','claims.md','prompt-explore.md','prompt-execute.md','prompt-report.md')):
+        text = text.replace(PRIOR,REV)
+    dest.write_text(text)
+    provenance.append({'source':str(source),'sha256':sha,'destination':name})
+(ROOT/'finish_setup.py').write_text((SEED/'finish_setup.py').read_text())
+for axis in ['spec','quality']:
+    for name in ['work/tmp','work/users','work/probes']:
+        (ROOT/axis/name).mkdir(parents=True)
+    diff = subprocess.check_output(['git','-C',str(AUTHOR),'diff',BASE,REV,'--','intelligence','tests'])
+    (ROOT/axis/'inputs/source.diff').write_bytes(diff)
+    claims = ROOT/axis/'inputs/claims.md'
+    claims.write_text(claims.read_text()+'\nC6 includes condition headings formatted as ordinary, unordered, Arabic/Chinese ordered, parenthesized or circled list entries. Definition deletion and survival recognition must be symmetric; presentation changes must not leave an orphaned count or erase a supported one.\n')
+    for stage in ['explore','execute','report']:
+        prompt = ROOT/axis/('prompt-'+stage+'.md')
+        prompt.write_text(prompt.read_text()+'\nfindings 数组仅列需要处理的产品缺陷；通过检查、测试读数、无发现声明写 summary，覆盖不足写 limits 并标 not_verified。无缺陷用 findings=[]，不是 ["无缺陷"]。\nC6 是本次产品增量，必须有你自己构造输入的实际行为证据，包含真实 verify/repair 交付出口；不可只援引作者绿或静态源码。输入不合假设时先读真实签名/分句输出，再判断是产品还是探针问题；没有动态反证不得一概归为 probe bug。\n')
+protocol = json.loads((ROOT/'protocol.json').read_text())
+protocol.update(created_at=datetime.now(timezone.utc).isoformat(),revision=REV,candidate_tree=str(TREE),previous_batch=str(SEED),
+                continuation='One new finite batch for C6 product repair 27034ce44, after 56-request native-wire batch yielded C6 not_verified and host proved a real listed-definition defect. Native route/budgets unchanged. Clarify findings as defects only; no old reviewer artifacts copied.',
+                previous_requests_in_current_authorization=124,maximum_total_requests_with_this_batch=276,
+                reviewer_artifacts_copied=False,
+                reused_offline_provider_controls='Same provider/shim bytes and settings as 0245; historical source snapshots and SDK/loopback controls copied as host provenance, not product review evidence.')
+(ROOT/'protocol.json').write_text(json.dumps(protocol,ensure_ascii=False,indent=2)+'\n')
+(ROOT/'tooling-provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
+engineering = (ROOT.parent/'pr832-glm-qc-20260924-0148/run_engineering.py').read_text().replace(PRIOR,REV)
+(ROOT/'run_engineering.py').write_text(engineering)
+print(json.dumps({'root':str(ROOT),'revision':REV,'model_requests':0}))

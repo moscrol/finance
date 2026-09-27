@@ -1,0 +1,43 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed3.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-030-run_tests",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-030-run_tests.xml"
+  ],
+  "shell": false,
+  "target_exit_code": 1,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 3361,
+  "output_sha256": "d31a29f9a0f33756aa107a164937c52cc4c2dfb00c3182fb335b8c90bc867479",
+  "suite": "probes",
+  "files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed3.py"
+  ],
+  "counts": {
+    "tests": 1,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 0
+  },
+  "input_sha256": {
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/probes/test_qc_c3_feedback_fixed3.py": "2860c8ca6569339c1917867aac22932ca0a371d19063279f83306d72ef70e090"
+  },
+  "inputs_unchanged": true,
+  "junit_sha256": "a6faae691e57a3ec389633be49d3bd9236001e5ddd8339f335a987121f7c27d7",
+  "receipt": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/030-run_tests/result.json",
+  "output": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/execute/commands/030-run_tests/output.log"
+}

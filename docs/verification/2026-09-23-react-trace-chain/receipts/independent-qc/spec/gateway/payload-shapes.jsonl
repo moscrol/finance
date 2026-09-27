@@ -1,0 +1,3 @@
+{"admission":1,"stage":"gateway","stream":true,"model":"glm-5.3","tools":["read","bash","write"],"temperature_removed":false,"max_completion_tokens":8192}
+{"admission":2,"stage":"gateway","stream":true,"model":"glm-5.3","tools":["read","bash","write"],"temperature_removed":false,"max_completion_tokens":8192}
+{"admission":3,"stage":"gateway","stream":true,"model":"glm-5.3","tools":["read","bash","write"],"temperature_removed":false,"max_completion_tokens":8192}

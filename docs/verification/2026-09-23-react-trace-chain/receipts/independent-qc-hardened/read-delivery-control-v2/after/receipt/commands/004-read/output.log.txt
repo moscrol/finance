@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/read-delivery-control-v2/after/file_tool.py", line 46, in <module>
+    raise ValueError('single line exceeds read byte limit; use a targeted inspect query')
+ValueError: single line exceeds read byte limit; use a targeted inspect query

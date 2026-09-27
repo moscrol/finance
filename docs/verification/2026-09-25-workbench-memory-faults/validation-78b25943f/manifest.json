@@ -1,0 +1,49 @@
+{
+  "tested_revision": "78b25943fb126636f4df33255f2f6827a3f7818f",
+  "test_implementation_revision": "c367aa2a702e3a40bf826982c4e936a3f50b3f14",
+  "pytest_status": "PASS",
+  "http_passed": 22,
+  "regression_passed": 824,
+  "http_is_subset_of_regression": true,
+  "receipt_checks_exit_code": 0,
+  "ruff_exit_code": 0,
+  "full_gate_executed": false,
+  "files": {
+    "20260925T102917Z-78b25943-22a739a4167f.json": {
+      "bytes": 887,
+      "sha256": "1b0ddd8ce6e5db35aca9d96868980811b78ad3964fcbe0826fe0c712b663fa22"
+    },
+    "20260925T103514Z-78b25943-5a23162f5d8c.json": {
+      "bytes": 1974,
+      "sha256": "6911f8a1fbeb4a22780095788b57284c8faa4f81e74d3e9bfb1eaacb71c12314"
+    },
+    "admission-http.json": {
+      "bytes": 293,
+      "sha256": "1142dd0c931e51daf28eadd9c8a35031b29ccdc7ae442aed7320570b8df424dc"
+    },
+    "admission-regression.json": {
+      "bytes": 293,
+      "sha256": "9878d95d99165ce184af168b48d1141e70b0a6e84fa8c4149502059c08700a98"
+    },
+    "http-receipt-check.log.txt": {
+      "bytes": 975,
+      "sha256": "e90bb0e84c20959f7e5ef622f9bd160e199162dd0cc8b58098d20336d72ee4ff"
+    },
+    "http.log.txt": {
+      "bytes": 223,
+      "sha256": "e2dfc99f68e9254fd82eff676e995bbf05cf601ab66884f01e92e6ef106f0cc6"
+    },
+    "regression-receipt-check.log.txt": {
+      "bytes": 2071,
+      "sha256": "7d738a2625bff1991639297f5cba9901e421c2e5fefc32c3340a63220ec7dd66"
+    },
+    "regression.log.txt": {
+      "bytes": 1120,
+      "sha256": "dbd10357041d9a0fe7c01d94e9570dbcc725590821e9184b2be221e75ffa8c43"
+    },
+    "ruff.log.txt": {
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  }
+}

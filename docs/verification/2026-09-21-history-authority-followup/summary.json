@@ -1,0 +1,86 @@
+{
+  "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+  "previous_code": "f90fd3dc3ba10a9a00f7264f92d3ec959b2ba682",
+  "main_included": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "main_observed": "028a251a1b2ca98245326a6b59376f4f7f8e5e81",
+  "main_ahead_merges": 6,
+  "main_ahead_commits": 13,
+  "python": {
+    "passed": 12659,
+    "skipped": 87,
+    "xfailed": 2,
+    "failures": 0,
+    "errors": 0,
+    "warnings": 17,
+    "seconds": 809.93,
+    "junit_cases": 12748
+  },
+  "focused_passed": 315,
+  "frontend": {
+    "unit_passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "checks_exit_zero": 6
+  },
+  "mutations_failures": {
+    "session_binding": 2,
+    "store_conversation": 1,
+    "stale_metadata": 3,
+    "missing_read_lock": 1,
+    "refresh_accumulates": 4,
+    "downloadable_index": 1,
+    "duplicate_read": 2
+  },
+  "checks": {
+    "focused": {
+      "exit_code": 0,
+      "log_sha256": "fad0e8da3cbeec68bf12d96f592d4e2904ce72d12d811ac183b39b133180420e"
+    },
+    "ruff": {
+      "exit_code": 0,
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "registry-parse": {
+      "exit_code": 0,
+      "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    "registry-check": {
+      "exit_code": 0,
+      "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    "registry-tables": {
+      "exit_code": 0,
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    "registry-views": {
+      "exit_code": 0,
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    "crosswalk": {
+      "exit_code": 0,
+      "log_sha256": "5b8676fd9e9b8eb3356218f35812116cdf393f6eb319ce898f194e56305bae25"
+    },
+    "replay": {
+      "exit_code": 0,
+      "log_sha256": "c0a5eefd643bb5a9ddc2644b972f86aef10b4ea1d02f0e97543440d2b29d4536"
+    },
+    "receipt-exact": {
+      "exit_code": 0,
+      "log_sha256": "0f2f6146506b9330857cacacd45d7be1157e9892b245e448d47aea54d054d1d6"
+    },
+    "receipt-drift": {
+      "exit_code": 1,
+      "log_sha256": "599594081911b1dc435b9322c5e8905be3dfafd9e1158beaee3900ac3f7470d9"
+    }
+  },
+  "crosswalk_reverse_warnings": 98,
+  "fixed_sha_engineering": "passed",
+  "current_main_batch_gate": "blocked_base_drift",
+  "independent_review": "not_performed_on_724",
+  "natural_finance": "not_passed_unchanged",
+  "natural_model_calls": 0,
+  "merge_authorized": false,
+  "deploy_authorized": false,
+  "production_write": false,
+  "min_disk_free_bytes": 9506246656
+}

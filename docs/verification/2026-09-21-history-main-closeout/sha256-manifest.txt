@@ -1,0 +1,6 @@
+0e5d7497255bc89a1f76e56e435ad260ee7bde2fe6ee4453bca1922f5ee78cd6  docs/verification/2026-09-21-history-main-closeout/committed-archive-check.json
+0ca06892bcffdf5215d7be9a69ed212035369fdfe3b859a024af77bfd511a456  docs/verification/2026-09-21-history-main-closeout/main-at-closeout.json
+02e4458c318c72844dfc55104ad9ff4639558c02fe574ddb0a78032417924120  docs/verification/2026-09-21-history-main-closeout/memory-graph-complete.log.txt
+952dbff5a9333eb07fee7592befe97c25b6e537b3e99794127a4c85edede624b  docs/verification/2026-09-21-history-main-closeout/memory-graph.log.txt
+1764f562dc98d27cb5a8661350a43d3cc121c2e801d0e5de119ebbf3637126ff  docs/verification/2026-09-21-history-main-closeout/pr-main-revalidation.json
+9f44dba0186afcfc97239d88744fcb2fa581adb03c0023bc4a37a92f37e5d5f1  docs/verification/2026-09-21-history-main-closeout/README.md

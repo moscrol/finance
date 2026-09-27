@@ -1,0 +1,80 @@
+{
+  "claims": [
+    {
+      "evidence": [
+        "已读 source.diff 中 episode_protocol strip_evidence_ordinals 相关源码",
+        "探针 test_probe_c1_c4_ordinals_progress.py（未执行）"
+      ],
+      "id": "C1",
+      "note": "静态阅读完成，探针覆盖 E 序号遮蔽与真实数字保留；待 execute 阶段执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "已读 episode_tools._finance_query_failure_result 源码",
+        "探针 test_probe_c2_c3_finance_feedback.py（未执行）"
+      ],
+      "id": "C2",
+      "note": "单元级诊断安全断言已写；待执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "探针 test_probe_c2_c3_finance_feedback.py（未执行），复用作者夹具 _setup/_request"
+      ],
+      "id": "C3",
+      "note": "同轮反馈、预算不加铸、取消路径断言已写；待执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "已读 research_progress.normalize_query 位置",
+        "探针 test_probe_c1_c4_ordinals_progress.py（未执行）"
+      ],
+      "id": "C4",
+      "note": "冻结嵌套 Mapping 键一致性与未知对象拒绝断言已写；待执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "探针 test_probe_c5_pagination.py（未执行），借作者 tests/test_history_model_projection 的 _payload/_project/REF 与 _registry"
+      ],
+      "id": "C5",
+      "note": "绝对行号、offset/next_offset、末页 truncated、投影失败不记成功断言已写；待执行",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "探针 test_probe_c6_condition_repair.py（未执行），含 SemanticEpisodeVerifier 真实 verify 出口、幸存定义保留、圈号/序号前缀、非定义不授权删除的无条件断言",
+        "id",
+        "note"
+      ],
+      "id": "C6",
+      "note": "静态阅读 diff 完成；行为证据待 execute 阶段执行探针",
+      "status": "not_verified"
+    }
+  ],
+  "findings": [],
+  "limits": [
+    "探针仅通过语法准入，尚未执行；所有 claims 待 execute 阶段 run_tests 实测后判定",
+    "must-red 对照仅在概念上针对 baseline，本阶段无法实际对 baseline 执行",
+    "未审旧 E2E refresh 时序问题（主张明示范围外）"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c1_c4_ordinals_progress.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c2_c3_finance_feedback.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c6_condition_repair.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_must_red_control.py"
+  ],
+  "summary": "探索阶段完成。已读 claims.md 与完整 source.diff（1109行），并按需核读 episode_protocol.py（strip_evidence_ordinals）、episode_tools.py（_finance_query_failure_result）、tests/test_history_model_projection.py 夹具。落盘 5 份探针：C6 优先（含真实 SemanticEpisodeVerifier verify 出口、_restore 前后次序、幸存定义对称识别、圈号/中文序号/括号列表前缀、非定义删句不授权删计数、数字豁免不扩大的无条件断言）；C5 分页（绝对 sample 坐标、offset/next_offset、末页 truncated、投影失败不登记 history_results）；C1/C4（E序号遮蔽不伤真数字、冻结嵌套 Mapping 进度键、未知对象仍拒）；C2/C3（结构化诊断不回显任意散文/路径、同轮修复反馈不加铸工具预算、取消路径），其中 C2/C3 探针借用了作者夹具 _setup/_request 与 _finish_turn/_context，预期由主张推导而非照抄。另有必红对照 test_probe_must_red_control.py 钉住 C5/C6 增量（baseline 应红）。本阶段只读/写，未执行任何测试，故所有 claims 均为 not_verified，留待 execute 阶段用 run_tests 实测。",
+  "verdict": "STAGE_COMPLETE",
+  "stage": "explore",
+  "axis": "spec",
+  "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "complete": true,
+  "delivery_gaps": [],
+  "test_runs": [],
+  "host_bound": true
+}

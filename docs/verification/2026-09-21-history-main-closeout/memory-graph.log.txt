@@ -1,0 +1,5 @@
+审计对象（exit 0 只对这些 revision 成立）：
+  agent-memory: HEAD@94b6a75f dirty
+
+
+OK: 节点清单 93 行、断言 4 条无漂移（90 行因 repo 不在本地跳过，0 条在途/未校验见上）。

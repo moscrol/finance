@@ -1,0 +1,31 @@
+"""Replay actual deletion indices without a model call; original artifact stays read-only."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+from intelligence.services.episode_semantic_verifier import (
+    _drop_rejected_sentences,
+    _repair_dangling_condition_references,
+)
+
+path = Path(sys.argv[1])
+raw = path.read_bytes()
+payload = json.loads(raw)
+before = payload['outcome']['draft']
+indexes = tuple(row['sentence_index'] for row in payload['semantic_verifier']['sentence_verdicts']
+                if row['stage'] == 'preflight' and row['decision'] == 'deleted')
+assert indexes == (14, 15)
+dropped = _drop_rejected_sentences(before, indexes)
+after = _repair_dangling_condition_references(dropped, before=before, rejected_sentence_indexes=indexes)
+old = '- 当前满足：双红各1天、量能主线抱团、市场反弹首日——**满足升级条件中的2条，双红连续性尚未确立**。'
+new = '- 当前满足：双红各1天、量能主线抱团、市场反弹首日，双红连续性尚未确立。'
+assert dropped.count(old) == after.count(new) == 1
+assert '满足升级条件中的2条' not in after
+assert after.replace(new, '') == dropped.replace(old, '')
+assert path.read_bytes() == raw
+print(json.dumps(dict(source=str(path), source_sha256=hashlib.sha256(raw).hexdigest(),
+                     rejected_indexes=indexes, after=after, other_sentences_byte_equal=True,
+                     original_unchanged=True, natural_model_calls=0,
+                     note='Root offline replay only; not natural-model quality acceptance'),
+                 ensure_ascii=False, indent=2))

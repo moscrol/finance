@@ -1,0 +1,14 @@
+docs/handoffs/2026-09-22-history-review-resume.md  |  32 +
+ .../feat-history-evidence-integration-0921.md      |  21 +-
+ .../EXTERNAL-SHA256SUMS                            |   2 +
+ .../2026-09-22-history-review-resume/README.md     |  46 ++
+ .../quality-execution.json                         | 876 +++++++++++++++++++++
+ .../quality-prompt.txt                             |   9 +
+ .../run_check.py.txt                               |  81 ++
+ .../seal_resume.py.txt                             |  79 ++
+ .../sha256-manifest.txt                            |  10 +
+ .../spec-execution.json                            | 824 +++++++++++++++++++
+ .../spec-prompt.txt                                |   9 +
+ .../2026-09-22-history-review-resume/summary.json  |  44 ++
+ .../transport-probe.txt                            |  15 +
+ 13 files changed, 2037 insertions(+), 11 deletions(-)

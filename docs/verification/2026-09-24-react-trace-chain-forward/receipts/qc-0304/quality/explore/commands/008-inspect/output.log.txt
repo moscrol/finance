@@ -1,0 +1,2 @@
+750:def strip_evidence_ordinals(text: str) -> str:
+1369:    "strip_evidence_ordinals",

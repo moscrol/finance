@@ -1,0 +1,34 @@
+"""Inspect probe syntax without importing or executing reviewer-controlled code."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+
+def inventory(root):
+    rows = []
+    for path in sorted(root.glob('*.py')):
+        if path.is_symlink() or not path.is_file():
+            continue
+        data = path.read_bytes()
+        tests = []
+        problem = None
+        try:
+            tree = ast.parse(data, filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith('test_'):
+                    if any(isinstance(child, ast.Assert) and not
+                           (isinstance(child.test, ast.Constant) and child.test.value is True)
+                           for child in ast.walk(node)):
+                        tests.append(node.name)
+        except (SyntaxError, ValueError) as exc:
+            problem = type(exc).__name__
+        rows.append({'path': str(path), 'sha256': hashlib.sha256(data).hexdigest(),
+                     'tests_with_assertions': tests, 'syntax_error': problem,
+                     'milestone_qualified': bool(tests) and problem is None})
+    return rows
+
+
+if __name__ == '__main__':
+    print(json.dumps(inventory(Path(sys.argv[1])), ensure_ascii=False))

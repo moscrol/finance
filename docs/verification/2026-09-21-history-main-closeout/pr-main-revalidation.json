@@ -1,0 +1,14 @@
+{
+  "pr": {
+    "number": 841,
+    "state": "open",
+    "merged": false,
+    "head": "feat/history-evidence-integration-0921",
+    "head_sha": "c03b4c148dd3",
+    "base": "fix/react-trace-qc-0921",
+    "mergeable_claimed_by_gitea": false,
+    "title": "WIP: fix(history): #829 来源绑定返修与稳定恢复（基于 #832）",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/841"
+  },
+  "comment_id": 5495
+}

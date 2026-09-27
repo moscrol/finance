@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "scope": "temporary_workbench_write_side; no_model_no_real_user_state",
+  "cases": {
+    "W-corr-1": {
+      "status": "recorded",
+      "reason": "recorded"
+    },
+    "W-corr-2": {
+      "status": "skipped",
+      "reason": "no_prior_answer"
+    },
+    "W-corr-3": {
+      "status": "skipped",
+      "reason": "market_commentary"
+    },
+    "W-corr-5": {
+      "status": "skipped",
+      "reason": "identity_skipped"
+    }
+  },
+  "runtime_default": {
+    "recorded": true,
+    "trace_steps": [
+      "user_correction_recorded"
+    ],
+    "provenance_fields": [
+      "conversation_id",
+      "corrected_message_id",
+      "plane",
+      "source"
+    ]
+  },
+  "identity_guards": {
+    "default": null,
+    "tester": "identity_skipped",
+    "probe": "identity_skipped"
+  }
+}

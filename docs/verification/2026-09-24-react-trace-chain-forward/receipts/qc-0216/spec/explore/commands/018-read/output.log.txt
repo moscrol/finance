@@ -1,0 +1,102 @@
+
+    def execute_query(spec, tool_context, binding):
+        tool_context.remaining()
+        assert_history_window(frame.history_intent, spec.start, spec.end)
+        if spec.search_start is not None:
+            assert_history_window(frame.history_intent, spec.search_start, spec.search_end)
+        payload = HistoryQuery(db_path).run(
+            spec,
+            information_cutoff=context.information_cutoff,
+            deadline=tool_context.deadline,
+            is_cancelled=tool_context.is_cancelled,
+            **({"window_binding": binding} if binding is not None else {}),
+        )
+        payload["operation"] = spec.operation
+        payload["purpose"] = frame.history_intent.purpose
+        payload["knowledge_cutoff"] = context.information_cutoff.as_of_date.isoformat()
+        payload["authorized_scope"] = frame.history_intent.to_dict()
+        payload["pending_sources"] = [
+            {
+                "source": source,
+                "status": "pending_sync",
+                "scope": "user_declared_unsynced",
+                "scheduled": False,
+            }
+            for source in ("l2", "evening_sellside", "morning_brief")
+        ]
+        ref = session.save("query", payload) if session else ""
+        metadata = {
+            key: payload.get(key)
+            for key in (
+                "query_id",
+                "operation",
+                "purpose",
+                "status",
+                "total_matched",
+                "returned_count",
+                "coverage",
+                "definition_refs",
+            )
+        }
+        metadata["result_ref"] = ref
+        metadata["execution_status"] = "success"
+        result = _result(payload, result_ref=ref)
+        if binding is not None:
+            metadata["window_binding"] = binding
+        context.history_results.append(metadata)
+        return result
+
+    def run(spec, tool_context):
+        tool_context.remaining()
+        binding = None
+        if (spec.operation in ANALYSIS_OPERATIONS
+                and frame.history_intent.analysis_window_source != "none"
+                and spec.window_ref is None):
+            raise ValueError("history_window_reference_required: first read_history_result, then use window_ref; do not replace the requested historical reference with recent dates")
+        if spec.window_ref is not None:
+            if session is None:
+                raise ValueError("history_window_session_required")
+            source_ref = spec.window_ref["result_ref"]
+            source = session.read(source_ref)
+            assert_read_scope(source, check=tool_context.remaining)
+            delivered = [item for item in context.history_results
+                         if item.get("result_ref") == source_ref
+                         and item.get("query_id") == source.get("query_id")
+                         and item.get("execution_status") == "success"
+                         and item.get("delivery_status") == "model_message"]
+            binding = resolve_window_binding(spec, frame.history_intent, source, delivered)
+        with selection.reserve(
+            binding if frame.history_intent.analysis_window_source != "none" else None,
+            observation=spec.operation == "trace_history",
+        ):
+            return execute_query(spec, tool_context, binding)
+
+    query_parameters = history_query_parameters()
+    query_parameters["properties"]["preview_limit"]["maximum"] = 25
+    from intelligence.services.historical_research.features import FEATURES, FEATURE_VERSION
+
+    query_parameters["properties"]["features"]["description"] = (
+        f"版本{FEATURE_VERSION}；不得凭名称改定义。null为未知或不可计算，见status，非0。"
+        + "；".join(
+            f"{name}@{definition.get('version', FEATURE_VERSION)}[{definition['unit']}]={definition['rule']}"
+            for name, definition in FEATURES.items()
+        )
+    )
+    specs = [
+        ToolSpec(
+            name="history_query",
+            capability="finance_query",
+            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
+            contract=_TOOL_CONTRACTS["history_query"],
+            cost="local",
+            freshness="historical",
+            runner=run,
+            # Read-only DuckDB; saving this run's observation is not a data read.
+            # No vendor fetch, model, subprocess or knowledge-store fallback.
+            io_effect="local_read",
+            parameters=query_parameters,
+            parse_arguments=parse,
+        )
+    ]
+
+[truncated; total lines=971, selected=600:699; next_offset=700]

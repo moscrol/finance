@@ -1,0 +1,1 @@
+{"stage":"gateway","next_request":1,"completed_requests":0,"normal_requests_left":22,"elapsed_ms":83,"qualified_probe_files":[],"suites_attempted":[],"required_action":"continue","qualification":"syntax and nontrivial test assertion only; not proof of behavior or coverage"}

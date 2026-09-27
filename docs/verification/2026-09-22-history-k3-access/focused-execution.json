@@ -1,0 +1,100 @@
+{
+  "command": [
+    "env",
+    "PYTHONDONTWRITEBYTECODE=1",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_history_artifact_scope.py",
+    "tests/test_history_evidence_binding.py",
+    "tests/test_history_model_projection.py",
+    "tests/test_historical_evidence_contract.py",
+    "tests/test_run_store_history_artifacts.py",
+    "tests/test_history_recovery_selection.py",
+    "tests/test_history_date_scope.py",
+    "tests/test_historical_episode_branching.py",
+    "tests/test_history_case_patch.py",
+    "intelligence/tests/test_prior_evidence.py",
+    "intelligence/tests/test_historical_research_episode.py",
+    "intelligence/tests/test_episode_verifier.py",
+    "intelligence/tests/test_episode_semantic_verifier.py",
+    "intelligence/tests/test_judge_mode_off.py",
+    "intelligence/tests/test_judge_mode_receipt_independence.py",
+    "intelligence/tests/test_probe_tool_arguments.py",
+    "intelligence/tests/test_agent_episode_progress.py",
+    "intelligence/tests/test_condition_reference_seams.py",
+    "intelligence/tests/test_workbench_api.py::test_create_run_and_fetch_artifacts",
+    "intelligence/tests/test_workbench_api.py::test_internal_artifact_is_hidden_from_every_public_artifact_interface",
+    "intelligence/tests/test_workbench_api.py::test_run_artifact_path_traversal_rejected",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/pytest-tmp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce/focused.xml"
+  ],
+  "identity_before": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T18:02:48.621783+00:00",
+  "timeout_seconds": 180,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 31310954496
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 31311253504
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 31310946304
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 31308685312
+    },
+    {
+      "elapsed": 8,
+      "free_bytes": 31292145664
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 31281102848
+    },
+    {
+      "elapsed": 12,
+      "free_bytes": 31277666304
+    },
+    {
+      "elapsed": 14,
+      "free_bytes": 31272329216
+    },
+    {
+      "elapsed": 16,
+      "free_bytes": 31260647424
+    },
+    {
+      "elapsed": 18,
+      "free_bytes": 31257370624
+    },
+    {
+      "elapsed": 20,
+      "free_bytes": 31250751488
+    },
+    {
+      "elapsed": 22,
+      "free_bytes": 31250341888
+    }
+  ],
+  "pid": 2275,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "fedce252330dce1065238f58e6c914417219ec53",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T18:03:12.844351+00:00",
+  "identity_stable": true,
+  "receipt_source": "/Users/a77/.finance-runtime/test-receipts/20260921T180311Z-fedce252.json"
+}

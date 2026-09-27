@@ -1,0 +1,31 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_split_card_only_carries_its_own_visible_observations ___________
+
+    def test_split_card_only_carries_its_own_visible_observations():
+        row = _row(0)
+        row["features"].update({f"feature_{i}": 1000 + i for i in range(20)})
+        result = _hashed_result(_payload([row]))
+        cards = [card for card in result.evidence if card.history_provenance.row_index == 0]
+        assert len(cards) > 1
+        recovered = {}
+        for card in cards:
+            detail = json.loads(card.detail)
+            visible = detail.get("features", {})
+>           assert {obs.metric: obs.value for obs in card.observations} == visible
+E           AssertionError: assert {'feature_0':...: 1011.0, ...} == {'feature_0':...ure_10': 1010}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Left contains 18 more items:
+E             {'feature_11': 1011.0,
+E              'feature_12': 1012.0,
+E              'feature_13': 1013.0,
+E              'feature_14': 1014.0,...
+E             
+E             ...Full output truncated (15 lines hidden), use '-vv' to show
+
+tests/test_history_evidence_binding.py:261: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-mutations/block_observations.xml -
+=========================== short test summary info ============================
+FAILED tests/test_history_evidence_binding.py::test_split_card_only_carries_its_own_visible_observations
+1 failed in 0.31s

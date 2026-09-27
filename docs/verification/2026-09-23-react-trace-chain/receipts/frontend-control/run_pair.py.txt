@@ -1,0 +1,39 @@
+import datetime
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+ROOT = Path(__file__).resolve().parent
+CASES = (
+    ("main", "/Users/a77/fwp-wt-react-trace-main-control-0923", "626d8a508c1c988ff094110b371987e6afdcdd15"),
+    ("candidate", "/Users/a77/fwp-wt-react-trace-chain-0923", "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c"),
+)
+results = []
+for name, tree, revision in CASES:
+    output = ROOT / name
+    if output.exists():
+        raise SystemExit(f"Refusing to overwrite {output}")
+    command = [PYTHON, "scripts/run_frontend_gate.py", "--tree", tree,
+               "--expect-revision", revision, "--output", str(output),
+               "--python", PYTHON, "--workbench-port", "19381", "--re06-port", "19384"]
+    with (ROOT / f"{name}-launch.log.txt").open("w") as log, (ROOT / f"{name}-resources.jsonl").open("w") as resources:
+        process = subprocess.Popen(command, cwd=tree, stdout=log, stderr=subprocess.STDOUT)
+        while True:
+            resources.write(json.dumps({"at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                                        "load_average": os.getloadavg(), "cpu_count": os.cpu_count(),
+                                        "disk_free_bytes": shutil.disk_usage(ROOT).free}) + "\n")
+            resources.flush()
+            status = process.poll()
+            if status is not None:
+                break
+            time.sleep(5)
+    test_results = Path(tree) / "intelligence/webapp/test-results"
+    if test_results.exists():
+        shutil.copytree(test_results, output / "test-results")
+    results.append({"name": name, "tree": tree, "revision": revision, "command": command, "exit_code": status})
+    (ROOT / "pair.json").write_text(json.dumps({"complete": len(results) == len(CASES), "runs": results}, indent=2) + "\n")
+    print(name, revision, "exit", status, flush=True)

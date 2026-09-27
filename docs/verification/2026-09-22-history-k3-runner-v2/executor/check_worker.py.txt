@@ -1,0 +1,59 @@
+"""Offline policy checks, using fake data and no credential/network access."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+from prepare import ROOT, PYTHON, REVISION, prepare, sandbox, save
+
+os.umask(0o077)
+run = ROOT / ("offline-" + str(time.time_ns()))
+run.mkdir(mode=0o700)
+candidate = ROOT / "spec-candidate"
+config = prepare("spec", run / "session", candidate, fixture=True, deadlineMs=30000, finalizeAfter=1, finalizeMs=20000)
+policy = run / "session/tools.sb"
+env = {"PATH": "/usr/bin:/bin:/opt/homebrew/bin", "HOME": str(run), "PYTHONDONTWRITEBYTECODE": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null", "LC_ALL": "C.UTF-8"}
+rows = []
+
+def probe(name, args, expected, input_data=None, contains=None):
+    p = subprocess.run(["/usr/bin/sandbox-exec", "-f", str(policy), *args], input=input_data, cwd=candidate, env=env, text=True, capture_output=True, timeout=20)
+    ok = ((p.returncode == 0) == expected) and (contains is None or contains in p.stdout)
+    rows.append(dict(name=name, ok=ok, exit=p.returncode, stdout=p.stdout[:3000], stderr=p.stderr[:3000]))
+
+
+def tool(name, tool_name, args, expected=True, contains=None):
+    probe(name, [PYTHON, "-I", "-B", str(ROOT / "worker.py")], expected, json.dumps(dict(candidate=str(candidate), tool=tool_name, args=args)), contains if expected else '"ok": false')
+
+
+tool("identity", "git", {"action": "identity"}, contains=REVISION)
+tool("read", "read", {"path": "intelligence/services/run_store.py", "offset": 1, "limit": 8}, contains="1:")
+tool("search", "search", {"pattern": "read_history_artifact", "paths": ["intelligence/services/run_store.py"]}, contains="read_history_artifact")
+tool("show", "git", {"action": "show", "revision": "7249378a5"}, contains="read_history_artifact")
+for name, tool_name, args in [
+    ("outside", "read", {"path": "../quality/SPEC.md"}),
+    ("absolute", "read", {"path": "/etc/passwd"}),
+    ("handoff", "read", {"path": "docs/handoffs/inflight/feat-history-evidence-integration-0921.md"}),
+    ("users", "search", {"pattern": ".", "paths": ["intelligence/users"]}),
+    ("env", "read", {"path": ".env"}),
+    ("bash", "bash", {"command": "true"}),
+    ("write", "write", {"path": "intelligence/x.py", "content": "x"}),
+    ("git_inject", "git", {"action": "show", "revision": "--output=oops"}),
+]:
+    tool(name, tool_name, args, expected=False)
+for name, code in [
+    ("deny_write", f"open({str(run / 'forbidden-write')!r},'w').write('x')"),
+    ("deny_loopback", "import socket; socket.create_connection(('127.0.0.1',18788),timeout=1)"),
+    ("deny_external", "import socket; socket.create_connection(('192.0.2.1',443),timeout=1)"),
+]:
+    probe(name, [PYTHON, "-I", "-B", "-c", "print('TARGET_STARTED', flush=True); " + code], False, contains="TARGET_STARTED")
+# Synthetic outside content verifies OS read denial without touching real secrets.
+save(run / "fake-secret", "FAKE_SECRET_NOT_A_CREDENTIAL")
+probe("deny_other_directory", [PYTHON, "-I", "-B", "-c", f"print('TARGET_STARTED', flush=True); print(open({str(run / 'fake-secret')!r}).read())"], False, contains="TARGET_STARTED")
+probe("deny_other_axis", [PYTHON, "-I", "-B", "-c", f"print('TARGET_STARTED', flush=True); print(open({str(ROOT / 'quality/prompt.md')!r}).read())"], False, contains="TARGET_STARTED")
+probe("environment", [PYTHON, "-I", "-B", "-c", "import os; print(sorted(os.environ))"], True)
+result = dict(status="PASS" if all(r["ok"] for r in rows) else "FAIL", checks=rows, fixture_config=str(run / "session/config.json"), real_model_requests=0, credentials_read=0)
+save(run / "worker-checks.json", result)
+print(json.dumps({"root": str(run), "status": result["status"], "failed": [r["name"] for r in rows if not r["ok"]]}))
+sys.exit(result["status"] != "PASS")

@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/final-ec246761/legacy-probes/probe_s1_refs.py", line 65, in <module>
+    rejected = esv._novel_numeric_condition_indexes(sentences, verified)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/episode_semantic_verifier.py", line 4711, in _novel_numeric_condition_indexes
+    if contract is not None and grounding_scope(contract) == "material_only":
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/material_grounding.py", line 149, in grounding_scope
+    material = contract.material_contract
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'material_contract'

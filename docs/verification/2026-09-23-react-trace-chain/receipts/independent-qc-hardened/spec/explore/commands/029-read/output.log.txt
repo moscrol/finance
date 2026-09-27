@@ -1,0 +1,87 @@
+            raise ValueError("unsupported history read arguments")
+        ref = arguments.get("result_ref")
+        offset, limit = arguments.get("offset", 0), arguments.get("limit", 25)
+        if (
+            not isinstance(ref, str)
+            or type(offset) is not int
+            or not 0 <= offset <= 100000
+        ):
+            raise ValueError("invalid history reference or offset")
+        if type(limit) is not int or not 1 <= limit <= 25:
+            raise ValueError("history preview limit must be 1..25")
+        return (ref, offset, limit), _compact(arguments)
+
+    def read(value, tool_context):
+        tool_context.remaining()
+        ref, offset, limit = value
+        payload = session.read(ref)
+        assert_read_scope(payload, check=tool_context.remaining)
+        session.remember(ref, payload)
+        if "/history-case-" in ref:
+            # 经 scope 校验读到的 case 是本轮合法的研究产物引用：落一条独立的
+            # read_history_case 元数据，finish 校验据此放行 result_refs 里的 case；
+            # 它不是四种计算算子，不会被算成历史计算或比较。
+            draft = payload.get("draft") if isinstance(payload.get("draft"), dict) else {}
+            context.history_results.append(
+                {
+                    "operation": "read_history_case",
+                    "execution_status": "success",
+                    "status": "research_only",
+                    "case_id": draft.get("case_id"),
+                    "revision": draft.get("revision"),
+                    "result_ref": ref,
+                }
+            )
+            return ToolRunResult(
+                evidence=(),
+                observation=_draft_page(payload, ref, offset, limit),
+                trace=ProviderTrace(
+                    provider="history_artifact",
+                    capability="finance_query",
+                    status="success",
+                ),
+                dataset="historical_research_draft",
+                telemetry={"result_ref": ref},
+            )
+        rows = payload.get("rows", payload.get("cases", []))
+        if isinstance(rows, list):
+            page = rows[offset : offset + limit]
+            payload = dict(
+                payload,
+                preview=page,
+                returned_count=len(page),
+                truncated=len(page) < len(rows),
+            )
+        metadata = {
+            key: payload.get(key)
+            for key in (
+                "query_id",
+                "operation",
+                "purpose",
+                "status",
+                "total_matched",
+                "returned_count",
+                "definition_refs",
+            )
+        }
+        result = _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
+        context.history_results.append(
+            dict(metadata, result_ref=ref, execution_status="success",
+                 **({"window_binding": payload["window_binding"]} if "window_binding" in payload else {}))
+        )
+        return result
+
+    specs.append(
+        ToolSpec(
+            name="read_history_result",
+            capability="finance_query",
+            description="读取同会话上一轮query/case原件的指定页；case返回未认证草稿摘要和hypotheses分页，按next_offset续读。旧完整引用由patch服务端保留。",
+            contract=_TOOL_CONTRACTS["read_history_result"],
+            cost="local",
+            freshness="historical",
+            runner=read,
+            # Same-user/conversation RunStore originals, scope checked above.
+            io_effect="local_read",
+            parse_arguments=parse_read,
+
+[truncated; total lines=971, selected=705:789; request a later offset]

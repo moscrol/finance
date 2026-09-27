@@ -1,0 +1,23 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-react-trace-main-control-0923/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/fwp-wt-react-trace-main-control-0923/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 366[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 242[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 396[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 758[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m81 tests[22m[2m)[22m[33m 5706[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is missing-marker [33m 315[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while cancelled ownership precedes delivery [33m 308[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m120 passed[39m[22m[90m (120)[39m
+[2m   Start at [22m 22:36:08
+[2m   Duration [22m 9.94s[2m (transform 1.72s, setup 5.13s, collect 4.01s, tests 7.50s, environment 10.90s, prepare 1.68s)[22m
+

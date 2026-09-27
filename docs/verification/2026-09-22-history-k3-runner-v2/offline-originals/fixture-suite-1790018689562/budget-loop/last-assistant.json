@@ -1,0 +1,24 @@
+{
+  "role": "assistant",
+  "content": [],
+  "api": "openai-completions",
+  "provider": "bounded-review",
+  "model": "kimi-k3",
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "totalTokens": 0,
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+    }
+  },
+  "stopReason": "error",
+  "timestamp": 1790018693832,
+  "errorMessage": "429: {\"message\":\"review budget closed\"}"
+}

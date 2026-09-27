@@ -1,0 +1,143 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+__ test_history_read_rechecks_metadata_after_waiting_for_writer[conversation] __
+
+store = <intelligence.services.run_store.RunStore object at 0x107d9ce00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108997740>
+mutation = 'conversation'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility"])
+    def test_history_read_rechecks_metadata_after_waiting_for_writer(
+        store, monkeypatch, mutation,
+    ):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        peer = RunStore(user_id=store.user_id, root=store.root)
+        waiting = Event()
+        lock = store._run_state_lock
+    
+        @contextmanager
+        def signal_lock(run_id):
+            waiting.set()
+            with lock(run_id):
+                yield
+    
+        monkeypatch.setattr(store, "_run_state_lock", signal_lock)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with peer._run_state_lock(run.run_id):
+                future = pool.submit(
+                    store.read_history_artifact, run.run_id, artifact.path,
+                    conversation_id="conversation-a",
+                )
+                assert waiting.wait(5)
+                updated = peer.load_run(run.run_id)
+                if mutation == "conversation":
+                    updated.session_id = "conversation-b"
+                elif mutation == "user":
+                    updated.user = "other-user"
+                else:
+                    updated.artifacts[0]["visibility"] = "internal"
+                peer._write_run(updated)
+            if mutation == "visibility":
+                with pytest.raises(FileNotFoundError):
+                    future.result(timeout=5)
+            else:
+>               with pytest.raises(ValueError, match="outside this conversation"):
+E               Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_run_store_history_artifacts.py:111: Failed
+______ test_history_read_rechecks_metadata_after_waiting_for_writer[user] ______
+
+store = <intelligence.services.run_store.RunStore object at 0x107d9ef00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108d23dd0>
+mutation = 'user'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility"])
+    def test_history_read_rechecks_metadata_after_waiting_for_writer(
+        store, monkeypatch, mutation,
+    ):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        peer = RunStore(user_id=store.user_id, root=store.root)
+        waiting = Event()
+        lock = store._run_state_lock
+    
+        @contextmanager
+        def signal_lock(run_id):
+            waiting.set()
+            with lock(run_id):
+                yield
+    
+        monkeypatch.setattr(store, "_run_state_lock", signal_lock)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with peer._run_state_lock(run.run_id):
+                future = pool.submit(
+                    store.read_history_artifact, run.run_id, artifact.path,
+                    conversation_id="conversation-a",
+                )
+                assert waiting.wait(5)
+                updated = peer.load_run(run.run_id)
+                if mutation == "conversation":
+                    updated.session_id = "conversation-b"
+                elif mutation == "user":
+                    updated.user = "other-user"
+                else:
+                    updated.artifacts[0]["visibility"] = "internal"
+                peer._write_run(updated)
+            if mutation == "visibility":
+                with pytest.raises(FileNotFoundError):
+                    future.result(timeout=5)
+            else:
+>               with pytest.raises(ValueError, match="outside this conversation"):
+E               Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_run_store_history_artifacts.py:111: Failed
+___ test_history_read_rechecks_metadata_after_waiting_for_writer[visibility] ___
+
+store = <intelligence.services.run_store.RunStore object at 0x108d4c080>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108d4f260>
+mutation = 'visibility'
+
+    @pytest.mark.parametrize("mutation", ["conversation", "user", "visibility"])
+    def test_history_read_rechecks_metadata_after_waiting_for_writer(
+        store, monkeypatch, mutation,
+    ):
+        run = store.create_run("q", "history", session_id="conversation-a")
+        artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+        peer = RunStore(user_id=store.user_id, root=store.root)
+        waiting = Event()
+        lock = store._run_state_lock
+    
+        @contextmanager
+        def signal_lock(run_id):
+            waiting.set()
+            with lock(run_id):
+                yield
+    
+        monkeypatch.setattr(store, "_run_state_lock", signal_lock)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with peer._run_state_lock(run.run_id):
+                future = pool.submit(
+                    store.read_history_artifact, run.run_id, artifact.path,
+                    conversation_id="conversation-a",
+                )
+                assert waiting.wait(5)
+                updated = peer.load_run(run.run_id)
+                if mutation == "conversation":
+                    updated.session_id = "conversation-b"
+                elif mutation == "user":
+                    updated.user = "other-user"
+                else:
+                    updated.artifacts[0]["visibility"] = "internal"
+                peer._write_run(updated)
+            if mutation == "visibility":
+>               with pytest.raises(FileNotFoundError):
+E               Failed: DID NOT RAISE <class 'FileNotFoundError'>
+
+tests/test_run_store_history_artifacts.py:108: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/mutations/stale_metadata.xml -
+=========================== short test summary info ============================
+FAILED tests/test_run_store_history_artifacts.py::test_history_read_rechecks_metadata_after_waiting_for_writer[conversation]
+FAILED tests/test_run_store_history_artifacts.py::test_history_read_rechecks_metadata_after_waiting_for_writer[user]
+FAILED tests/test_run_store_history_artifacts.py::test_history_read_rechecks_metadata_after_waiting_for_writer[visibility]
+3 failed in 0.08s

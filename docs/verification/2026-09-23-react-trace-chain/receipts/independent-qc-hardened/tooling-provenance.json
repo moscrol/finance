@@ -1,0 +1,134 @@
+[
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/glm_credential.py",
+    "source_sha256": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6",
+    "destination": "glm_credential.py",
+    "rebound_paths": false
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/glm_review_shim.py",
+    "source_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+    "destination": "glm_review_shim.py",
+    "rebound_paths": false
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/config.json",
+    "source_sha256": "b2334244cbe9e112ce6a12d6f059742c0fffcdffcdbdb834e4357abfb54542e9",
+    "destination": "spec/config.json",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/file_tool.py",
+    "source_sha256": "7c4a6f89387b318e87cc54d606ac398a85cfd43115e82b5a1c719f4037e97f87",
+    "destination": "spec/file_tool.py",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/tools.sb",
+    "source_sha256": "170075a5e1d2decff6e6c1f43c50f9e630a21d57e926548c1c351dfdfcb1ee6a",
+    "destination": "spec/tools.sb",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/gateway.mjs",
+    "source_sha256": "756a1096ba8a74fa24102183aea93f0069d772c421c66ad884e80544be1bb759",
+    "destination": "spec/gateway.mjs",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/provider-template.json",
+    "source_sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "destination": "spec/provider-template.json",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/pi-config/settings.json",
+    "source_sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "destination": "spec/pi-config/settings.json",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/inputs/claims.md",
+    "source_sha256": "6a4bc6cf560f2929a5ba59444bb8c6f107dbeffb02113dd5f74e716f5a822185",
+    "destination": "spec/inputs/claims.md",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/inputs/source.diff",
+    "source_sha256": "7175d576c01be5fa3b3e92d5d7835d73ef95e0d3029b60df915d9b711373141f",
+    "destination": "spec/inputs/source.diff",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/run_control.py",
+    "source_sha256": "bc778c4d7d464bf5e0b990ed726a9edbbca0ecc4ce12779300cba2f99d6785b8",
+    "destination": "spec/run_control.py",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/run_stage.py",
+    "source_sha256": "ed76913673f90a9789da984845c0d2b9f29c4552d52bd3975fa2ae2e0a67ba5a",
+    "destination": "spec/run_stage.py",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/config.json",
+    "source_sha256": "e7f11891b9f226ef3ca52e0a4fb5634946869da951a42d7f9049e822ecf37488",
+    "destination": "quality/config.json",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/file_tool.py",
+    "source_sha256": "7c4a6f89387b318e87cc54d606ac398a85cfd43115e82b5a1c719f4037e97f87",
+    "destination": "quality/file_tool.py",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/tools.sb",
+    "source_sha256": "f5950902f7d7d550378da577ff6c0c8de6c0bbc9435762fb6afcd3c7d3ba3e48",
+    "destination": "quality/tools.sb",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/gateway.mjs",
+    "source_sha256": "756a1096ba8a74fa24102183aea93f0069d772c421c66ad884e80544be1bb759",
+    "destination": "quality/gateway.mjs",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/provider-template.json",
+    "source_sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "destination": "quality/provider-template.json",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/pi-config/settings.json",
+    "source_sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "destination": "quality/pi-config/settings.json",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/inputs/claims.md",
+    "source_sha256": "6a4bc6cf560f2929a5ba59444bb8c6f107dbeffb02113dd5f74e716f5a822185",
+    "destination": "quality/inputs/claims.md",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/inputs/source.diff",
+    "source_sha256": "7175d576c01be5fa3b3e92d5d7835d73ef95e0d3029b60df915d9b711373141f",
+    "destination": "quality/inputs/source.diff",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/run_control.py",
+    "source_sha256": "bc778c4d7d464bf5e0b990ed726a9edbbca0ecc4ce12779300cba2f99d6785b8",
+    "destination": "quality/run_control.py",
+    "rebound_paths": true
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/quality/run_stage.py",
+    "source_sha256": "ed76913673f90a9789da984845c0d2b9f29c4552d52bd3975fa2ae2e0a67ba5a",
+    "destination": "quality/run_stage.py",
+    "rebound_paths": true
+  }
+]

@@ -1,0 +1,95 @@
+import http from 'node:http';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { timingSafeEqual } from 'node:crypto';
+
+export async function createBoundedGateway({ upstream, token, gatewayKey, maxRequests = 24, deadlineMs = 600000, finalizeAfter = 17, finalizeMs = 400000, onFinalize = () => {}, log = () => {} }) {
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + deadlineMs;
+  let requestCount = 0, finalizing = false, closed = false;
+  const active = new Set();
+  const json = (res, status, message) => {
+    res.writeHead(status, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: { message } }));
+  };
+  const finalize = () => {
+    if (!finalizing) {
+      onFinalize();
+      finalizing = true;
+      log({ type: 'finalizing', requestCount, elapsedMs: Date.now() - startedAt });
+    }
+  };
+  const server = http.createServer(async (req, res) => {
+    req.setTimeout(Math.max(1, Math.min(15000, deadlineAt - Date.now())), () => req.destroy());
+    const auth = Buffer.from(req.headers.authorization || '');
+    const expected = Buffer.from(`Bearer ${gatewayKey}`);
+    if (auth.length !== expected.length || !timingSafeEqual(auth, expected)) return json(res, 403, 'unauthorized gateway request');
+    if (req.method !== 'POST' || req.url !== '/v1/chat/completions') return json(res, 404, 'chat completions only');
+    let data;
+    try {
+      const chunks = [];
+      let bytes = 0;
+      for await (const chunk of req) {
+        bytes += chunk.length;
+        if (bytes > 8 * 1024 * 1024) return json(res, 413, 'request too large');
+        chunks.push(chunk);
+      }
+      data = JSON.parse(Buffer.concat(chunks));
+      if (data.model !== 'kimi-k3' || !Array.isArray(data.messages) || data.stream !== true) return json(res, 400, 'invalid review request');
+    } catch { return json(res, 400, 'invalid JSON'); }
+    // No await between admission checks and reservation. A failed dispatch consumes its slot.
+    if (closed || Date.now() >= deadlineAt || requestCount >= maxRequests) {
+      log({ type: 'request_rejected', reason: Date.now() >= deadlineAt ? 'deadline' : 'request_cap', requestCount });
+      return json(res, 429, 'review budget closed');
+    }
+    const requestId = ++requestCount;
+    try {
+      if (requestId > finalizeAfter || Date.now() - startedAt >= finalizeMs) finalize();
+    } catch { return json(res, 500, 'finalization gate failed'); }
+    if (finalizing) {
+      delete data.tools;
+      delete data.tool_choice;
+      delete data.parallel_tool_calls;
+      data.messages.push({ role: 'user', content: 'Exploration is closed by the controller. No tools are available. Return the complete final static review now, with findings, coverage matrix, exact revision, tests_run=0, limits, and one verdict PASS_WITH_LIMITS / CHANGES_REQUIRED / BLOCKED. Missing coverage must remain partial/not_checked. Do not plan further work or claim unperformed checks.' });
+    }
+    data.max_tokens = Math.min(data.max_tokens || 8192, 8192);
+    const controller = new AbortController();
+    active.add(controller);
+    const abort = () => controller.abort();
+    res.on('close', abort);
+    const timer = setTimeout(abort, Math.max(1, deadlineAt - Date.now()));
+    log({ type: 'request_dispatch', requestId, finalizing, tools: (data.tools || []).map(t => t.function?.name), elapsedMs: Date.now() - startedAt });
+    try {
+      const response = await fetch(new URL('/v1/chat/completions', upstream), {
+        method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify(data), signal: controller.signal, redirect: 'error',
+      });
+      res.writeHead(response.status, { 'content-type': response.headers.get('content-type') || 'application/json' });
+      if (response.body) await pipeline(Readable.fromWeb(response.body), res, { signal: controller.signal });
+      else res.end();
+      log({ type: 'request_complete', requestId, status: response.status, elapsedMs: Date.now() - startedAt });
+    } catch (error) {
+      log({ type: 'request_failed', requestId, reason: controller.signal.aborted ? 'aborted' : 'upstream_failed', elapsedMs: Date.now() - startedAt });
+      if (!res.headersSent) json(res, 504, 'upstream failed; no retry');
+      else res.destroy();
+    } finally {
+      clearTimeout(timer);
+      res.removeListener('close', abort);
+      active.delete(controller);
+    }
+  });
+  const finalizeTimer = setTimeout(finalize, finalizeMs);
+  const deadlineTimer = setTimeout(() => { closed = true; for (const c of active) c.abort(); server.closeAllConnections(); }, deadlineMs);
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  return {
+    baseUrl: `http://127.0.0.1:${server.address().port}/v1`,
+    snapshot: () => ({ requestCount, maxRequests, startedAt, deadlineAt, elapsedMs: Date.now() - startedAt, closed, finalizing }),
+    async close() {
+      closed = true;
+      clearTimeout(finalizeTimer); clearTimeout(deadlineTimer);
+      for (const c of active) c.abort();
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    },
+  };
+}

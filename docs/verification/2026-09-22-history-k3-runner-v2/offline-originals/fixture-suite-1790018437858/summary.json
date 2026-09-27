@@ -1,0 +1,315 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "spec",
+      "ok": true,
+      "result": {
+        "status": "FINAL_RETURNED_REQUIRES_VALIDATION",
+        "exitCode": 0,
+        "started": 1790018437866,
+        "elapsedMs": 992,
+        "before": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "after": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "gateway": {
+          "requestCount": 2,
+          "maxRequests": 24,
+          "startedAt": 1790018438023,
+          "deadlineAt": 1790018467866,
+          "elapsedMs": 835,
+          "closed": true,
+          "finalizing": true
+        },
+        "fixture": true,
+        "tests_run": 0,
+        "retries": 0,
+        "fallback": false,
+        "reportPresent": true,
+        "reportSha256": "bd434f9424d1d72a13f11c273fa7f3341cd1ddcb40e8a0ad2ca69764c724a88a",
+        "disk": [
+          {
+            "timestamp": 1790018438022,
+            "availableBytes": 51831259136
+          },
+          {
+            "timestamp": 1790018438858,
+            "availableBytes": 51830136832
+          }
+        ],
+        "sandbox_layers_per_tool": 1,
+        "controller_trusted_unsandboxed": true,
+        "production_changes": false
+      },
+      "seen": [
+        {
+          "call": 1,
+          "toolCount": 3,
+          "hasToolResults": false,
+          "tools": [
+            "read",
+            "search",
+            "git"
+          ]
+        },
+        {
+          "call": 2,
+          "toolCount": 0,
+          "hasToolResults": true,
+          "tools": []
+        }
+      ]
+    },
+    {
+      "name": "quality",
+      "ok": true,
+      "result": {
+        "status": "FINAL_RETURNED_REQUIRES_VALIDATION",
+        "exitCode": 0,
+        "started": 1790018438861,
+        "elapsedMs": 714,
+        "before": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "after": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "gateway": {
+          "requestCount": 2,
+          "maxRequests": 24,
+          "startedAt": 1790018438984,
+          "deadlineAt": 1790018468861,
+          "elapsedMs": 591,
+          "closed": true,
+          "finalizing": true
+        },
+        "fixture": true,
+        "tests_run": 0,
+        "retries": 0,
+        "fallback": false,
+        "reportPresent": true,
+        "reportSha256": "bd434f9424d1d72a13f11c273fa7f3341cd1ddcb40e8a0ad2ca69764c724a88a",
+        "disk": [
+          {
+            "timestamp": 1790018438984,
+            "availableBytes": 51830071296
+          },
+          {
+            "timestamp": 1790018439575,
+            "availableBytes": 51829964800
+          }
+        ],
+        "sandbox_layers_per_tool": 1,
+        "controller_trusted_unsandboxed": true,
+        "production_changes": false
+      },
+      "seen": [
+        {
+          "call": 1,
+          "toolCount": 3,
+          "hasToolResults": false,
+          "tools": [
+            "read",
+            "search",
+            "git"
+          ]
+        },
+        {
+          "call": 2,
+          "toolCount": 0,
+          "hasToolResults": true,
+          "tools": []
+        }
+      ]
+    },
+    {
+      "name": "no-retry",
+      "ok": true,
+      "result": {
+        "status": "BLOCKED_NO_FINAL",
+        "exitCode": 71,
+        "started": 1790018439577,
+        "elapsedMs": 609,
+        "before": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "after": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "gateway": {
+          "requestCount": 1,
+          "maxRequests": 24,
+          "startedAt": 1790018439667,
+          "deadlineAt": 1790018469577,
+          "elapsedMs": 519,
+          "closed": true,
+          "finalizing": false
+        },
+        "fixture": true,
+        "tests_run": 0,
+        "retries": 0,
+        "fallback": false,
+        "reportPresent": false,
+        "reportSha256": null,
+        "disk": [
+          {
+            "timestamp": 1790018439667,
+            "availableBytes": 51829927936
+          },
+          {
+            "timestamp": 1790018440186,
+            "availableBytes": 51830034432
+          }
+        ],
+        "sandbox_layers_per_tool": 1,
+        "controller_trusted_unsandboxed": true,
+        "production_changes": false
+      },
+      "seen": [
+        {
+          "call": 1,
+          "toolCount": 3,
+          "hasToolResults": false,
+          "tools": [
+            "read",
+            "search",
+            "git"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "budget-loop",
+      "ok": true,
+      "result": {
+        "status": "BLOCKED_NO_FINAL",
+        "exitCode": 71,
+        "started": 1790018440189,
+        "elapsedMs": 749,
+        "before": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "after": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "gateway": {
+          "requestCount": 2,
+          "maxRequests": 2,
+          "startedAt": 1790018440279,
+          "deadlineAt": 1790018470189,
+          "elapsedMs": 659,
+          "closed": true,
+          "finalizing": true
+        },
+        "fixture": true,
+        "tests_run": 0,
+        "retries": 0,
+        "fallback": false,
+        "reportPresent": false,
+        "reportSha256": null,
+        "disk": [
+          {
+            "timestamp": 1790018440279,
+            "availableBytes": 51830009856
+          },
+          {
+            "timestamp": 1790018440938,
+            "availableBytes": 51828891648
+          }
+        ],
+        "sandbox_layers_per_tool": 1,
+        "controller_trusted_unsandboxed": true,
+        "production_changes": false
+      },
+      "seen": [
+        {
+          "call": 1,
+          "toolCount": 3,
+          "hasToolResults": false,
+          "tools": [
+            "read",
+            "search",
+            "git"
+          ]
+        },
+        {
+          "call": 2,
+          "toolCount": 0,
+          "hasToolResults": true,
+          "tools": []
+        }
+      ]
+    },
+    {
+      "name": "wall-stall",
+      "ok": true,
+      "result": {
+        "status": "BLOCKED_WALL_DEADLINE",
+        "exitCode": null,
+        "started": 1790018440941,
+        "elapsedMs": 3622,
+        "before": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "after": {
+          "revision": "fedce252330dce1065238f58e6c914417219ec53",
+          "status": ""
+        },
+        "gateway": {
+          "requestCount": 1,
+          "maxRequests": 24,
+          "startedAt": 1790018441036,
+          "deadlineAt": 1790018444441,
+          "elapsedMs": 3527,
+          "closed": true,
+          "finalizing": true
+        },
+        "fixture": true,
+        "tests_run": 0,
+        "retries": 0,
+        "fallback": false,
+        "reportPresent": false,
+        "reportSha256": null,
+        "disk": [
+          {
+            "timestamp": 1790018441036,
+            "availableBytes": 51828871168
+          },
+          {
+            "timestamp": 1790018444563,
+            "availableBytes": 51828756480
+          }
+        ],
+        "sandbox_layers_per_tool": 1,
+        "controller_trusted_unsandboxed": true,
+        "production_changes": false
+      },
+      "seen": [
+        {
+          "call": 1,
+          "toolCount": 3,
+          "hasToolResults": false,
+          "tools": [
+            "read",
+            "search",
+            "git"
+          ]
+        }
+      ]
+    }
+  ],
+  "real_model_requests": 0,
+  "credentials_read": 0
+}

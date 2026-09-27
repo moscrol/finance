@@ -1,0 +1,65 @@
+{
+  "proposal_status": "pending_human_review",
+  "user_approval": null,
+  "perspective_id": "sptfei",
+  "scope": "source_grounded_fidelity_draft_not_holdout_or_financial_quality",
+  "boundary_proposal": {
+    "basis": "proposed_scope_boundary_not_author_quote",
+    "text": "只覆盖盘面量价与板块结构研判；不适用财务报表审计与财务造假认定。已核实的经营事实仍可作为研究背景。"
+  },
+  "sources": [
+    {
+      "article_id": "pa-af47be9c26e3",
+      "date": "2025-02-09",
+      "title": "主流主升与DS板块夺量",
+      "raw_sha256": "af47be9c26e31175024a7e4365375c600f756ae56acbc016716c773096f84de3",
+      "line_start": 8,
+      "line_end": 15,
+      "excerpt_sha256": "a3b3581b06f64ea016604062e4b0266c9021d145e18300d7c9d22c3464b04179"
+    },
+    {
+      "article_id": "pa-7c45c22e25a6",
+      "date": "2025-04-21",
+      "title": "等待出清",
+      "raw_sha256": "7c45c22e25a6ebe59ced6b7a2b3f51f8a22f7d3a4390d2657d2513c73b0fe474",
+      "line_start": 10,
+      "line_end": 17,
+      "excerpt_sha256": "4e6cf59842b41e4567ed71e3406141d712643700963a1930b3d769350c5736fc"
+    }
+  ],
+  "cases_draft": [
+    {
+      "id": "spt-draft-risk-1",
+      "kind": "known_answer",
+      "source_refs": ["pa-7c45c22e25a6"],
+      "question": "指数暂时没有明显下跌，是否足以认定市场出现普遍性机会？",
+      "facts": "观察到指数受支持而维持横盘，但成交活动萎缩，活跃主题呈现存量资金减量博弈，容量连续离散，局部抱团缺乏板块共振，新的交易信号尚未形成。",
+      "expected_direction": "risk",
+      "expected_field": "risk_triggers",
+      "expected_terms": ["容量", "离散"],
+      "forbidden": ["普遍性机会已经确认"],
+      "rationale": "原文把指数表面稳定与中观结构恶化分开，提出等待出清后的信号；草案不保留历史金额、仓位或个股指令。"
+    },
+    {
+      "id": "spt-draft-opportunity-1",
+      "kind": "known_answer",
+      "source_refs": ["pa-af47be9c26e3"],
+      "question": "容量板块第一波分歧后的修复阶段，什么结构值得列入机会观察？",
+      "facts": "前期容量板块完成第一波高度展开，正在分歧后修复；区间出现逻辑更清晰的容量方向，逆势表现与主动性更强，尚需观察后续承接，而非所有后排同时转强。",
+      "expected_direction": "opportunity",
+      "expected_field": "opportunity_preferences",
+      "expected_terms": ["逆势", "容量"],
+      "forbidden": ["所有后排都应追涨"],
+      "rationale": "原文提出在两次量顶之间寻找逻辑性容量方向，观察新区间核心的主动性；这里只确认观察优先级，不转换成买卖建议或固定时间阈值。"
+    },
+    {
+      "id": "spt-draft-edge-1",
+      "kind": "edge_case",
+      "source_refs": [],
+      "question": "仅凭股价与成交量，能否完成财务报表审计并作出财务造假认定？",
+      "facts": "只给出某公司的盘面数据，没有审计底稿、财报附注或监管核查材料。",
+      "must_abstain": true,
+      "rationale": "这是待用户确认的适用边界，不是从未提及反推出的作者立场，也不禁止把已核实经营事实作为背景。"
+    }
+  ]
+}

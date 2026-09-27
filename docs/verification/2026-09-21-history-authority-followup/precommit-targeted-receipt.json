@@ -1,0 +1,27 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-evidence-integration-0921",
+  "revision": "bbd948a6a400c90871657c0719b1cfb48107470e",
+  "branch": "feat/history-evidence-integration-0921",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/services/historical_research/episode.py",
+    "intelligence/services/run_store.py",
+    "tests/test_history_artifact_scope.py",
+    "tests/test_run_store_history_artifacts.py"
+  ],
+  "worktree_dirty_total": 5,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_history_artifact_scope.py tests/test_history_evidence_binding.py tests/test_history_model_projection.py tests/test_historical_evidence_contract.py tests/test_run_store_history_artifacts.py tests/test_history_recovery_selection.py tests/test_history_date_scope.py tests/test_historical_episode_branching.py tests/test_history_case_patch.py intelligence/tests/test_prior_evidence.py intelligence/tests/test_historical_research_episode.py intelligence/tests/test_episode_verifier.py",
+  "counts": {
+    "passed": 315,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T13:20:17+00:00"
+}

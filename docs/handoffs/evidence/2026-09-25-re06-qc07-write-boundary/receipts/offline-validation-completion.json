@@ -1,0 +1,156 @@
+{
+  "at": "2026-09-25T10:49:22.120311+00:00",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "status": "OFFLINE_PASS_DYNAMIC_NOT_ADMITTED",
+  "real_model_requests": 0,
+  "pytest_invocations": 0,
+  "checks": [
+    {
+      "name": "unittest",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_review_io_sandbox",
+        "tests.test_review_artifact_writer",
+        "-v"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/unittest.log.txt",
+      "sha256": "5e80809cb8e1bce59aa16b2124522ada819e1f0a2c39e43da64c496887269436"
+    },
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "scripts/review_probes/review_io_sandbox.py",
+        "scripts/review_probes/review_artifact_writer.py",
+        "tests/test_review_io_sandbox.py",
+        "tests/test_review_artifact_writer.py"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/ruff.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "environment",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-I",
+        "-c",
+        "import sys,httpx;print(sys.version);print(httpx.__version__);assert sys.version_info[:3]==(3,12,13);assert httpx.__version__==\"0.28.1\""
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/environment.log.txt",
+      "sha256": "b1f47700074f69ad4da2c39aebfd6a5338da6e46e7187a3bf376ef58441fb150"
+    },
+    {
+      "name": "freeze-e2-inputs",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/stage_admission_v3.py",
+        "execute",
+        "e2",
+        "--prepare-only"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/freeze-e2-inputs.log.txt",
+      "sha256": "db76eea7462512d2db71e45d6e8502804cdc24b7b0883a4cbc4471ecf48f6363"
+    },
+    {
+      "name": "gateway-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/run_gateway.py"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/gateway-not-admitted.log.txt",
+      "sha256": "74d545649406f90d9154a7393ccc3bef23cf216d5419c1f1f13fd8939c335748"
+    },
+    {
+      "name": "stage-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/run_stage_v3.py",
+        "execute",
+        "e2"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/stage-not-admitted.log.txt",
+      "sha256": "d4e566c2a6ae769aebf62cde1d3e1cab9beae2d8b95226c8fa27e02736fe1d84"
+    },
+    {
+      "name": "other-group-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/run_stage_v3.py",
+        "execute",
+        "timer"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/other-group-not-admitted.log.txt",
+      "sha256": "29d4cc6ea166c7999757725bcf1e12d5c1b52745bc502b0e1cb6a400944d5605"
+    }
+  ],
+  "prior_recorder": {
+    "path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/receipt.json",
+    "sha256": "b30deb650e9aa7bda06ded028af32046697fa4550041dcadb3b8dc22a73b4ff1",
+    "status": "FAILED_ASSERTION",
+    "reason": "recorder expected the execution preflight guard for both entry points; stage correctly stops earlier at missing gateway receipt",
+    "prior_outputs_overwritten": false
+  },
+  "qc06_incident_sources_unchanged": true,
+  "qc06_overwritten_receipt_restored": false,
+  "budget": {
+    "used": 186,
+    "ceiling": 218,
+    "remaining": 32
+  },
+  "resource_admission": {
+    "at": "2026-09-25T10:41:00.411452+00:00",
+    "load_1m": 3.37548828125,
+    "existing_pytest": 3,
+    "projected_pytest": 4,
+    "free_gib": 46.12665557861328,
+    "allowed": false,
+    "argv": [
+      "--dry-run"
+    ],
+    "inspection": "aggregate only; process commands are not returned"
+  },
+  "resource_retries": 0,
+  "offline_receipts": {
+    "io-boundary-preflight.json": "0072d4013623c98f9c1bb85e9675acca02583229e9661b8f1c91acbb8b1b2de3",
+    "stage-boundary-preflight-v3-0925.json": "de2ab7b9fa7e49d02592f6713913600853a155987f286037b88b9255d3890c23",
+    "probe-menu-preflight-0925.json": "245e00ff19e3f471fb265221f5737859386eeb2d37251b9ff285707f8ab0a97e",
+    "probe-transport-preflight.json": "13e10b3514cd3f7908b5ba59f97deae836e8358fb32077ae64a7893943efea41",
+    "artifact-checkpoint-preflight-0925.json": "206cd63fb96c51a37b712a11836062d2a42097b5caf3305258620cfcc4a6f8c1"
+  },
+  "independent_candidate_verdict": null,
+  "dynamic_wrapper_preflight": "NOT_RUN_RESOURCE_GATE",
+  "gateway": "NOT_STARTED",
+  "execute": "NOT_STARTED",
+  "report": "NOT_STARTED",
+  "next_slice_max_new_requests": 11,
+  "candidate_and_author_clean": true,
+  "helper_sha256": {
+    "scripts/review_probes/review_io_sandbox.py": "bf4f1f0c9e2f08855ddd95178ecadb2e6e429315232927e8305f49f45cd6c12b",
+    "tests/test_review_io_sandbox.py": "982908a5eae2387833975cd50470301346c6eee8198d6d2098e3598d8c239436"
+  }
+}

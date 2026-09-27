@@ -1,0 +1,9 @@
+{
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "prior_candidate": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "merge_tree": "644be24e010e6bad944e2e6d5314434603a9fe56",
+  "product_modules_changed_from_prior": [],
+  "engineering_receipts": "PENDING_NEW_HEAD",
+  "independent_qc": "PENDING_NEW_BATCH"
+}

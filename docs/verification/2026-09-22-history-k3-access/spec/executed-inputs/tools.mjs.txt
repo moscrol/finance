@@ -1,0 +1,31 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createBashTool } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js';
+
+export default function (pi) {
+  const root = path.dirname(new URL(import.meta.url).pathname);
+  const tree = path.join(root, 'candidate');
+  const work = path.join(root, 'k3', 'work');
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  const tool = createBashTool(tree, {
+    exposeSessionEnvironment: false,
+    spawnHook: ({ command, cwd, env }) => ({
+      command: '/usr/bin/sandbox-exec -f ' + quote(path.join(root, 'tools.sb')) + ' /bin/bash --noprofile --norc -c ' + quote(command),
+      cwd,
+      env,
+    }),
+  });
+  pi.registerTool({ ...tool, execute: (id, params, signal, update) => tool.execute(id, params, signal, update) });
+  pi.on('tool_call', event => {
+    if (['read', 'write'].includes(event.toolName)) {
+      const requested = path.resolve(tree, event.input.path);
+      const parent = event.toolName === 'write' ? path.dirname(requested) : requested;
+      let canonical;
+      try { canonical = fs.realpathSync(parent); } catch { canonical = parent; }
+      if (event.toolName === 'write' && !canonical.startsWith(work + path.sep) && canonical !== work)
+        return { block: true, reason: 'Only reviewer work output is writable.' };
+      if (event.toolName === 'read' && !canonical.startsWith(root + path.sep))
+        return { block: true, reason: 'Read source and review inputs under the fixed review root.' };
+    }
+  });
+}

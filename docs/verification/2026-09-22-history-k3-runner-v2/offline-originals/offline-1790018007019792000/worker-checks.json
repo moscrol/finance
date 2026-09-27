@@ -1,0 +1,134 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "identity",
+      "ok": true,
+      "exit": 0,
+      "stdout": "{\"ok\": true, \"text\": \"{\\\"head\\\": \\\"fedce252330dce1065238f58e6c914417219ec53\\\", \\\"status\\\": \\\"\\\"}\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "read",
+      "ok": true,
+      "exit": 0,
+      "stdout": "{\"ok\": true, \"text\": \"1: \\\"\\\"\\\"Run/Artifact/Trace \\u534f\\u8bae\\u7684\\u6700\\u5c0f\\u843d\\u76d8\\u5b9e\\u73b0\\uff08Agent Workbench \\u7b2c 0 \\u6b65\\uff09\\u3002\\n2: \\n3: \\u628a\\u300c\\u4e00\\u6b21\\u7528\\u6237\\u8bf7\\u6c42\\u300d\\u56fa\\u5316\\u6210\\u4e00\\u4e2a\\u53ef\\u4fdd\\u5b58\\u3001\\u53ef\\u590d\\u73b0\\u3001\\u53ef\\u5206\\u4eab\\u7684 **run \\u76ee\\u5f55**\\uff1a\\n4: \\n5:     intelligence/users/<id>/runs/<run_id>/\\n6:         run.json      # run \\u5143\\u6570\\u636e\\uff08\\u5355\\u5199\\u5165\\u8005\\uff1a\\u672c\\u6a21\\u5757\\uff1b\\u534f\\u8bae\\u89c1 docs/superpowers/plans/2026-07-08-run-protocol.md\\uff09\\n7:         trace.jsonl   # \\u5de5\\u5177\\u6b65\\u9aa4\\u6d41\\u6c34\\uff08append-only\\uff0c\\u8fb9\\u8dd1\\u8fb9\\u5199\\uff0c\\u5d29\\u6e83/\\u5237\\u65b0\\u53ef\\u91cd\\u653e\\uff09\\n8:         answer.md \\u7b49  # \\u4ea7\\u7269\\u6587\\u4ef6\\uff0c\\u767b\\u8bb0\\u8fdb run.json \\u7684 artifacts[]\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "search",
+      "ok": true,
+      "exit": 0,
+      "stdout": "{\"ok\": true, \"text\": \"545:    def read_history_artifact(\\n\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "show",
+      "ok": true,
+      "exit": 0,
+      "stdout": "{\"ok\": true, \"text\": \"commit 7249378a5bdb9b01cc62ec3bca13af3149bd48df\\nAuthor:     linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com>\\nAuthorDate: Mon Sep 21 21:20:27 2026 +0800\\nCommit:     linxiaoqi5111-del <linxiaoqi5111-del@users.noreply.github.com>\\nCommitDate: Mon Sep 21 21:20:27 2026 +0800\\n\\n    fix(history): reauthorize cached references under the run lock\\n\\ndiff --git a/docs/agent-product-door.md b/docs/agent-product-door.md\\nindex 5c6bafb12..af321bb5e 100644\\n--- a/docs/agent-product-door.md\\n+++ b/docs/agent-product-door.md\\n@@ -400,6 +400,10 @@ material_outputs \\u6e05\\u5355\\uff0c\\u5de5\\u5177\\u5b9a\\u4e49\\u540c\\u6b65\\u9650\\u5236 ID \\u4e0e\\u6570\\u91cf\\uff0c\\u89e3\\u6790\\u4ecd\\u4e25\\n \\u6bcf\\u5757\\u53ea\\u643a\\u5e26\\u8be5\\u5757\\u5b9e\\u9645\\u5c55\\u793a\\u7684\\u7ed3\\u6784\\u5316\\u6570\\u503c\\u3002\\u6709\\u5386\\u53f2\\u7b97\\u5b50\\u8981\\u6c42\\u7684\\u8f93\\u51fa\\u5408\\u540c\\u62d2\\u7edd\\u7f3a\\u6765\\u6e90\\u3001\\u8d44\\u683c\\u9519\\u8bef\\u6216\\n \\u5361\\u7247\\u4e0e\\u6765\\u6e90\\u5143\\u6570\\u636e\\u4e0d\\u4e00\\u81f4\\uff0c\\u4e0d\\u4ece\\u54c8\\u5e0c\\u63a8\\u65ad\\u6765\\u6e90\\u771f\\u5b9e\\u3002\\u6062\\u590d\\u517c\\u5bb9\\u65e7\\u666e\\u901a\\u8bc1\\u636e\\u7f3a\\u5c11\\u65b0\\u589e\\u53ef\\u9009\\u5b57\\u6bb5\\uff0c\\n \\u5386\\u53f2\\u8bc1\\u636e\\u5219\\u4e25\\u683c\\u91cd\\u5efa\\u5d4c\\u5957\\u8eab\\u4efd\\uff0c\\u4e0d\\u80fd\\u6309\\u7a7a\\u503c\\u964d\\u4e3a\\u666e\\u901a\\u8bc1\\u636e\\uff1b\\u539f\\u4ef6\\u8ba4\\u8bc1\\u4ecd\\u7531 RunStore \\u7684\\u767b\\u8bb0/\\u5f52\\u5c5e\\u6821\\u9a8c\\u627f\\u62c5\\u3002\\n+\\u5386\\u53f2\\u4f1a\\u8bdd\\u7684\\u5f15\\u7528\\u7f13\\u5b58\\u53ea\\u4f9b\\u7d22\\u5f15\\u5c55\\u793a\\uff0c\\u4e0d\\u6388\\u4e88\\u8bfb\\u53d6\\u6743\\u9650\\uff1b\\u6bcf\\u6b21\\u8bfb\\u53d6\\u628a\\u4f1a\\u8bdd\\u8eab\\u4efd\\u4f20\\u5230 RunStore\\uff0c\\n+\\u5728\\u65e2\\u6709\\u6bcf\\u8f6e\\u6587\\u4ef6\\u9501\\u5185\\u91cd\\u8f7d\\u7528\\u6237/\\u4f1a\\u8bdd\\u5f52\\u5c5e\\u3001\\u516c\\u5f00\\u53ef\\u4e0b\\u8f7d\\u767b\\u8bb0\\uff0c\\u5e76\\u53ea\\u8bfb\\u53d6\\u548c\\u6821\\u9a8c\\u4e00\\u6b21\\u539f\\u4ef6\\u5b57\\u8282\\u3002\\n+\\u5237\\u65b0\\u7d22\\u5f15\\u79fb\\u9664\\u5df2\\u5931\\u6548\\u7684\\u5f15\\u7528\\uff1b\\u62d2\\u7edd\\u8bfb\\u53d6\\u4e0d\\u56de\\u586b\\u522b\\u540d\\u3001\\u8bc1\\u636e\\u6216\\u6539\\u5199\\u539f\\u4ef6\\u3002\\u8fd9\\u5c42\\u534f\\u8c03\\u9075\\u5b88\\u540c\\u4e00\\u9501\\u7684\\n+\\u5b58\\u50a8\\u5199\\u5165\\u8005\\uff0c\\u4e0d\\u9632\\u7ed5\\u5f00\\u63a5\\u53e3\\u76f4\\u63a5\\u6539\\u78c1\\u76d8\\uff0c\\u4e5f\\u4e0d\\u8bc1\\u660e\\u5b58\\u5728\\u516c\\u5f00\\u5165\\u53e3\\u53ef\\u89e6\\u53d1\\u7684\\u5f52\\u5c5e\\u8fc1\\u79fb\\u6f0f\\u6d1e\\u3002\\n `comparison_analog` \\u8865\\u6bd4\\u8f83\\u7ef4\\u5ea6\\u3001\\u5047\\u8bbe\\u53ca\\u7c7b\\u6bd4\\u9650\\u5236\\u69fd\\uff0c\\u4e0d\\u7b49\\u4e8e\\u677f\\u5757\\u6392\\u5e8f\\u5408\\u540c\\u3001\\u6309\\u9700\\u5c55\\u5f00 UI \\u6216\\u771f\\u5b9e\\u91d1\\u878d\\u9898\\u5df2\\u9a8c\\u6536\\u3002\\n \\n \\u4fee\\u8ba2\\u4f18\\u5148\\u63d0\\u4ea4 `previous_result_ref + patch`\\uff1a\\u6a21\\u578b\\u53ea\\u4f20\\u53d8\\u66f4\\u9879\\uff0c\\u670d\\u52a1\\u7aef\\u4fdd\\u7559\\u672a\\u63d0\\u53ca\\u5047\\u8bbe\\u53ca\\u65e7\\u6765\\u6e90\\u3001\\u5931\\u8d25\\u3001\\u53cd\\u8bc1\\u3001\\u5df2\\u66b4\\u9732\\u6837\\u672c\\uff0c\\u5e76\\u81ea\\u52a",
+      "stderr": ""
+    },
+    {
+      "name": "outside",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: path outside allowed source\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "absolute",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: path outside allowed source\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "handoff",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: path outside allowed source\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "users",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: private/generated path\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "env",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: path outside allowed source\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "bash",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: unknown tool\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "write",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: unknown tool\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "git_inject",
+      "ok": true,
+      "exit": 1,
+      "stdout": "{\"ok\": false, \"text\": \"ValueError: revision is outside review set\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "deny_write",
+      "ok": true,
+      "exit": 1,
+      "stdout": "TARGET_STARTED\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nPermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/offline-1790018007019792000/forbidden-write'\n"
+    },
+    {
+      "name": "deny_loopback",
+      "ok": true,
+      "exit": 1,
+      "stdout": "TARGET_STARTED\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py\", line 865, in create_connection\n    raise exceptions[0]\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py\", line 850, in create_connection\n    sock.connect(sa)\nPermissionError: [Errno 1] Operation not permitted\n"
+    },
+    {
+      "name": "deny_external",
+      "ok": true,
+      "exit": 1,
+      "stdout": "TARGET_STARTED\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py\", line 865, in create_connection\n    raise exceptions[0]\n  File \"/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socket.py\", line 850, in create_connection\n    sock.connect(sa)\nPermissionError: [Errno 1] Operation not permitted\n"
+    },
+    {
+      "name": "deny_other_directory",
+      "ok": true,
+      "exit": 1,
+      "stdout": "TARGET_STARTED\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nPermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/offline-1790018007019792000/fake-secret'\n"
+    },
+    {
+      "name": "deny_other_axis",
+      "ok": true,
+      "exit": 1,
+      "stdout": "TARGET_STARTED\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nPermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/quality/prompt.md'\n"
+    },
+    {
+      "name": "environment",
+      "ok": true,
+      "exit": 0,
+      "stdout": "['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_OPTIONAL_LOCKS', 'HOME', 'LC_ALL', 'PATH', 'PYTHONDONTWRITEBYTECODE', '__CF_USER_TEXT_ENCODING']\n",
+      "stderr": ""
+    }
+  ],
+  "fixture_config": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-runner-v2/offline-1790018007019792000/session/config.json",
+  "real_model_requests": 0,
+  "credentials_read": 0
+}

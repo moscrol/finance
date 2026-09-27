@@ -1,0 +1,4 @@
+PLAIN_OK
+SQLITE_NOWAL_FAIL OperationalError unable to open database file
+SQLITE_MEM_OK
+TMPDIR= /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp SQLITE_TMPDIR= None

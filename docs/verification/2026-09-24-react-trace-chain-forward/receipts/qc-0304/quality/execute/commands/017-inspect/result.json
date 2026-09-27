@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "def _numbered_sentences|def _repair_dangling_condition_references|_CONDITION_LABEL|startswith\\(|def _deleted_definition_labels|label",
+    "intelligence/services/episode_semantic_verifier.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 88,
+  "output_sha256": "18a6f99b9d8ff18c832a81bced0530396236dbab4d75b163951a131533e1b182"
+}

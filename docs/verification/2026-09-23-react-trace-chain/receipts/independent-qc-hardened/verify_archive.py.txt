@@ -1,0 +1,59 @@
+"""Verify old evidence is untouched and new raw bytes match their Git archive."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--revision')
+args = parser.parse_args()
+TREE = Path('/Users/a77/fwp-wt-react-trace-chain-docs-0923')
+ROOT = TREE/'docs/verification/2026-09-23-react-trace-chain'
+OLD = 'e8222d7b76a21dae1de218ca313058ce6b7516a6'
+
+
+def git_bytes(revision, path):
+    return subprocess.check_output(['git', '--no-replace-objects', '-C', str(TREE), 'show',
+                                    revision+':'+str(path.relative_to(TREE))])
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+manifest = load(ROOT/'MANIFEST.json')
+old = json.loads(git_bytes(OLD, ROOT/'MANIFEST.json'))
+assert len(old['entries']) == 45
+assert manifest['entries'][:45] == old['entries']
+checked = set()
+for base, value in [(ROOT, manifest),
+                    (ROOT/'receipts/independent-qc', load(ROOT/'receipts/independent-qc/MANIFEST.json')),
+                    (ROOT/'receipts/independent-qc-hardened', load(ROOT/'receipts/independent-qc-hardened/MANIFEST.json'))]:
+    expected = {base/'MANIFEST.json'}
+    for entry in value['entries']:
+        path = base/entry['path']
+        data = path.read_bytes()
+        assert not path.is_symlink() and len(data) == entry['bytes']
+        assert hashlib.sha256(data).hexdigest() == entry['sha256'], path
+        if 'source' in entry:
+            assert data == Path(entry['source']).read_bytes(), path
+        expected.add(path)
+        checked.add(path)
+    checked.add(base/'MANIFEST.json')
+    if base != ROOT:
+        assert {p for p in base.rglob('*') if p.is_file()} == expected
+for relative in ['docs/verification/2026-09-23-react-trace-chain/README.md',
+                 'docs/handoffs/2026-09-24-react-trace-qc-hardened.md',
+                 'docs/handoffs/inflight/docs-react-trace-chain-0923.md',
+                 'docs/verification/2026-09-22-independent-qc-batch/QUEUE.md',
+                 'docs/superpowers/specs/2026-09-01-workorders-INDEX.md']:
+    checked.add(TREE/relative)
+assert (TREE/'docs/handoffs/inflight/docs-react-trace-chain-0923.md').stat().st_size <= 3000
+if args.revision:
+    for path in checked:
+        assert git_bytes(args.revision, path) == path.read_bytes(), path
+new = load(ROOT/'receipts/independent-qc-hardened/MANIFEST.json')
+print(json.dumps({'status': 'PASS', 'old_top_entries_unchanged': 45, 'old_qc_files': 371,
+                  'new_qc_files': len(new['entries']), 'new_qc_bytes': sum(e['bytes'] for e in new['entries']),
+                  'checked_paths': len(checked), 'git_revision': args.revision}))

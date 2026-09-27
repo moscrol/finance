@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "scope": "explicit_inputs_only; live_market_read_only; not_production_readiness",
+  "market_latest": "2026-09-22",
+  "briefings": [
+    {
+      "briefing_date": "2026-09-14",
+      "source_rows": 10,
+      "available_from": "2026-09-15",
+      "landing_briefing_dates": [
+        "2026-09-14"
+      ],
+      "status": "PASS",
+      "landing": "2026-09-15",
+      "labels": {
+        "briefing_tier1_items": 0.0,
+        "briefing_tier2_items": 6.0,
+        "briefing_tier3_items": 4.0,
+        "briefing_market_confirmed": null,
+        "briefing_dimensions": 2.0,
+        "briefing_hit_rps5_pct": 33.333333,
+        "briefing_lag_days": 0.0
+      },
+      "source_recorded_at": "2026-09-15",
+      "object_recorded_at": "2026-09-24T13:45:00",
+      "river_ref": "history_teaching_labels:2026-09-15:market:briefing",
+      "river_pit_grade": "trade_date_only",
+      "late_teaching_objects_filtered": 4,
+      "disabled_sidecar_unchanged": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+....................................F                                    [100%]
+=================================== FAILURES ===================================
+_ test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion _
+
+    def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
+        judge = _judge(True)
+        frame, structural = _structural(
+            "升级条件：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前尚未**满足升级条件中的2条**。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前尚未**满足升级条件中的2条**。
+
+intelligence/tests/test_condition_reference_seams.py:120: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0148/engineering/mutations/repair_wiring.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_condition_reference_seams.py::test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion
+1 failed, 36 passed in 0.33s

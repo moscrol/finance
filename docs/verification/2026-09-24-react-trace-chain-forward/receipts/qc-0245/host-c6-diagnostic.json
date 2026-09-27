@@ -1,0 +1,215 @@
+{
+  "classification": "HOST_PRODUCT_DIAGNOSIS_NOT_INDEPENDENT_REVIEW",
+  "model_requests": 0,
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "author_fixture_used": true,
+  "source_sha256": "43152ac1f569c2abeb496106e2798dc3f923f62fd7e325eb4c1415c6abe10657",
+  "rows": [
+    {
+      "prefix": "",
+      "sentences": [
+        {
+          "index": 1,
+          "text": "升级条件：若涨停60家以上，则升级。"
+        },
+        {
+          "index": 2,
+          "text": "该股放量上攻。"
+        },
+        {
+          "index": 3,
+          "text": "目前尚未**满足升级条件中的2条**。"
+        }
+      ],
+      "drop_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "helper_result": "该股放量上攻。",
+      "public_answer": "该股放量上攻。",
+      "judge_status": "repaired",
+      "sentence_verdicts": [
+        {
+          "stage": "preflight",
+          "judge_round": null,
+          "sentence_index": 1,
+          "sentence": "升级条件：若涨停60家以上，则升级。",
+          "decision": "deleted",
+          "reasons": [
+            "novel_numeric_condition"
+          ],
+          "judge_issues": [],
+          "judge_reason_code": "",
+          "rewritten_to": "",
+          "cited_evidence_ordinals": [],
+          "unresolved_evidence_ordinals": [],
+          "bound_evidence_hashes": [],
+          "source_tiers": []
+        }
+      ]
+    },
+    {
+      "prefix": "- ",
+      "sentences": [
+        {
+          "index": 1,
+          "text": "- 升级条件：若涨停60家以上，则升级。"
+        },
+        {
+          "index": 2,
+          "text": "该股放量上攻。"
+        },
+        {
+          "index": 3,
+          "text": "目前尚未**满足升级条件中的2条**。"
+        }
+      ],
+      "drop_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "helper_result": "该股放量上攻。",
+      "public_answer": "该股放量上攻。",
+      "judge_status": "repaired",
+      "sentence_verdicts": [
+        {
+          "stage": "preflight",
+          "judge_round": null,
+          "sentence_index": 1,
+          "sentence": "- 升级条件：若涨停60家以上，则升级。",
+          "decision": "deleted",
+          "reasons": [
+            "novel_numeric_condition"
+          ],
+          "judge_issues": [],
+          "judge_reason_code": "",
+          "rewritten_to": "",
+          "cited_evidence_ordinals": [],
+          "unresolved_evidence_ordinals": [],
+          "bound_evidence_hashes": [],
+          "source_tiers": []
+        }
+      ]
+    },
+    {
+      "prefix": "1. ",
+      "sentences": [
+        {
+          "index": 1,
+          "text": "1. 升级条件：若涨停60家以上，则升级。"
+        },
+        {
+          "index": 2,
+          "text": "该股放量上攻。"
+        },
+        {
+          "index": 3,
+          "text": "目前尚未**满足升级条件中的2条**。"
+        }
+      ],
+      "drop_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "helper_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "public_answer": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "judge_status": "repaired",
+      "sentence_verdicts": [
+        {
+          "stage": "preflight",
+          "judge_round": null,
+          "sentence_index": 1,
+          "sentence": "1. 升级条件：若涨停60家以上，则升级。",
+          "decision": "deleted",
+          "reasons": [
+            "novel_numeric_condition"
+          ],
+          "judge_issues": [],
+          "judge_reason_code": "",
+          "rewritten_to": "",
+          "cited_evidence_ordinals": [],
+          "unresolved_evidence_ordinals": [],
+          "bound_evidence_hashes": [],
+          "source_tiers": []
+        }
+      ]
+    },
+    {
+      "prefix": "1) ",
+      "sentences": [
+        {
+          "index": 1,
+          "text": "1) 升级条件：若涨停60家以上，则升级。"
+        },
+        {
+          "index": 2,
+          "text": "该股放量上攻。"
+        },
+        {
+          "index": 3,
+          "text": "目前尚未**满足升级条件中的2条**。"
+        }
+      ],
+      "drop_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "helper_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "public_answer": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "judge_status": "repaired",
+      "sentence_verdicts": [
+        {
+          "stage": "preflight",
+          "judge_round": null,
+          "sentence_index": 1,
+          "sentence": "1) 升级条件：若涨停60家以上，则升级。",
+          "decision": "deleted",
+          "reasons": [
+            "novel_numeric_condition"
+          ],
+          "judge_issues": [],
+          "judge_reason_code": "",
+          "rewritten_to": "",
+          "cited_evidence_ordinals": [],
+          "unresolved_evidence_ordinals": [],
+          "bound_evidence_hashes": [],
+          "source_tiers": []
+        }
+      ]
+    },
+    {
+      "prefix": "(1) ",
+      "sentences": [
+        {
+          "index": 1,
+          "text": "(1) 升级条件：若涨停60家以上，则升级。"
+        },
+        {
+          "index": 2,
+          "text": "该股放量上攻。"
+        },
+        {
+          "index": 3,
+          "text": "目前尚未**满足升级条件中的2条**。"
+        }
+      ],
+      "drop_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "helper_result": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "public_answer": "该股放量上攻。目前尚未**满足升级条件中的2条**。",
+      "judge_status": "repaired",
+      "sentence_verdicts": [
+        {
+          "stage": "preflight",
+          "judge_round": null,
+          "sentence_index": 1,
+          "sentence": "(1) 升级条件：若涨停60家以上，则升级。",
+          "decision": "deleted",
+          "reasons": [
+            "novel_numeric_condition"
+          ],
+          "judge_issues": [],
+          "judge_reason_code": "",
+          "rewritten_to": "",
+          "cited_evidence_ordinals": [],
+          "unresolved_evidence_ordinals": [],
+          "bound_evidence_hashes": [],
+          "source_tiers": []
+        }
+      ]
+    },
+    {
+      "kind": "ordered_survivor",
+      "source": "升级条件：若涨停60家以上，则升级。\n1. 升级条件：量能改善。\n满足升级条件中的1条，需观察。",
+      "draft": "1. 升级条件：量能改善。\n满足升级条件中的1条，需观察。",
+      "result": "1. 升级条件：量能改善。\n需观察。"
+    }
+  ]
+}

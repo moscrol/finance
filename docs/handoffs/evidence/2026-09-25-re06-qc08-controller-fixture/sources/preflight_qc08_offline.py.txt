@@ -1,0 +1,99 @@
+"""Run fresh QC08 offline checks once; never start pytest, credentials, or a model."""
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-08'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+CONFIG = json.loads((QC / 'config.json').read_text())
+PYTHON = CONFIG['python']
+NODE = str(ROOT / 'toolchain/bin/node')
+OUT = QC / 'offline-validation'
+OUT.mkdir(exist_ok=False)
+record = {'at': datetime.now(timezone.utc).isoformat(), 'status': 'RUNNING', 'real_model_requests': 0,
+          'pytest_invocations': 0, 'revision': CONFIG['revision'], 'checks': []}
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def save():
+    (OUT / 'receipt.json').write_text(json.dumps(record, indent=2) + '\n')
+
+def run(name, command, expected=0, cwd=TREE):
+    with (OUT / (name + '.log.txt')).open('xb') as stream:
+        result = subprocess.run(command, cwd=cwd, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0'),
+                                stdout=stream, stderr=subprocess.STDOUT, timeout=90)
+    record['checks'].append({'name': name, 'command': command, 'exit_code': result.returncode,
+                             'expected_exit': expected, 'log_sha256': sha(OUT / (name + '.log.txt'))})
+    save()
+    assert result.returncode == expected, name
+
+try:
+    run('unittest', [PYTHON, '-B', '-m', 'unittest', 'tests.test_review_io_sandbox', 'tests.test_review_artifact_writer', 'tests.test_qc_userspace_isolation', '-v'])
+    run('environment', [PYTHON, '-I', '-c', 'import sys,httpx;print(sys.version);print(httpx.__version__);assert sys.version_info[:3]==(3,12,13);assert httpx.__version__=="0.28.1"'])
+    run('node', [NODE, '-e', "console.log(process.version);if(process.version!=='v22.23.2')process.exit(1)"])
+    # Use disposable synthetic ledgers, not another real admission or retry.
+    with tempfile.TemporaryDirectory() as temporary:
+        fixture = Path(temporary)
+        shutil.copyfile(ROOT / 'inspect_status.py', fixture / 'inspect_status.py')
+        for name in ('qc', 'qc-bounded-02', 'qc-delivery-03', 'qc-execution-menu-04', 'qc-execution-final-06'):
+            (fixture / name).mkdir()
+        new = fixture / 'qc-evidence-isolated-08'
+        new.mkdir()
+        (new / 'config.json').write_text(json.dumps({'revision': CONFIG['revision']}))
+        for stage, total in [('gateway', 2), ('execute-e2-v3', 1), ('sandbox-preflight-fixture', 7)]:
+            folder = new / stage
+            folder.mkdir()
+            (folder / 'request-admissions.jsonl').write_text(''.join(json.dumps({'admission': i}) + '\n' for i in range(1, total + 1)))
+        command = [PYTHON, '-B', str(fixture / 'inspect_status.py')]
+        data = json.loads(subprocess.check_output(command, text=True))
+        assert data['used'] == 150 and data['remaining'] == 68
+        assert len(data['stages']) == 2
+        (new / 'execute-e2-v3/request-admissions.jsonl').write_text('{"admission":2}\n')
+        invalid = subprocess.run(command, capture_output=True, text=True)
+        assert invalid.returncode != 0
+        (OUT / 'budget-fixture.json').write_text(json.dumps({'status': 'PASS', 'valid': data,
+            'duplicate_or_missing_sequence_rejected': True, 'offline_fixture_not_counted': True,
+            'inspector_sha256': sha(ROOT / 'inspect_status.py')}, indent=2))
+    budget = json.loads(subprocess.check_output([PYTHON, str(ROOT / 'inspect_status.py')], text=True))
+    assert budget['used'] == 186 and budget['remaining'] == 32
+    (OUT / 'budget-before.json').write_text(json.dumps(budget, indent=2))
+    assert sha(QC / 'inputs/qc_userspace_isolation.py') == sha(TREE / 'scripts/review_probes/qc_userspace_isolation.py')
+    for source in [*QC.glob('*.py'), *QC.glob('inputs/*.py'), *QC.glob('work/controller-v3/probes/*.py')]:
+        ast.parse(source.read_bytes(), filename=str(source))
+    run('write-profiles', [PYTHON, '-B', str(QC / 'prepare_write_profiles.py')])
+    run('freeze-e2-inputs', [PYTHON, '-B', str(QC / 'stage_admission_v3.py'), 'execute', 'e2', '--prepare-only'])
+    for name, source, args in [
+        ('io-boundary', 'io_boundary_preflight.mjs', []),
+        ('stage-boundary', 'stage_boundary_preflight_v3.mjs', ['stage-boundary-preflight-v3-0925.json']),
+        ('menu', 'probe_menu_preflight.mjs', ['probe-menu-preflight-0925.json']),
+        ('transport', 'probe_transport_preflight.mjs', []),
+        ('artifact-checkpoint', 'artifact_checkpoint_preflight.mjs', ['artifact-checkpoint-preflight-0925.json']),
+    ]:
+        run(name, [NODE, str(QC / source), *args])
+    run('gateway-not-admitted', [PYTHON, '-B', str(QC / 'run_gateway.py')], 1)
+    assert 'execution-boundary-preflight-v3.json' in (OUT / 'gateway-not-admitted.log.txt').read_text()
+    run('stage-not-admitted', [PYTHON, '-B', str(QC / 'run_stage_v3.py'), 'execute', 'e2'], 1)
+    assert 'gateway/receipt.json' in (OUT / 'stage-not-admitted.log.txt').read_text()
+    run('other-group-not-admitted', [PYTHON, '-B', str(QC / 'run_stage_v3.py'), 'execute', 'timer'], 1)
+    assert 'Stage outside current bounded slice' in (OUT / 'other-group-not-admitted.log.txt').read_text()
+    for name in ('gateway', 'execute-e2-v3', 'report-e2-v3', 'execution-boundary-preflight-v3.json'):
+        assert not (QC / name).exists()
+    for tree in (CONFIG['tree'], CONFIG['author']):
+        assert subprocess.check_output(['git', '-C', tree, 'rev-parse', 'HEAD'], text=True).strip() == CONFIG['revision']
+        assert not subprocess.check_output(['git', '-C', tree, 'status', '--porcelain'], text=True).strip()
+    record.update(status='OFFLINE_PASS_DYNAMIC_NOT_RUN', helpers_sha256={name: sha(QC / name) for name in ('run_probe_v3.py', 'inputs/qc_userspace_isolation.py', 'review_v3.mjs', 'credential-bootstrap.mjs')}, inspector_sha256=sha(ROOT / 'inspect_status.py'))
+except BaseException as error:
+    record['status'] = 'BLOCKED_OFFLINE_PREFLIGHT'
+    record['error_type'] = type(error).__name__
+    save()
+    raise
+save()
+print(json.dumps({'status': record['status'], 'checks': len(record['checks']), 'model_requests': 0, 'pytest_invocations': 0, 'out': str(OUT)}))

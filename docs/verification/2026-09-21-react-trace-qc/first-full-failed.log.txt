@@ -1,0 +1,689 @@
+........................................................................ [  0%]
+......s.....................x.........s.....s........................... [  1%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+...................................................................s.... [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+....................................s....s....s....s.................... [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 34%]
+............................ssssssss.................................... [ 35%]
+...........x............................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+..............................ssss...................................... [ 45%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 53%]
+..............................s......................................... [ 54%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 58%]
+........................s............................................... [ 59%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+........................................................................ [ 70%]
+........................................................................ [ 71%]
+........................................................................ [ 71%]
+........................................................................ [ 72%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 76%]
+...........s............................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+...................................................................F.... [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 84%]
+......................................................................ss [ 85%]
+sssssssssss.............................ss..................s........... [ 86%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 91%]
+........................................................sssss........... [ 92%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+.................ssssss.........sssssssss............................... [ 95%]
+ssssssssssssssssssssssssssss............................................ [ 96%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 98%]
+............................................FEEEEEEEEEEEEEE............. [ 99%]
+........................................................................ [ 99%]
+........................................                                 [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T084103Z-a412a56a.json
+
+==================================== ERRORS ====================================
+_ ERROR at teardown of test_sync_range_aligns_to_market_calendar_and_skips_existing _
+
+self = <contextlib._GeneratorContextManager object at 0x12a525d60>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+____ ERROR at setup of test_hithink_source_accepted_fallback_still_rejected ____
+
+self = <contextlib._GeneratorContextManager object at 0x12470c5c0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+__ ERROR at teardown of test_hithink_source_accepted_fallback_still_rejected ___
+
+self = <contextlib._GeneratorContextManager object at 0x1221a7fe0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+___________ ERROR at setup of test_whitelist_includes_hithink_prefix ___________
+
+self = <contextlib._GeneratorContextManager object at 0x1220e3ad0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_________ ERROR at teardown of test_whitelist_includes_hithink_prefix __________
+
+self = <contextlib._GeneratorContextManager object at 0x12b161520>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+__ ERROR at setup of test_matched_tag_is_case_insensitive_and_whitelist_only ___
+
+self = <contextlib._GeneratorContextManager object at 0x12214d130>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_ ERROR at teardown of test_matched_tag_is_case_insensitive_and_whitelist_only _
+
+self = <contextlib._GeneratorContextManager object at 0x11a862ea0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+__ ERROR at setup of test_fetch_relevant_markets_filters_and_parses_outcomes ___
+
+self = <contextlib._GeneratorContextManager object at 0x11a863bc0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_ ERROR at teardown of test_fetch_relevant_markets_filters_and_parses_outcomes _
+
+self = <contextlib._GeneratorContextManager object at 0x122145dc0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_ ERROR at setup of test_expired_markets_are_dropped_because_upstream_closed_flag_lies _
+
+self = <contextlib._GeneratorContextManager object at 0x1221a4800>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_ ERROR at teardown of test_expired_markets_are_dropped_because_upstream_closed_flag_lies _
+
+self = <contextlib._GeneratorContextManager object at 0x12470d850>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+__________________ ERROR at setup of test_is_expired_boundary __________________
+
+self = <contextlib._GeneratorContextManager object at 0x122122bd0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+________________ ERROR at teardown of test_is_expired_boundary _________________
+
+self = <contextlib._GeneratorContextManager object at 0x11d0900b0>, typ = None
+value = None, traceback = None
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+>               next(self.gen)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:144: OSError
+_______ ERROR at setup of test_sync_writes_rows_with_snapshot_trade_date _______
+
+self = <CaptureManager _method='fd' _global_capturing=<MultiCapture out=<FDCapture 1 oldfd=5 _state='suspended' tmpfile=<_io....xtIOWrapper name='/dev/null' mode='r' encoding='utf-8'>> _state='suspended' _in_suspended=False> _capture_fixture=None>
+when = 'setup', item = <Function test_sync_writes_rows_with_snapshot_trade_date>
+
+    @contextlib.contextmanager
+    def item_capture(self, when: str, item: Item) -> Generator[None]:
+        self.resume_global_capture()
+        self.activate_fixture()
+        try:
+>           yield
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:860: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/capture.py:893: in pytest_runtest_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:87: in pytest_runtest_setup
+    yield from thread_exception_runtest_hook()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/threadexception.py:68: in thread_exception_runtest_hook
+    yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:160: in pytest_runtest_setup
+    item.session._setupstate.setup(item)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:514: in setup
+    col.setup()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/python.py:1630: in setup
+    self._request._fillfixtures()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:697: in _fillfixtures
+    item.funcargs[argname] = self.getfixturevalue(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:532: in getfixturevalue
+    fixturedef = self._get_active_fixturedef(argname)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:617: in _get_active_fixturedef
+    fixturedef.execute(request=subrequest)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1091: in execute
+    result = ihook.pytest_fixture_setup(fixturedef=self, request=request)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:53: in run_old_style_hookwrapper
+    return result.get_result()
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py:38: in run_old_style_hookwrapper
+    res = yield
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/setuponly.py:36: in pytest_fixture_setup
+    return (yield)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:1140: in pytest_fixture_setup
+    result = call_fixture_func(fixturefunc, request, kwargs)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py:891: in call_fixture_func
+    fixture_result = next(generator)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:265: in tmp_path
+    path = _mk_tmp(request, tmp_path_factory)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:252: in _mk_tmp
+    return factory.mktemp(name, numbered=True)
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py:136: in mktemp
+    p = make_numbered_dir(root=self.getbasetemp(), prefix=basename, mode=0o700)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+root = PosixPath('/private/tmp/pytest-of-a77/pytest-1356')
+prefix = 'test_sync_writes_rows_with_sna', mode = 448
+
+    def make_numbered_dir(root: Path, prefix: str, mode: int = 0o700) -> Path:
+        """Create a directory with an increased number as suffix for the given prefix."""
+        for i in range(10):
+            # try up to 10 times to create the folder
+            max_existing = max(map(parse_num, find_suffixes(root, prefix)), default=-1)
+            new_number = max_existing + 1
+            new_path = root.joinpath(f"{prefix}{new_number}")
+            try:
+                new_path.mkdir(mode=mode)
+            except Exception:
+                pass
+            else:
+                _force_symlink(root, prefix + "current", new_path)
+                return new_path
+        else:
+>           raise OSError(
+                "could not create numbered dir with prefix "
+                f"{prefix} in {root} after 10 tries"
+            )
+E           OSError: could not create numbered dir with prefix test_sync_writes_rows_with_sna in /private/tmp/pytest-of-a77/pytest-1356 after 10 tries
+
+../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:240: OSError
+
+During handling of the above exception, another exception occurred:
+
+self = <contextlib._GeneratorContextManager object at 0x12ebca780>
+typ = <class 'OSError'>
+value = OSError('could not create numbered dir with prefix test_sync_writes_rows_with_sna in /private/tmp/pytest-of-a77/pytest-1356 after 10 tries')
+traceback = <traceback object at 0x125ef9dc0>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: OSError
+=================================== FAILURES ===================================
+_____________ test_skill_timeout_degrades_one_module_and_continues _____________
+
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1356/test_skill_timeout_degrades_on0')
+
+    def test_skill_timeout_degrades_one_module_and_continues(
+        tmp_path: Path,
+    ) -> None:
+        conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+        run_store = RunStore("alice", root=tmp_path / "runs")
+        conversation = conversation_store.create_conversation()
+        user_message = conversation_store.append_message(
+            conversation.conversation_id, "user", "测试 Skill 超时"
+        )
+        run = run_store.create_run(
+            user_message.content,
+            "ask",
+            session_id=conversation.conversation_id,
+        )
+        assistant = conversation_store.append_message(
+            conversation.conversation_id,
+            "assistant",
+            "",
+            status="pending",
+            run_id=run.run_id,
+        )
+        definitions = {
+            "slow-skill": SkillDefinition(
+                skill_id="slow-skill",
+                name="Slow Skill",
+                description="超时测试",
+                version="1.0.0",
+                triggers=("slow",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            ),
+            "fast-skill": SkillDefinition(
+                skill_id="fast-skill",
+                name="Fast Skill",
+                description="继续执行测试",
+                version="1.0.0",
+                triggers=("fast",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            ),
+        }
+        registry = SkillRegistry(
+            definitions,
+            {
+                "slow-skill": _SlowSkill(),
+                "fast-skill": _FastSkill(),
+            },
+        )
+    
+        result = TurnOrchestrator(
+            repo_root=tmp_path,
+            conversation_store=conversation_store,
+            run_store=run_store,
+            skill_registry=registry,
+            route_skills_fn=lambda *_args, **_kwargs: SkillRouteResult(
+                (
+                    SkillSelection("slow-skill", "manual", "超时测试"),
+                    SkillSelection("fast-skill", "manual", "继续执行测试"),
+                ),
+                False,
+            ),
+        ).run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run.run_id,
+            assistant_message_id=assistant.message_id,
+            query=user_message.content,
+            skill_mode="manual",
+            selected_skill_ids=["slow-skill", "fast-skill"],
+        )
+    
+        events = run_store.load_stream_events(run.run_id)
+        report = json.loads(
+            (run_store.run_dir(run.run_id) / "report.json").read_text(encoding="utf-8")
+        )
+        assert result.status == "completed"
+        assert any("slow-skill 执行超时" in warning for warning in report["warnings"])
+        assert any(
+            module["module_id"] == "fast_result" for module in report["modules"]
+        )
+>       assert any(
+            event["event_type"] == "skill.result"
+            and event["payload"]["skill_id"] == "slow-skill"
+            and event["payload"]["status"] == "degraded"
+            and event["payload"]["task_may_continue"] is True
+            for event in events
+        )
+E       assert False
+E        +  where False = any(<generator object test_skill_timeout_degrades_one_module_and_continues.<locals>.<genexpr> at 0x12fb59cb0>)
+
+intelligence/tests/test_workbench_conversation_integration.py:765: AssertionError
+_________ test_sync_range_aligns_to_market_calendar_and_skips_existing _________
+
+con = <_duckdb.DuckDBPyConnection object at 0x122178070>
+
+    def init_db(con=None):
+        own = con is None
+        con = duckdb.connect(str(path)) if own else con
+        try:
+>           con.execute(db.SCHEMA_PATH.read_text(encoding="utf-8"))
+E           _duckdb.TransactionException: TransactionContext Error: Failed to commit: Could not write file "/private/tmp/pytest-of-a77/pytest-1356/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device
+
+tests/test_sync_fupanhui_public_assets.py:25: TransactionException
+
+During handling of the above exception, another exception occurred:
+
+patched_db = <function _connect_test_db.<locals>.connect at 0x12a57c9a0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x124759970>
+
+    def test_sync_range_aligns_to_market_calendar_and_skips_existing(patched_db, monkeypatch):
+        con = patched_db()
+        try:
+            con.executemany(
+                "INSERT INTO fact_market_daily (trade_date, source) VALUES (?, ?)",
+                [("2026-08-11", "test"), ("2026-08-12", "test")],
+            )
+        finally:
+            con.close()
+        _stub_empty_daily_apis(monkeypatch)
+>       first = assets.sync_range("2026-08-11", "2026-08-12", sleep=0)
+
+tests/test_sync_fupanhui_public_assets.py:539: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+market_feature_store/sync/sync_fupanhui_public_assets.py:1361: in sync_range
+    _mark_ops(td, name, "failed", 0, f"{type(exc).__name__}: {exc}")
+market_feature_store/sync/sync_fupanhui_public_assets.py:1190: in _mark_ops
+    init_db()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = <_duckdb.DuckDBPyConnection object at 0x12217b3b0>
+
+    def init_db(con=None):
+        own = con is None
+        con = duckdb.connect(str(path)) if own else con
+        try:
+>           con.execute(db.SCHEMA_PATH.read_text(encoding="utf-8"))
+E           _duckdb.TransactionException: TransactionContext Error: Failed to commit: Could not write file "/private/tmp/pytest-of-a77/pytest-1356/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device
+
+tests/test_sync_fupanhui_public_assets.py:25: TransactionException
+
+During handling of the above exception, another exception occurred:
+
+self = <contextlib._GeneratorContextManager object at 0x124791cd0>
+typ = <class '_duckdb.TransactionException'>
+value = TransactionException('TransactionContext Error: Failed to commit: Could not write file "/private/tmp/pytest-of-a77/pytest-1356/test_sync_range_aligns_to_mark0/market_feature_store.duckdb.wal": No space left on device')
+traceback = <traceback object at 0x12217a800>
+
+    def __exit__(self, typ, value, traceback):
+        if typ is None:
+            try:
+                next(self.gen)
+            except StopIteration:
+                return False
+            else:
+                try:
+                    raise RuntimeError("generator didn't stop")
+                finally:
+                    self.gen.close()
+        else:
+            if value is None:
+                # Need to force instantiation so we can reliably
+                # tell if we get the same exception back
+                value = typ()
+            try:
+>               self.gen.throw(value)
+E               OSError: [Errno 28] No space left on device
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py:158: OSError
+=============================== warnings summary ===============================
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:146: RuntimeWarning: divide by zero encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:146: RuntimeWarning: overflow encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:146: RuntimeWarning: invalid value encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:149: RuntimeWarning: divide by zero encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:149: RuntimeWarning: overflow encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:149: RuntimeWarning: invalid value encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:157: RuntimeWarning: divide by zero encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:157: RuntimeWarning: overflow encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/models/market_stage.py:157: RuntimeWarning: invalid value encountered in matmul
+    S = Z @ W
+
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/fwp-wt-react-trace-qc-0921/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/python.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_workbench_conversation_integration.py::test_skill_timeout_degrades_one_module_and_continues
+FAILED tests/test_sync_fupanhui_public_assets.py::test_sync_range_aligns_to_market_calendar_and_skips_existing
+ERROR tests/test_sync_fupanhui_public_assets.py::test_sync_range_aligns_to_market_calendar_and_skips_existing
+ERROR tests/test_sync_local_sector_members.py::test_hithink_source_accepted_fallback_still_rejected
+ERROR tests/test_sync_local_sector_members.py::test_hithink_source_accepted_fallback_still_rejected
+ERROR tests/test_sync_local_sector_members.py::test_whitelist_includes_hithink_prefix
+ERROR tests/test_sync_local_sector_members.py::test_whitelist_includes_hithink_prefix
+ERROR tests/test_sync_polymarket_macro_odds.py::test_matched_tag_is_case_insensitive_and_whitelist_only
+ERROR tests/test_sync_polymarket_macro_odds.py::test_matched_tag_is_case_insensitive_and_whitelist_only
+ERROR tests/test_sync_polymarket_macro_odds.py::test_fetch_relevant_markets_filters_and_parses_outcomes
+ERROR tests/test_sync_polymarket_macro_odds.py::test_fetch_relevant_markets_filters_and_parses_outcomes
+ERROR tests/test_sync_polymarket_macro_odds.py::test_expired_markets_are_dropped_because_upstream_closed_flag_lies
+ERROR tests/test_sync_polymarket_macro_odds.py::test_expired_markets_are_dropped_because_upstream_closed_flag_lies
+ERROR tests/test_sync_polymarket_macro_odds.py::test_is_expired_boundary - OS...
+ERROR tests/test_sync_polymarket_macro_odds.py::test_is_expired_boundary - OS...
+ERROR tests/test_sync_polymarket_macro_odds.py::test_sync_writes_rows_with_snapshot_trade_date
+2 failed, 12535 passed, 87 skipped, 2 xfailed, 17 warnings, 14 errors in 1367.09s (0:22:47)

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="6" time="4.348" timestamp="2026-09-24T03:08:01.651565+08:00" hostname="77deMacBook-Air.local"><testcase classname="" name="test_unit_page_offsets_and_navigation" time="0.009"><failure message="assert True is False">def test_unit_page_offsets_and_navigation():
+        rows = [{"entity_code": "A.FP", "trade_date": f"2026-08-0{i}"} for i in (3, 4)]
+        for offset, limit, nxt, trunc in ((0, 1, 1, True), (0, 2, None, False),
+                                          (1, 1, None, True), (5, 1, None, False)):
+            # real paging path slices preview and recomputes returned_count/truncated
+            # (episode.py read_history_result rows[offset:offset+limit]) before _result.
+            page = rows[offset:offset + limit]
+            payload = dict(
+                _payload(rows),
+                preview=page,
+                returned_count=len(page),
+                truncated=len(page) &lt; len(rows),
+            )
+            model, details = _project(_result(payload, result_ref=REF, offset=offset))
+            scope = next(row for row in details if "total_matched" in row)
+            assert scope["offset"] == offset
+            assert scope["next_offset"] == nxt
+&gt;           assert scope["truncated"] is trunc
+E           assert True is False
+
+../../spec/work/probes/test_probe_c5_pagination_v2.py:26: AssertionError</failure></testcase><testcase classname="" name="test_repair_runs_after_sentence_deletion_and_surviving_definition_blocks_it" time="0.001" /><testcase classname="" name="test_deleted_only_definition_removes_count_keeps_unrelated_prose" time="0.001" /><testcase classname="" name="test_circled_and_ordered_definition_prefixes_are_recognized" time="0.001" /><testcase classname="" name="test_non_definition_deleted_sentence_does_not_authorize_removal" time="0.000" /><testcase classname="" name="test_real_verify_exit_delivers_repaired_public_answer" time="0.092" /></testsuite></testsuites>

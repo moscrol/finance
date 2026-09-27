@@ -1,0 +1,10 @@
+"""正控探针：故意失败，用于校验执行环境真的在跑断言。
+
+下一阶段单独执行，预期结果：FAILED。
+记录标签：expected_positive_control / probe_bug。
+若此文件通过，说明探针执行链本身坏了，test_reviewer.py 的结果一律不可信。
+"""
+
+
+def test_positive_control_must_fail():
+    assert 1 == 2  # expected_positive_control / probe_bug：必须失败

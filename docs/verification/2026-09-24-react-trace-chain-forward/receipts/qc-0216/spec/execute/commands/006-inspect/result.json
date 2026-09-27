@@ -1,0 +1,30 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "--no-heading",
+    "-e",
+    "def numeric_condition_unsupported",
+    "-e",
+    "def normalize_query",
+    "-e",
+    "def strip_evidence_ordinals",
+    "-e",
+    "def _drop_rejected_sentences",
+    "-e",
+    "def _repair_dangling_condition_references",
+    "-e",
+    "def next_offset",
+    "intelligence"
+  ],
+  "shell": false,
+  "target_exit_code": 2,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 219,
+  "output_sha256": "d46f846f226e27c1e31530e5fbe30aef58816c0cda08a04dd758cc44158cfebe"
+}

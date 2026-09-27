@@ -1,0 +1,148 @@
+{
+  "at": "2026-09-23T11:44:58.259508+00:00",
+  "revision": "2be85e64eeaffc6e37b66898ecc1a740acd6a7fd",
+  "git_tree": "cd5ff0b865e823fd3cc5a26555cb25ce81d66ae0",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "clean_tree_before_and_after": true,
+  "code_dirty_after": "",
+  "python_counts": {
+    "passed": 14641,
+    "failed": 2,
+    "error": 0,
+    "skipped": 85,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "python_failed_ids": [
+    "intelligence/tests/test_runtime_coverage_boundaries.py::test_terminal_publish_paths_claim_before_public_artifacts",
+    "intelligence/tests/test_session_projection.py::test_public_answer_assignments_all_go_through_view"
+  ],
+  "python_scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 14730
+  },
+  "junit_suites": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "2",
+      "skipped": "87",
+      "tests": "14730",
+      "time": "1951.926",
+      "timestamp": "2026-09-23T19:06:51.838067+08:00",
+      "hostname": "77deMacBook-Air.local"
+    }
+  ],
+  "frontend": {
+    "complete": true,
+    "identity_stable": true,
+    "dirty": false,
+    "exit_code": 0,
+    "checks": [
+      {
+        "command": [
+          "pnpm",
+          "install",
+          "--frozen-lockfile"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.56,
+        "log": "frontend-0.log.txt",
+        "log_bytes": 1818,
+        "log_sha256": "5c42ac7da08a31a82f19d747a098a495117839cafb1ac3acc3858f3ca27ad02a"
+      },
+      {
+        "command": [
+          "pnpm",
+          "lint"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.49,
+        "log": "frontend-1.log.txt",
+        "log_bytes": 181,
+        "log_sha256": "2fe68571f8686514c54b5ddcd802bde66465c103633a3c0065a4d19862a3fe40"
+      },
+      {
+        "command": [
+          "pnpm",
+          "typecheck"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 4.64,
+        "log": "frontend-2.log.txt",
+        "log_bytes": 279,
+        "log_sha256": "484cf29a5efd0326171b3f6dbdb7214cc52cc263c413fb5d6730fe872d4fff25"
+      },
+      {
+        "command": [
+          "pnpm",
+          "test"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 10.16,
+        "log": "frontend-3.log.txt",
+        "log_bytes": 1565,
+        "log_sha256": "e298762f502431265fc79979461cc874021aa75de8963e7332207d799c51e916"
+      },
+      {
+        "command": [
+          "pnpm",
+          "build"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 6.07,
+        "log": "frontend-4.log.txt",
+        "log_bytes": 1049,
+        "log_sha256": "5eb7724646c429f73a094d2db4b7b82b0373710daa11de887875134562f31ba9"
+      },
+      {
+        "command": [
+          "pnpm",
+          "test:e2e"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 89.86,
+        "log": "frontend-5.log.txt",
+        "log_bytes": 12820,
+        "log_sha256": "3cef20fab22fd58010e379be53d0c747b214e22b97cb14bd6e95735293066c66"
+      }
+    ]
+  },
+  "leaf_exits": {
+    "python_exit": 1,
+    "frontend_exit": 0,
+    "registry_1_exit": 0,
+    "registry_2_exit": 0,
+    "registry_3_exit": 0,
+    "registry_4_exit": 0,
+    "registry_5_exit": 0,
+    "identity_exit": 0,
+    "gate_exit": 1
+  },
+  "engineering_all_passed": false,
+  "independent_qc": "BLOCKED_REVIEW_NO_OUTPUT",
+  "independent_probe_executions": 0,
+  "l5": "BLOCKED_CANDIDATE_NOT_ACCEPTED",
+  "l5_initial_submissions": 0,
+  "readiness": "not_ready",
+  "readiness_missing": [
+    "market_data_consistency"
+  ],
+  "market_database": {
+    "date": "2026-09-22",
+    "snapshot_date": "2026-09-23",
+    "consistent_with_snapshot": false,
+    "required_by_continuous_runtime": true
+  },
+  "merge_allowed": false,
+  "deployed": false,
+  "receipt_does_not_cover_documentation_closeout_revision": true,
+  "automatic_retry": false
+}

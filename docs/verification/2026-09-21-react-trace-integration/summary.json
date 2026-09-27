@@ -1,0 +1,45 @@
+{
+  "revision": "a14005fc9a9d671d178da6fc91be9cb69ae67e77",
+  "base": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "python": {
+    "passed": 12596,
+    "skipped": 87,
+    "xfailed": 2,
+    "errors": 0,
+    "failed": 0,
+    "seconds": 1480.3
+  },
+  "frontend": {
+    "passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "all_six_commands_exit_zero": true
+  },
+  "checks_exit_codes": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "independent": {
+    "status": "blocked_timeout",
+    "exit_code": 143,
+    "limit_seconds": 600,
+    "tool_starts": 21,
+    "behavioral_tests_executed": 0,
+    "completed_report": false,
+    "auto_retry_events": 0,
+    "signature": null
+  },
+  "finance": {
+    "natural_model_calls": 0,
+    "status": "not_passed_unchanged"
+  },
+  "permissions": {
+    "merge": false,
+    "deploy_8792": false,
+    "production_write": false
+  }
+}

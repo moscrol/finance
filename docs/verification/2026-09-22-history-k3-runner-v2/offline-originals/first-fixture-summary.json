@@ -1,0 +1,105 @@
+{
+  "summaries": [
+    {
+      "status": "FINAL_RETURNED_REQUIRES_VALIDATION",
+      "exitCode": 0,
+      "started": 1790018234435,
+      "elapsedMs": 1830,
+      "before": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      },
+      "after": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      },
+      "gateway": {
+        "requestCount": 2,
+        "maxRequests": 24,
+        "startedAt": 1790018234648,
+        "deadlineAt": 1790018264435,
+        "elapsedMs": 1617,
+        "closed": true,
+        "finalizing": true
+      },
+      "fixture": true,
+      "tests_run": 0,
+      "retries": 0,
+      "fallback": false,
+      "reportPresent": true,
+      "reportSha256": "bd434f9424d1d72a13f11c273fa7f3341cd1ddcb40e8a0ad2ca69764c724a88a",
+      "disk": [
+        {
+          "timestamp": 1790018234647,
+          "availableBytes": 52030840832
+        },
+        {
+          "timestamp": 1790018236265,
+          "availableBytes": 52039507968
+        }
+      ],
+      "sandbox_layers_per_tool": 1,
+      "controller_trusted_unsandboxed": true,
+      "production_changes": false
+    },
+    {
+      "status": "FINAL_RETURNED_REQUIRES_VALIDATION",
+      "exitCode": 0,
+      "started": 1790018236268,
+      "elapsedMs": 981,
+      "before": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      },
+      "after": {
+        "revision": "fedce252330dce1065238f58e6c914417219ec53",
+        "status": ""
+      },
+      "gateway": {
+        "requestCount": 1,
+        "maxRequests": 24,
+        "startedAt": 1790018236426,
+        "deadlineAt": 1790018266268,
+        "elapsedMs": 823,
+        "closed": true,
+        "finalizing": false
+      },
+      "fixture": true,
+      "tests_run": 0,
+      "retries": 0,
+      "fallback": false,
+      "reportPresent": true,
+      "reportSha256": "bd434f9424d1d72a13f11c273fa7f3341cd1ddcb40e8a0ad2ca69764c724a88a",
+      "disk": [
+        {
+          "timestamp": 1790018236426,
+          "availableBytes": 52039315456
+        },
+        {
+          "timestamp": 1790018237249,
+          "availableBytes": 52037795840
+        }
+      ],
+      "sandbox_layers_per_tool": 1,
+      "controller_trusted_unsandboxed": true,
+      "production_changes": false
+    }
+  ],
+  "seen": [
+    {
+      "call": 1,
+      "toolCount": 3,
+      "hasToolResults": false
+    },
+    {
+      "call": 2,
+      "toolCount": 0,
+      "hasToolResults": true
+    },
+    {
+      "call": 3,
+      "toolCount": 3,
+      "hasToolResults": false
+    }
+  ]
+}

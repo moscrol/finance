@@ -1,0 +1,155 @@
+{
+  "at": "2026-09-25T16:56:03.024114+00:00",
+  "status": "BLOCKED_RESOURCE_BEFORE_E2",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "model_requests_added": 2,
+  "model_requests_gateway": 2,
+  "model_requests_independent_review": 0,
+  "automatic_retries": 0,
+  "controller_runs": [
+    {
+      "role": "controller_preflight",
+      "counts": {
+        "tests": 10,
+        "passed": 9,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "collected": 10,
+        "collected_source": "pytest_stdout"
+      },
+      "failures": [
+        "test_deliberate_controller_red"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/controller_preflight-1790355110619075000/receipt.json",
+      "receipt_sha256": "7ccc9358c87f6a7fdf8066a317952e8524ab68b38ce34d888e44bc79ad4f64a0"
+    },
+    {
+      "role": "ui_controller_preflight",
+      "counts": {
+        "tests": 2,
+        "passed": 1,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "collected": 2,
+        "collected_source": "vitest_junit"
+      },
+      "failures": [
+        "controller deliberate red"
+      ],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/ui_controller_preflight-1790355110929636000/receipt.json",
+      "receipt_sha256": "4c4c7528f72167e8f8c75c49aee64c1bc5ae3ea6a2890df9e98b91d1fa8bfb2d"
+    },
+    {
+      "role": "controller_author_collection",
+      "counts": {
+        "tests": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "collected": 109,
+        "collected_source": "pytest_stdout"
+      },
+      "failures": [],
+      "receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/controller_author_collection-1790355113741495000/receipt.json",
+      "receipt_sha256": "11c6e740f54e0420c59aea598a11ac4e81edfe83f9a65cc6d8545b4c003e3b21"
+    }
+  ],
+  "gateway_status": "PASS",
+  "resource_refusal": {
+    "at": "2026-09-25T16:53:03.138745+00:00",
+    "load_1m": 8.97412109375,
+    "existing_pytest": 0,
+    "projected_pytest": 1,
+    "free_gib": 35.79228591918945,
+    "allowed": false,
+    "argv": [
+      "--dry-run"
+    ],
+    "inspection": "aggregate only; process commands are not returned"
+  },
+  "stage_status": "not started; host admission exit75",
+  "budget_used": 188,
+  "remaining": 30,
+  "prior_qc08_archive_and_all_sources_unchanged": 507,
+  "independent_candidate_test_runs": 0,
+  "host_steps": {
+    "execution-preflight": {
+      "step": "execution-preflight",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/execution_boundary_preflight_v3.py"
+      ],
+      "started_at": "2026-09-25T16:51:50.565065+00:00",
+      "complete": true,
+      "automatic_retries": 0,
+      "worker_pid": 73549,
+      "child_pid": 73553,
+      "exit_code": 0,
+      "elapsed_seconds": 5.307,
+      "status": "PASS",
+      "child_receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/execution-boundary-preflight-v3.json",
+      "child_status": "PASS",
+      "stdout_sha256": "d07cb4055c8d3a8103ab5484feed87e8d6c1d20fe11e62a8695825433f828f77",
+      "child_receipt_sha256": "1ac2eb591d78580f9bf596416ca4cf9696baba9e8cf22a9b8ecb509884b1c943"
+    },
+    "gateway": {
+      "step": "gateway",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/run_gateway.py"
+      ],
+      "started_at": "2026-09-25T16:52:30.452695+00:00",
+      "complete": true,
+      "automatic_retries": 0,
+      "worker_pid": 74273,
+      "child_pid": 74278,
+      "exit_code": 0,
+      "elapsed_seconds": 8.661,
+      "status": "PASS",
+      "child_receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/gateway/receipt.json",
+      "child_status": "PASS",
+      "stdout_sha256": "14050de0607dd9367a1588494f2928a346523a590c2443f1cb948b91b4124891",
+      "child_receipt_sha256": "04351d6e54506b848030f2958424e7b1c6753adc8188eaeddc327b7873b1c20f"
+    },
+    "execute-e2": {
+      "step": "execute-e2",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/run_stage_v3.py",
+        "execute",
+        "e2"
+      ],
+      "started_at": "2026-09-25T16:53:03.039078+00:00",
+      "complete": true,
+      "automatic_retries": 0,
+      "worker_pid": 74722,
+      "child_pid": 74725,
+      "exit_code": 75,
+      "elapsed_seconds": 0.143,
+      "status": "BLOCKED",
+      "child_receipt": null,
+      "child_status": null,
+      "stdout_sha256": "011dcd61ee0ee37413daa826a1b9cc12cce9c4a80abe9696fe82e065cf234f35"
+    }
+  },
+  "not_verified": [
+    "E2 execute/report",
+    "review-model receipt integrity",
+    "C1-C10",
+    "timer",
+    "consent",
+    "natural acceptance",
+    "new main integration"
+  ],
+  "continuation_boundary": "Only after explicit renewed admission: new host attempt receipt, unchanged QC09 bindings, no replay of gateway. Preserve failed attempt and append-only resource ledger; do not broaden 11-request slice."
+}

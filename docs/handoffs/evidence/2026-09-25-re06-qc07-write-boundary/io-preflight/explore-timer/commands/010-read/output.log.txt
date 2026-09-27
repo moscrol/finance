@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/file_tool.py", line 22, in <module>
+    target = lexical.resolve(strict=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py", line 1240, in resolve
+    s = self._flavour.realpath(self, strict=strict)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen posixpath>", line 424, in realpath
+  File "<frozen posixpath>", line 468, in _joinrealpath
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/fixture/work/e2/probes/test_reviewer.py'

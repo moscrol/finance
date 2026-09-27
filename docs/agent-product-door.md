@@ -108,6 +108,22 @@ L2、外层质检与方法验证保留 `FINANCE_CODE_ROOT`，数据与外置用�
 沙箱内置辅助代码版本 `PRELUDE_VERSION = "5"` 进入 `calc_id`，不复用初版 v4 的计算身份。
 这只保证本地计算及产物一致性，不证明输入行情或公司财务事实真实。
 
+### 工具局部失败与进展记账
+
+`research_progress.normalize_query` 在 JSON 投影边界兼容 `ModelToolCall` 的递归只读
+Mapping：仅复制为普通字典，不改变冻结参数；未知对象仍拒绝。工具参数被拒、执行失败或
+超时时，进展账可接收无 `query` 的结构化参数，错误反馈继续进入原 Episode，已有证据保留。
+这不是自动纠参或保证自然模型重试，也未修复整轮异常后的汇总用量与事件日志不一致。
+生产生效版本仍以 `/api/health` 为准。
+
+### 条件定义被删除后的回指清理
+
+Episode 语义修复只清理本次确实删除、且没有幸存定义的升级/降级条件计数；
+删除与幸存判定使用同一分句及标题规则，第二个行内定义不再被漏掉；无序、数字/中文
+序号、括号数字与圈号列表中的条件标题在两侧对称识别，不把普通正文提及当定义。仅在被删除短语的接缝
+处理标点、相邻否定/副词和加粗标记，保留列表与其他行的原文，不全局清洗答案。
+这仍是有限句式的确定性修复，不是通用中文语法修复；不改变数字证据门或金融质量判定。
+
 ### 连续运行保存与截断边界（OPT-08，候选分支）
 
 `fix/runtime-contracts-0918` 的 P0 区分普通进度通知与必需恢复记录：后者写失败后
@@ -174,6 +190,15 @@ store 拒绝进入控制操作，不以空锁静默兼容；任务目录的 chec
 v1/v2 读回保持原版本、摘要和语义，缺失的来源标记只取 unknown，不猜本地读取权限。
 新捕获写 v3，摘要覆盖来源标记、展示原件和分类；账本与展示不得借同一 hash 改写来源标记。
 上一轮可信原件与本轮预取均先播种，再保存第一次检查点，随后才派发模型。
+用户纠偏开口读侧（`feat/architecture-audit-0924`，审计分支候选，未合入/部署）：
+Workbench 写侧从被纠正的 completed assistant 的 turn_intent 透传主体，不猜新主题。
+有明确公司/题材主体的研究题，合同授权 memory_lookup 且身份已解析时，装配层复用该工具
+runner 自动加入 opening_prefetch，首请求前进入证据账本；提供可选 prior_recall 先验槽，
+不要求模型再主动调用工具。1 秒子期限与根研究期限/合成保留预算取交集；最多两项并发读取，
+无排队，迟到结果不发布。空命中、超时、失败、繁忙分别标为 user_memory_gap；无身份不回落
+默认用户。命中仍为 user_memory，不能绑定市场事实；缺口不能绑定判断，消息不含台账路径。
+material_only/local_only 保持既有不预取上限。离线定向收据见
+`docs/verification/2026-09-25-workbench-correction-ingest/README.md`；不证明真实模型采用或金融质量。
 模型引用不用并行到账顺序重新编号。摘要不是私有原件，既有content_hash不是全字段签名；新摘要校验绑定整份快照但
 不证明来源真实性。仅数据重建不执行工具、不对外发布；恢复合成保留原捕获位置，不冒充
 后续工具结算已归齐。缺证据快照的非终态（含过期闭合）拒绝，截止须与重新确认的context一致；
@@ -717,6 +742,15 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 备忘录只由明确题意触发，与该题共用一个槽；T3 q8 上限200字（保守计入正文
 所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
 零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
+
+`fix/e2-re06-resume-0922` 把这套逐题交付扩到 `local_only`：用户自己编了号就按原号
+冻结 `answer_qN` 必需槽（未编号的本地题与 full 题形状不变），写作提示词、判官载荷、
+语义修复保号与公开稿复验共用同一份实现，第二题不再被卷进 `direct_answer` 一格。
+分界只写在结清口径上——`local_only` 手里仍有本地读工具，所以「缺少X，无法Y」不是
+可结清的 `legal_gap`，只按普通 `required_output_gap` 记 `partial` 并进修复，也不套用
+「仅凭本轮材料」那句全缺口声明；每题仍须本轮实际读到的本地证据，claims 不能替代
+证据，IO 纯度与读权限上限照旧。跨轮恢复不得删除、降 optional 或把这些槽改成推理槽。
+这一片是作者回归加变异验证，不是 P7 验收。
 前置同时修了题内案例弱分区吞题、验收采集 followup 错开会话/误收旧答。
 公开稿的两处再出口（投影后复验、判官拒绝重开）只经 `session_projection.view()`
 并已登记，不另开拼串路径。证据：离线反例与定向回归（`docs/handoffs/2026-09-16-e2-delivery-p4.md`）；
@@ -775,8 +809,9 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 「非事实、无 IO」不越 P3 红线；已编为逐题材料交付的旧模板冲突由上述合同优先规则排除，
 其余方法文案的答案质量影响仍归 P4/P6 再议。引擎 B 内部仍无合同
 意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
-（P3c 声明）。local_only 原题号槽、材料题真实模型交付及可信跨轮继承五格全链
-仍待验收；纯度与材料锚点已有上述候选实现，普通上下文不是按来源过滤后的安全输入。
+（P3c 声明）。local_only 原题号槽已按上述实现并有作者回归，但它与材料题的真实模型
+交付、可信跨轮继承五格全链同样仍待真实模型验收；纯度与材料锚点已有上述候选
+实现，普通上下文不是按来源过滤后的安全输入。
 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。
@@ -880,15 +915,28 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 ### 会话使用计时（分支候选，非试点效果）
 
-研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。
+研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。计时授权使用独立范围 `activity-timer`（`workbench-activity-v2`）：开始、停止、切会话和 `pagehide` 都不改变研究测量同意。测量门仍要求 `research`+`logging`，真正的撤回仍会停掉自用测量（`run_started` / `run_finished` / `cost_recorded`），计时按钮不能重新授予它们。写侧无测量域记录仍按自用默认放行，读侧仍判未知，不把计时授权充作试点授权。
 
 这里只产生 `workbench:<conversation_id>` 自用事件，`task_id=null`；优先队列候选不是冻结试点分配，不能拿它填身份。可见时间不等于键鼠操作时间；隐藏原因 `tab_hidden` 不代表获准扣减端到端时间，也不推断外部查阅。真正的配对效果仍需授权、冻结分配、任务终态和05测量收据，不由计时按钮创建。当前接线和隔离测试不等于生产部署。
+
+旧记录读取兼容集中在 `product_value/consent.py::measurement_scopes`，读写两侧共用：仅当 `workbench-activity-v1` 同时满足原范围恰为 `research`+`logging`、来源为前端、协议为 `workbench-self-use/v1`、`pilot_id` 为 `workbench:` 前缀、参与者是 owner 且无任务时，才把授权和撤回都解释为纯计时意愿。不同来源、协议、身份、任务或混合范围不套用别名。纯计时记录不翻掉自用默认，也不授予试点测量；其余部分授权、空范围和撤回仍按原规则折叠。只改读取解释，不改历史内容、事件哈希或生产台账；涉及旧计时记录的重新计算结果可能变化，旧收据不冒充新口径。用例见 `intelligence/tests/test_re06_activity_consent_gate_effect.py`。
 
 ### 历史发现研究
 
 入口仍是 Workbench 对话，例如「这一波农业怎么走出来的，找出值得检验的特征」→「以前有没有类似，失败案例也看看」→「把观察窗口改成……」。`TaskFrame.history_intent` 区分事后发现与历史比较，随 `TurnIntent` 跨轮传递；普通概念解释与明确取消历史研究不会继承该权限。用户明确限定日期时，历史计算、普通结构化查询与原件读取共用范围门。候选将研究授权窗、信息截止日和单次观察窗分别保留：自然续问从原始用户消息及可信合同恢复，助手旧答/摘要不授权，较晚授权终点不能抬高信息截止。歧义日期需澄清，过程要求（如“窗口太短则继续观察”）不当虚构市场前提。历史工具外的材料也须过有日期/范围门，越截止内容不以“已标注”名义交回模型。可信程序诊断另由类型化 `ToolDiagnostic` 交付，不生成证据编号或交易日期授权；当前只接 finance_query 的字段校验/超时/取消/超限/不可用诊断，白名单消息与字段角色提示不能夹带原始外部异常或任意字段正文。空证据或错误状态本身不豁免无日期事实过滤。
 
 `historical_research` 是引擎 A 上的领域应用：有类型 `history_query` 负责精确代码的日轴、受支持的时间特征、类比及声明窗口全集比较；`read_history_result` 读取原件；`save_history_research` 保存候选、失败与修订。它们复用 `finance_query` capability，预算、工具循环与取消仍由 Episode 管理。完整分母与模型预览分离，原件只经 RunStore 写入；案例修订与普通取消/产物写入均有并发保护。
+
+历史来源绑定（原 #841 候选；实现已随 `101678e89` 进 main）将 query/授权重读视为同一原件的两种读取方式：按固定字段顺序分块，
+卡片身份绑定 query、算子、用途、原件引用及行指纹，页号变化不改行身份；块号区分公开引用，
+每块只携带该块实际展示的结构化数值。有历史算子要求的输出合同拒绝缺来源、资格错误或
+卡片与来源元数据不一致，不从哈希推断来源真实。恢复兼容旧普通证据缺少新增可选字段，
+历史证据则严格重建嵌套身份，不能按空值降为普通证据；原件认证仍由 RunStore 的登记/归属校验承担。
+历史会话的引用缓存只供索引展示，不授予读取权限；每次读取把会话身份传到 RunStore，
+在既有每轮文件锁内重载用户/会话归属、公开可下载登记，并只读取和校验一次原件字节。
+刷新索引移除已失效的引用；拒绝读取不回填别名、证据或改写原件。这层协调遵守同一锁的
+存储写入者，不防绕开接口直接改磁盘，也不证明存在公开入口可触发的归属迁移漏洞。
+`comparison_analog` 补比较维度、假设及类比限制槽，不等于板块排序合同、按需展开 UI 或真实金融题已验收。
 
 **市场—板块—个股过程研究（`feat/history-market-anatomy` 候选，未部署）**：仍用上述 `history_query`，增加 `entity_kind=market`（`000001.SH` 的价格 + 全市场成交/涨跌家数）、`rank_history`（窗口内已观测代码的事后强弱排名）、`trace_history`（启动信号、累计收益路径、窗口峰值/回撤确认、启动日成员排名及声明板块集内的候选接力）。不新增门或事实库。市场阶段原样列 `market_stage`/`cycle_stage` 与各自专属来源，不混授课 `index_stage` 或题材七段；行级 source 不证明标签字段血缘，`market_stage_confidence` 不是校准正确率。
 
@@ -996,6 +1044,14 @@ SDK 修订同样走 harness 的 `repair_goal_message`，不再另行裁剪原句
 标记 `before_backfill`，不是已删除/已裁决；不增加轮次、不绕无进展门或句数限制。
 离线 Episode 已覆盖 GLM/SDK、judge llm/off 的这两类诊断，以及“修订成功 / 无预算 / 忽略反馈”三种交付结果；不代表所有运行后端或自然模型纠错已验收。
 
+### 口径越界观察（接入候选，默认关闭）
+
+`ASK_CLAIM_SCOPE_REVIEW=advisory` 使用与离线 `check_answer_claims` 共用的证据解析和四条规则，只写私有收据，不改答案、不加模型调用、不触发修订、不改变完成状态。未设或 `off` 不新增序列化字段；非法值有效回落 off 并记原值，`revise/block` 当前未实施，记 unsupported，不能当成已硬拦。
+
+A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢复出口盖章，`answer_sha256` 绑定最终文本；恢复出口只用此前已核验答案的证据。B 的 `OutputReviewGate` 挂 advisory checks，`answer_query` 的早退和延后合成均覆盖，Workbench 最终交付另落内部 `claim-scope-review.json`。B 只读来源记录，不把模型生成的 claim 当作证据；现有结构无等价工具请求账，因此明确记录 `engine_b_tool_requests_unavailable`，不得解释成四规则完整通过。线上不预取板块全集；全称范围句缺分母/比较数写 degraded，不静默 clean。现有规则在比较数已知、全集未知时仍可命中越界。
+
+离线观察用 `scripts/claim_scope_census.py <明确指定的产物文件...>`，分母是输入产物数，不是质量样本通过率。实现单见 `2026-09-23-claim-scope-advisory-runtime-workorder.md`；工程、独立 QC、L5 及生产部署各自验收，本段不证明已上线。
+
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：
@@ -1079,7 +1135,7 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 - `ResearchToolRegistry`：授权、参数规范化、同 key 只跑一次、截止日期过滤。不是 `{name: runner}` 字典。超时/重试在 Episode 批次循环，不要搬进注册表（`services/` 不得 import `runtime/`）。
 - `llm_refine`：传输（重试/流式/预算）+ 任务提示词焊在一个文件。不要合成万能 `generate(task_type)`。
-- `perspective_lab.active_runtime_prompt`：视角注入门。模块里还有路径 helper，不要把整文件当成四方法闭环。
+- `perspective_lab.active_runtime_prompt`：视角注入门。模块里还有路径 helper，不要把整文件当成四方法闭环。`evaluate_role` 是确定性评分积木，不是模型质量判官。审计分支的 `signal_match_rules` 候选经反例复核已否决：同句不能保证同主体/时点，词面命中不能判语义成立。正式评分/画像保存拒绝该字段；实验仅留 `scripts/perspective_signal_candidate.py` 重放失败，未配置画像和模型提示不改。见 [反例复核](verification/2026-09-25-spt-contract-challenge/README.md)，旧 [候选合同](superpowers/specs/2026-09-25-perspective-signal-contract.md) 仅为历史设计。
 - 数据块（D0/D6/D9…）：意图门控在块自己的 `applies()`。调用方若要关某一块，只传 `AskOptions.enabled_providers`（或 `evidence_registry.without_providers(...)`）。**不要**再给每个块一个 `include_*_block`。
 
 `force_moneyflow_block` 是「日报强制取 L2」，不是允许开关，仍留在 `AskOptions`。

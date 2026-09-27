@@ -1,0 +1,212 @@
+{
+  "stage": "report",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "started_at": "2026-09-23T18:52:02.665928+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "48168c70729201842933e60a453bc6540036ff9a5766c17054c250868aedd566",
+    "review.mjs": "9ee11db743f982f7391e4ed80d894bac6d423c369e7d9bb3e400767fad96a5d8",
+    "tools.sb": "ef5d5a602af6ef5436cd6252f31c32e66917429d534fa8f1b4ef89f948aa39a0",
+    "file_tool.py": "9d3059fa839659ef935a40cbf4d9ea55ca2b69e1d40673e46864ffe8375a6fc7",
+    "junit_summary.py": "b80627942d2f1d2c2043072a0d462cdc381f5993e01bf8a8baf52eb3562a3bcf",
+    "probe_inventory.py": "362a4429c03e648db85a4de7b3cd835347890d6162f6aa7d0a68affa62e195b9",
+    "run_stage.py": "e01c946ca3782d3169c4ab356238d5ce041b3c90e9e63e7a6b665d402898ebd9",
+    "run_control.py": "d6a3456d1d46eb716b64af3be436c1f7848249ec4de784d7ddc93ae68c4830b2",
+    "provider-template.json": "d320be9d290c5e31d458ad8daa6e03901302e5070a03fc21908a5cfa8661aa02",
+    "pi-config/settings.json": "aeff678691199d9eb4e2544176197919d64b5142fb17689b5392e61d59529fc7",
+    "prompt-report.md": "74bc6baab73d21becf1c502b566defd4c0177659a0f41da7374dd96955ae654b"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 24,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,write,inspect,run_tests,submit_report",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 98567,
+  "probe_sha256": {
+    "work/probes/test_c1_strip_ordinals.py": "c0a3a9988d646c0a6588a9a4136b6d6319819e46345529f37143db96d99f1e36",
+    "work/probes/test_c2_finance_query_diagnostics.py": "8706924c5b987df74fc6ba929b0c878f6686347fe3fc98d31862dedcaf9ff10f",
+    "work/probes/test_c3_repair_feedback.py": "d59e4136b03abd2b220952f69a03a0101cd6b5fb8a8b00b5f37012ef4436637c",
+    "work/probes/test_c3_repair_feedback_fixed.py": "6a150155aecf8b0bca86a0f5653aa2855aa03a53bbb571536ceafb29cd4e9768",
+    "work/probes/test_c4_research_progress_mapping.py": "3a8442c4b2ee6f86fe57fe4ccba6e884830784531f56f5af8b08aaaed5d62338",
+    "work/probes/test_c4b_unknown_object_rejected.py": "a5c26c27c3ef604d2622635c7e105f36cfd0e5b1da1995303d4f4a72f2b360a3",
+    "work/probes/test_c5_history_paging.py": "b941d60454b20b81e537ac258b61cfb7180f48c8d4a30a5a2b63299778af8b52",
+    "work/probes/test_c5_history_paging_fixed.py": "f1f10533d85951e4f644036a9e83ca4a52e12ec2200f6502cc1d71e9b6818026",
+    "work/probes/test_c5_history_paging_fixed2.py": "3b21214888ea660f6a32c2bba161ba15d90c689356169010217c6c572e704da5",
+    "work/probes/test_c6_dangling_repair_basic.py": "c987df2b9df0f993a96a0596b78ba968ab15e726643d56ff83872a425fab2cc9",
+    "work/probes/test_c6_dangling_repair_fixed.py": "0b111595d6491dbb68d43e8fecb5ee44a5dbbdaba264ae9e336cf106035b4481",
+    "work/probes/test_c6_repair_pipeline_order.py": "c0c3fcb861a7a7b3bc58e2a0b4d97c259b5a236ecd8d8ac872becc5b6643eb54"
+  },
+  "status": "BLOCKED_STAGE_OR_DELIVERY",
+  "exit_code": 0,
+  "elapsed_seconds": 202.263,
+  "timed_out": false,
+  "requests": 13,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    },
+    {
+      "admission": 2,
+      "status": 200
+    },
+    {
+      "admission": 3,
+      "status": 200
+    },
+    {
+      "admission": 4,
+      "status": 200
+    },
+    {
+      "admission": 5,
+      "status": 200
+    },
+    {
+      "admission": 6,
+      "status": 200
+    },
+    {
+      "admission": 7,
+      "status": 200
+    },
+    {
+      "admission": 8,
+      "status": 200
+    },
+    {
+      "admission": 9,
+      "status": 200
+    },
+    {
+      "admission": 10,
+      "status": 200
+    },
+    {
+      "admission": 11,
+      "status": 200
+    },
+    {
+      "admission": 12,
+      "status": 200
+    },
+    {
+      "admission": 13,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 13,
+    "message_start": 30,
+    "message_end": 30,
+    "message_update": 20617,
+    "tool_execution_start": 16,
+    "tool_execution_end": 16,
+    "turn_end": 13,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 40026,
+    "output": 20689,
+    "cacheRead": 213696,
+    "cacheWrite": 0,
+    "totalTokens": 274411
+  },
+  "artifact_sha256": {
+    "payload-shapes.jsonl": "036f83838b240952eb7f5528f7f37b10cec4d47a916b0fa1470d56c1cb8e7e71",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "4f284c63bcd6e59bd3f6843750e71c5cefe54e3ee8c58654d4a0f15159cab90a",
+    "REPORT.json": "4f284c63bcd6e59bd3f6843750e71c5cefe54e3ee8c58654d4a0f15159cab90a",
+    "assistant-text.jsonl": "0b7212b7284bd47d41552847bd7dfc1603eebcbca1e1134ac481d0f92b19848e",
+    "progress.jsonl": "2216cfc859001151ebd51bd6e08438bd0856fdb697349e84d03108cd5b4c6c31",
+    "REPORT.md": "edf2fee4612c882b4d572fc481c15b58560dd4eb790f62d459356ef3be9b3591",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "3df6884417d9e744906273548378fb672e03759248bff643c8d04c829a07c5cc",
+    "request-admissions.jsonl": "0f7648495c8134ef8f3fe4d64d070fb81dd75998a056560375d98091578d2573",
+    "responses.jsonl": "548160f56996363456ffef7bc0e796e9d17e7015dd2aca728aeb0b6456330370",
+    "events.jsonl": "66724343594033bd797b873ab0277f49c364da97d58a3ec96201db7872a951d1",
+    "commands/005-read/request.json": "c2b8329c41b02c3c0a60aa2ab176de41e88bf77f0b15a5e58591ab2be8b8ac7b",
+    "commands/005-read/result.json": "1e24721724ce9900c65a6203b8ea01ae6c62c5fef004651a0c579c7be5039b7e",
+    "commands/005-read/output.log": "473db3f77ac211382288263f37e759b55ade328c74f02e9865604e539e2c1e8b",
+    "commands/008-submit_report/request.json": "b554870d66169f50788383c88a3224a7c3e8c873c7abf99ab34e144de54fd319",
+    "commands/004-read/request.json": "769fcb71ea2c64bd877d7ed71642ece280e840dcf1d1827c900d134e9af4aa2d",
+    "commands/004-read/result.json": "01bcef02bf9ca4d39b91f73725ef772c089b520005eff0f9135f6c58ae7ad37c",
+    "commands/004-read/output.log": "c0441086a31b6eacefccdba15ddcb8f7496ecd7f7f468759cc3094e462a39d8c",
+    "commands/003-read/request.json": "78d6918ba87aef836a86185e5500b477ae71de1d8b37e74d2e5fc66fb40bda46",
+    "commands/003-read/result.json": "fd299c10bf32108c97b4dd7e75d507cf89e12fe4d7dd0b8f80f3ee09bc88e679",
+    "commands/003-read/output.log": "a1b5394acfb978583d56542046ca42d9167b965eb6c894499789b1094c600a6a",
+    "commands/016-submit_report/request.json": "55e5232b742ccb662e6fc914f99be2cc05b313f03f7c653eb5c0f6692c587721",
+    "commands/016-submit_report/result.json": "dfb59048557aa3034090cefabf28059ca9e258fd3a19d0130917b15ac8848f4b",
+    "commands/007-inspect/request.json": "e9bc7bfbb83e0cfaa748b1df512a250dde72cc44e266ae05eab7a0c233507bbf",
+    "commands/007-inspect/result.json": "cc5d7cc78529420b1eecd44e063d90a7188098f04a8b197d8f75d7fe41b33bd7",
+    "commands/007-inspect/output.log": "174ef4d6e71a6334760d9afe56e8bc1eba8d4993fda9fd4d928926197edcc815",
+    "commands/012-submit_report/request.json": "bd287be4b7e8002f3273d43f5d7e2382571ffbe7aa8746bccdbaabe756aadc8a",
+    "commands/015-submit_report/request.json": "11e6f423c247cb24b2589ebc532186264aa1dc67fe8698b2a38747ea1a9ad3b0",
+    "commands/011-submit_report/request.json": "475a0750db1dc9a8a043810d521365d569c6f6c3fb809edcf6135218c38e0c43",
+    "commands/002-read/request.json": "8f05d8eb8e2d31e4f18d2317324f1901188340f6493034ee0111a53b82b53025",
+    "commands/002-read/result.json": "f9341435d8c807ef3ee0bdda35e706c3ed74977929b12c2de03810a10406d480",
+    "commands/002-read/output.log": "079e04f4b15353792aa6f4a193502b310e56fae46f7b40df7d72a65ec3ff77d2",
+    "commands/010-submit_report/request.json": "d466e4da0d54b0158495f35c32e3eb643834cefb6394d6e5f6b34e317ee04e2e",
+    "commands/014-submit_report/request.json": "294c18beb69c90e4f70645c0ad15f5d8f3cf255976329fda5e02f28969a17f16",
+    "commands/001-read/request.json": "231433621f424027da3c55bd905273fb02911497eb56b0a5b03e79977162e2d3",
+    "commands/001-read/result.json": "9786b7721f364841e14f6139db8ba09d13356773757e38eb825174c3791cf5f0",
+    "commands/001-read/output.log": "a058cebb7ab827c8f0ba4c29ab24ec1607866968d5c0fdcc4cef3460dc628cdd",
+    "commands/013-submit_report/request.json": "85078bacf4a4354c76d41d04908b58dba064c3db7c55d31911ce051b19dd26a7",
+    "commands/006-read/request.json": "d4547c6635b21925277149e15a163685afa8a80b2906327371b3d16991bc6893",
+    "commands/006-read/result.json": "746bf998d6fb5bdfc8e0ef2adcceaef8fe2aff9d0b9251282e1dabb3cc16382f",
+    "commands/006-read/output.log": "68a0d9b5b293e705c01116b8c4fe978971f929b4721d8931f70ec25d04f61240",
+    "commands/009-submit_report/request.json": "31a31898b3cc2fd86808a708e08f52aa79c3abfc9e407bc3a5e7b5aa6c6215d2"
+  }
+}

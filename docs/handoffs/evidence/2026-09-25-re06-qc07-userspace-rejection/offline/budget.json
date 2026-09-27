@@ -1,0 +1,111 @@
+{
+  "observed_at": "2026-09-25T15:23:14.153052+00:00",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "historical_requests": 147,
+  "used": 186,
+  "ceiling": 218,
+  "remaining": 32,
+  "ceiling_exceeded": false,
+  "stages": [
+    {
+      "batch": "qc",
+      "stage": "gateway",
+      "requests": 2,
+      "status": "PASS",
+      "complete": true,
+      "pid": 3573,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc/gateway/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc",
+      "stage": "explore-e2-v3",
+      "requests": 4,
+      "status": "BLOCKED_STAGE_OR_PROVIDER",
+      "complete": true,
+      "pid": 31036,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc/explore-e2-v3/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-bounded-02",
+      "stage": "gateway",
+      "requests": 2,
+      "status": "PASS",
+      "complete": true,
+      "pid": 36992,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-bounded-02/gateway/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-bounded-02",
+      "stage": "execute-e2-v3",
+      "requests": 6,
+      "status": "STAGE_COMPLETE",
+      "complete": true,
+      "pid": 38754,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-bounded-02/execute-e2-v3/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-bounded-02",
+      "stage": "explore-e2-v3",
+      "requests": 6,
+      "status": "STAGE_COMPLETE",
+      "complete": true,
+      "pid": 37140,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-bounded-02/explore-e2-v3/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-delivery-03",
+      "stage": "gateway",
+      "requests": 2,
+      "status": "PASS",
+      "complete": true,
+      "pid": 55284,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-delivery-03/gateway/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-delivery-03",
+      "stage": "execute-e2-v3",
+      "requests": 5,
+      "status": "STAGE_COMPLETE",
+      "complete": true,
+      "pid": 56394,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-delivery-03/execute-e2-v3/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-execution-menu-04",
+      "stage": "gateway",
+      "requests": 2,
+      "status": "PASS",
+      "complete": true,
+      "pid": 3793,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-execution-menu-04/gateway/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-execution-menu-04",
+      "stage": "execute-e2-v3",
+      "requests": 5,
+      "status": "BLOCKED_STAGE_OR_PROVIDER",
+      "complete": true,
+      "pid": 4026,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-execution-menu-04/execute-e2-v3/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-execution-final-06",
+      "stage": "gateway",
+      "requests": 2,
+      "status": "PASS",
+      "complete": true,
+      "pid": 47214,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-execution-final-06/gateway/request-admissions.jsonl"
+    },
+    {
+      "batch": "qc-execution-final-06",
+      "stage": "execute-e2-v3",
+      "requests": 3,
+      "status": "BLOCKED_STAGE_OR_PROVIDER",
+      "complete": true,
+      "pid": 48820,
+      "ledger": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-execution-final-06/execute-e2-v3/request-admissions.jsonl"
+    }
+  ],
+  "scope": "budget and execution facts only; no independent semantic or deployment verdict"
+}

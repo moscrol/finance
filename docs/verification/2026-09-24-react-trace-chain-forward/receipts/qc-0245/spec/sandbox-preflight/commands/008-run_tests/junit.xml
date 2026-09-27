@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.036" timestamp="2026-09-24T02:45:20.401142+08:00" hostname="77deMacBook-Air.local"><testcase classname="" name="test_red" time="0.001"><failure message="AssertionError: never trust printed status&#10;assert 1 == 2">def test_red():
+        print("EXIT=0")
+&gt;       assert 1 == 2, "never trust printed status"
+E       AssertionError: never trust printed status
+E       assert 1 == 2
+
+../../spec/work/probes/test_harness_misleading_output.py:3: AssertionError</failure></testcase></testsuite></testsuites>

@@ -18,6 +18,7 @@ from intelligence.services.evidence_capabilities import (
     EvidenceRequirement,
     resolve_evidence_plan,
     runtime_capabilities_for_frame,
+    needs_opening_memory,
 )
 from intelligence.services.mandatory_satisfiability import (
     apply_static_chain_mapping_precheck,
@@ -438,7 +439,7 @@ def _with_prior_recall(
     """Add the prior_recall slot only when the tool that fills it is authorized.
 
     这个判据里的 `memory_lookup in capabilities` 不是防御性冗余。`prior_recall`
-    的注入条件只看题型与措辞，而 `memory_lookup` 的授权来自另一条路
+    的注入条件看有主体的研究题或显式回忆措辞，而 `memory_lookup` 的授权来自另一条路
     （`evidence_capabilities.py` 的 evidence policy），两者可以不同步：
 
     - 调用方显式传 `capabilities` 且其中没有 `memory_lookup`；
@@ -451,7 +452,7 @@ def _with_prior_recall(
     产出一个填不满的契约。所以把「有工具」变成注入的前置条件。
     """
 
-    if not _references_prior_judgement(frame):
+    if not (_references_prior_judgement(frame) or needs_opening_memory(frame)):
         return output_ids
     if "memory_lookup" not in capabilities:
         return output_ids
@@ -774,6 +775,20 @@ def build_episode_context(
         material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
         if material_descriptions:
             output_ids = (*material_descriptions, "evidence_boundary")
+        forward_slots = frozenset()
+    elif (
+        material is not None
+        and material.data_scope == "local_only"
+        and material.questions
+    ):
+        # 用户自己编了号，就按那个编号交付：每题一个必填槽，而不是把两三题卵进
+        # direct_answer 一格。让第二题消失在一个已履行的总槽里，是 D5 已经实证过的
+        # 漏答路径。跟 material_only 只差在“取数权限”：这里仍然有本地读工具，所以
+        # evidence_types / evidence_plan 照常挂，每题仍需真实本地证据；材料题那套
+        # 「交代缺口即可结清」的账不跟着过来（见 material_delivery 模块头注）。
+        # 未编号的本地题 questions 为空，形状不变；待澄清合同走上面 material_only 分支。
+        material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
+        output_ids = (*material_descriptions, "evidence_boundary")
         forward_slots = frozenset()
 
     base_policy = ResearchPolicy.for_tier(tier)

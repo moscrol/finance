@@ -257,7 +257,14 @@ def verify_episode_outcome(
                 )
             )
         if binding.gap:
-            spec = material_specs.get(required.output_id)
+            # 结清只属于 material_only：那里零读取权限，交代缺项是唯一诚实交付。
+            # local_only 手里有本地读工具，再认 legal_gap 等于用「缺少X」买断取数义务，
+            # 所以它的缺口回到普通 required_output_gap（partial + 修复）。
+            spec = (
+                material_specs.get(required.output_id)
+                if grounding_scope(contract) == "material_only"
+                else None
+            )
             legal_gap = bool(
                 spec is not None
                 and not basis_mismatch
@@ -285,11 +292,16 @@ def verify_episode_outcome(
             for content_hash in binding.evidence_hashes
             if content_hash in evidence_by_hash and content_hash not in duplicate_hashes
         )
-        wrong_types = tuple(
-            item.tool
+        wrong_type_items = tuple(
+            item
             for item in evidence_items
-            if required.evidence_types and item.tool not in required.evidence_types
+            if (required.evidence_types and item.tool not in required.evidence_types)
+            or item.evidence_tier == "user_memory_gap"
+            or (required.grounding_mode == "evidence" and (
+                item.tool == "memory_lookup" or item.evidence_tier == "user_memory"
+            ))
         )
+        wrong_types = tuple(item.tool for item in wrong_type_items)
         history_items = tuple(
             item for item in evidence_items
             if item.tool in {"history_query", "read_history_result"}
@@ -342,6 +354,7 @@ def verify_episode_outcome(
                 not required.evidence_types
                 or evidence_by_hash[content_hash].tool in required.evidence_types
             )
+            and evidence_by_hash[content_hash] not in wrong_type_items
             and evidence_by_hash[content_hash] not in unsupported_history
             and evidence_by_hash[content_hash] not in invalid_history_qualification
         )
@@ -389,10 +402,8 @@ def verify_episode_outcome(
             )
             stripped_hashes.update(
                 item.content_hash
-                for item in evidence_items
-                if required.evidence_types
-                and item.tool not in required.evidence_types
-                and item.content_hash.strip()
+                for item in wrong_type_items
+                if item.content_hash.strip()
             )
 
         evidence_floor = required_output_evidence_floor(required.output_id)
@@ -497,6 +508,7 @@ def verify_episode_outcome(
         and item.content_hash not in stripped_hashes
         and str(item.detail or "").strip()
         and "预取失败" not in str(item.detail)
+        and item.evidence_tier != "user_memory_gap"
     )
     available_capabilities = collect_satisfied_plan_capabilities(
         usable_evidence,

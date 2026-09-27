@@ -1,0 +1,3 @@
+{"type":"request_dispatch","requestId":1,"finalizing":false,"tools":["read","search","git"],"elapsedMs":423}
+{"type":"finalizing","requestCount":1,"elapsedMs":1406}
+{"type":"request_failed","requestId":1,"reason":"aborted","elapsedMs":3408}

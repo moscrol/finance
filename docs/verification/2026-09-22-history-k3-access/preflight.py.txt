@@ -1,0 +1,77 @@
+"""One credential preflight; never print/store tokens or call a model."""
+from datetime import datetime, timezone
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-history-evidence-integration-0921')
+REVISION = 'fedce252330dce1065238f58e6c914417219ec53'
+RESOLVER = Path('/Users/a77/.claude/mirasim-kimi-token.sh')
+RECEIPT = ROOT / 'access-preflight.json'
+os.umask(0o077)
+
+
+def identity():
+    env = {'HOME': '/Users/a77', 'PATH': '/usr/bin:/bin', 'GIT_OPTIONAL_LOCKS': '0'}
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(TREE), *args], text=True, env=env, timeout=15).strip()
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain', '--untracked-files=all')}
+
+
+before = identity()
+assert before == {'revision': REVISION, 'status': ''}
+record = {
+    'status': 'RESERVED', 'time_before': datetime.now(timezone.utc).isoformat(),
+    'identity_before': before, 'resolver': str(RESOLVER),
+    'resolver_sha256': hashlib.sha256(RESOLVER.read_bytes()).hexdigest(),
+    'resolver_attempt_limit': 1, 'timeout_seconds': 35, 'model_requests': 0,
+    'new_purchase': False, 'disk_free_before': shutil.disk_usage(ROOT).free,
+    'credential_policy': 'stdout inspected in memory only; neither credential nor raw stderr persisted',
+}
+with RECEIPT.open('x') as stream:
+    json.dump(record, stream, ensure_ascii=False, indent=2)
+    stream.flush()
+    os.fsync(stream.fileno())
+try:
+    result = subprocess.run([str(RESOLVER)], capture_output=True, timeout=35,
+                            env={'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin', 'LANG': 'C.UTF-8'})
+    record['resolver_exit_code'] = result.returncode
+    record['stderr_sha256'] = hashlib.sha256(result.stderr).hexdigest()
+    record['stderr_bytes'] = len(result.stderr)
+    error = result.stderr.decode('utf-8', errors='replace')
+    record['http_error_codes'] = sorted(set(re.findall(r'HTTP Error ([1-5][0-9]{2})', error)))
+    record['known_failure_labels'] = [label for label in (
+        'state.sqlite missing', 'no usable account', 'refresh returned no access token',
+        'database is locked', 'unable to open database file', 'Operation not permitted',
+        'Permission denied', 'timed out', 'CERTIFICATE_VERIFY_FAILED',
+    ) if label in error]
+    if result.returncode:
+        record['status'] = 'BLOCKED_CREDENTIAL_REFRESH'
+    else:
+        parts = result.stdout.decode('utf-8').strip().split('.')
+        if len(parts) != 3:
+            raise ValueError('unexpected credential shape')
+        claims = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4)))
+        now = datetime.now(timezone.utc).timestamp()
+        record['declared_plan'] = claims.get('plan') if claims.get('plan') in {'plus', 'max'} else 'other'
+        record['covers_600_seconds'] = all(isinstance(claims.get(key), (int, float)) and claims[key] > now + 720 for key in ('exp', 'plan_exp'))
+        record['status'] = 'CREDENTIAL_READY_NOT_MODEL_TESTED' if record['declared_plan'] == 'plus' and record['covers_600_seconds'] else 'BLOCKED_CREDENTIAL_POLICY'
+        record['claims_are_not_signature_verified'] = True
+except subprocess.TimeoutExpired:
+    record['status'] = 'BLOCKED_CREDENTIAL_TIMEOUT'
+except Exception as exc:
+    record['status'] = 'BLOCKED_CREDENTIAL_PARSE'
+    record['exception_type'] = type(exc).__name__
+record['identity_after'] = identity()
+record['identity_stable'] = record['identity_after'] == before
+record['time_after'] = datetime.now(timezone.utc).isoformat()
+record['disk_free_after'] = shutil.disk_usage(ROOT).free
+RECEIPT.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(record, ensure_ascii=False, indent=2))
+raise SystemExit(0 if record['status'] == 'CREDENTIAL_READY_NOT_MODEL_TESTED' and record['identity_stable'] else 2)

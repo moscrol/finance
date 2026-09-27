@@ -1,0 +1,104 @@
+"""Archive a stopped review, preserving bytes and checking all bound artifacts."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def archive(root, dest):
+    batch = load(root/'batch.json')
+    host = load(root/'host-review.json')
+    revision = host['revision']
+    assert batch['status'] != 'RUNNING' and batch.get('finished_at')
+    assert not dest.exists()
+    lock = load(root/'harness-lock.json')
+    for name, sha in lock['files'].items():
+        assert digest(root/name) == sha, name
+    requests = checked = 0
+    stages = {}
+    for axis in ['spec','quality']:
+        stages[axis] = {}
+        for phase in ['gateway','explore','execute','report']:
+            path = root/axis/(phase+'.controller.json')
+            if not path.exists():
+                stages[axis][phase] = {'status':'NOT_STARTED','requests':0}
+                continue
+            controller = load(path)
+            counts = load(root/axis/(phase+'-shim')/'counts.json')
+            assert counts['active'] == 0 and counts['shutdown_complete']
+            assert counts['requests'] == counts['dispatched'] == counts['completed']+counts['failed']+counts['cancelled']
+            assert controller['request_counts_agree']
+            requests += counts['dispatched']
+            stages[axis][phase] = controller
+            if phase != 'gateway':
+                execution = load(root/axis/phase/'execution.json')
+                expected = {'revision':revision,'status':''}
+                assert execution['candidate_before'] == execution['candidate_after'] == expected
+                assert execution['author_before'] == execution['author_after'] == expected
+                assert execution['inputs_unchanged']
+                for name, sha in execution['artifact_sha256'].items():
+                    assert digest(root/axis/phase/name) == sha, (axis,phase,name)
+                    checked += 1
+                stages[axis][phase]['delivery'] = {k:execution[k] for k in ['report_structural','errors','timed_out','requests','elapsed_seconds']}
+                report = root/axis/phase/'REPORT.json'
+                if report.exists():
+                    stages[axis][phase]['report'] = load(report)
+    assert requests == batch['requests'] == host['model_requests_in_batch'] <= 152
+    assert host['model_requests_added'] == 0
+    for tree in [root/'candidate/finance-workspace-private',Path('/Users/a77/fwp-wt-react-trace-chain-0923')]:
+        assert subprocess.check_output(['git','-C',str(tree),'rev-parse','HEAD'],text=True).strip() == revision
+        assert not subprocess.check_output(['git','-C',str(tree),'status','--porcelain'])
+    summary = {'recorded_at':datetime.now(timezone.utc).isoformat(),'revision':revision,'baseline':host['baseline'],
+               'verdict':host['verdict'],'host_review':host,'model_requests':requests,'max_batch_requests':152,
+               'stages':stages,'sealed_inputs_checked':len(lock['files']),'stage_artifact_hashes_checked':checked,
+               'automatic_retries':0,'natural_finance_requests':0,'merged':False,'deployed':False}
+    (root/'SUMMARY.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+    selected = {p for p in root.iterdir() if p.is_file() and p.suffix in {'.py','.mjs','.json','.md','.txt'}}
+    for axis in ['spec','quality']:
+        folder = root/axis
+        selected.update(p for p in folder.iterdir() if p.is_file())
+        selected.update((folder/'inputs').glob('*'))
+        selected.add(folder/'pi-config/settings.json')
+        for name in ['sandbox-preflight','gateway','explore','execute','report','gateway-shim','explore-shim','execute-shim','report-shim']:
+            selected.update(p for p in (folder/name).rglob('*') if p.is_file() and not p.is_symlink()
+                            and p.name not in {'events.jsonl','credential.json'})
+        selected.update((folder/'work').glob('*.md'))
+        selected.update((folder/'work/probes').glob('*.py'))
+        selected.update((folder/'work/tmp').glob('*.xml'))
+    dest.mkdir(parents=True)
+    entries = []
+    for source in sorted(selected):
+        assert source.is_file() and not source.is_symlink()
+        assert source.name not in {'credential.json','models.json','auth.json'}
+        assert source.suffix not in {'.duckdb','.db','.sqlite','.sqlite3','.pyc','.pdf','.zip'}
+        relative = source.relative_to(root)
+        if source.suffix in {'.py','.mjs','.sb','.log'}:
+            relative = Path(str(relative)+'.txt')
+        target = dest/relative
+        target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copyfile(source,target)
+        entries.append({'path':str(relative),'source':str(source),'bytes':source.stat().st_size,'sha256':digest(source)})
+    manifest = {'schema':1,'candidate':revision,'verdict':host['verdict'],'entries':entries,
+                'scope':'Immutable tooling/inputs, complete raw command outputs, target exits, reports, JUnit. No credentials, databases, caches or source checkout. Stage events remain external and execution-hashed.'}
+    (dest/'MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+    print(json.dumps({'root':str(root),'verdict':host['verdict'],'requests':requests,'files':len(entries),
+                      'bytes':sum(row['bytes'] for row in entries),'stage_artifacts_checked':checked}))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('root',type=Path)
+    parser.add_argument('destination',type=Path)
+    args = parser.parse_args()
+    archive(args.root,args.destination)

@@ -1,0 +1,20 @@
+{
+  "model_turns": 8,
+  "tool_requests": 10,
+  "tool_results": 8,
+  "tool_errors": [
+    {
+      "tool": "history_query",
+      "error": "invalid_arguments",
+      "detail": "exact entity_codes required for computation"
+    },
+    {
+      "tool": "history_query",
+      "error": "invalid_arguments",
+      "detail": "end requires ISO date"
+    }
+  ],
+  "served_models": [
+    "glm-5.3-flash"
+  ]
+}

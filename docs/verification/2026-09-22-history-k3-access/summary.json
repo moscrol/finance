@@ -1,0 +1,54 @@
+{
+  "tested_revision": "fedce252330dce1065238f58e6c914417219ec53",
+  "runtime_revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+  "sealed_at": "2026-09-21T18:24:44.287405+00:00",
+  "reviews": {
+    "spec": {
+      "status": "BLOCKED_BOOTSTRAP_NO_MODEL_DISPATCH",
+      "exit_code": 70,
+      "elapsed_seconds": 1.338,
+      "model_requests": 0,
+      "final_report": false,
+      "timeout_seconds": 600,
+      "max_provider_requests": 24,
+      "candidate_untouched": true
+    },
+    "quality": {
+      "status": "BLOCKED_BOOTSTRAP_NO_MODEL_DISPATCH",
+      "exit_code": 70,
+      "elapsed_seconds": 1.466,
+      "model_requests": 0,
+      "final_report": false,
+      "timeout_seconds": 600,
+      "max_provider_requests": 24,
+      "candidate_untouched": true
+    }
+  },
+  "credential_preflight": "one real refresh succeeded outside sandbox; no model dispatch",
+  "diagnosis": {
+    "original_stderr_reproduced_without_network": true,
+    "scoped_tmp_fix_failed": true,
+    "direct_python_fixture_cases_passed": 4,
+    "nested_sandbox_exit_code": 71,
+    "live_bootstrap_fix_verified": false
+  },
+  "focused_regression": {
+    "tests": 599,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "receipt": "20260921T180311Z-fedce252.json",
+    "receipt_checker_exit_code": 0
+  },
+  "natural_financial_probes": 0,
+  "natural_quality": "not_passed",
+  "merge_or_deployment": false,
+  "external_root": "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce",
+  "limitations": [
+    "No independent final report",
+    "No actual main-tip combination acceptance",
+    "No proof of provider availability from preflight",
+    "No current production model claim from startup comments",
+    "Author regression and fixture diagnostics cannot substitute for independent review"
+  ]
+}

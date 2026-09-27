@@ -1,0 +1,34 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/test-receipts/20260921T135039Z-7249378a.json",
+    "--expect-revision",
+    "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "--base-drift-max",
+    "5"
+  ],
+  "identity_before": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T13:52:06.627333+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 9510596608
+    }
+  ],
+  "pid": 36839,
+  "exit_code": 1,
+  "identity_after": {
+    "revision": "7249378a5bdb9b01cc62ec3bca13af3149bd48df",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T13:52:08.711520+00:00",
+  "identity_stable": true,
+  "receipt_source": "/Users/a77/.finance-runtime/test-receipts/20260921T135039Z-7249378a.json"
+}

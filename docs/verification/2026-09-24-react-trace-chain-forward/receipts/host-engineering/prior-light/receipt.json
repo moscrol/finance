@@ -1,0 +1,123 @@
+{
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "identity_before": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": ""
+  },
+  "identity_after": {
+    "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+    "status": ""
+  },
+  "recorded_at": "2026-09-23T18:25:47.154869+00:00",
+  "checks": [
+    {
+      "name": "ruff",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "parseability",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "name": "registry",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "name": "tables",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "views",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "crosswalk",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "log_sha256": "437aa1e1aeb1d2498e17310cc3ee66b71b589a1fd6fc125dc637aa6bab15f08d"
+    },
+    {
+      "name": "product-diff-check",
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+        "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+        "--",
+        "intelligence",
+        "tests"
+      ],
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "merge-tree",
+      "argv": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "--name-only",
+        "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+        "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0"
+      ],
+      "exit_code": 0,
+      "log_sha256": "70f501934f89b5eaf4c1c656a6f7c53463f81f9db2dab5dd9f1d02be8fa7734d"
+    }
+  ],
+  "modules_unchanged_from_prior": {
+    "intelligence/services/episode_protocol.py": true,
+    "intelligence/services/episode_tools.py": true,
+    "intelligence/services/finance_query.py": true,
+    "intelligence/runtime/research_progress.py": true,
+    "intelligence/services/historical_research/episode.py": true,
+    "intelligence/services/episode_semantic_verifier.py": true
+  },
+  "mutation_summary_sha256": "57764347f56d48200c5f318bae138d34d53dfca56daf6bf0a4b0d269ff9e9e5f",
+  "mutation_interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "mutation_command_tree": "/Users/a77/fwp-wt-react-trace-chain-0923",
+  "mutation_baseline_passed": 37,
+  "mutations_caught": 9,
+  "full_python": "PENDING",
+  "frontend": "PENDING",
+  "independent_qc": "SEPARATE",
+  "exit_code": 0
+}

@@ -1,0 +1,72 @@
+                verified=structural,
+                status="partial",
+                public_answer=self._gap_answer(frame, structural),
+                judge_status="unavailable",
+                issues=("empty public draft",),
+                correlated_judge=False,
+            )
+
+        preflight_issues: tuple[str, ...] = ()
+        marker_loss_outputs: tuple[str, ...] = ()
+        preflight_source = structural
+        numeric_rejected = _novel_numeric_condition_indexes(
+            sentences,
+            structural,
+        )
+        financial_rejected = _financial_claim_mismatch_indexes(sentences, structural)
+        weekday_rejected = _mismatched_weekday_indexes(
+            sentences,
+            structural,
+        )
+        path_rejected = _mismatched_path_trend_indexes(
+            sentences,
+            structural,
+        )
+        evidence_date_rejected = _mismatched_evidence_date_indexes(
+            sentences,
+            structural,
+        )
+        preflight_rejected = tuple(
+            sorted(
+                set(
+                    (
+                        *numeric_rejected,
+                        *weekday_rejected,
+                        *path_rejected,
+                        *evidence_date_rejected,
+                        *financial_rejected,
+                    )
+                )
+            )
+        )
+        if preflight_rejected:
+            preflight_issues = tuple(
+                issue.serialize()
+                for indexes, issue in (
+                    (numeric_rejected, _NUMERIC_CONDITION_ISSUE),
+                    (weekday_rejected, _CALENDAR_WEEKDAY_ISSUE),
+                    (path_rejected, _PATH_TREND_ISSUE),
+                    (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
+                    (financial_rejected, _FINANCIAL_CLAIM_ISSUE),
+                )
+                if indexes
+            )
+            self._record_sentence_verdicts(
+                stage=VERDICT_STAGE_PREFLIGHT,
+                indexes=preflight_rejected,
+                sentences=sentences,
+                verified=structural,
+                decision_for={index: VERDICT_DELETED for index in preflight_rejected},
+                reasons_for=_mechanical_reasons_by_index(
+                    numeric=numeric_rejected,
+                    weekday=weekday_rejected,
+                    path=path_rejected,
+                    evidence_date=evidence_date_rejected,
+                    financial=financial_rejected,
+                ),
+            )
+            before_repair = structural.outcome.draft
+            preflight_source = structural
+            preflight = self._repair(
+
+[truncated; total lines=6936, selected=1850:1919; request a later offset]

@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "results": [
+    {
+      "group": "e2",
+      "checks": [
+        "typed-first-tool",
+        "sequential-roles",
+        "no-bash",
+        "resource-stop",
+        "wrong-control-exit",
+        "wrong-control-count"
+      ]
+    },
+    {
+      "group": "timer",
+      "checks": [
+        "typed-first-tool",
+        "sequential-roles",
+        "no-bash",
+        "resource-stop",
+        "wrong-control-exit",
+        "wrong-control-count"
+      ]
+    },
+    {
+      "group": "consent",
+      "checks": [
+        "typed-first-tool",
+        "sequential-roles",
+        "no-bash",
+        "resource-stop",
+        "wrong-control-exit",
+        "wrong-control-count"
+      ]
+    }
+  ],
+  "source_sha256": {
+    "probe_execution_menu.mjs": "227530d607b6eb435325ecff1b38211a9a0ee08f3eaf1e4df9e77fc2a352606f"
+  }
+}

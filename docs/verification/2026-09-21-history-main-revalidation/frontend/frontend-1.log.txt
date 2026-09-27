@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/fwp-wt-history-evidence-integration-0921/intelligence/webapp
+> eslint .
+

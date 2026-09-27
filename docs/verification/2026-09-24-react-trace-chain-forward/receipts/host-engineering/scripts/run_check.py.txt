@@ -1,0 +1,28 @@
+"""Record candidate-specific repair checks, including the original red phase."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+label = sys.argv[1]
+output = ROOT/label
+output.mkdir()
+argv = [PY,'-m','pytest',*sys.argv[2:],'-q','-p','no:cacheprovider','--basetemp='+str(output/'tmp'),'--junitxml='+str(output/'junit.xml')]
+env = {**os.environ,'PYTHONDONTWRITEBYTECODE':'1','FWP_TEST_RECEIPT':'0','GIT_OPTIONAL_LOCKS':'0'}
+start = time.monotonic()
+with (output/'output.log.txt').open('xb') as stream:
+    result = subprocess.run(argv,cwd=TREE,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=600)
+record = {'label':label,'command':argv,'cwd':str(TREE),'exit_code':result.returncode,'elapsed_seconds':time.monotonic()-start,
+          'revision':subprocess.check_output(['git','-C',str(TREE),'rev-parse','HEAD'],text=True).strip(),
+          'status':subprocess.check_output(['git','-C',str(TREE),'status','--porcelain'],text=True),
+          'files_sha256':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [TREE/'intelligence/services/episode_semantic_verifier.py',TREE/'intelligence/tests/test_condition_reference_seams.py']},
+          'log_sha256':hashlib.sha256((output/'output.log.txt').read_bytes()).hexdigest()}
+(output/'receipt.json').write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps(record))
+raise SystemExit(result.returncode)

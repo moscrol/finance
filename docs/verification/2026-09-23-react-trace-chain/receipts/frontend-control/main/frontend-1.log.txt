@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/fwp-wt-react-trace-main-control-0923/intelligence/webapp
+> eslint .
+

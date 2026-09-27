@@ -1,0 +1,402 @@
+"""Compose history calculations with the existing Episode and artifact writer."""
+
+from __future__ import annotations
+
+from dataclasses import asdict
+import hashlib
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_tool_registry import ToolRunResult, ToolSpec
+
+if TYPE_CHECKING:
+    from intelligence.services.run_store import RunStore
+
+
+class HistorySession:
+    """A same-user, same-conversation allowlist; model references are not paths."""
+
+    def __init__(self, store: RunStore, run_id: str, conversation_id: str):
+        self.store = store
+        self.run_id = run_id
+        self.conversation_id = conversation_id
+        self.refs: dict[str, tuple[str, str]] = {}
+        self.query_aliases: dict[str, str] = {}
+        self.definition_refs: set[str] = set()
+        run = store.load_run(run_id)
+        if run.user != store.user_id or run.session_id != conversation_id:
+            raise ValueError("history session identity mismatch")
+        self.refresh()
+
+    def refresh(self):
+        # The prompt is bounded separately; authorization uses current metadata.
+        related = [
+            item
+            for item in self.store.list_runs()
+            if item.user == self.store.user_id and item.session_id == self.conversation_id
+        ]
+        for item in related:
+            for artifact in item.artifacts:
+                filename = str(artifact.get("path", ""))
+                if (
+                    filename.startswith("history-")
+                    and artifact.get("visibility") == "public"
+                ):
+                    self.refs[f"{item.run_id}/{filename}"] = (item.run_id, filename)
+
+    def save(self, kind: str, payload: dict) -> str:
+        envelope = dict(
+            payload,
+            user_id=self.store.user_id,
+            run_id=self.run_id,
+            conversation_id=self.conversation_id,
+            visibility="public",
+        )
+        artifact = self.store.add_history_artifact(self.run_id, kind, envelope)
+        ref = f"{self.run_id}/{artifact.path}"
+        self.refs[ref] = (self.run_id, artifact.path)
+        if kind == "query":
+            self.query_aliases[str(payload["query_id"])] = ref
+            self.definition_refs.update(payload.get("definition_refs", ()))
+        return ref
+
+    def read(self, ref: str) -> dict:
+        if ref not in self.refs:
+            if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
+                raise ValueError("history result reference is outside this conversation")
+            run_id, filename = ref.split("/", 1)
+            try:
+                run = self.store.load_run(run_id)
+            except (ValueError, FileNotFoundError) as exc:
+                raise ValueError("history result reference is outside this conversation") from exc
+            if run.user != self.store.user_id or run.session_id != self.conversation_id:
+                raise ValueError("history result reference is outside this conversation")
+            # The display index is bounded; same-conversation authorization isn't.
+            self.store.read_history_artifact(run_id, filename)
+            self.refs[ref] = (run_id, filename)
+        run_id, filename = self.refs[ref]
+        payload = self.store.read_history_artifact(run_id, filename)
+        return payload
+
+    def remember(self, ref: str, payload: dict):
+        """Call only after the current task's scope check has passed."""
+        filename = self.refs[ref][1]
+        if filename.startswith("history-query-"):
+            self.query_aliases[str(payload["query_id"])] = ref
+            self.definition_refs.update(payload.get("definition_refs", ()))
+        if filename.startswith("history-case-"):
+            aliases = payload.get("query_aliases", {})
+            self.query_aliases.update(
+                {key: value for key, value in aliases.items() if value in self.refs}
+            )
+            self.definition_refs.update(payload.get("definition_refs", ()))
+
+    def index(self) -> list[dict]:
+        return [
+            {"result_ref": ref, "kind": Path(filename).name.split("-")[1]}
+            for ref, (_, filename) in self.refs.items()
+        ]
+
+
+def _compact(value) -> str:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":")
+    )
+
+
+def _draft_page(payload: dict, result_ref: str, offset: int, limit: int) -> str:
+    """Whole JSON under the real prose budget, never a market evidence card."""
+    from intelligence.services.tool_result_budget import MAX_OBSERVATION_CHARS
+
+    draft = payload["draft"]
+    hypotheses = draft.get("hypotheses", [])
+    question = draft["question"]
+    page = {
+        "kind": "research_draft", "research_only": True,
+        "case_id": draft["case_id"], "revision": draft["revision"],
+        "result_ref": result_ref,
+        "question": question[:96], "question_truncated": len(question) > 96,
+        "total_hypotheses": len(hypotheses), "offset": offset,
+        "returned_count": 0, "next_offset": None, "hypotheses": [],
+        "source_refs_count": len(draft.get("source_refs", [])),
+        "exposed_sample_refs_count": len(draft.get("exposed_sample_refs", [])),
+        "raw_artifact_preserved": True,
+    }
+    for index in range(offset, min(len(hypotheses), offset + limit)):
+        hypothesis = hypotheses[index]
+        statement = hypothesis["statement"]
+        item = {
+            "hypothesis_id": hypothesis["hypothesis_id"],
+            "statement": statement[:120], "statement_truncated": len(statement) > 120,
+            "status": hypothesis["status"], "version": hypothesis["version"],
+        }
+
+        def candidate(value):
+            return dict(page, hypotheses=[*page["hypotheses"], value],
+                returned_count=len(page["hypotheses"]) + 1,
+                next_offset=index + 1 if index + 1 < len(hypotheses) else None)
+
+        updated = candidate(item)
+        if len(_compact(updated)) > MAX_OBSERVATION_CHARS:
+            if page["hypotheses"]:
+                break
+            # Old immutable artifacts can contain arbitrarily long text/IDs.
+            # Shorten only labelled statement prose, never a patch identifier.
+            while item["statement"] and len(_compact(updated)) > MAX_OBSERVATION_CHARS:
+                item["statement"] = item["statement"][:-1]
+                item["statement_truncated"] = True
+                updated = candidate(item)
+            if len(_compact(updated)) > MAX_OBSERVATION_CHARS:
+                updated = candidate({"hypothesis_index": index,
+                    "projection_status": "oversized_hypothesis_id_requires_raw_artifact"})
+        page = updated
+    rendered = _compact(page)
+    if len(rendered) > MAX_OBSERVATION_CHARS:
+        raise ValueError("research case metadata exceeds model summary budget")
+    return rendered
+
+
+def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
+    """Pack whole semantic fields into the real model-facing detail budget.
+
+    The artifact keeps every field. A single oversized value is explicitly
+    omitted here instead of producing a clipped JSON string or numeric prefix.
+    """
+    from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+
+    def encode(value):
+        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+
+    def merge(left, right):
+        result = dict(left)
+        for key, value in right.items():
+            result[key] = (
+                {**result[key], **value}
+                if isinstance(result.get(key), dict) and isinstance(value, dict)
+                else value
+            )
+        return result
+
+    blocks, current = [], dict(identity)
+    for atom in atoms:
+        candidate = merge(current, atom)
+        if len(encode(candidate)) <= MAX_EVIDENCE_DETAIL_CHARS:
+            current = candidate
+            continue
+        if current != identity:
+            blocks.append(encode(current))
+        current = merge(identity, atom)
+        if len(encode(current)) > MAX_EVIDENCE_DETAIL_CHARS:
+            current = {
+                "sample": identity.get("sample"),
+                "projection_status": "oversized_field_omitted",
+                "fields": list(atom),
+            }
+            blocks.append(encode(current))
+            current = dict(identity)
+    if current != identity or (not atoms and len(encode(identity)) <= MAX_EVIDENCE_DETAIL_CHARS):
+        blocks.append(encode(current))
+    return blocks
+
+
+def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
+    """Project data and definitions, keeping row count distinct from card count."""
+    projected = []
+
+    def add(title, identity, atoms, source_date=None):
+        projected.extend(
+            (title, detail, source_date) for detail in _model_blocks(identity, atoms)
+        )
+
+    add("历史研究范围与完整分母", {}, [
+        {key: payload.get(key)}
+        for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
+    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
+    add("历史研究原件引用", {}, [{"result_ref": result_ref}])
+    add("历史研究使用边界", {}, [{
+        "pit_grade": payload.get("pit_grade", "hindsight_reconstruction"),
+        "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
+    }])
+    spec = payload.get("spec", {})
+    add("历史计算声明观察窗", {}, [{"observation_window": {
+        key: spec.get(key) for key in ("operation", "start", "end")
+    }}])
+    if isinstance(payload.get("window_binding"), dict):
+        binding = payload["window_binding"]
+        add("历史参照窗绑定", {}, [{key: binding[key] for key in (
+            "relation", "source_start", "source_end", "start", "end",
+        )}])
+        add("历史排名区间", {}, [{key: binding[key] for key in ("ranking_start", "ranking_end")}])
+        add("历史参照窗原件", {}, [
+            {key: value} for key, value in binding.get("source_reference", {}).items()
+        ] + [{key: binding.get(key)} for key in ("version", "source_query_id", "root_query_id", "root_sample_id")])
+    comparison = payload.get("comparison")
+    if isinstance(comparison, dict):
+        add("历史条件比较定义", {}, [
+            {"condition": spec.get("condition")},
+            {"outcome_definition": payload.get("outcome_definition")},
+        ])
+        add("历史条件比较完整统计", {}, [{key: value} for key, value in comparison.items()])
+    universe = payload.get("universe")
+    if isinstance(universe, dict):
+        add("历史比较宇宙与窗口", {}, [
+            {key: value} for key, value in universe.items() if key != "entity_codes"
+        ] + [{"entity_count": len(universe.get("entity_codes", []))}])
+    for key in ("analysis_definition",):
+        if isinstance(payload.get(key), dict):
+            add("行情过程的规则与边界", {}, [{name: value} for name, value in payload[key].items()])
+    if payload.get("independence_policy"):
+        add("样本独立性限制", {}, [{"independence_policy": payload["independence_policy"]}])
+    if payload.get("matching_use"):
+        add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
+    for name, definition in payload.get("feature_definitions", {}).items():
+        add("历史特征严格定义", {"feature": name}, [
+            {key: definition[key]} for key in ("rule", "unit", "version", "input_mapping") if key in definition
+        ])
+
+    names: dict[str, set[str]] = {}
+    for rows in payload.get("inputs", {}).values():
+        for row in rows:
+            for prefix in ("sector", "stock"):
+                code, name = row.get(f"{prefix}_ts_code"), row.get(f"{prefix}_name")
+                if code and name:
+                    names.setdefault(code, set()).add(name)
+    preview = payload.get("preview", [])
+    # A sample is a row in the immutable result, not a position within this page.
+    records = list(enumerate(
+        preview[:25] if isinstance(preview, list) else [], start=payload.get("offset", 0)
+    ))
+    reference = payload.get("reference")
+    if isinstance(reference, dict):
+        records.insert(0, ("reference", reference))
+    for index, row in records:
+        if not isinstance(row, dict):
+            continue
+        if row.get("record_kind") == "sector_succession":
+            from .succession_projection import succession_atoms
+
+            # Pair identity on EVERY card; status/reason/counts are one atom.
+            # Do not pack status beside null confirmation/lag as unrelated keys.
+            identity = {"sample": index, "record_kind": "sector_succession",
+                        "source_sector": row.get("source_sector"), "entity_code": row.get("entity_code")}
+            for atom in succession_atoms(row, payload):
+                add(f"历史接力配对 {row.get('source_sector')}→{row.get('entity_code')}",
+                    identity, [atom], row.get("succession_known_as_of"))
+            continue
+        identity = {"sample": index, "entity_code": row.get("entity_code")}
+        if isinstance(reference, dict):
+            identity["role"] = "reference" if index == "reference" else "candidate"
+        for key in ("trade_date", "start", "end", "record_kind"):
+            if key in row:
+                identity[key] = row[key]
+        atoms = []
+        known = names.get(row.get("entity_code"), set())
+        name = row.get("entity_name") or (next(iter(known)) if len(known) == 1 else None)
+        if name:
+            atoms.append({"entity_name": name})
+        if "comparison_state" in row:
+            atoms.extend({key: row[key]} for key in (
+                "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
+            ) if key in row)
+        for name, value in row.get("features", {}).items():
+            atoms.append({
+                "features": {name: value},
+                "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
+            })
+        atoms.extend(
+            {"feature_differences": {name: value}}
+            for name, value in row.get("feature_differences", {}).items()
+        )
+        for kind in ("sector", "stock"):
+            values = row.get(kind)
+            if isinstance(values, dict):
+                atoms.extend({kind: {key: values[key]}} for key in (
+                    "pct_chg", "amount", "diff_ratio", "price", "close", "turnover_rate"
+                ) if key in values)
+        for key in ("sample_id", "distance", "feature_cutoff", "first_date", "last_date", "observed_dates", "dates"):
+            if key in row:
+                atoms.append({key: row[key]})
+        for key in (
+            "overlap_cluster", "signal_date", "signal_known_as_of", "signal_status", "path_status",
+            "peak_date", "peak_status", "peak_known_as_of", "peak_gain_pct", "days_to_peak",
+            "confirmation_date", "confirmation_known_as_of", "end_drawdown_from_peak_pct", "path_anchor", "path_end",
+            "parent_sector", "membership_date", "membership_snapshot_id", "membership_status", "sector_snapshot_id",
+            "rank", "selection_mode", "population_count", "source_sector", "anchor_peak_date",
+            "source_peak_status", "source_peak_confirmation_date", "target_signal_date", "lag_trading_days",
+            "succession_status", "succession_known_as_of", "causal_status", "stage_semantics", "market_units",
+        ):
+            if key in row:
+                atoms.append({key: row[key]})
+        atoms.extend({"succession_evidence": {key: value}} for key, value in row.get("evidence", {}).items())
+        path = row.get("path", [])
+        if path:
+            # Keep a bounded shape sketch plus exact anchor dates. Full daily path
+            # remains in artifact; inspect_history exposes any omitted date.
+            indexes = {round(i * (len(path) - 1) / 7) for i in range(8)}
+            indexes.update(i for i, point in enumerate(path) if point["trade_date"] in
+                           (row.get("peak_date"), row.get("confirmation_date")))
+            atoms.append({"path_points_total": len(path), "path_points_shown": len(indexes),
+                          "path_projection": "sampled_NAV_only; inspect_history for omitted daily price/amount"})
+            atoms.extend({"path_sample": {str(path[i]["trade_date"]): path[i]["nav"]}}
+                         for i in sorted(indexes))
+        # Large members/events/coverage remain in the original. These counts
+        # distinguish an empty collection from a hidden detailed collection.
+        atoms.extend({f"{key}_count": len(row[key])} for key in (
+            "members", "sector_memberships", "events", "heat"
+        ) if isinstance(row.get(key), list))
+        if "market" in row:
+            atoms.append({"market_status": "missing_or_ambiguous" if row["market"] is None else "observed"})
+            if isinstance(row["market"], dict):
+                atoms.extend({"market": {key: row["market"][key]}} for key in (
+                    "sh_index_pct_chg", "sh_index_close", "sh_deviation_pct", "total_amount",
+                    "advancers", "limit_up", "limit_down", "market_stage", "market_stage_source", "market_stage_confidence", "cycle_stage", "stage_day", "sh_week_ma", "sh_week_ma_source", "amount_ma20", "volume_ratio",
+                    "cycle_stage_source", "cycle_stage_updated_at", "volume_state", "concentration_state", "source",
+                ) if key in row["market"])
+        date_value = str(row.get("succession_known_as_of", row.get("trade_date", row.get("path_end", row.get("end", ""))))) or None
+        sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
+        add(f"历史观察样本 {sample_scope}", identity, atoms, date_value)
+    return projected
+
+
+def _result(
+    payload: dict, *, result_ref: str = "", tool: str = "history_query", offset: int = 0
+):
+    returned_count = payload.get("returned_count", 0)
+    page_end = offset + returned_count
+    payload = dict(
+        payload,
+        offset=offset,
+        next_offset=(
+            page_end if returned_count and page_end < payload.get("total_matched", 0) else None
+        ),
+    )
+    metadata = {
+        key: payload[key]
+        for key in (
+            "query_id",
+            "operation",
+            "purpose",
+            "status",
+            "total_matched",
+            "returned_count",
+            "truncated",
+            "offset",
+            "next_offset",
+            "coverage",
+            "definition_refs",
+            "gaps",
+            "summary",
+            "comparison",
+            "universe",
+            "matching_use",
+            "outcome_definition",
+            "contingency",
+            "selection_fingerprint",
+            "independence_policy",
+            "spec",
+            "feature_definitions",
+
+[truncated; total lines=971, selected=1:400; next_offset=401]

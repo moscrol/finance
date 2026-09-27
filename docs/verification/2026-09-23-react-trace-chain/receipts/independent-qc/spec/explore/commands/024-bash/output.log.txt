@@ -1,0 +1,9 @@
+104:def _compact(value) -> str:
+105-    return json.dumps(
+106-        value, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":")
+107-    )
+108-
+109-
+110-def _draft_page(payload: dict, result_ref: str, offset: int, limit: int) -> str:
+111-    """Whole JSON under the real prose budget, never a market evidence card."""
+112-    from intelligence.services.tool_result_budget import MAX_OBSERVATION_CHARS

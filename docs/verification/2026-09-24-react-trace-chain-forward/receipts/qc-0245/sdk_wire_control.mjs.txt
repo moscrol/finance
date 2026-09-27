@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {streamSimple} from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js';
+const root = path.dirname(fileURLToPath(import.meta.url));
+let networkAttempts = 0;
+globalThis.fetch = async () => { networkAttempts++; throw new Error('network forbidden in offline control'); };
+const results = [];
+for (const [label, providerPath, reasoning] of [
+  ['old_nominal_off',path.join(root,'../pr832-glm-qc-20260924-0216/spec/provider-template.json'),undefined],
+  ['native_low',path.join(root,'spec/provider-template.json'),'low'],
+]) {
+  const provider = JSON.parse(fs.readFileSync(providerPath));
+  const model = {...provider.models[0],provider:'glm-direct-review',baseUrl:provider.baseUrl,api:provider.api};
+  let payload;
+  const result = await streamSimple(model,{messages:[{role:'user',content:'Offline shape capture only.',timestamp:Date.now()}]},
+    {apiKey:'OFFLINE_FAKE_CREDENTIAL',reasoning,maxTokens:8192,onPayload(value) { payload=structuredClone(value); throw new Error('OFFLINE_CAPTURE_ONLY'); }}).result();
+  assert.match(result.errorMessage,/OFFLINE_CAPTURE_ONLY/);
+  assert.ok(payload);
+  const shape = {label,thinking:payload.thinking,reasoning_effort:payload.reasoning_effort,max_tokens:payload.max_tokens,max_completion_tokens:payload.max_completion_tokens};
+  if (label === 'old_nominal_off') {
+    assert.equal(payload.thinking,undefined);
+    assert.equal(payload.reasoning_effort,undefined);
+    assert.equal(payload.max_completion_tokens,8192);
+    assert.equal(payload.max_tokens,undefined);
+  } else {
+    assert.deepEqual(payload.thinking,{type:'enabled',clear_thinking:false});
+    assert.equal(payload.reasoning_effort,'low');
+    assert.equal(payload.max_tokens,8192);
+    assert.equal(payload.max_completion_tokens,undefined);
+  }
+  results.push(shape);
+}
+assert.equal(networkAttempts,0);
+const receipt={status:'PASS',model_requests:0,network_attempts:networkAttempts,actual_installed_sdk:true,results};
+fs.writeFileSync(path.join(root,'sdk-wire-control.json'),JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify(receipt));

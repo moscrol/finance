@@ -1,0 +1,37 @@
+class InvalidResearchToolArguments(ValueError):
+    def __init__(self, message: str, *, code: str = "invalid_arguments") -> None:
+        raise InvalidResearchToolArguments("expected one query argument")
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments("snapshot tool accepts no arguments")
+        raise InvalidResearchToolArguments("expected one url argument")
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments("sub_research accepts exactly one goals argument")
+        raise InvalidResearchToolArguments(
+            raise InvalidResearchToolArguments(
+            raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments("params argument must be a JSON object")
+        raise InvalidResearchToolArguments("params argument must be JSON-serialisable") from exc
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+            raise InvalidResearchToolArguments(
+            raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments("use_duckdb argument must be a boolean")
+        raise InvalidResearchToolArguments("timeout_seconds argument must be an integer")
+        raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+            raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+            raise InvalidResearchToolArguments(
+        raise InvalidResearchToolArguments(
+            "error", "timeout", "request_error", "parse_error", "proxy_unavailable",
+                raise InvalidResearchToolArguments(
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        except InvalidResearchToolArguments:
+            raise InvalidResearchToolArguments(str(exc)) from exc
+            raise InvalidResearchToolArguments(
+    def execute(
+    # ② 未授权历史窗口时 runner **直接不执行**（返回 parse_error + 空证据），

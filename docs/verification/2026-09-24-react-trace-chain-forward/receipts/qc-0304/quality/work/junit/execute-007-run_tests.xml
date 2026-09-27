@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="21" time="6.508" timestamp="2026-09-24T03:13:10.345039+08:00" hostname="77deMacBook-Air.local"><testcase classname="" name="test_c1_ordinal_masked_but_numbers_kept" time="0.001" /><testcase classname="" name="test_c1_plain_number_not_stripped" time="0.001" /><testcase classname="" name="test_validation_error_is_structured_not_arbitrary" time="1.429" /><testcase classname="" name="test_bad_time_range_is_rejected_safely" time="0.131"><failure message="intelligence.services.research_tool_registry.InvalidResearchToolArguments: time_range.start must be an ISO date">value = 'not-a-date', name = 'time_range.start'
+
+    def _parse_date(value: object, name: str) -&gt; date | None:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str):
+            raise FinanceQueryValidationError(f"{name} must be an ISO date")
+        try:
+&gt;           return date.fromisoformat(value[:10])
+E           ValueError: Invalid isoformat string: 'not-a-date'
+
+intelligence/services/finance_query.py:2853: ValueError
+
+The above exception was the direct cause of the following exception:
+
+self = &lt;intelligence.services.research_tool_registry.ResearchToolRegistry object at 0x10a8ca180&gt;
+name = 'finance_query'
+arguments = {'dataset': 'market_daily', 'dimensions': ['trade_date'], 'metrics': ['stage_day'], 'time_range': {'end': '2026-07-21', 'start': 'not-a-date'}}
+
+    def prepare(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+    ) -&gt; PreparedToolArguments:
+        spec = self.resolve(name)
+        if isinstance(arguments, PreparedToolArguments):
+            if arguments.tool != spec.name:
+                raise InvalidResearchToolArguments(
+                    "prepared arguments belong to another tool"
+                )
+            return arguments
+        if isinstance(arguments, str):
+            raw: dict[str, object] = {"query": arguments}
+        elif isinstance(arguments, Mapping):
+            copied = _copy_json(arguments)
+            if not isinstance(copied, dict):
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raw = copied
+        else:
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        raw, normalization_note = unwrap_double_encoded_query(raw)
+        try:
+&gt;           runner_input, display_query = spec.parse_arguments(raw)
+
+intelligence/services/research_tool_registry.py:1159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/episode_tools.py:1539: in parse_finance_arguments
+    spec = finance_query.FinanceQuerySpec.from_arguments(arguments)
+intelligence/services/finance_query.py:130: in from_arguments
+    time_range = _parse_time_range(arguments.get("time_range"))
+intelligence/services/finance_query.py:2825: in _parse_time_range
+    start=_parse_date(value.get("start"), "time_range.start"),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'not-a-date', name = 'time_range.start'
+
+    def _parse_date(value: object, name: str) -&gt; date | None:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str):
+            raise FinanceQueryValidationError(f"{name} must be an ISO date")
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError as exc:
+&gt;           raise FinanceQueryValidationError(f"{name} must be an ISO date") from exc
+E           intelligence.services.finance_query.FinanceQueryValidationError: time_range.start must be an ISO date
+
+intelligence/services/finance_query.py:2855: FinanceQueryValidationError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-007-run_tests/test_bad_time_range_is_rejecte0')
+
+    def test_bad_time_range_is_rejected_safely(tmp_path):
+        registry, context = _setup(tmp_path)
+&gt;       res = _execute(registry, context, {
+            "dataset": "market_daily", "dimensions": ["trade_date"],
+            "metrics": ["stage_day"],
+            "time_range": {"start": "not-a-date", "end": "2026-07-21"},
+        })
+
+../../quality/work/probes/test_qc_c2_diagnostics.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../quality/work/probes/test_qc_c2_diagnostics.py:35: in _execute
+    return registry.execute(
+intelligence/services/research_tool_registry.py:1243: in execute
+    prepared = self.prepare(name, arguments)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;intelligence.services.research_tool_registry.ResearchToolRegistry object at 0x10a8ca180&gt;
+name = 'finance_query'
+arguments = {'dataset': 'market_daily', 'dimensions': ['trade_date'], 'metrics': ['stage_day'], 'time_range': {'end': '2026-07-21', 'start': 'not-a-date'}}
+
+    def prepare(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+    ) -&gt; PreparedToolArguments:
+        spec = self.resolve(name)
+        if isinstance(arguments, PreparedToolArguments):
+            if arguments.tool != spec.name:
+                raise InvalidResearchToolArguments(
+                    "prepared arguments belong to another tool"
+                )
+            return arguments
+        if isinstance(arguments, str):
+            raw: dict[str, object] = {"query": arguments}
+        elif isinstance(arguments, Mapping):
+            copied = _copy_json(arguments)
+            if not isinstance(copied, dict):
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raw = copied
+        else:
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        raw, normalization_note = unwrap_double_encoded_query(raw)
+        try:
+            runner_input, display_query = spec.parse_arguments(raw)
+        except InvalidResearchToolArguments:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+&gt;           raise InvalidResearchToolArguments(str(exc)) from exc
+E           intelligence.services.research_tool_registry.InvalidResearchToolArguments: time_range.start must be an ISO date
+
+intelligence/services/research_tool_registry.py:1163: InvalidResearchToolArguments</failure></testcase><testcase classname="" name="test_invalid_tool_call_feedback_returns_to_same_episode" time="0.006"><failure message="TypeError: _finish_turn() takes 0 positional arguments but 1 was given">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-007-run_tests/test_invalid_tool_call_feedbac0')
+
+    def test_invalid_tool_call_feedback_returns_to_same_episode(tmp_path):
+        frame = _frame()
+        context = replace(
+            _context(frame, allowed_capabilities=("finance_query",)),
+            trace_parent_id=uuid4().hex,
+        )
+        registry = episode_tools.build_episode_registry(
+            frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+        )
+        call = ModelToolCall("bad-1", "finance_query", {
+            "dataset": "market_daily", "dimensions": ["trade_date"],
+            "metrics": ["stage_day"],
+            "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+        })
+&gt;       finish = _finish_turn(("hash-q1",))
+E       TypeError: _finish_turn() takes 0 positional arguments but 1 was given
+
+../../quality/work/probes/test_qc_c3_feedback_fixed.py:38: TypeError</failure></testcase><testcase classname="" name="test_frozen_nested_mapping_normalizes" time="0.001" /><testcase classname="" name="test_unknown_object_still_rejected" time="0.002" /><testcase classname="" name="test_tracker_records_digest_without_error" time="0.002" /><testcase classname="" name="test_sample_indexes_carry_absolute_offset" time="0.002"><failure message="TypeError: 'NoneType' object is not iterable">def test_sample_indexes_carry_absolute_offset():
+        payload = dict(_payload([{"a": 1}, {"a": 2}, {"a": 3}, {"a": 4}]), offset=10)
+        projected = _model_projection(payload, "ref-1")
+        # find the 范围与完整分母 block keys and sample index sequence
+        indexes = []
+        for name, _meta, records in projected:
+            if "分母" in name:
+&gt;               keys = {r.get("key") for r in records if isinstance(r, dict)}
+E               TypeError: 'NoneType' object is not iterable
+
+../../quality/work/probes/test_qc_c5_pagination.py:29: TypeError</failure></testcase><testcase classname="" name="test_result_next_offset_semantics" time="0.001"><failure message="AttributeError: 'ToolRunResult' object has no attribute 'metadata'">def test_result_next_offset_semantics():
+        rows = [{"a": i} for i in range(4)]
+        payload = _payload(rows, total=10)
+        r = _result(dict(payload), offset=2)
+&gt;       md = r.metadata
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../quality/work/probes/test_qc_c5_pagination.py:44: AttributeError</failure></testcase><testcase classname="" name="test_truncation_flag_reflects_partial_page" time="0.001"><failure message="AttributeError: 'ToolRunResult' object has no attribute 'metadata'">def test_truncation_flag_reflects_partial_page():
+        # read_history_result path: page smaller than rows -&gt; truncated True
+        payload = _payload([{"a": 1}, {"a": 2}, {"a": 3}], total=3)
+        r = _result(dict(payload), offset=0)
+&gt;       assert r.metadata["truncated"] is False
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../quality/work/probes/test_qc_c5_pagination.py:58: AttributeError</failure></testcase><testcase classname="" name="test_zero_return_sets_next_offset_none" time="0.001"><failure message="AttributeError: 'ToolRunResult' object has no attribute 'metadata'">def test_zero_return_sets_next_offset_none():
+        payload = _payload([], total=5)
+        r = _result(dict(payload), offset=0)
+&gt;       assert r.metadata["next_offset"] is None
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../quality/work/probes/test_qc_c5_pagination.py:64: AttributeError</failure></testcase><testcase classname="" name="test_repair_reaches_public_answer_after_definition_deletion" time="0.071" /><testcase classname="" name="test_repair_survives_when_definition_survives" time="0.003"><failure message="AssertionError: assert '升级条件：' in '该股放量上攻。'&#10; +  where '该股放量上攻。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer">def test_repair_survives_when_definition_survives():
+        # Definition retained -&gt; count must be preserved, no dangling repair.
+        result = _verify(
+            "升级条件：若涨停60家以上，则升级。该股放量上攻。"
+        )
+&gt;       assert "升级条件：" in result.public_answer
+E       AssertionError: assert '升级条件：' in '该股放量上攻。'
+E        +  where '该股放量上攻。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+
+../../quality/work/probes/test_qc_c6_exit.py:41: AssertionError</failure></testcase><testcase classname="" name="test_deleted_decision_recorded" time="0.003"><failure message="AssertionError: ({'bound_evidence_hashes': [], 'cited_evidence_ordinals': [], 'decision': 'deleted', 'judge_issues': [], ...},)&#10;assert False&#10; +  where False = any(&lt;generator object test_deleted_decision_recorded.&lt;locals&gt;.&lt;genexpr&gt; at 0x10a0c2330&gt;)">def test_deleted_decision_recorded():
+        result = _verify(
+            "① 降级条件：跌破前低。\n"
+            "观察。尚未满足降级条件中的1条，需观察。"
+        )
+&gt;       assert any(
+            row["decision"] == "deleted" and "跌破前低" in row["sentence"]
+            for row in result.sentence_verdicts
+        ), result.sentence_verdicts
+E       AssertionError: ({'bound_evidence_hashes': [], 'cited_evidence_ordinals': [], 'decision': 'deleted', 'judge_issues': [], ...},)
+E       assert False
+E        +  where False = any(&lt;generator object test_deleted_decision_recorded.&lt;locals&gt;.&lt;genexpr&gt; at 0x10a0c2330&gt;)
+
+../../quality/work/probes/test_qc_c6_exit.py:49: AssertionError</failure></testcase><testcase classname="" name="test_both_deleted_removes_orphaned_counts" time="0.003" /><testcase classname="" name="test_surviving_definition_keeps_its_count" time="0.004" /><testcase classname="" name="test_no_removal_without_deleted_definition" time="0.000" /><testcase classname="" name="test_unrelated_prose_and_linebreaks_preserved" time="0.001" /><testcase classname="" name="test_list_marker_definition_shapes_all_recognized" time="0.001"><failure message="AssertionError: ('- ', ())&#10;assert () == (1,)&#10;  &#10;  Right contains one more item: 1&#10;  Use -v to get more diff">def test_list_marker_definition_shapes_all_recognized():
+        shapes = {
+            "- ": "- 升级条件：A。\n",
+            "1. ": "1. 升级条件：A。\n",
+            "（2）": "（2）升级条件：A。\n",
+            "① ": "① 升级条件：A。\n",
+            "**": "**升级条件**：A。\n",
+        }
+        for name, defn in shapes.items():
+            idx = _rejected(defn)
+&gt;           assert idx == (1,), (name, idx)
+E           AssertionError: ('- ', ())
+E           assert () == (1,)
+E             
+E             Right contains one more item: 1
+E             Use -v to get more diff
+
+../../quality/work/probes/test_qc_c6_repair.py:72: AssertionError</failure></testcase><testcase classname="" name="test_same_line_mixed_labels_all_removed" time="0.001" /></testsuite></testsuites>

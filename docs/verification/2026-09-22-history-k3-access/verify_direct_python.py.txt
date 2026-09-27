@@ -1,0 +1,56 @@
+"""Offline-only verification of a no-heredoc bootstrap candidate, not a live fix."""
+import ast
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+RESOLVER = Path('/Users/a77/.claude/mirasim-kimi-token.sh')
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+source = RESOLVER.read_text()
+assert hashlib.sha256(source.encode()).hexdigest() == json.loads((ROOT / 'access-preflight.json').read_text())['resolver_sha256']
+prefix, marker, body = source.partition("python3 - <<'PY'\n")
+assert marker and body.endswith('PY\n') and "<<" not in prefix
+body = body[:-3]
+ast.parse(body)
+fixture = '''
+import io, json, sqlite3, urllib.request
+from pathlib import Path
+fixture_calls = []
+case = CASE
+original_exists = Path.exists
+Path.exists = lambda self: False if case == 'missing_database' else True
+class Connection:
+    def execute(self, sql):
+        fixture_calls.append('fake_sql')
+        return self
+    def fetchone(self):
+        return None if case == 'missing_account' else ('NONSECRET_FAKE_REFRESH',)
+sqlite3.connect = lambda *args, **kwargs: Connection()
+def fake_urlopen(req, timeout):
+    fixture_calls.append('fake_http')
+    assert json.loads(req.data)['refresh_token'] == 'NONSECRET_FAKE_REFRESH'
+    return io.BytesIO(json.dumps({'access_token': '' if case == 'missing_access' else 'NONSECRET_FAKE_ACCESS'}).encode())
+urllib.request.urlopen = fake_urlopen
+'''
+results = []
+for case, rc, stdout in [('success', 0, 'NONSECRET_FAKE_ACCESS'), ('missing_database', 1, ''),
+                         ('missing_account', 1, ''), ('missing_access', 1, '')]:
+    code = fixture.replace('case = CASE', f'case = {case!r}') + '\nexec(compile(' + repr(body) + ', "resolver-payload", "exec"))\n'
+    command = ['/usr/bin/sandbox-exec', '-f', str(ROOT / 'quality/tools.sb'), PY, '-B', '-c', code]
+    env = {'HOME': '/Users/a77', 'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8',
+           'PYTHONDONTWRITEBYTECODE': '1', 'TMPDIR': '/tmp'}
+    p = subprocess.run(command, env=env, capture_output=True, timeout=15)
+    results.append({'case': case, 'exit_code': p.returncode, 'expected_exit_code': rc,
+                    'stdout_matches_fixture': p.stdout.decode() == stdout,
+                    'stderr': p.stderr.decode(), 'passed': p.returncode == rc and p.stdout.decode() == stdout,
+                    'real_http_requests': 0, 'real_credentials_read': 0, 'model_requests': 0})
+result = {'method': 'same resolver Python body, sqlite/urlopen fixtures, existing network-denying tools sandbox',
+          'python': PY, 'resolver_sha256': hashlib.sha256(source.encode()).hexdigest(),
+          'cases': results, 'all_passed': all(row['passed'] for row in results),
+          'limit': 'No Pi bootstrap integration or real credential/model request was rerun.'}
+(ROOT / 'diagnostics/direct-python-result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(result, ensure_ascii=False, indent=2))
+raise SystemExit(0 if result['all_passed'] else 1)

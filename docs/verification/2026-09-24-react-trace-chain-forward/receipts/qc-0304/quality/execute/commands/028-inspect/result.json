@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "_tool_turn|_finish_turn|def _tool_turn|def _finish_turn",
+    "intelligence/tests/test_agent_episode.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 43,
+  "output_sha256": "7eb23d47cbfb6a195b90cc10416287c3edf29623fb70237fd2742859eca3b565"
+}

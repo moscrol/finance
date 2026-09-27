@@ -1918,10 +1918,20 @@ def build_episode_registry(
     memory_identity_resolved = (
         str(memory_user or "").strip() != "" or memory_users_root is not None
     )
+    memory_opening_runner = None
     if (
         "memory_lookup" in context.contract.allowed_capabilities
         and memory_identity_resolved
     ):
+
+        # Freeze the user root before dispatching a background opening read.
+        if memory_users_root is None:
+            from intelligence import userspace
+
+            try:
+                memory_users_root = userspace.user_space(memory_user).root
+            except ValueError:
+                pass  # Invalid audit identities remain registrable, never readable.
 
         def memory_lookup_runner(
             query: str,
@@ -1932,6 +1942,7 @@ def build_episode_registry(
                 query,
                 user=memory_user,
                 users_root=memory_users_root,
+                strict=True,
                 **_memory_recall_intent(
                     context.contract.subject,
                     context.contract.subject_kind,
@@ -2022,6 +2033,7 @@ def build_episode_registry(
                         independent_key=str(record.get("method_id") or ""),
                     )
                 )
+            tool_context.check_cancelled()
             observation = (
                 "；".join(f"{item.title}：{item.detail}" for item in evidence)
                 or "用户记忆无相关命中（该题材/标的此前没有留下判断或纠偏）"
@@ -2040,6 +2052,7 @@ def build_episode_registry(
                 gaps=() if evidence else ("用户记忆中没有与本题相关的历史判断",),
             )
 
+        memory_opening_runner = memory_lookup_runner
         specs.append(
             ToolSpec(
                 name="memory_lookup",
@@ -2077,16 +2090,23 @@ def build_episode_registry(
             # Audit probe / illegal id: skip live weekly, keep assembling tools.
             live_us = None
     require_tool_contracts(specs)
+    opening = _opening_prefetch_evidence(
+        frame,
+        context,
+        market_db_path,
+        user_space=live_us,
+        perspective_ids=tuple(perspective_ids),
+        perspective_mode=perspective_mode,
+    )
+    if memory_opening_runner is not None and evidence_capabilities.needs_opening_memory(frame):
+        from intelligence.services.memory_prefetch import collect_opening_memory
+
+        opening += collect_opening_memory(
+            memory_opening_runner, query=frame.raw_question, context=context,
+        )
     return ResearchToolRegistry(
         tuple(specs),
-        opening_prefetch=_opening_prefetch_evidence(
-            frame,
-            context,
-            market_db_path,
-            user_space=live_us,
-            perspective_ids=tuple(perspective_ids),
-            perspective_mode=perspective_mode,
-        ),
+        opening_prefetch=opening,
         # 与 memory_lookup 共用同一个身份输入：``derived_calculation`` 的
         # ``inputs_from_calc``（改假设重算）要去「这一轮用户的 runs 目录」找上一次的
         # 计算记录，而 episode 层刻意不认识用户。身份缺席时留 None = 沿用默认解析。

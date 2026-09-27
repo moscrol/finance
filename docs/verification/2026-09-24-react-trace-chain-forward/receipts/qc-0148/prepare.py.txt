@@ -1,0 +1,58 @@
+"""Materialize one newly authorized review without reusing reviewer evidence."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SEED = ROOT.parent / 'pr832-glm-qc-20260923-2355'
+AUTHOR = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+TREE = ROOT / 'candidate/finance-workspace-private'
+REV = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+BASE = '3bb81b9638f97b4773ce0f338df3a505b7c0162f'
+OLD_REV = 'd1b30e1a068ccd0559f091f3c664ca2ca82f1e7c'
+OLD_BASE = '626d8a508c1c988ff094110b371987e6afdcdd15'
+assert subprocess.check_output(['git', '-C', str(AUTHOR), 'rev-parse', 'HEAD'], text=True).strip() == REV
+assert not subprocess.check_output(['git', '-C', str(AUTHOR), 'status', '--porcelain'])
+subprocess.run(['git', '-C', str(AUTHOR), 'worktree', 'add', '--detach', str(TREE), REV], check=True)
+provenance = []
+
+
+def copy(source, dest):
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    text = source.read_text().replace(str(SEED), str(ROOT)).replace(OLD_REV, REV).replace(OLD_BASE, BASE)
+    dest.write_text(text)
+    provenance.append({'source': str(source), 'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+                       'destination': str(dest.relative_to(ROOT)), 'rebound_paths_and_identity': True})
+
+
+for name in ['glm_credential.py', 'glm_review_shim.py', 'run_batch.py', 'finish_setup.py']:
+    copy(SEED/name, ROOT/name)
+for axis in ['spec', 'quality']:
+    target = ROOT/axis
+    for name in ['work/tmp', 'work/users', 'work/probes', 'inputs', 'pi-config']:
+        (target/name).mkdir(parents=True)
+    for name in ['config.json', 'tools.sb', 'gateway.mjs', 'provider-template.json', 'pi-config/settings.json',
+                 'inputs/claims.md', 'run_stage.py', 'run_control.py', 'junit_summary.py', 'sandbox_preflight.mjs',
+                 'prompt-explore.md', 'prompt-execute.md', 'prompt-report.md']:
+        copy(SEED/axis/name, target/name)
+    for name in ['review.mjs', 'file_tool.py']:
+        copy(SEED/'read-delivery-control-v2/after'/name, target/name)
+    diff = subprocess.check_output(['git', '-C', str(AUTHOR), 'diff', BASE, REV, '--', 'intelligence', 'tests'])
+    (target/'inputs/source.diff').write_bytes(diff)
+    config = json.loads((target/'config.json').read_text())
+    assert config['tree'] == str(TREE) and config['revision'] == REV and config['baseline'] == BASE
+protocol = json.loads((SEED/'protocol.json').read_text())
+protocol.update(created_at=datetime.now(timezone.utc).isoformat(), user_message='推进，直到可以合并部署',
+                authorization_context='Continue repairs and bounded independent/engineering validation toward merge/deployment readiness; no unconditional merge or production switch.',
+                previous_batch=str(SEED), candidate_tree=str(TREE), revision=REV, baseline=BASE,
+                stop_policy='Finite152-request batch; no same-batch retry. Any failure stops; diagnose before a distinct continuation, never hide original failure.',
+                hardening=['fixed direct test exit', 'typed terminating report', 'actual pytest/SQLite admission',
+                           'read delivered-line cursor', 'authoritative request progress', 'early probe milestone'])
+(ROOT/'protocol.json').write_text(json.dumps(protocol, ensure_ascii=False, indent=2)+'\n')
+(ROOT/'tooling-provenance.json').write_text(json.dumps(provenance, indent=2)+'\n')
+(ROOT/'candidate-identity.json').write_text(json.dumps({'revision': REV, 'baseline': BASE, 'prior_candidate': OLD_REV,
+    'merge_tree': '644be24e010e6bad944e2e6d5314434603a9fe56', 'product_modules_changed_from_prior': [],
+    'engineering_receipts': 'PENDING_NEW_HEAD', 'independent_qc': 'PENDING_NEW_BATCH'}, indent=2)+'\n')
+print(json.dumps({'root': str(ROOT), 'revision': REV, 'model_requests': 0}))

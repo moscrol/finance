@@ -1,0 +1,1 @@
+{"toolCallId":"call_44b43a67ac2343279b2433f3","params":{"args":["-n","-A","30","intelligence/services/episode_protocol.py","-e","def strip_evidence_ordinals"],"program":"rg"}}

@@ -1,0 +1,1 @@
+{"toolCallId":"call_74d7ad2f3713436ba5c9f5a8","params":{"args":["-n","--no-heading","-e","def numeric_condition_unsupported","-e","def normalize_query","-e","def strip_evidence_ordinals","-e","def _drop_rejected_sentences","-e","def _repair_dangling_condition_references","-e","def next_offset","intelligence"],"program":"rg"}}

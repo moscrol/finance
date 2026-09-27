@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-evidence-integration-0921",
+  "revision": "64b0b48fa5c461f6a97911948a7585fec97c65ec",
+  "branch": "feat/history-evidence-integration-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_history_artifact_scope.py tests/test_history_evidence_binding.py tests/test_history_model_projection.py tests/test_historical_evidence_contract.py tests/test_run_store_history_artifacts.py tests/test_history_recovery_selection.py tests/test_history_date_scope.py tests/test_historical_episode_branching.py tests/test_history_case_patch.py intelligence/tests/test_prior_evidence.py intelligence/tests/test_historical_research_episode.py intelligence/tests/test_episode_verifier.py intelligence/tests/test_episode_semantic_verifier.py intelligence/tests/test_judge_mode_off.py intelligence/tests/test_judge_mode_receipt_independence.py intelligence/tests/test_probe_tool_arguments.py intelligence/tests/test_agent_episode_progress.py intelligence/tests/test_condition_reference_seams.py intelligence/tests/test_workbench_api.py::test_create_run_and_fetch_artifacts intelligence/tests/test_workbench_api.py::test_internal_artifact_is_hidden_from_every_public_artifact_interface intelligence/tests/test_workbench_api.py::test_run_artifact_path_traversal_rejected",
+  "counts": {
+    "passed": 599,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T16:18:08+00:00"
+}

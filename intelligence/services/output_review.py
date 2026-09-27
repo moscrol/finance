@@ -76,6 +76,7 @@ class OutputReviewGate:
     checks: list[ReviewCheck] = field(default_factory=list)
     decision_role: str = "advisory_review"
     blocking: bool = False
+    claim_scope: dict[str, Any] | None = None
 
     @property
     def status(self) -> str:
@@ -90,12 +91,16 @@ class OutputReviewGate:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "status": self.status,
             "decision_role": self.decision_role,
             "blocking": self.blocking,
             "checks": [c.to_dict() for c in self.checks],
         }
+        if self.claim_scope is not None:
+            payload["claim_scope_mode"] = self.claim_scope["mode"]
+            payload["claim_scope"] = self.claim_scope
+        return payload
 
     def summary_lines(self) -> list[str]:
         actionable = [check for check in self.checks if not check.advisory_only]

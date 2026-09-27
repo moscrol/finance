@@ -66,6 +66,10 @@ def record_correction(
     principle: str | None = None,
     themes: list[str] | None = None,
     ts: str | None = None,
+    source: str | None = None,
+    conversation_id: str | None = None,
+    corrected_message_id: str | None = None,
+    plane: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """把一条纠正 append 到 ``corrections.jsonl``，返回 ``(path, record)``。
 
@@ -86,6 +90,14 @@ def record_correction(
         record["original"] = str(original).strip()
     if principle and str(principle).strip():
         record["principle"] = str(principle).strip()
+    for key, value in (
+        ("source", source),
+        ("conversation_id", conversation_id),
+        ("corrected_message_id", corrected_message_id),
+        ("plane", plane),
+    ):
+        if value and str(value).strip():
+            record[key] = str(value).strip()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -131,6 +143,8 @@ def record_validated_preference(
 def load_corrections(
     path: str | Path,
     window: int = DEFAULT_WINDOW,
+    *,
+    strict: bool = False,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """读取最近 ``window`` 条纠偏记录（按出现顺序）。文件不存在时返回空列表。"""
     p = Path(path).expanduser()
@@ -148,9 +162,13 @@ def load_corrections(
         try:
             rec = json.loads(line)
         except Exception:
+            if strict:
+                raise ValueError("invalid correction ledger row") from None
             continue
         if isinstance(rec, dict):
             raw.append(rec)
+        elif strict:
+            raise ValueError("invalid correction ledger row")
     # 记忆退出机制（memory_status）：先应用追加式状态覆盖（归档/撤销的不再召回），
     # 台账无状态行时行为不变。
     from intelligence.services.memory_status import apply_status_overrides

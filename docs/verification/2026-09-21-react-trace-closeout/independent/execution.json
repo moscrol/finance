@@ -1,0 +1,61 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/react-trace-closeout-0921/independent/review.sb",
+    "/opt/homebrew/bin/pi",
+    "--offline",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--no-session",
+    "--no-extensions",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-themes",
+    "--no-context-files",
+    "--no-approve",
+    "--tools",
+    "read,bash,write",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "@/Users/a77/.finance-runtime/reviews/react-trace-closeout-0921/independent/prompt.md"
+  ],
+  "identity_before": {
+    "revision": "dda5895aafc88e5fa20632cf4aaefea973940164",
+    "status": "",
+    "shared_refs_sha256": "b4597157bcf1c54b78d8c98101c91837b003b0663dbf71a580127255115c21cc",
+    "author_revision": "dda5895aafc88e5fa20632cf4aaefea973940164",
+    "author_status": ""
+  },
+  "timeout_seconds": 900,
+  "prompt_sha256": "52f4d7ec0a6dd7e62569b9f0ef367807afa94b8e99580e93a77f9286c0b26de4",
+  "sandbox_sha256": "1a901631987497744801a796f746b936473e9bf1c98c91a8d85f2f19f58f2540",
+  "started_at": "2026-09-20T18:57:11.996909+00:00",
+  "complete": true,
+  "auth_bootstrap": "parent_memory_only",
+  "pid": 90982,
+  "timed_out": false,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "dda5895aafc88e5fa20632cf4aaefea973940164",
+    "status": "",
+    "shared_refs_sha256": "94eae83733c2cacde8665c347b432acdce7abb46205e5b2f6416c110f85915bc",
+    "author_revision": "dda5895aafc88e5fa20632cf4aaefea973940164",
+    "author_status": ""
+  },
+  "finished_at": "2026-09-20T19:05:32.671837+00:00",
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "shared_refs_unchanged": false,
+  "sha256": {
+    "events.jsonl": "e62414c2a09fc8013657c9396fea285cba360e77e456ee9393ece8b561320cff",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "REPORT.md": "32901ccd0528bc84d5bec5fad5d7ae5e89b2802a7923916b8f04f3a2a84a4240"
+  }
+}

@@ -1,0 +1,260 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/run_frontend_gate.py",
+    "--tree",
+    "/Users/a77/fwp-wt-history-evidence-integration-0921",
+    "--expect-revision",
+    "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-main-f73d21339/frontend",
+    "--python",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "--workbench-port",
+    "19081",
+    "--re06-port",
+    "19084"
+  ],
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T14:51:30.039969+00:00",
+  "timeout_seconds": 900,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 14404026368
+    },
+    {
+      "elapsed": 2,
+      "free_bytes": 14374793216
+    },
+    {
+      "elapsed": 4,
+      "free_bytes": 14370672640
+    },
+    {
+      "elapsed": 6,
+      "free_bytes": 14370611200
+    },
+    {
+      "elapsed": 8,
+      "free_bytes": 14372286464
+    },
+    {
+      "elapsed": 10,
+      "free_bytes": 14369574912
+    },
+    {
+      "elapsed": 12,
+      "free_bytes": 14366900224
+    },
+    {
+      "elapsed": 14,
+      "free_bytes": 14362152960
+    },
+    {
+      "elapsed": 16,
+      "free_bytes": 14498328576
+    },
+    {
+      "elapsed": 18,
+      "free_bytes": 14530002944
+    },
+    {
+      "elapsed": 20,
+      "free_bytes": 14528282624
+    },
+    {
+      "elapsed": 22,
+      "free_bytes": 14534246400
+    },
+    {
+      "elapsed": 24,
+      "free_bytes": 14531489792
+    },
+    {
+      "elapsed": 26,
+      "free_bytes": 14526459904
+    },
+    {
+      "elapsed": 28,
+      "free_bytes": 14522130432
+    },
+    {
+      "elapsed": 30,
+      "free_bytes": 14519148544
+    },
+    {
+      "elapsed": 32,
+      "free_bytes": 14514401280
+    },
+    {
+      "elapsed": 34,
+      "free_bytes": 14512267264
+    },
+    {
+      "elapsed": 36,
+      "free_bytes": 14508507136
+    },
+    {
+      "elapsed": 38,
+      "free_bytes": 14507294720
+    },
+    {
+      "elapsed": 40,
+      "free_bytes": 14502866944
+    },
+    {
+      "elapsed": 42,
+      "free_bytes": 14500192256
+    },
+    {
+      "elapsed": 44,
+      "free_bytes": 14498766848
+    },
+    {
+      "elapsed": 46,
+      "free_bytes": 14495993856
+    },
+    {
+      "elapsed": 48,
+      "free_bytes": 14519672832
+    },
+    {
+      "elapsed": 50,
+      "free_bytes": 14517342208
+    },
+    {
+      "elapsed": 52,
+      "free_bytes": 14516031488
+    },
+    {
+      "elapsed": 54,
+      "free_bytes": 14511915008
+    },
+    {
+      "elapsed": 56,
+      "free_bytes": 14520602624
+    },
+    {
+      "elapsed": 58,
+      "free_bytes": 14513070080
+    },
+    {
+      "elapsed": 60,
+      "free_bytes": 14509187072
+    },
+    {
+      "elapsed": 62,
+      "free_bytes": 14505037824
+    },
+    {
+      "elapsed": 64,
+      "free_bytes": 14501367808
+    },
+    {
+      "elapsed": 66,
+      "free_bytes": 14497476608
+    },
+    {
+      "elapsed": 68,
+      "free_bytes": 14492930048
+    },
+    {
+      "elapsed": 70,
+      "free_bytes": 14485872640
+    },
+    {
+      "elapsed": 72,
+      "free_bytes": 14512250880
+    },
+    {
+      "elapsed": 74,
+      "free_bytes": 14507483136
+    },
+    {
+      "elapsed": 76,
+      "free_bytes": 14504259584
+    },
+    {
+      "elapsed": 78,
+      "free_bytes": 14500655104
+    },
+    {
+      "elapsed": 80,
+      "free_bytes": 14495969280
+    },
+    {
+      "elapsed": 82,
+      "free_bytes": 14491402240
+    },
+    {
+      "elapsed": 84,
+      "free_bytes": 14426411008
+    },
+    {
+      "elapsed": 86,
+      "free_bytes": 14144569344
+    },
+    {
+      "elapsed": 88,
+      "free_bytes": 14141026304
+    },
+    {
+      "elapsed": 90,
+      "free_bytes": 14137856000
+    },
+    {
+      "elapsed": 92,
+      "free_bytes": 14133252096
+    },
+    {
+      "elapsed": 94,
+      "free_bytes": 14127861760
+    },
+    {
+      "elapsed": 96,
+      "free_bytes": 14124617728
+    },
+    {
+      "elapsed": 98,
+      "free_bytes": 14136471552
+    },
+    {
+      "elapsed": 100,
+      "free_bytes": 14111346688
+    },
+    {
+      "elapsed": 102,
+      "free_bytes": 14091374592
+    },
+    {
+      "elapsed": 104,
+      "free_bytes": 14089224192
+    },
+    {
+      "elapsed": 106,
+      "free_bytes": 14086381568
+    },
+    {
+      "elapsed": 108,
+      "free_bytes": 14087524352
+    },
+    {
+      "elapsed": 110,
+      "free_bytes": 14082879488
+    }
+  ],
+  "pid": 93725,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T14:53:22.487909+00:00",
+  "identity_stable": true
+}

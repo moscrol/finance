@@ -1,0 +1,15 @@
+import json, os, subprocess, hashlib
+root='/Users/a77/.finance-runtime/reviews/react-trace-integration-20260921/history-k3-access-fedce'
+script='''#!/bin/sh
+set -eu
+python3 - <<'PY'
+print("local-only")
+PY
+'''
+path=root+'/diagnostics/noop-resolver.sh'
+open(path,'w').write(script)
+os.chmod(path,0o700)
+for tmp in ('/tmp',''+root+'/quality/k3/work/diagnostic-bin'):
+    env={'HOME':'/Users/a77','PATH':'/opt/homebrew/bin:/usr/bin:/bin','LANG':'C.UTF-8','TMPDIR':tmp}
+    p=subprocess.run([path],env=env,capture_output=True,text=True,timeout=15)
+    print(json.dumps({'tmpdir':tmp,'exit_code':p.returncode,'stdout':p.stdout,'stderr_sha256':hashlib.sha256(p.stderr.encode()).hexdigest()}))

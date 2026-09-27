@@ -1,0 +1,122 @@
+"""Historical values must survive the actual model-facing observation budget."""
+
+from copy import deepcopy
+from dataclasses import replace
+import json
+
+import pytest
+
+from intelligence.services.agent_research import evidence_content_hash
+from intelligence.services.historical_research.episode import _result, history_tool_specs
+from intelligence.services.historical_research.features import FEATURES, FEATURE_VERSION
+from intelligence.services.query_understanding import understand_query
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import ToolObservation
+from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+from intelligence.tests.test_historical_research_episode import _registry
+
+
+REF = "run-history-review/history-query-" + "a" * 64 + ".json"
+
+
+def _project(observation):
+    if not isinstance(observation, ToolObservation):
+        evidence = tuple(
+            replace(item, content_hash=evidence_content_hash(item))
+            for item in observation.evidence
+        )
+        observation = ToolObservation(
+            tool="history_query",
+            query="projection contract",
+            evidence=evidence,
+            evidence_hashes=tuple(item.content_hash for item in evidence),
+            observation=observation.observation,
+            trace=observation.trace,
+            gaps=observation.gaps,
+            telemetry=observation.telemetry,
+        )
+    projected = FinanceResearchHarness().project_tool_result(
+        observation, evidence_so_far=observation.evidence, seen_prose=set()
+    )
+    model = json.loads(projected.model_content)
+    details = []
+    for item in model["evidence"]:
+        assert len(item["detail"]) <= MAX_EVIDENCE_DETAIL_CHARS
+        assert not item["detail"].endswith("…")
+        details.append(json.loads(item["detail"]))
+    assert len(model["evidence"]) == len(observation.evidence)
+    return model, details
+
+
+def _payload(rows, *, operation="compute_history"):
+    return {
+        "query_id": "q-projection",
+        "operation": operation,
+        "status": "research_only",
+        "total_matched": len(rows),
+        "returned_count": len(rows),
+        "truncated": False,
+        "preview": rows,
+        "rows": deepcopy(rows),
+        "coverage": {"large": {"missing_dates": ["2024-01-01"] * 300}},
+        "feature_definitions": {
+            name: dict(value, version=FEATURE_VERSION) for name, value in FEATURES.items()
+        },
+    }
+
+
+def test_real_query_projection_keeps_values_status_definition_ref_and_original(tmp_path):
+    registry, context, session = _registry(tmp_path)
+    observed = registry.execute(
+        "history_query",
+        {
+            "operation": "compute_history",
+            "start": "2026-08-03",
+            "end": "2026-08-04",
+            "entity_codes": ["A.FP"],
+            "features": ["return_pct", "amount_ratio", "double_red_days"],
+        },
+        context=context,
+        step_id="query",
+    )
+    ref = observed.telemetry["result_ref"]
+    original = session.read(ref)
+    frozen = deepcopy(original)
+    model, details = _project(observed)
+    samples = [row for row in details if row.get("entity_code") == "A.FP"]
+    for feature, expected in (("return_pct", 3.02), ("amount_ratio", 1.3), ("double_red_days", 0)):
+        sample = next(row for row in samples if feature in row.get("features", {}))
+        assert sample["features"][feature] == pytest.approx(expected)
+        assert sample["status"][feature] == "complete"
+        assert sample["start"] == "2026-08-03"
+        assert sample["end"] == "2026-08-04"
+    definition = next(row for row in details if row.get("feature") == "double_red_days")
+    assert definition["rule"] == FEATURES["double_red_days"]["rule"]
+    assert "500" in definition["rule"]
+    assert definition["unit"] == "trading_days"
+    assert definition["version"] == FEATURE_VERSION
+    assert any(row.get("entity_name") == "农业" for row in samples)
+    assert any(row.get("result_ref") == ref for row in details)
+    assert ref in model["observation"]
+    assert any(row.get("returned_count") == 1 for row in details)
+    assert len(details) > original["returned_count"]
+    assert session.read(ref) == frozen
+    assert "feature_coverage" in original["rows"][0]
+    assert original["inputs"]
+
+
+@pytest.mark.parametrize("kind", ["sector", "stock"])
+def test_inspect_projects_entity_values_before_large_members_and_market(kind):
+    row = {
+        "entity_code": "A.FP" if kind == "sector" else "000001.SZ",
+        "trade_date": "2026-08-04",
+        kind: {"pct_chg": -2.5, "amount": 732.1, "diff_ratio": None, "close": 17.25},
+        "market": {"debug": "large market detail" * 100},
+        "members": [{"stock_ts_code": "large" + str(i)} for i in range(200)],
+        "events": [{"title": "unverified" * 100}],
+    }
+    payload = _payload([row], operation="inspect_history")
+    frozen = deepcopy(payload)
+    _, details = _project(_result(payload, result_ref=REF))
+
+[truncated; total lines=408, selected=1:120; next_offset=121]

@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+rootdir: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+________________________ ERROR collecting test session _________________________
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:892: in is_file
+    return S_ISREG(self.stat().st_mode)
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:840: in stat
+    return os.stat(self, follow_symlinks=follow_symlinks)
+E   PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255'
+=========================== short test summary info ============================
+ERROR  - PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.fin...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.15s ===============================
+EXIT=2

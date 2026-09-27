@@ -1,0 +1,19 @@
+{"event": "started", "monotonic": 1367161.959919708}
+{"event": "listening", "monotonic": 1367161.981071583, "port": 19899}
+{"event": "admitted", "max_completion_tokens_present": false, "max_tokens": 256, "monotonic": 1367162.377057083, "reasoning_effort": "low", "request": 1, "temperature_removed": false, "thinking": {"clear_thinking": false, "type": "enabled"}}
+{"event": "dispatched", "monotonic": 1367162.51566075, "request": 1}
+{"event": "headers", "monotonic": 1367163.839593791, "request": 1, "status": 200}
+{"elapsed_seconds": 1.465495, "event": "finished", "monotonic": 1367163.843506291, "outcome": "completed", "request": 1, "status": 200}
+{"event": "admitted", "max_completion_tokens_present": false, "max_tokens": 8192, "monotonic": 1367167.615710333, "reasoning_effort": "low", "request": 2, "temperature_removed": false, "thinking": {"clear_thinking": false, "type": "enabled"}}
+{"event": "dispatched", "monotonic": 1367167.748101333, "request": 2}
+{"event": "headers", "monotonic": 1367169.061774291, "request": 2, "status": 200}
+{"elapsed_seconds": 1.753055, "event": "finished", "monotonic": 1367169.370854541, "outcome": "completed", "request": 2, "status": 200}
+{"event": "admitted", "max_completion_tokens_present": false, "max_tokens": 8192, "monotonic": 1367169.628713458, "reasoning_effort": "low", "request": 3, "temperature_removed": false, "thinking": {"clear_thinking": false, "type": "enabled"}}
+{"event": "dispatched", "monotonic": 1367169.731266791, "request": 3}
+{"event": "headers", "monotonic": 1367173.012897708, "request": 3, "status": 200}
+{"elapsed_seconds": 3.708754, "event": "finished", "monotonic": 1367173.338656333, "outcome": "completed", "request": 3, "status": 200}
+{"event": "admitted", "max_completion_tokens_present": false, "max_tokens": 8192, "monotonic": 1367173.639827875, "reasoning_effort": "low", "request": 4, "temperature_removed": false, "thinking": {"clear_thinking": false, "type": "enabled"}}
+{"event": "dispatched", "monotonic": 1367173.772715166, "request": 4}
+{"event": "headers", "monotonic": 1367176.656162958, "request": 4, "status": 200}
+{"elapsed_seconds": 3.424913, "event": "finished", "monotonic": 1367177.066237166, "outcome": "completed", "request": 4, "status": 200}
+{"event": "shutdown", "monotonic": 1367177.164078041}

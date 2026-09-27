@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/build_registry.py",
+    "check-parseability"
+  ],
+  "identity_before": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "started_at": "2026-09-21T14:48:28.068199+00:00",
+  "timeout_seconds": 300,
+  "disk_free_samples": [
+    {
+      "elapsed": 0,
+      "free_bytes": 15147180032
+    }
+  ],
+  "pid": 91223,
+  "exit_code": 0,
+  "identity_after": {
+    "revision": "f73d2133968d51d3c782d3e12ee9aa4d0618ef45",
+    "status": "",
+    "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "finished_at": "2026-09-21T14:48:30.423260+00:00",
+  "identity_stable": true
+}

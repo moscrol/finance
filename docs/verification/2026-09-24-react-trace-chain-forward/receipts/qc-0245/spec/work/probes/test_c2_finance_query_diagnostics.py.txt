@@ -1,0 +1,31 @@
+"""C2 probe: finance_query validation diagnostics are structured/safe."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services import finance_query as fq  # noqa: E402
+
+
+def test_unknown_dataset_is_sanitized():
+    err = fq.FinanceQueryValidationError("unknown dataset: /etc/passwd 或任意散文!!")
+    spec = fq.FinanceQuerySpec(dataset="bogus", dimensions=[], metrics=[])
+    out = fq.validation_diagnostic(spec, err)
+    assert out.startswith("结构化查询参数无效："), out
+    assert "/etc" not in out and "任意散文" not in out, out
+
+
+def test_known_message_passthrough():
+    err = fq.FinanceQueryValidationError("time range start exceeds end")
+    spec = fq.FinanceQuerySpec(dataset="next", dimensions=[], metrics=[])
+    out = fq.validation_diagnostic(spec, err)
+    assert "time range start exceeds end" in out
+
+
+def test_valid_identifier_kept():
+    err = fq.FinanceQueryValidationError("not a dimension: revenue")
+    spec = fq.FinanceQuerySpec(dataset="next", dimensions=[], metrics=[])
+    out = fq.validation_diagnostic(spec, err)
+    assert "not a dimension: " in out or "revenue" in out or "查询参数未通过校验" in out
+    assert "Traceback" not in out and "\n" not in out

@@ -1,0 +1,76 @@
+"""C5 probe (fixed): history paging identity and offsets via actual API shape.
+
+Original probe assumed ToolRunResult.metadata and int-titled projection rows;
+the real API returns (title, detail, source_date) triples and puts offsets in
+the observation text. Corrected against the real module surface.
+"""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services.historical_research.episode import (  # noqa: E402
+    _model_projection,
+    _result,
+)
+
+
+def _payload(rows, total=None, offset=0):
+    return {
+        "operation": "find_analogues",
+        "status": "success",
+        "total_matched": total if total is not None else len(rows),
+        "returned_count": len(rows[offset: offset + 2]),
+        "truncated": False,
+        "preview": rows[offset: offset + 2],
+        "reference": {"k": "v"},
+        "coverage": [],
+    }
+
+
+def _sample_indexes(proj):
+    out = set()
+    for _title, detail, _date in proj:
+        if isinstance(detail, dict) and "sample" in detail:
+            out.add(detail["sample"])
+        elif isinstance(detail, str):
+            import json
+            try:
+                parsed = json.loads(detail)
+            except Exception:
+                continue
+            stack = [parsed]
+            while stack:
+                item = stack.pop()
+                if isinstance(item, dict):
+                    if "sample" in item:
+                        out.add(item["sample"])
+                    stack.extend(item.values())
+                elif isinstance(item, list):
+                    stack.extend(item)
+    return out
+
+
+def test_projection_row_identity_absolute():
+    rows = [{"i": i, "entity_code": f"E{i}"} for i in range(6)]
+    proj = _model_projection(_payload(rows, total=6, offset=2), "ref-1")
+    samples = _sample_indexes(proj)
+    # second page rows must carry absolute sample ids 2,3 not 0,1
+    assert {2, 3} <= samples, samples
+    assert 0 not in samples and 1 not in samples, samples
+
+
+def test_result_observation_carries_offsets():
+    rows = [{"i": i, "entity_code": f"E{i}"} for i in range(6)]
+    res = _result(_payload(rows, total=6), result_ref="ref-1", offset=2)
+    obs = str(res.observation)
+    assert '"offset": 2' in obs, obs
+    assert '"next_offset": 4' in obs, obs
+
+
+def test_final_page_next_offset_none():
+    rows = [{"i": i, "entity_code": f"E{i}"} for i in range(3)]
+    res = _result(_payload(rows, total=3), result_ref="ref-1", offset=2)
+    obs = str(res.observation)
+    assert '"next_offset": null' in obs, obs

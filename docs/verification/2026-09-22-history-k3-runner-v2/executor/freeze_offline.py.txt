@@ -1,0 +1,40 @@
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+files = [
+    "worker.py", "prepare.py", "session.mjs", "bounded-gateway.mjs", "controller.mjs", "fixture-upstream.mjs", "check_worker.py", "run_fixture.mjs", "test_boundaries.mjs",
+    "spec/config.json", "spec/prompt.md", "spec/tools.sb", "quality/config.json", "quality/prompt.md", "quality/tools.sb",
+]
+sha = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in files}
+with (ROOT / "frozen-inputs.json").open("w") as out:
+    json.dump(sha, out, indent=2)
+    out.write("\n")
+latest = sorted(ROOT.glob("offline-*/worker-checks.json"))[-1]
+checks = json.loads(latest.read_text())
+fixture = sorted(ROOT.glob("fixture-suite-*/summary.json"))[-1]
+boundaries = sorted(ROOT.glob("boundaries-*/summary.json"))[-1]
+receipts = [latest, fixture, boundaries]
+if any(json.loads(p.read_text())["status"] != "PASS" for p in receipts):
+    raise SystemExit("latest complete offline checks are not PASS")
+for axis in ("spec", "quality"):
+    if (ROOT / axis / "STARTED.json").exists():
+        raise SystemExit("Cannot reseal after a live start")
+with (ROOT / "offline-acceptance.json").open("w") as out:
+    json.dump({
+        "status": "PASS",
+        "method": "offline-worker-plus-pi-sdk-sessions-plus-budget-and-bootstrap-boundaries",
+        "workerChecks": str(latest),
+        "fixtureChecks": str(fixture),
+        "boundaryChecks": str(boundaries),
+        "receiptsSha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in receipts},
+        "checks": 29,
+        "limits": "Local gateway dispatches are counted. Sidecar-internal provider attempts are not observed. This receipt does not approve review content.",
+        "realModelRequests": 0,
+        "credentialsRead": 0,
+        "frozenInputsSha256": hashlib.sha256((ROOT / "frozen-inputs.json").read_bytes()).hexdigest(),
+        "candidateRevision": "fedce252330dce1065238f58e6c914417219ec53",
+    }, out, indent=2)
+    out.write("\n")
+print(json.dumps({"status": "PASS", "inputs": len(files), "worker_checks": str(latest)}))

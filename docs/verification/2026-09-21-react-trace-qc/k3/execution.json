@@ -1,0 +1,50 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/k3.sb",
+    "/opt/homebrew/bin/pi",
+    "--offline",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--no-session",
+    "--no-extensions",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-themes",
+    "--no-context-files",
+    "--no-approve",
+    "--tools",
+    "read,bash,write",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "@/Users/a77/.finance-runtime/reviews/react-trace-qc-20260921/k3-prompt.md"
+  ],
+  "identity_before": {
+    "revision": "a412a56aa757863a5c35bdbc2b71498827d2b278",
+    "status": ""
+  },
+  "timeout_seconds": 600,
+  "started_at": "2026-09-21T08:56:40.109984+00:00",
+  "complete": true,
+  "prompt_sha256": "c3b670fdd69733e2505308c639b1474f3043badb334b4d1b3f2d8fa7d2ca6da3",
+  "pid": 59061,
+  "timed_out": true,
+  "exit_code": 143,
+  "identity_after": {
+    "revision": "a412a56aa757863a5c35bdbc2b71498827d2b278",
+    "status": ""
+  },
+  "finished_at": "2026-09-21T09:06:41.723922+00:00",
+  "candidate_untouched": true,
+  "sha256": {
+    "events.jsonl": "46f323d891676767ab0d0aa3f96fdcfdf4a1315dee4d04478f32d3fbb39d5773",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

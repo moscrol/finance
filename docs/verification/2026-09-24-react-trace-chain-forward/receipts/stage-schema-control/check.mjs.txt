@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Check } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/value/index.mjs';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+let networkAttempts = 0;
+globalThis.fetch = async () => { networkAttempts++; throw new Error('network forbidden'); };
+const payload = { verdict:'BLOCKED', summary:'offline fixture, no product signoff', claims:['C1','C2','C3','C4','C5','C6'].map(id=>({id,status:'not_verified',evidence:[],note:'not run'})), findings:[],limits:[],probe_files:[] };
+const verdicts = ['STAGE_COMPLETE','PASS','PASS_WITH_LIMITS','CHANGES_REQUIRED','BLOCKED'];
+const results = [];
+for (const variant of ['before','after']) {
+  const module = await import(`./${variant}/review.mjs`);
+  for (const stage of ['explore','execute','report']) {
+    const tools = [];
+    const out = path.join(root,variant,stage);
+    fs.mkdirSync(out);
+    module.install({registerTool:t=>tools.push(t),registerProvider:()=>{},on:()=>{}}, {out,stage,token:'offline-fake-not-a-secret'});
+    const schema = tools.find(t=>t.name==='submit_report').parameters;
+    const allowed = verdicts.filter(verdict=>Check(schema,{...payload,verdict}));
+    if (variant === 'before') assert.deepEqual(allowed,verdicts);
+    else assert.deepEqual(allowed,stage === 'report' ? verdicts.slice(1) : ['STAGE_COMPLETE','BLOCKED']);
+    for (const bad of [{...payload,claims:[]},{...payload,verdict:'UNKNOWN'},{...payload,extra:true}]) assert.equal(Check(schema,bad),false);
+    results.push({variant,stage,advertised_verdicts:schema.properties.verdict.enum,accepted_verdicts:allowed});
+  }
+}
+assert.equal(networkAttempts,0);
+const result = {status:'PASS_OFFLINE_SCHEMA_ONLY',model_requests:0,network_attempts:networkAttempts,tests:results,limits:['Does not fix missing C3 coverage or replace any stopped batch report.','Original stage guard still rejects illegal values; this corrects the choices advertised to the model.','No guarantee an unconstrained provider will obey JSON Schema; runtime validation remains.']};
+fs.writeFileSync(path.join(root,'result.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify(result));

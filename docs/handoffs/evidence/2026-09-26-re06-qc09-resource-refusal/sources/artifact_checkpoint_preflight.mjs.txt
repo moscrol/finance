@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { artifactFirstPayload, phaseFor } from './review_v3.mjs';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(fs.readFileSync(path.join(root, 'config.json')));
+const payload = { tools: ['read', 'bash', 'write'].map(name => ({ function: { name } })), messages: [] };
+const results = [];
+for (const [stage, groups] of Object.entries(config.stage_group_work_request_limits)) {
+  for (const [group, limit] of Object.entries(groups)) {
+    if (!limit) continue;
+    assert.equal(artifactFirstPayload(payload, { stage, group, admitted: limit - 1, ready: () => false }), payload);
+    for (const ready of [false, true]) {
+      const effective = artifactFirstPayload(payload, { stage, group, admitted: limit, ready: () => ready });
+      assert.deepEqual(effective.tools.map(tool => tool.function.name), ['write']);
+      assert.match(effective.messages.at(-1).content, /no-tool final response/);
+    }
+    assert.equal(phaseFor(limit - 1, 0, limit), 'explore');
+    assert.equal(phaseFor(limit, 0, limit), 'report');
+    results.push({ stage, group, limit, last_work_request_is_write_only: true });
+  }
+}
+const source = fs.readFileSync(path.join(root, 'review_v3.mjs'));
+const receipt = { status: 'PASS', real_model_requests: 0, results, source_sha256: createHash('sha256').update(source).digest('hex') };
+fs.writeFileSync(path.join(root, process.argv[2] || 'artifact-checkpoint-preflight.json'), JSON.stringify(receipt, null, 2), { flag: 'wx' });
+console.log(JSON.stringify(receipt));

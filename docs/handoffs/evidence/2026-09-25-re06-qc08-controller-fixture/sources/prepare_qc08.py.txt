@@ -1,0 +1,78 @@
+"""Create QC08 with the repaired userspace plugin; never inherit dynamic verdicts."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT / 'qc-evidence-isolated-07'
+QC = ROOT / 'qc-evidence-isolated-08'
+TOOLS = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925/scripts/review_probes')
+assert not QC.exists()
+config = json.loads((OLD / 'config.json').read_text())
+assert config['prior_real_requests'] == 186 and config['slice_max_requests'] == 11
+config['tree'] = str(QC / 'candidate/finance-workspace-private')
+config['prior_explore']['e2']['work'] = str(QC / 'inputs/frozen-explore-e2-v3')
+assert config['allowed_stage_groups'] == ['execute/e2', 'report/e2']
+subprocess.run(['git', '-C', config['author'], 'worktree', 'add', '--detach', config['tree'], config['revision']], check=True)
+records = {}
+def copy(source, destination, translate=True, replacements=()):
+    data = source.read_bytes()
+    result = data.decode().replace(str(OLD), str(QC)).encode() if translate else data
+    for before, after in replacements:
+        assert result.count(before.encode()) == 1
+        result = result.replace(before.encode(), after.encode())
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open('xb') as stream:
+        stream.write(result)
+    records[str(destination.relative_to(QC))] = {'source': str(source), 'source_sha256': hashlib.sha256(data).hexdigest(), 'prepared_sha256': hashlib.sha256(result).hexdigest()}
+
+names = [
+    'gateway.mjs', 'run_gateway.py', 'probe_execution_menu.mjs', 'run_stage_v3.py', 'run_probe_v3.py',
+    'stage_admission_v3.py', 'check_execution_v3.py', 'file_tool.py', 'tools-v3.sb',
+    'stage_boundary_preflight_v3.mjs', 'execution_boundary_preflight_v3.py', 'artifact_checkpoint_preflight.mjs',
+    'probe_menu_preflight.mjs', 'probe_transport_preflight.mjs', 'provider-template.json',
+    'resource_pytest.py', 'verify_transaction_inventory.py', 'prepare_write_profiles.py', 'io_boundary_preflight.mjs',
+    'inputs/ui.vitest-v3.config.mjs', 'inputs/claims.md', 'pi-config/settings.json',
+    'prompt-execute-e2-v3.md', 'prompt-report-e2-v3.md',
+]
+for name in names:
+    copy(OLD / name, QC / name)
+copy(OLD / 'credential-bootstrap.mjs', QC / 'credential-bootstrap.mjs', replacements=[
+    ('const PYTHON = "/opt/homebrew/bin/python3";', 'const PYTHON = ' + json.dumps(config['python']) + ';'),
+    ('const MAX_REQUESTS = 40;', 'const MAX_REQUESTS = 2;'),
+])
+copy(OLD / 'review_v3.mjs', QC / 'review_v3.mjs', replacements=[
+    ("PATH: '/opt/homebrew/bin:/usr/bin:/bin', LANG: 'C.UTF-8'", "PATH: '" + str(Path(config['python']).parent) + ":/opt/homebrew/bin:/usr/bin:/bin', LANG: 'C.UTF-8'"),
+])
+for source in (OLD / 'inputs').glob('source-*-*'):
+    copy(source, QC / 'inputs' / source.name)
+for source in (OLD / 'work/controller-v3/probes').iterdir():
+    if source.is_file():
+        copy(source, QC / 'work/controller-v3/probes' / source.name)
+for name in ('review_artifact_writer.py', 'review_io_sandbox.py'):
+    copy(TOOLS / name, QC / name, False)
+copy(TOOLS / 'qc_userspace_isolation.py', QC / 'inputs/qc_userspace_isolation.py', False)
+manifest = json.loads((OLD / 'inputs/frozen-explore-e2-v3/manifest.json').read_text())
+for name, expected in manifest['artifacts_sha256'].items():
+    source = OLD / 'inputs/frozen-explore-e2-v3' / name
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == expected
+    for destination in (QC / 'inputs/frozen-explore-e2-v3' / name, QC / 'work/e2' / name):
+        copy(source, destination, False)
+copy(OLD / 'inputs/frozen-explore-e2-v3/manifest.json', QC / 'inputs/frozen-explore-e2-v3/manifest.json', False)
+for folder in ('work/tmp', 'work/users', 'work/timer/probes', 'work/consent/probes', 'scratch', 'evidence'):
+    (QC / folder).mkdir(parents=True, exist_ok=True)
+for name in ('auth.json', 'models.json'):
+    with (QC / 'pi-config' / name).open('x') as stream:
+        stream.write('{}\n')
+with (QC / 'config.json').open('x') as stream:
+    json.dump(config, stream, indent=2)
+subprocess.run(['cp', '-cR', str(ROOT / 'frontend-tree/intelligence/webapp/node_modules'), str(Path(config['tree']) / 'intelligence/webapp')], check=True)
+for folder in ('inputs', 'work'):
+    (QC / folder / 'node_modules').symlink_to('../candidate/finance-workspace-private/intelligence/webapp/node_modules')
+with (QC / 'preparation.json').open('x') as stream:
+    json.dump({'at': datetime.now(timezone.utc).isoformat(), 'scope': 'e2 slice only; timer/consent not admitted',
+               'prior_real_requests': 186, 'ceiling': 218, 'max_new_requests': 11, 'automatic_retries': 0,
+               'dynamic_verdicts_inherited': False, 'old_qc07_not_reexecuted': True, 'sources': records}, stream, indent=2)
+print(QC)
