@@ -175,3 +175,30 @@
 | [`fix-research-closeout-0920.md`](./fix-research-closeout-0920.md) | P | #799 本分支；随 #799 合入 `a8fb4ba95` 归档 | 2721 |
 | [`fix-research-tail-integration-0921.md`](./fix-research-tail-integration-0921.md) | P | #77 判定：分支随 #863 关闭；随 #838 归档 | 1838 |
 | [`fix-runtime-forward-0921.md`](./fix-runtime-forward-0921.md) | P | #77 判定：分支随 #863 关闭；随 #838 归档 | 2364 |
+
+## 2026-09-27 追加（接手收尾第二批）
+
+09-26～09-27 接手收尾期间又合入 13 张 PR、关闭 2 张，下列分支的在途交接随之失效；判据同上（A 合入 / C 补丁已在 main）。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`baseline-research-data-acceptance-0922.md`](./baseline-research-data-acceptance-0922.md) | C | 分支补丁已全在 main（git cherry +0） | 2956 |
+| [`docs-react-trace-chain-0923.md`](./docs-react-trace-chain-0923.md) | C | 分支补丁已全在 main（git cherry +0） | 2838 |
+| [`feat-architecture-audit-0924.md`](./feat-architecture-audit-0924.md) | A | 合入提交 339676bfe · 2026-09-27 | 1457 |
+| [`feat-history-evidence-integration-0921.md`](./feat-history-evidence-integration-0921.md) | A | 合入提交 6da10fdf6 · 2026-09-27 | 2144 |
+| [`feat-pi-research-loop.md`](./feat-pi-research-loop.md) | A | 合入提交 e43c4b81e · 2026-09-26 | 1804 |
+| [`feat-research-data-readiness.md`](./feat-research-data-readiness.md) | C | 分支补丁已全在 main（git cherry +0） | 2878 |
+| [`fix-backfill-main-ready-0921.md`](./fix-backfill-main-ready-0921.md) | A | 合入 PR #813 · 2026-09-27 · 34dd58468 | 2920 |
+| [`fix-delivery-guard-forward-0924.md`](./fix-delivery-guard-forward-0924.md) | A | 合入提交 2a7394e94 · 2026-09-26 | 2296 |
+| [`fix-delivery-guard-structural-binding.md`](./fix-delivery-guard-structural-binding.md) | C | 分支补丁已全在 main（git cherry +0） | 3192 |
+| [`fix-e2-re06-resume-0922.md`](./fix-e2-re06-resume-0922.md) | C | 分支补丁已全在 main（git cherry +0） | 3071 |
+| [`fix-local-backfill-0923-0924.md`](./fix-local-backfill-0923-0924.md) | A | 合入提交 4b1b0db05 · 2026-09-26 | 2275 |
+| [`fix-pr868-delivery-validation-0924.md`](./fix-pr868-delivery-validation-0924.md) | A | 合入提交 5b6136bfc · 2026-09-26 | 2102 |
+| [`fix-pr910-main-0925.md`](./fix-pr910-main-0925.md) | C | 分支补丁已全在 main（git cherry +0） | 205 |
+| [`fix-re06-closeout-refresh-0925.md`](./fix-re06-closeout-refresh-0925.md) | A | 合入 PR #942 · 2026-09-27 · pending-t | 1994 |
+| [`fix-re06-timer-scope-0923.md`](./fix-re06-timer-scope-0923.md) | C | 分支补丁已全在 main（git cherry +0） | 2170 |
+| [`fix-react-trace-closeout-0921.md`](./fix-react-trace-closeout-0921.md) | C | 分支补丁已全在 main（git cherry +0） | 5503 |
+| [`fix-react-trace-closeout-forward-0924.md`](./fix-react-trace-closeout-forward-0924.md) | C | 分支补丁已全在 main（git cherry +0） | 1859 |
+| [`fix-react-trace-qc-0921.md`](./fix-react-trace-qc-0921.md) | A | 合入提交 75cea8352 · 2026-09-27 | 2074 |
+| [`q-research-data-readiness.md`](./q-research-data-readiness.md) | C | 分支补丁已全在 main（git cherry +0） | 2387 |
+| [`test-pr911-main-0925.md`](./test-pr911-main-0925.md) | C | 分支补丁已全在 main（git cherry +0） | 179 |
