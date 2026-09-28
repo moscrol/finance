@@ -52,15 +52,16 @@ def probe_case(case, client):
         question = "只依据材料：" + inputs + "，订单占收入比例是多少？"
     frame = understand_query(question).task_frame
     context = build_episode_context(frame, task_id="controlled-claim-judge-" + name)
-    source = context.contract.material_grounding.materials[0]
     payload = json.loads(material_grounding_payload(context.contract)["finish_format"]["wire_template"])
-    payload["bindings"][0]["claims"] = [{
+    answers = {item["output_id"]: item for item in payload["answers"]}
+    answer_output_id = next(output_id for output_id in answers if output_id != "evidence_boundary")
+    answers[answer_output_id]["claims"] = [{
         "text": answer, "kind": "material_fact",
-        "material_anchors": [{"material_id": source.material_id, "quote": inputs}],
+        "sources": [{"ref": "M1", "quote": inputs}],
     }]
-    payload["bindings"][1]["claims"] = [{
+    answers["evidence_boundary"]["claims"] = [{
         "text": declaration, "kind": "reasoning" if name == "unbound_computation_repeat" else "premise_declaration",
-        "material_anchors": [{"material_id": source.material_id, "quote": quote}] if quote else [],
+        "sources": [{"ref": "M1", "quote": quote}] if quote else [],
     }]
     parsed = validate_episode_finish(payload, context=context, evidence=())
     draft = AgentOutcome(
