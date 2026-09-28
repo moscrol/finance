@@ -16,13 +16,15 @@
 
 ## 终稿契约
 
-仅已确定 `material_only` 且无待澄清范围的材料任务启用作者格式。格式显式带 `format="material_claims_v1"`；模型提交 status、answers（output_id、claims、gap）及可选 gaps。每条 claim 为 text、kind、sources；sources 中每项为本轮目录别名 ref 与逐字 quote。目录中材料为 M1…，历史助手陈述为 H1…，不同命名空间互不替代。
+仅已确定 `material_only`、无待澄清范围、且没有恢复旧工具证据快照的材料任务启用作者格式。格式显式带 `format="material_claims_v1"`；模型提交 status、answers（output_id、claims、gap）及可选 gaps。每条 claim 为 text、kind、sources；sources 中每项为本轮目录别名 ref 与逐字 quote。目录中材料为 M1…，历史助手陈述为 H1…，不同命名空间互不替代。
 
 纯函数编译器从同一冻结合同补齐 `draft=""`、`render_from_claims=true`、binding.basis、空 evidence_hashes 与默认空 gap/gaps。历史 claim 仅接受一条 H 来源，映射原消息 ID，并填写其固有 assistant_judgment 标签；其余 claim 仅接受 M 来源。程序不选来源、不猜“上一条”、不改正文、不拆句、不拼 quote、不补计算输入、不改变 status。
 
 编译后继续执行当前 ClaimSourceBinding、render_material_claims、validate_episode_finish、结构核验及语义判官。越界/伪造来源、历史与当前事实混用、多句、缺题、无依据数字继续按原职责拒绝。旧完整终稿仍按原语义校验；有显式新格式时不降级猜旧格式。完整合同与持久化来源身份不变。
 
 作者提示提供短别名目录及新 wire template，不要求模型重复内部字段；语义判官继续看到完整坐标。只去除完全重复的作者目录副本，原始用户问题、权限和必答项保留。Codex headless 的 output schema 须与作者格式一致，不能提示新格式却由旧 schema 拦截；其他非材料题维持原协议。
+
+已有 #819 支持同会话旧工具原件经身份核验后播种为本轮 E 序号，其非编号旧格式可绑定该证据而不使用材料 claims。紧凑 M/H 格式不能靠把工具事实改名 reasoning 或伪装 M 来覆盖它。因此 `context.prior_evidence.entries` 非空时，开场、修复、finalizer 和 headless schema 统一选择原格式；保留真实零工具复核路径。本单不新增工具 claim 类型或扩大旧 E 复用资格。
 
 ## 错误反馈
 
