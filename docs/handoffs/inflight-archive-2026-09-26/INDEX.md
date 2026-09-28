@@ -227,3 +227,13 @@
 | 文件 | 类 | 证据 | 字节 |
 |---|---|---|---|
 | [`fix-llm-host-suspend-observability.md`](./fix-llm-host-suspend-observability.md) | A | 合入 PR #946 · 2026-09-27 · 7a405e1b0；同夜切上 8792 | 2806 |
+
+## 2026-09-28 追加（Knevo 四条收件枝合并）
+
+四条 Knevo 收件枝（`docs/knevo-intake-0924`、`docs/knevo-intake-0926`、`docs/knevo-sample-0926a`、`docs/knevo-cashflow-0927`）由 `docs/knevo-intake-consolidate-0928` 一并合入 main，其中三条带的在途交接随之归档；判据同上。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`docs-knevo-intake-0924.md`](./docs-knevo-intake-0924.md) | P | 随 `docs/knevo-intake-consolidate-0928` 合入搬入；原枝尖 `95f4eda47` | 2545 |
+| [`docs-knevo-intake-0926.md`](./docs-knevo-intake-0926.md) | P | 同上；原枝尖 `394040a79` | 2484 |
+| [`docs-knevo-sample-0926a.md`](./docs-knevo-sample-0926a.md) | P | 同上；原枝尖 `a4c10ef05` | 1684 |

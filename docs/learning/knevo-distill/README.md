@@ -5,6 +5,8 @@
 
 ## 最新收件索引
 
+- **2026-09-27 长川现金流、反向估值与研究更新回贴入档**：[单侧审读](../distill/2026-09-27-knevo-longchuan-cashflow-intake.md)；[原文封存批次](batches/2026-09-27-longchuan-cashflow/README.md)。原文已封存；单侧审读；无 8792 配对答案；候选规则未进入运行时。
+
 - **2026-09-27 受控探针回贴入档**：[单侧审读：证据闭环、记忆仲裁与输入隔离](../distill/2026-09-27-knevo-controlled-probe-intake.md)；[原文封存批次](batches/2026-09-27-controlled-probes/README.md)：完整粘贴文本、哈希与切片清单。本批没有 8792 配对答案，不登记 `ab-ledger`，也不把“未授权时间戳”或全局记忆优先级自动吸收进运行时。
 
 - **2026-09-26 三轮回贴入档**：[单侧审读：证据卫生、会计对账与交易日闸门](../distill/2026-09-26-knevo-three-turns-intake.md)；[原文封存批次](batches/2026-09-26-three-turns/README.md)：完整粘贴文本、哈希与切片清单。本批不属于 `ab-ledger` 双盲样本；没有 8792 同题答案或工具 trace，不能用于胜率结论。候选规则仍待独立验收，不自动进入运行时。
