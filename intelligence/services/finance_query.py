@@ -296,8 +296,6 @@ class _DatasetDefinition:
     # 信息截止打在哪一列。None = 打在 time_field（行情默认）。
     # event_daily 打在 updated_at：已经写入的未来日程可见，截止日后才写入的不可见。
     cutoff_column: str | None = None
-    # Static, code-owned relation only; callers supply a validated spec, never SQL.
-    relation_sql: str | None = None
 
     @property
     def fields(self) -> dict[str, _FieldDefinition]:
@@ -353,8 +351,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="single",
         coverage=(
             "全市场每天 1 行的总量口径。涨停家数在这里是**全市合计**，不按板块拆——要板块分布用 "
-            "theme_limit_heat_daily。下跌/平盘家数用 market_breadth_daily，"
-            "它从同日个股截面聚合，不可用截断的 stock_daily 返回行数代替。"
+            "theme_limit_heat_daily。"
         ),
         time_field="trade_date",
         dimensions={
@@ -380,47 +377,6 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "top3_industry_ratio": _metric("top3_industry_ratio", "前三行业成交占比"),
             "strength_return_pct": _metric("strength_avg_pct", "强势股加权涨幅"),
             "strength_amount_pct": _metric("strength_amount_pct", "强势股成交占比"),
-        },
-    ),
-    "market_breadth_daily": _DatasetDefinition(
-        table="fact_stock_daily",
-        relation_sql="""(
-            SELECT trade_date, COUNT(*) AS observed_stocks,
-                   COUNT(*) FILTER (WHERE isfinite(pct_chg)) AS valid_returns,
-                   COUNT(*) FILTER (WHERE pct_chg IS NULL OR NOT isfinite(pct_chg)) AS missing_returns,
-                   CASE WHEN COUNT(*) FILTER (WHERE isfinite(pct_chg)) = COUNT(*)
-                         AND COUNT(DISTINCT stock_ts_code) = COUNT(*)
-                        THEN COUNT(*) FILTER (WHERE pct_chg > 0) END AS advancers,
-                   CASE WHEN COUNT(*) FILTER (WHERE isfinite(pct_chg)) = COUNT(*)
-                         AND COUNT(DISTINCT stock_ts_code) = COUNT(*)
-                        THEN COUNT(*) FILTER (WHERE pct_chg < 0) END AS decliners,
-                   CASE WHEN COUNT(*) FILTER (WHERE isfinite(pct_chg)) = COUNT(*)
-                         AND COUNT(DISTINCT stock_ts_code) = COUNT(*)
-                        THEN COUNT(*) FILTER (WHERE pct_chg = 0) END AS unchanged,
-                   string_agg(DISTINCT source, ', ' ORDER BY source) AS source
-            FROM fact_stock_daily GROUP BY trade_date
-        )""",
-        label="本地个股截面涨跌家数",
-        population="single",
-        coverage=(
-            "每日从 fact_stock_daily 全部已入库个股统计，不受返回行数上限影响。"
-            "advancers/decliners/unchanged 为涨幅正/负/零的家数；"
-            "存在空值、非有限涨幅或重复代码时三项为未知，不把空值当平盘。"
-            "同时读取 observed_stocks、valid_returns、missing_returns 与 source；"
-            "这些是本地截面覆盖，不证明缺失证券已齐全，不能和其他供应商总数混算。"
-        ),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "source": _dimension("source", "个股行情来源"),
-        },
-        metrics={
-            name: _metric(name, label, "avg", "integer")
-            for name, label in (
-                ("advancers", "上涨家数"), ("decliners", "下跌家数"),
-                ("unchanged", "平盘家数"), ("observed_stocks", "截面个股行数"),
-                ("valid_returns", "有效涨跌幅行数"), ("missing_returns", "缺失涨跌幅行数"),
-            )
         },
     ),
     "stock_daily": _DatasetDefinition(
@@ -450,11 +406,6 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "全量板块全集（涨幅 / 成交额 / 边际量 diff_ratio），双红判断主表。"
-            "代码 .FP 属复盘会板块清单，.TI 属同花顺，不能互称或改称申万行业。"
-            "source 是数值加工来源，与板块分类来源不同；local:agg/pct=eqw 表示本地等权聚合。"
-            "⚠️ sector_name 不是键：2025-10-09~2026-07-24 两套板块码系（.TI / .FP）并存，"
-            "同名板块各一行、数值不同；`国防军工` 至今两个 .FP 码同名。按 sector_name 聚合会双计，"
-            "按 sector_code 分组或先用 dim_sector_canonical 解析到现行码。"
         ),
         time_field="trade_date",
         dimensions={
@@ -462,7 +413,6 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "sector_code": _dimension("sector_ts_code", "板块代码"),
             "sector_name": _dimension("sector_name", "板块名称"),
             "sw_l1": _dimension("sw_l1", "申万一级行业"),
-            "source": _dimension("source", "数值来源"),
             "multi_period_resonance": _dimension(
                 "multi_period_resonance", "多周期共振", "boolean"
             ),
@@ -480,9 +430,6 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "板块×成分股全集，本库行数最大的一张，务必先加筛选再查。"
-            "成分股行情从 2026-04 起才完整（2025-01-06~2026-03-30 共 288 日无成分股行情，如实缺，"
-            "不是查询写错）。sector_name 不是键：同名可能对应两个板块码（如 `国防军工`），"
-            "按 sector_code 筛选；按名字查请先经 dim_sector_canonical 解析。"
         ),
         time_field="trade_date",
         dimensions={
@@ -840,49 +787,12 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "amount": _metric("amount", "成交额亿", "sum"),
         },
     ),
-    "core_leader_daily": _DatasetDefinition(
-        table="fact_core_leader_daily",
-        label="核心个股（自家：主线 × 正宗 × 人气）",
-        population="subset",
-        coverage=(
-            "**每日约 20 只**，从当日主线题材的成员股里选：人气分（成交额/涨停/连板/新高/5日涨幅 "
-            "各取池内百分位加权）+ 0.15 × 正宗度（知识库年报/主营暴露度）。"
-            "与 `core_stock_daily` 是两个口径，别混着说：那张是成交额前 50，这张是主线里的正宗龙头。"
-            "⚠️ 2026-04~09 消融实测：正宗度加权**降低**前瞻收益（w 越大越低，同量纲置换检验下显著为负）——"
-            "这张表回答「谁是正宗龙头」，不是选股信号，不要拿它写「买入建议」。"
-            "`kb_sector_covered=false` 时 `authenticity=0` 只表示知识库没有该板块的概念（没得查），"
-            "不表示「查过、不正宗」。"
-        ),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "stock_name": _dimension("stock_name", "股票名称"),
-            "theme_name": _dimension("theme_name", "所属主线题材"),
-            "sector_name": _dimension("sector_name", "命中板块"),
-            "kb_concept": _dimension("kb_concept", "知识库概念（正宗度出处）"),
-            "kb_strength": _dimension("kb_strength", "暴露强度 core/related/peripheral"),
-            "kb_evidence_layer": _dimension("kb_evidence_layer", "证据层 L1/L2/L3 硬，*_candidate/graph_only 软"),
-        },
-        metrics={
-            "rank": _metric("rank", "核心榜名次", "min", "integer"),
-            "close": _metric("close", "收盘价"),
-            "return_pct": _metric("pct_chg", "涨跌幅"),
-            "amount": _metric("amount", "成交额亿", "sum"),
-            "gain_5d": _metric("gain_5d", "5日涨幅"),
-            "boards": _metric("boards", "连板高度", "max", "integer"),
-            "popularity": _metric("popularity", "人气分 0~1"),
-            "authenticity": _metric("authenticity", "正宗度 0~1"),
-            "score": _metric("score", "综合分"),
-        },
-    ),
     "core_stock_daily": _DatasetDefinition(
         table="fact_core_stock_daily",
         label="市场核心个股 TOP50",
         population="subset",
         coverage=(
             "**固定 50 只的核心股池**，不是全市个股——不要在这张表上写「全市最…」。"
-            "口径已反推：就是当日全市场成交额前 50（405 日 20250 行实测命中 99.5%）。"
         ),
         time_field="trade_date",
         dimensions={
@@ -1153,237 +1063,6 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "deviation_pct": _metric("deviation_pct", "乖离率"),
         },
     ),
-    # 同花顺官方并跑源（工单 #41 A）。未切主：问「今天收盘」仍走 stock_daily。
-    # turnover 是元不是亿；十年 dump 只有今天在市的票（幸存者偏差）。
-    "stock_daily_hithink": _DatasetDefinition(
-        table="fact_stock_daily_hithink",
-        label="同花顺个股日K（未复权并跑）",
-        population="full",
-        coverage=(
-            "同花顺官方全市场日 K dump，未复权 OHLCV。**并跑源，未切主**——"
-            "日常收盘/涨幅仍用 stock_daily。"
-            "**成交额 turnover 单位是元**，不是 stock_daily.amount 的亿。"
-            "只有**今天在市**的股票：2016 年约一半代码没有行，已退市的不在，"
-            "横截面回测有幸存者偏差。没有昨收/涨幅/换手率/股票名（dump 不带）。"
-        ),
-        incomplete_before=date(2016, 9, 8),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "adjusted": _dimension("adjusted", "复权标记"),
-        },
-        metrics={
-            "open": _metric("open", "开盘价"),
-            "high": _metric("high", "最高价"),
-            "low": _metric("low", "最低价"),
-            "close": _metric("close", "收盘价"),
-            "volume": _metric("volume", "成交量股", "sum"),
-            "turnover": _metric("turnover", "成交额元", "sum"),
-        },
-    ),
-    "stock_adjustment_hithink": _DatasetDefinition(
-        table="fact_stock_adjustment_hithink",
-        label="同花顺复权事件",
-        population="subset",
-        coverage=(
-            "分红 / 送股 / 配股事件，不是日频行情。一股多日才有行。"
-            "从 1991 年起；含已公告未除权的未来日。"
-        ),
-        time_field="ex_date",
-        allow_future_time_range=True,
-        cutoff_column="updated_at",
-        dimensions={
-            "ex_date": _dimension("ex_date", "除权日", "date"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-        },
-        metrics={
-            "dividend_per_share": _metric("dividend_per_share", "每股现金分红"),
-            "per_share_bonus": _metric("per_share_bonus", "每股送股"),
-            "allotment_ratio": _metric("allotment_ratio", "配股比例"),
-            "allotment_price": _metric("allotment_price", "配股价格"),
-        },
-    ),
-    "sector_kline_daily": _DatasetDefinition(
-        table="fact_sector_kline_daily",
-        label="同花顺板块/指数日K",
-        population="full",
-        coverage=(
-            "同花顺官方板块 / 指数日 K（``.TI`` / ``.SH`` / ``.SZ``），带开高低收。"
-            "**深度约三年**：请求窗口超过约 1500 天会静默返回空。**并跑源，未切主**——"
-            "板块涨幅/成交额日常仍用 sector_daily。"
-            "**成交额 turnover 单位是元**。成分股只有当前，见 sector_constituent_hithink，"
-            "不要拿来回算历史板块成交占比。"
-        ),
-        incomplete_before=date(2022, 8, 1),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "sector_code": _dimension("sector_ts_code", "板块代码"),
-        },
-        metrics={
-            "open": _metric("open", "开盘价"),
-            "high": _metric("high", "最高价"),
-            "low": _metric("low", "最低价"),
-            "close": _metric("close", "收盘价"),
-            "volume": _metric("volume", "成交量", "sum"),
-            "turnover": _metric("turnover", "成交额元", "sum"),
-        },
-    ),
-    "sector_constituent_hithink": _DatasetDefinition(
-        table="fact_sector_constituent_hithink",
-        label="同花顺板块当前成分快照",
-        population="subset",
-        coverage=(
-            "**只有当前成分**，带 captured_at，不是历史调入调出。"
-            "禁止当历史成分用，也不要拿去改 sector_stock_daily。"
-            "产品面不出个股名（表里没有 name）。"
-        ),
-        time_field="captured_at",
-        dimensions={
-            "captured_at": _dimension("captured_at", "快照日", "date"),
-            "sector_code": _dimension("sector_ts_code", "板块代码"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "ticker": _dimension("ticker", "纯代码"),
-        },
-        metrics={
-            "in_index": _metric("in_index", "是否当前成分", "max", "integer"),
-        },
-    ),
-    "limit_pool_hithink": _DatasetDefinition(
-        table="fact_limit_pool_hithink",
-        label="同花顺涨停/跌停/炸板池",
-        population="subset",
-        coverage=(
-            "三池一张表，``pool`` 列区分 limit_up / limit_down / limit_break。"
-            "涨停**有效数据从 2020-07-01 起**（2020-01～06 上游返空）；跌停与炸板只有**一年**。"
-            "**2023-07 ~ 2024-04 约 100 个交易日上游返 5003（池子缺 ticker）**，"
-            "这些日子表里没有行，**不等于当天零涨停**，做承接 / 促进率不要拿它当分母。"
-            "**并跑源，未切主**——全市涨停家数仍用 market_daily.limit_up；"
-            "连板用 limit_advance_daily。两边口径可能差 ST / 北交所，先看一致率再判。"
-            "六年池子里没有北交所（`.BJ`）。产品面不出个股名（表里没有 name）。"
-        ),
-        incomplete_before=date(2020, 7, 1),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "pool": _dimension("pool", "池"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "ticker": _dimension("ticker", "纯代码"),
-            "is_st": _dimension("is_st", "是否ST", "boolean"),
-            "is_new": _dimension("is_new", "是否次新", "boolean"),
-            "limit_up_reason": _dimension("limit_up_reason", "涨停原因"),
-        },
-        metrics={
-            "last_price": _metric("last_price", "最新价"),
-            "return_pct": _metric("pct_chg", "涨跌幅"),
-            "continue_day_cnt": _metric(
-                "continue_day_cnt", "连板数", "max", "integer"
-            ),
-            "seal_money": _metric("seal_money", "封单金额元", "sum"),
-            "max_seal_money": _metric("max_seal_money", "最大封单元", "max"),
-            "open_times": _metric("open_times", "开板次数", "max", "integer"),
-            "turnover": _metric("turnover", "成交额元", "sum"),
-        },
-    ),
-    "dragon_tiger_hithink": _DatasetDefinition(
-        table="fact_dragon_tiger_hithink",
-        label="同花顺龙虎榜个股",
-        population="subset",
-        coverage=(
-            "官方 ``dragon-tiger-list?board_type=all``，**只有一年**。"
-            "**并跑源，未切主**——净额仍用 dragon_tiger_daily.net_amount。"
-            "两边单位可能是元 vs 亿，先看一致率再判，不硬改。"
-            "产品面不出个股名。"
-        ),
-        incomplete_before=date(2025, 9, 8),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "ticker": _dimension("ticker", "纯代码"),
-            "limit_reason": _dimension("limit_reason", "上榜原因"),
-        },
-        metrics={
-            "return_pct": _metric("pct_chg", "涨跌幅"),
-            "buy_value": _metric("buy_value", "买入额", "sum"),
-            "sell_value": _metric("sell_value", "卖出额", "sum"),
-            "net_value": _metric("net_value", "净额", "sum"),
-            "org_net_value": _metric("org_net_value", "机构净额", "sum"),
-            "hot_money_net_value": _metric("hot_money_net_value", "游资净额", "sum"),
-        },
-    ),
-    "dragon_hot_money_hithink": _DatasetDefinition(
-        table="fact_dragon_hot_money_hithink",
-        label="同花顺龙虎榜游资组",
-        population="subset",
-        coverage=(
-            "官方 ``dragon-tiger-list?board_type=hot_money``，一年。"
-            "一行=一日×一游资×一股。**并跑**，组数对 fact_dragon_seat_daily 游资侧，不硬改。"
-            "存游资名，不存个股名。"
-        ),
-        incomplete_before=date(2025, 9, 8),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "hot_money_name": _dimension("hot_money_name", "游资名"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "ticker": _dimension("ticker", "纯代码"),
-        },
-        metrics={
-            "group_buying": _metric("group_buying", "游资组买入", "sum"),
-            "net_value": _metric("net_value", "净额", "sum"),
-            "hot_money_item_net_value": _metric(
-                "hot_money_item_net_value", "游资单项净额", "sum"
-            ),
-        },
-    ),
-    "hot_stock_rank_hithink": _DatasetDefinition(
-        table="fact_hot_stock_rank_hithink",
-        label="同花顺历史热股榜",
-        population="subset",
-        coverage=(
-            "官方 ``hot-stock-list-history``，一年、每日约 30 名。"
-            "注意力名次新视角，不是复盘会主源。产品面不出个股名。"
-        ),
-        incomplete_before=date(2025, 9, 8),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "ticker": _dimension("ticker", "纯代码"),
-        },
-        metrics={
-            "rank": _metric("rank", "热榜名次", "min", "integer"),
-        },
-    ),
-    "auction_hithink": _DatasetDefinition(
-        table="fact_auction_hithink",
-        label="同花顺竞价（风向标+终态）",
-        population="subset",
-        coverage=(
-            "``kind=benchmark`` 是短线风向标，**每天约 6 只**，2026-01 起，"
-            "替代不了复盘会全量竞价看板。"
-            "``kind=snapshot`` 是 ``auction/snapshot?stage=final`` 日更终态。"
-            "**并跑未切主**。产品面不出个股名。"
-        ),
-        incomplete_before=date(2026, 1, 1),
-        time_field="trade_date",
-        dimensions={
-            "trade_date": _dimension("trade_date", "交易日", "date"),
-            "stock_code": _dimension("stock_ts_code", "股票代码"),
-            "kind": _dimension("kind", "benchmark或snapshot"),
-            "ticker": _dimension("ticker", "纯代码"),
-            "tags": _dimension("tags", "风向标标签"),
-        },
-        metrics={
-            "auction_pct": _metric("auction_pct", "竞价涨跌幅"),
-            "auction_amount": _metric("auction_amount", "竞价成交额", "sum"),
-            "auction_volume": _metric("auction_volume", "竞价量手", "sum"),
-            "auction_unmatched": _metric("auction_unmatched", "未匹配量", "sum"),
-            "float_market_cap": _metric("float_market_cap", "流通市值", "max"),
-        },
-    ),
 }
 
 
@@ -1460,10 +1139,6 @@ _UNREGISTERED_TABLES: dict[str, str] = {
     "fact_theme_fundamental_doc": "kb_side：37 行，kb_path 指向知识库，graph_only",
     "fact_limit_advance_presence": (
         "overlap：仅姓名+序号；完整晋级在 dedicated_path 的 fact_limit_advance_daily"
-    ),
-    "fact_polymarket_macro_odds_daily": (
-        "candidate：2026-09-10 新增，Polymarket 宏观/地缘/加密类市场概率快照，"
-        "市场定价非事实；agent 该怎么引用（当独立信号还是仅供人工参考）未定，先落库"
     ),
 }
 
@@ -2121,7 +1796,6 @@ class _CompiledQuery:
     source_date_index: int
     applied_limit: int
     reverse_after_fetch: bool = False
-    sector_universe_index: int | None = None
 
 
 DuckDbConnect = Callable[..., Any]
@@ -2204,7 +1878,7 @@ class FinanceQuery:
                     compiled.sql,
                     list(compiled.parameters),
                 )
-                rows, source_dates, sector_universes, output_bytes = self._fetch_rows(
+                rows, source_dates, output_bytes = self._fetch_rows(
                     cursor,
                     compiled,
                     cancelled=cancelled,
@@ -2212,7 +1886,6 @@ class FinanceQuery:
                 if compiled.reverse_after_fetch:
                     rows = tuple(reversed(rows))
                     source_dates = tuple(reversed(source_dates))
-                    sector_universes = tuple(reversed(sector_universes))
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
@@ -2248,7 +1921,6 @@ class FinanceQuery:
             dataset_name=spec.dataset,
             dataset=dataset,
             fingerprint=fingerprint,
-            sector_universes=sector_universes,
         )
         dates = tuple(item.source_date for item in evidence if item.source_date)
         observation = "；".join(item.detail for item in evidence)
@@ -2336,9 +2008,8 @@ class FinanceQuery:
         compiled: _CompiledQuery,
         *,
         cancelled: Callable[[], bool],
-    ) -> tuple[tuple[dict[str, object], ...], tuple[str | None, ...], tuple[str, ...], int]:
+    ) -> tuple[tuple[dict[str, object], ...], tuple[str | None, ...], int]:
         rows: list[dict[str, object]] = []
-        sector_universes: list[str] = []
         output_bytes = 0
         while len(rows) < compiled.applied_limit:
             if cancelled():
@@ -2353,12 +2024,6 @@ class FinanceQuery:
                 }
                 source_date = _date_text(raw_row[compiled.source_date_index])
                 public["__source_date"] = source_date
-                universe = (
-                    str(raw_row[compiled.sector_universe_index] or "未知")
-                    if compiled.sector_universe_index is not None else ""
-                )
-                sector_universes.append(universe)
-                public["__sector_universe"] = universe
                 encoded = json.dumps(
                     public,
                     ensure_ascii=False,
@@ -2370,11 +2035,11 @@ class FinanceQuery:
                     raise FinanceQueryLimitExceeded("finance query byte limit exceeded")
                 rows.append(public)
         visible_rows = tuple(
-            {key: value for key, value in row.items() if key not in {"__source_date", "__sector_universe"}}
+            {key: value for key, value in row.items() if key != "__source_date"}
             for row in rows
         )
         source_dates = tuple(_date_text(row.get("__source_date")) for row in rows)
-        return visible_rows, source_dates, tuple(sector_universes), output_bytes
+        return visible_rows, source_dates, output_bytes
 
 
 def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
@@ -2497,18 +2162,6 @@ def _compile_query(
         time_column = fields[dataset.time_field].column
         select_parts.append(f"{_quote(time_column)} AS __source_date")
 
-    sector_universe_index = None
-    if spec.dataset in {"sector_daily", "sector_stock_daily"}:
-        universe = (
-            "CASE WHEN ends_with(sector_ts_code, '.FP') THEN '复盘会板块清单（.FP）' "
-            "WHEN ends_with(sector_ts_code, '.TI') THEN '同花顺板块清单（.TI）' "
-            "ELSE '未识别板块码系，不推定供应商或行业分类' END"
-        )
-        if group_by:
-            universe = f"string_agg(DISTINCT ({universe}), '; ' ORDER BY ({universe}))"
-        sector_universe_index = len(select_parts)
-        select_parts.append(f"{universe} AS __sector_universe")
-
     where_parts: list[str] = []
     parameters: list[object] = []
     if dataset.time_field is not None:
@@ -2538,8 +2191,7 @@ def _compile_query(
         where_parts.append(clause)
         parameters.extend(values)
 
-    relation = dataset.relation_sql or _quote(dataset.table)
-    sql = f"SELECT {', '.join(select_parts)} FROM {relation}"
+    sql = f"SELECT {', '.join(select_parts)} FROM {_quote(dataset.table)}"
     if where_parts:
         sql += " WHERE " + " AND ".join(where_parts)
     if group_by:
@@ -2581,7 +2233,6 @@ def _compile_query(
         source_date_index=len(selected),
         applied_limit=applied_limit,
         reverse_after_fetch=reverse_after_fetch,
-        sector_universe_index=sector_universe_index,
     )
 
 
@@ -2705,7 +2356,6 @@ def _rows_to_evidence(
     dataset_name: str,
     dataset: _DatasetDefinition,
     fingerprint: str,
-    sector_universes: tuple[str, ...] = (),
 ) -> tuple[agent_research.AgentEvidence, ...]:
     evidence: list[agent_research.AgentEvidence] = []
     fields = dataset.fields
@@ -2721,8 +2371,6 @@ def _rows_to_evidence(
             f"{fields[name].label}={_display_value(value, fields[name])}"
             for name, value in row.items()
         )
-        if sector_universes and sector_universes[index - 1]:
-            detail += f"；板块分类口径={sector_universes[index - 1]}"
         title = dataset.label + (f"（{source_date}）" if source_date else "")
         item = agent_research.AgentEvidence(
             tool="finance_query",

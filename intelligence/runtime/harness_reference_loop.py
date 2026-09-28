@@ -47,7 +47,6 @@ from intelligence.runtime.episode_tool_batch import (
     EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolBatchResult,
-    time_gate_error_for_model,
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
@@ -62,21 +61,6 @@ from intelligence.services.agent_runtime import (
     ModelTurn,
     OutputEvidenceBinding,
 )
-from intelligence.services.cancel_signal import CancelSignal
-from intelligence.services.episode_messages import (
-    EpisodeMessage,
-    append_model_input,
-    assistant_message,
-    check_derivation,
-    record_application_tool_call,
-    record_prompt_assembled,
-    system_message,
-    to_provider,
-    tool_message,
-    unreported_invalid_finish,
-    user_message,
-)
-from intelligence.services.material_grounding import claim_finish_format
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import (
@@ -103,16 +87,9 @@ __all__ = ["HarnessReferenceLoop", "ReferenceLoopState"]
 class _Ledger:
     def __init__(self) -> None:
         self.events: list[EpisodeEvent] = []
-        # INV-R1 对账失败的落账点（本 loop 没有 EpisodeScope，账就在这里）。
-        self.derive_mismatches: list[str] = []
 
     def add(self, kind: str, payload: dict[str, object]) -> None:
         self.events.append(EpisodeEvent(len(self.events) + 1, kind, payload))
-
-    def verify_model_visible(self, messages: list[EpisodeMessage]) -> bool:
-        return check_derivation(
-            tuple(self.events), messages, on_mismatch=self.derive_mismatches.append
-        )
 
 
 @dataclass
@@ -129,7 +106,7 @@ class ReferenceLoopState:
     registry: ResearchToolRegistry
     session: EpisodeToolBatchSession
     ledger: _Ledger
-    messages: list[EpisodeMessage]
+    messages: list[dict[str, object]]
     evidence: list[AgentEvidence]
     evidence_hashes: set[str]
     successful_tools: set[str]
@@ -149,7 +126,7 @@ class HarnessReferenceLoop:
         harness: ResearchHarness | None = None,
         llm_timeout: float = DEFAULT_LLM_TIMEOUT,
         tool_executor: ToolBatchExecutor | None = None,
-        is_cancelled: Callable[[], bool] | CancelSignal | None = None,
+        is_cancelled: Callable[[], bool] | None = None,
     ) -> None:
         self._model = model
         self._harness: ResearchHarness = (
@@ -159,8 +136,7 @@ class HarnessReferenceLoop:
         self._tool_executor = (
             tool_executor if tool_executor is not None else ToolBatchExecutor()
         )
-        self._cancel = CancelSignal.coerce(is_cancelled)
-        self._is_cancelled: Callable[[], bool] = self._cancel
+        self._is_cancelled = is_cancelled or (lambda: False)
 
     def run(
         self,
@@ -181,14 +157,16 @@ class HarnessReferenceLoop:
             },
         )
         system, user = harness.assemble_prompt(task_frame, context, registry)
-        record_prompt_assembled(ledger, system=system, user=user)
         state = ReferenceLoopState(
             task_frame=task_frame,
             context=context,
             registry=registry,
             session=self._tool_executor.new_session(),
             ledger=ledger,
-            messages=[system_message(system), user_message(user)],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
             evidence=[],
             evidence_hashes=set(),
             successful_tools=set(),
@@ -219,17 +197,10 @@ class HarnessReferenceLoop:
             final_gaps = list(gaps)
             if gap and gap not in final_gaps:
                 final_gaps.append(gap)
-            payload: dict[str, object] = {
-                "status": status,
-                "stop_reason": stop_reason,
-                "gaps": final_gaps,
-            }
-            if stop_reason == "cancelled":
-                # INV-R4：与 Episode 同一格同一字。
-                cancel = self._cancel.snapshot()
-                payload["cancel_cause"] = cancel["cause"]
-                payload["cancel_detail"] = cancel["detail"]
-            ledger.add("finish", payload)
+            ledger.add(
+                "finish",
+                {"status": status, "stop_reason": stop_reason, "gaps": final_gaps},
+            )
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
                 status=status,
@@ -252,11 +223,13 @@ class HarnessReferenceLoop:
             nonlocal finalization_started
             finalization_started = True
             ledger.add("finalization", {"reason": reason})
-            append_model_input(
-                messages,
-                ledger,
-                content=harness.steering_message("begin_finalization", detail=reason),
-                source="begin_finalization",
+            messages.append(
+                {
+                    "role": "user",
+                    "content": harness.steering_message(
+                        "begin_finalization", detail=reason
+                    ),
+                }
             )
 
         for _round in range(max_slots + MAX_PLAN_TURNS + 4):
@@ -273,10 +246,9 @@ class HarnessReferenceLoop:
                     session=state.session, registry=registry, context=context, ledger=ledger
                 )
             )
-            ledger.verify_model_visible(messages)
             try:
                 turn = self._model.complete(
-                    messages=to_provider(messages),
+                    messages=list(messages),
                     tools=definitions,
                     timeout=self._llm_timeout,
                 )
@@ -337,11 +309,8 @@ class HarnessReferenceLoop:
                         if not turn.tool_calls:
                             plan_turns += 1
                             if pending_mode_message is not None:
-                                append_model_input(
-                                    messages,
-                                    ledger,
-                                    content=pending_mode_message,
-                                    source="mode_decision",
+                                messages.append(
+                                    {"role": "user", "content": pending_mode_message}
                                 )
                             continue
                 if plan_result.error:
@@ -349,13 +318,13 @@ class HarnessReferenceLoop:
                     invalid_actions += 1
                     ledger.add("invalid_action", {"reason": plan_result.error})
                     if plan_failures == 1:
-                        append_model_input(
-                            messages,
-                            ledger,
-                            content=harness.steering_message(
-                                "invalid_plan", detail=plan_result.error
-                            ),
-                            source="steering_invalid_plan",
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": harness.steering_message(
+                                    "invalid_plan", detail=plan_result.error
+                                ),
+                            }
                         )
                         continue
 
@@ -398,11 +367,6 @@ class HarnessReferenceLoop:
                         in_repair=False,
                     )
                     if fallback is not None:
-                        # 与 Episode 同一条规则：应用替模型点的调用先声明再派发，
-                        # 否则下一次请求里它的 tool 消息没有 assistant.tool_calls（400）。
-                        record_application_tool_call(
-                            messages, ledger, call=fallback.call, source="empty_pool_fallback"
-                        )
                         fallback_batch = state.session.execute(
                             (fallback.call,),
                             registry=registry,
@@ -419,9 +383,7 @@ class HarnessReferenceLoop:
                             },
                         )
                 if pending_mode_message is not None:
-                    append_model_input(
-                        messages, ledger, content=pending_mode_message, source="mode_decision"
-                    )
+                    messages.append({"role": "user", "content": pending_mode_message})
                 if not finalization_started and harness.retrieval_complete(
                     context=context,
                     registry=registry,
@@ -455,13 +417,13 @@ class HarnessReferenceLoop:
                     and finish_failures == 1
                     and not finalization_started
                 ):
-                    append_model_input(
-                        messages,
-                        ledger,
-                        content=harness.steering_message(
-                            "invalid_finish", detail=admission.reason
-                        ),
-                        source="steering_invalid_finish",
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": harness.steering_message(
+                                "invalid_finish", detail=admission.reason
+                            ),
+                        }
                     )
                     continue
                 return stop(
@@ -535,25 +497,13 @@ class HarnessReferenceLoop:
         # 底座策略（与 Episode 同）：工具开不开只看研究窗——底座批了重开、或窗还没关。
         # 额度为 0 时窗仍算开着，模型若真调工具，由批次执行器按 remaining_slots 拒掉。
         tools_open = goal.reopen_tools or not context.deadline.expired
-        # 与 agent_episode.resume 同：账上尚未送达作者的最后一次终局拒收原因，
-        # 在修复轮开场一并交出去（文案仍由 harness 给，底座不新造话术）。
-        unreported = unreported_invalid_finish(previous.events)
-        if unreported:
-            append_model_input(
-                messages,
-                ledger,
-                content=harness.steering_message("invalid_finish", detail=unreported),
-                source="repair_last_rejection",
-            )
-        append_model_input(
-            messages,
-            ledger,
-            content=harness.repair_goal_message(
-                downgrade.goal,
-                tools_open=tools_open,
-                finish_format=claim_finish_format(downgrade.contract),
-            ),
-            source="repair_goal",
+        messages.append(
+            {
+                "role": "user",
+                "content": harness.repair_goal_message(
+                    downgrade.goal, tools_open=tools_open
+                ),
+            }
         )
 
         def stop(
@@ -593,10 +543,9 @@ class HarnessReferenceLoop:
 
         def complete(tools: list[dict[str, object]]) -> ModelTurn | AgentOutcome:
             nonlocal llm_calls
-            ledger.verify_model_visible(messages)
             try:
                 turn = self._model.complete(
-                    messages=to_provider(messages), tools=tools, timeout=self._llm_timeout
+                    messages=list(messages), tools=tools, timeout=self._llm_timeout
                 )
             except Exception as exc:
                 llm_calls += 1
@@ -605,11 +554,10 @@ class HarnessReferenceLoop:
                 return stop("repair_model_unavailable", reason)
             llm_calls += turn.provider_attempts
             ledger.add("model_turn", turn.to_dict())
+            messages.append(_assistant_message(turn))
             if turn.error:
-                # 失败 turn 不进消息历史（与 Episode 主路径、派生规则同一口径）。
                 ledger.add("model_error", {"reason": turn.error})
                 return stop("repair_model_unavailable", turn.error)
-            messages.append(_assistant_message(turn))
             return turn
 
         definitions = (
@@ -635,11 +583,11 @@ class HarnessReferenceLoop:
             tool_calls += batch.executed_count
             performed_tool_action = batch.executed_count > 0
             invalid_actions += self._ingest_batch(state, batch)
-            append_model_input(
-                messages,
-                ledger,
-                content=harness.steering_message("repair_finalize", detail=""),
-                source="steering_repair_finalize",
+            messages.append(
+                {
+                    "role": "user",
+                    "content": harness.steering_message("repair_finalize", detail=""),
+                }
             )
             turn = complete([])
             if isinstance(turn, AgentOutcome):
@@ -736,22 +684,19 @@ class HarnessReferenceLoop:
                     invalid_actions += 1
                     error, detail = result.error, result.detail
                 elif result.status == "timeout":
-                    error, detail = (
-                        time_gate_error_for_model(result),
-                        timeout_detail_for_model(result),
-                    )
+                    error, detail = "tool_timeout", timeout_detail_for_model(result)
                 else:
                     error, detail = "tool_exception", result.detail or result.error
                 payload = harness.project_tool_error(
                     tool=call.name, error=error, detail=detail
                 )
-                model_content = json.dumps(payload, ensure_ascii=False)
-                state.ledger.add(
-                    "tool_error",
-                    {**payload, "call_id": call.call_id, "model_content": model_content},
-                )
+                state.ledger.add("tool_error", {**payload, "call_id": call.call_id})
                 state.messages.append(
-                    tool_message(call.call_id, model_content, source="tool_error")
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.call_id,
+                        "content": json.dumps(payload, ensure_ascii=False),
+                    }
                 )
                 continue
             observation = result.observation
@@ -779,14 +724,14 @@ class HarnessReferenceLoop:
             state.seen_prose = set(projection.seen_prose)
             state.ledger.add(
                 "tool_result",
-                {
-                    **projection.audit_payload,
-                    "call_id": call.call_id,
-                    "model_content": projection.model_content,
-                },
+                {**projection.audit_payload, "call_id": call.call_id},
             )
             state.messages.append(
-                tool_message(call.call_id, projection.model_content, source="tool_result")
+                {
+                    "role": "tool",
+                    "tool_call_id": call.call_id,
+                    "content": projection.model_content,
+                }
             )
         return invalid_actions
 
@@ -812,12 +757,26 @@ class HarnessReferenceLoop:
         ledger: _Ledger,
     ) -> list[dict[str, object]]:
         menu = session.menu(registry=registry, context=context)
-        # 与 Episode 同一格同一字：每步实际菜单落账，不从装配前快照猜可用集合。
-        ledger.add("tool_menu", menu.to_payload())
+        # 与 Episode 同一格同一字：藏了工具才记 tool_menu，无裁剪轮事件流不变。
+        if menu.hidden:
+            ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
 
-def _assistant_message(turn: ModelTurn) -> EpisodeMessage:
-    # 与 Episode 同源（``episode_messages.assistant_message``）：两条 loop 的 assistant
-    # 消息形状只定义一次，派生侧才能对两条 loop 用同一条规则。
-    return assistant_message(turn)
+def _assistant_message(turn: ModelTurn) -> dict[str, object]:
+    message: dict[str, object] = {"role": "assistant", "content": turn.content}
+    if turn.tool_calls:
+        message["tool_calls"] = [
+            {
+                "id": call.call_id,
+                "type": "function",
+                "function": {
+                    "name": call.name,
+                    "arguments": json.dumps(
+                        call.to_dict()["arguments"], ensure_ascii=False
+                    ),
+                },
+            }
+            for call in turn.tool_calls
+        ]
+    return message

@@ -16,9 +16,7 @@ tool. The primary model retains that decision inside the same episode.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-import re
 from uuid import uuid4
 
 from intelligence.services.agent_runtime import AgentOutcome
@@ -29,24 +27,9 @@ from intelligence.services.track_contract import is_contract_rewrite_only
 
 @dataclass(frozen=True)
 class CoverageDelta:
-    """上一轮修复带来了什么：内容进展三个读数 + 来源独立性一个读数。
-
-    ``new_evidence`` / ``narrowed_gaps`` / ``newly_supported_outputs`` 是**内容
-    进展**——多了哪些真正指向未覆盖输出的证据身份、关了几个缺口、多支持了几个
-    输出。``new_source_families`` 是**来源独立性**——新证据里带来了几个上一轮
-    没有的来源家族，供交叉验证维度记账，**不参与** ``progressed``。
-
-    两个量分开算是 2026-09-09「判官修复 01」第二刀：旧实现把新证据数等同于新来源
-    家族数（`effective_new_evidence` 只数 ``family not in before_families``），
-    于是同一交易所的第二份公告补上了财务锚、同一知识库的新页关掉了缺口，都被
-    记成「零新证据」而拒绝再修一轮；把来源家族换一个名字就放行。内容进展该看
-    解决了什么问题，来源独立性另作一维。
-    """
-
     new_evidence: int
     narrowed_gaps: int
     newly_supported_outputs: int
-    new_source_families: int = 0
 
     @property
     def progressed(self) -> bool:
@@ -70,64 +53,29 @@ class ProgressSnapshot:
     after_evidence_targets: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
-    def new_evidence_ids(self) -> tuple[str, ...]:
-        """内容进展的原子：上一轮没有、且指向此前未覆盖输出的证据身份。
-
-        - 重复抓同一页：content_hash 相同，id 已在 ``before`` → 不算。
-        - 新页只重复支持已覆盖的输出（转载旧闻）：targets ⊆ 已覆盖 → 不算。
-        - 同源新页补上一个此前未覆盖的输出：算。来源家族不在此判断，
-          独立性见 ``new_source_families``。
-        - 没有 targets 账（旧调用方 / 空账）：fail-closed 记 0——不知道证据
-          指向哪里，就不能说它推进了什么。
-
-        识别不到「只换标点的同页重抓」：那会换 hash。但它只重复支持已覆盖
-        输出，仍被第二条挡住；要它冒充进展，得同时把它绑到新输出上。
-        """
-
-        after_targets = dict(self.after_evidence_targets)
-        if not after_targets:
-            return ()
-        before_ids = set(self.before_evidence_ids)
-        before_outputs = set(self.before_covered_outputs)
-        return tuple(
-            evidence_id
-            for evidence_id in dict.fromkeys(self.after_evidence_ids)
-            if evidence_id not in before_ids
-            and any(
-                target not in before_outputs
-                for target in after_targets.get(evidence_id, ())
-            )
-        )
-
-    @property
     def effective_new_evidence(self) -> int:
-        return len(self.new_evidence_ids)
-
-    @property
-    def new_source_families(self) -> int:
-        """来源独立性：本轮新增、且绑到了某个输出的证据里，上一轮没有的来源家族数。
-
-        与 ``new_evidence_ids`` 不同，这里**不要求**指向未覆盖输出：新网站转载
-        旧闻对内容零增量，但作为第二个独立来源佐证了已覆盖的输出，这正是交叉
-        验证要记的量。没绑到任何输出的证据两边都不算。
-        """
-
-        after_targets = dict(self.after_evidence_targets)
-        if not after_targets:
-            return 0
         before_ids = set(self.before_evidence_ids)
         before_families = {
             family for _, family in self.before_evidence_source_families
         }
-        return len(
-            {
-                family
-                for evidence_id, family in self.after_evidence_source_families
-                if evidence_id not in before_ids
-                and after_targets.get(evidence_id)
-                and family not in before_families
-            }
-        )
+        after_pairs = tuple(self.after_evidence_source_families)
+        after_targets = dict(self.after_evidence_targets)
+        if not after_pairs or not after_targets:
+            return 0
+        before_outputs = set(self.before_covered_outputs)
+        families = {
+            family
+            for evidence_id, family in after_pairs
+            if evidence_id not in before_ids
+            and family not in before_families
+            and (
+                any(
+                    target not in before_outputs
+                    for target in after_targets.get(evidence_id, ())
+                )
+            )
+        }
+        return len(families)
 
     @property
     def coverage_delta(self) -> CoverageDelta:
@@ -139,7 +87,6 @@ class ProgressSnapshot:
             newly_supported_outputs=len(
                 set(self.after_covered_outputs) - set(self.before_covered_outputs)
             ),
-            new_source_families=self.new_source_families,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -166,12 +113,10 @@ class ProgressSnapshot:
                 [evidence_id, list(targets)]
                 for evidence_id, targets in self.after_evidence_targets
             ],
-            "new_evidence_ids": list(self.new_evidence_ids),
             "coverage_delta": {
                 "new_evidence": delta.new_evidence,
                 "narrowed_gaps": delta.narrowed_gaps,
                 "newly_supported_outputs": delta.newly_supported_outputs,
-                "new_source_families": delta.new_source_families,
             },
         }
 
@@ -200,14 +145,6 @@ class RepairGoal:
     # 冷启动修复专用：主检索窗已烧穿时，允许修复轮在授予的窗口内重开工具。
     # 只由 admit_repair 在 grant_for_cold_restart 命中时置位，模型无权申请。
     reopen_tools: bool = False
-    # 作者要读的病因原文：被判官删掉的那几句 + 判官给的理由。
-    #
-    # 与 ``unsupported_claims`` 分开是有意的：后者是**策略信号**（喂
-    # ``classify_repair_failure``，决定这一轮算不算纯交付缺口），前者只是
-    # 摆给作者看的证据，不参与任何判据。2026-09-16 的真实 run 里作者拿到的是
-    # 「缺 evidence_boundary」而判官说的是「c3/c5 没有锚点却写了具体事实」——
-    # 病因根本没过桥，作者只能把同一份结构再发一遍。
-    rejected_claim_notes: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -216,14 +153,12 @@ class RepairGoal:
             "cycle": self.cycle,
             "missing_answer_elements": list(self.missing_answer_elements),
             "unsupported_claims": list(self.unsupported_claims),
-            "rejected_claim_notes": list(self.rejected_claim_notes),
             "missing_evidence_modes": list(self.missing_evidence_modes),
             "attempted_actions": list(self.attempted_actions),
             "evidence_progress": {
                 "new_evidence": self.evidence_progress.new_evidence,
                 "narrowed_gaps": self.evidence_progress.narrowed_gaps,
                 "newly_supported_outputs": self.evidence_progress.newly_supported_outputs,
-                "new_source_families": self.evidence_progress.new_source_families,
             },
             "remaining_calls": self.remaining_calls,
             "remaining_seconds": self.remaining_seconds,
@@ -277,7 +212,6 @@ def build_repair_goal(
     remaining_calls: int,
     remaining_seconds: float,
     cycle: int = 1,
-    rejected_claim_notes: tuple[str, ...] = (),
 ) -> RepairGoal:
     episode = str(episode_id or "").strip()
     if not episode:
@@ -295,63 +229,7 @@ def build_repair_goal(
         evidence_progress=previous_progress.coverage_delta,
         remaining_calls=max(0, int(remaining_calls)),
         remaining_seconds=max(0.0, float(remaining_seconds)),
-        rejected_claim_notes=_unique(rejected_claim_notes),
     )
-
-
-def describe_rejected_claims(
-    *,
-    claim_checks: Sequence[Mapping[str, object]] = (),
-    sentence_verdicts: Sequence[Mapping[str, object]] = (),
-    private_tokens: frozenset[str] = frozenset(),
-    limit: int = 6,
-) -> tuple[str, ...]:
-    """把「哪一句被删、判官怎么说」写成作者能直接照着改的短句。
-
-    只转述已有账：材料流用逐句回执（``material_claim_checks`` 带 sentence_index /
-    text / reason），普通流退回拒句账（``sentence_verdicts``）。这里不新造判断、
-    不猜作者该写什么，也不替判官补理由——没有理由就只给原句。
-
-    ``private_tokens`` 是材料私有坐标（material_id / message_id）：作者提示里
-    本来就有目录，但把 id 抄进正文会被 ``private_material_reference`` 拒收，
-    所以转述时一律换成「该材料」，不让修复轮学会写 id。
-    """
-
-    rows: dict[int, tuple[str, str]] = {}
-    # 逐句回执最准（带判官原话）；隔离复核等只改拒句集合的路径没有它，再用拒句账补。
-    for verdict in sentence_verdicts:
-        if verdict.get("decision") != "deleted":
-            continue
-        index = verdict.get("sentence_index")
-        if not isinstance(index, int) or isinstance(index, bool):
-            continue
-        issues = verdict.get("judge_issues")
-        reason = "；".join(str(item) for item in issues) if isinstance(issues, list) else ""
-        rows[index] = (str(verdict.get("sentence") or ""), reason)
-    for check in claim_checks:
-        if check.get("supported") is not False:
-            continue
-        index = check.get("sentence_index")
-        if not isinstance(index, int) or isinstance(index, bool):
-            continue
-        rows[index] = (str(check.get("text") or ""), str(check.get("reason") or ""))
-    notes: list[str] = []
-    for index, (text, reason) in sorted(rows.items()):
-        note = f"claim_index:{index}｜原句：{_scrub(text, private_tokens, 120)}"
-        if reason.strip():
-            note += f"｜判官：{_scrub(reason, private_tokens, 200)}"
-        if note not in notes:
-            notes.append(note)
-    return tuple(notes[:limit])
-
-
-def _scrub(text: str, private_tokens: frozenset[str], limit: int) -> str:
-    cleaned = " ".join(text.split())
-    for token in sorted(private_tokens, key=len, reverse=True):
-        if not token:
-            continue
-        cleaned = re.sub(re.escape(token), "该材料", cleaned, flags=re.IGNORECASE)
-    return cleaned if len(cleaned) <= limit else cleaned[: limit - 1] + "…"
 
 
 def unreachable_repair_goal(
@@ -399,7 +277,7 @@ def unreachable_repair_goal(
 
 def max_repair_cycles_for_tier(research_tier: str) -> int:
     tier = str(research_tier or "").strip().lower()
-    if tier in {"deep", "max"}:
+    if tier == "deep":
         return 3
     if tier in {"quick", "standard"}:
         return 1
@@ -414,12 +292,10 @@ def cycle_within_tier(cycle: int, *, research_tier: str) -> bool:
 
 @dataclass(frozen=True)
 class RepairWarrant:
-    """领域对「还配不配再来一轮」的判定：tier 容忍度 × 上一轮内容进展。不看预算。
+    """领域对「还配不配再来一轮」的判定：tier 容忍度 × 上一轮进展。不看预算。
 
     两个事实分开摆：进度修复要两者都成立（``warranted``）；交付修复只看
     ``cycle_allowed``——它修的是「有证据没写出稿」，不要求上一轮有新证据。
-    「进展」按 ``CoverageDelta.progressed`` 的内容口径算：新证据身份指向了未
-    覆盖输出且关了缺口 / 多支持了输出；来源家族是否独立不在此裁决。
     """
 
     cycle_allowed: bool
@@ -436,7 +312,7 @@ def warrant_repair(
     cycle: int,
     research_tier: str,
 ) -> RepairWarrant:
-    """这个 tier 还容忍这一轮吗；上一轮真有内容进展吗。
+    """这个 tier 还容忍这一轮吗；上一轮真有独立证据进展吗。
 
     不看预算——付不付得起是底座 ``can_afford_repair`` 的事。
     """
@@ -492,8 +368,7 @@ class RepairFailureShape:
 
     - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
     - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
-    - ``contract_rewrite``：缺的全是契约表达槽——从已有证据/材料补写，不开工具。
-    - ``input_only_rewrite``：仅依据材料交付的显式许可；不要求题号，不伪造证据计数。
+    - ``contract_rewrite``：缺的全是跟踪契约表达槽——从既有证据重写，不开工具。
 
     不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
     """
@@ -501,9 +376,6 @@ class RepairFailureShape:
     delivery: bool
     cold_restart: bool
     contract_rewrite: bool
-    # Domain authorization to repair delivery from the input itself (D5), not
-    # a synthetic evidence count. The budget layer may grant zero tool calls.
-    input_only_rewrite: bool = False
 
 
 def classify_repair_failure(
@@ -516,30 +388,7 @@ def classify_repair_failure(
 ) -> RepairFailureShape:
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
-    from intelligence.services.episode_issues import IssueCode
-    from intelligence.services.episode_protocol import REJECTION_KINDS, RejectionKind
-    from intelligence.services.material_delivery import material_input_output_ids
-
-    # A rejected finish can lose its draft/bindings before structural verification.
-    # Preserve its typed integrity failure instead of laundering it into omissions.
-    if outcome.stop_reason == "integrity_violation" or any(
-        event.kind == "finish"
-        and REJECTION_KINDS.get(event.payload.get("rejection_code")) == RejectionKind.INTEGRITY
-        for event in outcome.events
-    ):
-        return RepairFailureShape(delivery=False, cold_restart=False, contract_rewrite=False)
     has_evidence = bool(outcome.evidence)
-    contract = structural.contract
-    material_ids = material_input_output_ids(contract) if contract is not None else frozenset()
-    material_rewrite = bool(
-        missing_outputs and set(missing_outputs) <= material_ids
-        and not rejected_claims and not structural.mandatory_missing_capabilities
-        and all(item.code in {
-            IssueCode.MISSING_REQUIRED_OUTPUT,
-            IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE,
-            IssueCode.REQUIRED_OUTPUT_GAP,
-        } for item in structural.issue_items)
-    )
     return RepairFailureShape(
         delivery=bool(
             outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
@@ -550,12 +399,11 @@ def classify_repair_failure(
         cold_restart=(
             outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
         ),
-        contract_rewrite=material_rewrite or is_contract_rewrite_only(
+        contract_rewrite=is_contract_rewrite_only(
             missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         ),
-        input_only_rewrite=material_rewrite,
     )
 
 

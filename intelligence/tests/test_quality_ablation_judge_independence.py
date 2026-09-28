@@ -222,16 +222,17 @@ def _answer(arm: str, case_id: str, judge: dict[str, object]) -> dict[str, objec
     }
 
 
-def test_混用rubric版本保留诊断但拒绝结论() -> None:
+def test_混用rubric版本直接拒跑() -> None:
     """换版=换口径，跨版分差没有意义，而混出来的数长得和正常读数一样。"""
 
     answers = [
         _answer("baseline", "q0", _judged(14)),
         _answer("kb-rag", "q0", _judged(11, version="v1-abstract")),
     ]
-    result = aggregate_components(answers, ["kb-rag"])["kb-rag"]
-    assert result["decision"] == "no_call"
-    assert "rubric_version_mismatch" in result["decision_reason"]
+    with pytest.raises(SystemExit) as exc:
+        aggregate_components(answers, ["kb-rag"])
+
+    assert "rubric 版本" in str(exc.value)
 
 
 def test_旧收据无版本字段按v1计不炸() -> None:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextvars
-import inspect
 import json
 import os
 import re
@@ -26,13 +25,9 @@ from intelligence.api.structured_reports import (
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
-from intelligence.services import research_project
 from intelligence.services import evidence_registry
 from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
-from intelligence.services.derived_calculation_artifacts import (
-    publish_calculation_artifacts,
-)
 from intelligence.services.outlook_delivery_gate import (
     apply_market_watch_delivery_gate,
     apply_outlook_delivery_gate,
@@ -152,16 +147,7 @@ from intelligence.runtime.turn_control_core import (
     project_turn_decision,
 )
 from intelligence.services.turn_controller import TurnDecision, decide_turn
-from intelligence.services.task_frame import (
-    TaskFrame,
-    build_task_frame,
-    frame_blocks_contract_blind_pipelines,
-)
-from intelligence.services.conversation_materials import (
-    ConversationMaterials, collect_conversation_materials, collect_material_turn_history,
-)
-from intelligence.services.material_contract import compile_material_contract
-from intelligence.services.user_task import split_user_message
+from intelligence.services.task_frame import TaskFrame, build_task_frame
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -885,7 +871,7 @@ def _generic_research_deadline(
     # synthesis.
     synthesis_reserve = (
         max(root_deadline.synthesis_reserve, policy.synthesis_reserve)
-        if policy.tier in {"deep", "max"}
+        if policy.tier == "deep"
         else policy.synthesis_reserve
     )
     return ResearchDeadline(
@@ -1114,10 +1100,6 @@ def _llm_failure_brief() -> str | None:
 class ConversationContext:
     summary: str
     recent_messages: tuple[Message, ...]
-    # Complete records only, within the existing text window. None means a
-    # legacy context whose source records were not supplied (not known empty).
-    material_messages: tuple[Message, ...] | None = None
-    material_history_unavailable: bool = False
 
     def to_prompt_block(self) -> str:
         recent = "\n".join(
@@ -1328,18 +1310,14 @@ def _summarize_messages(messages: Sequence[Message]) -> str:
 
     lines = [f"{message.role}: {message.content}" for message in messages]
     text = "\n".join(lines)
-    dropped = _summary_tail_start(text, len(messages))
-    if not dropped:
-        return text
-    return f"（前 {dropped} 字符已省略，共 {len(messages)} 条较早消息）\n" + text[dropped:]
-
-
-def _summary_tail_start(text: str, message_count: int) -> int:
-    """One window budget for prompt rendering and complete-record selection."""
     if len(text) <= SUMMARY_CHAR_LIMIT:
-        return 0
-    marker = f"（前 {len(text)} 字符已省略，共 {message_count} 条较早消息）\n"
-    return len(text) - max(0, SUMMARY_CHAR_LIMIT - len(marker))
+        return text
+    marker = f"（前 {{dropped}} 字符已省略，共 {len(messages)} 条较早消息）\n"
+    # 先按标记的最终长度扣预算，再切——否则加上标记就超预算了。
+    reserve = len(marker.format(dropped=len(text)))
+    kept = max(0, SUMMARY_CHAR_LIMIT - reserve)
+    dropped = len(text) - kept
+    return marker.format(dropped=dropped) + text[-kept:]
 
 
 def _redact_object(value: object) -> object:
@@ -1657,23 +1635,7 @@ def build_conversation_context(
     recent = tuple(history[-RECENT_MESSAGE_LIMIT:])
     older = history[:-RECENT_MESSAGE_LIMIT]
     summary = _summarize_messages(older) if older else conversation.summary
-    # P3f1: select complete older records using the very same tail budget as
-    # the prompt. Never recover roles/materials from summary text, and never
-    # mint a new material identity from the surviving tail of a partial row.
-    older_text = "\n".join(f"{message.role}: {message.content}" for message in older)
-    cutoff = _summary_tail_start(older_text, len(older))
-    complete_older = []
-    start = 0
-    for message in older:
-        if start >= cutoff:
-            complete_older.append(message)
-        start += len(f"{message.role}: {message.content}") + 1
-    return ConversationContext(
-        summary=summary,
-        recent_messages=recent,
-        material_messages=(*complete_older, *recent),
-        material_history_unavailable=bool(cutoff or (not older and conversation.summary)),
-    )
+    return ConversationContext(summary=summary, recent_messages=recent)
 
 
 def contextualize_follow_up_query(
@@ -1740,34 +1702,12 @@ class TurnOrchestrator:
         self.skill_registry = skill_registry or builtin_skill_registry()
         self.llm_model = llm_model
         self.turn_controller = turn_controller_fn or decide_turn
-        self._uses_default_turn_controller = turn_controller_fn is None
         self.generate_lane_answer = lane_answer_fn or generate_lane_answer
         self.research_policy = research_policy or ResearchExecutionPolicy()
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
         self.continuous_turn_adapter = continuous_turn_adapter
-
-    def _publish_calculation_artifacts(
-        self,
-        run_id: str,
-        private_artifact: object,
-        warnings: list[str],
-    ) -> list[str]:
-        """派生计算产物落盘（工单 04）。渲染失败只记降级、不拖垮回答：表没落下来是缺口，答案不是。"""
-
-        if not isinstance(private_artifact, dict):
-            return []
-        try:
-            return publish_calculation_artifacts(self.run_store, run_id, private_artifact)
-        except Exception as exc:  # noqa: BLE001 - 产物渲染是收口观测，不能顶替主路径
-            warning = f"calculation_artifacts_failed:{type(exc).__name__}"
-            warnings.append(warning)
-            try:
-                self.run_store.add_degrade(run_id, warning)
-            except Exception:  # noqa: BLE001
-                pass
-            return []
 
     def _stamp_gate_receipt(
         self,
@@ -1889,15 +1829,10 @@ class TurnOrchestrator:
         )
         try:
             conversation = self.conversation_store.load_conversation(conversation_id)
-            conversation_messages = self.conversation_store.load_messages(conversation_id)
             context = build_conversation_context(
                 conversation,
-                conversation_messages,
+                self.conversation_store.load_messages(conversation_id),
                 current_run_id=run_id,
-            )
-            # 09 连续研究：本轮若由「猜你想问」卡片点出，用户消息上带延续坐标。
-            turn_continuation = research_project.continuation_for_run(
-                conversation_messages, run_id
             )
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
@@ -1942,76 +1877,14 @@ class TurnOrchestrator:
                     "inherited_turn_id": inherited_turn_id,
                 },
             )
-            # Recover state only from complete persisted user messages in the
-            # same bounded window; summary/assistant prose is never authority.
-            parts = split_user_message(str(query or "").strip())
-            material_contract = compile_material_contract(parts.regions) if parts.regions else None
-            material_history = None
-            if material_contract and material_contract.continuation_requested:
-                material_history = collect_material_turn_history(
-                    context.material_messages or (),
-                    unavailable=context.material_history_unavailable,
-                )
-                material_contract = compile_material_contract(
-                    parts.regions, source_turn=material_history.source_turn,
-                    inherited_contract=material_history.base_contract,
-                )
-            elif material_contract and material_contract.data_scope == "material_only":
-                material_history = (
-                    ConversationMaterials()
-                    if parts.materials else collect_conversation_materials(
-                        context.material_messages or (),
-                        unavailable=context.material_history_unavailable,
-                    )
-                )
-            elif material_contract and material_contract.needs_clarification:
-                material_history = ConversationMaterials(unavailable=True)
-            elif material_contract and material_contract.premise_calculation:
-                material_history = ConversationMaterials()
-            # Known absence must reach the default controller: dropping it
-            # would reopen resolver/model and pending-frame recovery. Legacy
-            # injected controllers keep their pre-existing keyword contract.
-            if not material_contract or (
-                material_contract.data_scope != "material_only"
-                and not self._uses_default_turn_controller
-            ):
-                material_history = None
-            restricted_history = bool(
-                material_contract
-                and material_history is not None
-                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
-            )
-            # Keep the established controller context contract byte-compatible.
-            # The typed projection is an additional authority input; the model
-            # controller itself replaces untyped context at its own prompt seam.
-            controller_context = context.to_prompt_block()
-            accepts_materials = self._uses_default_turn_controller
-            if material_history is not None and not accepts_materials:
-                try:
-                    parameters = inspect.signature(self.turn_controller).parameters.values()
-                except (TypeError, ValueError):
-                    parameters = ()
-                accepts_materials = any(
-                    item.kind is inspect.Parameter.VAR_KEYWORD
-                    or (item.name == "conversation_materials" and item.kind in {
-                        inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY,
-                    })
-                    for item in parameters
-                )
-            controller_options = (
-                {"conversation_materials": material_history}
-                if accepts_materials and material_history is not None
-                else {}
-            )
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,
-                context=controller_context,
+                context=context.to_prompt_block(),
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
-                **controller_options,
             )
             controller_question_type_supplied = decision.question_type is not None
             task_frame = decision.task_frame
@@ -2029,7 +1902,6 @@ class TurnOrchestrator:
                 task_frame = build_task_frame(
                     query,
                     legacy_envelope,
-                    conversation_materials=material_history,
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
@@ -2043,13 +1915,6 @@ class TurnOrchestrator:
                 )
                 raw_envelope = project_task_frame(task_frame, legacy_envelope)
             else:
-                raw_envelope = envelope_from_task_frame(task_frame)
-            if restricted_history and not self._uses_default_turn_controller:
-                # Injected controllers may supply stale/full frames. Recompile
-                # the source-aware contract, not just replace its permission bit.
-                decision = decide_turn(query, conversation_materials=material_history)
-                task_frame = decision.task_frame
-                assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
@@ -2080,23 +1945,10 @@ class TurnOrchestrator:
                     task_frame=task_frame,
                 )
             contextual_query = contextualize_intent_query(query, turn_intent)
-            # P3d: use the same frozen material scope as Episode assembly, but
-            # stop untyped fact priors before their producers perform reads.
-            # This does not filter history already supplied to the controller.
-            material_only = bool(
-                task_frame.material_contract is not None
-                and (task_frame.material_contract.data_scope == "material_only"
-                     or task_frame.material_contract.needs_clarification)
-            )
-            # P3h: engine B (skill routing + the Ask pipeline) has no material
-            # contract awareness at all. Same predicate as the adapter's
-            # yield rule — the two sides must never drift apart.
-            engine_b_restricted = frame_blocks_contract_blind_pipelines(task_frame)
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
                 if (
-                    not material_only
-                    and inherited_message is not None
+                    inherited_message is not None
                     and turn_intent.inherited_from_turn is not None
                 )
                 else None
@@ -2166,7 +2018,7 @@ class TurnOrchestrator:
             )
             self._check_cancelled()
             stance_pack = None
-            if not material_only and should_run_stance_pack(
+            if should_run_stance_pack(
                 lane=decision.lane,
                 question_type=task_frame.question_type or decision.question_type,
                 query=query,
@@ -2179,41 +2031,6 @@ class TurnOrchestrator:
                     capabilities=runtime_capabilities_for_frame(task_frame),
                 )
             canned = deterministic_lane_answer(query, decision)
-            # 09 连续研究：研究车道开工前把「研究项目状态」先验块并进会话上下文。
-            # 没有先验（首轮 / 换题）时逐字节不变；投影失败只记 degrade，不拖死主答案。
-            project_prior_block = ""
-            project_prior_status: str | None = None
-            if not material_only and decision.lane == "research" and canned is None:
-                try:
-                    project_prior_block, project_prior_status = (
-                        research_project.prior_for_turn(
-                            self.conversation_store,
-                            self.run_store,
-                            conversation_id=conversation_id,
-                            current_run_id=run_id,
-                            subject=str(task_frame.subject or ""),
-                            continuation=turn_continuation,
-                        )
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    prior_warning = f"research_project_prior_failed:{type(exc).__name__}"
-                    warnings.append(prior_warning)
-                    self.run_store.add_degrade(run_id, prior_warning)
-            if project_prior_block:
-                self._trace(
-                    run_id,
-                    assistant_message_id,
-                    conversation_id,
-                    "continuous:research_project_prior",
-                    "research_project_prior",
-                    {
-                        "chars": len(project_prior_block),
-                        "prior_status": project_prior_status,
-                        "continuation_kind": str(
-                            (turn_continuation or {}).get("kind") or ""
-                        ),
-                    },
-                )
             if canned is None and self.continuous_turn_adapter is not None:
                 continuous_control = project_turn_decision(
                     decision,
@@ -2222,46 +2039,23 @@ class TurnOrchestrator:
                     # R-20260827-09 送达层：阶段表以 research_plan 为单一来源
                     # 递进 episode（trace 里那份与模型看到的不再可能漂移）。
                     retrieval_stages=research_plan.retrieval_stages,
-                    conversation_context=(
-                        f"{controller_context}\n\n{project_prior_block}"
-                        if project_prior_block
-                        else controller_context
-                    ),
+                    conversation_context=context.to_prompt_block(),
                     # 视角约束在这里进入 continuous 引擎。此前只有 legacy 合成
                     # 路径注入（ask_synthesis._active_perspective_prompt），
                     # 生产 continuous 主路径上视角只在 API 层验证与存储，模型
                     # prompt 永远看不到（2026-08-14 生产 smoke 实测）。
                     # neutral 时该原语返回空串，episode 输入逐字节不变。
-                    perspective_context=(
-                        "" if material_only else perspective_lab.active_runtime_prompt(
-                            userspace.user_space(self.run_store.user_id),
-                            mode=perspective_mode,
-                            perspective_ids=tuple(selected_perspective_ids),
-                            query=query,
-                        )
+                    perspective_context=perspective_lab.active_runtime_prompt(
+                        userspace.user_space(self.run_store.user_id),
+                        mode=perspective_mode,
+                        perspective_ids=tuple(selected_perspective_ids),
+                        query=query,
                     ),
                 )
                 if stance_pack is not None:
                     continuous_control = replace(
                         continuous_control, stance_pack=stance_pack
                     )
-                if material_only and continuous_control.terminal_kind == "research":
-                    from intelligence.services.prior_evidence import load_previous_evidence
-
-                    try:
-                        prior_evidence = load_previous_evidence(
-                            task_frame, messages=context.material_messages or (),
-                            store=self.run_store, conversation_id=conversation_id,
-                            current_run_id=run_id,
-                            history_unavailable=context.material_history_unavailable,
-                        )
-                    except (OSError, ValueError, TypeError, OverflowError) as exc:
-                        # Missing originals never authorize a fresh query or old-answer evidence.
-                        warning = f"prior_evidence_unavailable:{type(exc).__name__}"
-                        warnings.append(warning)
-                        self.run_store.add_degrade(run_id, warning)
-                    else:
-                        continuous_control = replace(continuous_control, prior_evidence=prior_evidence)
                 with bind_run_hunger(
                     self.run_store.run_dir(run_id), run_id=run_id
                 ):
@@ -2285,8 +2079,6 @@ class TurnOrchestrator:
                         perspective_mode=perspective_mode,
                         selected_perspective_ids=selected_perspective_ids,
                         stance_pack=stance_pack,
-                        continuation=turn_continuation,
-                        prior_status=project_prior_status,
                     )
             if (
                 decision.lane in {"chat", "meta", "clarify"}
@@ -2307,8 +2099,6 @@ class TurnOrchestrator:
                     decision.lane == "knowledge"
                     and lane_answer.fallback_reason
                     and decision.question_type != QUESTION_METHODOLOGY
-                    # P3h: the fallback retrieval below is contract-blind.
-                    and not engine_b_restricted
                 ):
                     retrieval_attempted = True
                     fallback_started = time.monotonic()
@@ -2408,15 +2198,12 @@ class TurnOrchestrator:
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
-                # Retrieval fallback does not repair a failed generation attempt.
-                if lane_answer.fallback_reason:
-                    warning = (
-                        "方法论回答生成暂时不可用"
-                        if decision.question_type == QUESTION_METHODOLOGY
-                        else "自然语言生成暂时不可用，本轮正文未经综述"
-                    )
-                    if warning not in lane_warnings:
-                        lane_warnings.append(warning)
+                if (
+                    decision.question_type == QUESTION_METHODOLOGY
+                    and lane_answer.fallback_reason
+                ):
+                    warning = "方法论回答生成暂时不可用"
+                    lane_warnings.append(warning)
                     self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
@@ -2444,57 +2231,6 @@ class TurnOrchestrator:
                     citations=lane_citations,
                     warnings=lane_warnings,
                     as_of=lane_as_of,
-                )
-            if engine_b_restricted:
-                # P3h 兜底总闸：continuous 引擎未接管（模式关闭 / 让路 / 未配置）
-                # 时，约束轮（material_only / local_only / 待澄清）不得进入无
-                # 材料合同意识的 skill 路由与 Ask 检索管线——那会让 P3 的读取
-                # 收窄整体失效。fail closed：不外呼、不路由、如实降级。
-                scope_label = str(
-                    (task_frame.material_contract.data_scope if task_frame.material_contract else None)
-                    or "待澄清"
-                )
-                degraded_warning = f"material_scope_engine_unavailable:{scope_label}"
-                self.run_store.add_degrade(run_id, degraded_warning)
-                self._trace(
-                    run_id,
-                    assistant_message_id,
-                    conversation_id,
-                    "material_gate",
-                    "engine_b_material_gate",
-                    {
-                        "data_scope": scope_label,
-                        "needs_clarification": bool(
-                            task_frame.material_contract is not None
-                            and task_frame.material_contract.needs_clarification
-                        ),
-                        "question_type": str(task_frame.question_type or ""),
-                        "lane": decision.lane,
-                    },
-                )
-                return self._complete_lane_turn(
-                    conversation_id=conversation_id,
-                    run_id=run_id,
-                    assistant_message_id=assistant_message_id,
-                    query=query,
-                    report=report,
-                    answer=LaneAnswer(
-                        answer=(
-                            "本轮声明了数据边界（"
-                            + scope_label
-                            + "），但当前运行模式下没有可执行该边界的研究引擎；"
-                            "为不越权检索，本轮未调用任何外部数据管线。"
-                            "请在支持材料边界的连续研究模式下重试，"
-                            "或去掉边界声明后重新提问。"
-                        ),
-                        fallback_reason="material_scope_engine_unavailable",
-                    ),
-                    selected_skill_ids=manual_selected,
-                    turn_intent=turn_intent,
-                    research_plan=research_plan,
-                    citations=[],
-                    warnings=[degraded_warning],
-                    as_of=None,
                 )
             route_started = time.monotonic()
             relation_guard_requested = bool(
@@ -4231,8 +3967,6 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
         stance_pack: object | None = None,
-        continuation: dict[str, object] | None = None,
-        prior_status: str | None = None,
     ) -> TurnResult:
         """Persist one Episode-owned terminal result without legacy synthesis."""
 
@@ -4353,8 +4087,6 @@ class TurnOrchestrator:
                 previewable=False,
                 downloadable=False,
             )
-            # 答案没成，算出来的表还是要保住（工单 04 任务 5：错误可定位、其他完成项不丢）。
-            self._publish_calculation_artifacts(run_id, safe_private_artifact, warnings)
             self.run_store.add_artifact(
                 run_id,
                 "answer.md",
@@ -4514,11 +4246,6 @@ class TurnOrchestrator:
         # 缺口镜像（knevo 接力第一片）：契约里未满足的必需输出确定性变成
         # 「猜你想问」。缺口不该是句号——R15 对照的失分形状是追问负担全在
         # 用户。零模型调用，文案与公开降级声明同一口径。
-        # 09 连续研究：卡片点出的轮次继承坐标——上一张卡的原文用于去重（不再
-        # 生成同义改写），继承的站立日用于 same_bind 芯片；裁决改排序只改先后。
-        inherited = dict((continuation or {}).get("inherits") or {})
-        continuation_kind = str((continuation or {}).get("kind") or "")
-        parent_prompt = str((continuation or {}).get("full_prompt") or "") or None
         try:
             followup_state = followups_svc.project_continuous_state(
                 subject=str(task_frame.subject or ""),
@@ -4526,21 +4253,15 @@ class TurnOrchestrator:
                 open_gaps=result.open_gaps,
                 status=result.status,
                 subject_kind=str(task_frame.subject_kind or ""),
-                parent_followup_prompt=parent_prompt,
-                same_bind=stance_pack is not None or continuation_kind == "continue",
+                same_bind=stance_pack is not None,
                 standing_date=str(
-                    getattr(stance_pack, "standing_date", "")
-                    or inherited.get("standing_date")
-                    or ""
+                    getattr(stance_pack, "standing_date", "") or ""
                 ),
                 question_type=str(task_frame.question_type or ""),
             )
             gap_followups = followups_svc.active_composer().compose(
                 followup_state,
                 polish=False,
-            )
-            gap_followups.followups = followups_svc.order_by_prior(
-                list(gap_followups.followups), prior_status
             )
         except Exception as exc:  # noqa: BLE001
             warning = f"followup_compose_failed:{type(exc).__name__}"
@@ -4595,9 +4316,6 @@ class TurnOrchestrator:
             previewable=False,
             downloadable=False,
         )
-        # 工单 04：派生计算的表 / 图 / 记录从同一份私有产物渲染成可下载 run 产物
-        # （calc-<id>.csv / .html / .json）。复用 run / artifact 身份，不另开文件服务。
-        self._publish_calculation_artifacts(run_id, safe_private_artifact, warnings)
         self._stamp_gate_receipt(
             report,
             private_artifact=result.private_artifact,
@@ -5482,40 +5200,17 @@ class TurnOrchestrator:
         theme: str | None,
         session_id: str,
     ) -> None:
-        """跟踪题下期关注 / 排序题改判条件写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        """跟踪题下期关注写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
         user_id = self.run_store.user_id
         if not user_id or user_id in {"golden-test", "tester", "default"}:
             return
-        from intelligence.services.track_contract import persistence_opt_out
-
-        if persistence_opt_out(query):
-            # 用户明确说了「不登记长期跟踪」。两个 ingest 内部也各自挡了一道；
-            # 这里再挡是因为写入是**不可撤销的外部副作用**，多一道早退比事后清理便宜。
-            return
-        checkpoints_path = userspace.user_space(user_id).checkpoints_path
         try:
             from intelligence.services.track_contract import ingest_next_watch
 
             ingest_next_watch(
-                checkpoints_path,
-                answer,
-                query=query,
-                question_type=question_type,
-                as_of=as_of,
-                theme=theme,
-                session_id=session_id,
-            )
-        except Exception:
-            pass
-        # 排序题的改判条件（10 号单）：同一本 checkpoints，source=ranking_flip_condition，
-        # 07 回检与 foresight 发问据此对照；非排序题内部空操作。
-        try:
-            from intelligence.services.ranking_contract import ingest_flip_conditions
-
-            ingest_flip_conditions(
-                checkpoints_path,
+                userspace.user_space(user_id).checkpoints_path,
                 answer,
                 query=query,
                 question_type=question_type,

@@ -9,7 +9,6 @@ import json
 import re
 from typing import cast
 
-from intelligence.services import compliance_gate
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     EpisodeStatus,
@@ -20,39 +19,21 @@ from intelligence.services.episode_output_substance import (
     required_outputs_without_substance,
 )
 from intelligence.services import knowledge_injection_policy
-from intelligence.services.material_grounding import (
-    ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
-    material_private_tokens, render_material_claims,
-)
-from intelligence.services.judgment_delta import episode_judgment_delta_rule
-from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
-from intelligence.services.research_workflow_guidance import workflow_guidance
-from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
-from intelligence.services.ranking_contract import (
-    RANKING_CONTRACT_OUTPUT_ID_SET,
-    episode_ranking_rule,
-)
 from intelligence.services.scenario_tree import episode_scenario_rule
-from intelligence.services.track_contract import (
-    TRACK_CONTRACT_OUTPUT_ID_SET,
-    episode_track_rule,
-)
+from intelligence.services.track_contract import episode_track_rule
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
-# 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
-# derived_calculation 模块（它反向依赖注册表，成环），只认名字。
-DERIVED_CALCULATION_TOOL = "derived_calculation"
 # A few OpenAI-compatible adapters append one unmatched quote after an
 # otherwise exact fenced payload. Accept only that observed one-character
 # suffix; arbitrary prose before/after the fence remains invalid.
@@ -89,7 +70,6 @@ def finish_json_schema() -> dict[str, object]:
                 "enum": ["completed", "partial"],
             },
             "draft": {"type": "string"},
-            "render_from_claims": {"type": "boolean"},
             "gaps": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -118,25 +98,6 @@ def finish_json_schema() -> dict[str, object]:
                             ],
                         },
                         "gap": {"type": "string"},
-                        "claims": {
-                            "type": "array",
-                            "items": {
-                                "type": "object", "additionalProperties": False,
-                                "properties": {
-                                    "text": {"type": "string"},
-                                    "kind": {"type": "string", "enum": ["material_fact", "reasoning", "premise_declaration", "historical_assistant_statement"]},
-                                    "material_anchors": {"type": "array", "items": {
-                                        "type": "object", "additionalProperties": False,
-                                        "properties": {"material_id": {"type": "string"}, "quote": {"type": "string"}},
-                                        "required": ["material_id", "quote"],
-                                    }},
-                                    "old_answer_coordinate": {"type": "string"},
-                                    "historical_quote": {"type": "string"},
-                                    "basis": {"type": "string"},
-                                },
-                                "required": ["text", "kind"],
-                            },
-                        },
                     },
                     "required": [
                         "output_id",
@@ -180,34 +141,13 @@ def _question_type_rules(
     # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
     # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
     # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
-    # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
-    # 历史发现题（怎么走出来）不叠情景契约，避免和 history 自己的答法打架。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
-    )
-    if context.history_intent is None:
-        track_rule += episode_scenario_rule(
-            task_frame.raw_question,
-            task_frame.question_type,
-        )
-    track_rule += episode_ranking_rule(
-        task_frame.raw_question,
-        task_frame.question_type,
-        conversation_context=context.conversation_context,
-    )
-    # 判断增量契约（q17 Q8 回灌）与产业/定价二分契约（q17 Q4 回灌）：同一条注入口，
-    # 材料型判断题 / 定价状态题命中才有文本，其它题空串。
-    track_rule += episode_judgment_delta_rule(
+    ) + episode_scenario_rule(
         task_frame.raw_question,
         task_frame.question_type,
     )
-    track_rule += episode_pricing_split_rule(
-        task_frame.raw_question,
-        task_frame.question_type,
-    )
-    track_rule += workflow_guidance(task_frame.question_type)
-    track_rule += reasoning_guidance(task_frame.question_type)
     longtail_rule = episode_rule(task_frame)
     # ASK_DEGRADED_FALLBACK（默认 off）：降级回答章法，off 时空串。
     degraded_rule = degraded_episode_rule(task_frame)
@@ -338,8 +278,6 @@ def build_episode_instructions(
         "权限、预算或继续派生分支。计划修订必须保持原任务且 revision 严格递增。\n"
         "\n"
         "【工具与观察】\n"
-        "若本轮提供 material_grounding，以下工具证据要求按其 data_scope 条件化："
-        "材料事实在 binding.claims 绑定材料坐标，历史纠错绑定旧答坐标；其它事实仍绑定工具证据。\n"
         "每次看到工具原始观察后，自主决定继续查、改写查询或停止。只能调用本轮提供的"
         "只读工具，不能臆造工具结果。\n"
         "事实判断必须绑定工具观察里的证据序号 E1、E2…；"
@@ -380,9 +318,6 @@ def build_episode_instructions(
         "或风险点写成列表项；核心判断用 **加粗** 标出。\n"
         "\n"
         "【终局 JSON】\n"
-        "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
-        "保留顶层 render_from_claims=true 和 draft=空字符串，正文只写 binding.claims。"
-        "basis 逐项原样保留，不能把所有输出改成 user_premise。未提供 finish_format 时使用下面的旧格式。\n"
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'
@@ -422,10 +357,7 @@ def build_episode_input(
         "information_cutoff": context.information_cutoff.to_dict(),
         "conversation_context": context.conversation_context,
         "conversation_context_rule": (
-            "历史对话仅用于消解指代、延续用户目标及复核或撤回旧判断，不得当作事实证据。"
-            "E1、E2等证据序号仅在本轮有效，旧回答的编号不能跨轮引用。"
-            "核验旧事实须在本轮授权范围取得原始证据并使用本轮编号；"
-            "若本轮禁止重新读取或无法取得，则说明未重新核验，不把旧回答当已证实事实"
+            "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
         ),
         "date_rule": (
             "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
@@ -437,28 +369,6 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
-    if task_frame.material_contract and task_frame.material_contract.premise_calculation:
-        payload["premise_calculation_rule"] = (
-            "本轮是按用户题设计算，不是核实真实公司的财务事实。"
-            "用户本轮及明确沿用的历史用户原文中的数字可作为条件，历史助手答案不能替代输入。"
-            "按题设列公式、单位和结果，百分比与百分点分开；缺少输入须明确指出，不能猜补。"
-            "文字解释必须与计算一致：利润增长慢于收入不等于利润没有增长或下降。"
-            "静态市盈率使用题设最近已完成年度的归母净利润；用户未指定旧年基数时，不得擅自回退一年。"
-            "题设已给出的历史年度数据不能自行改称预测或动态口径；未来假设仅用于相应情景计算。"
-            "这些条件及其计算结果的 binding.basis 使用 user_premise，不要求工具证据序号；"
-            "draft 只写自然语言‘按题设’，不得展示 user_premise、basis 等内部字段名；"
-            "不能把题设、情景结果写成真实行情、盈利预测或已核实事实。"
-        )
-    if context.contract.premise_calculation is not None:
-        calculation = context.contract.premise_calculation
-        payload["calculation_delivery"] = calculation.model_payload()
-    from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
-
-    if material_question_outputs(context.contract):
-        payload["material_delivery"] = material_delivery_payload(context.contract)
-    grounding = material_grounding_payload(context.contract)
-    if grounding is not None:
-        payload["material_grounding"] = grounding
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
     # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
     baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
@@ -468,9 +378,8 @@ def build_episode_input(
         # 拿不到，重演 2026-08-14 视角注入那次「配置生效、模型没看到」。
         payload["reading_baseline"] = baseline
         payload["reading_baseline_rule"] = (
-            "判读基线是有适用范围的领域方法，不是固定视角、强制顺序或事实证据；"
-            "无关规则可跳过。适用规则与本轮证据冲突时以证据为准并说明冲突，"
-            "不得为了保住规则而改写题设、忽略反证或越过读取权限"
+            "判读基线是本领域「数据该怎么读」的强制方法约束，适用于全部证据块；"
+            "与本轮证据冲突时以证据为准，但必须显式说明冲突，不得沉默跳过"
         )
     if context.perspective_context:
         # 视角约束只在激活时出现：neutral 轮的模型输入逐字节不变。
@@ -574,29 +483,17 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "hashes_not_list": RejectionKind.FORMAT,
     "unknown_evidence_ref": RejectionKind.FORMAT,
     "basis_mismatch": RejectionKind.FORMAT,
-    "bad_claim_binding": RejectionKind.FORMAT,
-    "private_material_reference": RejectionKind.FORMAT,
-    "material_source_violation": RejectionKind.INTEGRITY,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
     "empty_draft": RejectionKind.SUBSTANCE,
     "evidence_type_floor": RejectionKind.SUBSTANCE,
     "no_substantive_answer": RejectionKind.SUBSTANCE,
     "missing_evidence": RejectionKind.SUBSTANCE,
-    "premise_calculation_mismatch": RejectionKind.SUBSTANCE,
-    # 结构合法、内容越产品红线（对「明天哪个方向」答成领涨判断）→ 回灌改写成观察剧本
-    "forward_direction_call": RejectionKind.SUBSTANCE,
     # 地基破坏 → 硬拒
     "unknown_output": RejectionKind.INTEGRITY,
     "forged_hash": RejectionKind.INTEGRITY,
-    # 派生计算证据没有输入哈希链：算出来的数指不回它算的证据，与伪造哈希同一族——
-    # 证据体系的地基问题，不是写法问题（spec capability-amplification §3.4）。
-    "derived_without_inputs": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
-    # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
-    # 是系统自己在修复目标里给的 id，不是伪造——回灌重写。
-    "expression_slot_binding": RejectionKind.FORMAT,
 }
 
 
@@ -656,37 +553,6 @@ def rejection_response(error: BaseException) -> RejectionResponse:
 
 def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
-
-
-def forward_direction_call_hits(
-    draft: str, *, question: str
-) -> tuple[compliance_gate.Hit, ...]:
-    """「明天哪个方向」这类问法的答案里，有没有对下一交易日的领涨 / 方向判断。
-
-    出口硬门（2026-09-07，D9 读数）：问句不是这类就不查（宁可漏不可滥——
-    「长电科技怎么看」里写「次日更容易高开分歧」不归这里管）；是这类问法则整篇
-    按子句扫，条件句免检（观察剧本的升级 / 降级条件天然长成「若明天开盘 X 高开」）。
-    词表与判据都住在 ``compliance_gate``（一份词表多个消费者），这里只做接线。
-    """
-
-    if not compliance_gate.is_next_day_direction_question(question):
-        return ()
-    return tuple(compliance_gate.forward_call_hits(draft))
-
-
-def forward_direction_call_message(hits: tuple[compliance_gate.Hit, ...]) -> str:
-    """回灌给模型的可修正提示：说清越了哪条线、要改成什么形状、命中在哪。"""
-
-    excerpts = "；".join(f"「{hit.context}」" for hit in hits[:3])
-    return (
-        "这道题问的是明天哪个方向，产品不输出方向或领涨判断（不预测涨跌；"
-        "「第二天的方向」一律写成观察剧本）。请把 draft 改写成观察剧本："
-        "① 明天要看的 2–4 个变量，只到指数 / 板块 / 题材，不点个股；"
-        "② 每个变量的升级条件与降级 / 放弃条件，写成可核验的数值或事件；"
-        "③ 末尾一句「以上是观察项，不是投资建议」。"
-        "不得写「最可能先动的是 X」「首选 / 次选」「明天会涨 / 会跌」这类判断。"
-        f"本次命中：{excerpts}"
-    )
 
 
 ABSENT_REJECTION_CODE = "none"
@@ -890,34 +756,9 @@ def validate_episode_finish(
     draft = decoded.get("draft")
     if not isinstance(draft, str):
         raise _reject("draft_not_string", "finish draft must be a string")
-    render_from_claims = decoded.get("render_from_claims", False)
-    if not isinstance(render_from_claims, bool):
-        raise _reject("bad_claim_binding", "render_from_claims must be a boolean")
-    if render_from_claims:
-        if draft:
-            raise _reject("bad_claim_binding", "claim rendering cannot include a second draft")
-        try:
-            draft = render_material_claims(context.contract, decoded.get("bindings"))
-        except ValueError as exc:
-            raise _reject("bad_claim_binding", str(exc)) from exc
-    else:
-        draft = _normalize_natural_language_layout(draft)
-    # 题设计算的程序表准入跟在两条 draft 来源之后：无论 draft 是模型原文还是按
-    # 材料主张渲染出来的，只要合同带 premise_calculation，就要过同一道表格硬校验。
-    calculation = context.contract.premise_calculation
-    if calculation is not None:
-        draft, calculation_error = calculation.admit(draft, status=status)
-        if calculation_error:
-            raise _reject("premise_calculation_mismatch", calculation_error)
+    draft = _normalize_natural_language_layout(draft)
     if status == "completed" and not draft.strip():
         raise _reject("empty_draft", "completed finish draft must be non-empty")
-    forward_hits = forward_direction_call_hits(
-        draft, question=context.contract.question
-    )
-    if forward_hits:
-        raise _reject(
-            "forward_direction_call", forward_direction_call_message(forward_hits)
-        )
     raw_gaps = decoded.get("gaps", [])
     if not isinstance(raw_gaps, list) or any(
         not isinstance(item, str) for item in raw_gaps
@@ -929,61 +770,19 @@ def validate_episode_finish(
         raise _reject("bindings_not_list", "finish bindings must be a list")
     bindings: list[OutputEvidenceBinding] = []
     allowed_outputs = {item.output_id for item in context.contract.required_outputs}
-    # #819 恢复的旧工具输入（prior_evidence）已按原件校验并被 _seed_prior_evidence 注入证据池；
-    # 冻结范围检查放行它们的 hash，其余证据引用照旧受 P6 材料范围规则约束。
-    prior_snapshot = getattr(context, "prior_evidence", None)
-    frozen_prior_hashes = (
-        frozenset(item.content_hash for _, item in prior_snapshot.entries)
-        if prior_snapshot is not None
-        else frozenset()
-    )
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
         raw_hashes = raw.get("evidence_hashes", [])
         if not isinstance(raw_hashes, list):
             raise _reject("hashes_not_list", "binding evidence_hashes must be a list")
-        raw_claims = raw.get("claims", [])
-        if not isinstance(raw_claims, list):
-            raise _reject("bad_claim_binding", "binding claims must be a list")
-        try:
-            claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw_claims)
-        except ValueError as exc:
-            raise _reject("bad_claim_binding", str(exc)) from exc
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
             evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
-            claims=claims,
         )
-        source_errors = binding_source_errors(
-            context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
-        )
-        if source_errors:
-            raise _reject("material_source_violation", "; ".join(source_errors))
         if binding.output_id not in allowed_outputs:
-            if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
-                # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
-                # 修复目标的 missing_answer_elements，模型看见 id 就当 output 去绑——
-                # 2026-09-07 两轮 theme_track 修复 2/2 死在这里：系统自己要的东西被自己
-                # 当「越界输出」硬拒（INTEGRITY 不回灌、不恢复）。它不是伪造，是把正文
-                # 要求当成了绑定槛；按 FORMAT 回灌，告诉模型写进 draft、不进 bindings。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
-                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
-                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
             raise _reject(
                 "unknown_output",
                 f"unknown required output: {binding.output_id}",
@@ -1034,28 +833,7 @@ def validate_episode_finish(
                 f"required output lacks evidence type {binding.output_id}: "
                 + ",".join(missing_floor),
             )
-        # 派生计算产物没有输入哈希链就不是证据（spec capability-amplification §3.4 / §5 第 16 条）：
-        # 一段算出来的数如果说不清算的是哪几条证据，既不可复现也无法与 provider 数对账。
-        derived_without_inputs = tuple(
-            evidence_hash
-            for evidence_hash in binding.evidence_hashes
-            if evidence_by_hash[evidence_hash].tool == DERIVED_CALCULATION_TOOL
-            and not evidence_by_hash[evidence_hash].derived_from
-        )
-        if derived_without_inputs:
-            raise _reject(
-                "derived_without_inputs",
-                f"{binding.output_id} 绑定的派生计算证据没有 input_evidence_hashes: "
-                + ",".join(derived_without_inputs)
-                + "；派生数必须能指回它算的那几条证据",
-            )
 
-    private_tokens = material_private_tokens(context.contract)
-    if any(token in text.casefold() for text in (draft, *gaps, *(b.gap for b in bindings)) for token in private_tokens):
-        raise _reject(
-            "private_material_reference",
-            "材料ID与消息坐标仅用于私有绑定，不可写进 claims.text、draft 或 gap；公开正文改用‘用户材料’等自然语言，保留原引用绑定。",
-        )
     binding_map = {item.output_id: item for item in bindings}
     empty_outputs = tuple(
         output_id
@@ -1084,25 +862,15 @@ def validate_episode_finish(
     # R5-A10 / R6-A10 的冻结形状。
     #
     # 本函数在此把「有哈希的附带限制」挪到顶层 ``gaps`` 并清空
-    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：普通无哈希的 gap
-    # 仍是真缺口；程序拥有的题设来源声明由下方单独限定。若绕过本函数把 gap 留在 binding 里，verifier 仍会
+    # ``binding.gap``——执行已写明的契约，不改 verifier 判据：无哈希的 gap
+    # 仍是真缺口；若有人绕过本函数把 gap 留在 binding 里，verifier 仍会
     # 把那一格判 missing。
     relocated_gaps: list[str] = []
     normalized_bindings: list[OutputEvidenceBinding] = []
     caveat_slips = 0
     for binding in bindings:
         caveat = binding.gap.strip()
-        # The admitted program table owns this explicit source disclaimer.
-        # It does not prove any other hash-free output or incomplete inputs.
-        owned_boundary = (
-            calculation is not None
-            and not calculation.issues
-            and bool(calculation.rows)
-            and binding.output_id == "evidence_boundary"
-            and binding.basis == "user_premise"
-            and calculation.table in draft
-        )
-        if caveat and (binding.evidence_hashes or owned_boundary):
+        if binding.evidence_hashes and caveat:
             relocated_gaps.append(caveat)
             normalized_bindings.append(replace(binding, gap=""))
             caveat_slips += 1
@@ -1112,18 +880,6 @@ def validate_episode_finish(
     if relocated_gaps:
         gaps = tuple(dict.fromkeys((*gaps, *relocated_gaps)))
     binding_map = {item.output_id: item for item in bindings}
-    from intelligence.services.material_delivery import (
-        material_delivery_missing_outputs,
-        with_all_material_gaps_notice,
-    )
-
-    material_missing = material_delivery_missing_outputs(context.contract, draft, tuple(bindings))
-    if material_missing:
-        raise _reject(
-            "no_substantive_answer",
-            "material question missing, repeated, over length, or gap not disclosed: "
-            + ",".join(material_missing),
-        )
     if status == "completed":
         missing = []
         for required in context.contract.required_outputs:
@@ -1136,16 +892,13 @@ def validate_episode_finish(
             if binding.gap and not binding.evidence_hashes:
                 missing.append(required.output_id)
                 continue
-            if required.grounding_mode == "evidence" and not binding.evidence_hashes and not (
-                grounding_scope(context.contract) == "material_only" and binding.claims
-            ):
+            if required.grounding_mode == "evidence" and not binding.evidence_hashes:
                 missing.append(required.output_id)
         if missing:
             raise _reject(
                 "missing_evidence",
                 "required output lacks evidence: " + ",".join(missing),
             )
-    draft = with_all_material_gaps_notice(context.contract, draft, tuple(bindings))
     return EpisodeFinish(
         status=cast(EpisodeStatus, status),
         draft=draft,
@@ -1199,7 +952,14 @@ def expand_comparison_set_bindings(
             siblings = cohorts.get(key, ())
             if len(siblings) >= 2:
                 hashes.extend(siblings)
-        expanded.append(replace(binding, evidence_hashes=tuple(dict.fromkeys(hashes))))
+        expanded.append(
+            OutputEvidenceBinding(
+                output_id=binding.output_id,
+                evidence_hashes=tuple(dict.fromkeys(hashes)),
+                gap=binding.gap,
+                basis=binding.basis,
+            )
+        )
     return tuple(expanded)
 
 
@@ -1238,7 +998,14 @@ def expand_episode_snapshot_bindings(
         for tool, tool_hashes in snapshot_hashes.items():
             if tool in selected_snapshot_tools:
                 hashes.extend(tool_hashes)
-        expanded.append(replace(binding, evidence_hashes=tuple(dict.fromkeys(hashes))))
+        expanded.append(
+            OutputEvidenceBinding(
+                output_id=binding.output_id,
+                evidence_hashes=tuple(dict.fromkeys(hashes)),
+                gap=binding.gap,
+                basis=binding.basis,
+            )
+        )
     return expand_comparison_set_bindings(
         bindings=tuple(expanded),
         evidence=evidence,

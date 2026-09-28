@@ -8,14 +8,13 @@ module can be introduced beside the old path without changing its public API.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 import inspect
 from typing import TYPE_CHECKING, Callable, Literal
 
 from intelligence.services.evidence_capabilities import (
     runtime_capabilities_for_frame,
 )
-from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.task_frame import (
     TaskFrame,
@@ -25,7 +24,6 @@ from intelligence.services.task_frame import (
 )
 
 if TYPE_CHECKING:
-    from intelligence.services.prior_evidence import PriorTurnEvidence
     from intelligence.services.turn_controller import TurnDecision
 
 TerminalKind = Literal["research", "non_research", "clarification"]
@@ -74,7 +72,6 @@ class TurnControlResult:
     # episode never saw it.  Empty tuple means "no owner stages": byte-for-byte
     # legacy behavior.  Never evidence.
     retrieval_stages: tuple[str, ...] = ()
-    prior_evidence: PriorTurnEvidence | None = None
 
 
 def project_turn_decision(
@@ -92,24 +89,12 @@ def project_turn_decision(
     if not clarification_questions and task_frame.clarification_question:
         clarification_questions = (task_frame.clarification_question,)
 
-    material = task_frame.material_contract
-    material_only = bool(material and material.data_scope == "material_only")
-    premise_calculation = bool(material and material.premise_calculation)
-    needs_retrieval = not material_only and (
-        decision.needs_retrieval or task_frame_requires_retrieval(task_frame)
-    )
-    if decision.lane == "clarify" or clarification_questions or (
-        material is not None and material.needs_clarification
-    ):
+    if decision.lane == "clarify" or clarification_questions:
         terminal_kind: TerminalKind = "clarification"
-    elif premise_calculation:
-        # A calculation needs the verified Episode delivery, but no fact retrieval.
-        terminal_kind = "research"
-    elif material_only or needs_retrieval:
-        # Evaluating frozen inputs needs the research delivery contract, not new reads.
-        terminal_kind = "research"
-    else:
+    elif not (decision.needs_retrieval or task_frame_requires_retrieval(task_frame)):
         terminal_kind = "non_research"
+    else:
+        terminal_kind = "research"
 
     if terminal_kind == "research":
         frame_capabilities = runtime_capabilities_for_frame(task_frame)
@@ -121,11 +106,10 @@ def project_turn_decision(
         # The immutable TaskFrame owns evidence policy. Legacy aliases are a
         # compatibility fallback only when that policy has no runtime plan;
         # otherwise unioning them silently expands the model's tool surface.
-        capabilities = restrict_read_capabilities(
+        capabilities = (
             frame_capabilities
             if frame_capabilities
-            else tuple(dict.fromkeys(mapped_legacy_capabilities)),
-            material.data_scope if material is not None else None,
+            else tuple(dict.fromkeys(mapped_legacy_capabilities))
         )
         execution_route = task_frame.question_type
     else:
@@ -137,11 +121,7 @@ def project_turn_decision(
         task_frame=task_frame,
         execution_route=execution_route,
         terminal_kind=terminal_kind,
-        # Frozen inputs and premise calculations both deliver through the research
-        # contract without new reads: neither may re-open retrieval here.
-        needs_retrieval=(
-            terminal_kind == "research" and needs_retrieval and not premise_calculation
-        ),
+        needs_retrieval=terminal_kind == "research",
         capabilities=capabilities,
         contract_required=terminal_kind == "research",
         turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,
@@ -183,7 +163,7 @@ class TurnControlCore:
             previous_turn_id=previous_turn_id,
             llm_complete=llm_complete,
         )
-        frame = self._frame_for(decision, query, previous_frame, context=context)
+        frame = self._frame_for(decision, query, previous_frame)
         return project_turn_decision(
             decision,
             task_frame=frame,
@@ -223,8 +203,6 @@ class TurnControlCore:
         decision: TurnDecision,
         query: str,
         previous_frame: TaskFrame | None,
-        *,
-        context: str = "",
     ) -> TaskFrame:
         if decision.task_frame is not None:
             return decision.task_frame
@@ -236,21 +214,15 @@ class TurnControlCore:
                 decision.turn_intent,
                 query,
                 confidence=decision.confidence,
-                context=context,
             )
         if decision.question_type is not None:
-            return TurnControlCore._frame_from_decision(decision, query, context=context)
+            return TurnControlCore._frame_from_decision(decision, query)
         if previous_frame is not None:
             return previous_frame
-        return TurnControlCore._frame_from_decision(decision, query, context=context)
+        return TurnControlCore._frame_from_decision(decision, query)
 
     @staticmethod
-    def _frame_from_decision(
-        decision: TurnDecision,
-        query: str,
-        *,
-        context: str = "",
-    ) -> TaskFrame:
+    def _frame_from_decision(decision: TurnDecision, query: str) -> TaskFrame:
         """Project validated adapter metadata without interpreting the query twice."""
 
         from intelligence.services.query_understanding import QueryEnvelope
@@ -266,10 +238,7 @@ class TurnControlCore:
             matched_by="explicit" if decision.subject is not None else "generic",
             confidence=decision.confidence,
         )
-        # B05-1：对话块已知才传（None 保持旧调用方语义——不做材料绑定也不追问）。
-        return build_task_frame(
-            query, envelope, conversation_context=context if context else None
-        )
+        return build_task_frame(query, envelope)
 
     @staticmethod
     def _frame_from_intent(
@@ -277,7 +246,6 @@ class TurnControlCore:
         query: str,
         *,
         confidence: float,
-        context: str = "",
     ) -> TaskFrame:
         from intelligence.services.query_understanding import QueryEnvelope
 
@@ -295,11 +263,7 @@ class TurnControlCore:
             confidence=confidence,
             required_outputs=intent.required_outputs,
         )
-        frame = build_task_frame(
-            query, envelope, conversation_context=context if context else None
-        )
-        if frame.history_intent is None and intent.history_intent is not None:
-            frame = replace(frame, history_intent=intent.history_intent)
+        frame = build_task_frame(query, envelope)
         return rebase_task_frame(
             frame,
             question_type=intent.question_type,

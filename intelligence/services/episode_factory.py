@@ -6,10 +6,7 @@ question and never imports private helpers from the legacy orchestrator.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import date
-import json
-from pathlib import Path
 import re
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -36,17 +33,7 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
 )
-from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
-from intelligence.services.premise_financial_calculation import calculation_for_frame
-from intelligence.services.user_task import (
-    MaterialRef,
-    MethodCandidate,
-    conversation_context_material_unrecoverable,
-    materials_in_conversation,
-    rebind_material_from_text,
-    references_material,
-)
 
 
 # 盘面类槽位的描述带「写出具体数值」的硬要求。这是 #289（composer 看得见
@@ -179,7 +166,6 @@ def _require_output_description(output_id: str) -> str:
         raise ValueError(
             f"missing _OUTPUT_DESCRIPTIONS[{output_id!r}]"
         ) from exc
-
 
 # 用户在问题里引用了自己过去的看法。这类问题要回答的不是「现在怎么样」，而是
 # 「跟我上次说的比，变了什么」——后者需要先取回那份先验。
@@ -346,15 +332,7 @@ def _references_prior_judgement(frame: TaskFrame) -> bool:
     return bool(detect_stance_kinds(frame.raw_question))
 
 
-def _has_owned_premise_calculation(frame: TaskFrame) -> bool:
-    """Only the finite static-PE contract may open the evidence-free lane."""
-
-    return calculation_for_frame(frame) is not None
-
-
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
-    if _has_owned_premise_calculation(frame):
-        return ("direct_answer", "evidence_boundary")
     outputs = frame.required_outputs
     if frame.question_type == "valuation_estimate":
         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
@@ -478,7 +456,7 @@ def _required_output_evidence_types(
         )
     if output_id == "prime_quote":
         return tuple(
-            capability for capability in ("market_data", "finance_query")
+            capability for capability in ("market_data",)
             if capability in capabilities
         )
     if output_id == "prime_news":
@@ -516,31 +494,9 @@ def _required_output_evidence_types(
     return capabilities
 
 
-def _material_restricted(contract: object | None) -> bool:
-    """material_only OR a contract still awaiting clarification.
-
-    Unconfirmed axes are None and must never execute as full (A13): when the
-    interview budget is spent with the scope undeclared, assembly and prompt
-    rules both fall back to the strictest material treatment.
-    """
-
-    if contract is None:
-        return False
-    return bool(
-        getattr(contract, "data_scope", None) == "material_only"
-        or getattr(contract, "needs_clarification", False)
-    )
-
-
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
-    if _has_owned_premise_calculation(frame):
-        return "user_premise"
-    if output_id == "evidence_boundary" and frame.material_contract is not None:
-        if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
-            # 只给范围声明前提资格；其它事实槽仍需证据，A轴不能取消B轴检索。
-            return "user_premise"
     if output_id in {"prior_recall", "prime_memory"}:
         # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
         # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
@@ -549,9 +505,7 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
         return "user_premise"
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
         return "model_reasoning"
-    if frame.user_goal.startswith("判断反事实条件") and not (
-        frame.material_contract and frame.material_contract.data_scope_declared
-    ):
+    if frame.user_goal.startswith("判断反事实条件"):
         return "user_premise"
     if (
         frame.question_type == "market_cause"
@@ -582,12 +536,6 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
 
 
 def _is_evidence_free_task(frame: TaskFrame) -> bool:
-    if _has_owned_premise_calculation(frame):
-        return True
-    if frame.material_contract is not None and frame.material_contract.data_scope_declared:
-        # 两轴独立：显式fictional×full仍要真实检索；材料权限在P3统一冻结，
-        # 不借旧evidence_free快捷通道把前提标签当授权。
-        return False
     return (
         frame.question_type == "methodology_discussion"
         or "method" in frame.required_outputs
@@ -660,10 +608,6 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
-    from intelligence.services.material_grounding import freeze_material_grounding
-
-    material = frame.material_contract
-    material_only = _material_restricted(material)
     output_ids = _required_output_ids(frame)
     grounding_modes = tuple(
         _grounding_mode(frame, output_id) for output_id in output_ids
@@ -686,19 +630,7 @@ def build_episode_context(
             raise ValueError(f"unknown runtime capability: {capability}")
         if capability not in authorized:
             authorized.append(capability)
-    # 限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
-    # local_only 白名单来自实际 runner 审计，不借 cost/freshness 猜权限。
-    # 待澄清合同（轴仍是 None）按 material_only 收窄，不能当 full 用。
-    capability_tuple = restrict_read_capabilities(
-        tuple(authorized),
-        "material_only" if material_only else (material.data_scope if material else None),
-    )
-    if material_only:
-        evidence_plan = EvidencePlan(profile="material_only", requirements=(), freshness="stable")
-    elif material is not None and material.data_scope == "local_only":
-        evidence_plan = replace(evidence_plan, requirements=tuple(
-            item for item in evidence_plan.requirements if item.capability in capability_tuple
-        ))
+    capability_tuple = tuple(authorized)
 
     # 必须在 capability_tuple 定稿之后：`_with_prior_recall` 的前置条件是
     # 「memory_lookup 真的在这次的授权里」，而授权到这一行才算最终确定
@@ -709,13 +641,6 @@ def build_episode_context(
     # 挂在最后：交集判据要看**定稿后**的 output_ids（含 valuation_estimate 在
     # `_required_output_ids` 里追加的 invalidation_conditions），否则会重复挂槽。
     output_ids, forward_slots = _with_forward_hypothesis_slots(output_ids, frame)
-    material_descriptions: dict[str, str] = {}
-    if material_only:
-        assert material is not None
-        material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
-        if material_descriptions:
-            output_ids = (*material_descriptions, "evidence_boundary")
-        forward_slots = frozenset()
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds
@@ -749,7 +674,7 @@ def build_episode_context(
         required_outputs=tuple(
             RequiredOutput(
                 output_id=output_id,
-                description=(material_descriptions[output_id] if output_id in material_descriptions else _require_output_description(output_id)),
+                description=_require_output_description(output_id),
                 # 前瞻信号挂上的槽 evidence_types 必须是**空**：这几格由推理
                 # 填、没有任何工具能填。`_required_output_evidence_types` 对不
                 # 认识的 output_id 会回全量能力列表，那正是 prior_recall 踩过
@@ -758,7 +683,7 @@ def build_episode_context(
                 # 比挂空更糟——它在暗示这格该去检索。
                 evidence_types=(
                     ()
-                    if material_only or output_id in forward_slots
+                    if output_id in forward_slots
                     else _required_output_evidence_types(
                         output_id,
                         capability_tuple,
@@ -794,9 +719,7 @@ def build_episode_context(
                 # 按题型/问句判签法，让它再去感知「这个槽是不是本次挂上来的」
                 # 会把两件事揉进一个判据。
                 grounding_mode=(
-                    "evidence"
-                    if output_id in material_descriptions
-                    else "model_reasoning"
+                    "model_reasoning"
                     if output_id in forward_slots
                     else _grounding_mode(frame, output_id)
                 ),
@@ -813,36 +736,8 @@ def build_episode_context(
         timeframe=frame.timeframe,
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
-        material_contract=material,
-        premise_calculation=calculation_for_frame(frame, today=today),
-        material_grounding=freeze_material_grounding(frame) if material is not None else None,
     )
-    if frame.history_intent is not None and "finance_query" in capability_tuple and not (
-        material is not None and material.data_scope == "local_only"
-    ):
-        # Capability authorizes execution; evidence_types admits the actual
-        # producer names. Keep historical provenance and narrow output contracts
-        # (for example memory/news/financial anchors) intact.
-        contract = replace(
-            contract,
-            required_outputs=tuple(
-                replace(
-                    output,
-                    evidence_types=tuple(
-                        dict.fromkeys(
-                            (*output.evidence_types, "history_query", "read_history_result")
-                        )
-                    ),
-                )
-                if "finance_query" in output.evidence_types and output.output_id != "prime_quote"
-                else output
-                for output in contract.required_outputs
-            ),
-        )
-    if material is None or material.data_scope == "full":
-        # 自动 KB 预检不走工具授权，且 knowledge 可由调用方替换；受限轮不运行。
-        # 本地证据仍由已审定 runner 获取，不把未分类读取当作预置缺口依据。
-        contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
+    contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
         or requested_information_cutoff(frame.raw_question, today=today)
@@ -851,11 +746,6 @@ def build_episode_context(
             latest_data_date=latest_data_date,
         )
     )
-    if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
-        cutoff = InformationCutoff(
-            min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),
-            "requested",
-        )
     return ResearchRunContext(
         contract=contract,
         deadline=ResearchDeadline.from_timeout(
@@ -866,250 +756,13 @@ def build_episode_context(
         trace_parent_id=trace_parent_id or task_id,
         today=today,
         latest_data_date=latest_data_date,
-        conversation_context=assemble_input_understanding_context(
-            frame,
-            "" if material_only else str(conversation_context or "").strip(),
-        ),
+        conversation_context=str(conversation_context or "").strip(),
         information_cutoff=cutoff,
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
-        # 未分型的旧答/视角/研究背景可能含材料外事实；可信续轮在P5恢复，不猜。
-        perspective_context="" if material_only else str(perspective_context or "").strip(),
-        stance_pack=None if material_only else stance_pack,
-        retrieval_stages=() if material_only else tuple(retrieval_stages or ()),
-        history_intent=None if material_only else frame.history_intent,
+        perspective_context=str(perspective_context or "").strip(),
+        stance_pack=stance_pack,
+        retrieval_stages=tuple(retrieval_stages or ()),
     )
-
-
-_MATERIAL_KIND_LABEL = {
-    "pasted_text": "粘贴文本",
-    "table": "表格",
-    "url": "链接",
-    "quoted": "引文",
-}
-_MATERIAL_RULE = (
-    "材料是用户提供的分析对象与前提：引用时写材料 id 与段落 / 表头 / 日期；"
-    "材料里的数字与判断是材料自己的说法，不是市场事实，需要用工具证据核对；"
-    "「这篇 / 这份 / 这张表」指身份表里标出的那一份，不得凭标题编造未提供的正文"
-)
-_PREMISE_RULE = (
-    "用户已有假设是待检验的前提，不是事实：答案须逐条说明哪些被证据支持、哪些不支持、哪些无法核验"
-)
-_HYPOTHESIS_RULE = (
-    "竞争解释逐条给出能区分它们的观测变量的当前读数（取不到写缺口），"
-    "再说明哪一条更被支持；不得只改写用户原话"
-)
-_METHOD_RULE = (
-    "用户描述的方法是候选框架，状态未验证：只能按「条件→预期→适用环境→反例」组织本轮观察，"
-    "不得写成已验证规律或历史胜率；验证归方法回测（methodology_backtest）"
-)
-_PRONOUN_FOLLOW_UP_RE = re.compile(r"^(?:那|它|这|其|该|继续|再|接着|然后|还有|另外)")
-
-
-def assemble_input_understanding_context(frame: TaskFrame, conversation_context: str) -> str:
-    """Prepend what the frame understood about the user's input to the prompt block.
-
-    Materials (this turn's and earlier turns'), user premises, competing
-    explanations and method candidates each get a short block with a handling
-    rule.  Empty frame → the conversation context is returned byte-for-byte, so
-    every question without these inputs produces the same episode input as
-    before.  The material identity table is the only place「这篇」is resolved
-    across turns: ids are recomputed from the earlier user messages in the block.
-    """
-
-    blocks: list[str] = []
-    if frame.material_contract is not None:
-        contract = frame.material_contract
-        lines = ["## 本轮材料任务语义", f"前提真实性={contract.authenticity}；数据范围={contract.data_scope}；状态={contract.classification}"]
-        for mark in contract.premise_marks:
-            # 题级标注写成裸「q3」时，续轮里本轮的 q3 是另一道题，模型会读成
-            # 「本轮第 3 题有虚构前提」。作用域自带轮次才唯一（D7.2）。
-            scope = "消息级" if mark.scope == "message" else f"轮次{mark.source_turn}的{mark.scope}"
-            lines.append(f"前提标注：{scope} / {mark.authenticity} / 轮次{mark.source_turn} / {mark.text_ref}")
-        if contract.premise_marks:
-            lines.append("虚构前提不是待证伪信念；前提域声明仅证明结论范围，不能替事实背书。")
-        for question in contract.questions:
-            lines.append(f"{question.question_id}：{question.text}")
-        blocks.append("\n".join(lines))
-    typed = frame.conversation_materials
-    material_only = _material_restricted(frame.material_contract)
-    if typed is not None:
-        earlier = tuple((item.ref, item.text) for item in typed.items)
-        if material_only:
-            # Do not parse this typed block with the legacy role-text parser.
-            # Source coordinates, complete bodies and context-only old answers
-            # travel together, including after TaskFrame serialization/restore.
-            conversation_context = ""
-            blocks.append("## 可信历史材料与旧答来源\n" + typed.to_prompt_block())
-    else:
-        earlier = () if material_only else materials_in_conversation(conversation_context)
-    earlier_refs = tuple(ref for ref, _text in earlier)
-    referent: MaterialRef | None = None
-    compact_question = re.sub(r"\s+", "", frame.raw_question)
-    if frame.referenced_material_ids:
-        referent = next(
-            (ref for ref in earlier_refs if ref.material_id == frame.referenced_material_ids[0]),
-            None,
-        )
-    elif not frame.materials and earlier_refs and references_material(frame.raw_question):
-        referent = earlier_refs[-1]
-    # 「那它的风险点呢」这种代词短追问不点名材料，但仍在同一份材料的对话里：身份表照带，
-    # 只是不替它断定「它」就是材料。带着自己主语的新问题（「低空经济和商业航天哪个…」）
-    # 不带，免得把早前材料塞进一个已经换了话题的轮次。
-    short_follow_up = (
-        bool(earlier_refs)
-        and not frame.materials
-        and len(compact_question) <= 40
-        and (_PRONOUN_FOLLOW_UP_RE.match(compact_question) is not None or len(compact_question) <= 12)
-    )
-    if frame.materials or referent is not None or short_follow_up or (
-        earlier_refs and frame.referenced_material_ids
-    ):
-        material_only = _material_restricted(frame.material_contract)
-        rule = (
-            "本轮只以用户材料为前提作答；事实和计算须标材料 id 与片段，不调用材料外检索；"
-            "材料未提供的量写明缺口，范围声明不能替事实背书。"
-            if material_only else _MATERIAL_RULE
-        )
-        lines = ["## 用户提供的材料（身份表）", rule]
-        # I2 收口：对话块被截断时，本轮重贴的材料的「此前对话」身份无法从窗口里恢复；
-        # 但用户重贴的正文 hash 与窗口外那一轮的 hash 相同，内容等同。如实标注
-        # 「本轮重贴」与「对话块已被截断，此前同一份材料的记录不在窗口内」，让模型
-        # 与判官都知道这是按内容哈希重建的同一材料，而不是新贴的第二份。
-        context_truncated = conversation_context_material_unrecoverable(conversation_context)
-        rebound_note_emitted = False
-        for item in frame.materials:
-            lines.append(_material_line(item, "本轮"))
-            if context_truncated and references_material(frame.raw_question):
-                rebound_ids, _note = rebind_material_from_text(
-                    frame.raw_question,
-                    (item,),
-                )
-                if rebound_ids:
-                    lines.append(
-                        f"「这篇 / 这份 / 这张表」按本条消息重贴内容重建：{rebound_ids[-1]}"
-                        f"（对话块已截断，与此前同一内容的材料 id 相同）"
-                    )
-                    rebound_note_emitted = True
-        for item in earlier_refs:
-            if any(item.material_id == own.material_id for own in frame.materials):
-                continue
-            lines.append(_material_line(item, "此前对话"))
-        if referent is not None:
-            lines.append(f"「这篇 / 这份 / 这张表」= {referent.material_id}（{referent.title or _MATERIAL_KIND_LABEL.get(referent.kind, referent.kind)}）")
-        elif frame.materials and references_material(frame.raw_question) and not rebound_note_emitted:
-            lines.append("「这篇 / 这份 / 这张表」= 本轮提供的材料")
-        blocks.append("\n".join(lines))
-    if frame.user_premises:
-        blocks.append(
-            "\n".join(
-                ["## 用户已有假设（待检验）", _PREMISE_RULE]
-                + [f"- {item}" for item in frame.user_premises]
-            )
-        )
-    if frame.competing_explanations:
-        lines = ["## 竞争解释与区分变量", _HYPOTHESIS_RULE]
-        for index, item in enumerate(frame.competing_explanations, start=1):
-            lines.append(f"H{index} {item.label}：{item.claim}｜观测变量：{'、'.join(item.observables)}")
-        blocks.append("\n".join(lines))
-    if frame.method_candidates:
-        lines = ["## 用户方法候选（未验证）", _METHOD_RULE]
-        for item in frame.method_candidates:
-            lines.append(
-                f"- 条件「{item.condition}」→ 预期「{item.expectation}」｜适用环境：{item.applicability}"
-                f"｜反例：{'；'.join(item.counterexamples) or '未提供'}｜状态：{item.status}"
-            )
-            lines.append(f"  方法验证接口：{method_validation_note(item)}")
-        blocks.append("\n".join(lines))
-    if not blocks:
-        return conversation_context
-    understanding = "\n\n".join(blocks)
-    return (understanding + "\n\n" + conversation_context).strip() if conversation_context else understanding
-
-
-def _material_line(item: MaterialRef, origin: str) -> str:
-    parts = [
-        f"- {item.material_id} · {origin} · {_MATERIAL_KIND_LABEL.get(item.kind, item.kind)} · {item.char_count} 字",
-    ]
-    if item.title:
-        parts.append(f"标题/首行：{item.title}")
-    if item.headers:
-        parts.append(f"表头：{'/'.join(item.headers)}（{item.rows} 行）")
-    if item.dates:
-        parts.append(f"材料内日期：{'、'.join(item.dates)}")
-    if item.paragraphs and item.kind == "pasted_text":
-        parts.append(f"{item.paragraphs} 段")
-    return " · ".join(parts)
-
-
-def _methodology_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "methodology"
-
-
-def _cjk_bigrams(text: str) -> set[str]:
-    compact = re.sub(r"[^一-鿿]", "", str(text or ""))
-    return {compact[index : index + 2] for index in range(len(compact) - 1)}
-
-
-def method_validation_note(candidate: MethodCandidate, *, root: Path | None = None) -> str:
-    """Ask 07's registered-rule store whether this candidate is already a rule.
-
-    Uses the merged ``methodology_backtest`` interfaces only: rule files under
-    ``methodology/rules`` and ``lifecycle.derive_state`` over their receipts.
-    Natural language is not compiled into predicates here (the module says so
-    itself); an unmatched candidate stays ``candidate_unverified`` and the note
-    names the registration entry point.  Any failure is reported, never hidden.
-    """
-
-    base = root or _methodology_root()
-    rules_dir = base / "rules"
-    receipts_dir = base / "receipts"
-    try:
-        from intelligence.services.methodology_backtest import lifecycle
-
-        if not rules_dir.is_dir():
-            return "未找到已登记规则目录；状态 candidate_unverified，登记入口 scripts/methodology_backtest.py propose"
-        wanted = _cjk_bigrams(candidate.condition + candidate.expectation)
-        # 记住匹配到的**文件路径**，不只是解析出来的 doc：认证与展示都要用这一份，
-        # 否则「按标题匹配到 v1、拿 v2 的状态去展示 v1」（09-12 复核实测）。
-        best: tuple[int, dict, Path] | None = None
-        for path in sorted(rules_dir.glob("*.json")):
-            try:
-                doc = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                continue
-            if not isinstance(doc, dict):
-                continue
-            overlap = len(wanted & _cjk_bigrams(str(doc.get("title") or "") + str(doc.get("notes") or "")))
-            if overlap >= 3 and (best is None or overlap > best[0]):
-                best = (overlap, doc, path)
-        if best is None:
-            return (
-                "未登记为可回测规则；状态 candidate_unverified，"
-                "登记入口 scripts/methodology_backtest.py propose（谓词需用白名单标签短句）"
-            )
-        doc, rule_path = best[1], best[2]
-        rule_id = str(doc.get("rule_id") or "")
-        steps = lifecycle.load_steps(receipts_dir, rule_id)
-        # 走 state_for_file：身份锁在**匹配到的那一份**规则文件的字节上，并拿当前生效的
-        # label_version 做绝对比对。
-        #   - 直接调 derive_state 会两样都不传 → 标签口径升版后旧收据照样成链，
-        #     同一组收据 queue / 经验卡门说 candidate、这里说 personal_method；
-        #   - 调 state_for_rule 会让它自己挑「version 最大那份」→ 展示的是匹配到的 v1，
-        #     状态却是 v2 的。两处都在 09-12 的两轮复核里实测到。
-        state = lifecycle.state_for_file(rule_path, receipts_dir)
-        if state is None:  # 规则文件读得到却解析不出身份：不猜，按未验证候选走
-            return (
-                f"疑似对应已登记规则 {rule_id}，但规则文件身份解析不出；"
-                "状态 candidate_unverified，本轮按未验证候选使用"
-            )
-        return (
-            f"疑似对应已登记规则 {rule_id}@v{doc.get('version')}（{doc.get('title')}），"
-            f"生命周期状态 {state.state}，历史收据 {len(steps)} 份"
-            + (f"，卡在：{state.blocked_by}" if state.blocked_by else "")
-            + "；本轮仍按未验证候选使用"
-        )
-    except Exception as exc:  # noqa: BLE001 - 接口不可用要如实写进输入，不让装配失败
-        return f"方法验证接口不可用（{type(exc).__name__}）；状态 candidate_unverified"
 
 
 def _default_information_cutoff(
@@ -1127,8 +780,4 @@ def _default_information_cutoff(
     return InformationCutoff(runtime_date, "runtime_default")
 
 
-__all__ = [
-    "assemble_input_understanding_context",
-    "build_episode_context",
-    "method_validation_note",
-]
+__all__ = ["build_episode_context"]

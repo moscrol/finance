@@ -31,8 +31,6 @@ halt_after_tool_batch afterToolCall.terminate     tools/post-execute → block
 fallback_after_empty_batch **—（pi 没有）**       **—（dsh 没有）**
 retrieval_complete   shouldStopAfterTurn          —
 admit_finish         **—（pi 没有）**              **—（dsh 没有）**
-assess_publication   **—（pi 没有）**              **—（dsh 没有）**
-recovery_evidence_priority **—（pi 没有）**         **—（dsh 没有）**
 classify_repair_need **—（pi 没有）**              **—（dsh 没有）**
 warrant_repair       **—（pi 没有）**              **—（dsh 没有）**
 downgrade_unreachable **—（pi 没有）**             **—（dsh 没有）**
@@ -85,7 +83,7 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Set
+from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass, replace
 import json
 from typing import Literal, Protocol, runtime_checkable
@@ -98,7 +96,6 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
     public_agent_evidence,
 )
-from intelligence.services.episode_messages import EpisodeMessage
 from intelligence.services.empty_pool_fallback import (
     EmptyToolCall,
     fallback_already_attempted,
@@ -108,7 +105,6 @@ from intelligence.services.empty_pool_fallback import (
 from intelligence.services.episode_protocol import (
     RejectionResponse,
     attach_evidence_ordinals,
-    cited_evidence_ordinals,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
@@ -119,10 +115,6 @@ from intelligence.services.episode_protocol import (
 )
 from intelligence.services.forecast_residual_budget import (
     forecast_residual_halt_reason,
-)
-from intelligence.services.historical_research.research import (
-    assess_history_finish,
-    history_research_prompt,
 )
 from intelligence.services.mode_governor import (
     ModeDecision,
@@ -143,11 +135,6 @@ from intelligence.services.repair_coordinator import (
     unreachable_repair_goal,
     warrant_repair,
 )
-from intelligence.services.ranking_contract import (
-    RANKING_CONTRACT_OUTPUT_ID_SET,
-    expression_slot_note as ranking_expression_slot_note,
-)
-from intelligence.services.track_contract import TRACK_CONTRACT_OUTPUT_ID_SET
 from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
@@ -164,11 +151,7 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.tool_observation_noise import prune_tool_observation
-from intelligence.services.tool_result_budget import (
-    budget_tool_observation,
-    lean_observation_enabled,
-    lean_tool_observation,
-)
+from intelligence.services.tool_result_budget import budget_tool_observation
 
 __all__ = [
     "BranchOutcome",
@@ -177,7 +160,6 @@ __all__ = [
     "FinishAdmission",
     "ModeGovernance",
     "ModeSignalsFactory",
-    "PublicationAssessment",
     "RepairDowngrade",
     # 值类型：修复轮五个方法的签名都收 / 发它。第二条 loop 只从本模块取名字，
     # 所以它也是 harness 公开面的一部分。
@@ -327,18 +309,6 @@ class ToolResultProjection:
     audit_payload: dict[str, object]
     model_content: str
     seen_prose: frozenset[str]
-
-
-@dataclass(frozen=True)
-class PublicationAssessment:
-    """Domain completion ceiling and notices that must survive public projection.
-
-    A semantic pass may improve prose but cannot erase an unfinished domain
-    requirement. The adapter applies this value without knowing that domain.
-    """
-
-    max_status: Literal["completed", "partial"] = "completed"
-    required_public_notices: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -534,26 +504,6 @@ class ResearchHarness(Protocol):
         """
         ...
 
-    def assess_publication(
-        self, *, context: ResearchRunContext
-    ) -> PublicationAssessment:
-        """Final domain requirements after repairs and semantic verification."""
-        ...
-
-    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
-        """Owned non-evidence inputs that can support bounded finish recovery."""
-        ...
-
-    def recovery_evidence_priority(
-        self,
-        *,
-        context: ResearchRunContext,
-        evidence: tuple[AgentEvidence, ...],
-        candidate_content: str = "",
-    ) -> tuple[str, ...]:
-        """Existing evidence hashes to retain first in a bounded recovery view."""
-        ...
-
     def warrant_repair(
         self,
         *,
@@ -577,21 +527,11 @@ class ResearchHarness(Protocol):
         """
         ...
 
-    def repair_goal_message(
-        self,
-        goal: RepairGoal,
-        *,
-        tools_open: bool,
-        finish_format: Mapping[str, object] | None = None,
-    ) -> str:
+    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
         """修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。
 
         ``goal`` 是裁决后的模型侧目标（不可达格已降级）；``tools_open`` 是底座
         告诉领域「这一轮能不能派工具」——两套指令按它分叉。
-
-        ``finish_format`` 是开场发过的那份冻结成稿形状（material_only 才有）；传进来就
-        原样重述一遍。修复轮是最后一次机会，它必须在手上，而不是靠作者回忆上文。
-        不传时消息逐字节不变。
         """
         ...
 
@@ -603,16 +543,6 @@ class ResearchHarness(Protocol):
         performed_tool_action: bool,
     ) -> RepairVerdict:
         """修复轮的终局已被 ``admit_finish`` 接受——那它算不算修好了。"""
-        ...
-
-    def admit_inbox_message(self, message: EpisodeMessage) -> bool:
-        """收件箱（INV-R5）里这句话收不收——终态稿 §5 第 2 条、本 Protocol 唯一新增的接触点。
-
-        ``send`` 时判定：True 入队待认领；False 落 ``inbox_discarded{reason=rejected_by_harness}``，
-        模型永远看不到它。判的是**内容**（例：拒收含个股买卖指令的 steer），不是来源——
-        loop 内部的回灌（``source="sub_research"``）同样经过这里，领域要放行就看 ``source``。
-        纯判定：不持状态、不发事件、不抛（抛了按拒收处理）。
-        """
         ...
 
 
@@ -641,17 +571,7 @@ class FinanceResearchHarness:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> tuple[str, str]:
-        system, user = split_episode_prompt(task_frame, context, registry)
-        policy, history_context = history_research_prompt(
-            context,
-            available_tools=(
-                spec.name
-                for spec in registry.authorized_specs(context.contract.allowed_capabilities)
-            ),
-        )
-        if policy:
-            return f"{system}\n\n{policy}", f"{user}\n\n{history_context}"
-        return system, user
+        return split_episode_prompt(task_frame, context, registry)
 
     def steering_message(self, kind: SteeringKind, *, detail: str) -> str:
         # 三段文案逐字搬自 agent_episode（run() 两处回灌 + _begin_finalization）。
@@ -826,11 +746,10 @@ class FinanceResearchHarness:
         model_view = dict(audit)
         model_view.pop("telemetry", None)
         pruned, seen = prune_tool_observation(model_view, seen_prose=seen_prose)
-        budgeted = budget_tool_observation(pruned)
-        if lean_observation_enabled():
-            # 空值与 independent_key 不进模型上下文（−21%）；开关缺省关，关时逐字节同前。
-            budgeted = lean_tool_observation(budgeted)
-        content = json.dumps(strip_hashes_for_model(budgeted), ensure_ascii=False)
+        content = json.dumps(
+            strip_hashes_for_model(budget_tool_observation(pruned)),
+            ensure_ascii=False,
+        )
         return ToolResultProjection(
             audit_payload=audit,
             model_content=content,
@@ -930,7 +849,6 @@ class FinanceResearchHarness:
                 context=context,
                 evidence=evidence,
             )
-            historical = assess_history_finish(content, context=context)
         except ValueError as exc:
             return FinishAdmission(
                 accepted=False,
@@ -950,12 +868,6 @@ class FinanceResearchHarness:
             registry=registry,
             draft=finish.draft,
         )
-        if historical is not None and historical.gap:
-            finish = replace(
-                finish,
-                status="partial" if historical.force_partial else finish.status,
-                gaps=tuple(dict.fromkeys((*finish.gaps, historical.gap))),
-            )
         return FinishAdmission(
             accepted=True,
             status=finish.status,
@@ -966,48 +878,6 @@ class FinanceResearchHarness:
             rejection=finish_rejection_fields(),
             declared_gaps=tuple(finish.gaps),
         )
-
-    def assess_publication(
-        self, *, context: ResearchRunContext
-    ) -> PublicationAssessment:
-        # Recheck the final execution metadata: repairs may have supplied the
-        # missing source after the original finish. No prose matching or model
-        # self-certification can substitute for an executed history result.
-        historical = assess_history_finish({}, context=context)
-        if historical is not None and historical.force_partial:
-            return PublicationAssessment(
-                max_status="partial",
-                required_public_notices=(historical.gap,) if historical.gap else (),
-            )
-        return PublicationAssessment()
-
-    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
-        calculation = context.contract.premise_calculation
-        if (
-            calculation is None or calculation.issues or not calculation.rows
-            or any(item.grounding_mode != "user_premise" for item in context.contract.required_outputs if item.required)
-        ):
-            return {}
-        return {"calculation_delivery": calculation.model_payload()}
-
-    def recovery_evidence_priority(
-        self,
-        *,
-        context: ResearchRunContext,
-        evidence: tuple[AgentEvidence, ...],
-        candidate_content: str = "",
-    ) -> tuple[str, ...]:
-        priority: tuple[str, ...] = ()
-        if context.history_intent is not None:
-            from intelligence.services.historical_research.recovery import (
-                recovery_evidence_priority,
-            )
-
-            priority = recovery_evidence_priority(evidence)
-        # Preserve cited observations, never the unadmitted draft or invented IDs.
-        by_id = {eid: digest for digest, eid in evidence_ordinal_table(evidence).items()}
-        cited = tuple(by_id[ref] for ref in cited_evidence_ordinals(candidate_content) if ref in by_id)
-        return tuple(dict.fromkeys((*priority, *cited)))
 
     def classify_repair_need(
         self,
@@ -1051,60 +921,24 @@ class FinanceResearchHarness:
             goal=prompt_goal,
         )
 
-    def repair_goal_message(
-        self,
-        goal: RepairGoal,
-        *,
-        tools_open: bool,
-        finish_format: Mapping[str, object] | None = None,
-    ) -> str:
+    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
-        payload: dict[str, object] = {
-            "kind": "REPAIR_GOAL",
-            **goal.to_dict(),
-            # 开场的冻结成稿形状原样重述：修复稿仍要按它交，而修复轮里再犯格式就是终局。
-            # 这一键只在 material_only 出现，其它题型的修复轮消息逐字节不变。
-            **({"finish_format": dict(finish_format)} if finish_format else {}),
-            "instruction": (
-                "保留最初任务、全部原始观察和当前工具账本。"
-                + (
-                    "自主选择一个新的、未重复的动作补齐缺口；"
-                    if tools_open
-                    else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
-                )
-                + "不得重启研究或改写用户问题。"
-            ),
-        }
-        # 跟踪题的表达槽以合成 id 混在 missing_answer_elements 里；不说明的话模型会把它们
-        # 当 output 去绑（2026-09-07 两轮 theme_track 修复 2/2 因此被 unknown_output 硬拒）。
-        # 只在真有表达槽时加这一键：其它修复轮的消息逐字节不变。
-        track_slots = tuple(
-            item for item in goal.missing_answer_elements if item in TRACK_CONTRACT_OUTPUT_ID_SET
+        return json.dumps(
+            {
+                "kind": "REPAIR_GOAL",
+                **goal.to_dict(),
+                "instruction": (
+                    "保留最初任务、全部原始观察和当前工具账本。"
+                    + (
+                        "自主选择一个新的、未重复的动作补齐缺口；"
+                        if tools_open
+                        else "研究工具已关闭，只能基于已有观察修复措辞或证据绑定；"
+                    )
+                    + "不得重启研究或改写用户问题。"
+                ),
+            },
+            ensure_ascii=False,
         )
-        # 排序题表达槽（10 号单）同一条说明：跟踪-only 时文本逐字节不变。
-        ranking_slots = tuple(
-            item
-            for item in goal.missing_answer_elements
-            if item in RANKING_CONTRACT_OUTPUT_ID_SET
-        )
-        expression_slots = (*track_slots, *ranking_slots)
-        if expression_slots:
-            hints: list[str] = []
-            if track_slots:
-                hints.append(
-                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；track_next_watch → 一段「下期关注：…」；"
-                    "track_quad_or_baseline → 四态对照或「无上期基线」声明"
-                )
-            if ranking_slots:
-                hints.append(ranking_expression_slot_note(ranking_slots))
-            payload["expression_elements_note"] = (
-                "以下缺件是正文表达要求，写进 draft 即可，不要作为 bindings 的 output_id："
-                + "、".join(expression_slots)
-                + "（"
-                + "；".join(hints)
-                + "）"
-            )
-        return json.dumps(payload, ensure_ascii=False)
 
     def admit_repair_result(
         self,
@@ -1134,13 +968,6 @@ class FinanceResearchHarness:
             gaps=gaps,
             progressed=progressed,
         )
-
-    def admit_inbox_message(self, message: EpisodeMessage) -> bool:
-        # 默认恒 True（终态稿 §5 第 2 条）：金融领域今天没有「不许递进来的话」这条规则；
-        # 要加（例：拒收含个股买卖指令的 steer）就改这里，loop 一行不动。
-        # 「有牙」由 conformance test_inv_r5_inbox 守：换一个拒收实现，模型看不到那句话。
-        del message
-        return True
 
 
 def _merge_gaps(

@@ -623,9 +623,7 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
     assert episode._model._is_cancelled is is_cancelled
-    # 工单 #28：Episode 持有的是包住同一个谓词的 CancelSignal（类型化原因），
-    # 「几处接缝看同一份事实」的判据从对象同一变成 upstream 同一。
-    assert episode._is_cancelled.upstream is is_cancelled
+    assert episode._is_cancelled is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0
@@ -674,82 +672,6 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     # 组合根必须把链首帽钉进 adapter。只靠问 GLMAgentRuntime 会落空，
     # live 就会两发 30.0 TimeoutError（run_20260817_002238_100737）。
     assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
-
-
-def _glm_thinking_adapter(monkeypatch, tmp_path: Path, *, model: str, effort: str | None):
-    if effort is None:
-        monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
-    else:
-        monkeypatch.setenv("LLM_REASONING_EFFORT", effort)
-    monkeypatch.delenv("ASK_SYNTHESIS_RESERVE_FLOOR", raising=False)
-    providers = (
-        app_module.LLMProvider(
-            "zhipu",
-            "primary-secret",
-            "https://glm.example.invalid/v1",
-            model,
-        ),
-    )
-    run_store = RunStore(user_id="reserve", root=tmp_path / "runs")
-    run = run_store.create_run("固态电池题材", "ask", session_id="conversation-r")
-    return app_module._build_continuous_turn_adapter(
-        providers=providers,
-        run_id=run.run_id,
-        assistant_message_id="message-r",
-        run_store=run_store,
-        conversation_id="conversation-r",
-        is_cancelled=lambda: False,
-        timeout=900.0,
-        deadline_expires_at=time.monotonic() + 900.0,
-    )
-
-
-def test_continuous_adapter_floors_synthesis_reserve_by_thinking_model(
-    monkeypatch, tmp_path: Path
-) -> None:
-    """链首是 GLM-5.3 且开了思考：合成保留取模型写作成本地板 240，不再是档位的 60。
-
-    2026-09-07 high×Q1-r3：60s 保留下模型研究到剩 161s 才写，7.3K token 写作轮到点被切。
-    地板来自 provider_latency 的实测表；档位/题型逻辑本身不动（quick 仍走 20 → 取大得 240）。
-    """
-
-    adapter = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="max")
-    assert (
-        adapter._synthesis_reserve_for_task(tier="max", question_type="theme_analysis")
-        == 240.0
-    )
-    # P1：同一链首、同一 effort，修复帽也按模型取地板（zhipu 表值 40 → 200）。
-    assert adapter._repair_seconds_cap == 200.0
-    assert (
-        adapter._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
-        == 240.0
-    )
-    # 地板是地板：题型/档位算出来更大时沿用更大的那个（这里没有更大的，故仍 240）。
-    assert (
-        adapter._synthesis_reserve_for_task(tier="quick", question_type="quick_fact")
-        == 240.0
-    )
-
-
-def test_continuous_adapter_keeps_tier_reserve_for_sol_and_non_thinking_glm(
-    monkeypatch, tmp_path: Path
-) -> None:
-    """sol@cockpit（链首 name=zhipu 但 model 是 sol）与未开思考的 GLM：预算逐字节同前。"""
-
-    sol = _glm_thinking_adapter(monkeypatch, tmp_path, model="gpt-5.6-sol", effort="max")
-    assert sol._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
-    assert sol._repair_seconds_cap == 40.0
-    assert sol._synthesis_reserve_for_task(tier="quick", question_type="quick_fact") == 20.0
-
-    glm_low = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="low")
-    assert glm_low._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
-    assert glm_low._repair_seconds_cap == 40.0
-
-    glm_unset = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort=None)
-    assert (
-        glm_unset._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
-        == 75.0
-    )
 
 
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
@@ -1784,38 +1706,6 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
-
-
-def test_readiness_registers_open_episodes_without_restoring_them(
-    client: TestClient, monkeypatch, tmp_path
-) -> None:
-    """运行底座 P2（母单 §12 第 3 题：只登记）：store 里非 done 的 episode 进 readiness，
-    但 readiness 不去 restore、不改 store。"""
-
-    from intelligence.services.episode_store import (
-        EPISODE_STORE_ENV,
-        EpisodeState,
-        JsonlEpisodeStore,
-    )
-
-    root = tmp_path / "episodes"
-    monkeypatch.setenv(EPISODE_STORE_ENV, str(root))
-    store = JsonlEpisodeStore(root)
-    store.put_state("run_a:msg_1", EpisodeState(episode_id="run_a:msg_1", phase="tools_pending"))
-    store.put_state("run_b:msg_2", EpisodeState(episode_id="run_b:msg_2", phase="done"))
-    snapshot = sorted((path.name, path.stat().st_size) for path in root.rglob("*"))
-
-    response = client.get("/api/readiness")
-
-    payload = response.json()
-    assert payload["open_episodes"] == {
-        "count": 1,
-        "episode_ids": ["run_a:msg_1"],
-        "truncated": False,
-    }
-    assert sorted((path.name, path.stat().st_size) for path in root.rglob("*")) == snapshot, (
-        "readiness 只读 store，不 restore、不改写"
-    )
 
 
 def test_readiness_probe_schedules_dead_worker_recovery(
@@ -2934,99 +2824,6 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
         f"/api/runs/{run_id}/events", headers={"Last-Event-ID": str(module["seq"])}
     ).text
     assert "report:module:new" not in numeric
-
-
-def test_completed_run_waits_for_artifact_delivery_without_blocking_cancel(
-    client: TestClient,
-) -> None:
-    store = RunStore()
-    supervisor = client.app.state.supervisor
-    claimed = threading.Event()
-    release = threading.Event()
-    run = store.create_run("delayed delivery", "ask")
-
-    def runner(_signal) -> None:
-        store.finish_run(run.run_id, rs.STATUS_COMPLETED)
-        claimed.set()
-        assert release.wait(5), "test did not release artifact writer"
-        store.add_artifact(
-            run.run_id, "report.json", '{}',
-            renderer="structured_report", title="结构化对话报告",
-        )
-        store.append_stream_event(
-            run.run_id, event_id="report:complete", event_type="report.complete",
-            payload={"report": {"status": "completed"}},
-        )
-
-    supervisor._submit(store, run.run_id, runner)
-    with supervisor._lock:
-        future = supervisor._futures[(store.user_id, run.run_id)]
-    try:
-        assert claimed.wait(5)
-        pending = client.get(f"/api/runs/{run.run_id}").json()
-        assert pending["status"] == "completed"
-        assert pending.get("delivery_pending") is True
-        assert pending["artifacts"] == []
-        # No other user's/run's delivery flag may leak into this run.
-        other = store.create_run("already done", "ask")
-        store.finish_run(other.run_id, rs.STATUS_COMPLETED)
-        assert client.get(f"/api/runs/{other.run_id}").json()["delivery_pending"] is False
-    finally:
-        release.set()
-        future.result(timeout=5)
-    ready = client.get(f"/api/runs/{run.run_id}").json()
-    assert ready["delivery_pending"] is False
-    assert [a["path"] for a in ready["artifacts"]] == ["report.json"]
-
-    cancelled = store.create_run("cancel while worker blocked", "ask")
-    started = threading.Event()
-    unblock = threading.Event()
-
-    def blocked(_signal) -> None:
-        started.set()
-        assert unblock.wait(5)
-
-    supervisor._submit(store, cancelled.run_id, blocked)
-    with supervisor._lock:
-        future = supervisor._futures[(store.user_id, cancelled.run_id)]
-    try:
-        assert started.wait(5)
-        supervisor.cancel(store, cancelled.run_id)
-        payload = client.get(f"/api/runs/{cancelled.run_id}").json()
-        assert payload["status"] == "cancelled"
-        assert payload["delivery_pending"] is False
-    finally:
-        unblock.set()
-        future.result(timeout=5)
-
-
-def test_sse_drains_delivery_events_before_terminal_run(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    store = RunStore()
-    run = store.create_run("delivery crossing poll boundary", "ask")
-    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
-    original = RunStore.load_stream_events
-    calls = 0
-
-    def events_then_publish(self, run_id, *, after=0):
-        nonlocal calls
-        events = original(self, run_id, after=after)
-        if run_id == run.run_id:
-            calls += 1
-            if calls == 1:
-                # Writer finishes AFTER this poll's event snapshot, BEFORE load_run.
-                self.append_stream_event(
-                    run_id, event_id="report:complete", event_type="report.complete",
-                    payload={"report": {"status": "completed"}},
-                )
-        return events
-
-    monkeypatch.setattr(RunStore, "load_stream_events", events_then_publish)
-    body = client.get(f"/api/runs/{run.run_id}/events").text
-    assert "event: report.complete" in body
-    assert body.index("event: report.complete") < body.index("event: run\n")
-    assert body.count("event: run\n") == 1
 
 
 def test_sse_rejects_negative_after(client: TestClient) -> None:

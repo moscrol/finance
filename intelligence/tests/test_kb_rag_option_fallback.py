@@ -1,13 +1,20 @@
-"""旧 CLI 兼容仅准降级非约束选项；证据过滤必须执行，不得删参洗成成功。"""
+"""CLI 拒收的查询选项必须降级重试，而不是把召回打成空集。
+
+回归：知识库的 rag_index.py query 只支持
+--model/--include-raw/--k/--mode/--reranker/--json/--evidence-chars/--stale-policy，
+不支持工作台一直下发的 --evidence-layer/--fact-hardness/--source-type。每一次分层
+证据检索都以 "unrecognized arguments" rc=2 收场、返回空集，表面只留一句
+"检索器返回告警"。改 KB 的 CLI 属跨仓改动，所以在工作台侧丢弃选项后重试。
+"""
 
 from __future__ import annotations
 
 from intelligence.services import kb_rag
 
 
-def test_filter_constraints_are_not_droppable() -> None:
-    for option in ("--evidence-layer", "--fact-hardness", "--source-type", "--as-of"):
-        assert option not in kb_rag._DROPPABLE_QUERY_OPTIONS
+def test_all_filter_options_are_droppable() -> None:
+    for option in ("--evidence-layer", "--fact-hardness", "--source-type"):
+        assert option in kb_rag._DROPPABLE_QUERY_OPTIONS
 
 
 def test_evidence_chars_stays_droppable() -> None:

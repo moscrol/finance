@@ -186,14 +186,3 @@ def test_r05_a_arm_replay_company_numeric_does_not_plan_market_data() -> None:
     assert plan is not None
     assert plan.missing_capabilities == ("finance_query",)
     assert fixture["before_static_capability"] not in plan.missing_capabilities
-
-
-def test_extension_binding_is_strip_ok_and_unknown_binding_stays_block() -> None:
-    """2026-09-09 判官修复 01 第一刀：契约外绑定按「引用可否核验」分两档。"""
-
-    assert release_action(IssueCode.EXTRA_OUTPUT_BINDING) == ReleaseAction.STRIP_OK
-    assert release_action(IssueCode.UNKNOWN_OUTPUT_BINDING) == ReleaseAction.BLOCK
-    extension = Issue(IssueCode.EXTRA_OUTPUT_BINDING, "extra_analysis", "isolated")
-    forged = Issue(IssueCode.UNKNOWN_OUTPUT_BINDING, "extra_analysis", "forged")
-    assert allows_partial_release((extension,))
-    assert not allows_partial_release((extension, forged))

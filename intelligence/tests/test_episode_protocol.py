@@ -210,8 +210,9 @@ def test_protocol_builds_task_bound_instructions_and_input() -> None:
     )
     assert "information_cutoff" in task_input["date_rule"]
     assert "基准判断是短周期修复" in task_input["conversation_context"]
-    assert "不得当作事实证据" in task_input["conversation_context_rule"]
-    assert "旧回答的编号不能跨轮引用" in task_input["conversation_context_rule"]
+    assert task_input["conversation_context_rule"] == (
+        "历史对话仅用于消解指代和延续用户目标，不得当作事实证据"
+    )
 
 
 def test_episode_input_carries_perspective_context_only_when_active() -> None:
@@ -352,12 +353,8 @@ def _static_contract_text() -> str:
 #
 # 它变红意味着有人动了约束的措辞或顺序。那可能是对的，但必须是**显式**的：
 # 请连同这里的期望值一起更新，并在 commit 说明改了哪一条、为什么。
-# 2026-09-16 D6：工具证据要求按 material_grounding 条件化，材料事实/旧答
-# 使用私有 claims 坐标；否则 material_only 的空工具授权与全局宪法互相矛盾。
-# 同日 live 发现模型留空 draft 却漏模式字段：显式条件化终局示例，材料轮使用
-# 宿主按冻结合同构造的 wire_template；不代填返回值、不放宽来源或 basis 校验。
 _CONTRACT_FINGERPRINT = (
-    "84a03532fb6127f148ae6808e9461653ae22d4d59cc8170d2353336896b7dcf9"
+    "af870456bac5428b7bd475b8c49f4687128d322b3170a7def505998a42cd2f38"
 )
 
 

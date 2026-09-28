@@ -201,13 +201,9 @@ def render_for_prompt(
         tags += [str(s).strip() for s in (rec.get("stocks") or []) if str(s).strip()]
         date = str(rec.get("ts") or "")[:10]
         head = "、".join(tags) if tags else ""
-        # W2b 逐条归属（2026-09-11 补）：本渲染器的唯一生产出口是 prime 前缀
-        # （`intelligence/services/prime.py`；dispatcher 每轮路由默认附带，
-        # skills/dispatcher/scripts/route.py 的 --no-prime 才关）。那里只有块级标签
-        # 【核心判断｜在此基础上往前推】，块内逐条连「核心判断」四个字都没有——比
-        # W2 改造前的 [M] 块还弱一档，正是 W2 点名的失败形状：块内混进一条过期判断
-        # 时，块级标签救不了单条。
-        # 不带 `M·` 命名空间：prime 不是 [M] 证据块，冒用已注册的块号等于伪造出处。
-        own = f"[你的判断 {date}]" if date else "[你的判断]"
-        lines.append(f"- {own}{f'[{head}]' if head else ''}：{memo}")
+        suffix = f"（{date}）" if date else ""
+        if head:
+            lines.append(f"- {head}：{memo}{suffix}")
+        else:
+            lines.append(f"- {memo}{suffix}")
     return "\n".join(lines)

@@ -29,9 +29,6 @@ import sys
 from typing import Any
 
 FULL_PASS = "full_pass"
-# #55：ASK_SEMANTIC_JUDGE=off 下的常态——判官按设计关掉，只过确定性门。既不是
-# full_pass（没有语义审）也不是 released_unverified（不是缺席、不带告示）。
-DETERMINISTIC_ONLY = "deterministic_only"
 RELEASED_UNVERIFIED = "released_unverified"
 TEMPLATE_FALLBACK = "template_fallback"
 NOT_SYNTHESIZED = "not_synthesized"
@@ -39,7 +36,6 @@ UNKNOWN = "unknown"
 
 _ORDER = (
     FULL_PASS,
-    DETERMINISTIC_ONLY,
     RELEASED_UNVERIFIED,
     TEMPLATE_FALLBACK,
     NOT_SYNTHESIZED,
@@ -48,7 +44,6 @@ _ORDER = (
 
 _LABELS = {
     FULL_PASS: "完整通过",
-    DETERMINISTIC_ONLY: "确定性门通过（判官已关）",
     RELEASED_UNVERIFIED: "放行未核验",
     TEMPLATE_FALLBACK: "模板降级",
     NOT_SYNTHESIZED: "未进合成",
@@ -125,9 +120,6 @@ def classify_turn(case_id: str, turn: dict[str, Any]) -> TurnHealth:
         if noticed or shadow_status == "judge_outage_released":
             state = RELEASED_UNVERIFIED
             inferred = noticed and not shadow_status
-        elif reason_code == "deterministic_only" or shadow_status == "deterministic_only":
-            # #55：判官按设计关掉（ASK_SEMANTIC_JUDGE=off），不是缺席也不是全过。
-            state = DETERMINISTIC_ONLY
         else:
             state = FULL_PASS
     elif raw_state == "rejected":

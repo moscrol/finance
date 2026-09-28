@@ -20,7 +20,6 @@ from intelligence.api.app import RunSupervisor  # noqa: E402
 from intelligence.api.quota import RunQuota  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
 
 
 def _wait_for(predicate: Callable[[], bool], *, timeout: float = 5.0) -> None:
@@ -101,12 +100,10 @@ def harness(tmp_path, monkeypatch):
     h = _Harness()
     h.build = build  # type: ignore[attr-defined]
     h.gate = gate  # type: ignore[attr-defined]
-    try:
-        yield h
-    finally:
-        gate.release.set()
-        for client in clients:
-            drain_test_client(client)
+    yield h
+    gate.release.set()
+    for client in clients:
+        client.app.state.supervisor.shutdown()
 
 
 def _post_run(client: TestClient, user: str, question: str = "q"):

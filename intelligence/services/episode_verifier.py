@@ -19,11 +19,6 @@ from intelligence.services.episode_output_substance import (
 )
 from intelligence.services.evidence_capabilities import collect_satisfied_plan_capabilities
 from intelligence.services.generic_research_owner import CompletionReport
-from intelligence.services.material_grounding import binding_source_errors, grounding_scope
-from intelligence.services.material_delivery import (
-    has_disclosed_material_gap,
-    material_question_outputs,
-)
 from intelligence.services.research_contract import (
     OutputStatus,
     ResearchTaskContract,
@@ -47,9 +42,6 @@ class VerifiedEpisodeOutcome:
     contract: ResearchTaskContract | None = None
     missing_outputs: tuple[str, ...] = ()
     mandatory_missing_capabilities: tuple[str, ...] = ()
-    # 契约外、但引用的哈希都在证据池里的输出绑定（「扩展区」）。它们不参与结构
-    # 完成度，也不进 completion.outputs；正文仍由语义判官逐句核验。
-    extension_outputs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "issues", serialize_issues(self.issue_items))
@@ -64,7 +56,6 @@ class VerifiedEpisodeOutcome:
             "mandatory_missing_capabilities": list(
                 self.mandatory_missing_capabilities
             ),
-            "extension_outputs": list(self.extension_outputs),
         }
 
 
@@ -110,57 +101,17 @@ def verify_episode_outcome(
         required.output_id: required for required in contract.required_outputs
     }
     bindings = {binding.output_id: binding for binding in outcome.bindings}
-    # #819 零读复核恢复的旧工具输入：从 durable 的 model_input(prior_tool_evidence) 事件读回
-    # 它们的 hash，冻结范围检查放行这一组，其余证据引用照旧受 P6 材料范围规则约束。
-    from intelligence.services.prior_evidence import restored_prior_hashes
-
-    frozen_prior_hashes = restored_prior_hashes(outcome.events)
-    # 契约外的输出绑定不再连坐已完成的必需输出（2026-09-09 判官修复 01 第一刀）。
-    # 复现：两个必需输出都 fulfilled、正文与证据完全一样，只多绑一个引用真实证据
-    # 的 extra_analysis，旧判据就把整篇打成 partial 并拒绝部分放行，语义判官连核心
-    # 答案都没看到。现在按「引用是否可核验」分两档：哈希都在池里 → 扩展区
-    # （EXTRA_OUTPUT_BINDING，STRIP_OK，隔离出结构完成度）；引用了池里没有 /
-    # 重复的哈希 → 编造引用（UNKNOWN_OUTPUT_BINDING，仍 BLOCK）。
-    extension_outputs: list[str] = []
-    forged_extra_outputs: list[str] = []
-    for output_id in sorted(set(bindings) - set(required_by_id)):
-        binding = bindings[output_id]
-        unverifiable = tuple(
-            content_hash
-            for content_hash in binding.evidence_hashes
-            if content_hash not in evidence_by_hash or content_hash in duplicate_hashes
-        )
-        source_errors = binding_source_errors(
-            contract, binding, outcome.draft, outcome.evidence, frozen_prior_hashes=frozen_prior_hashes
-        )
-        if source_errors:
-            forged_extra_outputs.append(output_id)
-            issues.append(Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, output_id, "; ".join(source_errors)))
-            continue
-        if unverifiable:
-            forged_extra_outputs.append(output_id)
-            issues.append(
-                Issue(
-                    IssueCode.UNKNOWN_OUTPUT_BINDING,
-                    output_id,
-                    (
-                        f"unknown output binding: {output_id} cites unverifiable "
-                        "evidence hash " + ",".join(unverifiable)
-                    ),
-                )
-            )
-            continue
-        extension_outputs.append(output_id)
+    unknown_outputs = sorted(set(bindings) - set(required_by_id))
+    for output_id in unknown_outputs:
         issues.append(
             Issue(
-                IssueCode.EXTRA_OUTPUT_BINDING,
+                IssueCode.UNKNOWN_OUTPUT_BINDING,
                 output_id,
-                f"extension output binding isolated from contract: {output_id}",
+                f"unknown output binding: {output_id}",
             )
         )
 
     statuses: list[OutputStatus] = []
-    material_specs = {spec.output_id: spec for spec in material_question_outputs(contract)}
     stripped_hashes: set[str] = set()
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
@@ -184,11 +135,6 @@ def verify_episode_outcome(
                 )
             continue
 
-        source_errors = binding_source_errors(
-            contract, binding, outcome.draft, outcome.evidence, frozen_prior_hashes=frozen_prior_hashes
-        )
-        if source_errors:
-            issues.append(Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, required.output_id, "; ".join(source_errors)))
         basis_mismatch = binding.basis != required.grounding_mode
         if basis_mismatch:
             issues.append(
@@ -201,6 +147,25 @@ def verify_episode_outcome(
                     ),
                 )
             )
+
+        if binding.gap:
+            statuses.append(
+                OutputStatus(
+                    required.output_id,
+                    "missing" if required.required else "gap",
+                    (),
+                    binding.gap,
+                )
+            )
+            if required.required:
+                issues.append(
+                    Issue(
+                        IssueCode.REQUIRED_OUTPUT_GAP,
+                        required.output_id,
+                        f"required output reports gap: {required.output_id}",
+                    )
+                )
+            continue
 
         unknown_hashes = tuple(
             content_hash
@@ -234,30 +199,6 @@ def verify_episode_outcome(
                     ),
                 )
             )
-        if binding.gap:
-            spec = material_specs.get(required.output_id)
-            legal_gap = bool(
-                spec is not None
-                and not basis_mismatch
-                and not source_errors
-                and not binding.claims
-                and not binding.evidence_hashes
-                and has_disclosed_material_gap(spec, outcome.draft, binding.gap)
-            )
-            statuses.append(OutputStatus(
-                required.output_id,
-                "legal_gap" if legal_gap else ("missing" if required.required else "gap"),
-                (),
-                binding.gap,
-            ))
-            if required.required and not legal_gap:
-                issues.append(Issue(
-                    IssueCode.REQUIRED_OUTPUT_GAP,
-                    required.output_id,
-                    f"required output reports gap: {required.output_id}",
-                ))
-            continue
-
         evidence_items = tuple(
             evidence_by_hash[content_hash]
             for content_hash in binding.evidence_hashes
@@ -334,9 +275,7 @@ def verify_episode_outcome(
             (
                 required.grounding_mode != "evidence"
                 or bool(kept_hashes)
-                or (grounding_scope(contract) == "material_only" and bool(binding.claims))
             )
-            and not source_errors
             and not unknown_hashes
             and not collided_hashes
             and (not wrong_types or bool(kept_hashes))
@@ -421,7 +360,7 @@ def verify_episode_outcome(
     missing_outputs = tuple(
         status.output_id
         for required, status in zip(contract.required_outputs, statuses)
-        if required.required and status.status not in {"fulfilled", "legal_gap"}
+        if required.required and status.status != "fulfilled"
     )
     all_required_fulfilled = all(
         status.status == "fulfilled" for status in required_statuses
@@ -429,7 +368,7 @@ def verify_episode_outcome(
     structurally_complete = bool(
         all_required_fulfilled
         and not mandatory_missing
-        and not forged_extra_outputs
+        and not unknown_outputs
         and outcome.draft.strip()
     )
 
@@ -459,7 +398,6 @@ def verify_episode_outcome(
         contract=contract,
         missing_outputs=missing_outputs,
         mandatory_missing_capabilities=mandatory_missing,
-        extension_outputs=tuple(extension_outputs),
     )
 
 

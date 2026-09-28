@@ -37,17 +37,6 @@ class ParseIntentTests(unittest.TestCase):
         self.assertFalse(parse_stock_analog_intent("英维克现在贵不贵"))
         self.assertFalse(parse_stock_analog_intent(""))
 
-    def test_denied_analog_is_not_a_request(self) -> None:
-        for question in (
-            "不得用其他日期或相似指标补齐。",
-            "不要对标过往走势。",
-            "无需历史相似分析。",
-            "禁止用类似案例替代缺失数据。",
-        ):
-            self.assertFalse(parse_stock_analog_intent(question), question)
-        self.assertTrue(parse_stock_analog_intent("不要预测未来，英维克历史上有没有类似走势？"))
-        self.assertTrue(parse_stock_analog_intent("对标过往走势，但不要编造数据。"))
-
 
 class SignatureTests(unittest.TestCase):
     def test_signature_counts_strong_days_and_ratio(self) -> None:

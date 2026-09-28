@@ -22,16 +22,9 @@ class IssueCode(str, Enum):
 
     EVIDENCE_EMPTY_HASH = "evidence_empty_hash"
     EVIDENCE_DUPLICATE_HASH = "evidence_duplicate_hash"
-    # 契约外输出绑定分两档（2026-09-09 判官修复 01 第一刀）：
-    # - EXTRA_OUTPUT_BINDING：多做的一块研究，引用的哈希都在证据池里 → 从契约结构
-    #   里隔离出去（STRIP_OK），必需输出照常进语义判官，正文仍逐句核验。
-    # - UNKNOWN_OUTPUT_BINDING：契约外且引用了池里没有 / 重复的哈希 → 编造引用，
-    #   保持 BLOCK。旧实现两种都 BLOCK，让已完成的核心答案被一个多余字段连坐。
-    EXTRA_OUTPUT_BINDING = "extra_output_binding"
     UNKNOWN_OUTPUT_BINDING = "unknown_output_binding"
     MISSING_REQUIRED_OUTPUT = "missing_required_output"
     GROUNDING_BASIS_MISMATCH = "grounding_basis_mismatch"
-    MATERIAL_SOURCE_VIOLATION = "material_source_violation"
     REQUIRED_OUTPUT_GAP = "required_output_gap"
     UNKNOWN_EVIDENCE_HASH = "unknown_evidence_hash"
     AMBIGUOUS_EVIDENCE_HASH = "ambiguous_evidence_hash"
@@ -45,8 +38,6 @@ class IssueCode(str, Enum):
     PATH_TREND_MISMATCH = "path_trend_mismatch"
     MARKER_LOSS = "marker_loss"
     UNRESOLVED_EVIDENCE_ORDINAL = "unresolved_evidence_ordinal"
-    # #55：句内完整日期与其唯一所引证据携带的日期全部不符（机械探测，替代判官抓的那类）。
-    EVIDENCE_DATE_MISMATCH = "evidence_date_mismatch"
 
 
 class ReleaseAction(str, Enum):
@@ -70,11 +61,9 @@ class Issue:
 RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.EVIDENCE_EMPTY_HASH: ReleaseAction.BLOCK,
     IssueCode.EVIDENCE_DUPLICATE_HASH: ReleaseAction.BLOCK,
-    IssueCode.EXTRA_OUTPUT_BINDING: ReleaseAction.STRIP_OK,
     IssueCode.UNKNOWN_OUTPUT_BINDING: ReleaseAction.BLOCK,
     IssueCode.MISSING_REQUIRED_OUTPUT: ReleaseAction.BLOCK,
     IssueCode.GROUNDING_BASIS_MISMATCH: ReleaseAction.BLOCK,
-    IssueCode.MATERIAL_SOURCE_VIOLATION: ReleaseAction.BLOCK,
     IssueCode.REQUIRED_OUTPUT_GAP: ReleaseAction.PARTIAL_OK,
     IssueCode.UNKNOWN_EVIDENCE_HASH: ReleaseAction.BLOCK,
     IssueCode.AMBIGUOUS_EVIDENCE_HASH: ReleaseAction.BLOCK,
@@ -88,8 +77,6 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.PATH_TREND_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.MARKER_LOSS: ReleaseAction.BLOCK,
     IssueCode.UNRESOLVED_EVIDENCE_ORDINAL: ReleaseAction.BLOCK,
-    # #55：与 weekday / path 同一档——机械删句后由 preflight 修复，修不好就 BLOCK。
-    IssueCode.EVIDENCE_DATE_MISMATCH: ReleaseAction.BLOCK,
 }
 
 _PARTIAL_RELEASE_ACTIONS = frozenset(

@@ -14,7 +14,6 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 from intelligence.services.agent_research import AgentEvidence
-from intelligence.services.material_grounding import ClaimSourceBinding
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_plan import ResearchPlan, plan_to_public_dict
 
@@ -231,7 +230,6 @@ class OutputEvidenceBinding:
     evidence_hashes: tuple[str, ...]
     gap: str = ""
     basis: GroundingMode = "evidence"
-    claims: tuple[ClaimSourceBinding, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.output_id, str) or not self.output_id.strip():
@@ -245,9 +243,7 @@ class OutputEvidenceBinding:
         gap = self.gap.strip()
         if self.basis not in _GROUNDING_MODES:
             raise ValueError("unsupported grounding basis")
-        if not isinstance(self.claims, tuple) or any(not isinstance(c, ClaimSourceBinding) for c in self.claims):
-            raise ValueError("invalid claim source bindings")
-        if self.basis == "evidence" and not hashes and not gap and not self.claims:
+        if self.basis == "evidence" and not hashes and not gap:
             raise ValueError("output binding must contain evidence or a gap")
         object.__setattr__(self, "output_id", self.output_id.strip())
         object.__setattr__(self, "evidence_hashes", hashes)
@@ -260,7 +256,6 @@ class OutputEvidenceBinding:
             "evidence_hashes": list(self.evidence_hashes),
             "gap": self.gap,
             "basis": self.basis,
-            **({"claims": [claim.to_dict() for claim in self.claims]} if self.claims else {}),
         }
 
 
@@ -269,12 +264,6 @@ class EpisodeEvent:
     sequence: int
     kind: str
     payload: Mapping[str, object]
-    # 版本语义（运行底座终态稿 §6.3 第 6 条）：写方给一个老读者不认识的 kind 打上
-    # ``ignorable=True``，老读者（``restore`` / ``derive_messages`` 的入口校验）就可以跳过它；
-    # 未打标的未知 kind 一律拒绝而不是静默跳——「缺一条」不能被读成「没发生」。
-    # 有默认值：既有 ``EpisodeEvent(seq, kind, payload)`` 构造零改动；``to_dict`` 只在
-    # True 时带键，老产物与老读者的哈希 / 对账不受影响。
-    ignorable: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
@@ -285,21 +274,16 @@ class EpisodeEvent:
             raise ValueError("episode event kind must be non-empty")
         if not isinstance(self.payload, Mapping):
             raise ValueError("episode event payload must be an object")
-        if not isinstance(self.ignorable, bool):
-            raise ValueError("event ignorable flag must be a bool")
         copied = _json_freeze(self.payload, path="event payload")
         object.__setattr__(self, "kind", self.kind.strip())
         object.__setattr__(self, "payload", copied)
 
     def to_dict(self) -> dict[str, object]:
-        record: dict[str, object] = {
+        return {
             "sequence": self.sequence,
             "kind": self.kind,
             "payload": _json_copy(self.payload, path="event payload"),
         }
-        if self.ignorable:
-            record["ignorable"] = True
-        return record
 
 
 @dataclass(frozen=True)
@@ -351,7 +335,6 @@ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
         "independent_key": item.independent_key,
         "freshness": item.freshness,
         "content_hash": item.content_hash,
-        **({"io_effect": item.io_effect} if item.io_effect != "unknown" else {}),
     }
 
 

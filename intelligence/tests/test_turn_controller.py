@@ -246,64 +246,6 @@ def test_vague_request_clarifies_instead_of_defaulting_to_research() -> None:
     assert decision.needs_retrieval is False
 
 
-_MATERIAL_REPORT = (
-    "【卖方摘要｜2026-08-28】固态电池：硫化物路线进入中试放量期\n\n"
-    "一、核心观点\n公司 A 硫化物电解质中试线 2026 年 8 月投产，规划产能 200 吨/年，"
-    "预计 2027 年一季度满产。管理层在电话会中表示下游两家电池厂已完成 A 样验证。\n\n"
-    "二、关键数据\n2026 年上半年新签订单 12 亿元，同比增长 40%；毛利率 31.5%（去年同期 27.2%）。\n\n"
-    "三、我们的判断\n我们认为硫化物路线将在 2027 年替代氧化物成为主流，公司 A 是最大受益者，目标价上调 30%。"
-)
-_EMPTY_PROMPT_BLOCK = (
-    "## 较早消息（原文，超预算时从最早处截断）\n（无较早消息）\n\n"
-    "## 最近消息原文\n（无历史消息）"
-)
-
-
-def test_decide_turn_binds_material_reference_to_conversation_context() -> None:
-    """B05-1：决策层必须把对话块传给 build_task_frame，「这篇」才绑得到上一轮材料。"""
-
-    from intelligence.services.user_task import material_id_for
-
-    block = (
-        "## 较早消息（原文，超预算时从最早处截断）\n（无较早消息）\n\n"
-        "## 最近消息原文\n"
-        f"user: {_MATERIAL_REPORT}\n\n这篇研报的核心逻辑站得住吗？\n"
-        "assistant: 硬事实有三条……"
-    )
-    decision = decide_turn(
-        "这篇里提到的产能数字有官方来源吗",
-        context=block,
-        llm_complete=_no_llm,
-    )
-
-    assert decision.task_frame is not None
-    assert decision.task_frame.referenced_material_ids == (
-        material_id_for(_MATERIAL_REPORT),
-    )
-    assert decision.lane != "clarify"
-
-
-def test_decide_turn_asks_for_material_when_known_context_has_none() -> None:
-    """B05-1：对话块已知且无材料时，引用材料的题确定性追问一次，不编原文。"""
-
-    from intelligence.services.task_frame import MISSING_MATERIAL_CLARIFICATION
-
-    decision = decide_turn(
-        "2026-07-23 把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
-        context=_EMPTY_PROMPT_BLOCK,
-        llm_complete=_no_llm,
-    )
-
-    assert decision.lane == "clarify"
-    assert MISSING_MATERIAL_CLARIFICATION in decision.clarification_questions
-    # 对话块未知（旧调用方）时保持旧行为：不追问。
-    legacy = decide_turn(
-        "2026-07-23 把这份卖方材料提纯一下，哪些是硬事实、哪些只能进图谱、哪些只能进观察列表",
-        llm_complete=_no_llm,
-    )
-    assert legacy.lane != "clarify"
-
-
 def test_vague_opinion_request_clarifies_when_controller_is_unavailable() -> None:
     decision = decide_turn("你怎么看", llm_complete=_no_llm)
 

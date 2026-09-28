@@ -92,7 +92,7 @@ def test_residual_episode_contract_opens_narrow_prime_slots() -> None:
     assert "prime_news" in slots
     assert "prime_memory" in slots
 
-    assert slots["prime_quote"].evidence_types == ("market_data", "finance_query")
+    assert slots["prime_quote"].evidence_types == ("market_data",)
     assert slots["prime_quote"].required is False
     assert slots["prime_quote"].grounding_mode == "evidence"
 

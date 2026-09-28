@@ -214,11 +214,6 @@ _VIEW_CALLERS = frozenset(
         "services/episode_semantic_verifier.py::_project_semantic_quality_marks",
         "services/episode_semantic_verifier.py::_gap_answer",
         "services/episode_semantic_verifier.py::_generic_gap_answer",
-        # D5 材料题：公开投影后的复验与判官拒绝重开原题，都只经 view() 再出稿。
-        "services/episode_semantic_verifier.py::recheck_material_public_delivery",
-        "services/episode_semantic_verifier.py::_reject_material_gaps",
-        # 题设计算终局复验：程序表与降级原因同走统一投影。
-        "services/episode_semantic_verifier.py::verify",
     }
 )
 

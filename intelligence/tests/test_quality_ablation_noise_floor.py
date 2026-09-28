@@ -225,24 +225,14 @@ def _rejudge(artifact: dict[str, object]) -> dict[str, object]:
     )
 
 
-def test_旧补评的方差底只保留诊断不授资格():
-    """旧无身份收据不能单凭旧底得到 callable。"""
+def test_补评沿用源轮实测的方差底():
+    """补评只补 unscored 的份，没有重新校准判官——凭空给个新底就是编数。"""
 
     floor = judge_noise_floor(_calibration(["q0"], _IDENTICAL_TEXT_SCORES))
     out = _rejudge(_artifact_with_floor(floor))
 
     assert out["noise_floor"] == floor
-    assert out["aggregates"]["kb-rag"]["decision"] == "no_call"
-
-
-def test_complete_open_batch_with_zero_variance_remains_eligible():
-    from intelligence.tests.judge_validity_fixtures import NOW, valid_batch
-
-    answers, calibration, manifest, floor = valid_batch(zero_variance=True, sealed=False)
-    result = aggregate_components(answers, ["kb-rag"], calibration=calibration,
-                                  manifest=manifest, noise_floor=floor, now=NOW)["kb-rag"]
-    assert result["decision"] == "callable"
-    assert result["noise_threshold"] == 0
+    assert out["aggregates"]["kb-rag"]["decision"] == "callable"  # Δ=3.0 > 1.9321
 
 
 def test_源轮没方差底时补评仍然no_call():

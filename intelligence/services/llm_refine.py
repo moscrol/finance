@@ -19,7 +19,6 @@ Design constraints:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import random
@@ -28,22 +27,11 @@ import threading
 import socket
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
-import uuid
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import asdict, dataclass, field, replace
-from datetime import datetime, timezone
-
-from intelligence.call_identity import IDENTITY_NOT_CALLED, IDENTITY_REPORTED, IDENTITY_UNREPORTED
-from intelligence.services.llm_usage import (
-    USAGE_SOURCE_API,
-    USAGE_SOURCE_ESTIMATED,
-    estimate_token_usage,
-    token_usage_counts,
-)
+from dataclasses import dataclass, field, replace
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 # 发起一次非流式调用所需的最小可行秒数。低于此值不发 HTTP，直接返回降级
@@ -122,7 +110,6 @@ class LLMProvider:
     base_url: str
     model: str
     transport: str = "http"
-    response_schema: dict | None = None
 
 
 _PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
@@ -372,11 +359,6 @@ def stable_llm_fallback_reason(reason: str) -> str:
     放宽一次严格层。要改先补 judge 侧的测试。
     """
     normalized = str(reason or "").casefold()
-    # #55：judge 被 ASK_SEMANTIC_JUDGE=off 关掉，既不是「供应商不可用」也不是任何
-    # 瞬时故障——原样透传成独立码。它**不在** ``_TRANSIENT_JUDGE_REASONS`` 里，
-    # 而且 off 路径在走到掉线放行之前就已返回，所以这条不放宽严格层。
-    if normalized == "judge_off":
-        return "judge_off"
     if "未配置" in normalized:
         return "provider_unavailable"
     # 本轮调用预算耗尽（``LlmCallLedger.rejection_reason``）。原先落进
@@ -464,142 +446,6 @@ class LLMCallRecord:
     # 失败原因（成功为空）。不记原因就无法回答"为什么 35% 的 chat 调用失败"，
     # 诊断只能靠猜 elapsed_ms 的分布。
     reason: str = ""
-    # None means usage was not reported, not zero tokens. Estimates retain their source.
-    input_tokens: int | None = None
-    output_tokens: int | None = None
-    usage_source: str | None = None
-    # Billing purpose is independent of the evaluation provenance phase.
-    purpose: str | None = None
-    call_id: str | None = None
-    attempt_id: str | None = None
-    phase: str | None = None
-    requested_model: str | None = None
-    reported_model: str | None = None
-    identity_state: str = IDENTITY_NOT_CALLED
-    identity_conflict: bool = False
-    endpoint_id: str | None = None
-    transport: str | None = None
-    request_id: str | None = None
-    response_id: str | None = None
-    request_sha256: str | None = None
-    result_sha256: str | None = None
-    result_hash_kind: str | None = None
-    started_at: str | None = None
-    completed_at: str | None = None
-
-
-@dataclass
-class LLMCallContext:
-    call_id: str
-    phase: str
-    selected_attempt_id: str | None = None
-    identity_state: str = IDENTITY_NOT_CALLED
-
-
-_CALL_PROVENANCE: ContextVar[LLMCallContext | None] = ContextVar(
-    "llm_call_provenance", default=None,
-)
-
-
-@contextmanager
-def call_provenance_scope(call_id: str, phase: str) -> Iterator[LLMCallContext]:
-    context = LLMCallContext(call_id=call_id, phase=phase)
-    token = _CALL_PROVENANCE.set(context)
-    try:
-        yield context
-    finally:
-        _CALL_PROVENANCE.reset(token)
-
-
-def _canonical_sha256(value: object) -> str:
-    encoded = json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def provider_endpoint_id(provider: LLMProvider) -> str:
-    """Hash the normalized endpoint, excluding credentials, query and fragment."""
-    parts = urllib.parse.urlsplit(provider.base_url)
-    host = (parts.hostname or "").lower()
-    if ":" in host:
-        host = f"[{host}]"
-    port = parts.port
-    scheme = parts.scheme.lower()
-    if port is not None and (scheme, port) not in {("https", 443), ("http", 80)}:
-        host = f"{host}:{port}"
-    normalized = urllib.parse.urlunsplit((scheme, host, parts.path.rstrip("/"), "", ""))
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-
-
-def _metadata_string(value: object) -> str | None:
-    return value.strip() or None if isinstance(value, str) else None
-
-
-@dataclass
-class _LLMCallAttempt:
-    context: LLMCallContext | None
-    attempt_id: str
-    requested_model: str
-    endpoint_id: str
-    transport: str
-    request_sha256: str
-    started_at: str
-    reported_model: str | None = None
-    identity_conflict: bool = False
-    request_id: str | None = None
-    response_id: str | None = None
-    result_sha256: str | None = None
-    result_hash_kind: str | None = None
-
-    def observe_response(self, body: object = None, response: object = None) -> None:
-        headers = getattr(response, "headers", None)
-        if headers is not None:
-            for name in ("x-request-id", "X-Request-Id", "request-id", "Request-Id"):
-                value = _metadata_string(headers.get(name))
-                if value:
-                    self.request_id = value
-                    break
-        if not isinstance(body, Mapping):
-            return
-        model = _served_model_from_body(body) or None
-        if model:
-            if self.reported_model and model != self.reported_model:
-                self.identity_conflict = True
-            self.reported_model = self.reported_model or model
-        self.request_id = self.request_id or _metadata_string(body.get("request_id"))
-        self.response_id = self.response_id or _metadata_string(body.get("id"))
-
-    def observe_result(self, result: object) -> None:
-        if isinstance(result, Mapping) and result.get("tool_calls"):
-            self.result_sha256 = _canonical_sha256({
-                "content": result.get("content"), "tool_calls": result["tool_calls"],
-            })
-            self.result_hash_kind = "tool_message_canonical_json"
-            return
-        content = result.get("content") if isinstance(result, Mapping) else result
-        if isinstance(content, str):
-            self.result_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
-            self.result_hash_kind = "content_utf8"
-
-
-def _new_call_attempt(provider: LLMProvider, messages: list[dict]) -> _LLMCallAttempt:
-    context = _CALL_PROVENANCE.get()
-    if context is not None:
-        context.identity_state = IDENTITY_UNREPORTED
-        context.selected_attempt_id = None
-    return _LLMCallAttempt(
-        context=context,
-        attempt_id=uuid.uuid4().hex,
-        requested_model=provider.model,
-        endpoint_id=provider_endpoint_id(provider),
-        transport="cli" if provider.transport == "cli" or provider.base_url.startswith("cli://") else "http",
-        request_sha256=_canonical_sha256(messages),
-        started_at=datetime.now(timezone.utc).isoformat(),
-    )
-
-
-UNLABELLED_PURPOSE = "unlabelled"
 
 
 @dataclass
@@ -622,18 +468,6 @@ class LLMCallLedger:
                 self.max_calls is not None
                 and self._reservation_count >= self.max_calls
             )
-
-    def headroom(self) -> int | None:
-        """本轮还能发几次模型调用；无上限时 None。
-
-        给准入判断用（子研究起分支前看余量够不够分支 + 判官 / 合成的尾段），
-        不是保留位：预占仍只在 ``try_reserve`` 那道 HTTP 边界发生。
-        """
-
-        with self._lock:
-            if self.max_calls is None:
-                return None
-            return max(0, int(self.max_calls) - int(self._reservation_count))
 
     def try_reserve(self) -> bool:
         """Atomically reserve one real provider attempt.
@@ -668,10 +502,6 @@ class LLMCallLedger:
         with self._lock:
             self.records.append(record)
 
-    def records_for_call(self, call_id: str) -> list[dict[str, object]]:
-        with self._lock:
-            return [_record_to_dict(record) for record in self.records if record.call_id == call_id]
-
     def summary(self) -> dict[str, object]:
         with self._lock:
             records = list(self.records)
@@ -693,64 +523,18 @@ class LLMCallLedger:
             "rejected_count": rejected_count,
             "by_caller": by_caller,
             "failure_reasons": _tally_failure_reasons(records),
-            "input_tokens_total": sum(
-                record.input_tokens or 0 for record in records
-            ),
-            "output_tokens_total": sum(
-                record.output_tokens or 0 for record in records
-            ),
-            "tokens_by_purpose": _tokens_by_purpose(records),
-            "estimated_share": _estimated_share(records),
-            "records": [_record_to_dict(record) for record in records],
+            "records": [
+                {
+                    "caller": record.caller,
+                    "provider": record.provider,
+                    "model": record.model,
+                    "status": record.status,
+                    "elapsed_ms": record.elapsed_ms,
+                    **({"reason": record.reason} if record.reason else {}),
+                }
+                for record in records
+            ],
         }
-
-
-def _record_to_dict(record: LLMCallRecord) -> dict[str, object]:
-    """Share one projection for billing and provenance; unknown identity stays null."""
-    payload = asdict(record)
-    if not record.reason:
-        payload.pop("reason")
-    for name in ("input_tokens", "output_tokens", "usage_source", "purpose"):
-        if payload[name] is None:
-            payload.pop(name)
-    return payload
-
-
-def _has_usage(record: LLMCallRecord) -> bool:
-    return record.input_tokens is not None or record.output_tokens is not None
-
-
-def _tokens_by_purpose(
-    records: list[LLMCallRecord],
-) -> dict[str, dict[str, int]]:
-    """按 purpose 聚合调用数与 token；未标注的记在 ``unlabelled`` 下，不冒充 other。"""
-
-    grouped: dict[str, dict[str, int]] = {}
-    for record in records:
-        key = record.purpose or UNLABELLED_PURPOSE
-        bucket = grouped.setdefault(
-            key, {"calls": 0, "input_tokens": 0, "output_tokens": 0}
-        )
-        bucket["calls"] += 1
-        bucket["input_tokens"] += record.input_tokens or 0
-        bucket["output_tokens"] += record.output_tokens or 0
-    return grouped
-
-
-def _estimated_share(records: list[LLMCallRecord]) -> float:
-    """带用量的记录里估算记录的占比（0.0–1.0）；没有带用量的记录时为 0.0。
-
-    分母只数**有用量**的记录：失败 / 无 usage 的记录既不是真实值也不是估算值，
-    放进分母会把占比稀释成假的「大部分是真实值」。
-    """
-
-    with_usage = [record for record in records if _has_usage(record)]
-    if not with_usage:
-        return 0.0
-    estimated = sum(
-        1 for record in with_usage if record.usage_source == USAGE_SOURCE_ESTIMATED
-    )
-    return estimated / len(with_usage)
 
 
 def _insufficient_budget_reason(
@@ -795,14 +579,12 @@ _CALL_LEDGER: ContextVar[LLMCallLedger | None] = ContextVar(
 @contextmanager
 def call_ledger_scope(
     max_calls: int | None = None,
-    *,
-    reuse_existing: bool = True,
 ) -> Iterator[LLMCallLedger]:
     """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。
 
     ``max_calls`` 只在新建台账时生效；嵌套复用时以外层限额为准。"""
     existing = _CALL_LEDGER.get()
-    if existing is not None and reuse_existing:
+    if existing is not None:
         yield existing
         return
     ledger = LLMCallLedger(max_calls=max_calls)
@@ -835,32 +617,6 @@ def _reserve_llm_call() -> None:
 
 def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
-
-
-# 调用目的标签（INDEX #23）。判官经 ``complete()`` 调用，与写手 / 合成共用底层
-# ``_post_chat*`` 入口——入口本身不知道自己在替谁干活，只有调用方知道。所以标签由
-# 调用方用上下文管理器在最外层贴上，``_record_llm_call`` 读 ContextVar 落进记录。
-# 与 ``_PROVIDER_OVERRIDE`` 同一套机制：跨线程由调用方 ``copy_context()`` 传播。
-_CALL_PURPOSE: ContextVar[str | None] = ContextVar("llm_call_purpose", default=None)
-
-
-@contextmanager
-def call_purpose(purpose: str) -> Iterator[None]:
-    """把作用域内的 LLM 调用标成 ``purpose``（judge / writer / synthesis / other）。
-
-    嵌套时内层覆盖外层、退出时恢复——判官作用域里若再触发其他调用，调用方给
-    它贴自己的标签即可，不会被误标成 judge；不贴则沿用外层。
-    """
-
-    token = _CALL_PURPOSE.set(purpose)
-    try:
-        yield
-    finally:
-        _CALL_PURPOSE.reset(token)
-
-
-def current_call_purpose() -> str | None:
-    return _CALL_PURPOSE.get()
 
 
 # 重试退避。ch06b «API 通信层»：CC 用 BASE_DELAY_MS=500 的指数退避，并在每次退避上
@@ -930,38 +686,10 @@ def _record_llm_call(
     status: str,
     started: float,
     reason: str = "",
-    *,
-    attempt: _LLMCallAttempt | None = None,
-    input_tokens: int | None = None,
-    output_tokens: int | None = None,
-    usage_source: str | None = None,
 ) -> None:
-    provenance: dict[str, object] = {}
-    if attempt is not None:
-        context = attempt.context
-        identity_state = IDENTITY_REPORTED if attempt.reported_model else IDENTITY_UNREPORTED
-        if context is not None:
-            context.identity_state = identity_state
-        provenance = {
-            name: getattr(attempt, name)
-            for name in (
-                "attempt_id", "requested_model", "reported_model", "identity_conflict",
-                "endpoint_id", "transport", "request_id", "response_id", "request_sha256",
-                "result_sha256", "result_hash_kind", "started_at",
-            )
-        }
-        provenance.update(
-            call_id=context.call_id if context else None,
-            phase=context.phase if context else None,
-            identity_state=identity_state,
-            completed_at=datetime.now(timezone.utc).isoformat(),
-        )
     ledger = _CALL_LEDGER.get()
     if ledger is None:
         return
-    if input_tokens is None and output_tokens is None:
-        # 没有用量就没有来源——不让 usage_source 单独存在，读者才能用它判「有没有」。
-        usage_source = None
     ledger.record(
         LLMCallRecord(
             caller=caller,
@@ -970,15 +698,8 @@ def _record_llm_call(
             status=status,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
             reason=reason,
-            **provenance,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            usage_source=usage_source,
-            purpose=_CALL_PURPOSE.get(),
         )
     )
-    if attempt is not None and attempt.context is not None and status == "success":
-        attempt.context.selected_attempt_id = attempt.attempt_id
 
 
 def synthesis_thinking_disabled() -> bool:
@@ -986,27 +707,6 @@ def synthesis_thinking_disabled() -> bool:
     if configured is None:
         return os.environ.get("LLM_THINKING", "").lower() != "enabled"
     return configured.lower() == "disabled"
-
-
-# 思考强度直传（2026-09-07）。GLM-5.3 / GLM-5.3-FLASH 强制开启思考：官方 paas 端点对
-# ``thinking.type=disabled`` 报错，Coding Plan 端点静默改成 enabled；推理程度由
-# ``reasoning_effort`` 控制，5.3 系列只认 ``max / high / low``（5.2 的 ``xhigh`` 映射到 ``max``）。
-# 本仓 agent 轮此前硬传 ``disable_thinking=True``（省 token、稳工具调用），切到 5.3 会撞这条。
-# 设了本 env 就压过 disable_thinking：thinking=enabled + reasoning_effort=值；没设则老行为一字不变。
-# 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
-REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
-
-
-def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
-    """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
-
-    effort = str(os.environ.get(REASONING_EFFORT_ENV) or "").strip()
-    if effort:
-        payload["thinking"] = {"type": "enabled"}
-        payload["reasoning_effort"] = effort
-        return
-    if disable_thinking:
-        payload["thinking"] = {"type": "disabled"}
 
 
 def _stable_finish_reason(value: object) -> str | None:
@@ -1044,48 +744,19 @@ def _complete_cli_judge(
     messages: list[dict],
     timeout: float,
 ) -> str:
-    """CLI judge still goes through the turn-level call ledger.
-
-    用量：``complete_grok_cli`` 返回的是 ``GrokCliText``（str 子类，挂着从 CLI
-    payload 解析出的 ``input_tokens/output_tokens``）。拿到就记 ``usage_source=cli``；
-    拿不到（payload 无 usage、或测试替身直接回了裸 str）就按字符估算并**必须**记
-    ``estimated``——两种来源在报表里分开算，永不混成一个数。
-    """
+    """CLI judge still goes through the turn-level call ledger."""
 
     from intelligence.services.grok_cli_judge import complete_grok_cli
 
     _reserve_llm_call()
     started = time.monotonic()
-    attempt = _new_call_attempt(provider, messages)
     try:
         content = complete_grok_cli(provider, messages, timeout)
-        attempt.observe_response({
-            "model": getattr(content, "reported_model", None),
-            "request_id": getattr(content, "request_id", None),
-            "id": getattr(content, "response_id", None),
-        })
-        attempt.observe_result(content)
     except Exception as exc:
-        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc), attempt=attempt)
+        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
-    input_tokens = getattr(content, "input_tokens", None)
-    output_tokens = getattr(content, "output_tokens", None)
-    usage_source = getattr(content, "usage_source", None)
-    if input_tokens is None and output_tokens is None:
-        input_tokens, output_tokens = estimate_token_usage(messages, content)
-        usage_source = USAGE_SOURCE_ESTIMATED
-    _record_llm_call(
-        "chat",
-        provider,
-        "success",
-        started,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        usage_source=usage_source,
-        attempt=attempt,
-    )
-    # 对外仍是纯 str：``complete()`` 的 ``(content, provider, reason)`` 契约不动。
-    return str(content)
+    _record_llm_call("chat", provider, "success", started)
+    return content
 
 
 def _post_chat(
@@ -1093,16 +764,12 @@ def _post_chat(
     messages: list[dict],
     timeout: float,
     temperature: float = 0.2,
-    max_tokens: int | None = None,
 ) -> str:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
-    if max_tokens is not None:
-        payload["max_tokens"] = max_tokens
-    _apply_thinking_controls(
-        payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
-    )
+    if os.environ.get("LLM_THINKING") == "disabled":
+        payload["thinking"] = {"type": "disabled"}
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -1111,33 +778,14 @@ def _post_chat(
         method="POST",
     )
     started = time.monotonic()
-    attempt = _new_call_attempt(provider, messages)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            attempt.observe_response(body, resp)
-        content = body["choices"][0]["message"]["content"]
-        attempt.observe_result(content)
     except Exception as exc:
-        attempt.observe_response(response=exc)
-        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc), attempt=attempt)
+        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc))
         raise
-    # 响应顶层 usage 此前被丢弃——API 判官走的就是这条路，判官侧 token 因此一直
-    # 没有账（BP §7.3 只量到写手侧）。缺 usage 的响应记 None，不抛。
-    input_tokens, output_tokens = token_usage_counts(
-        body.get("usage") if isinstance(body, Mapping) else None
-    )
-    _record_llm_call(
-        "chat",
-        provider,
-        "success",
-        started,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        usage_source=USAGE_SOURCE_API,
-        attempt=attempt,
-    )
-    return content
+    _record_llm_call("chat", provider, "success", started)
+    return body["choices"][0]["message"]["content"]
 
 
 def _post_chat_synthesis(
@@ -1156,7 +804,8 @@ def _post_chat_synthesis(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    if synthesis_thinking_disabled():
+        payload["thinking"] = {"type": "disabled"}
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -1164,22 +813,18 @@ def _post_chat_synthesis(
         method="POST",
     )
     started = time.monotonic()
-    attempt = _new_call_attempt(provider, messages)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            attempt.observe_response(body, resp)
-        choice = body["choices"][0]
-        content = choice["message"]["content"]
-        attempt.observe_result(content)
     except Exception as exc:
-        attempt.observe_response(response=exc)
-        _record_llm_call("synthesis", provider, "failed", started, _failure_reason(exc), attempt=attempt)
+        _record_llm_call("synthesis", provider, "failed", started, _failure_reason(exc))
         raise
+    choice = body["choices"][0]
+    content = choice["message"]["content"]
     if len(content) > max_chars:
-        _record_llm_call("synthesis", provider, "failed", started, "output_too_long", attempt=attempt)
+        _record_llm_call("synthesis", provider, "failed", started, "output_too_long")
         raise LLMOutputTooLong()
-    _record_llm_call("synthesis", provider, "success", started, attempt=attempt)
+    _record_llm_call("synthesis", provider, "success", started)
     return content, _stable_finish_reason(choice.get("finish_reason"))
 
 
@@ -1190,7 +835,6 @@ def complete(
     temperature: float = 0.2,
     *,
     min_viable_seconds: float | None = None,
-    max_tokens: int | None = None,
 ) -> tuple[str | None, "LLMProvider | None", str]:
     """Generic OpenAI-compatible chat call shared across services.
 
@@ -1198,10 +842,6 @@ def complete(
     network error) ``content`` is ``None`` and ``reason`` explains why so callers
     can degrade gracefully — same contract as :func:`refine_or_reason`.
     """
-    context = _CALL_PROVENANCE.get()
-    if context is not None:
-        context.selected_attempt_id = None
-        context.identity_state = IDENTITY_NOT_CALLED
     rejection = _budget_rejection()
     if rejection is not None:
         return None, None, rejection
@@ -1225,10 +865,7 @@ def complete(
             if is_cli_judge_provider(provider):
                 content = _complete_cli_judge(provider, messages, remaining)
             else:
-                if max_tokens is None:
-                    content = _post_chat(provider, messages, remaining, temperature)
-                else:
-                    content = _post_chat(provider, messages, remaining, temperature, max_tokens=max_tokens)
+                content = _post_chat(provider, messages, remaining, temperature)
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
@@ -1328,13 +965,10 @@ def _post_chat_message_stream(
         # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
         "stream_options": {"include_usage": True},
     }
-    _apply_thinking_controls(
-        payload,
-        disable_thinking=(
-            disable_thinking is True
-            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
-        ),
-    )
+    if disable_thinking is True or (
+        disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled"
+    ):
+        payload["thinking"] = {"type": "disabled"}
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -1346,7 +980,6 @@ def _post_chat_message_stream(
         method="POST",
     )
     started = time.monotonic()
-    attempt = _new_call_attempt(provider, messages)
     content_chunks: list[str] = []
     streamed_chars = 0
     calls = _ToolCallAssembler()
@@ -1356,7 +989,6 @@ def _post_chat_message_stream(
     saw_any_chunk = False
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            attempt.observe_response(response=response)
             for raw_line in response:
                 if is_cancelled is not None and is_cancelled():
                     raise LLMStreamCancelled()
@@ -1371,7 +1003,6 @@ def _post_chat_message_stream(
                 except json.JSONDecodeError:
                     continue
                 saw_any_chunk = True
-                attempt.observe_response(event)
                 if not served_model and isinstance(event, dict):
                     served_model = _served_model_from_body(event)
                 event_usage = event.get("usage")
@@ -1398,18 +1029,18 @@ def _post_chat_message_stream(
                     streamed_chars += len(piece)
                     on_content_delta(piece)
     except Exception as exc:
-        attempt.observe_result({"content": "".join(content_chunks), "tool_calls": calls.assembled()})
         _record_llm_call(
-            "chat_tools_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+            "chat_tools_stream", provider, "failed", started, _failure_reason(exc)
         )
         if streamed_chars:
             raise LLMStreamAlreadyEmitted(str(exc)) from exc
         raise
     if not saw_any_chunk:
         _record_llm_call(
-            "chat_tools_stream", provider, "failed", started, "streaming_unsupported", attempt=attempt,
+            "chat_tools_stream", provider, "failed", started, "streaming_unsupported"
         )
         raise LLMStreamingUnsupported()
+    _record_llm_call("chat_tools_stream", provider, "success", started)
     message: dict = {
         "role": "assistant",
         "content": "".join(content_chunks),
@@ -1423,8 +1054,6 @@ def _post_chat_message_stream(
     if usage is not None:
         message["_usage"] = usage
     message["_served_model"] = served_model
-    attempt.observe_result(message)
-    _record_llm_call("chat_tools_stream", provider, "success", started, attempt=attempt)
     return message
 
 
@@ -1444,13 +1073,11 @@ def _post_chat_message(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
-    _apply_thinking_controls(
-        payload,
-        disable_thinking=(
-            disable_thinking is True
-            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
-        ),
-    )
+    if disable_thinking is True or (
+        disable_thinking is None
+        and os.environ.get("LLM_THINKING") == "disabled"
+    ):
+        payload["thinking"] = {"type": "disabled"}
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
@@ -1463,20 +1090,16 @@ def _post_chat_message(
         method="POST",
     )
     started = time.monotonic()
-    attempt = _new_call_attempt(provider, messages)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-            attempt.observe_response(body, resp)
-        message = dict(body["choices"][0]["message"])
-        attempt.observe_result(message)
     except Exception as exc:
-        attempt.observe_response(response=exc)
         _record_llm_call(
-            "chat_tools", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+            "chat_tools", provider, "failed", started, _failure_reason(exc)
         )
         raise
-    _record_llm_call("chat_tools", provider, "success", started, attempt=attempt)
+    _record_llm_call("chat_tools", provider, "success", started)
+    message = dict(body["choices"][0]["message"])
     usage = body.get("usage")
     if isinstance(usage, dict):
         # Usage is adapter metadata only. Preserve counts without returning the
@@ -2161,7 +1784,6 @@ def _post_chat_stream(
 ) -> tuple[str, str | None]:
     _reserve_llm_call()
     started = time.monotonic()
-    attempt = _new_call_attempt(provider, messages)
     try:
         result = _post_chat_stream_raw(
             provider,
@@ -2174,16 +1796,13 @@ def _post_chat_stream(
             deadline,
             max_tokens,
             max_chars,
-            attempt=attempt,
         )
-        attempt.observe_result(result[0])
     except Exception as exc:
-        attempt.observe_response(response=exc)
         _record_llm_call(
-            "synthesis_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+            "synthesis_stream", provider, "failed", started, _failure_reason(exc)
         )
         raise
-    _record_llm_call("synthesis_stream", provider, "success", started, attempt=attempt)
+    _record_llm_call("synthesis_stream", provider, "success", started)
     return result
 
 
@@ -2198,8 +1817,6 @@ def _post_chat_stream_raw(
     deadline: Deadline,
     max_tokens: int,
     max_chars: int,
-    *,
-    attempt: _LLMCallAttempt | None = None,
 ) -> tuple[str, str | None]:
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
@@ -2209,7 +1826,8 @@ def _post_chat_stream_raw(
         "stream": True,
         "max_tokens": max_tokens,
     }
-    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    if synthesis_thinking_disabled():
+        payload["thinking"] = {"type": "disabled"}
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -2220,8 +1838,6 @@ def _post_chat_stream_raw(
     output_chars = 0
     finish_reason: str | None = None
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        if attempt is not None:
-            attempt.observe_response(response=response)
         deadline_timer = threading.Timer(
             max(0.001, deadline.remaining()),
             response.close,
@@ -2246,8 +1862,6 @@ def _post_chat_stream_raw(
                     break
                 try:
                     event = json.loads(data)
-                    if attempt is not None:
-                        attempt.observe_response(event)
                     choice = event["choices"][0]
                     finish_reason = (
                         _stable_finish_reason(choice.get("finish_reason"))
@@ -2268,8 +1882,6 @@ def _post_chat_stream_raw(
             raise
         finally:
             deadline_timer.cancel()
-            if attempt is not None:
-                attempt.observe_result("".join(chunks))
     if not chunks:
         raise LLMStreamingUnsupported()
     return "".join(chunks), finish_reason

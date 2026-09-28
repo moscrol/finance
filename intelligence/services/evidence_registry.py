@@ -38,7 +38,6 @@ REGISTRY: tuple[ProviderSpec, ...] = (
     ProviderSpec("D7", "逐季财报", "东财 F10 / 新浪三表 / AKShare 逐季营收/净利/毛利率 + 现金流/合同负债/存货/股东户数"),
     ProviderSpec("W7", "web 事件检索", "东财资讯 + web 全网近 N 天新闻（只列不编，消息面存在性证据）"),
     ProviderSpec("D17", "隔夜美股映射", "fph2026 隔夜美股主题热度/涨跌 → 对照 A 股板块 → 当日 A 股实际（只列映射事实，不表示必然跟涨）"),
-    ProviderSpec("D18", "涨停封板时间", "逐只首封/末封时点（fact_theme_limit_stock_daily）；open_times 上游恒 NULL，不支持换手充分与否的判定"),
     ProviderSpec("M", "用户记忆检索", "相关性召回的用户既有核心判断/纠偏原则/回检胜率"),
     # 与 M（用户记忆）严格区分：MARKET_DAILY 是同日结构化市场总览。
     ProviderSpec("MARKET_DAILY", "最新市场总览", "fact_market_daily 同日结构化盘面事实"),

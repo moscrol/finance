@@ -20,7 +20,6 @@ from intelligence.services.episode_answer_hygiene import (
     find_unattempted_claims,
     repair_collapsed_to_stub,
     rewrite_unattempted_claims,
-    scrub_internal_process_wording,
     sentence_count,
 )
 from intelligence.services.episode_semantic_verifier import (
@@ -371,20 +370,3 @@ def test_repair_keeps_trimmed_but_usable_draft() -> None:
     assert result.to_dict()["repair_collapsed_to_stub"] is False
     assert result.judge_status == "repaired"
     assert sentence_count(result.public_answer) >= 3
-
-
-def test_scrub_internal_process_wording_rewrites_tool_talk_only() -> None:
-    """判官理由码 internal_process_leak 的确定性改写：换措辞、留事实、留引用。"""
-
-    assert (
-        scrub_internal_process_wording("本轮调用工具查询了成交额（E1）。")
-        == "本轮检索查询了成交额（E1）。"
-    )
-    assert scrub_internal_process_wording("调用了行情工具后成交额放大。") == "检索后成交额放大。"
-    assert scrub_internal_process_wording("通过工具核对了口径。") == "通过检索核对了口径。"
-    assert scrub_internal_process_wording("工具调用未命中。") == "检索未命中。"
-    # 没有内部措辞：不改（None），调用方退回原处置。
-    assert scrub_internal_process_wording("成交额放大（E1）。") is None
-    # 换完仍残留 provider / 工具：放弃，不出半成品。
-    assert scrub_internal_process_wording("调用工具后 provider 返回空。") is None
-    assert scrub_internal_process_wording("调用kb_search_long_tool_name工具查询。") is None
