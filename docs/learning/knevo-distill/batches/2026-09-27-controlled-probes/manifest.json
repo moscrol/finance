@@ -1,0 +1,26 @@
+{
+  "schema": "knevo-pasted-batch/v1",
+  "received_date": "2026-09-27",
+  "prompt_material_date": "2026-09-26",
+  "source": {
+    "archive": "user-paste.txt",
+    "sha256": "9a1424d01febc50818fb20b010c854a503d59373e0ab6fa4c6ed54ba7d857585",
+    "bytes": 35354,
+    "splitlines": 354,
+    "newline_count": 353,
+    "encoding": "UTF-8",
+    "note": "最后一行没有换行符；完整归档保留原始字节。"
+  },
+  "segments": [
+    {"id":"q1-question","kind":"question","lines":[1,21],"byte_start":0,"byte_end":1226,"sha256":"202d421bba2c42d1e4747b183953f106be974b4b20137a93532e8b67985ebe70"},
+    {"id":"q1-ui","kind":"ui_metadata","lines":[22,24],"byte_start":1226,"byte_end":1303,"sha256":"acf6ac607e2ee4a578c960b8eac21ddb0a00ad40255ced24c21fd8e85c76880b"},
+    {"id":"q1-answer","kind":"answer","lines":[25,140],"byte_start":1303,"byte_end":15755,"sha256":"d6f43c059865b4f0c5c55e78b2f305ca539648a9a2327f34466876392778eaf0"},
+    {"id":"q2-question","kind":"question","lines":[141,155],"byte_start":15755,"byte_end":16806,"sha256":"1f5c0905dccf07750345ec623f7a3c71c4580b37d3fbae9af787e89681c90948"},
+    {"id":"q2-ui","kind":"ui_metadata","lines":[156,158],"byte_start":16806,"byte_end":16883,"sha256":"ce4ef972f56d35dce5ba6dc985a0a612e67c28d5eae3c6b8ef5209abf37960ed"},
+    {"id":"q2-answer","kind":"answer","lines":[159,242],"byte_start":16883,"byte_end":24947,"sha256":"a50989dc2995cf45ec9e0233e8903af4836fc02d4453eabb778c21fdc1dea415"},
+    {"id":"q3-question","kind":"question","lines":[243,263],"byte_start":24947,"byte_end":26004,"sha256":"dfabaf077a21ee5ce668fcb634195da8fbf0405c12983ce6bfc8e8d168ecef6b"},
+    {"id":"q3-ui","kind":"ui_metadata","lines":[264,266],"byte_start":26004,"byte_end":26081,"sha256":"3cb2d6b1e5f16c43ba12ae9cafe6f94c07a482c8454c0938640c0c3b306a9688"},
+    {"id":"q3-answer","kind":"answer","lines":[267,354],"byte_start":26081,"byte_end":35354,"sha256":"a6ca51ce5f9a837e82660a66f40cea8a9eaefcc9510b098e9af6c324e33db41b"}
+  ],
+  "ui_metadata_note": "界面文字显示三次“本轮免费”，以及用时 65s、63s、41s；这些只证明粘贴文本中有这些字样，不证明服务端性能或工具轨迹。"
+}
