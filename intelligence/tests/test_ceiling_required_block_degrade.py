@@ -10,6 +10,8 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from intelligence.runtime.conversation_orchestrator import _with_review_appendix
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -93,6 +95,7 @@ def _verify(frame, structural, judge):
     )
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
     """① 块内 N 句、合法删 1 句 → 残块保留 + missing + 质检 + 块级标注。"""
 
@@ -129,6 +132,7 @@ def test_partial_mechanical_delete_keeps_remainder_and_degrades() -> None:
     assert appendix.index("成交额 530.96") < appendix.index("## 输出质检")
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_numeric_unsupported_sentence_is_still_deleted() -> None:
     """② 白名单：numeric_unsupported 句仍被删。"""
 
@@ -146,6 +150,7 @@ def test_numeric_unsupported_sentence_is_still_deleted() -> None:
     assert "【证据边界】" in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_empty_remainder_of_lost_slot_has_no_apology_banner() -> None:
     """③ 残块为空（块仅一句且该句被合法删除）→ 无该块、不挂道歉横幅。"""
 

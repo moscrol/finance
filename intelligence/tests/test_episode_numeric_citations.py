@@ -69,6 +69,7 @@ def test_citation_only_condition_survives_numeric_preflight_and_verifier(citatio
     assert result.verified.outcome.draft == draft
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize(
     "condition",
     [
@@ -118,6 +119,7 @@ def test_unknown_citation_still_rejected_by_ordinal_gate_not_numeric_gate():
     assert "numeric_condition" not in " ".join(result.issues)
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("field", ["title", "detail", "source"])
 @pytest.mark.parametrize("citation", ["E27", "e27", "（E27）"])
 def test_evidence_citation_cannot_authorize_a_real_threshold(field, citation):

@@ -272,6 +272,11 @@ VERDICT_STAGE_CENSUS = "census"
 VERDICT_STAGE_DELIVERY = "delivery"
 VERDICT_KEPT = "kept"
 VERDICT_REASON_OUTSIDE_SLOT = "cited_outside_slot_binding"
+# 2026-09-28（用户选 A）：可证伪条件里无出处的数值不再整句删——句子保留在公开稿，
+# 就地加一句待核说明。记在 delivery 阶段、decision 为新值 marked：它不是拒句，
+# 不进修稿反馈、不把整份回答压成 partial。
+VERDICT_MARKED = "marked"
+NUMERIC_CONDITION_MARK_ENV = "FINANCE_NUMERIC_CONDITION_MARK"
 _CONDITION_TRIGGER_RE = re.compile(
     r"(?:若|如果|失效|降级|跌破|站稳|至少|"
     r"阈值|支撑|才算成立|才成立|"
@@ -1784,7 +1789,8 @@ class SemanticEpisodeVerifier:
                 repair.append(int(index))
         self._judge_round += 1
         reasons_for = _mechanical_reasons_by_index(
-            numeric=_novel_numeric_condition_indexes(sentences, verified),
+            # 标注模式下数值门不删句：判官拒掉的句子理由只能是判官本身。
+            numeric=_numeric_condition_deletion_indexes(sentences, verified),
             weekday=_mismatched_weekday_indexes(sentences, verified),
             path=_mismatched_path_trend_indexes(sentences, verified),
             ordinal=_unresolved_evidence_ordinal_indexes(sentences, verified),
@@ -1845,6 +1851,52 @@ class SemanticEpisodeVerifier:
             ),
             issues=issues,
             judge_status=judge_status,
+        )
+
+    def _mark_numeric_condition_doubts(
+        self,
+        outcome: SemanticEpisodeOutcome,
+    ) -> SemanticEpisodeOutcome:
+        """标注模式的终局处置：无出处数值所在的条件句留在公开稿，就地点名待核。
+
+        只看最终交付的那版草稿（修复轮之后），只改 ``public_answer``；草稿真值句不改。
+        这不是 08-24 撤掉的质检章——那是流水线腔的「存疑 / 降级」前缀；这里是对单个
+        数的出处说明，与 08-17 降桶标注「（待核验：所据证据已被取代或证伪）」同类。
+        公开稿里找不到原句（投影改写过）的不标，句子也不会因此被删；控制面照记 issue。
+        """
+
+        verified = outcome.verified
+        if not numeric_condition_mark_enabled(verified.contract) or not outcome.public_answer:
+            return outcome
+        sentences = _numbered_sentences(verified.outcome.draft)
+        tokens_for = _novel_numeric_condition_tokens(sentences, verified)
+        if not tokens_for:
+            return outcome
+        text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
+        marked = outcome.public_answer
+        applied: list[int] = []
+        for index in sorted(tokens_for):
+            sentence = text_by_index.get(index, "")
+            annotated = _with_numeric_doubt_note(sentence, numeric_doubt_note(tokens_for[index]))
+            if not sentence.strip() or annotated in marked or sentence not in marked:
+                continue
+            marked = marked.replace(sentence, annotated, 1)
+            applied.append(index)
+        issues = tuple(dict.fromkeys((*outcome.issues, _NUMERIC_CONDITION_ISSUE.serialize())))
+        if not applied:
+            return replace(outcome, issues=issues)
+        self._record_sentence_verdicts(
+            stage=VERDICT_STAGE_DELIVERY,
+            indexes=tuple(applied),
+            sentences=sentences,
+            verified=verified,
+            decision_for={index: VERDICT_MARKED for index in applied},
+            reasons_for={index: (VERDICT_REASON_NUMERIC,) for index in applied},
+        )
+        return replace(
+            outcome,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=marked)),
+            issues=issues,
         )
 
     def verify(
@@ -1910,6 +1962,8 @@ class SemanticEpisodeVerifier:
                 )
             elif public != outcome.public_answer:
                 outcome = replace(outcome, public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)))
+        # 标注模式同样在唯一出口做：放行草稿的每条路径（含判官不可用的放稿口）都经过这里。
+        outcome = self._mark_numeric_condition_doubts(outcome)
         # #55：模式与 census 计数在唯一出口盖章——内层十几条提前返回路径不用各写一遍。
         # llm 模式下两个值都是默认值，dataclass 相等性与历史夹具不受影响。
         outcome = replace(
@@ -2193,7 +2247,8 @@ class SemanticEpisodeVerifier:
         preflight_issues: tuple[str, ...] = ()
         marker_loss_outputs: tuple[str, ...] = ()
         preflight_source = structural
-        numeric_rejected = _novel_numeric_condition_indexes(
+        # 标注模式下这里为空：句子留到判官，交付前在 verify() 出口就地标注。
+        numeric_rejected = _numeric_condition_deletion_indexes(
             sentences,
             structural,
         )
@@ -4860,13 +4915,16 @@ def _apply_numeric_condition_gate(
     conditional sentence introduced a numeric threshold that did not occur in
     any evidence bound to the answer.  Dates, list labels, requested baseline
     estimates, and numeric anchors present in bound evidence are unaffected.
+
+    标注模式（默认，见 ``numeric_condition_mark_enabled``）下数值部分为空：这类句子
+    不再在判后被删，交付前由 ``_mark_numeric_condition_doubts`` 就地点名；财务核对照旧。
     """
 
     report = call.report
     if report is None:
         return call
     rejected = set(report.rejected_sentence_indexes)
-    numeric = _novel_numeric_condition_indexes(sentences, verified)
+    numeric = _numeric_condition_deletion_indexes(sentences, verified)
     financial = _financial_claim_mismatch_indexes(sentences, verified)
     rejected.update((*numeric, *financial))
     if rejected == set(report.rejected_sentence_indexes):
@@ -4894,6 +4952,41 @@ def v8_semantic_degrade_enabled() -> bool:
     return raw not in {"0", "false", "off", "no"}
 
 
+def numeric_condition_mark_enabled(contract: object) -> bool:
+    """可证伪条件里无出处的数值：标注而非删句。默认开，env 设 0/off 回滚成整句删。
+
+    #76 L6 三批自然验收各撞出一种新的误判形状（单位换算 / 口径单位 / 行数计数 /
+    型号月份 / 汉字枚举）；全存档普查里生产问答 14% 的稿至少被删一句条件，其中既有
+    模型自拟的阈值，也有有出处却对不上字面的数。逐个补形状是打地鼠，所以终局处置
+    从「删整句」改成「留句 + 点名待核的数」，补证（W5）照旧先去取数。
+
+    复述用户先验的回答不在此列（个人回忆契约，或挂着 user_premise 的 prior_recall
+    槽）：#948 规定借用记忆数字的市场判断、改写原件的复述都要删——把用户自己的
+    记录引错，比留一个自拟阈值更伤，且那里的数不是「没出处」而是「出处不对」。
+    """
+
+    raw = str(os.environ.get(NUMERIC_CONDITION_MARK_ENV, "1")).strip().lower()
+    if raw in {"0", "false", "off", "no"}:
+        return False
+    if is_personal_recall_contract(contract):
+        return False
+    return not any(
+        item.output_id == "prior_recall" and item.grounding_mode == "user_premise"
+        for item in getattr(contract, "required_outputs", None) or ()
+    )
+
+
+def _numeric_condition_deletion_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> tuple[int, ...]:
+    """数值条件里仍按整句删的句号：标注模式下为空，交给交付前的标注。"""
+
+    if numeric_condition_mark_enabled(verified.contract):
+        return ()
+    return _novel_numeric_condition_indexes(sentences, verified)
+
+
 def _unresolved_evidence_ordinal_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
@@ -4919,7 +5012,7 @@ def _mechanical_sentence_indexes(
 ) -> frozenset[int]:
     return frozenset(
         (
-            *_novel_numeric_condition_indexes(sentences, verified),
+            *_numeric_condition_deletion_indexes(sentences, verified),
             *_mismatched_weekday_indexes(sentences, verified),
             *_mismatched_path_trend_indexes(sentences, verified),
             *_unresolved_evidence_ordinal_indexes(sentences, verified),
@@ -5337,6 +5430,19 @@ def _novel_numeric_condition_indexes(
 ) -> tuple[int, ...]:
     """Return conditional sentences containing quantities absent from evidence."""
 
+    return tuple(sorted(_novel_numeric_condition_tokens(sentences, verified)))
+
+
+def _novel_numeric_condition_tokens(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+) -> dict[int, tuple[str, ...]]:
+    """Same detector, keyed by sentence index: the quantities that found no source.
+
+    判据与句号集合和 ``_novel_numeric_condition_indexes`` 逐一相同（那个函数就是
+    本函数的键）；多给的只是「具体哪个数」，供标注模式在公开稿里点名。
+    """
+
     contract = verified.contract
     if contract is not None and contract.required_outputs:
         # 整体豁免问的是「这份契约是不是压根不靠证据」，所以**保留** required
@@ -5349,7 +5455,7 @@ def _novel_numeric_condition_indexes(
             for item in contract.required_outputs
             if item.required
         ):
-            return ()
+            return {}
         # 条件槽粒度豁免：契约把前瞻假设槽（情景/持续/证伪条件）签成
         # model_reasoning 时，条件句里的新阈值是模型受契约委托提出的判断，
         # 不再按「证据里没有的数量」连坐整句。此前门禁只认「全契约非
@@ -5369,17 +5475,17 @@ def _novel_numeric_condition_indexes(
         if condition_items and all(
             item.grounding_mode != "evidence" for item in condition_items
         ):
-            return ()
+            return {}
 
     # Material calculations need not appear verbatim in tool observations.
     # Their inputs/derivation are checked using the same anchors by the judge.
     if contract is not None and grounding_scope(contract) == "material_only":
-        return ()
+        return {}
     historical = historical_claim_texts(contract, verified.outcome.bindings, verified.outcome.draft) if contract else frozenset()
     personal_recall = is_personal_recall_contract(contract)
     memory_restatements = frozenset() if personal_recall else _bound_memory_restatement_indexes(sentences, verified)
     personal_quantities = _bound_personal_recall_quantities(verified) if personal_recall else {}
-    rejected: set[int] = set()
+    unsupported: dict[int, tuple[str, ...]] = {}
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
     condition_section = False
@@ -5406,8 +5512,12 @@ def _novel_numeric_condition_indexes(
                                           for ordinal in (cited or personal_quantities)))
             candidate = _ALNUM_IDENTIFIER_RE.sub(" ", _LEADING_LIST_LABEL_RE.sub("", candidate))
             quantities = (*_ARABIC_QUANTITY_RE.findall(candidate), *_CHINESE_QUANTITY_RE.findall(candidate))
-            if any(_normalize_quantity(quantity) not in allowed for quantity in quantities):
-                rejected.add(index)
+            missing = tuple(
+                quantity.strip() for quantity in quantities
+                if _normalize_quantity(quantity) not in allowed
+            )
+            if missing:
+                unsupported[index] = missing
             continue
         # Heading context stops at the next heading; ordinary facts in another
         # section must not inherit a condition label. Formatting is analysis-only.
@@ -5470,18 +5580,51 @@ def _novel_numeric_condition_indexes(
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),
         )
-        if any(
-            not _quantity_supported_by_evidence(
+        missing = tuple(
+            quantity.strip()
+            for quantity in quantities
+            if _normalize_quantity(quantity)
+            and not _quantity_supported_by_evidence(
                 quantity,
                 evidence_quantities,
                 sentence=text,
                 observation_values=observation_values,
             )
-            for quantity in quantities
-            if _normalize_quantity(quantity)
-        ):
-            rejected.add(index)
-    return tuple(sorted(rejected))
+        )
+        if missing:
+            unsupported[index] = missing
+    return unsupported
+
+
+# 句末标点连同其后的收尾符（加粗 / 引号 / 括号）一起算句尾：说明插在标点之前。
+# 否则「……确定。**」会被标成「……确定。**（待核…）」，分句器把说明切成独立一句。
+_NUMERIC_DOUBT_TAIL_RE = re.compile(
+    r"[。；;！？!?，,：:]+(?:\*\*|__|[」』”’\"'）)\]】])*\s*$"
+)
+
+
+def numeric_doubt_note(tokens: tuple[str, ...]) -> str:
+    """公开稿里的待核说明：点名没找到出处的数，不带质检腔。"""
+
+    shown = "、".join(f"「{token}」" for token in dict.fromkeys(t for t in tokens if t))
+    return f"（待核：{shown}未在证据中找到出处）"
+
+
+def _with_numeric_doubt_note(sentence: str, note: str) -> str:
+    """把说明放进这一句内部，不让它漂到相邻句。
+
+    交付后的复检（``_recheck_research_delivery``）会对公开稿重新分句；说明若挂在
+    句号之后，可能被切进下一句，带着这句的数去惊动别句的检查。表格行放进最后一格。
+    """
+
+    body = sentence.rstrip()
+    rest = sentence[len(body):]
+    if len(body) > 1 and body.startswith("|") and body.endswith("|"):
+        return f"{body[:-1].rstrip()}{note} |{rest}"
+    tail = _NUMERIC_DOUBT_TAIL_RE.search(body)
+    if tail is not None:
+        return f"{body[:tail.start()]}{note}{body[tail.start():]}{rest}"
+    return f"{body}{note}{rest}"
 
 
 def draft_sentence_count(draft: str) -> int:
