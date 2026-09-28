@@ -12,3 +12,9 @@
 合入步骤：main 仍为 `72be60059` 时，推 `4c730a8ba` 到 `chore/handoff-budget-gate`，`merge --expect-head 4c730a8ba --expect-base 72be60059`；若 main 再动且非文档漂移 > 0，再前向一次并复跑四叶（约 30 分钟）后才合。
 
 环境事件：02:2x 磁盘回收清掉了各 worktree 的 `intelligence/webapp/node_modules`、`~/Library/Caches/ms-playwright` 与被跟踪的 `.code-review-graph/{.gitignore,wiki-steering.json}`，首轮前端叶 4 秒内全部 `ELIFECYCLE`（无结论，非红）；重装 / 还原后复跑取数，上表为复跑读数。
+
+## 2026-09-23 续检：main@`5f35da1723f7`
+
+当前主干上的临时合流提交为 `5305d5d9dbad80478f589a62a6700fc97aca6848`，工作树干净。`.venv-workbench` 上 ruff、路径字面量、registry 均通过，目标测试 **8 passed in 4.76s**，收据 `~/.finance-runtime/test-receipts/20260923T051319Z-5305d5d9-d3d9f3919604.json`。
+
+全量命令仍为 `bash scripts/run_main_gate.sh --pytest-args "-q -p no:cacheprovider --ignore=scripts/archive"`；本轮尚未在该最新候选启动全量 Python，等待并发全量任务结束后执行。前端 lint/typecheck/Vitest **120P**/build 0，E2E **34P/2S**（使用 `.venv-workbench`）。旧 `4c730a8ba` 的全量收据因当前 main 漂移不再适用；不得把历史 14336P 迁移到本轮。
