@@ -102,7 +102,38 @@ def test_same_unsupported_condition_is_marked_across_layouts(monkeypatch, mode, 
             assert line.endswith("|"), line
 
 
-def test_recall_answers_keep_deletion_while_market_answers_are_marked(monkeypatch):
+_PRIOR_SLOT = RequiredOutput(
+    "prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise",
+)
+
+
+def _memory(detail: str, *, tier: str = "user_memory", title: str = "用户历史判断") -> AgentEvidence:
+    item = AgentEvidence(
+        tool="memory_lookup", title=title, source="用户记忆，非市场事实",
+        detail=detail, evidence_tier=tier, source_date="2026-07-21", io_effect="local_read",
+    )
+    return replace(item, content_hash=evidence_content_hash(item))
+
+
+def _with_prior(verified, memory: AgentEvidence | None, *, bound: bool, gap: str = ""):
+    """给回答挂上可选先验槽；memory 为 None 时只有槽（与装配层给研究题挂的一样）。"""
+
+    contract = replace(
+        verified.contract, allowed_capabilities=("market_data", "memory_lookup"),
+        required_outputs=(*verified.contract.required_outputs, _PRIOR_SLOT),
+    )
+    evidence = verified.outcome.evidence if memory is None else (*verified.outcome.evidence, memory)
+    binding = OutputEvidenceBinding(
+        "prior_recall", (memory.content_hash,) if bound and memory is not None else (),
+        basis="user_premise", gap=gap,
+    )
+    outcome = replace(
+        verified.outcome, evidence=evidence, bindings=(*verified.outcome.bindings, binding),
+    )
+    return verify_episode_outcome(contract, outcome)
+
+
+def test_bound_recall_answers_keep_deletion_while_market_answers_are_marked(monkeypatch):
     """#948：复述用户先验的回答里，借用记忆数字的市场判断照删——那里的数不是没出处，
     而是出处不对。同一句话在纯市场回答里只标注。"""
 
@@ -113,16 +144,66 @@ def test_recall_answers_keep_deletion_while_market_answers_are_marked(monkeypatc
     assert condition not in marked.public_answer
     assert "若指数跌破3870点则行情失效（待核：「3870点」未在证据中找到出处）。" in marked.public_answer
 
-    recall_contract = replace(market.contract, required_outputs=(
-        *market.contract.required_outputs,
-        RequiredOutput("prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise"),
-    ))
-    recall = _verify(frame, replace(market, contract=recall_contract))
+    recall = _verify(frame, _with_prior(market, _memory("若指数跌破3870点则暂缓追涨。"), bound=True))
     assert "3870" not in recall.public_answer and "（待核：" not in recall.public_answer
     assert any(
         row["decision"] == "deleted" and VERDICT_REASON_NUMERIC in row["reasons"]
         for row in recall.sentence_verdicts
     )
+
+
+@pytest.mark.parametrize("judge_mode", ["off", "llm"])
+def test_advisory_prior_slot_with_empty_memory_is_still_marked(monkeypatch, judge_mode):
+    """2026-09-29 #76 L6 批 4 U1 / 切后 8792 探针的形状：装配层给研究题挂了可选先验槽，
+    记忆无命中（缺口条目 + 缺口绑定）。这不是复述先验的回答，无出处的数照常标注。
+    此前按「契约挂了槽」划界，这类回答整份退回删除模式，U1 里有出处的条件因此被删。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    frame, market = _structural(DRAFT, detail=DETAIL)
+    gap = _memory("status=empty 用户记忆无相关命中；不得编造用户此前的看法。", tier="user_memory_gap", title="用户记忆缺口")
+    only_slot = _verify(frame, _with_prior(market, None, bound=False))
+    empty = _verify(frame, _with_prior(market, gap, bound=False, gap="用户记忆无相关命中"))
+
+    for result in (only_slot, empty):
+        assert f"若成交额跌破1800亿则量能失效{NOTE}。" in result.public_answer
+        assert [row["sentence"] for row in _marked(result)] == [UNSUPPORTED]
+        assert not any(row["decision"] == "deleted" for row in result.sentence_verdicts)
+
+
+@pytest.mark.parametrize("judge_mode", ["off", "llm"])
+def test_unbound_memory_numbers_and_citations_are_deleted_sentence_by_sentence(monkeypatch, judge_mode):
+    """记忆命中了但没绑进先验槽：整份回答照常标注，只有倚靠记忆的条件句照删——
+    借了记忆里的数（3,870.50 与 3870.5 是同一个数），或引着记忆证据的编号改写原话。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    borrowed = "若指数跌破3870.5点则行情失效。"
+    rewritten = "原文：若指数跌破5000点则暂缓追涨（E2）。"
+    frame, market = _structural(f"{SAFE}\n{borrowed}\n{rewritten}\n{UNSUPPORTED}", detail=DETAIL)
+    result = _verify(frame, _with_prior(market, _memory("若指数跌破 3,870.50 点，则暂缓追涨。"), bound=False))
+
+    assert "3870" not in result.public_answer and "5000" not in result.public_answer
+    assert f"若成交额跌破1800亿则量能失效{NOTE}。" in result.public_answer
+    assert SAFE in result.public_answer
+    deleted = {row["sentence"] for row in result.sentence_verdicts if row["decision"] == "deleted"}
+    assert {borrowed, rewritten} <= deleted
+    assert [row["sentence"] for row in _marked(result)] == [UNSUPPORTED]
+
+
+def test_recall_status_notice_numbers_are_not_user_numbers(monkeypatch):
+    """召回状态通知里的条数、字符预算是系统的数，不是用户的：与之撞数的条件照常标注。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+    condition = "若连续3日成交额跌破1800亿则量能失效。"
+    notice = _memory(
+        "status=bounded 用户记忆按每类3条与1800字符预算展示；3条正文已截断，1800条记录已省略；"
+        "完整内容保留在原台账；仅作先验，非市场事实。",
+        tier="user_memory_gap", title="用户记忆缺口",
+    )
+    frame, market = _structural(SAFE + "\n" + condition, detail=DETAIL)
+    result = _verify(frame, _with_prior(market, notice, bound=False, gap="用户记忆按预算展示"))
+
+    assert "1800" in result.public_answer and "（待核：" in result.public_answer
+    assert not any(row["decision"] == "deleted" for row in result.sentence_verdicts)
 
 
 @pytest.mark.parametrize("judge_mode", ["off", "llm"])

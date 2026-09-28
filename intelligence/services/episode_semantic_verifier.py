@@ -1866,7 +1866,7 @@ class SemanticEpisodeVerifier:
         """
 
         verified = outcome.verified
-        if not numeric_condition_mark_enabled(verified.contract) or not outcome.public_answer:
+        if not numeric_condition_mark_enabled(verified) or not outcome.public_answer:
             return outcome
         sentences = _numbered_sentences(verified.outcome.draft)
         tokens_for = _novel_numeric_condition_tokens(sentences, verified)
@@ -4952,7 +4952,7 @@ def v8_semantic_degrade_enabled() -> bool:
     return raw not in {"0", "false", "off", "no"}
 
 
-def numeric_condition_mark_enabled(contract: object) -> bool:
+def numeric_condition_mark_enabled(verified: object) -> bool:
     """可证伪条件里无出处的数值：标注而非删句。默认开，env 设 0/off 回滚成整句删。
 
     #76 L6 三批自然验收各撞出一种新的误判形状（单位换算 / 口径单位 / 行数计数 /
@@ -4960,30 +4960,87 @@ def numeric_condition_mark_enabled(contract: object) -> bool:
     模型自拟的阈值，也有有出处却对不上字面的数。逐个补形状是打地鼠，所以终局处置
     从「删整句」改成「留句 + 点名待核的数」，补证（W5）照旧先去取数。
 
-    复述用户先验的回答不在此列（个人回忆契约，或挂着 user_premise 的 prior_recall
-    槽）：#948 规定借用记忆数字的市场判断、改写原件的复述都要删——把用户自己的
-    记录引错，比留一个自拟阈值更伤，且那里的数不是「没出处」而是「出处不对」。
+    复述用户先验的回答不在此列：个人回忆契约，或 prior_recall 槽真绑上了用户先验
+    （非缺口、带证据）。#948 规定借用记忆数字的市场判断、改写原件的复述都要删——把
+    用户自己的记录引错，比留一个自拟阈值更伤，且那里的数不是「没出处」而是「出处不对」。
+
+    只挂着可选先验槽、记忆却无命中的回答照常标注：装配层给有主体的研究题（个股深挖、
+    带公司的题材跟踪）都挂这一格，按「契约挂了槽」划界，标注模式在这些题上整体失效
+    （2026-09-29 #76 L6 批 4 的 U1 与切后 8792 探针实测，两份都是记忆缺口）。这类回答
+    里借了记忆数字、或引着记忆证据编号的条件句仍逐句照删，见
+    ``_memory_leaning_condition_indexes``。
     """
 
     raw = str(os.environ.get(NUMERIC_CONDITION_MARK_ENV, "1")).strip().lower()
     if raw in {"0", "false", "off", "no"}:
         return False
-    if is_personal_recall_contract(contract):
+    if is_personal_recall_contract(getattr(verified, "contract", None)):
         return False
     return not any(
-        item.output_id == "prior_recall" and item.grounding_mode == "user_premise"
-        for item in getattr(contract, "required_outputs", None) or ()
+        binding.output_id == "prior_recall" and binding.basis == "user_premise"
+        and not binding.gap and binding.evidence_hashes
+        for binding in getattr(getattr(verified, "outcome", None), "bindings", None) or ()
     )
+
+
+def _numeric_cores(text: str) -> frozenset[str]:
+    """数量里的裸数，按数值归一（3,870.50 与 3870.5 同一个数），不看单位。"""
+
+    return frozenset(
+        format(Decimal(number).normalize(), "f")
+        for number in re.findall(r"\d+(?:\.\d+)?", _normalize_quantity(text))
+    )
+
+
+def _memory_leaning_condition_indexes(
+    sentences: list[dict[str, object]],
+    verified: VerifiedEpisodeOutcome,
+    tokens_for: dict[int, tuple[str, ...]],
+) -> tuple[int, ...]:
+    """标注模式下仍整句删的数值条件：无出处的数借自用户记忆，或句子引用了记忆证据。
+
+    没绑上先验的回答照常标注，但记忆材料照样可能在证据里（命中未绑、合成缺口条目
+    也带数）。把记忆里的数当市场阈值、或引着记忆编号改写原话，出处不是「没有」而是
+    「不对」——#948 的删除语义按句保留，不因整份回答没绑先验就降成标注。
+    召回状态通知（``status=`` 开头的缺口条目）里的条数、字符预算不是用户的数，不参与比对。
+    """
+
+    memory = tuple(
+        item for item in verified.outcome.evidence if not _can_support_market_quantity(item)
+    )
+    if not memory or not tokens_for:
+        return ()
+    ordinals = evidence_ordinal_table(verified.outcome.evidence)
+    memory_ordinals = {
+        ordinals[item.content_hash] for item in memory if item.content_hash in ordinals
+    }
+    memory_numbers: set[str] = set()
+    for item in memory:
+        if item.evidence_tier == "user_memory_gap" and str(item.detail or "").startswith("status="):
+            continue
+        text = _ALNUM_IDENTIFIER_RE.sub(
+            " ", _QUARTER_TOKEN_RE.sub("", _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(str(item.detail or "")))),
+        )
+        for quantity in (*_ARABIC_QUANTITY_RE.findall(text), *(f"{obs.value:g}" for obs in item.observations)):
+            memory_numbers |= _numeric_cores(quantity)
+    text_by_index = {int(item["index"]): str(item["text"]) for item in sentences}
+    return tuple(sorted(
+        index for index, tokens in tokens_for.items()
+        if set(cited_evidence_ordinals(text_by_index.get(index, ""))) & memory_ordinals
+        or any(_numeric_cores(token) & memory_numbers for token in tokens)
+    ))
 
 
 def _numeric_condition_deletion_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
 ) -> tuple[int, ...]:
-    """数值条件里仍按整句删的句号：标注模式下为空，交给交付前的标注。"""
+    """数值条件里仍按整句删的句号：标注模式下只剩倚靠用户记忆的那几句，其余交给交付前的标注。"""
 
-    if numeric_condition_mark_enabled(verified.contract):
-        return ()
+    if numeric_condition_mark_enabled(verified):
+        return _memory_leaning_condition_indexes(
+            sentences, verified, _novel_numeric_condition_tokens(sentences, verified),
+        )
     return _novel_numeric_condition_indexes(sentences, verified)
 
 
