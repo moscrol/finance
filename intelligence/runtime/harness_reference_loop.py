@@ -551,7 +551,7 @@ class HarnessReferenceLoop:
             content=harness.repair_goal_message(
                 downgrade.goal,
                 tools_open=tools_open,
-                finish_format=claim_finish_format(downgrade.contract),
+                finish_format=claim_finish_format(downgrade.contract, prior_evidence=context.prior_evidence),
             ),
             source="repair_goal",
         )

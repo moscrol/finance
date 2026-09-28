@@ -358,8 +358,10 @@ def _static_contract_text() -> str:
 # 同日 live 发现模型留空 draft 却漏模式字段：显式条件化终局示例，材料轮使用
 # 宿主按冻结合同构造的 wire_template；不代填返回值、不放宽来源或 basis 校验。
 # 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
+# 2026-09-28: material-only authors use a compact versioned envelope; runtime
+# restores contract-owned representation fields before unchanged validation.
 _CONTRACT_FINGERPRINT = (
-    "4c907c696b68bc9cd2ec81a42158b832db89cc0f60c314e8395c06003b2e9e97"
+    "6fb986a32565cf8c5ee8d5ffb0dbc49a79be897bdf0fd3393773a9229c23368d"
 )
 
 

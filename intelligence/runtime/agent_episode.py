@@ -2680,7 +2680,7 @@ class ContinuousAgentEpisode:
             content=self._harness.repair_goal_message(
                 prompt_goal,
                 tools_open=research_tools_open,
-                finish_format=claim_finish_format(downgraded_contract),
+                finish_format=claim_finish_format(downgraded_contract, prior_evidence=context.prior_evidence),
             ),
             source="repair_goal",
         )

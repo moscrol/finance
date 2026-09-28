@@ -21,7 +21,7 @@ def claim_finish(context):
     return payload
 
 
-def test_writer_receives_parseable_claim_template_with_exact_frozen_basis():
+def test_writer_receives_parseable_claim_template_compiled_to_exact_frozen_basis():
     frame, context = setup()
     registry = ResearchToolRegistry(())
     prompt = json.loads(build_episode_input(frame, context, registry))
@@ -29,14 +29,18 @@ def test_writer_receives_parseable_claim_template_with_exact_frozen_basis():
     assert "所有claims.text合计" in format_rule and "1000" in format_rule
     assert "不能省略子问、计算步骤或本句输入锚点" in format_rule
     template = json.loads(prompt["material_grounding"]["finish_format"]["wire_template"])
-    assert template["draft"] == "" and template["render_from_claims"] is True
-    assert {b["output_id"]: b["basis"] for b in template["bindings"]} == {
+    assert template["format"] == "material_claims_v1" and "bindings" not in template
+    claims = {b["output_id"]: b["claims"] for b in claim_finish(context)["bindings"]}
+    for answer in template["answers"]:
+        answer["claims"] = [{"text": claim["text"], "kind": claim["kind"],
+                             "sources": [{"ref": "M1", "quote": anchor["quote"]}
+                                         for anchor in claim.get("material_anchors", [])]}
+                            for claim in claims[answer["output_id"]]]
+    parsed = validate_episode_finish(template, context=context, evidence=())
+    assert parsed.draft
+    assert {b.output_id: b.basis for b in parsed.bindings} == {
         spec.output_id: spec.grounding_mode for spec in context.contract.required_outputs if spec.required
     }
-    claims = {b["output_id"]: b["claims"] for b in claim_finish(context)["bindings"]}
-    for binding in template["bindings"]:
-        binding["claims"] = claims[binding["output_id"]]
-    assert validate_episode_finish(template, context=context, evidence=()).draft
     assert "wire_template" in build_episode_instructions(frame, context, registry)
 
 

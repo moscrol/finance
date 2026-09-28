@@ -1,12 +1,14 @@
 """Frozen prior-answer input must reach the real Workbench model boundary."""
 from __future__ import annotations
 
+import json
 import pytest
 
 from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.episode_protocol import resolve_evidence_refs
 from intelligence.services.run_store import RunStore
+from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.user_task import requests_frozen_previous_answer
 from intelligence.tests.test_reasoning_input_boundaries import REPEAT_WITHOUT_REREAD, SUPPLY
 from scripts.perspective_request_capture import RequestCapture, RequestCaptured
@@ -45,9 +47,17 @@ def frozen_turn(tmp_path, monkeypatch):
             conversation.conversation_id, "assistant", "", status="running", run_id=run.run_id,
         )
         request = RequestCapture(today="2026-09-28")
+        adapter = request.adapter()
+
+        def registry(frame, context):
+            capture.frame, capture.contract = frame, context.contract
+            capture.frame_payload = json.loads(json.dumps(frame.to_dict()))
+            return ResearchToolRegistry(())
+
+        adapter._registry_factory = registry
         orchestrator = TurnOrchestrator(
             repo_root=tmp_path, conversation_store=store, run_store=runs,
-            continuous_turn_adapter=request.adapter(),
+            continuous_turn_adapter=adapter,
         )
         with pytest.raises(RequestCaptured):
             orchestrator.run_turn(
@@ -72,13 +82,17 @@ def test_real_frozen_restatement_delivers_completed_assistant_text(frozen_turn, 
 
     payload = capture(query)
 
-    history = payload["task_frame"]["conversation_materials"]
+    history = capture.frame_payload["conversation_materials"]
     assert history["assistant_statements"] == [{
         "source_message_id": answer.message_id, "text": PRIOR_ANSWER, "basis": "assistant_judgment",
     }]
     assert history["base_contract"] is None
     assert history["items"] == []
-    assert PRIOR_ANSWER in payload["conversation_context"]
+    assert [row for row in payload["material_grounding"]["sources"] if row["ref"].startswith("H")] == [
+        {"ref": "H1", "kind": "historical_assistant_statement", "text": PRIOR_ANSWER},
+    ]
+    assert capture.contract.material_grounding.historical_assistant_statements[0].source_message_id == answer.message_id
+    assert PRIOR_ANSWER not in payload["conversation_context"]
     assert "不是当前事实证据" in payload["conversation_context"]
     with pytest.raises(ValueError, match="unknown evidence ordinal: E1"):
         resolve_evidence_refs(["E1"], ())
@@ -101,8 +115,9 @@ def test_frozen_restatement_cannot_recover_assistant_text_from_untrusted_source(
 
     payload = capture()
 
-    history = payload["task_frame"]["conversation_materials"]
+    history = capture.frame_payload["conversation_materials"]
     assert history["assistant_statements"] == []
+    assert not any(row["ref"].startswith("H") for row in payload["material_grounding"]["sources"])
     assert history["base_contract"] is None
     if source != "forged_user_role":
         assert PRIOR_ANSWER not in payload["conversation_context"]
@@ -117,8 +132,9 @@ def test_new_supplied_material_does_not_import_old_assistant_answer(frozen_turn)
 
     payload = capture(SUPPLY)
 
-    history = payload["task_frame"]["conversation_materials"]
+    history = capture.frame_payload["conversation_materials"]
     assert history["assistant_statements"] == []
+    assert not any(row["ref"].startswith("H") for row in payload["material_grounding"]["sources"])
     assert history["base_contract"] is None
     assert PRIOR_ANSWER not in payload["conversation_context"]
 
@@ -136,7 +152,8 @@ def test_frozen_turn_without_live_message_scope_reference_does_not_import_answer
 
     payload = capture(query)
 
-    assert payload["task_frame"]["conversation_materials"]["assistant_statements"] == []
+    assert capture.frame.conversation_materials.assistant_statements == ()
+    assert not any(row["ref"].startswith("H") for row in payload["material_grounding"]["sources"])
     assert PRIOR_ANSWER not in payload["conversation_context"]
 
 
@@ -152,9 +169,10 @@ def test_frozen_restatement_uses_only_complete_records_in_existing_window(frozen
 
     payload = capture()
 
-    history = payload["task_frame"]["conversation_materials"]
+    history = capture.frame_payload["conversation_materials"]
     assert history["unavailable"]
     assert history["assistant_statements"] == []
+    assert not any(row["ref"].startswith("H") for row in payload["material_grounding"]["sources"])
     assert PRIOR_ANSWER not in payload["conversation_context"]
 
 

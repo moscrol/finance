@@ -25,16 +25,22 @@ from intelligence.services.material_grounding import (
     ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
     material_private_tokens, render_material_claims,
 )
+from intelligence.services.material_answer_authoring import (
+    MaterialAuthoringError, compile_material_author_finish,
+    material_author_model_view, material_author_schema,
+)
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
+    ResearchTaskContract,
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.prior_evidence import PriorTurnEvidence
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
@@ -78,9 +84,14 @@ class EpisodeFinish:
     caveat_slips: int = 0
 
 
-def finish_json_schema() -> dict[str, object]:
+def finish_json_schema(
+    contract: ResearchTaskContract | None = None, *, prior_evidence: PriorTurnEvidence | None = None,
+) -> dict[str, object]:
     """Return the closed provider-facing schema for a terminal episode."""
 
+    author_schema = material_author_schema(contract, prior_evidence=prior_evidence)
+    if author_schema is not None:
+        return author_schema
     return {
         "type": "object",
         "additionalProperties": False,
@@ -407,8 +418,9 @@ def build_episode_instructions(
         "\n"
         "【终局 JSON】\n"
         "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
-        "保留顶层 render_from_claims=true 和 draft=空字符串，正文只写 binding.claims。"
-        "basis 逐项原样保留，不能把所有输出改成 user_premise。未提供 finish_format 时使用下面的旧格式。\n"
+        "若其format=material_claims_v1，正文只写answers中的逐句claims及sources，"
+        "不提交draft、bindings、basis或evidence_hashes；运行时从冻结合同编译。"
+        "未提供 finish_format 时使用下面的旧格式。\n"
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'
@@ -497,7 +509,7 @@ def build_episode_input(
 
     if material_question_outputs(context.contract):
         payload["material_delivery"] = material_delivery_payload(context.contract)
-    grounding = material_grounding_payload(context.contract)
+    grounding = material_grounding_payload(context.contract, prior_evidence=context.prior_evidence)
     if grounding is not None:
         payload["material_grounding"] = grounding
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
@@ -543,7 +555,9 @@ def build_episode_input(
             "只有用户所需且尚无证据支持的内容才声明缺口，无关阶段未执行不算缺口。"
             "阶段表本身不是证据，也不改变 research_contract 的证据边界或工具权限"
         )
-    return json.dumps(payload, ensure_ascii=False)
+    return json.dumps(material_author_model_view(
+        payload, context.contract, task_frame, prior_evidence=context.prior_evidence,
+    ), ensure_ascii=False)
 
 
 def split_episode_prompt(
@@ -939,7 +953,11 @@ def validate_episode_finish(
     evidence_hashes = set(evidence_by_hash)
     decoded = _finish_object(value)
     if decoded is None:
-        raise _reject("not_json_object", "finish must be one JSON object")
+        raise _reject("not_json_object", "finish must be one JSON object" + _json_failure_position(value))
+    try:
+        decoded = compile_material_author_finish(decoded, context.contract)
+    except MaterialAuthoringError as exc:
+        raise _reject(exc.code, str(exc)) from exc
     status = decoded.get("status")
     if status not in _FINISH_STATUSES:
         raise _reject("bad_status", "finish status must be completed or partial")
@@ -1353,6 +1371,21 @@ def _finish_object(value: object) -> dict[str, object] | None:
     ):
         return None
     return dict(value)
+
+
+def _json_failure_position(value: object) -> str:
+    """Report decoder coordinates only; never repair or echo rejected source text."""
+    if not isinstance(value, str):
+        return ""
+    candidate = value.strip()
+    fence = _FINAL_JSON_BLOCK_RE.fullmatch(candidate)
+    if fence is not None:
+        candidate = fence.group(1)
+    try:
+        json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        return f"; JSONDecodeError: {exc.msg} (line {exc.lineno} column {exc.colno} char {exc.pos})"
+    return ""
 
 
 def parse_finish_json(content: str) -> dict[str, object] | None:

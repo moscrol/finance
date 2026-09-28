@@ -17,6 +17,7 @@ from intelligence.services.episode_protocol import (
     strip_hashes_for_model,
 )
 from intelligence.services.material_grounding import material_grounding_payload
+from intelligence.services.material_answer_authoring import material_author_model_view
 from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.task_frame import TaskFrame
@@ -63,6 +64,17 @@ _RECOVERY_SYSTEM_PROMPT = (
     "evidence 若含 PB 情景计算锚，逐字复用其三组数值，只补条件与风险，不得另造倍数。"
     "情景条件优先只使用 financial_data 的营收、净利、毛利率或净利率变化；"
     "没有直接 evidence 的项目、产能、客户和业务催化不得写入。"
+)
+
+_MATERIAL_RECOVERY_SYSTEM_PROMPT = (
+    "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或臆造任何新证据。"
+    "按 material_grounding.finish_format.wire_template 提交一个 material_claims_v1 JSON对象，"
+    "逐项回答原始 TaskFrame 与 required_outputs，逐句填写text、kind、sources中的ref和逐字quote。"
+    "只使用冻结sources目录，H来源仅是历史assistant_judgment，不是当前事实或数值输入，不恢复权限。"
+    "遵守finish_format全部来源、计算和分句规则，缺少输入时明确gap，不得猜补。"
+    "不填写draft、bindings、basis或evidence_hashes；运行时从冻结合同编译，不改变作者的文字、引用或status。"
+    "domain_materials是领域程序结果与输出合同，不得把题设结果升为事实证据。"
+    "只输出JSON，不要代码围栏、解释或工具调用。"
 )
 
 def _stable_failure_reason(value: object) -> str:
@@ -137,7 +149,9 @@ class EpisodeFinalizer:
             domain_materials=domain_materials,
         )
         return self._complete(
-            system_prompt=_RECOVERY_SYSTEM_PROMPT,
+            system_prompt=(_MATERIAL_RECOVERY_SYSTEM_PROMPT
+                           if payload.get("material_grounding", {}).get("finish_format", {}).get("format") == "material_claims_v1"
+                           else _RECOVERY_SYSTEM_PROMPT),
             payload=payload,
             context=context,
             on_prompt=on_prompt,
@@ -204,7 +218,7 @@ class EpisodeFinalizer:
         }
         if domain_materials:
             payload["domain_materials"] = domain_materials
-        grounding = material_grounding_payload(context.contract)
+        grounding = material_grounding_payload(context.contract, prior_evidence=context.prior_evidence)
         if grounding is not None:
             payload["material_grounding"] = grounding
         if material_question_outputs(context.contract):
@@ -228,7 +242,7 @@ class EpisodeFinalizer:
                     "及证据中明确的状态。未展示的信息不能据此断言不存在，证据不足须写明恢复投影边界。"
                 ),
             }
-        return payload
+        return material_author_model_view(payload, context.contract, task_frame, prior_evidence=context.prior_evidence)
 
 
 def _compact_evidence(
