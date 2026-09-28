@@ -74,6 +74,7 @@ def test_conditional_baseline_reaches_both_generation_engines(monkeypatch, tmp_p
     frame = _frame()
     payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
     assert payload["reading_baseline"] == reading_baseline.baseline_guidance()
+    assert "[FA-01]" in payload["reading_baseline"]
     assert "强制方法约束，适用于全部证据块" not in payload["reading_baseline_rule"]
     messages = _ask_messages(monkeypatch, tmp_path, "financial_analysis", "为什么利润改善？")
     assert reading_baseline.baseline_guidance() in "\n".join(m["content"] for m in messages)

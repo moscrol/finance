@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -83,6 +84,43 @@ def test_q14_typed_controller_delivers_news_guidance_without_permissions(monkeyp
     assert "消息逐项拆为事实、解读与情绪表达" in payload["question_type_rules"]
     assert "量化情绪溢价" in payload["question_type_rules"]
     assert understand_query(case.question).question_type == frame.question_type
+
+
+def test_finance_material_method_reaches_episode_author_without_changing_contract(monkeypatch):
+    case = next(case for case in CASES if case.case_id == "K260917-pack2")
+    frame = decide_turn(case.question, conversation_materials=ConversationMaterials()).task_frame
+    assert frame.question_type == "general_finance_qa"
+    context = build_episode_context(frame, task_id="finance-method")
+    registry = ResearchToolRegistry(())
+    on = json.loads(build_episode_input(frame, context, registry))
+
+    assert "[FA-01]" in on["reading_baseline"]
+    assert "现金资本开支影响投资后现金" in on["reading_baseline"]
+    assert "融资需要还取决于其他现金收付" in on["reading_baseline"]
+    assert on["research_contract"]["allowed_capabilities"] == []
+    assert on["research_contract"]["evidence_plan"]["requirements"] == []
+    assert on["available_tools"] == ""
+    assert [item["output_id"] for item in on["research_contract"]["required_outputs"]] == [
+        *(f"answer_q{i}" for i in range(1, 9)), "evidence_boundary",
+    ]
+
+    monkeypatch.setenv("FINANCE_READING_BASELINE", "0")
+    off = json.loads(build_episode_input(frame, context, registry))
+    assert "reading_baseline" not in off
+    assert "reading_baseline_rule" not in off
+    assert on["research_contract"] == off["research_contract"]
+    assert on["available_tools"] == off["available_tools"]
+    monkeypatch.delenv("FINANCE_READING_BASELINE")
+
+    market = json.loads(build_episode_input(replace(frame, question_type="market_watch"), context, registry))
+    assert "reading_baseline" not in market
+    assert "reading_baseline_rule" not in market
+
+    ordinary = decide_turn("请计算今天上证指数收盘点位。", conversation_materials=ConversationMaterials()).task_frame
+    ordinary_context = build_episode_context(ordinary, task_id="ordinary-fact")
+    ordinary_payload = json.loads(build_episode_input(ordinary, ordinary_context, registry))
+    assert "FA-01" not in json.dumps(ordinary_payload["research_contract"], ensure_ascii=False)
+    assert "FA-01" not in ordinary_payload["available_tools"]
 
 
 @pytest.mark.parametrize("question", [
