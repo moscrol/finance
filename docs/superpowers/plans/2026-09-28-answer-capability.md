@@ -65,6 +65,8 @@ Files: existing tests/conformance and eval/probe machinery; docs/agent-product-d
 - [x] 用 `scripts/launch_workbench_sidecar.sh` 建候选与基线隔离服务，同一生产模型配置、独立用户和Episode目录。先health核身份，再按真实conversations入口发题。
 - [x] 对照覆盖查数、材料推理/财务传导、比较、消息影响、历史追问、失败恢复；按现有rubric核事实/任务覆盖/推理/耗时，不数标题判优。
 - [x] 对求证指导/自主视角仅做受控实验，有重复收益才扩大；失败原样留证，停止本次启动的sidecar。
-- [ ] 更新产品门、能力图谱指针及handoff；pathspec提交、推送并建立PR。记录未验边界与合并/上线待办。
+- [x] 更新产品门、能力图谱指针及handoff；pathspec提交、推送并建立PR。记录未验边界与合并/上线待办。
 
 Commands use `/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest` and `-m ruff`; do not update the shared environment or run duplicate full gates while another owner is testing.
+
+交付：[WIP PR #956](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/956)；生产未变。能力图谱两条既有节点与项目单行索引已回写，9条分支路径/符号断言通过。

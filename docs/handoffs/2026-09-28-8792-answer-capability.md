@@ -1,6 +1,6 @@
 # 8792 回答能力优化：本轮取舍与接续
 
-用户要求取长补短、提高8792实际回答能力，已授权执行候选实现与验证。分支 `fix/8792-answer-capability-0928`，基线 `gitea/main=4de44009a`；生产仍是 `8e45e299a13b`，未合并或部署。主要证据与完整答卷裁决见 `docs/verification/2026-09-28-answer-capability-evaluation.md`。
+用户要求取长补短、提高8792实际回答能力，已授权执行候选实现与验证。[WIP PR #956](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/956) 已建立；分支 `fix/8792-answer-capability-0928`，基线 `gitea/main=4de44009a`；生产仍是 `8e45e299a13b`，未合并或部署。主要证据与完整答卷裁决见 `docs/verification/2026-09-28-answer-capability-evaluation.md`。
 
 ## 非显然决定
 
