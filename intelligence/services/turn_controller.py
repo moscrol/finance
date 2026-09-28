@@ -43,7 +43,6 @@ from intelligence.services.route_table import (
     is_quick_fact_query,
     quick_fact_route_ok,
     render_route_table_prompt,
-    research_lane_for_dated_quick_fact,
     route_by_id,
 )
 from intelligence.services.research_contract import (
@@ -402,10 +401,11 @@ def _deterministic_decision(
             confidence=0.95,
             reason="指定日期的单一白名单指标取值，走精确查询而非日报工作流",
         )
-    if is_dated_market_review(cleaned, envelope) and envelope.question_type not in {
-        "comparison_analog",
-        "theme_analysis",
-    }:
+    if (
+        envelope.subject_kind not in {"company", "theme"}
+        and envelope.question_type not in {"comparison_analog", "theme_analysis"}
+        and is_dated_market_review(cleaned, envelope)
+    ):
         return _decision(
             "workflow",
             envelope=envelope,
@@ -536,6 +536,19 @@ def _deterministic_decision(
             reason="系统/Agent 方法论问题使用模型原生推理，不进入金融 RAG",
             capabilities=("memory",) if _MEMORY_PATTERN.search(cleaned) else (),
         )
+    return None
+
+
+def _evidence_fallback_decision(
+    query: str,
+    envelope: QueryEnvelope,
+) -> TurnDecision | None:
+    """保留原研究下限；实体身份与时效信号不能代替本轮任务意图。
+
+    这些宽兜底只在 Controller 失败或延续已确认任务时使用。否则公司名会先
+    绑定 stock_deep_dive，使模型永远没有机会识别同一主体的查数等自然请求。
+    """
+    cleaned = query.strip()
     owner = answer_owner_for_question_type(envelope.question_type)
     if owner is not None and (
         envelope.matched_by in _VERIFIED_SUBJECT_MATCHES
@@ -644,19 +657,7 @@ def _fine_grained_route_row(query: str) -> RouteRow | None:
             route_id = "theme_track"
         elif is_quick_fact_query(query):
             route_id = "quick_fact"
-    row = route_by_id(route_id) if route_id is not None else None
-    row = research_lane_for_dated_quick_fact(row, query)
-    if (
-        row is not None
-        and row.route_id == "quick_fact"
-        and row.lane == "knowledge"
-        and market_review_requested_date(query)
-        and parse_single_metric_intent(query) is not None
-    ):
-        # 年缺省日期（「07-21 全市成交额多少」）进了 quick_fact 词面，
-        # 但仍是指定日 + 白名单指标，不得停在 knowledge 车道。
-        return replace(row, lane="research")
-    return row
+    return route_by_id(route_id) if route_id is not None else None
 
 
 _MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")
@@ -692,9 +693,13 @@ def _controller_messages(
                 + render_route_table_prompt()
                 + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
                 "拿不准时选 clarify；不得发明表外的 route_id。"
-                "TaskFrame 已锁定主体、市场、时间和任务类型，lane 不得覆盖这些语义。"
+                "TaskFrame 已锁定主体、市场、时间及材料/工具权限边界，不得覆盖。"
+                "任务类型只是候选：确认公司或题材身份不等于用户要深挖。"
+                "按本轮诉求选择 route_id；纯查已发生的数值选 quick_fact，"
+                "同时要求判断、解释或深挖时选择相应研究路由。"
+                "系统会按合法 route_id 重算题型、必答项与证据要求。"
                 "严格输出一个 JSON 对象，" + FIELD_INSTRUCTION + "。后三项只能补充 TaskFrame；"
-                "不得返回或修改主体、市场、时间、required_outputs、证据政策。"
+                "不得返回或修改主体、市场、时间、required_outputs、材料/工具权限。"
             ),
         },
         {
@@ -723,13 +728,12 @@ def _parse_llm_decision(
     row = route_by_id(reply.route_id)
     if row is None:
         return None
-    subject = reply.subject if reply.shape == "legacy" else envelope.subject
-    timeframe = reply.timeframe if reply.shape == "legacy" else envelope.timeframe
+    # 兼容旧回复形状只兼容选路；它也不能改掉 resolver 已确认的身份和日期。
     decision = _decision_from_route_row(
         row,
         query=query,
-        subject=subject,
-        timeframe=timeframe,
+        subject=envelope.subject,
+        timeframe=envelope.timeframe,
         confidence=max(0.0, min(1.0, reply.confidence)),
         reason=reply.reason,
     )
@@ -798,7 +802,10 @@ def _apply_policy(
         )
     if decision.lane == "knowledge":
         return replace(decision, needs_template=False)
-    return replace(decision, needs_retrieval=True, needs_template=True)
+    return replace(
+        decision, needs_retrieval=True,
+        needs_template=decision.question_type != "quick_fact",
+    )
 
 
 _FAILURE_DETAIL_LIMIT = 200
@@ -870,6 +877,12 @@ def _safe_fallback(
 
 
 def _safe_fallback_route(query: str, envelope: QueryEnvelope) -> TurnDecision:
+    evidence_fallback = _evidence_fallback_decision(query, envelope)
+    if evidence_fallback is not None:
+        return replace(
+            evidence_fallback,
+            reason=f"Controller 不可用；{evidence_fallback.reason}",
+        )
     if _KNOWLEDGE_QUESTION_PATTERN.search(query):
         return _decision(
             "knowledge",
@@ -911,6 +924,7 @@ def _enforce_task_frame_route(
             "web_search",
         ),
         "current_public_knowledge": ("web_search",),
+        "current_fact_evidence": ("market_quote",),
         "current_a_share_market": ("market_quote", "market_news"),
         "dated_a_share_market": ("market_quote", "market_news"),
         "current_market_scenarios": (
@@ -950,7 +964,8 @@ def _enforce_task_frame_route(
             (),
         ),
         needs_template=(
-            decision.needs_template or lane in {"research", "workflow"}
+            decision.question_type != "quick_fact"
+            and (decision.needs_template or lane in {"research", "workflow"})
         ),
         capabilities=tuple(
             dict.fromkeys(
@@ -1459,6 +1474,9 @@ def decide_turn(
         skill_mode=skill_mode,
         selected_skill_ids=selected_skill_ids,
     )
+    if deterministic is None and intent.inherited_from_turn is not None:
+        # 追问沿用已确认的任务；无需让模型重新裁决旧主体和研究合同。
+        deterministic = _evidence_fallback_decision(effective_query, envelope)
     if (
         references_personal_prior(query)
         and (deterministic is None or deterministic.lane in {"knowledge", "research"})

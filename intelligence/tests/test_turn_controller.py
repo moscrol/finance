@@ -25,6 +25,7 @@ def _semantic_resolver(tmp_path) -> QueryResolver:
                 "entities": {
                     "英维克": {"codes": ["002837.SZ"], "concepts": {}},
                     "中际旭创": {"codes": ["300308.SZ"], "concepts": {}},
+                    "长电科技": {"codes": ["600584.SH"], "concepts": {}},
                     "宁德时代": {
                         "codes": ["300750.SZ"],
                         "concepts": {"固态电池": {}},
@@ -1235,6 +1236,184 @@ def _canonical_reply(**changes: object) -> str:
     }
     payload.update(changes)
     return json.dumps(payload, ensure_ascii=False)
+
+
+@pytest.mark.parametrize(
+    ("query", "subject", "subject_kind"),
+    (
+        (
+            "请查询长电科技（600584.SH）在本地行情库最新交易日的收盘价、涨跌幅和成交额，"
+            "注明交易日、数据来源及证据边界。",
+            "长电科技", "company",
+        ),
+        ("请列出宁德时代最新交易日的收盘价、涨跌幅和成交额。", "宁德时代", "company"),
+        ("请给出中际旭创最近交易日的换手率和收盘价。", "中际旭创", "company"),
+        ("固态电池最新交易日的成交额，请列出来。", "固态电池", "theme"),
+        ("请查长电科技2026-09-24的收盘价和成交额。", "长电科技", "company"),
+    ),
+)
+def test_resolved_subject_leaves_natural_fact_intent_to_controller(
+    tmp_path, query: str, subject: str, subject_kind: str,
+) -> None:
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages: list[dict[str, str]]):
+        calls.append(messages)
+        return _canonical_reply(
+            route_id="quick_fact", user_goal="查询已发生的行情数值",
+            assumptions=[], ambiguities=[],
+        ), object(), ""
+
+    decision = decide_turn(query, resolver=_semantic_resolver(tmp_path), llm_complete=complete)
+
+    assert len(calls) == 1
+    candidate = json.loads(calls[0][1]["content"])["task_frame"]
+    assert "任务类型只是候选" in calls[0][0]["content"]
+    assert "已锁定主体、市场、时间和任务类型" not in calls[0][0]["content"]
+    assert decision.lane == "research"
+    assert decision.question_type == "quick_fact"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is False
+    assert "market_quote" in decision.capabilities
+    assert decision.llm_failure_reason == decision.llm_failure_detail == ""
+    assert decision.task_frame is not None
+    frame = decision.task_frame
+    assert frame.subject == candidate["subject"] == subject
+    assert frame.subject_kind == candidate["subject_kind"] == subject_kind
+    assert frame.market_scope == candidate["market_scope"]
+    assert frame.timeframe == candidate["timeframe"]
+    assert json.loads(json.dumps(frame.to_dict())).get("material_contract") == candidate.get("material_contract")
+    assert frame.required_outputs == ("fact_value", "as_of_date", "evidence_boundary")
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.question_type == frame.question_type == "quick_fact"
+    assert decision.turn_intent.answer_owner is None
+    assert decision.turn_intent.required_outputs == frame.required_outputs
+    if "2026-09-24" in query:
+        assert frame.timeframe == "2026-09-24"
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "请深挖长电科技的客户证据、竞争壁垒和风险。",
+        "请列出长电科技最新交易日的收盘价和成交额，再判断上涨是否有订单支撑。",
+        "长电科技的股价多少，客户和订单证据能支持进一步上涨吗？请深挖。",
+    ),
+)
+def test_resolved_company_research_is_not_reduced_to_fact_lookup(tmp_path, query: str) -> None:
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages):
+        calls.append(messages)
+        return _canonical_reply(
+            route_id="stock_deep_dive", user_goal="研究客户证据和上涨逻辑",
+            assumptions=[], ambiguities=[],
+        ), object(), ""
+
+    decision = decide_turn(query, resolver=_semantic_resolver(tmp_path), llm_complete=complete)
+
+    assert len(calls) == 1
+    assert decision.lane == "research"
+    assert decision.question_type == "stock_deep_dive"
+    assert decision.needs_retrieval and decision.needs_template
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject == "长电科技"
+    assert "counterpoint" in decision.task_frame.required_outputs
+    assert "fact_value" not in decision.task_frame.required_outputs
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+
+
+@pytest.mark.parametrize("failure", ("unavailable", "exception", "malformed"))
+@pytest.mark.parametrize(
+    ("query", "subject", "question_type"),
+    (
+        ("请查长电科技2026-09-24的收盘价和成交额。", "长电科技", "stock_deep_dive"),
+        ("固态电池最新交易日的成交额，请列出来。", "固态电池", "theme_analysis"),
+    ),
+)
+def test_controller_failure_preserves_resolved_research_floor(
+    tmp_path, failure: str, query: str, subject: str, question_type: str,
+) -> None:
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages):
+        calls.append(messages)
+        if failure == "exception":
+            raise RuntimeError("fixture offline")
+        if failure == "unavailable":
+            return None, None, "provider unavailable"
+        return _canonical_reply(route_id="invented", user_goal="不得写入此目标"), object(), ""
+
+    decision = decide_turn(query, resolver=_semantic_resolver(tmp_path), llm_complete=complete)
+
+    assert len(calls) == (2 if failure == "malformed" else 1)
+    assert decision.lane == "research"
+    assert decision.question_type == question_type
+    assert decision.needs_retrieval and decision.needs_template
+    assert {"memory", "market_quote", "graph"} <= set(decision.capabilities)
+    assert decision.llm_failure_reason
+    assert decision.llm_failure_detail
+    if failure == "malformed":
+        assert decision.llm_failure_reason == "unparsable_response"
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject == subject
+    assert json.loads(json.dumps(decision.task_frame.to_dict())) == json.loads(calls[0][1]["content"])["task_frame"]
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.question_type == question_type
+
+
+def test_legacy_route_reply_cannot_change_confirmed_identity_date_or_material_scope(tmp_path) -> None:
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages):
+        calls.append(messages)
+        return json.dumps({
+            "route_id": "quick_fact", "confidence": 0.95, "reason": "取值",
+            "subject": "宁德时代", "timeframe": "2020-01-02",
+        }), object(), ""
+
+    decision = decide_turn(
+        "请查长电科技2026-09-24的收盘价和成交额，本轮不要联网。",
+        resolver=_semantic_resolver(tmp_path), llm_complete=complete,
+    )
+
+    assert len(calls) == 1
+    assert decision.question_type == "quick_fact"
+    assert decision.task_frame is not None
+    assert decision.subject == decision.task_frame.subject == "长电科技"
+    assert decision.timeframe == decision.task_frame.timeframe == "2026-09-24"
+    assert decision.task_frame.market_scope == "A股"
+    assert decision.task_frame.material_contract is not None
+    assert decision.task_frame.material_contract.data_scope == "local_only"
+
+
+def test_long_material_contract_precedes_semantic_task_selection(tmp_path) -> None:
+    from intelligence.services.conversation_materials import ConversationMaterials
+
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages):
+        calls.append(messages)
+        return _canonical_reply(route_id="quick_fact"), object(), ""
+
+    query = (
+        "只依据以下材料回答，不联网补现实事实。\n\n" + _MATERIAL_REPORT
+        + "\n\n问题：材料里的订单额是多少？这些订单能支持利润增长判断吗？请说明缺口。"
+    )
+    decision = decide_turn(
+        query, resolver=_semantic_resolver(tmp_path), llm_complete=complete,
+        conversation_materials=ConversationMaterials(),
+    )
+
+    assert calls == []
+    assert decision.lane == "research"
+    assert decision.question_type not in {"quick_fact", "disclosure_scan"}
+    assert decision.needs_retrieval is False
+    assert decision.capabilities == ()
+    assert decision.task_frame is not None
+    assert decision.task_frame.material_contract is not None
+    assert decision.task_frame.material_contract.data_scope == "material_only"
 
 
 def test_canonical_six_field_reply_is_accepted_once_with_research_floor() -> None:

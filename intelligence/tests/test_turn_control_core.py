@@ -567,10 +567,11 @@ def test_default_controller_rebases_injected_validated_route_row(
     content = json.dumps(
         {
             "route_id": question_type,
-            "subject": "已验证主体",
-            "timeframe": "最新可用日期",
             "confidence": 0.95,
             "reason": "已验证路由行",
+            "user_goal": "按本轮诉求选择任务类型",
+            "assumptions": [],
+            "ambiguities": [],
         },
         ensure_ascii=False,
     )
@@ -581,8 +582,8 @@ def test_default_controller_rebases_injected_validated_route_row(
 
     assert result.task_frame.question_type == question_type
     assert result.execution_route == question_type
-    assert result.task_frame.subject == "已验证主体"
-    assert result.task_frame.timeframe == "最新可用日期"
+    assert result.task_frame.subject is None
+    assert result.task_frame.timeframe is None
 
 
 @pytest.mark.parametrize(

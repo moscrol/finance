@@ -429,6 +429,8 @@ def build_episode_input(
     task_frame: TaskFrame,
     context: ResearchRunContext,
     registry: ResearchToolRegistry,
+    *,
+    include_tool_descriptions: bool = True,
 ) -> str:
     """Serialize the per-turn task, cutoff, rules, and tool table."""
 
@@ -464,7 +466,8 @@ def build_episode_input(
         ),
         "task_frame_hash": task_frame.task_frame_hash,
         "available_tools": registry.prompt_block(
-            context.contract.allowed_capabilities
+            context.contract.allowed_capabilities,
+            include_descriptions=include_tool_descriptions,
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
@@ -535,11 +538,10 @@ def build_episode_input(
         # 执行零次实体解析查询」。只在非空时注入：无阶段轮逐字节不变。
         payload["retrieval_stages"] = list(stages)
         payload["retrieval_stages_rule"] = (
-            "retrieval_stages 是本题型的标准检索阶段序列，用于规划工具调用的"
-            "顺序与覆盖面：每个阶段都应有对应的检索/取数调用伺候"
-            "（如 chain_stages/company_mapping 需要图谱查询或板块×个股类取数），"
-            "伺候不了的阶段必须在答案中声明缺口；阶段表本身不是证据，"
-            "也不改变 research_contract 的证据边界"
+            "retrieval_stages 是可选的检索路径提示。按用户问题和当前证据选择、"
+            "合并或跳过阶段；证据足以回答时即可结束，不必逐项调用工具。"
+            "只有用户所需且尚无证据支持的内容才声明缺口，无关阶段未执行不算缺口。"
+            "阶段表本身不是证据，也不改变 research_contract 的证据边界或工具权限"
         )
     return json.dumps(payload, ensure_ascii=False)
 
@@ -548,6 +550,8 @@ def split_episode_prompt(
     task_frame: TaskFrame,
     context: ResearchRunContext,
     registry: ResearchToolRegistry,
+    *,
+    include_tool_descriptions: bool = True,
 ) -> tuple[str, str]:
     """Return ``(system, user)`` split at ``SYSTEM_PROMPT_DYNAMIC_BOUNDARY``.
 
@@ -557,7 +561,10 @@ def split_episode_prompt(
 
     return (
         build_episode_instructions(task_frame, context, registry),
-        build_episode_input(task_frame, context, registry),
+        build_episode_input(
+            task_frame, context, registry,
+            include_tool_descriptions=include_tool_descriptions,
+        ),
     )
 
 

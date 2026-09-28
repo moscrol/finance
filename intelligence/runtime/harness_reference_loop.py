@@ -205,7 +205,7 @@ class HarnessReferenceLoop:
         plan: ResearchPlan | None = None
         plan_turns = 0
         plan_failures = 0
-        finish_failures = 0
+        finish_repairs: set[str] = set()
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
@@ -437,7 +437,6 @@ class HarnessReferenceLoop:
                 registry=registry,
             )
             if not admission.accepted:
-                finish_failures += 1
                 invalid_actions += 1
                 response = admission.response
                 assert response is not None
@@ -452,14 +451,15 @@ class HarnessReferenceLoop:
                 )
                 if (
                     response.reinject
-                    and finish_failures == 1
+                    and admission.repair_steering_kind not in finish_repairs
                     and not finalization_started
                 ):
+                    finish_repairs.add(admission.repair_steering_kind)
                     append_model_input(
                         messages,
                         ledger,
                         content=harness.steering_message(
-                            "invalid_finish", detail=admission.reason
+                            admission.repair_steering_kind, detail=admission.reason
                         ),
                         source="steering_invalid_finish",
                     )

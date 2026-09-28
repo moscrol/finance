@@ -18,12 +18,10 @@
       确认）。合并与排序是纯函数，零取数、零外呼，可单测。
     - **窗口保底**（:func:`counter_evidence_floor_order`）：给反证在模型可见窗口里
       留位——重复利好再多也挤不掉最后那几个反证槽。这是本单唯一改既有行为的地方。
-    - **表达契约**：注入 synthesis prompt（legacy）与 episode 指令，要求答案写出
-      待验证问题与裁判变量，并把裁判变量接到既有「下一步」研究动作（复用
-      :data:`ranking_contract.NEXT_ACTION_LABELS` 的三个前缀，不另造词表）。
+    - **表达指导**：注入 synthesis prompt（legacy）与 episode 指令，提示证据取舍、
+      待验证问题与下一步动作；按用户问题组织答案，不要求固定标题或前缀。
     - **收据**（:func:`judgment_delta_receipt`）：EVAL 可读，给同题对照实验用。
-      本单**不**把缺件并进 ``missing_outputs``（那会触发修复轮、改预算行为）；
-      先用收据量出效果，再决定要不要上硬门。
+      只记录材料与显式章节观察，不把标题命中率当质量评估或完成门禁。
 
 验收（复核笔记给的判据，见 ``intelligence/tests/test_judgment_delta.py``）：
     同一材料包灌入大量重复利好，保留的线索集合与待验证问题不变；加入一条有力反证，
@@ -345,17 +343,16 @@ def _structure_lines(evidence_note: str) -> list[str]:
         "未解问题」；答不上来的归入「重复确认」，与同事件的其它报道合并成一条"
         "（保留全部出处与最早时点），不单独占篇幅。禁止因为「不是主线」直接丢掉一条"
         "材料——新线索和反证常常就在非主线里。",
-        f"2. **反证优先**：足以推翻主判断的反证写在结论之前，带{evidence_note}与时点；"
-        f"确实没有就逐字写「未发现足以推翻主判断的反证」，不许沉默略过。",
-        f"3. **{_OPEN_QUESTION_HEADING}**（标题逐字）：无法证实但一旦坐实会改判的消息"
-        f"转成问题写在这里，每条注明「等哪份公开材料/数据能证实」；不得把传闻直接"
-        f"当事实并入结论。没有就写「无」。",
-        f"4. **{_DECIDER_HEADING}**（标题逐字，1-3 条）：下一份什么材料或数据会裁决当前"
-        f"争论；每条写清「看什么 × 何时出 × 出成什么样倒向哪边」。",
-        f"5. 裁判变量必须接到「下一步」研究动作：每条以「{NEXT_ACTION_LABELS[0]}：」"
-        f"「{NEXT_ACTION_LABELS[1]}：」「{NEXT_ACTION_LABELS[2]}：」之一开头，"
-        f"写成下一轮能直接执行的动作。",
+        f"2. **反证优先**：主动考虑足以削弱或推翻主判断的反证，带{evidence_note}与时点；"
+        "说明它如何影响判断。未找到反证时如实界定检索范围，不把未找到当作不存在。",
+        f"3. **{_OPEN_QUESTION_HEADING}**：无法证实但一旦坐实会改判的消息应保留为"
+        "待核实问题，说明哪份公开材料或数据能证实；不得把传闻直接当事实并入结论。",
+        f"4. **{_DECIDER_HEADING}**：有实际争论时说明下一份什么材料或数据可以裁决，"
+        "包括观察时点及不同结果如何改变判断。",
+        f"5. 有关键缺口时给出可执行的下一步，例如{NEXT_ACTION_LABELS[0]}、"
+        f"{NEXT_ACTION_LABELS[1]}或{NEXT_ACTION_LABELS[2]}；证据已足够时不必额外扩写。",
         "6. 主矛盾可以不止一条：真有两条并行的争论就并列写出，不为了整齐压成一条。",
+        "以上是按需使用的研究方法；答案按用户问题组织，不要求固定标题、顺序或套话。",
     ]
 
 
@@ -374,7 +371,7 @@ def build_judgment_delta_guidance_for_episode() -> str:
     return "\n".join(
         [
             "【判断增量表达契约】材料要按「什么会改变判断」组织，不按「说了几遍」组织"
-            "（这些是正文表达要求，不是可绑定的 output_id）：",
+            "（以下为按需使用的表达建议，不是可绑定的 output_id）：",
             *_structure_lines("证据序号 E1、E2…"),
         ]
     )
@@ -440,9 +437,7 @@ def episode_judgment_delta_rule(query: str, question_type: str | None = None) ->
     return build_judgment_delta_guidance_for_episode()
 
 
-# ——————————————————————————————————————————— 程序核对（只进收据，不进 missing_outputs）
-_NO_COUNTER_DECLARATION_RE = re.compile(r"未发现足以推翻|无足以推翻|没有足以推翻")
-_COUNTER_SECTION_RE = re.compile(r"反证|证伪|反面证据|相反证据")
+# ——————————————————————————————————————————— 显式章节观察（不据此判定答案质量）
 _HEADING_RE = re.compile(r"^\s*(?:#{1,6}\s*|\*\*|\d+[.)、）]\s*)?(.{1,24}?)(?:\*\*)?\s*[：:]?\s*$")
 _BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)、）])\s*(.+)$")
 
@@ -472,21 +467,6 @@ def _section_items(text: str, heading: str) -> tuple[str, ...]:
     return tuple(item for item in items if item and item not in {"无", "None"})
 
 
-def missing_judgment_delta_elements(answer: str) -> tuple[str, ...]:
-    """答案缺了契约的哪几件。非材料题的调用方应先自己判断要不要查。"""
-    text = str(answer or "")
-    missing: list[str] = []
-    if not (_COUNTER_SECTION_RE.search(text) or _NO_COUNTER_DECLARATION_RE.search(text)):
-        missing.append("counter_evidence")
-    if _OPEN_QUESTION_HEADING not in text:
-        missing.append("open_questions")
-    if not _section_items(text, _DECIDER_HEADING):
-        missing.append("decider_variables")
-    if not any(label in text for label in NEXT_ACTION_LABELS):
-        missing.append("next_actions")
-    return tuple(missing)
-
-
 def judgment_delta_receipt(
     answer: str,
     *,
@@ -495,13 +475,13 @@ def judgment_delta_receipt(
     materials: Sequence[object] | None = None,
     as_of: str | None = None,
 ) -> dict[str, Any]:
-    """EVAL 可读收据：意图、契约缺件、材料合并与反证计数。同题对照实验读它。"""
+    """EVAL 观察收据；未出现固定章节不代表缺少相应推理，质量须另评。"""
     intent = parse_judgment_delta_intent(query, question_type)
     digest = classify_material(materials or ()) if materials is not None else None
     return {
         "check": "judgment_delta",
         "judgment_delta_intent": intent,
-        "missing_elements": list(missing_judgment_delta_elements(answer)) if intent else [],
+        "quality_assessment": "not_evaluated",
         "open_questions": list(_section_items(str(answer or ""), _OPEN_QUESTION_HEADING)),
         "decider_variables": list(_section_items(str(answer or ""), _DECIDER_HEADING)),
         "material_digest": digest.to_payload() if digest else None,
@@ -527,6 +507,5 @@ __all__ = [
     "event_key",
     "judgment_delta_guidance_for_query",
     "judgment_delta_receipt",
-    "missing_judgment_delta_elements",
     "parse_judgment_delta_intent",
 ]

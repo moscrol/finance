@@ -115,9 +115,24 @@ def test_dated_metric_quick_fact_uses_research_lane(query: str) -> None:
     assert decision.lane == "research"
 
 
-def test_undated_quick_fact_stays_on_knowledge_lane() -> None:
-    for query in ("茅台现在股价多少", "300750是哪家公司"):
-        row = _fine_grained_route_row(query)
-        assert row is not None
-        assert row.route_id == "quick_fact"
-        assert row.lane == "knowledge"
+@pytest.mark.parametrize("query", QUICK_FACT_QUERIES)
+def test_lexical_quick_fact_uses_research_without_controller_request(query: str) -> None:
+    calls: list[object] = []
+
+    def complete(messages):
+        calls.append(messages)
+        return None, None, "unexpected Controller request"
+
+    decision = decide_turn(query, llm_complete=complete)
+
+    assert calls == []
+    assert decision.question_type == "quick_fact"
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is False
+    assert "market_quote" in decision.capabilities
+    assert decision.llm_failure_reason == ""
+    assert decision.task_frame is not None
+    assert decision.task_frame.required_outputs == (
+        "fact_value", "as_of_date", "evidence_boundary",
+    )
