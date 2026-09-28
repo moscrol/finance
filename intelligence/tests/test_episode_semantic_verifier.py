@@ -156,6 +156,7 @@ def test_declared_research_gaps_reach_judge_without_public_copy() -> None:
     assert "当前估值时点未核验" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_semantic_repair_feedback_uses_verdict_text_before_renumbering() -> None:
     from intelligence.services import episode_semantic_verifier as module
 
@@ -1229,6 +1230,7 @@ def test_unsupported_causality_is_removed_before_public_completion() -> None:
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> None:
     frame = replace(
         _frame(),
@@ -1653,6 +1655,7 @@ def test_long_draft_redacts_rejected_sentences_without_model_rewrite() -> None:
     assert SEMANTIC_QUALITY_DOUBT_MARK not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_redacts_novel_numeric_conditions_missed_by_model_judge() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -1879,6 +1882,7 @@ def test_mixed_full_original_spans_claim_rows_without_authorizing_fragments(form
     assert "当前市场结构仍需验证。" in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -1904,6 +1908,7 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
     ]
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_deleted_condition_definition_cannot_leave_a_count_backreference() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -2115,6 +2120,7 @@ def test_local_gate_exempts_novel_thresholds_when_condition_slots_are_reasoning(
     assert "2至5个交易日" in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_still_redacts_when_condition_slot_is_evidence_bound() -> None:
     """条件槽仍签 evidence（如 market_technical 失效位）时，门禁照旧连坐。"""
 
@@ -2390,6 +2396,7 @@ def test_local_path_gate_removes_false_inverted_amount_path_claim() -> None:
     assert any("path trend mismatch" in issue for issue in result.issues)
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold() -> (
     None
 ):
@@ -2413,6 +2420,7 @@ def test_local_gate_allows_rounded_bound_observation_but_rejects_new_threshold()
     assert "3800点" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_accepts_units_the_model_attaches_to_structured_observations() -> None:
     """结构化观察值的单位住在字段名里，模型按人话补单位不是新阈值。
 
@@ -2456,6 +2464,7 @@ def test_local_gate_accepts_units_the_model_attaches_to_structured_observations(
     assert "1800 亿" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_keeps_sector_timeline_caliber_units_and_counts() -> None:
     """2026-09-25 L6-T3（低空经济）：双红时间轴证据的口径是裸数 ``amount>500``（单位只在
     逐日行列名 ``成交额亿`` 里），逐日恰 N 行、其中 K 行双红。模型写「amount>500亿」与
@@ -2558,6 +2567,7 @@ _L6_N1_WATCH_ITEM = (
 )
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_keeps_l6_watch_item_but_still_redacts_real_threshold() -> None:
     frame, structural = _structural(
         f"海光信息事件驱动逻辑仍在。\n{_L6_N1_WATCH_ITEM}\n若指数跌破3870点则失效。"
@@ -2770,6 +2780,7 @@ def test_local_gate_keeps_forecast_when_condition_is_descriptive_noun() -> None:
     assert assessment in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -2792,6 +2803,7 @@ def test_semantic_repair_renumbers_remaining_ordered_list_items() -> None:
     assert "3）上涨广度维持" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_semantic_repair_reconciles_explicit_list_count() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -2813,6 +2825,7 @@ def test_semantic_repair_reconciles_explicit_list_count() -> None:
     assert "99999点" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_semantic_repair_renumbers_parenthesized_items_and_layer_count() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -2836,6 +2849,7 @@ def test_semantic_repair_renumbers_parenthesized_items_and_layer_count() -> None
     assert "（4）产业链扩散" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:
     judge = _judge(True)
     frame, structural = _structural(
@@ -2858,6 +2872,7 @@ def test_semantic_repair_renumbers_remaining_circled_list_items() -> None:
     assert "③上涨广度维持" not in result.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_local_gate_matches_bound_numeric_anchors_as_exact_quantities() -> None:
     judge = _judge(True)
     frame, structural = _structural(
