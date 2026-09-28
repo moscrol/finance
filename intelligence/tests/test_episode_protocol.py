@@ -940,6 +940,39 @@ def test_forged_hash_is_integrity_not_format() -> None:
     assert bad_shape.value.kind is RejectionKind.FORMAT
 
 
+@pytest.mark.parametrize("later_error", ["unknown_ordinal", "bad_claim"])
+@pytest.mark.parametrize("first_error", ["forged_hash", "basis_mismatch", "unknown_output"])
+def test_nonfrozen_binding_checks_keep_per_binding_rejection_order(first_error, later_error) -> None:
+    """Frozen-source preflight must not reorder the ordinary evidence protocol."""
+    from intelligence.services.episode_protocol import RejectionKind, rejection_response
+    from intelligence.services.material_grounding import grounding_scope
+
+    context = _context(_frame())
+    assert grounding_scope(context.contract) not in {"material_only", "local_only"}
+    first = {"output_id": "direct_assessment", "basis": "evidence", "evidence_hashes": [], "gap": "尚缺事实证据"}
+    if first_error == "forged_hash":
+        first["evidence_hashes"] = ["a" * 64]
+    elif first_error == "basis_mismatch":
+        first["basis"] = "model_reasoning"
+    else:
+        first["output_id"] = "invented_output"
+    later = {"output_id": "direct_assessment", "basis": "evidence", "evidence_hashes": [], "gap": "尚缺事实证据"}
+    if later_error == "unknown_ordinal":
+        later["evidence_hashes"] = ["E9"]
+    else:
+        later["claims"] = ["not a claim object"]
+    with pytest.raises(EpisodeFinishRejection) as err:
+        validate_episode_finish(
+            {"status": "partial", "draft": "本轮未取得可核验证据。", "bindings": [first, later]},
+            context=context, evidence=(),
+        )
+    assert err.value.code == first_error
+    if first_error == "forged_hash":
+        assert err.value.kind is RejectionKind.INTEGRITY
+        response = rejection_response(err.value)
+        assert not response.reinject and not response.allow_recovery
+
+
 def test_unique_one_char_truncated_hash_is_format_not_integrity() -> None:
     """生产 A4 形状：模型抄了 15/16 位。这是截断不是伪造。
 

@@ -940,6 +940,53 @@ def _is_unique_one_char_truncation(
     return True
 
 
+def _validate_binding_target_and_hashes(
+    binding: OutputEvidenceBinding,
+    contract: ResearchTaskContract,
+    evidence_hashes: set[str],
+) -> None:
+    """Keep ordinary binding checks identical before/after frozen-source preflight."""
+    required = next((item for item in contract.required_outputs if item.output_id == binding.output_id), None)
+    if required is None:
+        if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
+            # 表达槽不是可绑定 output；回灌格式说明，不冒充来源伪造。
+            raise _reject(
+                "expression_slot_binding",
+                f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
+                "bindings 里只保留契约列出的 output_id",
+            )
+        if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
+            raise _reject(
+                "expression_slot_binding",
+                f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
+                "bindings 里只保留契约列出的 output_id",
+            )
+        raise _reject("unknown_output", f"unknown required output: {binding.output_id}")
+    if binding.basis != required.grounding_mode:
+        raise _reject(
+            "basis_mismatch",
+            f"grounding basis mismatch for {binding.output_id}: "
+            f"expected {required.grounding_mode}, got {binding.basis}",
+        )
+    unknown = set(binding.evidence_hashes) - evidence_hashes
+    if unknown:
+        if _is_unique_one_char_truncation(unknown, evidence_hashes):
+            # 只回截断值，不泄露完整白名单哈希；仍要求作者自行用观察序号。
+            raise _reject(
+                "truncated_hash",
+                "binding contains truncated evidence hash: "
+                + ",".join(sorted(str(item) for item in unknown))
+                + "; use the evidence ordinal (E1, E2, …) from the observation",
+            )
+        raise _reject(
+            "forged_hash",
+            "binding contains unknown evidence hash: "
+            + ",".join(sorted(str(item) for item in unknown)),
+        )
+
+
 def validate_episode_finish(
     value: object,
     *,
@@ -1003,7 +1050,6 @@ def validate_episode_finish(
     if not isinstance(raw_bindings, list):
         raise _reject("bindings_not_list", "finish bindings must be a list")
     bindings: list[OutputEvidenceBinding] = []
-    allowed_outputs = {item.output_id for item in context.contract.required_outputs}
     # #819 恢复的旧工具输入（prior_evidence）已按原件校验并被 _seed_prior_evidence 注入证据池；
     # 冻结范围检查放行它们的 hash，其余证据引用照旧受 P6 材料范围规则约束。
     prior_snapshot = getattr(context, "prior_evidence", None)
@@ -1016,8 +1062,9 @@ def validate_episode_finish(
     integrity_issues = []
     deferred_ref_errors = []
     frozen_scope = grounding_scope(context.contract) in {"material_only", "local_only"}
-    # Parse every binding and inspect its sources before recoverable basis/ref
-    # errors can win. This is validation only: never substitute an unknown ref.
+    # Frozen sources are inspected across the whole finish before recoverable
+    # basis/ref errors can win. Ordinary evidence keeps its per-binding order.
+    # This is validation only: never substitute an unknown ref.
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
@@ -1053,6 +1100,8 @@ def validate_episode_finish(
         )
         integrity_issues.extend(issue.message for issue in source_issues if issue.code != "material_quote_mismatch")
         quote_issues.extend(issue.message for issue in source_issues if issue.code == "material_quote_mismatch")
+        if not frozen_scope:
+            _validate_binding_target_and_hashes(binding, context.contract, evidence_hashes)
         bindings.append(binding)
     if deferred_ref_errors and quote_issues:
         integrity_issues.append("unknown evidence ordinal exceeds frozen data scope")
@@ -1060,59 +1109,9 @@ def validate_episode_finish(
         raise _reject("material_source_violation", "; ".join(integrity_issues))
     if deferred_ref_errors:
         raise deferred_ref_errors[0]
-    for binding in bindings:
-        if binding.output_id not in allowed_outputs:
-            if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
-                # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
-                # 修复目标的 missing_answer_elements，模型看见 id 就当 output 去绑——
-                # 2026-09-07 两轮 theme_track 修复 2/2 死在这里：系统自己要的东西被自己
-                # 当「越界输出」硬拒（INTEGRITY 不回灌、不恢复）。它不是伪造，是把正文
-                # 要求当成了绑定槛；按 FORMAT 回灌，告诉模型写进 draft、不进 bindings。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
-                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
-                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            raise _reject(
-                "unknown_output",
-                f"unknown required output: {binding.output_id}",
-            )
-        required = next(
-            item
-            for item in context.contract.required_outputs
-            if item.output_id == binding.output_id
-        )
-        if binding.basis != required.grounding_mode:
-            raise _reject(
-                "basis_mismatch",
-                f"grounding basis mismatch for {binding.output_id}: "
-                f"expected {required.grounding_mode}, got {binding.basis}",
-            )
-        unknown = set(binding.evidence_hashes) - evidence_hashes
-        if unknown:
-            if _is_unique_one_char_truncation(unknown, evidence_hashes):
-                # 文案只回截断值，不带完整哈希——否则 FORMAT 回灌等于把白名单提示给模型。
-                raise _reject(
-                    "truncated_hash",
-                    "binding contains truncated evidence hash: "
-                    + ",".join(sorted(str(item) for item in unknown))
-                    + "; use the evidence ordinal (E1, E2, …) from the observation",
-                )
-            raise _reject(
-                "forged_hash",
-                "binding contains unknown evidence hash: "
-                + ",".join(sorted(str(item) for item in unknown)),
-            )
+    if frozen_scope:
+        for binding in bindings:
+            _validate_binding_target_and_hashes(binding, context.contract, evidence_hashes)
 
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")
