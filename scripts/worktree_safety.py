@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only worktree blockers shared by the board and cleanup_gate_trees.sh.
+"""Read-only worktree blockers shared by the board, cleanup_gate_trees.sh and
+worktree_closeout.py.
 
 A clean Git status is not deletion permission. Keep query failures, ignored
-contents and concrete process/launcher references visible to both callers.
+contents and concrete process/launcher references visible to every caller.
 """
 from __future__ import annotations
 
@@ -11,8 +12,10 @@ import json
 import os
 import plistlib
 import re
+import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Callable
 from xml.parsers.expat import ExpatError
@@ -34,19 +37,35 @@ def ancestor(head: str, base: str, *, cwd: str, timeout: float, run_git: Callabl
     return code
 
 
-def status_paths(raw: str) -> tuple[list[str], list[str]]:
-    """Parse porcelain v1 -z; rename source is the following NUL record."""
-    dirty, ignored = [], []
+def status_records(raw: str) -> list[tuple[str, str, str]]:
+    """Parse ``git status --porcelain=v1 -z`` into ``(XY, path, rename_source)``.
+
+    Never strip the raw output: in `` M path`` the leading space *is* the X column, and
+    stripping it shifts every later column so the path loses its first character. The
+    bespoke closeout scripts hit that twice (2026-09-24, 2026-09-28). The rename/copy
+    source is the NUL record that follows the entry.
+    """
+    parsed = []
     records = iter(raw.split("\0"))
     for record in records:
         if not record:
             continue
         if len(record) < 4 or record[2] != " ":
             raise ValueError("invalid git status record")
-        (ignored if record[:2] == "!!" else dirty).append(record[3:])
+        source = ""
         if "R" in record[:2] or "C" in record[:2]:
-            if next(records, None) is None:
+            source = next(records, None)
+            if source is None:
                 raise ValueError("missing rename source")
+        parsed.append((record[:2], record[3:], source))
+    return parsed
+
+
+def status_paths(raw: str) -> tuple[list[str], list[str]]:
+    """Parse porcelain v1 -z; rename source is the following NUL record."""
+    dirty, ignored = [], []
+    for code, path, _source in status_records(raw):
+        (ignored if code == "!!" else dirty).append(path)
     return dirty, ignored
 
 
@@ -113,11 +132,18 @@ def _load_launchd_plist(data: bytes, *, timeout: float) -> dict:
 
 
 def sample_context(*, timeout: float, home: Path | None = None) -> dict:
-    home = home or Path.home()
+    processes = sample_processes(timeout=timeout)
+    launchers = sample_launchers(timeout=timeout, home=home)
+    return {"references": processes["references"] + launchers["references"],
+            "errors": processes["errors"] + launchers["errors"]}
+
+
+def sample_processes(*, timeout: float, descriptors: str = "^mem") -> dict:
+    """One lsof pass. ``descriptors="cwd"`` is the cheap re-check right before a removal."""
     references, errors = [], []
     try:
         proc = subprocess.run(
-            ["lsof", "-nP", "-S", "2", "-w", "-d", "^mem", "-Fpcftn"],
+            ["lsof", "-nP", "-S", "2", "-w", "-d", descriptors, "-Fpcftn"],
             capture_output=True, text=True, timeout=timeout,
         )
         if proc.returncode:
@@ -140,7 +166,13 @@ def sample_context(*, timeout: float, home: Path | None = None) -> dict:
                                        "source": f"pid={pid} {command} fd={fd}"})
     except (OSError, subprocess.SubprocessError) as exc:
         errors.append(f"lsof 采样失败: {type(exc).__name__}; process usage unknown")
+    return {"references": references, "errors": errors}
 
+
+def sample_launchers(*, timeout: float, home: Path | None = None) -> dict:
+    """launchd plists, ~/.local/bin launchers and runtime symlinks (no lsof; cheap to repeat)."""
+    home = home or Path.home()
+    references, errors = [], []
     home_real = Path(os.path.realpath(home))
 
     def add_reference(raw: str, source: Path, kind: str = "launcher"):
@@ -209,8 +241,10 @@ def _is_directory_watch(fd: str, kind: str) -> bool:
 
 # Regenerable build/test caches. Anything else that is ignored (evidence DBs, users/, snapshots)
 # still blocks: the tool must not decide on the user's behalf that data is disposable.
+# .code-review-graph/ holds the code-map graph (graph.db, wiki/), rebuilt by `code_map.py build`;
+# its two tracked steering files still show up as ordinary tracked changes.
 CACHE_IGNORED = frozenset({"__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache",
-                           "node_modules", ".DS_Store"})
+                           "node_modules", ".DS_Store", ".code-review-graph"})
 
 
 def is_cache_path(path: str) -> bool:
@@ -224,9 +258,105 @@ def file_blockers(state: dict) -> list[str]:
             + [f"ignored 内容: {path}" for path in state["ignored"] if not is_cache_path(path)])
 
 
+def _git_stdin(args: list[str], *, cwd: str, timeout: float, stdin: str) -> tuple[int, str]:
+    try:
+        result = subprocess.run(
+            ["git", *args], cwd=cwd, input=stdin, capture_output=True, text=True, timeout=timeout,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+        )
+        return result.returncode, result.stdout.rstrip("\n")
+    except (OSError, subprocess.SubprocessError):
+        return 1, ""
+
+
+def remote_tips(repo: str, remote: str, *, timeout: float) -> dict:
+    """Every commit id the remote advertises (``git ls-remote``) that this clone can walk.
+
+    ``unknown`` counts advertised ids this clone never fetched. They cannot be walked, so a
+    HEAD only they would cover still counts as unpushed: fail closed, fetch first.
+    """
+    code, out = git(["ls-remote", remote], cwd=repo, timeout=timeout)
+    if code:
+        return {"shas": [], "unknown": 0, "error": f"git ls-remote {remote} failed"}
+    advertised = sorted({line.split()[0] for line in out.splitlines() if line.strip()})
+    if not advertised:
+        return {"shas": [], "unknown": 0, "error": ""}
+    code, out = _git_stdin(["cat-file", "--batch-check=%(objectname) %(objecttype)"],
+                           cwd=repo, timeout=timeout, stdin="\n".join(advertised) + "\n")
+    if code:
+        return {"shas": [], "unknown": 0, "error": "git cat-file --batch-check failed"}
+    known, unknown = [], 0
+    for line in out.splitlines():
+        sha, _, kind = line.partition(" ")
+        if kind in ("commit", "tag"):
+            known.append(sha)
+        elif kind == "missing":
+            unknown += 1
+    return {"shas": known, "unknown": unknown, "error": ""}
+
+
+def unpushed_commits(head: str, remote_shas: list[str], *, cwd: str, timeout: float) -> int:
+    """``rev-list <head>`` minus everything reachable from ``remote_shas``; -1 when unknown.
+
+    The exclusions go through stdin as ``^<sha>`` lines. ``rev-list <head> --not --stdin``
+    looks equivalent, but ``--not`` given on the command line does not negate revisions read
+    from stdin (git 2.50: 6513 vs 1 on the same repo), which reads as "everything unpushed".
+    """
+    stdin = "".join(f"^{sha}\n" for sha in remote_shas)
+    code, out = _git_stdin(["rev-list", "--count", head, "--stdin"], cwd=cwd, timeout=timeout,
+                           stdin=stdin)
+    return int(out) if code == 0 and out.isdigit() else -1
+
+
+def unnamed_commits(head: str, *, cwd: str, timeout: float) -> int:
+    """Commits reachable from ``head`` but from no branch, tag, remote-tracking or archive ref.
+
+    A worktree HEAD is not a name: ``git worktree remove`` deletes it, and a detached commit
+    held only there becomes unreachable without any warning (reproduced 2026-09-28).
+    """
+    code, out = git(["rev-list", "--count", head, "--not", "--branches", "--tags", "--remotes",
+                     "--glob=refs/archive"], cwd=cwd, timeout=timeout)
+    return int(out) if code == 0 and out.isdigit() else -1
+
+
+def newest_activity(root: str, *, since: float | None = None) -> tuple[float, str]:
+    """Newest lstat mtime under ``root`` (files, symlinks, directories, the root itself).
+
+    Skips ``.git`` and regenerable caches (a live test run there is caught by the process
+    checks instead). With ``since``, returns at the first non-directory entry newer than it,
+    falling back to the first newer directory (an entry was added or removed there; reported
+    with a trailing ``/``). An entry that vanishes mid-walk is activity happening now. Raises
+    OSError when any directory cannot be listed: unknown is not idle.
+    """
+    newest, where = os.lstat(root).st_mtime, "./"
+    changed_dir = (newest, where) if since is not None and newest > since else None
+    errors: list[OSError] = []
+    for current, dirs, files in os.walk(root, onerror=errors.append):
+        dirs[:] = [d for d in dirs if d != ".git" and not is_cache_path(d)]
+        for name in (*dirs, *files):
+            if name == ".git" or is_cache_path(name):
+                continue
+            full = os.path.join(current, name)
+            try:
+                info = os.lstat(full)
+            except FileNotFoundError:
+                return time.time(), os.path.relpath(full, root)
+            is_dir = stat.S_ISDIR(info.st_mode)
+            rel = os.path.relpath(full, root) + ("/" if is_dir else "")
+            if info.st_mtime > newest:
+                newest, where = info.st_mtime, rel
+            if since is not None and info.st_mtime > since:
+                if not is_dir:
+                    return info.st_mtime, rel
+                changed_dir = changed_dir or (info.st_mtime, rel)
+    if errors:
+        raise errors[0]
+    return changed_dir or (newest, where)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("context", "check", "ancestor"))
+    parser.add_argument("mode", choices=("context", "check", "ancestor", "unnamed"))
     parser.add_argument("--context", type=Path)
     parser.add_argument("--path")
     parser.add_argument("--head")
@@ -237,6 +367,13 @@ def main(argv: list[str] | None = None) -> int:
         if not all((args.path, args.head, args.base)):
             parser.error("ancestor requires --path, --head and --base")
         return ancestor(args.head, args.base, cwd=args.path, timeout=args.timeout)
+    if args.mode == "unnamed":
+        # Exit 0: every commit of --head survives the worktree; 1: some would be orphaned; 4: unknown.
+        if not all((args.path, args.head)):
+            parser.error("unnamed requires --path and --head")
+        count = unnamed_commits(args.head, cwd=args.path, timeout=args.timeout)
+        print(count)
+        return 4 if count < 0 else int(count > 0)
     if args.context is None:
         parser.error("context/check requires --context")
     if args.mode == "context":
