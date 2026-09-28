@@ -26,6 +26,11 @@
 
 用户确认后才推 / 合 #396。
 
+摸底后三步（ClickHouse 盘中探针 / 关注池边车 / L2 工具）**不是本 PR**。正式稿：
+`docs/superpowers/specs/2026-08-26-intraday-l2-sidecar-design.md`
+（干净树 `/Users/a77/fwp-wt-intraday-l2-sidecar` @ `docs/intraday-l2-sidecar`）。
+不要在这棵树上做边车。
+
 ## 踩过的坑
 
 - 空表 `fact_top_gainers` 只有 schema：数表名不查行数会注册成永久 0 行。
