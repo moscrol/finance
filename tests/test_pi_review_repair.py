@@ -159,18 +159,22 @@ def configure_sandbox(folder, tree):
     config.update(tree=str(tree), python=sys.executable)
     dump(folder / "config.json", config)
     profile = folder / "tools.sb"
-    policy = profile.read_text().replace(
-        sandbox_metadata(Path(old_tree), folder), sandbox_metadata(tree, folder),
-    ).replace(old_tree, str(tree))
+    # Regenerate prepare()'s tree-metadata rule rather than rewrite it: its ancestor literals are not
+    # venv entries, yet repeat the venv anchor when the tree is nested under the venv's parent
+    # (a .claude/worktrees/<name> checkout inside the main one).
+    generated = sandbox_metadata(Path(old_tree), folder)
+    policy = profile.read_text()
+    assert policy.count(generated) == 1
+    rest = [part.replace(old_tree, str(tree)) for part in policy.split(generated)]
     # The disposable policy must follow the interpreter selected by this test run.
     for selector, previous, current in (
         ("subpath", old_venv, Path(sys.prefix)),
         ("literal", old_venv.parent, Path(sys.prefix).parent),
     ):
         anchor = f"({selector} {json.dumps(str(previous))})"
-        assert policy.count(anchor) == 1
-        policy = policy.replace(anchor, f"({selector} {json.dumps(str(current))})")
-    profile.write_text(policy)
+        assert sum(part.count(anchor) for part in rest) == 1
+        rest = [part.replace(anchor, f"({selector} {json.dumps(str(current))})") for part in rest]
+    profile.write_text(sandbox_metadata(tree, folder).join(rest))
 
 
 def sandbox_inputs(tmp_path, axis, tree):
@@ -181,6 +185,27 @@ def sandbox_inputs(tmp_path, axis, tree):
     folder = root / axis
     configure_sandbox(folder, tree)
     return folder
+
+
+def test_sandbox_fixture_rewrites_only_venv_entries_for_nested_tree(tmp_path, monkeypatch):
+    # Any checkout location: the tree path is derived from the archived venv, not from this run.
+    root = (tmp_path / "sandbox-inputs").resolve()
+    prepare(root)
+    folder = root / "spec"
+    venv = Path(load(folder / "config.json")["python"]).parent.parent
+    tree = venv.parent / ".claude/worktrees/nested"
+    selected = tmp_path / "selected/.venv"
+    monkeypatch.setattr(sys, "prefix", str(selected))
+    configure_sandbox(folder, tree)
+    policy = (folder / "tools.sb").read_text()
+    metadata = sandbox_metadata(tree, folder)
+    assert policy.count(metadata) == 1
+    rest = policy.replace(metadata, "")
+    ancestor = f"(literal {json.dumps(str(venv.parent))})"
+    assert ancestor in metadata and ancestor not in rest
+    assert rest.count(f"(subpath {json.dumps(str(selected))})") == 1
+    assert rest.count(f"(literal {json.dumps(str(selected.parent))})") == 1
+    assert json.dumps(str(venv)) not in policy
 
 
 def sandbox_tool_command(folder, command):
