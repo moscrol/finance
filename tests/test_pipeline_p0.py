@@ -625,8 +625,9 @@ def test_no_module_reads_feishu_credentials():
     import subprocess
 
     needles = ("feishu_config.json", "tenant_access_token", "FEISHU_APP_SECRET", "feishu_utils")
-    # 反向白名单：这处提到文件名是为了「禁止提交它」，是防线不是读取点。
-    allowed = {"scripts/agent_review/contract.py"}
+    # 反向白名单：这些地方提到文件名是为了「禁止提交它」，是防线不是读取点
+    # （worktree_closeout.py：拆树前封存未提交源码时，凭证配置一律不进封存提交）。
+    allowed = {"scripts/agent_review/contract.py", "scripts/worktree_closeout.py"}
     # 封存名单（#729）：飞书退役前就存在、随 skill 一并保留的读取点，逐个钉死。
     parked_allowed = {
         "skills/advancers-chart/scripts/feishu_chart.py",
