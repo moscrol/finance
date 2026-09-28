@@ -1013,6 +1013,11 @@ def validate_episode_finish(
         else frozenset()
     )
     quote_issues = []
+    integrity_issues = []
+    deferred_ref_errors = []
+    frozen_scope = grounding_scope(context.contract) in {"material_only", "local_only"}
+    # Parse every binding and inspect its sources before recoverable basis/ref
+    # errors can win. This is validation only: never substitute an unknown ref.
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
@@ -1026,9 +1031,19 @@ def validate_episode_finish(
             claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw_claims)
         except ValueError as exc:
             raise _reject("bad_claim_binding", str(exc)) from exc
+        resolved_refs = []
+        for raw_ref in raw_hashes:
+            try:
+                resolved_refs.extend(resolve_evidence_refs([raw_ref], evidence))
+            except EpisodeFinishRejection as exc:
+                if not frozen_scope or exc.code != "unknown_evidence_ref":
+                    raise
+                # Unknown E ordinals retain their existing FORMAT behavior in
+                # isolation, but cannot hide a quote error or a forged source.
+                deferred_ref_errors.append(exc)
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
-            evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
+            evidence_hashes=tuple(resolved_refs),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
             claims=claims,
@@ -1036,10 +1051,16 @@ def validate_episode_finish(
         source_issues = binding_source_issues(
             context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
         )
-        integrity_issues = [issue.message for issue in source_issues if issue.code != "material_quote_mismatch"]
-        if integrity_issues:
-            raise _reject("material_source_violation", "; ".join(integrity_issues))
-        quote_issues.extend(issue.message for issue in source_issues)
+        integrity_issues.extend(issue.message for issue in source_issues if issue.code != "material_quote_mismatch")
+        quote_issues.extend(issue.message for issue in source_issues if issue.code == "material_quote_mismatch")
+        bindings.append(binding)
+    if deferred_ref_errors and quote_issues:
+        integrity_issues.append("unknown evidence ordinal exceeds frozen data scope")
+    if integrity_issues:
+        raise _reject("material_source_violation", "; ".join(integrity_issues))
+    if deferred_ref_errors:
+        raise deferred_ref_errors[0]
+    for binding in bindings:
         if binding.output_id not in allowed_outputs:
             if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
                 # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
@@ -1092,7 +1113,6 @@ def validate_episode_finish(
                 "binding contains unknown evidence hash: "
                 + ",".join(sorted(str(item) for item in unknown)),
             )
-        bindings.append(binding)
 
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")

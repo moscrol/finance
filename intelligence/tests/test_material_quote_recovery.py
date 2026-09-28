@@ -185,6 +185,37 @@ def test_quote_error_cannot_mask_unknown_anchor_in_same_claim(protocol):
     assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
 
 
+@pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("mutation", ["unknown_ordinal", "basis_and_unknown_material", "basis_and_wrong_scope"])
+def test_whole_finish_source_integrity_precedes_recoverable_binding_errors(loop, reverse, mutation):
+    frame, context = history_setup()
+    bad = payload(context, "legacy", "history")
+    if mutation == "unknown_ordinal":
+        bad["bindings"][1]["evidence_hashes"] = ["E9"]
+    else:
+        # A valid quote plus an early basis slip must not mask a later bad source
+        # either. Identity, not binding order, decides whether repair is allowed.
+        bad = legacy_finish(context)
+        bad["bindings"][0]["basis"] = "model_reasoning"
+        if mutation == "basis_and_unknown_material":
+            bad["bindings"][1]["claims"][0]["material_anchors"][0]["material_id"] = "unknown"
+        else:
+            bad["bindings"][1]["evidence_hashes"] = ["a" * 64]
+    if reverse:
+        bad["bindings"].reverse()
+    saved = deepcopy(bad)
+    with pytest.raises(ValueError) as error:
+        validate_episode_finish(bad, context=context, evidence=())
+    assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
+    assert "不存在的摘录" not in str(error.value)
+    writer = Writer([bad, legacy_finish(context)])
+    result = loop(writer).run(task_frame=frame, context=context, registry=ResearchToolRegistry(()))
+    assert len(writer.calls) == 1 and result.status != "completed"
+    assert result.usage.tool_calls == 0 and result.bindings == ()
+    assert bad == saved
+
+
 def test_quote_feedback_lists_multiple_locations_with_bounded_size():
     _, context = history_setup()
     bad = payload(context, "compact", "material")
