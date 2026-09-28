@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import plistlib
 import subprocess
 import sys
@@ -250,3 +251,111 @@ def test_failed_cherry_still_reports_dirty_files(tmp_path, monkeypatch):
     assert row.unknown_reason and row.dirty
     assert '未提交: notes.md' in row.blockers
     assert 'unknown_reason:' in board.format_board([row], base='main', base_sha='a'*40)
+
+
+# ---- 收口复用的只读原语（worktree_closeout.py） --------------------------------
+
+
+def _repo(tmp_path, name='repo'):
+    repo = tmp_path / name
+    repo.mkdir()
+    for args in (['init', '-q', '-b', 'main'], ['config', 'user.name', 't'],
+                 ['config', 'user.email', 't@example.test'], ['config', 'commit.gpgsign', 'false']):
+        subprocess.run(['git', *args], cwd=repo, check=True, capture_output=True)
+    return repo
+
+
+def _run(repo, *args, stdin=None):
+    return subprocess.run(['git', *args], cwd=repo, check=True, capture_output=True, text=True,
+                          input=stdin).stdout.strip()
+
+
+def _commit(repo, name, text):
+    (repo / name).write_text(text)
+    _run(repo, 'add', '--', name)
+    _run(repo, 'commit', '-qm', name)
+    return _run(repo, 'rev-parse', 'HEAD')
+
+
+def test_status_records_keep_the_leading_status_column_from_real_git(tmp_path):
+    repo = _repo(tmp_path)
+    _commit(repo, 'src.py', 'a\n')
+    _commit(repo, 'old name.txt', 'b\n')
+    (repo / 'src.py').write_text('changed\n')
+    _run(repo, 'mv', 'old name.txt', 'new name.txt')
+    code, raw = safety.git(['status', '--porcelain=v1', '-z'], cwd=str(repo), timeout=10)
+    assert code == 0 and raw.startswith('R  new name.txt\0old name.txt\0') or ' M src.py' in raw
+    records = safety.status_records(raw)
+    assert ('R ', 'new name.txt', 'old name.txt') in records
+    assert (' M', 'src.py', '') in records
+    # 反例：strip 后首条变成 "M src.py"，一次性脚本的 rec[3:] 会静默读成 "rc.py"（两轮都踩过）；
+    # 这里列位对不上就拒绝解析，不猜。
+    stripped = ' M src.py\0'.strip()
+    assert stripped.split('\0')[0][3:] == 'rc.py'
+    with pytest.raises(ValueError):
+        safety.status_records(stripped)
+
+
+def test_unpushed_commits_feeds_negations_through_stdin(tmp_path):
+    repo = _repo(tmp_path)
+    pushed = _commit(repo, 'a.txt', 'a\n')
+    head = _commit(repo, 'b.txt', 'b\n')
+    assert safety.unpushed_commits(head, [pushed], cwd=str(repo), timeout=10) == 1
+    assert safety.unpushed_commits(head, [head], cwd=str(repo), timeout=10) == 0
+    assert safety.unpushed_commits(head, [], cwd=str(repo), timeout=10) == 2
+    assert safety.unpushed_commits('f' * 40, [pushed], cwd=str(repo), timeout=10) == -1
+    # 看起来等价的写法：命令行上的 --not 不否定 stdin 读进来的 sha，于是「全都没推」。
+    naive = _run(repo, 'rev-list', '--count', head, '--not', '--stdin', stdin=pushed + '\n')
+    assert int(naive) > 1
+
+
+def test_remote_tips_counts_advertised_but_unfetched_ids(tmp_path):
+    upstream = _repo(tmp_path, 'upstream')
+    base = _commit(upstream, 'a.txt', 'a\n')
+    clone = tmp_path / 'clone'
+    subprocess.run(['git', 'clone', '-q', str(upstream), str(clone)], check=True, capture_output=True)
+    _commit(upstream, 'b.txt', 'b\n')  # 远端前进了，本机没 fetch
+    tips = safety.remote_tips(str(clone), 'origin', timeout=10)
+    assert tips == {'shas': [], 'unknown': 1, 'error': ''}
+    # base 其实在远端（是新 tip 的祖先），但本机走不到新 tip，证明不了：按「没推」算，先 fetch。
+    assert safety.unpushed_commits(base, tips['shas'], cwd=str(clone), timeout=10) == 1
+    _run(clone, 'fetch', '-q', 'origin')
+    tips = safety.remote_tips(str(clone), 'origin', timeout=10)
+    assert tips['unknown'] == 0 and safety.unpushed_commits(base, tips['shas'], cwd=str(clone), timeout=10) == 0
+    assert safety.remote_tips(str(clone), 'no-such-remote', timeout=10)['error']
+
+
+def test_unnamed_commits_ignore_worktree_heads(tmp_path):
+    repo = _repo(tmp_path)
+    _commit(repo, 'a.txt', 'a\n')
+    tree = tmp_path / 'scratch'
+    _run(repo, 'worktree', 'add', '-q', '--detach', str(tree), 'HEAD')
+    head = _commit(tree, 'fix.txt', 'fix\n')
+    assert safety.unnamed_commits(head, cwd=str(repo), timeout=10) == 1
+    _run(repo, 'update-ref', 'refs/archive/wt-20260928/scratch', head)
+    assert safety.unnamed_commits(head, cwd=str(repo), timeout=10) == 0
+    assert safety.main(['unnamed', '--path', str(repo), '--head', head]) == 0
+
+
+def test_newest_activity_names_the_file_not_its_directory(tmp_path):
+    root = tmp_path / 'tree'
+    (root / 'sub').mkdir(parents=True)
+    (root / 'sub' / 'old.txt').write_text('old')
+    (root / 'node_modules').mkdir()
+    old = 946684800
+    for path in (root / 'sub' / 'old.txt', root / 'sub', root / 'node_modules', root):
+        os.utime(path, (old, old))
+    assert safety.newest_activity(str(root), since=old + 10)[0] <= old + 10
+    (root / 'node_modules' / 'cache.js').write_text('cache writes are not activity')
+    os.utime(root / 'node_modules', (old, old))
+    assert safety.newest_activity(str(root), since=old + 10)[0] <= old + 10
+    (root / 'sub' / 'new.txt').write_text('new')
+    assert safety.newest_activity(str(root), since=old + 10)[1] == 'sub/new.txt'
+    (root / 'sub' / 'new.txt').unlink()
+    (root / 'sub' / 'old.txt').unlink()
+    assert safety.newest_activity(str(root), since=old + 10)[1] == 'sub/'
+
+
+def test_code_review_graph_is_a_regenerable_cache():
+    assert safety.is_cache_path('.code-review-graph/graph.db')
+    assert safety.file_blockers({'paths': [], 'ignored': ['.code-review-graph/wiki/'], 'unknown_reason': ''}) == []

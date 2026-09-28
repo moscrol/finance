@@ -220,6 +220,37 @@ def test_release_merged_locks_unlocks_only_trees_already_in_base(tmp_path):
     assert pending.exists() and "PR1000" in result.stdout
 
 
+def test_chinese_retain_reason_survives_porcelain_quoting(tmp_path):
+    # core.quotePath 默认 true：porcelain 把非 ASCII 的锁理由写成 "\347\225\231..."，
+    # 按原样 grep「留待」永远匹配不上，--release-merged-locks 就会把它当过期锁解开拆掉。
+    repo = make_repo(tmp_path)
+    rehearsal = add_detached(repo, tmp_path / "rehearsal")
+    git(repo, "worktree", "lock", "--reason", "安装预演树，留待授权部署", str(rehearsal))
+    age_tree(rehearsal)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0", extra_args=["--release-merged-locks"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert rehearsal.exists()
+    assert "理由要求保留" in result.stdout and "安装预演树，留待授权部署" in result.stdout
+
+
+def test_detached_tree_holding_the_only_copy_of_a_commit_is_kept(tmp_path):
+    # git worktree remove 拆 detached 树不报任何警告；HEAD 若不在任何具名 ref 上，那个提交就没了。
+    repo = make_repo(tmp_path)
+    scratch = add_detached(repo, tmp_path / "scratch")
+    (scratch / "fix.txt").write_text("a fix committed on a detached HEAD")
+    git(scratch, "add", "--", "fix.txt")
+    git(scratch, "commit", "-m", "detached fix")
+    age_tree(scratch)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert scratch.exists()
+    assert "HEAD 有 1 个提交不在任何分支 / 标签 / 远端 / archive 引用上" in result.stdout
+
+
 def test_lock_reason_asking_to_retain_is_never_released(tmp_path):
     # #60 的安装预演树：候选早已合入 main，但锁理由写着 retain for authorized deployment——
     # 留到授权事件，不是留到合入。2026-09-25 的 dry-run 差点把它们当过期锁拆掉。
