@@ -177,7 +177,7 @@ def compile_material_contract(
                 authenticity = "fictional"
         if span.scope != "message":
             continue
-        if is_material_only_instruction(head):
+        if is_material_only_instruction(head, original_text=span.text):
             data_scope, data_scope_declared = "material_only", True
         elif head.startswith(_B_RELAX_PHRASES):
             data_scope, data_scope_declared = "full", True

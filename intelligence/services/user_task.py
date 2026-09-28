@@ -483,10 +483,22 @@ _B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
     "不查其他资料", "不查其它资料",
 )
 _B_SUPPLIED_MATERIAL_HEAD = (
-    r"(?:只|仅)(?:使用|用|分析)(?:以下|下列|上述|以上|给定|这些|这个)?"
-    r"(?:虚构的?)?(?:材料|资料|案例|算例)"
+    r"(?:只|仅)(?:使用|用|分析|根据|依据)(?:以下|下列|上述|以上|给定|这些|这个)?"
+    r"(?:虚构的?)?(?:材料|资料|案例|算例|题设|前提)"
 )
 _B_SUPPLIED_MATERIAL_RE = re.compile("^" + _B_SUPPLIED_MATERIAL_HEAD)
+# A complete prohibition freezes this turn's inputs. A named query target after
+# the verb is only a partial restriction and must not close every read route.
+_B_NO_NEW_READS_PREDICATE = r"(?:不|不要|不用|无需)(?:再|重新|再次)?(?:查询|检索)"
+# Splitting sees the entire line, while admission sees one punctuation-free
+# sentence. A split candidate is not itself permission to freeze all inputs.
+_B_NO_NEW_READS_HEAD = _B_NO_NEW_READS_PREDICATE + r"(?=$|[：:。！？；，,\n])"
+_B_NO_NEW_READS_RE = re.compile(
+    "^" + _B_NO_NEW_READS_PREDICATE
+    + r"(?:$|[：:]\s*(?:你(?:刚才|上一条|上一轮|上次)|"
+    r"(?:刚才|上轮|上一轮|上次)的?(?:回答|结论|解释|分析))"
+    r"[^：:。！？；，,\n]*(?:什么|哪些|多少|怎么说的|如何表述的)$)"
+)
 _B_PREVIOUS_EVIDENCE_ONLY_HEAD = (
     r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到)的"
     r"(?:本地)?(?:数据|资料|证据)"
@@ -527,13 +539,14 @@ _SENT_SPLIT_RE = re.compile(
         *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
     ))
     + "|" + _B_LOCAL_SOURCE_PATTERN
-    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + "|" + _B_SUPPLIED_MATERIAL_HEAD + r"))"
+    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + "|" + _B_SUPPLIED_MATERIAL_HEAD
+    + "|" + _B_NO_NEW_READS_HEAD + r"))"
 )
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(
     r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|(?<!不)[是为]虚构的?"
-    r"|(?<!非)(?<!不)(?<!不是)虚构的?(?:案例|算例|材料|公司|企业|行业)"
+    r"|(?<!非)(?<!不)(?<!不是)虚构的?(?:案例|算例|材料|题设|前提|公司|企业|行业)"
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
@@ -612,7 +625,7 @@ def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
     return out
 
 
-def _state_op_in_sentence(sent: str) -> str | None:
+def _state_op_in_sentence(sent: str, *, original_text: str | None = None) -> str | None:
     """句级状态操作识别（内容复核与指令识别共用的唯一入口，退修 R3）。
 
     返回顶层状态操作种类；引用和材料正文不能发出这些操作。
@@ -623,7 +636,7 @@ def _state_op_in_sentence(sent: str) -> str | None:
     head = _state_head(s)
     # ``_is_local_only_head`` 覆盖 ``_B_LOCAL_ONLY_PHRASES`` 与「只用本地已有资料」
     # 这类带来源名词的句式；放宽词表单列，避免把它塞进本地词表改变语义。
-    if (is_material_only_instruction(head)
+    if (is_material_only_instruction(head, original_text=original_text)
             or _is_local_only_head(head)
             or head.startswith(_B_RELAX_PHRASES)):
         return "constraint_b"
@@ -641,10 +654,14 @@ def _state_op_in_sentence(sent: str) -> str | None:
     return None
 
 
-def is_material_only_instruction(head: str) -> bool:
+def is_material_only_instruction(head: str, *, original_text: str | None = None) -> bool:
     """Previously obtained data is an input ceiling, not permission to query again."""
     return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(
         _B_PREVIOUS_EVIDENCE_ONLY_RE.match(head) or _B_SUPPLIED_MATERIAL_RE.match(head)
+        or (_B_NO_NEW_READS_RE.match(head)
+            # A masked quoted object must not turn a partial prohibition into
+            # an objectless one. The original can only veto, never add control.
+            and (original_text is None or _B_NO_NEW_READS_RE.match(_state_head(original_text))))
     )
 
 
@@ -1033,7 +1050,9 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                     # 首行跳过编号前缀，否则「8. 如果…」的句首形态被编号挡住
                     base = m.start(2) if k == li else 0
                     for s_off, e_off, sent in _sentence_spans(masked[k][base:]):
-                        kind = _state_op_in_sentence(sent)
+                        kind = _state_op_in_sentence(
+                            sent, original_text=lines[k][base + s_off:base + e_off],
+                        )
                         if kind is None and _HYPOTHESIS_IN_QUESTION_RE.match(sent):
                             kind = "premise_declaration"
                         if kind:
@@ -1059,7 +1078,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         if claimed[li] or not masked[li].strip():
             continue
         for s_off, e_off, sent in _sentence_spans(masked[li]):
-            kind = _state_op_in_sentence(sent)
+            kind = _state_op_in_sentence(sent, original_text=lines[li][s_off:e_off])
             if kind:
                 instructions.append(
                     InstructionSpan(kind, lines[li][s_off:e_off].strip(), li,
@@ -1089,7 +1108,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         if span.kind != "constraint_b":
             continue
         head = _state_head(span.visible_text)
-        if is_material_only_instruction(head):
+        if is_material_only_instruction(head, original_text=span.text):
             message_scope = "material_only"
         elif head.startswith(_B_RELAX_PHRASES):
             message_scope = "full"

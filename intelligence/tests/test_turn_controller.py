@@ -1994,3 +1994,242 @@ def test_empty_manual_does_not_reroute_quick_fact() -> None:
         ),
     )
     assert decision.question_type == "quick_fact"
+
+
+@pytest.mark.parametrize("route_id", ("concept_definition", "methodology_discussion"))
+@pytest.mark.parametrize(
+    ("query", "market_fact"),
+    (
+        ("请查宁德时代2026-09-24的收盘价和成交额。", True),
+        ("请列出宁德时代最新交易日的收盘价、涨跌幅和成交额。", True),
+        ("请查宁德时代2026-09-24的产能规模。", False),
+        ("请给出宁德时代最近的产能规模。", False),
+    ),
+)
+def test_semantic_knowledge_route_keeps_request_fact_retrieval_floor(
+    tmp_path, route_id: str, query: str, market_fact: bool,
+) -> None:
+    from intelligence.runtime.turn_control_core import project_turn_decision
+    from intelligence.services.task_frame import task_frame_requires_retrieval
+
+    calls = []
+
+    def complete(messages):
+        calls.append(messages)
+        return _canonical_reply(route_id=route_id, assumptions=[], ambiguities=[]), object(), ""
+
+    decision = decide_turn(query, resolver=_semantic_resolver(tmp_path), llm_complete=complete)
+
+    assert len(calls) == 1
+    assert decision.question_type == route_id
+    assert decision.needs_retrieval
+    assert decision.lane == "research"
+    frame = decision.task_frame
+    assert frame is not None and task_frame_requires_retrieval(frame)
+    assert frame.subject == "宁德时代"
+    assert frame.evidence_policy not in {"stable_knowledge", "model_reasoning"}
+    if "2026-09-24" in query:
+        assert frame.timeframe == "2026-09-24"
+    control = project_turn_decision(decision, task_frame=frame)
+    assert control.terminal_kind == "research" and control.needs_retrieval
+    assert control.contract_required and control.capabilities
+    if market_fact:
+        assert "market_quote" in decision.capabilities
+        assert "market_data" in control.capabilities
+
+
+@pytest.mark.parametrize(
+    ("query", "route_id"),
+    (
+        ("宁德时代这个名字指什么", "concept_definition"),
+        ("如何研究宁德时代的经营模式？", "methodology_discussion"),
+        ("如何判断宁德时代当前股价是否合理？", "methodology_discussion"),
+    ),
+)
+def test_resolved_company_identity_does_not_force_static_knowledge_retrieval(
+    tmp_path, query: str, route_id: str,
+) -> None:
+    from intelligence.runtime.turn_control_core import project_turn_decision
+
+    calls = []
+
+    def complete(messages):
+        calls.append(messages)
+        return _canonical_reply(route_id=route_id, assumptions=[], ambiguities=[]), object(), ""
+
+    decision = decide_turn(query, resolver=_semantic_resolver(tmp_path), llm_complete=complete)
+
+    assert len(calls) == 1
+    assert decision.question_type == route_id
+    assert decision.lane == "knowledge" and not decision.needs_retrieval
+    assert decision.capabilities == ()
+    assert decision.task_frame is not None
+    control = project_turn_decision(decision, task_frame=decision.task_frame)
+    assert control.terminal_kind == "non_research"
+    assert not control.needs_retrieval and control.capabilities == ()
+
+
+@pytest.mark.parametrize("injected", (False, True))
+@pytest.mark.parametrize(("seconds", "reserve"), ((0.0, 0.0), (2.0, 2.0)))
+def test_semantic_controller_does_not_call_after_research_deadline(
+    tmp_path, monkeypatch, injected: bool, seconds: float, reserve: float,
+) -> None:
+    from intelligence.services import llm_refine
+    from intelligence.services.research_contract import ResearchDeadline
+
+    calls = []
+
+    def complete(messages, **kwargs):
+        calls.append((messages, kwargs))
+        return "not json", None, ""
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    decision = decide_turn(
+        "请查宁德时代2026-09-24的收盘价和成交额。",
+        resolver=_semantic_resolver(tmp_path),
+        llm_complete=complete if injected else None,
+        deadline=ResearchDeadline.from_timeout(seconds, synthesis_reserve=reserve),
+    )
+
+    assert calls == []
+    assert decision.question_type == "stock_deep_dive"
+    assert decision.lane == "research" and decision.needs_retrieval
+    assert decision.llm_failure_reason == "deadline_exhausted_local"
+    assert "截止时间" in decision.llm_failure_detail
+    assert decision.to_dict()["llm_failure_reason"] == "deadline_exhausted_local"
+
+
+def test_semantic_controller_and_repair_share_remaining_stage_budget(tmp_path, monkeypatch) -> None:
+    from intelligence.services import llm_refine
+    from intelligence.services.research_contract import ResearchDeadline
+
+    now = [100.0]
+    monkeypatch.setattr("intelligence.services.turn_controller.time.monotonic", lambda: now[0])
+    monkeypatch.setattr(llm_refine, "DEFAULT_LLM_TIMEOUT", 8)
+    calls = []
+
+    def complete(messages, **kwargs):
+        calls.append((messages, kwargs))
+        now[0] += 3
+        if len(calls) == 1:
+            return "not json", object(), ""
+        return _canonical_reply(route_id="quick_fact", assumptions=[], ambiguities=[]), object(), ""
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    deadline = ResearchDeadline.from_timeout(12, synthesis_reserve=2)
+    decision = decide_turn(
+        "请查宁德时代2026-09-24的收盘价和成交额。",
+        resolver=_semantic_resolver(tmp_path), deadline=deadline,
+    )
+
+    assert len(calls) == 2
+    assert calls[0][1]["timeout"] == 8
+    assert calls[1][1]["timeout"] == 7
+    assert calls[1][0][-2] == {"role": "assistant", "content": "not json"}
+    assert deadline.expires_at == 112 and deadline.synthesis_reserve == 2
+    assert decision.question_type == "quick_fact" and decision.needs_retrieval
+    assert decision.llm_failure_reason == decision.llm_failure_detail == ""
+
+
+@pytest.mark.parametrize("late_attempt", (1, 2))
+@pytest.mark.parametrize("late_content", ("not json", "quick_fact"))
+def test_semantic_controller_discards_late_primary_or_repair_reply(
+    tmp_path, monkeypatch, late_attempt: int, late_content: str,
+) -> None:
+    from intelligence.services.research_contract import ResearchDeadline
+
+    now = [100.0]
+    monkeypatch.setattr("intelligence.services.turn_controller.time.monotonic", lambda: now[0])
+    calls = []
+
+    # Injected callbacks retain their one-argument API; deadline admission and
+    # late-result rejection still apply at the real decide_turn boundary.
+    def complete(messages):
+        calls.append(messages)
+        if len(calls) < late_attempt:
+            return "not json", object(), ""
+        now[0] = 110
+        if late_content == "quick_fact":
+            return _canonical_reply(route_id="quick_fact", assumptions=[], ambiguities=[]), object(), ""
+        return late_content, object(), ""
+
+    decision = decide_turn(
+        "请查宁德时代2026-09-24的收盘价和成交额。",
+        resolver=_semantic_resolver(tmp_path), llm_complete=complete,
+        deadline=ResearchDeadline.from_timeout(10),
+    )
+
+    assert len(calls) == late_attempt
+    assert decision.question_type == "stock_deep_dive"
+    assert decision.lane == "research" and decision.needs_retrieval
+    assert decision.llm_failure_reason == "deadline_exhausted_local"
+    assert "截止时间" in decision.llm_failure_detail
+    if late_attempt == 2:
+        assert "首次输出：not json" in decision.llm_failure_detail
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "2026-08-19 全市场成交额排第三的板块是哪个，成交额多少",
+        "07-21 全市成交额多少",
+    ),
+)
+@pytest.mark.parametrize("failure", ("unavailable", "exception", "unparsable", "deadline"))
+def test_failed_semantic_controller_keeps_known_fact_candidate(tmp_path, query: str, failure: str) -> None:
+    from intelligence.services.research_contract import ResearchDeadline
+
+    calls = []
+
+    def complete(messages):
+        calls.append(messages)
+        if failure == "exception":
+            raise RuntimeError("provider unavailable")
+        if failure == "unparsable":
+            return "not json", object(), ""
+        return None, None, "fixture unavailable"
+
+    decision = decide_turn(
+        query, resolver=_semantic_resolver(tmp_path), llm_complete=complete,
+        deadline=ResearchDeadline.from_timeout(0) if failure == "deadline" else None,
+    )
+
+    assert len(calls) == {"unavailable": 1, "exception": 1, "unparsable": 2, "deadline": 0}[failure]
+    assert decision.question_type == "quick_fact"
+    assert decision.lane == "research" and decision.needs_retrieval
+    assert not decision.needs_template
+    assert "market_quote" in decision.capabilities
+    assert decision.task_frame is not None
+    assert decision.task_frame.question_type == "quick_fact"
+    assert decision.task_frame.required_outputs == ("fact_value", "as_of_date", "evidence_boundary")
+    assert decision.task_frame.raw_question == query
+    assert decision.llm_failure_reason and decision.llm_failure_detail
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "长电科技最新股价多少？同时判断上涨是否有订单支撑。",
+        "长电科技最新收盘价多少？同时解释为什么上涨。",
+    ),
+)
+def test_failed_semantic_controller_keeps_mixed_company_research_floor(tmp_path, query: str) -> None:
+    from intelligence.runtime.turn_control_core import project_turn_decision
+
+    calls = []
+
+    def complete(messages):
+        calls.append(messages)
+        return None, None, "fixture unavailable"
+
+    decision = decide_turn(query, resolver=_semantic_resolver(tmp_path), llm_complete=complete)
+
+    assert len(calls) == 1
+    assert decision.question_type != "quick_fact"
+    assert decision.needs_retrieval
+    assert decision.task_frame is not None
+    candidate = json.loads(calls[0][1]["content"])["task_frame"]
+    assert decision.task_frame.to_dict() == candidate
+    control = project_turn_decision(decision, task_frame=decision.task_frame)
+    assert control.terminal_kind == "research" and control.contract_required
+    assert decision.llm_failure_detail == "fixture unavailable"

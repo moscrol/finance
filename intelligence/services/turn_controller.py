@@ -59,6 +59,7 @@ from intelligence.services.task_frame import (
     align_task_frame,
     build_task_frame,
     derive_required_outputs,
+    has_explicit_date,
     rebase_task_frame,
     resolve_task_frame_clarification,
     task_frame_requires_retrieval,
@@ -828,14 +829,47 @@ _UNPARSABLE_RETRY_INSTRUCTION = (
 )
 
 
+def _complete_controller(
+    messages: list[dict[str, str]],
+    *,
+    llm_complete: LLMComplete | None,
+    deadline: ResearchDeadline | None,
+) -> tuple[str | None, object | None, str]:
+    """Admit each attempt against the same remaining research-stage budget."""
+
+    timeout = (
+        deadline.stage_timeout(llm_refine.DEFAULT_LLM_TIMEOUT)
+        if deadline is not None else None
+    )
+    if timeout is not None and timeout <= 0:
+        return None, None, "Controller 未调用：共享截止时间的研究额度已耗尽"
+    started_at = time.monotonic()
+    try:
+        if llm_complete is not None:
+            result = llm_complete(messages)
+        elif timeout is not None:
+            result = llm_refine.complete(messages, timeout=timeout)
+        else:
+            result = llm_refine.complete(messages)
+    except Exception as exc:  # noqa: BLE001 - controller 不可用必须能降级，但要留证
+        result = None, None, f"Controller 调用抛出（{type(exc).__name__}）"
+    if deadline is not None and timeout is not None and (
+        deadline.stage_timeout(llm_refine.DEFAULT_LLM_TIMEOUT) <= 0
+        or time.monotonic() - started_at >= timeout
+    ):
+        return None, None, "Controller 超出共享截止时间或本次调用额度，丢弃迟到回复"
+    return result
+
+
 def _retry_unparsable_once(
-    complete: LLMComplete,
+    llm_complete: LLMComplete | None,
     *,
     query: str,
     context: str,
     task_frame: TaskFrame,
     bad_content: str,
-) -> str | None:
+    deadline: ResearchDeadline | None,
+) -> tuple[str | None, object | None, str]:
     """解析失败后带着原样输出与纠错指令重问一次。
 
     只在「provider 回了话但读不懂」时重试：同一份 prompt 裸重发大概率换来
@@ -847,11 +881,7 @@ def _retry_unparsable_once(
     messages = _controller_messages(query, context, task_frame)
     messages.append({"role": "assistant", "content": bad_content})
     messages.append({"role": "user", "content": _UNPARSABLE_RETRY_INSTRUCTION})
-    try:
-        content, _provider, _detail = complete(messages)
-    except Exception:  # noqa: BLE001 - 与首次调用同一条降级纪律：必须能降级
-        return None
-    return content
+    return _complete_controller(messages, llm_complete=llm_complete, deadline=deadline)
 
 
 def _controller_failure(detail: str) -> tuple[str, str]:
@@ -888,6 +918,19 @@ def _safe_fallback(
 
 
 def _safe_fallback_route(query: str, envelope: QueryEnvelope) -> TurnDecision:
+    if envelope.question_type in {"general_finance_qa", "quick_fact"}:
+        candidate = _fine_grained_route_row(query)
+        if candidate is not None and candidate.route_id == "quick_fact":
+            # 语义调用失败才沿用已有查数候选；不能把已确认的研究任务降格。
+            # 成功路径仍由 Controller 判断整轮诉求，词面「多少」不抢裁决权。
+            return _decision_from_route_row(
+                candidate,
+                query=query,
+                subject=envelope.subject,
+                timeframe=envelope.timeframe,
+                confidence=0.55,
+                reason="Controller 不可用；沿用已有的精确查数候选",
+            )
     evidence_fallback = _evidence_fallback_decision(query, envelope)
     if evidence_fallback is not None:
         return replace(
@@ -1036,6 +1079,18 @@ def _rebase_frame_for_decision(
             rebased,
             required_outputs=derive_required_outputs("quick_fact", rebased.raw_question),
         )
+    if (
+        rebased.evidence_policy in {"stable_knowledge", "model_reasoning"}
+        and task_frame_requires_retrieval(task_frame)
+    ):
+        # 题型可以重选，原题中的当期/定日事实要求不能随旧题型一起清空。
+        # 复用现有事实与时效解析；仅有公司/题材身份不构成这道下限。
+        if is_current_market_query(task_frame.raw_question):
+            rebased = replace(rebased, evidence_policy="current_fact_evidence")
+        elif has_explicit_date(task_frame.raw_question) or _FRESHNESS_PATTERN.search(
+            task_frame.raw_question
+        ):
+            rebased = replace(rebased, evidence_policy=task_frame.evidence_policy)
     return rebased
 
 
@@ -1575,26 +1630,24 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    complete = llm_refine.complete if llm_complete is None else llm_complete
-    try:
-        content, _provider, failure_detail = complete(
-            _controller_messages(effective_query, context, task_frame)
-        )
-    except Exception as exc:  # noqa: BLE001 - controller 不可用必须能降级，但要留证
-        content = None
-        failure_detail = f"Controller 调用抛出（{type(exc).__name__}）"
+    content, _provider, failure_detail = _complete_controller(
+        _controller_messages(effective_query, context, task_frame),
+        llm_complete=llm_complete,
+        deadline=deadline,
+    )
     if content is None:
         failure_reason, failure_detail = _controller_failure(failure_detail)
+        decision = _safe_fallback(
+            effective_query,
+            envelope,
+            llm_failure_reason=failure_reason,
+            llm_failure_detail=failure_detail,
+        )
+        task_frame = _rebase_frame_for_decision(
+            task_frame, decision, current_turn_frame=current_turn_frame,
+        )
         return _attach_turn_intent(
-            _enforce_task_frame_route(
-                _safe_fallback(
-                    effective_query,
-                    envelope,
-                    llm_failure_reason=failure_reason,
-                    llm_failure_detail=failure_detail,
-                ),
-                task_frame,
-            ),
+            _enforce_task_frame_route(decision, task_frame),
             intent,
             task_frame=task_frame,
         )
@@ -1603,13 +1656,15 @@ def decide_turn(
         query=effective_query,
         envelope=envelope,
     )
+    retry_failure_detail = ""
     if parsed is None:
-        retry_content = _retry_unparsable_once(
-            complete,
+        retry_content, _provider, retry_failure_detail = _retry_unparsable_once(
+            llm_complete,
             query=effective_query,
             context=context,
             task_frame=task_frame,
             bad_content=content,
+            deadline=deadline,
         )
         if retry_content is not None:
             parsed = _parse_llm_decision(
@@ -1651,13 +1706,16 @@ def decide_turn(
         # 混在一起会把一次 prompt/schema 回归误判成外部故障。
         # detail 留首次原文（声明式截断：限定语在前，截掉的是原文尾部）——
         # 生产 39 run 里 4 个 unparsable 全是空 detail，验尸零证据的教训。
+        failure_reason = "unparsable_response"
+        failure_detail = f"重试一次仍不可解析；首次输出：{content}"
+        if retry_failure_detail:
+            failure_reason, detail = _controller_failure(retry_failure_detail)
+            failure_detail = f"Controller 纠错未完成：{detail}；首次输出：{content}"
         decision = _safe_fallback(
             effective_query,
             envelope,
-            llm_failure_reason="unparsable_response",
-            llm_failure_detail=(f"重试一次仍不可解析；首次输出：{content}")[
-                :_FAILURE_DETAIL_LIMIT
-            ],
+            llm_failure_reason=failure_reason,
+            llm_failure_detail=failure_detail[:_FAILURE_DETAIL_LIMIT],
         )
     task_frame = _rebase_frame_for_decision(
         task_frame, decision, current_turn_frame=current_turn_frame,
