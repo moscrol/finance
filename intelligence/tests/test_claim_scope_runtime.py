@@ -145,6 +145,7 @@ def test_verifier_advisory_preserves_public_and_terminal_fields(monkeypatch):
     assert replace(reviewed, claim_scope=None) == baseline
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("repair", ["none", "raises", "recheck_raises", "good"])
 def test_adapter_reviews_final_delivery_including_recovery(monkeypatch, repair):
     baseline, old_goals, _ = _delivery(repair=repair)
