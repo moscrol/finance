@@ -51,6 +51,7 @@ import {
 } from "./api";
 import { ArtifactLibrary } from "./components/ArtifactLibrary";
 import { ArtifactViewer } from "./components/ArtifactViewer";
+import { BoardCalendarDashboard } from "./components/BoardCalendarDashboard";
 import { Composer } from "./components/Composer";
 import { ConversationList } from "./components/ConversationList";
 import { MessageThread } from "./components/MessageThread";
@@ -1118,7 +1119,7 @@ export default function App() {
     [messages, runBundles],
   );
   const activeSection: WorkbenchSection = (
-    ["today", "themes", "signals", "validation", "ask"] as const
+    ["today", "themes", "signals", "validation", "board_calendar", "ask"] as const
   ).includes(surface.kind as WorkbenchSection)
     ? (surface.kind as WorkbenchSection)
     : "ask";
@@ -1127,6 +1128,7 @@ export default function App() {
     themes: ["主题雷达", "主题状态矩阵", "知识共识与盘面确认分轴展示"],
     signals: ["事件收件箱", "晨会边际变化", "只推变化，不重复旧观点"],
     validation: ["回检台", "验证与校准", "机构胜率 · Level2 · 假设回检"],
+    board_calendar: ["交易日历", "连板梯队", "按交易日查看 ≥2板 / ≥3板个股"],
     ask: ["研究线程", activeConversation?.title ?? "新对话", "每轮重新检索当前证据"],
   };
   const [sectionKicker, sectionTitle, sectionSubtitle] =
@@ -1288,6 +1290,8 @@ export default function App() {
               onRefresh={refreshOverview}
             />
           )}
+
+        {surface.kind === "board_calendar" && <BoardCalendarDashboard />}
 
         {surface.kind === "library" && (
           <ArtifactLibrary

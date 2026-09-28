@@ -416,11 +416,60 @@ export interface Bootstrap {
   credits?: CreditsSummary;
 }
 
+export interface BoardCalendarStock {
+  stock_ts_code: string;
+  stock_name: string;
+  boards: number;
+  theme: string | null;
+  pct_chg: number | null;
+}
+
+export interface BoardCalendarGroup {
+  boards: number;
+  stocks: BoardCalendarStock[];
+}
+
+export type BoardCalendarStatus =
+  | "trading"
+  | "closed"
+  | "future"
+  | "market_data_missing"
+  | "calendar_unknown";
+
+export interface BoardCalendarDay {
+  date: string;
+  weekday: number;
+  is_trading_day: boolean;
+  calendar_status: BoardCalendarStatus;
+  data_status:
+    | "available"
+    | "board_data_missing"
+    | "not_applicable"
+    | "market_data_missing"
+    | "calendar_unknown";
+  board_groups: BoardCalendarGroup[];
+  stock_count: number;
+}
+
+export interface BoardCalendar {
+  status: string;
+  message: string;
+  start_date: string;
+  end_date: string;
+  min_boards: number;
+  recommended_min_boards: number;
+  market_data_cutoff: string | null;
+  board_data_cutoff: string | null;
+  calendar_days: BoardCalendarDay[];
+  trading_days: BoardCalendarDay[];
+}
+
 export type WorkbenchSection =
   | "today"
   | "themes"
   | "signals"
   | "validation"
+  | "board_calendar"
   | "ask";
 
 export interface DataFreshnessStatus {

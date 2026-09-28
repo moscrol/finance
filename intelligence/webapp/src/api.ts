@@ -1,5 +1,6 @@
 import type {
   ArtifactDescriptor,
+  BoardCalendar,
   Bootstrap,
   ChatMessage,
   Conversation,
@@ -67,6 +68,17 @@ export function getCredits(user?: string): Promise<CreditsSummary> {
 
 export function getWorkbenchOverview(): Promise<WorkbenchOverview> {
   return request<WorkbenchOverview>("/api/workbench/overview");
+}
+
+export function getBoardCalendar(
+  month: string,
+  minBoards?: number,
+): Promise<BoardCalendar> {
+  const params = new URLSearchParams({ month });
+  if (minBoards !== undefined) params.set("min_boards", String(minBoards));
+  return request<BoardCalendar>(
+    `/api/workbench/board-calendar?${params.toString()}`,
+  );
 }
 
 export function approveForecastReflection(

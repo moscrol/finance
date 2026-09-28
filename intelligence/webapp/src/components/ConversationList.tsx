@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Boxes,
   CalendarDays,
+  ChartNoAxesCombined,
   ChevronRight,
   FolderArchive,
   Layers3,
@@ -20,6 +21,7 @@ const outputNavigation = [
   { section: "themes", label: "主题", Icon: Layers3 },
   { section: "signals", label: "信号", Icon: RadioTower },
   { section: "validation", label: "验证", Icon: BadgeCheck },
+  { section: "board_calendar", label: "连板日历", Icon: ChartNoAxesCombined },
   { section: "ask", label: "问答", Icon: MessageCircle },
 ] satisfies Array<{
   section: WorkbenchSection;

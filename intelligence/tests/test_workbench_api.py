@@ -4050,6 +4050,59 @@ def test_workbench_overview_is_fail_closed_without_market_database(
     assert response.json()["data_status"][0]["status"] == "missing"
 
 
+def test_board_calendar_endpoint_uses_configured_market_database(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "board-calendar.duckdb"
+    con = duckdb.connect(str(database))
+    con.execute("CREATE TABLE fact_market_daily (trade_date DATE)")
+    con.execute("INSERT INTO fact_market_daily VALUES ('2026-09-24')")
+    con.execute(
+        """
+        CREATE TABLE fact_limit_advance_daily (
+            trade_date DATE,
+            stock_ts_code VARCHAR,
+            stock_name VARCHAR,
+            boards INTEGER,
+            theme VARCHAR,
+            pct_chg DOUBLE
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO fact_limit_advance_daily VALUES
+        ('2026-09-24', '000001.SZ', '测试股份', 4, '测试题材', 8.5)
+        """
+    )
+    con.close()
+    monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(database))
+
+    response = client.get("/api/workbench/board-calendar?month=2026-09&min_boards=3")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["min_boards"] == 3
+    day = next(item for item in payload["trading_days"] if item["date"] == "2026-09-24")
+    assert day["board_groups"][0]["stocks"][0]["stock_name"] == "测试股份"
+
+
+def test_board_calendar_endpoint_rejects_conflicting_or_out_of_range_queries(
+    client: TestClient,
+) -> None:
+    conflict = client.get(
+        "/api/workbench/board-calendar?month=2026-09&start_date=2026-09-01&end_date=2026-09-30"
+    )
+    too_low = client.get("/api/workbench/board-calendar?min_boards=1")
+
+    assert conflict.status_code == 422
+    assert "month" in conflict.json()["detail"]
+    assert too_low.status_code == 422
+
+
 def test_workbench_overview_uses_configured_finance_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
