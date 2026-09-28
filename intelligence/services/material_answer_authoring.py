@@ -167,8 +167,10 @@ def _compile_claim(value: object, sources: dict[str, object], location: str) -> 
         if not isinstance(ref, str) or ref not in sources or not ref.startswith("H" if historical else "M"):
             raise MaterialAuthoringError(f"{location} has an unknown or wrong-class source", code="material_source_violation")
         original = sources[ref]
-        if not isinstance(quote, str) or not quote.strip() or quote not in original.text:
-            raise MaterialAuthoringError(f"{location} quote is not an exact source excerpt", code="material_source_violation")
+        if not isinstance(quote, str) or not quote.strip():
+            raise MaterialAuthoringError(f"{location} requires a nonempty quote string")
+        # The canonical source pass checks every compiled claim before classifying
+        # quote-only errors. Do not let an early typo conceal a later forged ref.
         if historical:
             compiled.update(old_answer_coordinate=original.source_message_id, historical_quote=quote, basis=original.basis)
         else:

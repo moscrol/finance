@@ -152,36 +152,67 @@ def grounding_scope(contract: ResearchTaskContract) -> str | None:
     return "material_only" if material.needs_clarification else material.data_scope
 
 
-def claim_binding_error(contract: ResearchTaskContract, claim: ClaimSourceBinding, draft: str) -> str:
-    """Mechanical identity check. A semantic pass is still required afterwards."""
+@dataclass(frozen=True)
+class MaterialSourceIssue:
+    message: str
+    code: str = "material_source_violation"
+
+
+QUOTE_REPAIR_RULE = (
+    "从同一冻结来源逐字复制连续片段，不改写、拼接或用省略号；多个片段分别引用。"
+    "逐条检查所有引用，不要修改来源身份或用无依据推理代替事实；无法支持的内容须明确缺口。"
+)
+
+
+def _claim_source_issues(
+    contract: ResearchTaskContract, claim: ClaimSourceBinding, draft: str,
+) -> tuple[MaterialSourceIssue, ...]:
+    """Check every source identity before permitting quote-only correction."""
+    issues = []
     if claim.text.strip() not in claim_sentences(draft):
-        return "claim text is absent from draft"
+        issues.append(MaterialSourceIssue("claim text is absent from draft"))
     if len(claim_sentences(claim.text)) != 1:
-        return "claim binding must describe one sentence"
+        issues.append(MaterialSourceIssue("claim binding must describe one sentence"))
     catalogue = contract.material_grounding
     if catalogue is None:
-        return "material source catalogue unavailable"
+        return (*issues, MaterialSourceIssue("material source catalogue unavailable"))
     materials = {item.material_id: item.text for item in catalogue.materials}
-    for anchor in claim.material_anchors:
-        if anchor.material_id not in materials or anchor.quote not in materials[anchor.material_id]:
-            return "material anchor does not match original user text"
+    for index, anchor in enumerate(claim.material_anchors):
+        if anchor.material_id not in materials:
+            issues.append(MaterialSourceIssue(f"material_anchors[{index}] has an unknown material source"))
+        elif anchor.quote not in materials[anchor.material_id]:
+            issues.append(MaterialSourceIssue(
+                f"material_anchors[{index}] quote does not match original user text", "material_quote_mismatch",
+            ))
     if claim.kind == "historical_assistant_statement":
-        if not any(item.source_message_id == claim.old_answer_coordinate and claim.historical_quote in item.text
-                   and item.basis == "assistant_judgment" for item in catalogue.historical_assistant_statements):
-            return "historical quote does not match original assistant message"
+        original = next((item for item in catalogue.historical_assistant_statements
+                         if item.source_message_id == claim.old_answer_coordinate
+                         and item.basis == "assistant_judgment"), None)
+        if original is None:
+            issues.append(MaterialSourceIssue("unknown historical assistant coordinate"))
+        elif claim.historical_quote not in original.text:
+            issues.append(MaterialSourceIssue(
+                "historical quote does not match original assistant message", "material_quote_mismatch",
+            ))
     if grounding_scope(contract) == "material_only" and claim.kind == "material_fact" and not claim.material_anchors:
-        return "material fact requires material_id and exact quote"
-    return ""
+        issues.append(MaterialSourceIssue("material fact requires material_id and exact quote"))
+    return tuple(issues)
 
 
-def binding_source_errors(
+def claim_binding_error(contract: ResearchTaskContract, claim: ClaimSourceBinding, draft: str) -> str:
+    """Compatibility view; any quote mismatch still fails source validation."""
+    issues = _claim_source_issues(contract, claim, draft)
+    return issues[0].message if issues else ""
+
+
+def binding_source_issues(
     contract: ResearchTaskContract,
     binding: OutputEvidenceBinding,
     draft: str,
     evidence: tuple,
     *,
     frozen_prior_hashes: frozenset[str] = frozenset(),
-) -> tuple[str, ...]:
+) -> tuple[MaterialSourceIssue, ...]:
     """Mechanical source-scope check for one finish binding.
 
     ``frozen_prior_hashes`` are the content hashes of prior-turn tool atoms that
@@ -193,9 +224,11 @@ def binding_source_errors(
     scope = grounding_scope(contract)
     if scope not in {"material_only", "local_only"}:
         return ()
-    errors = [error for claim in binding.claims if (error := claim_binding_error(contract, claim, draft))]
+    errors = [MaterialSourceIssue(f"{binding.output_id}.claims[{index}]: {issue.message}", issue.code)
+              for index, claim in enumerate(binding.claims)
+              for issue in _claim_source_issues(contract, claim, draft)]
     if binding.gap and binding.claims:
-        errors.append("a gap cannot carry answered claims")
+        errors.append(MaterialSourceIssue("a gap cannot carry answered claims"))
     if scope == "material_only" and not binding.gap:
         from intelligence.services.material_delivery import material_question_outputs, question_body
 
@@ -205,19 +238,29 @@ def binding_source_errors(
             sentences = claim_sentences(body)
             claims = tuple(c.text.strip() for c in binding.claims)
             if sentences != claims:
-                errors.append("every answered sentence must have exactly one ordered claim binding in its question")
+                errors.append(MaterialSourceIssue("every answered sentence must have exactly one ordered claim binding in its question"))
     by_hash = {item.content_hash: item for item in evidence}
     for key in binding.evidence_hashes:
         item = by_hash.get(key)
         if item is None:
-            errors.append("binding exceeds frozen data scope: " + key)
+            errors.append(MaterialSourceIssue("binding exceeds frozen data scope: " + key))
         elif key in frozen_prior_hashes:
             # 同用户同会话原件校验过的旧工具输入：复核轮里唯一合法的证据绑定来源，
             # 与材料坐标并列。本轮任何新读仍按下面的规则拒。
             continue
         elif scope == "material_only" or item.io_effect != "local_read":
-            errors.append("binding exceeds frozen data scope: " + key)
+            errors.append(MaterialSourceIssue("binding exceeds frozen data scope: " + key))
     return tuple(dict.fromkeys(errors))
+
+
+def binding_source_errors(
+    contract: ResearchTaskContract, binding: OutputEvidenceBinding, draft: str, evidence: tuple,
+    *, frozen_prior_hashes: frozenset[str] = frozenset(),
+) -> tuple[str, ...]:
+    """Existing read-side consumers still reject every source issue."""
+    return tuple(issue.message for issue in binding_source_issues(
+        contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes,
+    ))
 
 
 def material_private_tokens(contract: ResearchTaskContract | None) -> frozenset[str]:

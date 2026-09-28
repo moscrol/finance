@@ -380,13 +380,13 @@ def test_repair_round_restates_the_frozen_wire_format_it_still_demands(reference
     assert "同一主体、指标、单位及各自期间" in restated["rule"]
 
 
-def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
+def test_claim_rendering_rejects_wrong_quote_but_allows_bounded_correction():
     _, context = setup()
     payload = claim_finish(context)
     payload["bindings"][0]["claims"][0]["material_anchors"][0]["quote"] = "不在材料内"
     with pytest.raises(ValueError) as error:
         validate_episode_finish(payload, context=context, evidence=())
-    assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
+    assert error.value.code == "material_quote_mismatch" and error.value.kind.value == "format"
 
 
 

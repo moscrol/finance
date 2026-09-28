@@ -259,7 +259,7 @@ def test_real_episode_consumes_claim_binding_without_tool_calls():
     assert verify(frame, context, result, passing).status == "completed"
 
 
-@pytest.mark.parametrize("mutation", ["quote", "sentence"])
+@pytest.mark.parametrize("mutation", ["source", "sentence"])
 def test_real_adapter_does_not_reopen_repair_after_source_integrity_rejection(mutation):
     from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
     from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
@@ -268,8 +268,8 @@ def test_real_adapter_does_not_reopen_repair_after_source_integrity_rejection(mu
     frame, context = setup()
     value = outcome(context)
     claim = value.bindings[0].claims[0]
-    if mutation == "quote":
-        claim = replace(claim, material_anchors=(replace(claim.material_anchors[0], quote="材料中不存在"),))
+    if mutation == "source":
+        claim = replace(claim, material_anchors=(replace(claim.material_anchors[0], material_id="unknown-source"),))
     else:
         claim = replace(claim, text=claim.text.replace("。", "；"))
     value = replace(value, bindings=(replace(value.bindings[0], claims=(claim,)), value.bindings[1]))

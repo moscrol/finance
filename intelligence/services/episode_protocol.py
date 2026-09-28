@@ -22,7 +22,7 @@ from intelligence.services.episode_output_substance import (
 )
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
-    ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
+    ClaimSourceBinding, QUOTE_REPAIR_RULE, binding_source_issues, grounding_scope, material_grounding_payload,
     material_private_tokens, render_material_claims,
 )
 from intelligence.services.material_answer_authoring import (
@@ -636,6 +636,7 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "bad_claim_binding": RejectionKind.FORMAT,
     "private_material_reference": RejectionKind.FORMAT,
     "material_source_violation": RejectionKind.INTEGRITY,
+    "material_quote_mismatch": RejectionKind.FORMAT,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
     "empty_draft": RejectionKind.SUBSTANCE,
@@ -1011,6 +1012,7 @@ def validate_episode_finish(
         if prior_snapshot is not None
         else frozenset()
     )
+    quote_issues = []
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
@@ -1031,11 +1033,13 @@ def validate_episode_finish(
             basis=str(raw.get("basis") or "evidence"),
             claims=claims,
         )
-        source_errors = binding_source_errors(
+        source_issues = binding_source_issues(
             context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
         )
-        if source_errors:
-            raise _reject("material_source_violation", "; ".join(source_errors))
+        integrity_issues = [issue.message for issue in source_issues if issue.code != "material_quote_mismatch"]
+        if integrity_issues:
+            raise _reject("material_source_violation", "; ".join(integrity_issues))
+        quote_issues.extend(issue.message for issue in source_issues)
         if binding.output_id not in allowed_outputs:
             if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
                 # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
@@ -1166,6 +1170,14 @@ def validate_episode_finish(
                 + ",".join(derived_without_inputs)
                 + "；派生数必须能指回它算的那几条证据",
             )
+
+    if quote_issues:
+        # Sources and scope above must be valid for the *whole* finish; only the
+        # authored excerpts may be repaired. Keep failed text out of the feedback.
+        detail = "; ".join(quote_issues[:16])
+        if len(quote_issues) > 16:
+            detail += f"; {len(quote_issues) - 16} further quote mismatches"
+        raise _reject("material_quote_mismatch", detail + ". " + QUOTE_REPAIR_RULE)
 
     private_tokens = material_private_tokens(context.contract)
     if any(token in text.casefold() for text in (draft, *gaps, *(b.gap for b in bindings)) for token in private_tokens):

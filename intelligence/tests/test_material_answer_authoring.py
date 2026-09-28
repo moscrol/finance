@@ -84,9 +84,9 @@ def test_context_free_decoder_and_legacy_compilation_keep_original_payload():
 
 
 @pytest.mark.parametrize("mutation,code", [
-    ("E9", "unknown_evidence_ref"), ("fake_id", "material_source_violation"), ("fake_quote", "material_source_violation"),
+    ("E9", "unknown_evidence_ref"), ("fake_id", "material_source_violation"), ("fake_quote", "material_quote_mismatch"),
 ])
-def test_legacy_source_integrity_rejections_are_unchanged(mutation, code):
+def test_legacy_source_identity_and_quote_rejections_are_distinct(mutation, code):
     _, context = history_setup()
     raw = legacy_finish(context)
     if mutation == "E9":
@@ -140,7 +140,9 @@ def test_compact_protocol_rejects_invalid_structure_and_sources(mutation):
     saved = deepcopy(raw)
     with pytest.raises(ValueError) as error:
         validate_episode_finish(raw, context=context, evidence=())
-    if mutation in {"unknown_M", "unknown_H", "E9", "fake_quote", "history_as_M", "material_as_H", "two_H", "empty_H"}:
+    if mutation == "fake_quote":
+        assert error.value.code == "material_quote_mismatch" and error.value.kind.value == "format"
+    elif mutation in {"unknown_M", "unknown_H", "E9", "history_as_M", "material_as_H", "two_H", "empty_H"}:
         assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
     assert raw == saved
 
@@ -248,7 +250,8 @@ def test_extra_bracket_is_rejected_with_safe_json_position_then_same_episode_rec
     assert bad in authored and good in authored
 
 
-def test_compiled_history_keeps_canonical_judge_sources_and_semantic_rejection():
+@pytest.mark.parametrize("repair_quote", [False, True])
+def test_compiled_history_keeps_canonical_judge_sources_and_semantic_rejection(repair_quote):
     from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
     from intelligence.services.episode_verifier import verify_episode_outcome
     from intelligence.tests.material_judge_helpers import material_judge_report
@@ -259,10 +262,18 @@ def test_compiled_history_keeps_canonical_judge_sources_and_semantic_rejection()
     raw["answers"][0]["claims"][0]["text"] = mixed
 
     class Writer:
-        def complete(self, **_kwargs):
-            return ModelTurn(json.dumps(raw, ensure_ascii=False), (), "offline")
+        calls = 0
 
-    result = ContinuousAgentEpisode(Writer()).run(task_frame=frame, context=context, registry=ResearchToolRegistry(()))
+        def complete(self, **_kwargs):
+            self.calls += 1
+            value = deepcopy(raw)
+            if repair_quote and self.calls == 1:
+                value["answers"][0]["claims"][0]["sources"][0]["quote"] = "原文没有的摘录"
+            return ModelTurn(json.dumps(value, ensure_ascii=False), (), "offline")
+
+    writer = Writer()
+    result = ContinuousAgentEpisode(writer).run(task_frame=frame, context=context, registry=ResearchToolRegistry(()))
+    assert writer.calls == (2 if repair_quote else 1)
     requests = []
 
     def judge(request):
