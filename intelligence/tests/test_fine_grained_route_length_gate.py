@@ -30,6 +30,7 @@ docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/README.md
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 
 import pytest
@@ -205,7 +206,18 @@ def test_long_pure_quick_fact_passes_both_entries() -> None:
     assert not fine_grained_route_length_ok(QC_N1_LONG_QUICK_FACT)
     row = _fine_grained_route_row(QC_N1_LONG_QUICK_FACT)
     assert row is not None and row.route_id == "quick_fact"
-    assert decide_turn(QC_N1_LONG_QUICK_FACT).question_type == "quick_fact"
+    calls = []
+
+    def complete(messages):
+        calls.append(messages)
+        return json.dumps({
+            "route_id": "quick_fact", "confidence": 0.95,
+            "reason": "无材料正文，纯取值", "user_goal": "查询证券代码对应公司",
+            "assumptions": [], "ambiguities": [],
+        }), object(), ""
+
+    assert decide_turn(QC_N1_LONG_QUICK_FACT, llm_complete=complete).question_type == "quick_fact"
+    assert len(calls) == 1
     assert plan_answer_question(QC_N1_LONG_QUICK_FACT).question_type == "quick_fact"
 
 

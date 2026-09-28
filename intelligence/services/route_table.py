@@ -52,11 +52,12 @@ def fine_grained_route_length_ok(query: str) -> bool:
 
 
 def is_quick_fact_query(query: str) -> bool:
-    """这句话是不是在要一个确定的数值/代码，而不是要一个判断。
+    """取值意图的词面候选；不能据此断言整句话没有判断或解释诉求。
 
-    这是**意图**判断，与主语无关：「光刻胶板块今天成交额多少」主语是题材、
+    取值线索与主语无关：「光刻胶板块今天成交额多少」主语是题材、
     「300750是哪家公司」主语是公司，两者要的都是一个确定的值。上游 envelope
     按主语给题型（theme_analysis / stock_deep_dive），会把这层意图压掉。
+    Controller 要对完整请求做语义裁决，不以本函数正命中直接结束选路。
     """
     text = str(query or "")
     return bool(QUICK_FACT_PATTERN.search(text)) and not JUDGMENT_REQUEST_PATTERN.search(text)

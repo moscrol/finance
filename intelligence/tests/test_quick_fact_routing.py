@@ -11,6 +11,8 @@ task_frame 要它给出情景路径与失效条件，rubric 追加四源合议�
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from intelligence.eval.finance_answer_rubric import score_answer
@@ -39,6 +41,14 @@ NOT_QUICK_FACT_QUERIES = [
     "液冷服务器怎么看",
     "后市怎么演绎",
 ]
+
+
+def _quick_fact_reply():
+    return json.dumps({
+        "route_id": "quick_fact", "confidence": 0.95,
+        "reason": "只请求已发生事实", "user_goal": "核实数值后短答",
+        "assumptions": [], "ambiguities": [],
+    }), object(), ""
 
 
 @pytest.mark.parametrize("query", QUICK_FACT_QUERIES)
@@ -110,22 +120,22 @@ def test_dated_metric_quick_fact_uses_research_lane(query: str) -> None:
     assert row is not None
     assert row.route_id == "quick_fact"
     assert row.lane == "research"
-    decision = decide_turn(query)
+    decision = decide_turn(query, llm_complete=lambda _messages: _quick_fact_reply())
     assert decision.question_type == "quick_fact"
     assert decision.lane == "research"
 
 
 @pytest.mark.parametrize("query", QUICK_FACT_QUERIES)
-def test_lexical_quick_fact_uses_research_without_controller_request(query: str) -> None:
+def test_lexical_quick_fact_uses_research_after_controller_confirms_intent(query: str) -> None:
     calls: list[object] = []
 
     def complete(messages):
         calls.append(messages)
-        return None, None, "unexpected Controller request"
+        return _quick_fact_reply()
 
     decision = decide_turn(query, llm_complete=complete)
 
-    assert calls == []
+    assert len(calls) == 1
     assert decision.question_type == "quick_fact"
     assert decision.lane == "research"
     assert decision.needs_retrieval is True

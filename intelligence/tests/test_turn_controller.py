@@ -1250,6 +1250,7 @@ def _canonical_reply(**changes: object) -> str:
         ("请给出中际旭创最近交易日的换手率和收盘价。", "中际旭创", "company"),
         ("固态电池最新交易日的成交额，请列出来。", "固态电池", "theme"),
         ("请查长电科技2026-09-24的收盘价和成交额。", "长电科技", "company"),
+        ("长电科技最新收盘价多少？", "长电科技", "company"),
     ),
 )
 def test_resolved_subject_leaves_natural_fact_intent_to_controller(
@@ -1298,6 +1299,8 @@ def test_resolved_subject_leaves_natural_fact_intent_to_controller(
         "请深挖长电科技的客户证据、竞争壁垒和风险。",
         "请列出长电科技最新交易日的收盘价和成交额，再判断上涨是否有订单支撑。",
         "长电科技的股价多少，客户和订单证据能支持进一步上涨吗？请深挖。",
+        "长电科技最新股价多少？同时判断上涨是否有订单支撑。",
+        "长电科技最新收盘价多少？同时解释为什么上涨。",
     ),
 )
 def test_resolved_company_research_is_not_reduced_to_fact_lookup(tmp_path, query: str) -> None:
@@ -1322,6 +1325,99 @@ def test_resolved_company_research_is_not_reduced_to_fact_lookup(tmp_path, query
     assert "fact_value" not in decision.task_frame.required_outputs
     assert decision.turn_intent is not None
     assert decision.turn_intent.answer_owner == "stock-deep-dive"
+
+
+@pytest.mark.parametrize(
+    ("query", "controller_calls"),
+    (
+        ("那请给出它最新交易日的收盘价和成交额。", 1),
+        ("那它最新交易日的收盘价和成交额分别是多少？", 1),
+    ),
+)
+def test_inherited_company_can_switch_from_research_to_natural_fact_lookup(
+    tmp_path, query: str, controller_calls: int,
+) -> None:
+    resolver = _semantic_resolver(tmp_path)
+    previous = decide_turn(
+        "请深挖长电科技的客户证据、竞争壁垒和风险。", resolver=resolver,
+        llm_complete=lambda _messages: (
+            _canonical_reply(route_id="stock_deep_dive", assumptions=[], ambiguities=[]), object(), "",
+        ),
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages):
+        calls.append(messages)
+        return _canonical_reply(
+            route_id="quick_fact", user_goal="查询已发生的行情数值",
+            assumptions=[], ambiguities=[],
+        ), object(), ""
+
+    decision = decide_turn(
+        query, resolver=resolver,
+        previous_intent=previous.turn_intent, previous_turn_id="company-research",
+        llm_complete=complete,
+    )
+
+    assert len(calls) == controller_calls
+    assert decision.lane == "research"
+    assert decision.question_type == "quick_fact"
+    assert decision.needs_retrieval and not decision.needs_template
+    assert decision.subject == "长电科技"
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject_kind == "company"
+    assert decision.task_frame.timeframe == "最新可用交易日"
+    assert decision.task_frame.required_outputs == ("fact_value", "as_of_date", "evidence_boundary")
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner is None
+    assert decision.turn_intent.inherited_from_turn == "company-research"
+    assert decision.turn_intent.required_outputs == decision.task_frame.required_outputs
+
+
+@pytest.mark.parametrize("unavailable", (False, True))
+def test_research_followup_preserves_inherited_contract_and_failure_provenance(
+    tmp_path, unavailable: bool,
+) -> None:
+    resolver = _semantic_resolver(tmp_path)
+    reply = _canonical_reply(
+        route_id="stock_deep_dive", user_goal="核实客户证据与竞争壁垒",
+        assumptions=[], ambiguities=[],
+    )
+    previous = decide_turn(
+        "请深挖长电科技的客户证据、竞争壁垒和风险。", resolver=resolver,
+        llm_complete=lambda _messages: (reply, object(), ""),
+    )
+    assert previous.turn_intent is not None
+    previous_intent = replace(previous.turn_intent, evidence_atom_ids=("customer-evidence",))
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages):
+        calls.append(messages)
+        return (None, None, "provider unavailable") if unavailable else (reply, object(), "")
+
+    decision = decide_turn(
+        "那它的客户和订单还缺哪些证据？", resolver=resolver,
+        previous_intent=previous_intent, previous_turn_id="company-research",
+        llm_complete=complete,
+    )
+
+    assert len(calls) == 1
+    assert decision.lane == "research"
+    assert decision.question_type == "stock_deep_dive"
+    assert decision.needs_retrieval and decision.needs_template
+    assert decision.subject == "长电科技"
+    assert decision.task_frame is not None
+    assert set(previous_intent.required_outputs) <= set(decision.task_frame.required_outputs)
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+    assert decision.turn_intent.inherited_from_turn == "company-research"
+    assert decision.turn_intent.evidence_atom_ids == ("customer-evidence",)
+    if unavailable:
+        assert decision.llm_failure_reason
+        assert decision.llm_failure_detail == "provider unavailable"
+        assert json.loads(json.dumps(decision.task_frame.to_dict())) == json.loads(calls[0][1]["content"])["task_frame"]
+    else:
+        assert decision.llm_failure_reason == decision.llm_failure_detail == ""
 
 
 @pytest.mark.parametrize("failure", ("unavailable", "exception", "malformed"))
@@ -1893,6 +1989,8 @@ def test_empty_manual_does_not_reroute_quick_fact() -> None:
         "宁德时代今天收盘多少",
         skill_mode="manual",
         selected_skill_ids=(),
-        llm_complete=_no_llm,
+        llm_complete=lambda _messages: (
+            _canonical_reply(route_id="quick_fact", assumptions=[], ambiguities=[]), object(), "",
+        ),
     )
     assert decision.question_type == "quick_fact"

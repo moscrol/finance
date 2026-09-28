@@ -58,6 +58,7 @@ from intelligence.services.task_frame import (
     TaskFrame,
     align_task_frame,
     build_task_frame,
+    derive_required_outputs,
     rebase_task_frame,
     resolve_task_frame_clarification,
     task_frame_requires_retrieval,
@@ -357,7 +358,7 @@ def _deterministic_decision(
     ):
         return _decision("meta", confidence=0.99, reason="明确系统或模型元问题")
     fine_grained_row = _fine_grained_route_row(cleaned)
-    if fine_grained_row is not None:
+    if fine_grained_row is not None and fine_grained_row.route_id != "quick_fact":
         return _decision_from_route_row(
             fine_grained_row,
             query=cleaned,
@@ -389,7 +390,11 @@ def _deterministic_decision(
     # 此前它被 is_dated_market_review 抢走（日期 + 题材词即命中），当日日报导出
     # 不存在时不会退到 DuckDB 单指标查询，而是落进通用题材研究、甚至把问题文本
     # 当成题材名——而 fact_market_daily.limit_up 这个标准口径一直在 METRICS 里。
-    if market_review_requested_date(cleaned) and parse_single_metric_intent(cleaned):
+    if (
+        fine_grained_row is None
+        and market_review_requested_date(cleaned)
+        and parse_single_metric_intent(cleaned)
+    ):
         row = route_by_id("quick_fact")
         if row is None:
             raise RuntimeError("quick_fact route is missing from ROUTE_TABLE")
@@ -402,7 +407,8 @@ def _deterministic_decision(
             reason="指定日期的单一白名单指标取值，走精确查询而非日报工作流",
         )
     if (
-        envelope.subject_kind not in {"company", "theme"}
+        fine_grained_row is None
+        and envelope.subject_kind not in {"company", "theme"}
         and envelope.question_type not in {"comparison_analog", "theme_analysis"}
         and is_dated_market_review(cleaned, envelope)
     ):
@@ -453,6 +459,11 @@ def _deterministic_decision(
             reason="明确请求固定研究工作流",
             capabilities=("memory", "market_quote", "graph"),
         )
+    if fine_grained_row is not None:
+        # “多少”只证明含取值诉求，不能排除同句还要求判断或解释。
+        # quick_fact 词面只作候选；由现有 Controller 判断整轮任务，失败时
+        # 仍按主体与证据合同退回研究下限，不继续扩充排除词表。
+        return None
     if envelope.question_type == "market_technical":
         return _decision(
             "research",
@@ -545,7 +556,7 @@ def _evidence_fallback_decision(
 ) -> TurnDecision | None:
     """保留原研究下限；实体身份与时效信号不能代替本轮任务意图。
 
-    这些宽兜底只在 Controller 失败或延续已确认任务时使用。否则公司名会先
+    这些宽兜底只在 Controller 失败或恢复已澄清任务时使用。否则公司名会先
     绑定 stock_deep_dive，使模型永远没有机会识别同一主体的查数等自然请求。
     """
     cleaned = query.strip()
@@ -984,6 +995,8 @@ def _enforce_task_frame_route(
 def _rebase_frame_for_decision(
     task_frame: TaskFrame,
     decision: TurnDecision,
+    *,
+    current_turn_frame: TaskFrame | None = None,
 ) -> TaskFrame:
     """Project a validated route row back into the canonical semantic frame."""
 
@@ -992,7 +1005,16 @@ def _rebase_frame_for_decision(
         or decision.question_type == task_frame.question_type
     ):
         return task_frame
-    return rebase_task_frame(
+    if current_turn_frame is not None and task_frame.history_intent is None:
+        # 主体可以跨轮继承，旧任务的必答项不能污染已确认的新任务类型。
+        # 保留当前绑定的主体、日期、材料权限和 Controller 补充，只将产出物
+        # 的重算基底还原为本轮请求；继续同类研究与失败退路不会进入此分支。
+        task_frame = replace(
+            task_frame,
+            question_type=current_turn_frame.question_type,
+            required_outputs=current_turn_frame.required_outputs,
+        )
+    rebased = rebase_task_frame(
         task_frame,
         question_type=decision.question_type,
         subject=(
@@ -1008,6 +1030,13 @@ def _rebase_frame_for_decision(
             else task_frame.timeframe
         ),
     )
+    if rebased.question_type == "quick_fact":
+        # 语义确认为纯查数后，不携带旧任务或词面 operator 的研究产出物。
+        rebased = replace(
+            rebased,
+            required_outputs=derive_required_outputs("quick_fact", rebased.raw_question),
+        )
+    return rebased
 
 
 def _question_carries_its_own_foothold(
@@ -1406,6 +1435,7 @@ def decide_turn(
             inherited_from_turn=previous_turn_id,
             primary_subject=task_frame.subject or previous_intent.primary_subject,
         )
+    current_turn_frame = task_frame if intent.inherited_from_turn is not None else None
     if intent.inherited_from_turn is not None:
         if (task_frame.history_intent is None and previous_intent is not None
                 and previous_intent.history_intent is not None):
@@ -1474,9 +1504,6 @@ def decide_turn(
         skill_mode=skill_mode,
         selected_skill_ids=selected_skill_ids,
     )
-    if deterministic is None and intent.inherited_from_turn is not None:
-        # 追问沿用已确认的任务；无需让模型重新裁决旧主体和研究合同。
-        deterministic = _evidence_fallback_decision(effective_query, envelope)
     if (
         references_personal_prior(query)
         and (deterministic is None or deterministic.lane in {"knowledge", "research"})
@@ -1492,7 +1519,9 @@ def decide_turn(
             llm_complete=llm_complete, deadline=deadline,
         )
         if recall is not None:
-            task_frame = _rebase_frame_for_decision(task_frame, recall)
+            task_frame = _rebase_frame_for_decision(
+                task_frame, recall, current_turn_frame=current_turn_frame,
+            )
             return _attach_turn_intent(recall, intent, task_frame=task_frame)
         if recall_failure:
             # A failed optional request must not silently trigger the full
@@ -1504,10 +1533,14 @@ def decide_turn(
             fallback = replace(
                 fallback, llm_failure_reason=recall_failure, llm_failure_detail=recall_detail,
             )
-            task_frame = _rebase_frame_for_decision(task_frame, fallback)
+            task_frame = _rebase_frame_for_decision(
+                task_frame, fallback, current_turn_frame=current_turn_frame,
+            )
             return _attach_turn_intent(fallback, intent, task_frame=task_frame)
     if deterministic is not None:
-        task_frame = _rebase_frame_for_decision(task_frame, deterministic)
+        task_frame = _rebase_frame_for_decision(
+            task_frame, deterministic, current_turn_frame=current_turn_frame,
+        )
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     if resolution.status == "candidate" and resolution.candidates:
         question = format_resolve_clarification(resolution)
@@ -1626,7 +1659,9 @@ def decide_turn(
                 :_FAILURE_DETAIL_LIMIT
             ],
         )
-    task_frame = _rebase_frame_for_decision(task_frame, decision)
+    task_frame = _rebase_frame_for_decision(
+        task_frame, decision, current_turn_frame=current_turn_frame,
+    )
     decision = _enforce_task_frame_route(decision, task_frame)
     return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
