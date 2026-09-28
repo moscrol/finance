@@ -1224,6 +1224,171 @@ def test_controller_llm_supplements_task_frame_without_replacing_semantics() -> 
     assert "先按未来五个交易日观察" in decision.task_frame.assumptions
 
 
+def _canonical_reply(**changes: object) -> str:
+    payload: dict[str, object] = {
+        "route_id": "chat",
+        "confidence": 0.91,
+        "reason": "评估请求",
+        "user_goal": "判断产业趋势是否成立",
+        "assumptions": ["先按未来五个交易日观察"],
+        "ambiguities": ["观察窗口未明确，先声明假设"],
+    }
+    payload.update(changes)
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def test_canonical_six_field_reply_is_accepted_once_with_research_floor() -> None:
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages: list[dict[str, str]]):
+        calls.append(messages)
+        return _canonical_reply(), object(), ""
+
+    decision = decide_turn("帮我判断产业趋势", llm_complete=complete)
+
+    assert len(calls) == 1
+    assert "route_id,confidence,reason,user_goal,assumptions,ambiguities" in calls[0][0]["content"]
+    assert decision.llm_failure_reason == decision.llm_failure_detail == ""
+    assert decision.lane == "research" and decision.needs_retrieval
+    assert decision.task_frame is not None
+    assert decision.task_frame.user_goal == "判断产业趋势是否成立"
+
+
+def test_valid_retry_aligns_only_accepted_reply() -> None:
+    bad = _canonical_reply(route_id="invented_route", user_goal="错误目标", assumptions=["错误假设"])
+    good = _canonical_reply(user_goal="正确目标", assumptions=["正确假设"])
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages: list[dict[str, str]]):
+        calls.append(messages)
+        return (bad if len(calls) == 1 else good), object(), ""
+
+    decision = decide_turn("帮我判断产业趋势", llm_complete=complete)
+
+    assert len(calls) == 2
+    assert calls[1][-2] == {"role": "assistant", "content": bad}
+    assert "route_id,confidence,reason,user_goal,assumptions,ambiguities" in calls[1][-1]["content"]
+    assert decision.llm_failure_reason == decision.llm_failure_detail == ""
+    assert decision.needs_retrieval
+    assert decision.task_frame is not None
+    assert decision.task_frame.user_goal == "正确目标"
+    assert "正确假设" in decision.task_frame.assumptions
+    assert "错误假设" not in decision.task_frame.assumptions
+
+
+def test_rejected_reply_cannot_poison_frame_or_force_clarification() -> None:
+    baseline = decide_turn("帮我判断产业趋势", llm_complete=_no_llm)
+    bad = _canonical_reply(
+        route_id="invented_route",
+        user_goal="错误目标",
+        assumptions=["错误假设"],
+        ambiguities=["市场不明可能改变结论"],
+    )
+    calls: list[int] = []
+
+    def complete(_messages: list[dict[str, str]]):
+        calls.append(1)
+        return bad, object(), ""
+
+    decision = decide_turn("帮我判断产业趋势", llm_complete=complete)
+
+    assert len(calls) == 2
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert decision.needs_retrieval
+    assert decision.lane != "clarify"
+    assert decision.task_frame is not None and baseline.task_frame is not None
+    assert decision.task_frame.user_goal == baseline.task_frame.user_goal
+    assert decision.task_frame.assumptions == baseline.task_frame.assumptions
+    assert decision.task_frame.ambiguities == baseline.task_frame.ambiguities
+
+
+def test_accepted_controller_ambiguity_still_clarifies() -> None:
+    decision = decide_turn(
+        "帮我判断产业趋势",
+        llm_complete=lambda _messages: (
+            _canonical_reply(ambiguities=["市场不明可能改变结论"]), object(), ""
+        ),
+    )
+
+    assert decision.lane == "clarify"
+    assert decision.clarification_questions == ("你希望我按 A 股、美股，还是其他市场来判断？",)
+    assert decision.task_frame is not None
+    assert "市场不明可能改变结论" in decision.task_frame.ambiguities
+
+
+@pytest.mark.parametrize(
+    "changes",
+    (
+        {"route_id": "invented_route"},
+        {"confidence": True},
+        {"assumptions": "不是数组"},
+        {"ambiguities": ["正常", 3]},
+        {"extra_key": "unexpected"},
+        {"required_outputs": [3]},
+    ),
+)
+def test_invalid_canonical_reply_retries_once_and_preserves_frame(changes: dict[str, object]) -> None:
+    calls: list[int] = []
+    invalid = _canonical_reply(**changes)
+    baseline = decide_turn("帮我判断产业趋势", llm_complete=_no_llm)
+
+    def complete(_messages: list[dict[str, str]]):
+        calls.append(1)
+        return invalid, object(), ""
+
+    decision = decide_turn("帮我判断产业趋势", llm_complete=complete)
+
+    assert len(calls) == 2
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert decision.needs_retrieval
+    assert decision.task_frame is not None and baseline.task_frame is not None
+    assert decision.task_frame.user_goal == baseline.task_frame.user_goal
+    assert decision.task_frame.assumptions == baseline.task_frame.assumptions
+
+
+def test_missing_canonical_field_retries_once() -> None:
+    payload = json.loads(_canonical_reply())
+    del payload["user_goal"]
+    calls: list[int] = []
+
+    def complete(_messages: list[dict[str, str]]):
+        calls.append(1)
+        return json.dumps(payload), object(), ""
+
+    decision = decide_turn("帮我判断产业趋势", llm_complete=complete)
+
+    assert len(calls) == 2
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert decision.needs_retrieval
+
+
+def test_provider_unavailable_does_not_retry_and_keeps_research() -> None:
+    calls: list[int] = []
+
+    def complete(_messages: list[dict[str, str]]):
+        calls.append(1)
+        return None, None, "provider unavailable"
+
+    decision = decide_turn("帮我判断产业趋势", llm_complete=complete)
+
+    assert len(calls) == 1
+    assert decision.llm_failure_reason
+    assert decision.needs_retrieval
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject != "帮我判断产业趋势"
+
+
+def test_canonical_reply_keeps_ordinary_chat_without_retrieval() -> None:
+    decision = decide_turn(
+        "随便聊聊未来",
+        llm_complete=lambda _messages: (_canonical_reply(), object(), ""),
+    )
+
+    assert decision.lane == "chat"
+    assert decision.needs_retrieval is False
+    assert decision.llm_failure_reason == ""
+
+
 def test_llm_chat_route_cannot_disable_task_frame_retrieval() -> None:
     content = json.dumps(
         {
@@ -1457,13 +1622,25 @@ def test_unparsable_fallback_with_dated_question_keeps_retrieval() -> None:
     timeframe=2026-07-22 一直都在——地板必须接住它。
     """
 
+    calls: list[int] = []
+
+    def complete(_messages: list[dict[str, str]]):
+        calls.append(1)
+        return '{"lane":"research"}', object(), ""
+
     decision = decide_turn(
         "2026-07-22 高标股的晋级情况如何，有没有出现空档",
-        llm_complete=lambda _messages: ('{"lane":"research"}', object(), ""),
+        llm_complete=complete,
     )
 
+    assert len(calls) == 2
     assert decision.needs_retrieval is True
     assert decision.lane != "chat"
+    assert decision.timeframe == "2026-07-22"
+    assert decision.task_frame is not None
+    assert decision.task_frame.timeframe == "2026-07-22"
+    assert decision.llm_failure_reason == "unparsable_response"
+    assert '{"lane"' in decision.llm_failure_detail
 
 
 def test_successful_controller_turn_records_no_failure() -> None:

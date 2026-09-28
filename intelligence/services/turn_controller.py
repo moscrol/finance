@@ -9,6 +9,11 @@ from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.conversation_materials import ConversationMaterials
+from intelligence.services.controller_protocol import (
+    FIELD_INSTRUCTION,
+    ControllerReply,
+    parse_controller_reply,
+)
 from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
@@ -688,8 +693,7 @@ def _controller_messages(
                 + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
                 "拿不准时选 clarify；不得发明表外的 route_id。"
                 "TaskFrame 已锁定主体、市场、时间和任务类型，lane 不得覆盖这些语义。"
-                "严格输出一个 JSON 对象，键必须且只能是：route_id,confidence,reason,"
-                "user_goal,assumptions,ambiguities。后三项只能补充 TaskFrame；"
+                "严格输出一个 JSON 对象，" + FIELD_INSTRUCTION + "。后三项只能补充 TaskFrame；"
                 "不得返回或修改主体、市场、时间、required_outputs、证据政策。"
             ),
         },
@@ -712,79 +716,24 @@ def _parse_llm_decision(
     *,
     query: str,
     envelope: QueryEnvelope,
-) -> TurnDecision | None:
-    text = content.strip()
-    fence = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
-    if fence is not None:
-        text = fence.group(1)
-    elif not text.startswith("{"):
-        braces = re.search(r"\{.*\}", text, re.DOTALL)
-        if braces is not None:
-            text = braces.group(0)
-    try:
-        value = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
+) -> tuple[TurnDecision, ControllerReply] | None:
+    reply = parse_controller_reply(content)
+    if reply is None:
         return None
-    legacy_expected = {
-        "route_id",
-        "subject",
-        "timeframe",
-        "confidence",
-        "reason",
-    }
-    aligned_expected = {
-        "route_id",
-        "confidence",
-        "reason",
-        "user_goal",
-        "required_outputs",
-        "assumptions",
-        "ambiguities",
-    }
-    if not isinstance(value, dict):
-        return None
-    value_keys = frozenset(value)
-    if value_keys not in {
-        frozenset(legacy_expected),
-        frozenset(aligned_expected),
-    }:
-        return None
-    if not isinstance(value["route_id"], str):
-        return None
-    row = route_by_id(value["route_id"])
+    row = route_by_id(reply.route_id)
     if row is None:
         return None
-    if isinstance(value["confidence"], bool) or not isinstance(
-        value["confidence"], (int, float)
-    ):
-        return None
-    if not isinstance(value["reason"], str) or not value["reason"].strip():
-        return None
-    if value_keys == frozenset(legacy_expected):
-        for key in ("subject", "timeframe"):
-            if value[key] is not None and not isinstance(value[key], str):
-                return None
-        subject = value["subject"]
-        timeframe = value["timeframe"]
-    else:
-        for key in ("required_outputs", "assumptions", "ambiguities"):
-            if not isinstance(value[key], list) or any(
-                not isinstance(item, str) for item in value[key]
-            ):
-                return None
-        if not isinstance(value["user_goal"], str):
-            return None
-        subject = envelope.subject
-        timeframe = envelope.timeframe
+    subject = reply.subject if reply.shape == "legacy" else envelope.subject
+    timeframe = reply.timeframe if reply.shape == "legacy" else envelope.timeframe
     decision = _decision_from_route_row(
         row,
         query=query,
         subject=subject,
         timeframe=timeframe,
-        confidence=max(0.0, min(1.0, float(value["confidence"]))),
-        reason=value["reason"].strip(),
+        confidence=max(0.0, min(1.0, reply.confidence)),
+        reason=reply.reason,
     )
-    return _apply_policy(decision, query=query, envelope=envelope)
+    return _apply_policy(decision, query=query, envelope=envelope), reply
 
 
 def _decision_from_route_row(
@@ -856,8 +805,8 @@ _FAILURE_DETAIL_LIMIT = 200
 
 _UNPARSABLE_RETRY_INSTRUCTION = (
     "你上一条输出无法按约定解析。重新输出且只输出一个 JSON 对象，"
-    "键必须且只能是：route_id,confidence,reason,user_goal,assumptions,"
-    "ambiguities；route_id 只能取路由表中的值，不要输出任何 JSON 以外的文字。"
+    + FIELD_INSTRUCTION
+    + "；route_id 只能取路由表中的值，不要输出任何 JSON 以外的文字。"
 )
 
 
@@ -1598,31 +1547,6 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    task_frame = align_task_frame(task_frame, content)
-    envelope = project_task_frame(task_frame, envelope)
-    intent = replace(
-        intent,
-        timeframe=task_frame.timeframe,
-        required_outputs=task_frame.required_outputs,
-        task_frame_hash=task_frame.task_frame_hash,
-    )
-    if task_frame.clarification_question is not None:
-        intent = replace(
-            intent,
-            pending_task_frame=task_frame.to_dict(),
-            clarification_rounds=max(1, intent.clarification_rounds),
-        )
-        return _attach_turn_intent(
-            _decision(
-                "clarify",
-                envelope=envelope,
-                confidence=task_frame.confidence,
-                reason="TaskFrame 存在会改变主体、工具或结论的歧义，追问一次",
-                clarification_questions=(task_frame.clarification_question,),
-            ),
-            intent,
-            task_frame=task_frame,
-        )
     parsed = _parse_llm_decision(
         content,
         query=effective_query,
@@ -1642,14 +1566,41 @@ def decide_turn(
                 query=effective_query,
                 envelope=envelope,
             )
-    decision = (
-        parsed
-        if parsed is not None
+    if parsed is not None:
+        decision, accepted_reply = parsed
+        alignment = accepted_reply.alignment_json()
+        if alignment is not None:
+            task_frame = align_task_frame(task_frame, alignment)
+            envelope = project_task_frame(task_frame, envelope)
+            intent = replace(
+                intent,
+                timeframe=task_frame.timeframe,
+                required_outputs=task_frame.required_outputs,
+                task_frame_hash=task_frame.task_frame_hash,
+            )
+            if task_frame.clarification_question is not None:
+                intent = replace(
+                    intent,
+                    pending_task_frame=task_frame.to_dict(),
+                    clarification_rounds=max(1, intent.clarification_rounds),
+                )
+                return _attach_turn_intent(
+                    _decision(
+                        "clarify",
+                        envelope=envelope,
+                        confidence=task_frame.confidence,
+                        reason="TaskFrame 存在会改变主体、工具或结论的歧义，追问一次",
+                        clarification_questions=(task_frame.clarification_question,),
+                    ),
+                    intent,
+                    task_frame=task_frame,
+                )
+    else:
         # provider 明明回话了，是我们没读懂——跟「provider 挂了」是两回事，
         # 混在一起会把一次 prompt/schema 回归误判成外部故障。
         # detail 留首次原文（声明式截断：限定语在前，截掉的是原文尾部）——
         # 生产 39 run 里 4 个 unparsable 全是空 detail，验尸零证据的教训。
-        else _safe_fallback(
+        decision = _safe_fallback(
             effective_query,
             envelope,
             llm_failure_reason="unparsable_response",
@@ -1657,7 +1608,6 @@ def decide_turn(
                 :_FAILURE_DETAIL_LIMIT
             ],
         )
-    )
     task_frame = _rebase_frame_for_decision(task_frame, decision)
     decision = _enforce_task_frame_route(decision, task_frame)
     return _attach_turn_intent(decision, intent, task_frame=task_frame)
