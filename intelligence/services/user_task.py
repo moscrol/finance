@@ -521,6 +521,12 @@ _PREVIOUS_ANSWER_REVIEW_RE = re.compile(
     r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
     r"(?=$|[：:，,。；;！？!?])"
 )
+_PREVIOUS_ANSWER_REFERENCE_RE = re.compile(
+    r"^(?:(?:简洁|简要|简单)?(?:复述|重述)(?:一下)?\s*)?"
+    r"(?:你(?:刚才|上一条|上一轮|上轮|上次)|"
+    r"(?:刚才|上一条|上一轮|上轮|上次)(?:你(?:给(?:出)?|说)|"
+    r"的?(?:答案|回答|判断|结论|解释|分析)))"
+)
 # Explicit retention of a prior permission is a continuation, not fresh full
 # access. This detector sees the existing quote/material-masked instructions.
 _SCOPE_CONTINUATION_RE = re.compile(
@@ -673,6 +679,27 @@ def requests_previous_answer_review(text: str) -> bool:
         and span.kind == "continuation"
         and _PREVIOUS_ANSWER_REVIEW_RE.match(_state_head(span.visible_text))
         for span in regions.instructions
+    )
+
+
+def requests_frozen_previous_answer(text: str) -> bool:
+    """Read a message-level old-answer reference, independently of read permission.
+
+    The caller must already hold a material-only contract. The reference and
+    prohibition can be separate sentences; neither quotes nor numbered questions
+    may supply the message-level reference.
+    """
+    regions = classify_top_level_regions(text)
+    if regions.classification == "boundary_uncertain":
+        return False
+    visible_lines = regions.control_text.splitlines()
+    for start, end in regions.question_line_ranges:
+        visible_lines[start:end] = [""] * (end - start)
+    return any(
+        _PREVIOUS_ANSWER_REFERENCE_RE.match(_state_head(fragment))
+        for line in visible_lines
+        for sentence in _sentences(line)
+        for fragment in re.split(r"[：:]", sentence)
     )
 
 

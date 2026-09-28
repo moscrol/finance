@@ -1233,6 +1233,14 @@ def last_explicit_iso_date(question: str) -> str | None:
     return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
 
 
+def is_counterfactual_assessment(question: str) -> bool:
+    """Read hypothetical authority from the user, never a model-supplied goal."""
+    regions = classify_top_level_regions(question)
+    return regions.classification != "boundary_uncertain" and bool(
+        _COUNTERFACTUAL_ASSESSMENT_RE.search(regions.control_text.strip())
+    )
+
+
 def _user_goal(question_type: str, question: str, fallback: str) -> str:
     if question_type == "market_forecast" and _REBOUND_HORIZON_RE.search(question):
         return "判断最近一次市场反弹的可持续时间、继续条件与失效条件"

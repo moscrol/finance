@@ -3,9 +3,14 @@
 from dataclasses import replace
 import json
 
+import pytest
+
 from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.runtime.turn_control_core import TurnControlCore
+from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.tests.test_research_harness import (
     _ScriptedModel,
     _context,
@@ -78,3 +83,35 @@ def test_untemplated_answer_is_not_scored_as_missing_research():
     )
     assert "missing_elements" not in receipt
     assert receipt["quality_assessment"] == "not_evaluated"
+
+
+@pytest.mark.parametrize("route", ["quick_fact", "concept_definition", "methodology_discussion"])
+@pytest.mark.parametrize("user_goal", ["回答所请求的事实", "判断反事实条件下原结论是否成立"])
+@pytest.mark.parametrize("question", [
+    "请查宁德时代2026-09-24的收盘价和成交额。", "请查询宁德时代当前的收盘价和成交额。",
+])
+def test_semantic_knowledge_route_cannot_remove_fact_floor_during_episode_assembly(route, user_goal, question):
+    reply = json.dumps({
+        "route_id": route, "confidence": 0.9, "reason": "test erroneous knowledge route",
+        "user_goal": user_goal, "assumptions": [], "ambiguities": [],
+    })
+    control = TurnControlCore().control(
+        question, llm_complete=lambda _messages: (reply, object(), ""),
+    )
+    assert control.needs_retrieval
+    context = build_episode_context(
+        control.task_frame, task_id=f"fact-floor:{route}:{question}:{user_goal}", capabilities=control.capabilities,
+    )
+    assert context.contract.allowed_capabilities
+    # The plan is advisory; the final output bindings carry the hard fact floor.
+    assert {item.grounding_mode for item in context.contract.required_outputs} == {"evidence"}
+    for basis in ("model_reasoning", "user_premise", "evidence"):
+        content = json.dumps({
+            "status": "completed", "draft": "宁德时代当日收盘价123.45元，成交额10亿元。", "gaps": [],
+            "bindings": [{"output_id": item.output_id, "basis": basis, "evidence_hashes": []}
+                         for item in context.contract.required_outputs],
+        })
+        admission = FinanceResearchHarness().admit_finish(
+            content, context=context, evidence=(), registry=ResearchToolRegistry(()),
+        )
+        assert not admission.accepted

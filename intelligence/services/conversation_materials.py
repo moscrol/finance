@@ -110,12 +110,15 @@ class ConversationMaterials:
 
 def collect_conversation_materials(
     messages: Sequence[Message], *, unavailable: bool = False,
+    include_assistant_statements: bool = False,
 ) -> ConversationMaterials:
-    """Bind only completed user messages; body text cannot change their role.
+    """Bind completed user materials; body text cannot change their role.
 
     Same-content reposts keep the existing content-derived identity and first
     visible source coordinate. Material order is oldest -> newest, matching the
     legacy binding order. No IO, no summary parsing, no authority recovery.
+    Explicit frozen restatements may also project completed assistant originals;
+    those retain assistant_judgment basis and never recover a base contract.
     """
     items = []
     seen = set()
@@ -127,7 +130,13 @@ def collect_conversation_materials(
             if ref.material_id not in seen:
                 items.append(ConversationMaterial(message.message_id, ref, text))
                 seen.add(ref.material_id)
-    return ConversationMaterials(tuple(items), unavailable=unavailable)
+    statements = tuple(
+        HistoricalAssistantStatement(message.message_id, message.content)
+        for message in messages
+        if (include_assistant_statements and message.role == "assistant"
+            and message.status == "completed" and message.content.strip())
+    )
+    return ConversationMaterials(tuple(items), unavailable=unavailable, assistant_statements=statements)
 
 
 def collect_material_turn_history(
