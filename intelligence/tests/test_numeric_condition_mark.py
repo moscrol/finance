@@ -11,6 +11,8 @@ from dataclasses import replace
 
 import pytest
 
+from intelligence.services.agent_research import AgentEvidence, evidence_content_hash
+from intelligence.services.agent_runtime import OutputEvidenceBinding
 from intelligence.services.answer_model import JUDGE_REASON_FACT_BEYOND_EVIDENCE
 from intelligence.services.episode_semantic_verifier import (
     _NUMERIC_CONDITION_ISSUE,
@@ -27,6 +29,7 @@ from intelligence.services.episode_semantic_verifier import (
     semantic_repair_feedback,
     with_unresolved_review_publication,
 )
+from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.research_contract import RequiredOutput, ResearchDeadline
 from intelligence.services.research_harness import PublicationAssessment
 from intelligence.tests.test_boundary_retest_regressions import BAD_CONDITIONS, SAFE
@@ -120,6 +123,44 @@ def test_recall_answers_keep_deletion_while_market_answers_are_marked(monkeypatc
         row["decision"] == "deleted" and VERDICT_REASON_NUMERIC in row["reasons"]
         for row in recall.sentence_verdicts
     )
+
+
+@pytest.mark.parametrize("judge_mode", ["off", "llm"])
+def test_misquoted_user_note_is_still_deleted_not_marked(monkeypatch, judge_mode):
+    """#948 的保证在标注模式下不打折：把用户笔记里的 3870 复述成 5000，照删，不留待核版。
+
+    #948 自己的测试按「整句原文不在公开稿」断言删除；标注模式会在句内插说明、改掉原句
+    字面，那种断言对「留句 + 标注」是盲的，所以这里按数字断言。
+    """
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    frame, baseline = _structural(
+        "原文：若指数跌破5000点则暂缓追涨（E2）。当前市场结构仍需验证。若指数跌破3870点则行情失效。"
+    )
+    memory = AgentEvidence(
+        tool="memory_lookup", title="用户历史判断", source="用户记忆，非市场事实",
+        detail="若指数跌破3870点则暂缓追涨。", evidence_tier="user_memory",
+        source_date="2026-07-21", io_effect="local_read",
+    )
+    memory = replace(memory, content_hash=evidence_content_hash(memory))
+    contract = replace(
+        baseline.contract, allowed_capabilities=("market_data", "memory_lookup"),
+        required_outputs=(*baseline.contract.required_outputs, RequiredOutput(
+            "prior_recall", "回顾用户先验", (), required=False, grounding_mode="user_premise",
+        )),
+    )
+    outcome = replace(
+        baseline.outcome, evidence=(*baseline.outcome.evidence, memory),
+        bindings=(*baseline.outcome.bindings, OutputEvidenceBinding(
+            "prior_recall", (memory.content_hash,), basis="user_premise",
+        )),
+    )
+    result = _verify(frame, verify_episode_outcome(contract, outcome))
+
+    assert "5000" not in result.public_answer
+    assert "则行情失效" not in result.public_answer
+    assert "（待核：" not in result.public_answer
+    assert "当前市场结构仍需验证。" in result.public_answer
 
 
 @pytest.mark.parametrize("value", ["0", "off", "false"])

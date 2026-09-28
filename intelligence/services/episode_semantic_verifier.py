@@ -4915,6 +4915,9 @@ def _apply_numeric_condition_gate(
     conditional sentence introduced a numeric threshold that did not occur in
     any evidence bound to the answer.  Dates, list labels, requested baseline
     estimates, and numeric anchors present in bound evidence are unaffected.
+
+    标注模式（默认，见 ``numeric_condition_mark_enabled``）下数值部分为空：这类句子
+    不再在判后被删，交付前由 ``_mark_numeric_condition_doubts`` 就地点名；财务核对照旧。
     """
 
     report = call.report
