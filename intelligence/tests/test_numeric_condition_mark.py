@@ -153,6 +153,21 @@ def test_bound_recall_answers_keep_deletion_while_market_answers_are_marked(monk
 
 
 @pytest.mark.parametrize("judge_mode", ["off", "llm"])
+def test_bound_recall_answer_deletes_an_uncited_misquote(monkeypatch, judge_mode):
+    """真绑上先验的回答整份按删除处置：不带编号、换了数的「原文」复述，逐句规则认不出
+    它倚靠记忆（5000 不在记忆里、也没引记忆编号），只有整份删除语义兜得住——
+    把用户自己的记录引错，不能留一个待核版。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", judge_mode)
+    misquote = "原文：若指数跌破5000点则暂缓追涨。"
+    frame, market = _structural(f"{SAFE}\n{misquote}", detail=DETAIL)
+    result = _verify(frame, _with_prior(market, _memory("若指数跌破3870点则暂缓追涨。"), bound=True))
+
+    assert "5000" not in result.public_answer and "（待核：" not in result.public_answer
+    assert SAFE in result.public_answer
+
+
+@pytest.mark.parametrize("judge_mode", ["off", "llm"])
 def test_advisory_prior_slot_with_empty_memory_is_still_marked(monkeypatch, judge_mode):
     """2026-09-29 #76 L6 批 4 U1 / 切后 8792 探针的形状：装配层给研究题挂了可选先验槽，
     记忆无命中（缺口条目 + 缺口绑定）。这不是复述先验的回答，无出处的数照常标注。
