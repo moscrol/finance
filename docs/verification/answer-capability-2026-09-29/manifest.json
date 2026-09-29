@@ -1,0 +1,423 @@
+{
+  "format": "selected_evidence_sha256_v1",
+  "scope": "66 selected artifacts: 45 embedded copies and 21 external-only logs. Entries without storage are embedded; for external_only, path is a logical label and source is the file to read. Complete raw runs remain external; this is not an exhaustive inventory.",
+  "files": [
+    {
+      "path": "answers/packet.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/quote-repair/independent-answer-packet-v2.json",
+      "bytes": 146361,
+      "sha256": "e374869d5444ad68ca57115e0b2be1545f63182f2d6e0712e30908f2c18a0b06"
+    },
+    {
+      "path": "answers/origin-key.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/quote-repair/independent-answer-key-v2.json",
+      "bytes": 2999,
+      "sha256": "1d370542c37373f642575650a86c10c1c6d0e28f2e06346dc4c81765c981e5a6"
+    },
+    {
+      "path": "answers/arm-key.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/anonymous-review-key.json",
+      "bytes": 1530,
+      "sha256": "4e60bbfde1865fece9a4c2bd0c75a119e357b5df4400a04481dd6b0e03cd3939"
+    },
+    {
+      "path": "answers/controls-summary.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/controls-summary.json",
+      "bytes": 4354,
+      "sha256": "6ab68390436457b922b50932befb002960b74333d20da44c14f1e4331c23ef7e"
+    },
+    {
+      "path": "answers/author-adjudication.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/adjudication-final.json",
+      "bytes": 26570,
+      "sha256": "b4939e664729887782f457d5dc80339454b2fa22f1af6a586fa5d6ee035c7956"
+    },
+    {
+      "path": "answers/author-identity-check.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/author-final-identity-check.json",
+      "bytes": 4319,
+      "sha256": "36c6ce90d780c6467845f98d909c270d2275ca15c23bac7fb16de9cd487256c3"
+    },
+    {
+      "path": "answers/independent-five-packet.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/independent-final-five-packet.json",
+      "bytes": 36269,
+      "sha256": "d1d470d495dcee372c48851b309a631776e22b5cfc665b49ae5057ebf5394d9d"
+    },
+    {
+      "path": "answers/independent-five-raw.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/independent-final-five-final.json",
+      "bytes": 4641,
+      "sha256": "cf89978bbbba12b640de9f1fe5a07a12e060fe518689ed147d6fe6c24d709e30"
+    },
+    {
+      "path": "answers/independent-identity-check.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/independent-identity-check.json",
+      "bytes": 1800,
+      "sha256": "640621398bad1e4774c2ca0d7efeeae9823965f4bd9f6a5ce408733c500558c0"
+    },
+    {
+      "path": "answers/independent-request.md",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/independent-review-request.md",
+      "bytes": 1498,
+      "sha256": "efd32f5e5513cac64ba6bfcfc01ebace1ac56a32572f3616bb6e53cf1cafec87"
+    },
+    {
+      "path": "answers/old-independent-invalid.md",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/quote-repair/independent-answer-v2-final.md",
+      "bytes": 10885,
+      "sha256": "ff5650cfab9c710d470725ea3dcd00329d0dab5d40b067d6c48b221e4fae44f9"
+    },
+    {
+      "path": "source-review-v1.md",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/source-review-final.md",
+      "bytes": 1871,
+      "sha256": "7b9ac03eac30721b086ea90d654ccc9995cbcb9922b5ea939cab09e01cbcabf6"
+    },
+    {
+      "path": "source-review-v2.md",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/source-review-v2-final.md",
+      "bytes": 2530,
+      "sha256": "7b73c2dcd1fcee1c46decf8ea15071b5af1c7f981d7347987bd973f820b1f32a"
+    },
+    {
+      "path": "source-review-v2-request.md",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/source-review-v2-request.md",
+      "bytes": 1595,
+      "sha256": "fe9028ffbd4c3d025392b597a8af2890153ee6e971483ab0a2f932d825bc62d3"
+    },
+    {
+      "path": "python-7c16a38ec.json",
+      "source": "/Users/a77/.finance-runtime/test-receipts/gate-47KSMduZ/pytest.json",
+      "bytes": 888,
+      "sha256": "7155447766a9738612b57425d0eb74673798abcac19bffee3b913958b3803f26"
+    },
+    {
+      "path": "python-11f7ce233.json",
+      "source": "/Users/a77/.finance-runtime/test-receipts/gate-sgeFpiIK/pytest.json",
+      "bytes": 888,
+      "sha256": "21408aabc6757eed65668fc4f34548fc47579d78917150657f7bbc4c448e01d7"
+    },
+    {
+      "path": "python-3892eb8b4.json",
+      "source": "/Users/a77/.finance-runtime/test-receipts/gate-UBiZChcB/pytest.json",
+      "bytes": 933,
+      "sha256": "b75c0e62993bb98927fb3680642a4aff0d3fecff62647155858370fb7fd24afe"
+    },
+    {
+      "path": "python-7c16a38ec-receipt-check.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/main-gate-7c16a38ec-receipt-check.log",
+      "bytes": 943,
+      "sha256": "488f308c231c9d23a012b5e6c946e18bd5cd6ab56b97a837aeb024fce775c9a6"
+    },
+    {
+      "path": "main-gate-7c16a38ec.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/main-gate-7c16a38ec.log",
+      "bytes": 2396,
+      "sha256": "c756e398cdb19d3afdc29a7fba2389c9c4fd4ab1728ed131cbc23345ffd19b24"
+    },
+    {
+      "path": "main-gate-7c16a38ec.exit",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/main-gate-7c16a38ec.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "resources-7c16a38ec.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/resources-7c16a38ec.json",
+      "bytes": 293,
+      "sha256": "11d0240a3c5dc26b80ef0e15b75228ea9e36bb0ff5af035bfac6a2d7d1aca2a7"
+    },
+    {
+      "path": "production-health-earlier.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/production-health.json",
+      "bytes": 1549,
+      "sha256": "d03f78b2518e85dd5c1343bc2e1b858a064af0a9d36f8981c424c44051ba5ebd"
+    },
+    {
+      "path": "production-health-closeout.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/production-health-closeout.json",
+      "bytes": 1998,
+      "sha256": "2851958ef5870f832cb4f76c20ca5ce66549de0f32d9424d35d8d9bdf67bb96d"
+    },
+    {
+      "path": "observables-closeout.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/observables-closeout.json",
+      "bytes": 327,
+      "sha256": "ef03e2607d607f8baa38ea3f24cb7a6ff4009ad5b55f8cd0cd797e15c8baf53b"
+    },
+    {
+      "path": "tools/tests.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/audit-tool-tests-e136472.log",
+      "bytes": 99,
+      "sha256": "a64ece33abde36fed751f50521e04fb0a4718417f8dcb056d5075af750a55d4c"
+    },
+    {
+      "path": "tools/mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/audit-tool-mutations.json",
+      "bytes": 378,
+      "sha256": "c6f7a7d69446e2600b70ce24edf6fdeffb6b09fd50fe61f10f6004509dfb35c2"
+    },
+    {
+      "path": "tools/review-mutation.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/check_answer_review.py.mutation.log",
+      "bytes": 4175,
+      "sha256": "7c0de9c14df6295d50f738481a2d00b8fb12ebee676f8c8d29febb842f33004c"
+    },
+    {
+      "path": "tools/archive-mutation.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/verified_tree_archive.py.mutation.log",
+      "bytes": 1536,
+      "sha256": "647a841bc7aa74a09e3638ce8dc22eda54456e88fb8aa647a67729f522ce5be4"
+    },
+    {
+      "path": "regressions/source-precedence-red-v2.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/source-precedence-red-v2.log",
+      "bytes": 16901,
+      "sha256": "197c8331088f81fc42a8c32f5ec61848c3ff3ddbc048df519fce7c6ebec4e386"
+    },
+    {
+      "path": "regressions/source-precedence-green.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/source-precedence-green.log",
+      "bytes": 520,
+      "sha256": "cb936e56c92f91305ecf4b53b181a414da76f3abe847160af4ec0741eb3bbdfb"
+    },
+    {
+      "path": "regressions/nonfrozen-precedence-red.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/nonfrozen-precedence-red.log",
+      "bytes": 15361,
+      "sha256": "161cedb681abbcdc82ad536c942c00d62e0ecbd068cc0f121dd7e14454dcc061"
+    },
+    {
+      "path": "regressions/nonfrozen-precedence-red-v2.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/nonfrozen-precedence-red-v2.log",
+      "bytes": 13227,
+      "sha256": "efac81f897499faf1d7e972d93617e545174321adbdc45fa673fc3c4d2701772"
+    },
+    {
+      "path": "regressions/nonfrozen-precedence-green.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/nonfrozen-precedence-green.log",
+      "bytes": 600,
+      "sha256": "0267a12ee2c52ffe03851ae0247ba2e75cd619a464260d9e0861f3d1ca3bc720"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend-2.log.txt",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend-2.log.txt",
+      "bytes": 218,
+      "sha256": "f4de43b927c7d2f761df51d4c74ef3f80639927c2f19a7d5af2a229da8926eb0"
+    },
+    {
+      "path": "frontend-7c16a38ec/deploy-ledger.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/deploy-ledger.jsonl",
+      "bytes": 856,
+      "sha256": "8bfac8d57ad1aa55f14104679184e91b1f225a538dfe4288e225215160a5890e"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend-3.log.txt",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend-3.log.txt",
+      "bytes": 1441,
+      "sha256": "114ddaa4ff40f8aa94ca08e78c1c0cb5a5379496b01640383e6622cac1825938"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend-1.log.txt",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend-1.log.txt",
+      "bytes": 120,
+      "sha256": "66fce0d5509dd9aa7a5d73959c1d67dfbd4670972f5b1f0128730f926c959530"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend.json",
+      "bytes": 2645,
+      "sha256": "035deabfb5dc52ba7bc326a03c91807420fef97fd5c667857e6a8c93982314da"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend-0.log.txt",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "fde0ea2d53bf9627242b79a59364bf4cd782e9d90a7fa8df849330d75700019d"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend-5.log.txt",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend-5.log.txt",
+      "bytes": 7064,
+      "sha256": "1de7cf7f34cb84ff139e0fedda3a600f3120c9c45c923b7baca525c18e51cb5c"
+    },
+    {
+      "path": "frontend-7c16a38ec/frontend-4.log.txt",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/frontend-7c16a38ec/frontend-4.log.txt",
+      "bytes": 927,
+      "sha256": "012c95fa10705ddda87e8fde36a1b484e01d05b911d2f63a9282c0c56d7d9851"
+    },
+    {
+      "path": "registry-7c16a38ec/registry-2.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/registry-7c16a38ec/registry-2.log",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "path": "registry-7c16a38ec/registry-3.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/registry-7c16a38ec/registry-3.log",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "path": "registry-7c16a38ec/registry-1.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/registry-7c16a38ec/registry-1.log",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "path": "registry-7c16a38ec/registry-0.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/registry-7c16a38ec/registry-0.log",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "path": "registry-7c16a38ec/registry.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/registry-7c16a38ec/registry.json",
+      "bytes": 1379,
+      "sha256": "38e1263c201a8fa1e7309427a1505c8f5ac89bbac4420f5f01332c1783b74632"
+    },
+    {
+      "path": "registry-7c16a38ec/registry-4.log",
+      "storage": "external_only",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/registry-7c16a38ec/registry-4.log",
+      "bytes": 2015,
+      "sha256": "1b9de52fde6b6e53b63c05da6d1ce5591a9e513e4af3cd37b198fc430e1c2ed0"
+    },
+    {
+      "path": "answers/review-19.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-19.json",
+      "bytes": 8003,
+      "sha256": "cd7da4dd2e5ef93e39c78d07ccf8561edbaef854a460d4cbaf6c37d5e37ba45d"
+    },
+    {
+      "path": "answers/review-15.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-15.json",
+      "bytes": 20109,
+      "sha256": "c6e1767c6332b185520f7d164c0e67bcb40d4231762fdbfd126c4b1ba7a22175"
+    },
+    {
+      "path": "answers/review-03.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-03.json",
+      "bytes": 6100,
+      "sha256": "cbf386b7eaa52d289356e0dae8cee5471cf4433ff06569e012e481fe5044babd"
+    },
+    {
+      "path": "answers/review-02.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-02.json",
+      "bytes": 8586,
+      "sha256": "5debb7911a7436842ceed172ba25a9bc66e0957155654447a76755ea3f1b4697"
+    },
+    {
+      "path": "answers/review-14.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-14.json",
+      "bytes": 3455,
+      "sha256": "c43a36433858febd2d3aea0531498e8e47ef373e8dce03b3e0a006032c952a31"
+    },
+    {
+      "path": "answers/review-18.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-18.json",
+      "bytes": 19600,
+      "sha256": "44904ddc99d1eeeb0ae0b596d6bd9da984c0742a028f7173955268ea6d008f3d"
+    },
+    {
+      "path": "answers/review-13.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-13.json",
+      "bytes": 2597,
+      "sha256": "bfeb0ff75ba801a1f41c58823b182b2b57ca4a65a8977104bf36f516b72ba205"
+    },
+    {
+      "path": "answers/review-05.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-05.json",
+      "bytes": 7424,
+      "sha256": "f4fd03860a21344ea2dad5b817f390629d7cd8207156f895c633569edd1b3e8c"
+    },
+    {
+      "path": "answers/review-09.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-09.json",
+      "bytes": 584,
+      "sha256": "12fa42ff899f0592fed9277b4ee8ac79eb8f7a684fe4131b9317289551548798"
+    },
+    {
+      "path": "answers/review-08.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-08.json",
+      "bytes": 1135,
+      "sha256": "9447d34cbbb98bcb24b85676ef0f0ad39e766abaf911504ecd20ff24014e5f7d"
+    },
+    {
+      "path": "answers/review-04.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-04.json",
+      "bytes": 7712,
+      "sha256": "6302cb89fdb6fe10475b767897cdfe347afb6c1c1e08e4092dd020df641daa6a"
+    },
+    {
+      "path": "answers/review-12.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-12.json",
+      "bytes": 926,
+      "sha256": "45f863a5c111999620237d554f442e452392518fb7ff743e1363234af1efb45c"
+    },
+    {
+      "path": "answers/review-07.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-07.json",
+      "bytes": 3331,
+      "sha256": "4400db37db181351fb95c923d7767489c295ec4852660980a9d869c1b870438d"
+    },
+    {
+      "path": "answers/review-11.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-11.json",
+      "bytes": 20577,
+      "sha256": "4e1853f13fa4c502041bff111f494cbdbf0e08f9bde7e9775d5c9a3a9d4ca6c9"
+    },
+    {
+      "path": "answers/review-10.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-10.json",
+      "bytes": 3203,
+      "sha256": "eac3c39521c7c35c1926553e6c34d7715f69e860f3d04ae1bc604f996094bfa0"
+    },
+    {
+      "path": "answers/review-06.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-06.json",
+      "bytes": 3031,
+      "sha256": "ecd7c76a64425b3bcf48eb58a808efa95d9b1f6767eee38a71a6e953294778db"
+    },
+    {
+      "path": "answers/review-01.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-01.json",
+      "bytes": 8382,
+      "sha256": "86173bd20f28f2f4ffabda903cef1d95915aa48e8a4ed2ee70b7c682f7151d79"
+    },
+    {
+      "path": "answers/review-17.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-17.json",
+      "bytes": 3455,
+      "sha256": "647fa5d89373660a9a9ca0eb1197543ccf3d30bba2e208f0e5e4483d98099379"
+    },
+    {
+      "path": "answers/review-16.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/review-16.json",
+      "bytes": 15771,
+      "sha256": "b3efbf58e91f14d2ef3ff5229bc8c1f13c046192b4b832d2a3790666baac6035"
+    }
+  ]
+}

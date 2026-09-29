@@ -1,0 +1,149 @@
+{
+  "records": 15,
+  "comparisons": [
+    {
+      "case_id": "comparison",
+      "reference": "legacy",
+      "candidate": "compact",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 11293,
+      "prompt_chars_after": 9798
+    },
+    {
+      "case_id": "financial-holdout",
+      "reference": "legacy",
+      "candidate": "compact",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 31535,
+      "prompt_chars_after": 27139
+    },
+    {
+      "case_id": "history",
+      "reference": "legacy",
+      "candidate": "compact",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 11886,
+      "prompt_chars_after": 9030
+    },
+    {
+      "case_id": "news",
+      "reference": "legacy",
+      "candidate": "compact",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 22403,
+      "prompt_chars_after": 18676
+    },
+    {
+      "case_id": "transmission",
+      "reference": "legacy",
+      "candidate": "compact",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 22027,
+      "prompt_chars_after": 18347
+    },
+    {
+      "case_id": "comparison",
+      "reference": "compact",
+      "candidate": "method",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 9798,
+      "prompt_chars_after": 10201
+    },
+    {
+      "case_id": "financial-holdout",
+      "reference": "compact",
+      "candidate": "method",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 27139,
+      "prompt_chars_after": 27542
+    },
+    {
+      "case_id": "news",
+      "reference": "compact",
+      "candidate": "method",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 18676,
+      "prompt_chars_after": 19079
+    },
+    {
+      "case_id": "transmission",
+      "reference": "compact",
+      "candidate": "method",
+      "unchanged_controls": {
+        "question_sha256": true,
+        "stable_contract_sha256": true,
+        "allowed_capabilities": true,
+        "material_source_text_sha256": true,
+        "historical_source_text_sha256": true,
+        "served_models": true,
+        "runtime_controls": true
+      },
+      "prompt_chars_before": 18347,
+      "prompt_chars_after": 18750
+    }
+  ]
+}

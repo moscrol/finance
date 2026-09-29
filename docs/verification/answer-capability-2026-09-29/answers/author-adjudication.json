@@ -1,0 +1,672 @@
+{
+  "reviewer": "closeout author; unblinded source audit, not an independent blind evaluation",
+  "method": "逐份读取冻结原题、事前规则与公开答案；不重跑被测模型。usable=必要子问实答且无实质错误；partial=有独立正确部分但存在重要错误；unusable=没有实质回答。各题内问题标签不以平均分代替。",
+  "entries": [
+    {
+      "id": "review-01",
+      "overall": "partial",
+      "per_question": [
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "partial"
+      ],
+      "issues": [
+        {
+          "severity": "minor",
+          "question": "q5",
+          "quote": "尚未获量产订单",
+          "reason": "同句以公司D0公告为前提，可读作截至公告时；独立转发宜明确截至D0而非延续到D3。"
+        },
+        {
+          "severity": "major",
+          "question": "q8",
+          "quote": "未见与A的依赖，不影响A判断",
+          "reason": "依赖未说明不等于已证绝无影响；应说不足以撤销A订单，依赖待核。"
+        },
+        {
+          "severity": "minor",
+          "question": "q1",
+          "quote": "跟踪客户60天内供应商选择结果",
+          "reason": "省略原材料的预计限定，不能作为硬期限。"
+        }
+      ],
+      "case": "news",
+      "public_answer_sha256": "d76570bfaf8945915bd489c42e75339e270269ed75f6597a99fb05047424b70b",
+      "origin": "answer-08",
+      "arm": "legacy",
+      "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+      "rules_sha256": "9f831c34d8113297b89f19bc525a2dcf94ecd14e90828cf07547f1c3536a39cd",
+      "packet_file": "review-01.json",
+      "packet_file_sha256": "86173bd20f28f2f4ffabda903cef1d95915aa48e8a4ed2ee70b7c682f7151d79"
+    },
+    {
+      "id": "review-02",
+      "overall": "partial",
+      "per_question": [
+        "usable",
+        "partial",
+        "partial",
+        "partial",
+        "usable",
+        "usable",
+        "usable",
+        "partial"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "q2",
+          "quote": "需依赖存量现金或外部融资",
+          "reason": "CFO-CapEx只含两个现金子项，尚有资产处置等其他资金来源，不能形成穷尽的资金需求结论。FCFE净借款公式本身表述正确。"
+        },
+        {
+          "severity": "major",
+          "question": "q3/q4",
+          "quote": "备货扩产带来存货由3升至5.5、资本开支升至5，现金先流出属扩张期常见现象",
+          "reason": "投资活动CapEx不能直接解释利润与CFO背离；余额变化也尚未经调节确认为现金。q4的投资拆分可研究投资后差额，但不足裁决经营现金流恶化。"
+        },
+        {
+          "severity": "major",
+          "question": "q8",
+          "quote": "兑现前估值不便宜",
+          "reason": "把研究员条件反推压缩成无条件价格结论，且摘要未按q7最新利润1更新0.5基线。"
+        }
+      ],
+      "case": "transmission",
+      "public_answer_sha256": "f36629b79c391380ad091e0bb6cf23c30424d43e16517d4470a342aee45e239a",
+      "origin": "answer-01",
+      "arm": "compact",
+      "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+      "rules_sha256": "19e633b0195c2776e16992a379091153d0c0d12de3f68bbd80bc6774a8bd21fe",
+      "packet_file": "review-02.json",
+      "packet_file_sha256": "5debb7911a7436842ceed172ba25a9bc66e0957155654447a76755ea3f1b4697"
+    },
+    {
+      "id": "review-03",
+      "overall": "unusable",
+      "per_question": [
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "现有证据不足，暂不能可靠回答",
+          "reason": "仅原题回显与缺口模板，未完成材料本可计算的八问。"
+        }
+      ],
+      "case": "transmission",
+      "public_answer_sha256": "07da616e3e9f17fa98a8a568cff1612006dcd22c2f994c9dcf0bb4bee7a1fb59",
+      "origin": "answer-04",
+      "arm": "method",
+      "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+      "rules_sha256": "19e633b0195c2776e16992a379091153d0c0d12de3f68bbd80bc6774a8bd21fe",
+      "packet_file": "review-03.json",
+      "packet_file_sha256": "cbf386b7eaa52d289356e0dae8cee5471cf4433ff06569e012e481fe5044babd"
+    },
+    {
+      "id": "review-04",
+      "overall": "partial",
+      "per_question": [
+        "usable",
+        "partial",
+        "partial",
+        "partial",
+        "usable",
+        "usable",
+        "usable",
+        "partial"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "q2",
+          "quote": "未纳入非现金损益调整、营运资本变动的结构拆分",
+          "reason": "以已给CFO起算FCFE，不应再加入已在CFO内处理的非现金和营运资本调整；不能把两项差额等同完整融资压力。"
+        },
+        {
+          "severity": "major",
+          "question": "q3",
+          "quote": "合计约7.5亿元占用",
+          "reason": "余额净变动不是已验证现金占用；并把扩产CapEx当成CFO背离解释。"
+        },
+        {
+          "severity": "major",
+          "question": "q4",
+          "quote": "若主要是扩产投入且对应可见订单产能，则现金流缺口属投资性而非经营恶化",
+          "reason": "扩产可能合理，但不能据此排除已见CFO下降的经营端问题。"
+        },
+        {
+          "severity": "major",
+          "question": "q8",
+          "quote": "自由现金-4.6亿元",
+          "reason": "摘要遗漏指定子项身份与80/20条件，且仍用当前0.5未衔接q7后续1。"
+        }
+      ],
+      "case": "transmission",
+      "public_answer_sha256": "e57e6b331470b30ba9a9bdf78c9a607becfa9a9fb62b5d77199018ff9691d7b9",
+      "origin": "answer-03",
+      "arm": "legacy",
+      "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+      "rules_sha256": "19e633b0195c2776e16992a379091153d0c0d12de3f68bbd80bc6774a8bd21fe",
+      "packet_file": "review-04.json",
+      "packet_file_sha256": "6302cb89fdb6fe10475b767897cdfe347afb6c1c1e08e4092dd020df641daa6a"
+    },
+    {
+      "id": "review-05",
+      "overall": "partial",
+      "per_question": [
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "partial",
+        "partial",
+        "usable",
+        "partial"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "q5",
+          "quote": "未获量产订单",
+          "reason": "版本A摘要将截至D0的公告状态偷延到D3。"
+        },
+        {
+          "severity": "major",
+          "question": "q6/q8",
+          "quote": "量产关系从无到有",
+          "reason": "M4只给项目A正式订单，未明确认定为量产订单；不能替材料补足量产性质。"
+        },
+        {
+          "severity": "minor",
+          "question": "q6",
+          "quote": "相对2亿元预算比例与份额未知",
+          "reason": "订单/总预算比例可算15%，但不等于供应商份额，二者应分开。"
+        }
+      ],
+      "case": "news",
+      "public_answer_sha256": "657cc906577ea70737d9581bc4ddf7a6b671600c0e6b259def15e65be70da002",
+      "origin": "answer-11",
+      "arm": "method",
+      "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+      "rules_sha256": "9f831c34d8113297b89f19bc525a2dcf94ecd14e90828cf07547f1c3536a39cd",
+      "packet_file": "review-05.json",
+      "packet_file_sha256": "f4fd03860a21344ea2dad5b817f390629d7cd8207156f895c633569edd1b3e8c"
+    },
+    {
+      "id": "review-06",
+      "overall": "partial",
+      "issues": [
+        {
+          "severity": "major",
+          "question": "利润—应收—现金关系",
+          "quote": "说明账面利润尚未收回现金",
+          "reason": "CFO是净额，不能从给定汇总数据直接确定收入收现去向；可作风险线索而非事实归因。"
+        },
+        {
+          "severity": "minor",
+          "question": "反证",
+          "quote": "这是增长质量最直接的不利证据",
+          "reason": "所谓甲方向反证只是重复支持原判断；乙方一次性现金来源反证仍有效。"
+        }
+      ],
+      "case": "comparison",
+      "public_answer_sha256": "0e7427bc15d6285be6c0c99c022626ea6884ee4fd69e407b761429c372bcd48c",
+      "origin": "answer-05",
+      "arm": "compact",
+      "question_sha256": "225186e752759d4bead4e347a6f5cbfc8fa8b6eb34f8d260598bd7a0e1d05cac",
+      "rules_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "packet_file": "review-06.json",
+      "packet_file_sha256": "ecd7c76a64425b3bcf48eb58a808efa95d9b1f6767eee38a71a6e953294778db",
+      "per_question": [
+        "partial"
+      ]
+    },
+    {
+      "id": "review-07",
+      "overall": "partial",
+      "issues": [
+        {
+          "severity": "major",
+          "question": "利润—应收—现金关系",
+          "quote": "收入和利润在开票确认时即可记账",
+          "reason": "开票不是普遍的收入确认条件；收入确认也不等于等额利润确认。主要比较与反证、验证点仍可独立使用。"
+        }
+      ],
+      "case": "comparison",
+      "public_answer_sha256": "5ca7bdd581690bec4798e1565f948d682a16d09377eb07d259357d74be84a5b6",
+      "origin": "answer-09",
+      "arm": "legacy",
+      "question_sha256": "225186e752759d4bead4e347a6f5cbfc8fa8b6eb34f8d260598bd7a0e1d05cac",
+      "rules_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "packet_file": "review-07.json",
+      "packet_file_sha256": "4400db37db181351fb95c923d7767489c295ec4852660980a9d869c1b870438d",
+      "per_question": [
+        "partial"
+      ]
+    },
+    {
+      "id": "review-08",
+      "overall": "usable",
+      "issues": [],
+      "note": "四项历史数值正确，明确本轮未重新核验；真实零工具另由trace确认，不用文本自述代替。",
+      "case": "history",
+      "public_answer_sha256": "73c6496a4e17434ea0de8080203299523da3382f88dfc8cc8dd111e83ddc93f5",
+      "origin": "answer-02",
+      "arm": "compact",
+      "question_sha256": "1220b7078d44b351d9e788e4ade8e945701e5e2c8501851d48b1fd5296daef10",
+      "rules_sha256": "92944fd8e79722feff8f29401d8fb2ed26dae4291e51bce37f2928438b1fb600",
+      "packet_file": "review-08.json",
+      "packet_file_sha256": "9447d34cbbb98bcb24b85676ef0f0ad39e766abaf911504ecd20ff24014e5f7d",
+      "per_question": [
+        "usable"
+      ]
+    },
+    {
+      "id": "review-09",
+      "overall": "unusable",
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "本次运行未交付公开答卷。",
+          "reason": "没有公开答卷，内部草稿不替代交付。"
+        }
+      ],
+      "case": "history",
+      "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d",
+      "origin": "answer-07",
+      "arm": "legacy",
+      "question_sha256": "1220b7078d44b351d9e788e4ade8e945701e5e2c8501851d48b1fd5296daef10",
+      "rules_sha256": "92944fd8e79722feff8f29401d8fb2ed26dae4291e51bce37f2928438b1fb600",
+      "packet_file": "review-09.json",
+      "packet_file_sha256": "12fa42ff899f0592fed9277b4ee8ac79eb8f7a684fe4131b9317289551548798",
+      "per_question": [
+        "unusable"
+      ]
+    },
+    {
+      "id": "review-10",
+      "overall": "usable",
+      "issues": [
+        {
+          "severity": "minor",
+          "question": "期间",
+          "quote": "全年收入",
+          "reason": "原题未定义期间长度，应称当期收入；正文末已披露该缺口，未影响比值与比较。"
+        }
+      ],
+      "note": "乙较扎实的条件比较、11/12超过九成、反证和下一步有效；没有把余额差直接确认为已发生现金流。",
+      "case": "comparison",
+      "public_answer_sha256": "1ecc48320aab9be0c4578d534227b13e114522af0f9d29837c45df8ab771775d",
+      "origin": "quote-repair/comparison",
+      "arm": "quote-repair",
+      "question_sha256": "225186e752759d4bead4e347a6f5cbfc8fa8b6eb34f8d260598bd7a0e1d05cac",
+      "rules_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "packet_file": "review-10.json",
+      "packet_file_sha256": "eac3c39521c7c35c1926553e6c34d7715f69e860f3d04ae1bc604f996094bfa0",
+      "per_question": [
+        "usable"
+      ],
+      "independent_review": {
+        "raw_file": "independent-final-five-final.json",
+        "identity_admitted": true,
+        "raw_overall": "usable"
+      }
+    },
+    {
+      "id": "review-11",
+      "overall": "unusable",
+      "per_question": [
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "现有证据不足，暂不能可靠回答",
+          "reason": "仅缺口模板，无八问实质计算。"
+        }
+      ],
+      "case": "financial-holdout",
+      "public_answer_sha256": "f3e2241468fdaf64119c57688c2f0e5de585290e598a23657c99926b6451f76e",
+      "origin": "answer-13",
+      "arm": "method",
+      "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936",
+      "rules_sha256": "93bdf1bbf942b02cb184890d25aaefebb79b8821ed63a2686468c8c6496fe972",
+      "packet_file": "review-11.json",
+      "packet_file_sha256": "4e1853f13fa4c502041bff111f494cbdbf0e08f9bde7e9775d5c9a3a9d4ca6c9"
+    },
+    {
+      "id": "review-12",
+      "overall": "unusable",
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "现有证据不足，暂不能可靠回答",
+          "reason": "已有历史原答却没有复述任何所求数值。"
+        }
+      ],
+      "case": "history",
+      "public_answer_sha256": "fb648d25e683890b5c13e6c9ab9d588f6d6e9a4acb8cbfa603d5f82ff16e353e",
+      "origin": "quote-repair/history",
+      "arm": "quote-repair",
+      "question_sha256": "1220b7078d44b351d9e788e4ade8e945701e5e2c8501851d48b1fd5296daef10",
+      "rules_sha256": "92944fd8e79722feff8f29401d8fb2ed26dae4291e51bce37f2928438b1fb600",
+      "packet_file": "review-12.json",
+      "packet_file_sha256": "45f863a5c111999620237d554f442e452392518fb7ff743e1363234af1efb45c",
+      "per_question": [
+        "unusable"
+      ],
+      "independent_review": {
+        "raw_file": "independent-final-five-final.json",
+        "identity_admitted": true,
+        "raw_overall": "unusable"
+      }
+    },
+    {
+      "id": "review-13",
+      "overall": "partial",
+      "issues": [
+        {
+          "severity": "major",
+          "question": "利润—应收—现金关系",
+          "quote": "这意味着甲的利润增长主要体现为账面应收款项而非回款",
+          "reason": "汇总CFO与期末应收无法确定利润增长的主要去向；可能同时受存货、应付、非现金并表等影响。末尾方向性限定不能改正正文的事实归因。"
+        }
+      ],
+      "case": "comparison",
+      "public_answer_sha256": "78501b9e6819bb567b1c4a82ded3c020c68b8ed5110e4d9c61cc0b071b6dc20e",
+      "origin": "answer-06",
+      "arm": "method",
+      "question_sha256": "225186e752759d4bead4e347a6f5cbfc8fa8b6eb34f8d260598bd7a0e1d05cac",
+      "rules_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "packet_file": "review-13.json",
+      "packet_file_sha256": "bfeb0ff75ba801a1f41c58823b182b2b57ca4a65a8977104bf36f516b72ba205",
+      "per_question": [
+        "partial"
+      ]
+    },
+    {
+      "id": "review-14",
+      "overall": "unusable",
+      "per_question": [
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "本次运行未交付公开答卷。",
+          "reason": "无公开交付。"
+        }
+      ],
+      "case": "news",
+      "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d",
+      "origin": "quote-repair/news",
+      "arm": "quote-repair",
+      "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+      "rules_sha256": "9f831c34d8113297b89f19bc525a2dcf94ecd14e90828cf07547f1c3536a39cd",
+      "packet_file": "review-14.json",
+      "packet_file_sha256": "c43a36433858febd2d3aea0531498e8e47ef373e8dce03b3e0a006032c952a31",
+      "independent_review": {
+        "raw_file": "independent-final-five-final.json",
+        "identity_admitted": true,
+        "raw_overall": "unusable"
+      }
+    },
+    {
+      "id": "review-15",
+      "overall": "partial",
+      "per_question": [
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "partial"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "q8",
+          "quote": "可持续净利润”是否已扣除维持和扩张性资本开支",
+          "reason": "净利润不是扣除现金CapEx后的余额。应核对增长、再投资回报、融资与倍数内含假设，不能把现金CapEx直接减净利润再套利润倍数。"
+        }
+      ],
+      "note": "q1—q7计算及情景边界成立，包括FCFE=9与EV转换；不能因q8错抹去这些正确部分。",
+      "case": "financial-holdout",
+      "public_answer_sha256": "2ddc5ceff3c1dd6511a1c3d8549133a4c4cf241c5d2861907850b8c781e2b2e1",
+      "origin": "answer-10",
+      "arm": "compact",
+      "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936",
+      "rules_sha256": "93bdf1bbf942b02cb184890d25aaefebb79b8821ed63a2686468c8c6496fe972",
+      "packet_file": "review-15.json",
+      "packet_file_sha256": "c6e1767c6332b185520f7d164c0e67bcb40d4231762fdbfd126c4b1ba7a22175"
+    },
+    {
+      "id": "review-16",
+      "overall": "unusable",
+      "per_question": [
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "本次运行未交付公开答卷。",
+          "reason": "无公开交付，旧独审usable评分与原件矛盾。"
+        }
+      ],
+      "case": "financial-holdout",
+      "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d",
+      "origin": "answer-12",
+      "arm": "legacy",
+      "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936",
+      "rules_sha256": "93bdf1bbf942b02cb184890d25aaefebb79b8821ed63a2686468c8c6496fe972",
+      "packet_file": "review-16.json",
+      "packet_file_sha256": "b3efbf58e91f14d2ef3ff5229bc8c1f13c046192b4b832d2a3790666baac6035"
+    },
+    {
+      "id": "review-17",
+      "overall": "unusable",
+      "per_question": [
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable",
+        "unusable"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "all",
+          "quote": "本次运行未交付公开答卷。",
+          "reason": "无公开交付。"
+        }
+      ],
+      "case": "news",
+      "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d",
+      "origin": "answer-14",
+      "arm": "compact",
+      "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+      "rules_sha256": "9f831c34d8113297b89f19bc525a2dcf94ecd14e90828cf07547f1c3536a39cd",
+      "packet_file": "review-17.json",
+      "packet_file_sha256": "647fa5d89373660a9a9ca0eb1197543ccf3d30bba2e208f0e5e4483d98099379"
+    },
+    {
+      "id": "review-18",
+      "overall": "partial",
+      "per_question": [
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "usable",
+        "partial"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "q8",
+          "quote": "可持续利润口径是否已扣除维持和增长性资本开支",
+          "reason": "仍将净利润与现金CapEx混为一个口径；应检验倍数内含增长、再投资回报及融资假设，不是从净利润机械扣现金投资。"
+        },
+        {
+          "severity": "minor",
+          "question": "q3",
+          "quote": "年内现金可能阶段性低于下限",
+          "reason": "题设只给年末最低余额，不能自动扩为全年下限；不排除期中资金不足的结论正确。"
+        }
+      ],
+      "note": "q1—q7正确；本份是financial-holdout，不是旧独审所评的transmission。",
+      "case": "financial-holdout",
+      "public_answer_sha256": "8c8fe27d1fb783808b5d664565852d92a5fac72fa118918416fbda27ff024b58",
+      "origin": "quote-repair/financial-holdout",
+      "arm": "quote-repair",
+      "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936",
+      "rules_sha256": "93bdf1bbf942b02cb184890d25aaefebb79b8821ed63a2686468c8c6496fe972",
+      "packet_file": "review-18.json",
+      "packet_file_sha256": "44904ddc99d1eeeb0ae0b596d6bd9da984c0742a028f7173955268ea6d008f3d",
+      "independent_review": {
+        "raw_file": "independent-final-five-final.json",
+        "identity_admitted": true,
+        "raw_overall": "usable"
+      },
+      "adjudication_note": "独立复审身份合格但判usable，无issues；作者保留q8 major：净利润与现金资本开支不同口径。保留原分歧，不抹去q1—q7正确部分，不重抽评审。"
+    },
+    {
+      "id": "review-19",
+      "overall": "partial",
+      "per_question": [
+        "partial",
+        "partial",
+        "partial",
+        "usable",
+        "usable",
+        "partial",
+        "usable",
+        "usable"
+      ],
+      "issues": [
+        {
+          "severity": "major",
+          "question": "q1",
+          "quote": "经营利润率反而被摊薄",
+          "reason": "数据只支持剔除指定一次性项后的归母净利润率下降，不能改名经营利润率。增长算式正确。"
+        },
+        {
+          "severity": "major",
+          "question": "q2",
+          "quote": "未扣除债务净变动与利息口径调整",
+          "reason": "CFO起算法通常加净借款，并按已含利息税费口径避免重复；这里方向及调整说明不可靠，还把两个现金子项缺口说成仅靠存量/融资解决。"
+        },
+        {
+          "severity": "major",
+          "question": "q3",
+          "quote": "三者合计占用现金约5.5亿元",
+          "reason": "余额代数本是4+2.5+1=7.5，且7.5也不是已证现金流出；直接CapEx不能解释CFO下降。"
+        },
+        {
+          "severity": "minor",
+          "question": "q4",
+          "quote": "若资本开支多为维护性开支则盈利质量下调",
+          "reason": "维护投入偏高会压低可分配现金，但不直接等于当期盈利质量差；该题另外两条核验及更新方向可用。"
+        },
+        {
+          "severity": "major",
+          "question": "q6",
+          "quote": "两个假设的微小偏差都会被20倍左右的乘数放大",
+          "reason": "反推P=(120-V)/m，V偏差对利润是除以m，不是乘20；两情景的3、2.67计算正确。"
+        },
+        {
+          "severity": "minor",
+          "question": "q7",
+          "quote": "估值便宜需要同时满足：可持续利润达到约2亿元",
+          "reason": "这里表述为必要条件而非充分条件；宜再强调利润2仅支持120、不自动证明便宜。逐项拒绝直接推出三种结论的方向正确。"
+        },
+        {
+          "severity": "minor",
+          "question": "q8",
+          "quote": "自由现金缺口4.6亿元",
+          "reason": "同句给CFO0.4与CapEx5可辨子项，但应明确不是完整FCFE或融资额；另宜衔接q7后续利润1而不仅沿用原0.5。"
+        }
+      ],
+      "case": "transmission",
+      "public_answer_sha256": "20deef9f186630ec8757bb86be56e3cbbfc6e67cce5ff4381d1f8d20b4a564d5",
+      "origin": "quote-repair/transmission",
+      "arm": "quote-repair",
+      "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+      "rules_sha256": "19e633b0195c2776e16992a379091153d0c0d12de3f68bbd80bc6774a8bd21fe",
+      "packet_file": "review-19.json",
+      "packet_file_sha256": "cd7da4dd2e5ef93e39c78d07ccf8561edbaef854a460d4cbaf6c37d5e37ba45d",
+      "independent_review": {
+        "raw_file": "independent-final-five-final.json",
+        "identity_admitted": false,
+        "raw_overall": "partial"
+      },
+      "adjudication_note": "独立输出case/id与引用匹配，但答案SHA-256少一位（63位），机械准入拒绝；不补正原件、不算有效独立裁决。本条最终结论来自作者原件审读。"
+    }
+  ],
+  "coverage": {
+    "packet_rows": 19,
+    "adjudicated_rows": 19,
+    "hash_matches": 19,
+    "issue_quotes_all_matched": true
+  },
+  "source_files": {
+    "quote-repair/independent-answer-packet-v2.json": "e374869d5444ad68ca57115e0b2be1545f63182f2d6e0712e30908f2c18a0b06",
+    "quote-repair/independent-answer-key-v2.json": "1d370542c37373f642575650a86c10c1c6d0e28f2e06346dc4c81765c981e5a6",
+    "authoring-v2/anonymous-review-key.json": "4e60bbfde1865fece9a4c2bd0c75a119e357b5df4400a04481dd6b0e03cd3939"
+  },
+  "status": "final_author_adjudication_with_disclosed_independent_disagreement",
+  "new_natural_answer_requests": 0,
+  "independent_review_scope": "Only final five frozen answers; 4/5 row identities admitted, whole review rejected due to review-19 hash mismatch; identity is not semantic approval",
+  "counts": {
+    "usable": 2,
+    "partial": 10,
+    "unusable": 7
+  }
+}

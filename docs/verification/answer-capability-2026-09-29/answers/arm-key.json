@@ -1,0 +1,76 @@
+{
+  "frozen_at": "2026-09-28T18:55:22.867131+08:00",
+  "boundary": "Reviewer sees case input and public answer only, not this identity key. Reviewers may have seen previous code/results; not fully independent blind evaluation.",
+  "entries": [
+    {
+      "id": "answer-01",
+      "arm": "compact",
+      "case_id": "transmission"
+    },
+    {
+      "id": "answer-02",
+      "arm": "compact",
+      "case_id": "history"
+    },
+    {
+      "id": "answer-03",
+      "arm": "legacy",
+      "case_id": "transmission"
+    },
+    {
+      "id": "answer-04",
+      "arm": "method",
+      "case_id": "transmission"
+    },
+    {
+      "id": "answer-05",
+      "arm": "compact",
+      "case_id": "comparison"
+    },
+    {
+      "id": "answer-06",
+      "arm": "method",
+      "case_id": "comparison"
+    },
+    {
+      "id": "answer-07",
+      "arm": "legacy",
+      "case_id": "history"
+    },
+    {
+      "id": "answer-08",
+      "arm": "legacy",
+      "case_id": "news"
+    },
+    {
+      "id": "answer-09",
+      "arm": "legacy",
+      "case_id": "comparison"
+    },
+    {
+      "id": "answer-10",
+      "arm": "compact",
+      "case_id": "financial-holdout"
+    },
+    {
+      "id": "answer-11",
+      "arm": "method",
+      "case_id": "news"
+    },
+    {
+      "id": "answer-12",
+      "arm": "legacy",
+      "case_id": "financial-holdout"
+    },
+    {
+      "id": "answer-13",
+      "arm": "method",
+      "case_id": "financial-holdout"
+    },
+    {
+      "id": "answer-14",
+      "arm": "compact",
+      "case_id": "news"
+    }
+  ]
+}

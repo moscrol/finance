@@ -1,0 +1,54 @@
+{
+  "revision": "7c16a38ec65eee96996d873e88270a1b2f692378",
+  "revision_after": "7c16a38ec65eee96996d873e88270a1b2f692378",
+  "dirty": false,
+  "identity_stable": true,
+  "checks": [
+    {
+      "command": [
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit": 0,
+      "log": "registry-0.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "command": [
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit": 0,
+      "log": "registry-1.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "command": [
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "registry-2.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "command": [
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "registry-3.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "command": [
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit": 0,
+      "log": "registry-4.log",
+      "sha256": "1b9de52fde6b6e53b63c05da6d1ce5591a9e513e4af3cd37b198fc430e1c2ed0"
+    }
+  ]
+}
