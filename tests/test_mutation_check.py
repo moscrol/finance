@@ -321,6 +321,29 @@ def test_target_without_a_committed_restore_point_is_refused_and_left_alone(repo
         assert _git(repo, "show", ":calc.py") == uncommitted
 
 
+
+def test_parent_symlink_is_refused_even_when_git_hides_original(repo, tmp_path):
+    """Git assume-unchanged + 同内容的仓外父目录：不可穿透去变异仓外文件。"""
+    package = repo / "package"
+    package.mkdir()
+    _commit(repo, "package/calc.py", CALC)
+    _git(repo, "update-index", "--assume-unchanged", "package/calc.py")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "calc.py").write_text(CALC, encoding="utf-8")
+    (package / "calc.py").unlink()
+    package.rmdir()
+    package.symlink_to(outside, target_is_directory=True)
+    target = package / "calc.py"
+    assert not target.is_symlink() and not target.resolve().is_relative_to(repo.resolve())
+    assert _git(repo, "status", "--porcelain", "--untracked-files=no", "--", "package/calc.py") == ""
+    spec = _spec(tmp_path, [{**PLUS_TO_MINUS, "file": "package/calc.py"}])
+    code, _, summary = _check(repo, spec, "--dry-run")
+    assert code == 2 and summary["baseline"] is None
+    assert "父目录" in " ".join(summary["problems"])
+    assert (outside / "calc.py").read_text(encoding="utf-8") == CALC
+
+
 def test_misnamed_expected_test_is_a_spec_error_not_a_survivor(repo, tmp_path):
     spec = _spec(tmp_path, [{**PLUS_TO_MINUS, "expected_red": ["test_ad"]}])
     code, _, summary = _check(repo, spec, "--dry-run")
