@@ -6,12 +6,19 @@
 第四种（2026-09-29 post967 切后探针）：单位写在**带限定前缀**的字段名里，
 ``市场成交额亿=14090.71``、``上证涨跌幅=0.1786``。字段名表只认裸名（``成交额亿``），
 前缀一加就退回裸数，与回答里的 ``14090.71亿元`` 维度对不上。
+
+第五种（2026-09-30 post986 切后探针）：百分数字段的 % 没写进名字。finance_query 的
+``成交额环比=-17.24``、``量比=76.88`` 都是百分数，回答写 ``17.2%``、``76.9%`` 仍被挂待核。
+修在两端：finance_query 把单位写进标签（``成交额环比%``、``量比%``），数值门认「名字以 % 结尾」
+的字段。别的数据源里的「量比」多是倍数，所以不把裸名「量比」全局当成百分比。
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date
 
+import duckdb
 import pytest
 
 from intelligence.services.episode_semantic_verifier import (
@@ -20,7 +27,8 @@ from intelligence.services.episode_semantic_verifier import (
     _numbered_sentences,
     numeric_condition_unsupported,
 )
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.finance_query import FinanceQuery, FinanceQuerySpec
+from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
 
 ROW_0915 = "股票代码=300308.SZ；交易日=2026-09-15；收盘价=864.01；UP偏离度=-6.58；涨跌幅=-5.72；换手率=2.45"
@@ -225,5 +233,71 @@ def test_money_unit_in_a_qualified_field_name(draft, detail, supported):
     "wrong-number", "integer-rule", "count-not-percent",
 ])
 def test_percent_unit_in_a_qualified_field_name(draft, detail, supported):
+    _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
+    assert numeric_condition_unsupported(verified) is not supported
+
+
+# 09-30 post986 切后探针原句：run_20260930_023655_895209。「20日」是模型对量比口径的解释，
+# 口径只写在工具说明里、不在证据文本里——它该继续挂待核。
+PROBE_SENTENCE_0930 = "两市成交约14090.7亿元，环比萎缩约17.2%，量比76.9%，即成交低于20日均值水平，属于缩量反弹（E1）。"
+
+
+def _market_daily_detail(tmp_path) -> str:
+    """finance_query 真实渲染的 market_daily 证据行：标签写法与数值门是同一份契约。"""
+
+    path = tmp_path / "market.duckdb"
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute(
+            "create table fact_market_daily(trade_date date, total_amount double,"
+            " sh_index_pct_chg double, amount_vs_yesterday_pct double, volume_ratio double)"
+        )
+        connection.execute(
+            "insert into fact_market_daily values (DATE '2026-09-29', 14090.71, 0.1786, -17.24, 76.88)"
+        )
+    finally:
+        connection.close()
+    spec = FinanceQuerySpec.from_arguments({
+        "dataset": "market_daily",
+        "metrics": ["total_amount", "index_return_pct", "amount_change_pct", "volume_ratio"],
+        "dimensions": ["trade_date"],
+        "filters": [],
+        "time_range": {"start": "2026-09-29", "end": "2026-09-29"},
+        "group_by": [],
+        "order_by": [{"field": "trade_date", "direction": "asc"}],
+        "limit": 5,
+    })
+    result = FinanceQuery(path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 9, 29), "requested"),
+        deadline=ResearchDeadline.from_timeout(5.0),
+    )
+    return result.evidence[0].detail
+
+
+def test_probe_0930_ratio_fields_carry_their_unit_end_to_end(tmp_path):
+    detail = _market_daily_detail(tmp_path)
+    assert "成交额环比%=-17.24" in detail
+    assert "量比%=76.88" in detail
+    _, verified = _dated(PROBE_SENTENCE_0930, source_date="2026-09-29", detail=detail)
+    assert _flagged(verified) == ["20日"]
+
+
+def test_bare_ratio_name_is_not_a_percent_field():
+    # 改标签前的证据形状：名字里没有 %，数值门不替它猜单位。
+    detail = "交易日=2026-09-29；市场成交额亿=14090.71；成交额环比=-17.24；量比=76.88"
+    _, verified = _dated(PROBE_SENTENCE_0930, source_date="2026-09-29", detail=detail)
+    assert sorted(_flagged(verified)) == sorted(["17.2%", "76.9%", "20日"])
+
+
+@pytest.mark.parametrize("draft,detail,supported", [
+    ("若量比回到 76.9%（E1）以上则放量。", "交易日=2026-09-29；量比%=76.88", True),
+    ("若量比回到 76.9%（E1）以上则放量。", "交易日=2026-09-29；量比（%）=76.88", True),
+    ("若前三行业成交占比超过 35.2%（E1）则过于集中。", "交易日=2026-09-29；前三行业成交占比%=35.21", True),
+    ("若量比回到 78.9%（E1）以上则放量。", "交易日=2026-09-29；量比%=76.88", False),
+    # 整数百分比规则同样适用。
+    ("若量比回到 77%（E1）以上则放量。", "交易日=2026-09-29；量比%=76.88", False),
+], ids=["suffix", "paren-suffix", "qualified-suffix", "wrong-number", "integer-rule"])
+def test_percent_suffix_in_the_field_name(draft, detail, supported):
     _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
     assert numeric_condition_unsupported(verified) is not supported
