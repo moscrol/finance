@@ -4084,7 +4084,7 @@ def test_board_calendar_endpoint_uses_configured_market_database(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "ok"
+    assert payload["status"] == "partial"
     assert payload["min_boards"] == 3
     day = next(item for item in payload["trading_days"] if item["date"] == "2026-09-24")
     assert day["board_groups"][0]["stocks"][0]["stock_name"] == "测试股份"
@@ -4097,10 +4097,14 @@ def test_board_calendar_endpoint_rejects_conflicting_or_out_of_range_queries(
         "/api/workbench/board-calendar?month=2026-09&start_date=2026-09-01&end_date=2026-09-30"
     )
     too_low = client.get("/api/workbench/board-calendar?min_boards=1")
+    malformed_date = client.get(
+        "/api/workbench/board-calendar?start_date=20260901&end_date=2026-09-30"
+    )
 
     assert conflict.status_code == 422
     assert "month" in conflict.json()["detail"]
     assert too_low.status_code == 422
+    assert malformed_date.status_code == 422
 
 
 def test_workbench_overview_uses_configured_finance_root(

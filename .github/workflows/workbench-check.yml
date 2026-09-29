@@ -101,6 +101,10 @@ jobs:
         working-directory: intelligence/webapp
         run: pnpm install --frozen-lockfile
 
+      - name: Build production frontend
+        working-directory: intelligence/webapp
+        run: pnpm build
+
       - name: Install Playwright Chromium
         working-directory: intelligence/webapp
         run: pnpm exec playwright install --with-deps chromium

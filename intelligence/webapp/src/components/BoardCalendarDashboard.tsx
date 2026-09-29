@@ -125,7 +125,10 @@ function CalendarDayCell({
     day.data_status === "available" &&
     day.stock_count === 0;
   return (
-    <article className={`board-calendar-day ${statusClass(day)}`}>
+    <article
+      className={`board-calendar-day ${statusClass(day)}`}
+      aria-label={day.date}
+    >
       <header className="board-calendar-day-header">
         <strong>{dayNumber(day.date)}</strong>
         <span>{dayStatus(day, minBoards)}</span>
@@ -138,13 +141,15 @@ function CalendarDayCell({
         )
       ) : (
         <p className="board-calendar-empty">
-          {day.calendar_status === "closed" || day.calendar_status === "future"
-            ? "非交易日"
-            : day.calendar_status === "market_data_missing"
-              ? "未找到市场日数据"
-              : day.data_status === "board_data_missing"
-                ? "连板数据缺失"
-                : "暂不能确认"}
+          {day.calendar_status === "future"
+            ? "尚未发生，不判断行情"
+            : day.calendar_status === "closed"
+              ? "非交易日"
+              : day.calendar_status === "market_data_missing"
+                ? "未找到市场日数据"
+                : day.data_status === "board_data_missing"
+                  ? "连板数据缺失"
+                  : "暂不能确认"}
         </p>
       )}
     </article>
@@ -205,13 +210,13 @@ export function BoardCalendarDashboard() {
   };
 
   return (
-    <main className="board-calendar-workbench">
+    <div className="board-calendar-workbench">
       <header className="board-calendar-header">
         <div>
           <span className="output-eyebrow">交易日历 · 连板梯队</span>
           <h1>哪一天，哪些股走到了几板</h1>
           <p>
-            以市场交易日为底座；标签按达到的最高连板数展示。非交易日、市场缺口和连板数据缺口分开标记，不把空白猜成休市。
+            标签按当日连板数展示。休市、未来日期、市场缺口和连板数据缺口分开标记；无明细不等于当日没有连板股。
           </p>
         </div>
         <div className="board-calendar-controls">
@@ -270,7 +275,7 @@ export function BoardCalendarDashboard() {
             </small>
           </section>
           <section className="board-calendar-summary" aria-label="日历摘要">
-            <div><strong>{tradingCount}</strong><span>个交易日</span></div>
+            <div><strong>{tradingCount}</strong><span>个交易日有市场数据</span></div>
             <div><strong>{populatedCount}</strong><span>天有达标个股</span></div>
             <div><strong>{calendar.recommended_min_boards}板</strong><span>系统建议起始门槛</span></div>
           </section>
@@ -302,6 +307,6 @@ export function BoardCalendarDashboard() {
           </div>
         </>
       )}
-    </main>
+    </div>
   );
 }
