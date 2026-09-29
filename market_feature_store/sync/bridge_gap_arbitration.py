@@ -29,6 +29,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -114,6 +115,68 @@ def load_eastmoney_kline(kline_dir: Path | str, trade_date: str) -> dict[str, Ev
     return out
 
 
+EASTMONEY_KLINE_ENDPOINT = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+EASTMONEY_FETCH_CAP = 50  # 一晚缺口通常 3~10 只；超出说明上游或桥出了别的事，不该靠逐只抓来掩盖
+
+
+def gap_codes(con: duckdb.DuckDBPyConnection, trade_date: str) -> list[str]:
+    """只读：目标日同花顺有 bar、canonical 无行的代码。"""
+    return [r[0] for r in con.execute(
+        "SELECT h.stock_ts_code FROM fact_stock_daily_hithink AS h WHERE h.trade_date = ? AND NOT EXISTS ("
+        "SELECT 1 FROM fact_stock_daily AS d WHERE d.trade_date = h.trade_date "
+        "AND d.stock_ts_code = h.stock_ts_code) ORDER BY 1", [date.fromisoformat(trade_date)]).fetchall()]
+
+
+def eastmoney_kline_url(code: str, trade_date: str) -> str:
+    """目标日一根不复权日 K；fields2 与 `load_eastmoney_kline` 的 9 列约定一致（第 9 列涨跌额）。"""
+    plain, _, market = code.partition(".")
+    day = trade_date.replace("-", "")
+    return (f"{EASTMONEY_KLINE_ENDPOINT}?secid={'1' if market.upper() == 'SH' else '0'}.{plain}"
+            "&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60"
+            f"&klt=101&fqt=0&beg={day}&end={day}")
+
+
+def fetch_eastmoney_kline(codes: list[str], trade_date: str, out_dir: Path | str, *,
+                          get_json=None, timeout: float = 15.0) -> dict[str, Any]:
+    """逐只抓东财日 K 落盘成 `{代码}.json`，供 `load_eastmoney_kline` 当第二来源读。
+
+    尽力而为：单只失败记原因不影响其他只；上游判定拒服务（`UpstreamRefusing`）立刻停，
+    剩余代码记 not-requested——再打只会给封禁计时器续命。传输层只回解析后的 dict，
+    所以落盘的是它的规范化重序列化（sort_keys），另写 SHA256SUMS。目录必须是新的。
+    """
+    from .sync_eastmoney_stock_snapshot import UpstreamRefusing
+
+    if get_json is None:
+        from .sync_eastmoney_stock_snapshot import _get_json
+
+        def get_json(url: str) -> dict:
+            return _get_json(url, timeout, retries=2)
+
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=False)
+    wanted = sorted(set(codes))
+    status: dict[str, str] = {code: "not-requested:over-cap" for code in wanted[EASTMONEY_FETCH_CAP:]}
+    sums: list[str] = []
+    for index, code in enumerate(wanted[:EASTMONEY_FETCH_CAP]):
+        try:
+            data = get_json(eastmoney_kline_url(code, trade_date))
+        except UpstreamRefusing:
+            status[code] = "error:UpstreamRefusing"
+            status.update({rest: "not-requested:upstream-refusing"
+                           for rest in wanted[index + 1:EASTMONEY_FETCH_CAP]})
+            break
+        except Exception as exc:  # noqa: BLE001 — 证据尽力而为，缺一只只是少一个来源
+            status[code] = f"error:{type(exc).__name__}"
+            continue
+        body = (json.dumps(data, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+        (out / f"{code}.json").write_bytes(body)
+        sums.append(f"{hashlib.sha256(body).hexdigest()}  {code}.json")
+        status[code] = "ok"
+    (out / "SHA256SUMS").write_text("".join(f"{line}\n" for line in sums), encoding="utf-8")
+    return {"source": EASTMONEY_KLINE, "trade_date": trade_date, "requested": len(wanted),
+            "fetched": sum(1 for v in status.values() if v == "ok"), "status": dict(sorted(status.items()))}
+
+
 def _bars(con, sql: str, params: list) -> list[dict]:
     return [dict(zip(_BAR_COLUMNS, r, strict=True)) for r in con.execute(sql, params).fetchall()]
 
@@ -153,6 +216,12 @@ def _classify(td: date, prev: date, last: dict | None, events: list[dict], reaso
         return "noncash", None, "invalid-adjustment-values"
     reference = _noncash_reference(_dec(last["close"]), values)
     return ("noncash", reference, None) if reference is not None else ("noncash", None, "invalid-reference")
+
+
+def _valid_name(name) -> bool:
+    """与 compute_local_stats 的 InvalidStockName 同一口径：非空、无控制字符。"""
+    return (isinstance(name, str) and bool(name.strip())
+            and not any(ord(char) < 32 or ord(char) == 127 for char in name))
 
 
 def _usable(kind: str, ev: Evidence) -> bool:
@@ -260,9 +329,14 @@ def plan_gap_fill(con: duckdb.DuckDBPyConnection, trade_date: str, evidence_sets
         item["name_source"] = TENCENT_CAPTURE if names else "db_history_latest_unverified"
         fills.append((code, current, pre_close, names[0] if names else None))
     history = _resolve_names(con, [c for c, _, _, n in fills if n is None], trade_date)
+    by_code = {item["stock_ts_code"]: item for item in items}
     rows = []
     for code, current, pre_close, name in fills:
         name = name or (history.get(code) or "").replace("\x00", "").strip() or None
+        if not _valid_name(name):
+            # 无名行进 canonical 会让 limit-stats-local 按设计拒跑（InvalidStockName），拖垮整晚发布。
+            by_code[code]["verdict"] = "no-valid-name"
+            continue
         rows.append(_row(td, current, pre_close, name, now))
     return {
         "policy_version": POLICY_VERSION, "trade_date": trade_date, "previous_trade_date": str(prev),

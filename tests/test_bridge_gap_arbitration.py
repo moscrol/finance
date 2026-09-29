@@ -162,7 +162,8 @@ def test_row_arithmetic_matches_preview(con):
 
 
 def test_apply_inserts_only_and_is_not_repeatable(con):
-    evidence = [{"300096.SZ": ev(E, 9.23, 9.02), "688808.SH": ev(T, 1496.00, 1469.59)}]
+    # 688808 库内没有历史名：证据须带名（无名行会被名字闸挡下，见 test_row_without_a_valid_name_is_not_filled）
+    evidence = [{"300096.SZ": ev(E, 9.23, 9.02), "688808.SH": ev(T, 1496.00, 1469.59, "XR联讯仪")}]
     other_before = con.execute("SELECT count(*), sum(hash(d)::HUGEINT) FROM fact_stock_daily d "
                                "WHERE trade_date <> ?", [TD]).fetchone()
     result = arb.apply_gap_fill(con, arb.plan_gap_fill(con, TD, evidence, now=NOW))
@@ -224,3 +225,132 @@ def test_script_refuses_production_and_defaults_to_dry_run(con, tmp_path, capsys
     assert check.execute("SELECT count(*) FROM fact_stock_daily WHERE trade_date = ?", [TD]).fetchone()[0] == 3
     check.close()
     assert "可补 1" in capsys.readouterr().out
+
+
+# ——— 夜跑接线新增（2026-09-29）———
+
+def _script():
+    spec = importlib.util.spec_from_file_location("backfill_bridge_gaps_wiring",
+                                                  REPO_ROOT / "scripts" / "backfill_bridge_gaps.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_gap_codes_is_vendor_minus_canonical(con):
+    assert arb.gap_codes(con, TD) == ["300096.SZ", "301716.SZ", "600001.SH", "688808.SH"]
+
+
+def test_eastmoney_url_market_prefix():
+    assert "secid=1.601238&" in arb.eastmoney_kline_url("601238.SH", TD)
+    assert "secid=0.300211&" in arb.eastmoney_kline_url("300211.SZ", TD)
+    assert "secid=0.920202&" in arb.eastmoney_kline_url("920202.BJ", TD)
+    url = arb.eastmoney_kline_url("300211.SZ", TD)
+    assert "fqt=0" in url and "beg=20260929&end=20260929" in url
+    assert "fields2=f51,f52,f53,f54,f55,f56,f57,f59,f60&" in url  # 第 9 列 = 涨跌额，loader 靠它反推前收
+
+
+def test_fetch_writes_loadable_evidence_and_stops_when_upstream_refuses(tmp_path):
+    from market_feature_store.sync.sync_eastmoney_stock_snapshot import UpstreamRefusing
+
+    asked = []
+
+    def get_json(url):
+        code = url.split("secid=")[1].split("&")[0]
+        asked.append(code)
+        if code == "0.300211":
+            raise TimeoutError("slow")
+        if code == "0.301716":
+            raise UpstreamRefusing("empty replies")
+        return {"data": {"klines": ["2026-09-29,5.10,5.60,5.60,5.05,1,1,10.02,0.51"]}}
+
+    out = tmp_path / "em"
+    got = arb.fetch_eastmoney_kline(["601238.SH", "300211.SZ", "301716.SZ", "605303.SH"], TD, out,
+                                    get_json=get_json)
+    # 按代码排序逐只：300211 超时继续；301716 上游拒服务即停，605303 一发不打
+    assert asked == ["0.300211", "0.301716"]
+    assert got["status"] == {"300211.SZ": "error:TimeoutError", "301716.SZ": "error:UpstreamRefusing",
+                             "601238.SH": "not-requested:upstream-refusing",
+                             "605303.SH": "not-requested:upstream-refusing"}
+    assert got["fetched"] == 0 and not list(out.glob("*.json"))
+    with pytest.raises(FileExistsError):  # 证据目录只新建
+        arb.fetch_eastmoney_kline(["601238.SH"], TD, out, get_json=get_json)
+    ok = arb.fetch_eastmoney_kline(["601238.SH"], TD, tmp_path / "em2", get_json=get_json)
+    assert ok["fetched"] == 1
+    assert arb.load_eastmoney_kline(tmp_path / "em2", TD) == {"601238.SH": ev(E, 5.60, 5.09)}
+    sums = (tmp_path / "em2" / "SHA256SUMS").read_text(encoding="utf-8").split()
+    assert sums[1] == "601238.SH.json" and len(sums[0]) == 64
+
+
+def test_fetch_cap_leaves_the_rest_unrequested(tmp_path, monkeypatch):
+    monkeypatch.setattr(arb, "EASTMONEY_FETCH_CAP", 1)
+    got = arb.fetch_eastmoney_kline(["000002.SZ", "000001.SZ"], TD, tmp_path / "em",
+                                    get_json=lambda url: {"data": {"klines": []}})
+    assert got["status"] == {"000001.SZ": "ok", "000002.SZ": "not-requested:over-cap"}
+
+
+def test_row_without_a_valid_name_is_not_filled(con):
+    # 复牌股库内历史名只有 NUL、封存里也没有名字：插进去会让 limit-stats-local 拒跑整晚发布。
+    con.execute("UPDATE fact_stock_daily SET stock_name = ? WHERE stock_ts_code = '300096.SZ'", ["\x00"])
+    plan = arb.plan_gap_fill(con, TD, [{"300096.SZ": ev(E, 9.23, 9.02)}], now=NOW)
+    assert plan["fill_count"] == 0
+    assert _items(plan)["300096.SZ"]["verdict"] == "no-valid-name"
+
+
+def test_script_refuses_canonical_production_even_from_another_checkout(con, tmp_path, monkeypatch):
+    con.close()
+    db = tmp_path / "t.duckdb"
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(db))  # 夜跑冻结代码根的形状：仓相对路径认不出
+    receipt = tmp_path / "r.json"
+    assert _script().main(["--db", str(db), "--trade-date", TD, "--apply", "--receipt", str(receipt)]) == 2
+    assert "生产库" in json.loads(receipt.read_text(encoding="utf-8"))["refused"]
+
+
+def test_script_db_defaults_to_the_env_staging(con, tmp_path, monkeypatch, capsys):
+    con.close()
+    db = tmp_path / "t.duckdb"
+    mod = _script()
+    import market_feature_store.db as mdb
+    monkeypatch.setattr(mdb, "DB_PATH", db)
+    assert mod.main(["--trade-date", TD]) == 0
+    assert "dry-run" in capsys.readouterr().out
+
+
+def test_script_fetch_dir_feeds_evidence_and_receipt(con, tmp_path, monkeypatch):
+    con.close()
+    db = tmp_path / "t.duckdb"
+    mod = _script()
+    seen = {}
+
+    def fake_fetch(codes, trade_date, out_dir):
+        seen["codes"] = codes
+        Path(out_dir).mkdir(parents=True)
+        (Path(out_dir) / "300096.SZ.json").write_text(json.dumps({"data": {"klines": [
+            "2026-09-29,9.10,9.23,9.30,9.00,1,1,2.33,0.21"]}}), encoding="utf-8")
+        return {"requested": len(codes), "fetched": 1}
+
+    monkeypatch.setattr(mod, "fetch_eastmoney_kline", fake_fetch)
+    receipt = tmp_path / "run" / "receipt.json"
+    receipt.parent.mkdir()
+    assert mod.main(["--db", str(db), "--trade-date", TD, "--apply", "--receipt", str(receipt),
+                     "--eastmoney-fetch-dir", str(tmp_path / "run" / "em")]) == 0
+    assert seen["codes"] == ["300096.SZ", "301716.SZ", "600001.SH", "688808.SH"]
+    got = json.loads(receipt.read_text(encoding="utf-8"))
+    assert got["applied"] is True and got["result"]["inserted"] == 1
+    assert got["inputs"]["eastmoney_fetch"] == {"requested": 4, "fetched": 1}
+    assert mod.main(["--db", str(db), "--trade-date", TD, "--receipt", str(receipt)]) == 2  # 收据不覆盖
+
+
+def test_unaudited_capture_is_not_used_as_evidence(con, tmp_path):
+    con.close()
+    db = tmp_path / "t.duckdb"
+    cap = tmp_path / "cap"
+    cap.mkdir()
+    # 有报价但没有封存 receipt：审计不过 → 不作证据（688808 缺第二来源 → 不补）
+    (cap / "batch-0001.raw").write_bytes('v_sh688808="1~XR联讯仪~688808~1496.00~1469.59~1480~1";'.encode("gbk"))
+    receipt = tmp_path / "r.json"
+    assert _script().main(["--db", str(db), "--trade-date", TD, "--capture-dir", str(cap),
+                           "--receipt", str(receipt)]) == 0
+    got = json.loads(receipt.read_text(encoding="utf-8"))
+    assert "audit_error" in got["inputs"]["capture_dir"]
+    assert got["plan"]["fill_count"] == 0
