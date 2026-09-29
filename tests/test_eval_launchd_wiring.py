@@ -39,7 +39,7 @@ BUILD_PLIST = (
 )
 CLT_PYTHON = "/usr/bin/python3"
 RUNTIME = "/Users/a77/finance-workspace-runtime"  # path-literal-ok: 本机 launchd 树指针契约
-SYNC_CODE_ROOT = "/Users/a77/.finance-runtime/finance-sync-0e7f77025409"  # path-literal-ok: 本机 sync 固定代码根契约（09-29 热修根，见 docs/handoffs/2026-09-29-nightly-sync-root-attach-hotfix.md）
+SYNC_CODE_ROOT = "/Users/a77/.finance-runtime/finance-sync-966e66692e0e"  # path-literal-ok: 本机 sync 固定代码根契约（09-29 夜切 main 根 966e66692e0e：两源补行接线，见 docs/handoffs/2026-09-29-nightly-bridge-gapfill-wiring.md）
 VENV_PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"  # path-literal-ok: 本机 workbench venv 契约
 LOCAL_BIN = "/Users/a77/.local/bin"  # path-literal-ok: 本机 wrapper 安装落点
 
