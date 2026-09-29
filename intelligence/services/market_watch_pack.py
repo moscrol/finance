@@ -500,16 +500,31 @@ def exact_market_daily_exists(
         con.close()
 
 
+# 当日会话的数据何时算「应已到库」（上海时间）：夜跑同步约 18:50 发布、收尾约 20:56 完成，留余量取 21:00。
+# 此前当日会话不计入期望——否则每个交易日从开盘到夜跑发布，每条盘面回答都会挂「今日数据未更新」。
+# 2026-09-29 定案（原单未定义盘中时点，见 PR #967 评论）。
+MARKET_DATA_READY_HOUR = 21
+
+
 def _market_today() -> date:
     """Use the A-share market clock, independent of the host's local timezone."""
     return datetime.now(ZoneInfo("Asia/Shanghai")).date()
 
 
-def market_staleness_disclosure(standing_date: str | None, today: date) -> str | None:
+def _today_session_expected(now: datetime | None = None) -> bool:
+    """Has today's scheduled session had time to land in the store (Shanghai clock)?"""
+    now = now or datetime.now(ZoneInfo("Asia/Shanghai"))
+    return now.astimezone(ZoneInfo("Asia/Shanghai")).hour >= MARKET_DATA_READY_HOUR
+
+
+def market_staleness_disclosure(
+    standing_date: str | None, today: date, *, today_expected: bool = True,
+) -> str | None:
     """Independent calendar-reference signal. Never alter PIT supply cutoffs.
 
     Missing dates / unsupported exchange-calendar years fail closed, rather than
-    treating ordinary weekdays as verified trading sessions.
+    treating ordinary weekdays as verified trading sessions. ``today_expected=False``
+    (before MARKET_DATA_READY_HOUR) compares against the previous session only.
     """
     if not standing_date:
         return None
@@ -519,7 +534,8 @@ def market_staleness_disclosure(standing_date: str | None, today: date) -> str |
         return None
     # Calendar helper is strictly previous-day; tomorrow makes this inclusive
     # of today's scheduled session (and returns Friday on a normal weekend).
-    cursor = previous_scheduled_trading_day(today + timedelta(days=1))
+    expected = previous_scheduled_trading_day(today + timedelta(days=1) if today_expected else today)
+    cursor = expected
     if cursor is None or cursor <= standing:
         return None
     trading_days = 0
@@ -532,8 +548,9 @@ def market_staleness_disclosure(standing_date: str | None, today: date) -> str |
             return None
     else:
         return None  # cannot assert an exact distance outside our supported horizon
+    label = f"今日（{today.isoformat()}）" if expected == today else f"最近交易日（{expected.isoformat()}）"
     return (
-        f"今日（{today.isoformat()}）数据未更新，以下为 "
+        f"{label}数据未更新，以下为 "
         f"{standing.isoformat()} 数据（落后 {trading_days} 个交易日）。"
     )
 
@@ -566,8 +583,12 @@ def run_market_watch_pack(
     try:
         if not explicit:
             standing = _latest_market_date(con)
+        # 注入 today（离线测试）即视为该日会话已收盘入库；生产按上海时钟与 MARKET_DATA_READY_HOUR。
         staleness = (
-            market_staleness_disclosure(standing, today or _market_today())
+            market_staleness_disclosure(
+                standing, today or _market_today(),
+                today_expected=True if today is not None else _today_session_expected(),
+            )
             if not explicit else None
         )
         bags = (
