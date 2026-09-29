@@ -153,6 +153,21 @@ from intelligence.runtime.sub_research import (
 from intelligence.services.task_frame import TaskFrame
 
 
+def _material_claims_finish(context: ResearchRunContext) -> bool:
+    fmt = claim_finish_format(context.contract, prior_evidence=context.prior_evidence)
+    return fmt is not None and fmt.get("format") == "material_claims_v1"
+
+
+def _material_json_wire(
+    context: ResearchRunContext, *, tools: list[dict[str, object]], finalizing: bool,
+) -> bool:
+    # Zero-tool material tasks submit a finish on their first planning turn.
+    # An empty menu caused by a transient time gate is NOT enough on its own.
+    return _material_claims_finish(context) and (
+        finalizing or (not tools and not context.contract.allowed_capabilities)
+    )
+
+
 DEFAULT_LLM_TIMEOUT = 20.0
 MIN_PLANNING_TURN_SECONDS = 8.0
 # 一次最终合成至少需要的秒数。首轮可以向 ``synthesis_reserve`` **借**超出这个
@@ -1720,12 +1735,19 @@ class ContinuousAgentEpisode:
             suspend_anchor = host_suspended_total()
             try:
                 # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
-                turn = ledger.model_complete(
-                    self._model,
-                    messages=to_provider(messages),
-                    tools=[] if finalization_started else definitions,
-                    timeout=timeout,
-                )
+                with llm_refine.material_json_output_scope(
+                    _material_json_wire(
+                        context,
+                        tools=[] if finalization_started else definitions,
+                        finalizing=finalization_started,
+                    )
+                ):
+                    turn = ledger.model_complete(
+                        self._model,
+                        messages=to_provider(messages),
+                        tools=[] if finalization_started else definitions,
+                        timeout=timeout,
+                    )
             except Exception as exc:
                 budget_remaining = _consume_root_seconds(
                     context,
@@ -2444,12 +2466,17 @@ class ContinuousAgentEpisode:
             model_started = monotonic()
             suspend_anchor = host_suspended_total()
             try:
-                turn = ledger.model_complete(
-                    self._model,
-                    messages=to_provider(messages),
-                    tools=tools,
-                    timeout=timeout,
-                )
+                with llm_refine.material_json_output_scope(
+                    _material_json_wire(
+                        repair_context, tools=tools, finalizing=phase == "repair_finalize",
+                    )
+                ):
+                    turn = ledger.model_complete(
+                        self._model,
+                        messages=to_provider(messages),
+                        tools=tools,
+                        timeout=timeout,
+                    )
             except Exception as exc:
                 turn = ModelTurn(
                     "",

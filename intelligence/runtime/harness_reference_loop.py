@@ -77,6 +77,7 @@ from intelligence.services.episode_messages import (
     user_message,
 )
 from intelligence.services.material_grounding import claim_finish_format
+from intelligence.services import llm_refine
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import (
@@ -275,11 +276,18 @@ class HarnessReferenceLoop:
             )
             ledger.verify_model_visible(messages)
             try:
-                turn = self._model.complete(
-                    messages=to_provider(messages),
-                    tools=definitions,
-                    timeout=self._llm_timeout,
-                )
+                fmt = claim_finish_format(context.contract, prior_evidence=context.prior_evidence)
+                with llm_refine.material_json_output_scope(
+                    fmt is not None and fmt.get("format") == "material_claims_v1"
+                    and (finalization_started or (
+                        not definitions and not context.contract.allowed_capabilities
+                    ))
+                ):
+                    turn = self._model.complete(
+                        messages=to_provider(messages),
+                        tools=definitions,
+                        timeout=self._llm_timeout,
+                    )
             except Exception as exc:
                 llm_calls += 1
                 reason = f"model_exception:{type(exc).__name__}"
@@ -595,9 +603,14 @@ class HarnessReferenceLoop:
             nonlocal llm_calls
             ledger.verify_model_visible(messages)
             try:
-                turn = self._model.complete(
-                    messages=to_provider(messages), tools=tools, timeout=self._llm_timeout
-                )
+                fmt = claim_finish_format(context.contract, prior_evidence=context.prior_evidence)
+                with llm_refine.material_json_output_scope(
+                    not tools and fmt is not None and fmt.get("format") == "material_claims_v1"
+                    and not context.contract.allowed_capabilities
+                ):
+                    turn = self._model.complete(
+                        messages=to_provider(messages), tools=tools, timeout=self._llm_timeout
+                    )
             except Exception as exc:
                 llm_calls += 1
                 reason = f"model_exception:{type(exc).__name__}"

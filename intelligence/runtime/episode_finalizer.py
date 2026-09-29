@@ -16,7 +16,8 @@ from intelligence.services.episode_protocol import (
     evidence_ordinal_table,
     strip_hashes_for_model,
 )
-from intelligence.services.material_grounding import material_grounding_payload
+from intelligence.services.material_grounding import material_grounding_payload, claim_finish_format
+from intelligence.services import llm_refine
 from intelligence.services.material_answer_authoring import material_author_model_view
 from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 from intelligence.services.research_contract import ResearchRunContext
@@ -171,20 +172,18 @@ class EpisodeFinalizer:
         user_content = json.dumps(payload, ensure_ascii=False)
         if on_prompt is not None:
             on_prompt(system_prompt, user_content)
-        return self._model.complete(
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": user_content,
-                },
-            ],
-            tools=[],
-            timeout=timeout,
-        )
+        fmt = claim_finish_format(context.contract, prior_evidence=context.prior_evidence)
+        with llm_refine.material_json_output_scope(
+            fmt is not None and fmt.get("format") == "material_claims_v1"
+        ):
+            return self._model.complete(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                tools=[],
+                timeout=timeout,
+            )
 
     @staticmethod
     def _payload(

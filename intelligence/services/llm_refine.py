@@ -471,6 +471,35 @@ def stable_llm_fallback_reason(reason: str) -> str:
     return "provider_unavailable"
 
 
+# Off by default. Only a trusted material_claims_v1 finalization scope may
+# request provider JSON syntax; ordinary model calls retain identical payloads.
+_MATERIAL_JSON_OUTPUT: ContextVar[bool] = ContextVar("material_json_output", default=False)
+MATERIAL_JSON_OUTPUT_ENV = "ASK_MATERIAL_JSON_MODE"
+
+
+@contextmanager
+def material_json_output_scope(terminal_material_claims: bool) -> Iterator[None]:
+    """Enable JSON-object wire format only for an internal contract-selected finish.
+
+    The caller MUST derive terminal_material_claims from the frozen contract and
+    the runtime phase, not from user text or an empty tool list alone.
+    """
+    if not terminal_material_claims or os.environ.get(MATERIAL_JSON_OUTPUT_ENV) != "on":
+        yield
+        return
+    token = _MATERIAL_JSON_OUTPUT.set(True)
+    try:
+        yield
+    finally:
+        _MATERIAL_JSON_OUTPUT.reset(token)
+
+
+def _apply_material_json_output(payload: dict) -> None:
+    if not _MATERIAL_JSON_OUTPUT.get():
+        return
+    payload["response_format"] = {"type": "json_object"}
+
+
 _WRITER_MODEL_OVERRIDE: ContextVar[str | None] = ContextVar("writer_model_override", default=None)
 
 
@@ -1513,6 +1542,7 @@ def _post_chat_message_stream(
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
+    _apply_material_json_output(payload)
     _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
@@ -1659,6 +1689,7 @@ def _post_chat_message(
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
+    _apply_material_json_output(payload)
     _apply_compat_payload(payload, model=provider.model)
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
