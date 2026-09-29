@@ -228,12 +228,20 @@
 |---|---|---|---|
 | [`fix-llm-host-suspend-observability.md`](./fix-llm-host-suspend-observability.md) | A | 合入 PR #946 · 2026-09-27 · 7a405e1b0；同夜切上 8792 | 2806 |
 
-## 2026-09-28 追加（Knevo 四条收件枝合并）
+## 2026-09-28 追加（二）
 
-四条 Knevo 收件枝（`docs/knevo-intake-0924`、`docs/knevo-intake-0926`、`docs/knevo-sample-0926a`、`docs/knevo-cashflow-0927`）由 `docs/knevo-intake-consolidate-0928` 一并合入 main，其中三条带的在途交接随之归档；判据同上。
+#955 合入后其在途交接失效；判据同上。合入后首轮真跑（受托拆 3 棵）的回执见 `docs/verification/2026-09-28-worktree-closeout-first-run.md`。
 
 | 文件 | 类 | 证据 | 字节 |
 |---|---|---|---|
-| [`docs-knevo-intake-0924.md`](./docs-knevo-intake-0924.md) | P | 随 `docs/knevo-intake-consolidate-0928` 合入搬入；原枝尖 `95f4eda47` | 2545 |
-| [`docs-knevo-intake-0926.md`](./docs-knevo-intake-0926.md) | P | 同上；原枝尖 `394040a79` | 2484 |
-| [`docs-knevo-sample-0926a.md`](./docs-knevo-sample-0926a.md) | P | 同上；原枝尖 `a4c10ef05` | 1684 |
+| [`claude-happy-lovelace-7eb522.md`](./claude-happy-lovelace-7eb522.md) | A | 合入 PR #955 · 2026-09-28 · 20d49970a | 2000 |
+
+## 2026-09-28 追加（三｜Knevo 四条收件枝由 #951 收录）
+
+四条 Knevo 收件枝（`docs/knevo-intake-0924`、`docs/knevo-intake-0926`、`docs/knevo-sample-0926a`、`docs/knevo-cashflow-0927`）已在 `docs/knevo-intake-consolidate-0928` 汇集，其中三条带的在途交接随 #951 的提交归档；此处只记录归档动作，最终合入状态以 Gitea 为准。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`docs-knevo-intake-0924.md`](./docs-knevo-intake-0924.md) | P | 随 #951 的提交搬入本分支；原枝尖 `95f4eda47` | 2545 |
+| [`docs-knevo-intake-0926.md`](./docs-knevo-intake-0926.md) | P | 同为随 #951 的提交搬入本分支；原枝尖 `394040a79` | 2484 |
+| [`docs-knevo-sample-0926a.md`](./docs-knevo-sample-0926a.md) | P | 同为随 #951 的提交搬入本分支；原枝尖 `a4c10ef05` | 1684 |

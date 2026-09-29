@@ -108,6 +108,7 @@ def test_history_intent_reaches_public_receipt_on_both_delivery_exits(exit_kind)
     assert result.private_artifact["track_contract"]["missing_outputs"] == []
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_storage_failure_after_semantic_check_never_uses_verified_recovery(monkeypatch):
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
     resume = ContinuousTurnAdapter._resume_for_gap

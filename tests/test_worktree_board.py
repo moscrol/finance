@@ -640,3 +640,134 @@ def test_json_includes_concrete_blockers(tmp_path, monkeypatch, capsys):
     assert isinstance(row["blockers"], list)
     assert "未提交: notes.md" in row["blockers"]
     assert any("pid=42" in blocker for blocker in row["blockers"])
+
+
+# ---- 内容落地比例（--landed） ------------------------------------------------
+
+_LANDED_LINES = [
+    "def settle(order):",
+    "    total = sum(item.price for item in order.items)",
+    "    return round(total * (1 - order.discount), 2)",
+    "LIMIT_PER_ORDER = 5000",
+]
+
+
+def _commit_files(repo: Path, message: str, files: dict[str, str]) -> str:
+    for rel, text in files.items():
+        target = repo / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+    _git(repo, "add", "--", *files)
+    _git(repo, "commit", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def _topic_with_code(repo: Path) -> str:
+    _commit_files(repo, "app", {"app.py": "import os\n"})
+    _git(repo, "checkout", "-q", "-b", "topic")
+    topic = _commit_files(repo, "topic", {
+        # 短行（<=12 字符）与注释行不计；docs/ 与 .md 整个文件不计。
+        "app.py": "import os\n" + "\n".join(_LANDED_LINES) + "\nx = 1\n# a comment that is long enough\n",
+        "docs/notes.md": "a long documentation line that never counts\n",
+    })
+    _git(repo, "checkout", "-q", "main")
+    return topic
+
+
+def test_landed_ratio_sees_a_squashed_successor_that_cherry_misses(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    topic = _topic_with_code(repo)
+    # 接替 PR：同样的代码换了上下文、夹着别的改动 squash 成一个提交，patch-id 全变。
+    _commit_files(repo, "successor", {
+        "app.py": "import os\nimport sys\n\n" + "\n".join(_LANDED_LINES) + "\n\nprint(sys.argv)\n",
+        "other.py": "VALUE = 'unrelated change in the same squash'\n",
+    })
+    plus, _minus, in_main = board.cherry_counts(topic, "main", cwd=str(repo), timeout=10)
+    assert plus == 1 and in_main is False
+    landed = board.landed_ratio(topic, "main", cwd=str(repo), timeout=10)
+    assert (landed.added, landed.found, landed.pct, landed.files, landed.error) == (4, 4, 100, 1, "")
+    assert board.format_landed(landed) == "100%(4/4)"
+
+
+def test_landed_ratio_counts_partial_landing_per_file(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    topic = _topic_with_code(repo)
+    _commit_files(repo, "half", {
+        "app.py": "import os\n" + "\n".join(_LANDED_LINES[:2]) + "\n",
+        # 同一行落在别的文件里不算：逐文件比，样板行才不会把比例抬虚。
+        "elsewhere.py": "\n".join(_LANDED_LINES[2:]) + "\n",
+    })
+    landed = board.landed_ratio(topic, "main", cwd=str(repo), timeout=10)
+    assert (landed.added, landed.found, landed.pct) == (4, 2, 50)
+
+
+def test_landed_ratio_of_a_docs_only_branch_is_not_zero_percent(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _git(repo, "checkout", "-q", "-b", "docs")
+    head = _commit_files(repo, "docs", {"docs/plan.md": "a plan that is long enough\n",
+                                        "data/table.csv": "a,b,c,d,e,f,g,h\n"})
+    landed = board.landed_ratio(head, "main", cwd=str(repo), timeout=10)
+    assert (landed.added, landed.pct, landed.files) == (0, -1, 0)
+    assert board.format_landed(landed).startswith("-")
+
+
+def test_landed_ratio_failure_is_unknown_not_zero(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    landed = board.landed_ratio("f" * 40, "main", cwd=str(repo), timeout=10)
+    assert landed.error and landed.pct == -1
+    assert board.format_landed(landed).startswith("?")
+
+
+def test_added_code_lines_skips_headers_comments_and_short_lines() -> None:
+    diff = (
+        "diff --git a/app.py b/app.py\n--- a/app.py\n+++ b/app.py\n@@ -1,0 +2,4 @@\n"
+        "+    value = compute_the_total(order)\n+x = 1\n+  // a long js comment line\n"
+        '+    """docstring opener line"""\n+* bullet continuation line\n'
+    )
+    assert board.added_code_lines(diff) == ["value = compute_the_total(order)"]
+
+
+def test_board_prints_landed_ratio_only_when_measured() -> None:
+    row = board.TreeRow(
+        path="/tmp/fwp-wt-open", head="a" * 12, branch="feat/open", cherry_plus=2, cherry_minus=0,
+        ahead=2, behind=0, in_main=False, dirty=False, code_dirty=False, dirty_n=0, kind="dev-wt",
+        landed=board.Landed(added=34, found=33, pct=97, files=3),
+    )
+    text = board.format_board([row], base="gitea/main", base_sha="c" * 40)
+    assert "landed:97%(33/34)" in text
+    assert "≥90% 1 条" in text and "不是删除许可" in text
+    plain = board.format_board([board.TreeRow(**{**row.__dict__, "landed": None})],
+                               base="gitea/main", base_sha="c" * 40)
+    assert "landed:" not in plain and "内容落地" not in plain
+    assert "worktree_closeout.py" in plain
+
+
+def test_json_row_carries_landed_fields() -> None:
+    from dataclasses import asdict
+
+    row = board.TreeRow(
+        path="/tmp/x", head="a" * 12, branch="b", cherry_plus=1, cherry_minus=0, ahead=1, behind=0,
+        in_main=False, dirty=False, code_dirty=False, dirty_n=0, kind="dev-wt",
+        landed=board.Landed(added=2, found=1, pct=50, files=1),
+    )
+    assert asdict(row)["landed"] == {"added": 2, "found": 1, "pct": 50, "files": 1, "error": ""}
+
+
+# ---- 锁理由的 C 风格引号 ------------------------------------------------------
+
+
+def test_chinese_lock_reason_is_unquoted(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    tree = tmp_path / "rehearsal"
+    _git(repo, "worktree", "add", "-q", "--detach", str(tree), "HEAD")
+    _git(repo, "worktree", "lock", "--reason", "留待授权部署 \"retain\"", str(tree))
+    porcelain = _git(repo, "-c", "core.quotePath=true", "worktree", "list", "--porcelain")
+    assert "\\347" in porcelain  # 默认设置下 git 真的把它写成了八进制
+    [_main, locked] = board.parse_worktree_porcelain(porcelain)
+    assert locked["locked"] == '留待授权部署 "retain"'
+
+
+def test_unquote_c_leaves_plain_values_alone() -> None:
+    assert board.unquote_c("retain for deployment") == "retain for deployment"
+    assert board.unquote_c('"a\\tb\\\\c"') == "a\tb\\c"
+    assert board.unquote_c('"') == '"'

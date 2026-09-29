@@ -7,7 +7,9 @@
 #   2. 分支已完整进入基线（gitea/main）的树：补丁都在 main 了，树本身只是占位。
 # 两类都还要同时满足：树干净（所有未提交文件均阻塞）、树内 N 天没动过、
 # 没有进程打开它或把 cwd 放在里面、不被 ~/Library/LaunchAgents/*.plist 或 ~/.local/bin/* 引用；
+# detached 树的 HEAD 还必须挂在某个分支 / 标签 / 远端 / refs/archive 上（否则拆了提交就丢）；
 # 任何其他 ignored/untracked 内容、状态采样失败或扫描超时都跳过/停止，不真删。
+# 带未提交内容、要先保全再拆的树不归本脚本管：点名交给 scripts/worktree_closeout.py（默认 dry-run）。
 # （那是定时任务的代码根——`.devin-worktrees/ima-queue-auto-triage`、`kb-runtime` 都是 detached 树）。
 # 主树永不动。分支引用不删（`git branch -d` 是另一件事）。
 #
@@ -24,6 +26,8 @@
 # 退出码：0 完成；4 无法完成安全审计（拒绝盲删）；5 参数错。
 # 2026-09-24：ignored 里的 __pycache__/.pytest_cache/.ruff_cache/node_modules/.venv* 不再算「有内容」，
 # 进程判「在用」不再把编辑器/Claude 的目录监视句柄当使用（见 worktree_safety.py）；此前 dry-run 恒为 0 棵。
+# 2026-09-28：中文锁理由被 porcelain 转义成八进制后「保留/留待」永远匹配不上，--release-merged-locks 会误解锁；
+# detached 树的 HEAD 只挂在本树上时拆了就找不回。两处均已补，各有测试。
 set -uo pipefail
 
 APPLY=0; DAYS=2; REPO=""; BASE=""; RELEASE_LOCKS=0
@@ -39,7 +43,7 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || { echo "$1 缺少参数" >&2; exit 5; }
       if [ "$1" = --repo ]; then REPO="$2"; else BASE="$2"; fi
       shift 2 ;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 5 ;;
   esac
 done
@@ -99,7 +103,7 @@ has_recent_activity() {
 gb() { awk -v k="$1" 'BEGIN{printf "%.1f", k/1048576}'; }
 TOTAL=0; N=0; FAILURES=0
 consider() {   # consider <registered-path> <why> <head-sha> <lock-reason-or-empty>
-  local raw="$1" why="$2" head="${3:-}" lock="${4:-}" p reason="" k unlock=0
+  local raw="$1" why="$2" head="${3:-}" lock="${4:-}" p reason="" k unlock=0 orphans=""
   check_deadline
   p="$(canonical_dir "$raw")" || { echo "  SKIP  $raw  (无法解析路径)"; return 0; }
   [ "$p" = "$MAIN_TREE" ] && return 0
@@ -118,6 +122,16 @@ consider() {   # consider <registered-path> <why> <head-sha> <lock-reason-or-emp
     else
       echo "  SKIP  $raw  (上锁: ${lock#locked})"; return 0
     fi
+  fi
+  if [ "$why" = detached ] && [ -n "$head" ]; then
+    # git worktree remove 拆 detached 树不报任何警告；HEAD 若只挂在这棵树上，拆完那些提交就找不回了
+    # （2026-09-28 复现）。在分支 / 标签 / 远端跟踪 / refs/archive 上能找到才算可重建。
+    orphans="$(python3 "$SAFETY" unnamed --path "$REPO" --head "$head" --timeout "$STATUS_LIMIT")"
+    case $? in
+      0) ;;
+      1) echo "  SKIP  $raw  (HEAD 有 $orphans 个提交不在任何分支 / 标签 / 远端 / archive 引用上；先钉 ref 或推分支，或用 worktree_closeout.py)"; return 0 ;;
+      *) echo "  FAIL  $raw  (具名引用可达性查询失败，整轮停止)" >&2; exit 4 ;;
+    esac
   fi
   if ! reason="$(python3 "$SAFETY" check --path "$raw" --context "$TMP/context.json" --timeout "$STATUS_LIMIT")"; then
     echo "  FAIL  $raw  (安全采样失败，整轮停止)" >&2
@@ -140,7 +154,8 @@ consider() {   # consider <registered-path> <why> <head-sha> <lock-reason-or-emp
 echo "仓 $REPO  基线 $BASE=${BASE_SHA:0:12}  阈值 ${DAYS} 天  模式 $([ "$APPLY" = 1 ] && echo 真删 || echo dry-run)"
 # 每块：worktree <path> / HEAD <sha> / branch <ref> 或 detached / 可选 locked[ <reason>] / 空行。
 # 空行才输出一行，锁的理由才能跟到同一棵树上；最后一块没有空行，END 补输出。
-git -C "$REPO" worktree list --porcelain \
+# core.quotePath=false：默认 true 时中文锁理由被写成 "\347\225\231..."，上面按「保留|留待」grep 永远不中。
+git -C "$REPO" -c core.quotePath=false worktree list --porcelain \
   | awk 'function flush(){ if (p != "") print p"\t"b"\t"h"\t"l; p=b=h=l="" }
          /^worktree /{flush(); p=substr($0,10)} /^HEAD /{h=substr($0,6)} /^branch /{b=substr($0,8)}
          /^detached/{b="DETACHED"} /^locked/{l=$0} /^$/{flush()} END{flush()}' > "$TMP/wts"

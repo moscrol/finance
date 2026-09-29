@@ -743,6 +743,7 @@ def test_deleted_claim_feedback_reenters_same_session_with_original_text(repair_
         assert rejected not in result.answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("judge_mode", ["llm", "off"])
 @pytest.mark.parametrize("finding", ["weekday", "numeric"])
 @pytest.mark.parametrize("backend", ["glm", "sdk"])

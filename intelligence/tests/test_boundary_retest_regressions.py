@@ -147,6 +147,7 @@ BAD_CONDITIONS = [
 ]
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("mode", ["off", "llm"])
 @pytest.mark.parametrize("condition", BAD_CONDITIONS)
 def test_same_unsupported_condition_is_removed_across_layouts(monkeypatch, mode, condition):
@@ -330,6 +331,7 @@ def test_semantic_judge_opinion_is_not_automatically_a_mechanical_rejection(monk
     assert any(row["decision"] == "demoted_to_issue" for row in result.sentence_verdicts)
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("mode", ["llm", "off"])
 @pytest.mark.parametrize("repair", ["none", "good"])
 def test_cross_layout_rejection_flows_through_bounded_delivery_repair(monkeypatch, mode, repair):
@@ -361,6 +363,7 @@ def test_receipt_footer_does_not_spend_a_spurious_repair_turn(monkeypatch, mode)
     assert result.private_artifact["track_contract"]["missing_outputs"] == []
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_numeric_rejection_cannot_be_demoted_by_a_passing_judge(monkeypatch):
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
     frame, verified = _structural(SAFE + "区分变量：净现比≥0.5。")

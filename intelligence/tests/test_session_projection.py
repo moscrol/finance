@@ -214,6 +214,8 @@ _VIEW_CALLERS = frozenset(
         "services/episode_semantic_verifier.py::_emit_withheld_repair",
         "services/episode_semantic_verifier.py::_marker_loss_partial_public",
         "services/episode_semantic_verifier.py::_project_semantic_quality_marks",
+        # 数值条件标注模式：留句并就地点名待核的数，同走统一出口。
+        "services/episode_semantic_verifier.py::_mark_numeric_condition_doubts",
         "services/episode_semantic_verifier.py::_gap_answer",
         "services/episode_semantic_verifier.py::_generic_gap_answer",
         # D5 材料题：公开投影后的复验与判官拒绝重开原题，都只经 view() 再出稿。

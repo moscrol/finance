@@ -59,6 +59,7 @@ def test_future_review_with_citation_survives_both_gates(monkeypatch, mode, plan
     assert not any("numeric_condition" in issue or "evidence_date_mismatch" in issue for issue in result.issues)
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("mode", ["llm", "off"])
 @pytest.mark.parametrize("bad,reason", [
     ("E1 显示该公告发布于2026-08-21。", "evidence_date_mismatch"),
@@ -77,6 +78,7 @@ def test_invalid_claim_is_removed_without_losing_the_neighboring_plan(monkeypatc
     assert any(reason in issue for issue in result.issues)
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("mode", ["llm", "off"])
 @pytest.mark.parametrize("supported", [False, True])
 def test_support_is_a_business_value_not_an_evidence_identifier(monkeypatch, mode, supported):

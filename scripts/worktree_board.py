@@ -8,7 +8,11 @@
 ahead 数也会骗人：同一补丁以 squash / cherry-pick 进了 main，hash 不同仍算
 超前。``git cherry`` 比的是补丁，全是 ``-`` 就是已经在基线里。
 
-本脚本只打印。**绝不** ``worktree remove``。
+本脚本只打印。**绝不** ``worktree remove``。收口（保全残留再拆树）走
+``scripts/worktree_closeout.py``，那边默认 dry-run、只认点名的树。
+
+cherry 也有认不出的：前向合流与 squash 合入会把补丁拆开重组，patch-id 全变，内容却已
+在基线。``--landed`` 对还有 cherry+ 的树再算一个「内容落地比例」（见 ``Landed``）。
 
 SessionStart 只跑 ``--this``（当前 HEAD 一次 cherry，预算内两三行）。全仓
 看板是人/agent 主动跑，不灌进每次会话。
@@ -62,6 +66,31 @@ CODE_DIRTY_PREFIXES = (
 )
 CODE_DIRTY_SKIP_PREFIXES = ("market_feature_store/exports/",)
 
+# 内容落地比例的口径，抄自 2026-09-28 收口的 ratio.sh：文档 / 数据文件不数（改一个字就不再
+# 逐字相同，也不是代码落没落地的证据）；去掉首尾空白后不超过 12 字符的行与注释行不数
+# （`return None`、`}` 这类在任何文件里都找得到）。
+LANDED_DOC_SUFFIXES = (".md", ".txt", ".json", ".jsonl", ".csv")
+LANDED_MIN_CHARS = 12
+LANDED_COMMENT_PREFIXES = ("#", "//", "/*", "*", '"""', "'''", "<!--")
+LANDED_WARN_PCT = 90
+
+
+@dataclass(frozen=True)
+class Landed:
+    """未合分支的新增非文档行里，逐字出现在基线同一文件中的比例。
+
+    祖先关系与 ``git cherry`` 只认「同一个提交 / 同一个补丁」。本仓的接替 PR 多是前向合流或
+    squash：补丁 id 变了、内容已在。2026-09-28 收口的 17 条已落地线里只有 1 条是祖先。
+    ``pct`` 为 -1 表示没有可比的新增行（纯文档 / 只删不增），不是 0%。比例是「去核实接替
+    PR」的线索，不是删除许可：余下那 10% 可能正是没合进去的修复。
+    """
+
+    added: int
+    found: int
+    pct: int
+    files: int
+    error: str = ""
+
 
 @dataclass(frozen=True)
 class TreeRow:
@@ -83,6 +112,7 @@ class TreeRow:
     prunable: str = ""
     unknown_reason: str = ""
     blockers: tuple[str, ...] = field(default_factory=tuple)
+    landed: Landed | None = None
 
 
 def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]:
@@ -111,6 +141,37 @@ def resolve_base(cwd: str, timeout: float) -> str:
     return ""
 
 
+_C_ESCAPES = {"a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9, "v": 11, "\\": 92, '"': 34}
+
+
+def unquote_c(value: str) -> str:
+    """还原 git 的 C 风格引号。
+
+    porcelain 输出里的锁理由在 ``core.quotePath=true``（默认）下，非 ASCII 字节会被写成八进制
+    并整体加引号：``留待授权部署`` 读出来是 ``"\\347\\225\\231..."``。不还原的话，看板上的锁理由
+    是乱码，按「保留 / 留待」认理由的地方也永远认不出来。没加引号的值原样返回。
+    """
+
+    if len(value) < 2 or not (value.startswith('"') and value.endswith('"')):
+        return value
+    body, out, i = value[1:-1], bytearray(), 0
+    while i < len(body):
+        octal = body[i + 1 : i + 4]
+        if body[i] != "\\" or i + 1 == len(body):
+            out += body[i].encode("utf-8", "surrogateescape")
+            i += 1
+        elif len(octal) == 3 and all(ch in "01234567" for ch in octal):
+            out.append(int(octal, 8) & 0xFF)
+            i += 4
+        elif body[i + 1] in _C_ESCAPES:
+            out.append(_C_ESCAPES[body[i + 1]])
+            i += 2
+        else:
+            out += body[i : i + 2].encode("utf-8", "surrogateescape")
+            i += 2
+    return out.decode("utf-8", "surrogateescape")
+
+
 def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     current: dict[str, str] = {}
@@ -126,7 +187,7 @@ def parse_worktree_porcelain(text: str) -> list[dict[str, str]]:
         elif raw == "detached":
             current["branch"] = "(detached)"
         elif raw == "locked" or raw.startswith("locked "):
-            current["locked"] = raw.partition(" ")[2] or "locked"
+            current["locked"] = unquote_c(raw.partition(" ")[2]) or "locked"
         elif raw == "prunable" or raw.startswith("prunable "):
             current["prunable"] = raw.partition(" ")[2] or "prunable"
     if current:
@@ -206,6 +267,92 @@ def behind_count(head: str, base: str, *, cwd: str, timeout: float) -> int:
     return _count(["rev-list", "--count", f"{head}..{base}"], cwd=cwd, timeout=timeout)
 
 
+def _git_bytes(args: list[str], *, cwd: str, timeout: float) -> tuple[int, str]:
+    """Like ``_git`` but never fails on bytes that are not UTF-8 (blobs, odd file names)."""
+
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            timeout=timeout,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+        )
+    except (OSError, subprocess.SubprocessError):
+        return 1, ""
+    return completed.returncode, completed.stdout.decode("utf-8", "surrogateescape")
+
+
+def _is_doc_path(path: str) -> bool:
+    return path.startswith("docs/") or path.lower().endswith(LANDED_DOC_SUFFIXES)
+
+
+def added_code_lines(diff_text: str) -> list[str]:
+    """``git diff -U0`` 单文件输出里的新增行，按 ``Landed`` 的口径过滤并去首尾空白。"""
+
+    lines: list[str] = []
+    in_hunk = False
+    for line in diff_text.split("\n"):
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        # 第一个 @@ 之前是文件头（含 "+++ b/…"），不是新增行。
+        if not in_hunk or not line.startswith("+"):
+            continue
+        text = line[1:].strip()
+        if len(text) > LANDED_MIN_CHARS and not text.startswith(LANDED_COMMENT_PREFIXES):
+            lines.append(text)
+    return lines
+
+
+def landed_ratio(head: str, base: str, *, cwd: str, timeout: float) -> Landed:
+    """``merge-base..head`` 新增的非文档行，有多少逐字出现在 ``base`` 的同名文件里。
+
+    逐文件比：同一行在别的文件里出现不算（通用样板行会把比例抬虚）。文件改名按「旧文件
+    删、新文件加」算（``--no-renames``），新文件名在基线里存在才可能命中。
+    """
+
+    code, merge_base = _git(["merge-base", head, base], cwd=cwd, timeout=timeout)
+    if code != 0 or not merge_base:
+        return Landed(-1, -1, -1, -1, "git merge-base failed")
+    code, names = _git_bytes(
+        ["diff", "--name-only", "-z", "--no-renames", merge_base, head], cwd=cwd, timeout=timeout
+    )
+    if code != 0:
+        return Landed(-1, -1, -1, -1, "git diff --name-only failed")
+    added = found = files = 0
+    for path in (name for name in names.split("\0") if name):
+        if _is_doc_path(path):
+            continue
+        files += 1
+        code, diff = _git_bytes(
+            ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "-U0",
+             merge_base, head, "--", f":(literal){path}"],
+            cwd=cwd,
+            timeout=timeout,
+        )
+        if code != 0:
+            return Landed(-1, -1, -1, -1, f"git diff failed: {path}")
+        lines = added_code_lines(diff)
+        if not lines:
+            continue
+        added += len(lines)
+        # 基线里没有这个文件：cat-file 失败，本文件 0 命中。
+        code, blob = _git_bytes(["cat-file", "-p", f"{base}:{path}"], cwd=cwd, timeout=timeout)
+        if code == 0:
+            present = {line.strip() for line in blob.splitlines()}
+            found += sum(1 for line in lines if line in present)
+    return Landed(added, found, 100 * found // added if added else -1, files)
+
+
+def format_landed(landed: Landed) -> str:
+    if landed.error:
+        return f"?（{landed.error}）"
+    if landed.pct < 0:
+        return "-（无非文档新增行）"
+    return f"{landed.pct}%({landed.found}/{landed.added})"
+
+
 def classify_worktree(
     spec: dict[str, str],
     *,
@@ -213,6 +360,7 @@ def classify_worktree(
     main_checkout: str,
     timeout: float,
     context: dict | None = None,
+    landed: bool = False,
 ) -> TreeRow | None:
     path = spec.get("path") or ""
     head = spec.get("head") or ""
@@ -233,8 +381,11 @@ def classify_worktree(
             reasons.append("git rev-list failed; ahead/behind unknown")
     paths = state["paths"]
     subjects: tuple[str, ...] = ()
+    landed_row: Landed | None = None
     if plus > 0:
         subjects = unique_subjects(head, base, cwd=path, timeout=timeout)
+        if landed:
+            landed_row = landed_ratio(head, base, cwd=path, timeout=timeout)
 
     locked = spec.get("locked", "")
     prunable = spec.get("prunable", "")
@@ -270,6 +421,7 @@ def classify_worktree(
         prunable=prunable,
         unknown_reason=unknown_reason,
         blockers=tuple(blockers),
+        landed=landed_row,
     )
 
 
@@ -416,6 +568,13 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
         f"基准 {base}={base_sha[:12]}  （合入看 cherry+，不是 ahead 提交数）",
         f"树 {len(rows)} 棵 · 还有补丁 {len(unique)} · 已在基线的干净 dev 树 {len(clean_merged_dev)} · 待核实 {len(uncertain)}",
     ]
+    measured = [row.landed for row in rows if row.landed is not None]
+    if measured:
+        high = sum(1 for landed in measured if not landed.error and landed.pct >= LANDED_WARN_PCT)
+        lines.append(
+            f"内容落地（新增非文档行逐字在基线同文件的比例）：已算 {len(measured)} 条，"
+            f"≥{LANDED_WARN_PCT}% {high} 条；比例高是去核实接替 PR 的线索，不是删除许可"
+        )
     displayed = unique + merged_dev + uncertain + snapshots
     groups = [
         ("还有补丁", unique),
@@ -430,9 +589,10 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
         if not group:
             lines.append("  （无）")
         for row in sorted(group, key=lambda item: item.branch):
+            landed_bit = f"  landed:{format_landed(row.landed)}" if row.landed is not None else ""
             lines.append(
                 f"  {row.head[:12]}  {row.branch}  +{row.cherry_plus} -{row.cherry_minus}"
-                f"  behind:{row.behind}  dirty:{row.dirty_n}  {display_path(row.path)}"
+                f"  behind:{row.behind}  dirty:{row.dirty_n}{landed_bit}  {display_path(row.path)}"
             )
             lines.append(f"      unknown_reason: {row.unknown_reason or '-'}")
             lines.append("      blockers: " + ("; ".join(row.blockers) or "-"))
@@ -440,7 +600,8 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
                 lines.append(f"      · {subject}")
     lines += [
         "",
-        "共享阻塞采样: scripts/worktree_safety.py；清理入口: scripts/cleanup_gate_trees.sh（默认 dry-run）。",
+        "共享阻塞采样: scripts/worktree_safety.py；清理入口: scripts/cleanup_gate_trees.sh（默认 dry-run，只拆干净树）；"
+        "点名收口（先保全残留再拆）: scripts/worktree_closeout.py（默认 dry-run）。",
         "补丁等价不是删除许可；ignored、reflog、证据树及生产快照保留策略仍需核实，删前须用户确认。",
         "合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。",
     ]
@@ -504,7 +665,9 @@ def this_tree_lines(
     return lines
 
 
-def collect_rows(*, cwd: str, timeout: float) -> tuple[str, str, str, list[TreeRow]]:
+def collect_rows(
+    *, cwd: str, timeout: float, landed: bool = False
+) -> tuple[str, str, str, list[TreeRow]]:
     base = resolve_base(cwd, timeout)
     code, base_sha = _git(["rev-parse", base], cwd=cwd, timeout=timeout)
     if not base or code != 0 or not base_sha:
@@ -523,7 +686,12 @@ def collect_rows(*, cwd: str, timeout: float) -> tuple[str, str, str, list[TreeR
     context = safety.sample_context(timeout=timeout)
     def classify(spec):
         return classify_worktree(
-            spec, base=base_sha, main_checkout=main_checkout, timeout=timeout, context=context
+            spec,
+            base=base_sha,
+            main_checkout=main_checkout,
+            timeout=timeout,
+            context=context,
+            landed=landed,
         )
 
     # Bounded parallel reads; map retains registration order and the frozen base.
@@ -546,6 +714,11 @@ def main(argv: list[str] | None = None) -> int:
         default=20.0,
         help="单次 git 超时秒数",
     )
+    parser.add_argument(
+        "--landed",
+        action="store_true",
+        help="对还有 cherry+ 的树算内容落地比例（每个改动文件两次 git，默认不算）",
+    )
     args = parser.parse_args(argv)
     cwd = os.getcwd()
     repo_root = Path(cwd)
@@ -567,7 +740,9 @@ def main(argv: list[str] | None = None) -> int:
             print(line)
         return 0
     try:
-        base, base_sha, _main_checkout, rows = collect_rows(cwd=cwd, timeout=timeout)
+        base, base_sha, _main_checkout, rows = collect_rows(
+            cwd=cwd, timeout=timeout, landed=args.landed
+        )
     except RuntimeError as exc:
         if args.json:
             print(json.dumps({"error": str(exc), "trees": None}, ensure_ascii=False))
