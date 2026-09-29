@@ -15,7 +15,8 @@
    跟着变异一起没了，后面几门的替换串在旧文件上匹配不到，又落回形状 1。
    → 被变异文件必须已提交且与 HEAD 一致才开跑（顺序：实现 → 提交 → 拆门）。还原不靠 git：用内存里
    的原字节写回，再核三件事——与原字节相同、`git hash-object` 等于 HEAD 的 blob、`git status` 干净。
-   只看 status 不够：assume-unchanged / skip-worktree 的文件改了也显示干净。
+   只看 status 不够：assume-unchanged / skip-worktree 的文件改了也显示干净。另拒绝路径本身或
+   父目录为符号链接、文件有硬链接的目标（同字节替身能过 Git 校验，写入却会改仓外同 inode）。
 3. **过期字节码**（2026-08-01；2026-09-29 写本脚本时复现）：`.pyc` 只按源文件 (mtime 整秒, size) 判
    有效。同长度变异（`+`→`-`）在同一秒内写入，变异那轮 import 的仍是原版字节码（`add(2,3)` 应为
    -1，实得 5）；反过来，还原后留下变异体的 `.pyc`，之后全量里冒出「新回归」。
@@ -318,6 +319,9 @@ def file_problem(root: Path, rel: str) -> Optional[str]:
         return f"{rel}: 父目录含符号链接——文件身份不再绑定到仓内路径，拒绝"
     if not path.is_file():
         return f"{rel}: 文件不存在"
+    # 同字节的仓外硬链接也能通过 status / HEAD blob，但写入会改另一处同 inode。
+    if path.stat().st_nlink != 1:
+        return f"{rel}: 文件有硬链接——写入会影响同 inode 的其他路径，拒绝"
     code, blob = _git(root, "rev-parse", "--verify", "--quiet", f"HEAD:{rel}")
     if code != 0:
         return f"{rel}: 不在 HEAD 里——没有已提交的还原点（先提交实现再拆门）"
