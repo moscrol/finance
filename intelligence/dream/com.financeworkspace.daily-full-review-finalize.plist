@@ -54,7 +54,7 @@
     <string>local</string>
     <!-- 与独立 S7 同步任务保持记录一致；finalize 不调用 sync / all。 -->
     <key>FINANCE_SYNC_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-sync-966e66692e0e</string>
+    <string>/Users/a77/.finance-runtime/finance-sync-541ef50ba2b2</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>
