@@ -8,7 +8,7 @@ the same exact-day queries. Never fall back to a neighbor day.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from typing import Any
@@ -500,14 +500,28 @@ def exact_market_daily_exists(
         con.close()
 
 
-def _market_today() -> date:
+# 当日交易日从这个时刻（上海时间）起才算「应已入库」。夜跑 sync 18:30 开跑、
+# 换库通常 19:00–20:00 完成，finalize 20:40 出报告；21:00 之前库里只有上一
+# 交易日是正常状态，不是停更。测试把它钉在 sync plist 的开跑时刻之后
+# （test_cutoff_is_after_nightly_sync_start），夜跑排期改了测试会先红。
+MARKET_DATA_EXPECTED_BY = time(21, 0)
+
+
+def _market_now() -> datetime:
     """Use the A-share market clock, independent of the host's local timezone."""
-    return datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    return datetime.now(ZoneInfo("Asia/Shanghai"))
 
 
-def market_staleness_disclosure(standing_date: str | None, today: date) -> str | None:
+def market_staleness_disclosure(
+    standing_date: str | None,
+    today: date,
+    *,
+    include_today: bool = True,
+) -> str | None:
     """Independent calendar-reference signal. Never alter PIT supply cutoffs.
 
+    ``include_today`` says whether today's scheduled session should already be
+    in the store (i.e. the market clock is past ``MARKET_DATA_EXPECTED_BY``).
     Missing dates / unsupported exchange-calendar years fail closed, rather than
     treating ordinary weekdays as verified trading sessions.
     """
@@ -517,11 +531,13 @@ def market_staleness_disclosure(standing_date: str | None, today: date) -> str |
         standing = date.fromisoformat(standing_date)
     except ValueError:
         return None
-    # Calendar helper is strictly previous-day; tomorrow makes this inclusive
-    # of today's scheduled session (and returns Friday on a normal weekend).
-    cursor = previous_scheduled_trading_day(today + timedelta(days=1))
-    if cursor is None or cursor <= standing:
+    # Calendar helper is strictly previous-day: anchoring on tomorrow makes it
+    # inclusive of today's session; anchoring on today excludes it.
+    anchor = today + timedelta(days=1) if include_today else today
+    expected = previous_scheduled_trading_day(anchor)
+    if expected is None or expected <= standing:
         return None
+    cursor = expected
     trading_days = 0
     for _ in range(370):
         if cursor <= standing:
@@ -533,8 +549,17 @@ def market_staleness_disclosure(standing_date: str | None, today: date) -> str |
     else:
         return None  # cannot assert an exact distance outside our supported horizon
     return (
-        f"今日（{today.isoformat()}）数据未更新，以下为 "
-        f"{standing.isoformat()} 数据（落后 {trading_days} 个交易日）。"
+        f"数据未更新：按交易日历应已有 {expected.isoformat()} 的数据，"
+        f"以下为 {standing.isoformat()} 数据（落后 {trading_days} 个交易日）。"
+    )
+
+
+def _staleness_for(standing: str | None, today: date | None, now: datetime | None) -> str | None:
+    if today is not None:  # offline determinism: an injected date means "day is over"
+        return market_staleness_disclosure(standing, today)
+    clock = now or _market_now()
+    return market_staleness_disclosure(
+        standing, clock.date(), include_today=clock.time() >= MARKET_DATA_EXPECTED_BY
     )
 
 
@@ -546,6 +571,7 @@ def run_market_watch_pack(
     cutoff: str | None = None,
     substitute_probes: bool = False,
     today: date | None = None,
+    now: datetime | None = None,
 ) -> MarketWatchPack:
     standing, explicit = resolve_standing_date(query, cutoff=cutoff)
     opened = _open(market_db_path)
@@ -566,10 +592,7 @@ def run_market_watch_pack(
     try:
         if not explicit:
             standing = _latest_market_date(con)
-        staleness = (
-            market_staleness_disclosure(standing, today or _market_today())
-            if not explicit else None
-        )
+        staleness = None if explicit else _staleness_for(standing, today, now)
         bags = (
             _query_market_daily(con, standing),
             _query_mainline(con, standing),
