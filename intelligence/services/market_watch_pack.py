@@ -8,11 +8,14 @@ the same exact-day queries. Never fall back to a neighbor day.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from intelligence.services import retrieval_cache
 from intelligence.services.query_understanding import market_review_requested_date
+from intelligence.services.trading_calendar import previous_scheduled_trading_day
 from market_feature_store.signals import DOUBLE_RED_SQL
 
 BAG_MARKET = "market_daily"
@@ -79,6 +82,7 @@ class MarketWatchPack:
     calendar_disclosure: str | None
     bags: tuple[PackBag, ...]
     probes: tuple[ProbeReceipt, ...] = ()
+    staleness_disclosure: str | None = None
 
     def bag(self, name: str) -> PackBag | None:
         for item in self.bags:
@@ -154,6 +158,8 @@ class MarketWatchPack:
             lines.append(f"- {kind}：{self.standing_date}。")
         if self.calendar_disclosure:
             lines.append(f"- 日历：{self.stop_text()}")
+        if self.staleness_disclosure:
+            lines.append(f"- 停更：{self.staleness_disclosure}")
         market = self.bag(BAG_MARKET)
         if market is not None and market.locked:
             lines.append("- 总量袋：locked。复盘写入中，请稍后。")
@@ -494,6 +500,44 @@ def exact_market_daily_exists(
         con.close()
 
 
+def _market_today() -> date:
+    """Use the A-share market clock, independent of the host's local timezone."""
+    return datetime.now(ZoneInfo("Asia/Shanghai")).date()
+
+
+def market_staleness_disclosure(standing_date: str | None, today: date) -> str | None:
+    """Independent calendar-reference signal. Never alter PIT supply cutoffs.
+
+    Missing dates / unsupported exchange-calendar years fail closed, rather than
+    treating ordinary weekdays as verified trading sessions.
+    """
+    if not standing_date:
+        return None
+    try:
+        standing = date.fromisoformat(standing_date)
+    except ValueError:
+        return None
+    # Calendar helper is strictly previous-day; tomorrow makes this inclusive
+    # of today's scheduled session (and returns Friday on a normal weekend).
+    cursor = previous_scheduled_trading_day(today + timedelta(days=1))
+    if cursor is None or cursor <= standing:
+        return None
+    trading_days = 0
+    for _ in range(370):
+        if cursor <= standing:
+            break
+        trading_days += 1
+        cursor = previous_scheduled_trading_day(cursor)
+        if cursor is None:
+            return None
+    else:
+        return None  # cannot assert an exact distance outside our supported horizon
+    return (
+        f"今日（{today.isoformat()}）数据未更新，以下为 "
+        f"{standing.isoformat()} 数据（落后 {trading_days} 个交易日）。"
+    )
+
+
 def run_market_watch_pack(
     query: str,
     *,
@@ -501,6 +545,7 @@ def run_market_watch_pack(
     calendar_disclosure: str | None = None,
     cutoff: str | None = None,
     substitute_probes: bool = False,
+    today: date | None = None,
 ) -> MarketWatchPack:
     standing, explicit = resolve_standing_date(query, cutoff=cutoff)
     opened = _open(market_db_path)
@@ -521,6 +566,10 @@ def run_market_watch_pack(
     try:
         if not explicit:
             standing = _latest_market_date(con)
+        staleness = (
+            market_staleness_disclosure(standing, today or _market_today())
+            if not explicit else None
+        )
         bags = (
             _query_market_daily(con, standing),
             _query_mainline(con, standing),
@@ -536,6 +585,7 @@ def run_market_watch_pack(
             calendar_disclosure=calendar_disclosure,
             bags=bags,
             probes=probes,
+            staleness_disclosure=staleness,
         )
     finally:
         con.close()
