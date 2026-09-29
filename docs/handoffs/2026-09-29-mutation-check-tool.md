@@ -1,4 +1,4 @@
-# 2026-09-29 · 变异自检运行器 `scripts/mutation_check.py`（PR #965，含独立审查补丁）
+# 2026-09-29 · 变异自检运行器 `scripts/mutation_check.py`（PR #965，含独立审查补丁，已合 6a7817f9c）
 
 ## 背景
 
@@ -105,3 +105,11 @@
 - 不要把本工具改成默认跑临时 worktree：证据级路线已有 `run_extraction_mutations.py`，合成一条会把快速回路变慢、把证据级的冻结语义变弱。
 - 不要为了省时间去掉基线轮：去掉后，拼错的点名和本来就红的测试都会被读成「不承重」或「承重」。
 - 不要把 `PYTHONDONTWRITEBYTECODE` 当成字节码安全的保证：测试用精简 env 起的 python 照样写 `.pyc`，保证来自三处删除。
+
+## 合入（2026-09-29）
+
+- PR #965 以 `6a7817f9c` 合入 main（`gitea_pr.py merge --do merge --expect-head 9de5a9fb332e --expect-base 2b66c3740a2b --delete-branch`），
+  用户原话「合并」；记录 `~/.finance-runtime/reviews/mutation-check-tool-0929/merge-record-965.json`。
+- 合后核验：main 双亲 = `2b66c3740` + `9de5a9fb3`；main 的树 == `9de5a9fb3` 的树 == 本机预览树 `c8b86637`，即 main 就是出读数的那棵树；远端分支已删。
+- 在途交接 `inflight/feat-mutation-check-tool.md` 随本次归档删除，内容以本快照为准。
+- 仍待用户决定：「后续要做」第 1 条（harness-reference `TOOLKIT.md` 三处 + vault 镜像）。
