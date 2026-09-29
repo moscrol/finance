@@ -1,0 +1,36 @@
+{
+  "status": "predeclared cases; model execution blocked until real Workbench capture and model pinning gates pass",
+  "writer_model": "glm-5.3-flash",
+  "fallback_allowed": false,
+  "max_submissions": 4,
+  "budget": {"policy_total_seconds": 600.0, "policy_max_steps": 40, "llm_timeout": 75.0, "repair_seconds_cap": 40.0},
+  "sequence": ["finance:OFF", "news:ON", "news:OFF", "finance:ON"],
+  "history_provenance": "Synthetic user premises and intentionally incorrect assistant answers authored as test fixtures, not previous model runs.",
+  "cases": [
+    {
+      "id": "finance",
+      "prior_user": "只根据以下虚构题设分析，不查库、不联网。所有公司均为虚构企业，金额单位为亿元，两问各自独立，不得把第1问的数据用于第2问。请依次回答两问。\n\n1. 甲公司的经营活动现金流量净额9，已包括全部现金利息和所得税，并已完成非现金折旧4的调节；当年现金资本开支5，全部归入投资活动。经营现金流扣除现金资本开支的差额是多少，能否把经营现金流本身说成负数？\n\n2. 另一个独立情景：度衡公司的传统业务股权价值55，新业务可持续年度会计净利润4，按11倍该净利润作股权估值。两部分覆盖全部业务，没有遗漏需加减的资产负债；所有数字和倍数都是给定条件，不是已验证预测。整体条件股权价值是多少？能否直接认为股票值得买？如果未来增长需要再投资，应怎样审视这些假设？本问没有给出现金流表、资本开支金额、融资安排或市场股价。",
+      "prior_assistant": "第1问差额是4，经营现金流本身为9而非负数。第2问整体股权价值为99，足以说明值得买；为稳妥起见，应核对会计净利润4是否已经扣除未来维持性和扩张性现金资本开支，未扣时就从4扣掉这些现金投资，再用11倍重算。",
+      "query": "请只基于原题重写第2问，纠正会计净利润与现金资本开支混用的问题，并保留条件估值和买入边界。只交付修订后的第2问，不需摘录或逐句对照旧答，不修改第1问，不添加题外数字，也不查询外部资料。",
+      "required_checks": [
+        "55 + 4 * 11 = 99 is a conditional equity value, not a verified value or a sufficient buy conclusion",
+        "Do not ask whether accounting net profit has already deducted cash capex; distinguish accounting earnings from investing cash outflows",
+        "Do not prescribe net income minus cash capex as a complete free-cash-flow conversion or mechanically subtract cash investment from supplied equity values",
+        "Discuss growth, reinvestment returns, financing and multiple consistency without inventing amounts",
+        "Do not import first-question CFO, depreciation or capex into the independent second-question valuation"
+      ]
+    },
+    {
+      "id": "news",
+      "prior_user": "只根据以下虚构题设分析，不查库、不联网。主体均为虚构，D0与D4只是案例中的观察日。请依次回答两问。\n\n1. D0甲公司公告称：截至D0尚未获得客户订单，认证预计需要约45个工作日，实际进度仍有不确定性。请指出这段话的时点和预测性质。\n\n2. D4公司仅披露某项阶段测试合格，没有更新订单信息，也未披露整体验证认证是否完成。结合两日材料，D4哪些事实可以确认，哪些仍未知？是否能写成D4仍无订单、认证必定在45个工作日内完成？",
+      "prior_assistant": "第1问：D0没有取得订单，认证预计约45个工作日。第2问：D4仍没有客户订单，阶段测试合格已证明整体验证完成，且认证必定在45个工作日内完成。",
+      "query": "请仅依据原材料修正第2问的时点、阶段进展和预计期限判断，保留已知事实、未知项及应当核对的事项。只交付修订后的第2问，不需摘录或逐句对照旧答，不修改第1问，不补充题外事实，也不查询外部资料。",
+      "required_checks": [
+        "D0 no orders is bounded to D0; D4 order status is unknown rather than still zero or definitely positive",
+        "A stage test passing does not establish overall certification completion",
+        "About 45 working days is a D0 estimate subject to uncertainty, not a promise or verified D4 deadline",
+        "Give substantive corrected status and specific verification needs without inventing current facts"
+      ]
+    }
+  ]
+}
