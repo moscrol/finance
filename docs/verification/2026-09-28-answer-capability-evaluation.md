@@ -2,6 +2,8 @@
 
 [WIP PR #956](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/956) 为本轮候选，未合并或部署。
 
+> **09-29 收尾裁决**：工程候选 `7c16a38ec65eee96996d873e88270a1b2f692378` 的完整 Python/Ruff、前端/E2E、注册表/ledger 均通过；独立代码复审未发现本次差异的阻断。**实际回答能力仍未通过整体验收**：最近冻结五题为比较可用、历史/消息不可用、两组财务部分可用（作者裁决，独立复审有分歧及一条身份失败）。这些自然答卷绑定 `220693df3`，不是新候选实测。下文第一轮全部失败保留，第二轮及收尾结果见文末；原件索引见 [09-29 证据包](answer-capability-2026-09-29/README.md)。
+
 本轮目标是提高 8792 的任务完成能力。Pi 提供观察后继续行动的参考；Knevo 探针提供证据分层、竞争解释、财务传导与判断更新的方法；本系统保留任务、数据日期、来源、读取范围和预算的约束。没有更换后端或模型配置。
 
 ## 实际改动
@@ -46,7 +48,7 @@
 
 树外证据根：`~/.finance-runtime/reviews/8792-answer-capability-20260928/implementation/`。包含原题与哈希、两臂 health、原始答案、真实 run/trace、observables、模型身份、匿名答卷及独立复核。`recheck-063ac8e/` 保留中途复查，不覆盖初轮失败。
 
-## 最终代码复查（48a0234d0）
+## 第一轮代码复查（48a0234d0，历史快照）
 
 代码冻结为 `48a0234d0e4677a52313371e3ea7c7762294457f`。规格复核独立 53 项测试及 7 条补充探针通过；质量复核独立 42 项测试、真实 resolver 链路 12 组合与 36 次空证据终稿、静态概念/方法/反事实兼容探针通过。两次复核均未发现阻断问题，仅证明代码与输入合同接线，不代替真实答案验收。
 
@@ -71,7 +73,9 @@
 
 没有观察到足以默认启用指导的收益；n=2 也不足以确认该指导一般性使质量变好或变差，保留默认关闭。自主视角没有同时开启或混入该实验。
 
-本轮 baseline 8832、candidate 8833、guidance 8834 均已停止，端口无监听；8792 仍为 `8e45e299a13b`、干净且代码一致。canonical DuckDB 大小和 mtime 与初轮一致。## 结论与下一优先级
+第一轮结束时 baseline 8832、candidate 8833、guidance 8834 均已停止，端口无监听；当时8792为 `8e45e299a13b`、干净且代码一致，canonical DuckDB 大小和 mtime 与初轮一致。**这是当时快照，不是09-29现状**；后续共享库mtime与生产版本均发生变化，见文末。
+
+## 第一轮结论与下一优先级
 
 本轮完成了任务选路、上下文去重、恢复接续和输入边界的工程候选。查数的任务范围在所测原题上恢复，输入明显缩短；来源、日期、权限、预算仍由合同负责。**尚未通过整体自然回答质量验收，不建议据此直接晋级生产，更不能认定追平 Pi/ReAct 或 Knevo。** 本轮未取得用户 Pi 金融会话的同条件答卷；与外部后端的胜负没有证据。
 
@@ -80,3 +84,95 @@
 本报告是候选实现及失败记录，不是上线通过回执。
 
 验证环境：共享 `.venv-workbench`，Python 3.12.13；httpx 实际为 0.25.2、锁文件为 0.28.1，沿原有环境执行，没有升级共享依赖。报告中的工程结论仅对记录的 revision、命令和环境成立。
+
+## 第二轮实现：紧凑作者格式与有界摘录纠正
+
+本节接续第一轮，不替换原失败。收尾工作树为 `fwp-wt-8792-answer-closeout-0929`，从继承候选 `3892eb8b4` 新开；没有采用或回滚其他工作树未提交的 `episode_protocol.py` 修改。
+
+- `09f408194` 的 `material_claims_v1` 将确定性表示交给编译器：作者提交 output/逐句正文/kind/M或H来源及摘录，程序补齐冻结坐标、basis和既定空字段，再走原来源、结构和配置指定的语义校验。**程序不选来源、不补事实、不改正文、不拆句、不拼quote、不改status**。非法JSON反馈解析位置，坏稿仍拒绝。
+- 仅已确定的 `material_only`、无待澄清、无恢复旧工具证据快照时选择compact；`prior_evidence.entries` 非空时，开场、修复、finalizer、headless统一保留#819旧格式及合法本轮E映射。H仍是 `assistant_judgment`，不升级为当前事实。
+- `220693df3` 把合法冻结来源的非逐字摘录单列为 `material_quote_mismatch / FORMAT`，拒收当前稿，只复用已有机会。反馈最多16处位置，不回显错误摘录；读侧继续拒错。未知/错类来源、越权证据及无效旧消息坐标仍硬拒；没有新增权限、工具、模型轮次或截止时间，取消/收口边界不变。
+- 财务方法FA-01在 `be1d57cd9` 曾实装，但未达到预声明内容标准，已于 `220693df3` 撤回。当前 `reading_baseline.py` 与compact-only `09f408194` 逐字相同，SHA-256为 `346d44f0c475d2d6a79f6a0d5371b29f55352a05c65d0e0ac279677f6bdb0782`。`FINANCE_RESEARCH_REASONING` 继续默认关闭；投递成功不等于推理改善。
+
+### 收尾发现的拒收顺序缺口与修复
+
+1. 冻结范围下“合法历史来源错误摘录 + 另一binding未知E9”可能先落可恢复FORMAT，遮住来源越界；`11f7ce233` 将可解析来源的全稿扫描放在可恢复basis/ref错误前。有效红测 **8 failed / 4 passed**，修后 **289 passed**；两循环、正反binding顺序及混合错误均覆盖。单独未知E9仍维持原FORMAT行为，不代选引用。
+2. 第一轮独立代码复审发现该重排引入**非冻结协议回归**：前一binding伪哈希本应立即 `forged_hash / INTEGRITY`，却可能被后一E9抢先降成FORMAT。全量绿没有证明该反例不存在。
+3. `7c16a38ec` 抽出共用 `_validate_binding_target_and_hashes()`：非冻结恢复逐binding检查；冻结保持整稿来源预检后再查目标/basis/hash。6个有效反例修前全红，修后 **391项聚焦回归通过**。最初缺gap导致构造器 `ValueError` 的无效红测另存，不冒充行为证据。
+4. 第二次隔离、只读代码复审未发现本次差异的阻断。它只读指定五文件与diff，**没有执行测试或金融作答**；只对有限静态范围负责。不是所有错误的全序：坏JSON、不可解析/渲染claim仍前置；非冻结原有“先E9、后伪哈希”行为本次未扩大修复。
+
+红绿日志索引和两次独审见 [证据包](answer-capability-2026-09-29/README.md)：45件副本入库、21件日志保留树外并记哈希，没有丢掉先前阻断或无效夹具。
+
+## 冻结答卷裁决：19份原件，不再新增自然请求
+
+旧格式臂 `45f0ff860`、compact臂 `09f408194`、method臂 `be1d57cd9`；对照中同题、历史种子、预算、授权、来源文本和实际模型一致，见 `answers/controls-summary.json`。method首轮只多403字符指导。legacy→compact首轮system+user字符：历史11,886→9,030；比较11,293→9,798；新数值财务31,535→27,139；消息22,403→18,676；传导22,027→18,347。**只证明表示缩短，不证明质量或稳定速度改善**。方法臂历史未运行，不补样；新数值题受已知错误家族启发，不是完全未见基准。
+
+下表为作者逐份读原题/预声明规则/公开答卷后的**非盲最终裁决**。usable=必要子问实答且无重要错误；partial=有独立正确部分但有重要错误；unusable=无实质公开答案。不是按格式或completed状态评分。逐问标签、原句、原因、id/case/hash见 `answers/author-adjudication.json`，机械身份及引用核对 **19/19通过**。
+
+| 题目 | legacy | compact | method（FA-01已撤回） | quote-repair，220693df3 |
+| --- | --- | --- | --- | --- |
+| 比较 | review-07 部分可用 | review-06 部分可用 | review-13 部分可用 | review-10 可用 |
+| 历史 | review-09 不可用 | review-08 可用 | 未运行 | review-12 不可用 |
+| 新数值财务 | review-16 不可用 | review-15 部分可用 | review-11 不可用 | review-18 部分可用 |
+| 消息 | review-01 部分可用 | review-17 不可用 | review-05 部分可用 | review-14 不可用 |
+| 财务传导 | review-04 部分可用 | review-02 部分可用 | review-03 不可用 | review-19 部分可用 |
+
+共 **2可用 / 10部分可用 / 7不可用**；异版本、每格低样本、缺一格，**不把总数读成系统通过率或因果胜负**。method两份财务原稿离线逐字重放仍被拒，没有把内部草稿计成交付。
+
+### 最近五题的真实执行与内容分开
+
+五题均在 `220693df32462939ba25cf5e76b6e9c7c4e3f242` 通过真实Workbench conversations/messages入口、8837隔离用户/Episode根各首发一次；0工具、空工具授权。历史用两条冻结完成消息，不重查行情。**本次收尾新增自然答题请求为0**；冻结答卷内容复审不是重采。最终工程候选后续改了验证器，不能声称与五题运行代码相同。
+
+| 原题 | 实际outcome/停止原因 | 作者调用/非法终稿 | 实际模型 | 最终内容裁决 |
+| --- | --- | ---: | --- | --- |
+| 历史 | partial / invalid_model_finish | 1 / 1 | glm-5.3-flash | 不可用，未复述四项数值 |
+| 比较 | completed / model_finish | 2 / 1 | glm-5.3-flash | 可用，保留条件比较/反证；“全年”期间措辞为minor |
+| 新数值财务 | completed / repair_model_finish | 3 / 2 | glm-5.3 | 部分可用，q1—q7可用、q8口径错误 |
+| 消息 | failed / invalid_repair_finish | 3 / 3 | glm-5.3 | 不可用，未公开交付 |
+| 财务传导 | completed / repair_model_finish | 3 / 2 | glm-5.3 | 部分可用；算式有独立正确部分，解释仍错 |
+
+历史因 `evidence_boundary.claims[1] requires exactly one H source` 硬拒；比较只经历多句claim修复。新数值财务先多句错误、再错误quote，在已有repair机会内交付，确实触及摘录修复；消息依次JSON、多句、quote错误，到最后机会已用尽。传导两次都是多句错误，不能把completed归功于quote分类。全链可到3次作者调用，“每方向一次”不是全链只有2次。
+
+**运行判官边界**：这些三臂与五题均为 `judge_mode=deterministic`，完成稿 `judge_status=passed` 且 `material_claim_checks/material_output_checks` 为空。不能宣称实际逐句模型判官已审过或认可金融推理；本轮没有为了通过评测改变判官配置。阶段遥测字段不是新的预算授权收据，不用它自行推算全链增额或性能结论。
+
+### 独立评审不是最终真值：保留失配与分歧
+
+- 旧19份匿名评审（`answers/old-independent-invalid.md`）把**没有交付的review-16**判成完整可用，并把 **review-18 financial-holdout错认成transmission**，引用了别份答案。撤销其整体验收效力，原件保留。
+- 新五题复审为隔离上下文、无工具，仅给题面/事前规则/公开答案/哈希，不给身份臂和作者结论。收到一次最终JSON后结束，不反复抽好评。id/case全匹配，引用全在各自公开原文；**review-19的SHA-256仅63位，故整体机械准入exit 1，该条独立证据无效**。其余四条身份合格，独立原始结论为比较usable、历史/news unusable、新数值财务usable。哈希不补正、不把剩余四条冒称完整五题验收。
+- **review-18有实质分歧**：独审给usable、无issues；作者保留partial。原句“可持续利润口径是否已扣除维持和增长性资本开支”把净利润与现金投资后余额混为同一指标。应检查增长/再投资回报/融资及倍数内含假设；不能从已给净利润机械减现金CapEx再乘PE。q1—q7计算与独立变体正确，q8条件价值120也正确，不因一处错抹去整份。
+- **review-19作者裁决**：q1增长计算正确但把调整归母净利润率改名经营利润率；q2“未扣除债务净变动”不能可靠解释CFO起算法应加净借款，且两个现金子项不能穷尽资金需求；q3“合计占用现金约5.5亿元”既算错（余额代数为4+2.5+1=7.5）又把余额当现金，投资CapEx也不能直接解释CFO下降；q6的3与2.67算式正确，但“微小偏差都会被20倍左右的乘数放大”方向错，反推利润对传统价值的变化是除以倍数。q4/q5/q7/q8仍保留可用部分与minor，不夸大成确定性投资建议。
+
+这种分账可迁移到其他项目：**机器核身份、原句和覆盖；语义裁决仍要看原稿与规则。机械全绿也可能是评审漏错。**
+
+## 工程收尾：每个revision独立记账
+
+固定解释器始终为 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`，未绕依赖准入、未缩小收集面。测试期间不改树、不移动HEAD。
+
+| revision | 完整Python结果 | 可用结论 |
+| --- | --- | --- |
+| 220693df3 | 18,567 passed / 10 failed / 74 skipped / 2 xfailed | 控制探针仍按旧bindings组稿，旧红保留 `gate-RaGNDDsJ/pytest.json` |
+| 3892eb8b4 | 18,577 passed / 74 skipped / 2 xfailed；收集18,653 | 继承候选收据 `gate-UBiZChcB/pytest.json` 核验通过；探针迁至compact，不改原正负语义 |
+| 11f7ce233 | 18,589 passed / 74 skipped / 2 xfailed；收集18,665，929.35秒 | `gate-sgeFpiIK/pytest.json` 完整绿；随后仍被独审发现非冻结回归，不是最终候选 |
+| **7c16a38ec** | **18,595 passed / 74 skipped / 2 xfailed；0 failed/error；收集18,671，1161.52秒** | `gate-47KSMduZ/pytest.json`；exit0、dirty=false、依赖/解释器/revision/范围核验通过 |
+
+最后一行全仓Ruff通过；同SHA前端安装/lint/typecheck/test/build/E2E六项exit0，组件 **125 passed**、E2E **34 passed / 2 skipped**，前后身份干净稳定、六份日志SHA-256核过。注册表/ledger五项exit0且身份稳定。data-quality条件叶的路径未触发，不将其计为通过。391项聚焦测试发生在提交前修改树，只记红绿因果，不冒充7c的全量收据。
+
+完整收据准入命令：`scripts/check_test_receipt.py <gate-47KSMduZ/pytest.json> --require-full-scope --expect-revision 7c16a38ec65eee96996d873e88270a1b2f692378`，退出0。本报告/原件是**后续文档提交**，不把7c收据改成文档tip；也没有新main合流门禁。09-29核对基座已落后 `gitea/main=33023225dc73` 16个提交，未来合并前须重新合流核验。
+
+### 资源与可恢复留证
+
+默认12GiB空闲准入未降低。只将本任务旧失败 `/private/tmp/8792-quote-main-quote-repair-b371bdfc` 压缩，逐项核验200,919条内容/目录/软链后删除原展开目录；约489MB归档与完整manifest留在树外收尾根，失败日志不删。未清理他人目录。7c准入空闲17,238,941,696字节，未检测到其他pytest；这是时点检查不是机器资源预留。最后成功basetemp由门禁脚本自动删除。
+
+手工多次核对评审身份已固化为 `harness-reference` 候选 `e136472` 的 `scripts/check_answer_review.py`；一次性归档程序提炼成**不删源**的 `scripts/verified_tree_archive.py`。共28项合成测试通过，分别撤掉哈希检查均有红证人、还原后全绿，已推 `docs/answer-review-audit-0929` 并编入KIT/TOOLKIT E档，[WIP PR #18](http://127.0.0.1:3300/a77/harness-reference/pulls/18)，未合main。不修改共享脏旧主树。语义判分仍用手法，因为逐字匹配无法判定金融推理；不做伪自动评分。
+
+## 生产与最终交付边界
+
+本轮只读健康与端口，不重启、不切流、不写生产数据/配置：
+
+- 较早收尾快照 `production-health-earlier.json` 记录8792=`8e45e299a13b`、`source_dirty=true`；运行目录有他人修改/删除，未碰。
+- **09-29 01:42 +08:00** `production-health-closeout.json` 已为 `20d49970a15dee239ee0fc57f54cb3b0d83dd1ae`、`source_dirty=false`、`code_matches_repo=true`，root=`~/.finance-runtime/finance-workspace-20d49970a15d`。不是本轮执行部署，也不是#956版本上线证据。端口快照只见8792；8832—8837、18985—18986没有监听记录，本任务无后台门禁或复审遗留。
+- 同时canonical DuckDB大小3,759,157,248字节、mtime_ns=1790601648018125333。早轮mtime不同，说明共享库曾变化；stat不是内容哈希，不能签全程未变。本次材料题与冻结历史不依赖新读该库；没有回滚它或改时间戳。
+
+代码 `7c16a38ec` 已快进推至#956原远端分支，继续WIP；文档提交与PR说明记录最终交付，不合并或部署。旧在途交接的48a/生产clean状态已过时，接手以 [新分支交接](../handoffs/inflight/fix-8792-answer-closeout-0929.md) 为准。
+
+**结论：工程修复收尾完成，整体回答质量不通过。** 下一步是围绕已冻结失败继续设计终稿表示/合法历史陈述路径，以及利润—CFO—投资后差额—现金预算—FCFE—条件估值的语义检查；先确认失败轴与单变量方案，再另行授权自然验收。不靠删来源门、提高预算、堆栏目、重试挑稿或拿独审总表代替原答。没有Pi/ReAct/Knevo同条件新对照，不签追平或稳定改善。

@@ -1,0 +1,14 @@
+[
+  {
+    "file": "check_answer_review.py",
+    "removed_check": "if row.get(\"public_answer_sha256\") != digest:",
+    "exit_code": 1,
+    "log": "check_answer_review.py.mutation.log"
+  },
+  {
+    "file": "verified_tree_archive.py",
+    "removed_check": "if digest(stream) != expected[\"sha256\"]:",
+    "exit_code": 1,
+    "log": "verified_tree_archive.py.mutation.log"
+  }
+]

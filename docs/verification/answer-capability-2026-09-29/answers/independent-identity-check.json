@@ -1,0 +1,55 @@
+{
+  "ok": false,
+  "packet_rows": 5,
+  "review_rows": 5,
+  "rows": [
+    {
+      "id": "review-10",
+      "case": "comparison",
+      "public_answer_sha256": "1ecc48320aab9be0c4578d534227b13e114522af0f9d29837c45df8ab771775d",
+      "admitted": true
+    },
+    {
+      "id": "review-12",
+      "case": "history",
+      "public_answer_sha256": "fb648d25e683890b5c13e6c9ab9d588f6d6e9a4acb8cbfa603d5f82ff16e353e",
+      "admitted": true
+    },
+    {
+      "id": "review-14",
+      "case": "news",
+      "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d",
+      "admitted": true
+    },
+    {
+      "id": "review-18",
+      "case": "financial-holdout",
+      "public_answer_sha256": "8c8fe27d1fb783808b5d664565852d92a5fac72fa118918416fbda27ff024b58",
+      "admitted": true
+    },
+    {
+      "id": "review-19",
+      "case": "transmission",
+      "public_answer_sha256": "20deef9f186630ec8757bb86be56e3cbbfc6e67cce5ff4381d1f8d20b4a564d5",
+      "admitted": false
+    }
+  ],
+  "errors": [
+    {
+      "id": "review-19",
+      "code": "answer_hash_mismatch"
+    }
+  ],
+  "scope": "identity and exact quotations only; no semantic or runtime validation",
+  "inputs": {
+    "packet": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/independent-final-five-packet.json",
+      "sha256": "d1d470d495dcee372c48851b309a631776e22b5cfc665b49ae5057ebf5394d9d"
+    },
+    "review": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/answer-audit/independent-final-five-final.json",
+      "sha256": "cf89978bbbba12b640de9f1fe5a07a12e060fe518689ed147d6fe6c24d709e30"
+    },
+    "checker_sha256": "906bd4d2cec3f10fce2c8b2f8c5e26f81e4b6b9b12607c0eb394ede22738114a"
+  }
+}
