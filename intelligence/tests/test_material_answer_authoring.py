@@ -142,7 +142,9 @@ def test_compact_protocol_rejects_invalid_structure_and_sources(mutation):
         validate_episode_finish(raw, context=context, evidence=())
     if mutation == "fake_quote":
         assert error.value.code == "material_quote_mismatch" and error.value.kind.value == "format"
-    elif mutation in {"unknown_M", "unknown_H", "E9", "history_as_M", "material_as_H", "two_H", "empty_H"}:
+    elif mutation == "two_H":
+        assert error.value.code == "historical_excerpt_shape" and error.value.kind.value == "format"
+    elif mutation in {"unknown_M", "unknown_H", "E9", "history_as_M", "material_as_H", "empty_H"}:
         assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
     assert raw == saved
 

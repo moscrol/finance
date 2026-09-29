@@ -637,6 +637,7 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "private_material_reference": RejectionKind.FORMAT,
     "material_source_violation": RejectionKind.INTEGRITY,
     "material_quote_mismatch": RejectionKind.FORMAT,
+    "historical_excerpt_shape": RejectionKind.FORMAT,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
     "empty_draft": RejectionKind.SUBSTANCE,
@@ -1005,6 +1006,8 @@ def validate_episode_finish(
     try:
         decoded = compile_material_author_finish(decoded, context.contract)
     except MaterialAuthoringError as exc:
+        if exc.code == "historical_excerpt_shape":
+            raise _reject("historical_excerpt_shape", str(exc)) from exc
         raise _reject(exc.code, str(exc)) from exc
     status = decoded.get("status")
     if status not in _FINISH_STATUSES:
@@ -1079,6 +1082,7 @@ def validate_episode_finish(
         except ValueError as exc:
             raise _reject("bad_claim_binding", str(exc)) from exc
         resolved_refs = []
+        unresolved_ref = False
         for raw_ref in raw_hashes:
             try:
                 resolved_refs.extend(resolve_evidence_refs([raw_ref], evidence))
@@ -1088,6 +1092,14 @@ def validate_episode_finish(
                 # Unknown E ordinals retain their existing FORMAT behavior in
                 # isolation, but cannot hide a quote error or a forged source.
                 deferred_ref_errors.append(exc)
+                unresolved_ref = True
+        if (unresolved_ref and not any(resolved_refs) and not claims and not str(raw.get("gap") or "").strip()
+                and str(raw.get("basis") or "evidence") == "evidence"):
+            # This binding will be rejected by the deferred ordinal error. It
+            # has no resolved source to inspect; constructing it with its only
+            # reference removed would manufacture an empty-binding ValueError
+            # that masks source violations elsewhere in this finish.
+            continue
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
             evidence_hashes=tuple(resolved_refs),
