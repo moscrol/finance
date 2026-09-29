@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private",
+  "revision": "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+  "branch": "fix/8792-answer-review-0929",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 18714
+  },
+  "counts": {
+    "passed": 18638,
+    "failed": 0,
+    "error": 0,
+    "skipped": 74,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-29T02:26:52+00:00"
+}

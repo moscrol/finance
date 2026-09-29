@@ -1,0 +1,15 @@
+sidecar port=8837 repo=/Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private users=/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69-users user=answer-authoring-0928 rev=d9eeb69b7
+INFO:     Started server process [482]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8837 (Press CTRL+C to quit)
+INFO:     127.0.0.1:63054 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63201 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63203 - "POST /api/conversations/conv_5194c7982f294e24bc4ad8529808a87c/messages HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:63214 - "GET /api/runs/run_20260929_101405_411216?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63228 - "GET /api/runs/run_20260929_101405_411216?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63230 - "GET /api/conversations/conv_5194c7982f294e24bc4ad8529808a87c/messages?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [482]

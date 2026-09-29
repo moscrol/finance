@@ -18,10 +18,10 @@
 
 ## 执行
 
-- [ ] `test_material_quote_recovery.py`：非render旧格式、正确basis、E9无claims/gap与伪材料/坏quote混合，正反顺序与两循环；应硬拒且只调用一次，单独E9保留原FORMAT。
-- [ ] `episode_protocol.py`：冻结范围仅跳过无可验证内容且必定因未解析序号被拒的临时绑定；保留未知序号错误供最终分类。
-- [ ] `test_material_answer_authoring.py`、`test_material_quote_recovery.py`：同H两摘录当前必须拒收，但可回灌；作者改成单摘录后才成功；未知/错类/不同H仍硬拒、后续伪源不被遮蔽、取消/deadline/重复纠正受原限额。
-- [ ] `material_answer_authoring.py`：核所有引用身份后分类同H多摘录；只暂存此类错误并继续检查剩余claims，整稿仍抛拒收；作者提示区分M多片段与H单摘录表示。
-- [ ] 聚焦红绿、原失败离线重放、独立复查、最终干净全Python门禁；保留版本身份。
-- [ ] 一次新历史自然验收并记录全部结果（已获继续优化授权），若失败保留而不重复挑稿。
-- [ ] 接收经核对的Pi文档证据，增补本轮发现和结果，更新#956与当前分支交接。
+- [x] `test_material_quote_recovery.py`：非render旧格式、正确basis、E9无claims/gap与伪材料/坏quote混合，正反顺序与两循环；应硬拒且只调用一次，单独E9保留原FORMAT。
+- [x] `episode_protocol.py`：冻结范围仅跳过无可验证内容且必定因未解析序号被拒的临时绑定；保留未知序号错误供最终分类。
+- [x] `test_material_answer_authoring.py`、`test_material_quote_recovery.py`：同H两摘录当前必须拒收，但可回灌；作者改成单摘录后才成功；未知/错类/不同H仍硬拒、后续伪源不被遮蔽、取消/deadline/重复纠正受原限额。
+- [x] `material_answer_authoring.py`：核所有引用身份后分类同H多摘录；只暂存此类错误并继续检查剩余claims，整稿仍抛拒收；作者提示区分M多片段与H单摘录表示。
+- [x] 聚焦红绿、原失败离线重放、独立复查；干净d9全Python18,638P/74S/2X、Ruff和收据校验通过。
+- [x] 一次新历史自然首发usable，四项旧值和未核验边界正确，1模型/0工具；未触发修复分支，不作稳定性结论。
+- [x] 接收经核对的Pi文档证据，增补本轮发现和结果，记录当前分支交接；#956继续WIP，远端身份以PR回读为准。

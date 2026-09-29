@@ -1,0 +1,72 @@
+{
+  "arm": "codex-review-d9eeb69",
+  "case_id": "history",
+  "revision": "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+  "started_at": "2026-09-29T10:14:05.356983+08:00",
+  "finished_at": "2026-09-29T10:14:15.478125+08:00",
+  "exit_code": 0,
+  "log": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/history.txt",
+  "question_sha256": "1220b7078d44b351d9e788e4ade8e945701e5e2c8501851d48b1fd5296daef10",
+  "conversation_id": "conv_5194c7982f294e24bc4ad8529808a87c",
+  "run_id": "run_20260929_101405_411216",
+  "run_directory": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69-users/answer-authoring-0928/runs/run_20260929_101405_411216",
+  "outcome_status": "completed",
+  "stop_reason": "model_finish",
+  "usage": {
+    "llm_calls": 1,
+    "tool_calls": 0,
+    "invalid_actions": 0,
+    "input_tokens": 4193,
+    "output_tokens": 454
+  },
+  "served_models": [
+    "glm-5.3-flash"
+  ],
+  "configurations": [
+    {
+      "model": "",
+      "providers": [
+        {
+          "name": "zhipu",
+          "model": "glm-5.3-flash"
+        },
+        {
+          "name": "openai",
+          "model": "glm-5.3"
+        }
+      ],
+      "log_version": 1,
+      "persistence_mode": "durable",
+      "task_id": "run_20260929_101405_411216:msg_187d15cca0414f4796921f7f2c7d1c4f",
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "tool_replay": {},
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "sub_research_available": true,
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "provider_name": "zhipu",
+      "harness": "FinanceResearchHarness",
+      "task_frame_hash": "12bb83404ea8975124cbe8be78b9bf513703b6e6debb92b7740093dd337b73ea",
+      "at": "2026-09-29T10:14:05.467+08:00"
+    }
+  ],
+  "prompts": [
+    {
+      "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+      "user_sha256": "330a192576d7e9f71d19ab64ae435d7e6b88b00696ddbd9181147de41203d68b",
+      "system_chars": 2462,
+      "user_chars": 6613,
+      "task_frame_hash": "12bb83404ea8975124cbe8be78b9bf513703b6e6debb92b7740093dd337b73ea",
+      "at": "2026-09-29T10:14:05.469+08:00"
+    }
+  ],
+  "invalid_actions": [],
+  "run_status": "completed",
+  "seconds": 9.0,
+  "answer_sha256": "7e7db3329d124be416b83e6cb3a06a2664d9d87d50c0d0ee5310d30e3f2e1841",
+  "answer_chars": 228
+}

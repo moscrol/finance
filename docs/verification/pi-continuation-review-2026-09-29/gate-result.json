@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-29T10:28:37.001701+08:00",
+  "revision": "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+  "tree": "/Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private",
+  "command": "bash scripts/run_main_gate.sh --pytest-args '-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/pytest-tmp/answer-review-d9eeb69b7'",
+  "gate_exit_code": 0,
+  "ruff_exit_code": 0,
+  "pytest_receipt": "/Users/a77/.finance-runtime/test-receipts/gate-JQq5t2Av/pytest.json",
+  "pytest_log": "/Users/a77/.finance-runtime/test-receipts/gate-JQq5t2Av/pytest.log.txt",
+  "receipt_check_command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/test-receipts/gate-JQq5t2Av/pytest.json",
+    "--expect-revision",
+    "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+    "--require-full-scope"
+  ],
+  "receipt_check_exit_code": 0,
+  "basetemp_removed": true,
+  "test_duration_seconds": 858.65,
+  "subsequent_repo_changes": "documentation and archived evidence only; do not relabel code receipt as later docs revision"
+}

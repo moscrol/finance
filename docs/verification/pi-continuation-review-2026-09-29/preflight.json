@@ -1,0 +1,20 @@
+{
+  "revision": "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+  "history_question_sha256": "1220b7078d44b351d9e788e4ade8e945701e5e2c8501851d48b1fd5296daef10",
+  "original_messages": [
+    {
+      "original_message_id": "msg_ffd475daf533497b9c688123b0bc9874",
+      "content_sha256": "ef7e0c5dce6370c4f4070a76d90ac10f185212851159dcb195bc94089077d6db",
+      "role": "user"
+    },
+    {
+      "original_message_id": "msg_a39ed0d5de524034aec14d96ca9f438e",
+      "content_sha256": "e5fe758e65963513ea91f271b4fed3f01b3488aaf6ce38db3439376874a7b7ef",
+      "role": "assistant"
+    }
+  ],
+  "sidecar_port": 8837,
+  "scope": "one original history question, first attempt only, existing runtime budgets; isolated users/episodes; no production writes; not a performance benchmark",
+  "model_configuration": "deployment exports, no overrides",
+  "predeclared_pass": "all four original values/date correctly attributed to old answer, explicitly not reverified, zero tools, substantive public answer"
+}

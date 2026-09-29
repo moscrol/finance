@@ -1,0 +1,559 @@
+........FFFFFFFFFFFFFFFF......FF..                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260929T020459Z-7c16a38e-3735ec3e2e11.json
+
+=================================== FAILURES ===================================
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-False-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = False, source_error = 'forged_material', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-False-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = False, source_error = 'forged_material', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-True-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = True, source_error = 'forged_material', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-True-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = True, source_error = 'forged_material', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-False-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = False, source_error = 'quote_mismatch', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-False-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = False, source_error = 'quote_mismatch', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-True-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = True, source_error = 'quote_mismatch', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-True-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = True, source_error = 'quote_mismatch', empty_ref = ''
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-False-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = False, source_error = 'forged_material', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-False-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = False, source_error = 'forged_material', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-True-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = True, source_error = 'forged_material', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-True-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = True, source_error = 'forged_material', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-False-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = False, source_error = 'quote_mismatch', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-False-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = False, source_error = 'quote_mismatch', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-True-ContinuousAgentEpisode] _
+
+loop = <class 'intelligence.runtime.agent_episode.ContinuousAgentEpisode'>
+reverse = True, source_error = 'quote_mismatch', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-True-HarnessReferenceLoop] _
+
+loop = <class 'intelligence.runtime.harness_reference_loop.HarnessReferenceLoop'>
+reverse = True, source_error = 'quote_mismatch', empty_ref = ' '
+
+    @pytest.mark.parametrize("loop", [ContinuousAgentEpisode, HarnessReferenceLoop])
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("source_error", ["forged_material", "quote_mismatch"])
+    @pytest.mark.parametrize("empty_ref", [None, "", " "])
+    def test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error(loop, reverse, source_error, empty_ref):
+        frame, context = history_setup()
+        good = legacy_finish(context)
+        bad = deepcopy(good)
+        bad.update(render_from_claims=False, draft=validate_episode_finish(good, context=context, evidence=()).draft)
+        bad["bindings"][0].update(claims=[], evidence_hashes=["E9"] + ([empty_ref] if empty_ref is not None else []))
+        anchor = bad["bindings"][1]["claims"][0]["material_anchors"][0]
+        if source_error == "forged_material":
+            anchor["material_id"] = "forged-material"
+        else:
+            anchor["quote"] = "不存在的摘录，不得原样回显"
+        if reverse:
+            bad["bindings"].reverse()
+        saved = deepcopy(bad)
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation"
+E       AttributeError: 'ValueError' object has no attribute 'code'
+
+intelligence/tests/test_material_quote_recovery.py:251: AttributeError
+_ test_multiple_history_excerpts_do_not_hide_forged_or_mixed_source_identities[unbound_fact-False] _
+
+reverse = False, mutation = 'unbound_fact'
+
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("mutation", ["unknown_history", "wrong_class", "later_unknown_material", "unbound_fact", "different_history"])
+    def test_multiple_history_excerpts_do_not_hide_forged_or_mixed_source_identities(reverse, mutation):
+        from intelligence.services.conversation_materials import HistoricalAssistantStatement
+    
+        _, context = history_setup()
+        bad = multiple_history_excerpts()
+        claim = bad["answers"][0]["claims"][0]
+        if mutation == "different_history":
+            catalogue = context.contract.material_grounding
+            context = replace(context, contract=replace(context.contract, material_grounding=replace(
+                catalogue, historical_assistant_statements=(*catalogue.historical_assistant_statements,
+                    HistoricalAssistantStatement("another-old-answer", "日期为2026-09-24")),
+            )))
+            claim["sources"][1]["ref"] = "H2"
+        elif mutation == "later_unknown_material":
+            bad["answers"][1]["claims"][0]["sources"][0]["ref"] = "M999"
+        elif mutation == "unbound_fact":
+            bad["answers"][1]["claims"][0].update(kind="material_fact", sources=[])
+        else:
+            claim["sources"][1]["ref"] = "H999" if mutation == "unknown_history" else "M1"
+        if reverse:
+            bad["answers"].reverse()
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
+E       AssertionError: assert ('historical_excerpt_shape' == 'material_source_violation'
+E         
+E         - material_source_violation
+E         + historical_excerpt_shape)
+
+intelligence/tests/test_material_quote_recovery.py:324: AssertionError
+_ test_multiple_history_excerpts_do_not_hide_forged_or_mixed_source_identities[unbound_fact-True] _
+
+reverse = True, mutation = 'unbound_fact'
+
+    @pytest.mark.parametrize("reverse", [False, True])
+    @pytest.mark.parametrize("mutation", ["unknown_history", "wrong_class", "later_unknown_material", "unbound_fact", "different_history"])
+    def test_multiple_history_excerpts_do_not_hide_forged_or_mixed_source_identities(reverse, mutation):
+        from intelligence.services.conversation_materials import HistoricalAssistantStatement
+    
+        _, context = history_setup()
+        bad = multiple_history_excerpts()
+        claim = bad["answers"][0]["claims"][0]
+        if mutation == "different_history":
+            catalogue = context.contract.material_grounding
+            context = replace(context, contract=replace(context.contract, material_grounding=replace(
+                catalogue, historical_assistant_statements=(*catalogue.historical_assistant_statements,
+                    HistoricalAssistantStatement("another-old-answer", "日期为2026-09-24")),
+            )))
+            claim["sources"][1]["ref"] = "H2"
+        elif mutation == "later_unknown_material":
+            bad["answers"][1]["claims"][0]["sources"][0]["ref"] = "M999"
+        elif mutation == "unbound_fact":
+            bad["answers"][1]["claims"][0].update(kind="material_fact", sources=[])
+        else:
+            claim["sources"][1]["ref"] = "H999" if mutation == "unknown_history" else "M1"
+        if reverse:
+            bad["answers"].reverse()
+        with pytest.raises(ValueError) as error:
+            validate_episode_finish(bad, context=context, evidence=())
+>       assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
+E       AssertionError: assert ('historical_excerpt_shape' == 'material_source_violation'
+E         
+E         - material_source_violation
+E         + historical_excerpt_shape)
+
+intelligence/tests/test_material_quote_recovery.py:324: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-False-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-False-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-True-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-forged_material-True-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-False-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-False-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-True-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[-quote_mismatch-True-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-False-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-False-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-True-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -forged_material-True-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-False-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-False-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-True-ContinuousAgentEpisode]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_unresolved_ordinal_cannot_create_empty_binding_that_masks_source_error[ -quote_mismatch-True-HarnessReferenceLoop]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_multiple_history_excerpts_do_not_hide_forged_or_mixed_source_identities[unbound_fact-False]
+FAILED intelligence/tests/test_material_quote_recovery.py::test_multiple_history_excerpts_do_not_hide_forged_or_mixed_source_identities[unbound_fact-True]
+18 failed, 16 passed, 50 deselected in 0.67s

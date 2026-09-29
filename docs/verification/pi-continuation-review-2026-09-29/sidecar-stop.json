@@ -1,0 +1,13 @@
+{
+  "requested_at": "2026-09-29T10:19:53.366090+08:00",
+  "pid": 482,
+  "port": 8837,
+  "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port 8837 --log-level info",
+  "cwd": "/Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private",
+  "signal": "SIGTERM",
+  "reason": "Owned isolated first-attempt probe finished; no further natural reruns.",
+  "verified_at": "2026-09-29T10:20:49.842054+08:00",
+  "launcher_exit_code": 143,
+  "port_not_listening": true,
+  "application_shutdown_complete": true
+}

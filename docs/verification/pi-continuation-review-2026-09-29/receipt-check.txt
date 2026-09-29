@@ -1,0 +1,21 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/test-receipts/gate-JQq5t2Av/pytest.json
+  产生于   2026-09-29T02:26:52+00:00
+  来自树   /Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private
+  目标     /Users/a77/.codex/worktrees/8792-quote-repair-review/finance-workspace-private
+  读数     passed=18638 failed=0 error=0 skipped=74
+
+  ✓ 执行读数 18638 条（passed+failed+error）
+  ✓ 收集面未被收窄（collected=18714）
+  ✓ 收执对账平：collected=18714 == 读数合计=18714
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == d9eeb69b7d82
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。

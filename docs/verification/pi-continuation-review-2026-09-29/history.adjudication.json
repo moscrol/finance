@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "adjudicated_at": "2026-09-29T10:19:53.346198+08:00",
+  "revision": "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+  "run_id": "run_20260929_101405_411216",
+  "question_sha256": "1220b7078d44b351d9e788e4ade8e945701e5e2c8501851d48b1fd5296daef10",
+  "answer_sha256": "7e7db3329d124be416b83e6cb3a06a2664d9d87d50c0d0ee5310d30e3f2e1841",
+  "historical_source_sha256": "e5fe758e65963513ea91f271b4fed3f01b3488aaf6ce38db3439376874a7b7ef",
+  "verdict": "usable",
+  "review_method": "Root reviewer read the entire public answer and traced its historical source; deterministic identity/value checks supplement the semantic judgment.",
+  "checks": {
+    "four_prior_values_and_date_correct": true,
+    "attributed_to_prior_answer": true,
+    "explicitly_not_reverified": true,
+    "zero_tools": true,
+    "substantive_public_answer": true,
+    "seed_source_hash_matches": true
+  },
+  "served_models": [
+    "glm-5.3-flash"
+  ],
+  "usage": {
+    "llm_calls": 1,
+    "tool_calls": 0,
+    "invalid_actions": 0,
+    "input_tokens": 4193,
+    "output_tokens": 454
+  },
+  "limitations": [
+    "One first attempt only; no reliability or backend parity claim.",
+    "No invalid action occurred; this live sample did not exercise the recovery branch.",
+    "Offline original-failure replay and targeted regressions cover recovery and integrity rejection separately.",
+    "No finance/news quality conclusion; no production deployment."
+  ]
+}

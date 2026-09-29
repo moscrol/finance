@@ -1,0 +1,103 @@
+{
+  "format": "pi-continuation-review-v1",
+  "revision": "d9eeb69b7d82b159d6635ca7664ee77b0be43653",
+  "scope": "Selected immutable first-attempt history, red-regression evidence and clean full Python gate. Earlier Pi evidence preserved separately.",
+  "files": [
+    {
+      "path": "preflight.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/preflight.json",
+      "bytes": 988,
+      "sha256": "dd1f119472059bfe98f96d4b5841e49224f8a4ab14828966eff5e32fd2c082cf"
+    },
+    {
+      "path": "health.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/health.json",
+      "bytes": 2097,
+      "sha256": "860dea64cf9a2073753ccc30e46f41ab5d09513334e4eda1e1f59e88d265ae8a"
+    },
+    {
+      "path": "history.record.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/history.record.json",
+      "bytes": 2563,
+      "sha256": "577eb96947df01af5407f26d4257fba80e3cab422c0f4a6ae032a363b7fd2fc6"
+    },
+    {
+      "path": "history.adjudication.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/history.adjudication.json",
+      "bytes": 1445,
+      "sha256": "9d83ba144bcc98843b114f44def560992b73dee9f4a44a887ff2f131b85bc602"
+    },
+    {
+      "path": "history.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/history.txt",
+      "bytes": 924,
+      "sha256": "b23ebf22cc049fcedab212a45a8471820bbe8a721d7e80b35aa4a315c501e64f"
+    },
+    {
+      "path": "sidecar-stop.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/sidecar-stop.json",
+      "bytes": 667,
+      "sha256": "c5061e1f9493da719d6dd3b3dbdc5293f24ef94218fbcf13920dd6ba4ecf9b4d"
+    },
+    {
+      "path": "sidecar.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/sidecar.log.txt",
+      "bytes": 1220,
+      "sha256": "317a2c54516dd229d4f8a332f3fb1b853eebfca3887c3e5ae8237b6f776ddae3"
+    },
+    {
+      "path": "history.answer.md",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69-users/answer-authoring-0928/runs/run_20260929_101405_411216/answer.md",
+      "bytes": 558,
+      "sha256": "7e7db3329d124be416b83e6cb3a06a2664d9d87d50c0d0ee5310d30e3f2e1841"
+    },
+    {
+      "path": "history.run.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69-users/answer-authoring-0928/runs/run_20260929_101405_411216/run.json",
+      "bytes": 2280,
+      "sha256": "4262d22d8dbfb5cda5c828613009bd47a8d526150893a9fbe3dd23ec764df2d2"
+    },
+    {
+      "path": "history.episode.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69-users/answer-authoring-0928/runs/run_20260929_101405_411216/continuous-episode.json",
+      "bytes": 175724,
+      "sha256": "5b3148e09946a2bfde977be7d746d5489a6787097b09259ca385c44eaeee630b"
+    },
+    {
+      "path": "repro-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/codex-review-repro-red.txt",
+      "bytes": 25290,
+      "sha256": "95c5251d9cb88d236299cd8200a4a71cfcaf16513d747f02dc7562dd272c64ab"
+    },
+    {
+      "path": "edge-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/closeout-0929/codex-review-edge-red.txt",
+      "bytes": 34712,
+      "sha256": "bcd26d171eb6a913b29bf04598f1c2cec96772b5a2baea18cdd71a752330d87d"
+    },
+    {
+      "path": "python-d9eeb69b7.json",
+      "source": "/Users/a77/.finance-runtime/test-receipts/gate-JQq5t2Av/pytest.json",
+      "bytes": 956,
+      "sha256": "da3d0806a01c65e38d7929f6bf284b54f045bad5a5ac575dbe751ca240f56d2c"
+    },
+    {
+      "path": "python-d9eeb69b7.log.txt",
+      "source": "/Users/a77/.finance-runtime/test-receipts/gate-JQq5t2Av/pytest.log.txt",
+      "bytes": 25285,
+      "sha256": "97b93d0170bd245e0d440ec4d054dd6ba87027b9ce27793acb50395f01ef6a2c"
+    },
+    {
+      "path": "receipt-check.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/receipt-check.txt",
+      "bytes": 1013,
+      "sha256": "e8f54d64e1be2ca18a2446109a9c2d769a258ea6a88cab81bd04b9a1a0908ed4"
+    },
+    {
+      "path": "gate-result.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/codex-review-d9eeb69/gate-result.json",
+      "bytes": 1152,
+      "sha256": "4e56bc7e293e253e65981055f41941ba9c2a40d3d13c3afd5f8bb38481c2129f"
+    }
+  ]
+}
