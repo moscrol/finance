@@ -105,6 +105,7 @@ def test_capture_failure_is_a_skip_not_a_fail(review, monkeypatch, status, code)
 
 
 def test_gap_fill_applies_on_the_staging_db_with_fresh_receipt(review, monkeypatch, tmp_path):
+    capture = _seal(review)
     calls = []
     monkeypatch.setattr(review, "run_step", _fake_run(calls))
     step = dict(review.build_plan(DAY, 7, 9, "local"))["bridge-gap-fill"]
@@ -120,21 +121,22 @@ def test_gap_fill_applies_on_the_staging_db_with_fresh_receipt(review, monkeypat
     assert receipt.parent.is_dir() and not receipt.exists()
     fetch = Path(argv[argv.index("--eastmoney-fetch-dir") + 1])
     assert fetch.parent == receipt.parent and not fetch.exists()
-    assert "--capture-dir" not in argv  # 没有封存就不给，不拿半份目录当证据
-
-
-def test_gap_fill_uses_the_sealed_capture_when_present(review, monkeypatch):
-    capture = _seal(review)
-    calls = []
-    monkeypatch.setattr(review, "run_step", _fake_run(calls))
-    review.bridge_gap_fill_step(DAY, 9)
-    (_, argv, _), = calls
     assert argv[argv.index("--capture-dir") + 1] == str(capture)
+
+
+def test_gap_fill_without_a_sealed_capture_is_an_explicit_skip(review, monkeypatch):
+    # 回放历史日没有当日封存：不在回放里联网补数，也不动用户决定保持缺行的历史日。
+    (review.QUOTE_CAPTURE_ROOT / DAY).mkdir(parents=True)  # 半份目录（没有 receipt.json）不算封存
+    monkeypatch.setattr(review, "run_step", lambda *a, **k: pytest.fail("must not spawn"))
+    result = review.bridge_gap_fill_step(DAY, 9)
+    assert result["status"] == "skip" and "no sealed capture" in result["note"]
+    assert not review.BRIDGE_GAP_FILL_ROOT.exists()
 
 
 @pytest.mark.parametrize("status,code", [("fail", 1), ("fail", 2), ("timeout", None)])
 def test_gap_fill_failure_never_reaches_the_tail_retry(review, monkeypatch, status, code):
     # 收尾重试会在下游算完之后才重跑 fail/timeout 步骤；那时再插行，派生表就与 canonical 对不上。
+    _seal(review)
     monkeypatch.setattr(review, "run_step", _fake_run([], status, code))
     result = review.bridge_gap_fill_step(DAY, 9)
     assert result["status"] == "skip"

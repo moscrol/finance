@@ -510,17 +510,21 @@ def bridge_gap_fill_step(trade_date: str, timeout: int) -> dict:
     桥对这三类按合同拒算、不报错，每天 3~10 只悄悄缺行（09-29 含广汽集团）。本步在 staging 上
     调 scripts/backfill_bridge_gaps.py --apply：两个独立来源给出同一前收才插行，不一致或证据不足
     保持缺行并写进收据。位置在桥接、补名之后，stitch / limit-stats / features 之前——补上的行
-    要进板块成分、涨跌停统计与特征。证据：当日封存腾讯报价（在就用，先审计）+ 东财日 K（逐只抓，
-    尽力而为）。任何失败降为 skip：事务已回滚，当天照旧缺行，与接线前相同。
+    要进板块成分、涨跌停统计与特征。证据：当日封存腾讯报价（先审计）+ 东财日 K（逐只抓，尽力而为）。
+    任何失败降为 skip：事务已回滚，当天照旧缺行，与接线前相同。
+
+    **没有当日封存就 skip**（与 attach-capture-names 同一前提）：封存是当晚唯一一定在手的外部来源，
+    也是新股首日 / 送转唯一能用的那个；回放历史日（recover_local_review）没有当日封存，于是不在
+    回放里联网补数、不去动用户决定保持缺行的历史日（09-22~24 那 7 行）。
     """
+    capture_dir = QUOTE_CAPTURE_ROOT / trade_date
+    if not (capture_dir / "receipt.json").is_file():
+        return _skip("bridge-gap-fill", f"no sealed capture at {capture_dir}; bridge gaps stay as bridged")
     run_dir = BRIDGE_GAP_FILL_ROOT / f"{trade_date}-{datetime.now().strftime('%Y%m%dT%H%M%S%f')}"
     run_dir.mkdir(parents=True, exist_ok=False)
     argv = [PY, "scripts/backfill_bridge_gaps.py", "--db", _review_db(), "--trade-date", trade_date,
             "--apply", "--receipt", str(run_dir / "receipt.json"),
-            "--eastmoney-fetch-dir", str(run_dir / "eastmoney-kline")]
-    capture_dir = QUOTE_CAPTURE_ROOT / trade_date
-    if (capture_dir / "receipt.json").is_file():
-        argv += ["--capture-dir", str(capture_dir)]
+            "--eastmoney-fetch-dir", str(run_dir / "eastmoney-kline"), "--capture-dir", str(capture_dir)]
     return _never_fail(run_step("bridge-gap-fill", argv, timeout),
                        f"no rows filled; the day keeps its bridge gaps (receipt {run_dir})")
 
