@@ -227,3 +227,11 @@
 | 文件 | 类 | 证据 | 字节 |
 |---|---|---|---|
 | [`fix-llm-host-suspend-observability.md`](./fix-llm-host-suspend-observability.md) | A | 合入 PR #946 · 2026-09-27 · 7a405e1b0；同夜切上 8792 | 2806 |
+
+## 2026-09-28 追加（二）
+
+#955 合入后其在途交接失效；判据同上。合入后首轮真跑（受托拆 3 棵）的回执见 `docs/verification/2026-09-28-worktree-closeout-first-run.md`。
+
+| 文件 | 类 | 证据 | 字节 |
+|---|---|---|---|
+| [`claude-happy-lovelace-7eb522.md`](./claude-happy-lovelace-7eb522.md) | A | 合入 PR #955 · 2026-09-28 · 20d49970a | 2000 |

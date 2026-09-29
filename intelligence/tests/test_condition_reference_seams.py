@@ -134,6 +134,7 @@ def test_surviving_list_definition_preserves_its_count(prefix):
     ) == retained
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
 def test_list_definition_deletion_reaches_public_answer(prefix):
     closing = "**" if prefix.endswith("**") else ""
@@ -163,6 +164,7 @@ def test_non_definition_prose_does_not_authorize_count_removal(prefix):
     ) == draft
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
     judge = _judge(True)
     frame, structural = _structural(

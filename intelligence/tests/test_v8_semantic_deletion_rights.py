@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from intelligence.runtime.conversation_orchestrator import _with_review_appendix
 from intelligence.services.episode_semantic_verifier import (
     SEMANTIC_QUALITY_DOUBT_MARK,
@@ -76,6 +78,7 @@ def test_semantic_quality_reject_keeps_required_sentence_and_marks(
     assert result.judge_status == "repaired"
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_numeric_unsupported_sentence_still_deleted_under_v8() -> None:
     """② W1 ② 回归：无据阈值句仍消失。"""
 
@@ -125,6 +128,7 @@ def test_c_cluster_mechanical_trigger_keeps_rejudge_safety_net() -> None:
     assert repaired.gaps == original.gaps
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_w1_regression_pins_still_green() -> None:
     """⑤ W1 ①③④⑤ + 两案重放仍绿。"""
 

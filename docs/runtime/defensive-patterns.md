@@ -39,6 +39,7 @@
 | 12 | 取消 / 超时 / 未派发共用一个错误码，重试逻辑靠 detail 字符串猜 | **重试语义决定错误码的粒度**：该重试的（超时）与不该重试的（用户取消、零授权未派发）必须是不同码；取消带类型化原因，first cause wins | P1 `tool_not_dispatched` 拆码；INV-R4 |
 | 13 | 在飞的模型请求取消了，结算却没落——意图成了孤儿，恢复时不知道那次请求发生没发生 | **取消不吞结算**：取消只挡下一件外部效果，已经开始的效果必须结算完（成功 / 错误 / 取消都行）再写 `finish{cancelled}` | 竞态目录 `cancel_vs_model_settlement` / `cancel_vs_tool_settlement` |
 | 14 | 只做「恢复给计划、不重新驱动」的决定没有测试钉着，下一个人可能顺手让 `restore()` 写点东西 | **只读操作要有「一字不写」的钉**：`restore` 在 resumable / already_terminal 两种处置下事件数与状态逐字节不变（只有截止已过的 `closed` 才合成并落盘） | 竞态目录 `restore_vs_inflight_drive`；INV-R3 |
+| 15 | `gitea_pr.py` 的 30 s 客户端超时：合并 POST 超时后脚本在回读前就崩了、没留记录；服务端日志显示挂断那一刻 Gitea 取消请求上下文，把正在跑的 `git push` 杀在半路——#959 什么都没落，#854 的 ref 在断开后约 20 s 才更新、PR 却再没被标成 merged | **挂断不是旁观**：客户端超时会中止服务端的写，造出半截状态。超时要长于服务端最慢一次（量日志定，不拍）；写请求报错后只认回读（对象状态与底层 ref 分开读），不自动重发，不确定就退「结果未知」 | `scripts/gitea_pr.py` 文首第 8、9 条与 `_API_TIMEOUT_DEFAULT_S` 注释；`/opt/homebrew/var/gitea/log` 09-21~29 |
 
 ## 与 dsh 六条的关系
 

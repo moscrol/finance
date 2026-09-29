@@ -108,6 +108,7 @@ def _delivery(*, repair="none", draft=HEAD + WATCH + BAD, initial_check_raises=F
     return result, goals, checks
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("mode", ["llm", "off"])
 @pytest.mark.parametrize("repair", ["none", "still_missing", "still_bad", "empty_failure", "raises", "recheck_raises"])
 def test_bad_condition_is_removed_but_trusted_answer_is_delivered_as_partial(monkeypatch, tmp_path, mode, repair):
@@ -143,6 +144,29 @@ def test_bad_condition_is_removed_but_trusted_answer_is_delivered_as_partial(mon
 
 
 @pytest.mark.parametrize("mode", ["llm", "off"])
+def test_bad_condition_is_marked_and_the_answer_is_delivered_complete(monkeypatch, tmp_path, mode):
+    """标注模式孪生（2026-09-28）：同一条无出处的条件留在交付稿里、句内点名待核，
+    穿过适配器的交付投影与复检不丢不改；槽位不再缺，回答不再压 partial，不起修稿轮。
+    用户明确要求长期跟踪时，这条条件连同待核说明登记进台账（人工核验）——说明不被洗掉。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+    result, goals, _checks = _delivery(repair="none")
+    marked = "触发条件=若评分低于987654321，则重新评估 E1（待核：「987654321」未在证据中找到出处）。"
+    assert FACT in result.answer and marked in result.answer
+    assert result.status == "completed" and not result.open_gaps
+    assert CONTRACT_STUB_HEADING not in result.answer
+    assert goals == []
+    verdicts = result.private_artifact["semantic_verifier"]["sentence_verdicts"]
+    assert [row["decision"] for row in verdicts if "987654321" in row["sentence"]] == ["marked"]
+    path = tmp_path / "checkpoints.jsonl"
+    written = ingest_next_watch(path, result.answer, query="请登记为长期跟踪", as_of="2026-09-18")
+    assert [(row["claim"], row["metric"]) for row in written] == [
+        ("指标=需求；时间节点=2026-10-21 " + marked, {"type": "manual"}),
+    ]
+
+
+@pytest.mark.usefixtures("numeric_delete_mode")
+@pytest.mark.parametrize("mode", ["llm", "off"])
 def test_legal_repair_reuses_same_session_and_is_reverified(monkeypatch, tmp_path, mode):
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
     result, goals, checks = _delivery(repair="good")
@@ -160,6 +184,7 @@ def test_legal_repair_reuses_same_session_and_is_reverified(monkeypatch, tmp_pat
     assert len(rows) == 1 and rows[0]["due"] == "2026-10-21"
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_recovery_failure_still_uses_existing_fail_closed_path(monkeypatch):
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
 

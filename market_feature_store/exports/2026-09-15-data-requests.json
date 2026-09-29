@@ -1,0 +1,288 @@
+{
+  "schema_version": "data-requests/v1",
+  "generated_at": "2026-09-15T20:06:13+08:00",
+  "runs_root": "/Users/a77/.local/share/finance-workbench/users",
+  "since": "30d",
+  "db_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "summary": {
+    "requests": 2,
+    "consumers": 2,
+    "auto_routes": 1,
+    "manual_routes": 0,
+    "by_status": {
+      "open": 1,
+      "satisfied": 1
+    }
+  },
+  "requests": [
+    {
+      "request_id": "dr-6380506715",
+      "dataset": "market_daily",
+      "table": "fact_market_daily",
+      "window_start": "2024-06-01",
+      "window_end": "2024-06-30",
+      "fields": [
+        "index_close",
+        "index_return_pct"
+      ],
+      "consumers": [
+        {
+          "run_id": "run_20260910_134152_349784",
+          "user": "probe-cutover-live-0910",
+          "question": "回看历史：2024年6月上证指数的月度涨跌幅是多少？当月收盘最低的是哪一天？",
+          "conversation_id": "conv_1bdda5a4391945d3a38588c97b402544",
+          "asked_at": "2026-09-10T13:41:52+08:00",
+          "run_status": "completed",
+          "sub_question": "market_daily 2024-06-01..2024-06-30 的 index_close、index_return_pct"
+        }
+      ],
+      "sources_tried": [
+        "finance_query dataset=market_daily 返回 0 行（整窗未覆盖；实际覆盖 库内该窗无行）"
+      ],
+      "fill_route": {
+        "mode": "auto",
+        "source_family": "akshare+local",
+        "parts": [
+          {
+            "name": "sh_index",
+            "columns": [
+              "sh_index_close",
+              "sh_index_pct_chg",
+              "sh_index_open",
+              "sh_index_high",
+              "sh_index_low",
+              "sh_index_volume"
+            ],
+            "source": "akshare:stock_zh_index_daily:sh000001",
+            "writer": "market_feature_store.sync.sync_akshare_index_daily.sync_akshare_index_daily(start_date, end_date)",
+            "depends_on": []
+          },
+          {
+            "name": "aggregates",
+            "columns": [
+              "total_amount",
+              "advancers",
+              "limit_up",
+              "limit_down",
+              "amount_ma20",
+              "amount_vs_yesterday_pct",
+              "volume_ratio"
+            ],
+            "source": "local:fact_stock_daily",
+            "writer": "market_feature_store.sync.compute_local_stats.compute_market_overview_local(trade_date)",
+            "depends_on": [
+              "stock_daily"
+            ]
+          },
+          {
+            "name": "industry",
+            "columns": [
+              "industry_1",
+              "industry_1_ratio",
+              "industry_2",
+              "industry_3",
+              "top3_industry_ratio",
+              "concentration_state"
+            ],
+            "source": "local:fact_sw_l1_daily",
+            "writer": "同 aggregates（compute_market_overview_local 读 fact_sw_l1_daily）",
+            "depends_on": [
+              "sw_l1_daily"
+            ]
+          },
+          {
+            "name": "editorial",
+            "columns": [
+              "market_stage",
+              "stage_day",
+              "ice_point",
+              "note"
+            ],
+            "mode": "manual",
+            "condition": "复盘会编辑字段：需创始人从数据中台导出参照标注（工单 #33 A），不可自动回补",
+            "depends_on": []
+          }
+        ]
+      },
+      "priority": 5.0,
+      "first_asked_at": "2026-09-10T13:42:06.582+08:00",
+      "last_asked_at": "2026-09-10T13:42:06.582+08:00",
+      "event_count": 1,
+      "after_fill": "重算受影响子问题并恢复原会话研究，不让用户重新问整题"
+    },
+    {
+      "request_id": "dr-a18f1191ab",
+      "dataset": "stock_daily",
+      "table": "fact_stock_daily",
+      "window_start": "2026-08-10",
+      "window_end": "2026-09-10",
+      "fields": [
+        "close",
+        "return_pct",
+        "amount",
+        "turnover"
+      ],
+      "consumers": [
+        {
+          "run_id": "run_20260912_231328_111964",
+          "user": "nogrok-smoke-0912",
+          "question": "盛弘股份最近有哪些公司层面的边际变化？请给出证据来源和时间。",
+          "conversation_id": "conv_a450f33548ff4313a9f8fb3ab703d9b8",
+          "asked_at": "2026-09-12T23:13:28+08:00",
+          "run_status": "completed",
+          "sub_question": "stock_daily 2026-08-10..2026-09-10 的 close、return_pct、amount、turnover"
+        }
+      ],
+      "sources_tried": [
+        "finance_query dataset=stock_daily 返回 0 行（整窗未覆盖；实际覆盖 库内该窗无行）"
+      ],
+      "fill_route": {
+        "mode": "auto_heavy",
+        "source_family": "mootdx",
+        "parts": [
+          {
+            "name": "ohlc",
+            "columns": [
+              "close",
+              "pct_chg",
+              "amount"
+            ],
+            "source": "mootdx",
+            "writer": "python3 -m market_feature_store.cli sync-stock-daily --start-date <d> --end-date <d>",
+            "depends_on": [],
+            "note": "全市场逐股，量大；本单不执行，交 duckdb-backfill / daily-full 维护者"
+          }
+        ]
+      },
+      "priority": 4.0,
+      "first_asked_at": "2026-09-12T23:14:12.299+08:00",
+      "last_asked_at": "2026-09-12T23:14:12.299+08:00",
+      "event_count": 1,
+      "after_fill": "重算受影响子问题并恢复原会话研究，不让用户重新问整题"
+    }
+  ],
+  "completions": [
+    {
+      "request_id": "dr-6380506715",
+      "dataset": "market_daily",
+      "table": "fact_market_daily",
+      "window_start": "2024-06-01",
+      "window_end": "2024-06-30",
+      "status": "open",
+      "reason": "窗口内无行",
+      "expected_dates": 19,
+      "present_dates": 0,
+      "missing_dates": [
+        "2024-06-03",
+        "2024-06-04",
+        "2024-06-05",
+        "2024-06-06",
+        "2024-06-07",
+        "2024-06-11",
+        "2024-06-12",
+        "2024-06-13",
+        "2024-06-14",
+        "2024-06-17",
+        "2024-06-18",
+        "2024-06-19",
+        "2024-06-20",
+        "2024-06-21",
+        "2024-06-24",
+        "2024-06-25",
+        "2024-06-26",
+        "2024-06-27",
+        "2024-06-28"
+      ],
+      "field_coverage": {
+        "sh_index_close": 0.0,
+        "sh_index_pct_chg": 0.0
+      },
+      "invalid_rows": [],
+      "satisfied_dependencies": {
+        "stock_daily": "satisfied",
+        "sw_l1_daily": "open"
+      },
+      "data_version": null,
+      "affected_consumers": [
+        {
+          "run_id": "run_20260910_134152_349784",
+          "user": "probe-cutover-live-0910",
+          "question": "回看历史：2024年6月上证指数的月度涨跌幅是多少？当月收盘最低的是哪一天？",
+          "conversation_id": "conv_1bdda5a4391945d3a38588c97b402544",
+          "asked_at": "2026-09-10T13:41:52+08:00",
+          "run_status": "completed",
+          "sub_question": "market_daily 2024-06-01..2024-06-30 的 index_close、index_return_pct"
+        }
+      ],
+      "checked_at": "2026-09-15T20:06:12+08:00",
+      "db_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+      "parts": {
+        "sh_index": "partial"
+      }
+    },
+    {
+      "request_id": "dr-a18f1191ab",
+      "dataset": "stock_daily",
+      "table": "fact_stock_daily",
+      "window_start": "2026-08-10",
+      "window_end": "2026-09-10",
+      "status": "satisfied",
+      "reason": "24/24 个交易日、关键字段非空",
+      "expected_dates": 24,
+      "present_dates": 24,
+      "missing_dates": [],
+      "field_coverage": {
+        "close": 1.0,
+        "pct_chg": 1.0,
+        "amount": 0.9999
+      },
+      "invalid_rows": [],
+      "satisfied_dependencies": {},
+      "data_version": "714d9a241e7e",
+      "affected_consumers": [
+        {
+          "run_id": "run_20260912_231328_111964",
+          "user": "nogrok-smoke-0912",
+          "question": "盛弘股份最近有哪些公司层面的边际变化？请给出证据来源和时间。",
+          "conversation_id": "conv_a450f33548ff4313a9f8fb3ab703d9b8",
+          "asked_at": "2026-09-12T23:13:28+08:00",
+          "run_status": "completed",
+          "sub_question": "stock_daily 2026-08-10..2026-09-10 的 close、return_pct、amount、turnover"
+        }
+      ],
+      "checked_at": "2026-09-15T20:06:13+08:00",
+      "db_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+      "parts": {
+        "ohlc": "satisfied"
+      }
+    }
+  ],
+  "pending_sync_sources": {
+    "l2_moneyflow": {
+      "label": "L2 资金数据",
+      "sync_status": "pending_sync",
+      "status_basis": "user_confirmed",
+      "writer_ref": "scripts/moneyflow/（实施前核验具体 writer）",
+      "note": "待同步窗口的资金计算返回 pending_sync；不能从成交额推算资金流"
+    },
+    "sellside_evening": {
+      "label": "晚间卖方",
+      "sync_status": "pending_sync",
+      "status_basis": "user_confirmed",
+      "writer_ref": "知识库 wiki/raw/sellside/ → 台账地图观点提取流程",
+      "note": "不把未同步当「没有覆盖 / 舆论降温」，不生成伪造观点事件"
+    },
+    "morning_briefing": {
+      "label": "晨汇",
+      "sync_status": "pending_sync",
+      "status_basis": "user_confirmed",
+      "writer_ref": "IMA 原料获取 + morning-briefing；知识库 wiki/raw/briefings/",
+      "note": "不把缺批次当「当日无事件」，不以其他日报冒充晨汇"
+    }
+  },
+  "notes": [
+    "请求由各 run 的 tool_hunger.jsonl 中 window_uncovered 事件聚合而来，可随时重建；不是第二份台账。",
+    "补数写入仍由现有 writer 完成；fill 子命令拒绝指向生产库。",
+    "完成信号与恢复回执落 users/<user>/data_request_receipts.jsonl，同一 data_version 只恢复一次。"
+  ]
+}

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from intelligence.services.episode_semantic_verifier import (
     VERDICT_DELETED,
     VERDICT_DEMOTED,
@@ -90,6 +92,7 @@ def test_semantic_reject_inside_required_block_is_recorded_as_demoted_not_delete
     assert by_index[3]["judge_issues"] == ["第3句包含未绑定的创新药涨幅。"]
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_preflight_numeric_condition_is_recorded_before_any_judge_call() -> None:
     judge = _judge(True)
     frame, structural = _structural(

@@ -277,6 +277,7 @@ def test_delivery_verdicts_do_not_mask_preflight_ledger(monkeypatch):
     assert "0.133" not in checked.public_answer and BAD not in checked.public_answer
 
 
+@pytest.mark.usefixtures("numeric_delete_mode")
 def test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference(monkeypatch):
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
     # Existing real adapter exception path, with no new tool permission.
