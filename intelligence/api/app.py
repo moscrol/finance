@@ -118,6 +118,8 @@ from intelligence.services.self_use_maturity import (
     trading_days_from_duckdb,
 )
 from intelligence.services.workbench_overview import build_workbench_overview
+from intelligence.api.probe_monitor_integration import start_probe_monitor, stop_probe_monitor, get_probe_status
+from intelligence.services.model_drift_integration import install_drift_detection, get_detector_report, get_all_detectors_report
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -2216,9 +2218,25 @@ def create_app(
                 )
             except Exception as exc:  # noqa: BLE001 - fail closed at readiness
                 kb_rag.rag_worker.record_startup_failure(exc)
+        # 安装运行中漂移检测
+        try:
+            install_drift_detection()
+        except Exception as exc:
+            import logging
+            logging.getLogger("intelligence.api.app").warning("drift detection install failed: %s", exc)
+        probe_task=None
+        try:
+            probe_task=await start_probe_monitor()
+        except Exception as exc:
+            import logging
+            logging.getLogger("intelligence.api.app").warning("probe monitor start failed: %s", exc)
         try:
             yield
         finally:
+            try:
+                await stop_probe_monitor(probe_task)
+            except Exception:
+                pass
             kb_rag.rag_worker.close_all()
             llm_settings.clear_all()
             supervisor.shutdown()
@@ -3285,6 +3303,21 @@ def create_app(
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/api/arena/probe_status")
+    def probe_status():
+        """独立探针会话状态，切换工作会话不影响"""
+        return get_probe_status()
+
+    @app.get("/api/runs/{run_id}/drift")
+    def run_drift(run_id: str):
+        """查看某次运行中的模型漂移检测，知道正在跑的模型是哪个型号"""
+        return get_detector_report(run_id)
+
+    @app.get("/api/arena/drift_report")
+    def drift_report():
+        """所有运行的漂移报告"""
+        return get_all_detectors_report()
 
     @app.get("/")
     def index() -> FileResponse:
