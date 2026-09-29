@@ -262,9 +262,8 @@ def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
             if "material_source" in str(getattr(issue.code, "value", issue.code))] == []
 
 
-@pytest.mark.parametrize("source_excerpts", ["0", "1"])
 @pytest.mark.parametrize("reference_loop", [False, True])
-def test_restored_original_context_keeps_legacy_format_in_repair_finalizer_and_headless(source, reference_loop, monkeypatch, source_excerpts):
+def test_restored_original_context_keeps_legacy_format_in_repair_finalizer_and_headless(source, reference_loop):
     from uuid import uuid4
 
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
@@ -277,7 +276,6 @@ def test_restored_original_context_keeps_legacy_format_in_repair_finalizer_and_h
     from intelligence.services.research_tool_registry import ResearchToolRegistry
     from intelligence.tests.test_agent_episode import ScriptedModel
 
-    monkeypatch.setenv("FINANCE_MATERIAL_SOURCE_EXCERPTS", source_excerpts)
     _, _, _, frame, _, _, load = source
     context = replace(build_episode_context(frame, task_id=f"prior-format-{uuid4().hex}"), prior_evidence=load())
     registry = ResearchToolRegistry(())

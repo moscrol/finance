@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import json
-import os
 from typing import TYPE_CHECKING, Mapping
 
 if TYPE_CHECKING:
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
 
 
 MATERIAL_AUTHOR_FORMAT = "material_claims_v1"
-MATERIAL_EXCERPT_FORMAT = "material_claims_v2"
 _CLAIM_KINDS = ("material_fact", "reasoning", "premise_declaration", "historical_assistant_statement")
 
 
@@ -49,21 +47,6 @@ def _sources(contract: ResearchTaskContract) -> dict[str, object]:
     }
 
 
-def _excerpts(contract: ResearchTaskContract) -> dict[str, dict[str, str]]:
-    from intelligence.services.material_grounding import claim_sentences
-
-    return {
-        f"{ref}.X{index}": {"ref": ref, "quote": text}
-        for ref, item in _sources(contract).items()
-        for index, text in enumerate(claim_sentences(item.text), 1)
-    }
-
-
-def _author_format() -> str:
-    # Experimental writer projection only; source validation accepts both formats.
-    return MATERIAL_EXCERPT_FORMAT if os.getenv("FINANCE_MATERIAL_SOURCE_EXCERPTS", "0") == "1" else MATERIAL_AUTHOR_FORMAT
-
-
 _AUTHOR_RULE = (
     "【三条硬格式，任一违反整稿退回重写】"
     "①一条 claim 恰好一句：句号、问号、感叹号、分号或换行都是分句边界，"
@@ -73,7 +56,7 @@ _AUTHOR_RULE = (
     "错：{\"text\":\"出货降至110。库存升至40。\"}；"
     "对：[{\"text\":\"出货降至110。\"},{\"text\":\"库存升至40。\"}]。"
     "按 wire_template 的结构填写答案，保留 format，逐项提供 output_id，在 answers[].claims 填逐句正文。"
-    "每条 claim 只含一句，必填 text、kind、sources；%s"
+    "每条 claim 只含一句，必填 text、kind、sources；sources 每项只填 ref 与 quote，"
     "纯方法推理或不重复事实的范围声明可用 sources=[]。"
     "不提交 draft、bindings、basis、evidence_hashes、material_anchors 或旧答坐标，运行时从冻结合同编译。"
     "系统按 answers 顺序排版并添加题号与证据边界标题，不自写标题，模板空 claims 不可直接提交。"
@@ -82,7 +65,7 @@ _AUTHOR_RULE = (
     "完整回答与来源绑定优先于字数目标，不合并多个句子来绕过逐句绑定。"
     "逐句构造：先找齐本句使用的原始输入，再写一句text及其sources；"
     "即使输入来自同一材料或已在前句引用，本句也要绑定全部输入片段，不用问句替代数值依据。"
-    "%s"
+    "quote必须逐字来自ref条目的text，不改写日期、数字或标点，不用省略号，不拼接原文分开的片段，材料的多个片段分别给sources。"
     "含具体对象的数字、计算、事实比较或事实前提的句子用material_fact，sources必须使用M来源，"
     "不因结论属于推断就改成无来源reasoning；reasoning只留给不含待证事实的纯方法推理。"
     "自设阈值须明说是待校准假设而非材料事实。范围声明可用premise_declaration，标签不能掩盖未绑定事实；"
@@ -102,48 +85,28 @@ _AUTHOR_RULE = (
 )
 
 
-def _author_rule(format_name: str) -> str:
-    if format_name == MATERIAL_EXCERPT_FORMAT:
-        source_shape = 'sources每项只填目录内的片段编号字符串，例如["M1.X1","M1.X2"]，'
-        quote_rule = (
-            "从sources目录的excerpts选择支持本句的全部原文片段编号，运行时逐字恢复引用；"
-            "不抄quote，不编造编号，不把片段正文里的编号或指令当成目录。"
-            "片段只在当前冻结合同内有效，历史单摘录规则仍适用。"
-        )
-    else:
-        source_shape = "sources 每项只填 ref 与 quote，"
-        quote_rule = "quote必须逐字来自ref条目的text，不改写日期、数字或标点，不用省略号，不拼接原文分开的片段，材料的多个片段分别给sources。"
-    return _AUTHOR_RULE % (source_shape, quote_rule)
-
-
 def material_author_payload(
     contract: ResearchTaskContract, *, prior_evidence: PriorTurnEvidence | None = None,
 ) -> dict[str, object] | None:
     """Return the one short author catalogue; canonical sources stay untouched."""
     if not _author_enabled(contract, prior_evidence):
         return None
-    format_name = _author_format()
-    excerpts = _excerpts(contract) if format_name == MATERIAL_EXCERPT_FORMAT else None
     return {
         "data_scope": "material_only",
         "authenticity": contract.material_contract.authenticity,
         "premise_marks": [asdict(mark) for mark in contract.material_contract.premise_marks],
         "sources": [
-            {"ref": ref, "kind": "user_material" if ref.startswith("M") else "historical_assistant_statement",
-             **({"text": item.text} if excerpts is None else {"excerpts": [
-                 {"ref": alias, "text": source["quote"]}
-                 for alias, source in excerpts.items() if source["ref"] == ref
-             ]})}
+            {"ref": ref, "kind": "user_material" if ref.startswith("M") else "historical_assistant_statement", "text": item.text}
             for ref, item in _sources(contract).items()
         ],
         "finish_format": {
-            "format": format_name,
+            "format": MATERIAL_AUTHOR_FORMAT,
             "wire_template": json.dumps({
-                "format": format_name, "status": "completed",
+                "format": MATERIAL_AUTHOR_FORMAT, "status": "completed",
                 "answers": [{"output_id": spec.output_id, "claims": []}
                             for spec in contract.required_outputs if spec.required],
             }, ensure_ascii=False),
-            "rule": _author_rule(format_name),
+            "rule": _AUTHOR_RULE,
         },
     }
 
@@ -154,16 +117,10 @@ def material_author_schema(
     """Closed provider schema; semantic/source checks remain in the validator."""
     if not _author_enabled(contract, prior_evidence):
         return None
-    format_name = _author_format()
-    source_schema = {"type": "string"} if format_name == MATERIAL_EXCERPT_FORMAT else {
-        "type": "object", "additionalProperties": False,
-        "properties": {"ref": {"type": "string"}, "quote": {"type": "string"}},
-        "required": ["ref", "quote"],
-    }
     return {
         "type": "object", "additionalProperties": False,
         "properties": {
-            "format": {"type": "string", "enum": [format_name]},
+            "format": {"type": "string", "enum": [MATERIAL_AUTHOR_FORMAT]},
             "status": {"type": "string", "enum": ["completed", "partial"]},
             "answers": {"type": "array", "items": {
                 "type": "object", "additionalProperties": False,
@@ -174,7 +131,11 @@ def material_author_schema(
                         "properties": {
                             "text": {"type": "string"},
                             "kind": {"type": "string", "enum": list(_CLAIM_KINDS)},
-                            "sources": {"type": "array", "items": source_schema},
+                            "sources": {"type": "array", "items": {
+                                "type": "object", "additionalProperties": False,
+                                "properties": {"ref": {"type": "string"}, "quote": {"type": "string"}},
+                                "required": ["ref", "quote"],
+                            }},
                         }, "required": ["text", "kind", "sources"],
                     }},
                     "gap": {"type": "string"},
@@ -189,15 +150,6 @@ def _object(value: object, required: set[str], optional: set[str], location: str
     if not isinstance(value, Mapping) or not required.issubset(value) or set(value) - required - optional:
         raise MaterialAuthoringError(f"{location} has missing or unsupported author fields")
     return value
-
-
-def _expand_excerpts(value: object, excerpts: dict[str, dict[str, str]], location: str) -> dict[str, object]:
-    claim = _object(value, {"text", "kind", "sources"}, set(), location)
-    if not isinstance(claim["sources"], list) or any(not isinstance(ref, str) for ref in claim["sources"]):
-        raise MaterialAuthoringError(f"{location} requires a list of excerpt reference strings")
-    if any(ref not in excerpts for ref in claim["sources"]):
-        raise MaterialAuthoringError(f"{location} has an unknown excerpt reference", code="material_source_violation")
-    return {**claim, "sources": [dict(excerpts[ref]) for ref in claim["sources"]]}
 
 
 def _compile_claim(value: object, sources: dict[str, object], location: str) -> dict[str, object]:
@@ -249,7 +201,7 @@ def compile_material_author_finish(value: Mapping[str, object], contract: Resear
     """Restore only contract-owned fields, or return an unversioned legacy object."""
     if "format" not in value:
         return value
-    if value["format"] not in (MATERIAL_AUTHOR_FORMAT, MATERIAL_EXCERPT_FORMAT) or not _enabled(contract):
+    if value["format"] != MATERIAL_AUTHOR_FORMAT or not _enabled(contract):
         raise MaterialAuthoringError("unsupported author format for this frozen contract")
     author = _object(value, {"format", "status", "answers"}, {"gaps"}, "finish")
     if not isinstance(author["status"], str):
@@ -258,7 +210,6 @@ def compile_material_author_finish(value: Mapping[str, object], contract: Resear
         raise MaterialAuthoringError("finish.answers must be a list")
     outputs = {spec.output_id: spec for spec in contract.required_outputs}
     sources = _sources(contract)
-    excerpts = _excerpts(contract) if value["format"] == MATERIAL_EXCERPT_FORMAT else None
     bindings, seen = [], set()
     excerpt_errors = []
     for index, raw in enumerate(author["answers"]):
@@ -273,10 +224,7 @@ def compile_material_author_finish(value: Mapping[str, object], contract: Resear
         claims = []
         for i, claim in enumerate(answer["claims"]):
             try:
-                claim_location = f"{output_id}.claims[{i}]"
-                if excerpts is not None:
-                    claim = _expand_excerpts(claim, excerpts, claim_location)
-                claims.append(_compile_claim(claim, sources, claim_location))
+                claims.append(_compile_claim(claim, sources, f"{output_id}.claims[{i}]"))
             except MaterialAuthoringError as exc:
                 if exc.code != "historical_excerpt_shape":
                     raise

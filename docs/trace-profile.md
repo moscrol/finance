@@ -19,9 +19,9 @@
 
 | 字段 | 直觉语义 | 实际语义 | 出处 |
 |---|---|---|---|
-| material作者 `format=material_claims_v1/v2` | 格式通过即内容可信 | v1逐字quote，v2按当前冻结合同选择原文片段；编译只恢复来源绑定，不证明本句获得充分支持、财务计算正确或缺项判断成立 | `2026-09-29-material-authoring-triage.md`；R-20260929-01试验设计 |
+| material作者 `format=material_claims_v1`（v2试验已撤回） | 格式通过即内容可信 | v1逐字quote；已撤回的v2曾按当前冻结合同选原文片段，不能视作当前能力；编译只恢复来源绑定，不证明本句获得充分支持、财务计算正确或缺项判断成立 | `2026-09-29-material-authoring-triage.md`；R-20260929-01试验设计 |
 | `semantic_verifier.judge_status=passed` | 有模型判官逐句审读 | 必须并读`judge_mode`与`judge_usage.calls`；财务run_20260928_201413_021994为deterministic/0calls，余额等现金错误仍公开 | `docs/verification/2026-09-29-material-authoring-triage.md` |
-| 作者别名`M1` / `M1.X1` | 与用户原题的M1标签同义、跨轮稳定 | M/H由当前冻结目录顺序生成，X为原文分句次序；消息题作者M1含整段材料，用户的M1..M5在其正文，编号不可跨合同复用或当作持久身份 | R-20260929-01；`material_answer_authoring._sources/_excerpts` |
+| 作者别名`M1`（`M1.X1`仅见已撤回试验） | 与用户原题的M1标签同义、跨轮稳定 | M/H由当前冻结目录顺序生成，X为原文分句次序；消息题作者M1含整段材料，用户的M1..M5在其正文，编号不可跨合同复用或当作持久身份 | R-20260929-01；`material_answer_authoring._sources`；v2实现见试验归档 |
 | `turn.status=completed` | 全部质量门都通过 | 只表示 run 有可交付终态；确定性 fallback 也会 completed | `20260803T082342Z-a4-pre-budget-fix.json:42-106` |
 | `elapsed_s` | 精确耗时 | Acceptance 以约 2 秒轮询观测，是量化值；phase `elapsed_ms` 也只能在同一 semantic epoch 内比较 | `intelligence/eval/acceptance.py` 与本文件 §4 |
 | `synthesis_diagnostic.phases` | 所有设计阶段 | 只记录真正开始或被明确 skip 的阶段；字段缺失表示没有跑到，不可把缺失当 0ms | `ask_synthesis._record_synthesis_phase` |

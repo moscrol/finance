@@ -1,0 +1,7 @@
+{
+  "baseline_revision": "957dc51e2a2a0426abc954b77d6b99422c3919ee",
+  "runtime_sha256": "e61a367d3de71d87088cdb8bf9fc3c75542b35b37543b9ddf0d20cb9540bf699",
+  "runtime_equal_to_pre_experiment": true,
+  "archived_patch_sha256": "1befa69861cfd9f2ab0d6b2b1370c3841cfbbb34da6ad91bb209223e42fc22e1",
+  "other_worktrees_modified": false
+}
