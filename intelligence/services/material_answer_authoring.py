@@ -85,13 +85,41 @@ _AUTHOR_RULE = (
 )
 
 
+# These labels are writer-side type hints on words already present in M material.
+# They are not an evidence source, an accounting formula, or a new author field.
+_FINANCE_QUANTITY_TYPES = (
+    ("净利润", "income_statement_earnings"),
+    ("经营活动现金流量净额", "operating_cash_flow"),
+    ("资本开支", "investing_cash_outflow"),
+    ("股权价值", "equity_value"),
+    ("企业价值", "enterprise_value"),
+)
+
+
+def _finance_quantity_type_hints(contract: ResearchTaskContract) -> list[dict[str, str]]:
+    if contract.question_type != "general_finance_qa":
+        return []
+    hints = []
+    for ref, material in _sources(contract).items():
+        if not ref.startswith("M"):
+            continue
+        for term, quantity_type in _FINANCE_QUANTITY_TYPES:
+            if term in material.text:
+                hints.append({"ref": ref, "term": term, "quantity_type": quantity_type})
+                if len(hints) == 24:  # Bound the writer input; never scan H as fact.
+                    return hints
+    return hints
+
+
 def material_author_payload(
     contract: ResearchTaskContract, *, prior_evidence: PriorTurnEvidence | None = None,
 ) -> dict[str, object] | None:
     """Return the one short author catalogue; canonical sources stay untouched."""
     if not _author_enabled(contract, prior_evidence):
         return None
+    quantity_type_hints = _finance_quantity_type_hints(contract)
     return {
+        **({"quantity_type_hints": quantity_type_hints} if quantity_type_hints else {}),
         "data_scope": "material_only",
         "authenticity": contract.material_contract.authenticity,
         "premise_marks": [asdict(mark) for mark in contract.material_contract.premise_marks],
