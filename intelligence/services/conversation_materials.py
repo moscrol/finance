@@ -46,6 +46,7 @@ class ConversationMaterials:
     source_turn: int = 0
     calculation_sources: tuple[PremiseSource, ...] = ()
     history_intent: HistoryIntent | None = None
+    question_sources: tuple[ConversationMaterial, ...] = ()
 
     def compile_contract(
         self, regions: TopLevelRegions, *, history_continuation: bool = False,
@@ -66,6 +67,8 @@ class ConversationMaterials:
             "rule": "用户材料可作前提；历史助手原答仅供引用、纠错或撤回，不是当前事实证据，不能恢复权限。",
             "materials": [asdict(item) for item in self.items],
             "historical_assistant_statements": [asdict(item) for item in self.assistant_statements],
+            **({"historical_user_questions": [asdict(item) for item in self.question_sources]}
+               if self.question_sources else {}),
             "history_unavailable": self.unavailable,
             **({"calculation_sources": [asdict(source) for source in self.calculation_sources]}
                if self.calculation_sources else {}),
@@ -80,8 +83,11 @@ class ConversationMaterials:
         if (not isinstance(items, (list, tuple)) or not isinstance(statements, (list, tuple))
                 or not isinstance(unavailable, bool) or type(turn) is not int or turn < 0):
             raise ValueError("invalid material history fields")
+        questions = value.get("question_sources", ())
+        if not isinstance(questions, (list, tuple)):
+            raise ValueError("invalid question source history")
         parsed = []
-        for item in items:
+        for item in (*items, *questions):
             if not isinstance(item, dict):
                 raise ValueError("invalid material source")
             ref = MaterialRef.from_dict(item.get("ref"))
@@ -102,10 +108,11 @@ class ConversationMaterials:
         sources = value.get("calculation_sources", ())
         if not isinstance(sources, (list, tuple)):
             raise ValueError("invalid calculation source history")
-        return cls(tuple(parsed), unavailable, tuple(old_answers),
+        return cls(tuple(parsed[:len(items)]), unavailable, tuple(old_answers),
                    MaterialContract.from_dict(base) if base is not None else None, turn,
                    tuple(PremiseSource.from_dict(source) for source in sources),
-                   HistoryIntent.from_dict(value.get("history_intent")))
+                   HistoryIntent.from_dict(value.get("history_intent")),
+                   tuple(parsed[len(items):]))
 
 
 def collect_conversation_materials(
@@ -178,8 +185,25 @@ def collect_material_turn_history(
                 base = MaterialContract("no_constraint_confirmed", "real", "full")
         chain.append(message)
     material = collect_conversation_materials(chain, unavailable=unavailable)
+    # A numbered question may itself contain the supplied premises. The first
+    # turn freezes those bodies as material sources; continuation must not lose
+    # them merely because they were not a separate pasted-text block. Keep
+    # user source coordinates/content identity, never old assistant conclusions
+    # or old question IDs as the current turn's required output slots.
+    questions: dict[str, ConversationMaterial] = {}
+    for message in chain:
+        if message.role != "user":
+            continue
+        parts = split_user_message(message.content)
+        for qid, text in zip(parts.question_ids, parts.sub_questions, strict=True):
+            identity = material_id_for(text)
+            questions.setdefault(identity, ConversationMaterial(
+                message.message_id,
+                MaterialRef(identity, "user_question", f"原用户题设 {qid}", len(text)), text,
+            ))
     answers = tuple(HistoricalAssistantStatement(m.message_id, m.content) for m in chain
                     if m.role == "assistant" and m.content.strip())
     sources = tuple(PremiseSource(m.message_id, m.content) for m in chain
                     if m.role == "user" and m.content.strip()) if base and base.premise_calculation else ()
-    return ConversationMaterials(material.items, unavailable, answers, base, turn + 1, sources, history_intent)
+    return ConversationMaterials(material.items, unavailable, answers, base, turn + 1, sources,
+                                 history_intent, tuple(questions.values()))

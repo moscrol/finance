@@ -76,8 +76,8 @@ def freeze_material_grounding(frame: TaskFrame) -> MaterialGrounding:
     """Only original current user text and typed, source-bound history qualify."""
     sources: dict[str, MaterialSource] = {}
     history = frame.conversation_materials
-    for item in history.items if history else ():
-        sources[item.ref.material_id] = MaterialSource(item.ref.material_id, item.text, item.source_message_id)
+    for item in (*history.items, *history.question_sources) if history else ():
+        sources.setdefault(item.ref.material_id, MaterialSource(item.ref.material_id, item.text, item.source_message_id))
     parts = split_user_message(frame.raw_question)
     for ref, text in zip(parts.materials, parts.material_texts, strict=True):
         sources.setdefault(ref.material_id, MaterialSource(ref.material_id, text, "current_user_message"))

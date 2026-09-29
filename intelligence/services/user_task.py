@@ -516,6 +516,13 @@ _B_LOCAL_SOURCE_RE = re.compile(_B_LOCAL_SOURCE_PATTERN)
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
 _CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上", "沿用上一轮", "沿用上轮")
+# An explicit edit of original user inputs is a continuation, not a new
+# evidence-seeking task. Only the masked, message-level instruction can bind it.
+_MATERIAL_CORRECTION_HEAD = (
+    r"(?:只|仅)?(?:基于|依据|根据)(?:原题|原材料|上一题|上轮题设|上一轮题设)"
+    r"(?:重新回答|重写|重答|修正|纠正|改写)"
+)
+_MATERIAL_CORRECTION_RE = re.compile("^" + _MATERIAL_CORRECTION_HEAD)
 _PREVIOUS_ANSWER_REVIEW_RE = re.compile(
     r"^(?:复核|复查|重新审视|检查|重新检查|审查)(?:一下)?(?:你)?"
     r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
@@ -546,7 +553,7 @@ _SENT_SPLIT_RE = re.compile(
     ))
     + "|" + _B_LOCAL_SOURCE_PATTERN
     + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + "|" + _B_SUPPLIED_MATERIAL_HEAD
-    + "|" + _B_NO_NEW_READS_HEAD + r"))"
+    + "|" + _B_NO_NEW_READS_HEAD + "|" + _MATERIAL_CORRECTION_HEAD + r"))"
 )
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
@@ -640,6 +647,10 @@ def _state_op_in_sentence(sent: str, *, original_text: str | None = None) -> str
     if not s:
         return None
     head = _state_head(s)
+    if _MATERIAL_CORRECTION_RE.match(head):
+        # The compiler also applies an explicit 只/仅 input ceiling. Preserve
+        # the continuation kind so trusted history is recovered before routing.
+        return "continuation"
     # ``_is_local_only_head`` 覆盖 ``_B_LOCAL_ONLY_PHRASES`` 与「只用本地已有资料」
     # 这类带来源名词的句式；放宽词表单列，避免把它塞进本地词表改变语义。
     if (is_material_only_instruction(head, original_text=original_text)
@@ -663,7 +674,8 @@ def _state_op_in_sentence(sent: str, *, original_text: str | None = None) -> str
 def is_material_only_instruction(head: str, *, original_text: str | None = None) -> bool:
     """Previously obtained data is an input ceiling, not permission to query again."""
     return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(
-        _B_PREVIOUS_EVIDENCE_ONLY_RE.match(head) or _B_SUPPLIED_MATERIAL_RE.match(head)
+        (head.startswith(("只", "仅")) and _MATERIAL_CORRECTION_RE.match(head))
+        or _B_PREVIOUS_EVIDENCE_ONLY_RE.match(head) or _B_SUPPLIED_MATERIAL_RE.match(head)
         or (_B_NO_NEW_READS_RE.match(head)
             # A masked quoted object must not turn a partial prohibition into
             # an objectless one. The original can only veto, never add control.

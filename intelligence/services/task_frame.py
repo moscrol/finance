@@ -147,6 +147,8 @@ class TaskFrame:
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
         else:
+            if not self.conversation_materials.question_sources:
+                payload["conversation_materials"].pop("question_sources", None)
             if not self.conversation_materials.calculation_sources:
                 payload["conversation_materials"].pop("calculation_sources", None)
             if self.conversation_materials.history_intent is None:
