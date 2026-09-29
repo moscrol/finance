@@ -344,6 +344,22 @@ def test_parent_symlink_is_refused_even_when_git_hides_original(repo, tmp_path):
     assert (outside / "calc.py").read_text(encoding="utf-8") == CALC
 
 
+
+def test_hardlink_to_file_outside_repo_is_refused(repo, tmp_path):
+    """同字节硬链接能让 status + HEAD blob 都过关，但写入会改仓外同 inode。"""
+    target = repo / "calc.py"
+    outside = tmp_path / "external-calc.py"
+    outside.write_bytes(target.read_bytes())
+    target.unlink()
+    os.link(outside, target)
+    assert os.path.samefile(target, outside) and target.stat().st_nlink >= 2
+    assert _git(repo, "status", "--porcelain", "--untracked-files=no", "--", "calc.py") == ""
+    code, _, summary = _check(repo, _spec(tmp_path, [PLUS_TO_MINUS]), "--dry-run")
+    assert code == 2 and summary["baseline"] is None
+    assert "硬链接" in " ".join(summary["problems"])
+    assert outside.read_text(encoding="utf-8") == CALC
+
+
 def test_misnamed_expected_test_is_a_spec_error_not_a_survivor(repo, tmp_path):
     spec = _spec(tmp_path, [{**PLUS_TO_MINUS, "expected_red": ["test_ad"]}])
     code, _, summary = _check(repo, spec, "--dry-run")
