@@ -1,0 +1,137 @@
+{
+  "research_cutoff": "2026-09-23",
+  "retrieval_local_date": "2026-09-24",
+  "scope": "Two 2026H1 full reports only. Selected pages reviewed, all-page text searched. No external audit assurance.",
+  "extraction": {
+    "program": "pdftotext",
+    "arguments": [
+      "-layout",
+      "-raw (separate pass; preserves split table-cell number order)"
+    ],
+    "text_preserved": true,
+    "pdfs_committed": false
+  },
+  "documents": [
+    {
+      "code": "603986",
+      "announcement_id": "1225480384",
+      "announcement_title": "兆易创新2026年半年度报告",
+      "published_date": "2026-08-19",
+      "retrieved_at": "2026-09-23T17:12:33.383Z",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-19/1225480384.PDF",
+      "local_pdf": "/Users/a77/.finance-runtime/comparisons/knevo-primary-audit-20260924-0112/603986-2026H1-1225480384.pdf",
+      "pdf_bytes": 1276073,
+      "pdf_sha256": "8d559a90a9ddc41e667f630afb620004549d31d43de06f9ddb0ab4c2dc84f25f",
+      "pdf_pages": 178,
+      "full_text_sha256": "f99a7d335d8210250f4122c0ced3aff2931b9eef5296f0131ce76f8bcaa13fd9",
+      "excerpts": {
+        "file": "603986-pages.json",
+        "sha256": "f9f5c3b6c6241bf061616357efe648540a186f61216e0b9e73b761fe901b97c9",
+        "pages": [
+          1,
+          2,
+          6,
+          7,
+          8,
+          9,
+          10,
+          13,
+          14,
+          15,
+          51,
+          52,
+          79,
+          80,
+          88,
+          106,
+          125,
+          134,
+          135,
+          137,
+          138,
+          143,
+          147
+        ]
+      },
+      "query": {
+        "url": "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+        "method": "POST",
+        "parameters": {
+          "column": "sse",
+          "searchkey": "兆易创新 半年度报告",
+          "seDate": "2026-01-01~2026-09-23",
+          "pageNum": 1,
+          "pageSize": 30,
+          "tabName": "fulltext",
+          "isHLtitle": false
+        },
+        "file": "search-603986.json",
+        "sha256": "cdda244ce2e99c4e217a464d2176d019fc55501effcfdf91e79a90d41e677d6d"
+      }
+    },
+    {
+      "code": "300604",
+      "announcement_id": "1225523202",
+      "announcement_title": "2026年半年度报告",
+      "published_date": "2026-08-28",
+      "retrieved_at": "2026-09-23T17:12:33.351Z",
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-08-28/1225523202.PDF",
+      "local_pdf": "/Users/a77/.finance-runtime/comparisons/knevo-primary-audit-20260924-0112/300604-2026H1-1225523202.pdf",
+      "pdf_bytes": 1161905,
+      "pdf_sha256": "4073e8fce5a6f5268de61b37f5fef9a9be88b714c3f3b65c04a86218df21de3f",
+      "pdf_pages": 188,
+      "full_text_sha256": "867a6c4acfeaac6cd3342fa4cee39ad6b20f95007473d3f554acbe190a4ad95b",
+      "excerpts": {
+        "file": "300604-pages.json",
+        "sha256": "4c24e10d882f2f97053a970978d2bf28609d08c885c5b31693403db6d26a7014",
+        "pages": [
+          1,
+          2,
+          8,
+          9,
+          13,
+          14,
+          18,
+          19,
+          20,
+          21,
+          39,
+          53,
+          57,
+          58,
+          59,
+          81,
+          93,
+          112,
+          113,
+          131,
+          132,
+          139,
+          140,
+          141,
+          142,
+          143,
+          147,
+          148,
+          152,
+          153
+        ]
+      },
+      "query": {
+        "url": "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+        "method": "POST",
+        "parameters": {
+          "column": "szse",
+          "searchkey": "长川科技 半年度报告",
+          "seDate": "2026-01-01~2026-09-23",
+          "pageNum": 1,
+          "pageSize": 30,
+          "tabName": "fulltext",
+          "isHLtitle": false
+        },
+        "file": "search-300604.json",
+        "sha256": "f5f99dc755d0a16a2376cc910fc46e74b9ea451079ef10669544ef265d5e8d10"
+      }
+    }
+  ]
+}
