@@ -312,6 +312,10 @@ def file_problem(root: Path, rel: str) -> Optional[str]:
     path = root / rel
     if path.is_symlink():
         return f"{rel}: 是符号链接——写入会穿透到链接目标，拒绝"
+    # 即使最终文件不是链接，父目录仍可能指向仓外。Git 的 assume-unchanged
+    # 可让 status 隐去原路径的删除，而同字节的目标又能通过 HEAD blob 比对。
+    if path.resolve() != path:
+        return f"{rel}: 父目录含符号链接——文件身份不再绑定到仓内路径，拒绝"
     if not path.is_file():
         return f"{rel}: 文件不存在"
     code, blob = _git(root, "rev-parse", "--verify", "--quiet", f"HEAD:{rel}")
