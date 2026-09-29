@@ -1,0 +1,87 @@
+{
+  "scope": {
+    "scanned_files": 747,
+    "sample_files": 747,
+    "since": null,
+    "until": "2026-08-27",
+    "user": "all",
+    "date_min": "2026-08-08",
+    "date_max": "2026-08-27",
+    "unknown_dates": 0,
+    "invalid_json": 0,
+    "missing_precheck": 12,
+    "named_user_dirs": 387,
+    "probe_or_other_dirs": 360,
+    "probe_or_other_fraction": 0.4819277108433735,
+    "code_revision_distinct": [],
+    "code_revision_known_runs": 0,
+    "code_revision_unknown_runs": 747,
+    "revision_span": "UNAVAILABLE: no code revision in artifacts",
+    "manifest_name": "tool-usage-differential-2026-08-27-reconstructed-cohort.json",
+    "manifest_sha256": "5cf4410467efc0de6afcbca834acfb5e905d7bc55b23c958993c80f32371b01b",
+    "manifest_basis": "extant continuous-episode.json mtime <= initial workorder be00f83c7 commit 2026-08-27T20:43:39+08:00; original 747-run manifest not retained"
+  },
+  "run_counts": {
+    "with_checks": 735,
+    "computable": 698,
+    "with_uncalled": 572,
+    "uncalled_rate": 0.8194842406876791
+  },
+  "tool_counts": {
+    "evidence_lookup": {
+      "declared_runs": 84,
+      "uncalled_runs": 55,
+      "uncalled_rate": 0.6547619047619048
+    },
+    "graph_lookup": {
+      "declared_runs": 199,
+      "uncalled_runs": 99,
+      "uncalled_rate": 0.49748743718592964
+    },
+    "kb_search": {
+      "declared_runs": 603,
+      "uncalled_runs": 406,
+      "uncalled_rate": 0.6733001658374793
+    },
+    "l3_lookup": {
+      "declared_runs": 5,
+      "uncalled_runs": 3,
+      "uncalled_rate": 0.6
+    },
+    "mainline_context": {
+      "declared_runs": 59,
+      "uncalled_runs": 14,
+      "uncalled_rate": 0.23728813559322035
+    },
+    "market_data": {
+      "declared_runs": 459,
+      "uncalled_runs": 171,
+      "uncalled_rate": 0.37254901960784315
+    },
+    "news_search": {
+      "declared_runs": 120,
+      "uncalled_runs": 89,
+      "uncalled_rate": 0.7416666666666667
+    },
+    "web_search": {
+      "declared_runs": 89,
+      "uncalled_runs": 83,
+      "uncalled_rate": 0.9325842696629213
+    }
+  },
+  "output_instances": {
+    "declared_without_request": 425,
+    "suspicious_without_declaration": 1193,
+    "by_output_id": {
+      "chain_mapping": 99,
+      "company_mapping": 5,
+      "direct_answer": 107,
+      "direct_assessment": 123,
+      "prime_news": 39,
+      "prime_quote": 30,
+      "relation_map": 1,
+      "supporting_evidence": 21
+    }
+  },
+  "caveat": "The instrument's range depends on the produces declaration table: an empty declaration hides missed calls. Conversely, a declared-but-uncalled tool does not prove the output was left empty; another tool or prefetch may fill it. Neither the run-level gap nor the output-instance count measures model quality."
+}

@@ -9,6 +9,7 @@ undeclared tool or prefetch. No code or user run data is modified.
 from __future__ import annotations
 
 import argparse
+import hashlib
 from collections import Counter
 from datetime import date
 import json
@@ -57,6 +58,45 @@ def code_revision(doc: dict, path: Path) -> str | None:
     except (OSError, ValueError, TypeError):
         pass
     return None
+
+
+def load_manifest(manifest: Path, users_dir: Path) -> tuple[list[Path], str, str]:
+    """Freeze a reconstructed cohort: all listed bytes must still match.
+
+    Never silently substitute today's glob for a missing or changed historical run.
+    The manifest is an explicit cohort, not proof that the old snapshot survived.
+    """
+    raw = manifest.read_bytes()
+    doc = json.loads(raw)
+    if not isinstance(doc, dict) or not isinstance(doc.get("files"), list):
+        raise ValueError("manifest must contain a files list")
+    if doc.get("count") != len(doc["files"]):
+        raise ValueError("manifest count mismatch")
+    root = users_dir.resolve(strict=True)
+    selected: list[Path] = []
+    seen: set[str] = set()
+    for entry in doc["files"]:
+        if not isinstance(entry, dict):
+            raise ValueError("manifest entry must be an object")
+        rel, expected = entry.get("relative_path"), entry.get("sha256")
+        if not isinstance(rel, str) or not isinstance(expected, str):
+            raise ValueError("manifest entry missing relative_path/sha256")
+        parts = rel.split("/")
+        if (len(parts) != 4 or parts[1] != "runs" or
+                not parts[2].startswith("run_") or
+                parts[3] != "continuous-episode.json" or
+                any(part in ("", ".", "..") for part in parts) or
+                rel in seen):
+            raise ValueError(f"unsafe or duplicate manifest path: {rel}")
+        seen.add(rel)
+        path = (root / rel).resolve(strict=True)
+        if not path.is_relative_to(root) or not path.is_file():
+            raise ValueError(f"manifest path outside users root: {rel}")
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != expected:
+            raise ValueError(f"manifest SHA256 mismatch: {rel}")
+        selected.append(path)
+    return selected, hashlib.sha256(raw).hexdigest(), str(doc.get("basis") or "unspecified")
 
 
 def analyze(paths: list[Path], *, since: str | None = None,
@@ -189,6 +229,10 @@ def render_markdown(report: dict) -> str:
            f"suspicious {inst['suspicious_without_declaration']}。两数必须并读。**", "",
            "| 工具 | 声明为 contributor 的 run | 未调用 | 未调用率 |",
            "| --- | ---: | ---: | ---: |"]
+    if s.get("manifest_sha256"):
+        out.insert(3, f"- 冻结样本：{s['manifest_name']}；SHA256 "
+                   f"{s['manifest_sha256']}；依据：{s['manifest_basis']}。"
+                   "此清单为现存产物重建，并非当时保存的原始 manifest。")
     for name, c in report["tool_counts"].items():
         out.append(f"| `{name}` | {c['declared_runs']} | {c['uncalled_runs']} | "
                    f"{ratio(c['uncalled_runs'], c['declared_runs'])} |")
@@ -206,14 +250,25 @@ def main() -> int:
     ap.add_argument("--since", type=date.fromisoformat, default=None)
     ap.add_argument("--until", type=date.fromisoformat, default=None)
     ap.add_argument("--user", default=None, help="exact directory name, not a substring")
+    ap.add_argument("--manifest", type=Path, default=None,
+                    help="freeze sample by relative paths and SHA256; fail on drift")
     ap.add_argument("--output-dir", type=Path, default=Path(__file__).resolve().parents[1] /
                     "intelligence/eval/measurements")
     args = ap.parse_args()
     if args.since and args.until and args.since > args.until:
         ap.error("--since must be <= --until")
-    files = sorted(args.users_dir.glob("*/runs/*/continuous-episode.json"))
+    if args.manifest:
+        try:
+            files, digest, basis = load_manifest(args.manifest, args.users_dir)
+        except (OSError, ValueError, TypeError) as exc:
+            ap.error(f"manifest verification failed: {exc}")
+    else:
+        files = sorted(args.users_dir.glob("*/runs/*/continuous-episode.json"))
     report = analyze(files, since=args.since.isoformat() if args.since else None,
                      until=args.until.isoformat() if args.until else None, user=args.user)
+    if args.manifest:
+        report["scope"].update(manifest_name=args.manifest.name,
+                               manifest_sha256=digest, manifest_basis=basis)
     if not report["scope"]["sample_files"]:
         print("No runs matched; no report written", file=sys.stderr)
         return 2
@@ -224,6 +279,8 @@ def main() -> int:
         scope += "-since-" + args.since.isoformat()
     if args.until:
         scope += "-until-" + args.until.isoformat()
+    if args.manifest:
+        scope += "-manifest-" + digest[:12]
     prefix = args.output_dir / f"tool-usage-differential-{suffix}-{scope}"
     for path in (prefix.with_suffix(".json"), prefix.with_suffix(".md")):
         if path.exists():

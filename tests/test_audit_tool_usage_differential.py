@@ -1,9 +1,12 @@
 """Counterexamples for R-20260827-14 P0 (no user or network data)."""
 
+import hashlib
 import json
 from pathlib import Path
 
-from scripts.audit_tool_usage_differential import analyze, render_markdown
+import pytest
+
+from scripts.audit_tool_usage_differential import analyze, load_manifest, render_markdown
 
 
 def episode(root: Path, user: str, day: str, checks: list[dict] | None,
@@ -67,6 +70,26 @@ def test_filters_use_run_date_and_user_exact_not_mtime(tmp_path: Path):
     assert r["tool_counts"]["kb_search"]["declared_runs"] == 1
     assert analyze([a, b], user="a77")["scope"]["sample_files"] == 1
     assert analyze([a, b], user="a")["scope"]["sample_files"] == 0
+
+
+def test_manifest_freezes_exact_bytes_and_rejects_drift(tmp_path: Path):
+    path = episode(tmp_path, "probe", "20260826", [check("x", "kb_search")], [])
+    rel = path.relative_to(tmp_path).as_posix()
+    doc = {"count": 1, "basis": "synthetic frozen cohort", "files": [
+        {"relative_path": rel, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}]}
+    manifest = tmp_path / "sample.json"
+    manifest.write_text(json.dumps(doc))
+    files, digest, basis = load_manifest(manifest, tmp_path)
+    assert files == [path] and len(digest) == 64
+    assert basis == "synthetic frozen cohort"
+    assert analyze(files)["scope"]["sample_files"] == 1
+    path.write_text(path.read_text() + " ")
+    with pytest.raises(ValueError, match="SHA256 mismatch"):
+        load_manifest(manifest, tmp_path)
+    doc["files"][0]["relative_path"] = "../other/runs/run_20260826_120000_123456/continuous-episode.json"
+    manifest.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match="unsafe"):
+        load_manifest(manifest, tmp_path)
 
 
 def test_multiple_contributors_one_called_not_an_instance_gap(tmp_path: Path):
