@@ -4,8 +4,9 @@ import json
 import re
 import statistics
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, time as dtime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import duckdb
 
 from intelligence.services.market_moneyflow import load_moneyflow_snapshot
@@ -68,6 +69,63 @@ def _table_exists(con: duckdb.DuckDBPyConnection, table: str) -> bool:
             [table],
         ).fetchone()[0]
     )
+
+
+_CN_TZ = ZoneInfo("Asia/Shanghai")
+#: 收盘后留 30 分钟再把「今天」算作最近已收盘交易日，避免 15:00 整点误报落后。
+_SESSION_SETTLED = dtime(15, 30)
+_MAX_LISTED_MISSING = 30
+
+
+def market_freshness(as_of: str | None, now: datetime | None = None) -> dict:
+    """盘面数据相对「最近已收盘交易日」落后多少个交易日。
+
+    只用交易所日历判定（``trading_day_verdict``，纯日历、不读库），不看同步有没有跑。
+    日历判不了（该年休市表未登记）时 ``calendar_certain=False``、``lag_trading_days=None``，
+    不猜。``missing_trade_dates`` 只列前 30 个。
+    """
+    from market_feature_store.trading_days import trading_day_verdict
+
+    moment = now.astimezone(_CN_TZ) if now else datetime.now(_CN_TZ)
+    day = moment.date() if moment.time() >= _SESSION_SETTLED else moment.date() - timedelta(days=1)
+    expected: date | None = None
+    for _ in range(40):
+        verdict = trading_day_verdict(day)
+        if verdict.is_trading:
+            expected = day
+            break
+        if verdict.is_unknown:
+            break
+        day -= timedelta(days=1)
+    result: dict = {
+        "as_of": as_of,
+        "expected_trade_date": expected.isoformat() if expected else None,
+        "lag_trading_days": None,
+        "missing_trade_dates": [],
+        "calendar_certain": expected is not None,
+        "checked_at": moment.isoformat(timespec="seconds"),
+    }
+    if expected is None or not as_of:
+        return result
+    try:
+        cursor = date.fromisoformat(as_of) + timedelta(days=1)
+    except ValueError:
+        return result
+    missing: list[str] = []
+    lag = 0
+    while cursor <= expected:
+        verdict = trading_day_verdict(cursor)
+        if verdict.is_unknown:
+            result["calendar_certain"] = False
+            return result
+        if verdict.is_trading:
+            lag += 1
+            if len(missing) < _MAX_LISTED_MISSING:
+                missing.append(cursor.isoformat())
+        cursor += timedelta(days=1)
+    result["lag_trading_days"] = lag
+    result["missing_trade_dates"] = missing
+    return result
 
 
 def _latest_table_status(
@@ -890,6 +948,7 @@ def build_workbench_overview(
             "logic_effectiveness": agent_payload.get("logic_effectiveness", {}),
             "hypothesis_status": "等待市场数据",
         },
+        "market_freshness": market_freshness(None),
         "data_status": [
             {
                 "key": "database",
@@ -1018,6 +1077,7 @@ def build_workbench_overview(
                     "同日可回检" if agent_date == target_date else "等待同日知识事件"
                 ),
             },
+            "market_freshness": market_freshness(target_date),
             "data_status": statuses,
             "agent_artifact": (
                 str((queue_path or agent_path).relative_to(root))

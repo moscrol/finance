@@ -53,6 +53,7 @@ import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
 import { LimitUpDashboard } from "./components/river/LimitUpDashboard";
 import { RiverWorkbench } from "./components/river/RiverWorkbench";
+import { StaleDataBanner } from "./components/StaleDataBanner";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
 import {
@@ -119,9 +120,8 @@ export default function App() {
   const [modelSettingsError, setModelSettingsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(
-    () => window.innerWidth >= 1180,
-  );
+  // 首屏是「今日」看板：检查器只服务研究线程，看板页默认收起，把宽度留给图表。
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [artifacts, setArtifacts] = useState<ArtifactDescriptor[]>([]);
   const [artifact, setArtifact] = useState<ArtifactDescriptor | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
@@ -895,7 +895,7 @@ export default function App() {
   const navigateSection = (section: WorkbenchSection) => {
     setSurface({ kind: section });
     setConversationDrawerOpen(false);
-    if (window.innerWidth < 1180) {
+    if (section !== "ask" || window.innerWidth < 1180) {
       setInspectorOpen(false);
     }
   };
@@ -994,6 +994,10 @@ export default function App() {
               重试
             </button>
           </div>
+        )}
+
+        {activeSection !== "ask" && overview?.market_freshness && (
+          <StaleDataBanner freshness={overview.market_freshness} />
         )}
 
         {(surface.kind === "home" || surface.kind === "ask") && (

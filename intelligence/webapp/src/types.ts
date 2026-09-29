@@ -473,6 +473,15 @@ export interface LearningFeedback {
   approved_rule_count: number;
 }
 
+export interface MarketFreshness {
+  as_of: string | null;
+  expected_trade_date: string | null;
+  lag_trading_days: number | null;
+  missing_trade_dates: string[];
+  calendar_certain: boolean;
+  checked_at: string;
+}
+
 export interface WorkbenchOverview {
   as_of_date: string | null;
   market: MarketOverview;
@@ -530,6 +539,7 @@ export interface WorkbenchOverview {
     logic_effectiveness: Record<string, unknown>;
     hypothesis_status: string;
   };
+  market_freshness?: MarketFreshness;
   data_status: DataFreshnessStatus[];
   agent_artifact: string | null;
 }
