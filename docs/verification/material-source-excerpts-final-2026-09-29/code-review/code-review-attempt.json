@@ -1,0 +1,10 @@
+{
+  "purpose": "isolated-context automated code review; no tools, not human review; does not modify runtime judge",
+  "model": "glm-5.3",
+  "calls_authorized": 1,
+  "timeout_seconds": 75,
+  "packet_sha256": "76564ad09599cc69bdce12e0b56898dc9da5a29466844eb17fd34c571e30e040",
+  "body_sha256": "11f918134d4ced135c82d31be6b2fac0a2cf54d094664dc903c9414205454be1",
+  "created_unix": 1790676452.34234,
+  "automatic_retry": false
+}

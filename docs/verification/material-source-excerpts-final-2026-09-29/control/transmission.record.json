@@ -1,0 +1,92 @@
+{
+  "arm": "excerpt-off",
+  "case_id": "transmission",
+  "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+  "started_at": "2026-09-29T10:11:56.662366+00:00",
+  "finished_at": "2026-09-29T10:14:57.364731+00:00",
+  "exit_code": 2,
+  "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+  "run_id": "run_20260929_181219_876777",
+  "conversation_id": "conv_a186d80d9d424f03af94a3e8d71ae1f6",
+  "resumed_after_interruption": true,
+  "source_directory": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-finalization-0929/control",
+  "run_directory": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-finalization-0929/control/users/answer-authoring-0928/runs/run_20260929_181219_876777",
+  "outcome_status": "failed",
+  "stop_reason": "repair_model_unavailable",
+  "usage": {
+    "llm_calls": 3,
+    "tool_calls": 0,
+    "invalid_actions": 2,
+    "input_tokens": 20548,
+    "output_tokens": 6796
+  },
+  "served_models": [
+    "glm-5.3"
+  ],
+  "configurations": [
+    {
+      "model": "",
+      "providers": [
+        {
+          "name": "zhipu",
+          "model": "glm-5.3-flash"
+        },
+        {
+          "name": "openai",
+          "model": "glm-5.3"
+        }
+      ],
+      "log_version": 1,
+      "persistence_mode": "durable",
+      "task_id": "run_20260929_181219_876777:msg_ddbe4d8ab90a4a84877d94a81026091d",
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "tool_replay": {},
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "sub_research_available": true,
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "provider_name": "zhipu",
+      "harness": "FinanceResearchHarness",
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T18:12:19.981+08:00"
+    }
+  ],
+  "invalid_actions": [
+    {
+      "reason": "claim rendering requires one sentence per claim: answer_q3.claims[3] has 2 sentences; answer_q4.claims[0] has 2 sentences; answer_q4.claims[1] has 2 sentences; answer_q4.claims[2] has 2 sentences; answer_q6.claims[2] has 2 sentences; answer_q8.claims[0] has 4 sentences; answer_q8.claims[1] has 5 sentences. Split at sentence punctuation (including semicolons) and line breaks; recheck every binding and bind each resulting claim to its own supporting sources. Keep material IDs and message coordinates in private bindings, never in public text.",
+      "code": "bad_claim_binding",
+      "kind": "format",
+      "disposition": "invalid_model_finish",
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T18:13:21.214+08:00"
+    },
+    {
+      "reason": "finish must be one JSON object; JSONDecodeError: Expecting ',' delimiter (line 24 column 1 char 2894)",
+      "code": "not_json_object",
+      "kind": "format",
+      "disposition": "invalid_model_finish",
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T18:13:56.844+08:00"
+    }
+  ],
+  "prompts": [
+    {
+      "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+      "user_sha256": "922f984deb7d7350ea3574270a90bc921e407ef5506e33e71a4151906c9cf32c",
+      "system_chars": 2462,
+      "user_chars": 15930,
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T18:12:19.984+08:00"
+    }
+  ],
+  "source_hashes": {
+    "answer.md": "b54e0f9f225283d650f4d8ec201f8b65470ae0e36d886a4604afab7c530b8c46",
+    "continuous-episode.json": "3ac8d93f55803cd3fbfa5ac5fcb86484ea245b77d50a845f6fe8c39dc90a1fc4",
+    "run.json": "81230464be8c8b050ce71b81dd53c35fe4fba045fbcffed30b57a6f1aee8d3c2",
+    "report.json": "4a26bd58c9b1b177237ff6c302b90ea585eb010300f72c9cfb024db5af53ac09"
+  }
+}

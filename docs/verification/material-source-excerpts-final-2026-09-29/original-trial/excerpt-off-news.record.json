@@ -1,0 +1,72 @@
+{
+  "arm": "excerpt-off",
+  "case_id": "news",
+  "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+  "started_at": "2026-09-29T12:30:49.069241+08:00",
+  "finished_at": "2026-09-29T12:31:29.276832+08:00",
+  "exit_code": 0,
+  "log": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/excerpt-off/news.txt",
+  "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+  "conversation_id": "conv_078e02a81b5049e985e7b9d128169a1b",
+  "run_id": "run_20260929_123049_122285",
+  "run_directory": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/excerpt-off-users/answer-authoring-0928/runs/run_20260929_123049_122285",
+  "outcome_status": "completed",
+  "stop_reason": "model_finish",
+  "usage": {
+    "llm_calls": 1,
+    "tool_calls": 0,
+    "invalid_actions": 0,
+    "input_tokens": 8958,
+    "output_tokens": 2884
+  },
+  "served_models": [
+    "glm-5.3"
+  ],
+  "configurations": [
+    {
+      "model": "",
+      "providers": [
+        {
+          "name": "zhipu",
+          "model": "glm-5.3-flash"
+        },
+        {
+          "name": "openai",
+          "model": "glm-5.3"
+        }
+      ],
+      "log_version": 1,
+      "persistence_mode": "durable",
+      "task_id": "run_20260929_123049_122285:msg_0f5d173e93b440c4a35705102bbd7756",
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "tool_replay": {},
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "sub_research_available": true,
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "provider_name": "zhipu",
+      "harness": "FinanceResearchHarness",
+      "task_frame_hash": "188143bee0f102ecdd5a7e0de308eefebc6884999748243e517e7433032976e3",
+      "at": "2026-09-29T12:30:49.188+08:00"
+    }
+  ],
+  "prompts": [
+    {
+      "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+      "user_sha256": "a1cd908c835c91cbd885d1e7a443116374dfbd626f0951ae66ff57ee7f68e779",
+      "system_chars": 2462,
+      "user_chars": 16259,
+      "task_frame_hash": "188143bee0f102ecdd5a7e0de308eefebc6884999748243e517e7433032976e3",
+      "at": "2026-09-29T12:30:49.191+08:00"
+    }
+  ],
+  "invalid_actions": [],
+  "run_status": "completed",
+  "seconds": 38.0,
+  "answer_sha256": "83f6958eb11cc32828d20957650210ba581653305ebebd3cbf1c6fbf3ae6e918",
+  "answer_chars": 1648
+}

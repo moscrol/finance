@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "exitCode": 0,
+  "stdout": "{\"control_tree_remove_exit\": 0, \"control_tree_exists\": false, \"port_18837_listening\": false, \"production_revision\": \"62fad1d0d986e5bac2fb30d2f11f004ef794d764\", \"production_clean\": true, \"production_code_matches_repo\": true, \"db_size\": 3811323904, \"db_mtime_ns\": 1790668034858076333}\n{\"gitea_remote_scheme\": \"http\", \"gitea_remote_host\": \"127.0.0.1\", \"gitea_remote_port\": 3300, \"gitea_repo_path\": \"/a77/finance-workspace-private.git\"}",
+  "stderr": "",
+  "timedOut": false,
+  "cwd": "/Users/a77"
+}

@@ -18,4 +18,6 @@
 - [x] payload/schema以默认关闭的环境变量选择v2，compiler显式兼容两版；复用v1的来源、历史及格式错误分类。不改其他运行时预算/权限逻辑。
 - [x] 主venv跑新增文件、test_material_answer_authoring、test_material_quote_recovery、test_e2_material_claim_rendering与episode协议相关回归，Ruff；独立规格/代码审查修回后再冻结代码。
 - [x] 固定提交启动隔离服务，按spec四次首发顺序记录原题hash、实际模型、token、非法动作、公开答卷；独立内容裁决，失败不重抽。
-- [ ] 只有达到预注册保留标准才保留实验实现，否则撤掉运行时代码，留原证据。最终适配范围检查、更新报告/PR/交接，保持WIP。
+- [x] 只有达到预注册保留标准才保留实验实现，否则撤掉运行时代码，留原证据。最终适配范围检查、更新报告/PR/交接，保持WIP。
+
+接续结果：运行时撤回提交26c77304b；干净提交1029P/4S+Ruff。PR#956评论7691已同步，仅评论，不改head、不push/合并/部署。

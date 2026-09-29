@@ -1,0 +1,7 @@
+(version 1)
+(allow default)
+(deny file-write* (subpath "/Users/a77/finance-workspace-private"))
+(deny file-write* (subpath "/Users/a77/knowledge-base-private"))
+(deny file-write* (subpath "/Users/a77/kb-wt-8792-readiness-0927"))
+(deny file-write* (subpath "/Users/a77/.local/share/finance-workbench"))
+(deny file-write* (subpath "/Users/a77/.finance-runtime/finance-workspace-62fad1d0d986"))

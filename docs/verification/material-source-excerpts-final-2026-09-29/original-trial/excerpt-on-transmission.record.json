@@ -1,0 +1,81 @@
+{
+  "arm": "excerpt-on",
+  "case_id": "transmission",
+  "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+  "started_at": "2026-09-29T12:34:45.001843+08:00",
+  "finished_at": "2026-09-29T12:35:45.258215+08:00",
+  "exit_code": 0,
+  "log": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/excerpt-on/transmission.txt",
+  "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+  "conversation_id": "conv_800bfd9ac1cb423b8c3f9d3d46f2ae9b",
+  "run_id": "run_20260929_123445_049766",
+  "run_directory": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/excerpt-on-users/answer-authoring-0928/runs/run_20260929_123445_049766",
+  "outcome_status": "completed",
+  "stop_reason": "model_finish",
+  "usage": {
+    "llm_calls": 2,
+    "tool_calls": 0,
+    "invalid_actions": 1,
+    "input_tokens": 20800,
+    "output_tokens": 4808
+  },
+  "served_models": [
+    "glm-5.3"
+  ],
+  "configurations": [
+    {
+      "model": "",
+      "providers": [
+        {
+          "name": "zhipu",
+          "model": "glm-5.3-flash"
+        },
+        {
+          "name": "openai",
+          "model": "glm-5.3"
+        }
+      ],
+      "log_version": 1,
+      "persistence_mode": "durable",
+      "task_id": "run_20260929_123445_049766:msg_c8a59567785a46579fcea54a2ac190fd",
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "tool_replay": {},
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "sub_research_available": true,
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "provider_name": "zhipu",
+      "harness": "FinanceResearchHarness",
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T12:34:45.116+08:00"
+    }
+  ],
+  "prompts": [
+    {
+      "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+      "user_sha256": "dbf5155548febf9ecdd63074caaf74ad5b39f17af61a6461e49ab41ab2f04d7d",
+      "system_chars": 2462,
+      "user_chars": 17125,
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T12:34:45.117+08:00"
+    }
+  ],
+  "invalid_actions": [
+    {
+      "reason": "claim rendering requires one sentence per claim: answer_q4.claims[0] has 2 sentences; answer_q4.claims[1] has 2 sentences; answer_q4.claims[2] has 2 sentences; answer_q8.claims[0] has 4 sentences; answer_q8.claims[1] has 2 sentences; evidence_boundary.claims[0] has 2 sentences. Split at sentence punctuation (including semicolons) and line breaks; recheck every binding and bind each resulting claim to its own supporting sources. Keep material IDs and message coordinates in private bindings, never in public text.",
+      "code": "bad_claim_binding",
+      "kind": "format",
+      "disposition": "invalid_model_finish",
+      "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+      "at": "2026-09-29T12:35:20.783+08:00"
+    }
+  ],
+  "run_status": "completed",
+  "seconds": 56.0,
+  "answer_sha256": "4ede14efa4962e787447d6e1f08af14a1b1bd916791b390638f1057177db6621",
+  "answer_chars": 1791
+}

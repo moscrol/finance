@@ -1,0 +1,17 @@
+[
+  {
+    "id": "item-01",
+    "arm": "excerpt-on",
+    "case": "news"
+  },
+  {
+    "id": "item-02",
+    "arm": "excerpt-off",
+    "case": "news"
+  },
+  {
+    "id": "item-03",
+    "arm": "excerpt-on",
+    "case": "transmission"
+  }
+]

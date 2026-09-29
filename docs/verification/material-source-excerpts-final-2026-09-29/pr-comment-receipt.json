@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "exitCode": 0,
+  "stdout": "{\"comment_id\": 7691, \"issue\": 956, \"created_at\": \"2026-09-29T18:35:32+08:00\", \"html_url\": \"http://127.0.0.1:3300/a77/finance-workspace-private/pulls/956#issuecomment-7691\", \"body_matches\": true}",
+  "stderr": "",
+  "timedOut": false,
+  "cwd": "/Users/a77"
+}

@@ -1,0 +1,44 @@
+sidecar port=18837 repo=/Users/a77/finance-workspace-private/.worktrees/arena-excerpt-control-f376-0929 users=/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-finalization-0929/control/users user=answer-authoring-0928 rev=f37629829
+INFO:     Started server process [19592]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:18837 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59624 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59626 - "POST /api/conversations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59628 - "POST /api/conversations/conv_a186d80d9d424f03af94a3e8d71ae1f6/messages HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59634 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59641 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59651 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59665 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59676 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59685 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59691 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59699 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59707 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59724 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59732 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59736 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59746 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59753 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59782 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59809 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59832 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59850 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59879 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59898 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59921 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59948 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59964 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59972 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59988 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60012 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60020 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60037 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60043 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60047 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60060 - "GET /api/runs/run_20260929_181219_876777?user=answer-authoring-0928 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60063 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [19592]

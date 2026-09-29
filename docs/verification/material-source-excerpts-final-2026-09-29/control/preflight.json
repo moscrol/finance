@@ -1,0 +1,14 @@
+{
+  "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+  "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+  "started_at": "2026-09-29T10:11:56.662366+00:00",
+  "sequence_slot": 4,
+  "case": "OFF-transmission",
+  "previous_cases_not_repeated": true,
+  "db_before": {
+    "size": 3811323904,
+    "mtime_ns": 1790668034858076333
+  },
+  "users_root": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-finalization-0929/control/users",
+  "boundary": "Resumes an interrupted sequence. Same code/question/model/budget required; time gap and fresh storage are recorded, not an uninterrupted randomized comparison."
+}

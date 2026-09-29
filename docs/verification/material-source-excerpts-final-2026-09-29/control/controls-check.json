@@ -1,0 +1,20 @@
+{
+  "matching_controls": {
+    "policy_total_seconds": 600.0,
+    "policy_max_steps": 40,
+    "llm_timeout": 75.0,
+    "repair_seconds_cap": 40.0,
+    "allowed_capabilities": [],
+    "authorized_tools": []
+  },
+  "served_model_verified": true,
+  "source_revision_verified": true,
+  "db_before": {
+    "size": 3811323904,
+    "mtime_ns": 1790668034858076333
+  },
+  "db_after": {
+    "size": 3811323904,
+    "mtime_ns": 1790668034858076333
+  }
+}

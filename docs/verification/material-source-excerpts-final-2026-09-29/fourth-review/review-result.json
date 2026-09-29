@@ -1,0 +1,17 @@
+{
+  "served_model": "glm-5.3",
+  "usage": {
+    "completion_tokens": 170,
+    "completion_tokens_details": {
+      "reasoning_tokens": 9
+    },
+    "prompt_tokens": 1827,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 1997
+  },
+  "finish_reason": "stop",
+  "content": "{\"reviews\":[{\"id\":\"item-04\",\"case_id\":\"transmission\",\"answer_sha256\":\"b54e0f9f225283d650f4d8ec201f8b65470ae0e36d886a4604afab7c530b8c46\",\"verdict\":\"unusable\",\"major_errors\":[{\"question\":\"q1\",\"quote\":\"模型服务不可用，暂不能可靠回答\",\"reason\":\"未对八问中任何一问给出实质计算或分析，仅复述题面并声明无法回答，不满足逐项作答的事前要求\"}],\"minor_notes\":[],\"summary\":\"答卷仅复述题面并声明模型服务不可用，八问均未作答，无法交付。\"}]}",
+  "seconds": 3.4441315000876784
+}

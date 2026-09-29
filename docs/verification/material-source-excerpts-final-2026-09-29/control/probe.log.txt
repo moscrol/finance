@@ -1,0 +1,6 @@
+conversation_id=conv_a186d80d9d424f03af94a3e8d71ae1f6
+run_id=run_20260929_181219_876777 assistant_message_id=msg_ddbe4d8ab90a4a84877d94a81026091d
+run status: running
+run status: failed
+run 终态=failed run_id=run_20260929_181219_876777 error=continuous_runtime_failed
+run 工件：<服务实际 FORESIGHT_USERS_DIR>/answer-authoring-0928/runs/run_20260929_181219_876777/（用户根以服务 /api/health 为准）

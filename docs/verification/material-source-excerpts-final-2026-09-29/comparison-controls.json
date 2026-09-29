@@ -1,0 +1,114 @@
+[
+  {
+    "arm": "excerpt-off",
+    "case": "news",
+    "run_id": "run_20260929_123049_122285",
+    "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+    "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+    "served_models": [
+      "glm-5.3"
+    ],
+    "observed_author_formats": [
+      "material_claims_v1"
+    ],
+    "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+    "task_frame_hash": "188143bee0f102ecdd5a7e0de308eefebc6884999748243e517e7433032976e3",
+    "canonical_grounding_sha256": "c2e4a62b757922c97a3b1c13072f3d9966519460ea0f98d29e159370e292f209",
+    "controls": {
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "judge_mode": "deterministic",
+    "judge_status": "passed"
+  },
+  {
+    "arm": "excerpt-on",
+    "case": "news",
+    "run_id": "run_20260929_123209_853848",
+    "question_sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5",
+    "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+    "served_models": [
+      "glm-5.3"
+    ],
+    "observed_author_formats": [
+      "material_claims_v2"
+    ],
+    "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+    "task_frame_hash": "188143bee0f102ecdd5a7e0de308eefebc6884999748243e517e7433032976e3",
+    "canonical_grounding_sha256": "c2e4a62b757922c97a3b1c13072f3d9966519460ea0f98d29e159370e292f209",
+    "controls": {
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "judge_mode": "deterministic",
+    "judge_status": "passed"
+  },
+  {
+    "arm": "excerpt-on",
+    "case": "transmission",
+    "run_id": "run_20260929_123445_049766",
+    "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+    "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+    "served_models": [
+      "glm-5.3"
+    ],
+    "observed_author_formats": [
+      "material_claims_v2"
+    ],
+    "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+    "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+    "canonical_grounding_sha256": "285bc803ace78b23cd70690bccb4dbd59fa454c390412189d0c23faaaf0f5370",
+    "controls": {
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "judge_mode": "deterministic",
+    "judge_status": "passed"
+  },
+  {
+    "arm": "excerpt-off",
+    "case": "transmission",
+    "run_id": "run_20260929_181219_876777",
+    "question_sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18",
+    "revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+    "served_models": [
+      "glm-5.3"
+    ],
+    "observed_author_formats": [
+      "material_claims_v1"
+    ],
+    "system_sha256": "089fa1eff7ca0a69a18716e415b98e441ac1058eda635173218905b99bb86cd7",
+    "task_frame_hash": "0c1821c382d4e6a7c70753a522a0e67fc577344b968eaae03205cd638a1ee08b",
+    "canonical_grounding_sha256": "285bc803ace78b23cd70690bccb4dbd59fa454c390412189d0c23faaaf0f5370",
+    "controls": {
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "judge_mode": "deterministic",
+    "judge_status": "unavailable"
+  }
+]

@@ -1,0 +1,45 @@
+{
+  "code_revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+  "baseline": "957dc51e2a2a0426abc954b77d6b99422c3919ee",
+  "prediction_id": "R-20260929-01",
+  "order": [
+    [
+      "excerpt-off",
+      "news"
+    ],
+    [
+      "excerpt-on",
+      "news"
+    ],
+    [
+      "excerpt-on",
+      "transmission"
+    ],
+    [
+      "excerpt-off",
+      "transmission"
+    ]
+  ],
+  "arms": {
+    "excerpt-off": {
+      "port": 8837,
+      "flag": "0",
+      "users_root": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/excerpt-off-users"
+    },
+    "excerpt-on": {
+      "port": 8838,
+      "flag": "1",
+      "users_root": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/excerpt-on-users"
+    }
+  },
+  "questions": {
+    "news": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/news.question.txt",
+      "sha256": "e9fc5dae9b0b816a4993b21c1d961242126e563aaf25fa5ae000a0419d1f0da5"
+    },
+    "transmission": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/authoring-v2/transmission.question.txt",
+      "sha256": "4f733f678981da95f2414473b7ee3fd42db94e5aa03a32d32f0696fa7812dd18"
+    }
+  }
+}

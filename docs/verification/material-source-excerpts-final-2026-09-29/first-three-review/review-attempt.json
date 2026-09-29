@@ -1,0 +1,10 @@
+{
+  "purpose": "isolated-context automated content review, same provider/model family as authors; not human or cross-model review",
+  "model": "glm-5.3",
+  "calls_authorized": 1,
+  "timeout_seconds": 75,
+  "packet_sha256": "66360fc5c1631ea8badf63a581d97b6b2397ad6be6b73fd5e387fd9fd24c5d69",
+  "body_sha256": "1672613582e2f07ee312fb60c06f1c78e86b25839e08d150cfafde803ff38dd9",
+  "created_unix": 1790674782.420376,
+  "automatic_retry": false
+}

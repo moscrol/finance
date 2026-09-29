@@ -1,0 +1,38 @@
+{
+  "prediction_id": "R-20260929-01",
+  "decision": "reject_and_retire_candidate",
+  "basis": "Candidate news fails the predeclared temporal/evidence boundary requirement; formatting correctness does not establish usability. Financial non-regression is not established because the OFF delivery failed.",
+  "retention_conditions": {
+    "candidate_news_all_eight_usable": false,
+    "candidate_news_quote_mismatch_events": 0,
+    "financial_no_new_major_errors": "not_established"
+  },
+  "trial_code_revision": "f37629829c5ba2afef7ce691ef02d64efad5799b",
+  "retirement_code_revision": "26c77304ba48f098159dfc0cdac1a4e332255a8c",
+  "comparison_controls_verified": true,
+  "fourth_is_delayed_resume_not_repeat": true,
+  "not_continuous_randomized_comparison": true,
+  "fourth_delivery_failed": true,
+  "raw_review_conflict_preserved": true,
+  "author_adjudication": [
+    "partial",
+    "partial",
+    "partial",
+    "unusable"
+  ],
+  "automated_content_verdicts": [
+    "usable",
+    "usable",
+    "usable",
+    "unusable"
+  ],
+  "n_cases": 2,
+  "stability_or_parity_claim": false,
+  "runtime_restored_to": "957dc51e2a2a0426abc954b77d6b99422c3919ee",
+  "tested_files": 34,
+  "pytest_passed": 1029,
+  "pytest_skipped": 4,
+  "ruff": "passed",
+  "full_repository_gate": false,
+  "deployed": false
+}

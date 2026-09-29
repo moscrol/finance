@@ -20,12 +20,12 @@
 
 运行时material_answer_authoring.py与957dc51e2逐字节一致，sha256 e61a367d3de71d87088cdb8bf9fc3c75542b35b37543b9ddf0d20cb9540bf699。原v2测试/接手16项测试归档patch/py.txt，新增6项退役测试，防残留flag=1重启v2并保留v1/旧格式来源边界。
 
-新测试先3F/3P，撤回后34文件1029P/4S、Ruff通过；固定提交复测另见证据目录。不是全仓/前端/E2E验收。试验数变化来自退役专用测试，不冒称同一测试集。
+新测试先3F/3P，撤回后34文件1029P/4S、Ruff通过；26c77304b干净提交复测1029P/4S、20.16秒（原生收据已归档）。不是全仓/前端/E2E验收。试验数变化来自退役专用测试，不冒称同一测试集。
 
 ## 现场与后续
 
-补齐服务独立检出/用户/Episode、生产路径写入沙箱、已关闭；数据库size/mtime未变。生产未切换。临时控制检出收尾移除情况见最终收据。
+补齐服务独立检出/用户/Episode、生产路径写入沙箱、已关闭；数据库size/mtime未变。生产未切换。临时控制检出已清理，18837端口已释放。
 
 本轮仅关闭失败候选，不宣称回答能力完成。下一轮先核查已有语义/量纲实验，再针对时点、存量/流量、CFO起点另立方案，不扩预算挑稿。
 
-报告：docs/verification/2026-09-29-arena-harness-final.md；证据：docs/verification/material-source-excerpts-final-2026-09-29/。保持#956主线WIP；无合并/发布授权。
+报告：docs/verification/2026-09-29-arena-harness-final.md；证据：docs/verification/material-source-excerpts-final-2026-09-29/。PR#956已留评论7691，主线保持WIP；未push/改PRhead，无合并/发布授权。
