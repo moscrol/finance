@@ -285,13 +285,16 @@ def test_anchor_and_syntax_problems_stop_everything_before_any_run(repo, tmp_pat
     _assert_pristine(repo)
 
 
-@pytest.mark.parametrize(("state", "reason"), [
-    ("modified", "与 HEAD 不一致"),
-    ("staged", "与 HEAD 不一致"),
-    ("staged-then-reverted", "与 HEAD 不一致"),  # 工作区 == HEAD、索引不是：只有 git status 看得见
-    ("untracked", "不在 HEAD 里"),
-    ("assume-unchanged", "内容却与 HEAD 不同"),  # git status 说干净：只有与 HEAD blob 比才看得见
-])
+_UNCOMMITTED_STATES = {
+    "modified": "与 HEAD 不一致",
+    "staged": "与 HEAD 不一致",
+    "staged-then-reverted": "与 HEAD 不一致",  # 工作区 == HEAD、索引不是：只有 git status 看得见
+    "untracked": "不在 HEAD 里",
+    "assume-unchanged": "内容却与 HEAD 不同",  # git status 说干净：只有与 HEAD blob 比才看得见
+}
+
+
+@pytest.mark.parametrize(("state", "reason"), list(_UNCOMMITTED_STATES.items()), ids=list(_UNCOMMITTED_STATES))
 def test_target_without_a_committed_restore_point_is_refused_and_left_alone(repo, tmp_path, state, reason):
     target = repo / ("new.py" if state == "untracked" else "calc.py")
     uncommitted = CALC.replace("LIMIT = 10", "LIMIT = 10  # uncommitted implementation")
