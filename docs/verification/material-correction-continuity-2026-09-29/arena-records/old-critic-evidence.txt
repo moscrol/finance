@@ -1,0 +1,105 @@
+CRITIC_SOURCE
+#!/usr/bin/env python3
+"""Isolated, non-production GLM q8-only accounting-basis critic pilot.
+
+Run from the frozen 774cfbd1a repository with FORESIGHT_BUILTIN_LLM_API_KEY
+and FORESIGHT_BUILTIN_LLM_BASE_URL provided by the existing runtime launcher.
+One invocation makes at most one model request and refuses to overwrite output.
+Never reads or writes a production user, market database or service.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import time
+
+from openai import OpenAI
+
+BASE = Path("docs/verification/answer-capability-2026-09-29/answers")
+QUESTION = json.loads((BASE / "review-15.json").read_text())["question"]
+Q8 = QUESTION[QUESTION.rfind("\n8. ") + 1:].strip()
+RED = {}
+for filename in ("review-15.json", "review-18.json"):
+    record = json.loads((BASE / filename).read_text())
+    answer = record["public_answer"]
+    RED[record["id"]] = answer[answer.index("## q8"):answer.index("## 证据边界")].strip()
+CASES = {
+    "1": (RED["review-15"], "red"),
+    "2": ("净利润不能直接扣现金资本开支；应检查15倍股权利润估值是否已合理反映未来增长、再投资回报与融资假设。", "green"),
+    "3": (RED["review-18"], "red"),
+    "4": ("不要问净利润是否已扣除资本开支；应核对增长、回报、融资与15倍估值假设，不能从给定股权价值机械再扣现金投资。", "green"),
+}
+SYSTEM = (
+    "你只审阅财务口径，不判断买卖建议，也不替作者改写答案。"
+    "判断待审文本是否声称、暗示或要求检查：会计净利润已经扣除或应先扣现金资本开支；"
+    "或者从给定的股权价值机械再扣现金投资。这是红色错口径。"
+    "正确区分：会计净利润与投资现金流是不同量；可核对利润倍数是否合理计入未来增长、"
+    "再投资回报和融资条件，但这不等于从净利润直接扣现金资本开支。"
+    "注意否定句：明确说‘不要问净利润是否已扣资本开支’不是红色。"
+    "如果没有相关说法或无法判定，输出unknown，不能为了绿而编造。"
+    "只输出一个JSON对象，字段 verdict(red/green/unknown)、quote(从待审文本逐字复制的关键短句)、reason(一句话)。"
+)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("case", choices=CASES)
+    parser.add_argument("--outdir", type=Path, required=True)
+    args = parser.parse_args()
+    case_text, expected = CASES[args.case]
+    prompt = "原第8问：\n" + Q8 + "\n\n待审文本：\n" + case_text
+    key = os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+    base_url = os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL")
+    if not key or not base_url:
+        print("blocked: runtime model credential/endpoint missing (not shown)")
+        return 2
+    args.outdir.mkdir(parents=True, exist_ok=True)
+    output = args.outdir / ("case-" + args.case + ".json")
+    if output.exists():
+        print("blocked: evidence already exists")
+        return 3
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
+    request = json.dumps({"model": "glm-5.3", "messages": messages, "max_tokens": 1500, "temperature": 0}, ensure_ascii=False, sort_keys=True).encode()
+    data = {"case": args.case, "expected": expected, "request_sha256": hashlib.sha256(request).hexdigest(), "question_sha256": hashlib.sha256(QUESTION.encode()).hexdigest(), "case_text_sha256": hashlib.sha256(case_text.encode()).hexdigest(), "model_requested": "glm-5.3"}
+    try:
+        client = OpenAI(api_key=key, base_url=base_url, timeout=105, max_retries=0)
+        started = time.monotonic()
+        resp = client.chat.completions.create(model="glm-5.3", messages=messages, max_tokens=1500, temperature=0)
+        data["elapsed_seconds"] = round(time.monotonic() - started, 3)
+        data["model_reported"] = resp.model
+        data["response_id"] = resp.id
+        data["usage"] = resp.usage.model_dump() if resp.usage else None
+        raw = resp.choices[0].message.content or ""
+        data["raw_response"] = raw
+        data["raw_response_sha256"] = hashlib.sha256(raw.encode()).hexdigest()
+        try:
+            parsed = json.loads(raw)
+            data["parsed"] = parsed
+            data["matches_predeclared"] = parsed.get("verdict") == expected and isinstance(parsed.get("quote"), str) and parsed["quote"] in case_text
+        except (ValueError, TypeError, AttributeError):
+            data["parsed"] = None
+            data["matches_predeclared"] = False
+    except Exception as exc:
+        # Do not persist an exception string: a transport library might include
+        # a credential-bearing URL/header. A failed request is not retried.
+        data["error_type"] = type(exc).__name__
+        data["matches_predeclared"] = False
+    output.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("saved", output, "case", args.case, "reported_model", data.get("model_reported"), "verdict", (data.get("parsed") or {}).get("verdict"), "ok", data["matches_predeclared"], "error_type", data.get("error_type"))
+    return 0 if data["matches_predeclared"] and data.get("model_reported") == "glm-5.3" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+RESULT case-1.json
+{"case": "1", "expected": "red", "request_sha256": "0dc7071eb36f3501b977f2354ff7457b20778bce3f1f88095f9025dfcfd57ba1", "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936", "case_text_sha256": "996ec7dcd5f194d9d3e0a501f1c0a5933d6c7bf39b609b158e3bf2ed5d1df61e", "model_requested": "glm-5.3", "elapsed_seconds": 21.666, "model_reported": "glm-5.3", "response_id": "20260929170344ebc6919e7cca46fc", "usage": {"completion_tokens": 1468, "prompt_tokens": 497, "total_tokens": 1965, "completion_tokens_details": {"accepted_prediction_tokens": null, "audio_tokens": null, "reasoning_tokens": 1380, "rejected_prediction_tokens": null}, "prompt_tokens_details": {"audio_tokens": null, "cache_write_tokens": null, "cached_tokens": 448}}, "raw_response": "{\"verdict\":\"red\",\"quote\":\"应检查15倍估值隐含的“可持续净利润”是否已扣除维持和扩张性资本开支\",\"reason\":\"待审文本要求检查净利润是否已扣除现金资本开支并据此考虑下调利润口径，混淆了会计净利润与投资现金流这两个不同量，属红色错口径；正确做法是核对倍数是否合理计入增长、再投资回报与融资条件。\"}", "raw_response_sha256": "0a4647d5136daab92d1ba09bccc3946544f95254e8a5a5e787e8b6c02f9faacf", "parsed": {"verdict": "red", "quote": "应检查15倍估值隐含的“可持续净利润”是否已扣除维持和扩张性资本开支", "reason": "待审文本要求检查净利润是否已扣除现金资本开支并据此考虑下调利润口径，混淆了会计净利润与投资现金流这两个不同量，属红色错口径；正确做法是核对倍数是否合理计入增长、再投资回报与融资条件。"}, "matches_predeclared": true}
+RESULT case-2.json
+{"case": "2", "expected": "green", "request_sha256": "0a660274ee3561b1e35650af8b6c55b6e4b4e3e5d81127d4ea47954f9e1fad9e", "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936", "case_text_sha256": "e6978d2eab664a81b6685ef29e3840c07b4949dfeb91ef61100b0137e6d0a520", "model_requested": "glm-5.3", "elapsed_seconds": 9.06, "model_reported": "glm-5.3", "response_id": "20260929170418d71f26cb642d448f", "usage": {"completion_tokens": 475, "prompt_tokens": 337, "total_tokens": 812, "completion_tokens_details": {"accepted_prediction_tokens": null, "audio_tokens": null, "reasoning_tokens": 397, "rejected_prediction_tokens": null}, "prompt_tokens_details": {"audio_tokens": null, "cache_write_tokens": null, "cached_tokens": 256}}, "raw_response": "{\"verdict\":\"green\",\"quote\":\"净利润不能直接扣现金资本开支；应检查15倍股权利润估值是否已合理反映未来增长、再投资回报与融资假设。\",\"reason\":\"文本明确否定从净利润直接扣现金资本开支的错误口径，并正确指出应检查利润倍数是否合理反映未来增长、再投资回报与融资假设。\"}", "raw_response_sha256": "cde346b9e5196cf491335bacac9f44b202759e7101d837842a3107704b2575d1", "parsed": {"verdict": "green", "quote": "净利润不能直接扣现金资本开支；应检查15倍股权利润估值是否已合理反映未来增长、再投资回报与融资假设。", "reason": "文本明确否定从净利润直接扣现金资本开支的错误口径，并正确指出应检查利润倍数是否合理反映未来增长、再投资回报与融资假设。"}, "matches_predeclared": true}
+RESULT case-3.json
+{"case": "3", "expected": "red", "request_sha256": "bad6d5f5610403518a1ac3398ab1c9556b00d1ff58c383529cd6dc83fc0f2c02", "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936", "case_text_sha256": "7ac388e78a9305e1ac03f31a0a83ad1f7fa04553147cc02689f74c61959edd75", "model_requested": "glm-5.3", "elapsed_seconds": 17.067, "model_reported": "glm-5.3", "response_id": "20260929170438e2921ba318ec460f", "usage": {"completion_tokens": 1222, "prompt_tokens": 432, "total_tokens": 1654, "completion_tokens_details": {"accepted_prediction_tokens": null, "audio_tokens": null, "reasoning_tokens": 1144, "rejected_prediction_tokens": null}, "prompt_tokens_details": {"audio_tokens": null, "cache_write_tokens": null, "cached_tokens": 320}}, "raw_response": "{\"verdict\": \"red\", \"quote\": \"应检查新业务可持续利润口径是否已扣除维持和增长性资本开支\", \"reason\": \"该句要求检查净利润口径是否已扣除现金资本开支，混淆会计净利润与投资现金流，属红色错口径（正确做法是核对倍数是否合理计入增长、再投资回报与融资条件）。\"}", "raw_response_sha256": "5cebc85d5edfd01c6731148e3a2877a6d5ba0cdad9ae0aaa1d978a193de7e16c", "parsed": {"verdict": "red", "quote": "应检查新业务可持续利润口径是否已扣除维持和增长性资本开支", "reason": "该句要求检查净利润口径是否已扣除现金资本开支，混淆会计净利润与投资现金流，属红色错口径（正确做法是核对倍数是否合理计入增长、再投资回报与融资条件）。"}, "matches_predeclared": true}
+RESULT case-4.json
+{"case": "4", "expected": "green", "request_sha256": "7c70edb182f2b3c0240f1cd7bea207fc771f5bbcd0138212c8385ff1200fa54e", "question_sha256": "df3be812b0ac2a9bc49ebfe8605e7858923821ef8422d239e7891eb6b05ec936", "case_text_sha256": "2061d8d41b382e7ae461c369d7d1c2b3c5deea35973c6f6663340249b3f37810", "model_requested": "glm-5.3", "elapsed_seconds": 14.441, "model_reported": "glm-5.3", "response_id": "20260929170505097dbd83a64b48ae", "usage": {"completion_tokens": 596, "prompt_tokens": 340, "total_tokens": 936, "completion_tokens_details": {"accepted_prediction_tokens": null, "audio_tokens": null, "reasoning_tokens": 505, "rejected_prediction_tokens": null}, "prompt_tokens_details": {"audio_tokens": null, "cache_write_tokens": null, "cached_tokens": 256}}, "raw_response": "{\"verdict\":\"green\",\"quote\":\"不要问净利润是否已扣除资本开支；应核对增长、回报、融资与15倍估值假设，不能从给定股权价值机械再扣现金投资\",\"reason\":\"文本以否定句明确排除红色错口径（不问净利润是否已扣资本开支、不从股权价值机械再扣现金投资），并指向正确做法即核对增长、回报、融资与利润倍数假设。\"}", "raw_response_sha256": "ca4343e72e1b4a356d3808537028a3818adc6d4986d0a3ce4c0f4d30c1568d17", "parsed": {"verdict": "green", "quote": "不要问净利润是否已扣除资本开支；应核对增长、回报、融资与15倍估值假设，不能从给定股权价值机械再扣现金投资", "reason": "文本以否定句明确排除红色错口径（不问净利润是否已扣资本开支、不从股权价值机械再扣现金投资），并指向正确做法即核对增长、回报、融资与利润倍数假设。"}, "matches_predeclared": true}

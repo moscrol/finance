@@ -1,0 +1,311 @@
+{
+  "contract": {
+    "task_id": "run_20260929_165520_199356:msg_14fff6c3b4144fd89506763e1ffcc973",
+    "question": "校审反馈：你上一答第8问把会计净利润说成应检查‘是否已扣除现金资本开支’，这是损益口径与投资现金流口径的混用。请只基于原题重写第8问的资本开支/增长再投资判断，保留原估值情景与买入边界；明确为什么不能机械从净利润或已给股权价值扣现金投资，并说明应核对哪些增长、回报、融资和倍数假设。不要查询外部数据，也不要修改其他小题已经成立的计算或填入题外数字。",
+    "subject": null,
+    "subject_kind": "unknown",
+    "question_type": "general_finance_qa",
+    "required_outputs": [
+      {
+        "output_id": "direct_answer",
+        "description": "直接回答用户问题",
+        "evidence_types": [
+          "finance_query",
+          "evidence_search",
+          "kb_search",
+          "web_search",
+          "web_fetch",
+          "news_search",
+          "graph_lookup",
+          "evidence_lookup",
+          "memory_lookup",
+          "l3_lookup",
+          "market_data",
+          "capital_data",
+          "financial_data",
+          "mainline_context",
+          "sub_research",
+          "derived_calculation"
+        ],
+        "required": true,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      },
+      {
+        "output_id": "evidence_boundary",
+        "description": "说明证据覆盖范围、数据日期与缺口",
+        "evidence_types": [
+          "finance_query",
+          "evidence_search",
+          "kb_search",
+          "web_search",
+          "web_fetch",
+          "news_search",
+          "graph_lookup",
+          "evidence_lookup",
+          "memory_lookup",
+          "l3_lookup",
+          "market_data",
+          "capital_data",
+          "financial_data",
+          "mainline_context",
+          "sub_research",
+          "derived_calculation"
+        ],
+        "required": true,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      },
+      {
+        "output_id": "scenario_tree",
+        "description": "给出条件化情景树：路径分支 + 同一现象的互斥因果假说（裁决须带证据编号，裁不了写并立）",
+        "evidence_types": [
+          "finance_query",
+          "evidence_search",
+          "kb_search",
+          "web_search",
+          "web_fetch",
+          "news_search",
+          "graph_lookup",
+          "evidence_lookup",
+          "memory_lookup",
+          "l3_lookup",
+          "market_data",
+          "capital_data",
+          "financial_data",
+          "mainline_context",
+          "sub_research",
+          "derived_calculation"
+        ],
+        "required": true,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      },
+      {
+        "output_id": "detail_rows",
+        "description": "列出问句所要的明细行，标明日期与口径",
+        "evidence_types": [
+          "market_data",
+          "finance_query"
+        ],
+        "required": false,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      },
+      {
+        "output_id": "prime_quote",
+        "description": "给出本次问答所依据的最新可用行情要点与数据日期；取不到则在证据边界中写明缺口",
+        "evidence_types": [
+          "market_data",
+          "finance_query"
+        ],
+        "required": false,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      },
+      {
+        "output_id": "prime_news",
+        "description": "给出与问题相关的最新财经消息要点；未检索到则写明未取得",
+        "evidence_types": [
+          "news_search"
+        ],
+        "required": false,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      },
+      {
+        "output_id": "prime_memory",
+        "description": "复述用户此前对该主体的判断或纠偏原则；台账为空则跳过，不编造",
+        "evidence_types": [
+          "memory_lookup"
+        ],
+        "required": false,
+        "grounding_mode": "user_premise",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      }
+    ],
+    "allowed_capabilities": [
+      "finance_query",
+      "evidence_search",
+      "kb_search",
+      "web_search",
+      "web_fetch",
+      "news_search",
+      "graph_lookup",
+      "evidence_lookup",
+      "memory_lookup",
+      "l3_lookup",
+      "market_data",
+      "capital_data",
+      "financial_data",
+      "mainline_context",
+      "sub_research",
+      "derived_calculation"
+    ],
+    "research_tier": "max",
+    "presentation_profile": "general",
+    "freshness": "current",
+    "timeframe": null,
+    "evidence_plan": {
+      "profile": "general",
+      "freshness": "current",
+      "requirements": []
+    },
+    "contract_version": "1",
+    "task_frame_hash": "e83266e22d5548f9351952656660755ee2dc053799dfc847962d46c6aa7295bf"
+  },
+  "frame": {
+    "raw_question": "校审反馈：你上一答第8问把会计净利润说成应检查‘是否已扣除现金资本开支’，这是损益口径与投资现金流口径的混用。请只基于原题重写第8问的资本开支/增长再投资判断，保留原估值情景与买入边界；明确为什么不能机械从净利润或已给股权价值扣现金投资，并说明应核对哪些增长、回报、融资和倍数假设。不要查询外部数据，也不要修改其他小题已经成立的计算或填入题外数字。",
+    "user_goal": "形成条件化判断",
+    "question_type": "general_finance_qa",
+    "subject": null,
+    "subject_kind": "unknown",
+    "market_scope": "A股",
+    "timeframe": null,
+    "required_outputs": [
+      "direct_answer",
+      "evidence_boundary",
+      "scenario_tree"
+    ],
+    "assumptions": [
+      "用户未明确市场范围，按A股市场理解"
+    ],
+    "ambiguities": [],
+    "clarification_question": null,
+    "evidence_policy": "general_finance_evidence",
+    "confidence": 0.4,
+    "task_frame_hash": "e83266e22d5548f9351952656660755ee2dc053799dfc847962d46c6aa7295bf"
+  },
+  "outcome": {
+    "status": "partial",
+    "stop_reason": "model_finish",
+    "gaps": [
+      "用户题设明确禁止查询外部数据，本题内无法取得任何工具证据，三个必需 output 均只能基于题设与推理完成，无法按 evidence 档提供工具证据",
+      "资本开支计划、增量回报率、融资安排与可比倍数来源均未给出，上述核对只能列为待核对项，无法在本题内定量验证",
+      "用户禁止外部查询，无法取得工具证据；结论仅基于题设给定数字与财务口径推理",
+      "本答全部数据仅来自用户虚构题设，未联网、未查库、未修改其他小题、未填题外数字；无工具证据可绑定",
+      "条件分支（高/低再投资需求对应倍数假设调整方向）为推理框架，题设禁止外部取证，裁决性证据不可得"
+    ],
+    "usage": {
+      "llm_calls": 2,
+      "tool_calls": 0,
+      "invalid_actions": 1,
+      "input_tokens": 48275,
+      "output_tokens": 1858
+    }
+  },
+  "events": [
+    {
+      "sequence": 1,
+      "kind": "configure",
+      "payload": {
+        "model": "",
+        "providers": [
+          {
+            "name": "zhipu",
+            "model": "glm-5.3-flash"
+          },
+          {
+            "name": "openai",
+            "model": "glm-5.3"
+          }
+        ],
+        "log_version": 1,
+        "persistence_mode": "durable",
+        "task_id": "run_20260929_165520_199356:msg_14fff6c3b4144fd89506763e1ffcc973",
+        "research_tier": "max",
+        "allowed_capabilities": [
+          "finance_query",
+          "evidence_search",
+          "kb_search",
+          "web_search",
+          "web_fetch",
+          "news_search",
+          "graph_lookup",
+          "evidence_lookup",
+          "memory_lookup",
+          "l3_lookup",
+          "market_data",
+          "capital_data",
+          "financial_data",
+          "mainline_context",
+          "sub_research",
+          "derived_calculation"
+        ],
+        "authorized_tools": [
+          "capital_data",
+          "evidence_lookup",
+          "evidence_search",
+          "finance_query",
+          "financial_data",
+          "graph_lookup",
+          "kb_search",
+          "l3_lookup",
+          "mainline_context",
+          "market_data",
+          "memory_lookup",
+          "news_search",
+          "web_fetch",
+          "web_search"
+        ],
+        "tool_replay": {
+          "capital_data": "safe",
+          "evidence_lookup": "safe",
+          "evidence_search": "safe",
+          "finance_query": "safe",
+          "financial_data": "safe",
+          "graph_lookup": "safe",
+          "kb_search": "safe",
+          "l3_lookup": "safe",
+          "mainline_context": "safe",
+          "market_data": "safe",
+          "memory_lookup": "safe",
+          "news_search": "safe",
+          "web_fetch": "safe",
+          "web_search": "safe"
+        },
+        "tool_contracts_hash": "45cd3122402def934ba3f0b46af0765db5dab6c89ddbc1e7fe604068bde45c29",
+        "sub_research_available": true,
+        "policy_total_seconds": 600.0,
+        "policy_max_steps": 40,
+        "llm_timeout": 75.0,
+        "repair_seconds_cap": 40.0,
+        "provider_name": "zhipu",
+        "harness": "FinanceResearchHarness",
+        "task_frame_hash": "e83266e22d5548f9351952656660755ee2dc053799dfc847962d46c6aa7295bf",
+        "at": "2026-09-29T16:56:40.861+08:00"
+      }
+    },
+    {
+      "sequence": 7,
+      "kind": "invalid_action",
+      "payload": {
+        "reason": "grounding basis mismatch for direct_answer: expected evidence, got model_reasoning",
+        "code": "basis_mismatch",
+        "kind": "format",
+        "disposition": "invalid_model_finish",
+        "task_frame_hash": "e83266e22d5548f9351952656660755ee2dc053799dfc847962d46c6aa7295bf",
+        "at": "2026-09-29T16:57:12.659+08:00"
+      }
+    }
+  ],
+  "semantic_verifier": {
+    "status": "partial",
+    "judge_status": "unavailable",
+    "judge_mode": "deterministic",
+    "issues": [
+      "code=required_output_gap subject=direct_answer :: required output reports gap: direct_answer",
+      "code=required_output_gap subject=evidence_boundary :: required output reports gap: evidence_boundary",
+      "code=required_output_gap subject=scenario_tree :: required output reports gap: scenario_tree"
+    ],
+    "gap_output_ids": [],
+    "repair_withheld": false
+  }
+}

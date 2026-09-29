@@ -1,0 +1,217 @@
+[
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/code-review-attempt.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/code-review-attempt.json",
+    "sha256": "1f729a5a8ae7106d5b7fb1746ddc6bd1b07cbd6fb6e9d482e483de1d8c24c2c9"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/code-review-packet.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/code-review-packet.json",
+    "sha256": "f82b8f2254f749fda8a1e3fb1e6a896bd10ab2753ca32d677a35d1779101ab3a"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/code-review-result.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/code-review-result.json",
+    "sha256": "971987f0471b87a25b2bfdb1a077a8c053eb20a15f049bea3b98bfcc0183577f"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/code_review_once.py",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/code_review_once.py.txt",
+    "sha256": "7b124df62e814a8fe888864580f887a6b6e9a98950f5115b0bf58143651077b1"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/frozen-gate-attempt.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/frozen-gate-attempt.json",
+    "sha256": "ea209e2033c63bbd22d9be321988195d700858df2d671ad013aea7bc8c15a1f8"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/frozen-gate-result.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/frozen-gate-result.json",
+    "sha256": "8c64e8946b266e5f1be36425039568d8415e71829cd088015a8cbc4914ce6b7b"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/frozen-native-receipt.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/frozen-native-receipt.json",
+    "sha256": "d1daf088013c9dcc210c586680f1f4351723867ebda1adc395a5fd8f952774f1"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/frozen-pytest.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/frozen-pytest.log.txt",
+    "sha256": "7f82a448b0acfd25914e736b3966aa6be11d6a5f9d2683bb858b12fe4b7fab9a"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/frozen-ruff.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/frozen-ruff.log.txt",
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/frozen_gate.py",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/frozen_gate.py.txt",
+    "sha256": "2ac0cdf89f3c37f721f0476b30d48344c941d6e003b9d25984e6ab39e3aef559"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live/done.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live/done.json",
+    "sha256": "5f3543952d3769486b249d865498ce351ad2e2044e94f5b8bf9dfff9ef442cf6"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live/error.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live/error.json",
+    "sha256": "a9a9ba2274fee296371bc10dfe75bfccfa82ed70a279687d94b0ebe6d7d6a244"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live/production-after.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live/production-after.json",
+    "sha256": "6016a80d630d9ebca31034b9983b5bbbe12c885da082f254d48716250f1305ca"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-cases.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-cases.json",
+    "sha256": "946114252598a97c15b1651c6a90cf9ff92b0579ba3c1a59bdd000b3c30e12d5"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/done.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/done.json",
+    "sha256": "62f61f18215f5472d0c9099b82e07b56f6b069f351f7fc330586b5fff707b933"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/error.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/error.json",
+    "sha256": "a9a9ba2274fee296371bc10dfe75bfccfa82ed70a279687d94b0ebe6d7d6a244"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.answer.md",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.answer.md",
+    "sha256": "0b88b75f9d3e7dc02982e31ad4a3204ffaeffb7da5510d41a6c1069368ee9375"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.attempt.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.attempt.json",
+    "sha256": "71d1bb13848893ab165c8107356c2cd58ce15c1a427c2c1534fbd80741be8f7f"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.continuous-episode.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.continuous-episode.json",
+    "sha256": "7f91831d3b966f936e7e1d7ce68dd546f9f80ddabce555c3a1bc1f732b7c163f"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.probe.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.probe.log.txt",
+    "sha256": "431363921628a00e78bbaf62fa39d959652ab1eb827804ff176a42c9651853fc"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.question.txt",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.question.txt",
+    "sha256": "5ad0afe3a452ca6bc9c682e655425150eac8eee523ade7d51aa3cf8573260b78"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.record.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.record.json",
+    "sha256": "282575f1138d689dda3abeae85639c73fc86c24347fe8f377f8e8f6d7c15ac56"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.report.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.report.json",
+    "sha256": "bd1bf3ebd956d5b7890a71d0248b260c6935abf8ecd32bb6461a0233f245c70c"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/finance-correction.run.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/finance-correction.run.json",
+    "sha256": "daa8459f5c8178d01750ffaf4ac1ff110902af8593f0429b70b897c17408b0a3"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/health-before.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/health-before.json",
+    "sha256": "46bfb6effcdac098e2ffce7f568f668b05f602c52af8046bdb35e4383a338d80"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/news-correction.question.txt",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/news-correction.question.txt",
+    "sha256": "99f87d58b16c76a0694c6906b4d1df22e445cb90ca5a4dbdbd6926a180b1ddb2"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/preflight.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/preflight.json",
+    "sha256": "f582175ad74c2b667bfb3010a2f0221845b95df0cabb083704dc031c1471bf53"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/production-after.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/production-after.json",
+    "sha256": "5895285be8e6a6a137cd4c3f13a90e565ec067d2a99991df454dcd0bd74b8c6f"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/production-before.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/production-before.json",
+    "sha256": "87f4d3905af0a78038e447f6978f6b63fc4767597914a91ca99a40229bf1850e"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/sandbox-check.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/sandbox-check.json",
+    "sha256": "4aed9a4398c6d5305c3ed4e22058a63b00c7955c03df0c27d3a9d90ab232f609"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/seeds.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/seeds.json",
+    "sha256": "d8288c23e46e97c8c987492cf065fbfb8c961b87c82880b26e6d0b1cf0758d92"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/server-identity.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/server-identity.json",
+    "sha256": "01d1cf9559b9ce301f241341f5e78cc1bb3644f1a45783b5961ee86882e0fe19"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/server-stop.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-endpoint/server-stop.json",
+    "sha256": "9652a35ae04e57d995806a354dd384131791f832987cfaf3ed5f58b54278d6b9"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-job-pid.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-job-pid.json",
+    "sha256": "3925c5a6570cb19452d98463a11801e51440455e75492a305724bc7009d631e1"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-job.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-configured-job.log.txt",
+    "sha256": "4e78698cd7057b4014d3ed45232f2b7182f97e4403d6a3a225b4fa32ddb58e1d"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-job-pid.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-job-pid.json",
+    "sha256": "20035b7b1e4aa53e840b4bd9bd70f9f69ddb21f7b7b346c0db82ff7973df73fb"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-job.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live-job.log.txt",
+    "sha256": "4e78698cd7057b4014d3ed45232f2b7182f97e4403d6a3a225b4fa32ddb58e1d"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live_runner.py",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live_runner.py.txt",
+    "sha256": "830be5c2a44bf8ce30ef441dd0969e787211b3f6d1d8a84495a178a45235cd56"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live_runner_configured.py",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/live_runner_configured.py.txt",
+    "sha256": "9e83eab3873b88fcf96d6d53131720545c4a98876cb502a2a4af8b04f0421a06"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/regression-1.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/regression-1.log.txt",
+    "sha256": "585853dba84f30c25b9fa9d5265a554b8e0e2ecdf2ef21839efeb4146e1da18b"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/regression-2.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/regression-2.log.txt",
+    "sha256": "3ae4c624808dfb83f74304bc1cba341cb9e4ef3c386eee8a5c82e9967ff5bf42"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/ruff-1.log",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/ruff-1.log.txt",
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  {
+    "source": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/targets.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/targets.json",
+    "sha256": "611b91a8971b137fe0b218c1a6ef41c10e4d472338ce9f75278021635789e6b0"
+  }
+]

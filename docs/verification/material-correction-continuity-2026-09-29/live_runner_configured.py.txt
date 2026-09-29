@@ -1,0 +1,166 @@
+"""One-shot isolated Workbench correction acceptance. Never resubmit a probe."""
+from pathlib import Path
+import hashlib
+import json
+import os
+import re
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE / 'live-configured-endpoint'
+TREE = Path('/Users/a77/finance-workspace-private/.worktrees/arena-8792-harness-takeover-0929')
+MAIN = Path('/Users/a77/finance-workspace-private')
+PY = str(MAIN / '.venv-workbench/bin/python')
+REV = '563d52622ee37d0a0cdbeb859c97d7428bcdb55f'
+PORT = 18838
+USER = 'arena-correction-0929'
+
+
+def save(name, value):
+    with (ROOT / name).open('x') as f:
+        json.dump(value, f, ensure_ascii=False, indent=2)
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=TREE, text=True).strip()
+
+
+def db_stat():
+    s = (MAIN / 'db/market_feature_store.duckdb').stat()
+    return {'size': s.st_size, 'mtime_ns': s.st_mtime_ns}
+
+
+def health(port=PORT):
+    with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health', timeout=3) as r:
+        return json.load(r)
+
+
+def main():
+    previous = HERE / 'live'
+    assert json.loads((previous/'done.json').read_text())['submissions'] == 0
+    assert not list(previous.glob('*.attempt.json')), 'never resubmit an attempted case'
+    ROOT.mkdir(exist_ok=False)
+    server = None
+    complete = False
+    try:
+        assert git('rev-parse', 'HEAD') == REV and not git('status', '--porcelain')
+        cases = json.loads((HERE / 'live-cases.json').read_text())
+        assert cases['revision'] == REV and len(cases['cases']) == 2
+        assert json.loads((HERE / 'frozen-gate-result.json').read_text())['complete']
+        with socket.socket() as sock:
+            assert sock.connect_ex(('127.0.0.1', PORT)) != 0
+        # Active launcher uses a configured hosted provider, not the retired
+        # local 57244 gateway mentioned in an old launcher comment. Preserve
+        # launcher exports; actual served model/budget are still checked below.
+        save('preflight.json', {'revision': REV, 'started': time.time(), 'db_before': db_stat(),
+             'case_manifest_sha256': hashlib.sha256((HERE / 'live-cases.json').read_bytes()).hexdigest(),
+             'history_kind': 'synthetic fixtures; intentionally wrong assistant seeds; no prior model runs',
+             'design': 'two single-arm acceptance cases, not A/B', 'max_submissions': 2})
+        save('production-before.json', health(8792))
+        os.environ['FORESIGHT_USERS_DIR'] = str(ROOT / 'users')
+        os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+        sys.dont_write_bytecode = True
+        sys.path.insert(0, str(TREE))
+        from intelligence.services.conversation_store import ConversationStore
+        store = ConversationStore(USER)
+        seeds = []
+        for case in cases['cases']:
+            conv = store.create_conversation(title='Synthetic correction acceptance: ' + case['id'])
+            u = store.append_message(conv.conversation_id, 'user', case['prior_user'], run_id='synthetic-seed')
+            a = store.append_message(conv.conversation_id, 'assistant', case['prior_assistant'], run_id='synthetic-seed')
+            seeds.append({'case_id': case['id'], 'conversation_id': conv.conversation_id,
+                          'user_message_id': u.message_id, 'assistant_message_id': a.message_id,
+                          'history_sha256': hashlib.sha256(json.dumps([case['prior_user'],case['prior_assistant']],ensure_ascii=False).encode()).hexdigest()})
+            (ROOT / (case['id'] + '.question.txt')).write_text(case['query'])
+        save('seeds.json', seeds)
+        protected = [str(MAIN), '/Users/a77/knowledge-base-private', '/Users/a77/kb-wt-8792-readiness-0927',
+                     '/Users/a77/.local/share/finance-workbench', '/Users/a77/.finance-runtime/finance-workspace-62fad1d0d986']
+        profile = '(version 1)\n(allow default)\n' + '\n'.join('(deny file-write* (subpath '+json.dumps(p)+'))' for p in protected)
+        (ROOT / 'readonly.sb').write_text(profile)
+        sentinel = MAIN / '.tmp/arena-correction-write-guard-probe'
+        check = 'import os\np='+repr(str(sentinel))+'\ntry:\n fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)\nexcept PermissionError:\n print("protected_write_denied")\nelse:\n os.close(fd);os.unlink(p);raise SystemExit("guard failed")'
+        guard = subprocess.run(['/usr/bin/sandbox-exec','-f',str(ROOT/'readonly.sb'),PY,'-c',check],capture_output=True,text=True)
+        save('sandbox-check.json', {'exit':guard.returncode,'stdout':guard.stdout})
+        assert guard.returncode == 0 and 'protected_write_denied' in guard.stdout
+        env = dict(os.environ, FINANCE_DEPLOY_LEDGER=str(ROOT/'deploy-ledger.jsonl'), GIT_OPTIONAL_LOCKS='0')
+        with (ROOT / 'server.log').open('x') as log:
+            server = subprocess.Popen(['/usr/bin/sandbox-exec','-f',str(ROOT/'readonly.sb'),'/bin/zsh',
+                str(TREE/'scripts/launch_workbench_sidecar.sh'),str(PORT),str(TREE),str(ROOT/'users'),USER],
+                cwd=TREE,env=env,stdout=log,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
+        save('server-identity.json', {'pid':server.pid,'port':PORT,'revision':REV})
+        deadline = time.monotonic()+45
+        while True:
+            assert server.poll() is None, 'owned server exited'
+            try:
+                h = health()
+                break
+            except Exception:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('health deadline; no submission')
+                time.sleep(.5)
+        save('health-before.json', h)
+        runtime = h['runtime']
+        assert runtime['source_revision'] == REV and runtime['source_dirty'] is False and runtime['code_matches_repo'] is True
+        assert runtime['users_dir'] == str(ROOT/'users')
+        for case, seed in zip(cases['cases'], seeds, strict=True):
+            name = case['id']
+            save(name+'.attempt.json', {'at':time.time(), 'automatic_retry':False,
+                 'query_sha256':hashlib.sha256(case['query'].encode()).hexdigest(), 'seed':seed})
+            with (ROOT/(name+'.probe.log')).open('x') as log:
+                probe = subprocess.run([PY,'scripts/workbench_probe.py','--port',str(PORT),'--user',USER,
+                    '--conversation',seed['conversation_id'],'--question-file',str(ROOT/(name+'.question.txt')),
+                    '--skill-mode','auto','--timeout','900','--poll-seconds','5'],cwd=TREE,env=env,
+                    stdout=log,stderr=subprocess.STDOUT,timeout=930)
+            output = (ROOT/(name+'.probe.log')).read_text()
+            match = re.search(r'^run_id=(\S+)', output, re.M)
+            record = {'case_id':name,'exit':probe.returncode,'run_id':match[1] if match else None,'revision':REV}
+            if match:
+                run = ROOT/'users'/USER/'runs'/match[1]
+                episode = json.loads((run/'continuous-episode.json').read_text())
+                events = episode.get('events',[])
+                outcome = episode.get('outcome',{})
+                record.update(status=outcome.get('status'), stop_reason=outcome.get('stop_reason'), usage=outcome.get('usage'),
+                    models=sorted({e['payload']['served_model'] for e in events if e.get('kind')=='model_turn' and e.get('payload',{}).get('served_model')}),
+                    configurations=[e['payload'] for e in events if e.get('kind')=='configure'],
+                    invalid_actions=[e['payload'] for e in events if e.get('kind')=='invalid_action'],
+                    judge_mode=(episode.get('semantic_verifier') or {}).get('judge_mode'), run_directory=str(run))
+                for filename in ['answer.md','continuous-episode.json','run.json','report.json']:
+                    p = run/filename
+                    if p.exists():
+                        (ROOT/(name+'.'+filename)).write_bytes(p.read_bytes())
+            save(name+'.record.json', record)
+            assert record.get('models') == ['glm-5.3'], 'model mismatch; stop, no retry'
+            assert record['usage']['tool_calls'] == 0
+            expected = dict(cases['budget'], allowed_capabilities=[], authorized_tools=[])
+            assert record['configurations'] and all(all(c.get(k)==v for k,v in expected.items()) for c in record['configurations'])
+            assert record['judge_mode'] == 'deterministic'
+            print('finished '+name+' '+str(record['status']),flush=True)
+        save('health-after.json', health())
+        assert git('rev-parse','HEAD') == REV and not git('status','--porcelain')
+        complete = True
+    except Exception as exc:
+        # Do not print credential-bearing exception messages.
+        save('error.json', {'type':type(exc).__name__, 'automatic_retry':False})
+    finally:
+        if server is not None:
+            if server.poll() is None:
+                os.killpg(server.pid,signal.SIGTERM)
+                try:
+                    server.wait(timeout=12)
+                except subprocess.TimeoutExpired:
+                    os.killpg(server.pid,signal.SIGKILL)
+                    server.wait(timeout=5)
+            save('server-stop.json', {'pid':server.pid,'returncode':server.returncode})
+        save('production-after.json',health(8792))
+        save('done.json', {'controls_complete':complete, 'at':time.time(), 'db_after':db_stat(),
+                          'submissions':len(list(ROOT.glob('*.attempt.json'))), 'no_automatic_retry':True})
+        print('DONE '+str(complete),flush=True)
+
+
+if __name__ == '__main__':
+    main()

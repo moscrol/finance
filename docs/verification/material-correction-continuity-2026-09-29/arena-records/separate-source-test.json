@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "exitCode": 0,
+  "stdout": ".....................................................                    [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260929T105430Z-f3ec0425-9fc8f437a19d.json\n\n53 passed in 2.11s",
+  "stderr": "",
+  "timedOut": false,
+  "cwd": "/Users/a77/finance-workspace-private/.worktrees/arena-8792-harness-takeover-0929"
+}

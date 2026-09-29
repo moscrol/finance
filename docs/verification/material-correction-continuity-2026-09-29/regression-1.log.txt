@@ -1,0 +1,50 @@
+.......s....s....s....s................................................. [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 19%]
+........................................................................ [ 25%]
+........................................................................ [ 31%]
+........................................................................ [ 38%]
+........................................................................ [ 44%]
+..............................F..............FF.....F................... [ 51%]
+........................................................................ [ 57%]
+........................................................................ [ 63%]
+........................................................................ [ 70%]
+........................................................................ [ 76%]
+........................................................................ [ 83%]
+........................................................................ [ 89%]
+........................................................................ [ 95%]
+..............................................                           [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260929T105341Z-f3ec0425-bdec1e2f4e4e.json
+
+=================================== FAILURES ===================================
+______ test_original_t2_t3_bodies_and_old_answer_coordinates_reach_model _______
+intelligence/tests/test_e2_material_turn_delivery.py:62: in test_original_t2_t3_bodies_and_old_answer_coordinates_reach_model
+    assert [item["text"] for item in typed_payload["materials"]] == list(split_user_message(T2).material_texts)
+E   AssertionError: assert ['，不对应现实公司。，；...明的推断分开。', ...] == ['，不对应现实公司。，；...按以下 8 题逐项回答：']
+E     
+E     Left contains 8 more items, first extra item: '从客户 R 的 50 亿建设预算，到这三家公司的利润增长，中间还需要经过哪些环节？目前哪些环节已有证据，哪些仍是空白？'
+E     Use -v to get more diff
+__ test_real_run_turn_reaches_episode_factory_with_original_materials[False] ___
+intelligence/tests/test_e2_material_turn_delivery.py:239: in test_real_run_turn_reaches_episode_factory_with_original_materials
+    assert [item["text"] for item in typed_payload["materials"]] == list(split_user_message(T2).material_texts)
+E   AssertionError: assert ['，不对应现实公司。，；...明的推断分开。', ...] == ['，不对应现实公司。，；...按以下 8 题逐项回答：']
+E     
+E     Left contains 8 more items, first extra item: '从客户 R 的 50 亿建设预算，到这三家公司的利润增长，中间还需要经过哪些环节？目前哪些环节已有证据，哪些仍是空白？'
+E     Use -v to get more diff
+___ test_real_run_turn_reaches_episode_factory_with_original_materials[True] ___
+intelligence/tests/test_e2_material_turn_delivery.py:239: in test_real_run_turn_reaches_episode_factory_with_original_materials
+    assert [item["text"] for item in typed_payload["materials"]] == list(split_user_message(T2).material_texts)
+E   AssertionError: assert ['，不对应现实公司。，；...明的推断分开。', ...] == ['，不对应现实公司。，；...按以下 8 题逐项回答：']
+E     
+E     Left contains 8 more items, first extra item: '从客户 R 的 50 亿建设预算，到这三家公司的利润增长，中间还需要经过哪些环节？目前哪些环节已有证据，哪些仍是空白？'
+E     Use -v to get more diff
+_____ test_material_only_paste_preserves_existing_axes_and_material_chain ______
+intelligence/tests/test_e2_material_turn_delivery.py:298: in test_material_only_paste_preserves_existing_axes_and_material_chain
+    assert typed.items and typed.items[-1].source_message_id == "supplement"
+E   AssertionError: assert ((ConversationMaterial(source_message_id='source-t2', ref=MaterialRef(material_id='m-ddaeb90c1b', kind='pasted_text', t...rs=(), dates=(), paragraphs=0, rows=0), text='甲公司计划每年交付的订单额，分别占其去年总收入和相关业务收入的多少？这两个比例分别说明什么？能否直接当作新增收入增速或净利润增速？'), ...) and 'followup' == 'supplement'
+E    +  where (ConversationMaterial(source_message_id='source-t2', ref=MaterialRef(material_id='m-ddaeb90c1b', kind='pasted_text', t...rs=(), dates=(), paragraphs=0, rows=0), text='甲公司计划每年交付的订单额，分别占其去年总收入和相关业务收入的多少？这两个比例分别说明什么？能否直接当作新增收入增速或净利润增速？'), ...) = ConversationMaterials(items=(ConversationMaterial(source_message_id='source-t2', ref=MaterialRef(material_id='m-ddaeb9...s=(), data_scope_declared=True, premise_calculation=False), source_turn=4, calculation_sources=(), history_intent=None).items
+E     
+E     - supplement
+E     + followup)
+=========================== short test summary info ============================
+SKIPPED [4] intelligence/tests/test_e2_boundary_closeout.py:32: 同类嵌套由独立测试验证，不能拿一个闭符伪装双层闭合
+4 failed, 1118 passed, 4 skipped in 8.50s

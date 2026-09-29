@@ -1,0 +1,16 @@
+[
+  {
+    "case_id": "finance-correction",
+    "conversation_id": "conv_99bd7d982ac9466c83df40361af992cd",
+    "user_message_id": "msg_65a0dd6dce2b4f269742dc00dbdbce85",
+    "assistant_message_id": "msg_033eb8aeac3849bd8673a1031d67ac9c",
+    "history_sha256": "ab5e4bf2e9a004406517339249157afca72235adb68a43c60ffe2bcd9308916f"
+  },
+  {
+    "case_id": "news-correction",
+    "conversation_id": "conv_c501e5b31b374cca85009e657948f799",
+    "user_message_id": "msg_78aaaedfd47348c395c5fd05f38e3e5f",
+    "assistant_message_id": "msg_1fc4684ea4c14db68733b41f2abd3b56",
+    "history_sha256": "1a2f6524ad6ff4c2f19168bda4c03258a686d6448eb6c359b0c15304486aace4"
+  }
+]

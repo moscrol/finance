@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/finance-workspace-private/.worktrees/arena-8792-harness-takeover-0929",
+  "revision": "563d52622ee37d0a0cdbeb859c97d7428bcdb55f",
+  "branch": "fix/8792-material-correction-0929",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_conversation_materials.py intelligence/tests/test_e2_boundary_closeout.py intelligence/tests/test_e2_controller_material_history.py intelligence/tests/test_e2_cross_turn_inheritance.py intelligence/tests/test_e2_frozen_answer_history.py intelligence/tests/test_e2_independent_review_round2.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_local_question_delivery.py intelligence/tests/test_e2_local_scope_language.py intelligence/tests/test_e2_material_answer_review.py intelligence/tests/test_e2_material_claim_rendering.py intelligence/tests/test_e2_material_claim_review.py intelligence/tests/test_e2_material_contract.py intelligence/tests/test_e2_material_delivery.py intelligence/tests/test_e2_material_freeze.py intelligence/tests/test_e2_material_grounding.py intelligence/tests/test_e2_material_source_binding.py intelligence/tests/test_e2_material_turn_delivery.py intelligence/tests/test_e2_numbered_case_blocks.py intelligence/tests/test_e2_query_resolver_reads.py intelligence/tests/test_e2_question_group_edges.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_e2_turn_prior_reads.py intelligence/tests/test_knevo_material_delivery.py intelligence/tests/test_material_answer_authoring.py intelligence/tests/test_material_correction_continuity.py intelligence/tests/test_material_excerpt_retirement.py intelligence/tests/test_material_judge_wire.py intelligence/tests/test_material_prompt_contract.py intelligence/tests/test_material_quote_recovery.py intelligence/tests/test_task_frame.py intelligence/tests/test_turn_controller.py intelligence/tests/test_user_task.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 1132
+  },
+  "counts": {
+    "passed": 1128,
+    "failed": 0,
+    "error": 0,
+    "skipped": 4,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-29T10:58:52+00:00"
+}

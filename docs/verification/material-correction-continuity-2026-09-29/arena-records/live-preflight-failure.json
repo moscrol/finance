@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "exitCode": 0,
+  "stdout": "{\"files\": [\"error.json\", \"production-after.json\", \"done.json\"], \"head\": \"563d52622ee37d0a0cdbeb859c97d7428bcdb55f\", \"status\": \"\", \"ports\": {\"18838\": false, \"57244\": false}}",
+  "stderr": "",
+  "timedOut": false,
+  "cwd": "/Users/a77"
+}

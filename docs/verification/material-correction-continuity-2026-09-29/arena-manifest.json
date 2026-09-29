@@ -1,0 +1,67 @@
+[
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/本轮验证结果.md",
+    "archive": "docs/verification/2026-09-29-material-correction-continuity.md",
+    "sha256": "c48e8637141d367f64a2da32f65aee4535b03f98bf7bac520aff08a8e27a5fd7"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/handoff.md",
+    "archive": "docs/handoffs/inflight/fix-8792-material-correction-0929.md",
+    "sha256": "673dd0e237cdb060b4d2353d6949547c23175d4d9d79d18fa56729f31f85c31c"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/red.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/red.json",
+    "sha256": "9b03dcfc99f027f87a5b8e3f66c4c7dd4f94f38286f40d1482f1ab036434ed6d"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/red-corrected-fixture.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/red-corrected-fixture.json",
+    "sha256": "45302d56cff2bb6c2550f5df378efae43b40d3268a867d45f3d218260dff6919"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/green-attempt-1.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/green-attempt-1.json",
+    "sha256": "c805983cea608b4ed28cf79e0c880514fb065e05ed32fea74ac1781fb6cb966e"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/separate-source-test.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/separate-source-test.json",
+    "sha256": "e2ef9b2e2300696aa88a662d28f0e759633063a943cf2f588467d259c9b9ae52"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/regression-1.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/regression-1.json",
+    "sha256": "9a82f36e31ae63f85216824eb8d348aa9696216888f8c9402f96e01e136f9345"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/regression-2.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/regression-2.json",
+    "sha256": "0d205334cf4ea0ab846b02051c38bbf1a4631e147dc51b15b6c6abf42f0bd545"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/live-preflight-failure.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/live-preflight-failure.json",
+    "sha256": "b720a53bed1799e55a4846b890a244b10b113d30ce1fe735e8802ba211e34598"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/active-provider-addresses.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/active-provider-addresses.json",
+    "sha256": "05aea1d1206dcfbb730edba5b991644243b3c1f30806156241ffaa149271d03b"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/original-correction-inputs.txt",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/original-correction-inputs.txt",
+    "sha256": "519d5338a5eb293fe92235005c4e582aa7737c2e1f0abf53399b4f236ab9d130"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/correction-followup-trace.json",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/correction-followup-trace.json",
+    "sha256": "bc73c17f3b4c03d80374fcf129b26f54cc8677ee3ec45fd0657b84d2e853259b"
+  },
+  {
+    "source": "Arena workspace: /home/user/harness-semantic/verification/old-critic-evidence.txt",
+    "archive": "docs/verification/material-correction-continuity-2026-09-29/arena-records/old-critic-evidence.txt",
+    "sha256": "89289c228b049150d35eb4e8152c81d86d793594fcc110ca7da793bc236bd142"
+  }
+]

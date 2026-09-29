@@ -1,0 +1,53 @@
+{
+  "case_id": "finance-correction",
+  "exit": 0,
+  "run_id": "run_20260929_190225_674078",
+  "revision": "563d52622ee37d0a0cdbeb859c97d7428bcdb55f",
+  "status": "completed",
+  "stop_reason": "model_finish",
+  "usage": {
+    "llm_calls": 1,
+    "tool_calls": 0,
+    "invalid_actions": 0,
+    "input_tokens": 6553,
+    "output_tokens": 964
+  },
+  "models": [
+    "glm-5.3-flash"
+  ],
+  "configurations": [
+    {
+      "model": "",
+      "providers": [
+        {
+          "name": "zhipu",
+          "model": "glm-5.3-flash"
+        },
+        {
+          "name": "openai",
+          "model": "glm-5.3"
+        }
+      ],
+      "log_version": 1,
+      "persistence_mode": "durable",
+      "task_id": "run_20260929_190225_674078:msg_300c590d718d459d856449d6bf5b9d59",
+      "research_tier": "max",
+      "allowed_capabilities": [],
+      "authorized_tools": [],
+      "tool_replay": {},
+      "tool_contracts_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "sub_research_available": true,
+      "policy_total_seconds": 600.0,
+      "policy_max_steps": 40,
+      "llm_timeout": 75.0,
+      "repair_seconds_cap": 40.0,
+      "provider_name": "zhipu",
+      "harness": "FinanceResearchHarness",
+      "task_frame_hash": "16a540d9a3d876ed54df1eddcde9f5b9fe2f4d8b2dfca19994e4ae53f5831488",
+      "at": "2026-09-29T19:02:25.803+08:00"
+    }
+  ],
+  "invalid_actions": [],
+  "judge_mode": "deterministic",
+  "run_directory": "/Users/a77/.finance-runtime/reviews/8792-answer-capability-20260928/arena-correction-0929/live-configured-endpoint/users/arena-correction-0929/runs/run_20260929_190225_674078"
+}

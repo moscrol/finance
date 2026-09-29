@@ -1,0 +1,17 @@
+{
+  "checks": {
+    "planned_model_matches": false,
+    "budget_permissions_match": true,
+    "zero_tool_calls": true,
+    "scope_material_only": true,
+    "original_questions_are_user_sources": true,
+    "old_answer_only_historical": true,
+    "news_not_submitted": true,
+    "review_identity_valid": true,
+    "review_no_blocking_findings": true
+  },
+  "formal_live_acceptance": "not_admitted_model_mismatch",
+  "assistant_semantic_observation": "unusable: accounting net profit vs cash capex still mixed; no automatic semantic adjudication claimed",
+  "model_submissions": 1,
+  "code_review_calls": 1
+}

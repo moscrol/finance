@@ -1,0 +1,32 @@
+"""Persist an explicit fixed-revision targeted gate; not a full repository gate."""
+from pathlib import Path
+import json
+import os
+import re
+import subprocess
+import time
+
+HERE=Path(__file__).resolve().parent
+TREE=Path('/Users/a77/finance-workspace-private/.worktrees/arena-8792-harness-takeover-0929')
+PY='/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV='563d52622ee37d0a0cdbeb859c97d7428bcdb55f'
+targets=json.loads((HERE/'targets.json').read_text())
+def git(*args):return subprocess.check_output(['git',*args],cwd=TREE,text=True).strip()
+def save(name,value):
+    with (HERE/name).open('x') as f:json.dump(value,f,ensure_ascii=False,indent=2)
+assert git('rev-parse','HEAD')==REV and git('status','--porcelain')==''
+save('frozen-gate-attempt.json',{'revision':REV,'before_status':'','targets':targets,'started_unix':time.time(),'full_scope':False})
+os.umask(0o022)
+env={'HOME':os.environ['HOME'],'PATH':'/Users/a77/finance-workspace-private/.venv-workbench/bin:/opt/homebrew/bin:/usr/bin:/bin','LANG':'en_US.UTF-8'}
+steps=[]
+for name,args in [('pytest',['-m','pytest','-q','-rs','--tb=short',*targets]),('ruff',['-m','ruff','check','intelligence/services/user_task.py','intelligence/services/conversation_materials.py','intelligence/services/material_grounding.py','intelligence/services/task_frame.py',*targets])]:
+    with (HERE/f'frozen-{name}.log').open('x') as stream:
+        p=subprocess.run([PY,*args],cwd=TREE,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=150)
+    steps.append({'name':name,'exit':p.returncode,'args':args})
+    if name=='pytest':
+        match=re.search(r'读数收据: (.+\.json)',(HERE/'frozen-pytest.log').read_text())
+        if match:save('frozen-native-receipt.json',json.loads(Path(match[1]).read_text()))
+    if p.returncode:break
+result={'revision':REV,'steps':steps,'after_head':git('rev-parse','HEAD'),'after_status':git('status','--porcelain'),'complete':len(steps)==2 and all(s['exit']==0 for s in steps),'full_scope':False}
+save('frozen-gate-result.json',result)
+print(json.dumps(result),flush=True)

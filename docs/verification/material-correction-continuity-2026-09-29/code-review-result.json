@@ -1,0 +1,17 @@
+{
+  "served_model": "glm-5.3",
+  "usage": {
+    "completion_tokens": 2707,
+    "completion_tokens_details": {
+      "reasoning_tokens": 1902
+    },
+    "prompt_tokens": 19566,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 22273
+  },
+  "finish_reason": "stop",
+  "content": "{\"review_revision\":\"563d52622ee37d0a0cdbeb859c97d7428bcdb55f\",\"blocking_findings\":[],\"nonblocking_notes\":[{\"file\":\"intelligence/services/conversation_materials.py\",\"symbol\":\"collect_material_turn_history\",\"issue\":\"question_sources 从整个 chain 的所有历史用户消息收集，粒度不限于纠错目标小题；当前合约的 questions 来自当前消息 regions，因此旧题号不会成为输出槽（compile_material_contract questions 取 regions.question_ids），逻辑自洽，但来源面较宽，语义上依赖模型自行选择相关题设。\",\"proof\":\"CORRECTION 无编号小题时 compile_material_contract 的 questions=tuple(...zip(regions.question_ids, regions.sub_questions...)) 为空；测试 test_reused_question_numbers_do_not_overwrite_source_or_current_output_slots 覆盖了复用题号场景。\"},{\"file\":\"intelligence/services/conversation_materials.py\",\"symbol\":\"ConversationMaterials.to_prompt_block\",\"issue\":\"historical_user_questions 进入 prompt 块，但 rule 字符串只说明助手原答不能恢复权限，未显式声明历史题设是用户来源而非本轮输出题号/已验证事实；提示面依赖载体层措辞。\",\"proof\":\"to_prompt_block 的 rule 文本与 question_sources 输出键可见于源码。\"},{\"file\":\"intelligence/services/user_task.py\",\"symbol\":\"is_material_only_instruction\",\"issue\":\"`(head.startswith((\\\"只\\\",\\\"仅\\\")) and _MATERIAL_CORRECTION_RE.match(head))` 中正则自身前缀已可选，startswith 是「只/仅」收紧的唯一强制点；该写法正确但依赖两处保持一致，若日后修改正则前缀为必选或新增同义词表，容易漏改 startswith 门。\",\"proof\":\"_MATERIAL_CORRECTION_HEAD 与 is_material_only_instruction 的门控条件并列可见。\"}],\"limitations\":[\"无执行环境，未运行任何测试；只审查了给出的 diff 与节选源码，不是完整仓库审计。\",\"material_id_for、MaterialRef.from_dict、split_user_message、conversation_store 等被调用方的实现未提供，无法复核前缀 \\\"M\\\"/\\\"H\\\"、消息窗口边界（context.material_messages 是否按会话隔离）、status 过滤与跨会话防护的底层行为。\",\"orchestrator 仅给出片段，TurnOrchestrator.run_turn 完整路径、RequestCapture 及 grounding 序列化到 payload 的字段名（sources/ref）无法复核。\",\"未验证旧 e86 / run_20260929 真实记录回归，也无法验证冻结试验门槛或预算/判官不变性（不在 diff 范围内）。\"],\"summary\":\"未发现可由所给材料证明的阻塞性缺陷：纠错指令走顶层、去引文的消息级识别（_state_op_in_sentence 在掩码句与未占行上运行，题内 span scope 为 qN 不升为 message 继承）；「只/仅」由 is_material_only_instruction 的 startswith 门收紧，普通纠错保持 full 基底；权限恢复只经 collect_material_turn_history 重放完整用户记录，失败/缺失消息转 needs_clarification；助手旧答仅进 assistant_statements（basis=assistant_judgment）；历史编号题设按内容身份进 question_sources，material_id_for 幂等去重，不产生当前输出题号；序列化向后兼容（question_sources 缺省 ()、空时从 payload 剔除、from_dict 校验身份一致）；换题重置 chain 由既有逻辑保持，复用题号经 setdefault 保留首见来源坐标。以上结论仅基于静态阅读与测试文本，不构成执行验证，也不评价财务语义正确性。\"}",
+  "seconds": 68.72722054109909
+}

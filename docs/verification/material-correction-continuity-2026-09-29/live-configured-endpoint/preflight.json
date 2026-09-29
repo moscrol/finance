@@ -1,0 +1,12 @@
+{
+  "revision": "563d52622ee37d0a0cdbeb859c97d7428bcdb55f",
+  "started": 1790679715.6877902,
+  "db_before": {
+    "size": 3828101120,
+    "mtime_ns": 1790678731326226958
+  },
+  "case_manifest_sha256": "946114252598a97c15b1651c6a90cf9ff92b0579ba3c1a59bdd000b3c30e12d5",
+  "history_kind": "synthetic fixtures; intentionally wrong assistant seeds; no prior model runs",
+  "design": "two single-arm acceptance cases, not A/B",
+  "max_submissions": 2
+}

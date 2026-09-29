@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "exitCode": 0,
+  "stdout": "{\"FORESIGHT_BUILTIN_LLM_BASE_URL\": {\"scheme\": \"https\", \"host\": \"open.bigmodel.cn\", \"port\": null}, \"FORESIGHT_BUILTIN_LLM_MODEL\": \"glm-5.3-flash\", \"FORESIGHT_BUILTIN_LLM_API_KEY_present\": true, \"ZHIPU_API_KEY_present\": false, \"OPENAI_API_KEY_present\": true}",
+  "stderr": "",
+  "timedOut": false,
+  "cwd": "/Users/a77"
+}

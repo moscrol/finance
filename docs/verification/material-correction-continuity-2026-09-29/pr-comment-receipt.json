@@ -1,0 +1,11 @@
+{
+  "comment_id": 7696,
+  "body_matches": true,
+  "pr_state": "open",
+  "merged": false,
+  "head_ref_before": "fix/8792-answer-capability-0928",
+  "head_ref_after": "fix/8792-answer-capability-0928",
+  "head_sha_before": "774cfbd1a94174ac2011a658ac96fb46f848b493",
+  "head_sha_after": "774cfbd1a94174ac2011a658ac96fb46f848b493",
+  "body": "ARENA-CORRECTION-20260929-563d5262\n\n继续推进的本机隔离候选（未push，不改本PR head）：fix/8792-material-correction-0929，代码563d52622ee37d0a0cdbeb859c97d7428bcdb55f，父f3ec04253。\n修复“只基于原题重写”误入外部证据合同及历史编号题设丢失；question_sources单独保留，不混入最近粘贴材料、不把H旧答升为事实。未改作者提示、判官、预算或生产启动器。\n干净提交定向34文件1128P/4S（8.66秒），Ruff通过；不是全仓。一次独立上下文自动代码审查无可证明阻塞，非人工且范围有限。\n回答能力验收未通过：新合成历史单臂纠错计划只提交财务一题，run_20260929_190225_674078；实际glm-5.3-flash而非预设glm-5.3，按事前规则停第二条消息题，不换模型重抽。1作者调用/0工具/0无效动作，原题M与旧答H承接成功，但仍要求净利润承担现金资本开支并给出错误现金流转换。completed不算语义合格。\n首次过时57244预检在0提交时停止，核对托管地址后修正的仅是试验检查；模型优先序未在提交前钉住是本次流程缺口。失败记录保留。旧四卷/另线原件未改。\n18838已停止；8792仍62fad且代码匹配，本次试验前后DB stat一致（不声称跨轮一直未变）。不合并、不发布、不重启8792/8798。\n本机报告：docs/verification/2026-09-29-material-correction-continuity.md。当前只保留未部署的工程候选，主线回答能力仍WIP。\n"
+}
