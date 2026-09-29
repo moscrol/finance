@@ -819,12 +819,16 @@ def strip_evidence_ordinals(text: str) -> str:
 def resolve_evidence_refs(
     raw_refs: list[object],
     evidence: tuple[AgentEvidence, ...],
+    *,
+    defer_unknown_ordinals: bool = False,
 ) -> tuple[str, ...]:
     """把绑定里的 E1..En（或精确哈希）解析成 ``content_hash``。
 
-    序号优先：``E1`` 永不按哈希解释。越界序号硬拒。精确哈希仍接受，
-    供旧夹具与偶发抄对的路径；抄错的哈希走既有 forged/truncated，
-    **不做模糊纠正**（拼接标本会同时近配两条真哈希）。
+    序号优先：``E1`` 永不按哈希解释。越界序号通常硬拒。终局校验可暂缓
+    越界序号，让同一份稿先完成来源完整性扫描：若它还混有合法来源上的
+    quote 错误，不能让 ``unknown_evidence_ref`` 这个 FORMAT 错误抢到可修复
+    路径。精确哈希仍接受，供旧夹具与偶发抄对的路径；抄错的哈希走既有
+    forged/truncated，**不做模糊纠正**（拼接标本会同时近配两条真哈希）。
     """
 
     table = evidence_ordinal_table(evidence)
@@ -842,6 +846,9 @@ def resolve_evidence_refs(
             eid = f"E{ordinal}"
             digest = by_id.get(eid)
             if digest is None:
+                if defer_unknown_ordinals:
+                    resolved.append(token)
+                    continue
                 raise _reject(
                     "unknown_evidence_ref",
                     f"unknown evidence ordinal: {eid}",
@@ -1012,6 +1019,43 @@ def validate_episode_finish(
         if prior_snapshot is not None
         else frozenset()
     )
+    # Quote repair is only safe after the *whole* finish has had a source pass. In
+    # particular, an E9 in a later legacy binding must not raise the FORMAT
+    # ``unknown_evidence_ref`` before an earlier (or later) source-bound claim is
+    # known to have a quote typo. Keep the ordinary direct-E9 error unchanged;
+    # defer it only for settled frozen-source contracts, where the unresolved token
+    # will be reported by binding_source_issues as an INTEGRITY violation.
+    preflight_quote_mismatch = False
+    preflight_integrity = False
+    for raw in raw_bindings:
+        if not isinstance(raw, Mapping):
+            continue
+        raw_claims = raw.get("claims", [])
+        if not isinstance(raw_claims, list):
+            continue
+        try:
+            claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw_claims)
+        except ValueError:
+            # Preserve the main loop's existing structural error and precedence.
+            continue
+        preview = OutputEvidenceBinding(
+            output_id=str(raw.get("output_id") or ""), evidence_hashes=(),
+            gap=str(raw.get("gap") or ""), basis=str(raw.get("basis") or "evidence"),
+            claims=claims,
+        )
+        preview_issues = binding_source_issues(
+            context.contract, preview, draft, evidence, frozen_prior_hashes=frozen_prior_hashes,
+        )
+        preflight_quote_mismatch |= any(
+            issue.code == "material_quote_mismatch" for issue in preview_issues
+        )
+        preflight_integrity |= any(
+            issue.code != "material_quote_mismatch" for issue in preview_issues
+        )
+    defer_unknown_ordinals = (
+        grounding_scope(context.contract) in {"material_only", "local_only"}
+        and (preflight_quote_mismatch or preflight_integrity)
+    )
     quote_issues = []
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
@@ -1028,7 +1072,9 @@ def validate_episode_finish(
             raise _reject("bad_claim_binding", str(exc)) from exc
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
-            evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
+            evidence_hashes=resolve_evidence_refs(
+                raw_hashes, evidence, defer_unknown_ordinals=defer_unknown_ordinals,
+            ),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
             claims=claims,
