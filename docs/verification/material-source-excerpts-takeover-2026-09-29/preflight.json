@@ -1,0 +1,31 @@
+{
+  "status": "offline_complete_live_blocked",
+  "branch": "fix/8792-harness-takeover-0929",
+  "runtime_base": "f37629829",
+  "tested_revision": "dfd8d564f7ac349c93908c03d667959716d1b0b1",
+  "runtime_modified": false,
+  "added_tests": 16,
+  "regression_files": 35,
+  "passed": 1061,
+  "skipped": 4,
+  "pytest_seconds": 22.06,
+  "ruff": "passed",
+  "full_repo_gate": false,
+  "independent_review": "pending",
+  "live_attempts": 0,
+  "sequence": [
+    "OFF-news",
+    "ON-news",
+    "ON-transmission",
+    "OFF-transmission"
+  ],
+  "author_model_reference": "glm-5.3 (archived evaluation report; live served_model must still be checked)",
+  "original_budget_values": "not yet recovered/verified",
+  "production_changed": false,
+  "external_gateway_preflight": "Documented localhost:57244 unreachable; actual currently deployed endpoint not verified",
+  "fail_closed_reasons": [
+    "Original deployment configuration and detailed run/budget receipts are outside current project-scoped file access. No filesystem workaround used.",
+    "Independent code/content review execution path has not been established.",
+    "Old documented gateway connectivity failed; health alone does not verify model availability."
+  ]
+}
