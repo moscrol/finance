@@ -95,3 +95,13 @@ PY
 ```
 
 注意：客户端先挂断时服务端记的是挂断那一刻（成簇的「in 30.0s」），真实尾部要看用长超时客户端的那几次。
+
+## 合入（事后补记，2026-09-29 11:24 CST）
+
+- 用户原话「合并」，出自本会话、紧接四叶全绿报告里「需要你决定：合不合并 #961」的询问。
+- 合前主干已从 `33023225d` 前进到 `62fad1d0d`（#960：`episode_semantic_verifier.py` 及其测试与文档；1 张合并，与本 PR 零文件重叠）。按报告里预告的规则重评，没有重跑全量：
+  - 收据 `check_test_receipt.py --require-full-scope --expect-revision d4802df71… --base-drift-max 5` exit 0（漂移 1 ≤ 5）。
+  - `merge-tree` 对新主干干净，预演树 `a51a4642`。在用它造的预演提交上（`commit-tree`，没动任何分支，跑完即拆）：全树 ruff、registry 五项 exit 0；两边改动面的定向测试 106 passed。
+  - 否了「在预演树上重跑全量 python + 前端」：漂移只有 1 张且零重叠，在仓规阈值内；要多花 15 分钟以上，结论也不会变。
+- `gitea_pr.py merge 961 --expect-head d4802df71027 --expect-base 62fad1d0d986 --delete-branch --record …` 是本 PR 新代码的首次实跑：`outcome=merged`、`post_error=null`，回读一次即定。合并提交 `3a6f6854`，双亲为 `62fad1d0d` 和 `d4802df71`，主干树 == 预演树 `a51a4642`（git 独立复核一致）。记录在 `~/.finance-runtime/reviews/gitea-pr-timeouts-0929/merge-record-961.json`。
+- 远端与本地分支已删；inflight 交接随收口 PR 删除，内容都在本快照里。
