@@ -2,9 +2,9 @@
 
 每个测试钉一个失败形状；不联网、不读凭证、不写库（run_step 全部替换成假件）。
 
-变异自检（scripts/mutation_check.py，2026-09-29 @7837d9b5，本文件 + test_bridge_gap_arbitration.py，8/8 KILLED）：
+变异自检（scripts/mutation_check.py，2026-09-29 @3af6f42d，本文件 + test_bridge_gap_arbitration.py，8/8 KILLED）：
 补行失败不降级 / 去名字闸 / 生产库判定退回仓相对路径 / 上游拒服务后继续打 / 采集不限当天 /
-跳过捕获审计 / 没封存也给 --capture-dir / 收据可覆盖——各自点名的测试全红，还原后树与 HEAD 一致。
+跳过捕获审计 / 没有当日封存也补行 / 收据可覆盖——各自点名的测试全红，还原后树与 HEAD 一致。
 """
 from __future__ import annotations
 
