@@ -2,6 +2,10 @@
 
 标注模式下，误报不再删句，却会在公开稿里写「未在证据中找到出处」——而那个数就在所引
 证据里。三种形状各自只放行确定的那一种写法；区间、带单位的数、未绑定的引用照旧受审。
+
+第四种（2026-09-29 post967 切后探针）：单位写在**带限定前缀**的字段名里，
+``市场成交额亿=14090.71``、``上证涨跌幅=0.1786``。字段名表只认裸名（``成交额亿``），
+前缀一加就退回裸数，与回答里的 ``14090.71亿元`` 维度对不上。
 """
 
 from __future__ import annotations
@@ -146,3 +150,71 @@ def test_u2_shape_keeps_only_the_analyst_thresholds_in_the_note(monkeypatch):
     )
     assert "（待核：「250 亿」、「5%」未在证据中找到出处）" in result.public_answer
     assert "-5.72" not in result.public_answer.split("（待核：")[1]
+
+
+# 09-29 post967 切后探针原样：run_20260929_233537_056428，证据行即当晚的 E12。
+PROBE_ROW_0929 = (
+    "交易日=2026-09-29；涨停家数=57；跌停家数=11；市场成交额亿=14090.71；"
+    "上证收盘=3830.451；上证涨跌幅=0.1786；量比=76.88"
+)
+
+
+def test_probe_0929_market_amount_is_not_doubted(monkeypatch):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+    draft = "- **成交额**：全市场约14090.71亿元，量比仅76.88（显著低于20日均量）（E1）。"
+    frame, verified = _dated(draft, source_date="2026-09-29", detail=PROBE_ROW_0929)
+    # 当晚「20日」的出处是另一张已绑定的主线卡（标题「电子近20日出现9天」），照样带上。
+    mainline = replace(
+        verified.outcome.evidence[0], content_hash="MAINLINE_0929",
+        title="主线持续性：电子近20日出现9天（2026-09-15~2026-09-29）", detail="电子出现天数=9",
+    )
+    first, *rest = verified.outcome.bindings
+    verified = replace(verified, outcome=replace(
+        verified.outcome, evidence=(*verified.outcome.evidence, mainline),
+        bindings=(replace(first, evidence_hashes=(*first.evidence_hashes, "MAINLINE_0929")), *rest),
+    ))
+    assert _flagged(verified) == []
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert "待核" not in result.public_answer
+
+
+@pytest.mark.parametrize("draft,detail,supported", [
+    ("若全市场成交额跌破 14090.71亿元（E1）则缩量延续。", "交易日=2026-09-29；市场成交额亿=14090.71", True),
+    ("若全市场成交额跌破 1.41万亿元（E1）则缩量延续。", "交易日=2026-09-29；市场成交额亿=14090.71", True),
+    ("若竞价成交额超过 12.35 亿（E1）则情绪偏强。", "交易日=2026-09-29；竞价成交额亿=12.35", True),
+    ("若全日成交额低于 711亿（E1）则板块降温。", "交易日=2026-09-29；全日成交额亿=711.4", True),
+    ("若封单金额低于 3.2亿元（E1）则封板不稳。", "交易日=2026-09-29；封单金额元=320000000", True),
+    # 前缀只让单位绑得上，数不对照旧受审。
+    ("若全市场成交额跌破 14190.71亿元（E1）则缩量延续。", "交易日=2026-09-29；市场成交额亿=14090.71", False),
+    # 字段名不是金额（成交量），前缀救不了。
+    ("若成交量跌破 14090.71亿元（E1）则缩量延续。", "交易日=2026-09-29；市场成交量手=14090.71", False),
+    # 单位不紧跟在金额名后（占比），不是金额字段。
+    ("若成交额占比超过 2.53亿元（E1）则过热。", "交易日=2026-09-29；成交额占比=2.53", False),
+], ids=[
+    "market-yi", "market-wanyi", "auction-yi", "fullday-yi", "seal-yuan",
+    "wrong-number", "volume-not-money", "share-not-money",
+])
+def test_money_unit_in_a_qualified_field_name(draft, detail, supported):
+    _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
+    assert numeric_condition_unsupported(verified) is not supported
+
+
+@pytest.mark.parametrize("draft,detail,supported", [
+    ("若上证单日涨幅超过 0.18%（E1）则延续修复。", "交易日=2026-09-29；上证涨跌幅=0.1786", True),
+    ("若区间涨幅超过 12.3%（E1）则追高风险加大。", "交易日=2026-09-29；10日涨跌幅=12.34", True),
+    ("若竞价涨幅超过 3.2%（E1）则高开。", "交易日=2026-09-29；竞价涨跌幅=3.21", True),
+    ("若单日最大涨幅超过 9.98%（E1）则过热。", "交易日=2026-09-29；最大单日涨跌幅%=9.98", True),
+    ("若上证单日涨幅超过 0.28%（E1）则延续修复。", "交易日=2026-09-29；上证涨跌幅=0.1786", False),
+    # 整数百分比规则对带前缀的字段同样成立。
+    ("若上证单日涨幅超过 1%（E1）则延续修复。", "交易日=2026-09-29；上证涨跌幅=0.6", False),
+    # 「有效涨跌幅行数」是计数，不是百分比字段。
+    ("若有效样本超过 5%（E1）则可信。", "交易日=2026-09-29；有效涨跌幅行数=5", False),
+], ids=[
+    "sse", "window-10d", "auction", "bare-percent-suffix",
+    "wrong-number", "integer-rule", "count-not-percent",
+])
+def test_percent_unit_in_a_qualified_field_name(draft, detail, supported):
+    _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
+    assert numeric_condition_unsupported(verified) is not supported
