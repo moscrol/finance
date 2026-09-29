@@ -1,0 +1,14 @@
+import { chromium } from "@playwright/test";
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
+await page.goto("http://127.0.0.1:8798", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "长河" }).first().click();
+await page.waitForSelector(".sh-kline svg", { timeout: 30000 });
+await page.waitForTimeout(1000);
+await page.locator(".river-timeline").screenshot({ path: "/tmp/shot-k1.jpg", type: "jpeg", quality: 60 });
+await page.getByRole("button", { name: "连板" }).first().click();
+await page.waitForSelector(".ladder-grid .sh-kline svg", { timeout: 30000 });
+await page.waitForTimeout(800);
+await page.locator(".ladder-grid").screenshot({ path: "/tmp/shot-k2.jpg", type: "jpeg", quality: 60 });
+await browser.close(); console.log("DONE");

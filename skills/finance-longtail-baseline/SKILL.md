@@ -1,9 +1,11 @@
 ---
 name: finance-longtail-baseline
+user-invocable: false
+disable-model-invocation: true
 metadata:
   pattern: prompt-only
   routable: false
-description: 运行时兜底回答骨架，由 ASK_LONGTAIL_BASELINE 确定性注入，不是可路由工作流。不要手工调用。无触发词。
+description: 运行时兜底回答骨架，由 intelligence/services/longtail_baseline.py 在 ASK_LONGTAIL_BASELINE 开启时确定性注入生成提示；不是可路由工作流，不进技能列表，无触发词。
 ---
 
 # 长尾回答骨架

@@ -325,6 +325,8 @@ export type WorkbenchSection =
   | "themes"
   | "signals"
   | "validation"
+  | "river"
+  | "ladder"
   | "ask";
 
 export interface DataFreshnessStatus {

@@ -1,69 +1,26 @@
 ---
 name: daily-full-review
-description: "仅用于单日全量复盘。触发：全量复盘、今日全量复盘、跑全量复盘、daily full review。按已验证模块顺序同步当日 market_feature_store 并生成日报/题材/HTML。只补单表、只补历史缺口、只跑某个 sync 子命令不要用（历史缺口用 duckdb-backfill）。"
+description: "单日全量复盘编排：按已验证模块顺序同步当日 market_feature_store（逐模块超时 + 兜底 + runlog），再跑生成段出日报 / 题材 / HTML / 矩阵。触发词：全量复盘、今日全量复盘、跑全量复盘、补完复盘、daily full review。注意：只补单表、只补历史缺口、只跑某个 sync 子命令不要用本 skill，历史缺口用 duckdb-backfill。"
 ---
-
-> 硬约束在前；细节见 `references/`。官方压缩截断保开头，所以闸门/红线必须留在文首。
 
 # 单日全量复盘（Daily Full Review）
 
-## 这个 skill 存在的理由（必须先读）
+`python3 -m intelligence.cli daily` 的第一步是 monolith `daily-update`（`market_feature_store/sync/sync_daily_full.py:run_daily_update`），全部同步模块串在一个进程里，任一重模块（sector-stocks / limit-heat / stock-daily）静默挂起，整轮就卡死且无进度。所以本 skill 用编排器 `scripts/run_review_sync.py` 逐模块跑（隔离 + 超时 + 兜底 + runlog），同步全绿后再跑生成段。硬约束放在文首；细节、事故经过与兜底手法都在 `references/ops-pitfalls.md`。
 
-`python3 -m intelligence.cli daily` 内部第一步是 monolith `daily-update`
-（`market_feature_store/sync/sync_daily_full.py:run_daily_update`），它把全部同步
-模块串在一个进程里。**只要其中任意一个重模块（sector-stocks / limit-heat /
-stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
+## 硬约束
 
-历史教训（2026-06-16）：monolith 卡住后，没有切到已验证的"按模块逐个跑 + 兜底
-脚本"路径，而是临时手搓 inline 批次，导致：
-1. 没按已验证脚本回填（该用 `backfill_review_hot_data.py` / 逐模块 CLI / fallback）。
-2. 没分模块批量回填，反复在同一种卡法上重试。
-3. 没记录经验，下次还会踩同样的坑。
-
-**本 skill = 限制提示词 + 模块化批量同步脚本 + runlog 经验记录。**
-
-## 硬性限制提示词（每次开工前默念）
-
-- **禁止手搓 inline 批次**：所有同步只能走 `python3 -m market_feature_store.cli <sync-*>`
-  或本 skill 的 `scripts/run_review_sync.py`，不允许临时写 SQL/heredoc 凑数。
-- **逐模块隔离 + 超时**：每个模块单独子进程跑，带超时；一个挂了不拖死整轮。
-- **静默挂起即停**：模块无输出且 CPU≈0 约 2 分钟 → 终止，按下表走兜底路径，
-  不要盲目重试同一条命令。
-- **重模块先看进度**：`limit-heat` 必须能看到 `[limit-heat] detail chunk i/N` 进度；
-  看不到就是被 PIPE 吞了，改成直跑（继承 stdout）。
-- **每模块审计**：写完用 `check_daily_review_data.py` 或行数查询确认，再进下一模块。
-  **行数不够**：再抽查 `price`/`pct_chg`/`amount` 非空（`COUNT(*)` 过门、值全 NULL 是 06-22 假绿）。
-- **market_snapshot 产物是修复/补跑完成判据的一部分**：判 COMPLETE 前必须
-  `market_snapshot/latest.json` 的 `served_trade_date == 当次修复的交易日`，否则不算收尾；
-  缺就补 `PYTHONPATH=$FINANCE_WS .venv-workbench/bin/python scripts/sync_market_snapshot.py --date D`。
-  教训（2026-08-26）：0825 修复补齐 DuckDB + 复盘产物即判 COMPLETE，但 snapshot 停在 08-24，
-  `_runtime_market_reference_date = min(snapshot, db)` 把生产问答整日钳在 08-24 而 health/覆盖率全绿
-  （台账 `R-20260826-01`；工单 `docs/superpowers/specs/2026-08-26-width-resonance-bag-workorder.md` §P0）。
-- **夜跑失败禁止直写生产**：18:30 S7 写的是 `db/market_feature_store.duckdb.staging`，same-day 不过门就不换名。补洞设 `MARKET_FEATURE_STORE_DB=…staging`，门绿才 `atomic_swap_into_place`。详见 `references/ops-pitfalls.md`「S7 staging」。
-- **两个 python 不是同一个**：`intelligence.cli` / DuckDB 用 `.venv-workbench/bin/python`；生成段 `CommandSpec` 写死 PATH 里的 `python3`，必须以 `/opt/homebrew/bin` 开头（venv 缺 `markdown`/`matplotlib`）。
-- **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
-  `state/runlog.md`，顺的路径记住，坑的路径下次规避。
-- **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
-  `--retry-rounds` 轮（默认1），CDP 500 等瞬态故障到末尾往往已自愈；runlog 备注会带 `[retry rN]`。
-- **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
-  （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
-- **禁止 `cli daily-update` / `daily-full-exec` 直写生产**：默认 fail closed。急救必须 `--direct`（会写 `ops_sync_run` 与 `state/direct-write-*.json`）。`cli daily-full` 走 staging 换名，不要绕过它手跑 exec。
-- **超时后检查残留进程再起新任务**：`ps aux | grep market_feature_store | grep -v grep`
-  确认 DuckDB 锁已释放，否则新写操作会报 Conflicting lock。
-- **Devin 远程场景必须 nohup 后台**：通过 Cloudflare 隧道跑 ≥ 100s 的命令一律
-  `nohup python3 -u ... > /tmp/bf/<log>.log 2>&1 &`，然后轮询日志。
-- **agent-daily 是独立步骤**：不在 evolve_daily.sh 中，evolve 跑完后必须单独执行
-  `python3 -m intelligence.cli agent-daily --date D`，否则驾驶台缺研究队列。
-  研究队列 `{D}-research-queue.json` 是 canonical；完整 `{D}-daily-agent.*` 仅在
-  fidelity 1.2 通过时落盘，缺它不阻断后续矩阵。
-  **夜跑 / `intelligence.cli daily` 默认 `--semantic-rag-top-n 0`**：分桶不读 wiki RAG，
-  避免索引超时拖死 20:40 生成段。手动深挖仍可显式传 `--semantic-rag-top-n 3`。
-  队列写出后会 `kb-queue-receive` 把 `{D}-kb-ingest-queue.json` 归档到知识库
-  `wiki/raw/cross-repo-ingest-queue/`；**只归档、不 apply、不改 relations**。
-  若 `content delta exceeds maximum size`（10MB）：gitignore 缩不了 delta；临时 park
-  手法见 `references/ops-pitfalls.md`，不要扩 cap、不要把归档 commit 进别人的知识库分支。
-  补跑队列后必须重渲染 workbench + cockpit。`daily-workflow-summary.json` 若
-  `skip_agent=true`，不能当「研究队列已跑」的证据。
+- 同步只走 `python3 -m market_feature_store.cli <sync-*>` 或本 skill 的 `scripts/run_review_sync.py`；不手搓 inline SQL / heredoc 凑数，也不手动逐个跑 sync-* 命令（参数极易搞错，如 `sync-stock-daily --refresh` 默认 offset=180 ≈ 90 分钟）。
+- 不用 `cli daily-update` / `daily-full-exec` 直写生产（默认 fail closed）。急救必须 `--direct`，它会写 `ops_sync_run` 与 `state/direct-write-*.json`。`cli daily-full` 走 staging 换名，不绕过它。
+- 夜跑失败不直写生产：18:30 的 S7 写的是 `db/market_feature_store.duckdb.staging`，same-day 门不过就不换名；补洞设 `MARKET_FEATURE_STORE_DB=…staging`，门绿才 `atomic_swap_into_place`（见 ops-pitfalls「S7 staging」）。
+- 静默挂起即停：模块无输出且 CPU≈0 约 2 分钟就终止，按 ops-pitfalls 的兜底路径走，不盲目重试同一条命令。编排器跑完一轮会对 fail / timeout 模块重跑 `--retry-rounds` 轮（默认 1），CDP 500 这类瞬态故障到末尾常已自愈，runlog 备注带 `[retry rN]`。
+- 重模块先看进度：`limit-heat` 要能看到 `[limit-heat] detail chunk i/N`，看不到是被 PIPE 吞了，改成直跑继承 stdout。
+- 每模块写完先审计再进下一模块：`check_daily_review_data.py` 或行数查询；行数够了还要抽 `price / pct_chg / amount` 非空——`COUNT(*)` 过门、值全 NULL 的假绿发生过。
+- `market_snapshot/latest.json` 的 `served_trade_date == 当次交易日` 才算收尾：生产问答的参考日取 `min(snapshot, db)`，snapshot 落后一天会把整日问答钳在旧日期而 health / 覆盖率全绿。缺就补 `PYTHONPATH=$FINANCE_WS .venv-workbench/bin/python scripts/sync_market_snapshot.py --date D`。
+- 两个 python 不是同一个：`intelligence.cli` / DuckDB 用 `.venv-workbench/bin/python`；生成段 `CommandSpec` 用 PATH 里的 `python3`，PATH 必须以 `/opt/homebrew/bin` 开头（venv 缺 `markdown` / `matplotlib`）。
+- 超时后先 `ps aux | grep market_feature_store | grep -v grep` 确认 DuckDB 写锁已释放，再起新任务，否则报 Conflicting lock。
+- Devin 经 Cloudflare 隧道跑 ≥ 100s 的命令一律 `nohup python3 -u ... > /tmp/bf/<log>.log 2>&1 &` 后轮询日志。
+- `agent-daily` 是独立步骤，不在 `evolve_daily.sh` 里；evolve 跑完后单独跑 `python3 -m intelligence.cli agent-daily --date D`，否则驾驶台缺研究队列。`{D}-research-queue.json` 是 canonical，完整 `{D}-daily-agent.*` 只在 fidelity 1.2 通过时落盘，缺它不阻断矩阵。夜跑默认 `--semantic-rag-top-n 0`（分桶不读 wiki RAG，避免索引超时拖死 20:40 生成段），手动深挖可显式传 `--semantic-rag-top-n 3`。队列写出后 `kb-queue-receive` 把 `{D}-kb-ingest-queue.json` 归档到知识库 `wiki/raw/cross-repo-ingest-queue/`，只归档、不 apply、不改 relations；遇 `content delta exceeds maximum size` 按 ops-pitfalls 的 park 手法处理，不扩 cap、不把归档 commit 进别人的知识库分支。补跑队列后重渲染 workbench + cockpit；`daily-workflow-summary.json` 里 `skip_agent=true` 不能当「研究队列已跑」的证据。
+- 每轮把各模块的状态 / 耗时 / 走了哪条路径追加到 `state/runlog.md`（脚本自动写，人工可补注释）。
 
 ## Git 安全
 
@@ -86,6 +43,19 @@ python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
 ```
 
 脚本按下面的"已验证模块顺序"逐个跑，逐模块超时 + 自动兜底 + 写 runlog。
+
+### 分档同步：identity 慢、value 快
+
+`run_review_sync.py --plan full|cheap|auto`（默认读环境变量 `REVIEW_SYNC_PLAN`，未设为 `full`）。
+单一事实源是 `market_feature_store/consumption_registry.yaml`：每个数据族的 identity / value 节奏、证据、
+刷新档位（A 停打换源 / B 变更检测 / C 便宜日更 / D 本地派生）、两档计划的步骤名；
+`python3 -m market_feature_store.cli registry-check` 自检，`tests/test_consumption_registry.py` 把它和 `build_plan` 钉在一起。
+
+- cheap 日的三件本地组件（0 次复盘会请求）：`stitch-sector-stocks`（expected 数没变的板块 = 最近 fupanhui 名单 × 当日东财真值，`source='local:stitch'`）→ `sync-sector-stocks`（只打 pending 板块）→ `sync-sector-daily-local`（成交额 = 成分求和、边际量本地公式、涨幅优先宇宙 payload 官方值）。
+- `auto` 周五跑 full，兜「一进一出数量不变」的换血盲区；`reconcile-sector-daily --sample 20` 是唯一还打 K 线的对账口。
+- 请求量按 HTTP 请求算：full ≈ 900 / 日，cheap ≈ 30~45 / 日。
+- **未切生产**：切档要在 launchd 包装脚本环境里设 `REVIEW_SYNC_PLAN=auto`，等用户确认。
+
 同步全绿后再跑生成段：
 
 ```bash
@@ -105,15 +75,8 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 
 产物：`<repo>/db/snapshots/increments/market_feature_store-inc-<日期>.tar.gz`
 （每张含 `trade_date` 的 fact/feature 表 `WHERE trade_date=当日` → parquet+zstd + manifest.json，一天通常仅几 MB）。
-
-> **iCloud 目的地已于 2026-09-01 退役**：macOS TCC 下手动会话对 iCloud 既有占位文件
-> 「能新建、不能读/改/改名」，当日 rerun 覆盖必 EPERM，且会话内无法校验 iCloud 副本完整性。
-> 2026-09-01 及之前的历史增量仍在 `~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/`。
-
-**为什么不直接 iCloud 同步 `.duckdb`**：单个 ~3GB 文件 iCloud 无块级增量，每次改动整文件重传，
-且开「优化储存」时可能被逐出成占位、DuckDB 打开要先下完整库。所以按 `trade_date` 导当日增量小文件更省更稳。
-**还原**：增量不能独立重建库，需「一份全量基线 + 其后每日增量按序回放（`COPY`/`IMPORT`）」；
-全量基线用 `EXPORT DATABASE` 另存，本步只管每日增量。导出失败仅告警、不影响复盘结果。
+不直接同步整个 ~3GB `.duckdb`：无块级增量、每次整文件重传。还原靠「一份全量基线（`EXPORT DATABASE`）+ 其后每日增量按序回放」，
+本步只管增量；导出失败仅告警，不影响复盘结果。iCloud 目的地已退役，原因见 `references/ops-pitfalls.md`。
 
 
 ## 模块顺序与运维细节

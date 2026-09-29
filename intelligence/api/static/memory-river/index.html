@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>时间记忆长河 · Memory River Dashboard</title>
+<style>
+:root{
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color:#252421; background:#f3f2ef;
+  --ink:#252421; --muted:#6d6963; --faint:#948f88; --line:#dfdcd6; --line-strong:#cac5bd;
+  --surface:#ffffff; --surface-soft:#f7f5f2; --accent:#c65f3e; --accent-dark:#9f452e; --accent-soft:#f6e8e2;
+  --amber:#9a5f08; --amber-soft:#fff4dd; --red:#a9342f; --red-soft:#fff0ef; --blue:#496f91; --blue-soft:#edf3f8; --green:#4d7a5f; --green-soft:#eef5ef;
+  --shadow:0 18px 52px rgba(50,45,39,0.10); --shadow-sm:0 6px 20px rgba(50,45,39,0.08);
+}
+*{box-sizing:border-box} html{background:#f3f2ef}
+body{margin:0;min-height:100vh;background: radial-gradient(circle at 48% 0%, rgba(236,226,216,0.48), transparent 32rem), #f3f2ef; color:var(--ink)}
+.header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:18px 28px}
+.header h1{font-size:22px;letter-spacing:-0.02em;margin:0;display:flex;align-items:center;gap:10px}
+.header h1 em{font-style:normal;color:var(--accent)} .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);display:inline-block}
+.sub{margin-top:6px;color:var(--muted);font-size:12px;max-width:980px;line-height:1.6}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.controls select,.controls input,.controls button{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px;border-radius:8px;font-size:12px}
+.controls button{cursor:pointer;transition:all .15s} .controls button:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm)}
+.controls button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.main{display:grid;grid-template-columns:1fr 340px;gap:18px;max-width:1760px;margin:0 auto;padding:18px 22px 80px}
+.river-wrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;min-height:720px}
+.river-toolbar{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(180deg,#fff,#fdfaf6)}
+.river-toolbar .left{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.zoom{width:140px}
+.river-scroll{overflow:auto;flex:1;position:relative;background:#fcfbfa}
+.river-inner{position:relative;min-height:600px}
+.time-axis{position:sticky;top:0;z-index:5;background:rgba(247,245,242,0.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);height:36px;display:flex;align-items:center}
+.time-tick{position:absolute;top:0;bottom:0;border-left:1px solid #eee3d8;display:flex;align-items:center;padding-left:6px;font-size:10px;color:var(--faint);white-space:nowrap}
+.time-tick.week{border-left:1px dashed var(--line-strong);color:var(--muted);font-weight:650}
+.tracks{position:relative}
+.track{position:relative;height:92px;border-bottom:1px solid #f0ece6;display:flex;align-items:center}
+.track:nth-child(even){background:#fdfcfa}
+.track-label{position:sticky;left:0;z-index:4;width:110px;min-width:110px;height:100%;background:linear-gradient(90deg, var(--surface) 80%, rgba(255,255,255,0));border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;padding:0 10px;gap:2px}
+.track-label b{font-size:12px} .track-label span{font-size:10px;color:var(--faint)}
+.track-lane{position:relative;flex:1;height:100%}
+.event{position:absolute;top:12px;height:68px;min-width:90px;max-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 9px;cursor:pointer;box-shadow:0 2px 10px rgba(50,45,39,0.06);transition:transform .15s, box-shadow .15s, border-color .15s;overflow:hidden}
+.event:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm);border-color:var(--line-strong);z-index:10}
+.event.imp3{border-left:3px solid var(--accent);box-shadow:0 4px 16px rgba(198,95,62,0.15)} .event.imp2{border-left:3px solid var(--amber)} .event.imp1{border-left:3px solid var(--line-strong)}
+.event.track-market{border-left-color:var(--muted)} .event.track-leader{border-left-color:var(--accent)} .event.track-ladder{border-left-color:var(--red)} .event.track-theme{border-left-color:var(--blue)} .event.track-correction{border-left-color:var(--green)} .event.track-research{border-left-color:var(--amber)}
+.event .t{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.event .s{font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.event .tags{margin-top:4px;display:flex;gap:3px;flex-wrap:wrap}
+.event .tag{font-size:9px;padding:1px 5px;border-radius:4px;background:var(--surface-soft);border:1px solid var(--line);color:var(--muted)}
+.inspector{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:calc(100vh - 120px);position:sticky;top:90px}
+.insp-head{padding:14px 16px;border-bottom:1px solid var(--line);background:var(--surface-soft);border-radius:14px 14px 0 0}
+.insp-head h3{font-size:13px;margin:0} .insp-head p{font-size:11px;color:var(--muted);margin:4px 0 0}
+.insp-body{padding:14px 16px;overflow:auto;flex:1;font-size:12px;line-height:1.6}
+.insp-empty{padding:40px 16px;text-align:center;color:var(--faint);font-size:12px}
+.badge2{font-size:11px;padding:3px 8px;border-radius:6px;display:inline-block;margin:2px 3px 2px 0;font-weight:650;border:1px solid var(--line)}
+.badge2.market{background:#f7f5f2;color:var(--muted)} .badge2.leader{background:var(--accent-soft);color:var(--accent);border-color:#e8c2b3} .badge2.ladder{background:var(--red-soft);color:var(--red);border-color:#e9c0be} .badge2.theme{background:var(--blue-soft);color:var(--blue);border-color:#c9d8e6} .badge2.imp3{background:var(--accent);color:#fff;border-color:var(--accent)}
+.timeline-vert{display:none}
+@media(max-width:1100px){.main{grid-template-columns:1fr} .inspector{position:static;max-height:none} .river-wrap{min-height:500px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span class="dot"></span>时间记忆长河 <em>Memory River</em></h1>
+  <div class="sub">多轨道混合时间轴 · 市场温度 / 龙头高度 / 连板梯队 / 题材热度 / 纠偏 / 研究 · 横向可缩放拖拽，点击事件看详情，可跳转连板日历K线 · 风格与 8792 工作台统一 · 数据来自 market_feature_store + memory_river.json</div>
+  <div class="controls">
+    <select id="trackFilter"><option value="all">全部轨道</option><option value="market">市场</option><option value="leader">龙头</option><option value="ladder">连板梯队</option><option value="theme">题材</option><option value="correction">纠偏</option></select>
+    <select id="impFilter"><option value="all">全部重要度</option><option value="3">≥3 高标</option><option value="2">≥2 重点</option></select>
+    <input id="search" placeholder="搜索 股票/题材/事件..." style="min-width:200px">
+    <span style="font-size:11px;color:var(--faint)">缩放</span><input id="zoom" type="range" min="20" max="140" value="62" class="zoom">
+    <button id="btnToday">回到今日</button>
+    <button id="btnExport">导出选中</button>
+  </div>
+</div>
+<div class="main">
+  <div class="river-wrap">
+    <div class="river-toolbar">
+      <div class="left">
+        <span style="font-size:11px;color:var(--muted)" id="rangeLabel">90天 · 480事件</span>
+        <span style="font-size:11px;color:var(--faint)">· 拖拽横向滚动 · 滚轮缩放 · 点击事件查看</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button id="viewRiver" class="active" style="font-size:11px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface)">长河视图</button>
+        <button id="viewList" style="font-size:11px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface)">列表视图</button>
+      </div>
+    </div>
+    <div class="river-scroll" id="riverScroll">
+      <div class="river-inner" id="riverInner">
+        <div class="time-axis" id="timeAxis"></div>
+        <div class="tracks" id="tracks"></div>
+      </div>
+    </div>
+  </div>
+  <div class="inspector" id="inspector">
+    <div class="insp-head"><h3>记忆详情</h3><p>点击长河中的事件查看，支持跳转连板日历K线</p></div>
+    <div class="insp-body" id="inspBody"><div class="insp-empty">未选中事件<br><span style="font-size:11px">提示：高亮事件为5板+或龙头新高</span></div></div>
+  </div>
+</div>
+
+<script>
+let RAW=[]; let filtered=[]; let zoom=62; let trackFilter='all'; let impFilter='all'; let searchQ=''; let view='river';
+let minDate, maxDate, totalDays;
+
+const TRACKS=[
+  {id:'market', label:'市场温度', desc:'涨停/跌停/阶段', color:'var(--muted)'},
+  {id:'leader', label:'龙头高度', desc:'龙头新高/回落', color:'var(--accent)'},
+  {id:'ladder', label:'连板梯队', desc:'≥4板高标', color:'var(--red)'},
+  {id:'theme', label:'题材热度', desc:'板块领涨', color:'var(--blue)'},
+  {id:'correction', label:'纠偏记忆', desc:'用户纠正', color:'var(--green)'},
+  {id:'research', label:'研究决策', desc:'复盘结论', color:'var(--amber)'},
+];
+
+async function load(){
+  try{ const r=await fetch('./data.json'); if(r.ok) RAW=await r.json(); }catch{}
+  if(!RAW.length){ try{ const r=await fetch('/market_snapshot/memory_river.json'); if(r.ok) RAW=await r.json(); }catch{} }
+  if(!RAW.length){ RAW=[]; }
+  RAW.sort((a,b)=> a.date.localeCompare(b.date));
+  init();
+}
+function init(){
+  document.getElementById('trackFilter').onchange=e=>{trackFilter=e.target.value; render();};
+  document.getElementById('impFilter').onchange=e=>{impFilter=e.target.value; render();};
+  document.getElementById('search').oninput=e=>{searchQ=e.target.value.trim().toLowerCase(); render();};
+  document.getElementById('zoom').oninput=e=>{zoom=parseInt(e.target.value); renderRiver();};
+  document.getElementById('btnToday').onclick=()=>{ const el=document.getElementById('riverScroll'); el.scrollLeft=el.scrollWidth; };
+  document.getElementById('btnExport').onclick=()=>{ const blob=new Blob([JSON.stringify(filtered,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='memory_river_filtered.json'; a.click(); };
+  document.getElementById('viewRiver').onclick=()=>{view='river'; document.getElementById('viewRiver').classList.add('active'); document.getElementById('viewList').classList.remove('active'); render();};
+  document.getElementById('viewList').onclick=()=>{view='list'; document.getElementById('viewList').classList.add('active'); document.getElementById('viewRiver').classList.remove('active'); render();};
+  render();
+}
+
+function getFiltered(){
+  return RAW.filter(e=>{
+    if(trackFilter!=='all' && e.track!==trackFilter) return false;
+    if(impFilter!=='all' && (e.importance||1) < parseInt(impFilter)) return false;
+    if(searchQ){
+      const hay=(e.title+' '+e.summary+' '+(e.tags||[]).join(' ')+' '+e.track).toLowerCase();
+      if(!hay.includes(searchQ)) return false;
+    }
+    return true;
+  });
+}
+
+function render(){
+  filtered=getFiltered();
+  document.getElementById('rangeLabel').textContent=`${RAW.length}事件 · 过滤后${filtered.length} · ${filtered.length?filtered[0].date+'~'+filtered[filtered.length-1].date:''}`;
+  if(view==='list'){ renderList(); } else { renderRiver(); }
+}
+
+function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function diffDays(a,b){ return Math.round((b-a)/86400000); }
+
+function renderRiver(){
+  if(!filtered.length){ document.getElementById('tracks').innerHTML='<div style="padding:30px;color:var(--faint)">无匹配事件</div>'; return; }
+  const dates=filtered.map(e=>e.date).sort();
+  minDate=parseDate(dates[0]); maxDate=parseDate(dates[dates.length-1]);
+  totalDays=Math.max(1, diffDays(minDate,maxDate)+1);
+  const riverW=totalDays*zoom + 140;
+  const inner=document.getElementById('riverInner');
+  inner.style.width=riverW+'px';
+  // time axis
+  const axis=document.getElementById('timeAxis');
+  axis.style.width=riverW+'px';
+  axis.innerHTML='';
+  let cur=new Date(minDate);
+  while(cur<=maxDate){
+    const ds=cur.toISOString().slice(0,10);
+    const x=diffDays(minDate,cur)*zoom + 110;
+    const isMon=cur.getDay()===1;
+    const tick=document.createElement('div');
+    tick.className='time-tick'+(isMon?' week':'');
+    tick.style.left=x+'px';
+    tick.textContent=isMon?ds.slice(5): (cur.getDate()===1?ds.slice(5):'');
+    axis.appendChild(tick);
+    cur.setDate(cur.getDate()+1);
+  }
+  // tracks
+  const tracksEl=document.getElementById('tracks');
+  tracksEl.innerHTML='';
+  TRACKS.forEach(tr=>{
+    const laneEvents=filtered.filter(e=>e.track===tr.id);
+    if(trackFilter!=='all' && trackFilter!==tr.id) return;
+    if(!laneEvents.length && trackFilter==='all') {
+      // still show empty lane for context if market/leader/ladder/theme
+      if(!['market','leader','ladder','theme'].includes(tr.id)) return;
+    }
+    const trackDiv=document.createElement('div');
+    trackDiv.className='track';
+    trackDiv.innerHTML=`<div class="track-label"><b>${tr.label}</b><span>${tr.desc} · ${laneEvents.length}件</span></div><div class="track-lane"></div>`;
+    const lane=trackDiv.querySelector('.track-lane');
+    lane.style.width=(riverW-110)+'px';
+    // avoid overlap: group by date
+    const byDate={};
+    laneEvents.forEach(ev=>{ (byDate[ev.date]=byDate[ev.date]||[]).push(ev); });
+    Object.entries(byDate).forEach(([date, evs])=>{
+      const baseX=diffDays(minDate, parseDate(date))*zoom;
+      evs.forEach((ev, idx)=>{
+        const el=document.createElement('div');
+        el.className=`event track-${ev.track} imp${ev.importance||1}`;
+        el.style.left=(baseX + idx*8)+'px';
+        el.style.top=(12 + (idx%2)*0)+'px';
+        el.innerHTML=`<div class="t">${ev.title}</div><div class="s">${ev.summary||''}</div><div class="tags">${(ev.tags||[]).slice(0,2).map(t=>`<span class="tag">${t}</span>`).join('')}</div>`;
+        el.onclick=()=>selectEvent(ev);
+        lane.appendChild(el);
+      });
+    });
+    tracksEl.appendChild(trackDiv);
+  });
+}
+
+function renderList(){
+  const tracksEl=document.getElementById('tracks');
+  const axis=document.getElementById('timeAxis');
+  axis.innerHTML=''; document.getElementById('riverInner').style.width='100%';
+  let html=`<div style="padding:12px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th>日期</th><th>轨道</th><th>事件</th><th>摘要</th><th>重要度</th></tr></thead><tbody>`;
+  filtered.slice().reverse().forEach(ev=>{
+    html+=`<tr onclick='selectEventById("${ev.id}")' style="cursor:pointer"><td>${ev.date}</td><td><span class="badge2 ${ev.track}">${ev.track}</span></td><td><b>${ev.title}</b></td><td style="color:var(--muted)">${ev.summary||''} ${(ev.tags||[]).join(' ')}</td><td>${'★'.repeat(ev.importance||1)}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  tracksEl.innerHTML=html;
+}
+
+function selectEventById(id){
+  const ev=RAW.find(e=>e.id===id);
+  if(ev) selectEvent(ev);
+}
+function selectEvent(ev){
+  const body=document.getElementById('inspBody');
+  body.innerHTML=`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="badge2 ${ev.track}">${ev.track}</span>
+      <span class="badge2 ${ev.importance>=3?'imp3':''}">${'★'.repeat(ev.importance||1)} 重要度</span>
+      <span class="badge2 market">${ev.date}</span>
+    </div>
+    <h3 style="font-size:14px;margin:0 0 6px">${ev.title}</h3>
+    <p style="color:var(--muted);margin:0 0 12px">${ev.summary||''}</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${(ev.tags||[]).map(t=>`<span class="badge2 market">${t}</span>`).join('')}</div>
+    <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11px;line-height:1.6">
+      <div><b>类型</b> ${ev.type}</div>
+      <div><b>日期</b> ${ev.date}</div>
+      <div style="margin-top:8px"><b>Meta</b><pre style="white-space:pre-wrap;word-break:break-all;margin:6px 0 0;background:var(--surface);padding:8px;border-radius:8px;border:1px solid var(--line)">${JSON.stringify(ev.meta||{},null,2)}</pre></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="jumpToCalendar('${ev.date}','${ev.meta?.ts_code||''}')" style="padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:12px">跳转连板日历 ${ev.date}</button>
+      ${ev.meta?.ts_code?`<button onclick="jumpToKline('${ev.date}','${ev.meta.ts_code}')" style="padding:7px 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer;font-size:12px">看K线 ${ev.meta.ts_code}</button>`:''}
+    </div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);font-size:11px;color:var(--faint)">
+      时间记忆长河：同一日期多事件会横向堆叠，重要事件左侧加粗，支持按轨道/重要度/关键词过滤，缩放查看密度。
+    </div>
+  `;
+}
+
+function jumpToCalendar(date, ts){
+  // open limitup calendar
+  const url=`/limitup-calendar/index.html`;
+  window.open(url, '_blank');
+}
+function jumpToKline(date, ts){
+  const url=`/limitup-calendar/index.html#kline=${date}-${ts}`;
+  window.open(url, '_blank');
+}
+
+load();
+</script>
+</body>
+</html>

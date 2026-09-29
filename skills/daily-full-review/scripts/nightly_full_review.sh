@@ -3,7 +3,7 @@
 # 链路：preflight（run_review_sync 内置）→ 同步段 → 独立 L2 分支 → 生成段。
 # 周末直接跳过；非交易日由质检闸门拦截。preflight 失败（CDP proxy/登录态）会在日志里给出修复提示。
 #
-# 定时拆分（L2 逐笔数据 ~20:30 才到，18:30 跑必空）：
+# 定时拆分（L2 闲鱼日包常晚于收盘才上分享，18:30 跑必空）：
 #   nightly_full_review.sh sync        → 仅同步段（@18:30，不依赖 L2）
 #   nightly_full_review.sh finalize    → L2 + 生成段（@20:40，含 sync 守卫）
 #   nightly_full_review.sh [date]      → 全量（手动补跑用，phase=all）
@@ -91,7 +91,8 @@ notify() {
 }
 
 run_moneyflow() {
-  L2_LOCK_HELD=1 "$CODE_ROOT/scripts/moneyflow/run_l2_pipeline.sh" "$D"
+  # L2 绑本机网盘 Cookie 与 data root 的分享入口，不走 CODE_ROOT 冻结快照。
+  L2_LOCK_HELD=1 "$DATA_ROOT/scripts/moneyflow/run_l2_pipeline.sh" "$D"
 }
 
 run_sync() {
@@ -100,24 +101,15 @@ run_sync() {
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
 # 返回 moneyflow_rc / l2_rc 两个全局变量。
-# L2 挂账暂停：state/l2-paused.flag 存在 → 不抓取、L2 门放行（check 脚本读 L2_PAUSED=1
-# 会跳过并留痕）。删除 flag 文件即恢复；欠账日期用 run_l2_pipeline.sh 按日回补。
-L2_PAUSED_FLAG="$WORKSPACE/state/l2-paused.flag"
+# 源是闲鱼日包（百度分享），不再打 ClickHouse，也不再认 l2-paused.flag。
 run_l2_branch() {
-  if [ -f "$L2_PAUSED_FLAG" ]; then
-    export L2_PAUSED=1
-    echo "[$(date '+%F %T')] L2 已挂账暂停（存在 $L2_PAUSED_FLAG），跳过资金流段与 L2 质量门"
-    moneyflow_rc=0
-    l2_rc=0
-    return 0
-  fi
   run_moneyflow
   moneyflow_rc=$?
   if [ "$moneyflow_rc" -ne 0 ]; then
     echo "[$(date '+%F %T')] 资金流段失败 rc=$moneyflow_rc"
     # --fail 仅在实际交易日落 failed；非交易日由 write_to_duckdb.py 内部保护跳过，
     # 避免把历史 complete 或空跑降级成失败（8.6 覆写事故根因）。
-    "$OPS_PYTHON" "$CODE_ROOT/scripts/moneyflow/write_to_duckdb.py" --fail "$D" "nightly moneyflow rc=$moneyflow_rc" \
+    "$OPS_PYTHON" "$DATA_ROOT/scripts/moneyflow/write_to_duckdb.py" --fail "$D" "nightly moneyflow rc=$moneyflow_rc" \
       || echo "[$(date '+%F %T')] L2 失败状态回写未成功"
     notify "❌ 全量复盘 $D 资金流段失败 rc=$moneyflow_rc；日志 logs/daily-full-review.out.log"
   fi

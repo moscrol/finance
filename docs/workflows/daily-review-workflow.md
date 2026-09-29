@@ -1,6 +1,10 @@
 # Daily Review Workflow：每日复盘产品化闭环
 
-更新时间：2026-06-11
+更新时间：2026-06-11（2026-09 校订入口）
+
+> **执行时以 `skills/daily-full-review/SKILL.md` 为准**，本文是产品化闭环的设计说明与步骤总览。两处已知差异：
+> Step 1 的 `daily-update` 直写生产现已 fail closed，同步走编排器 `skills/daily-full-review/scripts/run_review_sync.py` 或 `daily-full`（staging 写 + 原子换库）；
+> Step 4 的 `render_daily_review_html.py` 是另一套暗色模板，不再作为备用入口，只用 `render_daily_review_briefing.py`。
 
 ## 1. 目标
 
@@ -150,19 +154,13 @@ git status --short && git branch --show-current
 
 ### Step 1：同步市场数据
 
-完整日更命令：
+同步入口（逐模块隔离 + 超时 + 兜底 + runlog）：
 
 ```bash
-python3 -m market_feature_store.cli daily-update --trade-date YYYY-MM-DD
+python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
 ```
 
-快速模式：
-
-```bash
-python3 -m market_feature_store.cli daily-update --trade-date YYYY-MM-DD --skip-long
-```
-
-等价完整闭环入口：
+完整闭环入口（同步后生成复盘；staging 写 + 原子换库，生产库无写锁）：
 
 ```bash
 python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
@@ -170,7 +168,7 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 
 注意：
 
-- `daily-update` 负责同步和补字段。
+- `daily-update` 是 monolith 同步，直写生产已 fail closed；急救才 `--direct`，详见 `skills/daily-full-review/SKILL.md`。
 - `daily-review` 只从 DuckDB 生成复盘 Markdown。
 - `daily-full` 是日更后生成复盘的组合入口。
 - 若数据源报错，应先定位具体同步步骤，不要直接跳到报告生成。
@@ -243,17 +241,10 @@ python3 scripts/render_daily_review_briefing.py YYYY-MM-DD
 复盘/daily/YYYY-MM-DD/YYYY-MM-DD-daily-review.html
 ```
 
-备用脚本：
-
-```bash
-python3 scripts/render_daily_review_html.py YYYY-MM-DD
-```
-
 注意：
 
-- `render_daily_review_briefing.py` 会先调用 `check_daily_review_data.py`。
-- `render_daily_review_html.py` 只渲染 HTML，不负责质检。
-- 日常产品化闭环优先使用 briefing 脚本。
+- `render_daily_review_briefing.py` 会先调用 `check_daily_review_data.py`，是唯一的日报 HTML 入口。
+- `render_daily_review_html.py` 是另一套暗色模板，不做质检，不要与 briefing 产物混用。
 
 ### Step 5：生成盘面触发题材简报
 

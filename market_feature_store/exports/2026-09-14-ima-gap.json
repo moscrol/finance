@@ -1,0 +1,180 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-14",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "数据中心",
+    "培育钻石"
+  ],
+  "stock_run": [
+    "英诺激光"
+  ],
+  "themes": [
+    {
+      "theme": "新能源车",
+      "bucket": "today_do_ima",
+      "priority": 187.45,
+      "stocks": [
+        "科翔股份",
+        "满坤科技",
+        "中京电子",
+        "天通股份",
+        "弘信电子"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 618,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "数据中心",
+      "bucket": "today_do_ima",
+      "priority": 173.33,
+      "stocks": [
+        "科翔股份",
+        "风华高科",
+        "中京电子",
+        "超声电子",
+        "天通股份"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 4219,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "培育钻石",
+      "bucket": "today_do_ima",
+      "priority": 87.6,
+      "stocks": [
+        "黄河旋风",
+        "英诺激光",
+        "力量钻石",
+        "四方达",
+        "惠丰钻石"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 2355,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "PCB",
+      "bucket": "today_find_official_evidence",
+      "priority": 200.72,
+      "stocks": [
+        "科翔股份",
+        "满坤科技",
+        "中京电子",
+        "超声电子",
+        "弘信电子"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 16330,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "先进封装",
+      "bucket": "today_find_official_evidence",
+      "priority": 84.96,
+      "stocks": [
+        "科翔股份",
+        "英诺激光",
+        "中京电子",
+        "天通股份",
+        "新益昌"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 17481,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "科翔股份",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "满坤科技",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "中京电子",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "天通股份",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "弘信电子",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "风华高科",
+      "theme": "数据中心",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "超声电子",
+      "theme": "数据中心",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "黄河旋风",
+      "theme": "培育钻石",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "英诺激光",
+      "theme": "培育钻石",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "力量钻石",
+      "theme": "培育钻石",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "四方达",
+      "theme": "培育钻石",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "惠丰钻石",
+      "theme": "培育钻石",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 2,
+    "stock_run": 1,
+    "themes": 5,
+    "stocks": 12
+  }
+}

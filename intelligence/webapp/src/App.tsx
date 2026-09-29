@@ -51,6 +51,8 @@ import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
 import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
+import { LimitUpDashboard } from "./components/river/LimitUpDashboard";
+import { RiverWorkbench } from "./components/river/RiverWorkbench";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
 import {
@@ -875,7 +877,7 @@ export default function App() {
     [messages, runBundles],
   );
   const activeSection: WorkbenchSection = (
-    ["today", "themes", "signals", "validation", "ask"] as const
+    ["today", "themes", "signals", "validation", "river", "ladder", "ask"] as const
   ).includes(surface.kind as WorkbenchSection)
     ? (surface.kind as WorkbenchSection)
     : "ask";
@@ -884,6 +886,8 @@ export default function App() {
     themes: ["主题雷达", "主题状态矩阵", "知识共识与盘面确认分轴展示"],
     signals: ["事件收件箱", "晨会边际变化", "只推变化，不重复旧观点"],
     validation: ["回检台", "验证与校准", "机构胜率 · Level2 · 假设回检"],
+    river: ["记忆长河", "时间记忆长河", "六轨对齐 · 横扫 / 纵扫 / 区间 · 读取路径无模型"],
+    ladder: ["连板日历", "连板梯队与晋级率", "梯队热力 · 龙头高度 · 与大盘阶段对照"],
     ask: ["研究线程", activeConversation?.title ?? "新对话", "每轮重新检索当前证据"],
   };
   const [sectionKicker, sectionTitle, sectionSubtitle] =
@@ -1042,6 +1046,9 @@ export default function App() {
               onRefresh={refreshOverview}
             />
           )}
+
+        {surface.kind === "river" && <RiverWorkbench />}
+        {surface.kind === "ladder" && <LimitUpDashboard />}
 
         {surface.kind === "library" && (
           <ArtifactLibrary

@@ -1,8 +1,10 @@
 ---
 name: ifind
+user-invocable: false
+disable-model-invocation: true
 metadata:
   pattern: tool-wrapper
-description: iFinD（同花顺）MCP API 共享工具库。此 skill 不可独立触发，仅供其他 skill 调用。
+description: iFinD（同花顺）MCP API 共享工具库，供 top-gainers、watchlist-ma 等 skill 的脚本导入调用；不是可独立触发的技能，不进技能列表。
 ---
 
 # iFinD API 共享工具库

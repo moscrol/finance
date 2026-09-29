@@ -371,6 +371,28 @@ def duck_top_turnover_codes(date, n=50):
     return [r[0].split(".")[0] for r in rows]
 
 
+def duck_pct_chg_map(date):
+    """fact_stock_daily 的 canonical 当日涨幅%（收盘/前收口径，供应商字段），按 6 位代码索引。
+
+    L2 逐笔只能给出「末笔/首笔」的日内口径，与日线口径系统性背离（2026-09-13 QC E3
+    实测 09-11 top100 98/100 不符、28/100 符号相反），且会翻转下游「资金背离」标签。
+    当日涨幅%一律以日线为准；当日 fact_stock_daily 缺失时返回空表，调用方写 NULL，
+    不拿日内口径冒充。运营覆盖层未提交版：与 fix/8792-qc-closeout-0913 的同名函数
+    保持一致，收口合 main 时以仓内版为准。
+    """
+    import duckdb
+    from config import DUCKDB_PATH
+    con = duckdb.connect(DUCKDB_PATH, read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT substr(stock_ts_code, 1, 6), pct_chg FROM fact_stock_daily "
+            "WHERE trade_date = ? AND pct_chg IS NOT NULL",
+            [date]).fetchall()
+    finally:
+        con.close()
+    return {code: float(pct) for code, pct in rows}
+
+
 def fetch_trades_retry(client, code, date, retries=3):
     """带重连重试的 fetch_trades，返回 (client, df)。
     退避时长指数增长并加随机抖动，避免限流后同步重试再次撞限。"""
