@@ -4378,6 +4378,56 @@ p {
   display: contents;
 }
 
+.theme-matrix-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-matrix-summary p {
+  margin: 0;
+}
+
+.theme-matrix-toggle {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.theme-matrix-toggle:hover {
+  color: var(--ink, inherit);
+  border-color: currentColor;
+}
+
+.theme-matrix .matrix-axis-label {
+  font-size: 11px;
+}
+
+.theme-matrix.compact .matrix-cell {
+  min-height: 72px;
+}
+
+.theme-matrix.compact .matrix-market-label {
+  min-height: 72px;
+}
+
+.river-column-note {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .matrix-market-label {
   min-height: 112px;
   color: var(--muted);

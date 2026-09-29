@@ -54,13 +54,26 @@ function HeightSparkline({ days, selected, onSelect }: { days: LimitUpDay[]; sel
 }
 
 /** 连板日历：梯队热力 × 晋级率 × 龙头高度 × 市场环境，点一天看明细。 */
-export function LimitUpDashboard() {
+interface LimitUpDashboardProps {
+  /** 与长河共享的当前交易日；只在用户主动选日时回写。 */
+  focusDate?: string | null;
+  onFocusDate?: (date: string) => void;
+}
+
+export function LimitUpDashboard({ focusDate = null, onFocusDate }: LimitUpDashboardProps = {}) {
   const [days, setDays] = useState<number>(60);
   const [data, setData] = useState<LimitUpCalendar | null>(null);
   const [kline, setKline] = useState<Kline | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelectedDay] = useState<string | null>(focusDate);
+  const setSelected = useCallback(
+    (date: string) => {
+      setSelectedDay(date);
+      onFocusDate?.(date);
+    },
+    [onFocusDate],
+  );
 
   const load = useCallback(() => {
     setLoading(true);
@@ -68,7 +81,7 @@ export function LimitUpDashboard() {
     getLimitUpCalendar(days)
       .then((res) => {
         setData(res);
-        setSelected((current) => (current && res.days.some((d) => d.trade_date === current) ? current : res.end));
+        setSelectedDay((current) => (current && res.days.some((d) => d.trade_date === current) ? current : res.end));
         if (res.start && res.end) getKline(res.start, res.end).then(setKline).catch(() => setKline(null));
       })
       .catch((err: Error) => setError(err.message))

@@ -1881,6 +1881,20 @@ describe("Workbench navigation reliability", () => {
     apiMocks.forgetSavedLLM.mockResolvedValue(llmConfig);
   });
 
+  it("initialises once even when bootstrap switches the user", async () => {
+    // 回归：初始化 effect 曾依赖 selectConversation，user 从 default 变成真实用户后整段重跑，
+    // 每个接口都会被请求两遍。
+    apiMocks.getBootstrap.mockResolvedValue({ ...bootstrap, user: "linxiaoqi5111" });
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "轮动" })).toBeVisible();
+    await waitFor(() => expect(apiMocks.listConversations).toHaveBeenCalled());
+    expect(apiMocks.getBootstrap).toHaveBeenCalledTimes(1);
+    expect(apiMocks.listConversations).toHaveBeenCalledTimes(1);
+    expect(apiMocks.listConversations).toHaveBeenCalledWith("linxiaoqi5111");
+    expect(apiMocks.getWorkbenchOverview).toHaveBeenCalledTimes(1);
+  });
+
   it("opens on today and navigates across the five product surfaces", async () => {
     const user = userEvent.setup();
     render(<App />);

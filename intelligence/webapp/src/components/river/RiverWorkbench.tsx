@@ -21,7 +21,13 @@ const WINDOWS = [20, 40, 60, 120] as const;
  * 下方三个 Tab 对应 river_query 的三种查询形状：横扫 / 纵扫 / 区间。
  * 所有数据现算、无 LLM；缺口如实画成缺口。
  */
-export function RiverWorkbench() {
+interface RiverWorkbenchProps {
+  /** 与涨停梯队共享的当前交易日；只在用户主动选日时回写。 */
+  focusDate?: string | null;
+  onFocusDate?: (date: string) => void;
+}
+
+export function RiverWorkbench({ focusDate = null, onFocusDate }: RiverWorkbenchProps = {}) {
   const [meta, setMeta] = useState<RiverMeta | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [entity, setEntity] = useState<EntityHit | null>(null);
@@ -31,7 +37,7 @@ export function RiverWorkbench() {
   const [kline, setKline] = useState<Kline | null>(null);
   const [timelineError, setTimelineError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(focusDate);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("scan");
 
@@ -91,6 +97,7 @@ export function RiverWorkbench() {
 
   const pickDay = (date: string) => {
     setSelectedDay(date);
+    onFocusDate?.(date);
     setDrawerOpen(true);
     if (range && (date < range.start || date > range.end)) {
       // 纵扫命中的日子可能在当前窗口之外：把窗口挪过去，保持 60 个交易日宽度。

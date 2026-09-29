@@ -93,6 +93,8 @@ interface StreamIdentity {
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "today" });
+  // 长河与涨停梯队共用一个「当前交易日」，切换页面时 K 线/梯队停在同一天。
+  const [marketFocusDate, setMarketFocusDate] = useState<string | null>(null);
   const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
   const [overviewRefreshing, setOverviewRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -470,6 +472,16 @@ export default function App() {
     [clearRunPolling, connectStream, loadConversationData],
   );
 
+  // 初始化只跑一次：selectConversation/clearRunPolling 的身份会随 bootstrap.user 变化，
+  // 若放进依赖数组，setBootstrap 之后整个初始化会被取消重跑，所有请求各发两遍。
+  // 用 ref 取最新版本，调用时拿到的永远是已带上真实 user 的回调。
+  const selectConversationRef = useRef(selectConversation);
+  const clearRunPollingRef = useRef(clearRunPolling);
+  useEffect(() => {
+    selectConversationRef.current = selectConversation;
+    clearRunPollingRef.current = clearRunPolling;
+  }, [selectConversation, clearRunPolling]);
+
   useEffect(() => {
     let disposed = false;
     void getBootstrap()
@@ -496,7 +508,7 @@ export default function App() {
         setLLMConfig(nextLLMConfig);
         setOverview(nextOverview);
         if (nextConversations[0]) {
-          await selectConversation(nextConversations[0].conversation_id, {
+          await selectConversationRef.current(nextConversations[0].conversation_id, {
             closeDrawer: false,
             openAsk: false,
           });
@@ -515,9 +527,9 @@ export default function App() {
     return () => {
       disposed = true;
       eventSourceRef.current?.close();
-      clearRunPolling();
+      clearRunPollingRef.current();
     };
-  }, [clearRunPolling, selectConversation]);
+  }, []);
 
   const refreshOverview = useCallback(async () => {
     setOverviewRefreshing(true);
@@ -1051,8 +1063,12 @@ export default function App() {
             />
           )}
 
-        {surface.kind === "river" && <RiverWorkbench />}
-        {surface.kind === "ladder" && <LimitUpDashboard />}
+        {surface.kind === "river" && (
+          <RiverWorkbench focusDate={marketFocusDate} onFocusDate={setMarketFocusDate} />
+        )}
+        {surface.kind === "ladder" && (
+          <LimitUpDashboard focusDate={marketFocusDate} onFocusDate={setMarketFocusDate} />
+        )}
 
         {surface.kind === "library" && (
           <ArtifactLibrary

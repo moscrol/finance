@@ -82,6 +82,16 @@ export function ScanPanel({ asOf, tradingDays, onPickEntity }: ScanPanelProps) {
     });
   }, [result, sort, filter]);
 
+  // 整列都空的维度（例如 09-24 东财主力净额成分行全为 NULL）不占一列「—」，改成一句说明。
+  const fundEmpty = rows.length > 0 && rows.every((r) => r.fund_flow_1d === null);
+  const fundCalibers = useMemo(
+    () => [...new Set(rows.map((r) => r.fund_caliber).filter((c): c is string => Boolean(c)))],
+    [rows],
+  );
+  const visibleColumns = fundEmpty ? COLUMNS.filter((c) => c.key !== "fund_flow_1d") : COLUMNS;
+  const doubleRedCount = rows.filter((r) => r.strict_double_red === true).length;
+  const doubleRedKnown = rows.some((r) => r.strict_double_red !== null);
+
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: -1 }));
 
@@ -133,13 +143,20 @@ export function ScanPanel({ asOf, tradingDays, onPickEntity }: ScanPanelProps) {
         <div className="empty-output">这一天在当前阈值下没有错位板块。放宽「90 日研报」或「盘面分位」再试；研报目录只覆盖到 {"入库最后一天"}，越晚的日子 90 日覆盖越可能为 0。</div>
       )}
 
+      {fundEmpty && (
+        <p className="river-column-note">
+          资金列已隐藏：本日 {rows.length} 个板块的成分股主力净额全为空
+          {fundCalibers.length ? `（口径 ${fundCalibers.join(" / ")}）` : ""}，不是 0。
+        </p>
+      )}
+
       {rows.length > 0 && (
         <div className="output-table-scroll river-table-scroll">
           <table className="output-table river-table">
             <thead>
               <tr>
                 <th>板块</th>
-                {COLUMNS.map((c) => (
+                {visibleColumns.map((c) => (
                   <th key={c.key} title={c.hint}>
                     <button type="button" className={`sort ${sort.key === c.key ? "active" : ""}`} onClick={() => toggleSort(c.key)}>
                       {c.label}
@@ -148,7 +165,9 @@ export function ScanPanel({ asOf, tradingDays, onPickEntity }: ScanPanelProps) {
                     </button>
                   </th>
                 ))}
-                <th>双红</th>
+                <th title="严格双红：板块与成分股同步确认">
+                  双红{doubleRedKnown && <small className="muted"> {doubleRedCount}</small>}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -173,9 +192,11 @@ export function ScanPanel({ asOf, tradingDays, onPickEntity }: ScanPanelProps) {
                     {r.coverage_90d}
                     <small className="muted"> / 累计 {r.coverage_cumulative}</small>
                   </td>
-                  <td className={`num river-sign ${signClass(r.fund_flow_1d)}`} title={r.fund_caliber ?? ""}>
-                    {r.fund_flow_1d === null ? (r.fund_caliber?.startsWith("mixed") ? "混源" : "—") : fmtNum(r.fund_flow_1d, 1)}
-                  </td>
+                  {!fundEmpty && (
+                    <td className={`num river-sign ${signClass(r.fund_flow_1d)}`} title={r.fund_caliber ?? ""}>
+                      {r.fund_flow_1d === null ? (r.fund_caliber?.startsWith("mixed") ? "混源" : "—") : fmtNum(r.fund_flow_1d, 1)}
+                    </td>
+                  )}
                   <td className="num">{pctile(r.market_pctile)}</td>
                   <td className="num">{pctile(r.opinion_pctile)}</td>
                   <td className="num">
