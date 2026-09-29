@@ -129,7 +129,8 @@ def child(args) -> int:
             # Only the local plan's declared optional parallel source may skip.
             # Keep its original skip receipt; required work and failed Hithink
             # requests must still stop before any success status is written.
-            optional_skip = name in sync.HITHINK_STEPS and result['status'] == 'skip'
+            optional_skip = (name in sync.HITHINK_STEPS
+                             or name in getattr(sync, 'OPTIONAL_SKIP_STEPS', ())) and result['status'] == 'skip'
             if result['status'] != 'ok' and not optional_skip:
                 raise RuntimeError(f'{day} {name} failed; no publish')
     # Cross-day gate sees BOTH dates fully derived; no partially-created calendar row.

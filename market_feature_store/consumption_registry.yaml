@@ -98,6 +98,7 @@ plans:
     - db-lock
     - hithink-stock-daily
     - stock-daily
+    - attach-capture-names
     - hithink-sector-kline
     - hithink-limit-pools
     - hithink-dragon-auction
@@ -216,7 +217,8 @@ datasets:
   - key: stock_daily
     label: 全 A 个股日线
     tables: [fact_stock_daily]
-    steps: {full: [stock-daily], cheap: [stock-daily], local: [stock-daily]}
+    # local 的 attach-capture-names：同花顺桥接新股空名 → 当日收盘后封存腾讯报价名（合同 1，09-29 接受）
+    steps: {full: [stock-daily], cheap: [stock-daily], local: [stock-daily, attach-capture-names]}
     identity: {what: 全A股票宇宙, cadence: 慢}
     value: {what: 收盘/涨幅/成交额, cadence: 极快}
     refresh:

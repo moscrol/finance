@@ -411,6 +411,42 @@ def sync_hithink_step(label: str, trade_date: str, timeout: int) -> dict:
     return run_step(label, argv, timeout)
 
 
+# 设计上允许 skip 的非同花顺步骤：skip 表示「前提不在」，不是失败（回放/恢复链也按此放行）。
+OPTIONAL_SKIP_STEPS = ("attach-capture-names",)
+
+# 捕获是数据不是代码：夜跑从冻结代码根执行，但捕获落在数据根（S7 导出 FINANCE_DATA_ROOT/FINANCE_WS）。
+QUOTE_CAPTURE_ROOT = Path(
+    os.environ.get("FINANCE_QUOTE_CAPTURE_ROOT")
+    or Path(os.environ.get("FINANCE_DATA_ROOT") or os.environ.get("FINANCE_WS") or ROOT)
+    / "db" / "quote-captures" / "tencent"
+)
+
+
+def attach_capture_names_step(trade_date: str, timeout: int) -> dict:
+    """同花顺桥接行的空名 → 当日收盘后封存的腾讯报价名（合同 1，2026-09-29 用户接受）。
+
+    新股在库里没有此前的名字，桥只能留 NULL，limit-stats-local 按设计拒跑（InvalidStockName）。
+    当日 ≥15:00 由 scripts/capture_dated_quotes.py 封存的捕获在就补名；不在就 skip——
+    行为与接线前完全相同（缺名照样红在 limit-stats-local，不猜、不跳过）。
+    补名本身的全部硬约束（只动 staging、只填 hithink 空名、逐行钉价、收据只新建）在执行件里。
+    """
+    capture_dir = QUOTE_CAPTURE_ROOT / trade_date
+    if not (capture_dir / "receipt.json").is_file():
+        note = f"no sealed capture at {capture_dir}; names stay as bridged"
+        print(f"\n>>> attach-capture-names: skip ({note})", flush=True)
+        return {"label": "attach-capture-names", "status": "skip", "code": None,
+                "elapsed": 0.0, "note": note}
+    receipts = QUOTE_CAPTURE_ROOT / "attach-receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    receipt = receipts / f"{trade_date}-{datetime.now().strftime('%Y%m%dT%H%M%S%f')}.json"
+    return run_step(
+        "attach-capture-names",
+        [PY, "skills/duckdb-backfill/scripts/attach_capture_names.py", "--trade-date", trade_date,
+         "--capture-dir", str(capture_dir), "--receipt", str(receipt)],
+        timeout,
+    )
+
+
 def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
     """local：不发任何 fupanhui 请求（2026-09-07 账号风控后的日更链路）。
 
@@ -429,6 +465,8 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         hithink[0],
         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout, hithink_fallback=True)),
+        # 桥接之后、任何按股名判定的加工步骤之前（limit-stats-local 用名字判 ST/N/C）。
+        ("attach-capture-names", lambda: attach_capture_names_step(trade_date, timeout)),
         *hithink[1:],
         ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
