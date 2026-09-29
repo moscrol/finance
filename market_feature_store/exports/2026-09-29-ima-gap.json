@@ -1,0 +1,223 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-29",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "房地产",
+    "风电设备",
+    "风电"
+  ],
+  "stock_run": [
+    "特发服务",
+    "滨江集团",
+    "新强联",
+    "恒润股份",
+    "禾望电气",
+    "浙江新能",
+    "中材科技"
+  ],
+  "themes": [
+    {
+      "theme": "新能源车",
+      "bucket": "today_do_ima",
+      "priority": 172.93,
+      "stocks": [
+        "迅捷兴",
+        "先导智能",
+        "众捷股份",
+        "金禄电子",
+        "国轩高科"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 618,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "房地产",
+      "bucket": "today_do_ima",
+      "priority": 132.1,
+      "stocks": [
+        "万  科Ａ",
+        "特发服务",
+        "滨江集团",
+        "华发股份",
+        "深物业A"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 607,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "风电设备",
+      "bucket": "today_do_ima",
+      "priority": 129.29,
+      "stocks": [
+        "大金重工",
+        "新强联",
+        "恒润股份",
+        "禾望电气",
+        "明阳智能"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 669,
+      "action": "run_deepdive",
+      "reason": "占位页，走 15 章升 L1"
+    },
+    {
+      "theme": "风电",
+      "bucket": "today_do_ima",
+      "priority": 77.77,
+      "stocks": [
+        "国轩高科",
+        "大金重工",
+        "长飞光纤",
+        "浙江新能",
+        "中材科技"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 951,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "电力设备",
+      "bucket": "today_find_official_evidence",
+      "priority": 78.23,
+      "stocks": [
+        "先导智能",
+        "国轩高科",
+        "利元亨",
+        "大金重工",
+        "中一科技"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 2265,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "迅捷兴",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "先导智能",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "众捷股份",
+      "theme": "新能源车",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "金禄电子",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "国轩高科",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "万  科Ａ",
+      "theme": "房地产",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "特发服务",
+      "theme": "房地产",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "滨江集团",
+      "theme": "房地产",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "华发股份",
+      "theme": "房地产",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "深物业A",
+      "theme": "房地产",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "大金重工",
+      "theme": "风电设备",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "新强联",
+      "theme": "风电设备",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "恒润股份",
+      "theme": "风电设备",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "禾望电气",
+      "theme": "风电设备",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "明阳智能",
+      "theme": "风电设备",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "长飞光纤",
+      "theme": "风电",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "浙江新能",
+      "theme": "风电",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "中材科技",
+      "theme": "风电",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 3,
+    "stock_run": 7,
+    "themes": 5,
+    "stocks": 18
+  }
+}
