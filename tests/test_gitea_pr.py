@@ -450,8 +450,17 @@ def test_merge_tree_reports_conflicts_from_git(monkeypatch):
 
 
 # ---------------------------------------------------------------- 客户端超时（打在 urlopen 层，真 _api 照跑）
+#
+# 变异读数（2026-09-29，实现提交 2e7199f8b 上逐门拆、各确认替换恰好 1 处、还原后树干净）：
+#   cmd_merge 去掉 except GiteaTransportError → post_timeout_after_server_applied / without_apply /
+#     landed[timeout-854] / readback_unreachable 四条红（landed[http500-781] 走 SystemExit 分支，不红是对的）
+#   回读不看服务端 base ref → landed 两条 + not_merged + unknown + 4xx 五条红
+#   base 前进也不认作落地 → landed 两条红；4xx 也轮询 → rejected_4xx 红
+#   cmd_open 不接传输错误 → open_post_timeout 两条红；只看第一页 → second_page 红
+#   默认超时写回 30 → timeout_default + post_timeout_after_server_applied 红；不读环境变量 → timeout_default 红
+#   guard 不接 → guard 两条红；main 不兜 → elsewhere_exits_3 红
 
-MERGE_ARGV = ["merge", "815", "--yes", "--expect-head", HEAD_SHA, "--expect-base", BASE_SHA[:10]]
+MERGE_ARGV =["merge", "815", "--yes", "--expect-head", HEAD_SHA, "--expect-base", BASE_SHA[:10]]
 
 
 def _record_argv(path: Path) -> list[str]:
