@@ -61,6 +61,7 @@ def test_existing_capture_invokes_attach_with_a_fresh_receipt(review, monkeypatc
     assert argv[1] == "skills/duckdb-backfill/scripts/attach_capture_names.py"
     assert argv[argv.index("--trade-date") + 1] == DAY
     assert argv[argv.index("--capture-dir") + 1] == str(capture)
+    assert "--refresh-stale-names" in argv  # 合同 1 扩展：过时名更正随补名一起跑（2026-09-29 夜用户同意）
     receipt = argv[argv.index("--receipt") + 1]
     assert receipt != argv2[argv2.index("--receipt") + 1]  # 收据只新建
     assert not Path(receipt).exists()

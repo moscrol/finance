@@ -480,7 +480,8 @@ def capture_dated_quotes_step(trade_date: str, timeout: int, *, now=_now_cst) ->
 
 
 def attach_capture_names_step(trade_date: str, timeout: int) -> dict:
-    """同花顺桥接行的空名 → 当日收盘后封存的腾讯报价名（合同 1，2026-09-29 用户接受）。
+    """同花顺桥接行的空名 → 当日收盘后封存的腾讯报价名（合同 1，2026-09-29 用户接受）；
+    同时更正桥接行的过时名（合同 1 扩展，2026-09-29 夜用户同意；见执行件 --refresh-stale-names）。
 
     新股在库里没有此前的名字，桥只能留 NULL，limit-stats-local 按设计拒跑（InvalidStockName）。
     当日 ≥15:00 由 scripts/capture_dated_quotes.py 封存的捕获在就补名；不在就 skip——
@@ -499,7 +500,9 @@ def attach_capture_names_step(trade_date: str, timeout: int) -> dict:
     return run_step(
         "attach-capture-names",
         [PY, "skills/duckdb-backfill/scripts/attach_capture_names.py", "--trade-date", trade_date,
-         "--capture-dir", str(capture_dir), "--receipt", str(receipt)],
+         "--capture-dir", str(capture_dir), "--receipt", str(receipt),
+         # 合同 1 扩展（用户 2026-09-29 夜同意）：桥接行过时名（摘帽 / C 与 XD 前缀残留 / 截断 / 更名）改用当日报价名
+         "--refresh-stale-names"],
         timeout,
     )
 
