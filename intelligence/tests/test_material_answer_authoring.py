@@ -110,7 +110,7 @@ def test_compact_protocol_rejects_invalid_structure_and_sources(mutation):
     answer = raw["answers"][0]
     claim = answer["claims"][0]
     if mutation == "unknown_format":
-        raw["format"] = "material_claims_v2"
+        raw["format"] = "material_claims_unknown"
     elif mutation == "legacy_top":
         raw["draft"] = ""
     elif mutation in {"basis", "hashes"}:
