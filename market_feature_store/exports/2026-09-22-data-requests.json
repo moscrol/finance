@@ -1,0 +1,44 @@
+{
+  "schema_version": "data-requests/v1",
+  "generated_at": "2026-09-27T22:36:40+08:00",
+  "runs_root": "/Users/a77/.finance-runtime/reviews/8792-readiness-20260927/historical-recovery-users",
+  "since": "30d",
+  "db_path": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "summary": {
+    "requests": 0,
+    "consumers": 0,
+    "auto_routes": 0,
+    "manual_routes": 0,
+    "by_status": {}
+  },
+  "requests": [],
+  "completions": [],
+  "pending_sync_sources": {
+    "l2_moneyflow": {
+      "label": "L2 资金数据",
+      "sync_status": "pending_sync",
+      "status_basis": "user_confirmed",
+      "writer_ref": "scripts/moneyflow/（实施前核验具体 writer）",
+      "note": "待同步窗口的资金计算返回 pending_sync；不能从成交额推算资金流"
+    },
+    "sellside_evening": {
+      "label": "晚间卖方",
+      "sync_status": "pending_sync",
+      "status_basis": "user_confirmed",
+      "writer_ref": "知识库 wiki/raw/sellside/ → 台账地图观点提取流程",
+      "note": "不把未同步当「没有覆盖 / 舆论降温」，不生成伪造观点事件"
+    },
+    "morning_briefing": {
+      "label": "晨汇",
+      "sync_status": "pending_sync",
+      "status_basis": "user_confirmed",
+      "writer_ref": "IMA 原料获取 + morning-briefing；知识库 wiki/raw/briefings/",
+      "note": "不把缺批次当「当日无事件」，不以其他日报冒充晨汇"
+    }
+  },
+  "notes": [
+    "请求由各 run 的 tool_hunger.jsonl 中 window_uncovered 事件聚合而来，可随时重建；不是第二份台账。",
+    "补数写入仍由现有 writer 完成；fill 子命令拒绝指向生产库。",
+    "完成信号与恢复回执落 users/<user>/data_request_receipts.jsonl，同一 data_version 只恢复一次。"
+  ]
+}
