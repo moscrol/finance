@@ -96,7 +96,12 @@ def test_plan_declared_hithink_no_key_skips_do_not_claim_updates(child_runner):
     assert run(key=False) == 0
     status = json.loads(Path(str(target) + ".status.json").read_text())
     assert status["ok"] is True and status["run_id"] == "refresh-current-run"
-    skipped = [r for r in status["steps"] if r["status"] == "skip"]
+    # 未封存当日腾讯捕获时补名步骤显式 skip（设计上的可选步骤），与同花顺 no-key skip 分开核。
+    optional = [r for r in status["steps"] if r["label"] in sync.OPTIONAL_SKIP_STEPS]
+    assert [r["status"] for r in optional] == ["skip", "skip"]
+    assert all("no sealed capture" in r["note"] for r in optional)
+    skipped = [r for r in status["steps"]
+               if r["status"] == "skip" and r["label"] not in sync.OPTIONAL_SKIP_STEPS]
     assert len(skipped) == 2 * len(sync.HITHINK_STEPS)
     assert {r["label"] for r in skipped} == set(sync.HITHINK_STEPS)
     assert all(r["code"] is None and "未更新" in r["note"] for r in skipped)
@@ -112,7 +117,9 @@ def test_successful_leaves_write_current_run_only(child_runner):
     status = json.loads(Path(str(target) + ".status.json").read_text())
     assert status["ok"] is True and status["run_id"] == "refresh-current-run"
     historical_steps = set(sync.HITHINK_STEPS) - {"hithink-research"}
-    assert all(r["status"] == "ok" for r in status["steps"] if r["label"] != "hithink-research")
+    assert all(r["status"] == "ok" for r in status["steps"]
+               if r["label"] not in {"hithink-research", *sync.OPTIONAL_SKIP_STEPS})
+    assert all(r["status"] == "skip" for r in status["steps"] if r["label"] in sync.OPTIONAL_SKIP_STEPS)
     assert Counter(label for label, _ in calls if label in sync.HITHINK_STEPS) == {
         label: 2 for label in historical_steps
     }
