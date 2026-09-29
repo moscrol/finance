@@ -192,9 +192,18 @@ def test_probe_0929_market_amount_is_not_doubted(monkeypatch):
     ("若成交量跌破 14090.71亿元（E1）则缩量延续。", "交易日=2026-09-29；市场成交量手=14090.71", False),
     # 单位不紧跟在金额名后（占比），不是金额字段。
     ("若成交额占比超过 2.53亿元（E1）则过热。", "交易日=2026-09-29；成交额占比=2.53", False),
+    # 大盘成交额天天在 1.5–3 万亿之间：「2 万亿」「2.1 万亿」「20000 亿」是自拟阈值，
+    # 按显示精度舍入总能撞上某一天（09-30 回放 950 个存证 run 撞出 4 例），只认数值恰好相等。
+    ("若全市场成交额回到 2万亿以上（E1）则企稳确认。", "交易日=2026-09-29；市场成交额亿=21949.97", False),
+    ("若全市场成交额站上 2.1 万亿（E1）则升级主线。", "交易日=2026-09-29；市场成交额亿=20950.3", False),
+    ("若全市场成交额跌破 20000亿（E1）则退潮确认。", "交易日=2026-09-29；市场成交额亿=19999.6", False),
+    ("若全市场成交额跌破 2万亿（E1）则退潮确认。", "交易日=2026-09-29；市场成交额亿=20000", True),
+    # 至少 3 位有效数字才是复述：21950 亿是 21949.97 亿的舍入。
+    ("若全市场成交额再低于 21950亿（E1）则缩量延续。", "交易日=2026-09-29；市场成交额亿=21949.97", True),
 ], ids=[
     "market-yi", "market-wanyi", "auction-yi", "fullday-yi", "seal-yuan",
     "wrong-number", "volume-not-money", "share-not-money",
+    "threshold-2wanyi", "threshold-2p1wanyi", "threshold-20000yi", "exact-2wanyi", "restated-21950yi",
 ])
 def test_money_unit_in_a_qualified_field_name(draft, detail, supported):
     _, verified = _dated(draft, source_date="2026-09-29", detail=detail)

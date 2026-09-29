@@ -434,7 +434,7 @@ _QUANTITY_PARSE_RE = re.compile(
     r"(?P<unit>万亿元|万亿|亿元|万元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?\Z"
 )
 _CURRENCY_FIELD_RE = re.compile(
-    r"(?:^|[；;\n])\s*" + _FIELD_QUALIFIER + r"(?:成交额|成交金额|封单金额|总市值|流通市值)\s*"
+    r"(?:^|[；;\n])\s*(?P<qualifier>" + _FIELD_QUALIFIER + r")(?:成交额|成交金额|封单金额|总市值|流通市值)\s*"
     r"(?:[（(]\s*)?(?P<unit>万亿元|万亿|亿元|万元|亿|元)(?:\s*[）)])?"
     r"\s*[=:：]\s*(?P<value>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?=$|[；;\n])"
 )
@@ -5596,6 +5596,7 @@ def _novel_numeric_condition_tokens(
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
     percent_fields = _bound_percent_field_values(verified.outcome)
+    money_fields = _bound_qualified_money_values(verified.outcome)
     condition_section = False
     condition_columns: tuple[int, ...] = ()
     for item in sentences:
@@ -5699,6 +5700,7 @@ def _novel_numeric_condition_tokens(
                 sentence=text,
                 observation_values=observation_values,
                 percent_fields=percent_fields,
+                money_fields=money_fields,
             )
         )
         if missing:
@@ -6344,6 +6346,37 @@ def _bound_percent_field_values(outcome: AgentOutcome) -> frozenset[float]:
     )
 
 
+def _bound_qualified_money_values(outcome: AgentOutcome) -> frozenset[Decimal]:
+    """已绑定证据里带限定词的金额字段（``市场成交额亿``、``竞价成交额亿``）的取值，折成亿元。
+
+    不并进 _bound_evidence_quantities 的通用集合，理由同 _bound_percent_field_values：大盘成交额
+    天天在 1.5–3 万亿之间，一份稿绑着多日行情，「2 万亿」「2.1 万亿」这类自拟阈值按显示精度
+    舍入总能撞上某一天（09-30 回放 950 个存证 run 撞出 4 例）。精度约束在
+    _quantity_supported_by_evidence。
+    """
+
+    bound_hashes = {key for binding in outcome.bindings for key in binding.evidence_hashes}
+    return frozenset(
+        Decimal(match["value"].replace(",", "")) * _CURRENCY_FIELD_SCALE[match["unit"]]
+        for item in outcome.evidence
+        if item.content_hash in bound_hashes and _can_support_market_quantity(item)
+        for match in _CURRENCY_FIELD_RE.finditer(item.detail)
+        if match["qualifier"]
+    )
+
+
+def _significant_digits(quantity: str) -> int:
+    """数字部分的有效位数；整数末尾的 0 不算（``20000`` 是 1 位，``21950`` 是 4 位）。"""
+
+    match = re.match(r"[+-]?(\d+(?:\.\d+)?)", quantity)
+    if match is None:
+        return 0
+    digits = match.group(1)
+    if "." in digits:
+        return len(digits.replace(".", "").lstrip("0"))
+    return len(digits.lstrip("0").rstrip("0"))
+
+
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
     bound_hashes = {
         content_hash
@@ -6358,6 +6391,8 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         # Bind the field's explicit currency unit before normalizing its value.
         # Bare numbers, unknown fields and share counts cannot authorize money.
         for match in _CURRENCY_FIELD_RE.finditer(item.detail):
+            if match["qualifier"]:
+                continue  # 带限定词的走 _bound_qualified_money_values，精度更严
             value = Decimal(match["value"].replace(",", ""))
             amount_yi = value * _CURRENCY_FIELD_SCALE[match["unit"]]
             currency_quantities.add(f"{amount_yi:f}亿元")
@@ -6440,6 +6475,7 @@ def _quantity_supported_by_evidence(
     sentence: str,
     observation_values: frozenset[str] = frozenset(),
     percent_fields: frozenset[float] = frozenset(),
+    money_fields: frozenset[Decimal] = frozenset(),
 ) -> bool:
     """Match exact quantities or deterministic same-unit rounding.
 
@@ -6479,6 +6515,19 @@ def _quantity_supported_by_evidence(
             if candidate[2] == 0 and not float(value).is_integer():
                 continue
             if _rounded_quantity_matches(candidate, ((value,), "%", 0), sentence=sentence):
+                return True
+    # 带限定词的金额字段（见 _bound_qualified_money_values）：数值恰好相等才认，或者写到至少
+    # 3 位有效数字、再按显示精度舍入比对。「2 万亿」「2.1 万亿」「20000 亿」是自拟阈值的写法，
+    # 不能靠 ±5000 亿、±500 亿的容差去撞多日行情里的某一天。
+    dimension, scale = _quantity_dimension(candidate[1])
+    if money_fields and dimension == "currency_yi" and len(candidate[0]) == 1:
+        coarse = _significant_digits(normalized) < 3
+        for value in money_fields:
+            if abs(candidate[0][0] * scale - float(value)) <= 1e-9 * max(1.0, abs(float(value))):
+                return True
+            if not coarse and _rounded_quantity_matches(
+                candidate, ((float(value),), "亿元", 0), sentence=sentence,
+            ):
                 return True
     return False
 
