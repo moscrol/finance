@@ -27,7 +27,7 @@ export FINANCE_S7_ROOT="${FINANCE_S7_ROOT:-/Users/a77/.finance-runtime/finance-s
 # 这两个变量由 nightly-review-sync-staged.py 与 run_review_sync.py 读：
 # 缺 FINANCE_SYNC_CODE_ROOT → 退到共用主检出树（无 plan=local，ValueError）；
 # 缺 REVIEW_SYNC_PLAN → CLI 默认 full → 要 fupanhui 登录态 → rc=3。
-export FINANCE_SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-/Users/a77/.finance-runtime/finance-sync-0e7f77025409}"
+export FINANCE_SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-/Users/a77/.finance-runtime/finance-sync-541ef50ba2b2}"
 export REVIEW_SYNC_PLAN="${REVIEW_SYNC_PLAN:-local}"
 PY="${FINANCE_SYNC_PYTHON:-${OPS_PYTHON}}"
 WRAPPER="${FINANCE_S7_WRAPPER:-/Users/a77/.local/bin/nightly-review-sync-staged.py}"

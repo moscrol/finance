@@ -411,6 +411,124 @@ def sync_hithink_step(label: str, trade_date: str, timeout: int) -> dict:
     return run_step(label, argv, timeout)
 
 
+# 设计上允许 skip 的非同花顺步骤：skip 表示「前提不在」，不是失败（回放/恢复链也按此放行）。
+OPTIONAL_SKIP_STEPS = ("capture-dated-quotes", "attach-capture-names", "bridge-gap-fill")
+
+# 捕获是数据不是代码：夜跑从冻结代码根执行，但捕获落在数据根（S7 导出 FINANCE_DATA_ROOT/FINANCE_WS）。
+_DATA_ROOT = Path(os.environ.get("FINANCE_DATA_ROOT") or os.environ.get("FINANCE_WS") or ROOT)
+QUOTE_CAPTURE_ROOT = Path(
+    os.environ.get("FINANCE_QUOTE_CAPTURE_ROOT") or _DATA_ROOT / "db" / "quote-captures" / "tencent"
+)
+BRIDGE_GAP_FILL_ROOT = Path(
+    os.environ.get("FINANCE_BRIDGE_GAP_FILL_ROOT") or _DATA_ROOT / "db" / "bridge-gap-fill"
+)
+
+
+def _now_cst() -> datetime:
+    from zoneinfo import ZoneInfo
+
+    return datetime.now(ZoneInfo("Asia/Shanghai"))
+
+
+def _skip(label: str, note: str) -> dict:
+    print(f"\n>>> {label}: skip ({note})", flush=True)
+    return {"label": label, "status": "skip", "code": None, "elapsed": 0.0, "note": note}
+
+
+def _never_fail(result: dict, consequence: str) -> dict:
+    """可选步骤的失败一律降为 skip 并写明后果。
+
+    记 fail/timeout 会进收尾重试：重试在下游加工全部算完之后才跑，那时再改 canonical
+    （补行 / 补名）会让派生表与 canonical 对不上。所以这些步骤要么当场成，要么当天不做。
+    """
+    if result["status"] == "ok":
+        return result
+    note = f"{result['status']} code={result.get('code')} → skip: {consequence}"
+    print(f"<<< {result['label']}: {note}", flush=True)
+    return {**result, "status": "skip", "note": note}
+
+
+def _review_db() -> str:
+    """本轮同步写入的库：staging 架构下是 MARKET_FEATURE_STORE_DB，否则默认库。"""
+    from market_feature_store.db import DB_PATH
+
+    return os.environ.get("MARKET_FEATURE_STORE_DB") or str(DB_PATH)
+
+
+def capture_dated_quotes_step(trade_date: str, timeout: int, *, now=_now_cst) -> dict:
+    """当晚在同步里封存腾讯报价（合同 1 的采集件），放在同花顺日线入库与桥接之后。
+
+    为什么在这里采：采集范围取库里 fact_stock_daily / fact_stock_daily_hithink「最新一日」的代码。
+    15:00 手工采时同花顺表最新一日还是昨天，当日复牌股不在范围里（09-29 广汽集团等 3 只因此没有
+    第二来源）；桥接之后采，同花顺表最新一日就是今天，复牌股与新股首日天然在内。
+    捕获只能描述采集当天且须收盘后：回放历史日或 15:00 前一律 skip；已有封存（人工先采过）不重采。
+    """
+    capture_dir = QUOTE_CAPTURE_ROOT / trade_date
+    if (capture_dir / "receipt.json").is_file():
+        return _skip("capture-dated-quotes", f"sealed capture already at {capture_dir}")
+    local = now()
+    if local.date().isoformat() != trade_date or (local.hour, local.minute) < (15, 0):
+        return _skip("capture-dated-quotes",
+                     f"now {local:%Y-%m-%d %H:%M} CST: a capture only describes its own day after 15:00")
+    QUOTE_CAPTURE_ROOT.mkdir(parents=True, exist_ok=True)
+    return _never_fail(run_step(
+        "capture-dated-quotes",
+        [PY, "scripts/capture_dated_quotes.py", "--target-date", trade_date,
+         "--from-duckdb", _review_db(), "--out-dir", str(capture_dir)],
+        timeout,
+    ), "no capture tonight; attach-capture-names / bridge-gap-fill lose the Tencent source")
+
+
+def attach_capture_names_step(trade_date: str, timeout: int) -> dict:
+    """同花顺桥接行的空名 → 当日收盘后封存的腾讯报价名（合同 1，2026-09-29 用户接受）。
+
+    新股在库里没有此前的名字，桥只能留 NULL，limit-stats-local 按设计拒跑（InvalidStockName）。
+    当日 ≥15:00 由 scripts/capture_dated_quotes.py 封存的捕获在就补名；不在就 skip——
+    行为与接线前完全相同（缺名照样红在 limit-stats-local，不猜、不跳过）。
+    补名本身的全部硬约束（只动 staging、只填 hithink 空名、逐行钉价、收据只新建）在执行件里。
+    """
+    capture_dir = QUOTE_CAPTURE_ROOT / trade_date
+    if not (capture_dir / "receipt.json").is_file():
+        note = f"no sealed capture at {capture_dir}; names stay as bridged"
+        print(f"\n>>> attach-capture-names: skip ({note})", flush=True)
+        return {"label": "attach-capture-names", "status": "skip", "code": None,
+                "elapsed": 0.0, "note": note}
+    receipts = QUOTE_CAPTURE_ROOT / "attach-receipts"
+    receipts.mkdir(parents=True, exist_ok=True)
+    receipt = receipts / f"{trade_date}-{datetime.now().strftime('%Y%m%dT%H%M%S%f')}.json"
+    return run_step(
+        "attach-capture-names",
+        [PY, "skills/duckdb-backfill/scripts/attach_capture_names.py", "--trade-date", trade_date,
+         "--capture-dir", str(capture_dir), "--receipt", str(receipt)],
+        timeout,
+    )
+
+
+def bridge_gap_fill_step(trade_date: str, timeout: int) -> dict:
+    """桥静默缺行（复牌 / 送转 / 新股首日）两源仲裁补行——用户 2026-09-29 19:20「同意推荐方案」。
+
+    桥对这三类按合同拒算、不报错，每天 3~10 只悄悄缺行（09-29 含广汽集团）。本步在 staging 上
+    调 scripts/backfill_bridge_gaps.py --apply：两个独立来源给出同一前收才插行，不一致或证据不足
+    保持缺行并写进收据。位置在桥接、补名之后，stitch / limit-stats / features 之前——补上的行
+    要进板块成分、涨跌停统计与特征。证据：当日封存腾讯报价（先审计）+ 东财日 K（逐只抓，尽力而为）。
+    任何失败降为 skip：事务已回滚，当天照旧缺行，与接线前相同。
+
+    **没有当日封存就 skip**（与 attach-capture-names 同一前提）：封存是当晚唯一一定在手的外部来源，
+    也是新股首日 / 送转唯一能用的那个；回放历史日（recover_local_review）没有当日封存，于是不在
+    回放里联网补数、不去动用户决定保持缺行的历史日（09-22~24 那 7 行）。
+    """
+    capture_dir = QUOTE_CAPTURE_ROOT / trade_date
+    if not (capture_dir / "receipt.json").is_file():
+        return _skip("bridge-gap-fill", f"no sealed capture at {capture_dir}; bridge gaps stay as bridged")
+    run_dir = BRIDGE_GAP_FILL_ROOT / f"{trade_date}-{datetime.now().strftime('%Y%m%dT%H%M%S%f')}"
+    run_dir.mkdir(parents=True, exist_ok=False)
+    argv = [PY, "scripts/backfill_bridge_gaps.py", "--db", _review_db(), "--trade-date", trade_date,
+            "--apply", "--receipt", str(run_dir / "receipt.json"),
+            "--eastmoney-fetch-dir", str(run_dir / "eastmoney-kline"), "--capture-dir", str(capture_dir)]
+    return _never_fail(run_step("bridge-gap-fill", argv, timeout),
+                       f"no rows filled; the day keeps its bridge gaps (receipt {run_dir})")
+
+
 def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
     """local：不发任何 fupanhui 请求（2026-09-07 账号风控后的日更链路）。
 
@@ -429,6 +547,12 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         hithink[0],
         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout, hithink_fallback=True)),
+        # 桥接之后：同花顺表最新一日已是今天，采集范围才含当日复牌股 / 新股首日。
+        ("capture-dated-quotes", lambda: capture_dated_quotes_step(trade_date, heavy_timeout)),
+        # 桥接之后、任何按股名判定的加工步骤之前（limit-stats-local 用名字判 ST/N/C）。
+        ("attach-capture-names", lambda: attach_capture_names_step(trade_date, timeout)),
+        # 补名之后、任何按行加工的步骤之前（stitch / limit-stats / features 要看到补上的行）。
+        ("bridge-gap-fill", lambda: bridge_gap_fill_step(trade_date, heavy_timeout)),
         *hithink[1:],
         ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
