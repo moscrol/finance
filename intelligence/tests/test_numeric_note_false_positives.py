@@ -115,6 +115,18 @@ def test_percent_fields_carry_their_unit(draft, supported):
     assert numeric_condition_unsupported(verified) is not supported
 
 
+@pytest.mark.parametrize("draft,detail,supported", [
+    # 整数百分比多半是自拟阈值：随便哪行涨跌幅落在容差内都不算出处。
+    ("若单日收跌超过 6%（E1）则止损。", "交易日=2026-09-15；涨跌幅=-5.72", False),
+    ("若单日涨幅超过 5%（E1）则追高风险加大。", "交易日=2026-09-15；涨跌幅=4.96；换手率=5.3", False),
+    # 字段本身就是那个整数，才认。
+    ("若单日涨幅再达 5%（E1）则追高风险加大。", "交易日=2026-09-15；涨跌幅=5", True),
+])
+def test_integer_percent_needs_an_integer_field(draft, detail, supported):
+    _, verified = _dated(draft, detail=detail)
+    assert numeric_condition_unsupported(verified) is not supported
+
+
 def test_percent_unit_is_bound_only_by_those_fields():
     # 偏离度、收盘价这类字段的裸数不获 % 资格。
     _, verified = _dated("若再现 -5.72% 的偏离（E1）则止损。", detail="交易日=2026-09-15；UP偏离度=-5.72")

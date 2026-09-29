@@ -5591,6 +5591,7 @@ def _novel_numeric_condition_tokens(
     unsupported: dict[int, tuple[str, ...]] = {}
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
+    percent_fields = _bound_percent_field_values(verified.outcome)
     condition_section = False
     condition_columns: tuple[int, ...] = ()
     for item in sentences:
@@ -5693,6 +5694,7 @@ def _novel_numeric_condition_tokens(
                 evidence_quantities,
                 sentence=text,
                 observation_values=observation_values,
+                percent_fields=percent_fields,
             )
         )
         if missing:
@@ -6322,6 +6324,22 @@ def _bound_memory_restatement_indexes(
     return frozenset(retained)
 
 
+def _bound_percent_field_values(outcome: AgentOutcome) -> frozenset[float]:
+    """已绑定证据里 涨跌幅 / 换手率 / 振幅 的取值：单位是 %，写在字段名里。
+
+    不并进 _bound_evidence_quantities 的通用集合：那里的数按回答的显示精度做舍入比对，
+    整数阈值会被随便哪一行的涨跌幅「支撑」。这里的精度约束在 _quantity_supported_by_evidence。
+    """
+
+    bound_hashes = {key for binding in outcome.bindings for key in binding.evidence_hashes}
+    return frozenset(
+        float(match["value"])
+        for item in outcome.evidence
+        if item.content_hash in bound_hashes and _can_support_market_quantity(item)
+        for match in _PERCENT_FIELD_RE.finditer(item.detail)
+    )
+
+
 def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
     bound_hashes = {
         content_hash
@@ -6329,7 +6347,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         for content_hash in binding.evidence_hashes
     }
     fields: list[str] = []
-    field_quantities: set[str] = set()
+    currency_quantities: set[str] = set()
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes or not _can_support_market_quantity(item):
             continue
@@ -6338,9 +6356,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         for match in _CURRENCY_FIELD_RE.finditer(item.detail):
             value = Decimal(match["value"].replace(",", ""))
             amount_yi = value * _CURRENCY_FIELD_SCALE[match["unit"]]
-            field_quantities.add(f"{amount_yi:f}亿元")
-        for match in _PERCENT_FIELD_RE.finditer(item.detail):
-            field_quantities.add(_normalize_quantity(f"{match['value']}%"))
+            currency_quantities.add(f"{amount_yi:f}亿元")
         fields.extend(
             (
                 item.title,
@@ -6361,7 +6377,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         )
         if _normalize_quantity(quantity)
     }
-    quantities.update(field_quantities)
+    quantities.update(currency_quantities)
     # 结构化观察值**不受 binding 约束**。上面那段只认被 binding 引用过的证据，
     # 是引用卫生；而 observations 是 harness 自己投递上桌的事实，它是不是真的
     # 与模型有没有记得绑引用无关。少了这一段，模型写对了数却忘了绑，真话会被
@@ -6419,6 +6435,7 @@ def _quantity_supported_by_evidence(
     *,
     sentence: str,
     observation_values: frozenset[str] = frozenset(),
+    percent_fields: frozenset[float] = frozenset(),
 ) -> bool:
     """Match exact quantities or deterministic same-unit rounding.
 
@@ -6450,6 +6467,15 @@ def _quantity_supported_by_evidence(
             continue
         if _rounded_quantity_matches(candidate, observed, sentence=sentence):
             return True
+    # 百分比字段（见 _bound_percent_field_values）只认带小数的写法：``-5.7%`` 是 ``涨跌幅=-5.72``
+    # 的舍入，整数 ``5%`` 多半是分析者自定的阈值——一份稿绑着几十行日频，总有某行涨跌幅落在
+    # 4.5–5.5 之间，照整数容差比会把自拟阈值说成「有出处」。整数只认字段本身就是那个整数。
+    if percent_fields and candidate[1] == "%" and len(candidate[0]) == 1:
+        for value in percent_fields:
+            if candidate[2] == 0 and not float(value).is_integer():
+                continue
+            if _rounded_quantity_matches(candidate, ((value,), "%", 0), sentence=sentence):
+                return True
     return False
 
 
