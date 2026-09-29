@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>探针过滤面板 · Arena Model Filter</title>
+<style>
+:root{
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color:#252421; background:#f3f2ef;
+  --ink:#252421; --muted:#6d6963; --faint:#948f88; --line:#dfdcd6; --line-strong:#cac5bd;
+  --surface:#ffffff; --surface-soft:#f7f5f2; --accent:#c65f3e; --accent-soft:#f6e8e2;
+  --amber:#9a5f08; --amber-soft:#fff4dd; --red:#a9342f; --red-soft:#fff0ef; --blue:#496f91; --blue-soft:#edf3f8; --green:#4d7a5f; --green-soft:#eef5ef;
+  --shadow:0 18px 52px rgba(50,45,39,0.10); --shadow-sm:0 6px 20px rgba(50,45,39,0.08);
+}
+*{box-sizing:border-box} body{margin:0;background: radial-gradient(circle at 48% 0%, rgba(236,226,216,0.48), transparent 30rem), #f3f2ef; min-height:100vh}
+.header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:16px 24px}
+.header h1{font-size:18px;margin:0;display:flex;gap:10px;align-items:center} .header h1 em{color:var(--accent);font-style:normal}
+.sub{font-size:11px;color:var(--muted);margin-top:6px}
+.main{max-width:1200px;margin:0 auto;padding:18px 22px 80px;display:grid;grid-template-columns:1fr 360px;gap:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm);overflow:hidden}
+.card-head{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surface-soft);display:flex;justify-content:space-between;align-items:center}
+.card-head h3{font-size:13px;margin:0}
+.card-body{padding:14px 16px;font-size:12px;line-height:1.6}
+.badge{font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);display:inline-block;margin:2px;font-weight:650}
+.badge.ok{background:var(--green-soft);color:var(--green);border-color:#c5ddd0} .badge.bad{background:var(--red-soft);color:var(--red);border-color:#e9c0be} .badge.target{background:var(--accent-soft);color:var(--accent);border-color:#e8c2b3}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.controls button,.controls select{border:1px solid var(--line);background:var(--surface);padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer}
+.controls button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px}
+@media(max-width:900px){.main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>探针过滤面板 <em>Probe Filter · Arena</em></h1>
+  <div class="sub">基于 model_pin_probe 指纹，自动过滤非目标模型 · 支持 hard(直接失败)/soft(打标仍发布)/retry(自动重抽) 三模式 · 阈值可调</div>
+  <div class="controls">
+    <select id="modeSel"><option value="hard">hard - 直接拦截不发布</option><option value="soft">soft - 打标仍发布</option><option value="retry">retry - 自动重抽3次</option></select>
+    <button id="btnTest">测试当前文本</button>
+    <button id="btnGen">生成目标配置</button>
+    <button id="btnExport">导出过滤日志</button>
+  </div>
+</div>
+<div class="main">
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><div class="card-head"><h3>目标模型指纹</h3><span style="font-size:11px;color:var(--faint)" id="targetInfo">未加载</span></div><div class="card-body" id="targetBody"></div></div>
+    <div class="card"><div class="card-head"><h3>测试过滤</h3><span style="font-size:11px;color:var(--faint)">输入一段回答，看是否被判定为目标</span></div><div class="card-body">
+      <textarea id="testInput" style="width:100%;min-height:100px;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px" placeholder="粘贴模型回答...">**Sure!** Here's a concise answer:
+
+- Point one about the topic.
+- Point two, slightly longer.
+- Point three.
+
+Knowledge cutoff: 2023. The answer is 3. Random number: 7.</textarea>
+      <div style="margin-top:10px;display:flex;gap:8px"><button onclick="doTest()" style="padding:6px 12px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer">检测</button><span id="testResult"></span></div>
+    </div></div>
+    <div class="card"><div class="card-head"><h3>最近过滤记录</h3><span style="font-size:11px;color:var(--faint)">从 Arena runs 表读取</span></div><div class="card-body" id="runsBody">需后端 API，当前为模拟数据</div></div>
+  </div>
+  <div class="card" style="position:sticky;top:84px;max-height:calc(100vh - 100px)"><div class="card-head"><h3>使用说明</h3></div><div class="card-body" style="font-size:11px;line-height:1.7">
+    <b>1. 标定目标</b><br>在 Arena 网页开 5-10 个新会话，用探针挑出满意的模型，打 tag 跑<br><code>python probe.py run --adapter manual --sessions 5 --rounds 3 --tag my-target</code><br><br>
+    <b>2. 生成指纹</b><br><code>python intelligence/arena/generate_target_profile.py --log model_pin_probe/data/log.jsonl --tag my-target --out ~/.local/share/finance-arena/target_profiles.json</code><br><br>
+    <b>3. 开启过滤</b><br><code>export ARENA_PROBE_FILTER_ENABLED=1<br>export ARENA_PROBE_TARGET_PROFILE=~/.local/share/finance-arena/target_profiles.json<br>export ARENA_PROBE_FILTER_MODE=hard # 或 soft/retry<br>export ARENA_PROBE_FILTER_MAX_RETRIES=3</code><br><br>
+    <b>4. 原理</b><br>风格指纹 15维：长度、对数、句长、CJK比例、全角标点、emoji、Markdown标题/列表/加粗/表格/代码、开场白/结束语/第一人称<br>余弦距离 &lt; threshold (默认0.08-0.12) → 目标，否则过滤<br><br>
+    <b>当前配置</b><br><pre id="envInfo"></pre>
+  </div></div>
+</div>
+<script>
+let targetData=null;
+async function loadTarget(){
+  try{
+    const r=await fetch('./target_profiles.json'); if(r.ok) targetData=await r.json();
+  }catch{}
+  if(!targetData){
+    try{ const r=await fetch('/market_snapshot/target_profiles.json'); if(r.ok) targetData=await r.json(); }catch{}
+  }
+  if(targetData){
+    document.getElementById('targetInfo').textContent=`${targetData.targets.length} 目标 · 阈值 ${targetData.targets[0].threshold}`;
+    document.getElementById('targetBody').innerHTML=`
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${targetData.targets.map(t=>`<span class="badge target">${t.name} thr=${t.threshold.toFixed(3)}</span>`).join('')}</div>
+      <div style="font-size:11px;color:var(--muted)">来源会话: ${(targetData.targets[0].source_sessions||[]).join(', ')}<br>总会话: ${targetData.meta.total_sessions} 目标会话: ${targetData.meta.target_sessions}<br>建议阈值: ${targetData.meta.suggested_threshold}</div>
+      <pre style="margin-top:10px;max-height:200px;overflow:auto">${JSON.stringify(targetData.targets[0].centroid,null,2).slice(0,800)}...</pre>
+    `;
+  } else {
+    document.getElementById('targetBody').innerHTML='<span style="color:var(--faint)">未找到 target_profiles.json，请先生成</span>';
+  }
+  document.getElementById('envInfo').textContent=`ARENA_PROBE_FILTER_ENABLED=1
+ARENA_PROBE_TARGET_PROFILE=~/.local/share/finance-arena/target_profiles.json
+ARENA_PROBE_FILTER_MODE=${document.getElementById('modeSel').value}
+ARENA_PROBE_FILTER_MAX_RETRIES=3
+阈值: ${targetData?targetData.targets[0].threshold:'0.08 (默认)'}`;
+}
+function doTest(){
+  const text=document.getElementById('testInput').value;
+  if(!text.trim()) return;
+  // 简易指纹计算（复用 probe_filter 逻辑的简化版）
+  const cjk=(text.match(/[\u4e00-\u9fff]/g)||[]).length;
+  const latin=(text.match(/[A-Za-z]/g)||[]).length;
+  const cjk_ratio=cjk/Math.max(cjk+latin,1);
+  const hasBold=text.includes('**');
+  const hasBullet=/^\s*[-*•]\s/m.test(text);
+  const hasNumbered=/^\s*\d+[.、)]\s/m.test(text);
+  const isEnglish=cjk_ratio<0.3;
+  // 粗略距离估算：英文+bold+bullet → 非目标
+  let dist=0.05;
+  if(isEnglish) dist+=0.3;
+  if(hasBold) dist+=0.15;
+  if(text.includes('2023')) dist+=0.2;
+  if(text.includes('Sure!')) dist+=0.1;
+  const ok=dist<0.12;
+  document.getElementById('testResult').innerHTML=`<span class="badge ${ok?'ok':'bad'}">${ok?'通过 是目标':'过滤 非目标'} 距离 ${dist.toFixed(3)}</span>`;
+}
+document.getElementById('modeSel').onchange=e=>{
+  document.getElementById('envInfo').textContent=document.getElementById('envInfo').textContent.replace(/MODE=.*/,'MODE='+e.target.value);
+};
+document.getElementById('btnTest').onclick=doTest;
+document.getElementById('btnGen').onclick=()=>{ alert('在终端运行：\\npython intelligence/arena/generate_target_profile.py --log model_pin_probe/data/log.jsonl --tag my-target --out ~/.local/share/finance-arena/target_profiles.json'); };
+document.getElementById('btnExport').onclick=()=>{ const blob=new Blob([JSON.stringify(targetData||{},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='target_profiles.json'; a.click(); };
+loadTarget();
+</script>
+</body>
+</html>

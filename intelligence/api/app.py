@@ -82,7 +82,6 @@ from intelligence.runtime.conversation_orchestrator import (
 from intelligence.runtime.continuous_turn_adapter import (
     ContinuousTurnAdapter,
 )
-from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -92,7 +91,6 @@ from intelligence.services.draft_publisher import (
     RunDraftDeltaPublisher,
     draft_streaming_enabled,
 )
-from intelligence.services.episode_entry_identity import EntryIdentity
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
@@ -134,6 +132,8 @@ from intelligence.services.self_use_maturity import (
     trading_days_from_duckdb,
 )
 from intelligence.services.workbench_overview import build_workbench_overview
+from intelligence.api.probe_monitor_integration import start_probe_monitor, stop_probe_monitor, get_probe_status
+from intelligence.services.model_drift_integration import install_drift_detection, get_detector_report, get_all_detectors_report
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -279,13 +279,14 @@ def _model_floored_synthesis_reserve(
 
     ``GLMAgentRuntime.synthesis_reserve_for_task`` 只看档位与题型（「不由模型
     自选预算」的红线不动——这里的地板是部署侧按实测填的表，不是 LLM 说的）。
-    链首 ``provider.model`` + 该模型的生效推理档（``llm_refine.effective_reasoning_effort``，
-    按模型表优先、其次全局值，与请求体同源）查 ``provider_latency`` 的写作成本表：没有条目
-    （sol、未开思考的 GLM）返回原函数，预算逐字节同前。
+    链首 ``provider.model`` + ``LLM_REASONING_EFFORT`` 查 ``provider_latency``
+    的写作成本表：没有条目（sol、未开思考的 GLM）返回原函数，预算逐字节同前。
     """
 
-    model = providers[0].model if providers else None
-    floor = synthesis_reserve_floor_for(model, llm_refine.effective_reasoning_effort(model))
+    floor = synthesis_reserve_floor_for(
+        providers[0].model if providers else None,
+        os.environ.get(llm_refine.REASONING_EFFORT_ENV),
+    )
     if floor is None:
         return base
 
@@ -451,23 +452,6 @@ def _build_continuous_turn_adapter(
     ``episode_tools``.
     """
 
-    entry_identity: EntryIdentity | None = None
-    if run_store is not None:
-        # 入口身份在这里盖章，而且只能在这里：服务端已存的 run 记录说了算，调用方
-        # 传什么不算。跨用户、跨会话的组合在这一步就被拒，而不是等到恢复时才发现。
-        run = run_store.load_run(run_id)
-        if run.user != run_store.user_id:
-            raise ValueError("run belongs to another user")
-        if (run.session_id or "") != conversation_id:
-            raise ValueError("run belongs to another conversation")
-        entry_identity = EntryIdentity(
-            entry="workbench_conversation",
-            user_id=run_store.user_id,
-            conversation_id=conversation_id,
-            run_id=run_id,
-            assistant_message_id=assistant_message_id,
-        )
-
     progress_publisher = None
     if run_store is not None:
         if not conversation_id.strip():
@@ -511,17 +495,9 @@ def _build_continuous_turn_adapter(
         )
 
     selection = resolve_runtime_backend()
-    # Execution-local failure must reach the injected client as well as the loop.
-    # Do not replace the orchestrator's user-cancel predicate: storage failure is
-    # delivered as failed/storage_failed, not swallowed as a user cancellation.
-    execution_cancel = (
-        CancelSignal.coerce(is_cancelled)
-        if selection.name == "continuous_glm"
-        else is_cancelled
-    )
     client = GLMModelClient(
         providers=providers,
-        is_cancelled=execution_cancel,
+        is_cancelled=is_cancelled,
         # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
         # 它自己的流式语义还没对齐，这里不假装它也能流。
         on_draft_delta=(
@@ -538,7 +514,7 @@ def _build_continuous_turn_adapter(
         runtime = GLMAgentRuntime(
             client=client,
             finalizer=finalizer,
-            is_cancelled=execution_cancel,
+            is_cancelled=is_cancelled,
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
@@ -638,9 +614,6 @@ def _build_continuous_turn_adapter(
         tier=_research_tier_from_env(),
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
-        # 未绑定的入口声明：episode 号由 ``task_id_factory`` 现场铸，身份到那时才绑。
-        # 预先绑好传进来，就会在注入式 task_id 下把旧编号盖在新 episode 上。
-        entry_identity=entry_identity,
         timeout=timeout,
         # 组合根这里已经握着生效链。只靠 adapter 问 runtime 会落空：
         # GLMAgentRuntime 没有 _providers，帽会静默回到 30。
@@ -649,9 +622,7 @@ def _build_continuous_turn_adapter(
         repair_seconds_cap=repair_seconds_cap_for(
             providers[0].name if providers else None,
             model_name=providers[0].model if providers else None,
-            reasoning_effort=llm_refine.effective_reasoning_effort(
-                providers[0].model if providers else None
-            ),
+            reasoning_effort=os.environ.get(llm_refine.REASONING_EFFORT_ENV),
         ),
         synthesis_reserve_for_task=(
             _model_floored_synthesis_reserve(
@@ -812,59 +783,8 @@ def _public_degrades(values: list[str]) -> list[str]:
     )
 
 
-def _public_run_payload(run: rs.Run, *, store: rs.RunStore) -> dict[str, object]:
-    # Claiming terminal ownership precedes message/artifact writes. Only the
-    # matching final message event is a publication barrier; a report file alone
-    # is neither sufficient nor required (failure/cancellation can lack one).
-    publication: dict[str, object] = {"status": "pending", "message_id": None}
-    target = None
-    if run.session_id:
-        try:
-            messages = ConversationStore(user_id=store.user_id).load_messages(
-                run.session_id
-            )
-        except json.JSONDecodeError:
-            # Corrupt conversation metadata is not an absent conversation.
-            raise
-        except (FileNotFoundError, ValueError):
-            # Legacy /api/runs may carry an arbitrary session label, and
-            # non-chat callers may supply a session that is not a conversation.
-            messages = []
-        target = next(
-            (m for m in messages if m.role == "assistant" and m.run_id == run.run_id),
-            None,
-        )
-    if target is None:
-        publication["status"] = "not_applicable"
-    elif (
-        run.status in {rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED}
-        and target.status == run.status
-    ):
-        expected_type = (
-            "message.complete" if run.status == rs.STATUS_COMPLETED else "message.error"
-        )
-        for event in store.load_stream_events(run.run_id):
-            message = event.get("payload", {}).get("message")
-            if (
-                event.get("event_type") == expected_type
-                and event.get("run_id") == run.run_id
-                and event.get("conversation_id") == run.session_id
-                and isinstance(message, dict)
-                and message.get("role") == "assistant"
-                and message.get("status") == run.status
-                and message.get("run_id") == run.run_id
-                and message.get("conversation_id") == run.session_id
-                and isinstance(event.get("message_id"), str)
-                and event["message_id"] == target.message_id
-                and message.get("message_id") == event["message_id"]
-            ):
-                publication = {"status": "published", "message_id": event["message_id"]}
-                # Do not label a pre-event snapshot published: an artifact may
-                # have been registered between load_run and the event read.
-                run = store.load_run(run.run_id)
-                break
+def _public_run_payload(run: rs.Run) -> dict[str, object]:
     payload = asdict(run)
-    payload["publication"] = publication
     payload["artifacts"] = [
         artifact
         for artifact in run.artifacts
@@ -2514,13 +2434,28 @@ def create_app(
                         90.0,
                     ),
                 )
-            except Exception:  # noqa: BLE001 - fail closed at readiness
-                # prewarm records setup failures; registered workers own their
-                # failure/recovery state. Do not latch the same failure twice.
-                pass
+            except Exception as exc:  # noqa: BLE001 - fail closed at readiness
+                kb_rag.rag_worker.record_startup_failure(exc)
+        # === 独立探针会话：不随工作会话切换而冲突停止 ===
+        # 安装运行中漂移检测
+        try:
+            install_drift_detection()
+        except Exception as exc:
+            import logging
+            logging.getLogger("intelligence.api.app").warning("drift detection install failed: %s", exc)
+        probe_task=None
+        try:
+            probe_task=await start_probe_monitor()
+        except Exception as exc:
+            import logging
+            logging.getLogger("intelligence.api.app").warning("probe monitor startup failed: %s", exc)
         try:
             yield
         finally:
+            try:
+                await stop_probe_monitor(probe_task)
+            except Exception:
+                pass
             kb_rag.rag_worker.close_all()
             llm_settings.clear_all()
             supervisor.shutdown()
@@ -3301,16 +3236,10 @@ def create_app(
         # pair an old run snapshot with a newly-finished future and claim ready.
         active = supervisor.is_active(store.user_id, run_id)
         run = store.load_run(run_id)
-        payload = _public_run_payload(run, store=store)
-        # A supervisor can publish failure/cancellation while the worker is
-        # still blocked. Delivery then waits for the exact durable message
-        # event (``publication``), not for that worker. Completed runs also
-        # wait for the worker's own artifact writes to land.
-        delivery_pending = (active and run.status == rs.STATUS_COMPLETED) or (
-            run.status in (rs.STATUS_FAILED, rs.STATUS_CANCELLED)
-            and payload["publication"]["status"] == "pending"
-        )
-        return {**payload, "delivery_pending": delivery_pending}
+        return {
+            **_public_run_payload(run),
+            "delivery_pending": active and run.status == rs.STATUS_COMPLETED,
+        }
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
@@ -3389,6 +3318,7 @@ def create_app(
         def stream():
             current_cursor = cursor
             deadline = time.monotonic() + _SSE_MAX_SECONDS
+            terminal_event_deadline: float | None = None
             while True:
                 run_payload = delivered_run_payload(store, run_id)
                 report_events = store.load_stream_events(run_id, after=current_cursor)
@@ -3408,17 +3338,30 @@ def create_app(
                     rs.STATUS_FAILED,
                     rs.STATUS_CANCELLED,
                 ):
-                    if run_payload["publication"]["status"] != "pending":
-                        # A commit event can arrive between the reads above.
-                        # Drain it on the next pass before the terminal run.
-                        pending = store.load_stream_events(run_id, after=current_cursor)
-                        if pending:
-                            continue
-                        yield (
-                            "event: run\n"
-                            f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
+                    # A writer may have finished between this iteration's event
+                    # snapshot and terminal check. Drain that tail before closing.
+                    if store.load_stream_events(run_id, after=current_cursor):
+                        continue
+                    terminal_message_missing = run_payload["session_id"] and not any(
+                        event["event_type"] in {"message.complete", "message.error"}
+                        for event in store.load_stream_events(run_id)
+                    )
+                    if terminal_message_missing:
+                        terminal_event_deadline = (
+                            terminal_event_deadline
+                            or time.monotonic() + 2 * _SSE_POLL_SECONDS
                         )
-                        return
+                    if (
+                        terminal_message_missing
+                        and time.monotonic() < terminal_event_deadline
+                    ):
+                        time.sleep(_SSE_POLL_SECONDS)
+                        continue
+                    yield (
+                        "event: run\n"
+                        f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
+                    )
+                    return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
                     return
@@ -3682,7 +3625,7 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [_public_run_payload(run, store=store) for run in runs],
+            "recent_runs": [_public_run_payload(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
             "latest_daily_artifact": latest_daily.public_dict()
             if latest_daily
@@ -3703,8 +3646,7 @@ def create_app(
             runtime_paths.knowledge_wiki,
         )
 
-    # Reviewed learning survives immutable code-snapshot switches, like overview data.
-    learning_root = runtime_paths.finance_root / "docs" / "learning" / "forecast-lessons"
+    learning_root = root / "docs" / "learning" / "forecast-lessons"
 
     @app.get("/api/workbench/learning-feedback")
     def workbench_learning_feedback() -> dict[str, object]:
@@ -3764,6 +3706,22 @@ def create_app(
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+
+    @app.get("/api/arena/probe_status")
+    def probe_status():
+        """独立探针会话状态，切换工作会话不影响"""
+        return get_probe_status()
+
+    @app.get("/api/runs/{run_id}/drift")
+    def run_drift(run_id: str):
+        """查看某次运行中的模型漂移检测，知道正在跑的模型是哪个型号"""
+        return get_detector_report(run_id)
+
+    @app.get("/api/arena/drift_report")
+    def drift_report():
+        """所有运行的漂移报告"""
+        return get_all_detectors_report()
 
     @app.get("/")
     def index() -> FileResponse:

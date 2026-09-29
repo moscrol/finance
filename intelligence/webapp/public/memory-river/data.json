@@ -1,0 +1,7999 @@
+[
+  {
+    "id": "market-2026-05-21",
+    "date": "2026-05-21",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停34 跌停25",
+    "summary": "上涨695家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 34,
+      "limit_down": 25,
+      "advancers": 695
+    }
+  },
+  {
+    "id": "leader-2026-05-21",
+    "date": "2026-05-21",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 威龙股份 7板",
+    "summary": "高度 7板，回落",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "威龙股份"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "威龙股份"
+    }
+  },
+  {
+    "id": "ladder-2026-05-21-603779.SH",
+    "date": "2026-05-21",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "威龙股份 7板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603779.SH",
+      "boards": 7,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-05-21-603316.SH",
+    "date": "2026-05-21",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "诚邦股份 4板",
+    "summary": "半导体",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "半导体"
+    ],
+    "meta": {
+      "ts_code": "603316.SH",
+      "boards": 4,
+      "theme": "半导体"
+    }
+  },
+  {
+    "id": "market-2026-05-22",
+    "date": "2026-05-22",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停115 跌停5",
+    "summary": "上涨3790家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 115,
+      "limit_down": 5,
+      "advancers": 3790
+    }
+  },
+  {
+    "id": "leader-2026-05-22",
+    "date": "2026-05-22",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 金利华电 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "金利华电"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "金利华电"
+    }
+  },
+  {
+    "id": "theme-2026-05-22-MLCC",
+    "date": "2026-05-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 MLCC +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "MLCC"
+    ],
+    "meta": {
+      "pct": 8.16
+    }
+  },
+  {
+    "id": "theme-2026-05-22-元件",
+    "date": "2026-05-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 元件 +7.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "元件"
+    ],
+    "meta": {
+      "pct": 7.85
+    }
+  },
+  {
+    "id": "market-2026-05-25",
+    "date": "2026-05-25",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停103 跌停15",
+    "summary": "上涨2181家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 103,
+      "limit_down": 15,
+      "advancers": 2181
+    }
+  },
+  {
+    "id": "leader-2026-05-25",
+    "date": "2026-05-25",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 四环生物 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "四环生物"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "四环生物"
+    }
+  },
+  {
+    "id": "ladder-2026-05-25-000518.SZ",
+    "date": "2026-05-25",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "四环生物 4板",
+    "summary": "摘帽",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "摘帽"
+    ],
+    "meta": {
+      "ts_code": "000518.SZ",
+      "boards": 4,
+      "theme": "摘帽"
+    }
+  },
+  {
+    "id": "theme-2026-05-25-先进封装",
+    "date": "2026-05-25",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 先进封装 +4.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "先进封装"
+    ],
+    "meta": {
+      "pct": 4.63
+    }
+  },
+  {
+    "id": "theme-2026-05-25-半导体",
+    "date": "2026-05-25",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体 +4.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体"
+    ],
+    "meta": {
+      "pct": 4.52
+    }
+  },
+  {
+    "id": "market-2026-05-26",
+    "date": "2026-05-26",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停46 跌停16",
+    "summary": "上涨1354家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 46,
+      "limit_down": 16,
+      "advancers": 1354
+    }
+  },
+  {
+    "id": "leader-2026-05-26",
+    "date": "2026-05-26",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 宝鼎科技 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "宝鼎科技"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "宝鼎科技"
+    }
+  },
+  {
+    "id": "theme-2026-05-26-贵金属",
+    "date": "2026-05-26",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 贵金属 +4.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "贵金属"
+    ],
+    "meta": {
+      "pct": 4.11
+    }
+  },
+  {
+    "id": "market-2026-05-27",
+    "date": "2026-05-27",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停47 跌停22",
+    "summary": "上涨974家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 47,
+      "limit_down": 22,
+      "advancers": 974
+    }
+  },
+  {
+    "id": "theme-2026-05-27-白酒",
+    "date": "2026-05-27",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 白酒 +3.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "白酒"
+    ],
+    "meta": {
+      "pct": 3.37
+    }
+  },
+  {
+    "id": "market-2026-05-28",
+    "date": "2026-05-28",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停102 跌停8",
+    "summary": "上涨3018家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 102,
+      "limit_down": 8,
+      "advancers": 3018
+    }
+  },
+  {
+    "id": "leader-2026-05-28",
+    "date": "2026-05-28",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 华塑控股 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "华塑控股"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "华塑控股"
+    }
+  },
+  {
+    "id": "ladder-2026-05-28-000509.SZ",
+    "date": "2026-05-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华塑控股 4板",
+    "summary": "PCB",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "PCB"
+    ],
+    "meta": {
+      "ts_code": "000509.SZ",
+      "boards": 4,
+      "theme": "PCB"
+    }
+  },
+  {
+    "id": "ladder-2026-05-28-600726.SH",
+    "date": "2026-05-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华电能源 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "600726.SH",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "ladder-2026-05-28-600162.SH",
+    "date": "2026-05-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "香江控股 4板",
+    "summary": "房地产",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "房地产"
+    ],
+    "meta": {
+      "ts_code": "600162.SH",
+      "boards": 4,
+      "theme": "房地产"
+    }
+  },
+  {
+    "id": "theme-2026-05-28-MLCC",
+    "date": "2026-05-28",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 MLCC +6.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "MLCC"
+    ],
+    "meta": {
+      "pct": 6.16
+    }
+  },
+  {
+    "id": "theme-2026-05-28-玻璃玻纤",
+    "date": "2026-05-28",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +6.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 6.02
+    }
+  },
+  {
+    "id": "market-2026-05-29",
+    "date": "2026-05-29",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停49 跌停49",
+    "summary": "上涨1541家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 49,
+      "limit_down": 49,
+      "advancers": 1541
+    }
+  },
+  {
+    "id": "leader-2026-05-29",
+    "date": "2026-05-29",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 华电能源 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "华电能源"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "华电能源"
+    }
+  },
+  {
+    "id": "ladder-2026-05-29-600726.SH",
+    "date": "2026-05-29",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华电能源 5板",
+    "summary": "电力",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "600726.SH",
+      "boards": 5,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "ladder-2026-05-29-600162.SH",
+    "date": "2026-05-29",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "香江控股 5板",
+    "summary": "房地产",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "房地产"
+    ],
+    "meta": {
+      "ts_code": "600162.SH",
+      "boards": 5,
+      "theme": "房地产"
+    }
+  },
+  {
+    "id": "theme-2026-05-29-白酒",
+    "date": "2026-05-29",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 白酒 +3.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "白酒"
+    ],
+    "meta": {
+      "pct": 3.52
+    }
+  },
+  {
+    "id": "market-2026-06-01",
+    "date": "2026-06-01",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停120 跌停21",
+    "summary": "上涨3776家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 120,
+      "limit_down": 21,
+      "advancers": 3776
+    }
+  },
+  {
+    "id": "leader-2026-06-01",
+    "date": "2026-06-01",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 合锻智能 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "合锻智能"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "合锻智能"
+    }
+  },
+  {
+    "id": "ladder-2026-06-01-603011.SH",
+    "date": "2026-06-01",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "合锻智能 4板",
+    "summary": "AI硬件",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "AI硬件"
+    ],
+    "meta": {
+      "ts_code": "603011.SH",
+      "boards": 4,
+      "theme": "AI硬件"
+    }
+  },
+  {
+    "id": "ladder-2026-06-01-000539.SZ",
+    "date": "2026-06-01",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "粤电力Ａ 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "000539.SZ",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "theme-2026-06-01-煤炭开采加工",
+    "date": "2026-06-01",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 煤炭开采加工 +6.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "煤炭开采加工"
+    ],
+    "meta": {
+      "pct": 6.22
+    }
+  },
+  {
+    "id": "theme-2026-06-01-ERP",
+    "date": "2026-06-01",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 ERP +4.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "ERP"
+    ],
+    "meta": {
+      "pct": 4.78
+    }
+  },
+  {
+    "id": "market-2026-06-02",
+    "date": "2026-06-02",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘阶段 涨停66 跌停13",
+    "summary": "上涨1493家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 66,
+      "limit_down": 13,
+      "advancers": 1493
+    }
+  },
+  {
+    "id": "leader-2026-06-02",
+    "date": "2026-06-02",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 春秋电子 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "春秋电子"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "春秋电子"
+    }
+  },
+  {
+    "id": "theme-2026-06-02-MLCC",
+    "date": "2026-06-02",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 MLCC +5.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "MLCC"
+    ],
+    "meta": {
+      "pct": 5.53
+    }
+  },
+  {
+    "id": "theme-2026-06-02-元件",
+    "date": "2026-06-02",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 元件 +3.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "元件"
+    ],
+    "meta": {
+      "pct": 3.86
+    }
+  },
+  {
+    "id": "market-2026-06-03",
+    "date": "2026-06-03",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘 涨停66 跌停11",
+    "summary": "上涨1713家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘"
+    ],
+    "meta": {
+      "limit_up": 66,
+      "limit_down": 11,
+      "advancers": 1713
+    }
+  },
+  {
+    "id": "theme-2026-06-03-光纤",
+    "date": "2026-06-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤 +3.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤"
+    ],
+    "meta": {
+      "pct": 3.86
+    }
+  },
+  {
+    "id": "theme-2026-06-03-油气开采及服务",
+    "date": "2026-06-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 油气开采及服务 +3.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "油气开采及服务"
+    ],
+    "meta": {
+      "pct": 3.35
+    }
+  },
+  {
+    "id": "market-2026-06-04",
+    "date": "2026-06-04",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘阶段 涨停80 跌停7",
+    "summary": "上涨1344家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 80,
+      "limit_down": 7,
+      "advancers": 1344
+    }
+  },
+  {
+    "id": "leader-2026-06-04",
+    "date": "2026-06-04",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 大有能源 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "大有能源"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "大有能源"
+    }
+  },
+  {
+    "id": "ladder-2026-06-04-600403.SH",
+    "date": "2026-06-04",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "大有能源 4板",
+    "summary": "低价股",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "低价股"
+    ],
+    "meta": {
+      "ts_code": "600403.SH",
+      "boards": 4,
+      "theme": "低价股"
+    }
+  },
+  {
+    "id": "ladder-2026-06-04-603330.SH",
+    "date": "2026-06-04",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "天洋新材 4板",
+    "summary": "光通信",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "光通信"
+    ],
+    "meta": {
+      "ts_code": "603330.SH",
+      "boards": 4,
+      "theme": "光通信"
+    }
+  },
+  {
+    "id": "ladder-2026-06-04-600367.SH",
+    "date": "2026-06-04",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "红星发展 4板",
+    "summary": "MLCC",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "MLCC"
+    ],
+    "meta": {
+      "ts_code": "600367.SH",
+      "boards": 4,
+      "theme": "MLCC"
+    }
+  },
+  {
+    "id": "theme-2026-06-04-电子化学品",
+    "date": "2026-06-04",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 电子化学品 +5.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "电子化学品"
+    ],
+    "meta": {
+      "pct": 5.63
+    }
+  },
+  {
+    "id": "theme-2026-06-04-MLCC",
+    "date": "2026-06-04",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 MLCC +4.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "MLCC"
+    ],
+    "meta": {
+      "pct": 4.43
+    }
+  },
+  {
+    "id": "market-2026-06-05",
+    "date": "2026-06-05",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 顶部横盘阶段 涨停73 跌停11",
+    "summary": "上涨3277家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "顶部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 73,
+      "limit_down": 11,
+      "advancers": 3277
+    }
+  },
+  {
+    "id": "leader-2026-06-05",
+    "date": "2026-06-05",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 大有能源 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "大有能源"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "大有能源"
+    }
+  },
+  {
+    "id": "ladder-2026-06-05-600403.SH",
+    "date": "2026-06-05",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "大有能源 5板",
+    "summary": "低价股",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "低价股"
+    ],
+    "meta": {
+      "ts_code": "600403.SH",
+      "boards": 5,
+      "theme": "低价股"
+    }
+  },
+  {
+    "id": "theme-2026-06-05-太赫兹",
+    "date": "2026-06-05",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 太赫兹 +3.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "太赫兹"
+    ],
+    "meta": {
+      "pct": 3.36
+    }
+  },
+  {
+    "id": "theme-2026-06-05-减速器",
+    "date": "2026-06-05",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 减速器 +3.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "减速器"
+    ],
+    "meta": {
+      "pct": 3.27
+    }
+  },
+  {
+    "id": "market-2026-06-08",
+    "date": "2026-06-08",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停57 跌停35",
+    "summary": "上涨899家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 57,
+      "limit_down": 35,
+      "advancers": 899
+    }
+  },
+  {
+    "id": "leader-2026-06-08",
+    "date": "2026-06-08",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 大有能源 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "大有能源"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "大有能源"
+    }
+  },
+  {
+    "id": "ladder-2026-06-08-600403.SH",
+    "date": "2026-06-08",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "大有能源 6板",
+    "summary": "低价股",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "低价股"
+    ],
+    "meta": {
+      "ts_code": "600403.SH",
+      "boards": 6,
+      "theme": "低价股"
+    }
+  },
+  {
+    "id": "ladder-2026-06-08-603135.SH",
+    "date": "2026-06-08",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "中重科技 4板",
+    "summary": "机器人",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "机器人"
+    ],
+    "meta": {
+      "ts_code": "603135.SH",
+      "boards": 4,
+      "theme": "机器人"
+    }
+  },
+  {
+    "id": "market-2026-06-09",
+    "date": "2026-06-09",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停130 跌停9",
+    "summary": "上涨3322家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 130,
+      "limit_down": 9,
+      "advancers": 3322
+    }
+  },
+  {
+    "id": "leader-2026-06-09",
+    "date": "2026-06-09",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 天娱数科 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "天娱数科"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "天娱数科"
+    }
+  },
+  {
+    "id": "theme-2026-06-09-半导体设备",
+    "date": "2026-06-09",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体设备 +8.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体设备"
+    ],
+    "meta": {
+      "pct": 8.31
+    }
+  },
+  {
+    "id": "theme-2026-06-09-电子化学品",
+    "date": "2026-06-09",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 电子化学品 +7.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "电子化学品"
+    ],
+    "meta": {
+      "pct": 7.05
+    }
+  },
+  {
+    "id": "market-2026-06-10",
+    "date": "2026-06-10",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停70 跌停25",
+    "summary": "上涨1556家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 70,
+      "limit_down": 25,
+      "advancers": 1556
+    }
+  },
+  {
+    "id": "leader-2026-06-10",
+    "date": "2026-06-10",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 天娱数科 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "天娱数科"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "天娱数科"
+    }
+  },
+  {
+    "id": "ladder-2026-06-10-002354.SZ",
+    "date": "2026-06-10",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "天娱数科 4板",
+    "summary": "物理AI",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "物理AI"
+    ],
+    "meta": {
+      "ts_code": "002354.SZ",
+      "boards": 4,
+      "theme": "物理AI"
+    }
+  },
+  {
+    "id": "theme-2026-06-10-保险",
+    "date": "2026-06-10",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 保险 +3.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "保险"
+    ],
+    "meta": {
+      "pct": 3.19
+    }
+  },
+  {
+    "id": "market-2026-06-11",
+    "date": "2026-06-11",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停69 跌停33",
+    "summary": "上涨1370家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 69,
+      "limit_down": 33,
+      "advancers": 1370
+    }
+  },
+  {
+    "id": "leader-2026-06-11",
+    "date": "2026-06-11",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 中化国际 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "中化国际"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "中化国际"
+    }
+  },
+  {
+    "id": "theme-2026-06-11-小金属",
+    "date": "2026-06-11",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 小金属 +4.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "小金属"
+    ],
+    "meta": {
+      "pct": 4.6
+    }
+  },
+  {
+    "id": "theme-2026-06-11-锂",
+    "date": "2026-06-11",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 锂 +4.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "锂"
+    ],
+    "meta": {
+      "pct": 4.05
+    }
+  },
+  {
+    "id": "market-2026-06-12",
+    "date": "2026-06-12",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停89 跌停15",
+    "summary": "上涨3923家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 89,
+      "limit_down": 15,
+      "advancers": 3923
+    }
+  },
+  {
+    "id": "leader-2026-06-12",
+    "date": "2026-06-12",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 宿迁联盛 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "宿迁联盛"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "宿迁联盛"
+    }
+  },
+  {
+    "id": "ladder-2026-06-12-600500.SH",
+    "date": "2026-06-12",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "中化国际 4板",
+    "summary": "PCB",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "PCB"
+    ],
+    "meta": {
+      "ts_code": "600500.SH",
+      "boards": 4,
+      "theme": "PCB"
+    }
+  },
+  {
+    "id": "ladder-2026-06-12-002971.SZ",
+    "date": "2026-06-12",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "和远气体 4板",
+    "summary": "六氟化钨",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "六氟化钨"
+    ],
+    "meta": {
+      "ts_code": "002971.SZ",
+      "boards": 4,
+      "theme": "六氟化钨"
+    }
+  },
+  {
+    "id": "ladder-2026-06-12-603065.SH",
+    "date": "2026-06-12",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "宿迁联盛 4板",
+    "summary": "磷化铟",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "磷化铟"
+    ],
+    "meta": {
+      "ts_code": "603065.SH",
+      "boards": 4,
+      "theme": "磷化铟"
+    }
+  },
+  {
+    "id": "theme-2026-06-12-金属锌",
+    "date": "2026-06-12",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 金属锌 +5.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "金属锌"
+    ],
+    "meta": {
+      "pct": 5.47
+    }
+  },
+  {
+    "id": "theme-2026-06-12-工业金属",
+    "date": "2026-06-12",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 工业金属 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "工业金属"
+    ],
+    "meta": {
+      "pct": 5.28
+    }
+  },
+  {
+    "id": "market-2026-06-15",
+    "date": "2026-06-15",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停145 跌停3",
+    "summary": "上涨3906家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 145,
+      "limit_down": 3,
+      "advancers": 3906
+    }
+  },
+  {
+    "id": "leader-2026-06-15",
+    "date": "2026-06-15",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 新金路 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "新金路"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "新金路"
+    }
+  },
+  {
+    "id": "theme-2026-06-15-元件",
+    "date": "2026-06-15",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 元件 +8.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "元件"
+    ],
+    "meta": {
+      "pct": 8.69
+    }
+  },
+  {
+    "id": "theme-2026-06-15-PET铜箔",
+    "date": "2026-06-15",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 PET铜箔 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "PET铜箔"
+    ],
+    "meta": {
+      "pct": 8.18
+    }
+  },
+  {
+    "id": "market-2026-06-16",
+    "date": "2026-06-16",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停117 跌停7",
+    "summary": "上涨2730家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 117,
+      "limit_down": 7,
+      "advancers": 2730
+    }
+  },
+  {
+    "id": "leader-2026-06-16",
+    "date": "2026-06-16",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 盛龙股份 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "盛龙股份"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "盛龙股份"
+    }
+  },
+  {
+    "id": "ladder-2026-06-16-000032.SZ",
+    "date": "2026-06-16",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "深桑达A 4板",
+    "summary": "半导体",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "半导体"
+    ],
+    "meta": {
+      "ts_code": "000032.SZ",
+      "boards": 4,
+      "theme": "半导体"
+    }
+  },
+  {
+    "id": "ladder-2026-06-16-001257.SZ",
+    "date": "2026-06-16",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "盛龙股份 4板",
+    "summary": "钼",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "钼"
+    ],
+    "meta": {
+      "ts_code": "001257.SZ",
+      "boards": 4,
+      "theme": "钼"
+    }
+  },
+  {
+    "id": "theme-2026-06-16-玻璃玻纤",
+    "date": "2026-06-16",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +6.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 6.06
+    }
+  },
+  {
+    "id": "theme-2026-06-16-锂电池",
+    "date": "2026-06-16",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 锂电池 +5.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "锂电池"
+    ],
+    "meta": {
+      "pct": 5.06
+    }
+  },
+  {
+    "id": "market-2026-06-17",
+    "date": "2026-06-17",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停86 跌停1",
+    "summary": "上涨1723家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 86,
+      "limit_down": 1,
+      "advancers": 1723
+    }
+  },
+  {
+    "id": "leader-2026-06-17",
+    "date": "2026-06-17",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 诺德股份 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "诺德股份"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "诺德股份"
+    }
+  },
+  {
+    "id": "ladder-2026-06-17-605198.SH",
+    "date": "2026-06-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "安德利 4板",
+    "summary": "大消费",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "大消费"
+    ],
+    "meta": {
+      "ts_code": "605198.SH",
+      "boards": 4,
+      "theme": "大消费"
+    }
+  },
+  {
+    "id": "theme-2026-06-17-玻璃玻纤",
+    "date": "2026-06-17",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +7.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 7.43
+    }
+  },
+  {
+    "id": "theme-2026-06-17-半导体设备",
+    "date": "2026-06-17",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体设备 +6.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体设备"
+    ],
+    "meta": {
+      "pct": 6.12
+    }
+  },
+  {
+    "id": "market-2026-06-18",
+    "date": "2026-06-18",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停91 跌停12",
+    "summary": "上涨2023家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 91,
+      "limit_down": 12,
+      "advancers": 2023
+    }
+  },
+  {
+    "id": "leader-2026-06-18",
+    "date": "2026-06-18",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 旭光电子 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "旭光电子"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "旭光电子"
+    }
+  },
+  {
+    "id": "ladder-2026-06-18-600353.SH",
+    "date": "2026-06-18",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "旭光电子 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "600353.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "theme-2026-06-18-非金属材料",
+    "date": "2026-06-18",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 非金属材料 +5.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "非金属材料"
+    ],
+    "meta": {
+      "pct": 4.99
+    }
+  },
+  {
+    "id": "theme-2026-06-18-半导体设备",
+    "date": "2026-06-18",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体设备 +3.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体设备"
+    ],
+    "meta": {
+      "pct": 3.39
+    }
+  },
+  {
+    "id": "market-2026-06-22",
+    "date": "2026-06-22",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停134 跌停4",
+    "summary": "上涨2916家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 134,
+      "limit_down": 4,
+      "advancers": 2916
+    }
+  },
+  {
+    "id": "leader-2026-06-22",
+    "date": "2026-06-22",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 旭光电子 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "旭光电子"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "旭光电子"
+    }
+  },
+  {
+    "id": "ladder-2026-06-22-600353.SH",
+    "date": "2026-06-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "旭光电子 5板",
+    "summary": "氮化铝",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "氮化铝"
+    ],
+    "meta": {
+      "ts_code": "600353.SH",
+      "boards": 5,
+      "theme": "氮化铝"
+    }
+  },
+  {
+    "id": "ladder-2026-06-22-600397.SH",
+    "date": "2026-06-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "江钨装备 4板",
+    "summary": "钨",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "钨"
+    ],
+    "meta": {
+      "ts_code": "600397.SH",
+      "boards": 4,
+      "theme": "钨"
+    }
+  },
+  {
+    "id": "ladder-2026-06-22-603989.SH",
+    "date": "2026-06-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "艾华集团 4板",
+    "summary": "电容器",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电容器"
+    ],
+    "meta": {
+      "ts_code": "603989.SH",
+      "boards": 4,
+      "theme": "电容器"
+    }
+  },
+  {
+    "id": "theme-2026-06-22-非金属材料",
+    "date": "2026-06-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 非金属材料 +7.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "非金属材料"
+    ],
+    "meta": {
+      "pct": 7.64
+    }
+  },
+  {
+    "id": "theme-2026-06-22-保险",
+    "date": "2026-06-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 保险 +7.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "保险"
+    ],
+    "meta": {
+      "pct": 7.18
+    }
+  },
+  {
+    "id": "market-2026-06-23",
+    "date": "2026-06-23",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停96 跌停39",
+    "summary": "上涨2764家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 96,
+      "limit_down": 39,
+      "advancers": 2764
+    }
+  },
+  {
+    "id": "ladder-2026-06-23-600397.SH",
+    "date": "2026-06-23",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "江钨装备 5板",
+    "summary": "钨",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "钨"
+    ],
+    "meta": {
+      "ts_code": "600397.SH",
+      "boards": 5,
+      "theme": "钨"
+    }
+  },
+  {
+    "id": "theme-2026-06-23-功率半导体",
+    "date": "2026-06-23",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 功率半导体 +4.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "功率半导体"
+    ],
+    "meta": {
+      "pct": 4.25
+    }
+  },
+  {
+    "id": "theme-2026-06-23-原料药",
+    "date": "2026-06-23",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 原料药 +3.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "原料药"
+    ],
+    "meta": {
+      "pct": 3.83
+    }
+  },
+  {
+    "id": "market-2026-06-24",
+    "date": "2026-06-24",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停98 跌停12",
+    "summary": "上涨1434家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 98,
+      "limit_down": 12,
+      "advancers": 1434
+    }
+  },
+  {
+    "id": "leader-2026-06-24",
+    "date": "2026-06-24",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 兴业科技 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "兴业科技"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "兴业科技"
+    }
+  },
+  {
+    "id": "ladder-2026-06-24-002167.SZ",
+    "date": "2026-06-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "东方锆业 4板",
+    "summary": "氧化锆",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "氧化锆"
+    ],
+    "meta": {
+      "ts_code": "002167.SZ",
+      "boards": 4,
+      "theme": "氧化锆"
+    }
+  },
+  {
+    "id": "ladder-2026-06-24-002674.SZ",
+    "date": "2026-06-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "兴业科技 4板",
+    "summary": "磷化铟",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "磷化铟"
+    ],
+    "meta": {
+      "ts_code": "002674.SZ",
+      "boards": 4,
+      "theme": "磷化铟"
+    }
+  },
+  {
+    "id": "ladder-2026-06-24-603407.SH",
+    "date": "2026-06-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "长裕集团 4板",
+    "summary": "氧化锆",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "氧化锆"
+    ],
+    "meta": {
+      "ts_code": "603407.SH",
+      "boards": 4,
+      "theme": "氧化锆"
+    }
+  },
+  {
+    "id": "theme-2026-06-24-半导体封测",
+    "date": "2026-06-24",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +9.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 9.21
+    }
+  },
+  {
+    "id": "theme-2026-06-24-玻璃玻纤",
+    "date": "2026-06-24",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 8.16
+    }
+  },
+  {
+    "id": "market-2026-06-25",
+    "date": "2026-06-25",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停86 跌停17",
+    "summary": "上涨1231家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 86,
+      "limit_down": 17,
+      "advancers": 1231
+    }
+  },
+  {
+    "id": "leader-2026-06-25",
+    "date": "2026-06-25",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 兴业科技 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "兴业科技"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "兴业科技"
+    }
+  },
+  {
+    "id": "ladder-2026-06-25-002674.SZ",
+    "date": "2026-06-25",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "兴业科技 5板",
+    "summary": "磷化铟",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "磷化铟"
+    ],
+    "meta": {
+      "ts_code": "002674.SZ",
+      "boards": 5,
+      "theme": "磷化铟"
+    }
+  },
+  {
+    "id": "theme-2026-06-25-被动元件",
+    "date": "2026-06-25",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 被动元件 +9.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "被动元件"
+    ],
+    "meta": {
+      "pct": 9.32
+    }
+  },
+  {
+    "id": "theme-2026-06-25-半导体封测",
+    "date": "2026-06-25",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +6.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 6.51
+    }
+  },
+  {
+    "id": "market-2026-06-26",
+    "date": "2026-06-26",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停60 跌停30",
+    "summary": "上涨790家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 60,
+      "limit_down": 30,
+      "advancers": 790
+    }
+  },
+  {
+    "id": "leader-2026-06-26",
+    "date": "2026-06-26",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 兴业科技 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "兴业科技"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "兴业科技"
+    }
+  },
+  {
+    "id": "ladder-2026-06-26-002674.SZ",
+    "date": "2026-06-26",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "兴业科技 6板",
+    "summary": "",
+    "importance": 3,
+    "tags": [
+      "6板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "002674.SZ",
+      "boards": 6,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-06-26-605366.SH",
+    "date": "2026-06-26",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "宏柏新材 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "605366.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "theme-2026-06-26-玻璃玻纤",
+    "date": "2026-06-26",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +5.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 5.58
+    }
+  },
+  {
+    "id": "theme-2026-06-26-面板",
+    "date": "2026-06-26",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 面板 +4.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "面板"
+    ],
+    "meta": {
+      "pct": 4.24
+    }
+  },
+  {
+    "id": "market-2026-06-29",
+    "date": "2026-06-29",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停107 跌停38",
+    "summary": "上涨2469家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 107,
+      "limit_down": 38,
+      "advancers": 2469
+    }
+  },
+  {
+    "id": "leader-2026-06-29",
+    "date": "2026-06-29",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 威派格 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "威派格"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "威派格"
+    }
+  },
+  {
+    "id": "ladder-2026-06-29-002674.SZ",
+    "date": "2026-06-29",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "兴业科技 7板",
+    "summary": "金属",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "金属"
+    ],
+    "meta": {
+      "ts_code": "002674.SZ",
+      "boards": 7,
+      "theme": "金属"
+    }
+  },
+  {
+    "id": "theme-2026-06-29-生物制药",
+    "date": "2026-06-29",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 生物制药 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "生物制药"
+    ],
+    "meta": {
+      "pct": 8.18
+    }
+  },
+  {
+    "id": "theme-2026-06-29-半导体材料",
+    "date": "2026-06-29",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 8.18
+    }
+  },
+  {
+    "id": "market-2026-06-30",
+    "date": "2026-06-30",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停140 跌停7",
+    "summary": "上涨3054家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 140,
+      "limit_down": 7,
+      "advancers": 3054
+    }
+  },
+  {
+    "id": "theme-2026-06-30-机器人",
+    "date": "2026-06-30",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 机器人 +10.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "机器人"
+    ],
+    "meta": {
+      "pct": 10.08
+    }
+  },
+  {
+    "id": "theme-2026-06-30-面板",
+    "date": "2026-06-30",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 面板 +8.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "面板"
+    ],
+    "meta": {
+      "pct": 8.27
+    }
+  },
+  {
+    "id": "market-2026-07-01",
+    "date": "2026-07-01",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停148 跌停7",
+    "summary": "上涨4240家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 148,
+      "limit_down": 7,
+      "advancers": 4240
+    }
+  },
+  {
+    "id": "theme-2026-07-01-综合",
+    "date": "2026-07-01",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 综合 +7.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "综合"
+    ],
+    "meta": {
+      "pct": 7.26
+    }
+  },
+  {
+    "id": "theme-2026-07-01-保险",
+    "date": "2026-07-01",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 保险 +7.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "保险"
+    ],
+    "meta": {
+      "pct": 7.2
+    }
+  },
+  {
+    "id": "market-2026-07-02",
+    "date": "2026-07-02",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停93 跌停40",
+    "summary": "上涨2219家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 93,
+      "limit_down": 40,
+      "advancers": 2219
+    }
+  },
+  {
+    "id": "leader-2026-07-02",
+    "date": "2026-07-02",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 海南海药 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "海南海药"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "海南海药"
+    }
+  },
+  {
+    "id": "ladder-2026-07-02-000566.SZ",
+    "date": "2026-07-02",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "海南海药 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "000566.SZ",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "theme-2026-07-02-黄金",
+    "date": "2026-07-02",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 黄金 +5.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "黄金"
+    ],
+    "meta": {
+      "pct": 5.54
+    }
+  },
+  {
+    "id": "theme-2026-07-02-贵金属",
+    "date": "2026-07-02",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 贵金属 +5.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "贵金属"
+    ],
+    "meta": {
+      "pct": 4.98
+    }
+  },
+  {
+    "id": "market-2026-07-03",
+    "date": "2026-07-03",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停108 跌停19",
+    "summary": "上涨3804家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 108,
+      "limit_down": 19,
+      "advancers": 3804
+    }
+  },
+  {
+    "id": "ladder-2026-07-03-603137.SH",
+    "date": "2026-07-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "恒尚节能 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "603137.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "theme-2026-07-03-机器人",
+    "date": "2026-07-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 机器人 +11.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "机器人"
+    ],
+    "meta": {
+      "pct": 11.49
+    }
+  },
+  {
+    "id": "theme-2026-07-03-黄金",
+    "date": "2026-07-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 黄金 +7.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "黄金"
+    ],
+    "meta": {
+      "pct": 7.89
+    }
+  },
+  {
+    "id": "market-2026-07-06",
+    "date": "2026-07-06",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停64 跌停46",
+    "summary": "上涨1876家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 64,
+      "limit_down": 46,
+      "advancers": 1876
+    }
+  },
+  {
+    "id": "leader-2026-07-06",
+    "date": "2026-07-06",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 恒尚节能 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "恒尚节能"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "恒尚节能"
+    }
+  },
+  {
+    "id": "ladder-2026-07-06-603137.SH",
+    "date": "2026-07-06",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "恒尚节能 5板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603137.SH",
+      "boards": 5,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-07-06-600793.SH",
+    "date": "2026-07-06",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "宜宾纸业 4板",
+    "summary": "TAC膜上游",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "TAC膜上游"
+    ],
+    "meta": {
+      "ts_code": "600793.SH",
+      "boards": 4,
+      "theme": "TAC膜上游"
+    }
+  },
+  {
+    "id": "theme-2026-07-06-涤纶",
+    "date": "2026-07-06",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 涤纶 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "涤纶"
+    ],
+    "meta": {
+      "pct": 5.27
+    }
+  },
+  {
+    "id": "theme-2026-07-06-养殖业",
+    "date": "2026-07-06",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 养殖业 +4.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "养殖业"
+    ],
+    "meta": {
+      "pct": 4.3
+    }
+  },
+  {
+    "id": "market-2026-07-07",
+    "date": "2026-07-07",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停33 跌停31",
+    "summary": "上涨693家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 33,
+      "limit_down": 31,
+      "advancers": 693
+    }
+  },
+  {
+    "id": "leader-2026-07-07",
+    "date": "2026-07-07",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 恒尚节能 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "恒尚节能"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "恒尚节能"
+    }
+  },
+  {
+    "id": "ladder-2026-07-07-603137.SH",
+    "date": "2026-07-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "恒尚节能 6板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603137.SH",
+      "boards": 6,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-07-07-600793.SH",
+    "date": "2026-07-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "宜宾纸业 5板",
+    "summary": "TAC膜上游",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "TAC膜上游"
+    ],
+    "meta": {
+      "ts_code": "600793.SH",
+      "boards": 5,
+      "theme": "TAC膜上游"
+    }
+  },
+  {
+    "id": "theme-2026-07-07-半导体封测",
+    "date": "2026-07-07",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +4.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 4.02
+    }
+  },
+  {
+    "id": "theme-2026-07-07-半导体材料",
+    "date": "2026-07-07",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +3.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 3.7
+    }
+  },
+  {
+    "id": "market-2026-07-08",
+    "date": "2026-07-08",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停47 跌停42",
+    "summary": "上涨1593家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 47,
+      "limit_down": 42,
+      "advancers": 1593
+    }
+  },
+  {
+    "id": "leader-2026-07-08",
+    "date": "2026-07-08",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 恒尚节能 7板",
+    "summary": "高度 7板，新高",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "恒尚节能"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "恒尚节能"
+    }
+  },
+  {
+    "id": "ladder-2026-07-08-603137.SH",
+    "date": "2026-07-08",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "恒尚节能 7板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603137.SH",
+      "boards": 7,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-07-08-云服务",
+    "date": "2026-07-08",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 云服务 +4.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "云服务"
+    ],
+    "meta": {
+      "pct": 4.61
+    }
+  },
+  {
+    "id": "theme-2026-07-08-油气开采及服务",
+    "date": "2026-07-08",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 油气开采及服务 +3.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "油气开采及服务"
+    ],
+    "meta": {
+      "pct": 3.52
+    }
+  },
+  {
+    "id": "market-2026-07-09",
+    "date": "2026-07-09",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停75 跌停12",
+    "summary": "上涨2486家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 75,
+      "limit_down": 12,
+      "advancers": 2486
+    }
+  },
+  {
+    "id": "leader-2026-07-09",
+    "date": "2026-07-09",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 恒尚节能 8板",
+    "summary": "高度 8板，新高",
+    "importance": 3,
+    "tags": [
+      "8板",
+      "恒尚节能"
+    ],
+    "meta": {
+      "height": 8,
+      "name": "恒尚节能"
+    }
+  },
+  {
+    "id": "ladder-2026-07-09-603137.SH",
+    "date": "2026-07-09",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "恒尚节能 8板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "8板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603137.SH",
+      "boards": 8,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-07-09-半导体材料",
+    "date": "2026-07-09",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +10.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 10.83
+    }
+  },
+  {
+    "id": "theme-2026-07-09-半导体封测",
+    "date": "2026-07-09",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +10.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 10.1
+    }
+  },
+  {
+    "id": "market-2026-07-10",
+    "date": "2026-07-10",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停92 跌停4",
+    "summary": "上涨3774家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 92,
+      "limit_down": 4,
+      "advancers": 3774
+    }
+  },
+  {
+    "id": "leader-2026-07-10",
+    "date": "2026-07-10",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 高德红外 2板",
+    "summary": "高度 2板，回落",
+    "importance": 2,
+    "tags": [
+      "2板",
+      "高德红外"
+    ],
+    "meta": {
+      "height": 2,
+      "name": "高德红外"
+    }
+  },
+  {
+    "id": "theme-2026-07-10-医疗服务",
+    "date": "2026-07-10",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 医疗服务 +5.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "医疗服务"
+    ],
+    "meta": {
+      "pct": 5.59
+    }
+  },
+  {
+    "id": "theme-2026-07-10-互联网广告",
+    "date": "2026-07-10",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 互联网广告 +4.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "互联网广告"
+    ],
+    "meta": {
+      "pct": 4.87
+    }
+  },
+  {
+    "id": "market-2026-07-13",
+    "date": "2026-07-13",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停29 跌停172",
+    "summary": "上涨801家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 29,
+      "limit_down": 172,
+      "advancers": 801
+    }
+  },
+  {
+    "id": "leader-2026-07-13",
+    "date": "2026-07-13",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 贵绳股份 3板",
+    "summary": "高度 3板，新高",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "贵绳股份"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "贵绳股份"
+    }
+  },
+  {
+    "id": "theme-2026-07-13-石油开采",
+    "date": "2026-07-13",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 石油开采 +3.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "石油开采"
+    ],
+    "meta": {
+      "pct": 3.65
+    }
+  },
+  {
+    "id": "theme-2026-07-13-中药",
+    "date": "2026-07-13",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 中药 +3.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "中药"
+    ],
+    "meta": {
+      "pct": 3.3
+    }
+  },
+  {
+    "id": "market-2026-07-14",
+    "date": "2026-07-14",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停81 跌停22",
+    "summary": "上涨4211家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 81,
+      "limit_down": 22,
+      "advancers": 4211
+    }
+  },
+  {
+    "id": "theme-2026-07-14-PCB",
+    "date": "2026-07-14",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 PCB +8.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "PCB"
+    ],
+    "meta": {
+      "pct": 8.38
+    }
+  },
+  {
+    "id": "theme-2026-07-14-玻璃玻纤",
+    "date": "2026-07-14",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 8.19
+    }
+  },
+  {
+    "id": "market-2026-07-15",
+    "date": "2026-07-15",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停72 跌停32",
+    "summary": "上涨3351家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 72,
+      "limit_down": 32,
+      "advancers": 3351
+    }
+  },
+  {
+    "id": "leader-2026-07-15",
+    "date": "2026-07-15",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 哈药股份 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "哈药股份"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "哈药股份"
+    }
+  },
+  {
+    "id": "ladder-2026-07-15-600664.SH",
+    "date": "2026-07-15",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "哈药股份 4板",
+    "summary": "其他医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "其他医药"
+    ],
+    "meta": {
+      "ts_code": "600664.SH",
+      "boards": 4,
+      "theme": "其他医药"
+    }
+  },
+  {
+    "id": "theme-2026-07-15-医疗服务",
+    "date": "2026-07-15",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 医疗服务 +5.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "医疗服务"
+    ],
+    "meta": {
+      "pct": 5.51
+    }
+  },
+  {
+    "id": "theme-2026-07-15-影视院线",
+    "date": "2026-07-15",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 影视院线 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "影视院线"
+    ],
+    "meta": {
+      "pct": 5.33
+    }
+  },
+  {
+    "id": "market-2026-07-16",
+    "date": "2026-07-16",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停42 跌停34",
+    "summary": "上涨2499家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 42,
+      "limit_down": 34,
+      "advancers": 2499
+    }
+  },
+  {
+    "id": "leader-2026-07-16",
+    "date": "2026-07-16",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 哈药股份 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "哈药股份"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "哈药股份"
+    }
+  },
+  {
+    "id": "ladder-2026-07-16-600664.SH",
+    "date": "2026-07-16",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "哈药股份 5板",
+    "summary": "医药",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600664.SH",
+      "boards": 5,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "ladder-2026-07-16-920305.BJ",
+    "date": "2026-07-16",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "云创退 4板",
+    "summary": "退市整理",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "退市整理"
+    ],
+    "meta": {
+      "ts_code": "920305.BJ",
+      "boards": 4,
+      "theme": "退市整理"
+    }
+  },
+  {
+    "id": "theme-2026-07-16-影视院线",
+    "date": "2026-07-16",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 影视院线 +5.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "影视院线"
+    ],
+    "meta": {
+      "pct": 5.38
+    }
+  },
+  {
+    "id": "theme-2026-07-16-影视制作",
+    "date": "2026-07-16",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 影视制作 +5.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "影视制作"
+    ],
+    "meta": {
+      "pct": 5.21
+    }
+  },
+  {
+    "id": "market-2026-07-17",
+    "date": "2026-07-17",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停33 跌停193",
+    "summary": "上涨482家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 33,
+      "limit_down": 193,
+      "advancers": 482
+    }
+  },
+  {
+    "id": "ladder-2026-07-17-920305.BJ",
+    "date": "2026-07-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "云创退 5板",
+    "summary": "",
+    "importance": 3,
+    "tags": [
+      "5板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "920305.BJ",
+      "boards": 5,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-07-17-603580.SH",
+    "date": "2026-07-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "艾艾精工 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "603580.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "market-2026-07-20",
+    "date": "2026-07-20",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停53 跌停212",
+    "summary": "上涨1740家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 53,
+      "limit_down": 212,
+      "advancers": 1740
+    }
+  },
+  {
+    "id": "leader-2026-07-20",
+    "date": "2026-07-20",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 立新能源 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "立新能源"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "立新能源"
+    }
+  },
+  {
+    "id": "theme-2026-07-20-油气开采及服务",
+    "date": "2026-07-20",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 油气开采及服务 +7.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "油气开采及服务"
+    ],
+    "meta": {
+      "pct": 7.14
+    }
+  },
+  {
+    "id": "theme-2026-07-20-石油开采",
+    "date": "2026-07-20",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 石油开采 +7.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "石油开采"
+    ],
+    "meta": {
+      "pct": 6.99
+    }
+  },
+  {
+    "id": "market-2026-07-21",
+    "date": "2026-07-21",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停121 跌停21",
+    "summary": "上涨3107家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 121,
+      "limit_down": 21,
+      "advancers": 3107
+    }
+  },
+  {
+    "id": "leader-2026-07-21",
+    "date": "2026-07-21",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 立新能源 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "立新能源"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "立新能源"
+    }
+  },
+  {
+    "id": "ladder-2026-07-21-001258.SZ",
+    "date": "2026-07-21",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "立新能源 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "001258.SZ",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "theme-2026-07-21-半导体设备",
+    "date": "2026-07-21",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体设备 +16.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体设备"
+    ],
+    "meta": {
+      "pct": 16.09
+    }
+  },
+  {
+    "id": "theme-2026-07-21-半导体设备",
+    "date": "2026-07-21",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体设备 +15.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体设备"
+    ],
+    "meta": {
+      "pct": 14.97
+    }
+  },
+  {
+    "id": "market-2026-07-22",
+    "date": "2026-07-22",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停47 跌停8",
+    "summary": "上涨1530家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 47,
+      "limit_down": 8,
+      "advancers": 1530
+    }
+  },
+  {
+    "id": "leader-2026-07-22",
+    "date": "2026-07-22",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 立新能源 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "立新能源"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "立新能源"
+    }
+  },
+  {
+    "id": "ladder-2026-07-22-001258.SZ",
+    "date": "2026-07-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "立新能源 5板",
+    "summary": "电力",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "001258.SZ",
+      "boards": 5,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "ladder-2026-07-22-600744.SH",
+    "date": "2026-07-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华银电力 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "600744.SH",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "theme-2026-07-22-黄金",
+    "date": "2026-07-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 黄金 +6.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "黄金"
+    ],
+    "meta": {
+      "pct": 6.52
+    }
+  },
+  {
+    "id": "theme-2026-07-22-贵金属",
+    "date": "2026-07-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 贵金属 +6.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "贵金属"
+    ],
+    "meta": {
+      "pct": 6.46
+    }
+  },
+  {
+    "id": "market-2026-07-23",
+    "date": "2026-07-23",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停116 跌停2",
+    "summary": "上涨4260家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 116,
+      "limit_down": 2,
+      "advancers": 4260
+    }
+  },
+  {
+    "id": "leader-2026-07-23",
+    "date": "2026-07-23",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 立新能源 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "立新能源"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "立新能源"
+    }
+  },
+  {
+    "id": "ladder-2026-07-23-001258.SZ",
+    "date": "2026-07-23",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "立新能源 6板",
+    "summary": "电站",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "电站"
+    ],
+    "meta": {
+      "ts_code": "001258.SZ",
+      "boards": 6,
+      "theme": "电站"
+    }
+  },
+  {
+    "id": "ladder-2026-07-23-000815.SZ",
+    "date": "2026-07-23",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "美利云 4板",
+    "summary": "算力租赁",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "算力租赁"
+    ],
+    "meta": {
+      "ts_code": "000815.SZ",
+      "boards": 4,
+      "theme": "算力租赁"
+    }
+  },
+  {
+    "id": "theme-2026-07-23-输变电设备",
+    "date": "2026-07-23",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 输变电设备 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "输变电设备"
+    ],
+    "meta": {
+      "pct": 8.18
+    }
+  },
+  {
+    "id": "theme-2026-07-23-锂",
+    "date": "2026-07-23",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 锂 +8.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "锂"
+    ],
+    "meta": {
+      "pct": 8.03
+    }
+  },
+  {
+    "id": "market-2026-07-24",
+    "date": "2026-07-24",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停40 跌停24",
+    "summary": "上涨534家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 40,
+      "limit_down": 24,
+      "advancers": 534
+    }
+  },
+  {
+    "id": "leader-2026-07-24",
+    "date": "2026-07-24",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-07-24-603221.SH",
+    "date": "2026-07-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-07-24-002879.SZ",
+    "date": "2026-07-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "长缆科技 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "002879.SZ",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "theme-2026-07-24-半导体封测",
+    "date": "2026-07-24",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +3.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 3.73
+    }
+  },
+  {
+    "id": "theme-2026-07-24-地面兵装",
+    "date": "2026-07-24",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 地面兵装 +3.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "地面兵装"
+    ],
+    "meta": {
+      "pct": 3.58
+    }
+  },
+  {
+    "id": "market-2026-07-27",
+    "date": "2026-07-27",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停111 跌停6",
+    "summary": "上涨5195家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 111,
+      "limit_down": 6,
+      "advancers": 5195
+    }
+  },
+  {
+    "id": "leader-2026-07-27",
+    "date": "2026-07-27",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-07-27-603221.SH",
+    "date": "2026-07-27",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 5板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 5,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-07-27-002879.SZ",
+    "date": "2026-07-27",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "长缆科技 5板",
+    "summary": "电力",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "002879.SZ",
+      "boards": 5,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "ladder-2026-07-27-301234.SZ",
+    "date": "2026-07-27",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "五洲医疗 4板",
+    "summary": "股权",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "301234.SZ",
+      "boards": 4,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-07-27-玻璃玻纤",
+    "date": "2026-07-27",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +9.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 9.63
+    }
+  },
+  {
+    "id": "theme-2026-07-27-被动元件",
+    "date": "2026-07-27",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 被动元件 +8.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "被动元件"
+    ],
+    "meta": {
+      "pct": 8.93
+    }
+  },
+  {
+    "id": "market-2026-07-28",
+    "date": "2026-07-28",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 探底阶段 涨停61 跌停49",
+    "summary": "上涨2603家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "探底阶段"
+    ],
+    "meta": {
+      "limit_up": 61,
+      "limit_down": 49,
+      "advancers": 2603
+    }
+  },
+  {
+    "id": "leader-2026-07-28",
+    "date": "2026-07-28",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-07-28-603221.SH",
+    "date": "2026-07-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 6板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 6,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-07-28-000533.SZ",
+    "date": "2026-07-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "顺钠股份 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "000533.SZ",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "theme-2026-07-28-乳制品",
+    "date": "2026-07-28",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 乳制品 +3.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "乳制品"
+    ],
+    "meta": {
+      "pct": 3.18
+    }
+  },
+  {
+    "id": "market-2026-07-29",
+    "date": "2026-07-29",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停81 跌停9",
+    "summary": "上涨4253家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 81,
+      "limit_down": 9,
+      "advancers": 4253
+    }
+  },
+  {
+    "id": "leader-2026-07-29",
+    "date": "2026-07-29",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 7板",
+    "summary": "高度 7板，新高",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-07-29-603221.SH",
+    "date": "2026-07-29",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 7板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 7,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-07-29-乳制品",
+    "date": "2026-07-29",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 乳制品 +7.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "乳制品"
+    ],
+    "meta": {
+      "pct": 6.97
+    }
+  },
+  {
+    "id": "theme-2026-07-29-游戏",
+    "date": "2026-07-29",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 游戏 +5.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "游戏"
+    ],
+    "meta": {
+      "pct": 5.51
+    }
+  },
+  {
+    "id": "market-2026-07-30",
+    "date": "2026-07-30",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停52 跌停74",
+    "summary": "上涨1768家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 52,
+      "limit_down": 74,
+      "advancers": 1768
+    }
+  },
+  {
+    "id": "leader-2026-07-30",
+    "date": "2026-07-30",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 8板",
+    "summary": "高度 8板，新高",
+    "importance": 3,
+    "tags": [
+      "8板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 8,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-07-30-603221.SH",
+    "date": "2026-07-30",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 8板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "8板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 8,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-07-30-003032.SZ",
+    "date": "2026-07-30",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "传智教育 4板",
+    "summary": "教育",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "教育"
+    ],
+    "meta": {
+      "ts_code": "003032.SZ",
+      "boards": 4,
+      "theme": "教育"
+    }
+  },
+  {
+    "id": "ladder-2026-07-30-605068.SH",
+    "date": "2026-07-30",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "明新旭腾 4板",
+    "summary": "机器人",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "机器人"
+    ],
+    "meta": {
+      "ts_code": "605068.SH",
+      "boards": 4,
+      "theme": "机器人"
+    }
+  },
+  {
+    "id": "theme-2026-07-30-白酒",
+    "date": "2026-07-30",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 白酒 +3.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "白酒"
+    ],
+    "meta": {
+      "pct": 3.52
+    }
+  },
+  {
+    "id": "theme-2026-07-30-石油开采",
+    "date": "2026-07-30",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 石油开采 +3.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "石油开采"
+    ],
+    "meta": {
+      "pct": 3.25
+    }
+  },
+  {
+    "id": "market-2026-07-31",
+    "date": "2026-07-31",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停99 跌停-",
+    "summary": "上涨4691家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 99,
+      "limit_down": 0,
+      "advancers": 4691
+    }
+  },
+  {
+    "id": "leader-2026-07-31",
+    "date": "2026-07-31",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 9板",
+    "summary": "高度 9板，新高",
+    "importance": 3,
+    "tags": [
+      "9板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 9,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-07-31-603221.SH",
+    "date": "2026-07-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 9板",
+    "summary": "",
+    "importance": 3,
+    "tags": [
+      "9板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 9,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-07-31-003032.SZ",
+    "date": "2026-07-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "传智教育 5板",
+    "summary": "",
+    "importance": 3,
+    "tags": [
+      "5板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "003032.SZ",
+      "boards": 5,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-07-31-605179.SH",
+    "date": "2026-07-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "一鸣食品 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "605179.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "theme-2026-07-31-互联网广告",
+    "date": "2026-07-31",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 互联网广告 +12.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "互联网广告"
+    ],
+    "meta": {
+      "pct": 12.02
+    }
+  },
+  {
+    "id": "theme-2026-07-31-机器人",
+    "date": "2026-07-31",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 机器人 +9.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "机器人"
+    ],
+    "meta": {
+      "pct": 9.68
+    }
+  },
+  {
+    "id": "market-2026-08-03",
+    "date": "2026-08-03",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停75 跌停8",
+    "summary": "上涨4005家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 75,
+      "limit_down": 8,
+      "advancers": 4005
+    }
+  },
+  {
+    "id": "leader-2026-08-03",
+    "date": "2026-08-03",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 传智教育 6板",
+    "summary": "高度 6板，回落",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "传智教育"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "传智教育"
+    }
+  },
+  {
+    "id": "ladder-2026-08-03-003032.SZ",
+    "date": "2026-08-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "传智教育 6板",
+    "summary": "AI应用",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "AI应用"
+    ],
+    "meta": {
+      "ts_code": "003032.SZ",
+      "boards": 6,
+      "theme": "AI应用"
+    }
+  },
+  {
+    "id": "ladder-2026-08-03-605179.SH",
+    "date": "2026-08-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "一鸣食品 5板",
+    "summary": "大消费",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "大消费"
+    ],
+    "meta": {
+      "ts_code": "605179.SH",
+      "boards": 5,
+      "theme": "大消费"
+    }
+  },
+  {
+    "id": "ladder-2026-08-03-002827.SZ",
+    "date": "2026-08-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "高争民爆 4板",
+    "summary": "股权",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "002827.SZ",
+      "boards": 4,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-08-03-电机制造",
+    "date": "2026-08-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 电机制造 +4.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "电机制造"
+    ],
+    "meta": {
+      "pct": 4.32
+    }
+  },
+  {
+    "id": "theme-2026-08-03-农用机械",
+    "date": "2026-08-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 农用机械 +4.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "农用机械"
+    ],
+    "meta": {
+      "pct": 4.05
+    }
+  },
+  {
+    "id": "market-2026-08-04",
+    "date": "2026-08-04",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停138 跌停-",
+    "summary": "上涨3642家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 138,
+      "limit_down": 0,
+      "advancers": 3642
+    }
+  },
+  {
+    "id": "leader-2026-08-04",
+    "date": "2026-08-04",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 传智教育 7板",
+    "summary": "高度 7板，新高",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "传智教育"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "传智教育"
+    }
+  },
+  {
+    "id": "ladder-2026-08-04-003032.SZ",
+    "date": "2026-08-04",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "传智教育 7板",
+    "summary": "AI应用",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "AI应用"
+    ],
+    "meta": {
+      "ts_code": "003032.SZ",
+      "boards": 7,
+      "theme": "AI应用"
+    }
+  },
+  {
+    "id": "ladder-2026-08-04-000820.SZ",
+    "date": "2026-08-04",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "神雾节能 4板",
+    "summary": "摘帽",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "摘帽"
+    ],
+    "meta": {
+      "ts_code": "000820.SZ",
+      "boards": 4,
+      "theme": "摘帽"
+    }
+  },
+  {
+    "id": "theme-2026-08-04-PCB",
+    "date": "2026-08-04",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 PCB +9.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "PCB"
+    ],
+    "meta": {
+      "pct": 9.46
+    }
+  },
+  {
+    "id": "theme-2026-08-04-激光设备",
+    "date": "2026-08-04",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 激光设备 +9.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "激光设备"
+    ],
+    "meta": {
+      "pct": 8.98
+    }
+  },
+  {
+    "id": "market-2026-08-05",
+    "date": "2026-08-05",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停103 跌停1",
+    "summary": "上涨3725家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 103,
+      "limit_down": 1,
+      "advancers": 3725
+    }
+  },
+  {
+    "id": "leader-2026-08-05",
+    "date": "2026-08-05",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 传智教育 8板",
+    "summary": "高度 8板，新高",
+    "importance": 3,
+    "tags": [
+      "8板",
+      "传智教育"
+    ],
+    "meta": {
+      "height": 8,
+      "name": "传智教育"
+    }
+  },
+  {
+    "id": "ladder-2026-08-05-003032.SZ",
+    "date": "2026-08-05",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "传智教育 8板",
+    "summary": "AI应用",
+    "importance": 3,
+    "tags": [
+      "8板",
+      "AI应用"
+    ],
+    "meta": {
+      "ts_code": "003032.SZ",
+      "boards": 8,
+      "theme": "AI应用"
+    }
+  },
+  {
+    "id": "ladder-2026-08-05-000593.SZ",
+    "date": "2026-08-05",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "德龙汇能 4板",
+    "summary": "举牌",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "举牌"
+    ],
+    "meta": {
+      "ts_code": "000593.SZ",
+      "boards": 4,
+      "theme": "举牌"
+    }
+  },
+  {
+    "id": "ladder-2026-08-05-002963.SZ",
+    "date": "2026-08-05",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "豪尔赛 4板",
+    "summary": "照明",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "照明"
+    ],
+    "meta": {
+      "ts_code": "002963.SZ",
+      "boards": 4,
+      "theme": "照明"
+    }
+  },
+  {
+    "id": "theme-2026-08-05-半导体设备",
+    "date": "2026-08-05",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体设备 +9.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体设备"
+    ],
+    "meta": {
+      "pct": 9.26
+    }
+  },
+  {
+    "id": "theme-2026-08-05-半导体材料",
+    "date": "2026-08-05",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +9.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 9.14
+    }
+  },
+  {
+    "id": "market-2026-08-06",
+    "date": "2026-08-06",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停79 跌停1",
+    "summary": "上涨2789家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 79,
+      "limit_down": 1,
+      "advancers": 2789
+    }
+  },
+  {
+    "id": "leader-2026-08-06",
+    "date": "2026-08-06",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱丽家居 10板",
+    "summary": "高度 10板，新高",
+    "importance": 3,
+    "tags": [
+      "10板",
+      "爱丽家居"
+    ],
+    "meta": {
+      "height": 10,
+      "name": "爱丽家居"
+    }
+  },
+  {
+    "id": "ladder-2026-08-06-603221.SH",
+    "date": "2026-08-06",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱丽家居 10板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "10板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "603221.SH",
+      "boards": 10,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-08-06-002963.SZ",
+    "date": "2026-08-06",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "豪尔赛 5板",
+    "summary": "照明",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "照明"
+    ],
+    "meta": {
+      "ts_code": "002963.SZ",
+      "boards": 5,
+      "theme": "照明"
+    }
+  },
+  {
+    "id": "ladder-2026-08-06-300615.SZ",
+    "date": "2026-08-06",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "欣天科技 4板",
+    "summary": "股权",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "300615.SZ",
+      "boards": 4,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-08-06-601700.SH",
+    "date": "2026-08-06",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "风范股份 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "601700.SH",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "theme-2026-08-06-半导体封测",
+    "date": "2026-08-06",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +6.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 6.1
+    }
+  },
+  {
+    "id": "theme-2026-08-06-半导体材料",
+    "date": "2026-08-06",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +5.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 4.96
+    }
+  },
+  {
+    "id": "market-2026-08-07",
+    "date": "2026-08-07",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停74 跌停4",
+    "summary": "上涨2856家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 74,
+      "limit_down": 4,
+      "advancers": 2856
+    }
+  },
+  {
+    "id": "leader-2026-08-07",
+    "date": "2026-08-07",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 宝鼎科技 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "宝鼎科技"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "宝鼎科技"
+    }
+  },
+  {
+    "id": "ladder-2026-08-07-002428.SZ",
+    "date": "2026-08-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "云南锗业 4板",
+    "summary": "半导体",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "半导体"
+    ],
+    "meta": {
+      "ts_code": "002428.SZ",
+      "boards": 4,
+      "theme": "半导体"
+    }
+  },
+  {
+    "id": "ladder-2026-08-07-002552.SZ",
+    "date": "2026-08-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "宝鼎科技 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "002552.SZ",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-08-07-001267.SZ",
+    "date": "2026-08-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "汇绿生态 4板",
+    "summary": "AI算力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "AI算力"
+    ],
+    "meta": {
+      "ts_code": "001267.SZ",
+      "boards": 4,
+      "theme": "AI算力"
+    }
+  },
+  {
+    "id": "ladder-2026-08-07-603773.SH",
+    "date": "2026-08-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "沃格光电 4板",
+    "summary": "AI算力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "AI算力"
+    ],
+    "meta": {
+      "ts_code": "603773.SH",
+      "boards": 4,
+      "theme": "AI算力"
+    }
+  },
+  {
+    "id": "ladder-2026-08-07-600721.SH",
+    "date": "2026-08-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "百花医药 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600721.SH",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "theme-2026-08-07-PCB",
+    "date": "2026-08-07",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 PCB +8.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "PCB"
+    ],
+    "meta": {
+      "pct": 8.71
+    }
+  },
+  {
+    "id": "theme-2026-08-07-医疗服务",
+    "date": "2026-08-07",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 医疗服务 +8.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "医疗服务"
+    ],
+    "meta": {
+      "pct": 8.37
+    }
+  },
+  {
+    "id": "market-2026-08-10",
+    "date": "2026-08-10",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停99 跌停5",
+    "summary": "上涨4068家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 99,
+      "limit_down": 5,
+      "advancers": 4068
+    }
+  },
+  {
+    "id": "leader-2026-08-10",
+    "date": "2026-08-10",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 百花医药 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "百花医药"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "百花医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-10-002552.SZ",
+    "date": "2026-08-10",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "宝鼎科技 5板",
+    "summary": "PCB",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "PCB"
+    ],
+    "meta": {
+      "ts_code": "002552.SZ",
+      "boards": 5,
+      "theme": "PCB"
+    }
+  },
+  {
+    "id": "ladder-2026-08-10-600721.SH",
+    "date": "2026-08-10",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "百花医药 5板",
+    "summary": "医药",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600721.SH",
+      "boards": 5,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "theme-2026-08-10-地面兵装",
+    "date": "2026-08-10",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 地面兵装 +6.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "地面兵装"
+    ],
+    "meta": {
+      "pct": 6.37
+    }
+  },
+  {
+    "id": "theme-2026-08-10-军贸概念",
+    "date": "2026-08-10",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 军贸概念 +4.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "军贸概念"
+    ],
+    "meta": {
+      "pct": 4.6
+    }
+  },
+  {
+    "id": "market-2026-08-11",
+    "date": "2026-08-11",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停58 跌停1",
+    "summary": "上涨1615家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 58,
+      "limit_down": 1,
+      "advancers": 1615
+    }
+  },
+  {
+    "id": "leader-2026-08-11",
+    "date": "2026-08-11",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 百花医药 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "百花医药"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "百花医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-11-600721.SH",
+    "date": "2026-08-11",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "百花医药 6板",
+    "summary": "医药",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600721.SH",
+      "boards": 6,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-11-600272.SH",
+    "date": "2026-08-11",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "开开实业 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600272.SH",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "theme-2026-08-11-光伏逆变器",
+    "date": "2026-08-11",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光伏逆变器 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光伏逆变器"
+    ],
+    "meta": {
+      "pct": 5.31
+    }
+  },
+  {
+    "id": "theme-2026-08-11-机器人",
+    "date": "2026-08-11",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 机器人 +4.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "机器人"
+    ],
+    "meta": {
+      "pct": 4.46
+    }
+  },
+  {
+    "id": "market-2026-08-12",
+    "date": "2026-08-12",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停92 跌停-",
+    "summary": "上涨4128家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 92,
+      "limit_down": 0,
+      "advancers": 4128
+    }
+  },
+  {
+    "id": "leader-2026-08-12",
+    "date": "2026-08-12",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 百花医药 7板",
+    "summary": "高度 7板，新高",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "百花医药"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "百花医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-12-600721.SH",
+    "date": "2026-08-12",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "百花医药 7板",
+    "summary": "医药",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600721.SH",
+      "boards": 7,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-12-603758.SH",
+    "date": "2026-08-12",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "秦安股份 4板",
+    "summary": "机器人",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "机器人"
+    ],
+    "meta": {
+      "ts_code": "603758.SH",
+      "boards": 4,
+      "theme": "机器人"
+    }
+  },
+  {
+    "id": "theme-2026-08-12-光纤光缆",
+    "date": "2026-08-12",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤光缆 +4.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤光缆"
+    ],
+    "meta": {
+      "pct": 4.43
+    }
+  },
+  {
+    "id": "theme-2026-08-12-住宅开发",
+    "date": "2026-08-12",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 住宅开发 +4.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "住宅开发"
+    ],
+    "meta": {
+      "pct": 4.15
+    }
+  },
+  {
+    "id": "market-2026-08-13",
+    "date": "2026-08-13",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停59 跌停4",
+    "summary": "上涨1143家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 59,
+      "limit_down": 4,
+      "advancers": 1143
+    }
+  },
+  {
+    "id": "leader-2026-08-13",
+    "date": "2026-08-13",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 秦安股份 5板",
+    "summary": "高度 5板，回落",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "秦安股份"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "秦安股份"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-603758.SH",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "秦安股份 5板",
+    "summary": "机器人",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "机器人"
+    ],
+    "meta": {
+      "ts_code": "603758.SH",
+      "boards": 5,
+      "theme": "机器人"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-605179.SH",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "一鸣食品 4板",
+    "summary": "大消费",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "大消费"
+    ],
+    "meta": {
+      "ts_code": "605179.SH",
+      "boards": 4,
+      "theme": "大消费"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-600683.SH",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "京投发展 4板",
+    "summary": "股权",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "600683.SH",
+      "boards": 4,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-000802.SZ",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "北京文化 4板",
+    "summary": "大消费",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "大消费"
+    ],
+    "meta": {
+      "ts_code": "000802.SZ",
+      "boards": 4,
+      "theme": "大消费"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-605286.SH",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "同力天启 4板",
+    "summary": "电力",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力"
+    ],
+    "meta": {
+      "ts_code": "605286.SH",
+      "boards": 4,
+      "theme": "电力"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-002329.SZ",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "皇氏集团 4板",
+    "summary": "低价股",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "低价股"
+    ],
+    "meta": {
+      "ts_code": "002329.SZ",
+      "boards": 4,
+      "theme": "低价股"
+    }
+  },
+  {
+    "id": "ladder-2026-08-13-300862.SZ",
+    "date": "2026-08-13",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "蓝盾光电 4板",
+    "summary": "股权",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "300862.SZ",
+      "boards": 4,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-08-13-CXO概念",
+    "date": "2026-08-13",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 CXO概念 +3.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "CXO概念"
+    ],
+    "meta": {
+      "pct": 3.16
+    }
+  },
+  {
+    "id": "market-2026-08-14",
+    "date": "2026-08-14",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停63 跌停15",
+    "summary": "上涨2400家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 63,
+      "limit_down": 15,
+      "advancers": 2400
+    }
+  },
+  {
+    "id": "ladder-2026-08-14-300862.SZ",
+    "date": "2026-08-14",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "蓝盾光电 5板",
+    "summary": "低空经济",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "低空经济"
+    ],
+    "meta": {
+      "ts_code": "300862.SZ",
+      "boards": 5,
+      "theme": "低空经济"
+    }
+  },
+  {
+    "id": "theme-2026-08-14-光纤光缆",
+    "date": "2026-08-14",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤光缆 +6.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤光缆"
+    ],
+    "meta": {
+      "pct": 6.77
+    }
+  },
+  {
+    "id": "theme-2026-08-14-激光设备",
+    "date": "2026-08-14",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 激光设备 +3.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "激光设备"
+    ],
+    "meta": {
+      "pct": 3.92
+    }
+  },
+  {
+    "id": "market-2026-08-17",
+    "date": "2026-08-17",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停106 跌停1",
+    "summary": "上涨4248家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 106,
+      "limit_down": 1,
+      "advancers": 4248
+    }
+  },
+  {
+    "id": "leader-2026-08-17",
+    "date": "2026-08-17",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 天洋新材 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "天洋新材"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "天洋新材"
+    }
+  },
+  {
+    "id": "ladder-2026-08-17-603330.SH",
+    "date": "2026-08-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "天洋新材 4板",
+    "summary": "光通信",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "光通信"
+    ],
+    "meta": {
+      "ts_code": "603330.SH",
+      "boards": 4,
+      "theme": "光通信"
+    }
+  },
+  {
+    "id": "ladder-2026-08-17-002172.SZ",
+    "date": "2026-08-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "澳洋健康 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "002172.SZ",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-17-002081.SZ",
+    "date": "2026-08-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "金螳螂 4板",
+    "summary": "洁净室",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "洁净室"
+    ],
+    "meta": {
+      "ts_code": "002081.SZ",
+      "boards": 4,
+      "theme": "洁净室"
+    }
+  },
+  {
+    "id": "theme-2026-08-17-半导体封测",
+    "date": "2026-08-17",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体封测 +7.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体封测"
+    ],
+    "meta": {
+      "pct": 7.53
+    }
+  },
+  {
+    "id": "theme-2026-08-17-电子化学品",
+    "date": "2026-08-17",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 电子化学品 +5.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "电子化学品"
+    ],
+    "meta": {
+      "pct": 5.4
+    }
+  },
+  {
+    "id": "market-2026-08-18",
+    "date": "2026-08-18",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停79 跌停7",
+    "summary": "上涨2121家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 79,
+      "limit_down": 7,
+      "advancers": 2121
+    }
+  },
+  {
+    "id": "ladder-2026-08-18-600613.SH",
+    "date": "2026-08-18",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "神奇制药 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "600613.SH",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "theme-2026-08-18-种植业",
+    "date": "2026-08-18",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 种植业 +9.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "种植业"
+    ],
+    "meta": {
+      "pct": 9.95
+    }
+  },
+  {
+    "id": "theme-2026-08-18-粮食概念",
+    "date": "2026-08-18",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 粮食概念 +6.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "粮食概念"
+    ],
+    "meta": {
+      "pct": 6.52
+    }
+  },
+  {
+    "id": "market-2026-08-19",
+    "date": "2026-08-19",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停37 跌停144",
+    "summary": "上涨449家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 37,
+      "limit_down": 144,
+      "advancers": 449
+    }
+  },
+  {
+    "id": "leader-2026-08-19",
+    "date": "2026-08-19",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 金健米业 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "金健米业"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "金健米业"
+    }
+  },
+  {
+    "id": "theme-2026-08-19-涤纶",
+    "date": "2026-08-19",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 涤纶 +3.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "涤纶"
+    ],
+    "meta": {
+      "pct": 3.09
+    }
+  },
+  {
+    "id": "market-2026-08-20",
+    "date": "2026-08-20",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停79 跌停14",
+    "summary": "上涨4096家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 79,
+      "limit_down": 14,
+      "advancers": 4096
+    }
+  },
+  {
+    "id": "leader-2026-08-20",
+    "date": "2026-08-20",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 金健米业 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "金健米业"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "金健米业"
+    }
+  },
+  {
+    "id": "ladder-2026-08-20-600127.SH",
+    "date": "2026-08-20",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "金健米业 4板",
+    "summary": "农业",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "农业"
+    ],
+    "meta": {
+      "ts_code": "600127.SH",
+      "boards": 4,
+      "theme": "农业"
+    }
+  },
+  {
+    "id": "theme-2026-08-20-疫苗",
+    "date": "2026-08-20",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 疫苗 +13.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "疫苗"
+    ],
+    "meta": {
+      "pct": 13.91
+    }
+  },
+  {
+    "id": "theme-2026-08-20-生物制药",
+    "date": "2026-08-20",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 生物制药 +7.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "生物制药"
+    ],
+    "meta": {
+      "pct": 7.82
+    }
+  },
+  {
+    "id": "market-2026-08-21",
+    "date": "2026-08-21",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停54 跌停15",
+    "summary": "上涨2505家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 54,
+      "limit_down": 15,
+      "advancers": 2505
+    }
+  },
+  {
+    "id": "leader-2026-08-21",
+    "date": "2026-08-21",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 汉森制药 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "汉森制药"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "汉森制药"
+    }
+  },
+  {
+    "id": "theme-2026-08-21-锂",
+    "date": "2026-08-21",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 锂 +5.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "锂"
+    ],
+    "meta": {
+      "pct": 5.72
+    }
+  },
+  {
+    "id": "theme-2026-08-21-铅锌",
+    "date": "2026-08-21",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 铅锌 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "铅锌"
+    ],
+    "meta": {
+      "pct": 5.33
+    }
+  },
+  {
+    "id": "market-2026-08-24",
+    "date": "2026-08-24",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停47 跌停17",
+    "summary": "上涨1460家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 47,
+      "limit_down": 17,
+      "advancers": 1460
+    }
+  },
+  {
+    "id": "leader-2026-08-24",
+    "date": "2026-08-24",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 汉森制药 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "汉森制药"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "汉森制药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-24-002412.SZ",
+    "date": "2026-08-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "汉森制药 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "002412.SZ",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "market-2026-08-25",
+    "date": "2026-08-25",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停65 跌停2",
+    "summary": "上涨4234家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 65,
+      "limit_down": 2,
+      "advancers": 4234
+    }
+  },
+  {
+    "id": "leader-2026-08-25",
+    "date": "2026-08-25",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 汉森制药 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "汉森制药"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "汉森制药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-25-002412.SZ",
+    "date": "2026-08-25",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "汉森制药 5板",
+    "summary": "医药",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "002412.SZ",
+      "boards": 5,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-25-000017.SZ",
+    "date": "2026-08-25",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "深中华A 4板",
+    "summary": "贵金属",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "贵金属"
+    ],
+    "meta": {
+      "ts_code": "000017.SZ",
+      "boards": 4,
+      "theme": "贵金属"
+    }
+  },
+  {
+    "id": "theme-2026-08-25-化妆品",
+    "date": "2026-08-25",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 化妆品 +5.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "化妆品"
+    ],
+    "meta": {
+      "pct": 5.86
+    }
+  },
+  {
+    "id": "theme-2026-08-25-光纤光缆",
+    "date": "2026-08-25",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤光缆 +4.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤光缆"
+    ],
+    "meta": {
+      "pct": 4.89
+    }
+  },
+  {
+    "id": "market-2026-08-26",
+    "date": "2026-08-26",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停52 跌停-",
+    "summary": "上涨2946家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 52,
+      "limit_down": 0,
+      "advancers": 2946
+    }
+  },
+  {
+    "id": "ladder-2026-08-26-000017.SZ",
+    "date": "2026-08-26",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "深中华A 5板",
+    "summary": "贵金属",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "贵金属"
+    ],
+    "meta": {
+      "ts_code": "000017.SZ",
+      "boards": 5,
+      "theme": "贵金属"
+    }
+  },
+  {
+    "id": "ladder-2026-08-26-003040.SZ",
+    "date": "2026-08-26",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "楚天龙 4板",
+    "summary": "数字货币/跨境支付",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "数字货币/跨境支付"
+    ],
+    "meta": {
+      "ts_code": "003040.SZ",
+      "boards": 4,
+      "theme": "数字货币/跨境支付"
+    }
+  },
+  {
+    "id": "theme-2026-08-26-疫苗",
+    "date": "2026-08-26",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 疫苗 +6.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "疫苗"
+    ],
+    "meta": {
+      "pct": 6.14
+    }
+  },
+  {
+    "id": "theme-2026-08-26-铜",
+    "date": "2026-08-26",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 铜 +3.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "铜"
+    ],
+    "meta": {
+      "pct": 3.56
+    }
+  },
+  {
+    "id": "market-2026-08-27",
+    "date": "2026-08-27",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停77 跌停3",
+    "summary": "上涨3394家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 77,
+      "limit_down": 3,
+      "advancers": 3394
+    }
+  },
+  {
+    "id": "leader-2026-08-27",
+    "date": "2026-08-27",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 深中华A 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "深中华A"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "深中华A"
+    }
+  },
+  {
+    "id": "ladder-2026-08-27-000017.SZ",
+    "date": "2026-08-27",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "深中华A 6板",
+    "summary": "贵金属",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "贵金属"
+    ],
+    "meta": {
+      "ts_code": "000017.SZ",
+      "boards": 6,
+      "theme": "贵金属"
+    }
+  },
+  {
+    "id": "ladder-2026-08-27-003040.SZ",
+    "date": "2026-08-27",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "楚天龙 5板",
+    "summary": "大金融",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "大金融"
+    ],
+    "meta": {
+      "ts_code": "003040.SZ",
+      "boards": 5,
+      "theme": "大金融"
+    }
+  },
+  {
+    "id": "ladder-2026-08-27-002084.SZ",
+    "date": "2026-08-27",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "海鸥住工 4板",
+    "summary": "股权",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "002084.SZ",
+      "boards": 4,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "theme-2026-08-27-光纤光缆",
+    "date": "2026-08-27",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤光缆 +8.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤光缆"
+    ],
+    "meta": {
+      "pct": 8.19
+    }
+  },
+  {
+    "id": "theme-2026-08-27-电子化学品",
+    "date": "2026-08-27",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 电子化学品 +5.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "电子化学品"
+    ],
+    "meta": {
+      "pct": 5.61
+    }
+  },
+  {
+    "id": "market-2026-08-28",
+    "date": "2026-08-28",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停82 跌停1",
+    "summary": "上涨3013家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 82,
+      "limit_down": 1,
+      "advancers": 3013
+    }
+  },
+  {
+    "id": "leader-2026-08-28",
+    "date": "2026-08-28",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 深中华A 7板",
+    "summary": "高度 7板，新高",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "深中华A"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "深中华A"
+    }
+  },
+  {
+    "id": "ladder-2026-08-28-000017.SZ",
+    "date": "2026-08-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "深中华A 7板",
+    "summary": "",
+    "importance": 3,
+    "tags": [
+      "7板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "000017.SZ",
+      "boards": 7,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-08-28-002084.SZ",
+    "date": "2026-08-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "海鸥住工 5板",
+    "summary": "",
+    "importance": 3,
+    "tags": [
+      "5板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "002084.SZ",
+      "boards": 5,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-08-28-600371.SH",
+    "date": "2026-08-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "万向德农 4板",
+    "summary": "",
+    "importance": 2,
+    "tags": [
+      "4板",
+      ""
+    ],
+    "meta": {
+      "ts_code": "600371.SH",
+      "boards": 4,
+      "theme": null
+    }
+  },
+  {
+    "id": "ladder-2026-08-28-002742.SZ",
+    "date": "2026-08-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "冀衡医药 4板",
+    "summary": "医药",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药"
+    ],
+    "meta": {
+      "ts_code": "002742.SZ",
+      "boards": 4,
+      "theme": "医药"
+    }
+  },
+  {
+    "id": "ladder-2026-08-28-002855.SZ",
+    "date": "2026-08-28",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "捷荣技术 4板",
+    "summary": "消费电子",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "消费电子"
+    ],
+    "meta": {
+      "ts_code": "002855.SZ",
+      "boards": 4,
+      "theme": "消费电子"
+    }
+  },
+  {
+    "id": "theme-2026-08-28-分散染料",
+    "date": "2026-08-28",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 分散染料 +3.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "分散染料"
+    ],
+    "meta": {
+      "pct": 3.32
+    }
+  },
+  {
+    "id": "theme-2026-08-28-石油化工",
+    "date": "2026-08-28",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 石油化工 +3.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "石油化工"
+    ],
+    "meta": {
+      "pct": 3.26
+    }
+  },
+  {
+    "id": "market-2026-08-31",
+    "date": "2026-08-31",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停88 跌停11",
+    "summary": "上涨3181家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 88,
+      "limit_down": 11,
+      "advancers": 3181
+    }
+  },
+  {
+    "id": "leader-2026-08-31",
+    "date": "2026-08-31",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 海鸥住工 6板",
+    "summary": "高度 6板，回落",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "海鸥住工"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "海鸥住工"
+    }
+  },
+  {
+    "id": "ladder-2026-08-31-002084.SZ",
+    "date": "2026-08-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "海鸥住工 6板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "002084.SZ",
+      "boards": 6,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-08-31-600371.SH",
+    "date": "2026-08-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "万向德农 5板",
+    "summary": "农业",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "农业"
+    ],
+    "meta": {
+      "ts_code": "600371.SH",
+      "boards": 5,
+      "theme": "农业"
+    }
+  },
+  {
+    "id": "ladder-2026-08-31-002855.SZ",
+    "date": "2026-08-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "捷荣技术 5板",
+    "summary": "消费电子",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "消费电子"
+    ],
+    "meta": {
+      "ts_code": "002855.SZ",
+      "boards": 5,
+      "theme": "消费电子"
+    }
+  },
+  {
+    "id": "ladder-2026-08-31-000712.SZ",
+    "date": "2026-08-31",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "锦龙股份 4板",
+    "summary": "大金融",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "大金融"
+    ],
+    "meta": {
+      "ts_code": "000712.SZ",
+      "boards": 4,
+      "theme": "大金融"
+    }
+  },
+  {
+    "id": "theme-2026-08-31-影视制作",
+    "date": "2026-08-31",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 影视制作 +8.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "影视制作"
+    ],
+    "meta": {
+      "pct": 8.02
+    }
+  },
+  {
+    "id": "theme-2026-08-31-影视院线",
+    "date": "2026-08-31",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 影视院线 +6.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "影视院线"
+    ],
+    "meta": {
+      "pct": 6.32
+    }
+  },
+  {
+    "id": "market-2026-09-01",
+    "date": "2026-09-01",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停83 跌停-",
+    "summary": "上涨3387家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 83,
+      "limit_down": 0,
+      "advancers": 3387
+    }
+  },
+  {
+    "id": "leader-2026-09-01",
+    "date": "2026-09-01",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 海鸥住工 7板",
+    "summary": "高度 7板，新高",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "海鸥住工"
+    ],
+    "meta": {
+      "height": 7,
+      "name": "海鸥住工"
+    }
+  },
+  {
+    "id": "ladder-2026-09-01-002084.SZ",
+    "date": "2026-09-01",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "海鸥住工 7板",
+    "summary": "股权",
+    "importance": 3,
+    "tags": [
+      "7板",
+      "股权"
+    ],
+    "meta": {
+      "ts_code": "002084.SZ",
+      "boards": 7,
+      "theme": "股权"
+    }
+  },
+  {
+    "id": "ladder-2026-09-01-600371.SH",
+    "date": "2026-09-01",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "万向德农 6板",
+    "summary": "农业",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "农业"
+    ],
+    "meta": {
+      "ts_code": "600371.SH",
+      "boards": 6,
+      "theme": "农业"
+    }
+  },
+  {
+    "id": "ladder-2026-09-01-002855.SZ",
+    "date": "2026-09-01",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "捷荣技术 6板",
+    "summary": "消费电子",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "消费电子"
+    ],
+    "meta": {
+      "ts_code": "002855.SZ",
+      "boards": 6,
+      "theme": "消费电子"
+    }
+  },
+  {
+    "id": "ladder-2026-09-01-600540.SH",
+    "date": "2026-09-01",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "新赛股份 4板",
+    "summary": "农业",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "农业"
+    ],
+    "meta": {
+      "ts_code": "600540.SH",
+      "boards": 4,
+      "theme": "农业"
+    }
+  },
+  {
+    "id": "theme-2026-09-01-种植业",
+    "date": "2026-09-01",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 种植业 +7.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "种植业"
+    ],
+    "meta": {
+      "pct": 7.51
+    }
+  },
+  {
+    "id": "theme-2026-09-01-粮食概念",
+    "date": "2026-09-01",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 粮食概念 +6.4%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "粮食概念"
+    ],
+    "meta": {
+      "pct": 6.37
+    }
+  },
+  {
+    "id": "market-2026-09-02",
+    "date": "2026-09-02",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 底部横盘阶段 涨停52 跌停8",
+    "summary": "上涨1541家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "底部横盘阶段"
+    ],
+    "meta": {
+      "limit_up": 52,
+      "limit_down": 8,
+      "advancers": 1541
+    }
+  },
+  {
+    "id": "leader-2026-09-02",
+    "date": "2026-09-02",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 国芳集团 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "国芳集团"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "国芳集团"
+    }
+  },
+  {
+    "id": "ladder-2026-09-02-601086.SH",
+    "date": "2026-09-02",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "国芳集团 4板",
+    "summary": "大消费",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "大消费"
+    ],
+    "meta": {
+      "ts_code": "601086.SH",
+      "boards": 4,
+      "theme": "大消费"
+    }
+  },
+  {
+    "id": "ladder-2026-09-02-003005.SZ",
+    "date": "2026-09-02",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "竞业达 4板",
+    "summary": "AI教育",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "AI教育"
+    ],
+    "meta": {
+      "ts_code": "003005.SZ",
+      "boards": 4,
+      "theme": "AI教育"
+    }
+  },
+  {
+    "id": "theme-2026-09-02-地面兵装",
+    "date": "2026-09-02",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 地面兵装 +7.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "地面兵装"
+    ],
+    "meta": {
+      "pct": 7.2
+    }
+  },
+  {
+    "id": "market-2026-09-03",
+    "date": "2026-09-03",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停44 跌停17",
+    "summary": "上涨1840家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 44,
+      "limit_down": 17,
+      "advancers": 1840
+    }
+  },
+  {
+    "id": "leader-2026-09-03",
+    "date": "2026-09-03",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 国芳集团 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "国芳集团"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "国芳集团"
+    }
+  },
+  {
+    "id": "ladder-2026-09-03-601086.SH",
+    "date": "2026-09-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "国芳集团 5板",
+    "summary": "新零售",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "601086.SH",
+      "boards": 5,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "ladder-2026-09-03-002909.SZ",
+    "date": "2026-09-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "集泰股份 4板",
+    "summary": "新能源车",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "新能源车"
+    ],
+    "meta": {
+      "ts_code": "002909.SZ",
+      "boards": 4,
+      "theme": "新能源车"
+    }
+  },
+  {
+    "id": "ladder-2026-09-03-605577.SH",
+    "date": "2026-09-03",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "龙版传媒 4板",
+    "summary": "一带一路",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "一带一路"
+    ],
+    "meta": {
+      "ts_code": "605577.SH",
+      "boards": 4,
+      "theme": "一带一路"
+    }
+  },
+  {
+    "id": "theme-2026-09-03-培育钻石",
+    "date": "2026-09-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 培育钻石 +3.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "培育钻石"
+    ],
+    "meta": {
+      "pct": 3.7212
+    }
+  },
+  {
+    "id": "theme-2026-09-03-航运",
+    "date": "2026-09-03",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 航运 +3.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "航运"
+    ],
+    "meta": {
+      "pct": 3.0533
+    }
+  },
+  {
+    "id": "market-2026-09-04",
+    "date": "2026-09-04",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停39 跌停9",
+    "summary": "上涨2441家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 39,
+      "limit_down": 9,
+      "advancers": 2441
+    }
+  },
+  {
+    "id": "ladder-2026-09-04-605577.SH",
+    "date": "2026-09-04",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "龙版传媒 5板",
+    "summary": "新零售",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "605577.SH",
+      "boards": 5,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "theme-2026-09-04-猪肉",
+    "date": "2026-09-04",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 猪肉 +5.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "猪肉"
+    ],
+    "meta": {
+      "pct": 5.6453
+    }
+  },
+  {
+    "id": "theme-2026-09-04-饲料",
+    "date": "2026-09-04",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 饲料 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "饲料"
+    ],
+    "meta": {
+      "pct": 5.2714
+    }
+  },
+  {
+    "id": "market-2026-09-07",
+    "date": "2026-09-07",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停93 跌停2",
+    "summary": "上涨3167家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 93,
+      "limit_down": 2,
+      "advancers": 3167
+    }
+  },
+  {
+    "id": "leader-2026-09-07",
+    "date": "2026-09-07",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 龙版传媒 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "龙版传媒"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "龙版传媒"
+    }
+  },
+  {
+    "id": "ladder-2026-09-07-605577.SH",
+    "date": "2026-09-07",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "龙版传媒 6板",
+    "summary": "新零售",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "605577.SH",
+      "boards": 6,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "theme-2026-09-07-PCB",
+    "date": "2026-09-07",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 PCB +7.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "PCB"
+    ],
+    "meta": {
+      "pct": 7.5355
+    }
+  },
+  {
+    "id": "theme-2026-09-07-元器件",
+    "date": "2026-09-07",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 元器件 +6.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "元器件"
+    ],
+    "meta": {
+      "pct": 6.6741
+    }
+  },
+  {
+    "id": "market-2026-09-08",
+    "date": "2026-09-08",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停74 跌停1",
+    "summary": "上涨3414家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 74,
+      "limit_down": 1,
+      "advancers": 3414
+    }
+  },
+  {
+    "id": "leader-2026-09-08",
+    "date": "2026-09-08",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 爱仕达 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "爱仕达"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "爱仕达"
+    }
+  },
+  {
+    "id": "ladder-2026-09-08-002403.SZ",
+    "date": "2026-09-08",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "爱仕达 4板",
+    "summary": "跨境电商",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "跨境电商"
+    ],
+    "meta": {
+      "ts_code": "002403.SZ",
+      "boards": 4,
+      "theme": "跨境电商"
+    }
+  },
+  {
+    "id": "ladder-2026-09-08-600108.SH",
+    "date": "2026-09-08",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "亚盛集团 4板",
+    "summary": "乡村振兴",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "乡村振兴"
+    ],
+    "meta": {
+      "ts_code": "600108.SH",
+      "boards": 4,
+      "theme": "乡村振兴"
+    }
+  },
+  {
+    "id": "ladder-2026-09-08-600865.SH",
+    "date": "2026-09-08",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "百大集团 4板",
+    "summary": "新零售",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "600865.SH",
+      "boards": 4,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "theme-2026-09-08-代糖概念",
+    "date": "2026-09-08",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 代糖概念 +5.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "代糖概念"
+    ],
+    "meta": {
+      "pct": 5.1462
+    }
+  },
+  {
+    "id": "theme-2026-09-08-草甘膦",
+    "date": "2026-09-08",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 草甘膦 +4.9%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "草甘膦"
+    ],
+    "meta": {
+      "pct": 4.8805
+    }
+  },
+  {
+    "id": "market-2026-09-09",
+    "date": "2026-09-09",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停48 跌停8",
+    "summary": "上涨1793家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 48,
+      "limit_down": 8,
+      "advancers": 1793
+    }
+  },
+  {
+    "id": "ladder-2026-09-09-600865.SH",
+    "date": "2026-09-09",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "百大集团 4板",
+    "summary": "新零售",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "600865.SH",
+      "boards": 4,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "theme-2026-09-09-光纤光缆",
+    "date": "2026-09-09",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤光缆 +6.0%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤光缆"
+    ],
+    "meta": {
+      "pct": 5.9645
+    }
+  },
+  {
+    "id": "theme-2026-09-09-动力煤",
+    "date": "2026-09-09",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 动力煤 +3.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "动力煤"
+    ],
+    "meta": {
+      "pct": 3.754
+    }
+  },
+  {
+    "id": "market-2026-09-10",
+    "date": "2026-09-10",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停35 跌停12",
+    "summary": "上涨955家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 35,
+      "limit_down": 12,
+      "advancers": 955
+    }
+  },
+  {
+    "id": "leader-2026-09-10",
+    "date": "2026-09-10",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 桂林旅游 3板",
+    "summary": "高度 3板，回落",
+    "importance": 2,
+    "tags": [
+      "3板",
+      "桂林旅游"
+    ],
+    "meta": {
+      "height": 3,
+      "name": "桂林旅游"
+    }
+  },
+  {
+    "id": "theme-2026-09-10-玻璃玻纤",
+    "date": "2026-09-10",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 玻璃玻纤 +3.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "玻璃玻纤"
+    ],
+    "meta": {
+      "pct": 3.1335
+    }
+  },
+  {
+    "id": "market-2026-09-11",
+    "date": "2026-09-11",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停40 跌停21",
+    "summary": "上涨643家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 40,
+      "limit_down": 21,
+      "advancers": 643
+    }
+  },
+  {
+    "id": "leader-2026-09-11",
+    "date": "2026-09-11",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 瑞尔特 4板",
+    "summary": "高度 4板，新高",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "瑞尔特"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "瑞尔特"
+    }
+  },
+  {
+    "id": "ladder-2026-09-11-002790.SZ",
+    "date": "2026-09-11",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "瑞尔特 4板",
+    "summary": "DeepSeek概念",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "DeepSeek概念"
+    ],
+    "meta": {
+      "ts_code": "002790.SZ",
+      "boards": 4,
+      "theme": "DeepSeek概念"
+    }
+  },
+  {
+    "id": "theme-2026-09-11-光纤光缆",
+    "date": "2026-09-11",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 光纤光缆 +6.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "光纤光缆"
+    ],
+    "meta": {
+      "pct": 6.3209
+    }
+  },
+  {
+    "id": "theme-2026-09-11-地面兵装",
+    "date": "2026-09-11",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 地面兵装 +4.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "地面兵装"
+    ],
+    "meta": {
+      "pct": 4.3136
+    }
+  },
+  {
+    "id": "market-2026-09-14",
+    "date": "2026-09-14",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停55 跌停16",
+    "summary": "上涨3126家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 55,
+      "limit_down": 16,
+      "advancers": 3126
+    }
+  },
+  {
+    "id": "ladder-2026-09-14-000993.SZ",
+    "date": "2026-09-14",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "闽东电力 4板",
+    "summary": "碳中和",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "碳中和"
+    ],
+    "meta": {
+      "ts_code": "000993.SZ",
+      "boards": 4,
+      "theme": "碳中和"
+    }
+  },
+  {
+    "id": "theme-2026-09-14-医疗服务",
+    "date": "2026-09-14",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 医疗服务 +4.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "医疗服务"
+    ],
+    "meta": {
+      "pct": 4.0815
+    }
+  },
+  {
+    "id": "theme-2026-09-14-培育钻石",
+    "date": "2026-09-14",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 培育钻石 +3.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "培育钻石"
+    ],
+    "meta": {
+      "pct": 3.6874
+    }
+  },
+  {
+    "id": "market-2026-09-15",
+    "date": "2026-09-15",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停32 跌停28",
+    "summary": "上涨1120家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 32,
+      "limit_down": 28,
+      "advancers": 1120
+    }
+  },
+  {
+    "id": "leader-2026-09-15",
+    "date": "2026-09-15",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 闽东电力 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "闽东电力"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "闽东电力"
+    }
+  },
+  {
+    "id": "ladder-2026-09-15-000993.SZ",
+    "date": "2026-09-15",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "闽东电力 5板",
+    "summary": "绿色电力",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "绿色电力"
+    ],
+    "meta": {
+      "ts_code": "000993.SZ",
+      "boards": 5,
+      "theme": "绿色电力"
+    }
+  },
+  {
+    "id": "ladder-2026-09-15-002912.SZ",
+    "date": "2026-09-15",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "中新赛克 4板",
+    "summary": "数据中心",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "数据中心"
+    ],
+    "meta": {
+      "ts_code": "002912.SZ",
+      "boards": 4,
+      "theme": "数据中心"
+    }
+  },
+  {
+    "id": "theme-2026-09-15-风电零部件",
+    "date": "2026-09-15",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 风电零部件 +4.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "风电零部件"
+    ],
+    "meta": {
+      "pct": 4.3041
+    }
+  },
+  {
+    "id": "theme-2026-09-15-风电设备",
+    "date": "2026-09-15",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 风电设备 +3.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "风电设备"
+    ],
+    "meta": {
+      "pct": 3.8153
+    }
+  },
+  {
+    "id": "market-2026-09-16",
+    "date": "2026-09-16",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停89 跌停4",
+    "summary": "上涨4164家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 89,
+      "limit_down": 4,
+      "advancers": 4164
+    }
+  },
+  {
+    "id": "leader-2026-09-16",
+    "date": "2026-09-16",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 闽东电力 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "闽东电力"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "闽东电力"
+    }
+  },
+  {
+    "id": "ladder-2026-09-16-000993.SZ",
+    "date": "2026-09-16",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "闽东电力 6板",
+    "summary": "海峡西岸",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "海峡西岸"
+    ],
+    "meta": {
+      "ts_code": "000993.SZ",
+      "boards": 6,
+      "theme": "海峡西岸"
+    }
+  },
+  {
+    "id": "ladder-2026-09-16-605058.SH",
+    "date": "2026-09-16",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "澳弘电子 4板",
+    "summary": "电子",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电子"
+    ],
+    "meta": {
+      "ts_code": "605058.SH",
+      "boards": 4,
+      "theme": "电子"
+    }
+  },
+  {
+    "id": "theme-2026-09-16-半导体材料",
+    "date": "2026-09-16",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +5.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 5.6387
+    }
+  },
+  {
+    "id": "theme-2026-09-16-激光设备",
+    "date": "2026-09-16",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 激光设备 +5.2%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "激光设备"
+    ],
+    "meta": {
+      "pct": 5.218
+    }
+  },
+  {
+    "id": "market-2026-09-17",
+    "date": "2026-09-17",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停47 跌停1",
+    "summary": "上涨2576家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 47,
+      "limit_down": 1,
+      "advancers": 2576
+    }
+  },
+  {
+    "id": "leader-2026-09-17",
+    "date": "2026-09-17",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 澳弘电子 5板",
+    "summary": "高度 5板，回落",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "澳弘电子"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "澳弘电子"
+    }
+  },
+  {
+    "id": "ladder-2026-09-17-605058.SH",
+    "date": "2026-09-17",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "澳弘电子 5板",
+    "summary": "新能源车",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "新能源车"
+    ],
+    "meta": {
+      "ts_code": "605058.SH",
+      "boards": 5,
+      "theme": "新能源车"
+    }
+  },
+  {
+    "id": "theme-2026-09-17-种植业",
+    "date": "2026-09-17",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 种植业 +5.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "种植业"
+    ],
+    "meta": {
+      "pct": 5.304
+    }
+  },
+  {
+    "id": "market-2026-09-18",
+    "date": "2026-09-18",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停79 跌停-",
+    "summary": "上涨4234家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 79,
+      "limit_down": 0,
+      "advancers": 4234
+    }
+  },
+  {
+    "id": "leader-2026-09-18",
+    "date": "2026-09-18",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 锡华科技 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "锡华科技"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "锡华科技"
+    }
+  },
+  {
+    "id": "ladder-2026-09-18-001216.SZ",
+    "date": "2026-09-18",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华瓷股份 4板",
+    "summary": "跨境电商",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "跨境电商"
+    ],
+    "meta": {
+      "ts_code": "001216.SZ",
+      "boards": 4,
+      "theme": "跨境电商"
+    }
+  },
+  {
+    "id": "ladder-2026-09-18-603248.SH",
+    "date": "2026-09-18",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "锡华科技 4板",
+    "summary": "电力设备",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "电力设备"
+    ],
+    "meta": {
+      "ts_code": "603248.SH",
+      "boards": 4,
+      "theme": "电力设备"
+    }
+  },
+  {
+    "id": "theme-2026-09-18-功率半导体",
+    "date": "2026-09-18",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 功率半导体 +4.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "功率半导体"
+    ],
+    "meta": {
+      "pct": 4.6475
+    }
+  },
+  {
+    "id": "theme-2026-09-18-集成电路设计",
+    "date": "2026-09-18",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 集成电路设计 +4.6%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "集成电路设计"
+    ],
+    "meta": {
+      "pct": 4.5677
+    }
+  },
+  {
+    "id": "market-2026-09-21",
+    "date": "2026-09-21",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 反弹阶段 涨停102 跌停2",
+    "summary": "上涨4534家 成交0亿",
+    "importance": 2,
+    "tags": [
+      "反弹阶段"
+    ],
+    "meta": {
+      "limit_up": 102,
+      "limit_down": 2,
+      "advancers": 4534
+    }
+  },
+  {
+    "id": "leader-2026-09-21",
+    "date": "2026-09-21",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 华瓷股份 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "华瓷股份"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "华瓷股份"
+    }
+  },
+  {
+    "id": "ladder-2026-09-21-001216.SZ",
+    "date": "2026-09-21",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华瓷股份 5板",
+    "summary": "跨境电商",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "跨境电商"
+    ],
+    "meta": {
+      "ts_code": "001216.SZ",
+      "boards": 5,
+      "theme": "跨境电商"
+    }
+  },
+  {
+    "id": "ladder-2026-09-21-002285.SZ",
+    "date": "2026-09-21",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "世联行 4板",
+    "summary": "粤港澳",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "粤港澳"
+    ],
+    "meta": {
+      "ts_code": "002285.SZ",
+      "boards": 4,
+      "theme": "粤港澳"
+    }
+  },
+  {
+    "id": "ladder-2026-09-21-603230.SH",
+    "date": "2026-09-21",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "内蒙新华 4板",
+    "summary": "新零售",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "603230.SH",
+      "boards": 4,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "theme-2026-09-21-医疗服务",
+    "date": "2026-09-21",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 医疗服务 +5.1%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "医疗服务"
+    ],
+    "meta": {
+      "pct": 5.1449
+    }
+  },
+  {
+    "id": "theme-2026-09-21-免疫治疗",
+    "date": "2026-09-21",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 免疫治疗 +4.8%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "免疫治疗"
+    ],
+    "meta": {
+      "pct": 4.8275
+    }
+  },
+  {
+    "id": "market-2026-09-22",
+    "date": "2026-09-22",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 主升阶段 涨停64 跌停3",
+    "summary": "上涨2371家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "主升阶段"
+    ],
+    "meta": {
+      "limit_up": 64,
+      "limit_down": 3,
+      "advancers": 2371
+    }
+  },
+  {
+    "id": "leader-2026-09-22",
+    "date": "2026-09-22",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 华瓷股份 6板",
+    "summary": "高度 6板，新高",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "华瓷股份"
+    ],
+    "meta": {
+      "height": 6,
+      "name": "华瓷股份"
+    }
+  },
+  {
+    "id": "ladder-2026-09-22-001216.SZ",
+    "date": "2026-09-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "华瓷股份 6板",
+    "summary": "智能穿戴",
+    "importance": 3,
+    "tags": [
+      "6板",
+      "智能穿戴"
+    ],
+    "meta": {
+      "ts_code": "001216.SZ",
+      "boards": 6,
+      "theme": "智能穿戴"
+    }
+  },
+  {
+    "id": "ladder-2026-09-22-603230.SH",
+    "date": "2026-09-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "内蒙新华 5板",
+    "summary": "新零售",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "新零售"
+    ],
+    "meta": {
+      "ts_code": "603230.SH",
+      "boards": 5,
+      "theme": "新零售"
+    }
+  },
+  {
+    "id": "ladder-2026-09-22-000504.SZ",
+    "date": "2026-09-22",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "南华生物 4板",
+    "summary": "医药医疗",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "医药医疗"
+    ],
+    "meta": {
+      "ts_code": "000504.SZ",
+      "boards": 4,
+      "theme": "医药医疗"
+    }
+  },
+  {
+    "id": "theme-2026-09-22-出版业",
+    "date": "2026-09-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 出版业 +3.7%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "出版业"
+    ],
+    "meta": {
+      "pct": 3.7317
+    }
+  },
+  {
+    "id": "theme-2026-09-22-互联网广告",
+    "date": "2026-09-22",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 互联网广告 +3.5%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "互联网广告"
+    ],
+    "meta": {
+      "pct": 3.4857
+    }
+  },
+  {
+    "id": "market-2026-09-23",
+    "date": "2026-09-23",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停51 跌停14",
+    "summary": "上涨1888家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 51,
+      "limit_down": 14,
+      "advancers": 1888
+    }
+  },
+  {
+    "id": "leader-2026-09-23",
+    "date": "2026-09-23",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 新华文轩 4板",
+    "summary": "高度 4板，回落",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "新华文轩"
+    ],
+    "meta": {
+      "height": 4,
+      "name": "新华文轩"
+    }
+  },
+  {
+    "id": "ladder-2026-09-23-000910.SZ",
+    "date": "2026-09-23",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "大亚圣象 4板",
+    "summary": "锂电池概念",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "锂电池概念"
+    ],
+    "meta": {
+      "ts_code": "000910.SZ",
+      "boards": 4,
+      "theme": "锂电池概念"
+    }
+  },
+  {
+    "id": "ladder-2026-09-23-601811.SH",
+    "date": "2026-09-23",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "新华文轩 4板",
+    "summary": "DeepSeek概念",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "DeepSeek概念"
+    ],
+    "meta": {
+      "ts_code": "601811.SH",
+      "boards": 4,
+      "theme": "DeepSeek概念"
+    }
+  },
+  {
+    "id": "theme-2026-09-23-半导体材料",
+    "date": "2026-09-23",
+    "track": "theme",
+    "type": "sector_hot",
+    "title": "题材 半导体材料 +3.3%",
+    "summary": "",
+    "importance": 1,
+    "tags": [
+      "半导体材料"
+    ],
+    "meta": {
+      "pct": 3.2696
+    }
+  },
+  {
+    "id": "market-2026-09-24",
+    "date": "2026-09-24",
+    "track": "market",
+    "type": "market_daily",
+    "title": "市场 下跌阶段 涨停53 跌停13",
+    "summary": "上涨1118家 成交0亿",
+    "importance": 1,
+    "tags": [
+      "下跌阶段"
+    ],
+    "meta": {
+      "limit_up": 53,
+      "limit_down": 13,
+      "advancers": 1118
+    }
+  },
+  {
+    "id": "leader-2026-09-24",
+    "date": "2026-09-24",
+    "track": "leader",
+    "type": "leader_height",
+    "title": "龙头 新华文轩 5板",
+    "summary": "高度 5板，新高",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "新华文轩"
+    ],
+    "meta": {
+      "height": 5,
+      "name": "新华文轩"
+    }
+  },
+  {
+    "id": "ladder-2026-09-24-601811.SH",
+    "date": "2026-09-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "新华文轩 5板",
+    "summary": "人工智能",
+    "importance": 3,
+    "tags": [
+      "5板",
+      "人工智能"
+    ],
+    "meta": {
+      "ts_code": "601811.SH",
+      "boards": 5,
+      "theme": "人工智能"
+    }
+  },
+  {
+    "id": "ladder-2026-09-24-001234.SZ",
+    "date": "2026-09-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "泰慕士 4板",
+    "summary": "体育概念",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "体育概念"
+    ],
+    "meta": {
+      "ts_code": "001234.SZ",
+      "boards": 4,
+      "theme": "体育概念"
+    }
+  },
+  {
+    "id": "ladder-2026-09-24-002614.SZ",
+    "date": "2026-09-24",
+    "track": "ladder",
+    "type": "high_ladder",
+    "title": "奥佳华 4板",
+    "summary": "人工智能",
+    "importance": 2,
+    "tags": [
+      "4板",
+      "人工智能"
+    ],
+    "meta": {
+      "ts_code": "002614.SZ",
+      "boards": 4,
+      "theme": "人工智能"
+    }
+  }
+]
