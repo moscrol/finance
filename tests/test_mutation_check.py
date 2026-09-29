@@ -7,14 +7,15 @@
 字节码陷阱用 UNCHECKED_HASH 的 .pyc 确定性复现：真实陷阱是「同秒 + 同长度」让按时间戳校验的
 .pyc 仍被判有效，靠时钟撞不稳定；不校验源文件的 .pyc 会被无条件采信，效果相同且每次必现。
 
-同一个失败形状有两层防御的地方（还原点三道核验、红错原因两条分支、并发两处核对），
+同一个失败形状有两层防御的地方（还原点各道核验、红错原因两条分支、并发两处核对），
 每层各有一个只有它能拦住的用例——否则拆掉任一层，另一层接住，测试照绿。
 
-变异自检（工具拆它自己的保护）：`scripts/review_probes/mutation_check_self.yaml` 30 个 mutant，
-2026-09-29 在 460ffe388 上 30/30 KILLED，基线 23 passed，每个 mutant 点名的是只有它拦得住的
-那条。另红只出现在 M4 / M6 / M20：拆掉前置总闸、git status 那道核验、精确匹配后，邻近用例
-断言的报错文案跟着变了。没有确定性用例的两层：写入 / 还原时的信号屏蔽（窗口微秒级），
-还原后核验失败分支（写回原字节后不会不等，属纵深防御）。
+变异自检（工具拆它自己的保护）：`scripts/review_probes/mutation_check_self.yaml` 32 个 mutant，
+2026-09-29 在 040a4a261 上 32/32 KILLED，基线 25 passed，每个 mutant 点名的是只有它拦得住的
+那条（首轮 460ffe388 上 30/30；M31 / M32 是 #965 独立审查补的父目录符号链接、硬链接两道）。
+另红只出现在 M4 / M6 / M20：拆掉前置总闸、git status 那道核验、精确匹配后，邻近用例断言的
+报错文案跟着变了。没有确定性用例的两层：写入 / 还原时的信号屏蔽（窗口微秒级），还原后核验
+失败分支（写回原字节后不会不等，属纵深防御）。
 """
 
 from __future__ import annotations
@@ -321,7 +322,6 @@ def test_target_without_a_committed_restore_point_is_refused_and_left_alone(repo
         assert _git(repo, "show", ":calc.py") == uncommitted
 
 
-
 def test_parent_symlink_is_refused_even_when_git_hides_original(repo, tmp_path):
     """Git assume-unchanged + 同内容的仓外父目录：不可穿透去变异仓外文件。"""
     package = repo / "package"
@@ -342,7 +342,6 @@ def test_parent_symlink_is_refused_even_when_git_hides_original(repo, tmp_path):
     assert code == 2 and summary["baseline"] is None
     assert "父目录" in " ".join(summary["problems"])
     assert (outside / "calc.py").read_text(encoding="utf-8") == CALC
-
 
 
 def test_hardlink_to_file_outside_repo_is_refused(repo, tmp_path):
