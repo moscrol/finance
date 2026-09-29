@@ -1,0 +1,115 @@
+{
+  "schema": "knevo-pasted-batch/v1",
+  "received_date": "2026-09-27",
+  "source": {
+    "archive": "user-paste.txt",
+    "sha256": "3a6ace9a1ca399a5d7f314dd0448caf1f4fe9e9db3494b5269ef74ff2fe58f29",
+    "bytes": 44209,
+    "splitlines": 510,
+    "newline_count": 510,
+    "encoding": "UTF-8",
+    "note": "保留原始换行；空白与三段连续回贴均未改写。"
+  },
+  "segments": [
+    {
+      "id": "q1-question",
+      "kind": "question",
+      "lines": [
+        1,
+        28
+      ],
+      "byte_start": 0,
+      "byte_end": 1878,
+      "sha256": "c785100f41f49b2bb1a714099b0794f684b058f99244300c19b0186c2690b2d4"
+    },
+    {
+      "id": "q1-ui",
+      "kind": "ui_metadata",
+      "lines": [
+        29,
+        31
+      ],
+      "byte_start": 1878,
+      "byte_end": 1956,
+      "sha256": "9fe090ea84daa03e3688171352155257181f1442bb7b65f555c4b016029ebef7"
+    },
+    {
+      "id": "q1-answer",
+      "kind": "answer",
+      "lines": [
+        38,
+        166
+      ],
+      "byte_start": 1974,
+      "byte_end": 14723,
+      "sha256": "60f2303e495bd2cd6be7b979af5e2001b42676c73b6f789ff572d76b983f54f3"
+    },
+    {
+      "id": "q2-question",
+      "kind": "question",
+      "lines": [
+        168,
+        195
+      ],
+      "byte_start": 14724,
+      "byte_end": 16772,
+      "sha256": "f394d45a9398d86a5ddfe727f5ce60bdacf2af2cd9ba52f238faafe72201b39b"
+    },
+    {
+      "id": "q2-ui",
+      "kind": "ui_metadata",
+      "lines": [
+        196,
+        198
+      ],
+      "byte_start": 16772,
+      "byte_end": 16850,
+      "sha256": "3de424efd89fb1daf077ff5c3a9da0462cecdf4adcf61004dc42168113fba47a"
+    },
+    {
+      "id": "q2-answer",
+      "kind": "answer",
+      "lines": [
+        201,
+        345
+      ],
+      "byte_start": 16864,
+      "byte_end": 32033,
+      "sha256": "3aec9362c86ea438c2b3323888f495a40ad6f548bf78d17609040974f0637b91"
+    },
+    {
+      "id": "q3-question",
+      "kind": "question",
+      "lines": [
+        347,
+        387
+      ],
+      "byte_start": 32034,
+      "byte_end": 34619,
+      "sha256": "54e6dab31bdc674e5d108837cd12609beec57c3545ee1cb78981d166a9c10c06"
+    },
+    {
+      "id": "q3-ui",
+      "kind": "ui_metadata",
+      "lines": [
+        388,
+        390
+      ],
+      "byte_start": 34619,
+      "byte_end": 34696,
+      "sha256": "8ef6e523f17065753f97c0ea4d8b279912dd83b41c53f22f940b3a720fbd997a"
+    },
+    {
+      "id": "q3-answer",
+      "kind": "answer",
+      "lines": [
+        391,
+        510
+      ],
+      "byte_start": 34696,
+      "byte_end": 44209,
+      "sha256": "dcf7549e0e99de9f6826b43f1dc86a613058ab33101a96dc86a2fc9ab374f777"
+    }
+  ],
+  "ui_metadata_note": "界面文字显示三次“本轮免费”，以及用时 348s、335s、42s；这些只证明粘贴文本中有这些字样，不证明服务端性能、工具调用或完整模型轨迹。"
+}

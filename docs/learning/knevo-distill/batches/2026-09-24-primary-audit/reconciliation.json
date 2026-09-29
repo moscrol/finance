@@ -1,0 +1,118 @@
+{
+  "scope": "finite offline accounting checks, not economic causality or model acceptance",
+  "numeric_page_presence_checks": 137,
+  "input_hashes": {
+    "300604-pages.json": "4c24e10d882f2f97053a970978d2bf28609d08c885c5b31693403db6d26a7014",
+    "603986-pages.json": "f9f5c3b6c6241bf061616357efe648540a186f61216e0b9e73b761fe901b97c9",
+    "facts.json": "52b872803a4278e27dc0a35eeefd667a8d57ab0aebe732369a577f41f0c104dd",
+    "search-300604.json": "f5f99dc755d0a16a2376cc910fc46e74b9ea451079ef10669544ef265d5e8d10",
+    "search-603986.json": "cdda244ce2e99c4e217a464d2176d019fc55501effcfdf91e79a90d41e677d6d",
+    "sources.json": "d57b3d92dbbdde91d6a6719cea5fa5303f136cd448b372cd8b533d296418a0e4"
+  },
+  "companies": [
+    {
+      "code": "603986",
+      "periods": {
+        "current": {
+          "gross_profit": "7301516712.88",
+          "gross_margin_pct": "63.13045091772400913606796716",
+          "selling_admin_research_ratio_pct": "12.77302392684421170889538690",
+          "research_capitalization_pct": "20.80288869803154883522620853"
+        },
+        "prior": {
+          "gross_profit": "1544332943.85",
+          "gross_margin_pct": "37.21007473071586600911130455",
+          "selling_admin_research_ratio_pct": "26.11910880246440049662102516",
+          "research_capitalization_pct": "17.27744372813540017165161335"
+        }
+      },
+      "profit_bridge": {
+        "gross_profit": "5757183769.03",
+        "tax_surcharges": "-27057583.93",
+        "selling": "-84350095.58",
+        "administrative": "-111787194.42",
+        "research_expense": "-197136429.86",
+        "financial_expense": "-371453128.05",
+        "other_income": "-18035371.30",
+        "investment_income": "2142918.29",
+        "fair_value_income": "2220587180.90",
+        "credit_impairment": "-684874.95",
+        "asset_impairment": "-52460869.54",
+        "disposal_income": "-198497.84",
+        "nonoperating_income": "-3075439.34",
+        "nonoperating_expense": "-43263112.63",
+        "income_tax": "-773247014.12",
+        "noncontrolling_profit": "-15853448.80"
+      },
+      "attributable_profit_change": "6281310807.86",
+      "gross_profit_identity_not_causal_attribution": {
+        "revenue_change_at_prior_margin": "2759295156.128581293324006575",
+        "margin_change_at_current_revenue": "2997888612.901418706675993425"
+      },
+      "nonrecurring_share_pct": "28.78539326837070790023278484",
+      "cashflow": {
+        "prior": "957820931.47",
+        "current": "6048341057.06",
+        "change": "5090520125.59",
+        "growth_abs_prior_pct": "531.4688746441787968373766573",
+        "sign_transition": "positive_to_positive"
+      },
+      "remaining_performance_obligations_cny": "9794000000.00"
+    },
+    {
+      "code": "300604",
+      "periods": {
+        "current": {
+          "gross_profit": "1920116252.78",
+          "gross_margin_pct": "55.48202429303359998489902172",
+          "selling_admin_research_ratio_pct": "27.96370175479461303414952003",
+          "research_capitalization_pct": "22.05881465819495155345067364"
+        },
+        "prior": {
+          "gross_profit": "1190180655.87",
+          "gross_margin_pct": "54.92681325757608383688578660",
+          "selling_admin_research_ratio_pct": "35.92936343684085802844966621",
+          "research_capitalization_pct": "18.05880945894178216620948080"
+        }
+      },
+      "profit_bridge": {
+        "gross_profit": "729935596.91",
+        "tax_surcharges": "-12820951.68",
+        "selling": "-25915122.14",
+        "administrative": "-43225450.60",
+        "research_expense": "-120089613.63",
+        "financial_expense": "7904750.48",
+        "other_income": "125882652.69",
+        "investment_income": "-52701653.60",
+        "credit_impairment": "-21229508.36",
+        "asset_impairment": "-69566488.24",
+        "disposal_income": "540889.16",
+        "nonoperating_income": "1271030.04",
+        "nonoperating_expense": "-1836762.88",
+        "income_tax": "18450227.75",
+        "noncontrolling_profit": "51067.03"
+      },
+      "attributable_profit_change": "536650662.93",
+      "gross_profit_identity_not_causal_attribution": {
+        "revenue_change_at_prior_margin": "710720909.8741730318937541285",
+        "margin_change_at_current_revenue": "19214687.03582696810624587147"
+      },
+      "nonrecurring_share_pct": "4.333662665849943206391452950",
+      "cashflow": {
+        "prior": "-80429314.59",
+        "current": "332861122.72",
+        "change": "413290437.31",
+        "growth_abs_prior_pct": "513.8554759751558887429777860",
+        "sign_transition": "negative_to_positive"
+      },
+      "remaining_performance_obligations_cny": "0.00",
+      "inventory": {
+        "shipped_goods_share_net_pct": "24.29041690139609674695039325",
+        "shipped_goods_share_gross_pct": "24.33852568262589476286098213",
+        "inventory_net_growth_since_2025_12_31_pct": "34.52010666320692212191933810",
+        "shipped_goods_net_growth_since_2025_12_31_pct": "46.78722522283424513085453780"
+      },
+      "software_vat_income_change": "97119480.15"
+    }
+  ]
+}

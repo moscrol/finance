@@ -96,7 +96,16 @@ def test_plan_declared_hithink_no_key_skips_do_not_claim_updates(child_runner):
     assert run(key=False) == 0
     status = json.loads(Path(str(target) + ".status.json").read_text())
     assert status["ok"] is True and status["run_id"] == "refresh-current-run"
-    skipped = [r for r in status["steps"] if r["status"] == "skip"]
+    # 可选步骤在回放里各自显式 skip，与同花顺 no-key skip 分开核：
+    # 采集只能描述采集当天；补名与两源补行都要当日封存，回放历史日没有。
+    optional = [r for r in status["steps"] if r["label"] in sync.OPTIONAL_SKIP_STEPS]
+    assert [(r["label"], r["status"]) for r in optional] == [
+        (label, "skip") for label in ("capture-dated-quotes", "attach-capture-names", "bridge-gap-fill")] * 2
+    assert all("only describes its own day" in r["note"] for r in optional if r["label"] == "capture-dated-quotes")
+    assert all("no sealed capture" in r["note"] for r in optional if r["label"] != "capture-dated-quotes")
+    assert not any(label in sync.OPTIONAL_SKIP_STEPS for label, _ in calls)  # 回放里不起子进程、不联网
+    skipped = [r for r in status["steps"]
+               if r["status"] == "skip" and r["label"] not in sync.OPTIONAL_SKIP_STEPS]
     assert len(skipped) == 2 * len(sync.HITHINK_STEPS)
     assert {r["label"] for r in skipped} == set(sync.HITHINK_STEPS)
     assert all(r["code"] is None and "未更新" in r["note"] for r in skipped)
@@ -112,7 +121,9 @@ def test_successful_leaves_write_current_run_only(child_runner):
     status = json.loads(Path(str(target) + ".status.json").read_text())
     assert status["ok"] is True and status["run_id"] == "refresh-current-run"
     historical_steps = set(sync.HITHINK_STEPS) - {"hithink-research"}
-    assert all(r["status"] == "ok" for r in status["steps"] if r["label"] != "hithink-research")
+    assert all(r["status"] == "ok" for r in status["steps"]
+               if r["label"] not in {"hithink-research", *sync.OPTIONAL_SKIP_STEPS})
+    assert all(r["status"] == "skip" for r in status["steps"] if r["label"] in sync.OPTIONAL_SKIP_STEPS)
     assert Counter(label for label, _ in calls if label in sync.HITHINK_STEPS) == {
         label: 2 for label in historical_steps
     }

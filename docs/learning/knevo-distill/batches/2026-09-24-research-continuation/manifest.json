@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-23T16:11:32.162Z",
+  "received_at": "2026-09-23T16:06:45.407Z",
+  "received_local_date": "2026-09-24",
+  "source_kind": "exact_user_text_from_session_json",
+  "source_session_file": "/Users/a77/.pi/agent/sessions/--Users-a77-finance-workspace-private--/2026-09-23T14-51-54-172Z_01a0cec0-73ba-74db-9d82-4ee8adcc07de.jsonl",
+  "source_entry_id": "6524ef8e",
+  "preservation": "Exact UTF-8 encoding of parsed user text, including whitespace and final request; slices are untrimmed. No browser or provider export.",
+  "old_intake_receipt": {
+    "path": "/Users/a77/.finance-runtime/comparisons/knevo-threeway-20260921-2042/knevo-intake-18722d18/intake-receipt.json",
+    "sha256": "292496ab36ef517b89f41dac6d7c081f39d59414778f49316eeb21cc63d6047d",
+    "verified_original_files": 4
+  },
+  "boundaries": {
+    "provider_trace_available": false,
+    "external_financial_facts_verified": false,
+    "independent_samples": false,
+    "blind_comparison": false,
+    "production_or_model_calls": false,
+    "raw_facts_ingested": false,
+    "rules_activated": false
+  },
+  "files": {
+    "user-paste.txt": {
+      "bytes": 116544,
+      "sha256": "3b6811e52351dea6ddcce5862422bea9851af102770a2e74398df1d8568c150b"
+    },
+    "q1-question.txt": {
+      "bytes": 1350,
+      "sha256": "d5697641b4de169e1d87170d9859b0ee93a1d8904acd7a4cc404eedf996e0751"
+    },
+    "q1-answer.txt": {
+      "bytes": 18808,
+      "sha256": "1fef6fd19fc1225b5606619917abb8b28e6f97acf8f78276742b8262cc681642"
+    },
+    "q2-question.txt": {
+      "bytes": 1563,
+      "sha256": "5da965aa44efaea83f9db8c97231d125e0bd12428955af4b040dcde7eb989c6f"
+    },
+    "q2-answer.txt": {
+      "bytes": 13379,
+      "sha256": "46cd3bcc4aee3d8d39cfb5820ec3fd6abe689b4b1d9cd2c57e1c715211fcda43"
+    },
+    "q3-question.txt": {
+      "bytes": 1837,
+      "sha256": "266ac7fa1574ac26c2eb0cdde55a4ac89a732f2138cfc927f73b3b6594a61fd7"
+    },
+    "q3-answer.txt": {
+      "bytes": 8498,
+      "sha256": "aa915959b9d63d563df14b7446a21ad7b0f5ed9545453ca7fc464b4f11f6bf80"
+    },
+    "q4-question.txt": {
+      "bytes": 1034,
+      "sha256": "25705091ef2c5123e795d207b035b214144cd0b8dec752e32d5d82dd46ef007e"
+    },
+    "q4-answer.txt": {
+      "bytes": 10228,
+      "sha256": "71656e2c5a517df5d780872dbe3a21e2951f6a54d2cfcc1cc15d5b8f6934e62a"
+    },
+    "q5-question.txt": {
+      "bytes": 1332,
+      "sha256": "9e5db226c0f4b5fc523bbc86f16a1a2f3662de1a9feb7603b1f12d142c75c092"
+    },
+    "q5-answer.txt": {
+      "bytes": 10461,
+      "sha256": "9c3c39f1ea09248d1e1705272e7cf93e809bb672427ae8fb2c74431f59eed436"
+    },
+    "q6-question.txt": {
+      "bytes": 1302,
+      "sha256": "bc3f01abc9764d6a51e51441eda38d2fa132ea4cb8e64f6fa741b5be6a580a3a"
+    },
+    "q6-answer.txt": {
+      "bytes": 11782,
+      "sha256": "f8c54b9590b9a7fad0880d6014c9f397a0f7e7f633f01a7d20b27f97c1082d56"
+    },
+    "q7-question.txt": {
+      "bytes": 1984,
+      "sha256": "0408f71dcdab013bcd8bf391e886d50903de4898cade579b288567c9b7649296"
+    },
+    "q7-answer.txt": {
+      "bytes": 10418,
+      "sha256": "2df813314779084ae9d3542c8641cc99702bbdc319f6c25f5b6bc4a6a785c738"
+    },
+    "q8-question.txt": {
+      "bytes": 1785,
+      "sha256": "c46f428b778f724c447ddf9c7f3103afc90a296a868a738917e178d461e583e6"
+    },
+    "q8-answer.txt": {
+      "bytes": 8571,
+      "sha256": "64b4e1b45edec9dd64d626a24e8650ffb4b321a83405de29e6e34244c4a8046d"
+    },
+    "q9-question.txt": {
+      "bytes": 1896,
+      "sha256": "34371de4627c00e325410be0e69de1727bfa30e7d2312666465f0ab7936234fb"
+    },
+    "q9-answer.txt": {
+      "bytes": 9494,
+      "sha256": "4849998c6ccd2f0d10e589de52ff92bb46731a2c525d371914d750a5ef2b3088"
+    }
+  },
+  "turns": [
+    {
+      "id": "q1",
+      "topic": "theme-grouping",
+      "research_cutoff_as_stated": "2026-09-21",
+      "numbered_tasks": 7,
+      "question_utf16": [
+        0,
+        518
+      ],
+      "ui_utf16": [
+        518,
+        557
+      ],
+      "answer_utf16": [
+        557,
+        8787
+      ],
+      "question_source_line": 1,
+      "answer_source_line": 20,
+      "ui_elapsed_seconds": 811,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0,
+      "previous_answer": {
+        "path": "/Users/a77/.finance-runtime/comparisons/knevo-threeway-20260921-2042/knevo-intake-18722d18/knevo-q1-answer.txt",
+        "sha256": "960842a29bd58d012a71db9bf603df1ef38035051320dfaffc455ff21e84910d",
+        "bytes_equal": false,
+        "equal_ignoring_whitespace": false,
+        "old_render_errors": 1
+      }
+    },
+    {
+      "id": "q2",
+      "topic": "five-company-transmission",
+      "research_cutoff_as_stated": "2026-09-21",
+      "numbered_tasks": 7,
+      "question_utf16": [
+        8787,
+        9410
+      ],
+      "ui_utf16": [
+        9410,
+        9449
+      ],
+      "answer_utf16": [
+        9449,
+        15188
+      ],
+      "question_source_line": 219,
+      "answer_source_line": 245,
+      "ui_elapsed_seconds": 620,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0,
+      "previous_answer": {
+        "path": "/Users/a77/.finance-runtime/comparisons/knevo-threeway-20260921-2042/knevo-intake-18722d18/knevo-q2-answer.txt",
+        "sha256": "46cd3bcc4aee3d8d39cfb5820ec3fd6abe689b4b1d9cd2c57e1c715211fcda43",
+        "bytes_equal": true,
+        "equal_ignoring_whitespace": true,
+        "old_render_errors": 0
+      }
+    },
+    {
+      "id": "q3",
+      "topic": "competing-explanations",
+      "research_cutoff_as_stated": "2026-09-21",
+      "numbered_tasks": 7,
+      "question_utf16": [
+        15188,
+        15945
+      ],
+      "ui_utf16": [
+        15945,
+        15984
+      ],
+      "answer_utf16": [
+        15984,
+        19610
+      ],
+      "question_source_line": 341,
+      "answer_source_line": 376,
+      "ui_elapsed_seconds": 189,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 1,
+      "previous_answer": {
+        "path": "/Users/a77/.finance-runtime/comparisons/knevo-threeway-20260921-2042/knevo-intake-18722d18/knevo-q3-answer.txt",
+        "sha256": "d06743ad69fb7392a0efd3b19691d29aa9d8f9c204c68c647f364bd683ac446e",
+        "bytes_equal": false,
+        "equal_ignoring_whitespace": true,
+        "old_render_errors": 1
+      }
+    },
+    {
+      "id": "q4",
+      "topic": "lead-discovery",
+      "research_cutoff_as_stated": "2026-09-22 (answer self-report)",
+      "numbered_tasks": 8,
+      "question_utf16": [
+        19610,
+        19984
+      ],
+      "ui_utf16": [
+        19984,
+        20023
+      ],
+      "answer_utf16": [
+        20023,
+        24351
+      ],
+      "question_source_line": 429,
+      "answer_source_line": 442,
+      "ui_elapsed_seconds": 118,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0
+    },
+    {
+      "id": "q5",
+      "topic": "dynamic-competition",
+      "research_cutoff_as_stated": "2026-09-22",
+      "numbered_tasks": 8,
+      "question_utf16": [
+        24351,
+        24821
+      ],
+      "ui_utf16": [
+        24821,
+        24860
+      ],
+      "answer_utf16": [
+        24860,
+        29211
+      ],
+      "question_source_line": 515,
+      "answer_source_line": 529,
+      "ui_elapsed_seconds": 182,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0
+    },
+    {
+      "id": "q6",
+      "topic": "portfolio-common-factors",
+      "research_cutoff_as_stated": null,
+      "numbered_tasks": 8,
+      "question_utf16": [
+        29211,
+        29685
+      ],
+      "ui_utf16": [
+        29685,
+        29724
+      ],
+      "answer_utf16": [
+        29724,
+        34316
+      ],
+      "question_source_line": 635,
+      "answer_source_line": 650,
+      "ui_elapsed_seconds": 351,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0
+    },
+    {
+      "id": "q7",
+      "topic": "order-disclosure-recheck",
+      "research_cutoff_as_stated": "2026-09-23",
+      "numbered_tasks": 6,
+      "question_utf16": [
+        34316,
+        35026
+      ],
+      "ui_utf16": [
+        35026,
+        35065
+      ],
+      "answer_utf16": [
+        35065,
+        39450
+      ],
+      "question_source_line": 753,
+      "answer_source_line": 773,
+      "ui_elapsed_seconds": 167,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0
+    },
+    {
+      "id": "q8",
+      "topic": "profit-attribution",
+      "research_cutoff_as_stated": "2026-09-23",
+      "numbered_tasks": 6,
+      "question_utf16": [
+        39450,
+        40087
+      ],
+      "ui_utf16": [
+        40087,
+        40126
+      ],
+      "answer_utf16": [
+        40126,
+        44061
+      ],
+      "question_source_line": 870,
+      "answer_source_line": 884,
+      "ui_elapsed_seconds": 107,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0
+    },
+    {
+      "id": "q9",
+      "topic": "observation-plan-repair",
+      "research_cutoff_as_stated": "2026-09-23",
+      "numbered_tasks": 6,
+      "question_utf16": [
+        44061,
+        44751
+      ],
+      "ui_utf16": [
+        44751,
+        44789
+      ],
+      "answer_utf16": [
+        44789,
+        48727
+      ],
+      "question_source_line": 974,
+      "answer_source_line": 994,
+      "ui_elapsed_seconds": 84,
+      "ui_cost_label": "本轮免费",
+      "visible_render_errors": 0
+    }
+  ]
+}

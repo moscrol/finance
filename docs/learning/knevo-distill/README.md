@@ -3,6 +3,21 @@
 > 当前执行结论见 [09-23处置报告](final-report.md)；逐项状态见
 > [吸收清单顶部](absorption-plan-2026-09-11.md)。以下各日期是历史审计，不作为当前待办直接执行。
 
+## 最新收件索引
+
+- **2026-09-27 长川现金流、反向估值与研究更新回贴入档**：[单侧审读](../distill/2026-09-27-knevo-longchuan-cashflow-intake.md)；[原文封存批次](batches/2026-09-27-longchuan-cashflow/README.md)。原文已封存；单侧审读；无 8792 配对答案；候选规则未进入运行时。
+
+- **2026-09-27 受控探针回贴入档**：[单侧审读：证据闭环、记忆仲裁与输入隔离](../distill/2026-09-27-knevo-controlled-probe-intake.md)；[原文封存批次](batches/2026-09-27-controlled-probes/README.md)：完整粘贴文本、哈希与切片清单。本批没有 8792 配对答案，不登记 `ab-ledger`，也不把“未授权时间戳”或全局记忆优先级自动吸收进运行时。
+
+- **2026-09-26 三轮回贴入档**：[单侧审读：证据卫生、会计对账与交易日闸门](../distill/2026-09-26-knevo-three-turns-intake.md)；[原文封存批次](batches/2026-09-26-three-turns/README.md)：完整粘贴文本、哈希与切片清单。本批不属于 `ab-ledger` 双盲样本；没有 8792 同题答案或工具 trace，不能用于胜率结论。候选规则仍待独立验收，不自动进入运行时。
+
+- **2026-09-24原文补证推进**：[两份半年报对账与候选修订](../distill/2026-09-24-knevo-primary-source-followup.md)，[原文证据包](batches/2026-09-24-primary-audit/README.md)。兆易披露97.94亿元剩余履约收入；长川现金流原文为负转正，原答错在反推基数。两份合并利润表/附注已有可复算金额，不再笼统报原文未取得；订单覆盖、量价因果、模型语义仍待验。无运行时注入。
+
+- **2026-09-24收件，研究截止09-21/22/23分别保留**：[连续研究原文与九题索引](batches/2026-09-24-research-continuation/README.md)；[审读及八项待裁决候选](../distill/2026-09-24-knevo-research-continuation-intake.md)。包含旧半导体三题的补充版本、自主线索/动态竞争/虚构组合三包、订单/盈利/观察修订三轮。旧q1本次补出优先级表，q3仍有图表报错。仅离线留证，不是九个独立样本、事实金标或吸收完成证明。
+- **2026-09-22旧三方收件**：`fix/research-contract-citations-0921` 分支提交 `31cb2ff3c` 的 `docs/handoffs/2026-09-22-knevo-threeway-intake-review.md`；原件在 `~/.finance-runtime/comparisons/knevo-threeway-20260921-2042/knevo-intake-18722d18/`。不在常规专题目录，查最近材料须一起检索交接和跨分支记录。
+
+以下章节保留各自历史时点；最新收件不自动更新旧对照胜率、运行时能力或候选吸收状态。
+
 ## 一、他做得好的核心机制（按章节）
 
 ### 定位（P1）

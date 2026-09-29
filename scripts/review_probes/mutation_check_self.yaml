@@ -1,0 +1,194 @@
+# scripts/mutation_check.py 的变异自检：逐条拆掉它自己的保护，点名的测试必须因此变红。
+# 跑法（仓根；scripts/mutation_check.py 须已提交——它不在未提交的文件上拆门）：
+#   .venv-workbench/bin/python scripts/mutation_check.py scripts/review_probes/mutation_check_self.yaml
+# 每轮跑整份 tests/test_mutation_check.py（空闲机约 17 s；拆进程组那几轮多等 10 s）。读数见该测试文件的 docstring。
+# 多行锚点用 |- 块：块内缩进以首行为基准剥掉，所以锚点从首个非空白字符开始写，后续行保留相对缩进。
+file: scripts/mutation_check.py
+pytest: tests/test_mutation_check.py
+mutants:
+  # —— 形状 1：锚点恰一处、变异后能编译、有问题就一轮都不跑 ——
+  - name: M1 锚点 0 次放行
+    old: 'if count != 1:'
+    new: 'if count > 1:'
+    expected_red:
+      - test_anchor_and_syntax_problems_stop_everything_before_any_run
+  - name: M2 锚点多处放行
+    old: 'if count != 1:'
+    new: 'if count == 0:'
+    expected_red:
+      - test_anchor_and_syntax_problems_stop_everything_before_any_run
+  - name: M3 变异后不编译
+    old: 'compile(source.replace(m.old, m.new, 1), rel, "exec")'
+    new: 'compile("pass", rel, "exec")'
+    expected_red:
+      - test_anchor_and_syntax_problems_stop_everything_before_any_run
+  - name: M4 前置问题照样开跑
+    old: |-
+      mutants, problems = self._preflight(mutants)
+              if problems:
+    new: |-
+      mutants, problems = self._preflight(mutants)
+              if False:
+    expected_red:
+      - test_anchor_and_syntax_problems_stop_everything_before_any_run
+      - test_target_without_a_committed_restore_point_is_refused_and_left_alone[modified]
+  # —— 形状 2：还原点三道核验，各有一个只有它看得见的状态 ——
+  - name: M5 不查「不在 HEAD 里」
+    old: |-
+      if code != 0:
+              return f"{rel}: 不在 HEAD 里
+    new: |-
+      if False:
+              return f"{rel}: 不在 HEAD 里
+    expected_red:
+      - test_target_without_a_committed_restore_point_is_refused_and_left_alone[untracked]
+  - name: M6 不看 git status
+    old: 'if status.strip():'
+    new: 'if False:'
+    expected_red:
+      - test_target_without_a_committed_restore_point_is_refused_and_left_alone[staged-then-reverted]
+  - name: M7 不比 HEAD blob
+    old: 'if current.strip() != blob.strip():'
+    new: 'if False:'
+    expected_red:
+      - test_target_without_a_committed_restore_point_is_refused_and_left_alone[assume-unchanged]
+  # —— 形状 3：字节码三处删除、prefix 镜像、子进程 env ——
+  - name: M8 基线前不删字节码
+    old: 'for rel in self.originals:'
+    new: 'for rel in []:'
+    expected_red:
+      - test_trusted_stale_bytecode_cannot_fake_the_baseline_or_the_mutant_run
+  - name: M9 写入变异后不删字节码
+    old: |-
+      purge_bytecode(path)
+                  run = self._pytest(
+    new: 'run = self._pytest('
+    expected_red:
+      - test_trusted_stale_bytecode_cannot_fake_the_baseline_or_the_mutant_run
+      - test_restored_tree_keeps_no_mutant_bytecode
+  - name: M10 还原后不删字节码
+    old: |-
+      finally:
+                      purge_bytecode(path)
+    new: |-
+      finally:
+                      pass
+    expected_red:
+      - test_restored_tree_keeps_no_mutant_bytecode
+  - name: M11 不删 PYTHONPYCACHEPREFIX 镜像
+    old: 'directories.append(Path(prefix) / str(path.parent.absolute()).lstrip(os.sep))'
+    new: 'pass'
+    expected_red:
+      - test_purge_covers_every_tag_and_the_pycache_prefix_mirror
+  - name: M12 子进程照写字节码
+    old: 'env["PYTHONDONTWRITEBYTECODE"] = "1"'
+    new: 'pass'
+    expected_red:
+      - test_child_env_keeps_bytecode_and_receipts_out_of_mutant_runs
+  - name: M13 变异轮照写测试收据
+    old: 'env["FWP_TEST_RECEIPT"] = "0"'
+    new: 'pass'
+    expected_red:
+      - test_child_env_keeps_bytecode_and_receipts_out_of_mutant_runs
+  # —— 形状 4：红错原因 ——
+  - name: M14 收集期报错也算承重
+    old: 'elif rep["collect_errors"]:'
+    new: 'elif False:'
+    expected_red:
+      - test_red_for_the_wrong_reason_is_not_a_kill
+  - name: M15 setup 报错也算承重
+    old: 'elif out["not_red"]:'
+    new: 'elif False:'
+    expected_red:
+      - test_red_for_the_wrong_reason_is_not_a_kill
+  - name: M16 不核 expected_message
+    old: 'if m.expected_message'
+    new: 'if False'
+    expected_red:
+      - test_expected_message_pins_why_it_went_red
+  - name: M17 不提示符号层红
+    old: 'if any(_SYMBOL_LEVEL.search(out["messages"].get(n, "")) for n in out["red"]):'
+    new: 'if False:'
+    expected_red:
+      - test_red_on_a_deleted_symbol_is_flagged_but_still_counted
+  # —— 形状 5：尺子先得是绿的、名字得对、字段不许拼错 ——
+  - name: M18 基线不绿也开跑
+    old: 'if run.exit != 0:'
+    new: 'if False:'
+    expected_red:
+      - test_ruler_that_is_not_green_at_baseline_blocks_every_mutant[another-test-red]
+  - name: M19 点名测试基线没过也放行
+    old: 'if outcome != "passed":'
+    new: 'if False:'
+    expected_red:
+      - test_ruler_that_is_not_green_at_baseline_blocks_every_mutant[expected-test-skipped]
+  - name: M20 点名按子串匹配
+    old: 'nodeid == expected or nodeid.endswith("::" + expected)'
+    new: 'expected in nodeid'
+    expected_red:
+      - test_misnamed_expected_test_is_a_spec_error_not_a_survivor
+  - name: M21 未知字段静默忽略
+    old: 'if set(raw) - _MUTANT_KEYS:'
+    new: 'if False:'
+    expected_red:
+      - test_spec_schema_reports_every_problem_at_once
+  # —— 形状 6：子集判定、活性提示 ——
+  - name: M22 有红就算（部分红读成全红）
+    old: 'if any(o in ("passed", "xpassed") for o in outcomes.values()):'
+    new: 'if all(o in ("passed", "xpassed") for o in outcomes.values()):'
+    expected_red:
+      - test_killed_and_survived_are_told_apart_and_the_tree_comes_back
+  - name: M23 不报被变异文件没被 import
+    old: 'out["imported"] = bool(rep["imported"])'
+    new: 'out["imported"] = True'
+    expected_red:
+      - test_killed_and_survived_are_told_apart_and_the_tree_comes_back
+  # —— 形状 7：并发、超时、中断 ——
+  - name: M24 还原前不核对（覆盖别人的改动）
+    old: 'if path.read_bytes() != mutated:'
+    new: 'if False:'
+    expected_red:
+      - test_file_edited_by_someone_else_is_never_overwritten[during-mutant-run]
+  - name: M25 写入前不核对（吞掉基线期间的改动）
+    old: 'if path.read_bytes() != original:'
+    new: 'if False:'
+    expected_red:
+      - test_file_edited_by_someone_else_is_never_overwritten[during-baseline]
+  - name: M26 只杀 leader 不杀进程组
+    old: 'os.killpg(proc.pid, signal.SIGKILL)'
+    new: 'os.kill(proc.pid, signal.SIGKILL)'
+    expected_red:
+      - test_timeout_is_not_a_kill_and_the_whole_process_group_is_reaped
+      - test_sigterm_mid_run_restores_the_file_and_kills_the_run
+  - name: M27 pytest 不另起会话
+    old: 'start_new_session=True'
+    new: 'start_new_session=False'
+    expected_red:
+      - test_timeout_is_not_a_kill_and_the_whole_process_group_is_reaped
+      - test_sigterm_mid_run_restores_the_file_and_kills_the_run
+  - name: M28 超时不标 timeout
+    old: 'timed_out = True'
+    new: 'timed_out = False'
+    expected_red:
+      - test_timeout_is_not_a_kill_and_the_whole_process_group_is_reaped
+  - name: M29 SIGTERM 不转成中断
+    old: 'with _signals_as_interrupts():'
+    new: 'if True:'
+    expected_red:
+      - test_sigterm_mid_run_restores_the_file_and_kills_the_run
+  - name: M30 dry-run 照跑变异
+    old: 'if self.args.dry_run:'
+    new: 'if False:'
+    expected_red:
+      - test_dry_run_checks_spec_and_collection_without_touching_the_tree
+  # —— 形状 2 续：#965 独立审查补的两道（父目录符号链接 / 硬链接）——
+  - name: M31 父目录符号链接放行
+    old: 'if path.resolve() != path:'
+    new: 'if False:'
+    expected_red:
+      - test_parent_symlink_is_refused_even_when_git_hides_original
+  - name: M32 硬链接放行
+    old: 'if path.stat().st_nlink != 1:'
+    new: 'if False:'
+    expected_red:
+      - test_hardlink_to_file_outside_repo_is_refused
