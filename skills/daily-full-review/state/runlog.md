@@ -1105,3 +1105,128 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 1 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-14 | run 2026-09-14 18:33 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| stock-daily | ok | 23 | eastmoney snapshot ok |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 156 |  |
+| carry-forward-universe | ok | 1 |  |
+| stitch-sector-stocks | ok | 17 |  |
+| sector-daily-local | ok | 1 |  |
+| limit-stats-local | ok | 1 |  |
+| market-overview-local | ok | 1 |  |
+| market-editorial-local | ok | 1 |  |
+| market-stage-local | ok | 1 |  |
+| stock-high-local | ok | 2 |  |
+| mainline-local | ok | 1 |  |
+| core-stock-local | ok | 1 |  |
+| core-leader-local | ok | 1 |  |
+| features | ok | 3 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-15 | run 2026-09-15 18:35 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| stock-daily | ok | 18 | eastmoney snapshot ok |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 229 |  |
+| carry-forward-universe | ok | 1 |  |
+| stitch-sector-stocks | ok | 34 |  |
+| sector-daily-local | ok | 1 |  |
+| limit-stats-local | ok | 1 |  |
+| market-overview-local | ok | 2 |  |
+| market-editorial-local | ok | 1 |  |
+| market-stage-local | ok | 1 |  |
+| stock-high-local | ok | 3 |  |
+| mainline-local | ok | 1 |  |
+| core-stock-local | ok | 1 |  |
+| core-leader-local | ok | 1 |  |
+| features | ok | 4 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-17 | run 2026-09-17 22:29 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| stock-daily | ok | 13 | eastmoney snapshot ok |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 26 |  |
+| carry-forward-universe | ok | 0 |  |
+| stitch-sector-stocks | ok | 0 |  |
+| sector-daily-local | ok | 0 |  |
+| limit-stats-local | ok | 1 |  |
+| market-overview-local | ok | 1 |  |
+| market-editorial-local | ok | 0 |  |
+| market-stage-local | ok | 0 |  |
+| stock-high-local | ok | 1 |  |
+| mainline-local | ok | 0 |  |
+| core-stock-local | ok | 0 |  |
+| core-leader-local | ok | 1 |  |
+| features | ok | 2 |  |
+| same-day-gate | ok | 0 |  |
+| cross-day-gate | ok | 0 |  |
+| export-increment | ok | 0 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-18 | run 2026-09-18 18:33 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| stock-daily | ok | 20 | eastmoney snapshot ok |
+| index-daily | ok | 1 |  |
+| sw-l1-daily | ok | 145 |  |
+| carry-forward-universe | ok | 1 |  |
+| stitch-sector-stocks | ok | 19 |  |
+| sector-daily-local | ok | 1 |  |
+| limit-stats-local | ok | 1 |  |
+| market-overview-local | ok | 1 |  |
+| market-editorial-local | ok | 1 |  |
+| market-stage-local | ok | 1 |  |
+| stock-high-local | ok | 3 |  |
+| mainline-local | ok | 1 |  |
+| core-stock-local | ok | 1 |  |
+| core-leader-local | ok | 1 |  |
+| features | ok | 3 |  |
+| same-day-gate | ok | 1 |  |
+| cross-day-gate | ok | 1 |  |
+| export-increment | ok | 1 |  |
+| quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-09-21 | run 2026-09-21 18:36 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| stock-daily | fail | 2 | used fill-stock-daily-fallback [retry r1] |
+| index-daily | ok | 2 |  |
+| sw-l1-daily | ok | 354 |  |
+| carry-forward-universe | ok | 2 |  |
+| stitch-sector-stocks | fail | 1 | [retry r1] |
+| sector-daily-local | fail | 1 | [retry r1] |
+| limit-stats-local | fail | 2 | [retry r1] |
+| market-overview-local | fail | 1 | [retry r1] |
+| market-editorial-local | fail | 1 | [retry r1] |
+| market-stage-local | fail | 1 | [retry r1] |
+| stock-high-local | fail | 1 | [retry r1] |
+| mainline-local | fail | 1 | [retry r1] |
+| core-stock-local | fail | 1 | [retry r1] |
+| core-leader-local | fail | 1 | [retry r1] |
+| features | fail | 1 | [retry r1] |
+| same-day-gate | fail | 1 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：stock-daily, stitch-sector-stocks, sector-daily-local, limit-stats-local, market-overview-local, market-editorial-local, market-stage-local, stock-high-local, mainline-local, core-stock-local, core-leader-local, features, same-day-gate
