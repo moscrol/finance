@@ -6,10 +6,9 @@
 from __future__ import annotations
 
 import os
-import runpy
 import sys
 
-SYNC_ROOT = os.environ.get("FINANCE_SYNC_CODE_ROOT", "/Users/a77/finance-workspace-sync")
+SYNC_ROOT = os.environ.get("FINANCE_SYNC_CODE_ROOT", "/Users/a77/.finance-runtime/finance-sync-0e7f77025409")  # path-literal-ok: 夜跑 sync 固定检出树（原 fe9fdb/finance-workspace-sync 已退役，launchd 见 intelligence/dream plist）
 plan = os.environ.get("REVIEW_SYNC_PLAN", "local")
 
 if len(sys.argv) < 2:
@@ -36,5 +35,5 @@ if json_path:
 
 sys.argv = argv
 # run CLI main
-from market_feature_store.cli import main
+from market_feature_store.cli import main  # noqa: E402  (包装器:需先改写 sys.argv)
 raise SystemExit(main())
