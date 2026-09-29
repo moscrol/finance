@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>连板周历 · 8792 同款</title>
+<style>
+:root{
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color:#252421; background:#f3f2ef;
+  --ink:#252421; --muted:#6d6963; --faint:#948f88; --line:#dfdcd6; --line-strong:#cac5bd;
+  --surface:#ffffff; --surface-soft:#f7f5f2; --accent:#c65f3e; --accent-dark:#9f452e; --accent-soft:#f6e8e2;
+  --forest:var(--accent); --forest-dark:var(--accent-dark); --forest-soft:var(--accent-soft);
+  --amber:#9a5f08; --amber-soft:#fff4dd; --red:#a9342f; --red-soft:#fff0ef; --blue:#496f91; --blue-soft:#edf3f8;
+  --green:#4d7a5f; --green-soft:#eef5ef; --shadow:0 18px 52px rgba(50,45,39,0.10); --shadow-sm:0 6px 20px rgba(50,45,39,0.08);
+}
+*{box-sizing:border-box}
+html{background:#f3f2ef}
+body{margin:0;min-height:100vh;background: radial-gradient(circle at 48% 0%, rgba(236,226,216,0.48), transparent 30rem), #f3f2ef; color:var(--ink); line-height:1.5}
+.header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:18px 28px}
+.header h1{font-size:22px;letter-spacing:-0.02em;margin:0;display:flex;align-items:center;gap:10px}
+.header h1 em{font-style:normal;color:var(--accent)}
+.header h1 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);display:inline-block}
+.sub{margin-top:6px;color:var(--muted);font-size:12px;line-height:1.6;max-width:900px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.controls select,.controls button{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .15s}
+.controls select:hover,.controls button:hover{border-color:var(--line-strong);box-shadow:var(--shadow-sm)}
+.controls button.active{background:var(--forest);color:#fff;border-color:var(--forest);box-shadow:0 6px 16px rgba(198,95,62,0.22)}
+.eyebrow{display:inline-block;margin-bottom:6px;color:var(--forest);font-size:10px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
+.main{max-width:1720px;margin:0 auto;padding:22px 26px 80px}
+.month-head{display:flex;align-items:center;gap:12px;margin:28px 0 12px}
+.month-head .m{font-size:14px;font-weight:750;letter-spacing:-0.01em}
+.month-head .line{flex:1;height:1px;background:var(--line)}
+.legend{display:flex;gap:10px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block;border:1px solid var(--line)}
+.week-header{display:grid;grid-template-columns:86px repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;overflow:hidden;box-shadow:var(--shadow-sm)}
+.week-header div{background:#f7f5f2;padding:10px;text-align:center;font-size:11px;color:var(--faint);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.week-row{display:grid;grid-template-columns:86px repeat(5,1fr);gap:1px;background:var(--line);border-left:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.week-row:last-child{border-radius:0 0 12px 12px;overflow:hidden}
+.week-label{background:var(--surface-soft);padding:10px 8px;display:flex;flex-direction:column;gap:4px;justify-content:flex-start}
+.week-label b{font-size:12px;letter-spacing:-0.01em}
+.week-label span{font-size:10px;color:var(--faint)}
+.day{background:var(--surface);min-height:340px;display:flex;flex-direction:column;transition:box-shadow .15s}
+.day:hover{box-shadow:inset 0 0 0 1px var(--line-strong)}
+.day.empty{background:#fcfbfa}
+.day.holiday{background:var(--surface-soft);display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:11px}
+.day-head{padding:8px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fcfaf8);cursor:pointer}
+.day-head:hover{background:#fff}
+.day-head .d{font-size:12px;font-weight:650}
+.day-head .m{font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--surface-soft);border:1px solid var(--line)}
+.day-head .m.m5{background:var(--accent);color:#fff;border-color:var(--accent)} .day-head .m.m4{background:var(--amber-soft);color:var(--amber);border-color:#f0d9a8} .day-head .m.m3{background:#f6f0d5;color:#8a6d0a;border-color:#e9d9a3}
+.day-market{padding:5px 10px;font-size:10px;color:var(--muted);display:flex;gap:8px;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.day-ladder{padding:5px 10px;display:flex;gap:4px;flex-wrap:wrap}
+.lchip{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--surface-soft);border:1px solid var(--line);color:var(--muted)}
+.lchip.h5{background:var(--accent-soft);color:var(--accent);border-color:#e8c2b3}
+.day-stocks{flex:1;display:flex;flex-direction:column}
+.srow{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid #f0ece6;font-size:11px;gap:6px;cursor:pointer}
+.srow:last-child{border-bottom:0}
+.srow:hover{background:var(--surface-soft)}
+.srow.fenqi{border-left:3px solid var(--amber)} .srow.yizhi{border-left:3px solid var(--blue)} .srow.high{border-left:3px solid var(--accent)}
+.srow .left{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+.srow .name{font-weight:700;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .boards{font-weight:800;font-size:10px;padding:2px 6px;border-radius:6px;background:var(--surface-soft);border:1px solid var(--line);flex-shrink:0}
+.srow .boards.b5{background:var(--accent);color:#fff;border-color:var(--accent)} .srow .boards.b4{background:var(--amber-soft);color:var(--amber);border-color:#f0d9a8} .srow .boards.b3{background:#f6f0d5;color:#7a5e08;border-color:#e9d9a3}
+.srow .right{display:flex;gap:4px;align-items:center;flex-shrink:0}
+.badge{font-size:10px;padding:2px 6px;border-radius:5px;white-space:nowrap;font-weight:650;letter-spacing:0.01em}
+.badge.fq{background:var(--amber-soft);color:var(--amber);border:1px solid #f0d9a8} .badge.yz{background:var(--blue-soft);color:var(--blue);border:1px solid #c9d8e6}
+.badge.tag{background:var(--surface-soft);color:var(--muted);border:1px solid var(--line);font-weight:500;max-width:72px;overflow:hidden;text-overflow:ellipsis}
+.badge.miao{background:var(--red-soft);color:var(--red);border:1px solid #e9c0be} .badge.yizi{background:var(--accent-soft);color:var(--accent);border:1px solid #e8c2b3}
+.high-section{border-top:1px solid var(--line);background:#fdfcfa}
+.high-title{font-size:10px;padding:4px 10px;background:var(--surface-soft);color:var(--faint);font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;border-bottom:1px solid #f0ece6}
+.srow.break-row{background:var(--red-soft);border-left:3px solid var(--red);color:var(--ink)}
+.srow.next-row{background:var(--blue-soft);border-left:3px solid var(--blue);color:var(--ink)}
+.day-foot{padding:6px 10px;font-size:10px;color:var(--faint);text-align:center;border-top:1px solid #f0ece6;cursor:pointer}
+.day-foot:hover{color:var(--ink);background:var(--surface-soft)}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(37,36,33,0.28);backdrop-filter:blur(10px);display:none;z-index:60;overflow:auto;padding:24px}
+.modal.show{display:block}
+.modal-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;max-width:1320px;margin:20px auto;overflow:hidden;box-shadow:var(--shadow)}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:var(--surface-soft);position:sticky;top:0;z-index:2}
+.modal-head h2{font-size:14px;letter-spacing:-0.01em}
+.table-wrap{overflow:auto;max-height:72vh}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{position:sticky;top:0;background:#f7f5f2;padding:10px 12px;text-align:left;font-size:11px;color:var(--faint);border-bottom:1px solid var(--line);white-space:nowrap;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+td{padding:8px 12px;border-bottom:1px solid #f0ece6;vertical-align:top}
+tr{cursor:pointer} tr:hover td{background:#fdfaf6}
+.badge2{font-size:11px;padding:3px 8px;border-radius:6px;display:inline-block;margin:1px 2px 1px 0;font-weight:650}
+.badge2.fq{background:var(--amber-soft);color:var(--amber);border:1px solid #f0d9a8} .badge2.yz{background:var(--blue-soft);color:var(--blue);border:1px solid #c9d8e6} .badge2.tag{background:var(--surface-soft);color:var(--muted);border:1px solid var(--line)} .badge2.break{background:var(--red-soft);color:var(--red);border:1px solid #e9c0be} .badge2.next{background:var(--blue-soft);color:var(--blue);border:1px solid #c9d8e6}
+
+/* kline */
+#kModal .modal-card{max-width:1120px}
+.k-top{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;background:linear-gradient(180deg,#fff,#fdfaf6)}
+.k-chart-wrap{padding:14px 18px;background:#fcfbfa}
+.k-canvas{width:100%;height:380px;display:block;background:#ffffff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-sm)}
+.k-info{padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:12px;background:var(--surface-soft);border-top:1px solid var(--line)}
+.k-table{width:100%;border-collapse:collapse;font-size:11px} .k-table th{position:static;background:#f7f5f2;padding:6px 8px} .k-table td{padding:5px 8px}
+.positive{color:var(--red)} .negative{color:var(--green)}
+@media(max-width:1200px){.week-header,.week-row{grid-template-columns:62px repeat(5,1fr)} .srow .name{max-width:58px} .main{padding:14px 14px 60px} .header{padding:14px 16px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span class="dot"></span>连板周历 <em>8792同款 · 周一到周五</em></h1>
+  <div class="sub">每行一周，周一到周五 · 一股一行，必显示 <span style="background:var(--blue-soft);color:var(--blue);padding:1px 6px;border-radius:4px;border:1px solid #c9d8e6">一致</span> / <span style="background:var(--amber-soft);color:var(--amber);padding:1px 6px;border-radius:4px;border:1px solid #f0d9a8">分歧</span> · 5板+断板写在次日格子，次日表现写在次次日格子 · 点击股票看K线 · 风格与 8792 工作台统一</div>
+  <div class="controls">
+    <select id="monthSel"></select>
+    <select id="boardSel"><option value="1">≥1板</option><option value="2">≥2板</option><option value="3" selected>≥3板重点</option><option value="4">≥4板</option><option value="5">≥5板高标</option></select>
+    <select id="fenqiSel"><option value="all">分歧一致全部</option><option value="fenqi">只看分歧</option><option value="yizhi">只看一致</option></select>
+    <button id="btnCal" class="active">周历</button>
+    <button id="btnList">列表</button>
+  </div>
+</div>
+<div class="main" id="main"></div>
+
+<div class="modal" id="dayModal"><div class="modal-card"><div class="modal-head"><h2 id="dayTitle"></h2><button onclick="closeDay()" style="width:30px;height:30px;border-radius:8px;background:var(--surface);border:1px solid var(--line);cursor:pointer">✕</button></div><div id="dayBody"></div></div></div>
+<div class="modal" id="kModal"><div class="modal-card"><div class="modal-head"><h2 id="kTitle">K线</h2><button onclick="closeK()" style="width:30px;height:30px;border-radius:8px;background:var(--surface);border:1px solid var(--line);cursor:pointer">✕</button></div><div class="k-top" id="kTop"></div><div class="k-chart-wrap"><canvas id="kCanvas" class="k-canvas"></canvas></div><div class="k-info" id="kInfo"></div></div></div>
+
+<script>
+let RAW=[]; let curMonth='all'; let minB=3; let fqFilter='all'; let view='cal';
+let breakMap={}, nextMap={};
+async function load(){
+  try{ const r=await fetch('./data.json'); if(r.ok) RAW=await r.json(); }catch{}
+  if(!RAW.length){ try{ const r=await fetch('./limitup_calendar_v4.json'); if(r.ok) RAW=await r.json(); }catch{} }
+  buildHighMaps(); init();
+}
+function buildHighMaps(){
+  breakMap={}; nextMap={};
+  RAW.forEach(d=>{
+    d.details.forEach(s=>{
+      if(s.boards>=5){
+        if(s.break_day && s.break_day.trade_date){
+          const bd=s.break_day.trade_date; if(!breakMap[bd]) breakMap[bd]=[];
+          breakMap[bd].push({name:s.name, ts_code:s.ts_code, boards:s.boards, originDate:d.trade_date, break_day:s.break_day, theme:s.theme, tags:s.tags, is_fenqi:s.is_fenqi});
+        }
+        if(s.next_day && s.next_day.trade_date){
+          const nd=s.next_day.trade_date; if(!nextMap[nd]) nextMap[nd]=[];
+          nextMap[nd].push({name:s.name, ts_code:s.ts_code, boards:s.boards, originDate:d.trade_date, break_day:s.break_day, next_day:s.next_day, theme:s.theme});
+        }
+      }
+    });
+  });
+}
+function init(){
+  RAW.sort((a,b)=>a.trade_date.localeCompare(b.trade_date));
+  const months=[...new Set(RAW.map(d=>d.trade_date.slice(0,7)))].sort().reverse();
+  const sel=document.getElementById('monthSel');
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('')+'<option value="all">全部 60天</option>';
+  curMonth=months[0]; sel.value=curMonth;
+  sel.onchange=e=>{curMonth=e.target.value;render();};
+  document.getElementById('boardSel').onchange=e=>{minB=parseInt(e.target.value);render();};
+  document.getElementById('fenqiSel').onchange=e=>{fqFilter=e.target.value;render();};
+  document.getElementById('btnCal').onclick=()=>{view='cal';updBtn();render();};
+  document.getElementById('btnList').onclick=()=>{view='list';updBtn();render();};
+  render();
+}
+function updBtn(){ document.getElementById('btnCal').classList.toggle('active',view==='cal'); document.getElementById('btnList').classList.toggle('active',view==='list'); }
+function filterStocks(details){ return details.filter(s=>{ if(s.boards<minB) return false; if(fqFilter==='fenqi' && !s.is_fenqi) return false; if(fqFilter==='yizhi' && s.is_fenqi) return false; return true; }).sort((a,b)=> b.boards-a.boards || a.name.localeCompare(b.name)); }
+function parseDate(str){ const [y,m,d]=str.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtDate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function fmtMD(str){ return str.slice(5); }
+
+function render(){
+  const filtered = RAW.filter(d=> curMonth==='all' || d.trade_date.startsWith(curMonth));
+  if(view==='list'){ renderList(filtered); return; }
+  renderWeekly(filtered);
+}
+function renderWeekly(data){
+  const dateMap={}; data.forEach(d=>dateMap[d.trade_date]=d);
+  const allDates=data.map(d=>d.trade_date).sort();
+  if(!allDates.length){ document.getElementById('main').innerHTML='<div style="padding:24px;color:var(--muted)">无数据</div>'; return; }
+  const minD=parseDate(allDates[0]); const maxD=parseDate(allDates[allDates.length-1]);
+  const start=new Date(minD); const dow=start.getDay(); const diff=(dow===0?6:dow-1); start.setDate(start.getDate()-diff);
+  const end=new Date(maxD); const dow2=end.getDay(); end.setDate(end.getDate()+ (5-dow2));
+  let weeks=[]; let cur=new Date(start);
+  while(cur<=end){ const weekDays=[]; for(let i=0;i<5;i++){ const d=new Date(cur); d.setDate(cur.getDate()+i); const ds=fmtDate(d); weekDays.push({dateStr:ds, dateObj:new Date(d), data:dateMap[ds]||null}); } weeks.push({weekStart:fmtDate(cur), days:weekDays}); cur.setDate(cur.getDate()+7); }
+  weeks=weeks.reverse();
+  let html=''; let lastMonth='';
+  html+=`<div class="week-header"><div>周</div><div>周一</div><div>周二</div><div>周三</div><div>周四</div><div>周五</div></div>`;
+  weeks.forEach(w=>{
+    const month=w.days[2].dateStr.slice(0,7);
+    if(month!==lastMonth){
+      html+=`<div class="month-head"><span class="eyebrow">${month}</span><span class="m">${month}</span><div class="line"></div><div class="legend"><span><i style="background:var(--blue-soft);border-color:#c9d8e6"></i>一致</span><span><i style="background:var(--amber-soft);border-color:#f0d9a8"></i>分歧</span><span><i style="background:var(--red-soft);border-color:#e9c0be"></i>昨日断板</span><span><i style="background:var(--blue-soft);border-color:#c9d8e6"></i>前日次日</span><span>· 点击股票看K线</span></div></div>`;
+      lastMonth=month;
+    }
+    html+=`<div class="week-row"><div class="week-label"><b>${fmtMD(w.weekStart)}周</b><span>${w.days[0].dateStr.slice(5)}~${w.days[4].dateStr.slice(5)}</span></div>`;
+    w.days.forEach(day=>{
+      const ds=day.dateStr; const d=day.data;
+      if(!d){
+        const hasBreak=breakMap[ds]||[]; const hasNext=nextMap[ds]||[];
+        if(hasBreak.length||hasNext.length){
+          html+=`<div class="day"><div class="day-head"><span class="d">${fmtMD(ds)} 休市</span></div><div class="day-stocks">`;
+          hasBreak.forEach(h=>{ html+=`<div class="srow break-row" onclick="event.stopPropagation();openKline('${h.originDate}','${h.ts_code}')"><div class="left"><span class="name">${h.name}</span><span class="boards b5">${h.boards}→断</span></div><div class="right"><span class="badge tag">${h.break_day.status} ${h.break_day.pct_chg!=null?h.break_day.pct_chg+'%':''}</span></div></div>`; });
+          hasNext.forEach(h=>{ html+=`<div class="srow next-row" onclick="event.stopPropagation();openKline('${h.originDate}','${h.ts_code}')"><div class="left"><span class="name">${h.name}</span><span class="boards b5">${h.boards}→次日</span></div><div class="right"><span class="badge tag">${h.next_day.status} ${h.next_day.pct_chg!=null?h.next_day.pct_chg+'%':''}</span></div></div>`; });
+          html+=`</div></div>`;
+        }else{
+          html+=`<div class="day empty"><div class="day-head"><span class="d">${fmtMD(ds)} 休市</span></div><div style="padding:24px;text-align:center;color:var(--faint);font-size:11px">休市</div></div>`;
+        }
+        return;
+      }
+      const list=filterStocks(d.details);
+      const maxCls=d.max_boards>=5?'m5':d.max_boards>=4?'m4':d.max_boards>=3?'m3':'';
+      const ladder=Object.entries(d.ladder).filter(([b])=>parseInt(b)>=minB).sort((a,b)=>parseInt(b[0])-parseInt(a[0])).map(([b,c])=>`<span class="lchip ${parseInt(b)>=5?'h5':''}">${b}×${c}</span>`).join('');
+      html+=`<div class="day"><div class="day-head" onclick="openDay('${d.trade_date}')"><span class="d">${fmtMD(d.trade_date)} 周${'日一二三四五六'[new Date(d.trade_date).getDay()]}</span><span class="m ${maxCls}">${d.max_boards}板</span></div><div class="day-market"><span>涨停${d.market.limit_up||'-'}</span><span>龙${d.leader.name||'-'}</span></div><div class="day-ladder">${ladder||''}</div><div class="day-stocks">`;
+      if(list.length===0){ html+=`<div style="padding:12px;text-align:center;color:var(--faint);font-size:10px">无${minB}板+</div>`; }
+      else{
+        list.slice(0,10).forEach(s=>{
+          const cls=s.is_fenqi?'fenqi':s.boards>=5?'high':'yizhi';
+          const fq=s.is_fenqi?`<span class="badge fq">分歧</span>`:`<span class="badge yz">一致</span>`;
+          const other=s.tags.filter(t=>t!=='分歧'&&t!=='一致')[0]||'';
+          const otherHtml=other?`<span class="badge ${other.includes('秒')?'miao':other.includes('一字')?'yizi':'tag'}">${other}</span>`:'';
+          html+=`<div class="srow ${cls}" onclick="event.stopPropagation();openKline('${d.trade_date}','${s.ts_code}')"><div class="left"><span class="name">${s.name}</span><span class="boards b${s.boards>=5?5:s.boards>=4?4:3}">${s.boards}板</span></div><div class="right">${fq}${otherHtml}</div></div>`;
+        });
+        if(list.length>10) html+=`<div class="day-foot" onclick="openDay('${d.trade_date}')">+${list.length-10}只 点击看全部</div>`;
+      }
+      const breaks=breakMap[d.trade_date]||[]; const nexts=nextMap[d.trade_date]||[];
+      if(breaks.length){
+        html+=`<div class="high-section"><div class="high-title"><span>昨日高标断板</span><span>${breaks.length}只</span></div>`;
+        breaks.forEach(h=>{ html+=`<div class="srow break-row" onclick="event.stopPropagation();openKline('${h.originDate}','${h.ts_code}')"><div class="left"><span class="name">${h.name}</span><span class="boards b5">${h.boards}→断</span></div><div class="right"><span class="badge tag">${h.break_day.status}</span><span class="badge tag">${h.break_day.pct_chg!=null?h.break_day.pct_chg+'%':''}</span></div></div>`; });
+        html+=`</div>`;
+      }
+      if(nexts.length){
+        html+=`<div class="high-section"><div class="high-title"><span>前日高标次日</span><span>${nexts.length}只</span></div>`;
+        nexts.forEach(h=>{ html+=`<div class="srow next-row" onclick="event.stopPropagation();openKline('${h.originDate}','${h.ts_code}')"><div class="left"><span class="name">${h.name}</span><span class="boards b5">${h.boards}→次日</span></div><div class="right"><span class="badge tag">${h.next_day.status}</span><span class="badge tag">${h.next_day.pct_chg!=null?h.next_day.pct_chg+'%':''}</span></div></div>`; });
+        html+=`</div>`;
+      }
+      html+=`</div></div>`;
+    });
+    html+=`</div>`;
+  });
+  document.getElementById('main').innerHTML=html;
+}
+function renderList(data){
+  let html=`<div style="display:flex;flex-direction:column;gap:14px">`;
+  data.slice().reverse().forEach(d=>{
+    const list=filterStocks(d.details); if(!list.length && !(breakMap[d.trade_date]||[]).length && !(nextMap[d.trade_date]||[]).length) return;
+    html+=`<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm)"><div style="padding:12px 16px;background:var(--surface-soft);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center"><b style="font-size:13px">${d.trade_date} 周${'日一二三四五六'[new Date(d.trade_date).getDay()]} · 最高${d.max_boards}板 · ${list.length}只≥${minB}板</b><button onclick="openDay('${d.trade_date}')" style="background:var(--surface);border:1px solid var(--line);padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12px">详情</button></div>`;
+    if(list.length){ html+=`<div class="table-wrap" style="max-height:none"><table><thead><tr><th>股票</th><th>板数</th><th>分歧一致</th><th>标签</th><th>封板</th><th>操作</th></tr></thead><tbody>${list.map(s=>`<tr onclick="openKline('${d.trade_date}','${s.ts_code}')"><td><b>${s.name}</b> <span style="font-size:10px;color:var(--muted)">${s.theme||''}</span></td><td><span style="padding:3px 8px;border-radius:6px;background:${s.boards>=5?'var(--accent)':s.boards>=4?'var(--amber-soft)':'#f6f0d5'};color:${s.boards>=5?'#fff':s.boards>=4?'var(--amber)':'#7a5e08'};font-weight:800;border:1px solid ${s.boards>=5?'var(--accent)':s.boards>=4?'#f0d9a8':'#e9d9a3'}">${s.boards}板</span></td><td>${s.is_fenqi?'<span class=badge2 fq>分歧</span>':'<span class=badge2 yz>一致</span>'}</td><td>${s.tags.map(t=>`<span class=badge2 ${t==='分歧'?'fq':t==='一致'?'yz':'tag'}>${t}</span>`).join('')}</td><td>${s.limit_up_time||'-'}</td><td><span style="background:var(--surface-soft);border:1px solid var(--line);padding:3px 8px;border-radius:6px;font-size:11px">K线</span></td></tr>`).join('')}</tbody></table></div>`; }
+    const breaks=breakMap[d.trade_date]||[]; const nexts=nextMap[d.trade_date]||[];
+    if(breaks.length) html+=`<div style="padding:8px 14px;background:var(--red-soft);border-top:1px solid var(--line);font-size:11px"><b style="color:var(--red)">昨日高标断板 ${breaks.length}只：</b> ${breaks.map(h=>`${h.name}${h.boards}板 ${h.break_day.status} ${h.break_day.pct_chg||''}%`).join(' · ')}</div>`;
+    if(nexts.length) html+=`<div style="padding:8px 14px;background:var(--blue-soft);border-top:1px solid var(--line);font-size:11px"><b style="color:var(--blue)">前日高标次日 ${nexts.length}只：</b> ${nexts.map(h=>`${h.name}${h.boards}板 ${h.next_day.status} ${h.next_day.pct_chg||''}%`).join(' · ')}</div>`;
+    html+=`</div>`;
+  }); html+=`</div>`; document.getElementById('main').innerHTML=html;
+}
+function openDay(dateStr){
+  const d=RAW.find(x=>x.trade_date===dateStr); if(!d) return;
+  document.getElementById('dayTitle').textContent=`${d.trade_date} 最高${d.max_boards}板 · 连板${d.total_lianban}只 · 涨停${d.market.limit_up||'-'} · 龙头${d.leader.name||'-'} ${d.leader.height}板`;
+  const list=filterStocks(d.details);
+  let html=`<div class="table-wrap"><table><thead><tr><th>#</th><th>股票</th><th>板数</th><th>分歧一致</th><th>标签</th><th>封板</th><th>断板/次日</th></tr></thead><tbody>`;
+  list.forEach((s,i)=>{ html+=`<tr onclick="openKline('${d.trade_date}','${s.ts_code}')"><td>${i+1}</td><td><b>${s.name}</b><div style="font-size:10px;color:var(--muted)">${s.ts_code} ${s.theme||''}</div></td><td><span style="padding:4px 8px;border-radius:7px;background:${s.boards>=5?'var(--accent)':s.boards>=4?'var(--amber-soft)':'#f6f0d5'};color:${s.boards>=5?'#fff':s.boards>=4?'var(--amber)':'#7a5e08'};font-weight:800">${s.boards}板</span></td><td>${s.is_fenqi?'<span class=badge2 fq>分歧</span>':'<span class=badge2 yz>一致</span>'}</td><td>${s.tags.map(t=>`<span class=badge2 ${t==='分歧'?'fq':t==='一致'?'yz':'tag'}>${t}</span>`).join('')}</td><td>${s.limit_up_time||'-'}</td><td>${s.break_day?`<span class=badge2 break>${s.break_day.status} ${s.break_day.pct_chg||''}%</span>`:''} ${s.next_day?`<span class=badge2 next>${s.next_day.status} ${s.next_day.pct_chg||''}%</span>`:''}</td></tr>`; });
+  html+=`</tbody></table></div>`;
+  const breaks=breakMap[dateStr]||[]; const nexts=nextMap[dateStr]||[];
+  if(breaks.length||nexts.length){
+    html+=`<div style="padding:14px 16px;border-top:1px solid var(--line);display:grid;gap:10px;background:var(--surface-soft)">`;
+    if(breaks.length) html+=`<div><b style="color:var(--red)">昨日高标今日断板 ${breaks.length}只</b><div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${breaks.map(h=>`<span style="padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:12px;cursor:pointer" onclick="openKline('${h.originDate}','${h.ts_code}')">${h.name} ${h.boards}板 ${h.originDate}→${h.break_day.trade_date} ${h.break_day.status} ${h.break_day.pct_chg||''}%</span>`).join('')}</div></div>`;
+    if(nexts.length) html+=`<div><b style="color:var(--blue)">前日高标次日表现 ${nexts.length}只</b><div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${nexts.map(h=>`<span style="padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:12px;cursor:pointer" onclick="openKline('${h.originDate}','${h.ts_code}')">${h.name} ${h.boards}板 断板${h.break_day.trade_date} 次日${h.next_day.trade_date} ${h.next_day.status} ${h.next_day.pct_chg||''}%</span>`).join('')}</div></div>`;
+    html+=`</div>`;
+  }
+  document.getElementById('dayBody').innerHTML=html; document.getElementById('dayModal').classList.add('show');
+}
+function closeDay(){document.getElementById('dayModal').classList.remove('show');}
+document.getElementById('dayModal').onclick=e=>{if(e.target.id==='dayModal') closeDay();};
+function openKline(tradeDate, tsCode){
+  const day=RAW.find(d=>d.trade_date===tradeDate); if(!day) return; const stock=day.details.find(s=>s.ts_code===tsCode); if(!stock) return;
+  document.getElementById('kTitle').textContent=`${stock.name} ${stock.ts_code} · ${stock.boards}板 · ${tradeDate} K线`;
+  const fqText=stock.is_fenqi?`<span class=badge2 fq>分歧</span>`:`<span class=badge2 yz>一致</span>`;
+  const breakText=stock.break_day?`<span class=badge2 break>${stock.break_day.status}</span> ${stock.break_day.trade_date} ${stock.break_day.pct_chg!=null?stock.break_day.pct_chg+'%':''}`:'尚未断板';
+  const nextText=stock.next_day?`<span class=badge2 next>${stock.next_day.status}</span> ${stock.next_day.trade_date} ${stock.next_day.pct_chg!=null?stock.next_day.pct_chg+'%':''}`:'-';
+  document.getElementById('kTop').innerHTML=`<div><h2 style="font-size:15px;letter-spacing:-0.01em">${stock.name} <span style="font-size:11px;color:var(--muted);font-weight:500">${stock.ts_code} ${stock.theme||''}</span></h2><div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">${stock.tags.map(t=>`<span class=badge2 ${t==='分歧'?'fq':t==='一致'?'yz':t.includes('断板')?'break':t.includes('次日')?'next':'tag'}>${t}</span>`).join('')}</div></div><div style="font-size:11px;color:var(--muted)"><div>连板日 ${tradeDate} · ${stock.boards}板 · 封板${stock.limit_up_time||'-'} · ${fqText}</div><div style="margin-top:4px">断板: ${breakText} · 次日: ${nextText}</div></div>`;
+  document.getElementById('kInfo').innerHTML=`<div><table class=k-table><thead><tr><th>日期</th><th>开</th><th>高</th><th>低</th><th>收</th><th>涨%</th><th>额</th></tr></thead><tbody>${stock.kline.slice().reverse().slice(0,12).map(k=>`<tr style="${k.date===tradeDate?'background:var(--accent-soft)':''}"><td>${k.date}${k.date===tradeDate?' ←连板':''}${stock.break_day&&k.date===stock.break_day.trade_date?' ←断板':''}${stock.next_day&&k.date===stock.next_day.trade_date?' ←次日':''}</td><td>${k.open||'-'}</td><td>${k.high||'-'}</td><td>${k.low||'-'}</td><td>${k.close||'-'}</td><td class="${k.pct_chg!=null?(k.pct_chg>=0?'positive':'negative'):''}">${k.pct_chg!=null?k.pct_chg+'%':'-'}</td><td>${k.amount!=null?k.amount.toFixed(2):'-'}</td></tr>`).join('')}</tbody></table></div><div style="font-size:11px;color:var(--muted);line-height:1.7"><b style="color:var(--ink)">K线说明 · 8792同款浅色</b><br>红涨绿跌 · 虚线红=连板日 紫=断板日<br>下方柱=成交额 越高越分歧<br>一字板=开=高=低=收 秒板=09:30封<br>烂板=开板≥2 放量分歧=换手>15%<br><br><span class=badge2 yz>一致</span>适合接力 <span class=badge2 fq>分歧</span>观察承接</div>`;
+  document.getElementById('kModal').classList.add('show'); setTimeout(()=>drawKline(document.getElementById('kCanvas'), stock.kline, tradeDate, stock.break_day?stock.break_day.trade_date:null), 50);
+}
+function closeK(){document.getElementById('kModal').classList.remove('show');}
+document.getElementById('kModal').onclick=e=>{if(e.target.id==='kModal') closeK();};
+function drawKline(canvas, kline, highlightDate, breakDate){
+  if(!kline||!kline.length) return;
+  const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const W=rect.width||800; const H=380;
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const pad={l:48,r:12,t:16,b:22}; const priceH=H*0.68-pad.t; const volH=H*0.22; const volTop=priceH+pad.t+16;
+  let pMin=Infinity,pMax=-Infinity,vMax=0;
+  kline.forEach(k=>{ if(k.low!=null&&k.low<pMin) pMin=k.low; if(k.high!=null&&k.high>pMax) pMax=k.high; if(k.amount!=null&&k.amount>vMax) vMax=k.amount; });
+  if(!isFinite(pMin)) return;
+  const padPrice=(pMax-pMin)*0.12||pMin*0.05; pMin-=padPrice; pMax+=padPrice; const range=pMax-pMin||1;
+  const areaW=W-pad.l-pad.r; const cw=Math.max(3,Math.min(14,areaW/kline.length*0.6)); const gap=(areaW-cw*kline.length)/(kline.length+1);
+  ctx.strokeStyle='#dfdcd6'; for(let i=0;i<4;i++){ const y=pad.t+priceH*i/3; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke(); }
+  ctx.fillStyle='#948f88'; ctx.font='10px monospace'; ctx.textAlign='right';
+  for(let i=0;i<4;i++){ const price=pMax-range*i/3; const y=pad.t+priceH*i/3; ctx.fillText(price.toFixed(2),pad.l-6,y+3); }
+  kline.forEach((k,idx)=>{
+    if(k.open==null||k.close==null||k.high==null||k.low==null) return;
+    const x=pad.l+gap+idx*(cw+gap)+cw/2;
+    const yH=pad.t+(pMax-k.high)/range*priceH; const yL=pad.t+(pMax-k.low)/range*priceH;
+    const yO=pad.t+(pMax-k.open)/range*priceH; const yC=pad.t+(pMax-k.close)/range*priceH;
+    const up=k.close>=k.open;
+    ctx.strokeStyle=up?'#a9342f':'#4d7a5f'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yH); ctx.lineTo(x,yL); ctx.stroke();
+    const top=Math.min(yO,yC); const h=Math.max(2,Math.abs(yO-yC));
+    if(up){ ctx.fillStyle='#c65f3e'; ctx.fillRect(x-cw/2,top,cw,h); }
+    else{ ctx.strokeStyle='#4d7a5f'; ctx.strokeRect(x-cw/2,top,cw,h); }
+    if(k.amount!=null){ const vh=(k.amount/vMax)*volH*0.9; const vy=volTop+volH-vh; ctx.fillStyle=up?'rgba(198,95,62,0.55)':'rgba(77,122,95,0.5)'; ctx.fillRect(x-cw/2,vy,cw,vh); }
+    if(idx%5===0||k.date===highlightDate||k.date===breakDate){ ctx.fillStyle='#948f88'; ctx.font='9px monospace'; ctx.textAlign='center'; ctx.fillText(k.date.slice(5),x,H-2); }
+    if(k.date===highlightDate){ ctx.strokeStyle='#c65f3e'; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,volTop+volH); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#c65f3e'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText('连板',x,pad.t-2); }
+    if(k.date===breakDate){ ctx.strokeStyle='#a9342f'; ctx.setLineDash([2,4]); ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,volTop+volH); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#a9342f'; ctx.textAlign='center'; ctx.fillText('断板',x,pad.t-2); }
+  });
+  ctx.fillStyle='#948f88'; ctx.textAlign='right'; ctx.fillText('额:'+vMax.toFixed(1),pad.l-6,volTop+10);
+}
+load();
+</script>
+</body>
+</html>

@@ -79,8 +79,9 @@ TABLE_MARKER_BEGIN = (
 TABLE_MARKER_END = "<!-- END GENERATED: skills-table -->"
 
 # 需要回填的文档表：(仓目录名, 仓短名, 文档相对路径, 章节标题)
+# 表住在 AGENTS.md（所有 agent 的唯一指令源）；CLAUDE.md 只 `@AGENTS.md` 导入，不再单独放表。
 DOC_TABLES = [
-    ("finance-workspace-private", "ws", "CLAUDE.md", "## Skills 目录"),
+    ("finance-workspace-private", "ws", "AGENTS.md", "## Skills 目录"),
 ]
 
 

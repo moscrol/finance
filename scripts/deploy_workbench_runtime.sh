@@ -45,12 +45,30 @@ fi
 SNAP="$(cd "$RUNTIME_LINK" 2>/dev/null && pwd -P)" || die "运行快照不可达：$RUNTIME_LINK"
 [[ -d "$SNAP/intelligence" ]] || die "快照缺 intelligence/：$SNAP"
 
+# ── 闸门A（2026-09-29 回植自 main 版）：快照不能是 git 工作树 ──
+# 事故回放：2026-09-29 00:01-00:04，runtime 软链一度指向 8e45 worktree
+# （PR #952 验收树），旧版脚本无此闸门，rsync -a --delete 把脏源 intelligence/
+# 整树盖了上去（763 files / -204,670 行）。git 树上跑 rsync --delete 会毁掉
+# 未提交工作并让 HEAD 与磁盘脱钩；部署 git 树请用 main 版脚本。
+if [[ -e "$SNAP/.git" ]]; then
+  die "快照 $SNAP 是 git 工作树/仓库（\$SNAP/.git 存在）。本脚本只允许写 standalone 快照目录；要部署 git 树请用 main 版脚本"
+fi
+
+# ── 闸门B（2026-09-29 回植）：脏源默认拒绝 ──
+# 旧版只 print 警告不阻断；当晚事故的源正是带着大量未提交改动的主工作区。
+# 要部署「工作树当前内容」，必须显式 WORKBENCH_ALLOW_DIRTY_SOURCE=1。
+if [[ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]] && \
+   [[ -z "${WORKBENCH_ALLOW_DIRTY_SOURCE:-}" ]]; then
+  die "源工作区有未提交改动（$REPO）。部署工作树当前内容需显式 WORKBENCH_ALLOW_DIRTY_SOURCE=1"
+fi
+
 print -- "仓库    : $REPO"
 print -- "快照    : $SNAP"
 print -- "服务    : $SERVICE"
 
-# 部署前先报告仓库是否干净。不阻断：本仓常有多个 agent 同树作业，未提交改动是
-# 常态而非异常。但要说出来——部署的是**工作树当前内容**，不是某个 commit。
+# 部署前先报告仓库是否干净。（2026-09-29 起默认阻断由上方闸门B 接管，本块
+# 仅在 WORKBENCH_ALLOW_DIRTY_SOURCE=1 放行后运行。）本仓常有多个 agent 同树
+# 作业，未提交改动是常态而非异常。但要说出来——部署的是**工作树当前内容**，不是某个 commit。
 if [[ -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]]; then
   print -- "revision: $(git -C "$REPO" rev-parse --short HEAD) ⚠️ 工作区有未提交改动（部署的是工作树当前内容）"
 else

@@ -58,6 +58,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from market_feature_store.sync.sync_theme_capital_from_baskets import FUND_CALIBERS
+
 from intelligence.services.methodology_backtest.stats import (
     benjamini_hochberg,
     binom_two_sided_p,
@@ -110,6 +112,8 @@ class CrossSectionRow:
     days_since_last_report: int | None
     # 资金
     fund_flow_1d: float | None
+    # 资金口径：fund_flow_1d 属于哪一套度量；mixed:* 表示当日该板块混源、值已置空
+    fund_caliber: str | None = None
     # 跨维错位：两个维度在当日横截面里的分位差，纯算术，不是阶段判词
     market_pctile: float | None = None
     opinion_pctile: float | None = None
@@ -171,17 +175,34 @@ def scan_cross_section(
         # 用 DECIMAL 求和而不是浮点：DuckDB 并行聚合的相加顺序不固定，
         # 浮点 SUM 会在最后几位飘（实测同一天两次调用差 2e-14），
         # 直接违反「同一 (T, entity) 两次调用结果相同」。DECIMAL 加法精确、与顺序无关。
-        flow = {
-            code: (None if total is None else float(total))
-            for code, total in con.execute(
-                """
-                SELECT sector_ts_code, SUM(CAST(fund_flow_1d AS DECIMAL(18,4)))
-                FROM fact_sector_stock_daily
-                WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) GROUP BY 1
-                """,
-                [as_of],
-            ).fetchall()
-        }
+        # 必须按 source 分组: 同一板块可能同时躺着两种口径的成分行（东财主力净额 /
+        # 复盘会自有），无差别 SUM 会得到一个不属于任何口径的数。点查已分开，
+        # 横扫也必须分开：否则同一事实从两个入口读出两个值。
+        _flow_rows = con.execute(
+            """
+            SELECT sector_ts_code, COALESCE(source, 'unknown') AS src,
+                   SUM(CAST(fund_flow_1d AS DECIMAL(18,4)))
+            FROM fact_sector_stock_daily
+            WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) GROUP BY 1, 2
+            """,
+            [as_of],
+        ).fetchall()
+        _by_code: dict[str, list[tuple[str, Any]]] = {}
+        for _code, _src, _total in _flow_rows:
+            _by_code.setdefault(_code, []).append((_src, _total))
+        flow: dict[str, float | None] = {}
+        flow_caliber: dict[str, str] = {}
+        for _code, items in _by_code.items():
+            if len(items) == 1:
+                _src, _total = items[0]
+                flow[_code] = None if _total is None else float(_total)
+                flow_caliber[_code] = FUND_CALIBERS.get(_src, f"unknown:{_src}")
+            else:
+                # 混口径: 给缺值 + 标记, 不编一个看着合理的和
+                flow[_code] = None
+                flow_caliber[_code] = "mixed:" + "|".join(
+                    sorted(FUND_CALIBERS.get(s, f"unknown:{s}") for s, _ in items)
+                )
         reports = load_reports_asof(con, as_of)  # 一次取回，逐板块精确比对标签
         rows: list[CrossSectionRow] = []
         for code, name, pct, diff, amt in sectors:
@@ -204,6 +225,7 @@ def scan_cross_section(
                     coverage_cumulative=cov["cumulative_count"] if cov else 0,
                     days_since_last_report=cov["days_since_last"] if cov else None,
                     fund_flow_1d=flow.get(code),
+                    fund_caliber=flow_caliber.get(code),
                 )
             )
     finally:

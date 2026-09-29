@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-03T07:29:20Z",
+  "generated_at": "2026-09-08T11:23:00Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 38
+      "skills": 35
     },
     {
       "name": "knowledge-base-private",
@@ -144,11 +144,17 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/daily-full-review/SKILL.md",
-      "description": "仅用于单日全量复盘。触发：全量复盘、今日全量复盘、跑全量复盘、daily full review。按已验证模块顺序同步当日 market_feature_store 并生成日报/题材/HTML。只补单表、只补历史缺口、只跑某个 sync 子命令不要用（历史缺口用 duckdb-backfill）。",
-      "triggers": [],
-      "note": "",
+      "description": "单日全量复盘编排：按已验证模块顺序同步当日 market_feature_store（逐模块超时 + 兜底 + runlog），再跑生成段出日报 / 题材 / HTML / 矩阵。触发词：全量复盘、今日全量复盘、跑全量复盘、补完复盘、daily full review。注意：只补单表、只补历史缺口、只跑某个 sync 子命令不要用本 skill，历史缺口用 duckdb-backfill。",
+      "triggers": [
+        "全量复盘",
+        "今日全量复盘",
+        "跑全量复盘",
+        "补完复盘",
+        "daily full review"
+      ],
+      "note": "只补单表、只补历史缺口、只跑某个 sync 子命令不要用本 skill，历史缺口用 duckdb-backfill。",
       "entrypoint": null,
-      "computedHash": "sha256:36f64b01ae853fb2b02a272526bca81509507835a824dd38232de3f0b86e6aec",
+      "computedHash": "sha256:cfe4160435750a4e39230213804d5aa149c53b4dc97a48ddff0ca16fd1222dac",
       "agentOnly": false,
       "views": []
     },
@@ -178,14 +184,17 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/dispatcher/SKILL.md",
-      "description": "金融 Agent 顶层路由器——每个新 session 的第一步。接收用户输入，自动扫描 skills/ 目录下所有 SKILL.md 的触发词，匹配最佳 skill 并加载其流程。解决\"skill 明明存在但 agent 没用\"的问题。触发词：所有请求默认经过本 dispatcher；不需要显式触发。",
+      "description": "技能路由器：把一句自然语言请求按触发词匹配到 skills/ 下的 SKILL.md，并附带 intelligence.cli prime 的检索前缀（校准 + 个人库 + 图谱）。当请求像某个技能的活但拿不准是哪一个、想确认某能力是否已有技能、或要给金融问答加 grounding 前缀时用。触发词：路由、哪个 skill、有没有 skill、dispatcher、route。注意：请求已明确对应某技能时直接用该技能；单表查询、单股行情不必经它。",
       "triggers": [
-        "所有请求默认经过本 dispatcher",
-        "不需要显式触发"
+        "路由",
+        "哪个 skill",
+        "有没有 skill",
+        "dispatcher",
+        "route"
       ],
-      "note": "",
+      "note": "请求已明确对应某技能时直接用该技能；单表查询、单股行情不必经它。",
       "entrypoint": null,
-      "computedHash": "sha256:9d033dbb596b9c51a342a3d341f2b3b1c8776ca814a9dd3f059e2a12925ac512",
+      "computedHash": "sha256:b0d6334de28a9969716fb82fbf78214c394cfcacc088db8b0c59498278fcd770",
       "agentOnly": false,
       "views": []
     },
@@ -220,11 +229,18 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/duckdb-backfill/SKILL.md",
-      "description": "DuckDB market_feature_store 回补。用户说「回补 duckdb」「全量回补」「补缺口」「修 fact_* 覆盖」或 sync 挂起需短命令重试时用。按覆盖审计与超时兜底跑。不改策略、不改 vault。",
-      "triggers": [],
-      "note": "",
+      "description": "DuckDB market_feature_store 历史缺口回补：先覆盖审计再按模块短命令补数，带超时兜底；不改策略、不改 vault。触发词：回补 duckdb、全量回补、补缺口、修 fact 覆盖、增量补数据、duckdb backfill。注意：当日全量复盘走 daily-full-review；sync 挂起需短命令重试时也用本 skill。",
+      "triggers": [
+        "回补 duckdb",
+        "全量回补",
+        "补缺口",
+        "修 fact 覆盖",
+        "增量补数据",
+        "duckdb backfill"
+      ],
+      "note": "当日全量复盘走 daily-full-review；sync 挂起需短命令重试时也用本 skill。",
       "entrypoint": null,
-      "computedHash": "sha256:c945164a21711481a096d4d4954fde4ee50643f711af45c014fb3ad5aa33b7b6",
+      "computedHash": "sha256:c2dc603d304d4f30afa13cdc1ce285d2e8bdd76d1ad4632c3987d50c7586efac",
       "agentOnly": false,
       "views": []
     },
@@ -233,11 +249,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/finance-degraded-fallback/SKILL.md",
-      "description": "降级回答章法与输出兜底，由 ASK_DEGRADED_FALLBACK 确定性注入与确定性渲染，蒸馏自 knevo 拒答降级纪律（q13 七项、E-004 诚实降级、缺数三档）。不是可路由工作流，不要手工调用。无触发词。",
+      "description": "降级回答章法与输出兜底，由 intelligence/services/degraded_fallback.py 在 ASK_DEGRADED_FALLBACK 开启时确定性注入与渲染，蒸馏自 knevo 拒答降级纪律（q13 七项、E-004 诚实降级、缺数三档）；不是可路由工作流，不进技能列表，无触发词。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d116cedd3d2c343d4ca4d389a940434f9cdac9d675bc9df447d380f43bf47b85",
+      "computedHash": "sha256:b53692ff251e028ffd343867ddede2d177ee7047b5d5447e212559b1bc692484",
       "agentOnly": false,
       "views": []
     },
@@ -246,11 +262,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/finance-longtail-baseline/SKILL.md",
-      "description": "运行时兜底回答骨架，由 ASK_LONGTAIL_BASELINE 确定性注入，不是可路由工作流。不要手工调用。无触发词。",
+      "description": "运行时兜底回答骨架，由 intelligence/services/longtail_baseline.py 在 ASK_LONGTAIL_BASELINE 开启时确定性注入生成提示；不是可路由工作流，不进技能列表，无触发词。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:b7c07982f0b0ded6d705c17cd929191f33c9022fa5e877cedeeedbf6ac5bc1ff",
+      "computedHash": "sha256:185ef7d4bd2f88fbcb6a1da794d7f0389a8a821e53519c9fb7c2668e028d8558",
       "agentOnly": false,
       "views": []
     },
@@ -292,7 +308,7 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/handoff/SKILL.md",
-      "description": "会话收尾时把当前分支在途状态回写成交接文档（docs/handoffs/inflight/<分支>.md），做过非显然决定时再加一份不限长的日期快照记背景/被否方案/理由。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。你说\"handoff\"就执行本流程，不用等会话结束。",
+      "description": "会话收尾时把当前分支的在途状态回写成交接文档 docs/handoffs/inflight/<分支>.md（≤3K 字节，SessionStart 自动注入给下一个 agent），做过非显然决定时另写一份不限长的日期快照记背景 / 被否方案 / 理由。触发词：handoff、交接、写交接、回写 handoff、收尾交接、交给下一个 agent、另一个 agent 接手。注意：用户说 handoff 就立即执行，不用等会话结束。",
       "triggers": [
         "handoff",
         "交接",
@@ -300,12 +316,11 @@
         "回写 handoff",
         "收尾交接",
         "交给下一个 agent",
-        "另一个 agent 接手。你说\"handoff\"就执行本流程",
-        "不用等会话结束"
+        "另一个 agent 接手"
       ],
-      "note": "",
+      "note": "用户说 handoff 就立即执行，不用等会话结束。",
       "entrypoint": null,
-      "computedHash": "sha256:359aeb8b0db78887c7985f60471d4ba5bc7444c9efc69d86c5335c4decbcc3aa",
+      "computedHash": "sha256:d258c5abd0b492a8617ec9b76f9f801f093a61b7f84c1e64249858b57bf45051",
       "agentOnly": false,
       "views": [
         {
@@ -381,11 +396,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/ifind/SKILL.md",
-      "description": "iFinD（同花顺）MCP API 共享工具库。此 skill 不可独立触发，仅供其他 skill 调用。",
+      "description": "iFinD（同花顺）MCP API 共享工具库，供 top-gainers、watchlist-ma 等 skill 的脚本导入调用；不是可独立触发的技能，不进技能列表。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d90d97867512ee00b39b57ef2d9e8e26d8af0b8567ff249ff8e818ff91615a14",
+      "computedHash": "sha256:a5b42246b4c5550109ef11156462883071e8189f387366394dad8f9a0aed2f10",
       "agentOnly": false,
       "views": [
         {
@@ -399,7 +414,7 @@
       "name": "l2-moneyflow",
       "repo": "finance-workspace-private",
       "sourceType": "local",
-      "skillPath": ".claude/skills/l2-moneyflow/SKILL.md",
+      "skillPath": "skills/l2-moneyflow/SKILL.md",
       "description": "Level2 大单资金流分析（ClickHouse 逐笔成交 → 榜单/个股图 → DuckDB 特征表）。触发词：大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow。注意：问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "triggers": [
         "大单资金流",
@@ -415,21 +430,30 @@
       "note": "问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "entrypoint": null,
       "computedHash": "sha256:1f811a2e00a939c4f010265d1cdde4c25b64f41750847578b8c0098451e78bda",
-      "agentOnly": true,
-      "views": []
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/l2-moneyflow",
+          "type": "symlink",
+          "target": "../../skills/l2-moneyflow"
+        }
+      ]
     },
     "ws/limit-advance": {
       "name": "limit-advance",
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/limit-advance/SKILL.md",
-      "description": "连板晋级数据抓取与飞书入库。触发词：晋级。",
+      "description": "连板晋级数据抓取（fupanhui 连板梯队）并串行写入飞书 Bitable。触发词：晋级、连板晋级、连板、晋级率。注意：只看涨停热度或题材层面的连板统计走 market-overview。",
       "triggers": [
-        "晋级"
+        "晋级",
+        "连板晋级",
+        "连板",
+        "晋级率"
       ],
-      "note": "",
+      "note": "只看涨停热度或题材层面的连板统计走 market-overview。",
       "entrypoint": null,
-      "computedHash": "sha256:4b1445aadc7458c89e7ffb65bb151c770cb4a61fe17961c3b5ec3e48486b641b",
+      "computedHash": "sha256:2d1982a2e7506c893e5bfe932b02dfe88b52cea03deed811e1cfc75a8a45d36e",
       "agentOnly": false,
       "views": [
         {
@@ -497,7 +521,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:5f2fd1a4c86095e9f7b9d05096951bc3084903ac9bd852e6b0d0233ac570ac46",
+      "computedHash": "sha256:6bff08b3fb65fa673e0605166348c5b0e7a5ba0a3d2d6382ad9014e147b8fc72",
       "agentOnly": false,
       "views": [
         {
@@ -566,11 +590,15 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/sector-data/SKILL.md",
-      "description": "抓取 fupanhui.com 227个板块数据，写入飞书多维表格和电子表格，验证后筛选成交额>500、涨幅>0、边际量>10%的板块，输出条件格式公式。触发：边际量、/sector-data、板块数据、抓取板块",
-      "triggers": [],
-      "note": "",
+      "description": "旧链路：抓取 fupanhui.com 板块数据写入飞书 Bitable sector_daily 与电子表格边际量列，再筛选成交额>500、涨幅>0、边际量>10% 的板块并输出条件格式公式。仅在用户明确要求写飞书表 / 电子表格时使用；DuckDB 的板块边际量走 daily-full（sync_fupanhui_sector_daily），查询与复盘用 fact_sector_daily。触发词：写飞书板块表、板块边际量写电子表格、sector-data。注意：看边际量、双红筛选走 market-overview 或直接查 fact_sector_daily。",
+      "triggers": [
+        "写飞书板块表",
+        "板块边际量写电子表格",
+        "sector-data"
+      ],
+      "note": "看边际量、双红筛选走 market-overview 或直接查 fact_sector_daily。",
       "entrypoint": null,
-      "computedHash": "sha256:853d1b5875592223ef5ac817a164c0e2566020d9049e1a7487ee08fa2c8dac46",
+      "computedHash": "sha256:1dd97017db46266d45b98fec4e7f46023ea1f1b2574d0e299e09d864179d0494",
       "agentOnly": false,
       "views": []
     },
@@ -855,86 +883,6 @@
           "path": ".claude/skills/watchlist-ma",
           "type": "symlink",
           "target": "../../skills/watchlist-ma"
-        }
-      ]
-    },
-    "ws/公司画像页": {
-      "name": "公司画像页",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/公司画像页/SKILL.md",
-      "description": "投行风格公司画像页（PPT/Slide）。触发词：公司画像、画像页、strip profile、pitch book页面、公司概况幻灯片。",
-      "triggers": [
-        "公司画像",
-        "画像页",
-        "strip profile",
-        "pitch book页面",
-        "公司概况幻灯片"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:0ba354066209344d61bd9841534efc5df0a73a186e0fc1a78079dcbc5deb5ad5",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/公司画像页",
-          "type": "symlink",
-          "target": "../../skills/公司画像页"
-        }
-      ]
-    },
-    "ws/潜意识模式": {
-      "name": "潜意识模式",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/潜意识模式/SKILL.md",
-      "description": "可开关的会话级记忆巩固模式——开启后由 foresight 主动发问、你多轮追问，退出时把整段对话「回读」成结构化信号，先给 diff 等你确认，确认后双层落盘（机器层 interactions.jsonl 喂亲和度 + 人类层 Obsidian 沉淀 vault 日志，你读/改/看演化）。触发词：开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关。",
-      "triggers": [
-        "开启潜意识模式",
-        "潜意识模式",
-        "进入潜意识",
-        "退出潜意识",
-        "收工",
-        "回读对话",
-        "巩固记忆",
-        "沉淀这轮",
-        "记进沉淀",
-        "潜意识开关"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:14e075eec32027b7b0ab6d1a7641ad2cb9cfc39784cbf47baceabb59749d3640",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/潜意识模式",
-          "type": "symlink",
-          "target": "../../skills/潜意识模式"
-        }
-      ]
-    },
-    "ws/行业概览": {
-      "name": "行业概览",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/行业概览/SKILL.md",
-      "description": "行业/板块全景报告。触发词：行业概览、板块全景、行业全景、行业覆盖、sector overview。",
-      "triggers": [
-        "行业概览",
-        "板块全景",
-        "行业全景",
-        "行业覆盖",
-        "sector overview"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:376cbbc99b11ecb52ed4eccc7944543197c6988989eb92b1f449b1938d6c8276",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/行业概览",
-          "type": "symlink",
-          "target": "../../skills/行业概览"
         }
       ]
     },

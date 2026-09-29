@@ -37,6 +37,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+# 口径映射单一来源，避免两处定义漂移。
+from market_feature_store.sync.sync_theme_capital_from_baskets import FUND_CALIBERS
+
 DEFAULT_DB = "db/market_feature_store.duckdb"
 
 # 六个维度 = 终局 §3 + §13.2 F9 钦定的六条轨。**不要私自增删或改名**：
@@ -234,6 +237,15 @@ def _has_table(con: Any, table: str) -> bool:
         [table],
     ).fetchall()
     return bool(rows)
+
+
+def _existing_columns(con: Any, table: str, wanted: tuple[str, ...]) -> list[str]:
+    """返回 wanted 中该表真实拥有的列（保序）。用于新增列尚未迁移的存量库降级。"""
+    try:
+        have = {r[1] for r in con.execute(f"PRAGMA table_info('{table}')").fetchall()}
+    except Exception:  # noqa: BLE001 — 表不存在等于没有这些列
+        return []
+    return [c for c in wanted if c in have]
 
 
 def _rows(con: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
@@ -586,30 +598,42 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
     # 聚合对象的记录时刻取 ``MAX``：整份聚合要等最后一条成分股落地才算可知。
     # 逐行先按「两来源取较早」解析、再对解析后的值取 MAX——反过来（先 MAX 再取较早）
     # 会把某一行的早时刻安到整份聚合上，等于宣称聚合比它的成分先存在。
+    # 按成分行的 source 分组求和：同一板块里可能同时躺着复盘会值和东财值，直接
+    # SUM 会把两种口径加成一个数（东财 3 + 复盘会 -1 = 2，看着合理却无意义）。
+    # 分组后每种口径各出一个对象，并在 payload 里写明 fund_caliber。
     agg = _rows(
         con,
         f"""
-        SELECT COUNT(*) AS n_stocks,
+        SELECT v.source AS member_source,
+               COUNT(*) AS n_stocks,
                SUM(v.fund_flow_1d) AS fund_flow_1d_sum,
                SUM(v.fund_flow_5d) AS fund_flow_5d_sum,
                SUM(v.amount) AS amount_sum,
+               COUNT(v.fund_flow_1d) AS n_with_fund,
                MAX({sector_recorded_at_sql("v", with_ledger=ledger)}) AS recorded_at
         FROM fact_sector_stock_daily v
         {sector_ledger_join("v") if ledger else ""}
         WHERE CAST(v.trade_date AS DATE) = CAST(? AS DATE) AND v.sector_ts_code = ?
+        GROUP BY v.source
+        ORDER BY v.source
         """,
         [as_of, eid],
     )
     out: list[RiverObject] = []
-    if agg and agg[0]["n_stocks"]:
-        r = dict(agg[0])
+    for row in agg:
+        if not row["n_stocks"]:
+            continue
+        r = dict(row)
         upd = r.pop("recorded_at")
+        member_source = r.get("member_source")
+        r["fund_caliber"] = FUND_CALIBERS.get(member_source, f"unknown:{member_source}")
         out.append(
             RiverObject(
                 track="capital",
                 entity_id=eid,
                 object_type="label",
-                ref=f"fact_sector_stock_daily:{as_of}:{eid}:agg",
+                # ref 带上口径: 同一板块两种口径是两个对象, ref 不能撞车。
+                ref=f"fact_sector_stock_daily:{as_of}:{eid}:agg:{r['fund_caliber']}",
                 source_hash=_hash(r),
                 valid_from=as_of,
                 recorded_at=_ts(upd),
@@ -618,10 +642,19 @@ def _capital_track(con: Any, as_of: str, eid: str, ename: str) -> TrackResult:
         )
 
     # theme 表走另一套命名空间，只做精确同名匹配——桥接表 config_theme_sector_link 实测 0 行。
+    # 必须带出 source：这列里共存两种口径（复盘会自有 vs 东财主力净额），不带口径
+    # 就会被下游拼成一条连续序列。member_count/fund_coverage/fund_caliber 是新增列，
+    # 存量库未 ALTER 前不存在——按实际列降级，避免代码与迁移硬绑定。
+    theme_cols = ["theme_code", "theme_name", "total_fund", "total_amount",
+                  "stock_count", "source"]
+    theme_cols += _existing_columns(
+        con, "fact_theme_flow_daily",
+        ("member_count", "fund_coverage", "fund_caliber", "universe_snapshot_id"),
+    )
     theme = _rows(
         con,
-        """
-        SELECT theme_code, theme_name, total_fund, total_amount, stock_count, updated_at
+        f"""
+        SELECT {', '.join(theme_cols)}, updated_at
         FROM fact_theme_flow_daily
         WHERE CAST(trade_date AS DATE) = CAST(? AS DATE) AND theme_name = ?
         """,
@@ -926,6 +959,19 @@ def slice_river(
             ]
             for track, result in tracks.items()
         }
+    # Public news is a separate opinion subtrack. Report coverage and sell-side
+    # judgments are retained; importing an article never upgrades it to hard fact.
+    from intelligence.services.opinion_attention_bridge import river_attention_objects
+
+    public_attention = river_attention_objects(as_of, cutoff, ref.canonical_id)
+    if public_attention:
+        prior_opinion = tracks["opinion"]
+        for obj in public_attention:
+            if isinstance(prior_opinion, Gap):
+                obj["payload"]["report_coverage_gap"] = prior_opinion.to_dict()
+        tracks["opinion"] = (prior_opinion if isinstance(prior_opinion, list) else []) + [
+            RiverObject(**obj) for obj in public_attention
+        ]
     if require_strict:
         tracks = _enforce_cutoff(tracks, cutoff)
     return RiverSlice(

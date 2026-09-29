@@ -354,5 +354,36 @@
 
 - summary：**390/390**（2026-08-13 补齐 `2025-01-16` 超时缺口，已进 `GAP_TABLES` 断档门禁）。
 - seats：**近 60 交易日全量**（2026-05-20~08-12，44932 行，60/60 连续；同步 51 / 跳过 9 / 失败 0）。质检：主键无重复、无空席位名、随机 2 日逐席与公开 `detail` 接口一致。已进 `GAP_TABLES`（gap 检查只从表首日 2026-05-20 起算，更早为空不误报）。390 日全量回补（~1.8 万次 detail 调用）未做，另立项。
-- **写锁**：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app` 端口 8792）在跑时会占写锁——但它是**惰性持锁**，空闲时可能不抓库文件；批量写入前先探锁（开一个 RW 连接立即关，失败即锁被占），别假设锁一定在。QA 脚本自己的只读连接同样占共享锁，跑 QA 时写入也进不去。
+- **写锁**：DuckDB 单写者，线上 agent API 服务（`uvicorn intelligence.api.app` 端口 8792）在跑时会占写锁——但它是**惰性持锁**，空闲时可能不抓库文件；批量写入前先探锁（开一个 RW 连接立即关，失败即锁被占），别假设锁一定在。
+
+## 10. 复核收据（2026-09-07，bundle 重逆向 + 回补实战）
+
+> 成立条件：bundle hash `index-BMQmRDz3.js`（09-07 实抓）；429 行为为 09-07 当日实测，站点改版即失效。
+
+### 新端点（相对本文 08-12 版本）
+
+| 端点 | 形状（09-07 探测） | 判定 |
+|---|---|---|
+| `/reviews/overview` | 分页 items，`data_version=tushare_final`，`available_since=2021-09-13`，每条含 weekday/formula_version/updated_at | **新**（08-12 导航无「复盘总览」页）。官方日历投影+版本号，可当 `fact_market_daily` 历史对账源（P2 候选） |
+| `/reviews/overview/cycle-ranges` | 周期阶段区段表（stage/external_cycle/internal_cycle/start/end/days） | **新**。比 `reviews/cycle` 的单日快照多了「区段」维度 |
+| `/reviews/market-amount-estimate` | 盘中量能预估（estimate_phase/method/source_delay_seconds）；历史日返回 `available=false, reason=not_current_trade_date` | **新**，仅盘中有效；日终复盘无用 |
+| `/market-kline/runtime-tail` | review 页运行时请求 | **新**，盘中 K 线尾段 |
+| `/news/hot` | 08-12 探测 legacy 为空；09-07 实测返回带 rank/keywords/description 的榜单 | **复活**：热点新闻已可入库（P1→P0 候选） |
+| 其余（sector-barometer / sector-stock-ladder / sector-extras / hot-stocks / trade-dates 等） | 与 08-12 §3 P1 清单一致 | 未变，维持原判定（按需查询，不日更） |
+
+### 429 限流行为（重要，修正本文旧认知）
+
+- 08-12 只记了「匿名 401 → 回落 CDP」。09-07 实测：**429 是 IP 级**，匿名直连和 CDP 带登录态 fetch **同被限**（12:32 daily-full 的 403 板块 K 线 29s 突发触发后，12:49 起持续 429，中午短暂恢复过一次 401 又被打回）。
+- `api_get_public` 只对 401 回落 CDP，429 直接抛错——行为正确，但意味着**突发量是限流触发器**：`daily-full` monolith 的 sector-daily（403 请求/29s）必炸；夜跑模块化 + `sync-sector-daily-local`（0 次 kline）能活。
+- 教训：限流惩罚窗口 ≥1h；**反复探测可能重置窗口**。回补用 paced（模块间探针 + ≥150s 退避），禁止 monolith 整锅跑历史日。
+
+### 历史日回补的源语义陷阱（09-07 实战踩坑）
+
+- 「取最新快照」语义的源写历史日必污染：东财快照（当日盘后专用）、`sync_akshare_sw_l1_daily` 的 realtime 无条件覆盖 end 日（`sync_akshare_sw_l1_daily.py:277`，09-07 实证把 09-07 盘中 801010 pre_close=2695 写进 09-03；已用 `index_hist_sw` 官方 hist 重写修复）。**`run_review_sync --plan full` 对历史日同样踩 sw_l1 这颗雷**。
+- 正确姿势：历史日只跑日期参数化模块（`run_review_sync --date D --plan full --only <模块>`）；stock 用 mootdx（TCP 历史日线路，`--start-date` 起 only_missing 续跑）；sw_l1 用 `index_hist_sw` 重写。
+- mootdx std 协议只通 SH/SZ：**北交所 339 只是结构盲区**，用东财 hist kline 直连补（`push2his` + `secid=0.<bj_code>` + UA，日期参数化，~2s/只；akshare 包装层同日 RemoteDisconnected，直连可行）。腾讯 ifzq K 线无 BJ 历史（仅当日 1 根，09-07 实测）。
+
+### 夜间断档复盘（09-03~09-04 缺口根因，已自愈）
+
+09-03 18:30 sync 失败 = S7 运行时目录缺失（`ModuleNotFoundError`，09-04 00:39 已重建）；09-04 18:30/20:40 两个 financeworkspace launchd 任务**零触发记录**（同晚其他任务正常，疑似当时被卸载）；09-05/06 周末正确跳过。09-07 起生产库首次跑 identity/value 分档��`main` 18239c0b + #583；registry-check：full 17 步 / cheap 18 步；周五 full 其余 cheap）。QA 脚本自己的只读连接同样占共享锁，跑 QA 时写入也进不去。
 

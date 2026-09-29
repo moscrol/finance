@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """把每日榜单计算结果写入 DuckDB 特征库（market_feature_store）。
 
-分工原则：原始逐笔 tick 留在 ClickHouse（列存海量明细），DuckDB 只落
+分工原则：原始逐笔 tick 留在日包 7z（算完即删），DuckDB 只落
 每日计算结果（feature_* 层，可删除重算），供与其它特征表 join 分析。
 
 写入表：
@@ -24,8 +24,12 @@ from market_feature_store.db import connect, init_db  # noqa: E402
 from config import to_ts_code  # noqa: E402
 from market_feature_store.trading_days import is_trading_day  # noqa: E402
 
-SOURCE = "clickhouse:share(level2服务端聚合)"
+DEFAULT_SOURCE = "baidu-share:xianyu-l2-7z"
 STEPS = ("limitup", "top100", "quant")
+
+
+def current_source() -> str:
+    return os.environ.get("L2_SOURCE", DEFAULT_SOURCE)
 
 
 def begin_l2_run(date):
@@ -59,7 +63,7 @@ def begin_l2_run(date):
                     source = excluded.source,
                     finished_at = excluded.finished_at
                 """,
-                [date, step, SOURCE],
+                [date, step, current_source()],
             )
         con.execute("COMMIT")
     except Exception:
@@ -90,6 +94,9 @@ def _format_message(message, stats):
             f"nonempty={(stats or {}).get('nonempty_count')} "
             f"empty={(stats or {}).get('empty_count', 0)}"
         )
+    missing_pct = (stats or {}).get("pct_chg_canonical_missing")
+    if missing_pct is not None:
+        parts.append(f"pct_chg_canonical_missing={missing_pct}")
     return " | ".join(parts) if parts else None
 
 
@@ -114,7 +121,7 @@ def _mark_status(con, date, step, status, row_count, stats, message):
         """,
         [date, step, status, row_count,
          stats.get("input_count"), stats.get("processed_count"),
-         stats.get("failed_count"), message, SOURCE],
+         stats.get("failed_count"), message, current_source()],
     )
 
 
@@ -150,7 +157,7 @@ def _zero_result_problem(scan_type, row_count, stats):
     if row_count == 0 and inp > 0:
         return (
             f"zero rows for {scan_type} with input_count={inp} "
-            "(likely CH empty/VPN); refuse complete"
+            "(likely empty ticks / download miss); refuse complete"
         )
     return None
 
@@ -171,6 +178,31 @@ def _require_valid_stats(date, step, stats):
 
 def _mark_complete(con, date, step, row_count, stats):
     _mark_status(con, date, step, "complete", row_count, stats, None)
+
+
+def mark_calendar(date, verdict, source, reason):
+    """交易日判定落台账（2026-09-13 QC S2）。运营覆盖层未提交版，
+    与 fix/8792-qc-closeout-0913 的同名函数保持一致，收口合 main 时以仓内版为准。
+
+    step='calendar'、status=verdict（trading/closed/unknown），message 记判定来源
+    与理由。每跑必写：unknown 不再只在 stderr 吼一声；trading/closed 也记，
+    「无 calendar 行」唯一地意味着「本副本还没带这版修复」。
+    刻意不做 is_trading_day 守卫——本行记录的就是日历判定本身。
+    """
+    con = connect()
+    try:
+        init_db(con)
+        _mark_status(
+            con,
+            date,
+            "calendar",
+            verdict,
+            None,
+            None,
+            f"calendar verdict source={source}: {reason}",
+        )
+    finally:
+        con.close()
 
 
 def mark_failed(date, message, steps=STEPS, only_running=True):
@@ -216,13 +248,17 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
         if not res.empty
         else res
     )
+    missing_pct = int(res["当日涨幅%"].isna().sum()) if not res.empty else 0
+    stats = {**(stats or {}), "pct_chg_canonical_missing": missing_pct}
     now = datetime.now()
     rows = [(date, scan_type, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["主买净额(万)"]), float(r["总买净额(万)"]),
              float(r["流通市值(亿)"]),
              None if pd.isna(r["综合得分"]) else float(r["综合得分"]),
-             float(r["当日涨幅%"]), float(big_thr), i + 1,
-             prev_limitup_date, SOURCE, now)
+             # 当日涨幅%：日线口径（收盘/前收）；行情缺口日为 NULL，不充日内口径
+             None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
+             float(big_thr), i + 1,
+             prev_limitup_date, current_source(), now)
             for i, r in df.iterrows()]
     zero_problem = _zero_result_problem(scan_type, len(rows), stats)
     if zero_problem:
@@ -268,12 +304,15 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
         if not res.empty
         else res
     )
+    missing_pct = int(res["当日涨幅%"].isna().sum()) if not res.empty else 0
+    stats = {**(stats or {}), "pct_chg_canonical_missing": missing_pct}
     now = datetime.now()
     rows = [(date, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["量化单总额(万)"]), float(r["占大单买入%"]),
              int(r["簇数"]), int(r["笔数"]), str(r["最大簇"]),
-             float(r["当日涨幅%"]), float(quant_thr), float(big_thr),
-             i + 1, SOURCE, now)
+             None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
+             float(quant_thr), float(big_thr),
+             i + 1, current_source(), now)
             for i, r in df.iterrows()]
     con = connect()
     try:
@@ -301,6 +340,13 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
 
 
 def main():
+    if len(sys.argv) >= 5 and sys.argv[1] == "--calendar":
+        reason = " ".join(sys.argv[5:]) if len(sys.argv) > 5 else ""
+        mark_calendar(sys.argv[2], sys.argv[3], sys.argv[4], reason)
+        print(
+            f"DuckDB: l2-moneyflow {sys.argv[2]} 日历判定 {sys.argv[3]} 已落台账"
+        )
+        return
     if len(sys.argv) == 3 and sys.argv[1] == "--begin":
         begin_l2_run(sys.argv[2])
         print(f"DuckDB: l2-moneyflow {sys.argv[2]} 标记为 running")
@@ -313,6 +359,7 @@ def main():
     if len(sys.argv) < 4:
         print(
             "用法: python3 write_to_duckdb.py --begin <日期> | --fail <日期> [原因] | "
+            "--calendar <日期> <trading|closed|unknown> <判定来源> [理由] | "
             "<csv路径> <limitup|top100|quant> <日期>"
         )
         return

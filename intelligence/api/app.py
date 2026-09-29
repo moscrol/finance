@@ -3282,6 +3282,13 @@ def create_app(
             raise HTTPException(404, str(exc)) from exc
         return learning_feedback_projection(learning_root)
 
+    # 记忆长河 / 连板日历只读端点（intelligence/api/river_routes.py）。
+    # 必须在 /assets 挂载与 "/" 之前注册。2026-09-29 11:02 本文件被还原到 HEAD 时丢了这次注册，
+    # 8798 重启后 /api/river/* 全部 404；这里按原顺序补回。
+    from intelligence.api.river_routes import register_river_routes
+
+    register_river_routes(app)
+
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")

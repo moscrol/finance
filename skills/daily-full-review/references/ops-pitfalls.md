@@ -1,5 +1,12 @@
 # 防坑、launchd、Devin 隧道
 
+### 这个 skill 为什么长成这样（事故经过，从 SKILL.md 迁入）
+
+- **2026-06-16 monolith 卡死**：`daily-update` 把全部同步模块串在一个进程里，重模块静默挂起后整轮无进度。当时没有切到「按模块逐个跑 + 兜底脚本」，而是临时手搓 inline 批次：没按已验证脚本回填（该用 `backfill_review_hot_data.py` / 逐模块 CLI / fallback）、在同一种卡法上反复重试、也没记录经验。编排器 `run_review_sync.py` 和 `state/runlog.md` 就是为此而来。
+- **2026-06-22 假绿**：`COUNT(*)` 行数过门，但 `price / pct_chg / amount` 全 NULL，日报 §7/§12 全「暂无」。所以每模块审计要抽值非空，不只数行。
+- **2026-08-26 snapshot 落后一天**：0825 修复补齐 DuckDB + 复盘产物后即判 COMPLETE，但 `market_snapshot/latest.json` 停在 08-24；`_runtime_market_reference_date = min(snapshot, db)` 把生产问答整日钳在 08-24，而 health / 覆盖率全绿。台账 `R-20260826-01`；工单 `docs/superpowers/specs/2026-08-26-width-resonance-bag-workorder.md` §P0。所以 snapshot 的 `served_trade_date` 是收尾判据之一。
+- **2026-09-01 iCloud 增量目的地退役**：macOS TCC 下手动会话对 iCloud 既有占位文件「能新建、不能读 / 改 / 改名」，当日 rerun 覆盖必 EPERM，且会话内无法校验 iCloud 副本完整性；之前的历史增量仍在 `~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/`。增量现落本地 `db/snapshots/increments/`。
+
 ### 关键防坑点（顺/坑 速查）
 
 - **limit-heat 被 PIPE 吞进度 = 看起来挂死**：通过子脚本 `backfill_review_hot_data.py`
@@ -86,6 +93,8 @@
 
 - **S7 staging：夜跑失败补洞，不要直写生产**：18:30 包装
   `~/.local/bin/nightly-full-review-s7.sh` → `nightly-review-sync-staged.py`，写锁落在
+  staging。2026-09-10 起 `run_review_sync.py` 默认从 `FINANCE_DATA_ROOT` 跑（题材资金
+  篮子加总 + 与 L2 文件源同一棵树）；要改回 runtime 快照设 `FINANCE_SYNC_CODE_ROOT`。
   `db/market_feature_store.duckdb.staging`，same-day 全绿才 `atomic_swap_into_place`。
   不过门则生产停在昨日、staging 残留。补跑：
   `MARKET_FEATURE_STORE_DB=$FINANCE/db/market_feature_store.duckdb.staging`
@@ -119,7 +128,8 @@
 ### 夜间 launchd 定时运维（2026-07 踩坑沉淀）
 
 夜间自动复盘走 `nightly_full_review.sh`（launchd），**已拆成两个 job**——因为
-**L2 逐笔资金流数据 ~20:30 才入 ClickHouse，18:30 跑必空**（连续两天因此 fail、需手动补跑）：
+**L2 闲鱼日包收盘后才上分享，18:30 跑必空**（ClickHouse 已退役，夜跑走
+`scripts/moneyflow/run_l2_pipeline.sh` 文件源）：
 
 | job | 时间 | 命令 | 跑什么 |
 |---|---|---|---|
@@ -132,9 +142,10 @@
 
 近期踩坑（调度/脚本层已修，记此防复发）：
 
-- **L2 18:30 必空**：逐笔数据 ~20:30 才到，早跑 `empty_count=全量` → 资金流段 fail。
-  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等 20:30 之后**（之前踩过：18:40 跑全空，过零点再跑才有数据）。
-  注：全空时 scan 会 raise，**空结果不进缓存**，重跑会真扫（无需 force-rescan）。
+- **L2 18:30 必空**：闲鱼日包常晚于收盘才出现在分享里。拆 sync/finalize 的根因还在。
+  20:40 finalize 若分享还没有当日 `.7z`，会按 `L2_SHARE_WAIT_*` 等待（默认约 24 分钟）。
+  本机百度网盘客户端必须已登录；`state/l2-baidu-share.json` 缺了会直接 fail。
+  不再认 `state/l2-paused.flag`，也不再 `source ~/.secrets/clickhouse.env`。
 - **preflight `wrong-host` = fupanhui 标签页没就绪**：sync 段 preflight 要挂载一个**已登录的 fupanhui.com 标签页**。
   Mac 睡眠唤醒后 launchd 补跑，常因 debug Chrome 里没有 fupanhui 标签页而 fail（proxy `/health` 显示 `managedTabs:0`）。
   排查：`curl -s http://127.0.0.1:9222/json | grep -i fupanhui`；修：在 debug Chrome（端口 9222 那个实例）开一个 fupanhui.com 标签页（登录 cookie 持久，开着即可）。

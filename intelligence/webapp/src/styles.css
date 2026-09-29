@@ -4378,6 +4378,56 @@ p {
   display: contents;
 }
 
+.theme-matrix-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-matrix-summary p {
+  margin: 0;
+}
+
+.theme-matrix-toggle {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.theme-matrix-toggle:hover {
+  color: var(--ink, inherit);
+  border-color: currentColor;
+}
+
+.theme-matrix .matrix-axis-label {
+  font-size: 11px;
+}
+
+.theme-matrix.compact .matrix-cell {
+  min-height: 72px;
+}
+
+.theme-matrix.compact .matrix-market-label {
+  min-height: 72px;
+}
+
+.river-column-note {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .matrix-market-label {
   min-height: 112px;
   color: var(--muted);
@@ -5473,4 +5523,120 @@ button.model-choice {
   .skill-chips {
     display: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * 2026-09-29 看板打磨（8798 复核）
+ * ------------------------------------------------------------------------- */
+
+/* `.chat-topbar > div { display: grid }` 的特异性(0,1,1)高于 `.chat-topbar-actions`
+ * (0,1,0)，把右侧状态区压成单列，顶栏被撑到 118px。这里用同级特异性改回横排。 */
+.chat-topbar > .chat-topbar-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 7px;
+  text-align: initial;
+}
+
+.stale-data-banner {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 24px 0;
+  padding: 8px 12px;
+  border: 1px solid #ecc4b4;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.stale-data-banner svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.stale-data-banner b {
+  font-weight: 700;
+}
+
+.stale-data-banner.uncertain {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+/* 回检台「批准 Lesson / 驳回反思 / 批准规则 / 驳回」此前没有任何样式，落回浏览器默认按钮。 */
+.sellside-flow-grid article button {
+  margin: 8px 6px 0 0;
+  padding: 4px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.sellside-flow-grid article button:first-of-type {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.sellside-flow-grid article button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.sellside-flow-grid article button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sellside-flow-grid article > div {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* 检查器里的折叠段此前用浏览器默认三角 + 默认字号。 */
+.inspector-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.inspector-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.inspector-section > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--faint);
+  transition: transform 0.15s;
+}
+
+.inspector-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.inspector-section > p {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
 }

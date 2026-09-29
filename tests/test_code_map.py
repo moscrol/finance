@@ -305,11 +305,37 @@ POINTER_NEEDLES = (
 )
 
 
+def _memory_text(path: Path) -> str:
+    """按 Claude Code 的 `@path` 导入语义展开一层：CLAUDE.md 只写 `@AGENTS.md` 时，
+    agent 实际读到的是 AGENTS.md 正文 + CLAUDE.md 余下内容，断言要对着这份展开文本做。"""
+    text = path.read_text(encoding="utf-8")
+    parts: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("@") and " " not in stripped:
+            target = (path.parent / stripped[1:]).resolve()
+            if target.is_file():
+                parts.append(target.read_text(encoding="utf-8"))
+                continue
+        parts.append(line)
+    return "\n".join(parts)
+
+
 def test_agents_and_claude_carry_code_map_pointer():
     for path in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
-        text = path.read_text(encoding="utf-8")
+        text = _memory_text(path)
         for needle in POINTER_NEEDLES:
             assert needle in text, f"{path.name} missing {needle!r}"
+
+
+def test_claude_md_imports_agents_md_instead_of_duplicating():
+    """两份入口文件只许一份正文：CLAUDE.md 以 `@AGENTS.md` 导入，Claude 专属备注放导入之后。
+    同一份规则抄两处必漂（本仓 2026-08-12 在「负面断言规矩」上实测过一次）。"""
+    lines = [ln.strip() for ln in (ROOT / "CLAUDE.md").read_text(encoding="utf-8").splitlines()]
+    assert lines and lines[0] == "@AGENTS.md"
+    assert len([ln for ln in lines if ln]) <= 40, "CLAUDE.md 应只放 Claude Code 专属短节"
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8").splitlines()
+    assert len(agents) <= 200, f"AGENTS.md {len(agents)} 行，超过 200 行会降低遵循度"
 
 
 def test_session_facts_calls_status_one_line_after_interpreter():
@@ -360,11 +386,14 @@ def test_query_empty_graph_exits_0_and_refuses_structure():
     assert "禁止把空图写成架构结论" in payload["next_action"]
 
 
+MEMORY_DOORS = ("AGENTS.md", "CLAUDE.md")
+
+
 def test_query_daily_full_doors_probe():
     payload, _ = _query_json("daily-full")
     hits = payload["layers"]["doors"]["hits"]
     assert any(
-        "CLAUDE.md" in h["path"]
+        h["path"] in MEMORY_DOORS
         and "daily-full" in h["excerpt"]
         and "market_feature_store.cli" in h["excerpt"]
         for h in hits
@@ -397,7 +426,7 @@ def test_query_skill_bridge_hits_are_a_set_not_merged_lines():
 def test_query_fact_sector_daily_is_view():
     payload, _ = _query_json("fact_sector_daily")
     hits = payload["layers"]["doors"]["hits"]
-    assert any("CLAUDE.md" in h["path"] for h in hits)
+    assert any(h["path"] in MEMORY_DOORS for h in hits)
     assert any(
         "VIEW" in h["excerpt"] or "_generation" in h["excerpt"] or "snapshot" in h["excerpt"]
         for h in hits

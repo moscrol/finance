@@ -209,7 +209,7 @@
 
 ## Agent 执行纪律 / 确定性脚本执行
 
-> 适用：拿到含完整真值表/字段口径/writer 行为的 handoff 或 spec 后的 ingest、回填、批量入库类任务。与 `AGENTS.md`「Agent Token Discipline」红线一致。
+> 适用：拿到含完整真值表/字段口径/writer 行为的 handoff 或 spec 后的 ingest、回填、批量入库类任务。与 `AGENTS.md`「低 token 纪律」一致。
 
 - **[2026-06-19] 拿到确定性 handoff（已含完整路由真值表 + writer/校验逻辑 + log_id 处置）后，仍把 `entity_delta_writer.py`/`check_relations_integrity.py`/`knowledge_graph.py` 整文件重新通读一遍。**
   根因：把「确定性脚本执行」误判成「探索/理解项目」。handoff 已把所有路由规则、字段枚举、writer 行为、log_id 优先级写死，无需再读源码建立理解；但默认行为习惯性「先把基础设施读懂再动手」。
@@ -386,6 +386,14 @@
   `source_trade_date` 是外盘实际会话。问「今天隔夜」打对照日；把会话日当 `time_field`，
   休市窗口会对不上 A 股 as-of。市值原样美元，不能标「亿」。这与 mapping 的
   `as_of` vs `similar_date` 是同一条：两根日期列先量清，再决定哪根是时间轴。
+## Agent Harness / 协议转换层
+
+- **[2026-09-11] Devin opus session 反复报 `missing required field 'command'`——不是模型犯傻，是桥接层把半截 JSON 当参数发出。**
+  根因：`devin-sub2api-bridge/bridge.mjs` 的 `closeTool()` 在 tool_use 参数被 max_tokens 截断时（上游直接发 `message_delta stop_reason=max_tokens`，没有 `content_block_stop`），把已累积的半截 `partial_json` 当合法 `arguments` 发出。Devin CLI `JSON.parse` 失败兜底成 `{}` → 校验器报缺字段 → 错误文本回灌上下文，模型模仿坏形状越错越稳（错误自我强化）。
+  做法：**协议转换层不得产出自己在语法上已知非法的输出**。`closeTool()` 发出前 `JSON.parse(args)` 校验，半截 JSON 丢弃该 tool_use 并告警，让 `finish_reason=length` 表达真实的「输出被截断」。预防侧 `injectReasoning` 已把 `max_tokens` 抬到 `max(调用方, 24000)`，但模型自身仍可能写超输出预算，兜底侧必须独立成立。
+  验证方法：构造边界样本（截断/完整/空参数三种形状）跑被测函数，**判定条件本身要用真 `JSON.parse` 而不是字符串包含**——第一次在 `/tmp/test_maxtokens_cut.mjs` 里用 `l.includes('"command"')` 判 JSON 转义串，永远 FALSE 差点把对的实现改错。
+  教训沉淀：报错文案里出现 `parse` / `validation` / `missing required field` 字样的，第一刀分「模型没生成对」还是「工具没执行对」——前者在生成层，后者在执行层。两层混着归因会把 harness 容错修成吞错误的黑盒。
+
 ## [kb] 晨汇批量回填（2026-08-18，PR #25）
 
 - **[2026-08-18] 长文批量生成时，U+FFFD（替换字符）是「自产」缺陷——写完必须立即扫，不能靠小心。**

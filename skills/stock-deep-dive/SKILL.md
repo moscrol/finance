@@ -6,6 +6,9 @@ metadata:
 description: 个股深挖 / 复盘先验（行情前瞻）的输出契约与结构质检——先注入确定性数据块（D1 市场价值/D2 证据硬度/D3 二阶导队列），再用 answer_lint.py 拦截整段缺失。lint 只检查结构，不代表预测质量，不得当评分裁判。触发词：个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判。
 ---
 
+> **质量对齐**：写答案前读 `references/gold-standard.md`。默认对齐 `exemplars/deep-dive-huicheng-20260630.md`（只学结构，禁止照抄过时结论）。lint 过了不等于对齐。IMA 写库卡不走本 skill。
+
+
 # Stock Deep Dive / 复盘先验（输出契约 + 质检门）
 
 ## 为什么需要这个 skill

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上证直观组合 · K线+MA5+周均线+信息附着</title>
+<style>
+:root{
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color:#252421; background:#f3f2ef;
+  --ink:#252421; --muted:#6d6963; --faint:#948f88; --line:#dfdcd6; --line-strong:#cac5bd;
+  --surface:#ffffff; --surface-soft:#f7f5f2; --accent:#c65f3e; --accent-dark:#9f452e; --accent-soft:#f6e8e2;
+  --amber:#9a5f08; --amber-soft:#fff4dd; --red:#a9342f; --red-soft:#fff0ef; --blue:#496f91; --blue-soft:#edf3f8; --green:#4d7a5f; --green-soft:#eef5ef;
+  --shadow:0 18px 52px rgba(50,45,39,0.10); --shadow-sm:0 6px 20px rgba(50,45,39,0.08);
+}
+*{box-sizing:border-box} html{background:#f3f2ef}
+body{margin:0;min-height:100vh;background: radial-gradient(circle at 48% 0%, rgba(236,226,216,0.48), transparent 32rem), #f3f2ef; color:var(--ink)}
+.header{position:sticky;top:0;z-index:30;background:rgba(255,255,255,0.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:16px 24px}
+.header h1{font-size:19px;letter-spacing:-0.02em;margin:0;display:flex;align-items:center;gap:10px}
+.header h1 em{font-style:normal;color:var(--accent)} .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);display:inline-block}
+.sub{margin-top:6px;color:var(--muted);font-size:11px;max-width:1200px;line-height:1.6}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.controls select,.controls button{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer}
+.controls button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.main{max-width:1780px;margin:0 auto;padding:14px 18px 80px;display:grid;grid-template-columns:1fr 360px;gap:16px}
+.charts{ display:flex; flex-direction:column; gap:0; background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm)}
+.chart-block{position:relative; border-bottom:1px solid var(--line)}
+.chart-block:last-child{border-bottom:0}
+.chart-head{position:absolute;left:0;top:0;right:0;z-index:3;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;pointer-events:none}
+.chart-head h2{font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:var(--faint);margin:0;display:flex;gap:8px;align-items:center}
+.chart-head .legend{display:flex;gap:8px;font-size:10px;color:var(--muted);pointer-events:auto}
+.legend i{width:10px;height:3px;border-radius:2px;display:inline-block}
+.k-canvas{width:100%;display:block;background:#ffffff;cursor:crosshair}
+#priceCanvas{height:380px} #breadthCanvas{height:140px} #ladderCanvas{height:160px} #weeklyCanvas{height:200px}
+.summary-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.summary-bar div{background:var(--surface);padding:10px 12px}
+.summary-bar b{display:block;font-size:15px;letter-spacing:-0.02em} .summary-bar span{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+.summary-bar .up{color:var(--red)} .summary-bar .down{color:var(--green)}
+.inspector{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:calc(100vh - 90px);position:sticky;top:84px}
+.insp-head{padding:14px 16px;border-bottom:1px solid var(--line);background:var(--surface-soft);border-radius:14px 14px 0 0}
+.insp-body{padding:14px 16px;overflow:auto;flex:1;font-size:12px;line-height:1.6}
+.badge2{font-size:11px;padding:3px 8px;border-radius:6px;display:inline-block;margin:2px 3px 2px 0;font-weight:650;border:1px solid var(--line)}
+.badge2.accent{background:var(--accent-soft);color:var(--accent);border-color:#e8c2b3} .badge2.red{background:var(--red-soft);color:var(--red);border-color:#e9c0be} .badge2.blue{background:var(--blue-soft);color:var(--blue);border-color:#c9d8e6} .badge2.amber{background:var(--amber-soft);color:var(--amber);border-color:#f0d9a8} .badge2.green{background:var(--green-soft);color:var(--green);border-color:#c5ddd0} .badge2.muted{background:var(--surface-soft);color:var(--muted)}
+@media(max-width:1100px){.main{grid-template-columns:1fr} .inspector{position:static;max-height:none} .summary-bar{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span class="dot"></span>上证直观组合 <em>K线 · MA5 · 周均线 · 信息附着同轴</em></h1>
+  <div class="sub">背景色=多空：<span style="background:var(--green-soft);padding:1px 6px;border-radius:4px;border:1px solid #c5ddd0">绿=站上MA5且站上周均线 多头</span> <span style="background:var(--amber-soft);padding:1px 6px;border-radius:4px;border:1px solid #f0d9a8">黄=分歧</span> <span style="background:var(--red-soft);padding:1px 6px;border-radius:4px;border:1px solid #e9c0be">红=双破 空头</span> · 第二轨=成交额+涨停+涨家数 · 第三轨=龙头高度+连板梯队+题材 · 第四轨=周K周均线 · 鼠标联动十字线</div>
+  <div class="controls">
+    <select id="rangeSel"><option value="60">近60日</option><option value="90" selected>近90日</option><option value="120">近120日</option><option value="180">近180日</option></select>
+    <button id="btnMA5" class="active">MA5</button><button id="btnMA20" class="active">MA20</button><button id="btnWeekMA" class="active">周均线</button><button id="btnMA60">MA60</button>
+    <button id="btnMarkers" class="active">信息图标</button><button id="btnBg" class="active">多空背景</button>
+    <span style="font-size:11px;color:var(--faint)">· 点击K线写记忆</span>
+  </div>
+</div>
+<div class="main">
+  <div>
+    <div class="summary-bar" id="summaryBar"></div>
+    <div class="charts">
+      <div class="chart-block"><div class="chart-head"><h2>上证日K + MA5 + 周均线</h2><div class="legend"><span><i style="background:var(--accent)"></i>MA5</span><span><i style="background:var(--blue)"></i>MA20</span><span><i style="background:#b07ad1"></i>周均线</span><span><i style="background:var(--green)"></i>MA60</span></div></div><canvas id="priceCanvas" class="k-canvas"></canvas></div>
+      <div class="chart-block"><div class="chart-head"><h2>成交额 + 涨停数 + 上涨家数</h2><div class="legend"><span><i style="background:var(--muted)"></i>成交额</span><span><i style="background:var(--accent)"></i>涨停</span><span><i style="background:var(--blue)"></i>上涨家数</span></div></div><canvas id="breadthCanvas" class="k-canvas"></canvas></div>
+      <div class="chart-block"><div class="chart-head"><h2>龙头高度 + 连板梯队 + 题材</h2><div class="legend"><span><i style="background:var(--accent)"></i>龙头高度</span><span><i style="background:var(--red)"></i>5板+数</span><span><i style="background:var(--amber)"></i>4板数</span><span><i style="background:var(--blue)"></i>题材热度</span></div></div><canvas id="ladderCanvas" class="k-canvas"></canvas></div>
+      <div class="chart-block"><div class="chart-head"><h2>周K + 周MA5/10/20 · 周级别趋势过滤</h2><div class="legend"><span><i style="background:var(--accent)"></i>周MA5</span><span><i style="background:var(--amber)"></i>周MA10</span><span><i style="background:var(--blue)"></i>周MA20</span></div></div><canvas id="weeklyCanvas" class="k-canvas"></canvas></div>
+    </div>
+  </div>
+  <div class="inspector" id="inspector">
+    <div class="insp-head"><h3 id="inspTitle">选择一天</h3><p id="inspSub">鼠标在K线上移动，联动显示</p></div>
+    <div class="insp-body" id="inspBody"><div style="padding:30px;text-align:center;color:var(--faint);font-size:12px">移动鼠标看联动<br>点击K线写记忆</div></div>
+  </div>
+</div>
+
+<script>
+let RAW={daily:[],weekly:[]}; let visibleCount=90; let show={ma5:true,ma20:true,weekMA:true,ma60:false,markers:true,bg:true};
+let selectedIdx=-1; let hoverIdx=-1; let customNotes={};
+
+async function load(){
+  try{ const r=await fetch('./data.json'); if(r.ok) RAW=await r.json(); }catch{}
+  if(!RAW.daily){ try{ const r=await fetch('/market_snapshot/sse_kline.json'); if(r.ok) RAW=await r.json(); }catch{} }
+  try{ customNotes=JSON.parse(localStorage.getItem('sse_kline_notes')||'{}'); }catch{ customNotes={}; }
+  init();
+}
+function init(){
+  document.getElementById('rangeSel').onchange=e=>{visibleCount=parseInt(e.target.value); drawAll();};
+  document.getElementById('btnMA5').onclick=function(){show.ma5=!show.ma5; this.classList.toggle('active'); drawAll();};
+  document.getElementById('btnMA20').onclick=function(){show.ma20=!show.ma20; this.classList.toggle('active'); drawAll();};
+  document.getElementById('btnWeekMA').onclick=function(){show.weekMA=!show.weekMA; this.classList.toggle('active'); drawAll();};
+  document.getElementById('btnMA60').onclick=function(){show.ma60=!show.ma60; this.classList.toggle('active'); drawAll();};
+  document.getElementById('btnMarkers').onclick=function(){show.markers=!show.markers; this.classList.toggle('active'); drawAll();};
+  document.getElementById('btnBg').onclick=function(){show.bg=!show.bg; this.classList.toggle('active'); drawAll();};
+  window.addEventListener('resize', drawAll);
+  drawAll();
+  if(RAW.daily.length) selectDay(RAW.daily.length-1);
+}
+
+function getVisible(){
+  const total=RAW.daily.length; const count=Math.min(visibleCount,total); const start=Math.max(0,total-count);
+  return {daily:RAW.daily.slice(start), start, total};
+}
+
+let priceLayout=null, breadthLayout=null, ladderLayout=null, weeklyLayout=null;
+
+function drawAll(){
+  drawPrice(); drawBreadth(); drawLadder(); drawWeekly(); drawSummary();
+}
+
+function drawSummary(){
+  const {daily}=getVisible(); if(!daily.length) return; const last=daily[daily.length-1];
+  const el=document.getElementById('summaryBar');
+  const up = last.pct_chg!=null && last.pct_chg>=0;
+  const ma5Status = last.close!=null&&last.ma5!=null ? (last.close>=last.ma5?'站上MA5':'跌破MA5') : '-';
+  const weekStatus = last.close!=null&&last.sh_week_ma!=null ? (last.close>=last.sh_week_ma?'周多头':'周空头') : '-';
+  const bg = (last.close>=last.ma5 && last.close>=last.sh_week_ma) ? '多头' : (last.close<last.ma5 && last.close<last.sh_week_ma ? '空头' : '分歧');
+  el.innerHTML=`
+    <div><span>上证收盘</span><b class="${up?'up':'down'}">${last.close?.toFixed(1)||'-'} <span style="font-size:12px">${last.pct_chg!=null?(last.pct_chg>0?'+'+last.pct_chg.toFixed(2)+'%':last.pct_chg.toFixed(2)+'%'):''}</span></b></div>
+    <div><span>MA5</span><b>${last.ma5?.toFixed(1)||'-'}</b><span style="font-size:10px;color:var(--muted)">${ma5Status}</span></div>
+    <div><span>周均线</span><b>${last.sh_week_ma?.toFixed(1)||'-'}</b><span style="font-size:10px;color:var(--muted)">${weekStatus}</span></div>
+    <div><span>多空背景</span><b>${bg}</b><span style="font-size:10px;color:var(--muted)">${bg==='多头'?'绿背景':bg==='空头'?'红背景':'黄背景'}</span></div>
+    <div><span>涨停/上涨</span><b>${last.limit_up||'-'} / ${last.advancers||'-'}家</b><span style="font-size:10px;color:var(--muted)">${last.market_stage||''}</span></div>
+    <div><span>龙头高度</span><b>${last.leader?last.leader.name+' '+last.leader.height+'板':'-'}</b><span style="font-size:10px;color:var(--muted)">${last.high_ladder?.length||0}只≥4板</span></div>
+    <div><span>成交额</span><b>${last.total_amount?last.total_amount.toFixed(0)+'亿':''}</b><span style="font-size:10px;color:var(--muted)">周K ${RAW.weekly.length}周</span></div>
+  `;
+}
+
+function drawPrice(){
+  const canvas=document.getElementById('priceCanvas'); const {daily, start}=getVisible(); if(!daily.length) return;
+  const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const W=rect.width||900; const H=380;
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const pad={l:54,r:12,t:30,b:20}; const priceH=H-pad.t-pad.b; const areaW=W-pad.l-pad.r;
+  let pMin=Infinity,pMax=-Infinity; daily.forEach(d=>{ if(d.low!=null&&d.low<pMin) pMin=d.low; if(d.high!=null&&d.high>pMax) pMax=d.high; });
+  const padP=(pMax-pMin)*0.12||pMin*0.02; pMin-=padP; pMax+=padP; const range=pMax-pMin||1;
+  const cw=Math.max(3, Math.min(11, areaW/daily.length*0.6)); const gap=(areaW - cw*daily.length)/(daily.length+1);
+  priceLayout={pad, priceH, areaW, cw, gap, pMin, pMax, range, W, H, start, daily};
+  // bg bands
+  if(show.bg){
+    daily.forEach((d,idx)=>{
+      const x=pad.l+gap+idx*(cw+gap); const w=cw+gap;
+      let bgColor=null;
+      if(d.close!=null&&d.ma5!=null&&d.sh_week_ma!=null){
+        if(d.close>=d.ma5 && d.close>=d.sh_week_ma) bgColor='rgba(77,122,95,0.08)';
+        else if(d.close<d.ma5 && d.close<d.sh_week_ma) bgColor='rgba(169,52,47,0.08)';
+        else bgColor='rgba(154,95,8,0.08)';
+      }
+      if(bgColor){ ctx.fillStyle=bgColor; ctx.fillRect(x, pad.t, w, priceH); }
+    });
+  }
+  // grid
+  ctx.strokeStyle='#dfdcd6'; ctx.setLineDash([2,4]); for(let i=0;i<4;i++){ const y=pad.t+priceH*i/3; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke(); } ctx.setLineDash([]);
+  ctx.fillStyle='#948f88'; ctx.font='10px monospace'; ctx.textAlign='right';
+  for(let i=0;i<4;i++){ const price=pMax-range*i/3; const y=pad.t+priceH*i/3; ctx.fillText(price.toFixed(1), pad.l-6, y+3); }
+  // MA lines
+  function drawMA(key,color){
+    ctx.strokeStyle=color; ctx.lineWidth=1.2; ctx.beginPath(); let started=false;
+    daily.forEach((d,idx)=>{ const v=d[key]; if(v==null){started=false;return;} const x=pad.l+gap+idx*(cw+gap)+cw/2; const y=pad.t+(pMax-v)/range*priceH; if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); }); ctx.stroke();
+  }
+  if(show.ma5) drawMA('ma5','#c65f3e');
+  if(show.ma20) drawMA('ma20','#496f91');
+  if(show.ma60) drawMA('ma60','#4d7a5f');
+  if(show.weekMA) drawMA('sh_week_ma','#b07ad1');
+  // candles
+  daily.forEach((d,idx)=>{
+    if(d.open==null||d.close==null||d.high==null||d.low==null) return;
+    const x=pad.l+gap+idx*(cw+gap)+cw/2; const yH=pad.t+(pMax-d.high)/range*priceH; const yL=pad.t+(pMax-d.low)/range*priceH; const yO=pad.t+(pMax-d.open)/range*priceH; const yC=pad.t+(pMax-d.close)/range*priceH;
+    const up=d.close>=d.open; ctx.strokeStyle=up?'#a9342f':'#4d7a5f'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,yH); ctx.lineTo(x,yL); ctx.stroke();
+    const top=Math.min(yO,yC); const h=Math.max(2,Math.abs(yO-yC)); if(up){ ctx.fillStyle='#c65f3e'; ctx.fillRect(x-cw/2,top,cw,h); } else { ctx.strokeStyle='#4d7a5f'; ctx.strokeRect(x-cw/2,top,cw,h); }
+  });
+  // markers as icons on top
+  if(show.markers){
+    daily.forEach((d,idx)=>{
+      if(!d.markers||!d.markers.length) return;
+      const x=pad.l+gap+idx*(cw+gap)+cw/2;
+      d.markers.slice(0,2).forEach((m,mi)=>{
+        const y=pad.t-18 - mi*14;
+        ctx.fillStyle='#fff'; ctx.strokeStyle=m.color||'#dfdcd6'; ctx.lineWidth=1;
+        ctx.beginPath(); const label=m.label.length>8?m.label.slice(0,8):m.label; const w=ctx.measureText(label).width+12; ctx.roundRect(x-w/2, y-7, w, 12, 5); ctx.fill(); ctx.stroke();
+        ctx.fillStyle=m.color||'#252421'; ctx.font='9px sans-serif'; ctx.textAlign='center'; ctx.fillText(label, x, y+1);
+      });
+    });
+  }
+  // custom notes
+  daily.forEach((d,idx)=>{
+    const note=customNotes[d.trade_date];
+    if(note){ const x=pad.l+gap+idx*(cw+gap)+cw/2; ctx.fillStyle='#9a5f08'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText('★', x, pad.t+priceH-4); }
+  });
+  // crosshair
+  if(hoverIdx>=0){
+    const idx=hoverIdx-start; if(idx>=0&&idx<daily.length){
+      const x=pad.l+gap+idx*(cw+gap)+cw/2; ctx.strokeStyle='#c65f3e'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+priceH); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  // date labels
+  ctx.fillStyle='#948f88'; ctx.font='9px monospace'; ctx.textAlign='center';
+  daily.forEach((d,idx)=>{ if(idx%Math.ceil(daily.length/12)===0||idx===daily.length-1){ const x=pad.l+gap+idx*(cw+gap)+cw/2; ctx.fillText(d.trade_date.slice(5), x, H-4); } });
+  canvas.onmousemove=e=>{
+    const rect2=canvas.getBoundingClientRect(); const mx=e.clientX-rect2.left;
+    let best=-1, bestDist=Infinity; daily.forEach((_,idx)=>{ const x=pad.l+gap+idx*(cw+gap)+cw/2; const dist=Math.abs(x-mx); if(dist<bestDist){bestDist=dist; best=idx;} });
+    if(best>=0 && bestDist<20){ hoverIdx=start+best; drawAll(); selectDay(hoverIdx, false); }
+  };
+  canvas.onclick=e=>{
+    const rect2=canvas.getBoundingClientRect(); const mx=e.clientX-rect2.left;
+    let best=-1, bestDist=Infinity; daily.forEach((_,idx)=>{ const x=pad.l+gap+idx*(cw+gap)+cw/2; const dist=Math.abs(x-mx); if(dist<bestDist){bestDist=dist; best=idx;} });
+    if(best>=0 && bestDist<20){ selectedIdx=start+best; selectDay(selectedIdx, true); drawAll(); }
+  };
+}
+
+function drawBreadth(){
+  const canvas=document.getElementById('breadthCanvas'); const {daily, start}=getVisible(); if(!daily.length) return;
+  const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const W=rect.width||900; const H=140;
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const pad={l:54,r:12,t:20,b:20}; const h=H-pad.t-pad.b; const areaW=W-pad.l-pad.r;
+  const cw=Math.max(3, Math.min(11, areaW/daily.length*0.6)); const gap=(areaW - cw*daily.length)/(daily.length+1);
+  breadthLayout={pad,h,areaW,cw,gap,W,H,start,daily};
+  let maxAmt=0, maxUp=0, maxAdv=0;
+  daily.forEach(d=>{ if(d.total_amount!=null&&d.total_amount>maxAmt) maxAmt=d.total_amount; if(d.limit_up!=null&&d.limit_up>maxUp) maxUp=d.limit_up; if(d.advancers!=null&&d.advancers>maxAdv) maxAdv=d.advancers; });
+  maxAmt=maxAmt||1; maxUp=maxUp||1; maxAdv=maxAdv||1;
+  // amount bars
+  daily.forEach((d,idx)=>{
+    if(d.total_amount==null) return;
+    const x=pad.l+gap+idx*(cw+gap); const vh=(d.total_amount/maxAmt)*h*0.7; const y=pad.t+h - vh;
+    ctx.fillStyle='rgba(37,36,33,0.12)'; ctx.fillRect(x, y, cw, vh);
+  });
+  // limit_up line
+  ctx.strokeStyle='#c65f3e'; ctx.lineWidth=1.5; ctx.beginPath(); let started=false;
+  daily.forEach((d,idx)=>{ if(d.limit_up==null) {started=false;return;} const x=pad.l+gap+idx*(cw+gap)+cw/2; const y=pad.t+h - (d.limit_up/maxUp)*h*0.7; if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); }); ctx.stroke();
+  // advancers line
+  ctx.strokeStyle='#496f91'; ctx.lineWidth=1.2; ctx.beginPath(); started=false;
+  daily.forEach((d,idx)=>{ if(d.advancers==null){started=false;return;} const x=pad.l+gap+idx*(cw+gap)+cw/2; const y=pad.t+h - (d.advancers/maxAdv)*h*0.5; if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); }); ctx.stroke();
+  ctx.fillStyle='#948f88'; ctx.font='9px monospace'; ctx.textAlign='right'; ctx.fillText(`额${maxAmt.toFixed(0)}亿`, pad.l-6, pad.t+10); ctx.fillText(`涨停${maxUp}`, pad.l-6, pad.t+22);
+  if(hoverIdx>=0){ const idx=hoverIdx-start; if(idx>=0&&idx<daily.length){ const x=pad.l+gap+idx*(cw+gap)+cw/2; ctx.strokeStyle='#c65f3e'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+h); ctx.stroke(); ctx.setLineDash([]); } }
+  canvas.onmousemove=e=>{ const rect2=canvas.getBoundingClientRect(); const mx=e.clientX-rect2.left; let best=-1,bestDist=Infinity; daily.forEach((_,idx)=>{ const x=pad.l+gap+idx*(cw+gap)+cw/2; const d=Math.abs(x-mx); if(d<bestDist){bestDist=d; best=idx;} }); if(best>=0&&bestDist<20){ hoverIdx=start+best; drawAll(); selectDay(hoverIdx,false);} };
+}
+
+function drawLadder(){
+  const canvas=document.getElementById('ladderCanvas'); const {daily, start}=getVisible(); if(!daily.length) return;
+  const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const W=rect.width||900; const H=160;
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const pad={l:54,r:12,t:20,b:20}; const h=H-pad.t-pad.b; const areaW=W-pad.l-pad.r;
+  const cw=Math.max(3, Math.min(11, areaW/daily.length*0.6)); const gap=(areaW - cw*daily.length)/(daily.length+1);
+  ladderLayout={pad,h,areaW,cw,gap,W,H,start,daily};
+  let maxHeight=0, maxCount=0;
+  daily.forEach(d=>{ if(d.leader&&d.leader.height>maxHeight) maxHeight=d.leader.height; const c=d.high_ladder?d.high_ladder.length:0; if(c>maxCount) maxCount=c; });
+  maxHeight=Math.max(maxHeight,5); maxCount=Math.max(maxCount,3);
+  // ladder count bars
+  daily.forEach((d,idx)=>{
+    const x=pad.l+gap+idx*(cw+gap);
+    const count5=(d.high_ladder||[]).filter(h=>h.boards>=5).length; const count4=(d.high_ladder||[]).filter(h=>h.boards===4).length;
+    if(count5){ const vh=(count5/maxCount)*h*0.6; ctx.fillStyle='rgba(169,52,47,0.7)'; ctx.fillRect(x, pad.t+h - vh, cw, vh); }
+    if(count4){ const vh=(count4/maxCount)*h*0.6; const vh5=(count5/maxCount)*h*0.6; ctx.fillStyle='rgba(154,95,8,0.5)'; ctx.fillRect(x, pad.t+h - vh - vh5, cw, vh); }
+  });
+  // leader height line
+  ctx.strokeStyle='#c65f3e'; ctx.lineWidth=1.8; ctx.beginPath(); let started=false;
+  daily.forEach((d,idx)=>{ if(!d.leader||d.leader.height==null){started=false;return;} const x=pad.l+gap+idx*(cw+gap)+cw/2; const y=pad.t+h - (d.leader.height/maxHeight)*h*0.8; if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); });
+  ctx.stroke();
+  ctx.fillStyle='#948f88'; ctx.font='9px monospace'; ctx.textAlign='right'; ctx.fillText(`龙头${maxHeight}板`, pad.l-6, pad.t+10); ctx.fillText(`梯队${maxCount}只`, pad.l-6, pad.t+22);
+  if(hoverIdx>=0){ const idx=hoverIdx-start; if(idx>=0&&idx<daily.length){ const x=pad.l+gap+idx*(cw+gap)+cw/2; ctx.strokeStyle='#c65f3e'; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+h); ctx.stroke(); ctx.setLineDash([]);} }
+  canvas.onmousemove=e=>{ const rect2=canvas.getBoundingClientRect(); const mx=e.clientX-rect2.left; let best=-1,bestDist=Infinity; daily.forEach((_,idx)=>{ const x=pad.l+gap+idx*(cw+gap)+cw/2; const d=Math.abs(x-mx); if(d<bestDist){bestDist=d; best=idx;} }); if(best>=0&&bestDist<20){ hoverIdx=start+best; drawAll(); selectDay(hoverIdx,false);} };
+}
+
+function drawWeekly(){
+  const canvas=document.getElementById('weeklyCanvas'); const data=RAW.weekly; if(!data.length) return;
+  const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const W=rect.width||900; const H=200;
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const pad={l:54,r:12,t:20,b:24}; const priceH=H-pad.t-pad.b; const areaW=W-pad.l-pad.r;
+  let pMin=Infinity,pMax=-Infinity; data.forEach(d=>{ if(d.low!=null&&d.low<pMin) pMin=d.low; if(d.high!=null&&d.high>pMax) pMax=d.high; });
+  const padP=(pMax-pMin)*0.1||pMin*0.02; pMin-=padP; pMax+=padP; const range=pMax-pMin||1;
+  const cw=Math.max(4, Math.min(14, areaW/data.length*0.6)); const gap=(areaW - cw*data.length)/(data.length+1);
+  weeklyLayout={pad,priceH,areaW,cw,gap,W,H,pMin,pMax,range,data};
+  ctx.strokeStyle='#dfdcd6'; ctx.setLineDash([2,4]); for(let i=0;i<3;i++){ const y=pad.t+priceH*i/2; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke(); } ctx.setLineDash([]);
+  function drawLine(key,color){ ctx.strokeStyle=color; ctx.lineWidth=1.2; ctx.beginPath(); let s=false; data.forEach((d,idx)=>{ const v=d[key]; if(v==null){s=false;return;} const x=pad.l+gap+idx*(cw+gap)+cw/2; const y=pad.t+(pMax-v)/range*priceH; if(!s){ctx.moveTo(x,y);s=true;} else ctx.lineTo(x,y); }); ctx.stroke(); }
+  drawLine('ma5','#c65f3e'); drawLine('ma10','#9a5f08'); drawLine('ma20','#496f91');
+  data.forEach((d,idx)=>{
+    if(d.open==null||d.close==null||d.high==null||d.low==null) return;
+    const x=pad.l+gap+idx*(cw+gap)+cw/2; const yH=pad.t+(pMax-d.high)/range*priceH; const yL=pad.t+(pMax-d.low)/range*priceH; const yO=pad.t+(pMax-d.open)/range*priceH; const yC=pad.t+(pMax-d.close)/range*priceH;
+    const up=d.close>=d.open; ctx.strokeStyle=up?'#a9342f':'#4d7a5f'; ctx.beginPath(); ctx.moveTo(x,yH); ctx.lineTo(x,yL); ctx.stroke();
+    const top=Math.min(yO,yC); const h=Math.max(2,Math.abs(yO-yC)); if(up){ ctx.fillStyle='#c65f3e'; ctx.fillRect(x-cw/2,top,cw,h); } else { ctx.strokeStyle='#4d7a5f'; ctx.strokeRect(x-cw/2,top,cw,h); }
+  });
+}
+
+function selectDay(idx, isClick){
+  const d=RAW.daily[idx]; if(!d) return;
+  if(isClick) selectedIdx=idx; else if(selectedIdx<0) selectedIdx=idx;
+  const body=document.getElementById('inspBody');
+  const ma5Status=d.close!=null&&d.ma5!=null? (d.close>=d.ma5?`<span class="badge2 green">站上MA5</span>`:`<span class="badge2 red">跌破MA5</span>`) : '';
+  const weekStatus=d.close!=null&&d.sh_week_ma!=null? (d.close>=d.sh_week_ma?`<span class="badge2 green">周多头</span>`:`<span class="badge2 red">周空头</span>`) : '';
+  const bgStatus=(d.close>=d.ma5 && d.close>=d.sh_week_ma)?'<span class="badge2 green">多头背景</span>':(d.close<d.ma5 && d.close<d.sh_week_ma?'<span class="badge2 red">空头背景</span>':'<span class="badge2 amber">分歧背景</span>');
+  document.getElementById('inspTitle').textContent=`${d.trade_date} 上证 ${d.close?.toFixed(2)} ${d.pct_chg!=null?(d.pct_chg>0?'+'+d.pct_chg.toFixed(2)+'%':d.pct_chg.toFixed(2)+'%'):''}`;
+  document.getElementById('inspSub').textContent=`MA5 ${d.ma5?.toFixed(1)||'-'} · 周均线 ${d.sh_week_ma?.toFixed(1)||'-'} · ${d.market_stage||''}`;
+  body.innerHTML=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ma5Status} ${weekStatus} ${bgStatus} <span class="badge2 muted">涨停${d.limit_up||'-'}</span> <span class="badge2 muted">上涨${d.advancers||'-'}</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;margin-bottom:10px">
+      <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;padding:8px"><b style="color:var(--faint)">开高低收</b><br>${d.open?.toFixed(1)||'-'} / ${d.high?.toFixed(1)||'-'} / ${d.low?.toFixed(1)||'-'} / ${d.close?.toFixed(1)||'-'}</div>
+      <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:8px;padding:8px"><b style="color:var(--faint)">成交额/MA</b><br>${d.total_amount?.toFixed(0)||'-'}亿<br>MA5 ${d.ma5?.toFixed(1)||'-'} MA20 ${d.ma20?.toFixed(1)||'-'}</div>
+    </div>
+    <div style="background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:11px;line-height:1.6;margin-bottom:10px">
+      <b>MA5+周均线结合解读</b><br>
+      ${d.close&&d.ma5&&d.sh_week_ma?`
+        ${d.close>=d.ma5&&d.close>=d.sh_week_ma?'<span style="color:var(--green)">● 多头：短线站上MA5，周级别站上周均线，趋势向上，可积极</span>':''}
+        ${d.close>=d.ma5&&d.close<d.sh_week_ma?'<span style="color:var(--amber)">● 分歧：短线反弹但周级别仍弱，观察周均线压力</span>':''}
+        ${d.close<d.ma5&&d.close>=d.sh_week_ma?'<span style="color:var(--blue)">● 回踩：跌破MA5但周多头，周级别回踩，关注企稳</span>':''}
+        ${d.close<d.ma5&&d.close<d.sh_week_ma?'<span style="color:var(--red)">● 空头：双破，短中皆弱，防守</span>':''}
+        <br>偏离MA5 ${((d.close-d.ma5)/d.ma5*100).toFixed(2)}% · 偏离周均线 ${((d.close-d.sh_week_ma)/d.sh_week_ma*100).toFixed(2)}%
+      `:'-'}
+    </div>
+    <div><b style="font-size:11px">附着信息</b><div style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
+      ${(d.markers||[]).map(m=>`<div style="padding:6px 8px;border-radius:8px;border:1px solid ${m.color}33;background:${m.color}11;font-size:11px;display:flex;justify-content:space-between"><span>${m.label}</span><span style="color:${m.color}">${m.type}</span></div>`).join('')||'<span style="color:var(--faint);font-size:11px">无高亮</span>'}
+      ${(d.high_ladder||[]).map(h=>`<div style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface-soft);font-size:11px;display:flex;justify-content:space-between"><span>${h.name} ${h.boards}板 ${h.theme||''}</span><span class="badge2 red">${h.boards}板</span></div>`).join('')}
+      ${d.leader?`<div style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--accent-soft);font-size:11px">龙头 ${d.leader.name} ${d.leader.height}板</div>`:''}
+      ${(d.hot_sectors||[]).map(s=>`<div style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--blue-soft);font-size:11px">题材 ${s.name} +${s.pct}%</div>`).join('')}
+    </div></div>
+    <div style="margin-top:12px"><b style="font-size:11px">我的记忆标注</b><textarea id="noteInput" style="width:100%;min-height:70px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:11px;margin-top:6px" placeholder="写下这一天的判断...">${customNotes[d.trade_date]||''}</textarea><div style="display:flex;gap:8px;margin-top:8px"><button onclick="saveNote('${d.trade_date}')" style="padding:6px 12px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-size:11px">保存</button><button onclick="clearNote('${d.trade_date}')" style="padding:6px 12px;border-radius:7px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:11px">清除</button></div></div>
+  `;
+}
+
+function saveNote(date){
+  const v=document.getElementById('noteInput').value.trim();
+  if(v) customNotes[date]=v; else delete customNotes[date];
+  localStorage.setItem('sse_kline_notes', JSON.stringify(customNotes));
+  drawAll();
+}
+function clearNote(date){
+  delete customNotes[date];
+  localStorage.setItem('sse_kline_notes', JSON.stringify(customNotes));
+  document.getElementById('noteInput').value='';
+  drawAll();
+}
+
+load();
+</script>
+</body>
+</html>

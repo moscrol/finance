@@ -228,6 +228,31 @@ function TodayPanel({ market }: { market: MarketOverview }) {
 }
 
 function ThemePanel({ overview }: { overview: WorkbenchOverview }) {
+  // 主题数远少于 6×5 格时，完整矩阵几乎全空、所有气泡挤在一格里。
+  // 默认只展开有主题的行/列，并用一句话说明折叠了什么；需要全貌时再切换。
+  const [showFullMatrix, setShowFullMatrix] = useState(false);
+  const allKnowledge = overview.theme_axes.knowledge;
+  const allMarket = overview.theme_axes.market;
+  const occupiedKnowledge = allKnowledge.filter((stage) =>
+    overview.themes.some((theme) => theme.knowledge_stage === stage),
+  );
+  const occupiedMarket = allMarket.filter((stage) =>
+    overview.themes.some((theme) => theme.market_stage === stage),
+  );
+  const canCompact =
+    occupiedKnowledge.length > 0 &&
+    (occupiedKnowledge.length < allKnowledge.length || occupiedMarket.length < allMarket.length);
+  const compact = canCompact && !showFullMatrix;
+  const knowledgeStages = compact ? occupiedKnowledge : allKnowledge;
+  const marketStages = compact ? occupiedMarket : allMarket;
+  const occupiedCells = new Set(
+    overview.themes.map((theme) => `${theme.market_stage}|${theme.knowledge_stage}`),
+  ).size;
+  const totalCells = allKnowledge.length * allMarket.length;
+  const unplaced = overview.themes.filter(
+    (theme) =>
+      !allKnowledge.includes(theme.knowledge_stage) || !allMarket.includes(theme.market_stage),
+  ).length;
   return (
     <div className="output-panel-stack">
       <section className="output-section-heading">
@@ -243,17 +268,50 @@ function ThemePanel({ overview }: { overview: WorkbenchOverview }) {
           <span>知识 {overview.signal_date ?? "未知"}</span>
         </div>
       </section>
-      <section className="theme-matrix" aria-label="主题双轴矩阵">
+      <div className="theme-matrix-summary">
+        <p>
+          {overview.themes.length === 0
+            ? "当前没有可定位的主题。"
+            : `${overview.themes.length} 个主题落在 ${occupiedCells} / ${totalCells} 格`}
+          {compact && overview.themes.length > 0
+            ? `；已折叠 ${allMarket.length - occupiedMarket.length} 个空盘面阶段、${
+                allKnowledge.length - occupiedKnowledge.length
+              } 个空知识阶段。`
+            : overview.themes.length > 0
+              ? "。"
+              : ""}
+          {unplaced > 0 ? ` 另有 ${unplaced} 个主题阶段不在坐标轴上，未画入。` : ""}
+        </p>
+        {canCompact && (
+          <button
+            type="button"
+            className="theme-matrix-toggle"
+            aria-pressed={showFullMatrix}
+            onClick={() => setShowFullMatrix((value) => !value)}
+          >
+            {showFullMatrix ? "只看有主题的格" : `显示完整 ${allMarket.length}×${allKnowledge.length} 矩阵`}
+          </button>
+        )}
+      </div>
+      <section
+        className={`theme-matrix ${compact ? "compact" : ""}`}
+        aria-label="主题双轴矩阵"
+        style={{
+          gridTemplateColumns: `88px repeat(${Math.max(1, knowledgeStages.length)}, minmax(${
+            compact ? 180 : 120
+          }px, 1fr))`,
+        }}
+      >
         <div className="matrix-corner">盘面 ↓ / 知识 →</div>
-        {overview.theme_axes.knowledge.map((stage) => (
+        {knowledgeStages.map((stage) => (
           <div className="matrix-axis-label" key={stage}>
             {stage}
           </div>
         ))}
-        {overview.theme_axes.market.map((marketStage) => (
+        {marketStages.map((marketStage) => (
           <div className="matrix-row" key={marketStage}>
             <div className="matrix-market-label">{marketStage}</div>
-            {overview.theme_axes.knowledge.map((knowledgeStage) => {
+            {knowledgeStages.map((knowledgeStage) => {
               const themes = overview.themes.filter(
                 (theme) =>
                   theme.market_stage === marketStage &&

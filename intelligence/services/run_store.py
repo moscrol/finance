@@ -250,6 +250,7 @@ class Run:
     degrades: list[str] = field(default_factory=list)
     error: str | None = None
     artifacts: list[dict[str, Any]] = field(default_factory=list)
+    maintenance_launch: dict[str, Any] | None = None
 
 
 class RunStore:
@@ -280,6 +281,7 @@ class RunStore:
         duckdb_cutoff: str | None = None,
         kb_commit: str | None = None,
         manifest_ref: str | None = None,
+        maintenance_launch: dict[str, Any] | None = None,
     ) -> Run:
         run = Run(
             run_id=new_run_id(),
@@ -293,6 +295,7 @@ class RunStore:
             duckdb_cutoff=duckdb_cutoff,
             kb_commit=kb_commit,
             manifest_ref=manifest_ref,
+            maintenance_launch=maintenance_launch,
         )
         run_dir = self.run_dir(run.run_id)
         run_dir.mkdir(parents=True, exist_ok=True)

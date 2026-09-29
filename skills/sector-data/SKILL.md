@@ -1,13 +1,14 @@
 ---
 name: sector-data
+disable-model-invocation: true
 metadata:
   pattern: pipeline
-description: 抓取 fupanhui.com 227个板块数据，写入飞书多维表格和电子表格，验证后筛选成交额>500、涨幅>0、边际量>10%的板块，输出条件格式公式。触发：边际量、/sector-data、板块数据、抓取板块
+description: 旧链路：抓取 fupanhui.com 板块数据写入飞书 Bitable sector_daily 与电子表格边际量列，再筛选成交额>500、涨幅>0、边际量>10% 的板块并输出条件格式公式。仅在用户明确要求写飞书表 / 电子表格时使用；DuckDB 的板块边际量走 daily-full（sync_fupanhui_sector_daily），查询与复盘用 fact_sector_daily。触发词：写飞书板块表、板块边际量写电子表格、sector-data。注意：看边际量、双红筛选走 market-overview 或直接查 fact_sector_daily。
 ---
 
 # sector-data Skill
 
-每天从 fupanhui.com 抓取板块数据，写入飞书，筛选量价齐升板块。
+从 fupanhui.com 抓取板块数据写入飞书（Bitable + 电子表格），筛选量价齐升板块。这是 DuckDB 之前的旧链路：复盘事实现在统一由 `python3 -m market_feature_store.cli daily-full` 写入 `fact_sector_daily`，飞书 `sector_daily` 表只剩 `sync_feishu_sector_daily.py` 回填历史时读取。只在用户明确要飞书表 / 电子表格产物时跑本 skill。
 
 ## 依赖
 

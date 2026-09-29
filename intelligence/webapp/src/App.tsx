@@ -51,6 +51,9 @@ import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
 import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
+import { LimitUpDashboard } from "./components/river/LimitUpDashboard";
+import { RiverWorkbench } from "./components/river/RiverHome";
+import { StaleDataBanner } from "./components/StaleDataBanner";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
 import {
@@ -90,6 +93,8 @@ interface StreamIdentity {
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "today" });
+  // 长河与涨停梯队共用一个「当前交易日」，切换页面时 K 线/梯队停在同一天。
+  const [marketFocusDate, setMarketFocusDate] = useState<string | null>(null);
   const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
   const [overviewRefreshing, setOverviewRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -117,9 +122,8 @@ export default function App() {
   const [modelSettingsError, setModelSettingsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(
-    () => window.innerWidth >= 1180,
-  );
+  // 首屏是「今日」看板：检查器只服务研究线程，看板页默认收起，把宽度留给图表。
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [artifacts, setArtifacts] = useState<ArtifactDescriptor[]>([]);
   const [artifact, setArtifact] = useState<ArtifactDescriptor | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
@@ -468,6 +472,16 @@ export default function App() {
     [clearRunPolling, connectStream, loadConversationData],
   );
 
+  // 初始化只跑一次：selectConversation/clearRunPolling 的身份会随 bootstrap.user 变化，
+  // 若放进依赖数组，setBootstrap 之后整个初始化会被取消重跑，所有请求各发两遍。
+  // 用 ref 取最新版本，调用时拿到的永远是已带上真实 user 的回调。
+  const selectConversationRef = useRef(selectConversation);
+  const clearRunPollingRef = useRef(clearRunPolling);
+  useEffect(() => {
+    selectConversationRef.current = selectConversation;
+    clearRunPollingRef.current = clearRunPolling;
+  }, [selectConversation, clearRunPolling]);
+
   useEffect(() => {
     let disposed = false;
     void getBootstrap()
@@ -494,7 +508,7 @@ export default function App() {
         setLLMConfig(nextLLMConfig);
         setOverview(nextOverview);
         if (nextConversations[0]) {
-          await selectConversation(nextConversations[0].conversation_id, {
+          await selectConversationRef.current(nextConversations[0].conversation_id, {
             closeDrawer: false,
             openAsk: false,
           });
@@ -513,9 +527,9 @@ export default function App() {
     return () => {
       disposed = true;
       eventSourceRef.current?.close();
-      clearRunPolling();
+      clearRunPollingRef.current();
     };
-  }, [clearRunPolling, selectConversation]);
+  }, []);
 
   const refreshOverview = useCallback(async () => {
     setOverviewRefreshing(true);
@@ -875,7 +889,7 @@ export default function App() {
     [messages, runBundles],
   );
   const activeSection: WorkbenchSection = (
-    ["today", "themes", "signals", "validation", "ask"] as const
+    ["today", "themes", "signals", "validation", "river", "ladder", "ask"] as const
   ).includes(surface.kind as WorkbenchSection)
     ? (surface.kind as WorkbenchSection)
     : "ask";
@@ -884,6 +898,8 @@ export default function App() {
     themes: ["主题雷达", "主题状态矩阵", "知识共识与盘面确认分轴展示"],
     signals: ["事件收件箱", "晨会边际变化", "只推变化，不重复旧观点"],
     validation: ["回检台", "验证与校准", "机构胜率 · Level2 · 假设回检"],
+    river: ["记忆长河", "时间记忆长河", "六轨对齐 · 横扫 / 纵扫 / 区间 · 读取路径无模型"],
+    ladder: ["连板日历", "连板梯队与晋级率", "梯队热力 · 龙头高度 · 与大盘阶段对照"],
     ask: ["研究线程", activeConversation?.title ?? "新对话", "每轮重新检索当前证据"],
   };
   const [sectionKicker, sectionTitle, sectionSubtitle] =
@@ -891,7 +907,7 @@ export default function App() {
   const navigateSection = (section: WorkbenchSection) => {
     setSurface({ kind: section });
     setConversationDrawerOpen(false);
-    if (window.innerWidth < 1180) {
+    if (section !== "ask" || window.innerWidth < 1180) {
       setInspectorOpen(false);
     }
   };
@@ -992,6 +1008,10 @@ export default function App() {
           </div>
         )}
 
+        {activeSection !== "ask" && overview?.market_freshness && (
+          <StaleDataBanner freshness={overview.market_freshness} />
+        )}
+
         {(surface.kind === "home" || surface.kind === "ask") && (
           <div className="conversation-surface">
             <MessageThread
@@ -1042,6 +1062,13 @@ export default function App() {
               onRefresh={refreshOverview}
             />
           )}
+
+        {surface.kind === "river" && (
+          <RiverWorkbench focusDate={marketFocusDate} onFocusDate={setMarketFocusDate} onOpenLadder={date => { setMarketFocusDate(date); setSurface({ kind: "ladder" }); }} />
+        )}
+        {surface.kind === "ladder" && (
+          <LimitUpDashboard focusDate={marketFocusDate} onFocusDate={setMarketFocusDate} onOpenRiver={date => { setMarketFocusDate(date); setSurface({ kind: "river" }); }} />
+        )}
 
         {surface.kind === "library" && (
           <ArtifactLibrary
