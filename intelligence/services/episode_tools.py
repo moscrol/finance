@@ -228,6 +228,10 @@ def _finance_query_basis(
         "row_unit": "groups" if spec.group_by else "rows",
         "candidate_pool_size": None,
         "candidate_pool_size_status": "unknown_not_counted",
+        **({"field_quality": {
+            "status": "partial", "scope": "requested_fields_in_returned_slice",
+            "gaps": list(result.quality_gaps),
+        }} if result.quality_gaps else {}),
         "scope_note": (
             "本次执行的查询口径；selection_order_by 是取样前排序，order_by 是返回顺序。"
             "本次未统计候选全集数量；返回行/组数不证明完整候选池。"
@@ -691,13 +695,13 @@ def _exited_universe_result(
         trace=ProviderTrace(
             provider=provider,
             capability=capability,
-            status="ok",
+            status="partial" if result.quality_gaps else "ok",
             detail=detail,
             source_trade_date=result.served_date,
             served_date=result.served_date,
             result_count=len(result.evidence),
         ),
-        gaps=(
+        gaps=result.quality_gaps + (
             "当前筛选缺少请求时点记录；历史记录不代替请求窗口内缺失的事实，"
             "也不能据此断言事件未发生。",
         ),
@@ -1814,7 +1818,7 @@ def build_episode_registry(
                             "historical_followup": exit_result.query_basis,
                         },
                     )
-            gaps = (
+            gaps = result.quality_gaps + (
                 ()
                 if result.evidence
                 else (f"{value.dataset} 在指定条件与时点内未命中本地记录；不证明事件未发生或覆盖完整",)
@@ -1872,7 +1876,10 @@ def build_episode_registry(
                 trace=ProviderTrace(
                     provider="duckdb_semantic_query",
                     capability="finance_query",
-                    status="success" if result.evidence else "empty",
+                    status=(
+                        "partial" if result.evidence and result.quality_gaps
+                        else "success" if result.evidence else "empty"
+                    ),
                     detail=(
                         f"dataset={value.dataset}; rows={len(result.evidence)}; "
                         f"fingerprint={result.audit.sql_fingerprint}"

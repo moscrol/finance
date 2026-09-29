@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 import hashlib
+import math
 import json
 from pathlib import Path
 import re
@@ -279,6 +280,8 @@ class FinanceQueryResult:
     observation: str
     served_date: str | None
     audit: FinanceQueryAudit
+    # Requested-field availability in this returned slice, not source health or truth.
+    quality_gaps: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -288,10 +291,7 @@ class _FieldDefinition:
     role: Literal["dimension", "metric"]
     aggregate: Literal["avg", "sum", "max", "min", "count"] | None = None
     value_kind: Literal["text", "number", "integer", "boolean", "date"] = "text"
-    # NULL 的业务语义因字段而异：high_status 的 NULL 是「非新高」这个事实，
-    # 渲染成「未知」会让模型把"多数个股不是新高"误读成"数据没回填"
-    # （2026-08-13 A10 实测：GROUP BY high_status 按成交额降序，NULL 组
-    # 天然最大，top25 全显示「未知」，模型据此错误宣告数据缺口）。
+    # NULL 语义须经来源契约证明；空的新高标记可能未富化，不能推出非新高。
     null_label: str = "未知"
 
 
@@ -540,6 +540,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         population="full",
         coverage=(
             "板块×成分股全集，本库行数最大的一张，务必先加筛选再查。"
+            "high_status 空值不等于非新高；个股请同日同码核验 stock_high_daily，名单未命中也不单独证明非新高。"
             "成分股行情从 2026-04 起才完整（2025-01-06~2026-03-30 共 288 日无成分股行情，如实缺，"
             "不是查询写错）。sector_name 不是键：同名可能对应两个板块码（如 `国防军工`），"
             "按 sector_code 筛选；按名字查请先经 dim_sector_canonical 解析。"
@@ -553,7 +554,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "stock_name": _dimension("stock_name", "股票名称"),
             "sw_industry": _dimension("sw_industry", "申万行业"),
             "high_status": _dimension(
-                "high_status", "新高状态", null_label="非新高"
+                "high_status", "新高状态", null_label="未知（新高标记未核验）"
             ),
         },
         metrics={
@@ -627,9 +628,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         label="主线板块日频结构",
         population="subset",
         coverage=(
-            "**只含当日「主线」板块，十余行的人工筛选子集，不是全市板块全集**。它也有 limit_up_count "
-            "且数值与权威表一致，但在这张表里排序只能得到「主线内部的 top」，**回答不了「全市涨停集中在哪些板块」**——那个要 "
-            "theme_limit_heat_daily。"
+            "**只含当日「主线」板块的人工筛选子集，不是全市板块全集**。"
+            "指标可用性须看本次字段质量提示，不能凭日期新或有名单就确认量价条件。"
+            "该表排名只能得到主线内部的top，全市涨停集中度要查 theme_limit_heat_daily。"
+            "板块 high_status 空值为未核验，不能用个股新高表替代板块状态。"
         ),
         time_field="trade_date",
         dimensions={
@@ -640,7 +642,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "cycle_level": _dimension("cycle_level", "周期层级"),
             "cycle_status": _dimension("cycle_status", "周期状态"),
             "high_status": _dimension(
-                "high_status", "新高状态", null_label="非新高"
+                "high_status", "新高状态", null_label="未知（新高标记未核验）"
             ),
         },
         metrics={
@@ -2298,6 +2300,8 @@ class _CompiledQuery:
     source_date_index: int
     applied_limit: int
     reverse_after_fetch: bool = False
+    quality_metrics: tuple[str, ...] = ()
+    quality_counts_index: int | None = None
     sector_universe_index: int | None = None
     return_dates_index: int | None = None
     selection_order_by: tuple[Order, ...] = ()
@@ -2395,7 +2399,7 @@ class FinanceQuery:
                     compiled.sql,
                     list(compiled.parameters),
                 )
-                rows, source_dates, sector_universes, return_dates, output_bytes = self._fetch_rows(
+                rows, source_dates, sector_universes, return_dates, output_bytes, quality_counts = self._fetch_rows(
                     cursor,
                     compiled,
                     cancelled=cancelled,
@@ -2405,6 +2409,7 @@ class FinanceQuery:
                     source_dates = tuple(reversed(source_dates))
                     sector_universes = tuple(reversed(sector_universes))
                     return_dates = tuple(reversed(return_dates))
+                    quality_counts = tuple(reversed(quality_counts))
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
@@ -2436,12 +2441,17 @@ class FinanceQuery:
         elapsed = time.monotonic() - started
         fingerprint = hashlib.sha256(compiled.sql.encode("utf-8")).hexdigest()[:16]
         dataset = _DATASETS[spec.dataset]
+        quality_gaps, row_gaps, unavailable_metrics = _query_quality(
+            spec, rows, dataset=dataset, aggregate_counts=quality_counts,
+        )
         evidence = _rows_to_evidence(
             rows,
             source_dates=source_dates,
             dataset_name=spec.dataset,
             dataset=dataset,
             fingerprint=fingerprint,
+            row_gaps=row_gaps,
+            unavailable_metrics=unavailable_metrics,
             sector_universes=sector_universes,
             summary_window=_requested_time_range(spec) if _stock_amount_summary(spec) else None,
             return_window=_requested_time_range(spec) if _return_summary(spec) else None,
@@ -2455,6 +2465,8 @@ class FinanceQuery:
                 f"{dataset.label}：本次条件与截止时点内未命中本地记录；"
                 "不证明事件未发生，也不证明数据覆盖完整。"
             )
+        if quality_gaps:
+            observation = "；".join((*quality_gaps, observation))
         audit = FinanceQueryAudit(
             dataset=spec.dataset,
             physical_sql=compiled.sql,
@@ -2475,6 +2487,7 @@ class FinanceQuery:
             observation=observation,
             served_date=max(dates) if dates else None,
             audit=audit,
+            quality_gaps=quality_gaps,
         )
 
     @staticmethod
@@ -2584,8 +2597,12 @@ class FinanceQuery:
         compiled: _CompiledQuery,
         *,
         cancelled: Callable[[], bool],
-    ) -> tuple[tuple[dict[str, object], ...], tuple[str | None, ...], tuple[str, ...], tuple[str, ...], int]:
+    ) -> tuple[
+        tuple[dict[str, object], ...], tuple[str | None, ...], tuple[str, ...],
+        tuple[str, ...], int, tuple[dict[str, tuple[int, int]], ...],
+    ]:
         rows: list[dict[str, object]] = []
+        quality_counts: list[dict[str, tuple[int, int]]] = []
         sector_universes: list[str] = []
         return_dates: list[str] = []
         output_bytes = 0
@@ -2602,6 +2619,15 @@ class FinanceQuery:
                 }
                 source_date = _date_text(raw_row[compiled.source_date_index])
                 public["__source_date"] = source_date
+                counts: dict[str, tuple[int, int]] = {}
+                if compiled.quality_counts_index is not None:
+                    offset = compiled.quality_counts_index
+                    total = int(raw_row[offset])
+                    counts = {
+                        field: (total, int(raw_row[offset + 1 + i]))
+                        for i, field in enumerate(compiled.quality_metrics)
+                    }
+                quality_counts.append(counts)
                 universe = (
                     str(raw_row[compiled.sector_universe_index] or "未知")
                     if compiled.sector_universe_index is not None else ""
@@ -2619,6 +2645,8 @@ class FinanceQuery:
                     default=str,
                 ).encode("utf-8")
                 output_bytes += len(encoded)
+                if counts:
+                    output_bytes += len(json.dumps(counts).encode("utf-8"))
                 if output_bytes > self._limits.max_bytes:
                     raise FinanceQueryLimitExceeded("finance query byte limit exceeded")
                 rows.append(public)
@@ -2627,7 +2655,7 @@ class FinanceQuery:
             for row in rows
         )
         source_dates = tuple(_date_text(row.get("__source_date")) for row in rows)
-        return visible_rows, source_dates, tuple(sector_universes), tuple(return_dates), output_bytes
+        return visible_rows, source_dates, tuple(sector_universes), tuple(return_dates), output_bytes, tuple(quality_counts)
 
 
 def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
@@ -2861,6 +2889,23 @@ def _compile_query(
         day = _quote(fields["trade_date"].column)
         select_parts.append(f"string_agg(DISTINCT CAST({day} AS VARCHAR), ',' ORDER BY CAST({day} AS VARCHAR)) AS __return_dates")
 
+    # Ordinary numeric aggregates must not silently hide missing inputs. Counts
+    # are facts about coverage, not incomplete totals. Finite-sample amount_mean
+    # has its own explicit denominator contract and is not a full-window mean.
+    quality_metrics = tuple(
+        name for name in spec.metrics
+        if fields[name].aggregate != "count"
+        and not (_stock_amount_summary(spec) and name in _STOCK_AMOUNT_SUMMARY_METRICS)
+    ) if group_by else ()
+    quality_counts_index = len(select_parts) if quality_metrics else None
+    if quality_metrics:
+        select_parts.append("COUNT(*) AS __quality_rows")
+        select_parts.extend(
+            f"COUNT(CASE WHEN isfinite({_quote(fields[name].column)}) "
+            f"THEN {_quote(fields[name].column)} END) AS __quality_nonnull_{i}"
+            for i, name in enumerate(quality_metrics)
+        )
+
     where_parts: list[str] = []
     parameters: list[object] = []
     if dataset.time_field is not None:
@@ -2943,6 +2988,8 @@ def _compile_query(
         source_date_index=len(selected),
         applied_limit=applied_limit,
         reverse_after_fetch=reverse_after_fetch,
+        quality_metrics=quality_metrics,
+        quality_counts_index=quality_counts_index,
         sector_universe_index=sector_universe_index,
         return_dates_index=return_dates_index,
         selection_order_by=fetch_orders,
@@ -3036,6 +3083,67 @@ _OBSERVATION_METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _metric_unavailable(value: object) -> bool:
+    return value is None or (isinstance(value, float) and not math.isfinite(value))
+
+
+def _query_quality(
+    spec: FinanceQuerySpec,
+    rows: tuple[dict[str, object], ...],
+    *,
+    dataset: _DatasetDefinition,
+    aggregate_counts: tuple[dict[str, tuple[int, int]], ...],
+) -> tuple[tuple[str, ...], tuple[tuple[str, ...], ...], tuple[frozenset[str], ...]]:
+    """Availability, not truth: only requested fields and the returned slice.
+
+    Numeric zero is a value. Unrequested columns and domain NULL facts (e.g.
+    limit_status) are not generically defects. Aggregate counts detect SQL's
+    NULL-skipping without fabricating zero or switching data providers. An
+    all-NULL metric does not invalidate the returned membership/name facts.
+    """
+    if not rows:
+        return (), (), ()
+    per_row: list[list[str]] = [[] for _ in rows]
+    gaps: list[str] = []
+    unavailable_fields: list[set[str]] = [set() for _ in rows]
+    for name in spec.metrics:
+        affected = 0
+        for i, row in enumerate(rows):
+            counts = aggregate_counts[i].get(name)
+            unavailable = _metric_unavailable(row.get(name))
+            skipped = counts is not None and counts[1] < counts[0]
+            if unavailable or skipped:
+                affected += 1
+                unavailable_fields[i].add(name)
+                detail = f"{name} 不可用" if unavailable else f"{name} 聚合仅覆盖 {counts[1]}/{counts[0]} 条输入"
+                per_row[i].append(detail)
+        if affected:
+            gaps.append(
+                f"字段可用性降级：{spec.dataset}.{name}（{dataset.metrics[name].label}）"
+                f"在本次返回的 {affected}/{len(rows)} 行中缺值、非有限值或聚合输入不全；"
+                "仅保留已知事实，不据此确认该指标、完整总量或排名，不补零、不自动换源。"
+            )
+    if "high_status" in spec.dimensions:
+        unknown = 0
+        for i, row in enumerate(rows):
+            if row.get("high_status") is None or row.get("high_status") == "":
+                unknown += 1
+                per_row[i].append("新高标记未核验，不等于非新高")
+        if unknown:
+            remedy = (
+                "个股按同日同码核验 stock_high_daily，未命中也不单独证明非新高。"
+                if spec.dataset == "sector_stock_daily"
+                else "须核验对应板块源口径，不能用个股新高名单替代板块状态。"
+            )
+            gaps.append(
+                f"字段可用性降级：{spec.dataset}.high_status 在本次返回的 "
+                f"{unknown}/{len(rows)} 行未核验；空值不等于非新高。{remedy}"
+            )
+    return tuple(gaps), tuple(tuple(parts) for parts in per_row), tuple(
+        frozenset(names) for names in unavailable_fields
+    )
+
+
 def _row_observations(
     rows: tuple[dict[str, object], ...],
     *,
@@ -3076,6 +3184,8 @@ def _row_observations(
                 try:
                     number = float(value)  # type: ignore[arg-type]
                 except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(number):
                     continue
                 seen.setdefault((subject, as_of, field.column), set()).add(number)
                 cells.append((subject, as_of, field.column, number))
@@ -3131,11 +3241,17 @@ def _rows_to_evidence(
     return_window: tuple[str | None, str | None] | None = None,
     return_dates: tuple[str, ...] = (),
     grouped_return: bool = False,
+    row_gaps: tuple[tuple[str, ...], ...] = (),
+    unavailable_metrics: tuple[frozenset[str], ...] = (),
 ) -> tuple[agent_research.AgentEvidence, ...]:
     evidence: list[agent_research.AgentEvidence] = []
     fields = dataset.fields
+    observation_rows = tuple(
+        {name: None if name in unavailable_metrics[i] else value for name, value in row.items()}
+        for i, row in enumerate(rows)
+    ) if unavailable_metrics else rows
     observations = _row_observations(
-        rows,
+        observation_rows,
         source_dates=source_dates,
         dataset_name=dataset_name,
         dataset=dataset,
@@ -3159,6 +3275,8 @@ def _rows_to_evidence(
             detail += "；平均日涨跌幅不是累计收益"
         if sector_universes and sector_universes[index - 1]:
             detail += f"；板块分类口径={sector_universes[index - 1]}"
+        if row_gaps and row_gaps[index - 1]:
+            detail = "字段可用性降级：" + "、".join(row_gaps[index - 1]) + "；" + detail
         if return_window is not None:
             from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
 
@@ -3282,8 +3400,10 @@ def _date_text(value: object) -> str | None:
 
 def _display_value(value: object, field: _FieldDefinition | None = None) -> str:
     if isinstance(value, float):
+        if not math.isfinite(value):
+            return "不可用（非有限值）"
         return f"{value:.4f}".rstrip("0").rstrip(".")
-    if value is None:
+    if value is None or (value == "" and field is not None and field.column == "high_status"):
         return field.null_label if field is not None else "未知"
     return str(value)
 

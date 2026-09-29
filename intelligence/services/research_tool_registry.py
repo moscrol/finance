@@ -1710,7 +1710,10 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "应写成证据缺口，不得据此推断事实不存在。"
         "新高家数/新高结构类问题用 stock_high_daily（表内只含当日创新高的个股，"
         "按 high_period/sw_l1 分组计数即新高结构）；"
-        "sector_stock_daily.high_status 显示「非新高」是事实标注，不是数据缺失。"
+        "sector_stock_daily/mainline_sector_daily 的 high_status 空值是未核验，不等于非新高；"
+        "个股按同日同码核验 stock_high_daily，名单未命中不单独证明非新高，个股名单不能替代板块状态。"
+        "字段可用性降级（partial）时只引用已知字段，不能把缺值或不完整聚合当成完整总量/排名，"
+        "也不能补零或按同名字段自动换源（例如原生日线 turnover 可能是金额而非换手率）。"
         "下周/周末大事、事件日历用 event_daily（复盘会编辑催化，不是官方日程全集；"
         "event_date 可以晚于信息截止日）。"
     ),
