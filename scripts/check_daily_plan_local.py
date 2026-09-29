@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import sys
 
-SYNC_ROOT = os.environ.get("FINANCE_SYNC_CODE_ROOT", "/Users/a77/.finance-runtime/finance-sync-541ef50ba2b2")  # path-literal-ok: 夜跑 sync 固定检出树（原 fe9fdb/finance-workspace-sync 已退役，launchd 见 intelligence/dream plist）
+SYNC_ROOT = os.environ.get("FINANCE_SYNC_CODE_ROOT", "/Users/a77/.finance-runtime/finance-sync-9c1e3154f613")  # path-literal-ok: 夜跑 sync 固定检出树（原 fe9fdb/finance-workspace-sync 已退役，launchd 见 intelligence/dream plist）
 plan = os.environ.get("REVIEW_SYNC_PLAN", "local")
 
 if len(sys.argv) < 2:

@@ -25,6 +25,17 @@
 - 收据路径必须是新文件（先查再写，最后以 ``x`` 模式落盘），旧证据不覆盖。
 只改 ``stock_name`` 一列；单事务；写后逐行回读。
 
+过时名更正（``--refresh-stale-names``；合同 1 扩展，用户 2026-09-29 约 23:50「同意，你按照最优推进就行」）
+------------------------------------------------------------------------------------------
+桥的名称政策是「库内此前最近一条非空名」，于是改名永远跟不上：09-29 实测 5559 行桥接行里 46 行过时——
+摘帽（ST易联众→易联众）、新股过了首 5 日仍挂 C（C信诺维，科创板被当作无涨跌幅限制）、除权日后仍挂
+XD（XD雅戈尔）、mootdx 截断（华润新能→华润新能源）、公司更名（通行宝→苏交数智）；格式差异 0 例。
+开关打开时，同一份封存报价里名字**非空但与报价名不同**的同花顺桥接行改用报价名：
+- 只动 ``source`` 以 ``hithink:`` 开头的行（东财等主源的名字本来就是当日名）；
+- 与补空名同一组「同一根 bar」钉（close / pre_close / pct_chg / amount）；报价名须合法；
+- 对不上的**逐只跳过**并写进收据，不连坐、也不影响补空名（维持原名不比接线前更糟）；
+- 补空名仍是全有或全无：它拒跑时本步整体不写，更正也不做。
+
 用法::
 
     MARKET_FEATURE_STORE_DB=<staging> python3 skills/duckdb-backfill/scripts/attach_capture_names.py \\
@@ -83,6 +94,18 @@ def load_capture(capture_dir: Path, trade_date: date, *,
     return audit, quotes
 
 
+def _bar_diffs(close, pre_close, pct_chg, amount, quote: dict) -> list[str]:
+    """捕获与这一行是不是同一根 bar：四个钉任一超容差即不是。"""
+    pins = (
+        ("close", close, quote["close"], PRICE_TOLERANCE),
+        ("pre_close", pre_close, quote["pre_close"], PRICE_TOLERANCE),
+        ("pct_chg", pct_chg, quote["pct_chg"], PRICE_TOLERANCE),
+        ("amount", amount, quote["amount_yuan"] / 1e8, AMOUNT_TOLERANCE_YI),
+    )
+    return [f"{field} {ours}!={theirs}" for field, ours, theirs, tolerance in pins
+            if ours is None or abs(float(ours) - float(theirs)) > tolerance]
+
+
 def plan_targets(con, trade_date: date, quotes: dict[str, dict]) -> list[dict]:
     rows = con.execute(
         """
@@ -106,14 +129,7 @@ def plan_targets(con, trade_date: date, quotes: dict[str, dict]) -> list[dict]:
         if not valid_name(quote["name"]):
             problems.append(f"{code}: 捕获名 {quote['name']!r} 不合法")
             continue
-        pins = (
-            ("close", close, quote["close"], PRICE_TOLERANCE),
-            ("pre_close", pre_close, quote["pre_close"], PRICE_TOLERANCE),
-            ("pct_chg", pct_chg, quote["pct_chg"], PRICE_TOLERANCE),
-            ("amount", amount, quote["amount_yuan"] / 1e8, AMOUNT_TOLERANCE_YI),
-        )
-        diffs = [f"{field} {ours}!={theirs}" for field, ours, theirs, tolerance in pins
-                 if ours is None or abs(float(ours) - float(theirs)) > tolerance]
+        diffs = _bar_diffs(close, pre_close, pct_chg, amount, quote)
         if diffs:
             problems.append(f"{code}: 捕获与桥接行不是同一根 bar（{'; '.join(diffs)}）")
             continue
@@ -158,8 +174,72 @@ def attach(con, trade_date: date, targets: list[dict]) -> None:
         raise RuntimeError(f"写后回读不一致: {wrong}")
 
 
+def plan_refresh(con, trade_date: date, quotes: dict[str, dict]) -> tuple[list[dict], list[dict]]:
+    """桥接行名字非空但与当日封存报价名不同 → (可更正, 跳过及原因)。只读。"""
+    rows = con.execute(
+        """
+        SELECT stock_ts_code, stock_name, close, pre_close, pct_chg, amount, source
+        FROM fact_stock_daily
+        WHERE trade_date = ? AND stock_name IS NOT NULL AND trim(stock_name) <> ''
+          AND source LIKE 'hithink:%'
+        ORDER BY stock_ts_code
+        """,
+        [trade_date],
+    ).fetchall()
+    refresh: list[dict] = []
+    skipped: list[dict] = []
+    for code, name, close, pre_close, pct_chg, amount, source in rows:
+        quote = quotes.get(code)
+        if quote is None or quote["name"] == name:
+            continue
+        reason = None
+        if not valid_name(quote["name"]):
+            reason = f"捕获名 {quote['name']!r} 不合法"
+        else:
+            diffs = _bar_diffs(close, pre_close, pct_chg, amount, quote)
+            if diffs:
+                reason = f"捕获与桥接行不是同一根 bar（{'; '.join(diffs)}）"
+        if reason:
+            skipped.append({"stock_ts_code": code, "stock_name": name, "capture_name": quote["name"],
+                            "reason": reason})
+            continue
+        refresh.append({
+            "stock_ts_code": code, "stock_name_before": name, "stock_name": quote["name"],
+            "name_source": NAME_SOURCE, "quote_timestamp": quote["quote_timestamp"], "row_source": source,
+        })
+    return refresh, skipped
+
+
+def apply_refresh(con, trade_date: date, targets: list[dict]) -> None:
+    """单事务：逐行 UPDATE（带旧名与来源做乐观锁），任一行命中数 != 1 回滚；写后回读。"""
+    con.execute("BEGIN TRANSACTION")
+    try:
+        for target in targets:
+            hit = con.execute(
+                """
+                UPDATE fact_stock_daily SET stock_name = ?
+                WHERE trade_date = ? AND stock_ts_code = ? AND source = ? AND stock_name = ?
+                RETURNING stock_ts_code
+                """,
+                [target["stock_name"], trade_date, target["stock_ts_code"], target["row_source"],
+                 target["stock_name_before"]],
+            ).fetchall()
+            if len(hit) != 1:
+                raise AttachRefused(f"{target['stock_ts_code']}: 更正预期改 1 行，实际 {len(hit)} 行")
+        con.execute("COMMIT")
+    except BaseException:
+        con.execute("ROLLBACK")
+        raise
+    for target in targets:
+        got = con.execute("SELECT stock_name FROM fact_stock_daily WHERE trade_date = ? AND stock_ts_code = ?",
+                          [trade_date, target["stock_ts_code"]]).fetchone()
+        if not got or got[0] != target["stock_name"]:
+            raise RuntimeError(f"更正写后回读不一致: {target['stock_ts_code']}")
+
+
 def run(trade_date: date, capture_dir: Path, receipt_path: Path, *, db_path: Path,
-        dry_run: bool = False, expect_receipt_sha256: str | None = None) -> dict:
+        dry_run: bool = False, expect_receipt_sha256: str | None = None,
+        refresh_stale: bool = False) -> dict:
     import duckdb
 
     from market_feature_store.write_path import is_canonical_production
@@ -172,8 +252,11 @@ def run(trade_date: date, capture_dir: Path, receipt_path: Path, *, db_path: Pat
     con = duckdb.connect(str(db_path))
     try:
         targets = plan_targets(con, trade_date, quotes)
+        refresh, skipped = plan_refresh(con, trade_date, quotes) if refresh_stale else ([], [])
         if targets and not dry_run:
             attach(con, trade_date, targets)
+        if refresh and not dry_run:
+            apply_refresh(con, trade_date, refresh)
     finally:
         con.close()
     result = {
@@ -181,7 +264,10 @@ def run(trade_date: date, capture_dir: Path, receipt_path: Path, *, db_path: Pat
         "db_path": str(db_path), "dry_run": dry_run, "applied": bool(targets) and not dry_run,
         "name_source": NAME_SOURCE, "capture_dir": str(capture_dir),
         "capture_audit": audit, "targets": targets,
-        "decision_required": "name_source_acceptance (09-22 决策页合同 1)",
+        "refresh_stale": refresh_stale, "refreshed": refresh if not dry_run else [],
+        "refresh_planned": refresh, "refresh_skipped": skipped,
+        "decision_required": "name_source_acceptance (09-22 决策页合同 1)"
+                             + ("；过时名更正 = 合同 1 扩展（用户 2026-09-29 约 23:50 同意）" if refresh_stale else ""),
         "finished_at": datetime.now().isoformat(timespec="seconds"),
     }
     with receipt_path.open("x", encoding="utf-8") as handle:
@@ -196,19 +282,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--receipt", type=Path, required=True, help="新收据文件路径（已存在则拒跑）")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--expect-receipt-sha256", help="封存清单里记的 receipt.json sha256（建议总是给）")
+    parser.add_argument("--refresh-stale-names", action="store_true",
+                        help="同时把名字非空但与报价名不同的桥接行改用报价名（合同 1 扩展，见文档）")
     args = parser.parse_args(argv)
     from market_feature_store.db import DB_PATH
 
     try:
         result = run(args.trade_date, args.capture_dir, args.receipt, db_path=DB_PATH,
-                     dry_run=args.dry_run, expect_receipt_sha256=args.expect_receipt_sha256)
+                     dry_run=args.dry_run, expect_receipt_sha256=args.expect_receipt_sha256,
+                     refresh_stale=args.refresh_stale_names)
     except (AttachRefused, OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({"attached": False, "error_type": type(exc).__name__, "error": str(exc)},
                          ensure_ascii=False))
         return 2
     print(json.dumps({k: result[k] for k in ("trade_date", "dry_run", "applied", "name_source")}
                      | {"targets": [(t["stock_ts_code"], t["stock_name"], t["quote_timestamp"])
-                                    for t in result["targets"]]}, ensure_ascii=False))
+                                    for t in result["targets"]],
+                        "refreshed": [(t["stock_ts_code"], t["stock_name_before"], t["stock_name"])
+                                      for t in result["refreshed"]],
+                        "refresh_skipped": len(result["refresh_skipped"])}, ensure_ascii=False))
     return 0
 
 

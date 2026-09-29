@@ -191,3 +191,81 @@ def test_cli_refusal_exit_code(tmp_path, capture, monkeypatch, capsys):
     assert rc == 2
     assert json.loads(capsys.readouterr().out)["attached"] is False
     assert names(db) == {"301686.SZ": None}
+
+
+# ——— 过时名更正（合同 1 扩展，用户 2026-09-29 夜同意；--refresh-stale-names）———
+# 09-29 实测：桥接行 46 / 5559 过时（摘帽、C / XD 前缀残留、截断、更名），格式差异 0 例。
+
+STALE_ST = {1: "易联众", 2: "300096", 3: "9.23", 4: "9.02", 5: "9.1", 6: "2000",
+            30: "20260923150003", 32: "2.33", 33: "9.3", 34: "9.0", 35: "9.23/2000/1859400", 38: "1", 40: "0"}
+BRIDGED_STALE = (DAY, "300096.SZ", "ST易联众", 9.23, 9.02, 2.33, 0.0186, "hithink:daily-k-10d")
+
+
+def test_refresh_is_off_by_default(tmp_path, capture):
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED])
+    result = mod.run(DAY, capture, tmp_path / "r.json", db_path=db)
+    assert names(db)["000001.SZ"] == "平安银行"
+    assert result["refresh_stale"] is False and result["refreshed"] == [] and result["refresh_planned"] == []
+
+
+def test_refresh_corrects_stale_bridge_names_on_the_same_bar(tmp_path):
+    cap = make_capture(tmp_path / "cap", {"301686.SZ": quote("sz301686", NEW_LISTING),
+                                         "000001.SZ": quote("sz000001", NAMED | {1: "别的名字"}),
+                                         "300096.SZ": quote("sz300096", STALE_ST)})
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED, BRIDGED_STALE])
+    receipt = tmp_path / "r.json"
+    result = mod.run(DAY, cap, receipt, db_path=db, refresh_stale=True)
+    assert names(db) == {"000001.SZ": "别的名字", "300096.SZ": "易联众", "301686.SZ": "C中塑股份"}
+    saved = json.loads(receipt.read_text())
+    assert [(t["stock_ts_code"], t["stock_name_before"], t["stock_name"]) for t in saved["refreshed"]] == [
+        ("000001.SZ", "平安银行", "别的名字"), ("300096.SZ", "ST易联众", "易联众")]
+    assert all(t["name_source"] == "tencent:captured-dated-quote" for t in saved["refreshed"])
+    assert saved["refresh_skipped"] == [] and result["applied"] is True
+    assert "合同 1 扩展" in saved["decision_required"]
+
+
+def test_refresh_skips_a_different_bar_without_blocking_others(tmp_path):
+    cap = make_capture(tmp_path / "cap", {"301686.SZ": quote("sz301686", NEW_LISTING),
+                                         "000001.SZ": quote("sz000001", NAMED | {1: "别的名字"}),
+                                         "300096.SZ": quote("sz300096", STALE_ST)})
+    wrong_bar = BRIDGED_STALE[:3] + (9.30,) + BRIDGED_STALE[4:]      # 收盘对不上：不是同一根 bar
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED, wrong_bar])
+    result = mod.run(DAY, cap, tmp_path / "r.json", db_path=db, refresh_stale=True)
+    assert names(db) == {"000001.SZ": "别的名字", "300096.SZ": "ST易联众", "301686.SZ": "C中塑股份"}
+    [skip] = result["refresh_skipped"]
+    assert skip["stock_ts_code"] == "300096.SZ" and "不是同一根 bar" in skip["reason"]
+
+
+def test_refresh_never_touches_rows_from_other_sources(tmp_path, capture):
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED[:7] + ("eastmoney:snapshot",)])
+    result = mod.run(DAY, capture, tmp_path / "r.json", db_path=db, refresh_stale=True)
+    assert names(db)["000001.SZ"] == "平安银行"
+    assert result["refresh_planned"] == [] and result["refresh_skipped"] == []
+
+
+def test_refresh_does_not_run_when_null_fill_refuses(tmp_path):
+    # 补空名仍是全有或全无：它拒跑时整步不写，过时名也不改。
+    cap = make_capture(tmp_path / "cap", {"000001.SZ": quote("sz000001", NAMED | {1: "别的名字"})})
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED])
+    with pytest.raises(mod.AttachRefused, match="捕获里没有"):
+        mod.run(DAY, cap, tmp_path / "r.json", db_path=db, refresh_stale=True)
+    assert names(db) == {"000001.SZ": "平安银行", "301686.SZ": None}
+
+
+def test_refresh_dry_run_plans_without_writing(tmp_path, capture):
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED])
+    result = mod.run(DAY, capture, tmp_path / "r.json", db_path=db, refresh_stale=True, dry_run=True)
+    assert names(db) == {"000001.SZ": "平安银行", "301686.SZ": None}
+    assert [t["stock_ts_code"] for t in result["refresh_planned"]] == ["000001.SZ"] and result["refreshed"] == []
+
+
+def test_cli_flag_reaches_run(tmp_path, capture, monkeypatch, capsys):
+    db = make_db(tmp_path / "s.duckdb", [BRIDGED_NULL, BRIDGED_NAMED])
+    import market_feature_store.db as db_module
+
+    monkeypatch.setattr(db_module, "DB_PATH", db)
+    assert mod.main(["--trade-date", DAY.isoformat(), "--capture-dir", str(capture),
+                     "--receipt", str(tmp_path / "r.json"), "--refresh-stale-names"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["refreshed"] == [["000001.SZ", "平安银行", "别的名字"]]
+    assert names(db)["000001.SZ"] == "别的名字"
