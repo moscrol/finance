@@ -399,6 +399,22 @@ _SHORT_DATE_HEADING_RE = re.compile(
     r"(?P<date>(?P<month>[1-9]|1[0-2])-(?P<day>0?[1-9]|[12]\d|3[01]))"
     r"(?![\d./-])(?=\s*(?:\*\*)?[\"”」’]?\s*(?:[:：，,]|是|的))"
 )
+# 句中的 ``9-15``：与无单位区间（``若价格落到9-11则降级``）字面分不开，所以只在同一句
+# 引用了该日的已绑定证据时才按日期掩（见 _mask_cited_short_dates）。前面不能是数字或
+# 「月 / 年 / 日」（``7月9-10`` 是日区间），后面不能紧跟单位（``9-15倍``、``**9-15**倍``）。
+_MID_SENTENCE_SHORT_DATE_RE = re.compile(
+    r"(?<![\d./\-月年日号])"
+    r"(?P<date>(?P<month>[1-9]|1[0-2])-(?P<day>0?[1-9]|[12]\d|3[01]))"
+    r"(?![\d./\-])"
+    r"(?![\s*_\"”」’]*(?:万亿元|万亿|亿元|万元|亿|元|个百分点|%|点|家|只|手|个|天|日|周|月|年"
+    r"|倍|成|以上|以下|号))"
+)
+# 行情库这三列的单位是 %（pct_chg / turnover / amplitude），证据写成裸数 ``涨跌幅=-5.72``，
+# 模型按人话写 ``-5.72%``。同 _CURRENCY_FIELD_RE：单位只从字段名绑，别的裸数不获 % 资格。
+_PERCENT_FIELD_RE = re.compile(
+    r"(?:^|[；;\n])\s*(?:涨跌幅|换手率|振幅)\s*(?:[（(]\s*%\s*[）)])?"
+    r"\s*[=:：]\s*(?P<value>[+-]?\d+(?:\.\d+)?)\s*%?\s*(?=$|[；;\n])"
+)
 _ARABIC_QUANTITY_RE = re.compile(
     r"[+-]?\d[\d,]*(?:\.\d+)?"
     r"(?:\s*(?:至|到|~|～|—|→|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
@@ -5410,6 +5426,36 @@ def _mask_bound_short_date_heading(text: str, outcome: AgentOutcome) -> str:
     return text
 
 
+def _mask_cited_short_dates(text: str, outcome: AgentOutcome) -> str:
+    """句中短日期：同一句引用了该日的已绑定证据才按日期掩，否则仍当数量审。
+
+    2026-09-29 L6 批 5 U2：``9-15 曾跌破 UP 线（偏离度 -6.58，E27）`` 的 ``9-15`` 被当成
+    证据里没有的区间 9 至 15，公开稿挂出「未在证据中找到出处」——而 E27 正是 09-15
+    那一行。只认本句自己引用的证据：全篇任一已绑定证据恰好是 09-11，不能让
+    ``若价格落到9-11则降级`` 里的无单位区间逃过审。未绑定的引用同样不算（引用卫生）。
+    """
+
+    matches = list(_MID_SENTENCE_SHORT_DATE_RE.finditer(text))
+    cited = set(cited_evidence_ordinals(text)) if matches else set()
+    if not cited:
+        return text
+    ordinals = evidence_ordinal_table(outcome.evidence)
+    bound_hashes = {key for binding in outcome.bindings for key in binding.evidence_hashes}
+    anchored: set[tuple[int, int]] = set()
+    for item in outcome.evidence:
+        if item.content_hash not in bound_hashes or ordinals.get(item.content_hash) not in cited:
+            continue
+        try:
+            observed_date = date.fromisoformat(str(item.source_date or ""))
+        except ValueError:
+            continue
+        anchored.add((observed_date.month, observed_date.day))
+    for match in reversed(matches):
+        if (int(match["month"]), int(match["day"])) in anchored:
+            text = text[:match.start("date")] + " " + text[match.end("date"):]
+    return text
+
+
 def _with_financial_repair_debt(
     outcome: SemanticEpisodeOutcome, verdicts: Sequence[Mapping[str, object]],
 ) -> SemanticEpisodeOutcome:
@@ -5555,6 +5601,7 @@ def _novel_numeric_condition_tokens(
         if text in historical or index in memory_restatements:
             continue
         candidate = _mask_bound_short_date_heading(text, verified.outcome)
+        candidate = _mask_cited_short_dates(candidate, verified.outcome)
         # References remain in the draft for citation validation, but their
         # ordinals must not trigger a numeric backfill or sentence deletion.
         candidate = _DATE_TOKEN_RE.sub("", strip_evidence_ordinals(candidate))
@@ -6282,7 +6329,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         for content_hash in binding.evidence_hashes
     }
     fields: list[str] = []
-    currency_quantities: set[str] = set()
+    field_quantities: set[str] = set()
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes or not _can_support_market_quantity(item):
             continue
@@ -6291,7 +6338,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         for match in _CURRENCY_FIELD_RE.finditer(item.detail):
             value = Decimal(match["value"].replace(",", ""))
             amount_yi = value * _CURRENCY_FIELD_SCALE[match["unit"]]
-            currency_quantities.add(f"{amount_yi:f}亿元")
+            field_quantities.add(f"{amount_yi:f}亿元")
+        for match in _PERCENT_FIELD_RE.finditer(item.detail):
+            field_quantities.add(_normalize_quantity(f"{match['value']}%"))
         fields.extend(
             (
                 item.title,
@@ -6312,7 +6361,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         )
         if _normalize_quantity(quantity)
     }
-    quantities.update(currency_quantities)
+    quantities.update(field_quantities)
     # 结构化观察值**不受 binding 约束**。上面那段只认被 binding 引用过的证据，
     # 是引用卫生；而 observations 是 harness 自己投递上桌的事实，它是不是真的
     # 与模型有没有记得绑引用无关。少了这一段，模型写对了数却忘了绑，真话会被
@@ -6332,8 +6381,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
 
 
 def _normalize_quantity(value: object) -> str:
+    # 显式正号只是写法：``+1.05`` 与证据里的 ``偏离度=1.05`` 是同一个数（09-29 L6 批 5 U2）。
     return (
-        re.sub(r"[\s,，]", "", str(value or ""))
+        re.sub(r"\+(?=\d)", "", re.sub(r"[\s,，]", "", str(value or "")))
         .replace("～", "至")
         .replace("~", "至")
         .replace("—", "至")
