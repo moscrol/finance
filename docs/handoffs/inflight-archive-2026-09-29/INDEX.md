@@ -28,7 +28,7 @@ main 上 `docs/handoffs/inflight/` 挂着 20 份交接，对应的分支都没�
 | 交接 | 新增测试在 main | 归档用的版本 |
 |---|---|---|
 | docs-closeout-workorders-0922 | 纯文档（工单已在 main） | 分支（09-24） |
-| feat-finance-query-technical-daily | 8/8 | 见提交记录 |
+| feat-finance-query-technical-daily | 8/8 | 分支（08-25，比 main 稍新） |
 | feat-history-market-anatomy | 110/110 | main |
 | feat-instruction-migration-agents-md | 3/3 | main（比分支新） |
 | fix-8792-boundary-integration | 66/66 | main |
