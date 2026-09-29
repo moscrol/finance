@@ -1,0 +1,102 @@
+{
+  "scope": {
+    "scanned_files": 962,
+    "sample_files": 962,
+    "since": null,
+    "until": null,
+    "user": "all",
+    "date_min": "2026-08-08",
+    "date_max": "2026-09-29",
+    "unknown_dates": 0,
+    "invalid_json": 0,
+    "missing_precheck": 13,
+    "named_user_dirs": 412,
+    "probe_or_other_dirs": 550,
+    "probe_or_other_fraction": 0.5717255717255717,
+    "code_revision_distinct": [],
+    "code_revision_known_runs": 0,
+    "code_revision_unknown_runs": 962,
+    "revision_span": "UNAVAILABLE: no code revision in artifacts"
+  },
+  "run_counts": {
+    "with_checks": 949,
+    "computable": 871,
+    "with_uncalled": 736,
+    "uncalled_rate": 0.8450057405281286
+  },
+  "tool_counts": {
+    "capital_data": {
+      "declared_runs": 14,
+      "uncalled_runs": 11,
+      "uncalled_rate": 0.7857142857142857
+    },
+    "evidence_lookup": {
+      "declared_runs": 164,
+      "uncalled_runs": 125,
+      "uncalled_rate": 0.7621951219512195
+    },
+    "financial_data": {
+      "declared_runs": 73,
+      "uncalled_runs": 56,
+      "uncalled_rate": 0.7671232876712328
+    },
+    "graph_lookup": {
+      "declared_runs": 248,
+      "uncalled_runs": 133,
+      "uncalled_rate": 0.5362903225806451
+    },
+    "kb_search": {
+      "declared_runs": 756,
+      "uncalled_runs": 523,
+      "uncalled_rate": 0.6917989417989417
+    },
+    "l3_lookup": {
+      "declared_runs": 74,
+      "uncalled_runs": 40,
+      "uncalled_rate": 0.5405405405405406
+    },
+    "mainline_context": {
+      "declared_runs": 124,
+      "uncalled_runs": 64,
+      "uncalled_rate": 0.5161290322580645
+    },
+    "market_data": {
+      "declared_runs": 598,
+      "uncalled_runs": 273,
+      "uncalled_rate": 0.45652173913043476
+    },
+    "news_search": {
+      "declared_runs": 221,
+      "uncalled_runs": 151,
+      "uncalled_rate": 0.6832579185520362
+    },
+    "web_fetch": {
+      "declared_runs": 69,
+      "uncalled_runs": 56,
+      "uncalled_rate": 0.8115942028985508
+    },
+    "web_search": {
+      "declared_runs": 169,
+      "uncalled_runs": 148,
+      "uncalled_rate": 0.8757396449704142
+    }
+  },
+  "output_instances": {
+    "declared_without_request": 626,
+    "suspicious_without_declaration": 1850,
+    "by_output_id": {
+      "chain_mapping": 121,
+      "company_mapping": 5,
+      "direct_answer": 135,
+      "direct_assessment": 167,
+      "fact_value": 6,
+      "financial_assessment": 6,
+      "metric_evidence": 6,
+      "prime_news": 67,
+      "prime_quote": 60,
+      "relation_map": 16,
+      "supporting_evidence": 37
+    }
+  },
+  "caveat": "The instrument's range depends on the produces declaration table: an empty declaration hides missed calls. Conversely, a declared-but-uncalled tool does not prove the output was left empty; another tool or prefetch may fill it. Neither the run-level gap nor the output-instance count measures model quality."
+}

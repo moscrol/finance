@@ -1,0 +1,72 @@
+{
+  "scope": {
+    "scanned_files": 962,
+    "sample_files": 24,
+    "since": "2026-08-25",
+    "until": "2026-08-26",
+    "user": "all",
+    "date_min": "2026-08-25",
+    "date_max": "2026-08-26",
+    "unknown_dates": 0,
+    "invalid_json": 0,
+    "missing_precheck": 0,
+    "named_user_dirs": 6,
+    "probe_or_other_dirs": 18,
+    "probe_or_other_fraction": 0.75,
+    "code_revision_distinct": [],
+    "code_revision_known_runs": 0,
+    "code_revision_unknown_runs": 24,
+    "revision_span": "UNAVAILABLE: no code revision in artifacts"
+  },
+  "run_counts": {
+    "with_checks": 24,
+    "computable": 24,
+    "with_uncalled": 21,
+    "uncalled_rate": 0.875
+  },
+  "tool_counts": {
+    "evidence_lookup": {
+      "declared_runs": 3,
+      "uncalled_runs": 3,
+      "uncalled_rate": 1.0
+    },
+    "graph_lookup": {
+      "declared_runs": 8,
+      "uncalled_runs": 3,
+      "uncalled_rate": 0.375
+    },
+    "kb_search": {
+      "declared_runs": 24,
+      "uncalled_runs": 16,
+      "uncalled_rate": 0.6666666666666666
+    },
+    "market_data": {
+      "declared_runs": 17,
+      "uncalled_runs": 6,
+      "uncalled_rate": 0.35294117647058826
+    },
+    "news_search": {
+      "declared_runs": 12,
+      "uncalled_runs": 9,
+      "uncalled_rate": 0.75
+    },
+    "web_search": {
+      "declared_runs": 3,
+      "uncalled_runs": 2,
+      "uncalled_rate": 0.6666666666666666
+    }
+  },
+  "output_instances": {
+    "declared_without_request": 23,
+    "suspicious_without_declaration": 108,
+    "by_output_id": {
+      "chain_mapping": 3,
+      "company_mapping": 1,
+      "direct_answer": 4,
+      "direct_assessment": 3,
+      "prime_news": 9,
+      "prime_quote": 3
+    }
+  },
+  "caveat": "The instrument's range depends on the produces declaration table: an empty declaration hides missed calls. Conversely, a declared-but-uncalled tool does not prove the output was left empty; another tool or prefetch may fill it. Neither the run-level gap nor the output-instance count measures model quality."
+}
