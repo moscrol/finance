@@ -42,7 +42,34 @@ jobs:
 
       - name: Test Python packages
         if: ${{ !cancelled() }}
-        run: python -m pytest -q
+        run: python -m pytest -q --junitxml="$RUNNER_TEMP/pytest-junit.xml"
+
+      # 失败清单写成 check annotation：日志与 artifact 走 blob 存储，部分受限环境
+      # （云端 agent sandbox）下载不了，annotation 走 api.github.com 能读。只报告、不改判定。
+      - name: Report pytest failures as annotations
+        if: ${{ failure() }}
+        shell: python
+        run: |
+          import os, xml.etree.ElementTree as ET
+          p = os.path.join(os.environ["RUNNER_TEMP"], "pytest-junit.xml")
+          if not os.path.exists(p):
+              print("::error title=pytest::no junit report (collection crash or timeout?)"); raise SystemExit
+          esc = lambda s: s.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+          prop = lambda s: esc(s).replace(":", "%3A").replace(",", "%2C")
+          bad = []
+          for tc in ET.parse(p).getroot().iter("testcase"):
+              for kind in ("failure", "error"):
+                  el = tc.find(kind)
+                  if el is not None:
+                      nid = f'{tc.get("classname", "")}::{tc.get("name", "")}'
+                      detail = (el.get("message") or "") + "\n" + (el.text or "")
+                      bad.append((kind, nid, detail))
+          print(f"::error title=pytest {len(bad)} failed::" + esc("\n".join(f"{k} {n}" for k, n, _ in bad)[:60000]))
+          # GitHub 每步每级最多 10 条：error 9 条 + warning 10 条 + notice 10 条给逐条详情
+          for i, (k, n, d) in enumerate(bad[:29]):
+              level = "error" if i < 9 else ("warning" if i < 19 else "notice")
+              tail = d.strip()[-3500:]
+              print(f"::{level} title={prop(n[-150:])}::" + esc(tail))
 
   frontend:
     runs-on: ubuntu-latest
