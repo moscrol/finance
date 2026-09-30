@@ -2,8 +2,12 @@
 name: top-gainers-feishu
 metadata:
   pattern: pipeline
-description: 强势股飞书入库与已入库强势股的均线回踩查询。触发词：强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩。注意：只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。
+  superseded_by: stock-technicals
+description: 已被 stock-technicals 取代，不要调用。原用途是强势股飞书入库与强势股均线回踩查询，读写的飞书强势股表已于 2026-09-11 退役、行情走 iFinD，跑不通；强势股回踩现在两步完成（market_feature_store.cli interval-gainers 取名单，再用 stock-technicals 的 pullback 口径筛）。只看排行用 top-gainers。目录按 PR 729 的用户决定保留作口径参考。
 ---
+
+> **➜ 请直接用 [`stock-technicals`](../stock-technicals/SKILL.md)**：强势股回踩 = `cli interval-gainers` 取名单 → `cli stock-technicals --screen pullback` 筛（见其「接别的排行榜」一节）；只看排行用 `top-gainers`。
+> 本 skill 已于 2026-09-30 撤出 `.claude/skills/` 视图，不再参与触发匹配；`tests/test_skill_view_supersession.py` 锁住「被取代的不暴露、取代者必须暴露」。
 
 > **⚠ 2026-09-11 飞书整体退役（#727）后的实际可用性**：区间强势/均线回踩的筛选口径已按用户要求保留（#729）。
 > 但它**读写的都是飞书强势股表**（`query_ma.py` 读、`write.py` 写），行情走 iFinD——当前**跑不通**。

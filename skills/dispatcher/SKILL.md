@@ -104,13 +104,13 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | report-search | 搜研报、找研报、研报搜索 | tool-wrapper | ✅ |
 | hithink-market-query | 股票价格、ETF行情、涨跌幅 | tool-wrapper | ✅ cli.py |
 | top-gainers | 涨幅排行、涨幅前N、区间涨幅 | pipeline | ✅ query_sectors.py |
-| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ query_ma.py（写入步已停） |
+| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ⛔ 已被 stock-technicals 取代（2026-09-30 撤出视图，见下表） |
 | high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py（写入步已停） |
 | advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py（写入步已停） |
 | limit-advance | 晋级 | pipeline | ✅ scrape.py |
 | sector-data | 边际量、板块数据、抓取板块 | pipeline | - |
-| watchlist-ma | 自选股均线、自选股MA、自选股过滤 | tool-wrapper | ✅ query.py |
-| up-line | UP线更新、up线、查UP | tool-wrapper | ✅ update.py |
+| watchlist-ma | 自选股均线、自选股MA、自选股过滤 | tool-wrapper | ⛔ 已被 stock-technicals 取代（2026-09-30 撤出视图，见下表） |
+| up-line | UP线更新、up线、查UP | tool-wrapper | ⛔ 已被 stock-technicals 取代（2026-09-30 撤出视图，见下表） |
 | disclosure-archive | 补公告、补公司硬证据、查年报 | reviewer | ✅ archive.py |
 | foresight-feedback | (自动触发：用户表达兴趣/否定) | tool-wrapper | - |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识 | - | - |
@@ -121,7 +121,7 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 
 ### 已退役 skill 的去处（飞书 2026-09-11 退役）
 
-旧名字还可能出现在历史对话或用户口中，按这张表改道，**不要去找已删的目录**：
+旧名字还可能出现在历史对话或用户口中，按这张表改道。这些目录按 #729 保留作口径参考（没有删），但脚本跑不通，**不要调用它们**；其中 UP 线、自选股均线、强势股回踩这三件（均改道 stock-technicals）已于 2026-09-30 撤出 `.claude/skills/` 视图：
 
 | 旧 skill | 现在怎么做 |
 |---|---|
