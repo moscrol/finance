@@ -64,3 +64,14 @@ FA-01 财务提示、f376 作者 v2、796 输入 redraft 均有被否历史，�
 后续首先解决两类实质问题：财务口径推导，以及格式失败导致的整题拒答。模型、角色或表示方式的新实验须另立有限清单，保留所有失败；不能把本轮未通过的题重新抽到一份好答案后覆盖结论。
 
 证据位于当前任务的 `work/answer-quality-evidence/`：原始清单、两批运行、匿名正文包/复核、两批判官诊断、主干沙箱红灯、修复正反例与全量门禁日志均保留。诊断脚本依赖本次冻结材料与具体沙箱路径，尚非可复用产品接口；没有把失败实验沉淀成默认运行机制。通用沙箱缺口已在测试夹具与反向检查中修正，而非只记在文档。
+## 组合 CI 的本机知识库依赖（补记）
+
+将已通过 GitHub 全量的 #7（`a915d49eb5cd7f589b754db00380b9944999ad13`）普通合并到本分支，得到 `ce76c4528a1faa83ce48108476137f0aa95a528a`，没有合入 main。该组合版本本机完整门禁通过：Python 19000P/76S/2X、Ruff、frontend、E2E 和 registry 全通过，代码前后干净且收据同 SHA。GitHub frontend/e2e/registry 通过，但 Python 为 18905P/6F/165S/2X；这次不是超时。
+
+6 项均出自 `test_answer_capability_prompt` 的日期事实查询。仅把 `WORKBENCH_KNOWLEDGE_WIKI` 指向空目录，即在本机稳定复现相同 6F/6P。实际合同对照表明：有本机实体词典时路由为 quick_fact；没有时可回退 general_finance_qa，后者多出可选 prime_memory=user_premise。所有 required 事实输出仍为 evidence。旧测试将可选个人观点槽也当成必需事实槽，而且其拒绝样例同时错签可选槽，可能因无关原因被拒绝。
+
+修复仅限测试：自带有/无实体的临时词典，关闭证券库隐式回退；分别断言必需事实输出非空且均需 evidence，额外非 evidence 输出只允许 prime_memory；无证据/错 basis 的负例只绑定必需输出。保留原断言时新参数化 6F/18P；补上同一上下文的合法行情证据正例，省略可选槽仍应 accepted，本文件及路由/解析/合同邻近 110P。空 hashes 的 evidence 负例在绑定构造时即拒收，不称单独覆盖后续 missing_evidence 分支。不修改生产路由或证据准入。两轴独立审查无阻断。最新提交的完整门禁仍应按其 SHA 重新核对，不能沿用 ce76 的本机绿灯或把测试修复当成内容修复。
+
+交付时还需重新读取 8792 readiness：本次观察服务 healthy、生产代码仍 `2c3949786568`，但行情快照 2026-09-30、数据库 2026-09-29，market_data_consistency 为 false。这是当前数据时点差异，本分支未写生产数据库。
+
+提交钩子还暴露 #7 的 HTTPServer 协议字段误报：回环 server_bind 保留 server_name/server_port，但仓内静态审计看不到 stdlib 的 CGIHTTPRequestHandler.run_cgi 对它们的读取。核对本机 Python 3.12 标准库源码后，将这两个名字加入既有协议字段 ALLOWED；不更新审计基线、不跳过钩子，也不改变 gateway 代码。修后字段审计通过。
