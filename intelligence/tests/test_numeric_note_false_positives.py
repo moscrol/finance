@@ -11,6 +11,14 @@
 ``成交额环比=-17.24``、``量比=76.88`` 都是百分数，回答写 ``17.2%``、``76.9%`` 仍被挂待核。
 修在两端：finance_query 把单位写进标签（``成交额环比%``、``量比%``），数值门认「名字以 % 结尾」
 的字段。别的数据源里的「量比」多是倍数，所以不把裸名「量比」全局当成百分比。
+
+第六种（2026-09-30 post988 收据 §4「仍未做」）：其余标签没写 % 的百分数字段，逐列核过写入链再改。
+- ``fact_market_daily.strength_avg_pct`` = 涨幅前 5% 个股 ``pct_chg`` 的均值（compute_local_stats）；
+  ``strength_amount_pct`` = 100 × 强势股成交额 / 两市成交额。复盘会时期的旧行同单位（08-17 收据里
+  「强势股成交占比从13.53%升至21.06%」）。
+- ``fact_sector_period_rank_daily.change_pct`` = (∏(1 + pct_chg/100) − 1) × 100，由日更 features 步
+  （``scripts/compute_features.py`` 的 period-rank）写入。
+竞价涨幅（复盘会原样落库）与海外个股 5日涨幅 在沙箱里核不了量纲，没改：要在 Mac 上查一次真实量级。
 """
 
 from __future__ import annotations
@@ -301,3 +309,73 @@ def test_bare_ratio_name_is_not_a_percent_field():
 def test_percent_suffix_in_the_field_name(draft, detail, supported):
     _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
     assert numeric_condition_unsupported(verified) is not supported
+
+
+def _render(tmp_path, ddl: str, insert: str, dataset: str, metrics: list[str], dimensions: list[str]) -> str:
+    """用真实 finance_query 渲染一行证据：标签写法与数值门是同一份契约。"""
+
+    path = tmp_path / f"{dataset}.duckdb"
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute(ddl)
+        connection.execute(insert)
+    finally:
+        connection.close()
+    spec = FinanceQuerySpec.from_arguments({
+        "dataset": dataset,
+        "metrics": metrics,
+        "dimensions": dimensions,
+        "filters": [],
+        "time_range": {"start": "2026-09-29", "end": "2026-09-29"},
+        "group_by": [],
+        "order_by": [{"field": "trade_date", "direction": "asc"}],
+        "limit": 5,
+    })
+    result = FinanceQuery(path).run(
+        spec,
+        information_cutoff=InformationCutoff(date(2026, 9, 29), "requested"),
+        deadline=ResearchDeadline.from_timeout(5.0),
+    )
+    return result.evidence[0].detail
+
+
+def test_strength_fields_carry_their_unit_end_to_end(tmp_path):
+    detail = _render(
+        tmp_path,
+        "create table fact_market_daily(trade_date date, strength_avg_pct double, strength_amount_pct double)",
+        "insert into fact_market_daily values (DATE '2026-09-29', 5.32, 14.93)",
+        "market_daily",
+        ["strength_return_pct", "strength_amount_pct"],
+        ["trade_date"],
+    )
+    assert "强势股加权涨幅%=5.32" in detail
+    assert "强势股成交占比%=14.93" in detail
+    for draft in ("若强势股加权涨幅超过 5.32%（E1）则强势延续。", "若强势股成交占比回到 14.93%（E1）以上则情绪回暖。"):
+        _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
+        assert not numeric_condition_unsupported(verified), draft
+
+
+def test_period_rank_change_carries_its_unit_end_to_end(tmp_path):
+    detail = _render(
+        tmp_path,
+        "create table fact_sector_period_rank_daily(trade_date date, period_type varchar, rank integer,"
+        " sector_ts_code varchar, sector_name varchar, change_pct double, limit_up_count integer, badge varchar)",
+        "insert into fact_sector_period_rank_daily values"
+        " (DATE '2026-09-29', 'day5', 1, '885001.TI', '半导体', 12.34, 3, NULL)",
+        "sector_period_rank_daily",
+        ["change_pct"],
+        ["trade_date", "sector_name"],
+    )
+    assert "区间涨幅%=12.34" in detail
+    _, verified = _dated("若半导体区间涨幅超过 12.34%（E1）则追高风险加大。", source_date="2026-09-29", detail=detail)
+    assert not numeric_condition_unsupported(verified)
+
+
+@pytest.mark.parametrize("draft,detail", [
+    ("若强势股成交占比回到 14.93%（E1）以上则情绪回暖。", "交易日=2026-09-29；强势股成交占比=14.93"),
+    ("若半导体区间涨幅超过 12.34%（E1）则追高风险加大。", "交易日=2026-09-29；区间涨幅=12.34"),
+], ids=["strength-amount", "period-change"])
+def test_bare_names_without_percent_are_still_doubted(draft, detail):
+    # 改标签前的证据形状：名字里没有 %，数值门不替它猜单位（与裸名「量比」同一立场）。
+    _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
+    assert numeric_condition_unsupported(verified)
