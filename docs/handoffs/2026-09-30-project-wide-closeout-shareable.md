@@ -7,7 +7,7 @@
 - 核对时 Gitea 与 GitHub 的 main 均为 `7569327143a9a40ff44da32d723865b062d856e6`。8792 运行 `2c3949786568e50945013aeeb46c168b7fe8bbf9`，二者仅差一份上线回执，无需再次部署。
 - 同步前 GitHub 有 591 条分支、Gitea 有 590 条；590 条同名分支全部同 SHA。唯一缺项是 `claude/test-isolation-tmpdir-hw7e8h`，本轮已复制到 Gitea，回读均为 `4129bdad96d55c9e1b5da8bc281247cabbff6335`。这些数字是本次快照，不是永久配置。
 - GitHub 的三条 `claude/*`：测试隔离为在途；`legacy-worktree-cleanup-fd95c4` 是 main 祖先；`hithink-429-retry-handling-80eeca` 的改动已有 main 提交 `659ce1a1e` 及后续 Gitea #894 接替，属历史清理候选，不能重新整枝合入。
-- Gitea 开放 PR：#956 回答能力、#966 工具差值审计，均 WIP。GitHub 另有 [草稿 #3](https://github.com/moscrol/finance/pull/3)，来自 `cursor/harness-ceiling-followup-spec-3f68`；它与 Gitea PR 编号无对应关系。
+- 原盘点的 Gitea 开放 PR：#956 回答能力、#966 工具差值审计，均 WIP。本轮另开 WIP #991 承接协作规则与这份共享交接，尚未合入。GitHub 另有 [草稿 #3](https://github.com/moscrol/finance/pull/3)，来自 `cursor/harness-ceiling-followup-spec-3f68`；它与 Gitea PR 编号无对应关系。
 - 当前 GitHub 仓库为公开的 `moscrol/finance`；Gitea 已配置提交触发及每 8 小时的 push mirror。本版及协作规则可公开读取。完整审计原件改为本地保全，不能把本仓 Gitea 当作私有归档边界。
 - 本轮曾把内部交接分支推到 Gitea，随即被镜像到 GitHub；发现后已保全本地分支及 Git bundle，并撤下本轮新建的两端远程引用。引用移除不代表公开对象或缓存已清除。原因、处置与待确认的同步方案见 [镜像边界收尾](2026-09-30-remote-mirror-boundary.md)。
 
