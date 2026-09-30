@@ -32,6 +32,8 @@ def preflight_daily_update(
     *,
     module_exists=None,
     cdp_probe=None,
+    swap_lock_probe=None,
+    needs_swap_lock: bool = False,
 ) -> dict:
     """开跑前把「这个解释器/环境跑不完整条链」的事实一次说清。
 
@@ -43,6 +45,11 @@ def preflight_daily_update(
     按「事实投递 > 提醒」：缺什么、哪些步骤会因此失败、该用哪个解释器，
     开跑前打出与错误信念直接矛盾的那条事实，而不是让人事后从 step 错误里拼。
     返回 {ok, problems: [...]}；调用方 fail closed。
+
+    换库锁自检（2026-09-30 质检 P2，``needs_swap_lock=True`` 时才做，即 daily-full
+    的 staged 换库链；直写的 daily-update 不换库，不查）：换库在 hold_swap_lock 里做，它的排写保证
+    只在 macOS 上成立（见 db.swap_lock_platform_probe）。在排不掉写者的平台上
+    照跑，锁窗口内第三方写入会被静默覆盖——同样开跑前说清，不是事后发现。
     """
 
     exists = module_exists or (
@@ -74,6 +81,13 @@ def preflight_daily_update(
             "CDP proxy(localhost:3456) 不可达：fupanhui 侧全部 sync 步骤必挂。"
             "先启动 node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs"
             "（需 Chrome 已开 remote debugging）。"
+        )
+    if needs_swap_lock and not (swap_lock_probe or _db.swap_lock_excludes_writers)():
+        problems.append(
+            f"本平台（{sys.platform}）换库锁排不掉 duckdb 写者：hold_swap_lock 用 flock，"
+            "duckdb 用 POSIX 记录锁，两者只在 macOS 上互斥。在这里换库，锁窗口内的"
+            "第三方写入会被静默覆盖。daily-full 请在 Mac 上跑；"
+            "自检详情：python scripts/check_swap_lock_platform.py"
         )
     return {"ok": not problems, "problems": problems}
 

@@ -27,6 +27,14 @@ import pytest
 from market_feature_store import db
 from market_feature_store.sync import sync_daily_full as sdf
 
+# 换库锁的排写保证是平台性质（flock 与 duckdb 的 POSIX 记录锁只在 macOS 上互斥）。
+# 条件取自跨进程自检本身，而不是写死 sys.platform：哪天 duckdb 换了锁实现，这里跟着变。
+requires_swap_lock_exclusion = pytest.mark.skipif(
+    not db.swap_lock_excludes_writers(),
+    reason="本平台换库锁排不掉 duckdb 写者（见 scripts/check_swap_lock_platform.py）；"
+    "daily-full 预检会据此拒跑，Mac 上照常跑",
+)
+
 
 def _make_db(path: Path, dates: tuple[str, ...] = ("2026-08-13", "2026-08-14")) -> None:
     con = duckdb.connect(str(path))
@@ -498,6 +506,7 @@ def test_status_run_id_mismatch_refused(prod_db):
     assert _sha256(prod_db) == before
 
 
+@requires_swap_lock_exclusion
 def test_hold_swap_lock_excludes_writers_allows_readers(tmp_path):
     """换库锁是 SH：排写不排读（S7 判据 1 不因换库锁破坏）。"""
     target = tmp_path / "prod.duckdb"
@@ -511,6 +520,7 @@ def test_hold_swap_lock_excludes_writers_allows_readers(tmp_path):
     con.close()
 
 
+@requires_swap_lock_exclusion
 def test_hold_swap_lock_senses_active_writer(tmp_path):
     """duckdb rw 写者在场时换库锁获取失败（获取时刻即能感知写者）。"""
     target = tmp_path / "prod.duckdb"
@@ -524,6 +534,7 @@ def test_hold_swap_lock_senses_active_writer(tmp_path):
         writer.close()
 
 
+@requires_swap_lock_exclusion
 def test_clone_window_write_cannot_land(prod_db, monkeypatch):
     """QC 复审三轮 P1-1 复现的反向：克隆与基线在同一锁窗口内，窗口写不进。
 
@@ -678,6 +689,7 @@ def test_swap_lock_contention_aborts_before_any_write(prod_db, monkeypatch):
     assert _sha256(prod_db) == before
 
 
+@requires_swap_lock_exclusion
 def test_third_party_write_during_backup_window_cannot_land(prod_db, monkeypatch):
     """QC backup-race 复现的反向版本：备份→换名全程持锁，第三方写不进。
 
@@ -728,6 +740,7 @@ def test_third_party_write_during_backup_window_cannot_land(prod_db, monkeypatch
 #     两者必须确认是同一个身份。
 
 
+@requires_swap_lock_exclusion
 def test_third_party_write_before_swap_without_backup_cannot_land(prod_db, monkeypatch):
     """日更口径（pre_swap_backup=False）：最终守卫之后、换名之前的窗口也排写。
 
@@ -993,7 +1006,18 @@ def _cp_boundary_delete(monkeypatch, target: Path, *, when: str) -> list:
 
 
 @pytest.mark.parametrize(
-    "when, expected_stage", [("before", "克隆中"), ("after", "克隆后基线")]
+    "when, expected_stage",
+    [
+        ("before", "克隆中"),
+        pytest.param(
+            "after",
+            "克隆后基线",
+            marks=pytest.mark.skipif(
+                sys.platform != "darwin",
+                reason="要 cp -c（APFS clonefile）成功才能在克隆之后注入删除，只有 macOS 有",
+            ),
+        ),
+    ],
 )
 def test_target_deleted_in_clone_window_returns_rc2(
     prod_db, monkeypatch, when, expected_stage

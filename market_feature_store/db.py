@@ -245,7 +245,9 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
 #      发布方之间的互斥由第 1 条负责。前提是 target 已经存在——锁的是 inode，
 #      没有 inode 就没有这把锁。
 #   3. duckdb 自己的文件锁 —— 单写者 EX。它是第 2 条能生效的原因，也是普通
-#      写者彼此互斥的机制。
+#      写者彼此互斥的机制。**第 2 条靠它生效是平台性质**：它是 POSIX 记录锁、
+#      第 2 条是 flock，macOS 上同表互斥，Linux 上互不相干（第 2 条形同虚设）。
+#      本机成不成立看 swap_lock_platform_probe，daily-full 预检据此 fail closed。
 #   首次建库（target 缺席）同时落在 1 的排他面之外与 2 的保护之外：一个普通
 #   duckdb.connect(target) 能建库并提交，而 run mutex 拦不住他、也没有 inode
 #   可锁。那条路径不靠锁，靠 publish_new_into_place 的 os.link EEXIST 把
@@ -634,10 +636,15 @@ def backup_before_swap(
 def hold_swap_lock(db_path: Path):
     """换库锁：对 target inode 持 LOCK_SH|LOCK_NB——排写不排读。
 
-    duckdb 的单写者独占用 flock 实现（本机 2026-09-13 三向实测：我方 SH
-    下 duckdb rw 打开失败、read_only 照常；duckdb rw 持锁时我方 SH 得
-    EWOULDBLOCK；read_only 读者不挡我方 SH）。SH 已足以排他全部 duckdb
-    写者（他们要 EX），同时不挡只读探针与读者（S7 判据 1）。
+    本机（macOS）2026-09-13 三向实测：我方 SH 下 duckdb rw 打开失败、read_only
+    照常；duckdb rw 持锁时我方 SH 得 EWOULDBLOCK；read_only 读者不挡我方 SH。
+    SH 已足以排他全部 duckdb 写者（他们要 EX），同时不挡只读探针与读者（S7 判据 1）。
+
+    **这条排他是平台给的，不是标准给的**：duckdb 的写者锁是 POSIX 记录锁
+    （fcntl；沙箱实测 duckdb 写者在场时 lockf 得 EAGAIN），我方是 flock。macOS
+    上两种锁在同一张表里、彼此互斥；Linux 上各管各的，这把锁排不掉写者
+    （2026-09-30 沙箱实测 duckdb 1.5.4，两个方向都不排）。本机是否成立由
+    ``swap_lock_platform_probe`` 自检；daily-full 开跑前的环境预检会调它。
 
     两个窗口都用它：
     - 基线窗口（QC 复审三轮 P1）：克隆与来源版本基线必须在同一受保护
@@ -684,6 +691,119 @@ def hold_swap_lock(db_path: Path):
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
+
+
+# 自检子进程：扮演「另一个进程里的 duckdb 写者」。按行对话，每步都等父进程发话。
+_SWAP_LOCK_PROBE_CHILD = r"""
+import sys
+import duckdb
+
+path = sys.argv[1]
+con = duckdb.connect(path)
+print("HOLD", flush=True)
+sys.stdin.readline()
+con.close()
+print("RELEASED", flush=True)
+sys.stdin.readline()
+try:
+    duckdb.connect(path).close()
+    print("OPENED", flush=True)
+except duckdb.IOException:
+    print("BLOCKED", flush=True)
+"""
+
+
+def swap_lock_platform_probe(*, timeout: float = 20.0) -> dict:
+    """换库锁的跨平台自检：在本机上，hold_swap_lock 到底排不排另一个进程的 duckdb 写者。
+
+    两个方向都测，都成立才算 ``excludes_writers``：
+    - ``writer_blocks_lock``：写者在场时，hold_swap_lock 拿锁失败（能感知写者）；
+    - ``lock_blocks_writer``：持锁期间，另一个进程的 duckdb 写者打不开库。
+
+    必须在子进程里扮演写者：POSIX 记录锁的持有者是进程，同一进程内再加不冲突；
+    而且进程关掉这个文件的任意一个 fd，就会连带释放它在该文件上的全部 POSIX 锁。
+    真实的第三方写者在别的进程里，自检也得这样测才算数。只在临时目录的临时库上测，
+    不碰任何真实库。自检本身出错（子进程起不来、超时、不按约定回话）一律按
+    「不排」处理——fail closed。
+    """
+
+    import select
+    import sys
+    import tempfile
+
+    result: dict = {
+        "platform": sys.platform,
+        "duckdb": duckdb.__version__,
+        "writer_blocks_lock": None,
+        "lock_blocks_writer": None,
+        "excludes_writers": False,
+        "detail": "",
+    }
+    with tempfile.TemporaryDirectory(prefix="swap-lock-probe-") as tmp:
+        target = Path(tmp) / "probe.duckdb"
+        duckdb.connect(str(target)).close()
+        proc = subprocess.Popen(
+            [sys.executable, "-c", _SWAP_LOCK_PROBE_CHILD, str(target)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+
+        def reply() -> str:
+            ready, _, _ = select.select([proc.stdout], [], [], timeout)
+            return proc.stdout.readline().strip() if ready else "(超时)"
+
+        def say(word: str) -> None:
+            proc.stdin.write(word + "\n")
+            proc.stdin.flush()
+
+        try:
+            if (line := reply()) != "HOLD":
+                raise RuntimeError(f"子进程没拿到写者连接：{line!r}")
+            try:
+                with hold_swap_lock(target):
+                    result["writer_blocks_lock"] = False
+            except DatabaseLockedError:
+                result["writer_blocks_lock"] = True
+            say("release")
+            if (line := reply()) != "RELEASED":
+                raise RuntimeError(f"子进程没放开写者连接：{line!r}")
+            with hold_swap_lock(target):
+                say("try")
+                line = reply()
+            if line not in {"OPENED", "BLOCKED"}:
+                raise RuntimeError(f"子进程没回报写者能否打开：{line!r}")
+            result["lock_blocks_writer"] = line == "BLOCKED"
+            result["excludes_writers"] = bool(
+                result["writer_blocks_lock"] and result["lock_blocks_writer"]
+            )
+            result["detail"] = (
+                "换库锁排得掉另一个进程的 duckdb 写者"
+                if result["excludes_writers"]
+                else "换库锁排不掉另一个进程的 duckdb 写者（flock 与 duckdb 的 POSIX 记录锁在本平台互不相干）"
+            )
+        except (OSError, RuntimeError) as exc:
+            result["detail"] = f"自检没做完，按「不排」处理：{exc}"
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait(timeout=timeout)
+            for stream in (proc.stdin, proc.stdout):
+                if stream is not None:
+                    stream.close()
+    return result
+
+
+_SWAP_LOCK_VERDICT: list[bool] = []
+
+
+def swap_lock_excludes_writers() -> bool:
+    """``swap_lock_platform_probe`` 的布尔结论，每个进程只测一次。"""
+
+    if not _SWAP_LOCK_VERDICT:
+        _SWAP_LOCK_VERDICT.append(bool(swap_lock_platform_probe()["excludes_writers"]))
+    return _SWAP_LOCK_VERDICT[0]
 
 
 @contextmanager
