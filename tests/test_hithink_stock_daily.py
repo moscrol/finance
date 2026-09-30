@@ -486,6 +486,42 @@ def test_persistent_transport_error_exhausts_existing_attempts(monkeypatch, erro
     assert "test-key-must-not-leak-xyz" not in str(caught.value)
 
 
+class _InterruptedHTTPError(urllib.error.HTTPError):
+    def __init__(self, status):
+        super().__init__("https://fuyao.aicubes.cn/api/x", status, "error",
+                         _headers({"Retry-After": "2"}), io.BytesIO())
+
+    def read(self):
+        raise http.client.IncompleteRead(b'{"message":', 10)
+
+
+def test_http_error_body_disconnect_retries_complete_request(monkeypatch):
+    payload = {"code": 0, "data": {"items": [1, 2]}}
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(503), _OkResp(payload)])
+    assert get_json("/api/x", gap_seconds=0) == payload
+    assert calls["n"] == 2 and slept == [0.5]
+
+
+def test_http_error_body_disconnect_exhausts_attempts(monkeypatch):
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(503)])
+    with pytest.raises(HithinkAPIError, match="重试耗尽"):
+        get_json("/api/x", gap_seconds=0, retries=3)
+    assert calls["n"] == 3 and slept == [0.5, 1.0]
+
+
+def test_http_429_does_not_need_complete_error_body(monkeypatch):
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(429), _OkResp({"code": 0})])
+    assert get_json("/api/x", gap_seconds=0, retries=1, rate_limit_budget_seconds=5)["code"] == 0
+    assert calls["n"] == 2 and slept == [2]
+
+
+def test_http_429_interrupted_body_still_obeys_rate_limit_budget(monkeypatch):
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(429)])
+    with pytest.raises(HithinkRateLimitError):
+        get_json("/api/x", gap_seconds=0, rate_limit_budget_seconds=1)
+    assert calls["n"] == 1 and slept == []
+
+
 def test_http_429_retries_then_ok(monkeypatch) -> None:
     calls, slept = _arm(
         monkeypatch,

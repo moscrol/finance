@@ -231,16 +231,17 @@ def get_json(
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=request_timeout) as resp:
-                raw = resp.read()
+            try:
+                resp = urllib.request.urlopen(req, timeout=request_timeout)
+            except urllib.error.HTTPError as exc:
+                resp = exc
+                last_err = exc
+            with resp:
                 status = resp.status
                 # 真实响应一定有 headers；替身未必，缺了就退回指数退避。
                 headers = getattr(resp, "headers", None)
-        except urllib.error.HTTPError as exc:
-            raw = exc.read()
-            status = exc.code
-            headers = getattr(exc, "headers", None)
-            last_err = exc
+                # 429 的状态和响应头已足够退避，不依赖可能中断的错误正文。
+                raw = b"" if status == RATE_LIMIT_HTTP_STATUS else resp.read()
         except (
             urllib.error.URLError,
             http.client.RemoteDisconnected,

@@ -15,7 +15,7 @@
    ) as exc:
    ```
 
-   分支内部不变；不扩大到所有异常。
+   分支内部不变；不扩大到所有异常。用嵌套 `try` 将 HTTPError 对象与普通响应放在相同 `with resp` 中读取；`raw = b"" if status == RATE_LIMIT_HTTP_STATUS else resp.read()`，429 只依赖已知状态和响应头。补 503 正文中断恢复/耗尽及 429 半响应仍遵循 Retry-After/独立预算四项回归。
 3. 用已固定依赖的 `.venv-workbench/bin/python -m pytest -q tests/test_hithink_stock_daily.py tests/test_hithink_sector_kline.py tests/test_hithink_sector_capture_integration.py tests/test_review_sync_hithink_wiring.py` 跑客户端与调用者回归；Ruff 与 diff 检查通过。
 4. 保存固定提交，按 `code-review` 做规格与仓库标准两轴复核。固定候选运行隔离数据续跑；保存全部失败收据，不反复运行挑绿。
 5. 完成数据门禁、独立值审计、生产基线身份检查与换库备份，回读 health/readiness；开 GitHub PR 并通过 Actions。主干合入和永久夜跑代码根切换留待明确确认。
