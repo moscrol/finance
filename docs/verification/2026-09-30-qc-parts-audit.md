@@ -66,7 +66,7 @@
 | P2 | 换库锁跨平台自检 | 换库锁 `hold_swap_lock` 用 flock，duckdb 的写者锁是 POSIX 记录锁：两者只在 macOS 上互斥，Linux 上这把锁排不掉写者（沙箱实测 duckdb 1.5.4，两个方向都不排）。`db.swap_lock_platform_probe` 用子进程扮演另一个进程里的写者，调真实的 `hold_swap_lock` 测两个方向。daily-full 预检据此 fail closed；直写的 daily-update 不换库，不查。另加 `scripts/check_swap_lock_platform.py`。顺手纠正了锁文档里「duckdb 单写者锁用 flock 实现」的说法 | `tests/test_swap_lock_platform_probe.py`（与「写入落不落得了库」这一真实后果对账、子进程失常时 fail closed、只测一次）。5 条换库锁测试按自检结果跳过；1 条参数用例依赖 `cp -c`，按 darwin 跳过。变异验证：把自检读数反过来即红。相关测试 208 过 / 21 跳 / 0 挂 |
 | P1（部分） | 工具面收窄的调用证据 | `scripts/audit_episode_tool_outcomes.py` 加 `--by-dataset` / `--json`：`finance_query` 调用按题型（`contract.question_type`）× 数据集（trace `detail` 里的 `dataset=`）拆开，并列出注册表 `finance_query._DATASETS`（40 个）里在所扫 episode 中一次没被调用的。默认输出不变 | `tests/test_audit_episode_tool_outcomes.py` 9 例（含 2 个真实 episode 冒烟）。变异验证：去掉 `dataset=` 的前缀约束即红 |
 | 内容正确性 | 数值待核的确定性误报（接 post988 收据 §4「仍未做」） | 三个百分数字段的标签补上 %：`强势股加权涨幅%`、`强势股成交占比%`（market_daily）、`区间涨幅%`（sector_period_rank_daily）。以前回答照实写「14.93%」也会被挂「未在证据中找到出处」，因为数值门只从字段名认 % 单位。量纲逐列核过写入链：前两列是涨幅前 5% 个股 `pct_chg` 均值与 `100 × 成交额占比`，复盘会时期旧行同单位；区间涨幅由日更 features 步按连乘 × 100 写入。**竞价涨幅、海外个股 5日涨幅没改**：复盘会原样落库，沙箱里核不了量纲 | `intelligence/tests/test_numeric_note_false_positives.py` 新增 4 例：真实 finance_query 渲染证据行 → 条件句不再挂待核；裸名（无 %）仍挂，数值门不猜单位。先红后绿；变异：撤回一个标签即红。回归：引用 finance_query / 语义核验器的 159 个测试文件共 5,286 例全绿 |
-| 测试隔离 | 门禁测试的 TMPDIR（post988 收据 §4 另一条「仍未做」） | `tests/test_main_gate_receipt.py` 的 `gate_env` 只隔离了 HOME。嵌套 pytest 不给 `--basetemp` 时落在全机共享的 `pytest-of-<user>`，那里积着删不掉的只读残留，别的会话也在并发用，于是超过 40 秒超时误红（#988 门禁实发）。现在 TMPDIR 也指向本测试自己的临时区，而且先建好目录：`tempfile` 遇到不存在的 TMPDIR 会静默退回系统临时区 | 新增 1 例：嵌套 pytest 打印自己的 `tmp_path`，断言它在本测试的临时区内。先红（实测落在 `/tmp/pytest-of-user/…`）后绿；变异：不先建目录即红。整个文件 67 过 |
+| 测试隔离 | 门禁测试的 TMPDIR（post988 收据 §4 另一条「仍未做」）。**10-01 更新：已被主线 #6/#7 取代**——另一会话同日修了同一处，主线版本另外隔离了 `GATE_*`、补了继承 TMPDIR 与只读目录两条用例；合并 `origin/main` 时整文件取主线版本，本分支这条用例不再保留 | `tests/test_main_gate_receipt.py` 的 `gate_env` 只隔离了 HOME。嵌套 pytest 不给 `--basetemp` 时落在全机共享的 `pytest-of-<user>`，那里积着删不掉的只读残留，别的会话也在并发用，于是超过 40 秒超时误红（#988 门禁实发）。现在 TMPDIR 也指向本测试自己的临时区，而且先建好目录：`tempfile` 遇到不存在的 TMPDIR 会静默退回系统临时区 | 新增 1 例：嵌套 pytest 打印自己的 `tmp_path`，断言它在本测试的临时区内。先红（实测落在 `/tmp/pytest-of-user/…`）后绿；变异：不先建目录即红。整个文件 67 过 |
 
 ## 4. 未修的建议
 
@@ -93,7 +93,8 @@
 - 把收据移出 git：`docs/verification` 占了 git 体积的 46%。这要改 CI、改交接纪律，需要用户决定。
 - 给 AGENTS.md / lessons 瘦身，分「每次必读」和「按需查」两层。这会影响所有代理的行为，需要用户决定。
 - 非生产循环移出主进程。
-- Linux 全量复跑后只剩一个红因（§2.2）：沙箱的 Python 3.11 解析不了 3.12 语法（`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；`scripts/calc_case_acceptance.py:273` 同类，但没有测试在收集期加载它）。项目钉的是 3.12，不必改。以后若在 Linux 上接 CI，用 3.12 即可全绿。
+- Linux 全量复跑后只剩一个红因（§2.2）：沙箱的 Python 3.11 解析不了 3.12 语法（`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；`scripts/calc_case_acceptance.py:273` 同类，但没有测试在收集期加载它）。项目钉的是 3.12，不必改。项目钉 3.12，CI 也用 3.12，所以这一条不影响 CI。
+- **更正（10-01）：质检时说「没有 CI」不准确。** 仓里一直有三条 GitHub Actions 工作流（`workbench-check` / `registry-check` / `data-quality-check`），但 python 叶跑在 ubuntu 上、15 分钟上限，09-23～09-30 main 上 100 次 0 成功（见主线 `workbench-check.yml` 注释），等于没有。主线 #6/#7 已把 python 叶改到 macOS runner、上限 45 分钟；#5 起 GitHub 是主协作平台、main 有必需检查。由此，本分支原先「合并前要在 Mac 上跑 `check_swap_lock_platform.py`」这一步，可以由 PR 的 python 叶代劳：`tests/test_swap_lock_platform_probe.py::test_probe_reports_both_directions` 在 darwin 上断言换库锁排得掉写者，红即说明 macOS 上这把锁也不成立。GitHub 的 macOS runner 与本机同为 macOS，但机型与系统小版本可能不同，本机复核仍只需 1 秒。
 
 ## 5. 复现
 
@@ -107,14 +108,14 @@ FWP_ALLOW_ANY_PYTHON=1 python -m pytest -q tests/test_skill_view_supersession.py
   intelligence/tests/test_model_harness_2x2.py tests/test_check_regex_routes.py \
   tests/test_swap_lock_platform_probe.py tests/test_daily_full_preflight.py
 FWP_ALLOW_ANY_PYTHON=1 python scripts/check_regex_routes.py          # 正则路由棘轮
-FWP_ALLOW_ANY_PYTHON=1 python scripts/check_swap_lock_platform.py    # Mac 上应 exit 0
+FWP_ALLOW_ANY_PYTHON=1 python scripts/check_swap_lock_platform.py    # Mac 上应 exit 0；PR 的 macOS CI 由 test_probe_reports_both_directions 断言同一件事
 ```
 
 在 Mac 上用 `.venv-workbench/bin/python` 执行即可，不需要 `FWP_ALLOW_ANY_PYTHON`。
 
 ## 6. 待入账条目（草稿；号在 Mac 上领）
 
-台账自 09-16 起没有新条目，而本分支做了五处修复，按台账纪律每处都该有一条可证伪的预测。号**不在沙箱里领**：登记簿 `~/.finance-runtime/ledger-id-claims.jsonl` 与 `gitea/main` 都在 Mac 上，沙箱领号有撞号风险。在 Mac 上逐条执行：
+台账自 09-16 起没有新条目，而本分支做了五处修复，按台账纪律每处都该有一条可证伪的预测。号**不在沙箱里领**：登记簿 `~/.finance-runtime/ledger-id-claims.jsonl` 只在 Mac 上（#5 起台账读取引用已改为 `origin/main`，但在途分支的占号只记在这个登记簿里），沙箱领号有撞号风险。在 Mac 上逐条执行：
 
 ```bash
 .venv-workbench/bin/python scripts/claim_ledger_id.py claim --branch arena/01a0f120-finance
