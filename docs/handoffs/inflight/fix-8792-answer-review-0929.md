@@ -7,16 +7,16 @@
 - 独立重写输入删减只保留为实验脚本；否了把它接入默认链，财务 ON 未完成原题估值计算。
 
 ## 当前状态
-本分支 HEAD `f37629829c5ba2afef7ce691ef02d64efad5799b`，干净；仅在本次 handoff 提交文档。未合 main、未改 PR head、未部署。可接续树为 `/Users/a77/finance-workspace-private/.worktrees/arena-8792-harness-takeover-0929`，其 HEAD `796ae1435`。
+本分支 HEAD `f37629829c5ba2afef7ce691ef02d64efad5799b`，干净；仅在本次 handoff 提交文档。未合 main、未改 PR head、未部署。最新 main/生产已前进至 `2c3949786568`（#988 后）；生产 health/readiness 实测 13/13、代码干净匹配。可接续树为 `/Users/a77/finance-workspace-private/.worktrees/arena-8792-harness-takeover-0929`，其 HEAD `796ae1435`。
 
 ## 已验证
 旁支已恢复 v1（`26c77304ba48f098159dfc0cdac1a4e332255a8c`），退役回归 1029P/4S、Ruff 绿；四臂 v2 原题证据已收齐并判候选不通过。GLM-5.3-flash 重写对照四次均 completed，但 ON 财务把“算估值”改成提问，故拒收。
 
 ## 未验证 / 已知边界
-未在最新 `gitea/main=c0ec0c0188b2dc78a6f4ba9c5111b3803842d932` 组合上跑全仓、前端、E2E、registry 门禁；未证明 Pi/ReAct/Knevo 追平。deterministic judge 的 passed 不是语义背书。`run_20260929_204303_731896` 是已完成的误补重复探针，必须排除原四臂比较但保留原件。
+未在最新 `gitea/main=2c3949786568` 组合上跑全仓、前端、E2E、registry 门禁；未证明 Pi/ReAct/Knevo 追平。deterministic judge 的 passed 不是语义背书。`run_20260929_204303_731896` 是已完成的误补重复探针，必须排除原四臂比较但保留原件。#966 工具授权审计仍 WIP，不能当回答质量结论。
 
 ## 下一步
-单一 owner 从最新 main 开干净树；只逐项审合 d9eeb69b7、26c、563d52622，禁止整体合 f376/c6ba。先审 563d 的实际模型身份与输入边界，再决定是否保留。固定有限自然题验收（材料时点、现金流起点、历史追问、真实工具各一类），读答案正文而非只看 completed；全适用工程门禁绿后交 PR 给用户决定合入，合入后再做生产健康、真实查数、备份和归档。
+单一 owner 从 `2c3949786568` 开干净树；#986/#989/#988 已在基线，不要重复 cherry-pick。只逐项审合 d9eeb69b7、26c、563d52622，禁止整体合 f376/c6ba。先审 563d 的实际模型身份与输入边界，再决定是否保留。固定有限自然题验收（材料时点、现金流起点、历史追问、真实工具各一类），读答案正文而非只看 completed；全适用工程门禁绿后交 PR 给用户决定合入，合入后再做生产健康、真实查数、备份和归档。
 
 ## 踩过的坑
 旁支已补齐原缺失第四臂后，我又误以为缺臂而发起重复探针；它没有替代第四臂。不要把“格式可解析”“自动评审 usable”写成答案正确，也不要把旧树全量收据移给新 main。
