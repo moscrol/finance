@@ -416,7 +416,7 @@ class _OkResp:
 
 
 def _arm(monkeypatch, responses):
-    """按序回放 responses；元素是 Exception 就 raise。返回 (calls, slept)。"""
+    """按序回放；工厂创建新响应，Exception 就 raise。返回 (calls, slept)。"""
 
     calls = {"n": 0}
     slept: list[float] = []
@@ -430,6 +430,8 @@ def _arm(monkeypatch, responses):
         index = calls["n"]
         calls["n"] += 1
         item = responses[min(index, len(responses) - 1)]
+        if callable(item):
+            item = item()
         if isinstance(item, Exception):
             raise item
         return item
@@ -503,7 +505,7 @@ def test_http_error_body_disconnect_retries_complete_request(monkeypatch):
 
 
 def test_http_error_body_disconnect_exhausts_attempts(monkeypatch):
-    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(503)])
+    calls, slept = _arm(monkeypatch, [lambda: _InterruptedHTTPError(503)])
     with pytest.raises(HithinkAPIError, match="重试耗尽"):
         get_json("/api/x", gap_seconds=0, retries=3)
     assert calls["n"] == 3 and slept == [0.5, 1.0]
@@ -595,7 +597,7 @@ def test_retry_after_is_capped(monkeypatch) -> None:
 
 
 def test_rate_limit_budget_exhausts_and_fails_closed(monkeypatch) -> None:
-    calls, slept = _arm(monkeypatch, [_limit_error()])
+    calls, slept = _arm(monkeypatch, [_limit_error])
     with pytest.raises(HithinkRateLimitError) as excinfo:
         get_json(
             "/api/a-share/valuations/snapshot",
