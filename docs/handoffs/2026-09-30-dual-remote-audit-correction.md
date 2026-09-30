@@ -13,9 +13,11 @@
 
 ## 发布边界
 
-完整本机审计及本分支历史只归档到 Gitea，不把内部路径/运行原件所在的整枝推至公开 origin。共享版在文档分支的 `docs/handoffs/2026-09-30-project-wide-closeout-shareable.md`，供 GitHub / 云端 / 手机读取；其链接以推送后的固定提交回读为准。双远程协作规则见同枝 `docs/workflows/dual-remote-collaboration.md`。
+后续实查推翻了“只推私有 Gitea 可保密”的初始判断：该仓已有面向公开 origin 的 push mirror，提交触发开启、周期 8 小时。本分支 d45671f2e 曾因此短暂出现在 GitHub，确认双端仍为自己的原提交后，已依次撤下本轮新建的 Gitea / GitHub 引用。本地分支与工作树保留，取消了本分支 upstream；不要再把此枝推入这个带公开镜像的 Gitea 仓库。
 
-本次可共享分支保持两端同 SHA，私有归档分支是明确例外。不是用强推或全量镜像消除差异。
+保全 bundle：`/Users/a77/.finance-runtime/reviews/remote-consistency-20260930/private-review-preserved.bundle`，已通过 `git bundle verify`，包含 d45671f2e，依赖主干已有的 4de44009af6de4619573a3e35984d3477228a9df。读回证据在同目录 `remote-heads-contained.json`：双端各 592 条分支、无差异。引用移除不代表公开对象/缓存已清除；没有重写远程历史或修改镜像设置。
+
+共享版在 `codex/dual-remote-handoff-0930` 的 `docs/handoffs/2026-09-30-project-wide-closeout-shareable.md`，镜像处置另见同枝 `2026-09-30-remote-mirror-boundary.md`。该枝适合公开且双端同步；完整原件保持本地。最终可读链接以最新提交回读为准。
 
 ## 尚未完成
 

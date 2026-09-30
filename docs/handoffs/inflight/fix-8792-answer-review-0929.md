@@ -7,7 +7,7 @@
 - 选最新 main 上按依赖集成；否了机械拣 d9/26c/563d，新基线无 v2 无须再撤 v2。
 
 ## 当前状态
-本树仅提交审计/交接，代码基础 f376 不可发布；HEAD 以 git 为准。接续旁支 `arena-8792-harness-takeover-0929` 在 796ae1435，#956 仍 WIP。全局计划见 `2026-09-30-project-wide-closeout-plan.md`，GitHub 盲区更正优先看 `2026-09-30-dual-remote-audit-correction.md`。本树完整历史仅归档 Gitea；公开共享版另在 `codex/dual-remote-handoff-0930`。
+本树仅提交审计/交接，代码基础 f376 不可发布；HEAD 以 git 为准。旁支 `arena-8792-harness-takeover-0929` 在 796ae1435，#956 仍 WIP。全局更正见 `2026-09-30-dual-remote-audit-correction.md`。Gitea 有公开 GitHub 镜像，本枝误传的双端引用已撤、upstream 已取消，本地 bundle 保全；勿再推。本枝后续只在本地提交；共享版另在 `codex/dual-remote-handoff-0930`。
 
 ## 已验证
 旁支 26c 恢复 v1，旧退役回归 1029P/4S；两组首发对照拒收。09-30 实查全部 37 棵树及两张 open PR；8792 为 2c394、13/13，main 756932 只多回执无需重切。8798 新日报 API 404。JSON 模式旧版完整收据 18603P 可采信，仅签其原版本。
