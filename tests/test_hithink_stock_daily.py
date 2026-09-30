@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import email.message
+import http.client
 import inspect
 import io
 import json
+import ssl
 import urllib.error
 from datetime import date, datetime, timedelta, timezone
 from email.utils import format_datetime
@@ -439,6 +441,49 @@ def _arm(monkeypatch, responses):
     monkeypatch.setattr(hithink_client.time, "monotonic", lambda: elapsed[0])
     monkeypatch.setattr("urllib.request.urlopen", _urlopen)
     return calls, slept
+
+
+_TRANSPORT_ERRORS = [
+    http.client.RemoteDisconnected("peer closed before headers"),
+    http.client.IncompleteRead(b'{"code":', 10),
+    ConnectionResetError("connection reset"),
+    TimeoutError("response timed out"),
+    ssl.SSLEOFError("TLS connection closed"),
+]
+
+
+class _InterruptedResponse(_OkResp):
+    def __init__(self, error):
+        super().__init__({})
+        self.error = error
+
+    def read(self):
+        raise self.error
+
+
+@pytest.mark.parametrize("error", _TRANSPORT_ERRORS, ids=lambda e: type(e).__name__)
+@pytest.mark.parametrize("phase", ["open", "read"])
+def test_transient_transport_error_retries_complete_request(monkeypatch, error, phase):
+    failed = error if phase == "open" else _InterruptedResponse(error)
+    payload = {"code": 0, "data": {"items": [1, 2]}}
+    calls, slept = _arm(monkeypatch, [failed, _OkResp(payload)])
+
+    assert get_json("/api/a-share-index/prices/historical", gap_seconds=0) == payload
+    assert calls["n"] == 2
+    assert slept == [0.5]
+
+
+@pytest.mark.parametrize("error", _TRANSPORT_ERRORS, ids=lambda e: type(e).__name__)
+def test_persistent_transport_error_exhausts_existing_attempts(monkeypatch, error):
+    calls, slept = _arm(monkeypatch, [_InterruptedResponse(error)])
+
+    with pytest.raises(HithinkAPIError, match="重试耗尽") as caught:
+        get_json("/api/a-share-index/prices/historical", gap_seconds=0, retries=3)
+    assert type(caught.value) is HithinkAPIError
+    assert caught.value.__cause__ is error
+    assert calls["n"] == 3
+    assert slept == [0.5, 1.0]
+    assert "test-key-must-not-leak-xyz" not in str(caught.value)
 
 
 def test_http_429_retries_then_ok(monkeypatch) -> None:

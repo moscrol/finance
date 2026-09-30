@@ -17,9 +17,11 @@ Key 只从环境变量 ``HITHINK_FINANCE_API_KEY`` 或 macOS 钥匙串
 
 from __future__ import annotations
 
+import http.client
 import json
 import math
 import os
+import ssl
 import subprocess
 import time
 import urllib.error
@@ -239,7 +241,16 @@ def get_json(
             status = exc.code
             headers = getattr(exc, "headers", None)
             last_err = exc
-        except urllib.error.URLError as exc:
+        except (
+            urllib.error.URLError,
+            http.client.RemoteDisconnected,
+            http.client.IncompleteRead,
+            ConnectionResetError,
+            TimeoutError,
+            ssl.SSLEOFError,
+        ) as exc:
+            # urllib does not wrap every disconnect/read failure in URLError.
+            # Retry the entire GET; never accept or concatenate a partial body.
             _mark_request()
             last_err = exc
             attempt += 1
