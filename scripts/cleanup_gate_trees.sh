@@ -4,7 +4,7 @@
 # 拆两类：
 #   1. detached 树：按提交号 `git worktree add --detach` 出来跑门禁 / 审查的快照，无分支。跑完就该拆，
 #      重建只要一个提交号；2026-09-23 盘上静置 78 棵、15 GB。
-#   2. 分支已完整进入基线（gitea/main）的树：补丁都在 main 了，树本身只是占位。
+#   2. 分支已完整进入 GitHub 基线（origin/main）的树：补丁都在 main 了，树本身只是占位。
 # 两类都还要同时满足：树干净（所有未提交文件均阻塞）、树内 N 天没动过、
 # 没有进程打开它或把 cwd 放在里面、不被 ~/Library/LaunchAgents/*.plist 或 ~/.local/bin/* 引用；
 # detached 树的 HEAD 还必须挂在某个分支 / 标签 / 远端 / refs/archive 上（否则拆了提交就丢）；
@@ -18,7 +18,7 @@
 #   bash scripts/cleanup_gate_trees.sh --apply          # 真删
 #   bash scripts/cleanup_gate_trees.sh --days 3         # 只动 3 天没动过的（默认 2）
 #   bash scripts/cleanup_gate_trees.sh --repo <path>    # 别的仓（如知识库仓）
-#   bash scripts/cleanup_gate_trees.sh --base main      # 基线引用（默认 gitea/main，没有则 main）
+#   bash scripts/cleanup_gate_trees.sh --base main      # 显式基线；默认仅 origin/main，缺失则停止
 #   bash scripts/cleanup_gate_trees.sh --release-merged-locks
 #        # 上锁的树默认只报 SKIP（锁是别的会话留的话）；加此参数后，锁上的树若 HEAD 已进基线
 #        # （门禁候选已合入，锁的理由已消失）则先 unlock 再拆。HEAD 不在基线的锁树仍不动。
@@ -57,7 +57,10 @@ MAIN_TREE_RAW="$(git -C "$REPO" worktree list --porcelain | awk 'NR==1{print sub
 [ -n "$MAIN_TREE_RAW" ] || { echo "无法读取主工作树" >&2; exit 5; }
 MAIN_TREE="$(canonical_dir "$MAIN_TREE_RAW")" || { echo "无法解析主工作树" >&2; exit 5; }
 if [ -z "$BASE" ]; then
-  if git -C "$REPO" rev-parse --verify -q gitea/main >/dev/null; then BASE=gitea/main; else BASE=main; fi
+  BASE=origin/main
+  git -C "$REPO" rev-parse --verify -q "$BASE" >/dev/null || {
+    echo "GitHub 基线 origin/main 不存在；先 git fetch origin 或显式 --base。" >&2; exit 5;
+  }
 fi
 BASE_SHA="$(git -C "$REPO" rev-parse "$BASE" 2>/dev/null)" || { echo "基线引用不存在: $BASE" >&2; exit 5; }
 NOW=$(date +%s); CUTOFF=$((NOW - DAYS * 86400))

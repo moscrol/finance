@@ -76,6 +76,11 @@ ALLOWED = frozenset(
         # sync_eastmoney_fund_flow 用它把东财域名解析 / 连接超时握在自己手里；
         # 读取点在 stdlib 里，本脚本只扫仓内 Python 看不见。
         "sock",
+        # HTTPServer.server_bind() 的标准协议字段。headless_tool_gateway 为
+        # 回环监听跳过反向 DNS 时仍须设置；读取者如 stdlib 的
+        # CGIHTTPRequestHandler.run_cgi()，仓内扫描看不到该外部消费者。
+        "server_name",
+        "server_port",
     }
 )
 

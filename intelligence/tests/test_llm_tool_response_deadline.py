@@ -76,6 +76,35 @@ def local_only(monkeypatch):
     monkeypatch.setattr(llm_refine, "_reserve_llm_call", lambda: None)
 
 
+@pytest.fixture
+def expired_stream(monkeypatch):
+    """Select the expiry phase without racing HTTP worker startup against 200 ms."""
+    from intelligence.tests.test_llm_call_provenance import PROVIDER, Response, sse
+
+    clock = [0.0]
+    monkeypatch.setattr(llm_refine.time, "monotonic", lambda: clock[0])
+
+    def install(phase):
+        class ExpiringResponse(Response):
+            def __iter__(self):
+                if phase == "after_content":
+                    clock[0] = 0.05
+                    yield sse({"choices": [{"delta": {"content": "early"}}]}).splitlines()[0]
+                clock[0] = 0.2
+                raise llm_http_transport.HTTPDeadlineExceeded()
+
+        def open_response(*_args, **_kwargs):
+            if phase == "before_headers":
+                clock[0] = 0.2
+                raise llm_http_transport.HTTPDeadlineExceeded()
+            return ExpiringResponse({})
+
+        monkeypatch.setattr(llm_http_transport, "urlopen", open_response)
+        return PROVIDER
+
+    return install
+
+
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("header_delay", [0.0, 0.18])
 def test_trickling_response_cannot_renew_tool_call_window(monkeypatch, streaming, header_delay):
@@ -116,26 +145,27 @@ def test_response_deadline_does_not_add_provider_fallback(monkeypatch):
     assert len(calls) == 1
 
 
-def test_expiry_after_first_delta_keeps_no_replay_rule(monkeypatch):
+def test_expiry_after_first_delta_keeps_no_replay_rule(monkeypatch, expired_stream):
     deltas = []
-    with local_provider(streaming=True, emit_first=True) as provider:
-        calls = []
-        monkeypatch.setattr(llm_refine, "detect_providers", lambda _: (provider, provider))
-        monkeypatch.setattr(llm_refine, "_record_llm_call", lambda *args, **kwargs: calls.append(args))
-        message, used, reason = llm_refine.chat_with_tools(
-            [], [], timeout=0.2, min_viable_seconds=0, on_content_delta=deltas.append,
-        )
+    provider = expired_stream("after_content")
+    calls = []
+    monkeypatch.setattr(llm_refine, "detect_providers", lambda _: (provider, provider))
+    monkeypatch.setattr(llm_refine, "_record_llm_call", lambda *args, **kwargs: calls.append(args))
+    message, used, reason = llm_refine.chat_with_tools(
+        [], [], timeout=0.2, min_viable_seconds=0, on_content_delta=deltas.append,
+    )
     assert message is None and used == provider and reason == llm_refine._STREAM_FALLBACK_BLOCKED
     assert deltas == ["early"]
     assert len(calls) == 1 and calls[0][2] == "failed"
 
 
 @pytest.mark.parametrize("emit_first", [False, True])
-def test_failed_stream_keeps_progress_without_partial_text(emit_first):
-    with local_provider(streaming=True, emit_first=emit_first) as provider:
-        with llm_refine.call_ledger_scope() as ledger:
-            with pytest.raises((TimeoutError, llm_refine.LLMDeadlineExceeded, llm_refine.LLMStreamAlreadyEmitted)):
-                llm_refine._post_chat_message_stream(provider, [], 0.2, 0.0, [], "auto", True, lambda _: None)
+def test_failed_stream_keeps_progress_without_partial_text(emit_first, expired_stream):
+    provider = expired_stream("after_content" if emit_first else "before_content")
+    with llm_refine.call_ledger_scope() as ledger:
+        expected_error = llm_refine.LLMStreamAlreadyEmitted if emit_first else llm_refine.LLMDeadlineExceeded
+        with pytest.raises(expected_error):
+            llm_refine._post_chat_message_stream(provider, [], 0.2, 0.0, [], "auto", True, lambda _: None)
         record = ledger.summary()["records"][0]
     progress = record["stream_progress"]
     assert record["reason"] == "timeout"
@@ -149,6 +179,19 @@ def test_failed_stream_keeps_progress_without_partial_text(emit_first):
     else:
         assert progress["first_content_elapsed_ms"] is None
     assert "early" not in json.dumps(record) and "late" not in json.dumps(record)
+
+
+def test_pre_header_deadline_records_no_stream_progress(expired_stream):
+    provider = expired_stream("before_headers")
+    with llm_refine.call_ledger_scope() as ledger:
+        with pytest.raises(llm_refine.LLMDeadlineExceeded):
+            llm_refine._post_chat_message_stream(provider, [], 0.2, 0.0, [], "auto", True, lambda _: None)
+        record = ledger.summary()["records"][0]
+    assert record["status"] == "failed" and record["reason"] == "timeout"
+    assert record["stream_progress"] == {
+        "requested_timeout_ms": 200, "headers_elapsed_ms": None, "first_content_elapsed_ms": None,
+        "content_chars": 0, "reasoning_chars": 0, "tool_argument_chars": 0, "deadline_expired": True,
+    }
 
 
 @pytest.mark.parametrize("disconnect", [False, True])

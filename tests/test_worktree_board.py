@@ -50,6 +50,20 @@ def test_parse_worktree_porcelain() -> None:
     assert rows[1]["branch"] == "(detached)"
 
 
+def test_baseline_prefers_github_over_backup(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _git(repo, "commit", "--allow-empty", "-m", "backup-only")
+    _git(repo, "update-ref", "refs/remotes/gitea/main", "HEAD")
+    assert board.resolve_base(str(repo), 5) == "origin/main"
+
+
+def test_offline_baseline_uses_local_main_not_backup(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    _git(repo, "update-ref", "refs/remotes/gitea/main", "HEAD")
+    assert board.resolve_base(str(repo), 5) == "main"
+
+
 def test_code_dirty_skips_exports() -> None:
     assert board.is_code_dirty(["market_feature_store/exports/x.json"]) is False
     assert board.is_code_dirty(["intelligence/services/foo.py"]) is True
