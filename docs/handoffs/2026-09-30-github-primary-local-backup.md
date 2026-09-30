@@ -61,3 +61,5 @@ GitHub main 的保护通过 API 设置并读回：要求 `workbench-check`、`re
 最终提交还须本机与 GitHub 全量。暂关条件合并是为了等待两端收据，不撤销用户已给的合入授权。最终结果写入 PR 与本次任务交付记录，避免为更新结果再产生未验的新提交。
 
 提交检查还发现 #7 引入的 HTTPServer `server_name` / `server_port` 被仓内静态扫描误判为无人读取。已在 Python 3.12 标准库 `CGIHTTPRequestHandler.run_cgi()` 核对真实读取点，复用 #8 已验证的两字段协议例外；不增大审计基线，不绕过提交钩子，不修改 HTTP 运行行为。
+
+本机使用依赖锁定的独立 venv 全量检查 `f015c5486` 时，`tests/test_pi_review_repair.py` 的 11 项暴露深层解释器目录的夹具缺陷：`realpath` 需要逐级读取父目录 metadata，夹具只授权了候选树的父目录。单独 `test_sandbox_interpreter_binding_without_git_access[configured-spec]` 也以同一 `Operation not permitted` 失败（1 failed / 1.02s）。这与 #8 已验证的故障相同，因此原样复用 `35b7fcb3a` 的该测试文件修复：只补解释器父目录的 metadata 读取，不放开目录内容或进程权限，不改生产沙箱。前轮失败收据保留；新的最终提交仍需重新跑本机和 GitHub 全量。
