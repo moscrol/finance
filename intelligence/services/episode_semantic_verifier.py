@@ -415,8 +415,11 @@ _MID_SENTENCE_SHORT_DATE_RE = re.compile(
 _FIELD_QUALIFIER = r"[0-9一-鿿]{0,6}?"
 # 行情库这三列的单位是 %（pct_chg / turnover / amplitude），证据写成裸数 ``涨跌幅=-5.72``，
 # 模型按人话写 ``-5.72%``。同 _CURRENCY_FIELD_RE：单位只从字段名绑，别的裸数不获 % 资格。
+# 名字以 % 结尾的字段（``量比%``、``成交额环比%``）单位就写在名字里，同样算（09-30 post986 探针）；
+# 裸名「量比」不算——别的数据源里的量比多是倍数。
 _PERCENT_FIELD_RE = re.compile(
-    r"(?:^|[；;\n])\s*" + _FIELD_QUALIFIER + r"(?:涨跌幅|换手率|振幅)\s*(?:[（(]\s*%\s*[）)]|%)?"
+    r"(?:^|[；;\n])\s*(?:" + _FIELD_QUALIFIER + r"(?:涨跌幅|换手率|振幅)\s*(?:[（(]\s*%\s*[）)]|%)?"
+    r"|[0-9\u4e00-\u9fff]{1,12}?\s*(?:[（(]\s*%\s*[）)]|%))"
     r"\s*[=:：]\s*(?P<value>[+-]?\d+(?:\.\d+)?)\s*%?\s*(?=$|[；;\n])"
 )
 _ARABIC_QUANTITY_RE = re.compile(
