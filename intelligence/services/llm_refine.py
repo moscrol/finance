@@ -19,8 +19,10 @@ Design constraints:
 
 from __future__ import annotations
 
+import email.utils
 import hashlib
 import json
+import math
 import os
 import random
 import re
@@ -951,6 +953,173 @@ def _retry_delay_seconds(attempt: int) -> float:
     return base * (1.0 + random.random() * _RETRY_JITTER)
 
 
+# --- HTTP 429 限流：按服务端提示等一次，再试一次 ---------------------------------
+# 2026-09-09 实测（docs/lessons_learned.md「六题串行连发」）：网关连续 429 时 runtime
+# 0.6 秒内连打三次就放弃，而网关其实给了冷却时长。两种极端都不对：
+#   * 不等就重试 = 对正在限流的网关继续加压，三次全废；
+#   * 一律放弃   = 秒级的限流抖动也把整轮降级成「模型不可用」，读数里分不清
+#     「被限流」和「能力不行」。
+# 规则：只认 429；服务端给了 ``Retry-After`` / ``retry-after-ms`` 就按它等，没给按
+# ``_RATE_LIMIT_DEFAULT_WAIT_S`` 加抖动；同一 provider 每次调用最多多试一次（配额是
+# 滚动窗口，不拿重试换配额）；要等的超过 ``_RATE_LIMIT_MAX_WAIT_S``，或等完剩不到一次
+# 可行调用（``MIN_VIABLE_LLM_SECONDS``，实测低于它成功率急剧下降），就不等，直接失败并
+# 把服务端要求的秒数写进原因——「冷却 4939 秒」要换时段，不是等一等能好的。
+#
+# **不要**把 "HTTP 429" 加进 ``agent_runtime.TRANSIENT_MODEL_ERROR_MARKERS``：那条路径
+# （``GLMModelClient._complete_provider_chain``）对瞬时错误无间隔重试三次，正是上面
+# 那种「0.6 秒连打三次」。限流的等待只放在这一层，且只等一次。
+#
+# 只读响应头：HTTP worker 刻意不等错误响应体（``llm_http_transport`` 里
+# 「status/headers own the retry decision」），body 里的 reset_seconds 到不了这里。
+_RATE_LIMIT_STATUS = 429
+_RATE_LIMIT_MAX_RETRIES = 1
+_RATE_LIMIT_DEFAULT_WAIT_S = 2.0
+_RATE_LIMIT_MAX_WAIT_S = 20.0
+_RATE_LIMIT_SLEEP_SLICE_S = 0.25
+
+
+def _rate_limit_min_call_seconds() -> float:
+    return max(1.0, MIN_VIABLE_LLM_SECONDS)
+
+
+def rate_limit_hint_seconds(headers: object) -> float | None:
+    """429 响应头里服务端要求等待的秒数；没给或读不懂返回 None。
+
+    认两种写法：标准 ``Retry-After``（秒数或 HTTP 日期）与部分 OpenAI 兼容网关的
+    ``retry-after-ms``。大小写不敏感——真实响应是 ``email.message.Message``，
+    测试替身常给普通 dict，两者都有 ``items()``。
+    """
+
+    items = getattr(headers, "items", None)
+    if not callable(items):
+        return None
+    try:
+        values = {str(key).strip().lower(): str(value).strip() for key, value in items()}
+    except Exception:
+        return None
+    raw_ms = values.get("retry-after-ms")
+    if raw_ms:
+        try:
+            millis = float(raw_ms)
+        except ValueError:
+            millis = math.nan
+        if math.isfinite(millis) and millis >= 0:
+            return millis / 1000.0
+    raw = values.get("retry-after")
+    if not raw:
+        return None
+    try:
+        seconds = float(raw)
+    except ValueError:
+        try:
+            when = email.utils.parsedate_to_datetime(raw)
+        except (TypeError, ValueError, IndexError):
+            return None
+        if when is None:
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+    if not math.isfinite(seconds) or seconds < 0:
+        return None
+    return seconds
+
+
+def _is_rate_limited(exc: BaseException) -> bool:
+    return isinstance(exc, urllib.error.HTTPError) and exc.code == _RATE_LIMIT_STATUS
+
+
+def rate_limit_retry_wait(
+    exc: BaseException,
+    *,
+    remaining: float,
+    retries_used: int,
+) -> float | None:
+    """这次失败值不值得在同一 provider 上再试：值得返回要等的秒数，否则 None。"""
+
+    if not _is_rate_limited(exc) or retries_used >= _RATE_LIMIT_MAX_RETRIES:
+        return None
+    hint = rate_limit_hint_seconds(getattr(exc, "headers", None))
+    if hint is None:
+        wait = _RATE_LIMIT_DEFAULT_WAIT_S * (1.0 + random.random() * _RETRY_JITTER)
+    else:
+        wait = hint
+    if wait > _RATE_LIMIT_MAX_WAIT_S:
+        return None
+    if remaining - wait < _rate_limit_min_call_seconds():
+        return None
+    return wait
+
+
+def rate_limit_reason_suffix(exc: BaseException) -> str:
+    """把服务端要求的冷却写进失败原因，读数里「被限流」才分得开「能力不行」。
+
+    措辞刻意避开 ``stable_llm_fallback_reason`` 在 HTTP 分支之前检查的关键词
+    （超时 / 截止时间 / 截断 / length / 剩余预算不足 …），保证整句仍按
+    ``HTTP 429`` 归到 ``provider_rate_limited``——测试钉着这一点。
+    """
+
+    if not _is_rate_limited(exc):
+        return ""
+    hint = rate_limit_hint_seconds(getattr(exc, "headers", None))
+    if hint is None:
+        return ""
+    return f"（限流：服务端要求 {max(1, math.ceil(hint))} 秒后再试）"
+
+
+def _sleep_for_rate_limit(
+    seconds: float,
+    is_cancelled: Callable[[], bool] | None = None,
+) -> bool:
+    """分片睡，期间用户取消就立刻停。返回 False 表示被取消，调用方不再重试。"""
+
+    end = time.monotonic() + max(0.0, seconds)
+    while True:
+        if is_cancelled is not None and is_cancelled():
+            return False
+        left = end - time.monotonic()
+        if left <= 0:
+            return True
+        time.sleep(min(_RATE_LIMIT_SLEEP_SLICE_S, left))
+
+
+def _with_rate_limit_retry(
+    call: Callable[[], object],
+    *,
+    deadline: Deadline,
+    is_cancelled: Callable[[], bool] | None = None,
+    retry_allowed: Callable[[], bool] | None = None,
+):
+    """执行 ``call``；遇到 429 且 :func:`rate_limit_retry_wait` 放行时等一次再试。
+
+    ``call`` 每次都要**重新**向 deadline 要剩余时间（闭包里现算），否则重试会拿着
+    等待之前的旧预算发出去。``retry_allowed`` 给流式路径用：已经有正文吐给用户时
+    绝不重放（同 ``_STREAM_FALLBACK_BLOCKED`` 的理由）。每次重试照常经过
+    ``_reserve_llm_call()``，所以仍计入本轮调用预算。
+    """
+
+    retries = 0
+    while True:
+        try:
+            return call()
+        except urllib.error.HTTPError as exc:
+            if retry_allowed is not None and not retry_allowed():
+                raise
+            wait = rate_limit_retry_wait(
+                exc, remaining=deadline.remaining(), retries_used=retries,
+            )
+            if wait is None:
+                raise
+            # 本轮调用预算已满就别白等：重试注定被 _reserve_llm_call 拒，
+            # 真正的失败原因是 429，原样抛出比「预算耗尽」更准确。
+            ledger = _CALL_LEDGER.get()
+            if ledger is not None and ledger.over_budget():
+                raise
+            if not _sleep_for_rate_limit(wait, is_cancelled):
+                raise
+            retries += 1
+
+
 # CLI judge 的失败种类必须活着走到分类器。`grok_cli_judge` 用 RuntimeError 承载
 # 四种完全不同的故障，若只压成 `RuntimeError`，「空输出」「非零退出」「坏 JSON」
 # 会落进同一个不可分辨的桶——下游 `_stable_semantic_judge_error` 认不出就判
@@ -1385,27 +1554,26 @@ def complete(
             if is_cli_judge_provider(provider):
                 content = _complete_cli_judge(provider, messages, remaining)
             else:
-                if max_tokens is None:
-                    content = _post_chat(
+                # max_tokens 为 None 时不传这个关键字——保持改动前的调用形状。
+                chat_kwargs: dict[str, object] = {"deadline": deadline}
+                if max_tokens is not None:
+                    chat_kwargs["max_tokens"] = max_tokens
+                content = _with_rate_limit_retry(
+                    lambda: _post_chat(
                         provider,
                         messages,
-                        remaining,
+                        deadline.require_remaining(0.001),
                         temperature,
-                        deadline=deadline,
-                    )
-                else:
-                    content = _post_chat(
-                        provider,
-                        messages,
-                        remaining,
-                        temperature,
-                        max_tokens=max_tokens,
-                        deadline=deadline,
-                    )
+                        **chat_kwargs,
+                    ),
+                    deadline=deadline,
+                )
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
-        except urllib.error.HTTPError as exc:  # pragma: no cover - network
-            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except urllib.error.HTTPError as exc:
+            failures.append(
+                (provider, f"LLM 调用 HTTP {exc.code}{rate_limit_reason_suffix(exc)}")
+            )
         except Exception as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
         else:
@@ -1761,31 +1929,42 @@ def chat_with_tools(
     streaming = on_content_delta is not None
     for provider in providers:
         try:
-            remaining = deadline.require_remaining(0.001)
+            # 429 在同一 provider 上按服务端提示等一次再试（见 _with_rate_limit_retry）。
+            # 流式也安全：已吐字后的失败一律变成 LLMStreamAlreadyEmitted，
+            # 能以 HTTPError 形态冒出来的只有「还没吐字」的那种。剩余时间在闭包里
+            # 现取：deadline 已过期时照旧在发包前抛，落进下面的通用失败分支。
             if streaming:
                 assert on_content_delta is not None
-                msg = _post_chat_message_stream(
-                    provider,
-                    messages,
-                    remaining,
-                    temperature,
-                    tools,
-                    tool_choice,
-                    disable_thinking,
-                    on_content_delta,
-                    is_cancelled,
+                msg = _with_rate_limit_retry(
+                    lambda: _post_chat_message_stream(
+                        provider,
+                        messages,
+                        deadline.require_remaining(0.001),
+                        temperature,
+                        tools,
+                        tool_choice,
+                        disable_thinking,
+                        on_content_delta,
+                        is_cancelled,
+                        deadline=deadline,
+                    ),
                     deadline=deadline,
+                    is_cancelled=is_cancelled,
                 )
             else:
-                msg = _post_chat_message(
-                    provider,
-                    messages,
-                    remaining,
-                    temperature,
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    disable_thinking=disable_thinking,
+                msg = _with_rate_limit_retry(
+                    lambda: _post_chat_message(
+                        provider,
+                        messages,
+                        deadline.require_remaining(0.001),
+                        temperature,
+                        tools=tools,
+                        tool_choice=tool_choice,
+                        disable_thinking=disable_thinking,
+                        deadline=deadline,
+                    ),
                     deadline=deadline,
+                    is_cancelled=is_cancelled,
                 )
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
@@ -1796,8 +1975,10 @@ def chat_with_tools(
         except LLMStreamingUnsupported:
             # 一个字都还没吐出去，换 provider 是安全的。
             failures.append((provider, "LLM 不支持流式响应"))
-        except urllib.error.HTTPError as exc:  # pragma: no cover - network
-            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except urllib.error.HTTPError as exc:
+            failures.append(
+                (provider, f"LLM 调用 HTTP {exc.code}{rate_limit_reason_suffix(exc)}")
+            )
         except Exception as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
         else:
@@ -2285,7 +2466,8 @@ def synthesize_messages(
         else shared_deadline.expires_at
     )
     # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
-    # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
+    # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败），
+    # 唯一例外是 429：按服务端提示等一次再试（_with_rate_limit_retry，有上限、计预算）。
     #
     # CLI judge 分支与 complete() 对齐：judge_provider() 在 LLM_JUDGE_BACKEND=grok-cli
     # 时返回 base_url="cli://grok" 的 provider，走 HTTP 会在发包前抛
@@ -2307,20 +2489,25 @@ def synthesize_messages(
                 # 置 "stop" 以通过下方的完成性校验（与 complete() 的语义一致）。
                 finish_reason = "stop"
             else:
-                content, finish_reason = _post_chat_synthesis(
-                    provider,
-                    messages,
-                    remaining,
-                    temperature,
-                    max_tokens,
-                    max_chars,
+                content, finish_reason = _with_rate_limit_retry(
+                    lambda: _post_chat_synthesis(
+                        provider,
+                        messages,
+                        phase_deadline.require_remaining(1),
+                        temperature,
+                        max_tokens,
+                        max_chars,
+                        deadline=phase_deadline,
+                    ),
                     deadline=phase_deadline,
                 )
             break
         except LLMCallBudgetExceeded as exc:
             return None, str(exc)
-        except urllib.error.HTTPError as exc:  # pragma: no cover - network
-            return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
+        except urllib.error.HTTPError as exc:
+            return None, (
+                f"LLM 合成 HTTP {exc.code}{rate_limit_reason_suffix(exc)}，已降级为模板"
+            )
         except LLMDeadlineExceeded:
             return None, "LLM 合成超过共享截止时间，已降级为模板"
         except LLMOutputTooLong:
@@ -2542,18 +2729,23 @@ def synthesize_messages_stream(
         on_delta(delta)
 
     try:
-        remaining = shared_deadline.call_timeout(timeout)
-        content, finish_reason = _post_chat_stream(
-            provider,
-            messages,
-            remaining,
-            temperature,
-            _tracked_delta,
-            on_connected,
-            is_cancelled,
-            shared_deadline,
-            max_tokens,
-            max_chars,
+        # 429 只在一个字都没吐时重试（retry_allowed）；重放已吐出的正文比降级更糟。
+        content, finish_reason = _with_rate_limit_retry(
+            lambda: _post_chat_stream(
+                provider,
+                messages,
+                shared_deadline.call_timeout(timeout),
+                temperature,
+                _tracked_delta,
+                on_connected,
+                is_cancelled,
+                shared_deadline,
+                max_tokens,
+                max_chars,
+            ),
+            deadline=shared_deadline,
+            is_cancelled=is_cancelled,
+            retry_allowed=lambda: streamed_chars == 0,
         )
         if on_finish_reason is not None:
             on_finish_reason(finish_reason)
@@ -2567,7 +2759,9 @@ def synthesize_messages_stream(
         return None, "LLM 流式合成输出超长，已降级为模板"
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
-            return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
+            return None, (
+                f"LLM 流式合成 HTTP {exc.code}{rate_limit_reason_suffix(exc)}，已降级为模板"
+            )
         if streamed_chars:
             return None, _STREAM_FALLBACK_BLOCKED
         if shared_deadline.remaining() < 1:
