@@ -49,6 +49,7 @@
   - 1 条：Python 3.11 语法不兼容。仓内有 2 个文件用了 3.12 语法：`scripts/calc_case_acceptance.py:273`、`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；
   - 6 条：**真实潜在缺陷**，swap 锁，见 §1 底座行。
 - 全量跑完后沙箱家目录多出 `~/.finance-runtime/rejudge-pending/index.jsonl`（138 行）→ 定位为测试泄漏，已修（§3-⑤）。
+- **第二轮推进后在同一沙箱复跑全量**（1,552 秒）：**1 挂 / 18,667 过 / 264 跳 / 2 预期失败 / 1 收集错误**。多出的 58 条跳过 = Mac 专属 52 + 换库锁 5 + clonefile 1，与 §3 逐条对得上。剩下的红只有一个原因：沙箱的 Python 3.11 解析不了一处 3.12 语法，造成 1 条收集错误；另有 1 条用例专门断言「主树收集不得报错」，被同一处连带。Mac 上是 3.12，这两条不存在。
 
 ## 3. 本分支已做的修复（`arena/01a0f120-finance`）
 
@@ -60,25 +61,32 @@
 | ④ | 台账体检 + 过期规则 | `scripts/prediction_ledger_status.py`：fix_type 分布、pending 年龄、枚举外取值、refuted 连击；Open 表取行复用 crosswalk 的解析。之后加了过期规则：pending 分新鲜（≤14 天）/ 临期（15–30 天）/ 过期（>30 天）三档，另出一行结案口径。台账记账规则新增一条：过期不等于证伪，要么重验，要么 outcome 写 `expired` 并写明理由。脚本只读，不改行。五条修复对应的待入账草稿见 §6 | `tests/test_prediction_ledger_status.py`，含「与 crosswalk 行数一致」「枚举与台账规则节一致」两条防漂移；过期规则另有 7 例（档位边界、六格相加等于行数、`expired` 不进也不断连击、阈值顺序、规则原文与常量一致）。变异验证：把边界 `<=` 改成 `<`，或不计已关闭的过期行，都会红 |
 | ⑤ | 测试往真实「待重判」队列写假条目（本次质检中发现） | workbench HTTP 用例把运行交给后台线程 `workbench-run_N`，线程在用例结束、pytest 清掉 `PYTEST_CURRENT_TEST` 之后才写 `~/.finance-runtime/rejudge-pending/index.jsonl`，模块自带的「测试中不写」闸失效：一次全量灌进 138 条假「待重判」，Mac 上即污染生产积压。根 `conftest.py` 的 `_FORCED_TEST_ENV` 把 `FINANCE_REJUDGE_PENDING_INDEX` 改道到会话临时文件 | `intelligence/tests/test_rejudge_pending_isolation.py`（复现「比用例活得久的线程」）。插桩复跑 89 个文件：泄漏 68 次 → 0；反向验证：撤掉 conftest 改动即红 |
 | C | 预注册 2×2 + 冻结判定工具 | `docs/superpowers/specs/2026-09-30-model-harness-2x2-preregistration.md`，开跑前第 1 次修订：G 改为 `glm-5.3-flash`（生产同款）；20 题（unseen 10 + 按固定种子从 seen 抽 10）× 4 格 × 3 次 = 240 次；判定表补上「ΔH 可判且 P > R」一行；新增只看 unseen 的次要分析。原 10 题设计连 0.10 的最小效应都判不出（主效应 95% 半宽粗估 0.133），20 题约 0.094。`scripts/model_harness_2x2.py`：`plan` 出排程（题集抽样、拉丁方格序、provider 列）；`analyze` 按 §6 出判定（作废口径、取前 N 次有效、噪声底、bootstrap 区间、判定行、敏感性分析、`--json`） | `intelligence/tests/test_model_harness_2x2.py` 51 例，判定表每一行都能从数据端到端走到；另有一条「预注册原文与冻结常量一致」防漂移。变异验证：改重排上限、改 P>R 方向、把区间端点改成含 0、去掉拉丁方轮转，各自都会红。**未开跑**：要在 Mac 上先过 F1–F4 |
+| P1 | 冻结正则路由 | `scripts/check_regex_routes.py` + `regex-routes-baseline.json`（8 个路由 / 题型判定模块共 243 处 `re.*` 调用点），挂进 pre-commit。只减不增：新增即拦，删减自动放行；确实要加，须在同一提交里 `--update-baseline` 留痕 | `tests/test_check_regex_routes.py` 6 例 |
+| P2 | Mac 专属测试按条件跳过 | 52 条：49 条写死 `/bin/zsh`；2 条依赖本机 agent-memory 记忆库（钩子在记忆库不可达时按设计静默退出）；1 条依赖 macOS 的 clonefile。只给真需要的测试挂 `skipif`，条件在 Mac 上恒真，行为不变 | Linux 实测这 7 个文件：52 挂 → 142 过 / 52 跳 |
+| P2 | 换库锁跨平台自检 | 换库锁 `hold_swap_lock` 用 flock，duckdb 的写者锁是 POSIX 记录锁：两者只在 macOS 上互斥，Linux 上这把锁排不掉写者（沙箱实测 duckdb 1.5.4，两个方向都不排）。`db.swap_lock_platform_probe` 用子进程扮演另一个进程里的写者，调真实的 `hold_swap_lock` 测两个方向。daily-full 预检据此 fail closed；直写的 daily-update 不换库，不查。另加 `scripts/check_swap_lock_platform.py`。顺手纠正了锁文档里「duckdb 单写者锁用 flock 实现」的说法 | `tests/test_swap_lock_platform_probe.py`（与「写入落不落得了库」这一真实后果对账、子进程失常时 fail closed、只测一次）。5 条换库锁测试按自检结果跳过；1 条参数用例依赖 `cp -c`，按 darwin 跳过。变异验证：把自检读数反过来即红。相关测试 208 过 / 21 跳 / 0 挂 |
 
 ## 4. 未修的建议
 
+2026-09-30 第二轮推进后的状态。已做的见 §3；下面只列还没做的，并写明卡在哪。
+
 **P1**
 
-- 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。
-- 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。另做记忆召回题包。
-- 每日数据红绿表，加新鲜度 SLO。
+- 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。要先有按路由的调用统计，统计要用 Mac 上的 episode 产物。
+- 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。题面和真值要按台账纪律从真实 run 里取，要在 Mac 上做。
+- **更正：记忆召回题包早就有了**，质检时漏看了。尺子是 `intelligence/eval/retrieval_recall.py`，标注集是 `intelligence/eval/cases/retrieval_recall_v1.jsonl`（20 条真实标注，其中 user_memory 15 条），另有合成夹具。08-15 首份基线（`docs/verification/2026-08-15-recall-baseline.md`）：user_memory hit@5 = **46.7%**（7/15），8 条漏召回的主因登记为「中文无分词」。
+  - 真正的问题是这把尺子量出来的缺口 46 天没闭环。08-05 定了两步：第一步是把上游抽好的实体传进召回，`episode_tools` 已接（`_memory_recall_intent`），`ask.py:1046` 仍只传原始问句；第二步是用户拍板的「用语义检索，不用关键词匹配」，至今未做（`user_memory.select_relevant` 仍是字面重合打分）。
+  - 标注集有来源纪律（「不许造」），所以本轮没有编合成改写题。评分器也没改：改了在沙箱里量不出真实效果。下一步在 Mac 上一条命令出当前基线：`python -m intelligence.eval.retrieval_recall --cases intelligence/eval/cases/retrieval_recall_v1.jsonl --users-root "$FORESIGHT_USERS_DIR"`，再以它为验收尺子做语义检索。
+- 每日数据红绿表，加新鲜度 SLO。另外选一个数据家族换数据源。都要用真实库，要在 Mac 上做。
 - Knevo 每周固定题成对回归。
-- 冻结一个永不用于修复的留出集；冻结正则路由表，新增路由必须带用例。
+- 冻结一个永不用于修复的留出集。它和 2×2 预注册 §9 的「新留出集」是同一件事，题面与真值要在 Mac 上定。
 
 **P2**
 
-- 拆超长函数。
-- 把收据移出 git：`docs/verification` 占了 git 体积的 46%。
-- 给 AGENTS.md / lessons 瘦身，分「每次必读」和「按需查」两层。
+- 拆超长函数（32 个超过 300 行，最长的 `_run_turn_ledgered` 有 2,279 行）。拆之前先补行为快照测试，单独立项。
+- 把收据移出 git：`docs/verification` 占了 git 体积的 46%。这要改 CI、改交接纪律，需要用户决定。
+- 给 AGENTS.md / lessons 瘦身，分「每次必读」和「按需查」两层。这会影响所有代理的行为，需要用户决定。
 - 非生产循环移出主进程。
-- swap 锁加跨平台自检（flock 与 fcntl 是否互斥）。
-- 给依赖 Mac 的测试加 `skipif`，让 Linux 全量能跑绿。
+- Linux 全量复跑后只剩一个红因（§2.2）：沙箱的 Python 3.11 解析不了 3.12 语法（`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；`scripts/calc_case_acceptance.py:273` 同类，但没有测试在收集期加载它）。项目钉的是 3.12，不必改。以后若在 Linux 上接 CI，用 3.12 即可全绿。
 
 ## 5. 复现
 
@@ -88,7 +96,11 @@ FWP_ALLOW_ANY_PYTHON=1 python scripts/check_model_admission.py --expect-model ki
   docs/verification/2026-09-21-judge-mode-k3/evidence/production-verification/runs
 FWP_ALLOW_ANY_PYTHON=1 python -m pytest -q tests/test_skill_view_supersession.py \
   intelligence/tests/test_llm_rate_limit_retry.py intelligence/tests/test_model_admission.py \
-  tests/test_prediction_ledger_status.py
+  tests/test_prediction_ledger_status.py intelligence/tests/test_rejudge_pending_isolation.py \
+  intelligence/tests/test_model_harness_2x2.py tests/test_check_regex_routes.py \
+  tests/test_swap_lock_platform_probe.py tests/test_daily_full_preflight.py
+FWP_ALLOW_ANY_PYTHON=1 python scripts/check_regex_routes.py          # 正则路由棘轮
+FWP_ALLOW_ANY_PYTHON=1 python scripts/check_swap_lock_platform.py    # Mac 上应 exit 0
 ```
 
 在 Mac 上用 `.venv-workbench/bin/python` 执行即可，不需要 `FWP_ALLOW_ANY_PYTHON`。
