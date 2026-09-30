@@ -566,6 +566,25 @@ def test_nested_pytest_default_temproot_is_private(repo, tmp_path):
     assert nested.exists(), "没给 --basetemp 时门禁不该清 pytest 的默认目录"
 
 
+def test_readonly_dirs_left_by_a_test_are_made_removable(repo, tmp_path):
+    # repo 夹具带的是真 conftest：用例留下的只读目录（含嵌套）收尾要改回可写，
+    # 否则 pytest 以后删不掉它，只能改名成 garbage-* 留在临时根里每次重扫。
+    _commit_sample(repo, "import json\nimport os\n\n\n"
+                   "def test_seal(tmp_path):\n"
+                   "    inner = tmp_path / 'export' / 'inner'\n"
+                   "    inner.mkdir(parents=True)\n"
+                   "    inner.chmod(0o555)\n"
+                   "    inner.parent.chmod(0o555)\n"
+                   "    with open(os.environ['WHERE_OUT'], 'w') as out:\n"
+                   "        json.dump(str(tmp_path), out)\n")
+    where = tmp_path / "where.json"
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py",
+                      extra_env={"WHERE_OUT": str(where)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    export = Path(json.loads(where.read_text())) / "export"
+    assert [p.stat().st_mode & 0o700 for p in (export, export / "inner")] == [0o700, 0o700]
+
+
 @pytest.mark.parametrize("passed", [True, False])
 def test_gate_keeps_complete_output_without_changing_test_exit(repo, tmp_path, passed):
     _commit_sample(repo, "def test_output():\n"
@@ -659,3 +678,26 @@ def test_default_receipt_names_cannot_collide(tmp_path, monkeypatch):
     paths = [root_conftest._write_test_receipt(data) for _ in range(3)]
     assert len(set(paths)) == 3
     assert all(json.loads(path.read_text()) == data for path in paths)
+
+
+def test_make_tree_removable_fixes_dirs_and_never_follows_links(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    tree = tmp_path / "tree"
+    deep = tree / "a" / "b"
+    deep.mkdir(parents=True)
+    frozen = deep / "frozen.txt"
+    frozen.write_text("x")
+    frozen.chmod(0o444)
+    (tree / "link").symlink_to(outside, target_is_directory=True)
+    deep.chmod(0o500)
+    deep.parent.chmod(0o000)  # 连列目录都不行的一层，也得先修再往下走
+    tree.chmod(0o500)
+    outside.chmod(0o555)
+    try:
+        root_conftest._make_tree_removable(tree)
+        assert [p.stat().st_mode & 0o700 for p in (tree, deep.parent, deep)] == [0o700] * 3
+        assert frozen.stat().st_mode & 0o777 == 0o444  # 删文件看父目录，文件本身不动
+        assert outside.stat().st_mode & 0o777 == 0o555  # 软链指到树外，不能顺手改
+    finally:
+        outside.chmod(0o755)
