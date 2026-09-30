@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -240,6 +241,10 @@ def guard_env(tmp_path):
             "FINANCE_CODE_ROOT": str(code_root),
             "FINANCE_DATA_ROOT": str(data_root),
             "L2_STEP_LOG": str(step_log),
+            # 探针用跑测试的解释器：脚本缺省 python3 且把 /opt/homebrew/bin 排在 PATH 最前，
+            # 宿主那份 python3 有没有 duckdb 因机而异（09-30 GitHub macOS runner 上没有 →
+            # 库读不了 → data=unknown），测的就成了宿主环境而不是守卫逻辑。
+            "FINANCE_PYTHON": sys.executable,
         }
     )
     for leak in ("L2_FORCE_TRADE_DAY", "L2_FORCE_NON_TRADE_DAY"):
