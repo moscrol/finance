@@ -2,7 +2,7 @@
 
 接替 `2026-09-30-project-wide-closeout-plan.md` 中测试隔离的过时状态，并补覆盖范围。用户指出云端已经完成实现，本次从 origin 实际取回并核对，纠偏已写项目学习层。
 
-**本轮后续更正优先**：最终 fetch 查到云端已推进 bca700858 / 3d2b1ba99，但现有强制镜像将远端退回4129。两提交已从本地远程跟踪日志保全，并用普通快进恢复双端到 `3d2b1ba99af6f8ca180de2524ebf58f5dd8d62ea`；Mac 原补充测试已经纳入，函数语法树一致，原树仍保留。收据为本次证据目录 `cloud-recovery.json`，bundle 为 `cloud-test-3d2b1ba99-preserved.bundle`。因此下文4129/测试尚未纳入是较早阶段状态，不能用于当前派工。最新共享交接在文档树本地77763c433，Gitea #991 正文已补恢复事实；为了避免继续触发回退，文档最后补丁暂未推，停用强制镜像确认项待用户答复。
+**本轮后续更正优先**：最终 fetch 查到云端已推进 bca700858 / 3d2b1ba99，但现有强制镜像将远端退回4129。两提交已从本地远程跟踪日志保全，并用普通快进恢复双端到 `3d2b1ba99af6f8ca180de2524ebf58f5dd8d62ea`；Mac 原补充测试已经纳入，函数语法树一致，原树仍保留。收据为本次证据目录 `cloud-recovery.json`，bundle 为 `cloud-test-3d2b1ba99-preserved.bundle`。因此下文4129/测试尚未纳入是较早阶段状态，不能用于当前派工。用户已回复执行，11:56移除强制镜像配置并回读为空；当前改为按需逐分支普通快进同步。最新共享交接8f550d1f9已显式发布两端并逐字回读，Gitea #991正文已更新；GitHub同期有arena bot删枝，未还原或向Gitea传播删除。共享链接：https://github.com/moscrol/finance/blob/8f550d1f97d9c0976267601fede355cff0ebaf5b/docs/handoffs/2026-09-30-project-wide-closeout-shareable.md 。
 
 ## 已查明并完成
 
