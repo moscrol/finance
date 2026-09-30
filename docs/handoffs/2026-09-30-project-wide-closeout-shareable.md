@@ -6,6 +6,7 @@
 
 - 核对时 Gitea 与 GitHub 的 main 均为 `7569327143a9a40ff44da32d723865b062d856e6`。8792 运行 `2c3949786568e50945013aeeb46c168b7fe8bbf9`，二者仅差一份上线回执，无需再次部署。
 - 同步前 GitHub 有 591 条分支、Gitea 有 590 条；590 条同名分支全部同 SHA。唯一缺项是 `claude/test-isolation-tmpdir-hw7e8h`，本轮已复制到 Gitea，回读均为 `4129bdad96d55c9e1b5da8bc281247cabbff6335`。这些数字是本次快照，不是永久配置。
+- 后续发现云端已追加 bca700858 / 3d2b1ba99，旧镜像却把远程退回 4129bdad。通过本地远程跟踪日志保全并恢复后，最新双端候选均为 **`3d2b1ba99af6f8ca180de2524ebf58f5dd8d62ea`**。当前同 SHA 不能证明同步过程未回退；需要同时查分支推进与镜像策略。
 - GitHub 的三条 `claude/*`：测试隔离为在途；`legacy-worktree-cleanup-fd95c4` 是 main 祖先；`hithink-429-retry-handling-80eeca` 的改动已有 main 提交 `659ce1a1e` 及后续 Gitea #894 接替，属历史清理候选，不能重新整枝合入。
 - 原盘点的 Gitea 开放 PR：#956 回答能力、#966 工具差值审计，均 WIP。本轮另开 WIP #991 承接协作规则与这份共享交接，尚未合入。GitHub 另有 [草稿 #3](https://github.com/moscrol/finance/pull/3)，来自 `cursor/harness-ceiling-followup-spec-3f68`；它与 Gitea PR 编号无对应关系。
 - 当前 GitHub 仓库为公开的 `moscrol/finance`；Gitea 已配置提交触发及每 8 小时的 push mirror。本版及协作规则可公开读取。完整审计原件改为本地保全，不能把本仓 Gitea 当作私有归档边界。
@@ -13,12 +14,13 @@
 
 ## 测试隔离：改为验收已有成果
 
-候选：[云端分支](https://github.com/moscrol/finance/tree/claude/test-isolation-tmpdir-hw7e8h)，固定代码为 [4129bdad](https://github.com/moscrol/finance/commit/4129bdad96d55c9e1b5da8bc281247cabbff6335)。
+候选：[云端分支](https://github.com/moscrol/finance/tree/claude/test-isolation-tmpdir-hw7e8h)，恢复后的固定代码为 [3d2b1ba99](https://github.com/moscrol/finance/commit/3d2b1ba99af6f8ca180de2524ebf58f5dd8d62ea)。
 
 - `12ec68c11a184dc6908f10c2154bb40b0a1bad5b`：嵌套门禁的 TMPDIR 改为该用例私有目录，并保证目录存在。
 - `4129bdad96d55c9e1b5da8bc281247cabbff6335`：根 `conftest.py` 为使用 `tmp_path` 的测试增加收尾步骤，使留下的只读目录可清理。涉及整套测试生命周期，不能再称为只改一条测试的小修。
+- `bca700858f6921fc8f0968efbb7f021e8e033e98` 纳入 Mac 原补充测试；`3d2b1ba99af6f8ca180de2524ebf58f5dd8d62ea` 再隔离外层 `GATE_*`，防止保留目录开关漏入嵌套门禁。这两个推进也属于候选，不可只验旧 4129bdad。
 - 用户转述的云端候选/基线全量门禁当时仍在跑。本次没有取得完成收据，状态保持**实现完成，验收未完成，未合入**；百分比进度不写成完成结论。
-- Mac 遗留测试增加了“预置共享临时根保持不变”的断言；云端测试重点覆盖私有根定位及只读目录收尾。两者不是逐字等价。原差分已保全且未删除，验收时判断保留该补充断言还是以更强证据证明覆盖。
+- Mac 遗留测试增加了“预置共享临时根保持不变”的断言。旧 4129bdad 尚未包含；最新候选已通过 bca700858 纳入，本轮比较函数语法树确认内容一致。这是代码覆盖核对，不是本轮执行测试；原差分仍保全，未擅自删除原树。
 - 新修复防止后续累积，旧 `garbage-*` 不会自动消失。历史垃圾清理另行确认命令、目标与并发使用状态；本轮未删除临时目录，也未中断在跑的测试。
 - 仅为测试侧改动。最终验收和合入后不需要重启生产服务。
 
@@ -41,7 +43,7 @@
 ## 协作与验证边界
 
 - 持续使用 [双远程协作流程](../workflows/dual-remote-collaboration.md)，盘点包含远程全部分支和双方 PR。
-- 本次双端分支快照已对齐；云端新增提交仍需回收。现有强制镜像存在覆盖 GitHub 独有变更的窗口，永久解决需要另行确认并替换全仓同步策略，本轮未改该配置。
+- 本次双端分支快照已对齐，并恢复两个实际被镜像退回的云端提交。已向用户提出停用强制镜像、暂用逐分支普通快进同步的确认项；确认前保持配置原状。永久自动流程仍待实施和并发验收。
 - 同步不自动刷新脏的本地 main。干净工作树使用最新基线；原目录未提交改动保持原状。
 - 本轮新干净树的 `workspace doctor` 报出开发依赖 httpx 与锁文件不一致（本机 0.25.2，锁定 0.28.1）。未修改共享虚拟环境；不能因为 SHA 相同就签跨机器测试环境一致。
 - GitHub main 的传统分支保护查询返回未配置，适用分支规则查询也返回空列表；AGENTS 已要求公开仓固化必要检查。此项门禁尚未落地，本轮没有改变远程访问/合入策略；需结合检查可达性补齐。
