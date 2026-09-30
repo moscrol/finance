@@ -8,7 +8,8 @@
 - 同步前 GitHub 有 591 条分支、Gitea 有 590 条；590 条同名分支全部同 SHA。唯一缺项是 `claude/test-isolation-tmpdir-hw7e8h`，本轮已复制到 Gitea，回读均为 `4129bdad96d55c9e1b5da8bc281247cabbff6335`。这些数字是本次快照，不是永久配置。
 - GitHub 的三条 `claude/*`：测试隔离为在途；`legacy-worktree-cleanup-fd95c4` 是 main 祖先；`hithink-429-retry-handling-80eeca` 的改动已有 main 提交 `659ce1a1e` 及后续 Gitea #894 接替，属历史清理候选，不能重新整枝合入。
 - Gitea 开放 PR：#956 回答能力、#966 工具差值审计，均 WIP。GitHub 另有 [草稿 #3](https://github.com/moscrol/finance/pull/3)，来自 `cursor/harness-ceiling-followup-spec-3f68`；它与 Gitea PR 编号无对应关系。
-- 当前 GitHub 仓库为公开的 `moscrol/finance`。本版及协作规则可公开读取；完整本机审计留在私有归档，不整体镜像内部研究历史。
+- 当前 GitHub 仓库为公开的 `moscrol/finance`；Gitea 已配置提交触发及每 8 小时的 push mirror。本版及协作规则可公开读取。完整审计原件改为本地保全，不能把本仓 Gitea 当作私有归档边界。
+- 本轮曾把内部交接分支推到 Gitea，随即被镜像到 GitHub；发现后已保全本地分支及 Git bundle，并撤下本轮新建的两端远程引用。引用移除不代表公开对象或缓存已清除。原因、处置与待确认的同步方案见 [镜像边界收尾](2026-09-30-remote-mirror-boundary.md)。
 
 ## 测试隔离：改为验收已有成果
 
@@ -40,6 +41,7 @@
 ## 协作与验证边界
 
 - 持续使用 [双远程协作流程](../workflows/dual-remote-collaboration.md)，盘点包含远程全部分支和双方 PR。
+- 本次双端分支快照已对齐；云端新增提交仍需回收。现有强制镜像存在覆盖 GitHub 独有变更的窗口，永久解决需要另行确认并替换全仓同步策略，本轮未改该配置。
 - 同步不自动刷新脏的本地 main。干净工作树使用最新基线；原目录未提交改动保持原状。
 - 本轮新干净树的 `workspace doctor` 报出开发依赖 httpx 与锁文件不一致（本机 0.25.2，锁定 0.28.1）。未修改共享虚拟环境；不能因为 SHA 相同就签跨机器测试环境一致。
 - GitHub main 的传统分支保护查询返回未配置，适用分支规则查询也返回空列表；AGENTS 已要求公开仓固化必要检查。此项门禁尚未落地，本轮没有改变远程访问/合入策略；需结合检查可达性补齐。
