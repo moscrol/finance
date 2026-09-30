@@ -60,8 +60,9 @@ def receipt(repo, **changes):
 
 
 def gate_env(tmp_path, **overrides):
+    # GATE_*：外层门禁自己的开关（如 GATE_KEEP_BASETEMP）不能漏给嵌套 gate，要用走 extra_env。
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
+           if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH", "GATE_"))}
     # TMPDIR 不能继承外部：嵌套 pytest 的默认根 $TMPDIR/pytest-of-<user>/ 是全机共享的。
     # 必须先建好——tempfile.gettempdir() 碰到不存在的 TMPDIR 会静默退回 /tmp。
     sys_tmp = tmp_path / "sys-tmp"
@@ -497,8 +498,10 @@ def _commit_sample(repo, body):
 USES_TMP = "def test_ok(tmp_path):\n    (tmp_path / 'x').write_text('1')\n"
 
 
-def test_green_gate_removes_explicit_basetemp(repo, tmp_path):
+def test_green_gate_removes_explicit_basetemp(repo, tmp_path, monkeypatch):
     # 绿了的 basetemp 没有证据价值；不清就是 2026-09-23 盘上那 30 GB。
+    # 外层门禁带 GATE_KEEP_BASETEMP=1 跑全量时，这个开关不能漏进嵌套 gate（09-30 实测漏过）。
+    monkeypatch.setenv("GATE_KEEP_BASETEMP", "1")
     _commit_sample(repo, USES_TMP)
     bt = tmp_path / "bt"
     result = run_gate(repo, tmp_path, "--pytest-args",
