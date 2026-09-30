@@ -14,6 +14,7 @@ import os
 import select
 import signal
 import socket
+import socketserver
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -105,6 +106,14 @@ class ReviewServer(ThreadingHTTPServer):
         self.expires_at = time.monotonic() + lifetime_seconds
         self.stopping = threading.Event()
         super().__init__(("127.0.0.1", port), Handler)
+
+    def server_bind(self):
+        # HTTPServer.server_bind 会 socket.getfqdn(host) 反查主机名；macOS 上反查 127.0.0.1
+        # 可卡数秒（09-30 GitHub runner 上 12 条用例 3 秒内起不来）。只听回环，用不上主机名。
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
 
     def handle_error(self, request, client_address):
         # BaseHTTPRequestHandler tracebacks can expose upstream error content.

@@ -67,7 +67,11 @@ def test_unauthorized_tool_is_invisible_and_uncallable(
         f"{backend.name} 执行了未授权工具：{probe.executed}"
     )
     assert AUTHORIZED_TOOL in executed_tools, (
-        f"{backend.name} 授权工具也没执行，场景没跑起来：{probe.executed}"
+        f"{backend.name} 授权工具也没执行，场景没跑起来：{probe.executed}；"
+        # 只 dsh_stub 在 09-30 GitHub macOS runner 上挂过、本机与容器都绿：把拒绝原因带出来。
+        f"stop={run.outcome.stop_reason} gaps={run.outcome.gaps} "
+        f"tool_errors={[dict(e.payload) for e in run.outcome.events if e.kind == 'tool_error']} "
+        f"traces={[(t.provider, t.status, t.detail) for t in run.outcome.traces]}"
     )
 
     # 不可见：模型可见工具面（有该观测面的后端）不含未授权工具。

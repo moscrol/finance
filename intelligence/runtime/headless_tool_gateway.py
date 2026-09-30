@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socketserver
 import stat
 import tempfile
 import time
@@ -102,6 +103,23 @@ def _transport_arguments(spec: ToolSpec, query: str) -> object:
         )
     return value
 
+
+
+class _LoopbackHTTPServer(ThreadingHTTPServer):
+    """Loopback-only server that skips HTTPServer's reverse-DNS lookup.
+
+    ``HTTPServer.server_bind`` calls ``socket.getfqdn(host)``. On the 09-30 GitHub
+    macOS runner that lookup stalled long enough to use up a whole 30 s research
+    deadline before the first tool call (INV-1 dsh_stub: ``research_stage_closed``
+    with nothing executed). The gateway only binds 127.0.0.1 and never uses
+    ``server_name``.
+    """
+
+    def server_bind(self) -> None:
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
 
 @dataclass(frozen=True)
 class _EffectiveBudget:
@@ -307,7 +325,7 @@ class HeadlessToolGateway:
             def do_POST(self) -> None:  # noqa: N802 - stdlib handler contract
                 gateway._serve_request(self)
 
-        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server = _LoopbackHTTPServer(("127.0.0.1", 0), Handler)
         server.daemon_threads = True
         host, port = server.server_address[:2]
         if host != "127.0.0.1":
