@@ -22,7 +22,7 @@ git status --short
 python3 scripts/worktree_board.py
 ```
 
-1. 比较两端所有 branch heads 的完整 SHA，单列各自独有分支与同名分叉，包含 `origin/claude/*`。
+1. 比较两端所有 branch heads 的完整 SHA，单列各自独有分支与同名分叉，包含 `origin/claude/*`。单端缺失要先核删除事件及接替记录，区分新成果与已清理分支；不能自动把另一端所有缺项重新创建。
 2. 分别查双方开放 PR。PR 编号带平台；Gitea #988 不能链接到 GitHub #988。未开 PR 的分支也要有去向。
 3. 未提交修改另行认领。主目录脏时用干净工作树接最新基线，保留原现场；远程同 SHA 不等于未提交内容已同步。
 4. 发现回退时查 `git reflog show refs/remotes/origin/<分支>`，保全曾取到的更新提交。本轮曾出现双方当前头相同、但都退回旧版本的情况；不能只比较两个当前头。
