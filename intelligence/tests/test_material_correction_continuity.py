@@ -145,6 +145,8 @@ def test_real_workbench_correction_reaches_author_with_original_premises(tmp_pat
     sources = payload["material_grounding"]["sources"]
     assert any("经营现金流为6" in row["text"] and row["ref"].startswith("M") for row in sources)
     assert any("股权价值70" in row["text"] and row["ref"].startswith("M") for row in sources)
+    assert "question_sources" not in payload["task_frame"]["conversation_materials"]
+    assert "historical_user_questions" not in payload["conversation_context"]
     assert not any(OLD in row["text"] and row["ref"].startswith("M") for row in sources)
     assert any(row["text"] == OLD and row["ref"].startswith("H") for row in sources)
     assert any(item.source_message_id == original.message_id for item in frame.conversation_materials.items)

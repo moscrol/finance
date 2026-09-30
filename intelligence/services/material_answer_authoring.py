@@ -260,13 +260,13 @@ def material_author_model_view(
         task = dict(view["task_frame"])
         task["conversation_materials"] = {
             key: value for key, value in task["conversation_materials"].items()
-            if key not in {"items", "assistant_statements"}
+            if key not in {"items", "assistant_statements", "question_sources"}
         }
         view["task_frame"] = task
         if "conversation_context" in view:
             original = frame.conversation_materials.to_prompt_block()
             metadata = {key: value for key, value in json.loads(original).items()
-                        if key not in {"materials", "historical_assistant_statements"}}
+                        if key not in {"materials", "historical_assistant_statements", "historical_user_questions"}}
             metadata["source_catalogue"] = "material_grounding.sources"
             view["conversation_context"] = view["conversation_context"].replace(original, json.dumps(metadata, ensure_ascii=False))
     return view
