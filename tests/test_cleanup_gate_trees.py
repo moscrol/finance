@@ -29,6 +29,7 @@ def make_repo(tmp_path: Path, *, ignored: bool = False) -> Path:
     else:
         git(repo, "add", "--", "file")
     git(repo, "commit", "-m", "fixture")
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
     return repo
 
 
@@ -162,6 +163,7 @@ def test_cache_only_ignored_content_no_longer_blocks(tmp_path):
     (repo / ".gitignore").write_text("evidence/\n__pycache__/\n.pytest_cache/\n")
     git(repo, "add", "--", ".gitignore")
     git(repo, "commit", "-m", "ignore caches")
+    git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
     candidate = add_detached(repo, tmp_path / "candidate")
     (candidate / ".pytest_cache").mkdir()
     (candidate / ".pytest_cache/v").write_text("x")
@@ -264,3 +266,32 @@ def test_lock_reason_asking_to_retain_is_never_released(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert rehearsal.exists()
     assert "理由要求保留" in result.stdout and "锁已过期" not in result.stdout
+
+
+def test_backup_only_commit_is_not_considered_merged_into_github(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = tmp_path / "backup-only"
+    git(repo, "worktree", "add", "-b", "backup-only", str(candidate))
+    (candidate / "file").write_text("only backed up to Gitea")
+    git(candidate, "commit", "-am", "unmerged work")
+    git(repo, "update-ref", "refs/remotes/gitea/main", git(candidate, "rev-parse", "HEAD"))
+    age_tree(candidate)
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert git(candidate, "branch", "--show-current") == "backup-only"
+
+
+def test_missing_github_baseline_requires_explicit_override(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    git(repo, "update-ref", "-d", "refs/remotes/origin/main")
+    git(repo, "update-ref", "refs/remotes/gitea/main", "HEAD")
+    age_tree(candidate)
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+    assert result.returncode == 5
+    assert "origin/main 不存在" in result.stderr
+    assert candidate.exists()
+    explicit = run_cleanup(repo, tmp_path / "home", "exit 0", extra_args=["--base", "main"])
+    assert explicit.returncode == 0, explicit.stdout + explicit.stderr
+    assert not candidate.exists()

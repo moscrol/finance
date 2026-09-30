@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -47,6 +48,47 @@ def digest(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             checksum.update(block)
     return checksum.hexdigest()
+
+
+def preserve_legacy_success(state: Path) -> None:
+    """Upgrade old receipts before replacing their mutable daily bundle."""
+    receipt = state / "last-success.json"
+    if not receipt.exists():
+        return
+    previous = json.loads(receipt.read_text())
+    original = Path(previous["bundle"])
+    if original.name != "repository.bundle":
+        return
+    checksum = previous["bundle_sha256"]
+    if digest(original) != checksum:
+        raise ValueError("previous successful bundle checksum changed")
+    preserved = original.with_name(f"repository-{checksum}.bundle")
+    if not preserved.exists():
+        shutil.copy2(original, preserved)
+    if digest(preserved) != checksum:
+        raise ValueError("preserved successful bundle checksum changed")
+    record = original.parent / "attempts" / f"preserved-{checksum}"
+    record.mkdir(parents=True, exist_ok=True)
+    record.chmod(0o700)
+    metadata = original.parent / "metadata"
+    if metadata.is_dir() and not (record / "metadata").exists():
+        shutil.copytree(metadata, record / "metadata")
+        previous["metadata_dir"] = str(record / "metadata")
+    previous.update(bundle=str(preserved), manifest=str(record / "manifest.json"))
+    write_json(record / "manifest.json", previous)
+    write_json(receipt, previous)
+
+
+def discard_superseded_daily_attempts(snapshot: Path, bundle: Path, record: Path) -> None:
+    """Keep the latest complete daily snapshot; failures never call this."""
+    for candidate in snapshot.glob("repository-*.bundle"):
+        if (candidate != bundle and candidate.is_file() and not candidate.is_symlink()
+                and re.fullmatch(r"repository-[0-9a-f]{64}\.bundle", candidate.name)):
+            candidate.unlink()
+    for candidate in (snapshot / "attempts").iterdir():
+        if (candidate != record and candidate.is_dir() and not candidate.is_symlink()
+                and re.fullmatch(r"(?:[0-9]{8}T[0-9]{12}Z|preserved-[0-9a-f]{64})", candidate.name)):
+            shutil.rmtree(candidate)
 
 
 def validate(settings: dict, *, local_fixture: bool = False) -> None:
@@ -142,6 +184,8 @@ def backup(settings: dict, *, local_fixture: bool = False) -> dict:
         if git(repository, "remote", "get-url", remote) != expected:
             raise ValueError("installed remote changed; inspect before running backup")
         git(repository, "config", f"remote.{remote}.mirror", "false")
+    if git(repository, "remote", "get-url", "--push", "--all", "gitea").splitlines() != [settings["target"]]:
+        raise ValueError("backup push destinations changed; inspect before running backup")
     git(repository, "remote", "set-url", "--push", "github", str(state / "SOURCE_PUSH_DISABLED"))
     git(repository, "config", "remote.pushDefault", "gitea")
     git(repository, "fetch", "--no-tags", "--no-prune", "github",
@@ -157,22 +201,38 @@ def backup(settings: dict, *, local_fixture: bool = False) -> dict:
             git(repository, "fetch", "--no-tags", "github", sha)
         git(repository, "update-ref", ref, sha)
     fingerprint = hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
-    bundle = snapshot / "repository.bundle"
+    preserve_legacy_success(state)
     previous_path = snapshot / "manifest.json"
     previous = json.loads(previous_path.read_text()) if previous_path.exists() else {}
-    if previous.get("source_fingerprint") != fingerprint or not bundle.exists():
+    reusable = Path(previous["bundle"]) if previous.get("bundle") else None
+    if (previous.get("source_fingerprint") == fingerprint and reusable is not None
+            and reusable.exists() and reusable.name != "repository.bundle"):
+        bundle = reusable
+        bundle_sha = digest(bundle)
+        if bundle_sha != previous.get("bundle_sha256"):
+            raise ValueError("existing daily bundle checksum changed")
+    else:
         pending = snapshot / "repository.partial.bundle"
         git(repository, "bundle", "create", str(pending), "--all")
         git(repository, "bundle", "verify", str(pending))
+        bundle_sha = digest(pending)
+        bundle = snapshot / f"repository-{bundle_sha}.bundle"
+        if bundle.exists() and digest(bundle) != bundle_sha:
+            raise ValueError("existing snapshot checksum changed")
         pending.replace(bundle)
-    bundle_sha = digest(bundle)
-    if previous.get("source_fingerprint") == fingerprint and previous.get("bundle_sha256"):
-        if bundle_sha != previous["bundle_sha256"]:
-            raise ValueError("existing daily bundle checksum changed")
+    alias = snapshot / "repository.partial.link"
+    alias.unlink(missing_ok=True)
+    alias.symlink_to(bundle.name)
+    alias.replace(snapshot / "repository.bundle")
+    record = snapshot / "attempts" / stamp
+    record.mkdir(parents=True, exist_ok=True)
+    record.chmod(0o700)
     result = dict(schema_version="github-local-backup/v1", started_at=now.isoformat(),
                   source_fingerprint=fingerprint, source_refs=source, bundle=str(bundle),
+                  manifest=str(record / "manifest.json"), metadata_dir=str(record / "metadata"),
                   bundle_sha256=bundle_sha, backup_refs={}, archived=[], updated=[],
                   retained_only=[], metadata={}, status="local_snapshot_ready")
+    write_json(record / "manifest.json", result)
     write_json(snapshot / "manifest.json", result)
     write_json(state / "status.json", result)
     if not local_fixture and gitea_api(settings, "/push_mirrors"):
@@ -198,6 +258,8 @@ def backup(settings: dict, *, local_fixture: bool = False) -> dict:
             operations.append(f"{sha}:{destination}")
             result["updated"].append(destination)
     if operations:
+        if git(repository, "remote", "get-url", "--push", "--all", "gitea").splitlines() != [settings["target"]]:
+            raise ValueError("backup push destinations changed; inspect before running backup")
         git(repository, "push", "--atomic", "gitea", *operations)
     observed = remote_refs(repository, "gitea")
     for ref, destination in result["backup_refs"].items():
@@ -209,11 +271,13 @@ def backup(settings: dict, *, local_fixture: bool = False) -> dict:
             raise ValueError("pre-existing backup ref changed during synchronization")
     result["retained_only"] = sorted(set(target) - set(source))
     if not local_fixture:
-        result["metadata"] = export_metadata(settings, snapshot / "metadata")
+        result["metadata"] = export_metadata(settings, record / "metadata")
     result.update(status="success", finished_at=dt.datetime.now(dt.timezone.utc).isoformat())
+    write_json(record / "manifest.json", result)
     write_json(snapshot / "manifest.json", result)
     write_json(state / "status.json", result)
     write_json(state / "last-success.json", result)
+    discard_superseded_daily_attempts(snapshot, bundle, record)
     return result
 
 

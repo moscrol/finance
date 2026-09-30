@@ -347,8 +347,8 @@ def main() -> int:
     )
     ap.add_argument(
         "--main-ref",
-        default="gitea/main",
-        help="--base-drift-max 的主干引用（默认 gitea/main）",
+        default="origin/main",
+        help="--base-drift-max 的主干引用（默认 origin/main）",
     )
     args = ap.parse_args()
     used_default = args.receipt is None

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+import json
 from pathlib import Path
 
 import pytest
@@ -111,3 +112,72 @@ def test_active_reverse_mirror_refuses_destination_writes(repositories, monkeypa
     assert git(source, "show-ref").stdout == before
     assert git(target, "show-ref", check=False).returncode != 0
     assert list(Path(settings["snapshot_dir"]).glob("*/repository.bundle"))
+
+
+@pytest.mark.parametrize("redirection", ["source", "multiple", "rewrite"])
+def test_redirected_push_destinations_are_rejected_before_source_writes(repositories, redirection):
+    source, target, settings = repositories
+    backup.backup(settings, local_fixture=True)
+    repository = Path(settings["state_dir"]) / "repository.git"
+    if redirection == "rewrite":
+        backup.git(repository, "config", f"url.{source}.pushInsteadOf", str(target))
+    else:
+        if redirection == "multiple":
+            backup.git(repository, "config", "--add", "remote.gitea.pushurl", str(target))
+        backup.git(repository, "config", "--add", "remote.gitea.pushurl", str(source))
+    (source / "README").write_text("divergent source\n")
+    git(source, "commit", "--amend", "-am", "divergent source")
+    before_source = git(source, "show-ref").stdout
+    before_target = git(target, "show-ref").stdout
+    with pytest.raises(ValueError, match="push destinations changed"):
+        backup.backup(settings, local_fixture=True)
+    assert git(source, "show-ref").stdout == before_source
+    assert git(target, "show-ref").stdout == before_target
+
+
+def test_failed_changed_source_preserves_last_successful_bundle_and_mapping(repositories):
+    source, target, settings = repositories
+    first = backup.backup(settings, local_fixture=True)
+    original_manifest = Path(first["manifest"]).read_bytes()
+    hook = target / "hooks/pre-receive"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o700)
+    (source / "README").write_text("new source awaiting backup\n")
+    git(source, "commit", "-am", "new source")
+    before_source = git(source, "show-ref").stdout
+    before_target = git(target, "show-ref").stdout
+    with pytest.raises(RuntimeError, match="command failed"):
+        backup.backup(settings, local_fixture=True)
+    last = json.loads((Path(settings["state_dir"]) / "last-success.json").read_text())
+    assert last == first
+    assert backup.digest(Path(last["bundle"])) == first["bundle_sha256"]
+    assert Path(first["manifest"]).read_bytes() == original_manifest
+    pending = json.loads((Path(settings["state_dir"]) / "status.json").read_text())
+    assert pending["status"] == "local_snapshot_ready"
+    assert pending["bundle"] != first["bundle"]
+    assert backup.digest(Path(pending["bundle"])) == pending["bundle_sha256"]
+    assert git(source, "show-ref").stdout == before_source
+    assert git(target, "show-ref").stdout == before_target
+    hook.unlink()
+    completed = backup.backup(settings, local_fixture=True)
+    assert completed["status"] == "success"
+    assert len(list(Path(completed["bundle"]).parent.glob("repository-*.bundle"))) == 1
+
+
+def test_legacy_success_receipt_is_preserved_when_upgrade_backup_fails(repositories):
+    source, target, settings = repositories
+    first = backup.backup(settings, local_fixture=True)
+    legacy = {**first, "bundle": str(Path(first["bundle"]).with_name("repository.bundle"))}
+    backup.write_json(Path(settings["state_dir"]) / "last-success.json", legacy)
+    (source / "README").write_text("upgrade source\n")
+    git(source, "commit", "-am", "upgrade source")
+    hook = target / "hooks/pre-receive"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o700)
+    with pytest.raises(RuntimeError, match="command failed"):
+        backup.backup(settings, local_fixture=True)
+    preserved = json.loads((Path(settings["state_dir"]) / "last-success.json").read_text())
+    assert preserved["source_refs"] == first["source_refs"]
+    assert preserved["bundle"].endswith(f"repository-{first['bundle_sha256']}.bundle")
+    assert backup.digest(Path(preserved["bundle"])) == first["bundle_sha256"]
+    assert json.loads(Path(preserved["manifest"]).read_text())["backup_refs"] == first["backup_refs"]

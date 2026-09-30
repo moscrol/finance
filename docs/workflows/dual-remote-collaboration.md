@@ -35,15 +35,18 @@ GitHub main 要求 `workbench-check` 与 `registry-check` 通过；管理员同�
 - 同名分叉、源端回退或标签改写：源端新对象写到 `backup/github/<UTC时间>/<原名>`。
   Gitea 原引用保留；当天 manifest 记录每个源引用与实际恢复引用的对应关系。
 - GitHub 删除引用：Gitea 的历史引用保留。
-- 目标并发变化或推送被拒：原子推送拒绝，留下本地 bundle 和失败状态，不覆盖目标。
+- 导致非快进或推送冲突的目标并发变化、目标拒绝写入：原子推送拒绝，留下本地 bundle 和失败状态。
 - 检测到 Gitea push mirror：停止向 Gitea 推送，先排除反向覆盖 GitHub 的风险。
 
-备份仓的 GitHub push URL 指向本地禁用路径，运行器只有 Gitea 写入路径。
+备份仓的 GitHub push URL 指向本地禁用路径，每轮校验 Gitea 的全部实际推送地址只有预期的本地目标。
 两端回读成功才记完整成功；源端同期推进的下一批提交留给下次运行。
 
-`~/backups/github-finance/<Asia-Taipei日期>/` 保存当天最新的完整 bundle、
-源引用 manifest 与 GitHub 仓库/Issue/PR/评论/评审/Release 描述等 JSON。
-每日目录保留，不自动清理。源码不变时复用 bundle，避免每小时再写一份完整历史。
+`~/backups/github-finance/<Asia-Taipei日期>/` 保存当天最新的完整 bundle。
+`repository.bundle` 指向最近一次本地代码快照；manifest 中的 `bundle`、`manifest`、`metadata_dir`
+指向该次校验文件、源引用映射与 GitHub 仓库/Issue/PR/评论/评审/Release 等 JSON。
+失败时保留上次成功记录及其实际文件，可用运行目录的 `last-success.json` 恢复。
+完整成功后替换同一天的旧尝试文件；每日目录保留，不自动删除旧日期。
+源码不变时复用 bundle，避免每小时再写一份完整历史。
 Gitea 既有开放 PR 另存本地索引，供后续按任务搬迁；不自动关闭、不重新合旧枝。
 元数据导出供人工恢复参考，不宣称平台间 PR 编号或全部功能可无损恢复。
 

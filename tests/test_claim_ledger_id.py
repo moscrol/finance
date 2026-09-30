@@ -190,3 +190,22 @@ def test_number_overflow_fails_closed(ledger_repo: Path, tmp_path: Path):
     proc = _run(_claim_cmd(ledger_repo, claims, "feat/o"))
     assert proc.returncode == 2
     assert "用尽" in proc.stderr
+
+
+def test_default_claim_reads_github_ledger_instead_of_backup(ledger_repo: Path, tmp_path: Path):
+    subprocess.run(["git", "update-ref", "refs/remotes/gitea/main", "HEAD"],
+                   cwd=ledger_repo, check=True)
+    ledger = ledger_repo / "docs/prediction-ledger.md"
+    ledger.write_text(ledger.read_text() + f"\n| `R-{DATE}-07` | GitHub main | pending |\n")
+    subprocess.run(["git", "add", "--", str(ledger)], cwd=ledger_repo, check=True)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "GitHub ledger"],
+                   cwd=ledger_repo, check=True)
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", "HEAD"],
+                   cwd=ledger_repo, check=True)
+    args = _claim_cmd(ledger_repo, tmp_path / "claims.jsonl", "feat/github")
+    position = args.index("--ledger-ref")
+    del args[position:position + 2]
+    result = _run(args)
+    assert result.returncode == 0, result.stderr
+    assert f"R-{DATE}-08" in result.stdout
+    assert "origin/main" in result.stdout
