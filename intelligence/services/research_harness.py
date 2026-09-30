@@ -262,7 +262,7 @@ def default_mode_signals(task_frame: TaskFrame, plan: ResearchPlan) -> ModeSigna
 # 跑完什么时候收口），**内容**是领域的事；一个方法一个枚举，时点和内容的边界
 # 正好落在参数上。``repair_finalize`` 没有 detail，传空串。
 SteeringKind = Literal[
-    "invalid_plan", "invalid_finish", "begin_finalization", "repair_finalize"
+    "invalid_plan", "invalid_finish", "invalid_finish_evidence", "begin_finalization", "repair_finalize"
 ]
 
 
@@ -301,6 +301,15 @@ class FinishAdmission:
     reason: str = ""
     kind: str = ""
     response: RejectionResponse | None = None
+
+    @property
+    def repair_steering_kind(self) -> Literal["invalid_finish", "invalid_finish_evidence"]:
+        """Two bounded repair directions, derived from typed rejection codes."""
+        if self.rejection.get("rejection_code") in {
+            "unknown_evidence_ref", "missing_evidence", "evidence_type_floor",
+        }:
+            return "invalid_finish_evidence"
+        return "invalid_finish"
 
     def __post_init__(self) -> None:
         if self.accepted:
@@ -639,7 +648,9 @@ class FinanceResearchHarness:
         *,
         mode_governor: ModeGovernor | None = None,
         mode_signals: ModeSignalsFactory | None = None,
+        native_tool_schemas: bool = False,
     ) -> None:
+        self._native_tool_schemas = native_tool_schemas
         self._mode_governor = mode_governor if mode_governor is not None else ModeGovernor()
         self._mode_signals: ModeSignalsFactory = (
             mode_signals if mode_signals is not None else default_mode_signals
@@ -651,7 +662,10 @@ class FinanceResearchHarness:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> tuple[str, str]:
-        system, user = split_episode_prompt(task_frame, context, registry)
+        system, user = split_episode_prompt(
+            task_frame, context, registry,
+            include_tool_descriptions=not self._native_tool_schemas,
+        )
         policy, history_context = history_research_prompt(
             context,
             available_tools=(
@@ -675,7 +689,18 @@ class FinanceResearchHarness:
         if kind == "invalid_finish":
             return (
                 "上一条终止输出无效。请保留当前任务和全部观察，"
-                "不要重启研究；修复后只输出 FINAL_JSON。"
+                "修正下列格式或内容问题后输出 FINAL_JSON。"
+                "若还缺事实，仅在研究仍开放且剩余预算允许时使用当前授权工具补查；"
+                "不能补齐则明确 partial 和具体 gap，不猜补证据。"
+                f"错误：{detail}"
+            )
+        if kind == "invalid_finish_evidence":
+            return (
+                "上一条终稿的证据支撑不足或引用无法对应。请保留当前任务和全部观察，"
+                "先检查本轮已有证据序号；缺少证据时，仅在研究仍开放且剩余预算允许时"
+                "使用当前授权工具补查，再依据实际返回的证据作答。"
+                "不得猜测编号或编造支持；无法补齐则输出 partial，并在对应 binding.gap "
+                "写明具体缺口。"
                 f"错误：{detail}"
             )
         if kind == "begin_finalization":

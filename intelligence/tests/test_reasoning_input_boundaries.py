@@ -41,6 +41,17 @@ REVIEW = (
 REVIEW_WITH_REREAD = REVIEW.replace(
     "仍只用已取得的本地数据。", "允许在原日期范围内重新查询本地数据。",
 )
+SUPPLIED_COMPARISON = (
+    "只根据以下虚构题设分析，不查库、不联网、不写记忆。"
+    "甲公司收入从100亿元增至130亿元，利润从10亿元增至13亿元，应收账款从20亿元增至45亿元，"
+    "经营现金流从6亿元降至4亿元；乙公司收入从100亿元增至120亿元，利润从10亿元增至12亿元，"
+    "应收账款从20亿元增至23亿元，经营现金流从9亿元增至11亿元。哪家的增长质量更扎实？"
+    "请解释利润、应收与现金的关系，列出最关键的反证和下一步验证点；不要据此给估值或交易结论。"
+)
+REPEAT_WITHOUT_REREAD = (
+    "沿用我们刚才这轮对话，不重新查询：你上一条关于长电科技给出的收盘价、涨跌幅、成交额和数据日期"
+    "分别是什么？请简洁复述，并明确说明这些数值本轮未重新核验。"
+)
 
 
 def no_llm(*_args, **_kwargs):
@@ -77,6 +88,64 @@ def test_original_supply_freezes_read_ceiling_before_resolver_or_model():
     assert context.contract.evidence_plan.requirements == ()
     # Do not bypass the pending material-claim grounding work by granting blanket premise basis.
     assert next(o for o in context.contract.required_outputs if o.output_id == "direct_answer").grounding_mode == "evidence"
+
+
+@pytest.mark.parametrize("question,authenticity", [
+    (SUPPLIED_COMPARISON, "fictional"), (REPEAT_WITHOUT_REREAD, "real"),
+])
+def test_natural_frozen_inputs_precede_resolver_and_reach_empty_tool_contract(question, authenticity):
+    class ForbiddenResolver:
+        def resolve(self, _query):
+            pytest.fail("explicit frozen input must prevent new resolver reads")
+
+    def forbidden_model(*_args, **_kwargs):
+        pytest.fail("frozen input scope must not depend on a controller model")
+
+    prior_answer = "长电科技在2026-09-24的收盘价68.78元、涨跌幅-4.17%、成交额37.5914亿元。"
+    history = collect_material_turn_history([
+        message("查询长电科技最新行情。"), message(prior_answer, "assistant", "old-answer"),
+    ])
+    decision = decide_turn(
+        question, conversation_materials=history, resolver=ForbiddenResolver(), llm_complete=forbidden_model,
+    )
+    frame = decision.task_frame
+    assert decision.lane == "research"
+    assert (frame.material_contract.authenticity, frame.material_contract.data_scope) == (
+        authenticity, "material_only",
+    )
+    context = build_episode_context(frame, task_id="frozen-input")
+    assert context.contract.allowed_capabilities == ()
+    assert context.contract.evidence_plan.requirements == ()
+    payload = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    assert payload["task_frame"]["raw_question"] == question
+    assert prior_answer in context.conversation_context
+    assert frame.conversation_materials.assistant_statements[0].basis == "assistant_judgment"
+
+
+@pytest.mark.parametrize("instruction", [
+    "只根据以下虚构题设分析", "只依据给定前提推理", "仅使用这些题设",
+    "不重新查询", "不再检索", "不用重新查询",
+    "不要联网且不重新查询", "不要联网并且不重新查询",
+])
+def test_frozen_input_controls_keep_existing_quote_and_relaxation_boundaries(instruction):
+    assert material(instruction + "。请回答。").data_scope == "material_only"
+    for wrapper in ("“{}”", "> {}", "```text\n{}\n```"):
+        assert material(wrapper.format(instruction)) is None
+    assert material(instruction + "。可以查真实数据。").data_scope == "full"
+    assert material(instruction + "。不要联网。").data_scope == "material_only"
+
+
+@pytest.mark.parametrize("text", [
+    "只根据时间顺序查新闻。", "不重新查询库存，改查新闻。", "本轮未重新核验。",
+    "不查询甲公司，查询乙公司。",
+    "不查询“甲公司”，请查询乙公司的收入。",
+    "不再查询“甲公司”，请查询乙公司的收入。",
+    "不重新查询：甲公司的库存，改查乙公司的新闻。",
+    "不再查询、检索甲公司的数据，改查乙公司。",
+    "不重新查询：上轮的回答里提到的甲公司，改查乙公司。",
+])
+def test_partial_or_descriptive_read_language_is_not_a_blanket_no_read_control(text):
+    assert material(text) is None
 
 
 @pytest.mark.parametrize("head", [

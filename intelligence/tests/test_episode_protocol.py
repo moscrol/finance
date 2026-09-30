@@ -358,8 +358,10 @@ def _static_contract_text() -> str:
 # 同日 live 发现模型留空 draft 却漏模式字段：显式条件化终局示例，材料轮使用
 # 宿主按冻结合同构造的 wire_template；不代填返回值、不放宽来源或 basis 校验。
 # 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
+# 2026-09-28: material-only authors use a compact versioned envelope; runtime
+# restores contract-owned representation fields before unchanged validation.
 _CONTRACT_FINGERPRINT = (
-    "4c907c696b68bc9cd2ec81a42158b832db89cc0f60c314e8395c06003b2e9e97"
+    "6fb986a32565cf8c5ee8d5ffb0dbc49a79be897bdf0fd3393773a9229c23368d"
 )
 
 
@@ -936,6 +938,39 @@ def test_forged_hash_is_integrity_not_format() -> None:
         )
     assert bad_shape.value.code == "bindings_not_list"
     assert bad_shape.value.kind is RejectionKind.FORMAT
+
+
+@pytest.mark.parametrize("later_error", ["unknown_ordinal", "bad_claim"])
+@pytest.mark.parametrize("first_error", ["forged_hash", "basis_mismatch", "unknown_output"])
+def test_nonfrozen_binding_checks_keep_per_binding_rejection_order(first_error, later_error) -> None:
+    """Frozen-source preflight must not reorder the ordinary evidence protocol."""
+    from intelligence.services.episode_protocol import RejectionKind, rejection_response
+    from intelligence.services.material_grounding import grounding_scope
+
+    context = _context(_frame())
+    assert grounding_scope(context.contract) not in {"material_only", "local_only"}
+    first = {"output_id": "direct_assessment", "basis": "evidence", "evidence_hashes": [], "gap": "尚缺事实证据"}
+    if first_error == "forged_hash":
+        first["evidence_hashes"] = ["a" * 64]
+    elif first_error == "basis_mismatch":
+        first["basis"] = "model_reasoning"
+    else:
+        first["output_id"] = "invented_output"
+    later = {"output_id": "direct_assessment", "basis": "evidence", "evidence_hashes": [], "gap": "尚缺事实证据"}
+    if later_error == "unknown_ordinal":
+        later["evidence_hashes"] = ["E9"]
+    else:
+        later["claims"] = ["not a claim object"]
+    with pytest.raises(EpisodeFinishRejection) as err:
+        validate_episode_finish(
+            {"status": "partial", "draft": "本轮未取得可核验证据。", "bindings": [first, later]},
+            context=context, evidence=(),
+        )
+    assert err.value.code == first_error
+    if first_error == "forged_hash":
+        assert err.value.kind is RejectionKind.INTEGRITY
+        response = rejection_response(err.value)
+        assert not response.reinject and not response.allow_recovery
 
 
 def test_unique_one_char_truncated_hash_is_format_not_integrity() -> None:

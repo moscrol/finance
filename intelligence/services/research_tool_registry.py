@@ -1203,11 +1203,20 @@ class ResearchToolRegistry:
             normalization_note=normalization_note,
         )
 
-    def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
+    def prompt_block(
+        self,
+        allowed: tuple[str, ...] | None = None,
+        *,
+        include_descriptions: bool = True,
+    ) -> str:
+        """Native tool schemas already carry descriptions and parameter contracts."""
         return "\n".join(
-            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）："
-            f"{spec.description}"
-            + (f"\n  · {spec.contract}" if spec.contract else "")
+            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）"
+            + (
+                f"：{spec.description}"
+                + (f"\n  · {spec.contract}" if spec.contract else "")
+                if include_descriptions else ""
+            )
             for spec in self.authorized_specs(allowed)
         )
 

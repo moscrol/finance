@@ -543,13 +543,24 @@ def test_default_controller_preserves_fine_grained_route_frame(
     required_output: str,
     coarse_output: str,
 ) -> None:
+    calls = []
+
+    def complete(messages):
+        calls.append(messages)
+        if question_type != "quick_fact":
+            pytest.fail("validated fine-grained route must not depend on controller LLM")
+        return json.dumps({
+            "route_id": "quick_fact", "confidence": 0.95,
+            "reason": "取值意图已确认", "user_goal": "查询证券代码对应公司",
+            "assumptions": [], "ambiguities": [],
+        }), object(), ""
+
     result = TurnControlCore().control(
         query,
-        llm_complete=lambda _messages: pytest.fail(
-            "validated fine-grained route must not depend on controller LLM"
-        ),
+        llm_complete=complete,
     )
 
+    assert len(calls) == (1 if question_type == "quick_fact" else 0)
     assert result.task_frame.question_type == question_type
     assert required_output in result.task_frame.required_outputs
     assert coarse_output not in result.task_frame.required_outputs
@@ -567,10 +578,11 @@ def test_default_controller_rebases_injected_validated_route_row(
     content = json.dumps(
         {
             "route_id": question_type,
-            "subject": "已验证主体",
-            "timeframe": "最新可用日期",
             "confidence": 0.95,
             "reason": "已验证路由行",
+            "user_goal": "按本轮诉求选择任务类型",
+            "assumptions": [],
+            "ambiguities": [],
         },
         ensure_ascii=False,
     )
@@ -581,8 +593,8 @@ def test_default_controller_rebases_injected_validated_route_row(
 
     assert result.task_frame.question_type == question_type
     assert result.execution_route == question_type
-    assert result.task_frame.subject == "已验证主体"
-    assert result.task_frame.timeframe == "最新可用日期"
+    assert result.task_frame.subject is None
+    assert result.task_frame.timeframe is None
 
 
 @pytest.mark.parametrize(

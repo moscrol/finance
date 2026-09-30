@@ -147,6 +147,8 @@ class TaskFrame:
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
         else:
+            if not self.conversation_materials.question_sources:
+                payload["conversation_materials"].pop("question_sources", None)
             if not self.conversation_materials.calculation_sources:
                 payload["conversation_materials"].pop("calculation_sources", None)
             if self.conversation_materials.history_intent is None:
@@ -1231,6 +1233,14 @@ def last_explicit_iso_date(question: str) -> str | None:
         return None
     year, month, day = matches[-1].groups()
     return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+
+
+def is_counterfactual_assessment(question: str) -> bool:
+    """Read hypothetical authority from the user, never a model-supplied goal."""
+    regions = classify_top_level_regions(question)
+    return regions.classification != "boundary_uncertain" and bool(
+        _COUNTERFACTUAL_ASSESSMENT_RE.search(regions.control_text.strip())
+    )
 
 
 def _user_goal(question_type: str, question: str, fallback: str) -> str:

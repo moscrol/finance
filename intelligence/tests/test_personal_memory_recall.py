@@ -52,6 +52,14 @@ def route_response(route="personal_memory_recall"):
     return json.dumps({"personal_records_only": route == "personal_memory_recall"}), object(), ""
 
 
+def financial_controller_response():
+    return json.dumps({
+        "route_id": "stock_deep_dive", "confidence": 0.95,
+        "reason": "研究公司", "user_goal": "判断公司研究证据",
+        "assumptions": [], "ambiguities": [],
+    }), object(), ""
+
+
 @pytest.mark.parametrize("query", [
     "我之前纠正过的研究顺序是什么？只回顾我的记录，不做行情判断。",
     "只回顾我此前的偏好。",
@@ -88,6 +96,9 @@ def test_recent_reader_applies_cutoff_before_record_limit(tmp_path, monkeypatch)
     monkeypatch.setenv("FINANCE_WS", str(tmp_path / "finance"))
     monkeypatch.setenv("KB_VAULT", str(tmp_path / "wiki"))
     monkeypatch.setattr(episode_tools, "_opening_prefetch_evidence", lambda *a, **kw: ())
+    # This checks cutoff/limit ordering, not the separate one-second opening
+    # prefetch deadline (covered in test_memory_opening_prefetch).
+    monkeypatch.setattr("intelligence.services.memory_prefetch.collect_opening_memory", lambda *a, **kw: ())
     monkeypatch.setattr(llm_refine, "complete", lambda *a, **kw: route_response())
     path = tmp_path / "users" / "alice" / "corrections.jsonl"
     for day in range(1, 15):
@@ -101,10 +112,11 @@ def test_recent_reader_applies_cutoff_before_record_limit(tmp_path, monkeypatch)
         frame, context, finance_root=tmp_path / "finance", knowledge_wiki=tmp_path / "wiki",
         l3_runner=None, memory_user="alice",
     )
-    records = tuple(item for item in registry.opening_prefetch if item.evidence_tier == "user_memory")
+    result = registry.execute("memory_lookup", frame.raw_question, context=context, step_id="recent-cutoff")
+    records = tuple(item for item in result.evidence if item.evidence_tier == "user_memory")
     assert len(records) == user_memory.DEFAULT_LIMIT
     assert [item.source_date for item in records] == [f"2026-09-{day:02d}" for day in range(6, 1, -1)]
-    assert all("future_of_cutoff" not in item.detail for item in registry.opening_prefetch)
+    assert all("future_of_cutoff" not in item.detail for item in result.evidence)
 
 
 @pytest.mark.parametrize("draft", [
@@ -246,10 +258,16 @@ def test_pure_recall_compiles_required_personal_output(query, subject):
 
 @pytest.mark.parametrize("query", ["长电科技现在怎么看", "长电科技的收入是多少", "长电科技的上涨空间如何"])
 def test_ordinary_finance_adds_no_arbitration(query):
-    def forbidden(_messages):
-        pytest.fail("ordinary finance must not acquire a new model call")
+    calls = []
 
-    decision = decide_turn(query, resolver=SubjectResolver(), llm_complete=forbidden)
+    def controller(messages):
+        calls.append(messages)
+        return financial_controller_response()
+
+    decision = decide_turn(query, resolver=SubjectResolver(), llm_complete=controller)
+    assert len(calls) == 1
+    assert "route_id,confidence,reason,user_goal,assumptions,ambiguities" in calls[0][0]["content"]
+    assert "personal_records_only" not in calls[0][0]["content"]
     assert decision.task_frame.question_type != "personal_memory_recall"
     context = build_episode_context(decision.task_frame, task_id="normal")
     assert any(output.required and output.grounding_mode == "evidence" for output in context.contract.required_outputs)
@@ -269,13 +287,16 @@ def test_failed_or_mixed_arbitration_keeps_financial_contract(response):
 
     def complete(messages):
         calls.append(messages)
-        return response
+        return response if len(calls) == 1 else financial_controller_response()
 
     decision = decide_turn(
         "长电科技，结合我之前的判断，评估现在的上涨空间。",
         resolver=SubjectResolver(), llm_complete=complete,
     )
-    assert len(calls) == 1
+    mixed = response[0] == json.dumps({"personal_records_only": False})
+    assert len(calls) == (2 if mixed else 1)
+    if mixed:
+        assert "route_id,confidence,reason,user_goal,assumptions,ambiguities" in calls[1][0]["content"]
     assert decision.task_frame.question_type == "stock_deep_dive"
     context = build_episode_context(decision.task_frame, task_id="mixed")
     assert any(item.required and item.grounding_mode == "evidence" for item in context.contract.required_outputs)
@@ -468,10 +489,19 @@ def test_pure_recall_contract_does_not_gain_financial_or_forward_permissions(mon
 
 
 def test_existing_candidate_grammar_does_not_claim_english_coverage():
+    calls = []
+
+    def unavailable(messages):
+        calls.append(messages)
+        return None, None, "fixture unavailable"
+
     decision = decide_turn(
         "For ACME, recall my earlier research checklist; only my saved notes.",
-        resolver=SubjectResolver("ACME"), llm_complete=lambda _: pytest.fail("new lexical route"),
+        resolver=SubjectResolver("ACME"), llm_complete=unavailable,
     )
+    assert len(calls) == 1
+    assert "personal_records_only" not in calls[0][0]["content"]
+    assert decision.llm_failure_reason
     assert decision.task_frame.question_type == "stock_deep_dive"
 
 

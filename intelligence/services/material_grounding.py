@@ -7,7 +7,6 @@ Assistant prose is a separate catalogue and can never become a material anchor.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-import json
 import re
 from typing import TYPE_CHECKING, Mapping
 
@@ -15,6 +14,7 @@ from intelligence.services.conversation_materials import HistoricalAssistantStat
 from intelligence.services.user_task import material_id_for, split_user_message
 
 if TYPE_CHECKING:
+    from intelligence.services.prior_evidence import PriorTurnEvidence
     from intelligence.services.agent_runtime import OutputEvidenceBinding
     from intelligence.services.research_contract import ResearchTaskContract
     from intelligence.services.task_frame import TaskFrame
@@ -76,8 +76,8 @@ def freeze_material_grounding(frame: TaskFrame) -> MaterialGrounding:
     """Only original current user text and typed, source-bound history qualify."""
     sources: dict[str, MaterialSource] = {}
     history = frame.conversation_materials
-    for item in history.items if history else ():
-        sources[item.ref.material_id] = MaterialSource(item.ref.material_id, item.text, item.source_message_id)
+    for item in (*history.items, *history.question_sources) if history else ():
+        sources.setdefault(item.ref.material_id, MaterialSource(item.ref.material_id, item.text, item.source_message_id))
     parts = split_user_message(frame.raw_question)
     for ref, text in zip(parts.materials, parts.material_texts, strict=True):
         sources.setdefault(ref.material_id, MaterialSource(ref.material_id, text, "current_user_message"))
@@ -152,36 +152,67 @@ def grounding_scope(contract: ResearchTaskContract) -> str | None:
     return "material_only" if material.needs_clarification else material.data_scope
 
 
-def claim_binding_error(contract: ResearchTaskContract, claim: ClaimSourceBinding, draft: str) -> str:
-    """Mechanical identity check. A semantic pass is still required afterwards."""
+@dataclass(frozen=True)
+class MaterialSourceIssue:
+    message: str
+    code: str = "material_source_violation"
+
+
+QUOTE_REPAIR_RULE = (
+    "从同一冻结来源逐字复制连续片段，不改写、拼接或用省略号；多个片段分别引用。"
+    "逐条检查所有引用，不要修改来源身份或用无依据推理代替事实；无法支持的内容须明确缺口。"
+)
+
+
+def _claim_source_issues(
+    contract: ResearchTaskContract, claim: ClaimSourceBinding, draft: str,
+) -> tuple[MaterialSourceIssue, ...]:
+    """Check every source identity before permitting quote-only correction."""
+    issues = []
     if claim.text.strip() not in claim_sentences(draft):
-        return "claim text is absent from draft"
+        issues.append(MaterialSourceIssue("claim text is absent from draft"))
     if len(claim_sentences(claim.text)) != 1:
-        return "claim binding must describe one sentence"
+        issues.append(MaterialSourceIssue("claim binding must describe one sentence"))
     catalogue = contract.material_grounding
     if catalogue is None:
-        return "material source catalogue unavailable"
+        return (*issues, MaterialSourceIssue("material source catalogue unavailable"))
     materials = {item.material_id: item.text for item in catalogue.materials}
-    for anchor in claim.material_anchors:
-        if anchor.material_id not in materials or anchor.quote not in materials[anchor.material_id]:
-            return "material anchor does not match original user text"
+    for index, anchor in enumerate(claim.material_anchors):
+        if anchor.material_id not in materials:
+            issues.append(MaterialSourceIssue(f"material_anchors[{index}] has an unknown material source"))
+        elif anchor.quote not in materials[anchor.material_id]:
+            issues.append(MaterialSourceIssue(
+                f"material_anchors[{index}] quote does not match original user text", "material_quote_mismatch",
+            ))
     if claim.kind == "historical_assistant_statement":
-        if not any(item.source_message_id == claim.old_answer_coordinate and claim.historical_quote in item.text
-                   and item.basis == "assistant_judgment" for item in catalogue.historical_assistant_statements):
-            return "historical quote does not match original assistant message"
+        original = next((item for item in catalogue.historical_assistant_statements
+                         if item.source_message_id == claim.old_answer_coordinate
+                         and item.basis == "assistant_judgment"), None)
+        if original is None:
+            issues.append(MaterialSourceIssue("unknown historical assistant coordinate"))
+        elif claim.historical_quote not in original.text:
+            issues.append(MaterialSourceIssue(
+                "historical quote does not match original assistant message", "material_quote_mismatch",
+            ))
     if grounding_scope(contract) == "material_only" and claim.kind == "material_fact" and not claim.material_anchors:
-        return "material fact requires material_id and exact quote"
-    return ""
+        issues.append(MaterialSourceIssue("material fact requires material_id and exact quote"))
+    return tuple(issues)
 
 
-def binding_source_errors(
+def claim_binding_error(contract: ResearchTaskContract, claim: ClaimSourceBinding, draft: str) -> str:
+    """Compatibility view; any quote mismatch still fails source validation."""
+    issues = _claim_source_issues(contract, claim, draft)
+    return issues[0].message if issues else ""
+
+
+def binding_source_issues(
     contract: ResearchTaskContract,
     binding: OutputEvidenceBinding,
     draft: str,
     evidence: tuple,
     *,
     frozen_prior_hashes: frozenset[str] = frozenset(),
-) -> tuple[str, ...]:
+) -> tuple[MaterialSourceIssue, ...]:
     """Mechanical source-scope check for one finish binding.
 
     ``frozen_prior_hashes`` are the content hashes of prior-turn tool atoms that
@@ -193,9 +224,11 @@ def binding_source_errors(
     scope = grounding_scope(contract)
     if scope not in {"material_only", "local_only"}:
         return ()
-    errors = [error for claim in binding.claims if (error := claim_binding_error(contract, claim, draft))]
+    errors = [MaterialSourceIssue(f"{binding.output_id}.claims[{index}]: {issue.message}", issue.code)
+              for index, claim in enumerate(binding.claims)
+              for issue in _claim_source_issues(contract, claim, draft)]
     if binding.gap and binding.claims:
-        errors.append("a gap cannot carry answered claims")
+        errors.append(MaterialSourceIssue("a gap cannot carry answered claims"))
     if scope == "material_only" and not binding.gap:
         from intelligence.services.material_delivery import material_question_outputs, question_body
 
@@ -205,19 +238,29 @@ def binding_source_errors(
             sentences = claim_sentences(body)
             claims = tuple(c.text.strip() for c in binding.claims)
             if sentences != claims:
-                errors.append("every answered sentence must have exactly one ordered claim binding in its question")
+                errors.append(MaterialSourceIssue("every answered sentence must have exactly one ordered claim binding in its question"))
     by_hash = {item.content_hash: item for item in evidence}
     for key in binding.evidence_hashes:
         item = by_hash.get(key)
         if item is None:
-            errors.append("binding exceeds frozen data scope: " + key)
+            errors.append(MaterialSourceIssue("binding exceeds frozen data scope: " + key))
         elif key in frozen_prior_hashes:
             # 同用户同会话原件校验过的旧工具输入：复核轮里唯一合法的证据绑定来源，
             # 与材料坐标并列。本轮任何新读仍按下面的规则拒。
             continue
         elif scope == "material_only" or item.io_effect != "local_read":
-            errors.append("binding exceeds frozen data scope: " + key)
+            errors.append(MaterialSourceIssue("binding exceeds frozen data scope: " + key))
     return tuple(dict.fromkeys(errors))
+
+
+def binding_source_errors(
+    contract: ResearchTaskContract, binding: OutputEvidenceBinding, draft: str, evidence: tuple,
+    *, frozen_prior_hashes: frozenset[str] = frozenset(),
+) -> tuple[str, ...]:
+    """Existing read-side consumers still reject every source issue."""
+    return tuple(issue.message for issue in binding_source_issues(
+        contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes,
+    ))
 
 
 def material_private_tokens(contract: ResearchTaskContract | None) -> frozenset[str]:
@@ -305,61 +348,23 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
     return "\n\n".join(blocks)
 
 
-def claim_finish_format(contract: ResearchTaskContract) -> dict[str, object] | None:
-    """material_only 那份冻结的成稿形状；没有就返回 None。
+def claim_finish_format(
+    contract: ResearchTaskContract, *, prior_evidence: PriorTurnEvidence | None = None,
+) -> dict[str, object] | None:
+    """Opening and repair share the contract-selected author envelope."""
+    from intelligence.services.material_answer_authoring import material_author_payload
 
-    开场和修复轮共用这一个来源：修复轮是最后一次机会，作者手上必须有它仍然要求的
-    wire 形状（run_20260917_004950_254515 就是内容改对了、格式在修复稿里失手直接终局）。
-    两处各写一份迟早会漂移，所以只留这一个构造点。
-    """
-    material = contract.material_contract
-    if material is None or material.data_scope != "material_only" or material.needs_clarification:
-        return None
-    return {
-        "render_from_claims": True,
-        "wire_template": json.dumps({
-            "status": "completed", "render_from_claims": True, "draft": "", "gaps": [],
-            "bindings": [{"output_id": spec.output_id, "basis": spec.grounding_mode,
-                          "evidence_hashes": [], "gap": "", "claims": []}
-                         for spec in contract.required_outputs if spec.required],
-        }, ensure_ascii=False),
-        # 2026-09-27 Knevo live r2：flash 两稿都因「一条 claim 多句」与「正文带材料编号」被拒，
-        # 这两条原本埋在下面一长段规则中部。放到最前并给正反例；下面原规则一字未动。
-        "rule": "【三条硬格式，任一违反整稿退回重写】"
-                "①一条 claim 恰好一句：text 里出现句号、问号、感叹号、分号或换行，就拆成多条 claim，"
-                "每条各自带支持本句的 material_anchors；"
-                "②claims.text 与 gap 不写 material_id、材料编号或消息坐标，它们只放在引用字段；"
-                "③提交前逐条自查这两点再提交。"
-                "错：{\"text\": \"出货降至110。库存升至40。\"}；"
-                "对：[{\"text\": \"出货降至110。\"}, {\"text\": \"库存升至40。\"}]。"
-                "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
-                "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
-                "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
-                "draft为空不代表正文不限长，终局正文精简要求适用于所有claims.text合计，以1000汉字内为目标。"
-                "逐问直接作答，删去重复复述与套话，不重复题号或原题；不能省略子问、计算步骤或本句输入锚点来凑字数，"
-                "完整回答与来源绑定优先于字数目标，不合并多个句子来绕过逐句绑定。"
-                "句号、问号、感叹号、分号和换行均为分句边界，不要在一条text里列多句或多行；"
-                "多个论点拆成多个claim，各自绑定支持本句的来源，不能只改已报错的第一条。"
-                "逐句构造：先找齐本句使用的原始输入，再写一句text及其material_anchors；"
-                "即使输入来自同一材料或已在前句引用，本句也要绑定全部输入片段，不用问句替代数值依据。"
-                "含具体对象的数字、计算、事实比较或事实前提的句子用material_fact，不因结论属于推断就改成无锚点reasoning；"
-                "reasoning只留给不含待证事实的纯方法推理，自设阈值须明说是待校准假设而非材料事实。"
-                "每次比较都在本句写清同一主体、指标、单位及各自期间，情景用题定基期，不在句中切换基期；"
-                "厂商出货、渠道库存、终端消耗不能互换，绝对库存与库存/消耗比也分别计算。"
-                "缺少成本口径时不能把收入方向等同于利润方向，未给正常库存基准时不把库存增减直接定性为过剩或安全；"
-                "先给材料能确定的变化，再明说条件与缺项，不用模糊条件词补造未给前提。"
-                "claims.text与gap就是公开正文，不能含material_id或消息坐标；这些只留在引用绑定字段。"
-                "无法回答时 claims=[]，原样写 binding.gap；有答案的 gap=空字符串。"
-                "每个必需 output 都须提供，basis 逐项复制 required_outputs 的 grounding_mode，不按材料真实性猜。"
-                "不得同时提交另一份 draft。旧格式 render_from_claims=false 时仍须严格逐句复制正文。",
-    }
+    author = material_author_payload(contract, prior_evidence=prior_evidence)
+    return author["finish_format"] if author is not None else None
 
 
-def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, object] | None:
+def material_grounding_payload(
+    contract: ResearchTaskContract, *, prior_evidence: PriorTurnEvidence | None = None,
+) -> dict[str, object] | None:
     if contract.material_contract is None:
         return None
     catalogue = contract.material_grounding
-    finish_format = claim_finish_format(contract)
+    finish_format = claim_finish_format(contract, prior_evidence=prior_evidence)
     return {
         "data_scope": grounding_scope(contract),
         "authenticity": contract.material_contract.authenticity,
