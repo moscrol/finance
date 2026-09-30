@@ -1,0 +1,91 @@
+# 质检：finance agent 各部件优化与日常工作线（2026-09-30）
+
+> 范围：用户要求按「底座 / 领域 harness / 工具层 / skill / 记忆 / 优化迭代机制」逐部件质检，并覆盖三条日常线：数据接入与消费、Knevo 对照借鉴、ReAct 对照。
+> 基线：`main@75693271`（浅克隆，只有 1 个提交，所以**没有做历史 / 变更频率分析**）。
+> 环境：Linux 沙箱，Python 3.11.2（仓内要求 3.12，装不上）。没有 Mac 上的 `~/.finance-runtime` / `~/agent-memory` / `~/harness-reference`，所以**所有 live 读数都引自仓内文档，不是本次复算**。
+> 修复：P0 三项加一项工具已在 `arena/01a0f120-finance` 分支落地，见 §3。
+
+## 0. 总评
+
+**纪律很强，但力气花在了流程、格式和自检上，瓶颈却在内容正确性。**
+
+- 09-29 能力线地图原话：「格式和流程层的改进没有换来内容正确」（`docs/handoffs/2026-09-29-8792-answer-capability-lines-map.md`）。
+- 台账把 76% 的修补归到 harness 层，没有一条归到模型。
+- 唯一一次和外部基线（ReAct）的对照，同时换了模型（Claude vs GLM）和 harness，所以「harness 不如 ReAct」这个读法**至今没有证据支撑，也没有被证伪**。
+
+## 1. 分部件评级
+
+🟢 健康 · 🟡 有明确缺口但不致命 · 🔴 方向性问题或关键判据缺失
+
+| 部件 | 评级 | 主要证据 | 主要缺口 |
+|---|---|---|---|
+| 底座（模型 / 运行时） | 🟡 | 代码默认 `glm-5.2`（`llm_refine.py` provider 默认段）；生产 09-16 起按用户决定跑 `glm-5.3-flash`；三态 `served_model` 已逐 turn 落盘 | ① 09-29 消融预设 `glm-5.3`、实际 `-flash`，**准入没有机器判定** → 已修（§3-③）；② 429 时 0.6 秒内连打三次就放弃、冷却提示丢失（`docs/lessons_learned.md` 09-09 条）→ 已修（§3-②）；③ `market_feature_store/db.py` 的 `hold_swap_lock` 用 `flock(LOCK_SH)`，DuckDB 写锁是 fcntl POSIX 锁：Linux 上两者互不可见，`test_market_feature_store_staging_swap` 6 例红。推测 macOS 上两者可见所以本机绿——**平台相关的隐性假设**，迁 Linux 即失效 |
+| 领域 harness | 🔴 | 台账 `HARNESS_FIX` 122 / 160 = 76%；`intelligence/` 非测试代码 519 模块、27.3 万行（`services/` 约 15 万）；300 行以上的函数 32 个，最长 `_run_turn_ledgered` 2,279 行、`_answer_query_impl` 1,751 行；`re.compile` 816 处 | 模型与 harness 从未分离测量 → 预注册 2×2（§3-C）；超长函数与大量正则路由让「改一处影响哪里」难以推断；`route_table.py` 头部自带一条误路由记录 |
+| 工具层 | 🟡 | 19 个工具；`finance_query` 一个工具的 schema 就有 24,074 字符（40 个数据集），其余 18 个合计约 1.5 万 | 没有按路由收窄工具面：每轮都把 40 个数据集的说明塞给模型 |
+| skill | 🟡 | `skills/` 39 个 SKILL.md，注册表与视图有生成器和检查 | `stock-technicals` 未暴露，被它取代、已跑不通的 3 个旧 skill 反而暴露 → 已修（§3-①）；`up-line` 硬编码 Mac 路径；`advancers-chart` 依赖已退役的飞书，但没有 skill 级替代，保留 |
+| 记忆 | 🟡 | 用户记忆是词面重叠打分（窗口 200，取前 5）；纠错写入侧已合 | 开场自动召回仍在 `feat/architecture-audit-0924` 分支；开发记忆 AGENTS.md 22.6KB、lessons 106.7KB，已经超出「每次会话读完」的量 |
+| 优化迭代机制 | 🔴 | 552 份 handoff（09-23 单日 70 份）、282 份 spec、115 份 plan；git 跟踪 297.7MB，其中 `docs/verification` 137.9MB / 14,467 个文件 | 台账：pending 107 行里 104 行已挂超过 14 天（最老 57 天）；最新条目 `R-20260916-03`，之后 14 天没有新预测入账；`SYSTEM_PROMPT_FIX` 一次都没出现过 → 体检脚本已补（§3-④） |
+| 数据接入与消费 | 🟡 | 09-24 读数：主线板块 69 行成交额 / 强度 / 涨幅为 NULL；新高 389 只，而 `high_status` 为 NULL 的有 3,443 只；桥每天 3~10 只股票静默缺行、无报警（`docs/superpowers/specs/2026-09-29-bridge-silent-gap-decision-request.md`） | 同花顺切换未完成；8e45 事故一次 −204,670 行；缺一张每日红绿表和新鲜度 SLO（服务等级目标：数据最晚几点必须到） |
+| Knevo 对照借鉴 | 🔴 | 57 个文件；e2e 0/12（判官 3、来源被拒 3、无效或漏答 5、越界 1） | 抄了形状，但端到端一题没过；缺每周固定题的成对回归 |
+| ReAct 对照 | 🔴 | unseen 10 题：react 0.857 > 8796 0.595 > 8792 0.567 ≫ component 0.111（`docs/superpowers/specs/2026-08-27-longtail-react-gap-remediation-workorder.md`） | react 臂是 Claude，产品臂是 `glm-5.3`，差距来源分不开 → 预注册 2×2（§3-C） |
+
+## 2. 关键读数
+
+### 2.1 预测台账（`scripts/prediction_ledger_status.py --as-of 2026-09-30`）
+
+- Open 主表 **160 行**（按 `audit_ledger_spec_crosswalk.py` 的号型口径）。另有 3 行号型不合规、不计入：`R-20260827-07a`、`R-20260821-03a`、`R-20260823-SPTTECH-04`。
+- outcome：pending 107 · confirmed 46 · refuted 2 · partially_confirmed 2 · held 1 · deferred 1 · 未达标 1。
+- fix_type：HARNESS_FIX 122（76%）· DATA_CONTRACT_FIX 17 · EVAL_ONLY 13 · ROUTING_FIX 3 · NO_SYSTEM_FIX 3 · TOOL_DESCRIPTION_FIX 2 · SYSTEM_PROMPT_FIX 0。
+- 枚举外取值 0。refuted 连击 ≥3：无。
+- **勘误**：会话里口头报过「181 条定义、HARNESS_FIX 122 条 = 67%」，那是粗解析，把回填段也算进去了。以本节为准。
+
+### 2.2 测试与静态检查（本次在沙箱复算）
+
+- `ruff check`：通过。`layer_audit.py`：ERROR 0。注册表、可解析性、运行时目录三项检查：一致。
+- 全量 pytest（收集 18,779 条）：**59 挂 / 18,512 过 / 206 跳 / 2 预期失败**，耗时 1,945 秒。59 条的分类：
+  - 49 条：缺 `/bin/zsh`（沙箱环境问题）；
+  - 3 条：依赖 macOS 或 vault；
+  - 1 条：Python 3.11 语法不兼容。仓内有 2 个文件用了 3.12 语法：`scripts/calc_case_acceptance.py:273`、`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；
+  - 6 条：**真实潜在缺陷**，swap 锁，见 §1 底座行。
+
+## 3. 本分支已做的修复（`arena/01a0f120-finance`）
+
+| # | 修了什么 | 改动 | 测试 |
+|---|---|---|---|
+| ① | skill 视图错位 | `.claude/skills/` 链入 `stock-technicals`，撤下被它取代的 `up-line` / `watchlist-ma` / `top-gainers-feishu`（目录按 #729 保留）；frontmatter 加 `metadata.superseded_by`；同步 dispatcher、top-gainers、AGENTS.md、CLAUDE.md、`skills.registry.json` | `tests/test_skill_view_supersession.py`：被取代的不许暴露、取代者必须暴露、不许链式取代。反向验证过：把 `up-line` 链回去，或摘掉 `stock-technicals`，都会红 |
+| ② | 429 限流处理 | `llm_refine.py`：只认 429；按 `Retry-After` / `retry-after-ms` 等一次再试（没给就 2 秒加抖动）。以下情况不等、直接失败：要等超过 20 秒；等完剩不到 `MIN_VIABLE_LLM_SECONDS`；本轮调用预算已满；流式已吐字；用户取消。失败原因带「限流：服务端要求 N 秒后再试」，仍归 `provider_rate_limited`。**没有**把 429 加进瞬态名单（那条链会无间隔连打三次）。覆盖 `complete` / `chat_with_tools`（含流式）/ `synthesize_messages` / `synthesize_messages_stream` | `intelligence/tests/test_llm_rate_limit_retry.py` 34 例。反向验证：换回旧行为，6 个调用路径用例红。回归：89 个引用 `llm_refine` 的测试文件共 3,163 例全绿 |
+| ③ | 生效模型准入 | `intelligence/eval/model_admission.py` + `scripts/check_model_admission.py --expect-model X <产物>...`。exit 0 准入 / 1 错配 / 2 无证据（fail-closed）；认 `continuous-episode.json`、`events.jsonl`、SDK 臂的 `served_models`；acceptance-workflow §2 第 3 条补了这一步 | `intelligence/tests/test_model_admission.py` 19 例。真实产物冒烟：09-21 judge-mode-k3 两个生产 run，`--expect-model glm-5.3` → exit 1（实际 `kimi-k3`），`--expect-model kimi-k3` → exit 0 |
+| ④ | 台账体检 | `scripts/prediction_ledger_status.py`：fix_type 分布、pending 年龄、枚举外取值、refuted 连击；Open 表取行复用 crosswalk 的解析 | `tests/test_prediction_ledger_status.py`，含「与 crosswalk 行数一致」「枚举与台账规则节一致」两条防漂移 |
+| C | 预注册 2×2 | `docs/superpowers/specs/2026-09-30-model-harness-2x2-preregistration.md` | 未开跑：需要在 Mac 上先过 F1–F4 可行性检查 |
+
+## 4. 未修的建议
+
+**P1**
+
+- 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。
+- 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。另做记忆召回题包。
+- 每日数据红绿表，加新鲜度 SLO。
+- Knevo 每周固定题成对回归。
+- 冻结一个永不用于修复的留出集；冻结正则路由表，新增路由必须带用例。
+
+**P2**
+
+- 拆超长函数。
+- 把收据移出 git：`docs/verification` 占了 git 体积的 46%。
+- 给 AGENTS.md / lessons 瘦身，分「每次必读」和「按需查」两层。
+- 非生产循环移出主进程。
+- swap 锁加跨平台自检（flock 与 fcntl 是否互斥）。
+- 给依赖 Mac 的测试加 `skipif`，让 Linux 全量能跑绿。
+
+## 5. 复现
+
+```bash
+FWP_ALLOW_ANY_PYTHON=1 python scripts/prediction_ledger_status.py --as-of 2026-09-30
+FWP_ALLOW_ANY_PYTHON=1 python scripts/check_model_admission.py --expect-model kimi-k3 \
+  docs/verification/2026-09-21-judge-mode-k3/evidence/production-verification/runs
+FWP_ALLOW_ANY_PYTHON=1 python -m pytest -q tests/test_skill_view_supersession.py \
+  intelligence/tests/test_llm_rate_limit_retry.py intelligence/tests/test_model_admission.py \
+  tests/test_prediction_ledger_status.py
+```
+
+在 Mac 上用 `.venv-workbench/bin/python` 执行即可，不需要 `FWP_ALLOW_ANY_PYTHON`。
