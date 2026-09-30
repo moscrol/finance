@@ -64,6 +64,7 @@
 | P1 | 冻结正则路由 | `scripts/check_regex_routes.py` + `regex-routes-baseline.json`（8 个路由 / 题型判定模块共 243 处 `re.*` 调用点），挂进 pre-commit。只减不增：新增即拦，删减自动放行；确实要加，须在同一提交里 `--update-baseline` 留痕 | `tests/test_check_regex_routes.py` 6 例 |
 | P2 | Mac 专属测试按条件跳过 | 52 条：49 条写死 `/bin/zsh`；2 条依赖本机 agent-memory 记忆库（钩子在记忆库不可达时按设计静默退出）；1 条依赖 macOS 的 clonefile。只给真需要的测试挂 `skipif`，条件在 Mac 上恒真，行为不变 | Linux 实测这 7 个文件：52 挂 → 142 过 / 52 跳 |
 | P2 | 换库锁跨平台自检 | 换库锁 `hold_swap_lock` 用 flock，duckdb 的写者锁是 POSIX 记录锁：两者只在 macOS 上互斥，Linux 上这把锁排不掉写者（沙箱实测 duckdb 1.5.4，两个方向都不排）。`db.swap_lock_platform_probe` 用子进程扮演另一个进程里的写者，调真实的 `hold_swap_lock` 测两个方向。daily-full 预检据此 fail closed；直写的 daily-update 不换库，不查。另加 `scripts/check_swap_lock_platform.py`。顺手纠正了锁文档里「duckdb 单写者锁用 flock 实现」的说法 | `tests/test_swap_lock_platform_probe.py`（与「写入落不落得了库」这一真实后果对账、子进程失常时 fail closed、只测一次）。5 条换库锁测试按自检结果跳过；1 条参数用例依赖 `cp -c`，按 darwin 跳过。变异验证：把自检读数反过来即红。相关测试 208 过 / 21 跳 / 0 挂 |
+| P1（部分） | 工具面收窄的调用证据 | `scripts/audit_episode_tool_outcomes.py` 加 `--by-dataset` / `--json`：`finance_query` 调用按题型（`contract.question_type`）× 数据集（trace `detail` 里的 `dataset=`）拆开，并列出注册表 `finance_query._DATASETS`（40 个）里在所扫 episode 中一次没被调用的。默认输出不变 | `tests/test_audit_episode_tool_outcomes.py` 9 例（含 2 个真实 episode 冒烟）。变异验证：去掉 `dataset=` 的前缀约束即红 |
 
 ## 4. 未修的建议
 
@@ -71,13 +72,16 @@
 
 **P1**
 
-- 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。要先有按路由的调用统计，统计要用 Mac 上的 episode 产物。
+- 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。统计工具已补（§3）：`scripts/audit_episode_tool_outcomes.py --by-dataset <runs 目录>`，按题型 × 数据集拆开调用次数，并列出注册了却一次没被调用的数据集。沙箱里只有 2 个真实 episode，40 个里只看到 3 个被调用，样本太小，不下结论。在 Mac 上对全部 episode（台账记过 747 份）跑一次，才有收窄的证据；收窄本身要用户拍板。
 - 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。题面和真值要按台账纪律从真实 run 里取，要在 Mac 上做。
 - **更正：记忆召回题包早就有了**，质检时漏看了。尺子是 `intelligence/eval/retrieval_recall.py`，标注集是 `intelligence/eval/cases/retrieval_recall_v1.jsonl`（20 条真实标注，其中 user_memory 15 条），另有合成夹具。08-15 首份基线（`docs/verification/2026-08-15-recall-baseline.md`）：user_memory hit@5 = **46.7%**（7/15），8 条漏召回的主因登记为「中文无分词」。
   - 真正的问题是这把尺子量出来的缺口 46 天没闭环。08-05 定了两步：第一步是把上游抽好的实体传进召回，`episode_tools` 已接（`_memory_recall_intent`），`ask.py:1046` 仍只传原始问句；第二步是用户拍板的「用语义检索，不用关键词匹配」，至今未做（`user_memory.select_relevant` 仍是字面重合打分）。
   - 标注集有来源纪律（「不许造」），所以本轮没有编合成改写题。评分器也没改：改了在沙箱里量不出真实效果。下一步在 Mac 上一条命令出当前基线：`python -m intelligence.eval.retrieval_recall --cases intelligence/eval/cases/retrieval_recall_v1.jsonl --users-root "$FORESIGHT_USERS_DIR"`，再以它为验收尺子做语义检索。
-- 每日数据红绿表，加新鲜度 SLO。另外选一个数据家族换数据源。都要用真实库，要在 Mac 上做。
-- Knevo 每周固定题成对回归。
+- **更正：数据检查大体已有三件**，质检时说成「要做红绿表」不准确。
+  - 已有：跨日质检 `market_feature_store/quality.py` 的 `check_daily`（断档、行数收缩、值域、空壳板块）；当日完整性闸门 `scripts/check_daily_review_data.py`；日运营台账 `scripts/build_daily_ops_ledger.py`（查当日产物在不在）。换数据源前另有覆盖对账 `scripts/source_switch_coverage_diff.py`。
+  - 真正的缺口有两处。一是跨日门禁 09-09 起处于 disabled，原因是 09-03 / 09-04 四张表有洞、门禁必红（`docs/verification/2026-09-09-cutover-0909.md`），要先补洞再启用。二是 `check_daily` 以库里的 `fact_market_daily` 为日历，整条管线一起停时库内自洽、会报「通过」。这是有意的设计（有测试钉住「用库里最新日、不用墙钟」），所以这一层只能靠日运营台账查当日产物来兜底。
+  - 补洞和启用都要用真实库，要在 Mac 上做。
+- **更正：Knevo 回归的工具和题集已有**：`intelligence/eval/knevo_regression.py` + `knevo_absorption_regression.json`（12 题）。09-23 首批读数是 9 条交付、3 条失败，整链接纳 0 题（`docs/learning/knevo-distill/batches/2026-09-23-regression/README.md`）。缺的是固定周期：只跑过这一次。每周跑要在 Mac 上起 Workbench 探针服务，照那份 README 的正门流程执行。
 - 冻结一个永不用于修复的留出集。它和 2×2 预注册 §9 的「新留出集」是同一件事，题面与真值要在 Mac 上定。
 
 **P2**
