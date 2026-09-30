@@ -52,7 +52,7 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 
 ## Git 与合并
 
-- 开工先报 `git status --short && git branch --show-current`。日常远程是本机 Gitea（`remote.pushDefault=gitea`），基线用 `gitea/main`；GitHub `origin` 保留但不假设解封。
+- 开工先报 `git status --short && git branch --show-current`。日常集成远程是 Gitea（`remote.pushDefault=gitea`），基线用 `gitea/main`。跨机器协作、全局盘点或发布交接时，按 `docs/workflows/dual-remote-collaboration.md` 核对 `gitea` / `origin` 的实际分支、双方 PR 和仓库可见性，必须包含云端 `origin/claude/*`；交接提供远程可读链接。
 - 大任务从最新 `gitea/main` 开 `<type>/<short-task>`（`feat/` `fix/` `baseline/` `pdf-ingest/` `theme-radar/` `data-source/`），小文档修补可直接 main。合并回 main 必须等用户确认，不强推（`~/.claude/hooks/block-dangerous-git.sh` 也会拦）。
 - 提交只用 pathspec：`git add -- <文件>` 与 `git commit -- <文件>`；不用 `git add -A` / `git add .`。裸 `git commit` 提交的是整个索引，别人在你 add 和 commit 之间暂存的文件会被你带走（实测吞掉他人 4 个在途文件，靠 `git reset --soft HEAD~1` 退回）。
 - 不提交 `.env*`、`mcp_config.json`、`feishu_config.json`、`*.pdf|zip|duckdb|db|sqlite*|pptx`、`.DS_Store`、`__MACOSX/`、`._*`、缓存与虚拟环境；不写明文密钥（pre-commit `block-forbidden-files` 兜底）。
