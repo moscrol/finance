@@ -1,6 +1,7 @@
 """Exercise the shell entry point and the real pytest receipt writer offline."""
 from __future__ import annotations
 
+import getpass
 import json
 import os
 import shutil
@@ -59,10 +60,15 @@ def receipt(repo, **changes):
 
 
 def gate_env(tmp_path, **overrides):
+    # GATE_*：外层门禁自己的开关（如 GATE_KEEP_BASETEMP）不能漏给嵌套 gate，要用走 extra_env。
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
+           if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH", "GATE_"))}
+    # TMPDIR 不能继承外部：嵌套 pytest 的默认根 $TMPDIR/pytest-of-<user>/ 是全机共享的。
+    # 必须先建好——tempfile.gettempdir() 碰到不存在的 TMPDIR 会静默退回 /tmp。
+    sys_tmp = tmp_path / "sys-tmp"
+    sys_tmp.mkdir(exist_ok=True)
     env.update(HOME=str(tmp_path / "home"), PYTHONDONTWRITEBYTECODE="1",
-               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"))
+               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"), TMPDIR=str(sys_tmp))
     env.update(overrides)
     return env
 
@@ -492,8 +498,10 @@ def _commit_sample(repo, body):
 USES_TMP = "def test_ok(tmp_path):\n    (tmp_path / 'x').write_text('1')\n"
 
 
-def test_green_gate_removes_explicit_basetemp(repo, tmp_path):
+def test_green_gate_removes_explicit_basetemp(repo, tmp_path, monkeypatch):
     # 绿了的 basetemp 没有证据价值；不清就是 2026-09-23 盘上那 30 GB。
+    # 外层门禁带 GATE_KEEP_BASETEMP=1 跑全量时，这个开关不能漏进嵌套 gate（09-30 实测漏过）。
+    monkeypatch.setenv("GATE_KEEP_BASETEMP", "1")
     _commit_sample(repo, USES_TMP)
     bt = tmp_path / "bt"
     result = run_gate(repo, tmp_path, "--pytest-args",
@@ -542,6 +550,64 @@ def test_gate_without_basetemp_flag_touches_nothing(repo, tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     # 收据路径里会带本测试自己的名字（含 "basetemp"），所以只锁清理动作那句。
     assert "basetemp 已清" not in result.stdout
+
+
+def test_gate_without_basetemp_keeps_nested_pytest_off_inherited_tmpdir(repo, tmp_path, monkeypatch):
+    # 继承的 TMPDIR 是一个带残留的假「全机根」。泄漏时嵌套 pytest 会在这里建编号目录，退出时还替它清
+    # 旧目录和 garbage-*（09-30 超 40 s 的就是这个）。正向断言位置：tempfile 遇到不可用的 TMPDIR 会
+    # 悄悄退回 /tmp，光查「假根没被碰」抓不到那种泄漏。
+    shared = tmp_path / "shared-tmp"
+    for name in ("pytest-0", "pytest-1", "pytest-2", "pytest-3", "garbage-residue"):
+        (shared / f"pytest-of-{getpass.getuser()}" / name / "leftover").mkdir(parents=True)
+    before = sorted(shared.rglob("*"))
+    _commit_sample(repo, "import os\nfrom pathlib import Path\n\n\n"
+                   "def test_ok(tmp_path):\n"
+                   "    Path(os.environ['NESTED_TMP_REPORT']).write_text(str(tmp_path))\n")
+    report = tmp_path / "nested-tmp-path.txt"
+    monkeypatch.setenv("TMPDIR", str(shared))
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py",
+                      extra_env={"NESTED_TMP_REPORT": str(report)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    nested = Path(report.read_text()).resolve()
+    assert nested.is_relative_to((tmp_path / "sys-tmp").resolve()), nested
+    assert sorted(shared.rglob("*")) == before
+
+
+def test_nested_pytest_default_temproot_is_private(repo, tmp_path):
+    # 不带 --basetemp 的嵌套 pytest 落在 $TMPDIR/pytest-of-<user>/；这里锁住它是本测试私有目录，
+    # 不是全机共享的那个（并发会话抢编号与清理、Mac 上删不掉的 garbage-* 每次重扫 → 2026-09-30 超时）。
+    _commit_sample(repo, "import json\nimport os\nimport tempfile\n\n\n"
+                   "def test_where(tmp_path):\n"
+                   "    with open(os.environ['WHERE_OUT'], 'w') as out:\n"
+                   "        json.dump([tempfile.gettempdir(), str(tmp_path)], out)\n")
+    where = tmp_path / "where.json"
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py",
+                      extra_env={"WHERE_OUT": str(where)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    temproot, nested = (Path(p).resolve() for p in json.loads(where.read_text()))
+    private = (tmp_path / "sys-tmp").resolve()
+    assert temproot == private
+    assert nested.is_relative_to(private)
+    assert nested.exists(), "没给 --basetemp 时门禁不该清 pytest 的默认目录"
+
+
+def test_readonly_dirs_left_by_a_test_are_made_removable(repo, tmp_path):
+    # repo 夹具带的是真 conftest：用例留下的只读目录（含嵌套）收尾要改回可写，
+    # 否则 pytest 以后删不掉它，只能改名成 garbage-* 留在临时根里每次重扫。
+    _commit_sample(repo, "import json\nimport os\n\n\n"
+                   "def test_seal(tmp_path):\n"
+                   "    inner = tmp_path / 'export' / 'inner'\n"
+                   "    inner.mkdir(parents=True)\n"
+                   "    inner.chmod(0o555)\n"
+                   "    inner.parent.chmod(0o555)\n"
+                   "    with open(os.environ['WHERE_OUT'], 'w') as out:\n"
+                   "        json.dump(str(tmp_path), out)\n")
+    where = tmp_path / "where.json"
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py",
+                      extra_env={"WHERE_OUT": str(where)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    export = Path(json.loads(where.read_text())) / "export"
+    assert [p.stat().st_mode & 0o700 for p in (export, export / "inner")] == [0o700, 0o700]
 
 
 @pytest.mark.parametrize("passed", [True, False])
@@ -637,3 +703,26 @@ def test_default_receipt_names_cannot_collide(tmp_path, monkeypatch):
     paths = [root_conftest._write_test_receipt(data) for _ in range(3)]
     assert len(set(paths)) == 3
     assert all(json.loads(path.read_text()) == data for path in paths)
+
+
+def test_make_tree_removable_fixes_dirs_and_never_follows_links(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    tree = tmp_path / "tree"
+    deep = tree / "a" / "b"
+    deep.mkdir(parents=True)
+    frozen = deep / "frozen.txt"
+    frozen.write_text("x")
+    frozen.chmod(0o444)
+    (tree / "link").symlink_to(outside, target_is_directory=True)
+    deep.chmod(0o500)
+    deep.parent.chmod(0o000)  # 连列目录都不行的一层，也得先修再往下走
+    tree.chmod(0o500)
+    outside.chmod(0o555)
+    try:
+        root_conftest._make_tree_removable(tree)
+        assert [p.stat().st_mode & 0o700 for p in (tree, deep.parent, deep)] == [0o700] * 3
+        assert frozen.stat().st_mode & 0o777 == 0o444  # 删文件看父目录，文件本身不动
+        assert outside.stat().st_mode & 0o777 == 0o555  # 软链指到树外，不能顺手改
+    finally:
+        outside.chmod(0o755)
