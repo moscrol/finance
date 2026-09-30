@@ -28,6 +28,13 @@ from intelligence.services.methodology_backtest.labels import build_labels
 from intelligence.services.methodology_backtest.outcomes import build_outcomes
 from intelligence.tests import test_episode_tools as episode_tests
 from market_feature_store.db import init_db
+import os
+
+
+requires_zsh = pytest.mark.skipif(
+    not os.path.exists("/bin/zsh"),
+    reason="需要 /bin/zsh（macOS 默认 shell）；Linux 上跳过，Mac 上照常跑",
+)
 
 REPO = Path(__file__).resolve().parents[2]
 RULE = REPO / "methodology/rules/dual_red_streak3_continuation.v1.json"
@@ -679,6 +686,7 @@ def test_log_dir_is_ready_before_the_binding_is_resolved() -> None:
     assert assign < mkdir_at < use, "mkdir -p $LOG_DIR 要在赋值之后、引用之前"
 
 
+@requires_zsh
 def test_binding_resolution_runs_under_set_u_without_log_dir(tmp_path) -> None:
     """真实启动条件（`set -u` + 未预设 LOG_DIR）下跑一遍绑定解析：``active`` 必须真的执行。
 
@@ -772,6 +780,7 @@ raise SystemExit(2)
 """
 
 
+@requires_zsh
 def test_old_cli_falls_back_with_the_true_reason(tmp_path) -> None:
     """链切未做时按「从未配置」走内置默认, 且日志写真话。
 
@@ -786,6 +795,7 @@ def test_old_cli_falls_back_with_the_true_reason(tmp_path) -> None:
     assert "没有 active 子命令" in r["log"] and "链切" in r["log"]
 
 
+@requires_zsh
 def test_help_failure_is_not_reported_as_missing_capability(tmp_path) -> None:
     """能力**查不出来**不等于能力不存在。
 
@@ -801,6 +811,7 @@ def test_help_failure_is_not_reported_as_missing_capability(tmp_path) -> None:
     assert "boom" in r["log"], "失败原因要留在日志里"
 
 
+@requires_zsh
 def test_crash_exit_code_is_not_read_as_never_configured(tmp_path) -> None:
     """业务码与崩溃码不能混用。
 
@@ -817,6 +828,7 @@ def test_crash_exit_code_is_not_read_as_never_configured(tmp_path) -> None:
     assert not r["DIR"].endswith("475597e2e017a2eedd3886700cd41d394d3694eba3487e205b8ddc91723b5a2f")
 
 
+@requires_zsh
 def test_only_the_dedicated_unset_code_falls_back(tmp_path) -> None:
     """只有 ACTIVE_UNSET(4) 允许回退内置默认; 3 停、其余非 0 也停。"""
     def cli(rc: int) -> str:
@@ -833,6 +845,7 @@ def test_only_the_dedicated_unset_code_falls_back(tmp_path) -> None:
         assert r["ERR"] != "", f"active 退出 {rc} 被放行了"
 
 
+@requires_zsh
 def test_valid_binding_is_used_verbatim(tmp_path) -> None:
     """指针有效时原样采用, 不碰默认值。"""
     chosen = tmp_path / "elsewhere" / ("a" * 64)

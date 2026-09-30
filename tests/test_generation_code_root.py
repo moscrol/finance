@@ -12,6 +12,12 @@ import sys
 import duckdb
 import pytest
 
+
+requires_zsh = pytest.mark.skipif(
+    not os.path.exists("/bin/zsh"),
+    reason="需要 /bin/zsh（macOS 默认 shell）；Linux 上跳过，Mac 上照常跑",
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 DAY = "2026-09-11"
 
@@ -335,6 +341,7 @@ def test_missing_direct_script_does_not_search_data_tree(rig):
     assert "STALE_RENDERER" not in result.stdout + result.stderr
 
 
+@requires_zsh
 def test_nightly_callsite_real_regression_and_restore(rig):
     """仅在夹具副本变异；真实 shell → 启动器 → CLI → 子进程，不与工作树测试抢文件。"""
     code, data, elsewhere, env = rig

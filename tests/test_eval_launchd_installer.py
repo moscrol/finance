@@ -13,6 +13,12 @@ import subprocess
 
 import pytest
 
+
+pytestmark = pytest.mark.skipif(
+    not os.path.exists("/bin/zsh"),
+    reason="安装器是 zsh 脚本：需要 /bin/zsh（macOS 默认 shell）；Linux 上整份跳过，Mac 上照常跑",
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "scripts/install_eval_launchd.sh"
 SCRIPTS = {
