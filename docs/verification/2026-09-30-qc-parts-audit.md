@@ -3,7 +3,7 @@
 > 范围：用户要求按「底座 / 领域 harness / 工具层 / skill / 记忆 / 优化迭代机制」逐部件质检，并覆盖三条日常线：数据接入与消费、Knevo 对照借鉴、ReAct 对照。
 > 基线：`main@75693271`（浅克隆，只有 1 个提交，所以**没有做历史 / 变更频率分析**）。
 > 环境：Linux 沙箱，Python 3.11.2（仓内要求 3.12，装不上）。没有 Mac 上的 `~/.finance-runtime` / `~/agent-memory` / `~/harness-reference`，所以**所有 live 读数都引自仓内文档，不是本次复算**。
-> 修复：P0 三项加一项工具已在 `arena/01a0f120-finance` 分支落地，见 §3。
+> 修复：P0 三项、台账体检工具，以及质检中新发现的一个测试泄漏，已在 `arena/01a0f120-finance` 分支落地，见 §3。
 
 ## 0. 总评
 
@@ -47,6 +47,7 @@
   - 3 条：依赖 macOS 或 vault；
   - 1 条：Python 3.11 语法不兼容。仓内有 2 个文件用了 3.12 语法：`scripts/calc_case_acceptance.py:273`、`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；
   - 6 条：**真实潜在缺陷**，swap 锁，见 §1 底座行。
+- 全量跑完后沙箱家目录多出 `~/.finance-runtime/rejudge-pending/index.jsonl`（138 行）→ 定位为测试泄漏，已修（§3-⑤）。
 
 ## 3. 本分支已做的修复（`arena/01a0f120-finance`）
 
@@ -56,6 +57,7 @@
 | ② | 429 限流处理 | `llm_refine.py`：只认 429；按 `Retry-After` / `retry-after-ms` 等一次再试（没给就 2 秒加抖动）。以下情况不等、直接失败：要等超过 20 秒；等完剩不到 `MIN_VIABLE_LLM_SECONDS`；本轮调用预算已满；流式已吐字；用户取消。失败原因带「限流：服务端要求 N 秒后再试」，仍归 `provider_rate_limited`。**没有**把 429 加进瞬态名单（那条链会无间隔连打三次）。覆盖 `complete` / `chat_with_tools`（含流式）/ `synthesize_messages` / `synthesize_messages_stream` | `intelligence/tests/test_llm_rate_limit_retry.py` 34 例。反向验证：换回旧行为，6 个调用路径用例红。回归：89 个引用 `llm_refine` 的测试文件共 3,163 例全绿 |
 | ③ | 生效模型准入 | `intelligence/eval/model_admission.py` + `scripts/check_model_admission.py --expect-model X <产物>...`。exit 0 准入 / 1 错配 / 2 无证据（fail-closed）；认 `continuous-episode.json`、`events.jsonl`、SDK 臂的 `served_models`；acceptance-workflow §2 第 3 条补了这一步 | `intelligence/tests/test_model_admission.py` 19 例。真实产物冒烟：09-21 judge-mode-k3 两个生产 run，`--expect-model glm-5.3` → exit 1（实际 `kimi-k3`），`--expect-model kimi-k3` → exit 0 |
 | ④ | 台账体检 | `scripts/prediction_ledger_status.py`：fix_type 分布、pending 年龄、枚举外取值、refuted 连击；Open 表取行复用 crosswalk 的解析 | `tests/test_prediction_ledger_status.py`，含「与 crosswalk 行数一致」「枚举与台账规则节一致」两条防漂移 |
+| ⑤ | 测试往真实「待重判」队列写假条目（本次质检中发现） | workbench HTTP 用例把运行交给后台线程 `workbench-run_N`，线程在用例结束、pytest 清掉 `PYTEST_CURRENT_TEST` 之后才写 `~/.finance-runtime/rejudge-pending/index.jsonl`，模块自带的「测试中不写」闸失效：一次全量灌进 138 条假「待重判」，Mac 上即污染生产积压。根 `conftest.py` 的 `_FORCED_TEST_ENV` 把 `FINANCE_REJUDGE_PENDING_INDEX` 改道到会话临时文件 | `intelligence/tests/test_rejudge_pending_isolation.py`（复现「比用例活得久的线程」）。插桩复跑 89 个文件：泄漏 68 次 → 0；反向验证：撤掉 conftest 改动即红 |
 | C | 预注册 2×2 | `docs/superpowers/specs/2026-09-30-model-harness-2x2-preregistration.md` | 未开跑：需要在 Mac 上先过 F1–F4 可行性检查 |
 
 ## 4. 未修的建议
