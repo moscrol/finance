@@ -137,6 +137,23 @@ def test_doctor_rejects_missing_interpreter(workspace, repo):
     assert workspace.doctor(repo)["status"] == "blocked"
 
 
+def test_doctor_uses_github_when_gitea_contains_different_history(workspace, repo):
+    github = workspace_env.git(repo, "rev-parse", "HEAD")
+    workspace_env.git(repo, "update-ref", "refs/remotes/origin/main", github)
+    workspace_env.git(repo, "commit", "--allow-empty", "-m", "backup-only history")
+    workspace_env.git(repo, "update-ref", "refs/remotes/gitea/main", "HEAD")
+    result = workspace.doctor(repo)
+    assert result["baseline"]["ref"] == "origin/main"
+    assert result["baseline"]["revision"] == github
+
+
+def test_doctor_does_not_treat_backup_as_github_baseline(workspace, repo):
+    workspace_env.git(repo, "update-ref", "refs/remotes/gitea/main", "HEAD")
+    result = workspace.doctor(repo)
+    assert "baseline" not in result
+    assert any("GitHub baseline not verified" in warning for warning in result["warnings"])
+
+
 def test_bootstrap_plan_has_no_side_effects(workspace, repo, monkeypatch):
     def forbidden(*a, **kw):
         pytest.fail("plan must not run commands")

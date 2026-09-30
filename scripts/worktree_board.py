@@ -132,9 +132,9 @@ def _git(args: list[str], *, cwd: str | None, timeout: float) -> tuple[int, str]
 
 
 def resolve_base(cwd: str, timeout: float) -> str:
-    """合入基线：日常远程是 gitea/main，没有再退 origin/main、main。"""
+    """GitHub 主干优先；本地 main 只供离线盘点，Gitea 是历史备份。"""
 
-    for candidate in ("gitea/main", "origin/main", "main"):
+    for candidate in ("origin/main", "main"):
         code, _ = _git(["rev-parse", "--verify", "--quiet", candidate], cwd=cwd, timeout=timeout)
         if code == 0:
             return candidate

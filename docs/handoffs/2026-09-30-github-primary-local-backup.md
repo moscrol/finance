@@ -1,0 +1,65 @@
+# 2026-09-30 GitHub 主协作与本地备份安装记录
+
+用户计划主要在 GitHub 操作，以 Gitea 本地备份应对源账号不可用。前一轮已停止强制镜像与每八小时自动推送；本轮获得“先把基础的环境搭好”的执行授权。
+
+## 实际安装
+
+金融仓主协作入口为 `https://github.com/moscrol/finance.git`。本机金融 Git 配置选 `remote.pushDefault=origin`、`push.default=simple`、`fetch.prune=true`；原 Gitea 分支跟踪入口改为 origin。提交指针和原业务工作树内容保留。GitHub 已删分支没有重新建立。
+
+GitHub main 的保护通过 API 设置并读回：要求 `workbench-check`、`registry-check`，要求 PR 与解决评审讨论，管理员同样遵守；禁止 main 强推和删除。已有“main 合并等用户确认”规则仍适用。
+
+本机当前使用的 AGENTS、workspace doctor、工作树盘点、收据漂移检查、台账取号及清理入口已切到 GitHub 主干。破坏性批量清理缺少 origin/main 时停止；旧仓必须显式给基线。工作树归档工具的 Gitea 备份目标继续保留。其他私有配套仓须单独核实 GitHub 可见性与入口，本轮没有将其内容发布到金融公开仓。
+
+备份安装副本为 `~/.finance-runtime/github-backup/finance/runner.py`，配置与成功/失败收据在同目录。LaunchAgent `com.a77.finance-github-local-backup` 使用系统 Python 3.14，每 3600 秒运行，登录时启动。源 GitHub push URL 指向禁用路径；运行前与发布前校验目标的全部实际 push URLs。凭据使用既有 gh 登录与 Keychain，不写 token 到配置和日志。
+
+备份数据为 `~/backups/github-finance/<日期>/`，每日最新代码 bundle 与版本 manifest/API 元数据。失败保留上次成功文件，完整成功后回收同一天旧尝试，旧日期保留。恢复操作见 `docs/workflows/dual-remote-collaboration.md`。
+
+## 发现顺序与决定
+
+先检查当前检出与双端引用，发现现用主树停在旧提交且有业务在途内容，因此从已同步的 `origin/main@7569327143a9a40ff44da32d723865b062d856e6` 建独立实现树。随后读取平台权限、停镜像状态、现有门禁，配置主干保护和单向备份。
+
+| 方案 | 评价 | 决定 |
+|---|---|---|
+| 强制双端镜像并传播删除 | 会覆盖历史或把用户清理的源分支补回；违背已有停镜像决定 | 否决 |
+| GitHub 普通快进，分叉另存 backup/github 引用 | 保留目标旧历史，同时能找到源端固定 SHA | 采用 |
+| 仅确认 main 相等 | 不证明其他分支、标签、平台记录或独立恢复 | 否决 |
+| Git 对象 + 独立 bundle + API 元数据 | 可离线恢复源码；平台记录留人工恢复参考 | 采用 |
+| 从开发工作树长期运行脚本 | 工作树移除或依赖改动会影响任务 | 否决 |
+| 独立运行副本、系统 Python、launchd | 与临时工作树和共享 venv 分离；Mac 离线期间仍有明确边界 | 采用 |
+
+首次真实备份成功后做了 Standards 与 Spec 两轴复核。复核发现仅校验 fetch URL 不足以约束推送目的地、失败重试会覆盖旧成功 bundle、清理默认基线仍为备份主干。固定实现 `6259d11f9` 已修复，并补真 Git 回归。独立复核还验证首次检查后 push URL 改变、元数据部分写入后失败、真正旧版收据升级后连续失败的保全行为。
+
+## 验证事实
+
+- 固定实现提交 `6259d11f9068a4d3598bcd325fa6975055cb3613`：196 条相关测试通过，Ruff、diff 检查与提交门禁通过；code-map 全量重建成功，35,966 nodes。
+- 2026-09-30 05:47:50 UTC（13:47:50 台北）实际备份成功：37 个分支、276 个标签，313 个源引用；普通推送更新 1 个引用，无新增分叉归档。Gitea 留存 556 个源端不存在的历史引用。
+- main 固定为 `7569327143a9a40ff44da32d723865b062d856e6`，实现分支固定为 `6259d11f9068a4d3598bcd325fa6975055cb3613`；同期其他 agent 的提交按该次观察值冻结，之后推进由下一轮备份接收。
+- bundle 106,505,745 bytes，SHA-256 `61ef97697572421d3918bb4edb03707dbb614a53313e3f3c23f86a43034bada4`；从该文件离线 bare clone、fsck 与全部 313 个源引用 SHA 核对通过。
+- API 导出：5 个 Issue/PR 条目、5 个 PR、0 条 Issue 评论、0 条 PR 行评论、0 个 Release、10 个 label、0 个 milestone；另有逐 PR 评审与旧 Gitea 开放 PR 索引。
+- 配置回读确认管理员保护、两个 required checks、PR 要求、禁止强推与 main 删除。实际备份已通过反向 push mirror 为空的检查。
+
+测试收据：`~/.finance-runtime/test-receipts/20260930T054715Z-6259d11f-eb63649ad6fa.json`。这是本次相关路径验证，不是整个仓库的全量通过结论。
+
+## 在途集成与边界
+
+[GitHub PR #5](https://github.com/moscrol/finance/pull/5) 已发布并附到本聊天，尚未合入。初轮前端、E2E、注册表检查通过；Python 全量测试在 15 分钟上限被取消，取消前存在 6 个失败标记，未产生完整失败清单。基座 [main 的 CI](https://github.com/moscrol/finance/actions/runs/36659055037) 同样有连续六失败片段，后续还有更多失败并超时；不能将现有红灯外推为本轮改动导致，也不能宣布已解决。修复提交已触发新轮检查。
+
+现用共享 venv 存在既有 httpx 0.25.2 / lock 0.28.1 差异，workspace doctor 如实阻止把该环境称为锁定环境。本轮没有修改共享运行依赖；独立备份运行已实际验证。
+
+本地每小时任务需要 Mac 运行并登录；关机或睡眠不会执行。bundle 不包含生产数据库、会话、外部附件、LFS 实体或 Wiki。API JSON 不等于自动重建 GitHub/Gitea 所有功能。旧 Gitea PR 编号不能当成同号 GitHub PR，既有在途成果按任务迁移。
+
+用户已确认“全量检查通过后合入”；本机与 GitHub 同一提交全部必需检查通过后合入环境规程，生产业务部署另按原验收处理。日常源端删枝与备份历史保留分别记账，避免为了清单相等破坏备份。
+
+## PR #5 的检查阻塞修复
+
+合入测试隔离基座 #7 后，候选 `c4f71a8aa` 无合并冲突，自动合并已启用。GitHub run `36692469513` 的前端、e2e、registry 均成功，Python 只有 `test_failed_stream_keeps_progress_without_partial_text[True]` 失败：把尚未收到响应头时合法的 `headers_elapsed_ms=None` 当作数值比较。
+
+诊断在独立工作树中只运行该测试，给本地服务固定 300ms 的响应头延迟，稳定重现同一 TypeError（1 failed / 0.64s）。这排除了跨测试污染；源码也确认进度只在成功进入响应后写入。原测试把 HTTP worker 启动、线程调度和首个正文都压进 200ms，无法保证自己要断言的阶段已经发生。
+
+修复只调整测试：可控时钟与响应替身固定响应头前、正文前、正文后三种截止位置；新增响应头前截止的空进度断言，并使首字输出后的禁止重放测试摆脱同一个竞态。真实本地 HTTP 的滴流截止、正常响应、无额外 fallback 及独立传输诊断继续保留；运行时、生产超时、模型重试均未修改。原固定延迟命令转为 1 passed / 0.41s，三个相关完整文件 66 passed / 15.33s。
+
+最终提交还须本机与 GitHub 全量。暂关条件合并是为了等待两端收据，不撤销用户已给的合入授权。最终结果写入 PR 与本次任务交付记录，避免为更新结果再产生未验的新提交。
+
+提交检查还发现 #7 引入的 HTTPServer `server_name` / `server_port` 被仓内静态扫描误判为无人读取。已在 Python 3.12 标准库 `CGIHTTPRequestHandler.run_cgi()` 核对真实读取点，复用 #8 已验证的两字段协议例外；不增大审计基线，不绕过提交钩子，不修改 HTTP 运行行为。
+
+本机使用依赖锁定的独立 venv 全量检查 `f015c5486` 时，`tests/test_pi_review_repair.py` 的 11 项暴露深层解释器目录的夹具缺陷：`realpath` 需要逐级读取父目录 metadata，夹具只授权了候选树的父目录。单独 `test_sandbox_interpreter_binding_without_git_access[configured-spec]` 也以同一 `Operation not permitted` 失败（1 failed / 1.02s）。这与 #8 已验证的故障相同，因此原样复用 `35b7fcb3a` 的该测试文件修复：只补解释器父目录的 metadata 读取，不放开目录内容或进程权限，不改生产沙箱。前轮失败收据保留；新的最终提交仍需重新跑本机和 GitHub 全量。

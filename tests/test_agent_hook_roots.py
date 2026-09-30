@@ -44,6 +44,17 @@ def _short_head() -> str:
     ).stdout.strip()
 
 
+def _vault_home(tmp_path: Path) -> str:
+    """给被委托的记忆钩子一个可达的空 vault，返回用作 ``HOME`` 的目录。
+
+    钩子先找仓根 ``.agent-memory``、再找 ``$HOME/agent-memory``，都不在就静默 exit 0、注入为空。
+    开发机上仓根软链在，这里不起作用；CI / 云端容器两者都没有，不给就测不到选根逻辑。
+    """
+    home = tmp_path / "vault-home"
+    (home / "agent-memory").mkdir(parents=True)
+    return str(home)
+
+
 def _make_decoy(tmp_path: Path, sentinel: str) -> Path:
     """造一棵能骗过 sentinel 判据、但不是 git 仓的假树。"""
     decoy = tmp_path / "decoy-tree"
@@ -108,8 +119,9 @@ def test_codex_hook_injects_repo_facts_regardless_of_cwd(tmp_path: Path) -> None
     下游用 cwd 找 git；只拼路径不切目录，会注入「当前分支：?」且没有项目笔记。
     """
     hook = ROOT / ".codex" / "hooks" / "load-memory.sh"
+    home = _vault_home(tmp_path)
     for cwd, env_root in ((str(ROOT), ""), (str(tmp_path), str(ROOT))):
-        env = {**os.environ, "CODEX_PROJECT_DIR": env_root}
+        env = {**os.environ, "CODEX_PROJECT_DIR": env_root, "HOME": home}
         out = subprocess.run(
             ["bash", str(hook)], cwd=cwd, capture_output=True, text=True, env=env
         ).stdout
@@ -180,7 +192,7 @@ def test_codex_hook_ignores_env_pointing_at_another_valid_tree(tmp_path: Path) -
         cwd=ROOT,
         capture_output=True,
         text=True,
-        env={**os.environ, "CODEX_PROJECT_DIR": str(other)},
+        env={**os.environ, "CODEX_PROJECT_DIR": str(other), "HOME": _vault_home(tmp_path)},
     ).stdout
 
     assert "other-valid-tree-branch" not in out, (

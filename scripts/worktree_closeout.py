@@ -878,7 +878,7 @@ def main(argv: list[str] | None = None) -> int:
                         help="允许 unlock 这棵上锁的树（可多次；plan 里用 release_lock）")
     parser.add_argument("--apply", action="store_true", help="真动手（只接受 dry-run 收据）")
     parser.add_argument("--repo", help="仓（默认当前目录所在仓）")
-    parser.add_argument("--base", help="基线引用（默认 gitea/main，其次 origin/main、main）")
+    parser.add_argument("--base", help="基线引用（默认 origin/main，缺失时用本地 main）")
     parser.add_argument("--remote", default="gitea", help="备份远端（默认 gitea）")
     parser.add_argument("--out-dir", help="收据与归档目录（默认 ~/.finance-runtime/reviews/worktree-closeout-<日期>；"
                                           "apply 默认用 dry-run 收据所在目录）")

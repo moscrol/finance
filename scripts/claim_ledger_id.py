@@ -223,8 +223,8 @@ def main() -> int:
     p_claim.add_argument("--repo", type=Path, default=REPO, help="仓库根（默认本仓）")
     p_claim.add_argument(
         "--ledger-ref",
-        default="gitea/main",
-        help="台账读取引用（默认 gitea/main；读主干不读工作树）",
+        default="origin/main",
+        help="台账读取引用（默认 origin/main；读主干不读工作树）",
     )
     p_claim.add_argument(
         "--no-fetch",

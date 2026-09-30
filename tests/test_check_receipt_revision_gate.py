@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -124,3 +125,17 @@ def test_base_drift_unresolvable_ref_fails_closed(repo, monkeypatch):
     head = _run(repo, "rev-parse", "HEAD")
     ok, _ = ctr.check_base_drift(head, "no-such-ref", max_merges=5)
     assert not ok
+
+
+def test_cli_drift_uses_github_main_instead_of_stale_backup(repo, monkeypatch, capsys):
+    monkeypatch.setattr(ctr, "REPO", repo)
+    old = _run(repo, "rev-parse", "HEAD")
+    _run(repo, "update-ref", "refs/remotes/gitea/main", old)
+    _add_merges(repo, 2)
+    _run(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    receipt = repo / "receipt.json"
+    receipt.write_text(json.dumps({"revision": old, "dirty": False, "counts": {"passed": 1},
+                                   "scope": {"collected": 1}}))
+    monkeypatch.setattr(sys, "argv", ["check_test_receipt.py", str(receipt), "--base-drift-max", "0"])
+    assert ctr.main() == 1
+    assert "基座漂移超限" in capsys.readouterr().out

@@ -174,7 +174,16 @@ def configure_sandbox(folder, tree):
         anchor = f"({selector} {json.dumps(str(previous))})"
         assert sum(part.count(anchor) for part in rest) == 1
         rest = [part.replace(anchor, f"({selector} {json.dumps(str(current))})") for part in rest]
-    profile.write_text(sandbox_metadata(tree, folder).join(rest))
+    # realpath() walks every interpreter ancestor. A venv in a separate, deeply
+    # nested worktree is not covered by the disposable candidate's ancestors.
+    # Grant stat access only; protected contents and process rules stay closed.
+    interpreter_parents = " ".join(
+        f"(literal {json.dumps(str(parent))})" for parent in Path(sys.prefix).parents
+    )
+    profile.write_text(
+        sandbox_metadata(tree, folder).join(rest)
+        + f"\n(allow file-read-metadata {interpreter_parents})\n"
+    )
 
 
 def sandbox_inputs(tmp_path, axis, tree):
@@ -204,8 +213,11 @@ def test_sandbox_fixture_rewrites_only_venv_entries_for_nested_tree(tmp_path, mo
     ancestor = f"(literal {json.dumps(str(venv.parent))})"
     assert ancestor in metadata and ancestor not in rest
     assert rest.count(f"(subpath {json.dumps(str(selected))})") == 1
-    assert rest.count(f"(literal {json.dumps(str(selected.parent))})") == 1
+    # One existing traversal rule plus the metadata-only interpreter rule.
+    assert rest.count(f"(literal {json.dumps(str(selected.parent))})") == 2
     assert json.dumps(str(venv)) not in policy
+    for parent in selected.parents:
+        assert f"(literal {json.dumps(str(parent))})" in policy
 
 
 def sandbox_tool_command(folder, command):

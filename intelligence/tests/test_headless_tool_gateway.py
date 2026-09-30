@@ -167,6 +167,52 @@ def test_gateway_executes_authorized_registry_tool() -> None:
     ]
 
 
+def test_gateway_bind_skips_reverse_dns_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """HTTPServer.server_bind 会 socket.getfqdn(127.0.0.1)；回环 gateway 不该反查。"""
+
+    import socket
+
+    def _no_reverse_dns(*_args: object, **_kwargs: object) -> str:
+        raise AssertionError("loopback gateway must not reverse-resolve its bind address")
+
+    monkeypatch.setattr(socket, "getfqdn", _no_reverse_dns)
+    calls: list[tuple[str, str]] = []
+    with HeadlessToolGateway(registry=_registry(calls), context=_context()) as gateway:
+        result = gateway.call("market_data", "A股最近五日")
+
+    assert result["status"] == "success", result
+    assert calls == [("market_data", "A股最近五日")]
+
+
+def test_slow_reverse_dns_cannot_close_research_stage_before_first_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """09-30 GitHub macOS runner：反查卡住吃光研究窗，首个授权调用被拒 research_stage_closed。
+
+    慢 getfqdn（1.5s）> 研究窗（1.0s）即原样复现该形状；gateway 不反查后授权工具照常执行。
+    """
+
+    import socket
+    import time as _time
+
+    def _slow_getfqdn(name: str = "") -> str:
+        _time.sleep(1.5)
+        return name or "localhost"
+
+    monkeypatch.setattr(socket, "getfqdn", _slow_getfqdn)
+    calls: list[tuple[str, str]] = []
+    context = replace(
+        _context(),
+        deadline=ResearchDeadline.from_timeout(1.0),
+        policy=ResearchPolicy("quick", 3, 1.0, 0.0),
+    )
+    with HeadlessToolGateway(registry=_registry(calls), context=context) as gateway:
+        result = gateway.call("market_data", "A股最近五日")
+
+    assert result.get("error") != "research_stage_closed", result
+    assert calls == [("market_data", "A股最近五日")]
+
+
 def test_gateway_freezes_post_tool_budget_for_success_handoff() -> None:
     class ScriptedDeadline:
         synthesis_reserve = 30.0
@@ -736,7 +782,8 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
             check=True,
             capture_output=True,
             text=True,
-            timeout=5.0,
+            # Bound the functional round trip without imposing a 5-second latency SLA.
+            timeout=30.0,
         )
         result = json.loads(completed.stdout)
         snapshot = gateway.snapshot()

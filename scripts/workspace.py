@@ -110,12 +110,12 @@ def doctor(root: Path, *, frontend: bool = False) -> dict:
     )
     try:
         report["baseline"] = dict(
-            ref="gitea/main", revision=git(root, "rev-parse", "gitea/main"),
-            ahead_behind=git(root, "rev-list", "--left-right", "--count", "HEAD...gitea/main"),
+            ref="origin/main", revision=git(root, "rev-parse", "origin/main"),
+            ahead_behind=git(root, "rev-list", "--left-right", "--count", "HEAD...origin/main"),
             fetched=False,
         )
     except subprocess.SubprocessError:
-        report["warnings"].append("local gitea/main unavailable; baseline not verified")
+        report["warnings"].append("local origin/main unavailable; GitHub baseline not verified")
     pins = locked_packages(root / spec["development_lock"])
     try:
         probe = probe_python(python, pins, spec["required_modules"])

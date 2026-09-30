@@ -6,7 +6,8 @@
 
 ## 开工
 
-1. `git fetch gitea`，从 `gitea/main` 开独立工作树，保留用户原树的未提交改动。
+1. `git fetch origin`，从最新 `origin/main` 开独立工作树，保留用户原树的未提交改动。
+   PR 和合入在 GitHub；Gitea 的历史保留枝不作为开发基线。备份与恢复见 `dual-remote-collaboration.md`。
 2. 在目标树运行 `python3 scripts/workspace.py doctor`。它只读，不 fetch、不调模型、不读生产数据正文。
    输出包含树、分支、提交、dirty、解释器、锁版本差异，以及六图来源的摘要与版本。
    `ready` 仅表示离线开发依赖符合合同；地图验证、前端、生产状态分开报告。
