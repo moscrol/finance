@@ -16,14 +16,22 @@ permissions:
 # 将来的 required checks 不用改名。
 jobs:
   python:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # macOS：套件里有一批只在 macOS 上成立的用例（launchd / APFS clonefile / sandbox-exec 等），
+    # ubuntu 上必红；全量约 18 分钟，原 15 分钟上限从未跑完（09-23～09-30 main 上 100 次 0 成功）。
+    # 公开仓用 GitHub 托管 macOS runner 不计费；若转私有，macOS 分钟按约 10 倍计，届时重估。
+    runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      # tests/test_pi_review_repair.py 会起 node 子进程；版本对齐 test-environment.json 的 node_major。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Install Python dependencies
         run: python -m pip install -r requirements-dev.lock
