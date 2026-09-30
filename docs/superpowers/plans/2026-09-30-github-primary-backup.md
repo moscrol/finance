@@ -8,12 +8,15 @@
 
 **Tech Stack:** Python standard library, Git, gh, Keychain, macOS launchd.
 
-- [ ] Add `scripts/github_local_backup.py`; install copies into a stable runtime directory, independent of this worktree.
-- [ ] Verify real local Git flows with `tests/test_github_local_backup.py`: fast-forward, deleted source branch retention, divergent source archival, destination rejection, standalone recovery.
-- [ ] Update `AGENTS.md`, `docs/workflows/agent-foundation.md`, `scripts/workspace.py`, `scripts/worktree_board.py`, and the shared preferences to select GitHub.
-- [ ] Add competing-remote regression checks to `tests/test_workspace.py` and `tests/test_worktree_board.py`.
-- [ ] Save original Git configuration; switch finance push defaults and former Gitea branch tracking entries to origin without changing commit pointers.
-- [ ] Configure GitHub main with required `workbench-check` and `registry-check`, administrator enforcement, and force/deletion protection; read back settings.
-- [ ] Install the hourly local runner; wait for its actual successful backup and verify source branches, retained destination branches and recoverable bundle.
-- [ ] Publish the setup branch as a GitHub PR; attach it to this chat. Keep main merge behind the existing user-confirmation rule.
-- [ ] Record actual installation, validation scope and recovery instructions in a shareable handoff and local output.
+- [x] Add `scripts/github_local_backup.py`; install copies into a stable runtime directory, independent of this worktree.
+- [x] Verify real local Git flows with `tests/test_github_local_backup.py`: fast-forward, deleted source branch retention, divergent source archival, destination rejection, standalone recovery.
+- [x] Update `AGENTS.md`, `docs/workflows/agent-foundation.md`, `scripts/workspace.py`, `scripts/worktree_board.py`, and the shared preferences to select GitHub.
+- [x] Add competing-remote regression checks to `tests/test_workspace.py` and `tests/test_worktree_board.py`.
+- [x] Save original Git configuration; switch finance push defaults and former Gitea branch tracking entries to origin without changing commit pointers.
+- [x] Configure GitHub main with required `workbench-check` and `registry-check`, administrator enforcement, and force/deletion protection; read back settings.
+- [x] Install the hourly local runner; wait for its actual successful backup and verify source branches, retained destination branches and recoverable bundle.
+- [x] Publish the setup branch as a GitHub PR; attach it to this chat. Keep main merge behind the existing user-confirmation rule.
+- [x] Record actual installation, validation scope and recovery instructions in a shareable handoff and local output.
+
+Execution evidence: `docs/handoffs/2026-09-30-github-primary-local-backup.md`.
+Remaining integration gate: PR #5 requires successful full CI and user confirmation; environment installation is already active.
