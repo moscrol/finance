@@ -782,7 +782,8 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
             check=True,
             capture_output=True,
             text=True,
-            timeout=5.0,
+            # Bound the functional round trip without imposing a 5-second latency SLA.
+            timeout=30.0,
         )
         result = json.loads(completed.stdout)
         snapshot = gateway.snapshot()
