@@ -19,4 +19,4 @@
 - [x] Record actual installation, validation scope and recovery instructions in a shareable handoff and local output.
 
 Execution evidence: `docs/handoffs/2026-09-30-github-primary-local-backup.md`.
-Remaining integration gate: PR #5 requires successful full CI and user confirmation; environment installation is already active.
+Remaining integration gate: PR #5 requires successful full CI; the user explicitly authorized merging after all checks pass, and GitHub auto-merge is enabled. Environment installation is already active.
