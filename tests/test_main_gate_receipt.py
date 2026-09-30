@@ -61,8 +61,13 @@ def receipt(repo, **changes):
 def gate_env(tmp_path, **overrides):
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
+    # TMPDIR 也要隔离：嵌套 pytest 不给 --basetemp 时落在 $TMPDIR/pytest-of-<user>，
+    # 不隔离就是全机共享、积着只读残留、别的会话也在用的那个目录（post988 门禁误红）。
+    # 目录必须先建好：tempfile 遇到不存在的 TMPDIR 会静默退回系统临时区。
+    private_tmp = tmp_path / "tmp"
+    private_tmp.mkdir(exist_ok=True)
     env.update(HOME=str(tmp_path / "home"), PYTHONDONTWRITEBYTECODE="1",
-               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"))
+               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"), TMPDIR=str(private_tmp))
     env.update(overrides)
     return env
 
@@ -542,6 +547,22 @@ def test_gate_without_basetemp_flag_touches_nothing(repo, tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     # 收据路径里会带本测试自己的名字（含 "basetemp"），所以只锁清理动作那句。
     assert "basetemp 已清" not in result.stdout
+
+
+def test_nested_pytest_default_basetemp_is_isolated(repo, tmp_path):
+    """嵌套 pytest 不给 --basetemp 时落在 $TMPDIR/pytest-of-<user>——必须是本测试自己的临时区。
+
+    2026-09-30 post988 门禁：只隔离了 HOME、没隔离 TMPDIR，嵌套 pytest 用了全机共享的
+    pytest-of-a77（积着删不掉的只读 garbage-* 目录、其他会话也在并发用），超过 40 秒超时误红。
+    """
+    _commit_sample(repo, "def test_where(tmp_path):\n    print('nested-tmp=' + str(tmp_path))\n")
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -s -p no:cacheprovider test_sample.py")
+    assert result.returncode == 0, result.stdout + result.stderr
+    logs = list((tmp_path / "receipts").glob("gate-*/pytest.log.txt"))
+    assert len(logs) == 1
+    line = next(row for row in logs[0].read_text().splitlines() if "nested-tmp=" in row)
+    nested = os.path.realpath(line.split("nested-tmp=", 1)[1].strip())
+    assert nested.startswith(os.path.realpath(tmp_path / "tmp") + os.sep), nested
 
 
 @pytest.mark.parametrize("passed", [True, False])
