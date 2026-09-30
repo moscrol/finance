@@ -1,6 +1,7 @@
 """Exercise the shell entry point and the real pytest receipt writer offline."""
 from __future__ import annotations
 
+import getpass
 import json
 import os
 import shutil
@@ -546,6 +547,27 @@ def test_gate_without_basetemp_flag_touches_nothing(repo, tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     # 收据路径里会带本测试自己的名字（含 "basetemp"），所以只锁清理动作那句。
     assert "basetemp 已清" not in result.stdout
+
+
+def test_gate_without_basetemp_keeps_nested_pytest_off_inherited_tmpdir(repo, tmp_path, monkeypatch):
+    # 继承的 TMPDIR 是一个带残留的假「全机根」。泄漏时嵌套 pytest 会在这里建编号目录，退出时还替它清
+    # 旧目录和 garbage-*（09-30 超 40 s 的就是这个）。正向断言位置：tempfile 遇到不可用的 TMPDIR 会
+    # 悄悄退回 /tmp，光查「假根没被碰」抓不到那种泄漏。
+    shared = tmp_path / "shared-tmp"
+    for name in ("pytest-0", "pytest-1", "pytest-2", "pytest-3", "garbage-residue"):
+        (shared / f"pytest-of-{getpass.getuser()}" / name / "leftover").mkdir(parents=True)
+    before = sorted(shared.rglob("*"))
+    _commit_sample(repo, "import os\nfrom pathlib import Path\n\n\n"
+                   "def test_ok(tmp_path):\n"
+                   "    Path(os.environ['NESTED_TMP_REPORT']).write_text(str(tmp_path))\n")
+    report = tmp_path / "nested-tmp-path.txt"
+    monkeypatch.setenv("TMPDIR", str(shared))
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py",
+                      extra_env={"NESTED_TMP_REPORT": str(report)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    nested = Path(report.read_text()).resolve()
+    assert nested.is_relative_to((tmp_path / "sys-tmp").resolve()), nested
+    assert sorted(shared.rglob("*")) == before
 
 
 def test_nested_pytest_default_temproot_is_private(repo, tmp_path):
