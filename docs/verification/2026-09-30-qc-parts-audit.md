@@ -65,6 +65,7 @@
 | P2 | Mac 专属测试按条件跳过 | 52 条：49 条写死 `/bin/zsh`；2 条依赖本机 agent-memory 记忆库（钩子在记忆库不可达时按设计静默退出）；1 条依赖 macOS 的 clonefile。只给真需要的测试挂 `skipif`，条件在 Mac 上恒真，行为不变 | Linux 实测这 7 个文件：52 挂 → 142 过 / 52 跳 |
 | P2 | 换库锁跨平台自检 | 换库锁 `hold_swap_lock` 用 flock，duckdb 的写者锁是 POSIX 记录锁：两者只在 macOS 上互斥，Linux 上这把锁排不掉写者（沙箱实测 duckdb 1.5.4，两个方向都不排）。`db.swap_lock_platform_probe` 用子进程扮演另一个进程里的写者，调真实的 `hold_swap_lock` 测两个方向。daily-full 预检据此 fail closed；直写的 daily-update 不换库，不查。另加 `scripts/check_swap_lock_platform.py`。顺手纠正了锁文档里「duckdb 单写者锁用 flock 实现」的说法 | `tests/test_swap_lock_platform_probe.py`（与「写入落不落得了库」这一真实后果对账、子进程失常时 fail closed、只测一次）。5 条换库锁测试按自检结果跳过；1 条参数用例依赖 `cp -c`，按 darwin 跳过。变异验证：把自检读数反过来即红。相关测试 208 过 / 21 跳 / 0 挂 |
 | P1（部分） | 工具面收窄的调用证据 | `scripts/audit_episode_tool_outcomes.py` 加 `--by-dataset` / `--json`：`finance_query` 调用按题型（`contract.question_type`）× 数据集（trace `detail` 里的 `dataset=`）拆开，并列出注册表 `finance_query._DATASETS`（40 个）里在所扫 episode 中一次没被调用的。默认输出不变 | `tests/test_audit_episode_tool_outcomes.py` 9 例（含 2 个真实 episode 冒烟）。变异验证：去掉 `dataset=` 的前缀约束即红 |
+| 内容正确性 | 数值待核的确定性误报（接 post988 收据 §4「仍未做」） | 三个百分数字段的标签补上 %：`强势股加权涨幅%`、`强势股成交占比%`（market_daily）、`区间涨幅%`（sector_period_rank_daily）。以前回答照实写「14.93%」也会被挂「未在证据中找到出处」，因为数值门只从字段名认 % 单位。量纲逐列核过写入链：前两列是涨幅前 5% 个股 `pct_chg` 均值与 `100 × 成交额占比`，复盘会时期旧行同单位；区间涨幅由日更 features 步按连乘 × 100 写入。**竞价涨幅、海外个股 5日涨幅没改**：复盘会原样落库，沙箱里核不了量纲 | `intelligence/tests/test_numeric_note_false_positives.py` 新增 4 例：真实 finance_query 渲染证据行 → 条件句不再挂待核；裸名（无 %）仍挂，数值门不猜单位。先红后绿；变异：撤回一个标签即红。回归：引用 finance_query / 语义核验器的 159 个测试文件共 5,286 例全绿 |
 
 ## 4. 未修的建议
 
@@ -74,6 +75,7 @@
 
 - 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。统计工具已补（§3）：`scripts/audit_episode_tool_outcomes.py --by-dataset <runs 目录>`，按题型 × 数据集拆开调用次数，并列出注册了却一次没被调用的数据集。沙箱里只有 2 个真实 episode，40 个里只看到 3 个被调用，样本太小，不下结论。在 Mac 上对全部 episode（台账记过 747 份）跑一次，才有收窄的证据；收窄本身要用户拍板。
 - 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。题面和真值要按台账纪律从真实 run 里取，要在 Mac 上做。
+  - 同一条线上的确定性误报在推进：09-29 地图第 0 条已由 #986 / #988 修掉，本分支接着改了 #988 收据遗留的三列（§3）。剩下两列要在 Mac 上各查一次真实量级再定：`SELECT min(auction_pct), max(auction_pct) FROM fact_auction_stock_daily`、`SELECT min(pct_chg_5d), max(pct_chg_5d) FROM fact_global_stock_daily`。量级在正负几十以内就是百分数，照同样办法改标签；在正负 1 以内就是小数，不能改标签。合并前按 #988 的做法，在 Mac 上用存量 run 跑一次数值门 A/B。
 - **更正：记忆召回题包早就有了**，质检时漏看了。尺子是 `intelligence/eval/retrieval_recall.py`，标注集是 `intelligence/eval/cases/retrieval_recall_v1.jsonl`（20 条真实标注，其中 user_memory 15 条），另有合成夹具。08-15 首份基线（`docs/verification/2026-08-15-recall-baseline.md`）：user_memory hit@5 = **46.7%**（7/15），8 条漏召回的主因登记为「中文无分词」。
   - 真正的问题是这把尺子量出来的缺口 46 天没闭环。08-05 定了两步：第一步是把上游抽好的实体传进召回，`episode_tools` 已接（`_memory_recall_intent`），`ask.py:1046` 仍只传原始问句；第二步是用户拍板的「用语义检索，不用关键词匹配」，至今未做（`user_memory.select_relevant` 仍是字面重合打分）。
   - 标注集有来源纪律（「不许造」），所以本轮没有编合成改写题。评分器也没改：改了在沙箱里量不出真实效果。下一步在 Mac 上一条命令出当前基线：`python -m intelligence.eval.retrieval_recall --cases intelligence/eval/cases/retrieval_recall_v1.jsonl --users-root "$FORESIGHT_USERS_DIR"`，再以它为验收尺子做语义检索。
