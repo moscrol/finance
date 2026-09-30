@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import email.message
+import http.client
 import inspect
 import io
 import json
+import ssl
 import urllib.error
 from datetime import date, datetime, timedelta, timezone
 from email.utils import format_datetime
@@ -414,7 +416,7 @@ class _OkResp:
 
 
 def _arm(monkeypatch, responses):
-    """按序回放 responses；元素是 Exception 就 raise。返回 (calls, slept)。"""
+    """按序回放；工厂创建新响应，Exception 就 raise。返回 (calls, slept)。"""
 
     calls = {"n": 0}
     slept: list[float] = []
@@ -428,6 +430,8 @@ def _arm(monkeypatch, responses):
         index = calls["n"]
         calls["n"] += 1
         item = responses[min(index, len(responses) - 1)]
+        if callable(item):
+            item = item()
         if isinstance(item, Exception):
             raise item
         return item
@@ -439,6 +443,85 @@ def _arm(monkeypatch, responses):
     monkeypatch.setattr(hithink_client.time, "monotonic", lambda: elapsed[0])
     monkeypatch.setattr("urllib.request.urlopen", _urlopen)
     return calls, slept
+
+
+_TRANSPORT_ERRORS = [
+    http.client.RemoteDisconnected("peer closed before headers"),
+    http.client.IncompleteRead(b'{"code":', 10),
+    ConnectionResetError("connection reset"),
+    TimeoutError("response timed out"),
+    ssl.SSLEOFError("TLS connection closed"),
+]
+
+
+class _InterruptedResponse(_OkResp):
+    def __init__(self, error):
+        super().__init__({})
+        self.error = error
+
+    def read(self):
+        raise self.error
+
+
+@pytest.mark.parametrize("error", _TRANSPORT_ERRORS, ids=lambda e: type(e).__name__)
+@pytest.mark.parametrize("phase", ["open", "read"])
+def test_transient_transport_error_retries_complete_request(monkeypatch, error, phase):
+    failed = error if phase == "open" else _InterruptedResponse(error)
+    payload = {"code": 0, "data": {"items": [1, 2]}}
+    calls, slept = _arm(monkeypatch, [failed, _OkResp(payload)])
+
+    assert get_json("/api/a-share-index/prices/historical", gap_seconds=0) == payload
+    assert calls["n"] == 2
+    assert slept == [0.5]
+
+
+@pytest.mark.parametrize("error", _TRANSPORT_ERRORS, ids=lambda e: type(e).__name__)
+def test_persistent_transport_error_exhausts_existing_attempts(monkeypatch, error):
+    calls, slept = _arm(monkeypatch, [_InterruptedResponse(error)])
+
+    with pytest.raises(HithinkAPIError, match="重试耗尽") as caught:
+        get_json("/api/a-share-index/prices/historical", gap_seconds=0, retries=3)
+    assert type(caught.value) is HithinkAPIError
+    assert caught.value.__cause__ is error
+    assert calls["n"] == 3
+    assert slept == [0.5, 1.0]
+    assert "test-key-must-not-leak-xyz" not in str(caught.value)
+
+
+class _InterruptedHTTPError(urllib.error.HTTPError):
+    def __init__(self, status):
+        super().__init__("https://fuyao.aicubes.cn/api/x", status, "error",
+                         _headers({"Retry-After": "2"}), io.BytesIO())
+
+    def read(self):
+        raise http.client.IncompleteRead(b'{"message":', 10)
+
+
+def test_http_error_body_disconnect_retries_complete_request(monkeypatch):
+    payload = {"code": 0, "data": {"items": [1, 2]}}
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(503), _OkResp(payload)])
+    assert get_json("/api/x", gap_seconds=0) == payload
+    assert calls["n"] == 2 and slept == [0.5]
+
+
+def test_http_error_body_disconnect_exhausts_attempts(monkeypatch):
+    calls, slept = _arm(monkeypatch, [lambda: _InterruptedHTTPError(503)])
+    with pytest.raises(HithinkAPIError, match="重试耗尽"):
+        get_json("/api/x", gap_seconds=0, retries=3)
+    assert calls["n"] == 3 and slept == [0.5, 1.0]
+
+
+def test_http_429_does_not_need_complete_error_body(monkeypatch):
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(429), _OkResp({"code": 0})])
+    assert get_json("/api/x", gap_seconds=0, retries=1, rate_limit_budget_seconds=5)["code"] == 0
+    assert calls["n"] == 2 and slept == [2]
+
+
+def test_http_429_interrupted_body_still_obeys_rate_limit_budget(monkeypatch):
+    calls, slept = _arm(monkeypatch, [_InterruptedHTTPError(429)])
+    with pytest.raises(HithinkRateLimitError):
+        get_json("/api/x", gap_seconds=0, rate_limit_budget_seconds=1)
+    assert calls["n"] == 1 and slept == []
 
 
 def test_http_429_retries_then_ok(monkeypatch) -> None:
@@ -514,7 +597,7 @@ def test_retry_after_is_capped(monkeypatch) -> None:
 
 
 def test_rate_limit_budget_exhausts_and_fails_closed(monkeypatch) -> None:
-    calls, slept = _arm(monkeypatch, [_limit_error()])
+    calls, slept = _arm(monkeypatch, [_limit_error])
     with pytest.raises(HithinkRateLimitError) as excinfo:
         get_json(
             "/api/a-share/valuations/snapshot",
