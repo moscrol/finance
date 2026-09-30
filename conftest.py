@@ -47,6 +47,7 @@ import json
 import os
 import platform
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -524,3 +525,39 @@ def _isolate_personal_state_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(name, raising=False)
     for name, value in _FORCED_TEST_ENV:
         monkeypatch.setenv(name, value)
+
+
+def _make_tree_removable(root: Path) -> None:
+    """把 root 及其下所有目录补回 u+rwx（软链不跟、不改），尽力而为。"""
+
+    def fix(path: str) -> None:
+        try:
+            mode = os.lstat(path).st_mode
+            if stat.S_ISDIR(mode) and mode & stat.S_IRWXU != stat.S_IRWXU:
+                os.chmod(path, stat.S_IMODE(mode) | stat.S_IRWXU)
+        except OSError:
+            pass
+
+    fix(str(root))
+    for dirpath, dirnames, _ in os.walk(root):
+        for name in dirnames:  # 自顶向下：先修子目录，os.walk 才进得去
+            fix(os.path.join(dirpath, name))
+
+
+@pytest.fixture(autouse=True)
+def _leave_tmp_path_removable(request: pytest.FixtureRequest):
+    """用例收尾把 tmp_path 里的只读目录改回可写，免得污染 pytest 的共享临时根。
+
+    导出 / 冻结 / 封存类产品代码会把目录设成 0o555（这是它们要测的行为）。pytest 删旧
+    编号目录时，``rm_rf`` 的权限修复只向上修**文件**的父目录，删不动只读子目录，于是
+    改名成 ``garbage-*`` 留在 ``$TMPDIR/pytest-of-<user>/``，之后**每次**启动都重扫重删
+    一遍。2026-09-30 Mac 上积了约 1.4 万条目、200 多个只读子目录，拖慢并发门禁到超时。
+    会留只读目录的用例分散在多个文件，逐条补 finally 会漏掉以后新增的，所以收在这一层。
+    """
+    if "tmp_path" not in request.fixturenames:
+        yield
+        return
+    root = request.getfixturevalue("tmp_path")
+    yield
+    # 本夹具在 tmp_path 之后登记收尾，LIFO 下先于它执行，目录此刻一定还在。
+    _make_tree_removable(root)

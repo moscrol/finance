@@ -149,6 +149,9 @@ $MAC $'python3 -c \'import json;r=[json.loads(l) for l in open("/Users/lbq/Deskt
 |------|------|------|
 | HTTP 530 / Cloudflare 1033 | Mac 的 cloudflared/exec 源站没起来 | 远端修不了；在 Mac 本地 `pgrep -fl cloudflared`、重启隧道 |
 | Cloudflare 1010 | 请求缺 curl 样 User-Agent 被 WAF 拦 | `mac.py` 已带 `User-Agent: curl/8.5.0` |
+| HTTP 524（约 100 s 后） | 请求超过 Cloudflare 回源等待；**命令在 Mac 上照样跑完**，只是回显丢了 | 先查现场再决定，别重发；长命令写成脚本，`nohup bash <脚本> > <日志> 2>&1 < /dev/null &` 后台跑，再用短请求轮询日志 |
+| HTTP 502，连 `echo ok` 也 502 | 源站短暂不可达（09-30 出现 3 次，15–60 s 自愈）；有一次命令已执行、有两次没执行 | 等 `echo ok` 恢复后先查现场；复杂命令行先 base64 写成脚本文件，再发 `bash <脚本>` 这种短请求 |
+| 门禁里 18 条 `FileNotFoundError: 'node'` | exec 服务的 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`，没有 `/opt/homebrew/bin` | 跑测试 / 门禁前 `export PATH="$(zsh -lic 'printf %s "$PATH"')"`；这种红收据不是代码问题（09-30 实测） |
 | 中文显示成残字（铜铜/回并盘） | 隧道回显丢多字节（磁盘不损坏） | 用 codepoint dump / base64 核对，别信回显 |
 | `checkpoint` 命令不存在 | 当前在 evolve 等非 main 分支 | 用 main 独立 clone `~/finance-workspace-recheck` |
 | `register --help` 崩 | 中文 help 串触发 argparse ValueError | 跳过 `--help`，照 cli.py 的 `p_reg` 用参数 |
