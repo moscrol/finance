@@ -170,3 +170,100 @@ def test_enum_matches_the_ledger_rules_section():
 )
 def test_first_token(cell, expected):
     assert status._first_token(cell) == expected
+
+
+# ── 过期规则（2026-09-30 质检 ④）：新鲜 ≤14 / 临期 15–30 / 过期 >30；过期 ≠ refuted ──
+
+
+@pytest.mark.parametrize(
+    ("age", "bucket"),
+    [(0, "fresh"), (14, "fresh"), (15, "due"), (30, "due"), (31, "expired"), (None, "undated")],
+)
+def test_age_bucket_boundaries(age, bucket):
+    assert status.age_bucket(age, stale_days=14, expire_days=30) == bucket
+
+
+def test_expiry_buckets_and_verdicts_add_up_to_open_rows(tmp_path, capsys):
+    root = _ledger(
+        tmp_path,
+        [
+            _row("R-20260925-01", "`HARNESS_FIX`", "`pending`"),  # 5 天：新鲜
+            _row("R-20260910-01", "`HARNESS_FIX`", "`pending`"),  # 20 天：临期
+            _row("R-20260816-01", "`EVAL_ONLY`", "`pending`"),  # 45 天：过期
+            _row("R-20260801-01", "`HARNESS_FIX`", "`pending`"),  # 60 天：过期（最老，排第一）
+            _row("R-20260802-01", "`HARNESS_FIX`", "`confirmed`"),
+            _row("R-20260803-01", "`HARNESS_FIX`", "`partially_confirmed`"),
+            _row("R-20260804-01", "`ROUTING_FIX`", "`refuted`"),
+            _row("R-20260805-01", "`HARNESS_FIX`", "`expired`（前提已变，不再验）"),
+            _row("R-20260806-01", "`HARNESS_FIX`", "`held`"),
+        ],
+    )
+    report = status.build_report(root, as_of=date(2026, 9, 30), stale_days=14)
+    assert report["pending_age_buckets"] == {"fresh": 1, "due": 1, "expired": 2}
+    assert [row["id"] for row in report["expired_pending"]] == ["R-20260801-01", "R-20260816-01"]
+    verdicts = report["verdicts"]
+    assert verdicts == {
+        "confirmed": 1,
+        "partially_confirmed": 1,
+        "refuted": 1,
+        "expired": 3,
+        "expired_open": 2,
+        "expired_closed": 1,
+        "pending": 2,
+        "other": 1,
+    }
+    six = ("confirmed", "partially_confirmed", "refuted", "expired", "pending", "other")
+    assert sum(verdicts[key] for key in six) == report["open_rows"] == 9
+    # 只读：体检不改台账一个字节
+    before = (root / "docs" / "prediction-ledger.md").read_bytes()
+    assert status.main(["--root", str(root), "--as-of", "2026-09-30"]) == 0
+    assert (root / "docs" / "prediction-ledger.md").read_bytes() == before
+    out = capsys.readouterr().out
+    assert "结案口径：证实 1 · 部分证实 1 · 证伪 1 · 过期 3（待处理 2 / 已关闭 1） · 待定 2 · 其他 1" in out
+    assert "pending 年龄：新鲜（≤14 天）1 · 临期（15–30 天）1 · 过期（>30 天）2" in out
+    assert "过期待处理 2 行" in out and "R-20260801-01（60 天）" in out
+
+
+def test_expired_rows_neither_count_nor_break_a_refuted_streak(tmp_path):
+    # 过期 = 没有证据，不能当成 refuted，也不能当成「这次对了」把连击清零
+    root = _ledger(
+        tmp_path,
+        [
+            _row("R-20260801-01", "`HARNESS_FIX`", "`refuted`"),
+            _row("R-20260802-01", "`HARNESS_FIX`", "`expired`"),
+            _row("R-20260803-01", "`HARNESS_FIX`", "`refuted`"),
+            _row("R-20260804-01", "`HARNESS_FIX`", "`refuted`"),
+        ],
+    )
+    report = status.build_report(root, as_of=date(2026, 9, 30), stale_days=14)
+    assert report["refuted_streaks"]["HARNESS_FIX"] == {"current": 3, "longest": 3}
+    assert report["verdicts"]["refuted"] == 3 and report["verdicts"]["expired_closed"] == 1
+
+
+def test_custom_thresholds_and_invalid_order(tmp_path, capsys):
+    root = _ledger(tmp_path, [_row("R-20260910-01", "`HARNESS_FIX`", "`pending`")])  # 20 天
+    report = status.build_report(root, as_of=date(2026, 9, 30), stale_days=7, expire_days=19)
+    assert report["pending_age_buckets"] == {"fresh": 0, "due": 0, "expired": 1}
+    with pytest.raises(ValueError):
+        status.build_report(root, as_of=date(2026, 9, 30), stale_days=30, expire_days=14)
+    assert status.main(["--root", str(root), "--stale-days", "30", "--expire-days", "14"]) == 2
+    assert "不能小于" in capsys.readouterr().err
+
+
+def test_real_ledger_verdicts_add_up():
+    report = status.build_report(REPO, as_of=date(2026, 9, 30), stale_days=14)
+    verdicts = report["verdicts"]
+    six = ("confirmed", "partially_confirmed", "refuted", "expired", "pending", "other")
+    assert sum(verdicts[key] for key in six) == report["open_rows"]
+    assert sum(report["pending_age_buckets"].values()) == report["outcomes"].get("pending", 0)
+
+
+def test_expiry_rule_text_matches_the_code():
+    """台账「记账规则」写的档位与关闭值，和脚本常量同一份口径。"""
+
+    text = (REPO / "docs" / "prediction-ledger.md").read_text(encoding="utf-8")
+    rule = next(line for line in text.splitlines() if line.startswith("- **过期规则**"))
+    assert f"≤{status.DEFAULT_STALE_DAYS} 天新鲜" in rule
+    assert f">{status.DEFAULT_EXPIRE_DAYS} 天过期" in rule
+    assert f"`{status.CLOSED_UNVERIFIED}`" in rule
+    assert "scripts/prediction_ledger_status.py" in rule

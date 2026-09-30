@@ -8,7 +8,10 @@
 1. **fix_type 分布**：修补都堆在哪一层。2026-09-30 质检读数 HARNESS_FIX 占 Open 表 76%，
    而 ``SYSTEM_PROMPT_FIX`` 为 0、没有任何条目把问题归到模型本身——这个比例本身就是
    「只在一层找原因」的信号，但以前没人算过。
-2. **pending 积压的年龄**：按 ID 里的日期算挂了多少天，超过阈值的单列（``--stale-days``）。
+2. **pending 积压的年龄**：按 ID 里的日期算挂了多少天，超过阈值的单列（``--stale-days``），
+   并按台账「过期规则」分三档：新鲜（≤14 天）/ 临期（15–30 天）/ 过期（>30 天，``--expire-days``）。
+   过期 ≠ refuted（没测不等于判错）：过期行要么按「怎么验」重验，要么 outcome 写 ``expired``
+   显式关闭。本脚本只读、不改任何行——它只负责把该处理的行点名。
 3. **枚举外的 fix_type**：台账规则「只能取这 7 个值，不要发明新值」，此前靠自觉。
 4. **refuted 连击**：台账规则「同类 fix_type 连续 ≥3 次 refuted → 停止再堆同类修补，
    升格质疑 HARNESS/架构层」，此前没有任何东西在数。按 ID 时间序、只看已结案条目。
@@ -48,8 +51,13 @@ FIX_TYPES = (
     "NO_SYSTEM_FIX",
 )
 RESOLVED = frozenset({"confirmed", "refuted", "partially_confirmed"})
+# 过期规则（docs/prediction-ledger.md 记账规则）：过期未验、显式关闭的 outcome。它不是结案，
+# 不进 refuted 连击，也不进命中率的分母。
+CLOSED_UNVERIFIED = "expired"
 STREAK_ALERT = 3
 DEFAULT_STALE_DAYS = 14
+DEFAULT_EXPIRE_DAYS = 30
+AGE_BUCKETS = ("fresh", "due", "expired")
 
 _CELL_SPLIT = re.compile(r"(?<!\\)\|")
 _TICKED = re.compile(r"`([^`]+)`")
@@ -145,7 +153,55 @@ def refuted_streaks(rows: list[LedgerRow]) -> dict[str, dict[str, int]]:
     return result
 
 
-def build_report(root: Path, *, as_of: date, stale_days: int) -> dict[str, object]:
+def age_bucket(age_days: int | None, *, stale_days: int, expire_days: int) -> str:
+    """pending 行的年龄档：fresh ≤ stale_days < due ≤ expire_days < expired；无日期单列。"""
+
+    if age_days is None:
+        return "undated"
+    if age_days <= stale_days:
+        return "fresh"
+    if age_days <= expire_days:
+        return "due"
+    return "expired"
+
+
+def verdict_summary(
+    rows: list[LedgerRow], buckets: dict[str, list[LedgerRow]]
+) -> dict[str, int]:
+    """证实 / 部分证实 / 证伪 / 过期 / 待定 / 其他——六格相加恰好等于 Open 行数。
+
+    过期 = pending 超过过期线（待处理）+ outcome 已写 ``expired``（已显式关闭）。
+    """
+
+    outcomes = Counter(row.outcome for row in rows)
+    expired_open = len(buckets.get("expired", []))
+    expired_closed = outcomes[CLOSED_UNVERIFIED]
+    pending_live = outcomes["pending"] - expired_open
+    named = (
+        outcomes["confirmed"]
+        + outcomes["partially_confirmed"]
+        + outcomes["refuted"]
+        + expired_open
+        + expired_closed
+        + pending_live
+    )
+    return {
+        "confirmed": outcomes["confirmed"],
+        "partially_confirmed": outcomes["partially_confirmed"],
+        "refuted": outcomes["refuted"],
+        "expired": expired_open + expired_closed,
+        "expired_open": expired_open,
+        "expired_closed": expired_closed,
+        "pending": pending_live,
+        "other": len(rows) - named,
+    }
+
+
+def build_report(
+    root: Path, *, as_of: date, stale_days: int, expire_days: int = DEFAULT_EXPIRE_DAYS
+) -> dict[str, object]:
+    if expire_days < stale_days:
+        raise ValueError(f"过期线 {expire_days} 天不能早于临期线 {stale_days} 天")
     rows = parse_open_rows(root)
     outcomes = Counter(row.outcome or "(空)" for row in rows)
     fix_types = Counter(row.fix_type or "(空)" for row in rows)
@@ -153,6 +209,18 @@ def build_report(root: Path, *, as_of: date, stale_days: int) -> dict[str, objec
 
     def age(row: LedgerRow) -> int | None:
         return (as_of - date.fromisoformat(row.opened)).days if row.opened else None
+
+    buckets: dict[str, list[LedgerRow]] = {}
+    for row in pending:
+        key = age_bucket(age(row), stale_days=stale_days, expire_days=expire_days)
+        buckets.setdefault(key, []).append(row)
+    bucket_counts = {key: len(buckets.get(key, [])) for key in AGE_BUCKETS}
+    if buckets.get("undated"):
+        bucket_counts["undated"] = len(buckets["undated"])
+    expired_pending = sorted(
+        ({"id": row.rid, "fix_type": row.fix_type, "age_days": age(row)} for row in buckets.get("expired", [])),
+        key=lambda item: (-(item["age_days"] or 0), item["id"]),
+    )
 
     stale = sorted(
         (
@@ -180,6 +248,10 @@ def build_report(root: Path, *, as_of: date, stale_days: int) -> dict[str, objec
         "pending": len(pending),
         "stale_days": stale_days,
         "stale_pending": stale,
+        "expire_days": expire_days,
+        "pending_age_buckets": bucket_counts,
+        "expired_pending": expired_pending,
+        "verdicts": verdict_summary(rows, buckets),
         "newest": {"id": newest.rid, "age_days": age(newest)} if newest else None,
         "invalid_fix_types": invalid,
         "missing_fix_type": [row.rid for row in rows if not row.fix_type],
@@ -214,6 +286,33 @@ def render(report: dict[str, object]) -> str:
         f"pending 超过 {report['stale_days']} 天：{len(stale)} / {report['pending']} 行"
         + (f"，最老 {stale[0]['id']}（{stale[0]['age_days']} 天）" if stale else "")
     )
+    verdicts = report.get("verdicts")
+    if isinstance(verdicts, dict):
+        lines.append(
+            f"结案口径：证实 {verdicts['confirmed']} · 部分证实 {verdicts['partially_confirmed']}"
+            f" · 证伪 {verdicts['refuted']}"
+            f" · 过期 {verdicts['expired']}（待处理 {verdicts['expired_open']} / 已关闭 {verdicts['expired_closed']}）"
+            f" · 待定 {verdicts['pending']} · 其他 {verdicts['other']}"
+        )
+    ages = report.get("pending_age_buckets")
+    if isinstance(ages, dict):
+        stale_days, expire_days = report["stale_days"], report["expire_days"]
+        line = (
+            f"pending 年龄：新鲜（≤{stale_days} 天）{ages['fresh']}"
+            f" · 临期（{int(stale_days) + 1}–{expire_days} 天）{ages['due']}"  # type: ignore[call-overload]
+            f" · 过期（>{expire_days} 天）{ages['expired']}"
+        )
+        if ages.get("undated"):
+            line += f" · 无日期 {ages['undated']}"
+        lines.append(line)
+    expired_rows = report.get("expired_pending") or []
+    if expired_rows:
+        head = "、".join(f"{r['id']}（{r['age_days']} 天）" for r in expired_rows[:5])  # type: ignore[index]
+        lines.append(
+            f"过期待处理 {len(expired_rows)} 行（过期≠证伪：重验，或 outcome 写 `{CLOSED_UNVERIFIED}` 显式关闭）："  # type: ignore[arg-type]
+            + head
+            + ("…" if len(expired_rows) > 5 else "")  # type: ignore[arg-type]
+        )
     invalid = report["invalid_fix_types"]
     lines.append("枚举外 fix_type：" + ("、".join(invalid) if invalid else "无"))  # type: ignore[arg-type]
     missing = report["missing_fix_type"]
@@ -237,7 +336,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="预测台账体检（只读）")
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help="仓库根（默认本仓）")
     parser.add_argument("--as-of", type=date.fromisoformat, default=None, help="按哪天算年龄，默认今天")
-    parser.add_argument("--stale-days", type=int, default=DEFAULT_STALE_DAYS)
+    parser.add_argument("--stale-days", type=int, default=DEFAULT_STALE_DAYS, help="新鲜/临期分界（天）")
+    parser.add_argument("--expire-days", type=int, default=DEFAULT_EXPIRE_DAYS, help="临期/过期分界（天）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（含逐行明细）")
     parser.add_argument("--strict", action="store_true", help="枚举外取值或 refuted 连击告警时 exit 1")
     args = parser.parse_args(argv)
@@ -245,7 +345,15 @@ def main(argv: list[str] | None = None) -> int:
     if not ledger.is_file():
         print(f"找不到台账：{ledger}", file=sys.stderr)
         return 2
-    report = build_report(args.root, as_of=args.as_of or date.today(), stale_days=args.stale_days)
+    if args.expire_days < args.stale_days:
+        print(f"--expire-days（{args.expire_days}）不能小于 --stale-days（{args.stale_days}）", file=sys.stderr)
+        return 2
+    report = build_report(
+        args.root,
+        as_of=args.as_of or date.today(),
+        stale_days=args.stale_days,
+        expire_days=args.expire_days,
+    )
     print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else render(report))
     if args.strict and (report["invalid_fix_types"] or report["streak_alerts"]):
         return 1

@@ -37,6 +37,7 @@
 - outcome：pending 107 · confirmed 46 · refuted 2 · partially_confirmed 2 · held 1 · deferred 1 · 未达标 1。
 - fix_type：HARNESS_FIX 122（76%）· DATA_CONTRACT_FIX 17 · EVAL_ONLY 13 · ROUTING_FIX 3 · NO_SYSTEM_FIX 3 · TOOL_DESCRIPTION_FIX 2 · SYSTEM_PROMPT_FIX 0。
 - 枚举外取值 0。refuted 连击 ≥3：无。
+- 按过期规则（§3-④）：证实 46 · 部分证实 2 · 证伪 2 · **过期 101** · 待定 6 · 其他 3（held / deferred / 未达标）。107 行 pending 里，新鲜（≤14 天）3 行，临期（15–30 天）3 行，过期（>30 天）101 行。
 - **勘误**：会话里口头报过「181 条定义、HARNESS_FIX 122 条 = 67%」，那是粗解析，把回填段也算进去了。以本节为准。
 
 ### 2.2 测试与静态检查（本次在沙箱复算）
@@ -56,7 +57,7 @@
 | ① | skill 视图错位 | `.claude/skills/` 链入 `stock-technicals`，撤下被它取代的 `up-line` / `watchlist-ma` / `top-gainers-feishu`（目录按 #729 保留）；frontmatter 加 `metadata.superseded_by`；同步 dispatcher、top-gainers、AGENTS.md、CLAUDE.md、`skills.registry.json` | `tests/test_skill_view_supersession.py`：被取代的不许暴露、取代者必须暴露、不许链式取代。反向验证过：把 `up-line` 链回去，或摘掉 `stock-technicals`，都会红 |
 | ② | 429 限流处理 | `llm_refine.py`：只认 429；按 `Retry-After` / `retry-after-ms` 等一次再试（没给就 2 秒加抖动）。以下情况不等、直接失败：要等超过 20 秒；等完剩不到 `MIN_VIABLE_LLM_SECONDS`；本轮调用预算已满；流式已吐字；用户取消。失败原因带「限流：服务端要求 N 秒后再试」，仍归 `provider_rate_limited`。**没有**把 429 加进瞬态名单（那条链会无间隔连打三次）。覆盖 `complete` / `chat_with_tools`（含流式）/ `synthesize_messages` / `synthesize_messages_stream` | `intelligence/tests/test_llm_rate_limit_retry.py` 34 例。反向验证：换回旧行为，6 个调用路径用例红。回归：89 个引用 `llm_refine` 的测试文件共 3,163 例全绿 |
 | ③ | 生效模型准入 | `intelligence/eval/model_admission.py` + `scripts/check_model_admission.py --expect-model X <产物>...`。exit 0 准入 / 1 错配 / 2 无证据（fail-closed）；认 `continuous-episode.json`、`events.jsonl`、SDK 臂的 `served_models`；acceptance-workflow §2 第 3 条补了这一步 | `intelligence/tests/test_model_admission.py` 19 例。真实产物冒烟：09-21 judge-mode-k3 两个生产 run，`--expect-model glm-5.3` → exit 1（实际 `kimi-k3`），`--expect-model kimi-k3` → exit 0 |
-| ④ | 台账体检 | `scripts/prediction_ledger_status.py`：fix_type 分布、pending 年龄、枚举外取值、refuted 连击；Open 表取行复用 crosswalk 的解析 | `tests/test_prediction_ledger_status.py`，含「与 crosswalk 行数一致」「枚举与台账规则节一致」两条防漂移 |
+| ④ | 台账体检 + 过期规则 | `scripts/prediction_ledger_status.py`：fix_type 分布、pending 年龄、枚举外取值、refuted 连击；Open 表取行复用 crosswalk 的解析。之后加了过期规则：pending 分新鲜（≤14 天）/ 临期（15–30 天）/ 过期（>30 天）三档，另出一行结案口径。台账记账规则新增一条：过期不等于证伪，要么重验，要么 outcome 写 `expired` 并写明理由。脚本只读，不改行。五条修复对应的待入账草稿见 §6 | `tests/test_prediction_ledger_status.py`，含「与 crosswalk 行数一致」「枚举与台账规则节一致」两条防漂移；过期规则另有 7 例（档位边界、六格相加等于行数、`expired` 不进也不断连击、阈值顺序、规则原文与常量一致）。变异验证：把边界 `<=` 改成 `<`，或不计已关闭的过期行，都会红 |
 | ⑤ | 测试往真实「待重判」队列写假条目（本次质检中发现） | workbench HTTP 用例把运行交给后台线程 `workbench-run_N`，线程在用例结束、pytest 清掉 `PYTEST_CURRENT_TEST` 之后才写 `~/.finance-runtime/rejudge-pending/index.jsonl`，模块自带的「测试中不写」闸失效：一次全量灌进 138 条假「待重判」，Mac 上即污染生产积压。根 `conftest.py` 的 `_FORCED_TEST_ENV` 把 `FINANCE_REJUDGE_PENDING_INDEX` 改道到会话临时文件 | `intelligence/tests/test_rejudge_pending_isolation.py`（复现「比用例活得久的线程」）。插桩复跑 89 个文件：泄漏 68 次 → 0；反向验证：撤掉 conftest 改动即红 |
 | C | 预注册 2×2 | `docs/superpowers/specs/2026-09-30-model-harness-2x2-preregistration.md` | 未开跑：需要在 Mac 上先过 F1–F4 可行性检查 |
 
@@ -91,3 +92,21 @@ FWP_ALLOW_ANY_PYTHON=1 python -m pytest -q tests/test_skill_view_supersession.py
 ```
 
 在 Mac 上用 `.venv-workbench/bin/python` 执行即可，不需要 `FWP_ALLOW_ANY_PYTHON`。
+
+## 6. 待入账条目（草稿；号在 Mac 上领）
+
+台账自 09-16 起没有新条目，而本分支做了五处修复，按台账纪律每处都该有一条可证伪的预测。号**不在沙箱里领**：登记簿 `~/.finance-runtime/ledger-id-claims.jsonl` 与 `gitea/main` 都在 Mac 上，沙箱领号有撞号风险。在 Mac 上逐条执行：
+
+```bash
+.venv-workbench/bin/python scripts/claim_ledger_id.py claim --branch arena/01a0f120-finance
+```
+
+领到号后把下表对应行抄进 `docs/prediction-ledger.md` 的 Open 表，ID 列换成领到的号，outcome 写 `pending`。来源都不是标准四阶段分诊，所以来源列写明了溯源（台账规则：这类条目只有 fix_type 与预测可用于连击统计）。
+
+| ID | 来源 | fix_type | verification_prediction | 怎么验 |
+|---|---|---|---|---|
+| （待取号） | **溯源：非标准四阶段分诊**——2026-09-30 部件质检 §3-①（skill 视图错位） | `ROUTING_FIX` | 在 Mac 上开 5 个新会话，分别问均线、涨停复盘、自选股 MA 类问题：5/5 加载 `stock-technicals`，0 次加载被取代的 `up-line` / `watchlist-ma` / `top-gainers-feishu` | `tests/test_skill_view_supersession.py` 管结构；5 次会话的 skill 加载记录管行为 |
+| （待取号） | **溯源：非标准四阶段分诊**——同上 §3-②（429 限流） | `HARNESS_FIX` | 上线后 14 天内，生产 episode 中 `provider_rate_limited` 失败数不到上线前 14 天的一半；同期 `deadline_exhausted` 最多多 2 次（等待不能挤掉作答时间）。前提是上线前 14 天至少有 4 次限流；不到 4 次说明样本不够、无法证伪，按过期规则写 `expired` 关闭 | 按 failure_class 数 `~/.finance-runtime` 下的 episode 产物，窗口取上线日前后各 14 天；失败原因里「限流：服务端要求 N 秒后再试」的 N 应与响应头一致 |
+| （待取号） | **溯源：非标准四阶段分诊**——同上 §3-③（生效模型准入） | `EVAL_ONLY` | 对 09-16 以来的验收收据逐份跑准入检查，至少 1 份错配。已知候选：09-29 GLM 重写消融，声明 glm-5.3，实际跑的是 flash。此后新验收收据 100% 附准入判定 | `scripts/check_model_admission.py --expect-model <收据声明的模型> <产物目录>` 批跑；抽查 acceptance-workflow §2 第 3 条是否执行 |
+| （待取号） | **溯源：非标准四阶段分诊**——同上 §3-④（台账过期规则） | `EVAL_ONLY` | 规则生效后 14 天（10-14），「过期待处理」从 101 行降到 50 行以内；降下来的每一行要么写了实际 outcome，要么写了 `expired` 且同格有不再验的理由 | `scripts/prediction_ledger_status.py --as-of 2026-10-14`；检查 `expired` 行的理由是否齐全 |
+| （待取号） | **溯源：非标准四阶段分诊**——同上 §3-⑤（测试泄漏进「待重判」队列） | `EVAL_ONLY` | 在 Mac 上跑一次全量 pytest，`~/.finance-runtime/rejudge-pending/index.jsonl` 前后行数不变。修复前的同一操作在沙箱实测新增 138 行 | 全量前后各 `wc -l` 一次 |
