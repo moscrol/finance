@@ -61,8 +61,12 @@ def receipt(repo, **changes):
 def gate_env(tmp_path, **overrides):
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(("FWP_", "PYTEST_", "PYTHONPATH"))}
+    # TMPDIR 不能继承外部：嵌套 pytest 的默认根 $TMPDIR/pytest-of-<user>/ 是全机共享的。
+    # 必须先建好——tempfile.gettempdir() 碰到不存在的 TMPDIR 会静默退回 /tmp。
+    sys_tmp = tmp_path / "sys-tmp"
+    sys_tmp.mkdir(exist_ok=True)
     env.update(HOME=str(tmp_path / "home"), PYTHONDONTWRITEBYTECODE="1",
-               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"))
+               FWP_TEST_RECEIPT_DIR=str(tmp_path / "receipts"), TMPDIR=str(sys_tmp))
     env.update(overrides)
     return env
 
@@ -542,6 +546,24 @@ def test_gate_without_basetemp_flag_touches_nothing(repo, tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     # 收据路径里会带本测试自己的名字（含 "basetemp"），所以只锁清理动作那句。
     assert "basetemp 已清" not in result.stdout
+
+
+def test_nested_pytest_default_temproot_is_private(repo, tmp_path):
+    # 不带 --basetemp 的嵌套 pytest 落在 $TMPDIR/pytest-of-<user>/；这里锁住它是本测试私有目录，
+    # 不是全机共享的那个（并发会话抢编号与清理、Mac 上删不掉的 garbage-* 每次重扫 → 2026-09-30 超时）。
+    _commit_sample(repo, "import json\nimport os\nimport tempfile\n\n\n"
+                   "def test_where(tmp_path):\n"
+                   "    with open(os.environ['WHERE_OUT'], 'w') as out:\n"
+                   "        json.dump([tempfile.gettempdir(), str(tmp_path)], out)\n")
+    where = tmp_path / "where.json"
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py",
+                      extra_env={"WHERE_OUT": str(where)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    temproot, nested = (Path(p).resolve() for p in json.loads(where.read_text()))
+    private = (tmp_path / "sys-tmp").resolve()
+    assert temproot == private
+    assert nested.is_relative_to(private)
+    assert nested.exists(), "没给 --basetemp 时门禁不该清 pytest 的默认目录"
 
 
 @pytest.mark.parametrize("passed", [True, False])
