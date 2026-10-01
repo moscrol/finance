@@ -2,7 +2,8 @@
 name: up-line
 metadata:
   pattern: tool-wrapper
-description: UP线更新与个股UP/偏离度查询（布林带变体）。触发词：UP线更新、up线、UP线、查UP、个股UP、UP偏离度、偏离UP。
+description: 【已被 stock-technicals 取代，未暴露】UP线更新与个股UP/偏离度查询（布林带变体）；飞书 2026-09-11 退役后跑不通，查 UP 线 / 偏离度请用 stock-technicals。注意：本目录只为保留旧口径与历史脚本，不要再路由到这里。
+superseded_by: stock-technicals
 ---
 
 > **⚠ 2026-09-11 飞书整体退役（#727）后的实际可用性**：本 skill 的 UP 计算口径（UP = MA26 + 0.764×STD26，偏离度 =（最新价/UP − 1）×100%）是它的价值所在，已按用户要求保留（#729）。

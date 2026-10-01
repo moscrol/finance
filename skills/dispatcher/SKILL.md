@@ -104,24 +104,21 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | report-search | 搜研报、找研报、研报搜索 | tool-wrapper | ✅ |
 | hithink-market-query | 股票价格、ETF行情、涨跌幅 | tool-wrapper | ✅ cli.py |
 | top-gainers | 涨幅排行、涨幅前N、区间涨幅 | pipeline | ✅ query_sectors.py |
-| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ query_ma.py（写入步已停） |
 | high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py（写入步已停） |
 | advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py（写入步已停） |
 | limit-advance | 晋级 | pipeline | ✅ scrape.py |
 | sector-data | 边际量、板块数据、抓取板块 | pipeline | - |
-| watchlist-ma | 自选股均线、自选股MA、自选股过滤 | tool-wrapper | ✅ query.py |
-| up-line | UP线更新、up线、查UP | tool-wrapper | ✅ update.py |
 | disclosure-archive | 补公告、补公司硬证据、查年报 | reviewer | ✅ archive.py |
 | foresight-feedback | (自动触发：用户表达兴趣/否定) | tool-wrapper | - |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识 | - | - |
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck | tool-wrapper | ✅ |
 | 公司画像页 | 公司画像、画像页、strip profile | generator | - |
 | 行业概览 | 行业概览、板块全景、行业全景 | generator | - |
-| stock-technicals | UP线、偏离度、自选股、回踩、均线、MA10、MA20 | query | ✅ cli stock-technicals |
+| stock-technicals | UP线、up线、查UP、偏离度、自选股、自选股均线、回踩、强势股回踩、均线、MA10、MA20 | query | ✅ cli stock-technicals |
 
 ### 已退役 skill 的去处（飞书 2026-09-11 退役）
 
-旧名字还可能出现在历史对话或用户口中，按这张表改道，**不要去找已删的目录**：
+旧名字还可能出现在历史对话或用户口中，按这张表改道。前三个（up-line、watchlist-ma、top-gainers-feishu）的源目录仍在 `skills/` 下（只为保留旧口径），但已撤出 `.claude/skills/` 视图、frontmatter 标了 `superseded_by`，**不要路由过去**：
 
 | 旧 skill | 现在怎么做 |
 |---|---|

@@ -433,6 +433,34 @@ def _frontmatter_block(text: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
+def _superseded_problems(
+    root: Path, key: str, rel: str, dir_name: str, fm: dict[str, str]
+) -> list[tuple[str, str, str]]:
+    """``superseded_by`` 的两条硬约束（2026-10-01 质检：「查 UP 线」被带到已坏的 up-line）。
+
+    1. 取代者必须在同仓 ``skills/`` 下真实存在，且自身没有再被取代（不许链式跳转）。
+    2. 被取代者不许留在任何 agent 视图里——留着就会和取代者抢同一批触发词。
+    """
+    target = (fm.get("superseded_by") or "").strip()
+    if not target:
+        return []
+    out: list[tuple[str, str, str]] = []
+    target_md = root / "skills" / target / "SKILL.md"
+    if target == dir_name:
+        out.append((key, rel, "superseded_by 指向自己"))
+    elif not target_md.is_file():
+        out.append((key, rel, f"superseded_by={target!r} 不存在（skills/{target}/SKILL.md）"))
+    else:
+        target_fm = _parse_frontmatter(target_md.read_text(encoding="utf-8", errors="replace"))
+        if (target_fm.get("superseded_by") or "").strip():
+            out.append((key, rel, f"superseded_by={target!r} 自己也已被取代，请直接指向最终取代者"))
+    for agent_dir in AGENT_SKILL_DIRS:
+        view = root / agent_dir / dir_name
+        if view.exists() or view.is_symlink():
+            out.append((key, rel, f"已被 {target} 取代，却仍暴露在 {agent_dir}/{dir_name}；请删掉该视图"))
+    return out
+
+
 def cmd_check_parseability() -> int:
     """元校验：每个在场仓的 ``skills/<name>/SKILL.md`` frontmatter 是否可被注册表
     扫描器正确解析（含非空 name/description，且 name 与目录名一致）。
@@ -466,6 +494,7 @@ def cmd_check_parseability() -> int:
                 problems.append((key, rel, f"name 字段({name!r})与目录名({dir_name!r})不一致"))
             if not desc:
                 problems.append((key, rel, "frontmatter 缺少 description 字段"))
+            problems.extend(_superseded_problems(root, key, rel, dir_name, fm))
     if problems:
         for key, rel, msg in problems:
             print(f"[check-parseability] \u2717 {key} ({rel}): {msg}", file=sys.stderr)

@@ -2,7 +2,8 @@
 name: top-gainers-feishu
 metadata:
   pattern: pipeline
-description: 强势股飞书入库与已入库强势股的均线回踩查询。触发词：强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩。注意：只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。
+description: 【已被 stock-technicals 取代，未暴露】强势股飞书入库与已入库强势股的均线回踩查询；飞书 2026-09-11 退役后跑不通，强势股回踩请用 stock-technicals，只看排行用 top-gainers。注意：本目录只为保留旧口径与历史脚本，不要再路由到这里。
+superseded_by: stock-technicals
 ---
 
 > **⚠ 2026-09-11 飞书整体退役（#727）后的实际可用性**：区间强势/均线回踩的筛选口径已按用户要求保留（#729）。

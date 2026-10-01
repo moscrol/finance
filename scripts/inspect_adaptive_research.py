@@ -55,7 +55,8 @@ def summarize(episode: dict, events: list[dict], *, project_current_judge_status
             rounds.append({
                 "sequence": event["sequence"],
                 **{key: payload.get(key) for key in (
-                    "content", "tool_calls", "served_model", "input_tokens", "output_tokens", "error",
+                    "content", "tool_calls", "served_model", "requested_model", "served_model_mismatch",
+                    "input_tokens", "output_tokens", "error",
                 )},
             })
         elif kind == "tool_request":

@@ -944,6 +944,91 @@ _RETRY_JITTER = 0.25
 _RETRY_MAX_ATTEMPTS = 2
 
 
+# ---------------------------------------------------------------------------
+# 429 限流：读服务商给的等待时长，在截止时间内有界退避（2026-10-01 质检 P0②）
+# ---------------------------------------------------------------------------
+# 两条踩过的坑决定了形状（`.claude/lessons_learned.md` 09-09 / 09-21）：
+# - 0.6 秒内连撞三次 429 就放弃：没等，等于没重试；
+# - 网关冷却可能是 4939 秒：盲目重试只是把同一个失败推迟几秒、还多烧配额。
+# 所以：先读 Retry-After 头 / body 里的 reset_seconds；读不到才用指数退避；
+# 单次等待超过上限或会挤掉本次调用自己的时间，就**不等**，直接把原因交出去。
+_RATE_LIMIT_HINT_RE = re.compile(r"retry_after=(\d+(?:\.\d+)?)s")
+_RESET_SECONDS_RE = re.compile(r'"reset_seconds"\s*:\s*"?(\d+(?:\.\d+)?)')
+RATE_LIMIT_MAX_RETRIES = 3
+RATE_LIMIT_MAX_SINGLE_WAIT_S = 30.0
+# 等完之后至少还要留这么多时间给重试本身，否则退避就成了超时的原因。
+RATE_LIMIT_MIN_CALL_WINDOW_S = 5.0
+
+
+def _rate_limit_wait_hint(exc: urllib.error.HTTPError) -> float | None:
+    """429 响应里服务商建议的等待秒数；读不到返回 None（从不抛）。"""
+
+    try:
+        header = (exc.headers or {}).get("Retry-After") if exc.headers is not None else None
+    except Exception:  # pragma: no cover - defensive
+        header = None
+    if header:
+        try:
+            value = float(str(header).strip())
+        except ValueError:
+            value = None  # HTTP-date 形式：不解析，回落到 body / 指数退避
+        if value is not None and value >= 0:
+            return value
+    try:
+        body = exc.read(65536)
+    except Exception:
+        return None
+    if isinstance(body, bytes):
+        body = body.decode("utf-8", errors="replace")
+    match = _RESET_SECONDS_RE.search(body or "")
+    return float(match.group(1)) if match else None
+
+
+def http_failure_text(exc: urllib.error.HTTPError, prefix: str = "LLM 调用") -> str:
+    """``{prefix} HTTP {code}``；429 且服务商给了等待时长时追加 ``（retry_after=Ns）``。
+
+    前缀格式不变，``stable_llm_fallback_reason`` / ``TRANSIENT_MODEL_ERROR_MARKERS``
+    的子串匹配照旧生效；追加段只给 ``rate_limit_retry_delay`` 读。
+    """
+
+    text = f"{prefix} HTTP {exc.code}"
+    if exc.code == 429:
+        hint = _rate_limit_wait_hint(exc)
+        if hint is not None:
+            text += f"（retry_after={hint:g}s）"
+    return text
+
+
+def rate_limit_retry_delay(
+    reason: object,
+    *,
+    attempt: int,
+    remaining: float,
+    rand: Callable[[], float] | None = None,
+) -> float | None:
+    """这次失败若是 429，返回重试前该睡多久；不是 429 / 不值得等则返回 None。
+
+    - 服务商给了时长：照它等，只往后加 0–25% 抖动（绝不早于 reset 重试）；
+    - 没给：0.5、1、2… 秒指数退避（封顶 8 秒）加 0–25% 抖动；
+    - 单次超过 ``RATE_LIMIT_MAX_SINGLE_WAIT_S``（如网关整体冷却），或等完剩不下
+      ``RATE_LIMIT_MIN_CALL_WINDOW_S`` 给重试本身：不等，返回 None。
+    """
+
+    if not isinstance(reason, str) or "HTTP 429" not in reason:
+        return None
+    if attempt >= RATE_LIMIT_MAX_RETRIES:
+        return None
+    match = _RATE_LIMIT_HINT_RE.search(reason)
+    base = float(match.group(1)) if match else min(8.0, 0.5 * (2 ** max(0, attempt)))
+    jitter = (rand or random.random)()
+    delay = base * (1.0 + 0.25 * max(0.0, min(1.0, jitter)))
+    if delay > RATE_LIMIT_MAX_SINGLE_WAIT_S:
+        return None
+    if remaining - delay < RATE_LIMIT_MIN_CALL_WINDOW_S:
+        return None
+    return delay
+
+
 def _retry_delay_seconds(attempt: int) -> float:
     """第 ``attempt`` 次失败后等多久（attempt 从 0 起）。"""
 
@@ -1405,7 +1490,7 @@ def complete(
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
-            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+            failures.append((provider, http_failure_text(exc)))
         except Exception as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
         else:
@@ -1797,7 +1882,7 @@ def chat_with_tools(
             # 一个字都还没吐出去，换 provider 是安全的。
             failures.append((provider, "LLM 不支持流式响应"))
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
-            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+            failures.append((provider, http_failure_text(exc)))
         except Exception as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
         else:
@@ -2319,8 +2404,25 @@ def synthesize_messages(
             break
         except LLMCallBudgetExceeded as exc:
             return None, str(exc)
-        except urllib.error.HTTPError as exc:  # pragma: no cover - network
-            return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
+        except urllib.error.HTTPError as exc:
+            failure = http_failure_text(exc, "LLM 合成")
+            # 429 是「稍后再来」，不是「这次请求有毛病」：按服务商给的时长在本段
+            # 剩余时间内等一次再试（次数仍受 _RETRY_MAX_ATTEMPTS 约束，不多烧配额）。
+            # 其余 HTTP 错误维持原语义：直接降级。
+            delay = (
+                rate_limit_retry_delay(
+                    failure, attempt=attempt, remaining=phase_deadline.remaining()
+                )
+                if attempt + 1 < _RETRY_MAX_ATTEMPTS
+                else None
+            )
+            if delay is None:
+                return None, f"{failure}，已降级为模板"
+            rejection = _budget_rejection()
+            if rejection is not None:
+                return None, rejection
+            time.sleep(delay)
+            continue
         except LLMDeadlineExceeded:
             return None, "LLM 合成超过共享截止时间，已降级为模板"
         except LLMOutputTooLong:

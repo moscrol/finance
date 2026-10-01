@@ -2,7 +2,8 @@
 name: watchlist-ma
 metadata:
   pattern: tool-wrapper
-description: 自选股均线回踩筛选（仅针对自选股清单）。触发词：自选股均线、自选股MA、自选股过滤、自选股回调、MA交叉、十日线二十日线。注意：强势股库的均线回踩用 top-gainers-feishu。
+description: 【已被 stock-technicals 取代，未暴露】自选股均线回踩筛选；飞书 2026-09-11 退役后跑不通，自选股均线 / 回踩请用 stock-technicals。注意：本目录只为保留旧口径与历史脚本，不要再路由到这里。
+superseded_by: stock-technicals
 ---
 
 > **⚠ 2026-09-11 飞书整体退役（#727）后的实际可用性**：均线回踩判据（价格介于 MA20 与 MA10 之间）是它的价值所在，已按用户要求保留（#729）。

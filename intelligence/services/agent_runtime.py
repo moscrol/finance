@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 import math
+import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
@@ -131,10 +132,16 @@ class ModelTurn:
     served_model: str | None = None
     # None = legacy adapter supplied no stop metadata; do not fabricate "stop".
     finish_reason: str | None = None
+    # 本回合**请求**的模型名（写手覆盖 / 构造参数 / provider 默认，三者取生效值）。
+    # 与 ``served_model`` 并排落进 model_turn 事件，供模型准入闸逐回合比对
+    # （2026-10-01 质检 P0③：09-29 实测配 glm-5.3、实际跑 glm-5.3-flash）。
+    requested_model: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.content, str):
             raise ValueError("model content must be a string")
+        if self.requested_model is not None and not isinstance(self.requested_model, str):
+            raise ValueError("requested_model must be a string or None")
         if not isinstance(self.provider_name, str):
             raise ValueError("provider_name must be a stable string")
         if not isinstance(self.error, str):
@@ -165,6 +172,8 @@ class ModelTurn:
         object.__setattr__(self, "error", self.error.strip())
         if self.served_model is not None:
             object.__setattr__(self, "served_model", self.served_model.strip())
+        if self.requested_model is not None:
+            object.__setattr__(self, "requested_model", self.requested_model.strip() or None)
         if self.finish_reason is not None:
             reason = self.finish_reason.strip().lower()
             object.__setattr__(self, "finish_reason", reason or None)
@@ -191,7 +200,42 @@ class ModelTurn:
         if self.served_model is not None:
             # 空串也写：那是「provider 未回 model 字段」的收据，与字段缺席不同。
             payload["served_model"] = self.served_model
+        if self.requested_model is not None:
+            payload["requested_model"] = self.requested_model
+            if served_model_mismatch(self.requested_model, self.served_model):
+                payload["served_model_mismatch"] = True
         return payload
+
+
+# 只剥「同一个模型的不同写法」，其余一律算不一致：
+# - ``zhipu/glm-5.3`` 的路由前缀、``glm-5.3-flash:low`` 的思考强度后缀；
+# - 对端回带日期快照（``gpt-4o`` → ``gpt-4o-2024-08-06``）。
+# ``glm-5.3`` vs ``glm-5.3-flash`` 是**不同模型**，必须判不一致——那正是要抓的事故。
+_MODEL_SNAPSHOT_SUFFIX = re.compile(r"-(?:\d{4}-?\d{2}-?\d{2}|\d{4})$")
+
+
+def _normalize_model_name(name: str) -> str:
+    value = name.strip().lower()
+    value = value.rsplit("/", 1)[-1]
+    value = value.split(":", 1)[0]
+    return value
+
+
+def served_model_mismatch(requested: object, served: object) -> bool | None:
+    """请求的模型与对端自报的模型是否不一致。
+
+    ``None`` = 判不了（任一侧缺席或为空，例如中转没回 model 字段）——这不是「一致」，
+    调用方应单独计数，不要并进通过。``True`` / ``False`` = 确定的比对结论。
+    """
+
+    if not isinstance(requested, str) or not isinstance(served, str):
+        return None
+    want, got = _normalize_model_name(requested), _normalize_model_name(served)
+    if not want or not got:
+        return None
+    if want == got:
+        return False
+    return _MODEL_SNAPSHOT_SUFFIX.sub("", got) != want
 
 
 # 瞬态模型/provider 错误的判据（单一真本源）。provider 适配器

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 import json
+import logging
 import time
 
 from intelligence.services import llm_refine
@@ -17,6 +18,7 @@ from intelligence.services.agent_runtime import (
     ModelToolCall,
     ModelTurn,
     is_transient_model_error,
+    served_model_mismatch,
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
 from intelligence.runtime.model_output_scope import draft_publication_allowed
@@ -40,6 +42,7 @@ ChatWithTools = Callable[..., tuple[dict | None, object | None, str]]
 # 瞬态错误判据已上移到 services.agent_runtime（修复轮与 provider 链共用一份，
 # 不另建第二份清单）。本模块内保留原私有名，调用点不动。
 _is_transient_provider_error = is_transient_model_error
+_LOG = logging.getLogger(__name__)
 DEFAULT_GLM_LLM_TIMEOUT = 75.0
 _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
@@ -286,7 +289,9 @@ class GLMModelClient:
                 attempts,
                 reject_empty=False,
             )
-        return self._with_provider_trace(parsed_turn, tuple(trace))
+        return self._with_provider_trace(
+            self._stamp_requested_model(parsed_turn, provider), tuple(trace)
+        )
 
     def _complete_provider_chain(
         self,
@@ -320,6 +325,7 @@ class GLMModelClient:
         providers = self._providers or ()
         provider_index = 0
         transient_retries_used = 0
+        rate_limit_retries_used = 0
         while provider_index < len(providers):
             if self._is_cancelled():
                 last_reason = "cancelled"
@@ -406,6 +412,26 @@ class GLMModelClient:
                     )
                 )
                 last_reason = reason_text or "model_unavailable"
+                rate_limit_delay = (
+                    llm_refine.rate_limit_retry_delay(
+                        reason_text,
+                        attempt=rate_limit_retries_used,
+                        remaining=max(0.0, expires_at - time.monotonic()),
+                    )
+                    if provider_index == len(providers) - 1
+                    else None
+                )
+                if rate_limit_delay is not None:
+                    # 429 且已是链上最后一家（生产常态：单 provider + 账号池网关）：
+                    # 同一 provider 等服务商给的时长再试——有界、可取消、不睡穿截止
+                    # 时间。后面还有 provider 时换一家比干等便宜，走下面的老路径；
+                    # 等不起（冷却过长 / 时间不够）同样直接交出原因。
+                    trace[-1]["rate_limit_wait_s"] = round(rate_limit_delay, 3)
+                    rate_limit_retries_used += 1
+                    if not self._sleep_unless_cancelled(rate_limit_delay):
+                        last_reason = "cancelled"
+                        break
+                    continue
                 if (
                     self._retry_single_real_provider
                     and transient_retries_used < 3
@@ -434,7 +460,9 @@ class GLMModelClient:
                 if turn.error.startswith("incomplete_model_response:"):
                     # Not a transport outage. Keep usage/stop reason and let the
                     # episode make a budgeted recovery decision, not a hidden retry.
-                    return self._with_provider_trace(turn, tuple(trace))
+                    return self._with_provider_trace(
+                        self._stamp_requested_model(turn, effective_provider), tuple(trace)
+                    )
                 last_reason = parse_error
                 provider_index += 1
                 continue
@@ -446,7 +474,9 @@ class GLMModelClient:
                     reason="",
                 )
             )
-            return self._with_provider_trace(turn, tuple(trace))
+            return self._with_provider_trace(
+                self._stamp_requested_model(turn, effective_provider), tuple(trace)
+            )
 
         return self._with_provider_trace(
             ModelTurn(
@@ -458,6 +488,42 @@ class GLMModelClient:
             ),
             tuple(trace),
         )
+
+    def _stamp_requested_model(self, turn: ModelTurn, provider: object | None) -> ModelTurn:
+        """把本回合请求的生效模型名写上 turn；与 served_model 不一致时记一条警告。
+
+        生效值与适配器实际发出的 ``model_override`` 同序：写手覆盖 → 构造参数 →
+        provider 默认。只读、不改请求，判不了（任一侧缺席）时不报警。
+        """
+
+        requested = (
+            llm_refine.writer_model_override()
+            or self._model
+            or getattr(provider, "model", None)
+        )
+        if not isinstance(requested, str) or not requested.strip():
+            return turn
+        stamped = replace(turn, requested_model=requested)
+        if served_model_mismatch(stamped.requested_model, stamped.served_model):
+            _LOG.warning(
+                "served_model_mismatch: requested=%s served=%s provider=%s",
+                stamped.requested_model,
+                stamped.served_model,
+                stamped.provider_name,
+            )
+        return stamped
+
+    def _sleep_unless_cancelled(self, seconds: float) -> bool:
+        """分片睡 ``seconds`` 秒，期间每 0.2 秒查一次取消；被取消返回 False。"""
+
+        end = time.monotonic() + max(0.0, seconds)
+        while True:
+            if self._is_cancelled():
+                return False
+            left = end - time.monotonic()
+            if left <= 0:
+                return True
+            time.sleep(min(0.2, left))
 
     def _settle_cancelled_response(
         self, message: object, provider_name: str, attempts: int,
