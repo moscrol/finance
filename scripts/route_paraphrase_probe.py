@@ -20,8 +20,12 @@ import argparse
 from collections import Counter, defaultdict
 import json
 from pathlib import Path
+import sys
 
 REPO = Path(__file__).resolve().parents[1]
+# 直接 `python3 scripts/xxx.py` 运行时 sys.path[0] 是 scripts/，intelligence 包不可见。
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 CASES = REPO / "intelligence" / "eval" / "cases"
 FALLBACK = "general_finance_qa"
 
