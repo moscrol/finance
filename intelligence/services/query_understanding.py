@@ -16,6 +16,7 @@ from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_midterm import parse_midterm_intent
+from intelligence.services.request_scope import active_request_text
 from intelligence.services.route_table import fine_grained_route_length_ok
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
@@ -968,7 +969,9 @@ def _market_cause_hit(
     matched_theme: str | None = None,
     anchor: EntityAnchor | None = None,
 ) -> tuple[SubjectKind, str | None, MatchedBy] | None:
-    text = re.sub(r"\s+", "", str(query or "").strip())
+    # Recognize requested causal work, not an explicitly prohibited task.
+    # The original query still feeds all other parsing and the final contract.
+    text = re.sub(r"\s+", "", active_request_text(str(query or "")).strip())
     if not text:
         return None
     if (

@@ -13,7 +13,7 @@ from intelligence.services.query_understanding import (
 )
 
 FIXTURE = Path(__file__).resolve().parents[2] / "docs/verification/fixtures/2026-10-01-glm-intent-negation.json"
-CAUSAL_OUTPUTS = {"causal_chain", "counterpoint", "cause_attribution"}
+CAUSAL_OUTPUTS = {"causal_chain", "cause_attribution"}
 
 
 def assert_scope(question, expected):
@@ -28,7 +28,7 @@ def assert_scope(question, expected):
     assert (envelope.question_type == "market_cause") is expected
     assert ("cause_attribution" in envelope.operators) is expected
     if expected:
-        assert CAUSAL_OUTPUTS <= required
+        assert (CAUSAL_OUTPUTS | {"counterpoint"}) <= required
     else:
         assert not (CAUSAL_OUTPUTS & required)
     assert frame.raw_question == question
@@ -38,6 +38,11 @@ def assert_scope(question, expected):
 @pytest.mark.parametrize("case", json.loads(FIXTURE.read_text())["cases"], ids=lambda c: c["id"])
 def test_frozen_pilot_reaches_the_right_contract(case):
     assert_scope(case["question"], case["expected_causal_task"])
+    if not case["expected_causal_task"]:
+        # counterpoint is shared with non-causal company/topic contracts.
+        # Only these comparison-only pilot cases must have none at all.
+        envelope = understand_query(case["question"])
+        assert "counterpoint" not in envelope.task_frame.required_outputs
 
 
 @pytest.mark.parametrize("negation,verb,subject", list(itertools.product(

@@ -41,4 +41,11 @@
 
 ## 5. 实际结果
 
-待填：尚未接入实现、尚未进行新模型调用。证据留私有 runtime；合成测试、协议、摘要和台账入 Git。
+### 5.1 接入后的零模型验证
+
+- 首次接入：103P/14F。14F 都到达非因果类型，却被测试里的通用 `counterpoint` 禁令误伤；该槽也属于公司/主题分析，不能一律等同因果槽。未改生产分类、未删合同槽，修正测试为：所有否定例禁止 `causal_chain/cause_attribution`；冻结的纯比较四例另要求无 `counterpoint`，正向例仍要求三槽齐全。
+- 修正断言后：75 条集成 + 42 条领域无关 helper = **117P**（4.99s）；禁用唯一接入点（scope view 改回原文）的单变量变异为 **38F/37P**（5.21s）。原 50F 红测中有 12 条混入旧 company 合同的 counterpoint，不能把这 12 条算作成功修复。原日志与第一次接入失败日志均保留，未重写历史。
+- 邻近 query understanding / task frame / episode factory / turn controller / material / research contract / tool gate 合计 **512P**（19.05s）；ruff 通过。
+- 以上为未提交工作树的读数；提交后的同 SHA 验证及三次真实模型调用尚待执行。不能借用此前全量绿或 CI。
+
+证据留私有 runtime；合成测试、协议、摘要和台账入 Git。
