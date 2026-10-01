@@ -277,6 +277,8 @@ _MARKET_WATCH_RE = re.compile(
     # general_finance_qa。前面的「今天/今日+全市场名词」锚不变，不给题材名开缝。
     r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)"
     r"(?:表现|走势)?(?:怎么样|怎样|咋样|如何)"
+    # 极简当日盘面取值，仍须紧邻全市场主体，且以指标名结束。
+    r"|(?:今天|今日)(?:的)?(?:A股|两市|市场|行情|盘面|大盘)(?:的)?(?:成交额|成交量|量能)[？?。！!]*$"
     r"|(?:今天|今日)(?:的)?(?:A股|市场|行情|盘面|大盘)?复盘"
     # 召回工单（2026-08-27-market-watch-recall-workorder）三处放宽：
     # ①时间词表补「本周/近期/最近」；②市场名词与主线之间允许一个「最X(的)」
@@ -1466,7 +1468,7 @@ _LEFT_FUNCTION_PREFIXES = (
 # 公司名的虚词 / 动词；「和 / 中 / 华 / 新 / 国」这类常见公司名用字一律不收（R13-A3 防线不动）。
 _THEME_LEFT_GRAMMAR_RE = re.compile(
     r"(?:(?:这|那|本|上|下)一?(?:轮|波|个|条)|的|在|对|把|从|关于|对于|支撑|驱动|布局|看好|看空|"
-    r"炒作|聊聊|讲讲|说说|分析|研究|梳理|拆解|跟踪|看看|看下|一下)$"
+    r"炒作|聊聊|讲讲|说说|分析|研究|梳理|拆解|跟踪|看看|看下|一下|a股)$"
 )
 
 
@@ -1495,6 +1497,13 @@ def has_clean_theme_occurrence(folded_query: str, folded_term: str) -> bool:
             return True
         if _THEME_LEFT_GRAMMAR_RE.search(folded_query[:index]):
             return True
+        # 「8月14号稀有金属」「9月20日稀有金属」的左邻是完整日期，不能当公司名前缀。
+        # 复用日期解析和有效日期校验；「8月14号立新能源」仍不能从公司名里抠出新能源。
+        prefix = folded_query[:index]
+        date_prefix = prefix[:-1] + "日" if prefix.endswith("号") else prefix
+        for match in _YEARLESS_DATE_RE.finditer(date_prefix):
+            if match.end() == len(date_prefix) and _yearless_timeframe(match.group()) is not None:
+                return True
         start = index + 1
 
 

@@ -430,9 +430,10 @@ _FIELD_QUALIFIER = r"[0-9一-鿿]{0,6}?"
 # ``竞价涨幅``、``5日涨幅``、``区间涨幅`` 的底层列（auction_pct / gain_5d = (close/c5-1)*100 /
 # change_pct）同样是 %（10-01 核查：「若竞价涨幅超过 2.3%」复述 ``竞价涨幅=2.3`` 被挂待核）；
 # 裸名「量比」不算——别的数据源里的量比多是倍数。
+# 旧存证的「成交额环比」来自 amount_vs_yesterday_pct，同样是 %；只兼容该精确旧标签。
 _PERCENT_FIELD_RE = re.compile(
     r"(?:^|[；;\n])\s*(?:" + _FIELD_QUALIFIER + r"(?:涨跌幅|涨幅|换手率|振幅)\s*(?:[（(]\s*%\s*[）)]|%)?"
-    r"|[0-9\u4e00-\u9fff]{1,12}?\s*(?:[（(]\s*%\s*[）)]|%))"
+    r"|成交额环比|[0-9\u4e00-\u9fff]{1,12}?\s*(?:[（(]\s*%\s*[）)]|%))"
     r"\s*[=:：]\s*(?P<value>[+-]?\d+(?:\.\d+)?)\s*%?\s*(?=$|[；;\n])"
 )
 _ARABIC_QUANTITY_RE = re.compile(
@@ -463,11 +464,11 @@ _CURRENCY_FIELD_SCALE = {
 }
 # 单位写在字段名里的另外三类（10-01 核查，37 句正确复述里 16 句误挂待核的主因）：
 # ``涨停家数=57`` → 「57 家」、``市盈率TTM=35.2`` → 「35.2 倍」、``上证收盘=3150.12`` →
-# 「3150.12 点」。只认这三种名字形状；``总市值`` 不在此列（各数据集口径不一：亿 / 原样美元）。
+# 「3150.12 点」。收盘价只供价格箭头核对；``总市值`` 不在此列（各数据集口径不一：亿 / 原样美元）。
 _UNIT_NAMED_FIELD_RE = re.compile(
     r"(?:^|[；;\n])\s*(?P<name>[0-9\u4e00-\u9fff]{0,8}?"
     r"(?:(?P<count>家数)|(?P<multiple>市盈率|市净率|市销率|市现率)(?:TTM|MRQ|LYR)?"
-    r"|(?P<points>指数收盘|上证收盘|深证收盘|创业板收盘)))"
+    r"|(?P<points>指数收盘|上证收盘|深证收盘|创业板收盘)|(?P<price>收盘价)))"
     r"\s*[=:：]\s*(?P<value>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?=$|[；;\n])"
 )
 _NEGATIVE_CONTEXT_RE = re.compile(
@@ -5714,18 +5715,20 @@ def _novel_numeric_condition_tokens(
         # only: they must not change which rows count as table headers or
         # labelled conditions.
         candidate = _ALNUM_IDENTIFIER_RE.sub(" ", _MONTH_TOKEN_RE.sub(" ", candidate))
-        quantities = (
-            *_ARABIC_QUANTITY_RE.findall(candidate),
-            *_CHINESE_QUANTITY_RE.findall(candidate),
+        quantity_matches = (
+            *_ARABIC_QUANTITY_RE.finditer(candidate),
+            *_CHINESE_QUANTITY_RE.finditer(candidate),
         )
         missing = tuple(
-            quantity.strip()
-            for quantity in quantities
-            if _normalize_quantity(quantity)
+            match.group().strip()
+            for match in quantity_matches
+            if _normalize_quantity(match.group())
             and not _quantity_supported_by_evidence(
-                quantity,
+                match.group(),
                 evidence_quantities,
                 sentence=text,
+                quantity_prefix=candidate[:match.start()],
+                quantity_suffix=candidate[match.end():],
                 observation_values=observation_values,
                 percent_fields=percent_fields,
                 money_fields=money_fields,
@@ -6394,8 +6397,51 @@ def _bound_qualified_money_values(outcome: AgentOutcome) -> frozenset[Decimal]:
     )
 
 
-def _bound_unit_named_field_values(outcome: AgentOutcome) -> frozenset[tuple[float, str, bool]]:
-    """已绑定证据里单位写在字段名里的「家 / 倍 / 点」取值：``(数值, 单位, 该字段取值唯一)``。
+@dataclass(frozen=True)
+class _UnitNamedFieldValue:
+    value: float
+    unit: str
+    metric: str
+    unique: bool
+
+
+_UNIT_METRIC_ALIASES = {
+    "家": {name: name for name in ("涨停", "跌停", "上涨", "下跌", "平盘", "停牌")},
+    "倍": {name: name for name in ("市盈率", "市净率", "市销率", "市现率")},
+    "点": {
+        "上证": "上证", "上证指数": "上证", "沪指": "上证",
+        "深证": "深证", "深证指数": "深证", "深证成指": "深证", "深成指": "深证",
+        "创业板": "创业板", "创业板指数": "创业板", "指数": "指数",
+    },
+    "元": {"收盘价": "收盘价"},
+}
+
+
+def _unit_metric_near_quantity(
+    prefix: str, suffix: str, unit: str, fields: frozenset[_UnitNamedFieldValue],
+) -> str | None:
+    """当前数量短语的指标名；兼容「57 家涨停」，不把指标的涨跌动词当新指标。"""
+    aliases = {**{item.metric: item.metric for item in fields if item.unit == unit}, **_UNIT_METRIC_ALIASES[unit]}
+    if unit == "家":
+        aliases.update({name + "家数": metric for name, metric in tuple(aliases.items())})
+    # 一个短语里已有明确指标时，上涨/下跌是它的方向；前一个数字不是指标切换边界。
+    local_prefix = re.split(r"[，,；;、]|且|而|同时", prefix)[-1]
+    direction_is_verb = any(alias not in {"上涨", "下跌"} and alias in local_prefix for alias in aliases)
+    if direction_is_verb:
+        aliases = {alias: metric for alias, metric in aliases.items() if alias not in {"上涨", "下跌"}}
+    following = [(len(alias), metric) for alias, metric in aliases.items() if suffix.lstrip(" \t*_").startswith(alias)]
+    if following:
+        return max(following)[1]
+    matches = [
+        (index + len(alias), len(alias), metric)
+        for alias, metric in aliases.items()
+        if (index := prefix.rfind(alias)) >= 0
+    ]
+    return max(matches)[2] if matches else None
+
+
+def _bound_unit_named_field_values(outcome: AgentOutcome) -> frozenset[_UnitNamedFieldValue]:
+    """已绑定字段的「家 / 倍 / 点」及价格取值，保留指标身份。
 
     精度约束同 _bound_percent_field_values：整数写法（「57 家」「35 倍」「3150 点」）只认字段
     本身就是那个整数——「3150 点」更可能是自拟整数关口，不能靠 ±0.5 撞上 ``上证收盘=3150.12``；
@@ -6408,15 +6454,21 @@ def _bound_unit_named_field_values(outcome: AgentOutcome) -> frozenset[tuple[flo
 
     bound_hashes = {key for binding in outcome.bindings for key in binding.evidence_hashes}
     by_field: dict[tuple[str, str], set[float]] = {}
+    metrics: dict[str, str] = {}
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes or not _can_support_market_quantity(item):
             continue
         for match in _UNIT_NAMED_FIELD_RE.finditer(item.detail):
-            unit = "家" if match["count"] else "倍" if match["multiple"] else "点"
+            unit = "家" if match["count"] else "倍" if match["multiple"] else "点" if match["points"] else "元"
             by_field.setdefault((match["name"], unit), set()).add(float(match["value"].replace(",", "")))
+            metric = (match["name"].removesuffix("家数") if match["count"] else
+                      match["multiple"] or (match["points"] or "").removesuffix("收盘") or match["price"])
+            metrics[match["name"]] = next(
+                (name for name in _UNIT_METRIC_ALIASES[unit] if metric.endswith(name)), metric,
+            )
     return frozenset(
-        (value, unit, len(values) == 1)
-        for (_name, unit), values in by_field.items()
+        _UnitNamedFieldValue(value, unit, metrics[name], len(values) == 1)
+        for (name, unit), values in by_field.items()
         for value in values
     )
 
@@ -6529,10 +6581,12 @@ def _quantity_supported_by_evidence(
     evidence_quantities: frozenset[str],
     *,
     sentence: str,
+    quantity_prefix: str = "",
+    quantity_suffix: str = "",
     observation_values: frozenset[str] = frozenset(),
     percent_fields: frozenset[float] = frozenset(),
     money_fields: frozenset[Decimal] = frozenset(),
-    unit_fields: frozenset[tuple[float, str, bool]] = frozenset(),
+    unit_fields: frozenset[_UnitNamedFieldValue] = frozenset(),
 ) -> bool:
     """Match exact quantities or deterministic same-unit rounding.
 
@@ -6552,6 +6606,11 @@ def _quantity_supported_by_evidence(
     candidate = _parse_quantity(normalized)
     if candidate is None:
         return False
+    # 原提取器不吞单独的「元」。只补价格箭头：两个端点都须精确来自已绑定的收盘价，
+    # 换手率等裸数不能拼出股价；普通区间仍须整段有出处，不靠端点拼凑。
+    if "→" in str(quantity) and len(candidate[0]) == 2 and not candidate[1] and quantity_suffix.lstrip().startswith("元"):
+        prices = {item.value for item in unit_fields if item.metric == "收盘价"}
+        return all(value in prices for value in candidate[0])
     for evidence in evidence_quantities:
         observed = _parse_quantity(evidence)
         if observed is None or not _same_quantity_dimension(candidate, observed):
@@ -6593,14 +6652,15 @@ def _quantity_supported_by_evidence(
                 return True
     if unit_fields and candidate[1] in {"家", "倍", "点"} and len(candidate[0]) == 1:
         coarse = _significant_digits(normalized) < 2
-        for value, unit, unique in unit_fields:
-            if unit != candidate[1] or (coarse and not unique):
+        metric = _unit_metric_near_quantity(quantity_prefix, quantity_suffix, candidate[1], unit_fields)
+        for item in unit_fields:
+            if item.unit != candidate[1] or item.metric != metric or (coarse and not item.unique):
                 continue
             if candidate[2] == 0:
-                if float(value).is_integer() and abs(abs(candidate[0][0]) - abs(value)) < 1e-9:
+                if float(item.value).is_integer() and abs(abs(candidate[0][0]) - abs(item.value)) < 1e-9:
                     return True
                 continue
-            if _rounded_quantity_matches(candidate, ((value,), unit, 0), sentence=sentence):
+            if _rounded_quantity_matches(candidate, ((item.value,), item.unit, 0), sentence=sentence):
                 return True
     return False
 

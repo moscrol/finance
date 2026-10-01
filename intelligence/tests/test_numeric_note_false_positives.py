@@ -284,10 +284,10 @@ def test_probe_0930_ratio_fields_carry_their_unit_end_to_end(tmp_path):
 
 
 def test_bare_ratio_name_is_not_a_percent_field():
-    # 改标签前的证据形状：名字里没有 %，数值门不替它猜单位。
+    # 旧成交额环比的口径可回查到 amount_vs_yesterday_pct；裸名量比仍有倍数歧义，不能猜。
     detail = "交易日=2026-09-29；市场成交额亿=14090.71；成交额环比=-17.24；量比=76.88"
     _, verified = _dated(PROBE_SENTENCE_0930, source_date="2026-09-29", detail=detail)
-    assert sorted(_flagged(verified)) == sorted(["17.2%", "76.9%", "20日"])
+    assert sorted(_flagged(verified)) == sorted(["76.9%", "20日"])
 
 
 @pytest.mark.parametrize("draft,detail,supported", [
