@@ -145,6 +145,12 @@ def _clip(value: object, limit: int) -> tuple[object, int]:
     return text[:kept] + _ELLIPSIS, len(text) - kept
 
 
+def _evidence_read_enabled() -> bool:
+    # Lazy import: the reader uses this module's shared observation bound.
+    from intelligence.services.evidence_read import evidence_read_enabled
+    return evidence_read_enabled()
+
+
 def budget_tool_observation(
     payload: Mapping[str, Any],
     *,
@@ -232,7 +238,14 @@ def budget_tool_observation(
                 "证据编号、来源、时点、分级与缺口都完整。"
                 "不要因为叙述变短而重复同一次查询——重查得到的是同一份预览。"
                 "引用时用证据编号（E1、E2…），不要誊抄哈希。"
-                "被截掉的原文没有工具能按证据编号取回，但不等于没有返回："
+                + (
+                    "若本轮菜单提供 evidence_read，可自选按 E 编号分页补读原始标题或正文；"
+                    "它不新增来源或事实日期，仍计工具预算。工具 observation 叙述不在该补读范围。"
+                    "没有该菜单项时不能按编号补读；不等于源里没有。"
+                    if _evidence_read_enabled() else
+                    "被截掉的原文没有工具能按证据编号取回，但不等于没有返回："
+                )
+                +
                 "kb_search 命中页的整节会另以「深读《章节名》N/M」段落送来（每段完整不截），"
                 "观察值里还有「同页其余章节」目录——缺哪一节就用 kb_search 检索「页名 章节名」"
                 "把那节读出来。还不够再换更窄的查询，或把它写成缺口。"
