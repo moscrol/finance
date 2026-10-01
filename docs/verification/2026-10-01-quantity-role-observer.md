@@ -60,3 +60,9 @@ CI实际checkout **6db2363704e716e516501e59c01dd62517253709**，与9f的完整tr
 GitHub main与origin/main均仍3a2718c6，生产healthy@2c394978/code_matches_repo=true；队列7385及hash、冻结DB大小/hash/0444均与R22后检一致。首次后检误比较本地旧`main`引用47a05e36与GitHub基线，断言失败已单独留档；改为查询GitHub权威ref并与origin/main交叉核对，没有改任何ref或把引用差异当生产变更。
 
 模型新增0，系列25，预算全部关闭；未合并、未部署。正式provider/HTTP线上角色接口、原生完整上下文下真实角色质量、R18正确句保真、PR8内容门、四格先于240仍待验。下一次真实模型实验须独立授权，并明确提示词/schema变化；不可把旧影子成功或本次替身接线当成端到端修复。
+
+## 后续补收R23自身CI
+
+cf2b86e4723f2a45034ffd1f7a99f75d45091ff3对应workbench36871079095、registry36871079128已五检查success；Python **19182P/167S/2xfail/1578.50s**。实际checkout86272e5f95445c0e498662e69f9b3c74a7b6040a与cf2完整tree均87879133a53c6dfcbe94bab0b7140f212e2d89ff；cf2相对851实现只有4份docs变化。临时合并树等价，不是实际合并，证明已落私有ci-tree-equivalence/ci-closeout。此前“新CI未验”为当时状态。
+
+随后R24真实联合输出实验失败，不能用工程绿抵消：历史绑定过、未来围栏及错误回显ID失败，另发现thinking实际控制未落实。详见[实测与更正](2026-10-01-bound-native-role-live.md)。R23的“模型0/系列25”是本单当时记录；R24另批2请求后总数27，预算全闭。
