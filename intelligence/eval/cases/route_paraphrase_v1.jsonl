@@ -1,0 +1,45 @@
+{"seed": "uq15-q01", "style": "colloquial", "question": "8月14号那个周五，沪深两市一共成交了多少钱？比前一天多还是少？上证收盘多少点？"}
+{"seed": "uq15-q01", "style": "reordered", "question": "上证指数 2026-08-14 收在哪？当天两市成交额多少，和前一交易日相比放量缩量？"}
+{"seed": "uq15-q01", "style": "terse", "question": "2026-08-14 两市成交额和上证收盘"}
+{"seed": "uq15-q02", "style": "colloquial", "question": "8月14号有多少只票涨停、多少跌停？连板最高的是谁，几板了？情绪咋样？"}
+{"seed": "uq15-q02", "style": "reordered", "question": "2026-08-14 短线情绪如何？涨跌停家数、最高连板股分别是什么？"}
+{"seed": "uq15-q02", "style": "terse", "question": "2026-08-14 涨停跌停家数 最高连板"}
+{"seed": "uq15-q03", "style": "colloquial", "question": "8月13号啥方向在领涨？大盘和成交量怎么样？连板高度谁最高？"}
+{"seed": "uq15-q03", "style": "reordered", "question": "2026-08-13 最高连板是谁？领涨方向有哪些，上证和量能怎样？"}
+{"seed": "uq15-q03", "style": "terse", "question": "2026-08-13 复盘：领涨方向 量能 最高板"}
+{"seed": "uq15-q04", "style": "colloquial", "question": "8月14号涨得最多的三个板块是哪些？亨通光电、长飞光纤那天咋样？"}
+{"seed": "uq15-q04", "style": "reordered", "question": "亨通光电和长飞光纤在 2026-08-14 各自涨跌如何？当天板块涨幅前三是哪些？"}
+{"seed": "uq15-q04", "style": "terse", "question": "2026-08-14 板块前三，亨通光电 vs 长飞光纤"}
+{"seed": "uq15-q05", "style": "colloquial", "question": "光纤光缆8月14号带头大涨，到底是什么产业逻辑在推？有啥实锤证据？"}
+{"seed": "uq15-q05", "style": "reordered", "question": "支撑这轮光纤光缆行情的关键证据有哪些？背后的产业逻辑是什么？8 月 14 日它领涨两市。"}
+{"seed": "uq15-q05", "style": "terse", "question": "光纤光缆行情的产业逻辑和证据"}
+{"seed": "uq15-q06", "style": "colloquial", "question": "亨通光电8月14号涨停了，大家在炒它什么？基本面撑得住吗？"}
+{"seed": "uq15-q06", "style": "reordered", "question": "亨通光电的基本面能支撑 2026-08-14 那个涨停吗？市场交易的是什么逻辑？"}
+{"seed": "uq15-q06", "style": "terse", "question": "亨通光电涨停逻辑和基本面"}
+{"seed": "uq15-q07", "style": "colloquial", "question": "8月14号稀有金属涨了两个多点，在炒什么？哪些票是代表？"}
+{"seed": "uq15-q07", "style": "reordered", "question": "稀有金属板块有哪些代表标的？2026-08-14 它涨超 2%，交易的是什么逻辑？"}
+{"seed": "uq15-q07", "style": "terse", "question": "稀有金属 8/14 上涨原因 代表股"}
+{"seed": "uq15-q08", "style": "colloquial", "question": "算力里面液冷这块，核心逻辑到底是啥？今年有什么进展能证明？"}
+{"seed": "uq15-q08", "style": "reordered", "question": "今年以来哪些进展验证了液冷的投资逻辑？AI 算力链里液冷环节的核心逻辑是什么？"}
+{"seed": "uq15-q08", "style": "terse", "question": "AI算力液冷 投资逻辑 今年进展"}
+{"seed": "uq15-q09", "style": "colloquial", "question": "医疗服务这条产业链能帮我理一下吗？上中下游是啥，跟医疗器械怎么划界，A股有哪些公司？"}
+{"seed": "uq15-q09", "style": "reordered", "question": "A股医疗服务有哪些代表公司？它和医疗器械的边界在哪？上中下游分别是什么？"}
+{"seed": "uq15-q09", "style": "terse", "question": "医疗服务产业链 上中下游 代表公司"}
+{"seed": "uq15-q10", "style": "colloquial", "question": "空芯光纤有啥技术优势？产业链怎么分？国内谁在哪个环节卡位？"}
+{"seed": "uq15-q10", "style": "reordered", "question": "国内哪些公司在空芯光纤的哪些环节卡位？它的技术优势和产业链分工是怎样的？"}
+{"seed": "uq15-q10", "style": "terse", "question": "空芯光纤 技术优势 产业链 国内公司"}
+{"seed": "uq15-q11", "style": "colloquial", "question": "数据中心液冷产业链帮我拆拆：关键部件有哪些，各环节国内龙头是谁，绑了哪些大客户？"}
+{"seed": "uq15-q11", "style": "reordered", "question": "数据中心液冷各环节国内代表公司是谁、下游大客户有哪些？关键部件环节怎么拆？"}
+{"seed": "uq15-q11", "style": "terse", "question": "数据中心液冷 部件环节 代表公司 大客户"}
+{"seed": "uq15-q12", "style": "colloquial", "question": "CPO共封装光学的产业链长啥样？跟可插拔光模块比，价值和设计权往哪儿迁了？风险在哪？"}
+{"seed": "uq15-q12", "style": "reordered", "question": "相比可插拔光模块，CPO 带来了怎样的价值与设计权迁移？主要风险和产业链结构是什么？"}
+{"seed": "uq15-q12", "style": "terse", "question": "CPO 产业链 价值迁移 风险"}
+{"seed": "uq15-q13", "style": "colloquial", "question": "蓝盾光电连着5个涨停，网上都说是低空经济龙头，靠谱吗？基本面撑得住吗？"}
+{"seed": "uq15-q13", "style": "reordered", "question": "蓝盾光电基本面能撑住 5 连板吗？说它是低空经济核心龙头靠谱吗？"}
+{"seed": "uq15-q13", "style": "terse", "question": "蓝盾光电 低空经济龙头 是否属实"}
+{"seed": "uq15-q14", "style": "colloquial", "question": "今天大盘咋样啊？成交了多少？"}
+{"seed": "uq15-q14", "style": "reordered", "question": "今天成交额多少？大盘表现怎么样？"}
+{"seed": "uq15-q14", "style": "terse", "question": "今日大盘 成交额"}
+{"seed": "uq15-q15", "style": "colloquial", "question": "说蓝思科技做空芯光纤了，满产能有150亿收入，这是真的吗？现在到哪一步了？"}
+{"seed": "uq15-q15", "style": "reordered", "question": "蓝思科技切入空芯光纤现在什么进展？满产贡献 150 亿收入的说法被确认了吗？"}
+{"seed": "uq15-q15", "style": "terse", "question": "蓝思科技 空芯光纤 150亿收入 核实"}
