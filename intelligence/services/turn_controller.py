@@ -97,10 +97,17 @@ _META_PATTERN = re.compile(
     r"(你是谁|你是什么模型|什么模型|你的模型|系统提示|能做什么|model)",
     re.IGNORECASE,
 )
+# 口语金融词（2026-10-01 改写探针 uq15-q07）：「8月14号稀有金属涨了两个多点，在炒什么？
+# 哪些票是代表？」「稀有金属 8/14 上涨原因 代表股」一个书面词都不含，确定性层认不出，
+# 交给控制器 LLM——控制器不可用时降级成**不检索的普通对话**，弱模型当控制器时同样高风险。
+# 只收不会撞日常用语的形状：「票」只认「哪些票 / 这只票 / 个票」，不收单字；「龙头」只认
+# 「龙头股」（水龙头）；「上涨 / 下跌」只认「…原因」（「最近体重上涨了怎么办」不是行情题）。
 _FINANCE_PATTERN = re.compile(
     r"(股票|公司|个股|题材|板块|估值|财报|研报|公告|市场|指数|行情|"
     r"涨跌|收盘|复盘|成交|涨停|跌停|资金|持仓|目标价|产业链|"
-    r"上涨空间|后续空间|还能涨|收入|利润|毛利率|净利率|双红|回撤榜)"
+    r"上涨空间|后续空间|还能涨|收入|利润|毛利率|净利率|双红|回撤榜|"
+    r"(?:上涨|下跌|涨|跌)(?:的)?原因|大涨|大跌|涨幅|跌幅|在炒|炒什么|炒作|概念股|龙头股|代表股|标的|"
+    r"哪些票|哪只票|这只票|个票|股价|市值|业绩|基本面|龙虎榜|连板|游资|主力资金)"
 )
 _WORKFLOW_PATTERN = re.compile(
     r"(今日复盘|每日复盘|生成报告|生成日报|执行工作流|运行工作流|"
@@ -1029,7 +1036,69 @@ def _question_carries_its_own_foothold(
         latest_explicit_query_date,
     )
 
-    return latest_explicit_query_date(text) is not None
+    if latest_explicit_query_date(text) is not None:
+        return True
+    return _reference_has_in_question_antecedent(text)
+
+
+# 题内先行词（2026-10-01 路由探针）：题材不在知识库词表里时 subject / 实体锚都是空的，
+# 「**空芯光纤**这个方向：技术优势是什么……」「**医疗服务**这条产业链能帮我理一下吗」
+# 「A股医疗服务有哪些代表公司？**它**和医疗器械的边界在哪」照样被判成跨轮追问、整题反问
+# ——uq15-q10 原题和 q09 两条改写都栽在这里。回指的对象就在同一条消息里，跟知识库认不认
+# 识这个题材无关，所以判据仍落在题面文本上，只认两种形状：
+#
+# 1. 同位语：同一小句里指示词前紧挨着一个名词短语（「X这个方向」「X这条产业链」）。前缀
+#    剥掉话头 / 时间词后要剩 ≥2 字，且不能以「的」或动词收尾（「你说的这条链」「帮我推一下
+#    这个逻辑」是在指别处）。
+# 2. 前句立题：指代出现之前已有一句 ≥6 字、自身不含指代（含「这段 / 这波 / 它们」这类
+#    classify_reference 不收的指示词）的完整句。
+#
+# 题面一出现「上次 / 刚才 / 你说的 / 上面」这类显式跨轮标记就不放行——那是真追问。
+_CROSS_TURN_MARKER_RE = re.compile(
+    r"上次|上一轮|上轮|上回|刚才|刚刚|之前(?:说|聊|提|讲|那)|前面(?:说|聊|提|讲)|你(?:说|提|讲|聊)|上面|上文|接着|继续"
+)
+_APPOSITION_REFERENCE_RE = re.compile(
+    r"(?:这|那|该)(?:条|个|只|家|波|轮)?(?:产业链|链条|链|方向|逻辑|赛道|板块|行业|题材|主线)"
+)
+_CLAUSE_BREAK_RE = re.compile(r"[，,。！!？?；;：:、\s]")
+_SENTENCE_BREAK_RE = re.compile(r"[。！!？?；;\n]")
+_LEADING_FILLER_RE = re.compile(
+    r"^(?:那么|那就|那个|那|所以|另外|还有|然后|就是|就|但是|但|不过|可是|只是|而且|而|其实|比如|例如|譬如|"
+    r"说实话|老实说|话说|顺便|对了|请问|请|麻烦|帮我|给我|我想问|想问|问一下|问下|"
+    r"关于|对于|针对|现在|目前|当前|今天|今年|最近|近期|眼下|你觉得|你看|我觉得)+"
+)
+# 先行词自己不能也在回指：「事后复盘**这段**走势。它们各自表现如何」的前句不立题。
+_DEMONSTRATIVE_RE = re.compile(r"(?:这|那|该)一?(?:段|个|些|条|只|家|波|轮|种|次|样|批|类|几)|它|他们|她们|其")
+_NON_NOUN_TAIL_RE = re.compile(
+    r"(?:的|了|过|着|一下|下|看|说|讲|聊|推|分析|研究|梳理|评估|判断|关注|跟踪|看好|看多|看空|买|卖|做|是|在)$"
+)
+
+
+def _reference_has_in_question_antecedent(text: str) -> bool:
+    from intelligence.services.query_resolution import classify_reference  # noqa: PLC0415
+
+    if _CROSS_TURN_MARKER_RE.search(text):
+        return False
+    for match in _APPOSITION_REFERENCE_RE.finditer(text):
+        clause = _CLAUSE_BREAK_RE.split(text[: match.start()])[-1]
+        head = _LEADING_FILLER_RE.sub("", clause)
+        if (
+            len(head) >= 2
+            and not _NON_NOUN_TAIL_RE.search(head)
+            and not _DEMONSTRATIVE_RE.search(head)
+            and classify_reference(head) == "none"
+        ):
+            return True
+    sentences = [part.strip() for part in _SENTENCE_BREAK_RE.split(text)]
+    for index, sentence in enumerate(sentences):
+        if classify_reference(sentence) == "none":
+            continue
+        # 第一句就带指代：前面没有可回指的话题。
+        return any(
+            len(prior) >= 6 and classify_reference(prior) == "none" and not _DEMONSTRATIVE_RE.search(prior)
+            for prior in sentences[:index]
+        )
+    return False
 
 
 def _pending_material_clarification(previous_intent: TurnIntent | None) -> TaskFrame | None:
