@@ -172,7 +172,7 @@ def _iso(value: object) -> str:
     return value
 
 
-def check_review(
+def check_native_report(
     bundle: dict, response: dict, *, current_request: dict
 ) -> dict[str, Any]:
     """Validate bindings and the native core independently; never grant release.
@@ -206,7 +206,7 @@ def check_review(
         _canonical(current_request) == _canonical(bundle["native_request"]),
         "current request differs from reviewed context",
     )
-    texts, registry = _native_indexes(current_request)
+    texts, _ = _native_indexes(current_request)
     _require(
         isinstance(response, dict)
         and set(response)
@@ -232,6 +232,17 @@ def check_review(
         native_report is not None,
         "invalid native grounding report: " + ",".join(diagnostics),
     )
+    return native_report.to_dict()
+
+
+def check_review(
+    bundle: dict, response: dict, *, current_request: dict
+) -> dict[str, Any]:
+    """Validate both core and sidecar; never grant semantic release."""
+    native_report = check_native_report(
+        bundle, response, current_request=current_request
+    )
+    _, registry = _native_indexes(current_request)
     raw = response["quantity_roles"]
     _require(isinstance(raw, list), "quantity roles must be a list")
     targets = {row["target_id"]: row for row in bundle["targets"]}
@@ -290,7 +301,7 @@ def check_review(
         "diagnostic_only": True,
         "release_authorized": False,
         "model_identity_verified": False,
-        "native_report": native_report.to_dict(),
+        "native_report": native_report,
         "annotations": annotations,
     }
 
