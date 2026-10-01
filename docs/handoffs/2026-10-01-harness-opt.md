@@ -27,6 +27,22 @@
 - **必须在 Mac（有知识库）上跑**；沙箱锚点命中 0，数字不可引用。沙箱里只有不依赖实体的那组可信：「今天大盘咋样/怎样/走势如何」原先掉进 `general_finance_qa`，已修（谓词扩充，锚不变；题材题不被吞，有反向测试）。
 - 仍未修、待 Mac 数据确认：调序（「今天成交额多少？大盘表现怎么样？」）与极简（「今日大盘 成交额」）仍落兜底；沙箱里原题兜底率 0.667，需看有知识库时是多少。
 
+## 5. 内容正确性题集（质检 P1，后补）
+
+- 动机：09-29 地图「格式和流程层的改进没有换来内容正确」；现有尺子只查形状。
+- `intelligence/eval/content_correctness.py` + `intelligence/eval/cases/content_correctness_v1.jsonl`：15 题，三类各 5 题——
+  `timepoint`（D0/D3、预计 vs 已发生）、`stock_flow`（净利润 vs 经营现金流承担资本开支）、`cfo_bridge`（间接法调整方向）。
+- **标准答案与陷阱值都由代码按恒等式算**（`IDENTITIES` / `TRAPS`），不手填；加载时校验陷阱值与正确值、题面事实分得开。
+- 判分以数值为主干：必须出现正确值；陷阱值（错误推理的指纹）一出现就判错。时点题用受控词表，现在时分强弱两档（「根据 9/1 公告，公司**目前**仍未获单」照样判错）。
+- 题面自带材料（虚构公司），考推理不考检索——2×2 四个臂拿到逐字相同的输入：
+  `python3 scripts/content_correctness_eval.py export --out prompts.jsonl` → 各臂作答 → `score --answers answers.jsonl`。
+- 夹具：每题有金标答案（必须过）和坏答案（必须**因为标注的原因**被抓），含 10 份「结构齐全但内容错」的答卷；`selftest` 子命令 + `intelligence/tests/test_content_correctness.py`（15 条）。
+- 局限：15 题是起步规模；文字检查只覆盖受控词表里的说法，换一种措辞的错误时点断言可能漏判（宁漏不误：金标全部通过）。题目扩充请沿用「事实 + 恒等式 + 陷阱」三件套。
+
+| 草案 ID | fix_type | verification_prediction | 怎么验 |
+|---|---|---|---|
+| R-20261001-04 | EVAL_ONLY | 用本题集给 2×2 四格判分：若「强模型 + 薄循环」在 cfo_bridge / stock_flow 上显著高于「GLM + 8792」（≥ 3/5 题差距），内容错误主要是模型推理层，harness 加门禁救不回来；若 GLM 两格在数值题上相同、只在时点题上有差，harness 的价值集中在时点约束 | 四格各自导出题面作答，`score --json` 存档对比 |
+
 ## 建议台账条目（只给 ID 草案，未写入 `docs/prediction-ledger.md`，避免与实验 agent 冲突）
 
 | 草案 ID | fix_type | verification_prediction | 怎么验 |
