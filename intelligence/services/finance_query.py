@@ -2158,6 +2158,20 @@ def coverage_advisory(spec: FinanceQuerySpec) -> str:
     )
 
 
+# 字段名**不再**在 schema 里按「全部 dataset 的并集」列五遍（metrics / dimensions /
+# filters.field / group_by / order_by.field）。2026-10-01 实测：那五份并集枚举合计
+# 10,742 字符、占整个工具面（8 个工具 35,939 字符）的 30%，而它们携带的信息严格少于
+# 工具说明里按 dataset 列出的 ``dataset_field_hint``——并集看不出哪个字段属于哪张表，
+# 「成交额在 market_daily 叫 total_amount、在 stock_daily 叫 amount」恰恰要靠按表列。
+# 枚举也从没挡住过串槽：rank 进 dimensions 的实测就发生在枚举在场时。
+# 合法性仍由 ``FinanceQuerySpec`` / ``_compile_query`` 校验，被拒时
+# ``validation_retry_hint`` 会把字段归属和该表字段表回给模型。
+_FIELD_SOURCE_NOTE = (
+    "字段名只能取所选 dataset 在工具说明「可用字段」里列出的 {role}，"
+    "不要用别的 dataset 的字段。"
+)
+
+
 # Keep the provider-facing schema orthogonal and shallow.  Dataset-specific
 # field compatibility remains a code-owned invariant in ``FinanceQuerySpec``
 # and ``_compile_query``; duplicating every dataset as a top-level ``oneOf``
@@ -2173,17 +2187,21 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
         },
         "metrics": {
             "type": "array",
-            "items": {"type": "string", "enum": _PUBLIC_METRICS},
+            "items": {"type": "string"},
             "uniqueItems": True,
-            "description": '要取的数值列，数组。例：["total_amount", "limit_up"]',
+            "description": (
+                '要取的数值列，数组。例：["total_amount", "limit_up"]。'
+                + _FIELD_SOURCE_NOTE.format(role="metrics")
+            ),
         },
         "dimensions": {
             "type": "array",
-            "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
+            "items": {"type": "string"},
             "uniqueItems": True,
             "description": (
-                "标识/分组列，数组，只接受本列表里的维度字段。"
-                '例：["trade_date", "sector_name"]。'
+                "标识/分组列，数组，只接受维度字段。"
+                + _FIELD_SOURCE_NOTE.format(role="dimensions")
+                + '例：["trade_date", "sector_name"]。'
                 # 实测：模型把 rank（metric）塞进 dimensions → not a dimension: rank。
                 # 枚举已经排除了它，但枚举本身挡不住，得明说两个槽位不能互串。
                 "数值列（如 rank、amount）属于 metrics，放进来会报 not a dimension。"
@@ -2204,7 +2222,7 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "field": {"type": "string", "enum": _PUBLIC_FIELDS},
+                    "field": {"type": "string"},
                     "op": {
                         "type": "string",
                         "enum": sorted(_FILTER_OPERATORS),
@@ -2242,7 +2260,7 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
         },
         "group_by": {
             "type": "array",
-            "items": {"type": "string", "enum": _PUBLIC_DIMENSIONS},
+            "items": {"type": "string"},
             "uniqueItems": True,
             # 2026-08-12 复核实测：24 次采样里 2 次栽在这条。schema 表达不了
             # 「group_by 必须等于 dimensions 全集」这种跨字段约束（_compile_query:1030）。
@@ -2275,7 +2293,7 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "field": {"type": "string", "enum": _PUBLIC_FIELDS},
+                    "field": {"type": "string"},
                     "direction": {
                         "type": "string",
                         "enum": ["asc", "desc"],

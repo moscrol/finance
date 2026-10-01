@@ -244,7 +244,11 @@ def test_local_registry_delivers_summary_without_external_io(stock_db, tmp_path,
     definitions = registry.tool_definitions(context.contract.allowed_capabilities)
     definition = next(item["function"] for item in definitions if item["function"]["name"] == "finance_query")
     properties = definition["parameters"]["properties"]
-    assert {"amount_mean", "amount_valid_count"} <= set(properties["metrics"]["items"]["enum"])
+    # 2026-10-01 起字段槽不再携带全字段并集 enum（工具面 -32%），模型从每张表的
+    # 「可用字段」说明里选字段；这里守的是「模型看得见这两个指标」本身。
+    assert "enum" not in properties["metrics"]["items"]
+    surface = definition["description"] + properties["dataset"]["description"]
+    assert "amount_mean" in surface and "amount_valid_count" in surface
     assert "amount_mean" in properties["dataset"]["description"]
     events = []
 

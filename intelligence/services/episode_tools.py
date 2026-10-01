@@ -1897,8 +1897,10 @@ def build_episode_registry(
                 name="finance_query",
                 capability="finance_query",
                 description=(
-                    "查询本地结构化金融数据。dataset 必须选自当前注册表"
-                    f"（{'、'.join(finance_query._PUBLIC_DATASETS)}）；"
+                    # 表名不在这里再抄一遍：参数 dataset 的枚举和目录里各有一份，
+                    # 下面「可用字段」按表再列一次——第四份只占位不加信息。
+                    "查询本地结构化金融数据。dataset 必须选自参数 dataset 的枚举"
+                    "（每张表的覆盖面写在该参数的说明里）；"
                     "周历/周末大事用 event_daily。"
                     "由你选择指标、维度、筛选、分组、排序和时间范围。"
                     "字段必须按 dataset 对应关系选择，不要混用不同 dataset 的字段。"
