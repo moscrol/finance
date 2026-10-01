@@ -15,6 +15,41 @@
 3. 用已核验原件冻结列表实跑真实A/B，记录实际受验SHA、966原件hash不变及完整适用性账。不能只改报告文字翻绿。
 4. 正式台账及GitHub收口；PR10/11/14保持draft，PR8内容门不解除，不合main、不部署、不新增模型调用。
 
-私有授权记录 `~/.finance-runtime/label-ab-approved-scope-20261001/authorization.json`。原候选和最新44文件hash复核见scope-decision文档/私有fresh-audit；两份旧证据不覆盖。状态pending：先红39F1P（40项新测试），实现后新旧与直接近邻65P，扩大相关7文件616P/2.49s；ruff/diff通过。首次回归命令误写邻近测试路径，exit4/0收集，原日志保留，不算绿；改为实际文件后再验。尚未提交实现/同SHA真A/B，不能宣告正式通过。
+私有授权记录 `~/.finance-runtime/label-ab-approved-scope-20261001/authorization.json`。原候选和最新44文件hash复核见scope-decision文档/私有fresh-audit；两份旧证据不覆盖。实施阶段记录：先红39F1P（40项新测试），实现后新旧与直接近邻65P，扩大相关7文件616P/2.49s；ruff/diff通过。首次回归命令误写邻近测试路径，exit4/0收集，原日志保留，不算绿；改为实际文件后再验。以上当时仅为未提交开发读数；最终同版本结果如下。
 
 冻结manifest SHA256 `55470c220d23c937a20c9371b8ab49cef80c2f4f8a8333b21cd3a602c0fd3fe6`，扫描指纹固定966全部path/hash；批准清单同时绑定11个ID与44份episode/run/report/answer原件，保留原重放error而不是涂掉。脚本仍输出全部rows；默认无批准仍严格，批准模式报告必须新文件。
+
+
+## 正式结果：confirmed（仅授权适用范围与工程接线）
+
+受验实现 **84d8e38ae8d87c461cc76b3ae2e66f1ee3b6b077**。提交后clean Mac相关7文件616P/2.68s，收据 `20261001T095813Z-84d8e38a-b6ecb8ff91b5.json`。
+
+### 同SHA真实全清单A/B
+
+| 口径 | 扫描 | 适用成功 | 批准不适用 | 保留的原重放error | 适用失败 | exit |
+|---|---:|---:|---:|---:|---:|---:|
+| 默认严格，无批准参数 | 966 | 955 | 0 | 11 | 11 | 2 |
+| 显式本次批准+固定SHA | 966 | 955 | 11 | 11 | 0 | 0 |
+
+- 都重新扫描原users根，未手选955路径；所有966行仍在JSON。新增0、消失0、原样臂漂移0、范围差0；158run/568卡，待核325→325。955适用项的全部metric与严格控制相同，不靠改变分数过门。
+- 966原件hash、44份不适用源证明、原严格baseline（SHA256 `52e3071cd65d3fe897a0a8910988870547904bfc93fae3dd8ba661ff998e2962`）及批准清单均未变，旧exit2保留。新文件 `strict-current.json` / `approved-current.json` 不覆盖历史。
+- 合成的独立变异2/2被杀死：移除重复批准或重复扫描守卫，会让原应拒的输入转绿。另在真实966范围核验：错manifest pin→exit2；仅修改私有baseline副本的一条metric→exit1。未改仓库源码、真实原件或旧baseline。
+- 这是批准后**适用范围**通过，不是966研究答卷全通过，不证明标签修复在这组产生了收益（本组待核数没有变化），也不解除模型内容门。
+
+### 同SHA全仓及CI
+
+- 独立detached Mac全仓 **19190P / 75S / 2xfail / 17warnings，1102.97s，exit0**；19267收集、0 failed/error/xpass，前后clean、无额外筛选、无绕过依赖门。收据 `20261001T101638Z-84d8e38a-5fcd3691a3d7.json`。
+- 正式 `check_test_receipt.py --require-full-scope --require-target ... --expect-revision 84d8e38... --base-drift-max 5` 通过：收执总数对平，版本/解释器/依赖/干净树一致，基座漂移0。
+- CI workbench run36845950938及registry run36845951012五检查成功；Python **19098P / 167S / 2xfail / 9warnings，1465.97s**。
+- CI实际checkout `1c2517366d1a195120368458df5a0e8d19c5b980`（自动PR测试提交），父含84d8；GitHub API核实完整tree同为 `91069a7ea24ed78508bc5d13aca23af2a2fd5787`。不是字面同SHA或实际merge。`ci-tree-equivalence.json`与原日志留证。
+- 一次gh观察器因GitHub API EOF退出；这是查询失败，原CI任务未重跑。后续只重查同任务，以上以真实终态/日志为准。
+
+### 隔离与继承边界
+
+结束后重扫仍966、hash一致；队列7385/hash、main3a2718c6、生产healthy@2c394978/code_matches_repo=true及冻结库hash/0444均不变。本单模型调用0。
+
+PR10原HEAD983的Mac1107P是另一份范围证据，不与本84全仓/A/B混记；本接口在后继PR14，未擅自回移他人分支。未来集成须包含这些后继修复，不能称旧脚本已获得新能力。PR8内容门、D保真失败、条件误标与四格先于240继续保留；未合并部署。
+
+### 重放注意
+
+使用上述受验实现与原工作台解释器，显式提供 `--users-root`、`--approved-non-candidates`、完整 `--approval-sha256`、旧 `--baseline`，并用**不存在的新路径**作为 `--json`。完整命令在私有 `commands-result.json`。用户批准的是精确对象，之后才据此生成不可漂移清单；工具核验固定性，不自行认证人类批准。日后扫描/任一源发生变化会重新阻断，不承诺旧批准永远适用。
