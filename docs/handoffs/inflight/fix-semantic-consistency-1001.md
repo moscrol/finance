@@ -1,23 +1,20 @@
-# semantic-consistency / 2026-10-01
+# semantic-consistency / 2026-10-02
 
-## 范围
-PR14 draft，不合main、不部署、不改默认off。R16～R26已claim。模型累计29，所有额度关闭；R24/R26 STARTED_ONCE已存在，严禁重启。
+## 授权与边界
+PR14 draft，不合main、不部署、不改默认off。用户“glm无限用，额度够”，ask_user glm_open_budget_scope=preservation_e2e：持续GLM总额度开放，允许必要修复；分批预注册/保留全部失败，不选优，不再逐批问额度。其它模型不自动获授权。
+旧R18/R21/R24/R26与本日三批均关闭，STARTED_ONCE严禁重启；当前累计43物理请求。新批要新计划与停止条件，但可沿用持续授权。
 
-## 最新R26：仅两案联合接口confirmed
-用户新批bound_tool_output_budget=approve_enabled_two，允许GLM5.3启用thinking；请求low，缺回显必须记未验证。受验fe648215608a7d4d8a8cffed489a7dc2fb1ce542，私有runner+docs，未改仓库服务/探针。
-历史→未来各1HTTP/响应，身份0，各1个submit_bound_grounding_report，ID64字符与本次请求/唯一枚举逐字相同。历史两处E10E11/两日期/基数2过，未来持续角色不借历史；原生core保留passed=false及拒16/18/20、18/20。34.035/14.988s。
-low两案unverified，回包推理tokens1506/556；不以token量推档位。26预检/18后验控制，原件不变。2/2关闭，没有整篇修复/交付。不是单变量A/B/稳定性/泛化，未来句15仍自解释；不改变旧失败。
-协议docs/verification/2026-10-01-bound-tool-output-live.md；证据bound-tool-output-20261001。
+## 本日3批（源码8a2dddc068735821b03b28ea2f03cc16e9549e86）
+正式号R-20261002-01：20零网预检；完整verify错→对各2HTTP，4/4响应/身份0，18.665/15.310s。错首判明确−17.24%缩量拒14、终稿去错句；对原句终稿保留。限定目标保真confirmed，非整篇通过。实际均只2轮，不能归因抬到3次上限；R18旧失败不洗绿。
+-02：27预检；错原→错补→对补→对原，2/2/3/2请求=9，均身份0。两对实际首wire只差system补充段。补充臂删除字段越界句，但四臂都留下窗口误用与孤立“这些”；native最后都passed，内容0/4，联合假设refuted，不接入生产。
+-03：32预检；逐句覆盖/证据短引文/新nonce绑定/原生core一致的函数原型。首请求50.122秒超时，1HTTP/0完整响应、身份实际2；后案停止。无有效语义结论，台账pending但本批已终结，不补跑/不抬窗口。缺证稿不算修复。
+本日新增14HTTP/13完整响应；13回包low均未验证，超时无回包。模型身份仅自报准入，不是认证。
 
-## R25控制门与CI
-实现b4cb98259411100f001caf82f9d2831e03fc7477；59新，clean14文件996P/2.75s，官方收据20261001T145012Z-b4cb9825-43dbd561790f，6/6变异。
-必须显式装配；已知GLM5.3/off出站前拒，未知能力不推定。声明引用不是验真。共享guard首个控制失败停后案/并发/重入；逻辑帽不等于物理授权。回包缺证停，齐备自报仅reported_consistent；effective_disabled_verified/identity/release恒false。R26新enabled授权不是伪造off能力或把low当off。
-fe CI36880087581/36880087639五绿，19241P167S2xfail/1251.10s；实际a3bc35ff与fe完整tree9e9fba39等价，非合并。后续文档CI另查，不冒称重跑。
+## 证据/下一步
+报告docs/verification/2026-10-02-preservation-e2e.md。私有根preservation-e2e-20261002、evidence-scope-prompt-ab-20261002、sentence-coverage-e2e-20261002；完整plan/runner/preflight/live/acceptance/postcheck保留。
+零模型用canonical只读renderer逐字复现E7：episode_tools.mainline_runner传snapshot source_date09-30；block_lines_to_evidence同历史行不传覆盖则取最大日期09-29，detail相同。只证明快照日期≠历史事实区间，未证明唯一因果；别直接清空/改早source_date破坏新鲜度。下一步先查结构化覆盖/当日成员事实的证据投影，再做小输出审查，不继续只堆提示词。
 
-## 旧结果分账
-R24仍refuted：2HTTP、历史绑定过/拒18；未来围栏+回显ID66≠64失败。关闭thinking预检漏查，回包697/255推理tokens；R21旧回包55/29，角色2/2不变、整体partially_confirmed。旧响应/summary不覆盖。
-R23@851：32新/clean910P/5变异；cf2 CI19182P167S2xfail五绿。R22@993：52新/684P/4变异；9f CI19150P167S2xfail五绿。R19@84d8：966=955适用成功+11精确批准不适用，原error保留，不泛化豁免。
-
-## 剩余/后检
-现在只确认已知两例同次接口可用，角色仍无放行权。生产默认provider接线、R18正确句保真、PR8内容、修复/交付和四格先于240仍阻断。新真实模型必须另批，不把接口成功当内容完成。
-GitHub main3a2718c6，生产healthy@2c394978/match=true，队列7385/hash、DB hash/0444均未变。
+## 旧结果/门槛
+R26仅2已知案函数/绑定/角色通过、core仍拒句，无全文放行；R24 refuted，R21 partially_confirmed。R25实现b4，clean996P/6变异；disabled专用控制门仍不允许已知forced-thinking组合，不因新enabled授权改门。R19保持955严格+11精确不适用/旧exit2。
+8a CI36884906131/36884906341五绿，19241P167S2xfail/1607.31s；c8f49d3d与8a完整tree f54ae5bc同，非实际merge、不覆盖私有runner；后续docs CI另查。
+生产默认接线、完整内容/保真稳定性、PR8内容、原四格先于240未解除。main3a2718c6、生产healthy@2c394978/match=true、队列7385/hash及DB hash/0444均未变。

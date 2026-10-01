@@ -59,3 +59,7 @@ fe6482156对应workbench **36880087581**、registry **36880087639**五检查succ
 私有根`~/.finance-runtime/bound-tool-output-20261001/`：claim/authorization/plan、冻结prompt/schema/template、preflight、唯一live账本及两份request/response/arguments/events/observer-records/result、summary、postresponse-controls、acceptance、postcheck。原始私有全文及凭据不入Git。
 
 GitHub main3a2718c6、生产healthy@2c394978/code_matches_repo=true；队列7385/hash、冻结DB大小/hash/0444与R25一致。新预算关闭，未合并、未部署；任何后续真实模型请求均需独立授权。后续首先按既有内容与保真门验收，不把这个受限接口成功接成生产放行。
+
+## 2026-10-02后续（不回写本单）
+
+用户另授持续GLM总额度并选择正确句保真与整篇验收；新批次见`2026-10-02-preservation-e2e.md`。旧本单2/2保持关闭，未重新启动。8a文档CI已五绿19241P/167S/2xfail/1607.31s；新实验结果不由该CI代验。
