@@ -238,11 +238,23 @@ def _mainline_context_block_for_llm(
         matched = target_theme or "最新全市场主线"
         lines.append(f"- 最新主线日期：{latest}；匹配口径：{matched}；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。")
         if history:
+            # A dataset snapshot date is not the observation date of every
+            # historical theme. The aggregate's max date, unlike the truncated
+            # current-sector preview, establishes same-table cutoff membership.
+            # Keep the original inclusive calendar window and snapshot freshness;
+            # neither historical frequency nor an absent row is a market verdict.
             hist_text = "；".join(
-                f"{name}近{lookback_days}日出现{days}天（{first}~{last}，板块行{sector_rows}）"
+                f"{name}：出现{days}天、板块行{sector_rows}，已观测日期{first}~{last}，"
+                f"截止日记录={'有' if last == latest else '未见'}"
                 for name, days, first, last, sector_rows in history[:5]
             )
-            lines.append(f"- 主线持续性：{hist_text}")
+            lines.append(
+                "- 主线持续性：历史出现统计，非截止日主线排名；"
+                f"本表查询窗口{cutoff}~{latest}（含边界，回看参数{lookback_days}自然日）；"
+                f"截止日{latest}；"
+                "截止日记录仅指本表是否收录，不等于市场存在或不存在："
+                f"{hist_text}"
+            )
         grouped: dict[str, list[tuple[Any, ...]]] = {}
         for row in rows:
             grouped.setdefault(str(row[1]), []).append(row)
