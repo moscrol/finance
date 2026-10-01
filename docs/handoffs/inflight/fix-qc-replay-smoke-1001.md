@@ -1,4 +1,4 @@
-# fix-qc-closeout-1001
+# fix-qc-replay-smoke-1001
 
 - 用户授权推进质检收口，未授权合 main 或切生产；PR #8 内容验收门不变，不跑240。
 - PR #11（base PR #10）首轮提交 `0165589ca95e3298a9c92ff209cb1d5f46ab7d94` 已获 Mac 干净树全量 18,968P/75S/2xfail、full-scope 收据校验及 GitHub 五检查绿。这只属于 016，不属于后续提交。
