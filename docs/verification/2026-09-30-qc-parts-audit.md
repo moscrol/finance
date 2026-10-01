@@ -67,6 +67,7 @@
 | P1（部分） | 工具面收窄的调用证据 | `scripts/audit_episode_tool_outcomes.py` 加 `--by-dataset` / `--json`：`finance_query` 调用按题型（`contract.question_type`）× 数据集（trace `detail` 里的 `dataset=`）拆开，并列出注册表 `finance_query._DATASETS`（40 个）里在所扫 episode 中一次没被调用的。默认输出不变 | `tests/test_audit_episode_tool_outcomes.py` 9 例（含 2 个真实 episode 冒烟）。变异验证：去掉 `dataset=` 的前缀约束即红 |
 | 内容正确性 | 数值待核的确定性误报（接 post988 收据 §4「仍未做」） | 三个百分数字段的标签补上 %：`强势股加权涨幅%`、`强势股成交占比%`（market_daily）、`区间涨幅%`（sector_period_rank_daily）。以前回答照实写「14.93%」也会被挂「未在证据中找到出处」，因为数值门只从字段名认 % 单位。量纲逐列核过写入链：前两列是涨幅前 5% 个股 `pct_chg` 均值与 `100 × 成交额占比`，复盘会时期旧行同单位；区间涨幅由日更 features 步按连乘 × 100 写入。**竞价涨幅、海外个股 5日涨幅没改**：复盘会原样落库，沙箱里核不了量纲 | `intelligence/tests/test_numeric_note_false_positives.py` 新增 4 例：真实 finance_query 渲染证据行 → 条件句不再挂待核；裸名（无 %）仍挂，数值门不猜单位。先红后绿；变异：撤回一个标签即红。回归：引用 finance_query / 语义核验器的 159 个测试文件共 5,286 例全绿 |
 | 测试隔离 | 门禁测试的 TMPDIR（post988 收据 §4 另一条「仍未做」）。**10-01 更新：已被主线 #6/#7 取代**——另一会话同日修了同一处，主线版本另外隔离了 `GATE_*`、补了继承 TMPDIR 与只读目录两条用例；合并 `origin/main` 时整文件取主线版本，本分支这条用例不再保留 | `tests/test_main_gate_receipt.py` 的 `gate_env` 只隔离了 HOME。嵌套 pytest 不给 `--basetemp` 时落在全机共享的 `pytest-of-<user>`，那里积着删不掉的只读残留，别的会话也在并发用，于是超过 40 秒超时误红（#988 门禁实发）。现在 TMPDIR 也指向本测试自己的临时区，而且先建好目录：`tempfile` 遇到不存在的 TMPDIR 会静默退回系统临时区 | 新增 1 例：嵌套 pytest 打印自己的 `tmp_path`，断言它在本测试的临时区内。先红（实测落在 `/tmp/pytest-of-user/…`）后绿；变异：不先建目录即红。整个文件 67 过 |
+| 合并前 A/B | 百分数标签改动的存证回放（#986 / #988 做过、只在会话里的「950 个存证 run A/B」） | `scripts/numeric_gate_label_ab.py`：对存证 `continuous-episode.json` 用当前数值门跑两臂——原样，以及只把指定数据集 finance_query 证据卡里的完整字段名换成新名（`content_hash` 不变、绑定照旧）。列出消失与新增的待核，新增 > 0 即 exit 1；`--baseline` 对照两棵树的原样臂。存证重建复用 `judge_loss_point_replay._rebuild_outcome`，与生产同口径。默认改标签集就是本分支那三处 | `tests/test_numeric_gate_label_ab.py` 16 例：存证按生产序列化（`_private_outcome`）落盘再重放；只改 finance_query 指定数据集的完整字段名；老存证无 `independent_key` 时按标题认；默认改标签集与 finance_query 现行标签对得上（再改标签即红）；仓内 3 份真实存证重放走通。变异 6/6 被抓住（去掉字段边界、不限工具、新增不判红、改卡身份、漂移不判红、消失新增对调） |
 
 ## 4. 未修的建议
 
@@ -76,7 +77,7 @@
 
 - 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。统计工具已补（§3）：`scripts/audit_episode_tool_outcomes.py --by-dataset <runs 目录>`，按题型 × 数据集拆开调用次数，并列出注册了却一次没被调用的数据集。沙箱里只有 2 个真实 episode，40 个里只看到 3 个被调用，样本太小，不下结论。在 Mac 上对全部 episode（台账记过 747 份）跑一次，才有收窄的证据；收窄本身要用户拍板。
 - 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。题面和真值要按台账纪律从真实 run 里取，要在 Mac 上做。
-  - 同一条线上的确定性误报在推进：09-29 地图第 0 条已由 #986 / #988 修掉，本分支接着改了 #988 收据遗留的三列（§3）。剩下两列要在 Mac 上各查一次真实量级再定：`SELECT min(auction_pct), max(auction_pct) FROM fact_auction_stock_daily`、`SELECT min(pct_chg_5d), max(pct_chg_5d) FROM fact_global_stock_daily`。量级在正负几十以内就是百分数，照同样办法改标签；在正负 1 以内就是小数，不能改标签。合并前按 #988 的做法，在 Mac 上用存量 run 跑一次数值门 A/B。
+  - 同一条线上的确定性误报在推进：09-29 地图第 0 条已由 #986 / #988 修掉，本分支接着改了 #988 收据遗留的三列（§3）。剩下两列要在 Mac 上各查一次真实量级再定：`SELECT min(auction_pct), max(auction_pct) FROM fact_auction_stock_daily`、`SELECT min(pct_chg_5d), max(pct_chg_5d) FROM fact_global_stock_daily`。量级在正负几十以内就是百分数，照同样办法改标签；在正负 1 以内就是小数，不能改标签。合并前按 #988 的做法，在 Mac 上用存量 run 跑一次数值门 A/B——已固化成一条命令：`.venv-workbench/bin/python scripts/numeric_gate_label_ab.py`（默认扫 `FORESIGHT_USERS_DIR` 下全部用户）。通过标准：新增 0（exit 0），消失的逐条是照实复述。
 - **更正：记忆召回题包早就有了**，质检时漏看了。尺子是 `intelligence/eval/retrieval_recall.py`，标注集是 `intelligence/eval/cases/retrieval_recall_v1.jsonl`（20 条真实标注，其中 user_memory 15 条），另有合成夹具。08-15 首份基线（`docs/verification/2026-08-15-recall-baseline.md`）：user_memory hit@5 = **46.7%**（7/15），8 条漏召回的主因登记为「中文无分词」。
   - 真正的问题是这把尺子量出来的缺口 46 天没闭环。08-05 定了两步：第一步是把上游抽好的实体传进召回，`episode_tools` 已接（`_memory_recall_intent`），`ask.py:1046` 仍只传原始问句；第二步是用户拍板的「用语义检索，不用关键词匹配」，至今未做（`user_memory.select_relevant` 仍是字面重合打分）。
   - 标注集有来源纪律（「不许造」），所以本轮没有编合成改写题。评分器也没改：改了在沙箱里量不出真实效果。下一步在 Mac 上一条命令出当前基线：`python -m intelligence.eval.retrieval_recall --cases intelligence/eval/cases/retrieval_recall_v1.jsonl --users-root "$FORESIGHT_USERS_DIR"`，再以它为验收尺子做语义检索。
@@ -109,6 +110,8 @@ FWP_ALLOW_ANY_PYTHON=1 python -m pytest -q tests/test_skill_view_supersession.py
   tests/test_swap_lock_platform_probe.py tests/test_daily_full_preflight.py
 FWP_ALLOW_ANY_PYTHON=1 python scripts/check_regex_routes.py          # 正则路由棘轮
 FWP_ALLOW_ANY_PYTHON=1 python scripts/check_swap_lock_platform.py    # Mac 上应 exit 0；PR 的 macOS CI 由 test_probe_reports_both_directions 断言同一件事
+FWP_ALLOW_ANY_PYTHON=1 python scripts/numeric_gate_label_ab.py \
+  docs/verification/2026-09-21-judge-mode-k3/evidence     # 标签 A/B；Mac 上不给路径即扫全部存证
 ```
 
 在 Mac 上用 `.venv-workbench/bin/python` 执行即可，不需要 `FWP_ALLOW_ANY_PYTHON`。
