@@ -20,3 +20,15 @@
 
 离线重新生成完整首HTTP JSON，与R13新组实际首请求逐项相等；本单不改变真实模型提示/请求。新HTTP调用0。全仓与CI须按提交后的受验SHA记录；当前partially_confirmed，仅定向通过，不挪用R15全量。证据根 `~/.finance-runtime/review-callback-context-20261001/`。
 
+
+## 提交后同版本结果（已完成）
+
+受验实现 `8dd20f49d4a49c0cd55d75054639a08678308f73`，提交后干净树744P/5.21s，收据 `20261001T090646Z-8dd20f49-6ab9ba68d681.json`。
+
+独立detached Mac树全仓：**19150P / 75S / 2xfail / 17warnings，1055.41s，exit0**；19227收集、0 failed/error/xpass，前后clean，无ignore/deselect/k/mark筛选，依赖门未绕过。收据 `20261001T092424Z-8dd20f49-176ec8902cfc.json`，JUnit与日志同私有根。
+
+队列7385行/hash不变、main仍3a2718c6、生产healthy@2c394978且code_matches_repo=true，冻结DB hash/大小/0444不变。新增模型0，不合main不部署。
+
+8dd关联CI五检查全部成功：workbench run36840541076的python/frontend/e2e/workbench-check，加registry run36840541227。CI Python **19058P/167S/2xfail/9warnings，1512.86s**。
+
+CI实际checkout为自动PR测试提交 `e6d1e61088d388581e525ca18d171352d80d72c3`，不是字面8dd；GitHub commit API核实父含8dd，完整tree均为 `36903e76668b4bef9786dcd94dfa2ae218233735`。证据 `ci-python.log` 与 `ci-tree-equivalence.json`。只是自动测试树，不是实际合并。本单据上述证据confirmed，后续文档提交不冒称新实现验收。
