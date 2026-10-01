@@ -35,3 +35,28 @@
 仅私有输出；队列/users/vault/deploy目录隔离。请求User-Agent固定curl/8.4.0，HTTP日志不保存鉴权头。保存源码SHA、runner/plan、源/草稿hash、原生judge输入与判词、HTTP请求响应、耗时、公开稿、计分和前后队列/main/生产/冻结库核验。
 
 结果 pending。CI状态与实验内容验收分开；不挪用R09全量。即使本例通过，R09/R11原失败、D矛盾、条件误标、旧AB与PR8门禁均不自动解除。
+
+## 实测结果（完整两组，无补跑）
+
+事前协议提交 `bdce1d22b339f475f05e59f8bf5e0f5a5a1851cd`；冻结plan SHA `73684234b98acdf877380e9b0c930eea3a33220df126cf3f58f6720f88b5a55c`。调用前完成off逐字复现、原writer日期对齐及首请求离线差异检查。
+
+| 组别 | 实际受验HEAD | 请求/响应 | 秒 | 最终状态/判官 | 全文逐字保留 |
+|---|---|---:|---:|---|---|
+| A 旧接口 | de0c52e8d | 1/1 | 3.965 | completed / passed | 是 |
+| B 新接口 | bdce1d22b（生产实现46a79837c） | 1/1 | 3.155 | completed / passed | 是 |
+
+两组HTTP及冻结父档递归模型准入exit0，均无运行异常、无拒句、无新增问题/待核标记。比较口径、两行日期/金额表、增减额公式、幅度公式、日期/证据边界六项原文保护检查全部通过；主目标日期短语保留。判官原生报告均passed=true/rejected=[]/issues=[]；没有逐句解释，不冒充判官逐句论证了日期规则。
+
+真实HTTP检查全部通过：A与R11原N首请求JSON完全相同；B的user仅新增runtime_context，system仅增加对应日期解释，其他模型/thinking/temperature/提示/证据/编号句一致；两组端点指纹相同，B日期对象与原writer逐项一致。每组发送前还有首请求等于离线模板的断言。请求身份仍只是请求与网关响应自报，不外推底层权重一致。
+
+**R13 partially_confirmed：新版在此N例保真；降低误删的因果收益未证实。** 预注册的“A重现误删”没有发生；同一旧版请求在R11误删、在本轮保留，说明观察到的复核结果不能视为固定输入下必然一致。具体原因未定位，不能据此指认模型、缓存或网关；也不能拿本轮通过覆盖R11失败。两组各一次，不能推导稳定性、误删率或延迟改善。
+
+本轮实际2物理请求（上限4），没有整组重试、没有第3组，不消费剩余预算。R10/R11原11次单列，本系列这三轮合计13；R12离线仍0。固定答卷检查不等于产品端到端验收，未开展D/N产品复跑或部署。
+
+实际受验新HEAD bdce1d22b干净树再次运行相关8文件：**689通过 / 3.18秒**，收据 `20261001T072339Z-bdce1d22-d3a4bd1acd0b.json`。生产代码相对46a79837c未变。CI截至此次实验收尾：registry/frontend/e2e通过，python仍进行中；不能称全CI通过，也未重新执行Mac全仓测试。
+
+postcheck：队列7385行/SHA未变，main仍3a2718c6，生产healthy@2c394978且code_matches_repo=true；冻结库3879743488 bytes、0444、SHA `71c03b7ea8d9c5d5effe41bdc2f089c52d7b846dce97bd6362c02dee1213c023` 未变。
+
+私有证据 `~/.finance-runtime/review-context-live-20261001/`：plan/precheck/postcheck、preflight离线投影、frozen原件、两个runs的HTTP/原生判词/答卷、summary.json、target-sha-regression.log及coordinator完成标记。不上传凭据或原始私有请求。
+
+后续边界：可将R12视为有离线证据的接口完整性修复，并有本次单例无误伤观察；仍不能声称真实误删率改善。若继续研究收益，必须另行预注册固定次数的重复配对和全结果报告，不得补跑到旧版失败为止。D方向矛盾、条件数字误标、R09/R11、旧AB及PR8门禁不变。
