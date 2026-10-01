@@ -754,6 +754,19 @@ def _is_external_market_query(query: str) -> bool:
     return True
 
 
+# 「X 的逻辑 / 原因 / 风险……是什么」问的是分析，不是定义（2026-10-01 路由探针）。此前
+# 「亨通光电的核心逻辑是什么」「稀有金属上涨的驱动因素是什么」「光纤光缆行情背后的产业逻辑
+# 是什么」全部判成 concept_definition → knowledge 车道 + needs_retrieval=False：模型凭记忆
+# 作答、零检索。定义判断排在公司锚 / 题材识别之前，所以连锚定的公司也被吞掉。
+# 误判代价不对称：概念题进研究只是慢一点；分析题进 knowledge 就是无据作答——故偏研究。
+# 「技术原理 / 如何工作 / 产业链位置 / 是什么意思」这类真定义问法不受影响。
+_ANALYSIS_SUBJECT_TAIL_RE = re.compile(
+    r"(?:逻辑|原因|缘由|驱动(?:力|因素)?|催化(?:剂|因素)?|看点|亮点|风险|隐患|空间|前景|进展|"
+    r"影响|机会|瓶颈|壁垒|护城河|优势|劣势|短板|差异|区别|变化|趋势|走势|行情|现状|格局|估值|"
+    r"业绩|基本面|主线|标的|龙头|代表(?:公司|标的|股)?|竞争力|天花板|拐点|预期|分歧|利好|利空)$"
+)
+
+
 def _definition_subject(query: str) -> str | None:
     text = re.sub(r"\s+", "", str(query or "").strip())
     if not text or re.search(r"(?:你|模型|model)", text, re.IGNORECASE):
@@ -763,6 +776,8 @@ def _definition_subject(query: str) -> str | None:
         if match is not None:
             subject = match.group(1).strip()
             if subject.endswith(("题材", "板块", "方向", "产业链")):
+                return None
+            if _ANALYSIS_SUBJECT_TAIL_RE.search(subject):
                 return None
             return subject
     return None
@@ -801,10 +816,22 @@ def _news_impact_target(query: str) -> str | None:
     return subject
 
 
+# 调序说法（2026-10-01 路由探针 uq15-q14）：「今天成交额多少？大盘表现怎么样？」里「今天」和
+# 「大盘」不在同一分句，上面的相邻锚接不住。要求消息里有「今天 / 今日」且某个**分句首**就是
+# 全市场名词 + 口语谓词；分句首锚防「光伏市场表现怎么样」这类题材问句被送去跑全市场。
+_MARKET_WATCH_DAY_RE = re.compile(r"今天|今日")
+_MARKET_WATCH_CLAUSE_RE = re.compile(
+    r"(?:^|[，。；？！、,;?!])(?:大盘|A股|两市|盘面)(?:今天|今日)?(?:的)?(?:整体)?(?:表现|走势)?"
+    r"(?:怎么样|怎样|咋样|如何)"
+)
+
+
 def is_market_watch_query(query: str) -> bool:
     """确定性识别「今天有什么值得关注的 / 今日行情怎么样」类当日盘面提问。"""
     text = re.sub(r"\s+", "", str(query or "").strip())
-    return _MARKET_WATCH_RE.search(text) is not None
+    if _MARKET_WATCH_RE.search(text) is not None:
+        return True
+    return bool(_MARKET_WATCH_DAY_RE.search(text) and _MARKET_WATCH_CLAUSE_RE.search(text))
 
 
 def is_watchlist_digest_query(query: str) -> bool:
@@ -1413,6 +1440,15 @@ _LEFT_FUNCTION_PREFIXES = (
 )
 
 
+# 左邻是语法成分而非公司名的一部分（2026-10-01 路由探针 uq15-q05 调序改写）：「支撑**这轮**
+# 光纤光缆行情的关键证据有哪些」里「轮」是 CJK，整题丢题材落兜底。只收多字量词短语与不会拼进
+# 公司名的虚词 / 动词；「和 / 中 / 华 / 新 / 国」这类常见公司名用字一律不收（R13-A3 防线不动）。
+_THEME_LEFT_GRAMMAR_RE = re.compile(
+    r"(?:(?:这|那|本|上|下)一?(?:轮|波|个|条)|的|在|对|把|从|关于|对于|支撑|驱动|布局|看好|看空|"
+    r"炒作|聊聊|讲讲|说说|分析|研究|梳理|拆解|跟踪)$"
+)
+
+
 def has_clean_theme_occurrence(folded_query: str, folded_term: str) -> bool:
     """主题词在问句里是否有一次非后缀嵌入的出现（左邻不是 CJK 字符）。
 
@@ -1435,6 +1471,8 @@ def has_clean_theme_occurrence(folded_query: str, folded_term: str) -> bool:
         if index < 0:
             return False
         if index == 0 or not _CJK_CHAR_RE.match(folded_query[index - 1]):
+            return True
+        if _THEME_LEFT_GRAMMAR_RE.search(folded_query[:index]):
             return True
         start = index + 1
 

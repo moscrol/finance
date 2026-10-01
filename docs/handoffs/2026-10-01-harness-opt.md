@@ -162,6 +162,27 @@ python scripts/numeric_gate_replay_ab.py diff /tmp/a.jsonl /tmp/b.jsonl
 - 读数（注入临时知识库，§10 两项合计）：clarify 4 → 0，llm_fallback 2 → **0**，改写一致率 0.711 → **0.844**（口语 0.733 → 0.933）。
 - 测试：`intelligence/tests/test_colloquial_finance_routing.py` 10 条（修前 3 红；5 条日常用语反例修前修后都不进研究）。44 个路由相关测试文件 1445 passed。
 
+## 11. 路由第三轮：分析题被当定义题零检索作答、题材前的语法成分、调序盘面题——**实验结束前不合入**
+
+**① 分析题被判成定义题（最重要）**。「X 的逻辑 / 原因 / 风险……是什么」命中 `_DEFINITION_SUFFIX_RE`（`…是什么`），判 `concept_definition` → `knowledge` 车道 + `needs_retrieval=False`：**模型凭记忆作答、零检索**。定义判断排在公司锚 / 题材识别之前，锚定的公司也被吞掉。12 道分析题 11 道中招：
+
+| 题 | 修前 | 修后 |
+|---|---|---|
+| 亨通光电的核心逻辑是什么？ | knowledge/concept_definition（主体「亨通光电的核心逻辑」） | research/stock_deep_dive |
+| 光纤光缆行情背后的产业逻辑是什么？ | knowledge/concept_definition | research/theme_analysis |
+| 中际旭创涨停的原因是什么 | concept_definition | research/stock_deep_dive |
+| 稀有金属上涨的驱动因素是什么 | knowledge/concept_definition | research |
+
+修法：定义主体以分析类名词收尾（逻辑 / 原因 / 驱动因素 / 看点 / 风险 / 前景 / 主线 / 壁垒……）时不算定义。「什么是 X / X 是什么意思 / 技术原理 / 如何工作 / 产业链位置」不变（7 条定义题全部保持）。代价不对称：概念题进研究只是慢一点；分析题进 knowledge 是无据作答。`_FINANCE_PATTERN` 顺补「驱动因素 / 投资逻辑 / 核心逻辑 / 产业逻辑 / 护城河 / 壁垒 / 催化剂」。修后 12 道里 10 道进研究，余下「CPO 的产业链位置」（按设计是定义）和「光模块的主要风险」（交控制器 LLM）。
+
+**② 题材左邻语法成分**。`has_clean_theme_occurrence` 左邻是 CJK 一律否决（R13-A3：「立新能源」不能抠出「新能源」），把「支撑**这轮**光纤光缆行情」也误杀——uq15-q05 调序改写丢题材落兜底。修法：左邻是多字量词短语（这轮 / 这波 / 本轮 / 这个）或不会拼进公司名的虚词 / 动词（的 / 在 / 对 / 关于 / 布局 / 看好……）时放行；「和 / 中 / 华 / 新 / 国」不收，立新能源 / 国新能源 / 华润新能源 / 协和新能源 / 宝新能源仍否决。
+
+**③ 调序盘面题**。「今天成交额多少？大盘表现怎么样？」今天与大盘不在同一分句。补：消息含「今天 / 今日」且某分句首是「大盘 / A股 / 两市 / 盘面」+ 口语谓词。分句首锚防「光伏市场表现怎么样」；极简「今日大盘 成交额」可能是要单值（quick_fact），有歧义不动。
+
+- 读数（注入临时知识库）：改写一致率 0.844 → **0.889**（调序 0.867 → **1.0**）；clarify 0、llm_fallback 0 保持。余下 5 处不一致均为良性或有歧义：q01 口语走 knowledge/quick_fact（带 market_quote 检索）、q01/q03 极简走日期复盘工作流、q06 极简 research vs workflow（同为 stock_deep_dive）、q14 极简。
+- 测试：`intelligence/tests/test_routing_probe_round3.py` 35 条（修前 16 红）；92 个路由相关测试文件 2729 passed。
+- 全量：18797 passed，唯一失败是 `test_frozen_thirty.py::test_thirty_set_dry_run_has_no_contract_gaps`——冻结 30 题集的 `A7-mainline`「2026-07-21 当天主线是什么」钉住的 `required_outputs` 是 `direct_definition`，正是 ① 的误判（主体「2026-07-21当天主线」）。车道不变（workflow 日期复盘），新 dry-run 契约为 `direct_answer + evidence_boundary`；验收用例本身要求「识别半导体为主线 + 涨停家数 / 成交占比量化支撑」，是取数题。**已改冻结集该条并加 `amendment` 字段说明**。⚠️ 冻结集是量具，改不改由用户定；若要保持原样，把「主线」从 `_ANALYSIS_SUBJECT_TAIL_RE` 拿掉即可（代价：「算力板块今年的主线是什么」继续 knowledge 零检索）。
+
 ## 建议台账条目（只给 ID 草案，未写入 `docs/prediction-ledger.md`，避免与实验 agent 冲突）
 
 | 草案 ID | fix_type | verification_prediction | 怎么验 |

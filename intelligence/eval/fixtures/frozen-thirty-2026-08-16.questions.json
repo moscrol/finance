@@ -317,9 +317,10 @@
       "question": "2026-07-21 当天主线是什么",
       "as_of": "2026-07-21",
       "required_outputs": [
-        "direct_definition",
+        "direct_answer",
         "evidence_boundary"
       ],
+      "amendment": "2026-10-01：原钉住值 direct_definition 来自误判——「…主线是什么」被 _DEFINITION_SUFFIX_RE 判成 concept_definition（主体「2026-07-21当天主线」）。分析类主体不再算定义后 TurnControlCore dry-run 给 direct_answer；车道不变（workflow 日期复盘）。见 docs/handoffs/2026-10-01-harness-opt.md §11。",
       "conversation_context": [],
       "timeout": 180.0,
       "tier": "standard",
