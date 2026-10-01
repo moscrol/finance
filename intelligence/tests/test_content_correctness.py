@@ -111,7 +111,7 @@ def test_prompts_carry_every_fact_and_never_the_answer() -> None:
         assert case.question in prompt
         for value in case.facts.values():
             if isinstance(value, (int, float)):
-                assert f"{value:g}" in prompt, (case.id, value)
+                assert cc._fmt(value) in prompt, (case.id, value)
             else:
                 assert value in prompt
         if case.expected is not None:
@@ -140,5 +140,86 @@ def test_cli_score_counts_missing_answers_as_failures(tmp_path: Path) -> None:
         for c in cc.load_cases()
     ]
     report = cc.summarize(results)
-    assert report["total"] == 15 and report["passed"] == 14
+    assert report["total"] == len(cc.load_cases()) and report["passed"] == report["total"] - 1
     assert report["failures"] == {"cc-tp-05": ["未作答"]}
+
+
+# ---------------------------------------------------------------------------
+# 单位与量纲（第四类，10-01 后补）
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # 长单位在前：旧顺序把「1.41万亿元」读成 1.41 万元
+        ("两市成交约1.41万亿元", [14100.0]),
+        ("合计 1,409,071,000 千元", [14090.71]),
+        # 四位整数带小数是金额，不是「年.月」：旧日期正则把它们整个删掉
+        ("减少约 2935.28 亿元", [2935.28]),
+        ("昨日约 17025.99 亿元", [17025.99]),
+        ("2026.5亿元", [2026.5]),
+        # 真日期照样剔除
+        ("2026-09-01 公告，2026年9月1日，2026.09.01，截至2026年9月", []),
+    ],
+)
+def test_extract_amounts_unit_and_date_regressions(text: str, expected: list[float]) -> None:
+    assert cc.extract_amounts(text) == pytest.approx(expected)
+
+
+def test_extract_rates_separates_percent_from_percentage_points() -> None:
+    assert cc.extract_rates("提升3个百分点，相对提升12%，即3pct，或 5 百分点") == [
+        (3.0, "pp"), (12.0, "pct"), (3.0, "pp"), (5.0, "pp"),
+    ]
+
+
+def test_unit_class_traps_are_read_in_their_own_quantity() -> None:
+    """「3 个百分点」对、「3%」错：同一个数，量纲决定对错。"""
+
+    case = {c.id: c for c in cc.load_cases()}["cc-unit-03"]
+    assert cc.score(case, "毛利率提升 3 个百分点。").passed
+    result = cc.score(case, "毛利率提升 3%。")
+    assert not result.passed
+    assert any("pp_as_pct" in f for f in result.failures)
+    assert any("缺正确值" in f for f in result.failures)
+
+
+def test_unit_class_expected_values_come_from_identities() -> None:
+    cases = {c.id: c for c in cc.load_cases()}
+    # 14090.71 − 14009.23（09-29 补行后的真实两日成交额，行情库 amount 单位千元）
+    assert cases["cc-unit-01"].expected == pytest.approx(81.48)
+    assert cases["cc-unit-02"].expected == pytest.approx(1.82 - 4.1)
+    # 昨日 = 今日 / (1 − 17.24%)；减少额 = 昨日 − 今日
+    assert cases["cc-unit-04"].expected == pytest.approx(14090.71 / 0.8276 - 14090.71, abs=1e-3)
+    # 20 日均额 = 今日 / 0.7688
+    assert cases["cc-unit-05"].expected == pytest.approx(14090.71 / 0.7688, abs=1e-3)
+
+
+def test_facts_are_normalized_before_the_collision_check() -> None:
+    """题面事实按自己的单位换算后再和陷阱值比：千元原值 1,409,071,000 不该挡住任何陷阱，
+    换算后的 14090.71 亿元撞上陷阱才算撞车。"""
+
+    bad = cc.Case(
+        id="x",
+        error_class="unit",
+        company="测试",
+        question="q",
+        facts={"turnover": 14090.71, "amount_chg_pct": -17.24},
+        fact_units={"turnover": "千元", "amount_chg_pct": "%"},
+        expected_identity="dod_change_amount",
+        # 「读成亿元」陷阱 17.24 与事实「−17.24 %」数值相同，但量纲不同 → 不撞车
+        traps=("dod_pct_read_as_yi",),
+    )
+    cc._assert_well_formed(bad)
+    clash = cc.Case(
+        id="y",
+        error_class="unit",
+        company="测试",
+        question="q",
+        facts={"turnover": 14090.71, "amount_chg_pct": -17.24, "other": 17.24},
+        fact_units={"amount_chg_pct": "%", "other": "亿元"},
+        expected_identity="dod_change_amount",
+        traps=("dod_pct_read_as_yi",),
+    )
+    with pytest.raises(ValueError, match="撞车"):
+        cc._assert_well_formed(clash)

@@ -7,6 +7,8 @@ deterministic passed 的三份首发答卷，内容里照样有源文错误。�
 - ``timepoint``   时点：把「D0 未获单」写成「D3 仍无订单」；把「预计」写成「已发生」。
 - ``stock_flow``  存量与流量：让净利润去承担现金资本开支（应当用经营现金流）。
 - ``cfo_bridge``  CFO 起点：间接法里非现金项目与营运资本调整的方向。
+- ``unit``        单位与量纲：行情库千元当元、万元亿元混算、百分点写成 %、
+                  环比基数用错、「量比%」漏除 100（09-29/30 探针里真实出现过的数据形状）。
 
 三条设计约束：
 
@@ -34,7 +36,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-ERROR_CLASSES = ("timepoint", "stock_flow", "cfo_bridge")
+ERROR_CLASSES = ("timepoint", "stock_flow", "cfo_bridge", "unit")
 
 # ---------------------------------------------------------------------------
 # 会计恒等式（单位一律是题目单位，默认亿元）
@@ -69,6 +71,17 @@ IDENTITIES = {
     "fcf": lambda f: _cfo(f) - f["capex"],
     # 覆盖资本开支和分红后的现金盈余 / 缺口
     "fcf_after_dividend": lambda f: _cfo(f) - f["capex"] - f.get("dividends", 0.0),
+    # ---- 单位与量纲（结果一律是亿元，百分点题除外）----
+    # 行情库 amount 字段单位是千元：千元 ÷ 1e5 = 亿元
+    "turnover_change_from_kyuan": lambda f: (f["turnover_k"] - f["turnover_prev_k"]) / 1e5,
+    # 经营现金流给万元、资本开支给亿元：先统一到亿元再相减
+    "fcf_mixed_units": lambda f: f["cfo_wan"] / 1e4 - f["capex"],
+    # 比率之差是「个百分点」
+    "margin_change_pp": lambda f: f["margin_now"] - f["margin_prev"],
+    # 环比 = 今日 / 昨日 − 1 → 昨日 = 今日 / (1 + 环比)；减少额 = 昨日 − 今日
+    "dod_change_amount": lambda f: f["turnover"] / (1 + f["amount_chg_pct"] / 100) - f["turnover"],
+    # 量比% = 今日成交额 ÷ 20 日均额 × 100 → 20 日均额 = 今日 ÷ (量比% / 100)
+    "ma20_from_volume_ratio_pct": lambda f: f["turnover"] / (f["volume_ratio_pct"] / 100),
 }
 
 # 陷阱：真实答卷里出现过的错误推理，各自算出的「错误答案」。
@@ -91,18 +104,52 @@ TRAPS = {
     "cfo_gain_added_back": lambda f: cfo_indirect(f) + 2 * f.get("gain_on_asset_sale", 0.0),
     # CFO 起点：只加回折旧摊销，漏掉减值等其他非现金费用
     "cfo_only_da": lambda f: cfo_indirect(f) - f.get("impairment", 0.0) - f.get("share_based_comp", 0.0),
+    # ---- 单位与量纲 ----
+    "kyuan_as_yuan": lambda f: (f["turnover_k"] - f["turnover_prev_k"]) / 1e8,
+    "kyuan_as_wan": lambda f: (f["turnover_k"] - f["turnover_prev_k"]) / 1e4,
+    "wan_not_converted": lambda f: f["cfo_wan"] - f["capex"],
+    "wan_off_by_ten": lambda f: f["cfo_wan"] / 1e3 - f["capex"],
+    # 百分点写成 %：数值相同、量纲错（只在 % 读数里找，见 TRAP_KINDS）
+    "pp_as_pct": lambda f: f["margin_now"] - f["margin_prev"],
+    # 环比基数用今日：今日 × |环比|
+    "dod_base_today": lambda f: f["turnover"] * abs(f["amount_chg_pct"]) / 100,
+    # 把「环比 −17.24」读成减少 17.24 亿元
+    "dod_pct_read_as_yi": lambda f: abs(f["amount_chg_pct"]),
+    # 环比方向做反：当成增长，昨日 = 今日 / (1 − 环比)
+    "dod_sign_flipped": lambda f: f["turnover"] - f["turnover"] / (1 - f["amount_chg_pct"] / 100),
+    # 量比% 当倍数用：今日 ÷ 76.88
+    "volume_ratio_pct_as_multiple": lambda f: f["turnover"] / f["volume_ratio_pct"],
+    # 方向做反：今日 × 量比
+    "volume_ratio_direction_flipped": lambda f: f["turnover"] * f["volume_ratio_pct"] / 100,
 }
+
+# 陷阱值要在哪一种读数里找：amount（金额，换算到题目单位）、pct（写成 % 的数）、
+# pp（写成「个百分点」的数）。默认 amount。
+TRAP_KINDS = {"pp_as_pct": "pct"}
 
 # ---------------------------------------------------------------------------
 # 数字抽取
 # ---------------------------------------------------------------------------
 
-_UNIT_SCALE = {"亿元": 1.0, "亿": 1.0, "万元": 1e-4, "万": 1e-4, "元": 1e-8}
+_UNIT_SCALE = {
+    "万亿元": 1e4, "万亿": 1e4, "亿元": 1.0, "亿": 1.0,
+    "千元": 1e-5, "万元": 1e-4, "万": 1e-4, "元": 1e-8,
+}
 # 左边界只排除 ASCII 字母数字：Python 的 \w 也匹配汉字，用它会把「盈余2.4亿元」漏掉。
 _NUM_RE = re.compile(
     r"(?<![A-Za-z0-9_.])[-−+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|(?<![A-Za-z0-9_.])[-−+]?\d+(?:\.\d+)?"
 )
-_UNIT_AFTER = re.compile(r"\s*(亿元|亿|万元|万|元)")
+# 长单位在前：「1.41万亿元」不能先被「万」吃掉（旧顺序会读成 1.41 万元）。
+_UNIT_AFTER = re.compile(r"\s*(万亿元|万亿|亿元|亿|千元|万元|万|元)")
+_RATE_AFTER = re.compile(r"\s*(个百分点|百分点|pct|%|％)")
+
+
+# 日期：年份限定 19xx/20xx、左右不贴数字；点号分隔必须写全年.月.日。旧写法
+# ``\d{4}[-/.年]\d{1,2}`` 把任何四位整数带小数的金额（2935.28 亿、17025.99 亿）当成
+# 「年.月」删掉——小金额的三类题碰不到，量纲题的成交额一上万就漏判。
+_DATE_RE = re.compile(
+    r"(?<![\d.])(?:19|20)\d{2}(?:[-/年]\d{1,2}(?:[-/月]\d{1,2}日?)?|\.\d{1,2}\.\d{1,2})(?![\d.])"
+)
 
 
 def extract_amounts(text: str, *, default_unit: str = "亿元") -> list[float]:
@@ -113,7 +160,7 @@ def extract_amounts(text: str, *, default_unit: str = "亿元") -> list[float]:
     """
 
     target = _UNIT_SCALE[default_unit]
-    cleaned = re.sub(r"\d{4}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?", " ", text)
+    cleaned = _DATE_RE.sub(" ", text)
     cleaned = re.sub(r"\d{1,2}月\d{1,2}日", " ", cleaned)
     cleaned = re.sub(r"(?<![A-Za-z])[DQ]\d+(?![0-9])|\d{4}\s*Q\d", " ", cleaned)
     values: list[float] = []
@@ -130,6 +177,23 @@ def extract_amounts(text: str, *, default_unit: str = "亿元") -> list[float]:
         scale = _UNIT_SCALE[unit.group(1)] if unit else target
         values.append(number * scale / target)
     return values
+
+
+def extract_rates(text: str) -> list[tuple[float, str]]:
+    """抽出比率读数：``(绝对值, "pct" | "pp")``。「3%」是 pct，「3个百分点」是 pp。"""
+
+    out: list[tuple[float, str]] = []
+    for match in _NUM_RE.finditer(text):
+        unit = _RATE_AFTER.match(text, match.end())
+        if unit is None:
+            continue
+        raw = match.group(0).replace(",", "").replace("−", "-")
+        try:
+            number = abs(float(raw))
+        except ValueError:
+            continue
+        out.append((number, "pct" if unit.group(1) in {"%", "％"} else "pp"))
+    return out
 
 
 def _close(a: float, b: float, *, abs_tol: float, rel_tol: float) -> bool:
@@ -191,6 +255,9 @@ class Case:
     status_terms: tuple[str, ...] = ()
     # 「预计 / 计划」被写成「已发生」：不论带什么日期，未加限定地说出来就错。
     forbidden_claims: tuple[str, ...] = ()
+    # 量纲题：每个事实自己的单位（默认 ``unit``）；答案的量纲（amount / pp）
+    fact_units: dict[str, str] = field(default_factory=dict)
+    quantity: str = "amount"
     note: str = ""
 
     @property
@@ -205,11 +272,12 @@ class Case:
     def prompt(self) -> str:
         """给被测方的题面：材料 + 问题。四个实验臂拿到的文本逐字相同。"""
 
-        lines = [f"【材料】{self.company}（虚构公司，数据仅用于本题）"]
+        tag = "数据仅用于本题" if self.error_class == "unit" else "虚构公司，数据仅用于本题"
+        lines = [f"【材料】{self.company}（{tag}）"]
         labels = _FACT_LABELS
         for key, value in self.facts.items():
             if key in labels:
-                lines.append(f"- {labels[key]}：{_fmt(value)} {self.unit}")
+                lines.append(f"- {labels[key]}：{_fmt(value)} {self.fact_units.get(key, self.unit)}")
             elif isinstance(value, str):
                 lines.append(f"- {value}")
         lines.append(f"【问题】{self.question}")
@@ -228,10 +296,21 @@ _FACT_LABELS = {
     "cfo": "经营活动产生的现金流量净额",
     "capex": "购建固定资产等支付的现金（资本开支）",
     "dividends": "拟现金分红",
+    "turnover_k": "两市当日成交额（行情库 amount 字段合计）",
+    "turnover_prev_k": "两市前一交易日成交额（行情库 amount 字段合计）",
+    "cfo_wan": "经营活动产生的现金流量净额",
+    "margin_prev": "上年毛利率",
+    "margin_now": "本年毛利率",
+    "turnover": "两市当日成交额",
+    "amount_chg_pct": "成交额环比（较前一交易日）",
+    "volume_ratio_pct": "量比%（当日成交额 ÷ 20 日均成交额 × 100）",
 }
 
 
 def _fmt(value: float) -> str:
+    # 大整数写全并加千分位（14,090,710,000），不能让 :g 变成 1.40907e+10。
+    if float(value).is_integer() and abs(value) >= 1e6:
+        return f"{int(value):,}"
     return f"{value:g}"
 
 
@@ -250,13 +329,19 @@ def score(case: Case, answer: str) -> CaseResult:
         return CaseResult(case.id, case.error_class, False, ["空答案"])
 
     if case.expected is not None:
-        amounts = extract_amounts(text, default_unit=case.unit)
+        readings = {
+            "amount": extract_amounts(text, default_unit=case.unit),
+            "pct": [v for v, k in extract_rates(text) if k == "pct"],
+            "pp": [v for v, k in extract_rates(text) if k == "pp"],
+        }
+        shown = {"amount": case.unit, "pct": "%", "pp": "个百分点"}
         expected = abs(case.expected)
-        if not any(_close(a, expected, abs_tol=0.011, rel_tol=0.005) for a in amounts):
-            failures.append(f"缺正确值 {expected:g}{case.unit}（{case.expected_identity}）")
+        if not any(_close(a, expected, abs_tol=0.011, rel_tol=0.005) for a in readings[case.quantity]):
+            failures.append(f"缺正确值 {expected:g}{shown[case.quantity]}（{case.expected_identity}）")
         for name, trap in case.trap_values().items():
-            if any(_close(a, abs(trap), abs_tol=0.011, rel_tol=0.005) for a in amounts):
-                failures.append(f"出现陷阱值 {abs(trap):g}{case.unit}（{name}）")
+            kind = TRAP_KINDS.get(name, "amount")
+            if any(_close(a, abs(trap), abs_tol=0.011, rel_tol=0.005) for a in readings[kind]):
+                failures.append(f"出现陷阱值 {abs(trap):g}{shown[kind]}（{name}）")
 
     if case.error_class == "timepoint":
         failures.extend(_timepoint_failures(case, text))
@@ -311,6 +396,7 @@ def load_cases(path: Path = CASES_PATH) -> list[Case]:
         row["traps"] = tuple(row.get("traps", ()))
         row["status_terms"] = tuple(row.get("status_terms", ()))
         row["forbidden_claims"] = tuple(row.get("forbidden_claims", ()))
+        row["fact_units"] = dict(row.get("fact_units", {}))
         row.pop("fixtures", None)
         cases.append(Case(**row))
     for case in cases:
@@ -335,6 +421,11 @@ def _assert_well_formed(case: Case) -> None:
             raise ValueError(f"{case.id}: 时点题必须给 observed_at / asked_at，以及 status_terms 或 forbidden_claims")
     elif case.expected_identity is None or not case.traps:
         raise ValueError(f"{case.id}: 数值题必须给 expected_identity 和至少一个陷阱")
+    if case.quantity not in {"amount", "pp"}:
+        raise ValueError(f"{case.id}: quantity 只能是 amount / pp")
+    unknown = [u for u in case.fact_units.values() if u not in _UNIT_SCALE and u != "%"]
+    if unknown:
+        raise ValueError(f"{case.id}: 不认识的事实单位 {unknown}")
     _assert_traps_distinct(case)
 
 
@@ -343,11 +434,21 @@ def _assert_traps_distinct(case: Case) -> None:
 
     if case.expected is None:
         return
-    facts = [abs(v) for v in case.facts.values() if isinstance(v, (int, float))]
-    reference = [abs(case.expected), *facts]
+    # 只在同一种读数里比：「3 个百分点」（正确）和「3%」（陷阱）数值相同、量纲不同，不算撞车。
+    # 题面事实先换算到题目单位（14,090,710,000 千元 → 14090.71 亿元）再比。
+    reference: list[tuple[float, str]] = [(abs(case.expected), case.quantity)]
+    for key, value in case.facts.items():
+        if not isinstance(value, (int, float)):
+            continue
+        unit = case.fact_units.get(key, case.unit)
+        if unit == "%":
+            reference.append((abs(value), "pct"))
+        else:
+            reference.append((abs(value) * _UNIT_SCALE[unit] / _UNIT_SCALE[case.unit], "amount"))
     for name, trap in case.trap_values().items():
-        for ref in reference:
-            if _close(abs(trap), ref, abs_tol=0.05, rel_tol=0.01):
+        kind = TRAP_KINDS.get(name, "amount")
+        for ref, ref_kind in reference:
+            if ref_kind == kind and _close(abs(trap), ref, abs_tol=0.05, rel_tol=0.01):
                 raise ValueError(f"{case.id}: 陷阱 {name}={trap:g} 与正确值或题面事实 {ref:g} 撞车")
 
 
