@@ -7673,6 +7673,17 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
     except (TypeError, ValueError):
         return fn(request)
     parameters = signature.parameters
+    context_parameter = parameters.get("runtime_context")
+    if (
+        context_parameter is not None
+        and context_parameter.kind not in {
+            inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD,
+        }
+        and context_parameter.default is inspect.Parameter.empty
+        and "runtime_context" not in request
+    ):
+        # Do not mistake the whole request for an absent, required date object.
+        raise TypeError("semantic judge runtime_context is unavailable")
     if any(
         param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values()
     ):
@@ -7687,7 +7698,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             declared_gaps=request.get("declared_gaps") or [],
             sentences=request["sentences"],
             timeout=timeout,
-            **{key: request[key] for key in ("material_claims", "material_grounding", "material_delivery", "material_outputs", "nonfactual_review") if key in request},
+            **{key: request[key] for key in ("material_claims", "material_grounding", "material_delivery", "material_outputs", "nonfactual_review", "runtime_context") if key in request},
         )
     named = {
         name: request[name]
@@ -7703,6 +7714,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "material_delivery",
             "material_outputs",
             "nonfactual_review",
+            "runtime_context",
         )
         if name in parameters and name in request
     }
@@ -7721,7 +7733,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
         in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
         and parameter.default is inspect.Parameter.empty
     ]
-    if named and all(
+    if (named or context_parameter is not None) and all(
         parameter.name in named and parameter.kind != inspect.Parameter.POSITIONAL_ONLY
         for parameter in required_positional
     ):
@@ -7745,6 +7757,7 @@ def _call_flexible(fn: JudgeFn, request: dict[str, object], timeout: float) -> o
             "sentences": request["sentences"],
             "answer_sentences": request["sentences"],
             "timeout": timeout,
+            **({"runtime_context": request["runtime_context"]} if "runtime_context" in request else {}),
         }
         positional: list[object] = []
         for parameter in required_positional:
