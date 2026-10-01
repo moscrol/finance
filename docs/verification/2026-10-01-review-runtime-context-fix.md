@@ -42,3 +42,8 @@ R12新增模型调用 **0**，R10/R11累计仍11。不改默认off，不合main�
 ## 后续CI更正
 
 R14期间核对R12全量CI（run36828527701）：4失败/19033通过/167跳过/2xfail。新参数经过benchmark观测包装层时未保留delegate签名，导致4个旧签名替身收到context后TypeError；本地新4失败30通过，旧34通过，已复现。故台账由原“confirmed（定向离线）”更正为partially_confirmed：原局部投影证据仍有效，但兼容性未全满足，不是可合并状态。R14新组3/3保留N、旧2/3误删的内容证据单列，不抵消CI红灯；见review-context-repeat-pairs文档。
+
+
+## 后续兼容修复结案
+
+R15在a6cb22676修复上述观测包装层签名问题：提交后735定向通过，Mac全仓19141通过/75跳过/2xfail，关联CI五绿，CI自动PR测试合并树与实现Git tree完全相同。见 `2026-10-01-review-wrapper-compatibility.md`。R12原失败和partially_confirmed保留；不把后续修复挪给旧版本，也不把CI通过扩张成D内容矛盾已解决。
