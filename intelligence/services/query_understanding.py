@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Sequence
 
 from intelligence.services.disclosure_scan_pack import (
     is_disclosure_scan_query,
@@ -1093,11 +1093,30 @@ def _time_horizon(query: str) -> TimeHorizon:
     return "unspecified"
 
 
+def _names_company_pair(query: str, named_companies: Sequence[str]) -> bool:
+    """问题里点了两家以上公司、又不是在问它们之间的关系 → 按比较题处理。
+
+    比较正则要求「分别 / 差异 / 比较」这类落点词；口语改写常常不带：「亨通光电、
+    长飞光纤那天咋样」「A 和 B 各自涨跌如何」「A vs B」。落到单股路由，第二家公司
+    整个被丢掉（Mac 改写探针 v1：q04 三个改写全部 → stock_deep_dive）。名字来自
+    QueryResolver 的实体词典，不靠正则猜实体。问关系（客户 / 供货 / 合作）的照旧
+    走关系路由。
+    """
+    if len(dict.fromkeys(named_companies)) < 2:
+        return False
+    return not (
+        _RELATION_RE.search(query)
+        or _COMPANY_MAPPING_RE.search(query)
+        or _COMPANY_CONFIRMATION_RE.search(query)
+    )
+
+
 def _research_operators(
     query: str,
     *,
     matched_theme: str | None = None,
     anchor: EntityAnchor | None = None,
+    named_companies: Sequence[str] = (),
 ) -> tuple[ResearchOperator, ...]:
     operators: list[ResearchOperator] = []
     if parse_analog_intent(query) or parse_regime_intent(query):
@@ -1108,7 +1127,7 @@ def _research_operators(
         operators.append("counterevidence")
     if _MONEY_FLOW_RE.search(query):
         operators.append("money_flow")
-    if _COMPARISON_RE.search(query):
+    if _COMPARISON_RE.search(query) or _names_company_pair(query, named_companies):
         operators.append("comparison")
     if _RELATION_RE.search(query):
         operators.append("relation")
@@ -1463,6 +1482,7 @@ def understand_query(
     *,
     matched_theme: str | None = None,
     anchor: EntityAnchor | None = None,
+    named_companies: Sequence[str] = (),
 ) -> QueryEnvelope:
     raw_text = str(query or "").strip()
     # 贴了材料的消息：正则路由只看问题部分。材料正文里的题材别名、六位数字、日期
@@ -1471,10 +1491,14 @@ def understand_query(
     parts = split_user_message(raw_text)
     text = parts.question or raw_text
     has_materials = bool(parts.materials)
+    named_companies = tuple(
+        name for name in dict.fromkeys(named_companies) if name and name in text
+    )
     operators = _research_operators(
         text,
         matched_theme=matched_theme,
         anchor=anchor,
+        named_companies=named_companies,
     )
     time_horizon = _time_horizon(text)
     required_outputs = _required_outputs(operators)
@@ -1716,11 +1740,14 @@ def understand_query(
         # 「宁王和迪王谁的估值更贵」：两家公司用代称，实体解析认不出，主体为空。
         # 代称表在 user_task；这里只把它们并成比较主体，假设说明由 TaskFrame 写。
         nicknames = resolve_nicknames(text)
-        subject = (
-            "、".join(canonical for _alias, canonical in nicknames)
-            if len(nicknames) >= 2
-            else None
-        )
+        if len(nicknames) >= 2:
+            subject = "、".join(canonical for _alias, canonical in nicknames)
+        elif len(named_companies) >= 2:
+            # 词典认得出的真名（「亨通光电和长飞光纤分别表现如何」）同样并成比较主体，
+            # 否则主体落空，两家公司的名字都传不到下游。
+            subject = "、".join(named_companies)
+        else:
+            subject = None
         return envelope(
             "comparison",
             "company" if subject else "unknown",

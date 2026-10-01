@@ -43,6 +43,17 @@
 |---|---|---|---|
 | R-20261001-04 | EVAL_ONLY | 用本题集给 2×2 四格判分：若「强模型 + 薄循环」在 cfo_bridge / stock_flow 上显著高于「GLM + 8792」（≥ 3/5 题差距），内容错误主要是模型推理层，harness 加门禁救不回来；若 GLM 两格在数值题上相同、只在时点题上有差，harness 的价值集中在时点约束 | 四格各自导出题面作答，`score --json` 存档对比 |
 
+## 6. 比较题丢失修复（Mac 改写探针 v1 的真 bug）——**实验结束前不合入**
+
+- 现象（Mac 实测，可引用）：uq15-q04 原题「亨通光电和长飞光纤当天**分别**表现如何」→ comparison；三个改写（「亨通光电、长飞光纤那天咋样」「…**各自**涨跌如何」「亨通光电 **vs** 长飞光纤」）→ stock_deep_dive，第二家公司整个丢掉。
+- 根因：比较判定只靠正则落点词；实体解析只取最长的一个名字。`QueryResolver._comparison_entities` 能找出全部点名公司，但只在历史意图下启用。
+- 修法（3 个文件，小改）：
+  - `query_resolution.py`：无条件找出点名公司，有锚点时传给信封。
+  - `query_understanding.py`：`_names_company_pair`——≥2 家公司且不是关系 / 供货 / 映射题 → 加 comparison 算子；比较信封主体并成「甲、乙」（原来只认代称，真名时主体为 None）。
+  - `research_contract.py`：追问的 `comparison_entities` 按「、」拆回逐个实体（修前 A16 只剩「高澜股份」，申菱环境丢失）。
+- 验证：有词典的临时知识库下前后对比——4 道 q04、2 道双股题改判 comparison；单股 / 关系 / 供货 3 道负例与 A04 / A16 的 lane、owner、继承**一字不变**。新测 `test_comparison_named_pair.py` 10 条，修前 7 红 3 绿；全量 18629 passed、0 failed。
+- 为什么暂不合入：改了路由，2×2 实验进行中合入会让 GLM + 8792 臂中途换规则。实验结束后合入，再在 Mac 上重跑改写探针 v2 看 q04 一致性。
+
 ## 建议台账条目（只给 ID 草案，未写入 `docs/prediction-ledger.md`，避免与实验 agent 冲突）
 
 | 草案 ID | fix_type | verification_prediction | 怎么验 |

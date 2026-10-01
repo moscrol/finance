@@ -1567,7 +1567,13 @@ def build_turn_intent(
         and envelope.subject != previous_intent.primary_subject
         and _COMPARISON_PATTERN.search(cleaned)
     ):
-        comparison_entities = (envelope.subject,)
+        # 比较信封的主体是「甲、乙」（query_understanding 并名）：拆回逐个实体，
+        # 否则 comparison_entities 里是一个拼起来的假名字。
+        comparison_entities = (
+            tuple(part for part in envelope.subject.split("、") if part)
+            if envelope.question_type == "comparison"
+            else (envelope.subject,)
+        )
 
     if (
         follow_up

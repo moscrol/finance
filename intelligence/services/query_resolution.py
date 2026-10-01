@@ -220,10 +220,15 @@ class QueryResolver:
             r"(?:复盘|分析|比较)(?:一下)?(?:它们|它|这两只|这几只|这家公司)", cleaned
         ):
             reference_kind = "entity_pronoun"
+        # 一次性找出问题里点名的全部公司：两家以上时信封按比较题处理（见
+        # query_understanding._names_company_pair），不再只深挖排在最长的那一家。
+        # 题材名胜出、锚点被让掉时（anchor is None）不往信封里传，免得题材题被改判。
+        named_companies = self._comparison_entities(cleaned)
         envelope = understand_query(
             cleaned,
             matched_theme=matched_theme,
             anchor=anchor,
+            named_companies=named_companies if anchor is not None else (),
         )
         if named and anchor is None and envelope.matched_by == "explicit" and envelope.subject != named:
             # A named historical wave outranks prose guessed as a company by
@@ -234,7 +239,7 @@ class QueryResolver:
             envelope = replace(envelope, subject=named, subject_kind="theme", question_type="theme_analysis")
             envelope = replace(envelope, task_frame=build_task_frame(cleaned, envelope))
         comparison_entities = (
-            self._comparison_entities(cleaned)
+            named_companies
             if historical is not None and (
                 "comparison" in envelope.operators
                 or re.search(r"相比|比较|对比|各自|分别|差异|差别|相同|不同", cleaned)
