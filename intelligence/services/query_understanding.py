@@ -209,13 +209,13 @@ _EXTERNAL_QUOTE_TERMS = (
 )
 _RELATIVE_TIMEFRAMES = ("昨天", "昨日", "隔夜", "今天", "今日", "最新", "本周", "这一周", "这周", "近一周", "过去一周", "一周内")
 _DEFINITION_PREFIX_RE = re.compile(
-    r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*什么是"
+    r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*什么(?:是|叫)"
     r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24})"
 )
 _DEFINITION_SUFFIX_RE = re.compile(
     r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*"
     r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24}?)"
-    r"(?:是什么|的?技术原理|如何工作|的?产业链位置)"
+    r"(?:是什么|的?技术原理|如何工作|的?产业链位置|(?:怎么|如何)计算|的?计算公式)"
 )
 _VALUATION_SUBJECT_RE = re.compile(
     r"^(?:请|帮我|麻烦)?(?:给我)?(?:拍估值[：:]?)?"
@@ -779,6 +779,9 @@ def _definition_subject(query: str) -> str | None:
                 return None
             if _ANALYSIS_SUBJECT_TAIL_RE.search(subject):
                 return None
+            # 「这道题怎么计算」「那个指标是什么」：指示词开头是在指别处，不是要一个定义。
+            if subject.startswith(("这", "那")):
+                return None
             return subject
     return None
 
@@ -1004,7 +1007,7 @@ def _market_cause_hit(
     if (
         anchor is not None
         or _TICKER_RE.search(text) is not None
-        or _explicit_company_subject(text) is not None
+        or _explicit_company_subject(text, known_theme=matched_theme) is not None
     ):
         return None
     if _CAUSE_VERB_RE.search(text) is None or _CAUSE_MOVE_RE.search(text) is None:
@@ -1041,13 +1044,30 @@ def _valuation_subject(query: str) -> str | None:
     return subject
 
 
-def _explicit_company_subject(query: str) -> str | None:
+_COMPANY_SUBJECT_QUESTION_TAIL_RE = re.compile(
+    r"为什么|为何|怎么|如何|是否|能否|会不会|还能|有没有|的(?:基本面|估值|逻辑|业绩|走势|前景)"
+)
+
+
+def _explicit_company_subject(query: str, *, known_theme: str | None = None) -> str | None:
+    """「看看X / 分析X / 研究X」里的 X 当公司名；``known_theme`` 是解析器从知识库认出的题材。
+
+    内置别名表只覆盖一部分题材；知识库独有的题材（「光纤光缆」）此前在「帮我看看光纤光缆」
+    里被当成公司名 → stock_deep_dive（2026-10-01 无检索车道排查）。X 恰好就是知识库认出的
+    题材时不算公司，交给后面的题材分支。
+    """
     text = re.sub(r"\s+", "", str(query or "").strip())
+    theme = str(known_theme or "").strip().casefold()
     for pattern in _COMPANY_CUE_RES:
         match = pattern.search(text)
         if match is None:
             continue
-        subject = match.group(1).strip()
+        # 贪婪捕获会把问句尾巴吞进来（「看看立新能源为什么涨停」→「立新能源为什么涨停」，下游
+        # 拿这个名字查不到实体），「研究一下蓝思科技」会带上「一下」：截掉而不是整句放弃。
+        subject = _COMPANY_SUBJECT_QUESTION_TAIL_RE.split(match.group(1).strip(), maxsplit=1)[0]
+        subject = re.sub(r"^一下", "", subject)
+        if len(subject) < 2:
+            continue
         if (
             subject in _GENERIC_COMPANY_SUBJECTS
             or subject.startswith(
@@ -1071,6 +1091,7 @@ def _explicit_company_subject(query: str) -> str | None:
                 ("题材", "板块", "行业", "产业", "赛道", "方向", "产业链")
             )
             or any(subject.casefold() == alias.casefold() for alias in _theme_aliases())
+            or (theme and subject.casefold().startswith(theme))
         ):
             continue
         return subject
@@ -1445,7 +1466,7 @@ _LEFT_FUNCTION_PREFIXES = (
 # 公司名的虚词 / 动词；「和 / 中 / 华 / 新 / 国」这类常见公司名用字一律不收（R13-A3 防线不动）。
 _THEME_LEFT_GRAMMAR_RE = re.compile(
     r"(?:(?:这|那|本|上|下)一?(?:轮|波|个|条)|的|在|对|把|从|关于|对于|支撑|驱动|布局|看好|看空|"
-    r"炒作|聊聊|讲讲|说说|分析|研究|梳理|拆解|跟踪)$"
+    r"炒作|聊聊|讲讲|说说|分析|研究|梳理|拆解|跟踪|看看|看下|一下)$"
 )
 
 
@@ -1870,7 +1891,7 @@ def understand_query(
             0.88,
         )
 
-    explicit_company = _explicit_company_subject(text)
+    explicit_company = _explicit_company_subject(text, known_theme=matched_theme)
     if explicit_company is not None:
         return envelope(
             _company_question_type(text),

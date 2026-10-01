@@ -183,6 +183,22 @@ python scripts/numeric_gate_replay_ab.py diff /tmp/a.jsonl /tmp/b.jsonl
 - 测试：`intelligence/tests/test_routing_probe_round3.py` 35 条（修前 16 红）；92 个路由相关测试文件 2729 passed。
 - 全量：18797 passed，唯一失败是 `test_frozen_thirty.py::test_thirty_set_dry_run_has_no_contract_gaps`——冻结 30 题集的 `A7-mainline`「2026-07-21 当天主线是什么」钉住的 `required_outputs` 是 `direct_definition`，正是 ① 的误判（主体「2026-07-21当天主线」）。车道不变（workflow 日期复盘），新 dry-run 契约为 `direct_answer + evidence_boundary`；验收用例本身要求「识别半导体为主线 + 涨停家数 / 成交占比量化支撑」，是取数题。**已改冻结集该条并加 `amendment` 字段说明**。⚠️ 冻结集是量具，改不改由用户定；若要保持原样，把「主线」从 `_ANALYSIS_SUBJECT_TAIL_RE` 拿掉即可（代价：「算力板块今年的主线是什么」继续 knowledge 零检索）。
 
+## 12. 无检索车道排查（57 题电池）——**实验结束前不合入**
+
+§11 的「分析题被当定义题」是撞见的，这一轮系统排查：57 道问题（公司 15 / 题材 15 / 市场宏观 12 / 口语极简 10 / 知识 5）全部过 `decide_turn`（注入临时知识库），找落进 `chat` 或 `knowledge + needs_retrieval=False` 的，以及反问和交控制器 LLM 的。修前 11 道非正常（其中 5 道是合理的知识题），修后 6 道（5 道知识题 + 「茅台咋样」依赖真实知识库别名）。
+
+| 形状 | 修前 | 修法 |
+|---|---|---|
+| 两融余额创新高意味着什么 / 现在适合加仓吗 | chat，不检索 | `_FINANCE_PATTERN` 补两融 / 融资余额 / 北向 / 降息 / 美联储 / ETF / 加仓 / 抄底 / 牛熊 / A股 / 港股 / 美股 / 沪指 / 创业板…（「大盘」刻意不收：闲聊语气聊大盘按设计走轻量 knowledge） |
+| 帮我看看光纤光缆 | stock_deep_dive（主体「光纤光缆」当公司） | `_explicit_company_subject(known_theme=)`：X 就是 / 以知识库认出的题材开头时不算公司（内置别名表只覆盖一部分题材） |
+| 看看立新能源为什么涨停 | 公司主体「立新能源为什么涨停」（下游查不到实体） | 主体在疑问词处截断 |
+| 研究一下蓝思科技 / 帮我深挖一下中天科技 | unknown（「一下」开头整句放弃） | 剥掉「一下」再判 |
+| 帮我分析一下储能 / 帮我看一下光模块 | 题材丢失 | 题材左邻放行补「看看 / 看下 / 一下」 |
+| 什么叫戴维斯双击 / 市净率怎么计算 | chat | 定义问法补「什么叫」「怎么 / 如何计算」「计算公式」；主体以「这 / 那」开头不算定义（「这道数学题怎么计算」） |
+
+- 测试：`intelligence/tests/test_no_retrieval_lane_audit.py` 21 条（修前 13 红）；115 个路由相关测试文件中途挂 2 条（「聊聊大盘」设计约束），已按设计把「大盘」移出词表。
+- 电池在 `.scratch/noretrieval_battery.py`（云端临时目录，不随补丁）；题目清单见本节表格与测试文件。
+
 ## 建议台账条目（只给 ID 草案，未写入 `docs/prediction-ledger.md`，避免与实验 agent 冲突）
 
 | 草案 ID | fix_type | verification_prediction | 怎么验 |

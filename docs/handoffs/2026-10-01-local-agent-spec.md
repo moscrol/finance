@@ -1,4 +1,4 @@
-# 本地 agent 任务书（2026-10-01，harness 优化第 7–17 号提交）
+# 本地 agent 任务书（2026-10-01，harness 优化第 7–19 号提交）
 
 > 给在用户 Mac 上运行的 agent。云端 agent 只能改代码、跑 Linux 测试，碰不到真实知识库、真实 run 存证、模型 API 和 GitHub/Gitea。下面这些只有本地能做。
 > 每节都写了：做什么 → 命令 → 验收口径 → 失败怎么办 → 回报什么。**按顺序做；标「需用户决定」的不要自行决定。**
@@ -13,9 +13,9 @@
   - 不改 `docs/prediction-ledger.md`（只能起草）；
   - 不跑会占用同一模型配额的大批量 eval。
 - 不 force push（`AGENTS.md`）。Gitea 有镜像同步，往 GitHub 推之前先确认镜像方向，不要让 Gitea 覆盖 GitHub。
-- 补丁来源：云端导出的 `harness-probe-v2.txt`（第 7–17 号，共 11 个）。用户通过 Cmd+A / Cmd+C 复制网页文本给你，**不能下载**。
+- 补丁来源：云端导出的 `harness-probe-v2.txt`（第 7–19 号，共 13 个）。用户通过 Cmd+A / Cmd+C 复制网页文本给你，**不能下载**。
 
-### 提交清单（第 7–17 号）
+### 提交清单（第 7–19 号）
 
 | # | 提交 | 类别 | 合入时机 |
 |---|---|---|---|
@@ -30,6 +30,8 @@
 | 15 | fix(verifier): 字段名里的单位（家数 / 倍 / 点 / 涨幅 / 净买入）+ `numeric_gate_replay_ab.py` | 核验 + 工具 | **实验后** |
 | 16 | fix(routing): 题内先行词不再反问 + 口语行情词 | 路由 | **实验后** |
 | 17 | fix(routing): 分析题不当定义题 + 题材左邻语法成分 + 调序盘面 + 冻结集 A7 修订 | 路由 + 量具 | **实验后，A7 需用户决定** |
+| 18 | docs(handoff): 本任务书 | 文档 | 随时 |
+| 19 | fix(routing): 无检索车道排查（口语市场词、看看X 主体、什么叫 / 怎么计算） | 路由 | **实验后** |
 
 第 3 号（finance_query schema 瘦身）同样是**实验后**才合入。
 
@@ -41,9 +43,9 @@
 cd /tmp/harness-opt && pbpaste > /tmp/hp2.txt && rm -rf /tmp/hp2 && mkdir /tmp/hp2 && git mailsplit -o/tmp/hp2 /tmp/hp2.txt >/dev/null && ok=1 && for f in /tmp/hp2/*; do s=$(sed -n 's/^Subject: \[PATCH[^]]*\] //p' "$f" | head -1); git log --format=%s | grep -qF "$s" || git am -q "$f" || { ok=0; break; }; done && [ "$ok" = 1 ] && git log --oneline -12
 ```
 
-- **验收**：`git log` 顶部是 `fix(routing): analysis questions are not definitions…`，分支上共 17 个提交。
+- **验收**：`git log` 顶部是 `fix(routing): no-retrieval lane audit…`，分支上共 19 个提交。
 - **失败**：`git am` 冲突时先 `git am --show-current-patch | head -30` 看是哪一个，然后 `git am --abort`，回报补丁标题和冲突文件。**不要手工改补丁内容。**
-- **回报**：`git log --oneline -17` 的输出。
+- **回报**：`git log --oneline -19` 的输出。
 
 ## 2. 在 macOS 上跑相关测试
 
@@ -56,7 +58,8 @@ cd /tmp/harness-opt && P=~/finance-workspace-private/.venv-workbench/bin/python 
   intelligence/tests/test_comparison_named_pair.py intelligence/tests/test_short_date_quantity_mask.py \
   intelligence/tests/test_field_name_units.py intelligence/tests/test_numeric_gate_replay_ab.py \
   intelligence/tests/test_in_question_antecedent.py intelligence/tests/test_colloquial_finance_routing.py \
-  intelligence/tests/test_routing_probe_round3.py intelligence/tests/test_content_correctness.py \
+  intelligence/tests/test_routing_probe_round3.py intelligence/tests/test_no_retrieval_lane_audit.py \
+  intelligence/tests/test_content_correctness.py \
   intelligence/tests/test_frozen_thirty.py intelligence/tests/test_turn_controller.py \
   intelligence/tests/test_query_resolution.py intelligence/tests/test_numeric_note_false_positives.py
 ```
@@ -127,7 +130,7 @@ cd /tmp/harness-opt && ~/finance-workspace-private/.venv-workbench/bin/python sc
 2. 第 3 号（schema 瘦身）。合入后要跑同一个 uq15 臂，对照台账草案 R-20261001-01。
 3. 第 11 号（比较题），然后重跑第 3 节探针。
 4. 第 13、14、15 号（核验器）。合入前第 4 节的 A/B 必须已经人工看过，而且没有异常。
-5. 第 16、17 号（路由）。第 17 号带冻结集 A7 的修订，**等用户对第 7 节第 1 项做出决定后再合**。
+5. 第 16、17、19 号（路由）。第 17 号带冻结集 A7 的修订，**等用户对第 7 节第 1 项做出决定后再合**。
 6. 全部合入后，跑一次完整的 probe v2 和 uq15 两臂，作为新基线。
 
 走 PR 合入，不要直推 main。推之前确认 Gitea 镜像不会反向覆盖。
