@@ -63,3 +63,7 @@ python scripts/review_probes/quantity_role_contract.py check \
 下一阶段需要共同评审原生schema、报告携带、修复轮与交付生命周期，并以独立语义验收确认角色正确。不能直接把这个诊断结果接成豁免。新真实模型实验须另行授权；系列仍25、预算关闭。R18正确句保真、PR8内容门、四格先于240继续保留。
 
 本次未重跑全仓，不挪用84d8全仓/CI为993背书；推送后的新CI单独查看，本文不预记全绿。main3a2718c6、生产healthy@2c394978/code_matches_repo=true、队列7385/hash、冻结DB hash/0444均未变，未合并/部署。
+
+## 后续CI实绩补收
+
+2026-10-01收取文档head9f3281b7的CI：workbench36865993383、registry36865993435均success，五检查通过；Python **19150P/167S/2xfail/1740.88s**。实际checkout6db2363704e716e516501e59c01dd62517253709与9f完整tree均ae1143c69c5237c43aefe274cbcc4b82a34ab0b7，9f相对993只改3份docs；未实际合并。先前“CI未验”描述保留为当时状态，此处为后续补收。新R23不可挪用该全仓结果；接线实测另见[观察适配协议](2026-10-01-quantity-role-observer.md)。
