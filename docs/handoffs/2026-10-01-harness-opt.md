@@ -104,6 +104,36 @@
 - 验证：`test_short_date_quantity_mask.py` 增至 30 条（序号修复部分修前 4 红）；全量 18679 passed、0 failed。
 - `scripts/date_mask_ab.py` 同时量两项修复（`kind=date / list_label`），按核验器同序（先掩日期再剥序号）模拟，避免把 `10-31日…` 误报成截断。
 
+## 9. 证据侧：单位写在字段名里的证据值被误挂待核——**实验结束前不合入**
+
+方法：用 finance_query 真实字段标签造证据行，条件句里正确复述证据值 37 句、自拟阈值 15 句，喂给 `_novel_numeric_condition_tokens`。修前 **16/37 句正确复述被挂待核**，根因同一个：单位住在字段名里，核验器只认了一部分（post986 修过 `量比%`，这次补齐同家族）。
+
+| 证据字段 | 正确复述 | 修法 |
+|---|---|---|
+| `涨停家数=57` 等 `…家数` | 57 家 | 新 `_UNIT_NAMED_FIELD_RE` → 家 |
+| `市盈率TTM` / `市净率MRQ` / 市销率 / 市现率 | 35.2 倍 | 同上 → 倍 |
+| `上证收盘` / `指数收盘` | 3150.12 点 | 同上 → 点 |
+| `竞价涨幅` / `5日涨幅` / `区间涨幅` | 2.3% | `_PERCENT_FIELD_RE` 加「涨幅」（auction_pct、gain_5d 均为 %） |
+| `龙虎榜净买入亿` / `机构净买入亿` / 买入额 / 卖出额 / 资金流 | 1.23 亿元；`-0.56` → 净卖出 5600 万元 | 金额字段名单补齐；负数语境（新增「净卖出 / 净流出」）按绝对值认 |
+
+修后 6/37 仍挂，均为刻意不放宽：`总市值`（各数据集口径不一：亿 / 原样美元）、「3150 点」（整数关口不算 3150.12 的复述）、「1.19 亿股」、由 `量比%` 换算的「1.36 倍」、「10 配 3」、「再跌 5.6%」对 −5.56。
+
+**反方向（自拟阈值必须照挂）**：15/15 照挂，含贴近证据的整数（35 倍 vs 35.2、2% vs 2.3、1.2 亿 vs 1.23）和符号写反（证据净买入 −0.56，稿写「净买入超过 0.56 亿」）。
+
+**多日撞车**（自己引入、自己堵上）：家数是整数，整数规则挡不住——绑着 30 天 `涨停家数`，自拟「低于 50 家」会撞上恰好是 50 的某一天。凑整写法（有效数字 < 2 位）只在该字段取值唯一时才算复述；「57 家」「3471 家」照认。
+
+- 测试：`intelligence/tests/test_field_name_units.py` 36 条（修前 13 红）；全量 **18715 passed、0 failed**。
+- **新工具 `scripts/numeric_gate_replay_ab.py`**：从 `continuous-episode.json` 按类型注解还原 `VerifiedEpisodeOutcome`（contract + structural_verifier），在两份代码上各跑门禁，`diff` 逐句列出「只在 A 挂 / 只在 B 挂」及该句证据原文。往返保真由 `test_numeric_gate_replay_ab.py` 锁住（按线上落盘同一 `to_dict()` 序列化，还原后门禁结论逐 token 不变）。合成 35 run 上 main → 分支：消失 12、新增 0。
+- §7 / §8 / §9 三项修复都可以用它在 Mac 的真实 run 上验收（`date_mask_ab.py` 只能看文本、看不到证据）：
+
+```bash
+python scripts/numeric_gate_replay_ab.py run --runs-dir RUNS --code-root ~/finance-workspace-private --out /tmp/a.jsonl
+python scripts/numeric_gate_replay_ab.py run --runs-dir RUNS --code-root /tmp/harness-opt --out /tmp/b.jsonl
+python scripts/numeric_gate_replay_ab.py diff /tmp/a.jsonl /tmp/b.jsonl
+```
+
+验收口径：「只在 A 挂」应全是正确复述（每条附证据片段可目检），「只在 B 挂」应全是自拟阈值（§7/§8 的日期掩码、序号修复带来的）；`failed` 非零时先看还原失败原因。
+
 ## 建议台账条目（只给 ID 草案，未写入 `docs/prediction-ledger.md`，避免与实验 agent 冲突）
 
 | 草案 ID | fix_type | verification_prediction | 怎么验 |

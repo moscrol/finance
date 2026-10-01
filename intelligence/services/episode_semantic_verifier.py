@@ -427,9 +427,11 @@ _FIELD_QUALIFIER = r"[0-9一-鿿]{0,6}?"
 # 行情库这三列的单位是 %（pct_chg / turnover / amplitude），证据写成裸数 ``涨跌幅=-5.72``，
 # 模型按人话写 ``-5.72%``。同 _CURRENCY_FIELD_RE：单位只从字段名绑，别的裸数不获 % 资格。
 # 名字以 % 结尾的字段（``量比%``、``成交额环比%``）单位就写在名字里，同样算（09-30 post986 探针）；
+# ``竞价涨幅``、``5日涨幅``、``区间涨幅`` 的底层列（auction_pct / gain_5d = (close/c5-1)*100 /
+# change_pct）同样是 %（10-01 核查：「若竞价涨幅超过 2.3%」复述 ``竞价涨幅=2.3`` 被挂待核）；
 # 裸名「量比」不算——别的数据源里的量比多是倍数。
 _PERCENT_FIELD_RE = re.compile(
-    r"(?:^|[；;\n])\s*(?:" + _FIELD_QUALIFIER + r"(?:涨跌幅|换手率|振幅)\s*(?:[（(]\s*%\s*[）)]|%)?"
+    r"(?:^|[；;\n])\s*(?:" + _FIELD_QUALIFIER + r"(?:涨跌幅|涨幅|换手率|振幅)\s*(?:[（(]\s*%\s*[）)]|%)?"
     r"|[0-9\u4e00-\u9fff]{1,12}?\s*(?:[（(]\s*%\s*[）)]|%))"
     r"\s*[=:：]\s*(?P<value>[+-]?\d+(?:\.\d+)?)\s*%?\s*(?=$|[；;\n])"
 )
@@ -448,17 +450,28 @@ _QUANTITY_PARSE_RE = re.compile(
     r"(?P<unit>万亿元|万亿|亿元|万元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?\Z"
 )
 _CURRENCY_FIELD_RE = re.compile(
-    r"(?:^|[；;\n])\s*(?P<qualifier>" + _FIELD_QUALIFIER + r")(?:成交额|成交金额|封单金额|总市值|流通市值)\s*"
+    r"(?:^|[；;\n])\s*(?P<qualifier>" + _FIELD_QUALIFIER + r")(?:成交额|成交金额|封单金额|总市值|流通市值|净买入|买入额|卖出额|资金流)\s*"
     r"(?:[（(]\s*)?(?P<unit>万亿元|万亿|亿元|万元|亿|元)(?:\s*[）)])?"
     r"\s*[=:：]\s*(?P<value>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?=$|[；;\n])"
 )
+# 10-01 核查：``龙虎榜净买入亿=1.23``、``机构净买入亿=-0.56`` 单位同样写在名字里，复述成
+# 「1.23 亿元」「净卖出 5600 万元」却被挂待核——上面的金额名单只认成交额 / 封单 / 市值。
 _CURRENCY_FIELD_SCALE = {
     "元": Decimal("0.00000001"), "万元": Decimal("0.0001"),
     "亿": Decimal(1), "亿元": Decimal(1),
     "万亿": Decimal(10000), "万亿元": Decimal(10000),
 }
+# 单位写在字段名里的另外三类（10-01 核查，37 句正确复述里 16 句误挂待核的主因）：
+# ``涨停家数=57`` → 「57 家」、``市盈率TTM=35.2`` → 「35.2 倍」、``上证收盘=3150.12`` →
+# 「3150.12 点」。只认这三种名字形状；``总市值`` 不在此列（各数据集口径不一：亿 / 原样美元）。
+_UNIT_NAMED_FIELD_RE = re.compile(
+    r"(?:^|[；;\n])\s*(?P<name>[0-9\u4e00-\u9fff]{0,8}?"
+    r"(?:(?P<count>家数)|(?P<multiple>市盈率|市净率|市销率|市现率)(?:TTM|MRQ|LYR)?"
+    r"|(?P<points>指数收盘|上证收盘|深证收盘|创业板收盘)))"
+    r"\s*[=:：]\s*(?P<value>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?=$|[；;\n])"
+)
 _NEGATIVE_CONTEXT_RE = re.compile(
-    r"(?:下降|下滑|减少|缩(?:量|约|减)?|回落|下跌|跌幅|负增长)"
+    r"(?:下降|下滑|减少|缩(?:量|约|减)?|回落|下跌|跌幅|负增长|净卖出|净流出)"
 )
 _ORDERED_LIST_ITEM_RE = re.compile(
     r"^(?P<indent>\s*)(?P<number>\d+)(?P<suffix>[）).、])(?P<body>.*)$"
@@ -5611,6 +5624,7 @@ def _novel_numeric_condition_tokens(
     observation_values = _bound_observation_values(verified.outcome)
     percent_fields = _bound_percent_field_values(verified.outcome)
     money_fields = _bound_qualified_money_values(verified.outcome)
+    unit_fields = _bound_unit_named_field_values(verified.outcome)
     condition_section = False
     condition_columns: tuple[int, ...] = ()
     for item in sentences:
@@ -5715,6 +5729,7 @@ def _novel_numeric_condition_tokens(
                 observation_values=observation_values,
                 percent_fields=percent_fields,
                 money_fields=money_fields,
+                unit_fields=unit_fields,
             )
         )
         if missing:
@@ -6379,6 +6394,33 @@ def _bound_qualified_money_values(outcome: AgentOutcome) -> frozenset[Decimal]:
     )
 
 
+def _bound_unit_named_field_values(outcome: AgentOutcome) -> frozenset[tuple[float, str, bool]]:
+    """已绑定证据里单位写在字段名里的「家 / 倍 / 点」取值：``(数值, 单位, 该字段取值唯一)``。
+
+    精度约束同 _bound_percent_field_values：整数写法（「57 家」「35 倍」「3150 点」）只认字段
+    本身就是那个整数——「3150 点」更可能是自拟整数关口，不能靠 ±0.5 撞上 ``上证收盘=3150.12``；
+    带小数的写法按显示精度舍入比对。
+
+    「唯一」防的是多日证据撞车（同 _bound_qualified_money_values 的 950 run 教训）：一份稿绑着
+    几十天的 ``涨停家数``，自拟的「低于 50 家」总能撞上恰好是 50 的某一天。凑整写法（有效数字
+    不到 2 位）只在该字段只有这一个取值时才算复述。
+    """
+
+    bound_hashes = {key for binding in outcome.bindings for key in binding.evidence_hashes}
+    by_field: dict[tuple[str, str], set[float]] = {}
+    for item in outcome.evidence:
+        if item.content_hash not in bound_hashes or not _can_support_market_quantity(item):
+            continue
+        for match in _UNIT_NAMED_FIELD_RE.finditer(item.detail):
+            unit = "家" if match["count"] else "倍" if match["multiple"] else "点"
+            by_field.setdefault((match["name"], unit), set()).add(float(match["value"].replace(",", "")))
+    return frozenset(
+        (value, unit, len(values) == 1)
+        for (_name, unit), values in by_field.items()
+        for value in values
+    )
+
+
 def _significant_digits(quantity: str) -> int:
     """数字部分的有效位数；整数末尾的 0 不算（``20000`` 是 1 位，``21950`` 是 4 位）。"""
 
@@ -6490,6 +6532,7 @@ def _quantity_supported_by_evidence(
     observation_values: frozenset[str] = frozenset(),
     percent_fields: frozenset[float] = frozenset(),
     money_fields: frozenset[Decimal] = frozenset(),
+    unit_fields: frozenset[tuple[float, str, bool]] = frozenset(),
 ) -> bool:
     """Match exact quantities or deterministic same-unit rounding.
 
@@ -6536,12 +6579,28 @@ def _quantity_supported_by_evidence(
     dimension, scale = _quantity_dimension(candidate[1])
     if money_fields and dimension == "currency_yi" and len(candidate[0]) == 1:
         coarse = _significant_digits(normalized) < 3
+        negative = bool(_NEGATIVE_CONTEXT_RE.search(sentence))
         for value in money_fields:
-            if abs(candidate[0][0] * scale - float(value)) <= 1e-9 * max(1.0, abs(float(value))):
+            shown = candidate[0][0] * scale
+            if abs(shown - float(value)) <= 1e-9 * max(1.0, abs(float(value))):
+                return True
+            # 「机构净卖出 0.56 亿元」复述 ``机构净买入亿=-0.56``：负数语境下按绝对值认。
+            if negative and float(value) < 0 and abs(abs(shown) - abs(float(value))) <= 1e-9 * max(1.0, abs(float(value))):
                 return True
             if not coarse and _rounded_quantity_matches(
                 candidate, ((float(value),), "亿元", 0), sentence=sentence,
             ):
+                return True
+    if unit_fields and candidate[1] in {"家", "倍", "点"} and len(candidate[0]) == 1:
+        coarse = _significant_digits(normalized) < 2
+        for value, unit, unique in unit_fields:
+            if unit != candidate[1] or (coarse and not unique):
+                continue
+            if candidate[2] == 0:
+                if float(value).is_integer() and abs(abs(candidate[0][0]) - abs(value)) < 1e-9:
+                    return True
+                continue
+            if _rounded_quantity_matches(candidate, ((value,), unit, 0), sentence=sentence):
                 return True
     return False
 
