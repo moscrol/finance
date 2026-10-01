@@ -28,4 +28,24 @@ R10四例仍按原计划执行完毕，不删失败、不将超时记作答题�
 
 ## 结果
 
-待执行。只提出并冻结可证伪假说，尚无候选配置模型响应。
+受验head `de0c52e8d80b4e1dd848b06a1dc7992985fee90c`（生产实现与A相同，本提交只登记B协议）。四组对应首请求的JSON比较已执行，差异字段严格只有 `thinking`；原件、runner、模型、提示词、预算没有变。
+
+| 固定答卷 | 物理请求 / 响应 | 秒 | 最终状态 / judge |
+|---|---:|---:|---|
+| D-original | 2 / 2 | 19.257 | partial / unavailable |
+| N-original | 1 / 1 | 9.522 | partial / repaired |
+| D-corrected | 2 / 2 | 30.799 | completed / repaired |
+| D-conditional | 2 / 2 | 24.584 | completed / repaired |
+
+全部实际HTTP及冻结父档身份准入exit0；7请求7响应。D-original第三次逻辑复核被原实验请求帽拦截，未发HTTP，不记第3次付费请求，也不是provider断线。
+
+**R11 partially_confirmed：响应可用，内容验收未通过。**
+
+- D-original目标句因同句“20日均量”缺证被删，不证明识别了09-29 −17.24%与“两日均放量”的方向矛盾；后续日期拒绝并耗尽请求帽，最终通用缺口稿丢失正确数字表。
+- N-original正确数字表/公式保留，但“库内最新可用交易日”的日期边界句被删，marker_loss→partial。原writer实际收到today=2026-10-01、latest_data_date=2026-09-30及cutoff/date_rule，judge却未收到；这是接口信息不对称，不可归为单纯模型过严。
+- D-corrected目标所在句仍因“20日均量”等其他子主张缺证被删；不是整句正确金标，不能仅凭删除记为纠正措辞误伤。
+- D-conditional目标条件未被LLM拒绝，但机械规则把“两日”当无来源数值，标numeric_unsupported并插待核；同时“20日均量”口径漏过。completed不等于质量通过。
+
+因此不运行条件D/N产品复跑、不追加第三配置或延长时间。A4+B7=**11物理请求**；24是上限，不是待消费额度。后续R12只修日期上下文接口并离线回归，新增模型调用0，不改生产thinking或默认off。
+
+私有证据根 `~/.finance-runtime/semantic-consistency-20261001/`；`comparison-summary.json`汇总原件哈希、请求、响应及逐项wire比较；A在checkpoints，B在thinking-disabled。原始HTTP/判词/公开稿保留，不提交敏感原件。postcheck确认队列7385行、main、冻结库哈希不变；生产healthy@2c394978、code_matches_repo=true。

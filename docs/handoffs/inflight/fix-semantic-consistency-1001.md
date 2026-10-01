@@ -1,9 +1,14 @@
 # fix/semantic-consistency-1001
 
-- 用户要求继续推进。基于PR13文档head0d861bc0d；R-20261001-10已领号，方案见docs/verification/2026-10-01-semantic-consistency-probe.md。
-- 原D内容矛盾并非LLM判官漏判：judge_mode=deterministic，off分支合成passed，只有机械检查。默认off是此前为规避长材料延迟的决定，不改全局默认。
-- 先做既有语义复核的固定检查点实验：D原文、N正确原文、D目标纠正、D条件句四例，各off零调用+llm一次有界执行。除指定目标变体外不改草稿、证据、合同或绑定；验证原N/D的off结果可精确复现。
-- 每例≤2物理请求/120s，总≤8。四例目标判据全过才允许原D/N两次隔离产品复跑，各≤8请求180s，阶段总≤24；不加样本/重试选优。
-- 不加单题正则、不改判官提示词/模型、预算、记忆或生产。模型识别/投影/发布问题分开归因。失败即暂停产品扩跑，保留全部原件。
-- 私有证据~/.finance-runtime/semantic-consistency-20261001/；原档案不写入，队列/users/vault/deploy隔离，UA固定curl/8.4.0；不输出凭据。
-- 当前R10前两例均50秒窗口耗尽，无有效响应；仍按固定四例跑完。R11已另领号，候选调用前登记仅设置LLM_THINKING=disabled：原写作有此控制，判官没有；不改提示词或延时。R10/R11共享本轮24次总上限，不能重新领预算。候选未调用。R09仍部分成立；旧A/B及PR8阻塞不变，不合main、不部署、不跑240。
+## 当前交接
+
+- PR14仍OPEN draft，base fix/intent-negation-1001；不合main、不部署、不改生产默认off。
+- R10/A四例全部无响应，4物理请求，约50秒各一次；refuted仅指现配置/时间窗，不能当模型内容评分。
+- R11/B只改LLM_THINKING=disabled，四组首请求JSON差异严格只有thinking；7请求7响应、身份/父档准入均0，但内容目标未全过：D方向矛盾未明确识别，N正确日期句因judge漏上下文被删，条件句仍有机械numeric_unsupported误标。partially_confirmed，不启动产品复跑，不加第三配置。
+- A+B实际11物理请求；24是上限，不是待消费额度。R12新增模型调用0。
+- R12按事前登记仅修日期接口：共享writer日期投影（writer三组输入逐字不变），首判/复判传当前context、合同身份校验、白名单、缺席不推断、快照不复用、不把声明升级成行情证据。新增12测试、相关回归689通过；confirmed严格限离线接口，不代表真实GLM内容已修好。提交后同SHA再跑，私有收据留存。
+- 私有证据 `~/.finance-runtime/semantic-consistency-20261001/`：comparison-summary.json、writer-byte-identity.json、context-red.log、context-neighbor-final.log、postcheck.json以及A/B原始请求/响应/判词/答卷。不得输出密钥或覆盖原件。
+- postcheck：队列7385行/hash不变，main 3a2718c6不变，生产healthy@2c394978、code_matches_repo=true；冻结库3.88GB/0444/hash不变。
+- 后续真实GLM复验须新协议/预算；本轮到此停模型调用。D方向推理与条件数字误标未修，不再顺手扩清单。R09仍partially_confirmed；旧AB966/955/11 exit2、scorer空源码、PR8内容验收阻塞均保留，240不跑。
+
+协议/结果：docs/verification/2026-10-01-{semantic-consistency-probe,judge-thinking-control,review-runtime-context-fix}.md。

@@ -40,3 +40,19 @@
 ## 实际结果
 
 尚未执行新模型调用。
+
+
+## 实测收尾（R10/A）
+
+受验实现 `7a1ca894121e3748c7681fa3a1c08199a523d882`，四固定答卷均按协议运行一次：
+
+| 固定答卷 | 物理请求 / 响应 | 秒 | 结果 |
+|---|---:|---:|---|
+| D-original | 1 / 0 | 50.275 | HTTPDeadlineExceeded |
+| N-original | 1 / 0 | 50.190 | HTTPDeadlineExceeded |
+| D-corrected | 1 / 0 | 50.259 | HTTPDeadlineExceeded |
+| D-conditional | 1 / 0 | 50.206 | HTTPDeadlineExceeded |
+
+共4物理请求，冻结父档准入均0；HTTP准入均2（无响应）。R10 **refuted（本配置/时间窗内无法取得判词）**，不能解释为模型已经漏判/判错，也不能赋予内容质量分数。原N/D的真实结构和off答卷逐字复现；该版本相关回归473通过，仅归属该实现，不挪用到后续补丁。
+
+R11另记单变量对照，详见 `2026-10-01-judge-thinking-control.md`，不得覆盖A失败。最终A+B共11物理请求；B未满足内容目标，不启动条件产品复跑、不增加第三配置。后续R12仅离线接口修复。

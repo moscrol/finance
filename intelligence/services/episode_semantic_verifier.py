@@ -89,6 +89,7 @@ from intelligence.services.ranking_contract import (
     parse_ranking_intent,
 )
 from intelligence.services.episode_protocol import (
+    runtime_date_context,
     cited_evidence_ordinals,
     evidence_ordinal_table,
     strip_evidence_ordinals,
@@ -126,6 +127,7 @@ from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchDeadline,
     ResearchPolicy,
+    ResearchRunContext,
     apply_env_ceiling,
     derive_stage_caps,
     policy_for_env,
@@ -1665,6 +1667,7 @@ class SemanticEpisodeVerifier:
         # #55：每次 verify() 重读环境，测试可按用例切模式；生产由启动器一次定死。
         self._judge_mode = semantic_judge_mode()
         self._census_count = 0
+        self._runtime_date_context: dict[str, object] | None = None
         # V11：本轮 verify 的回检索账 + 跨轮配额。配额按 task_frame_hash 记（一个 episode
         # 一枪）：gap-repair 之后同帧再 verify 直接 already_used；实例若被复用给别的
         # episode，换帧即重置。
@@ -1929,6 +1932,7 @@ class SemanticEpisodeVerifier:
         structurally_verified: VerifiedEpisodeOutcome,
         deadline: ResearchDeadline,
         retrieve_fn: GuidedRetrieveFn | None = None,
+        context: ResearchRunContext | None = None,
     ) -> SemanticEpisodeOutcome:
         """Run structural-first verification with bounded deletion-only repair.
 
@@ -1940,6 +1944,21 @@ class SemanticEpisodeVerifier:
         注册表造；不注入 = 所有既有夹具自动 skip（``no_retriever``）。
         """
 
+        # Only the adapter's current runtime context can supply these values.
+        # Clear first, including on rejected calls, so reuse cannot leak dates.
+        self._runtime_date_context = None
+        if context is not None:
+            contract = structurally_verified.contract
+            if (
+                not isinstance(context, ResearchRunContext)
+                or contract is None
+                or context.contract.task_id != contract.task_id
+                or context.contract.task_frame_hash != frame.task_frame_hash
+                or context.contract.question != frame.raw_question
+                or contract.question != frame.raw_question
+            ):
+                raise ValueError("semantic runtime context does not match current task")
+            self._runtime_date_context = runtime_date_context(context)
         self._sentence_verdicts = []
         self._judge_round = 0
         self._judge_mode = semantic_judge_mode()
@@ -3203,6 +3222,9 @@ class SemanticEpisodeVerifier:
             ],
             "sentences": sentences,
         }
+        if self._runtime_date_context is not None:
+            # Detach each projected request from the per-verify snapshot.
+            payload["runtime_context"] = json.loads(json.dumps(self._runtime_date_context))
         if verified.outcome.gaps:
             payload["declared_gaps"] = list(verified.outcome.gaps)
         if is_personal_recall_contract(contract):
@@ -7599,6 +7621,14 @@ def _judge_system_prompt(request: Mapping[str, object]) -> str:
     # 缺口须知跟着基底走，材料/交付等附加规则再往后接；``nonfactual_review``
     # 是另一种审阅角色，按 main 的设计整段短路，不叠加本段。
     prompt += gap_guidance
+    if request.get("runtime_context"):
+        prompt += (
+            " runtime_context 是按当前任务合同传入的运行时日期上下文，写作端收到同一组声明。"
+            "按其中date_rule核对与latest_data_date一致的‘库内最新可用交易日’等元信息披露，"
+            "不要仅因普通行情查询没有扫描未来日期就判该运行时声明无依据。"
+            "它不是行情证据，不证明市场最近收盘日、所有表覆盖完整或任何具体市场事实；"
+            "值缺失时不得从问题、草稿或证据最大日期补推运行时声明。"
+        )
     if request.get("personal_memory_recall"):
         prompt += (
             " 本轮personal_memory_recall只回顾个人记录：每个旧判断/纠偏必须有已绑定的用户记忆直接支持，"
