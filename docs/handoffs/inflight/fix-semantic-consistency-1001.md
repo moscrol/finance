@@ -12,8 +12,8 @@
 ## 明确阻塞与下一步
 
 - R12全量GitHub run36828527701：4F/19033P/167S/2xfail，1536.82秒。当前benchmark单文件4F30P，旧de0同文件34P，已离线复现。
-- 原因：_SemanticVerifierCapture.verify(**kwargs)隐藏delegate窄签名，adapter误认为可收context并透传到旧替身，报unexpected keyword argument。真实SemanticEpisodeVerifier支持context；不是GLM内容失败。当前未修，优先离线修包装层签名透明性并增加覆盖，不改日期语义、不追加模型预算、不覆盖R14受验SHA。
-- 新HEAD CI尚未全完，既有红灯仍阻塞。D方向矛盾/条件数字问题未修；R09仍partially_confirmed；旧AB966/955/11 exit2、scorer空源码、PR8内容验收阻塞不变，不跑240。
+- 原因：_SemanticVerifierCapture.verify(**kwargs)隐藏delegate窄签名，adapter误认为可收context并透传到旧替身，报unexpected keyword argument。真实SemanticEpisodeVerifier支持context；不是GLM内容失败。R15已离线修签名透明性：wraps转发、不吞参/不重试，新增12契约测试；原4失败恢复，相关735通过。partially_confirmed，全仓/CI待完成，不改日期语义/不追加模型预算/不覆盖R14受验SHA。
+- R15须以提交SHA单独核验全仓与CI，旧红灯不得自动洗绿。D方向矛盾/条件数字问题未修；R09仍partially_confirmed；旧AB966/955/11 exit2、scorer空源码、PR8内容验收阻塞不变，不跑240。
 
 私有证据根：semantic-consistency-20261001（R10–12）、review-context-live-20261001（R13）、review-context-repeat-20261001（R14）。均位于~/.finance-runtime；后者含summary、date-reason-review、ci-diagnosis、原始六组及新旧benchmark日志。不得公开凭据/私有请求或覆盖原件。
 
