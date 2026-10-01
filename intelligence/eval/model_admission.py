@@ -40,9 +40,10 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
    （``<store>/<目录名>/events.jsonl``，目录名规则同 ``episode_store._directory_name``）
    读分支自己的 ``model_turn``。
 
-两条都拿不到、而分支确实调用过模型（``llm_calls > 0``，或 ``branch_completed`` 连
-``llm_calls`` 都没有）→ 判「无证据」，**不再放行**。没调用过模型的失败分支（没起跑、
-存储失败）不需要证据。
+两条都拿不到、而分支调用过模型或调用账未知 → 判「无证据」，**不再放行**。
+worker 异常会丢失返回的调用账，不能把占位 ``llm_calls=0`` 当成没调用；新产物用
+``llm_calls_known=False`` 标明，老产物按异常终局识别。启动前取消 / 存储失败的
+分支仍有可信的零调用账，不需要模型证据。
 """
 
 from __future__ import annotations
@@ -166,10 +167,17 @@ def collect_from_events(events: Iterable[object], source: str) -> ServedModelEvi
             evidence.not_reached += 1
         if kind in _BRANCH_KINDS and not has_single and not (has_list and payload["served_models"]):
             calls = payload.get("llm_calls")
+            error = str(payload.get("error") or "")
+            # 兼容标志加入前的产物：协调器异常出口没有 stop_reason；启动前
+            # 的 storage_failed 早退则有同名 stop_reason，且确实尚未调用 worker。
+            legacy_worker_failure = kind == "branch_failed" and (
+                error.startswith("branch_worker_exception:")
+                or (error == "storage_failed" and not payload.get("stop_reason"))
+            )
             called = (isinstance(calls, int) and not isinstance(calls, bool) and calls > 0) or (
                 kind == "branch_completed" and calls is None
             )
-            if called:
+            if called or payload.get("llm_calls_known") is False or legacy_worker_failure:
                 evidence.branch_unproven += 1
                 ref = payload.get("episode_ref")
                 episode_id = ref.get("episode_id") if isinstance(ref, Mapping) else None

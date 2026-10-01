@@ -358,16 +358,34 @@ def test_cli_plan_then_analyze(tmp_path, capsys):
     assert "admission_unverified 240" in strict and "判定：incomplete" in strict
     assert "无产物作废 240 次" in strict
 
-    trust = ["--trust-self-reported-admission"]
-    assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path), *trust]) == 0
+    artifacts = {}
+    for cell, expected in plan["models"].items():
+        path = tmp_path / f"{cell}-episode.json"
+        path.write_text(json.dumps({"events": [
+            {"kind": "model_turn", "payload": {"served_model": expected}},
+        ]}), encoding="utf-8")
+        artifacts[cell] = str(path)
+    records = [{**row, "artifact": artifacts[row["cell"][1]]} for row in records]
+    runs_path.write_text("\n".join(json.dumps(row) for row in records), encoding="utf-8")
+    assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path)]) == 0
     assert "判定：model_only" in capsys.readouterr().out
 
     array_path = tmp_path / "runs.json"
     array_path.write_text(json.dumps(records), encoding="utf-8")
-    assert cli.main(["analyze", str(array_path), "--plan", str(plan_path), "--json", *trust]) == 0
+    assert cli.main(["analyze", str(array_path), "--plan", str(plan_path), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["primary"]["decision"] == "model_only"
-    assert report["admission"]["self_reported"] == 240 and report["admission"]["unverified"] == 0
+    assert report["admission"]["recomputed"] == 240 and report["admission"]["unverified"] == 0
+
+
+def test_cli_cannot_bypass_artifact_admission(tmp_path, capsys):
+    cli = _cli()
+    runs_path = tmp_path / "runs.json"
+    runs_path.write_text(json.dumps(_records(_additive(model=0.2))), encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["analyze", str(runs_path), "--trust-self-reported-admission", "--json"])
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
 
 
 def test_cli_rejects_bad_inputs(tmp_path, capsys):
