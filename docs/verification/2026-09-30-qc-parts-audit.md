@@ -5,6 +5,16 @@
 > 环境：Linux 沙箱，Python 3.11.2（仓内要求 3.12，装不上）。没有 Mac 上的 `~/.finance-runtime` / `~/agent-memory` / `~/harness-reference`，所以**所有 live 读数都引自仓内文档，不是本次复算**。
 > 修复：P0 三项、台账体检工具，以及质检中新发现的一个测试泄漏，已在 `arena/01a0f120-finance` 分支落地，见 §3。
 
+> **2026-10-01 收口更正**（后续分支 `fix/qc-closeout-1001`，非生产已启用）：
+> - 初审基线 `03d333ec0` 与后续 `6080e32c2`、`983590438` 不同，不能混用测试收据。Mac 后续基线固定 `983590438`。
+> - 模型检查原先仅离线主动调用，存在父运行通过但子分支错配漏检。本轮已补递归目录、追踪 episode_ref、缺分支拒绝准入，并自动接入 2×2 **分析入口**；不是生产运行时自动拦截。
+> - 原 Linux 全量读数是 **1 failed + 1 collection error**，不能省略收集错误，也不能仅凭 Python 版本推断 Mac 全量通过。
+> - 极值查询不能证明百分比单位；仍须供应商定义、采集/转换链及同日原值对账。尚未确认的竞价和海外 5 日字段保持不变。
+> - 旧 ReAct 控制台没有模型调用，抽查旧 session 无 served_model。F1/F3 阻塞，F2/F4 未验证；没有启动四格冒烟或 240 次实验。
+> - 原报告 §6 的五项修复现已登记 `R-20261001-01`～`05`；本轮补漏为 `06`/`07`。这是**事后登记**，不能冒充事前预注册，outcome 仍 pending。
+> - 真实标签 A/B 首轮扫描 966 份，952 成功、14 重放失败；成功部分新增 0、消失 0。旧脚本仍 exit 0 的证据完整性漏洞已修为 exit 2，不能据此宣布全量 A/B 通过。
+> 细节、边界与复现：`docs/handoffs/2026-10-01-qc-closeout-progress.md`。
+
 ## 0. 总评
 
 **纪律很强，但力气花在了流程、格式和自检上，瓶颈却在内容正确性。**
@@ -49,7 +59,7 @@
   - 1 条：Python 3.11 语法不兼容。仓内有 2 个文件用了 3.12 语法：`scripts/calc_case_acceptance.py:273`、`skills/duckdb-backfill/scripts/qa_local_vs_fupanhui.py:172`；
   - 6 条：**真实潜在缺陷**，swap 锁，见 §1 底座行。
 - 全量跑完后沙箱家目录多出 `~/.finance-runtime/rejudge-pending/index.jsonl`（138 行）→ 定位为测试泄漏，已修（§3-⑤）。
-- **第二轮推进后在同一沙箱复跑全量**（1,552 秒）：**1 挂 / 18,667 过 / 264 跳 / 2 预期失败 / 1 收集错误**。多出的 58 条跳过 = Mac 专属 52 + 换库锁 5 + clonefile 1，与 §3 逐条对得上。剩下的红只有一个原因：沙箱的 Python 3.11 解析不了一处 3.12 语法，造成 1 条收集错误；另有 1 条用例专门断言「主树收集不得报错」，被同一处连带。Mac 上是 3.12，这两条不存在。
+- **第二轮推进后在同一沙箱复跑全量**（1,552 秒）：**1 挂 / 18,667 过 / 264 跳 / 2 预期失败 / 1 收集错误**。多出的 58 条跳过 = Mac 专属 52 + 换库锁 5 + clonefile 1，与 §3 逐条对得上。剩下的红只有一个原因：沙箱的 Python 3.11 解析不了一处 3.12 语法，造成 1 条收集错误；另有 1 条用例专门断言「主树收集不得报错」，被同一处连带。Mac 使用 3.12 可能避开该语法原因，但不能据此断言这两条必过；须以对应提交、解释器和完整收集面的实测收据为准。
 
 ## 3. 本分支已做的修复（`arena/01a0f120-finance`）
 
@@ -78,7 +88,7 @@
 
 - 按路由收窄 `finance_query` 的工具面，不要每轮都给 40 个数据集。统计工具已补（§3）：`scripts/audit_episode_tool_outcomes.py --by-dataset <runs 目录>`，按题型 × 数据集拆开调用次数，并列出注册了却一次没被调用的数据集。沙箱里只有 2 个真实 episode，40 个里只看到 3 个被调用，样本太小，不下结论。在 Mac 上对全部 episode（台账记过 747 份）跑一次，才有收窄的证据；收窄本身要用户拍板。
 - 内容正确性题包：时点、存量与流量、CFO 起点三类，对应 09-29 地图「下一步」第 2 条。题面和真值要按台账纪律从真实 run 里取，要在 Mac 上做。
-  - 同一条线上的确定性误报在推进：09-29 地图第 0 条已由 #986 / #988 修掉，本分支接着改了 #988 收据遗留的三列（§3）。剩下两列要在 Mac 上各查一次真实量级再定：`SELECT min(auction_pct), max(auction_pct) FROM fact_auction_stock_daily`、`SELECT min(pct_chg_5d), max(pct_chg_5d) FROM fact_global_stock_daily`。量级在正负几十以内就是百分数，照同样办法改标签；在正负 1 以内就是小数，不能改标签。合并前按 #988 的做法，在 Mac 上用存量 run 跑一次数值门 A/B——已固化成一条命令：`.venv-workbench/bin/python scripts/numeric_gate_label_ab.py`（默认扫 `FORESIGHT_USERS_DIR` 下全部用户）。通过标准：新增 0（exit 0），消失的逐条是照实复述。
+  - 同一条线上的确定性误报在推进：09-29 地图第 0 条已由 #986 / #988 修掉，本分支接着改了 #988 收据遗留的三列（§3）。剩下两列要在 Mac 上各查一次真实量级再定：`SELECT min(auction_pct), max(auction_pct) FROM fact_auction_stock_daily`、`SELECT min(pct_chg_5d), max(pct_chg_5d) FROM fact_global_stock_daily`。这些极值只能发现异常、不能识别单位（小于 1 的数既可能是小涨幅百分数，也可能是小数比例）。改标签前必须记录供应商字段定义、采集原值、转换公式、落库值及同日可核对样例；缺任何一项就保持原标签并标未核验。合并前按 #988 的做法，在 Mac 上用存量 run 跑一次数值门 A/B——已固化成一条命令：`.venv-workbench/bin/python scripts/numeric_gate_label_ab.py`（默认扫 `FORESIGHT_USERS_DIR` 下全部用户）。通过标准：新增 0（exit 0），消失的逐条是照实复述。
 - **更正：记忆召回题包早就有了**，质检时漏看了。尺子是 `intelligence/eval/retrieval_recall.py`，标注集是 `intelligence/eval/cases/retrieval_recall_v1.jsonl`（20 条真实标注，其中 user_memory 15 条），另有合成夹具。08-15 首份基线（`docs/verification/2026-08-15-recall-baseline.md`）：user_memory hit@5 = **46.7%**（7/15），8 条漏召回的主因登记为「中文无分词」。
   - 真正的问题是这把尺子量出来的缺口 46 天没闭环。08-05 定了两步：第一步是把上游抽好的实体传进召回，`episode_tools` 已接（`_memory_recall_intent`），`ask.py:1046` 仍只传原始问句；第二步是用户拍板的「用语义检索，不用关键词匹配」。**10-01 更新：已建好、默认关**（§3「记忆」行），开不开要等 Mac 上的分档读数。
   - 标注集有来源纪律（「不许造」），所以没有编合成改写题。Mac 上一条命令出分档对照（**`--users-root` 是叶目录**，给 `$FORESIGHT_USERS_DIR` 父目录会静默读出 0 命中，08-05 handoff 实测踩过；本报告此前写的命令就是父目录，已更正）：
@@ -119,9 +129,9 @@ FWP_ALLOW_ANY_PYTHON=1 python scripts/numeric_gate_label_ab.py \
 
 在 Mac 上用 `.venv-workbench/bin/python` 执行即可，不需要 `FWP_ALLOW_ANY_PYTHON`。
 
-## 6. 待入账条目（草稿；号在 Mac 上领）
+## 6. 原待入账草稿（10-01 已登记前五项；以下保留历史草稿）
 
-台账自 09-16 起没有新条目，而本分支做了五处修复，按台账纪律每处都该有一条可证伪的预测。号**不在沙箱里领**：登记簿 `~/.finance-runtime/ledger-id-claims.jsonl` 只在 Mac 上（#5 起台账读取引用已改为 `origin/main`，但在途分支的占号只记在这个登记簿里），沙箱领号有撞号风险。在 Mac 上逐条执行：
+以下段落是登记前的历史状态。10-01 已用 Mac 原子取号工具把前五项登记至 Open 表，正式条目以台账为准；实验尚未开跑，未为实验领取编号。原始背景：台账自 09-16 起没有新条目，而本分支做了五处修复，按台账纪律每处都该有一条可证伪的预测。号**不在沙箱里领**：登记簿 `~/.finance-runtime/ledger-id-claims.jsonl` 只在 Mac 上（#5 起台账读取引用已改为 `origin/main`，但在途分支的占号只记在这个登记簿里），沙箱领号有撞号风险。在 Mac 上逐条执行：
 
 ```bash
 .venv-workbench/bin/python scripts/claim_ledger_id.py claim --branch arena/01a0f120-finance

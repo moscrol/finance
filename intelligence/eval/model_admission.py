@@ -8,7 +8,7 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
 ``glm-5.3``（``docs/handoffs/2026-09-29-8792-answer-capability-lines-map.md``，其「下一步」
 第 1 条：先钉住模型准入，钉不住就阻塞、不跑）。
 
-本模块把比对做成机器判定。只读、只用标准库、不发任何请求。
+本模块把比对做成机器判定。只读、不发任何请求；子分支地址复用生产 JsonlEpisodeStore。
 
 判定（fail-closed，证明不了就不许当读数用）：
 
@@ -31,10 +31,9 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
 事件里取证的位置：``model_turn`` / ``branch_completed`` 的 ``served_model``（continuous
 臂），``model_turn`` / ``runtime_result`` 的 ``served_models`` 列表（SDK 臂，逐响应自报）。
 
-已知盲区：``sub_research`` 分支自己的 model turn 记在各自的分支 episode 里（父产物
-``branch_completed.episode_ref`` 指向），``branch_telemetry`` 目前不带 served_model，
-所以只查父产物时分支用的模型不在判定里。要连分支一起查，把分支 episode 所在目录也
-传进来——目录会递归找 ``events.jsonl``。
+子分支：目录始终递归，不因发现父产物就停止；每个 episode_ref 必须追到子产物。
+读 events.jsonl 时自动在同一 store 找兄弟分支；公开 run 产物需显式传 episode_store_roots。
+缺失、坏引用、环路都判无证据，绝不凭父运行模型正确放行整个运行。
 """
 
 from __future__ import annotations
@@ -171,7 +170,7 @@ def load_evidence(path: Path) -> ServedModelEvidence:
     source = str(path)
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         return ServedModelEvidence(source, error=f"读不了：{type(exc).__name__}")
     try:
         if path.suffix == ".jsonl":
@@ -184,7 +183,7 @@ def load_evidence(path: Path) -> ServedModelEvidence:
 
 
 def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str]]:
-    """文件原样收；目录先看自身有没有产物文件，没有再递归找。找不到的单列出来。"""
+    """文件原样收；目录始终递归查找，包括已含父产物的目录。找不到的单列出来。"""
 
     found: list[Path] = []
     missing: list[str] = []
@@ -195,10 +194,6 @@ def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str
             continue
         if not path.is_dir():
             missing.append(str(path))
-            continue
-        direct = [path / name for name in ARTIFACT_FILENAMES if (path / name).is_file()]
-        if direct:
-            found.extend(direct)
             continue
         hits = sorted(
             hit for name in ARTIFACT_FILENAMES for hit in path.rglob(name) if hit.is_file()
@@ -264,21 +259,88 @@ def judge(
     return result(VERDICT_ADMITTED, f"带回的生效模型全部符合：{_fmt_counts(evidence.served)}{note}")
 
 
+def _episode_references(path: Path) -> tuple[list[str], list[str]]:
+    """递归读引用（包括 tool telemetry）；不把配置中的 model 当证据。"""
+
+    try:
+        text = path.read_text(encoding="utf-8")
+        doc = ([json.loads(line) for line in text.splitlines() if line.strip()]
+               if path.suffix == ".jsonl" else json.loads(text))
+    except (OSError, ValueError):
+        return [], []  # load_evidence 已把同一读取错误记为 no_evidence。
+    ids: list[str] = []
+    errors: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, Mapping):
+            for key, value in node.items():
+                if key == "episode_ref":
+                    episode_id = value.get("episode_id") if isinstance(value, Mapping) else None
+                    if not isinstance(episode_id, str) or not episode_id.strip() or episode_id in {".", ".."}:
+                        errors.append("episode_ref 缺少合法 episode_id")
+                    elif episode_id not in ids:
+                        ids.append(episode_id)
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(doc)
+    return ids, errors
+
+
 def check_paths(
     paths: Iterable[str | Path],
     expected: Iterable[str],
     *,
     allow_unreported: bool = False,
+    episode_store_roots: Iterable[str | Path] = (),
 ) -> list[AdmissionResult]:
     expected = tuple(expected)
     found, missing = resolve_artifacts(paths)
-    results = [
-        judge(load_evidence(path), expected, allow_unreported=allow_unreported) for path in found
-    ]
+    stores = tuple(Path(root).expanduser().resolve() for root in episode_store_roots)
+    results: list[AdmissionResult] = []
+    visited: set[Path] = set()
+
+    def fail(source: str, reason: str) -> None:
+        results.append(judge(ServedModelEvidence(source, error=reason), expected))
+
+    def visit(path: Path, ancestors: frozenset[Path]) -> None:
+        path = path.resolve()
+        if path in ancestors:
+            fail(str(path), "episode_ref 存在环路，无法证明完整模型链")
+            return
+        if path in visited:
+            return
+        visited.add(path)
+        results.append(judge(load_evidence(path), expected, allow_unreported=allow_unreported))
+        references, errors = _episode_references(path)
+        for error in errors:
+            fail(str(path), error)
+        if not references:
+            return
+        # 使用生产 writer 的目录规则，不复制它的替换/哈希算法；构造器不创建目录。
+        from intelligence.services.episode_store import JsonlEpisodeStore
+
+        roots = set(stores)
+        if path.name == EVENTS_FILENAME:
+            roots.add(path.parent.parent)
+        for episode_id in references:
+            hits = sorted({
+                JsonlEpisodeStore(root).episode_dir(episode_id) / EVENTS_FILENAME
+                for root in roots
+                if (JsonlEpisodeStore(root).episode_dir(episode_id) / EVENTS_FILENAME).is_file()
+            })
+            if not hits:
+                fail(f"{path} -> {episode_id}", "找不到子分支产物；请提供完整 --episode-store")
+            for child in hits:
+                visit(child, ancestors | {path})
+
+    for path in found:
+        visit(path, frozenset())
     for source in missing:
-        results.append(
-            judge(ServedModelEvidence(source, error="找不到产物文件"), expected)
-        )
+        fail(source, "找不到产物文件")
     return results
 
 

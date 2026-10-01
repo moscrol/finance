@@ -54,13 +54,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="有匹配证据且无错配时，放行「provider 未回 model」的 turn（默认按证据不全拦下）",
     )
+    parser.add_argument("--episode-store", type=Path, action="append", default=[], help="父产物引用的分支 store 根目录；可重复，缺失分支拒绝准入")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    results = check_paths(args.paths, args.expected, allow_unreported=args.allow_unreported)
+    results = check_paths(
+        args.paths, args.expected, allow_unreported=args.allow_unreported,
+        episode_store_roots=args.episode_store,
+    )
     code = overall_exit_code(results)
     if args.json:
         print(

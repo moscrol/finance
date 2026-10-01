@@ -19,7 +19,7 @@
 ``scripts/judge_loss_point_replay.py`` 的 ``_rebuild_outcome``（保留结构化观察值，与生产一致）。
 
 退出码：0 = 新增 0（且给了 ``--baseline`` 时原样臂无漂移）；1 = 有新增待核或原样臂漂移；
-2 = 一个存证都没找到，或参数不合法。
+2 = 存证缺失、任一重放失败、基线范围不一致，或参数不合法（证据不完整）。
 
 用法::
 
@@ -38,6 +38,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import re
@@ -207,7 +208,9 @@ def replay_ab(path: Path, relabels: tuple[Relabel, ...]) -> dict[str, Any]:
         "new": [],
     }
     try:
-        receipt = json.loads(path.read_text(encoding="utf-8"))
+        raw = path.read_bytes()
+        row["input_sha256"] = hashlib.sha256(raw).hexdigest()
+        receipt = json.loads(raw)
         row["question"] = str((receipt.get("task_frame") or {}).get("raw_question") or "")[:60]
         contract = ResearchTaskContract.from_dict(receipt.get("contract") or {})
         outcome = _load_replay_module()._rebuild_outcome(receipt.get("outcome") or {})
@@ -345,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
     _print_items("消失（逐条确认是照实复述）：", ok, "disappeared", args.show)
     _print_items("新增（必须为 0）：", ok, "new", args.show)
 
-    verdict = 0 if new_total == 0 else 1
+    verdict = 1 if new_total else (2 if errors else 0)
     if args.baseline:
         baseline_rows = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
         result = compare_baseline(rows, baseline_rows)
@@ -357,11 +360,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  漂移 {item['user']}/{item['run']}：基线 {item['baseline']} → 本次 {item['current']}")
         if result["drift"]:
             verdict = 1
+        elif verdict != 1 and (
+            result["only_in_baseline"] or result["only_in_current"]
+            or any(row.get("error") for row in baseline_rows)
+        ):
+            verdict = 2
     if args.json:
         Path(args.json).write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"逐 run 结果 → {args.json}")
     if verdict == 0:
         print("✅ 新增 0" + ("、原样臂无漂移" if args.baseline else ""))
+    elif verdict == 2:
+        print("⚠️ 证据不完整：重放失败或基线范围不一致，不能按全量通过用于合并")
     else:
         print("❌ 有新增待核或原样臂漂移，逐条看上面")
     return verdict
