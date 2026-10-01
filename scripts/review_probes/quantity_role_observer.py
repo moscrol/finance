@@ -98,6 +98,13 @@ class QuantityRoleObserver:
                 if _canonical(request) != _canonical(snapshot):
                     raise ContractError("native request changed during dispatch")
                 response = _copy(response)
+                if bundle is not None and isinstance(response, str):
+                    from scripts.review_probes.observation_admission import (
+                        decode_combined_content,
+                    )
+
+                    record["response_text"] = response
+                    response = decode_combined_content(response)
                 _canonical(response)
                 record["response"] = _copy(response)
                 if bundle is None:
