@@ -33,7 +33,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from threading import Lock
 
-from intelligence.services import rag_worker
+from intelligence.services import model_profile, rag_worker
 from intelligence.services.kb_filter_receipt import (
     FILTER_OPTIONS,
     parse_receipt,
@@ -921,7 +921,13 @@ def evidence_budget_for_query(
     elif quick:
         per_hit = 800
     total = max(DEFAULT_LLM_EVIDENCE_TOTAL_CHARS, per_hit * 4)
-    return per_hit, min(total, 8000)
+    # 模型档位缩放（standard 倍率 1.0 → 原样返回）：强模型吃得下更长证据，
+    # per_hit / total / 8000 封顶同比放大，保持三者比例不变。
+    profile = model_profile.active_profile()
+    return (
+        model_profile.scale_chars(per_hit, profile=profile),
+        model_profile.scale_chars(min(total, 8000), profile=profile),
+    )
 
 
 def apply_total_llm_budget(hits: list[WikiHit], total_chars: int) -> None:

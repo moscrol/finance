@@ -199,6 +199,20 @@ python scripts/numeric_gate_replay_ab.py diff /tmp/a.jsonl /tmp/b.jsonl
 - 测试：`intelligence/tests/test_no_retrieval_lane_audit.py` 21 条（修前 13 红）；115 个路由相关测试文件中途挂 2 条（「聊聊大盘」设计约束），已按设计把「大盘」移出词表。
 - 电池在 `.scratch/noretrieval_battery.py`（云端临时目录，不随补丁）；题目清单见本节表格与测试文件。
 
+## 13. 模型档位与强弱双模型闸门——**档位接线实验结束前不合入**
+
+用户目标：harness 要让实惠模型达标，**也要让强模型更强**，不能只是给弱模型立规矩。设计见
+`docs/runtime/model-tier-harness.md`（地板 / 天花板 / 核查三层）。
+
+- `intelligence/services/model_profile.py`：`FWP_MODEL_PROFILE=standard|economy|frontier`，未设置 = standard
+  = 引入前行为。接入三处：研究循环步数（4 → frontier 8）、知识库证据字符预算（frontier ×1.5，封顶 12000）、
+  低置信度路由（frontier 下题面自带落点时不强制澄清，改走带检索的 knowledge 车道；含无先行词指代
+  的题照旧澄清）。核查层不随档位变化。
+- `scripts/harness_tier_gate.py`：四份逐题判分报告 → PASS / WARN / FAIL；强模型任一题退步即 FAIL。
+- 测试：`test_model_profile.py`（41 条，含 standard 与旧实现逐项等价、高置信度下各档位 `to_dict()` 一致）、
+  `test_harness_tier_gate.py`（11 条）。
+- 顺带发现未修：「上次说的那个怎么样」被确定性规则判成 `comparison_analog`。
+
 ## 建议台账条目（只给 ID 草案，未写入 `docs/prediction-ledger.md`，避免与实验 agent 冲突）
 
 | 草案 ID | fix_type | verification_prediction | 怎么验 |

@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
-from intelligence.services import ask_clarify, llm_refine
+from intelligence.services import ask_clarify, llm_refine, model_profile
 from intelligence.services.conversation_materials import ConversationMaterials
 from intelligence.services.controller_protocol import (
     FIELD_INSTRUCTION,
@@ -771,13 +771,40 @@ def _decision_from_route_row(
     )
 
 
+def _query_needs_outside_antecedent(query: str) -> bool:
+    """题面是否依赖题外先行词（跨轮回指）。供 advisory 档判断能否跳过澄清。"""
+    text = str(query or "")
+    if _CROSS_TURN_MARKER_RE.search(text):
+        return True
+    if not _DEMONSTRATIVE_RE.search(text):
+        return False
+    return not _reference_has_in_question_antecedent(text)
+
+
 def _apply_policy(
     decision: TurnDecision,
     *,
     query: str,
     envelope: QueryEnvelope,
 ) -> TurnDecision:
-    if decision.confidence < 0.6:
+    # advisory 只放行「题面自带落点」的低置信度判断：含指示词却无题内先行词、或带显式
+    # 跨轮标记的题（「那这个呢」）是真缺信息，强模型也猜不出，照旧澄清。
+    advisory_low_confidence = (
+        decision.confidence < 0.6
+        and model_profile.route_is_advisory()
+        and not _query_needs_outside_antecedent(query)
+    )
+    if advisory_low_confidence and decision.lane in {"chat", "meta", "clarify"}:
+        # 天花板档（frontier）：低置信度不强制澄清——强模型自己消歧的能力比
+        # 规则澄清更好。升到带检索的 knowledge 车道，核查层不放松。
+        return replace(
+            decision,
+            lane="knowledge",
+            needs_retrieval=True,
+            needs_template=False,
+            reason="Controller 置信度不足；模型档位为 advisory，交由模型带检索自行消歧",
+        )
+    if decision.confidence < 0.6 and not advisory_low_confidence:
         return TurnDecision(
             lane="clarify",
             needs_retrieval=False,

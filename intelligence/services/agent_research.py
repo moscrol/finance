@@ -41,6 +41,7 @@ from intelligence.services import (
     web_research,
 )
 from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services import model_profile
 from intelligence.services.kb_selection_noise import filter_structural_noise
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
@@ -122,10 +123,13 @@ def loop_mode() -> str:
 
 
 def max_steps() -> int:
+    # 优先级：ASK_AGENT_MAX_STEPS 显式值 > 模型档位（FWP_MODEL_PROFILE）> DEFAULT_MAX_STEPS。
+    # standard 档的 agent_loop_max_steps == DEFAULT_MAX_STEPS，未设档位时行为不变。
+    profile_default = model_profile.active_profile().agent_loop_max_steps
     try:
-        value = int(os.environ.get(ENV_MAX_STEPS) or DEFAULT_MAX_STEPS)
+        value = int(os.environ.get(ENV_MAX_STEPS) or profile_default)
     except ValueError:
-        return DEFAULT_MAX_STEPS
+        return profile_default
     return max(1, min(value, MAX_CONFIGURED_STEPS))
 
 

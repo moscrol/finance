@@ -1,4 +1,4 @@
-# 本地 agent 任务书（2026-10-01，harness 优化第 7–19 号提交）
+# 本地 agent 任务书（2026-10-01，harness 优化第 7–20 号提交）
 
 > 给在用户 Mac 上运行的 agent。云端 agent 只能改代码、跑 Linux 测试，碰不到真实知识库、真实 run 存证、模型 API 和 GitHub/Gitea。下面这些只有本地能做。
 > 每节都写了：做什么 → 命令 → 验收口径 → 失败怎么办 → 回报什么。**按顺序做；标「需用户决定」的不要自行决定。**
@@ -15,7 +15,7 @@
 - 不 force push（`AGENTS.md`）。Gitea 有镜像同步，往 GitHub 推之前先确认镜像方向，不要让 Gitea 覆盖 GitHub。
 - 补丁来源：云端导出的 `harness-probe-v2.txt`（第 7–19 号，共 13 个）。用户通过 Cmd+A / Cmd+C 复制网页文本给你，**不能下载**。
 
-### 提交清单（第 7–19 号）
+### 提交清单（第 7–20 号）
 
 | # | 提交 | 类别 | 合入时机 |
 |---|---|---|---|
@@ -32,24 +32,29 @@
 | 17 | fix(routing): 分析题不当定义题 + 题材左邻语法成分 + 调序盘面 + 冻结集 A7 修订 | 路由 + 量具 | **实验后，A7 需用户决定** |
 | 18 | docs(handoff): 本任务书 | 文档 | 随时 |
 | 19 | fix(routing): 无检索车道排查（口语市场词、看看X 主体、什么叫 / 怎么计算） | 路由 | **实验后** |
+| 20 | feat(harness): 模型档位 `FWP_MODEL_PROFILE`（默认行为不变）+ 强弱双模型闸门 `harness_tier_gate.py` + 设计文档 | 运行时 + 评测 | 档位接线**实验后**；闸门脚本随时可用 |
 
 第 3 号（finance_query schema 瘦身）同样是**实验后**才合入。
 
 ## 1. 打补丁（幂等）
 
-用户复制好 `harness-probe-v2.txt` 后，执行下面这行。它会跳过已经打过的补丁，冲突时停下：
+补丁文件统一用全量的 `harness-all-1001.txt`（第 1 号起全部补丁）。用户在网页里 Cmd+A / Cmd+C 复制，
+然后在终端粘贴下面这一行（**zsh 不支持 `read -p`，所以用 `echo` + `read`**）。按「补丁内容指纹」
+（`git patch-id --stable`）跳过已打过的补丁——不能按标题匹配：format-patch 会把中文标题编码成
+`=?UTF-8?q?…`，按标题判会把已打的补丁误报成冲突。
 
 ```bash
-cd /tmp/harness-opt && pbpaste > /tmp/hp2.txt && rm -rf /tmp/hp2 && mkdir /tmp/hp2 && git mailsplit -o/tmp/hp2 /tmp/hp2.txt >/dev/null && ok=1 && for f in /tmp/hp2/*; do s=$(sed -n 's/^Subject: \[PATCH[^]]*\] //p' "$f" | head -1); git log --format=%s | grep -qF "$s" || git am -q "$f" || { ok=0; break; }; done && [ "$ok" = 1 ] && git log --oneline -12
+cd ~/finance-workspace-private && echo "已复制补丁？按回车继续" && read _ && pbpaste > ~/Downloads/harness-all.txt && grep -c '^From [0-9a-f]\{40\}' ~/Downloads/harness-all.txt && git worktree prune && { [ -d /tmp/harness-opt ] || { git show-ref -q refs/heads/feat/harness-opt-1001 && git worktree add /tmp/harness-opt feat/harness-opt-1001 || git worktree add -b feat/harness-opt-1001 /tmp/harness-opt origin/main; }; } && cd /tmp/harness-opt && { git am --abort 2>/dev/null; true; } && rm -rf /tmp/hp && mkdir /tmp/hp && git mailsplit -o/tmp/hp ~/Downloads/harness-all.txt >/dev/null && ids=$(git log -p -n 80 | git patch-id --stable | cut -d' ' -f1) && ok=1 && for f in /tmp/hp/*; do pid=$(git patch-id --stable < "$f" | cut -d' ' -f1); n=$(basename "$f"); if printf '%s\n' "$ids" | grep -qx "$pid"; then echo "跳过(已有) $n"; elif git apply --check "$f" 2>/dev/null; then git am -q "$f" || { ok=0; break; }; echo "已打 $n"; else echo "冲突 $n"; ok=0; break; fi; done; [ "$ok" = 1 ] && git log --oneline -1
 ```
 
-- **验收**：`git log` 顶部是 `fix(routing): no-retrieval lane audit…`，分支上共 19 个提交。
-- **失败**：`git am` 冲突时先 `git am --show-current-patch | head -30` 看是哪一个，然后 `git am --abort`，回报补丁标题和冲突文件。**不要手工改补丁内容。**
-- **回报**：`git log --oneline -19` 的输出。
+- **验收**：第一行数字等于文件里的补丁数；最后一行是本批最新提交的标题。
+- **核对代码一致**：`git rev-parse HEAD^{tree}` 与云端给出的值相同（提交号会因打补丁时间不同而不同，目录指纹不会）。
+- **失败**：出现「冲突 00xx」会停下，回报那一行和 `git apply --check /tmp/hp/00xx` 的输出。**不要手工改补丁内容。**
+- 分支已推到 GitHub `origin/feat/harness-opt-1001` 作备份；打完新补丁后 `git push origin feat/harness-opt-1001`（不开 PR、不合 main）。
 
 ## 2. 在 macOS 上跑相关测试
 
-云端只在 Linux 上跑过全量（18797 passed）。macOS 专属路径（APFS clonefile、zsh、py3.12）只有本地能验。
+云端只在 Linux 上跑过全量（第 20 号后 18871 passed，Python 3.11，排除了需要 3.12 语法的 tests/test_qa_local_vs_fupanhui.py）。macOS 专属路径（APFS clonefile、zsh、py3.12）只有本地能验。
 
 ```bash
 cd /tmp/harness-opt && P=~/finance-workspace-private/.venv-workbench/bin/python && $P -m pytest -q -p no:cacheprovider \
@@ -60,6 +65,7 @@ cd /tmp/harness-opt && P=~/finance-workspace-private/.venv-workbench/bin/python 
   intelligence/tests/test_in_question_antecedent.py intelligence/tests/test_colloquial_finance_routing.py \
   intelligence/tests/test_routing_probe_round3.py intelligence/tests/test_no_retrieval_lane_audit.py \
   intelligence/tests/test_content_correctness.py \
+  intelligence/tests/test_model_profile.py intelligence/tests/test_harness_tier_gate.py \
   intelligence/tests/test_frozen_thirty.py intelligence/tests/test_turn_controller.py \
   intelligence/tests/test_query_resolution.py intelligence/tests/test_numeric_note_false_positives.py
 ```
@@ -120,7 +126,10 @@ cd /tmp/harness-opt && ~/finance-workspace-private/.venv-workbench/bin/python sc
 
 实验结束后：先用 `export --out /tmp/cc_questions.jsonl` 导出题面，用目标模型（弱模型 + harness，以及强模型 ReAct 作对照）答完，整理成答卷 JSONL，再跑 `score --answers <答卷> --json`。答卷格式见 `intelligence/eval/content_correctness.py` 的模块说明。
 
-- **回报**：selftest 结果。实验后再回报两臂的分数。
+- 第 20 号的闸门：`scripts/harness_tier_gate.py selftest` 实验前就能跑。实验后，四份判分报告
+  （{实惠, 强} × {改动前, 改动后}）交给 `harness_tier_gate.py check`，强模型任何一题退步即 FAIL。
+  用法见 `docs/runtime/model-tier-harness.md` §4。
+- **回报**：两个 selftest 的结果。实验后再回报各臂分数和闸门判定。
 
 ## 6. 实验结束后的合入顺序
 
@@ -130,7 +139,7 @@ cd /tmp/harness-opt && ~/finance-workspace-private/.venv-workbench/bin/python sc
 2. 第 3 号（schema 瘦身）。合入后要跑同一个 uq15 臂，对照台账草案 R-20261001-01。
 3. 第 11 号（比较题），然后重跑第 3 节探针。
 4. 第 13、14、15 号（核验器）。合入前第 4 节的 A/B 必须已经人工看过，而且没有异常。
-5. 第 16、17、19 号（路由）。第 17 号带冻结集 A7 的修订，**等用户对第 7 节第 1 项做出决定后再合**。
+5. 第 16、17、19 号（路由），然后第 20 号（模型档位；默认 standard 与合入前逐项一致，合入后不设 `FWP_MODEL_PROFILE` 行为不变）。第 17 号带冻结集 A7 的修订，**等用户对第 7 节第 1 项做出决定后再合**。
 6. 全部合入后，跑一次完整的 probe v2 和 uq15 两臂，作为新基线。
 
 走 PR 合入，不要直推 main。推之前确认 Gitea 镜像不会反向覆盖。
