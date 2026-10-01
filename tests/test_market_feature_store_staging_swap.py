@@ -993,7 +993,19 @@ def _cp_boundary_delete(monkeypatch, target: Path, *, when: str) -> list:
 
 
 @pytest.mark.parametrize(
-    "when, expected_stage", [("before", "克隆中"), ("after", "克隆后基线")]
+    "when, expected_stage",
+    [
+        ("before", "克隆中"),
+        pytest.param(
+            "after",
+            "克隆后基线",
+            # 「克隆后」窗口只存在于 `cp -c`（APFS clonefile）成功之后。GNU cp 没有
+            # -c，Linux 上直接走 shutil 回退，注入点永远打不中——这不是换库锁的问题。
+            marks=pytest.mark.skipif(
+                sys.platform != "darwin", reason="需要 macOS cp -c（APFS clonefile）"
+            ),
+        ),
+    ],
 )
 def test_target_deleted_in_clone_window_returns_rc2(
     prod_db, monkeypatch, when, expected_stage
@@ -1398,3 +1410,41 @@ def test_bootstrap_link_io_failure_refused_without_replace_fallback(
     assert result["rc"] == 2 and result["swapped"] is False
     assert "injected link failure" in result["reason"]
     assert not target.exists() and staging.exists()  # 目标不创建, staging 留证
+
+
+def test_swap_lock_self_check_passes_on_this_platform():
+    """换库锁平台自检（2026-10-01）：本机后端必须真的排写不排读。
+
+    Linux 上旧实现用 flock，与 DuckDB 的 fcntl 记录锁互不可见——写者在场时照样
+    拿到锁，换库窗口内的第三方写入会被静默覆盖。现在 Linux 走 OFD 锁。
+    """
+    backend = db._swap_lock_backend()
+    if backend == "unsupported":
+        pytest.skip("本平台不支持换库锁，hold_swap_lock 会拒绝换库（另有测试覆盖）")
+    db._SWAP_LOCK_SELF_CHECK.pop(backend, None)
+    assert db.swap_lock_self_check(backend) == ""
+
+
+def test_plain_flock_fails_the_self_check_on_linux():
+    """反向对照：在 Linux 上把后端换回 flock，自检必须报「排不掉写者」。
+
+    这条是变异测试——若有人为了「简单」退回 flock，它会先红。
+    """
+    if not sys.platform.startswith("linux"):
+        pytest.skip("flock 与 DuckDB 锁互斥只在 Linux 上失效")
+    db._SWAP_LOCK_SELF_CHECK.pop("flock", None)
+    try:
+        assert "排不掉写者" in db.swap_lock_self_check("flock")
+    finally:
+        db._SWAP_LOCK_SELF_CHECK.pop("flock", None)
+
+
+def test_unsupported_platform_refuses_to_swap(tmp_path, monkeypatch):
+    """没有可用锁原语的平台：拒绝换库（DatabaseLockedError 家族 → 编排 rc=2），不裸奔。"""
+    target = tmp_path / "prod.duckdb"
+    _make_db(target)
+    monkeypatch.setattr(db, "_swap_lock_backend", lambda: "unsupported")
+    with pytest.raises(db.SwapLockUnsupportedError):
+        with db.hold_swap_lock(target):
+            pass
+    assert issubclass(db.SwapLockUnsupportedError, db.DatabaseLockedError)

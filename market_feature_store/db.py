@@ -49,6 +49,10 @@ class DatabaseLockedError(RuntimeError):
     """
 
 
+class SwapLockUnsupportedError(DatabaseLockedError):
+    """本平台的换库锁排不掉 DuckDB 写者（自检未过）：拒绝换库，而不是裸奔。"""
+
+
 class SwapTargetReplacedError(DatabaseLockedError):
     """换库目标的**路径身份**（st_dev + st_ino）与协调时锁定的那个不一致，
     或目标已整个消失。
@@ -245,7 +249,11 @@ def list_tables(con: duckdb.DuckDBPyConnection) -> list[str]:
 #      发布方之间的互斥由第 1 条负责。前提是 target 已经存在——锁的是 inode，
 #      没有 inode 就没有这把锁。
 #   3. duckdb 自己的文件锁 —— 单写者 EX。它是第 2 条能生效的原因，也是普通
-#      写者彼此互斥的机制。
+#      写者彼此互斥的机制。DuckDB 用的是 fcntl 记录锁：macOS 上它与 flock 互斥，
+#      **Linux 上与 flock 互相看不见**（2026-10-01 实测：写者在场时 flock SH 照样
+#      拿到）。所以第 2 条在 Linux 上改用 OFD 锁（F_OFD_SETLK，与传统记录锁互斥、
+#      不因同进程关闭别的 fd 而丢锁），其余平台拒绝换库；每进程首次拿锁前做一次
+#      语义自检，见 ``_swap_lock_backend`` / ``swap_lock_self_check``。
 #   首次建库（target 缺席）同时落在 1 的排他面之外与 2 的保护之外：一个普通
 #   duckdb.connect(target) 能建库并提交，而 run mutex 拦不住他、也没有 inode
 #   可锁。那条路径不靠锁，靠 publish_new_into_place 的 os.link EEXIST 把
@@ -630,6 +638,120 @@ def backup_before_swap(
     return receipt
 
 
+def _swap_lock_backend() -> str:
+    """换库锁用哪种原语：``flock``（macOS）/ ``ofd``（Linux）/ ``unsupported``。
+
+    目标语义只有一条：**与 DuckDB 自己的写锁互斥、与它的只读打开相容**。
+    DuckDB 用 fcntl 记录锁。macOS 的 flock 与之互斥（09-13 三向实测）；Linux 的
+    flock 与之互不可见——写者在场时 SH 照样拿到，换库窗口形同虚设。Linux 的
+    OFD 锁与传统记录锁互斥（同进程也互斥），且锁跟着打开的文件描述走，不会因
+    本进程关闭同一文件的其他 fd（克隆里的只读探针就会）而被静默释放——经典
+    ``lockf`` 恰恰有这个坑，所以不用它。
+    """
+
+    import sys
+
+    if sys.platform == "darwin":
+        return "flock"
+    if sys.platform.startswith("linux"):
+        import fcntl
+
+        if hasattr(fcntl, "F_OFD_SETLK"):
+            return "ofd"
+    return "unsupported"
+
+
+def _ofd_lock_bytes(lock_type: int) -> bytes:
+    import struct
+
+    # struct flock：l_type, l_whence, l_start, l_len, l_pid（OFD 要求 l_pid=0）。
+    # l_len=0 表示锁到文件尾，即整文件。
+    return struct.pack("hhqqi", lock_type, 0, 0, 0, 0)
+
+
+def _acquire_shared_nb(fd: int, backend: str) -> None:
+    import fcntl
+
+    if backend == "ofd":
+        fcntl.fcntl(fd, fcntl.F_OFD_SETLK, _ofd_lock_bytes(fcntl.F_RDLCK))
+    else:
+        fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+
+
+def _release_shared(fd: int, backend: str) -> None:
+    import fcntl
+
+    if backend == "ofd":
+        fcntl.fcntl(fd, fcntl.F_OFD_SETLK, _ofd_lock_bytes(fcntl.F_UNLCK))
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+_SWAP_LOCK_SELF_CHECK: dict[str, str] = {}
+
+
+def swap_lock_self_check(backend: str | None = None) -> str:
+    """换库锁语义自检：返回空串 = 通过，否则是失败原因。每进程每后端只跑一次。
+
+    在临时目录里建一个 duckdb 库，验证四件事：写者在场时我方锁拿不到；我方持锁时
+    duckdb 写打开被拒、只读打开放行；锁释放后写者能进。全在本进程内完成（两种
+    后端都与同进程的 DuckDB 锁互斥），约十毫秒，不起子进程。
+    """
+
+    import tempfile
+
+    backend = backend or _swap_lock_backend()
+    if backend in _SWAP_LOCK_SELF_CHECK:
+        return _SWAP_LOCK_SELF_CHECK[backend]
+    if backend == "unsupported":
+        reason = "本平台没有与 DuckDB 写锁互斥的锁原语（既非 macOS flock，也无 Linux OFD 锁）"
+        _SWAP_LOCK_SELF_CHECK[backend] = reason
+        return reason
+    reason = ""
+    with tempfile.TemporaryDirectory(prefix="swap-lock-check-") as tmp:
+        probe = Path(tmp) / "probe.duckdb"
+        duckdb.connect(str(probe)).close()
+        writer = duckdb.connect(str(probe))
+        fd = os.open(probe, os.O_RDONLY)
+        try:
+            try:
+                _acquire_shared_nb(fd, backend)
+            except OSError:
+                pass
+            else:
+                _release_shared(fd, backend)
+                reason = f"{backend}: DuckDB 写者在场时换库锁照样拿到（排不掉写者）"
+        finally:
+            writer.close()
+        try:
+            if not reason:
+                _acquire_shared_nb(fd, backend)
+                try:
+                    try:
+                        duckdb.connect(str(probe)).close()
+                        reason = f"{backend}: 持换库锁时 DuckDB 写打开仍然成功"
+                    except duckdb.IOException:
+                        pass
+                    if not reason:
+                        try:
+                            duckdb.connect(str(probe), read_only=True).close()
+                        except duckdb.IOException as exc:
+                            reason = f"{backend}: 持换库锁时只读打开被拒（会挡住读者）: {exc}"
+                finally:
+                    _release_shared(fd, backend)
+            if not reason:
+                try:
+                    duckdb.connect(str(probe)).close()
+                except duckdb.IOException as exc:
+                    reason = f"{backend}: 释放换库锁后写者仍进不来: {exc}"
+        except OSError as exc:
+            reason = f"{backend}: 自检拿锁失败: {exc}"
+        finally:
+            os.close(fd)
+    _SWAP_LOCK_SELF_CHECK[backend] = reason
+    return reason
+
+
 @contextmanager
 def hold_swap_lock(db_path: Path):
     """换库锁：对 target inode 持 LOCK_SH|LOCK_NB——排写不排读。
@@ -662,27 +784,34 @@ def hold_swap_lock(db_path: Path):
     **身份校验能做到什么、做不到什么见本文件顶部「换库威胁模型」**：对协同方
     是保证，对不拿锁的 mv/cp 只是检测。
     """
-    import fcntl
-
+    backend = _swap_lock_backend()
+    problem = swap_lock_self_check(backend)
+    if problem:
+        # 先于开锁：锁排不掉写者时，「最终复查→换名」就是裸窗口（Linux 上
+        # 实测第三方写入被静默覆盖）。拒绝换库比假装受保护诚实。
+        raise SwapLockUnsupportedError(f"换库锁平台自检未通过，拒绝换库: {problem}")
     try:
         fd = os.open(db_path, os.O_RDONLY)
     except FileNotFoundError as exc:
         raise SwapTargetReplacedError(
             f"换库锁开锁失败: 目标 {db_path} 已不存在（疑似被第三方移走或删除）"
         ) from exc
+    acquired = False
     try:
         try:
-            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            _acquire_shared_nb(fd, backend)
         except OSError as exc:
             raise DatabaseLockedError(
                 f"{db_path} 换库锁被占用（疑似第三方写者）: {exc}"
             ) from exc
+        acquired = True
         locked = os.fstat(fd)
         lock = SwapLock(locked.st_dev, locked.st_ino, fd)
         assert_same_target(db_path, lock.identity, stage="换库锁拿锁瞬间")
         yield lock
     finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
+        if acquired:
+            _release_shared(fd, backend)
         os.close(fd)
 
 
