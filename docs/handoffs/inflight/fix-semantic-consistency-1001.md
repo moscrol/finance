@@ -1,0 +1,9 @@
+# fix/semantic-consistency-1001
+
+- 用户要求继续推进。基于PR13文档head0d861bc0d；R-20261001-10已领号，方案见docs/verification/2026-10-01-semantic-consistency-probe.md。
+- 原D内容矛盾并非LLM判官漏判：judge_mode=deterministic，off分支合成passed，只有机械检查。默认off是此前为规避长材料延迟的决定，不改全局默认。
+- 先做既有语义复核的固定检查点实验：D原文、N正确原文、D目标纠正、D条件句四例，各off零调用+llm一次有界执行。除指定目标变体外不改草稿、证据、合同或绑定；验证原N/D的off结果可精确复现。
+- 每例≤2物理请求/120s，总≤8。四例目标判据全过才允许原D/N两次隔离产品复跑，各≤8请求180s，阶段总≤24；不加样本/重试选优。
+- 不加单题正则、不改判官提示词/模型、预算、记忆或生产。模型识别/投影/发布问题分开归因。失败即暂停产品扩跑，保留全部原件。
+- 私有证据~/.finance-runtime/semantic-consistency-20261001/；原档案不写入，队列/users/vault/deploy隔离，UA固定curl/8.4.0；不输出凭据。
+- 当前仅登记方案，尚无新模型调用。R09仍部分成立；旧A/B及PR8阻塞不变，不合main、不部署、不跑240。
