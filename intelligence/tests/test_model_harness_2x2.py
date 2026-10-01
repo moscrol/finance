@@ -352,13 +352,22 @@ def test_cli_plan_then_analyze(tmp_path, capsys):
     ]
     runs_path = tmp_path / "runs.jsonl"
     runs_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    # 默认不信自报：没有 artifact 的运行一律作废，主判定不完整。
     assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path)]) == 0
+    strict = capsys.readouterr().out
+    assert "admission_unverified 240" in strict and "判定：incomplete" in strict
+    assert "无产物作废 240 次" in strict
+
+    trust = ["--trust-self-reported-admission"]
+    assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path), *trust]) == 0
     assert "判定：model_only" in capsys.readouterr().out
 
     array_path = tmp_path / "runs.json"
     array_path.write_text(json.dumps(records), encoding="utf-8")
-    assert cli.main(["analyze", str(array_path), "--plan", str(plan_path), "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["primary"]["decision"] == "model_only"
+    assert cli.main(["analyze", str(array_path), "--plan", str(plan_path), "--json", *trust]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["primary"]["decision"] == "model_only"
+    assert report["admission"]["self_reported"] == 240 and report["admission"]["unverified"] == 0
 
 
 def test_cli_rejects_bad_inputs(tmp_path, capsys):

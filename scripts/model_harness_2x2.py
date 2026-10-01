@@ -36,6 +36,7 @@ from intelligence.eval.model_harness_2x2 import (  # noqa: E402
     UNSEEN_QUESTIONS,
     DesignError,
     analyze,
+    recompute_admission,
     plan_document,
     render,
 )
@@ -81,6 +82,14 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--unseen", type=_id_list, default=list(UNSEEN_QUESTIONS))
     run.add_argument("--exclude", type=_id_list, default=list(SENSITIVITY_EXCLUDE), help="敏感性分析去掉的题")
     run.add_argument("--reps", type=int, default=DEFAULT_REPS)
+    run.add_argument(
+        "--episode-store", default=None,
+        help="子分支 episode 所在 store 根目录（重算准入时给老产物补证）",
+    )
+    run.add_argument(
+        "--trust-self-reported-admission", action="store_true",
+        help="没有 artifact 的运行沿用自报 admission_exit（默认作废为 admission_unverified）",
+    )
     run.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     return parser
 
@@ -105,19 +114,38 @@ def _plan(args: argparse.Namespace) -> int:
 def _analyze(args: argparse.Namespace) -> int:
     questions = None
     unseen, reps = args.unseen, args.reps
+    models: dict[str, str] = {}
     if args.plan:
         plan = json.loads(args.plan.read_text(encoding="utf-8"))
         if plan.get("schema") != PLAN_SCHEMA:
             raise DesignError(f"{args.plan} 不是 {PLAN_SCHEMA}")
         questions, unseen, reps = plan["questions"], plan["unseen"], int(plan["reps"])
+        models = dict(plan.get("models") or {})
+    records = _read_records(args.runs)
+    if not models and any(record.get("artifact") for record in records):
+        raise DesignError("要按产物重算准入，得给 --plan（取各格期望模型）")
+    records, admission = recompute_admission(
+        records, models, episode_store=args.episode_store,
+        trust_self_reported=args.trust_self_reported_admission,
+    )
     report = analyze(
-        _read_records(args.runs),
+        records,
         questions=questions,
         unseen=unseen,
         exclude=args.exclude,
         reps=reps,
     )
-    print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else render(report))
+    report["admission"] = admission
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    print(render(report))
+    print(
+        f"准入：按产物重算 {admission['recomputed']} 次，沿用自报 {admission['self_reported']} 次，"
+        f"无产物作废 {admission['unverified']} 次；自报与重算不一致 {len(admission['disagreements'])} 次"
+    )
+    for item in admission["disagreements"][:10]:
+        print(f"  ⚠ seq {item['seq']}：自报 exit {item['reported']}，重算 exit {item['recomputed']}（以重算为准）")
     return 0
 
 

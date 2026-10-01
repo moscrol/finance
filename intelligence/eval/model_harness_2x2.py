@@ -16,6 +16,10 @@ C（Claude）。格名 = harness 字母 + 模型字母：``PG`` ``PC`` ``RG`` ``
 - ``seq``：全局尝试序号（整数，唯一；重排的运行拿新的、更大的号）
 - ``question``、``cell``（``PG``/``PC``/``RG``/``RC``）
 - ``admission_exit``：``check_model_admission.py`` 的退出码；缺失按「无证据」处理
+- ``artifact``：这次运行的产物路径（run 目录或 ``continuous-episode.json``）。命令行
+  ``analyze`` 默认**按它重算准入**（含子分支，见 ``model_admission``），不信自报的
+  ``admission_exit``；没有 ``artifact`` 的运行作废为 ``admission_unverified``，除非显式
+  ``--trust-self-reported-admission``（2026-10-01 审查：准入要全程自动生效，不能靠人记得跑脚本）
 - ``failure_class``：``stable_llm_fallback_reason``，没有失败写 ``null``
 - ``score``：machine-truth rate ∈ [0, 1]；有效运行必须有分（答错、缺数、自家 deadline
   烧完都照常计分，这些正是要测的能力）
@@ -34,6 +38,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
+from intelligence.eval import model_admission
 from intelligence.eval.variance_baseline import ab_decision, mode_of, per_question_flip_rate
 
 PLAN_SCHEMA = "model_harness_2x2.plan.v1"
@@ -171,10 +176,11 @@ class Run:
     score: float | None
     admission_exit: int | None
     failure_class: str | None
+    admission_source: str = "self_reported"
 
     def void_reason(self) -> str | None:
         if self.admission_exit is None:
-            return "admission_missing"
+            return "admission_unverified" if self.admission_source == "unverified" else "admission_missing"
         if self.admission_exit != 0:
             return f"admission_exit_{self.admission_exit}"
         if self.failure_class in VOID_FAILURE_CLASSES:
@@ -206,6 +212,7 @@ def parse_runs(records: Iterable[Mapping[str, Any]]) -> list[Run]:
             score=None if raw_score is None else float(raw_score),
             admission_exit=None if raw_exit is None else int(raw_exit),
             failure_class=record.get("failure_class") or None,
+            admission_source=str(record.get("admission_source") or "self_reported"),
         )
         if run.void_reason() is None and (run.score is None or not 0.0 <= run.score <= 1.0):
             raise DesignError(f"seq {seq} 是有效运行，但 score={raw_score!r} 不在 [0, 1]（失败也要照常计分）")
@@ -464,6 +471,53 @@ def analyze(
             "void_failure_classes": sorted(VOID_FAILURE_CLASSES),
         },
     }
+
+
+def recompute_admission(
+    records: Iterable[Mapping[str, Any]],
+    models: Mapping[str, str],
+    *,
+    episode_store: str | None = None,
+    trust_self_reported: bool = False,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """按每次运行的产物重算生效模型准入，覆盖自报的 ``admission_exit``。
+
+    期望模型取 plan 的 ``models``（格名第二个字母：G / C）。有 ``artifact`` → 用
+    ``model_admission.check_paths`` 重算（含子分支）；自报值与重算不一致的逐条列出。
+    没有 ``artifact``：默认记 ``unverified``（作废）；``trust_self_reported=True`` 才沿用自报。
+    """
+
+    out: list[dict[str, Any]] = []
+    summary: dict[str, Any] = {
+        "recomputed": 0, "self_reported": 0, "unverified": 0, "disagreements": [],
+        "trust_self_reported": trust_self_reported,
+    }
+    for record in records:
+        row = dict(record)
+        cell = str(row.get("cell") or "")
+        expected = str(models.get(cell[1:2]) or "").strip() if len(cell) == 2 else ""
+        artifact = row.get("artifact")
+        if artifact:
+            if not expected:
+                raise DesignError(f"seq {row.get('seq')}：plan 里没有 {cell} 格的期望模型，重算不了准入")
+            code = model_admission.overall_exit_code(
+                model_admission.check_paths([str(artifact)], [expected], episode_store=episode_store)
+            )
+            reported = row.get("admission_exit")
+            if reported is not None and int(reported) != code:
+                summary["disagreements"].append({"seq": row.get("seq"), "reported": int(reported), "recomputed": code})
+            row["admission_exit"] = code
+            row["admission_source"] = "recomputed"
+            summary["recomputed"] += 1
+        elif trust_self_reported:
+            row["admission_source"] = "self_reported"
+            summary["self_reported"] += 1
+        else:
+            row["admission_exit"] = None
+            row["admission_source"] = "unverified"
+            summary["unverified"] += 1
+        out.append(row)
+    return out, summary
 
 
 # ── 渲染 ────────────────────────────────────────────────────────────────

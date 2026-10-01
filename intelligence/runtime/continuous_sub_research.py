@@ -18,6 +18,7 @@ from intelligence.runtime.sub_research import (
     BranchResult,
     branch_batches_from_events,
     branch_invalid_actions_from_events,
+    branch_served_models_from_events,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -112,6 +113,7 @@ class ContinuousSubResearchWorker:
             invalid_actions=branch_invalid_actions_from_events(outcome.events),
             episode_ref=request.episode_ref,
             persistence=outcome.persistence,
+            served_models=branch_served_models_from_events(outcome.events),
         )
 
     @staticmethod

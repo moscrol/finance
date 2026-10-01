@@ -31,15 +31,25 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
 事件里取证的位置：``model_turn`` / ``branch_completed`` 的 ``served_model``（continuous
 臂），``model_turn`` / ``runtime_result`` 的 ``served_models`` 列表（SDK 臂，逐响应自报）。
 
-已知盲区：``sub_research`` 分支自己的 model turn 记在各自的分支 episode 里（父产物
-``branch_completed.episode_ref`` 指向），``branch_telemetry`` 目前不带 served_model，
-所以只查父产物时分支用的模型不在判定里。要连分支一起查，把分支 episode 所在目录也
-传进来——目录会递归找 ``events.jsonl``。
+子分支（2026-10-01 审查复现「父对、子错，准入照样通过」后补上）：``sub_research`` 分支
+自己的 model turn 记在各自的分支 episode 里，父产物只有 ``branch_completed`` /
+``branch_failed``。现在两条路取证：
+
+1. 分支把每轮生效模型带回父事件：``payload.served_models``（``branch_telemetry``）；
+2. 老产物没有这个键时，按 ``episode_ref.episode_id`` 去 episode store
+   （``<store>/<目录名>/events.jsonl``，目录名规则同 ``episode_store._directory_name``）
+   读分支自己的 ``model_turn``。
+
+两条都拿不到、而分支确实调用过模型（``llm_calls > 0``，或 ``branch_completed`` 连
+``llm_calls`` 都没有）→ 判「无证据」，**不再放行**。没调用过模型的失败分支（没起跑、
+存储失败）不需要证据。
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,7 +64,19 @@ VERDICT_NO_EVIDENCE = "no_evidence"
 EXIT_CODES = {VERDICT_ADMITTED: 0, VERDICT_MISMATCH: 1, VERDICT_NO_EVIDENCE: 2}
 
 _SERVED_MODEL_KINDS = frozenset({"model_turn", "branch_completed"})
-_SERVED_MODELS_KINDS = frozenset({"model_turn", "runtime_result"})
+_SERVED_MODELS_KINDS = frozenset({"model_turn", "runtime_result", "branch_completed", "branch_failed"})
+_BRANCH_KINDS = frozenset({"branch_completed", "branch_failed"})
+# 与 ``intelligence.services.episode_store._directory_name`` 同一规则（本模块只用标准库，
+# 抄一份；``tests/test_model_admission_branches.py`` 钉住两边逐字一致）。
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def episode_directory_name(episode_id: str) -> str:
+    safe = _UNSAFE_NAME.sub("_", episode_id)
+    if safe == episode_id:
+        return safe
+    digest = hashlib.sha256(episode_id.encode("utf-8")).hexdigest()[:12]
+    return f"{safe}-{digest}"
 
 
 def normalize_model(name: object) -> str:
@@ -70,6 +92,9 @@ class ServedModelEvidence:
     unreported: int = 0
     not_reached: int = 0
     error: str | None = None
+    # 调用过模型、却没带回生效模型的子分支（等 episode store 补证；补不上就判无证据）。
+    branch_unproven: int = 0
+    branch_refs: list[str] = field(default_factory=list)
 
     def add(self, value: object) -> None:
         if value is None:
@@ -96,6 +121,7 @@ class AdmissionResult:
     unreported: int
     not_reached: int
     reason: str
+    branch_unproven: int = 0
 
     @property
     def exit_code(self) -> int:
@@ -110,6 +136,7 @@ class AdmissionResult:
             "unexpected": dict(self.unexpected),
             "unreported": self.unreported,
             "not_reached": self.not_reached,
+            "branch_unproven": self.branch_unproven,
             "reason": self.reason,
         }
 
@@ -137,6 +164,48 @@ def collect_from_events(events: Iterable[object], source: str) -> ServedModelEvi
                 evidence.add(item)
         if kind == "model_turn" and not has_single and not has_list:
             evidence.not_reached += 1
+        if kind in _BRANCH_KINDS and not has_single and not (has_list and payload["served_models"]):
+            calls = payload.get("llm_calls")
+            called = (isinstance(calls, int) and not isinstance(calls, bool) and calls > 0) or (
+                kind == "branch_completed" and calls is None
+            )
+            if called:
+                evidence.branch_unproven += 1
+                ref = payload.get("episode_ref")
+                episode_id = ref.get("episode_id") if isinstance(ref, Mapping) else None
+                if isinstance(episode_id, str) and episode_id:
+                    evidence.branch_refs.append(episode_id)
+    return evidence
+
+
+def _merge(into: ServedModelEvidence, other: ServedModelEvidence) -> None:
+    for name, count in other.served.items():
+        into.served[name] = into.served.get(name, 0) + count
+    into.unreported += other.unreported
+    into.not_reached += other.not_reached
+    into.error = into.error or other.error
+    into.branch_unproven += other.branch_unproven
+    into.branch_refs.extend(other.branch_refs)
+
+
+def resolve_branches(evidence: ServedModelEvidence, episode_store: Path | None) -> ServedModelEvidence:
+    """老产物的子分支：去 episode store 读分支自己的 model_turn；读到一支就销一支「未证」。"""
+
+    if episode_store is None or not evidence.branch_refs:
+        return evidence
+    pending = list(evidence.branch_refs)
+    evidence.branch_refs = []
+    for episode_id in pending:
+        path = episode_store / episode_directory_name(episode_id) / EVENTS_FILENAME
+        if not path.is_file():
+            evidence.branch_refs.append(episode_id)
+            continue
+        branch = load_evidence(path)
+        if branch.error or not (branch.served or branch.unreported):
+            evidence.branch_refs.append(episode_id)
+            continue
+        evidence.branch_unproven -= 1
+        _merge(evidence, branch)
     return evidence
 
 
@@ -167,7 +236,7 @@ def collect_from_document(document: object, source: str) -> ServedModelEvidence:
     return evidence
 
 
-def load_evidence(path: Path) -> ServedModelEvidence:
+def load_evidence(path: Path, episode_store: Path | None = None) -> ServedModelEvidence:
     source = str(path)
     try:
         text = path.read_text(encoding="utf-8")
@@ -180,7 +249,7 @@ def load_evidence(path: Path) -> ServedModelEvidence:
             document = json.loads(text)
     except ValueError as exc:
         return ServedModelEvidence(source, error=f"不是合法 JSON：{exc}")
-    return collect_from_document(document, source)
+    return resolve_branches(collect_from_document(document, source), episode_store)
 
 
 def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str]]:
@@ -234,6 +303,7 @@ def judge(
             unreported=evidence.unreported,
             not_reached=evidence.not_reached,
             reason=reason,
+            branch_unproven=evidence.branch_unproven,
         )
 
     unexpected = {
@@ -248,6 +318,13 @@ def judge(
         )
     if evidence.error:
         return result(VERDICT_NO_EVIDENCE, evidence.error)
+    if evidence.branch_unproven:
+        return result(
+            VERDICT_NO_EVIDENCE,
+            f"{evidence.branch_unproven} 个子分支调用过模型，但父产物没带回它们的生效模型，"
+            "episode store 里也没找到分支事件（--episode-store 指向分支 episode 所在目录）——"
+            "证明不了分支用的是哪个模型",
+        )
     if not evidence.served:
         return result(
             VERDICT_NO_EVIDENCE,
@@ -269,11 +346,14 @@ def check_paths(
     expected: Iterable[str],
     *,
     allow_unreported: bool = False,
+    episode_store: str | Path | None = None,
 ) -> list[AdmissionResult]:
     expected = tuple(expected)
+    store = Path(episode_store).expanduser() if episode_store else None
     found, missing = resolve_artifacts(paths)
     results = [
-        judge(load_evidence(path), expected, allow_unreported=allow_unreported) for path in found
+        judge(load_evidence(path, store), expected, allow_unreported=allow_unreported)
+        for path in found
     ]
     for source in missing:
         results.append(
