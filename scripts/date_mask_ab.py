@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""短日期掩码修复的存证 A/B：列出旧正则会当日期掩掉、新正则改按数量审的 token。
+"""数值门禁两处掩码修复的存证 A/B：列出修前被掩掉 / 截断、修后按完整数量审的 token。
+
+- ``date``：短日期掩码（见下）。
+- ``list_label``：句首列表序号剥离把小数 / 区间拦腰截断——``10.37 元是关键支撑…`` 被剥成
+  ``37 元``：证据里有 10.37 也挂「37」（误报），证据里没有时点名的也是错的数。
 
 背景（2026-10-01）：数值门禁抽数前用 ``_DATE_TOKEN_RE`` 掩日期，「MM.DD / MM-DD」短写
 连带掩掉了 ``10.25元``、``12.15%``、``11.30亿``、``10-15倍`` 这类数量——条件句里的
@@ -31,6 +35,9 @@ if str(ROOT) not in sys.path:
 # Direct execution needs the repository root on sys.path before project imports.
 
 from intelligence.services.episode_semantic_verifier import _DATE_TOKEN_RE as NEW_RE  # noqa: E402
+from intelligence.services.episode_semantic_verifier import (  # noqa: E402
+    _LEADING_LIST_LABEL_RE as NEW_LABEL_RE,
+)
 
 # 修复前的原样正则（episode_semantic_verifier.py @ main 75693271）。
 OLD_RE = re.compile(
@@ -40,6 +47,11 @@ OLD_RE = re.compile(
     r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
+OLD_LABEL_RE = re.compile(
+    r"^\s*(?:[-*]\s*)?(?:\d+|[一二三四五六七八九十]+)\s*"
+    r"(?:[:：、.)）-]\s*)"
+)
+_LEADING_NUMBER_RE = re.compile(r"^\s*(?:[-*]\s*)?(\d+[.-]\d[\d.]*)")
 _SENTENCE_RE = re.compile(r"[^。！？!?；;\n]+")
 # 与核验器条件句判定同方向的粗筛（只用于给人看的标签，不参与计数口径）。
 _CONDITION_HINT_RE = re.compile(r"若|如果|一旦|假如|跌破|站上|突破|回落到|升到|降到|达到|超过|低于|高于|止损|阈值|触发")
@@ -52,15 +64,35 @@ def released_tokens(sentence: str) -> list[str]:
     return [m.group(0) for m in OLD_RE.finditer(sentence) if m.span() not in new_spans]
 
 
+def truncated_leading_number(sentence: str) -> str | None:
+    """旧序号剥离会截断、新版保留的句首小数 / 区间（如 ``10.37``、``20-30``）。
+
+    与核验器同序：先掩日期、再剥序号（``10-31日…`` 在剥序号前已作为日期掩掉，不算）。
+    用修前的日期掩码，量的是修前流水线里真实发生过的截断。
+    """
+
+    sentence = OLD_RE.sub("", sentence)
+    old, new = OLD_LABEL_RE.match(sentence), NEW_LABEL_RE.match(sentence)
+    if old is None or (new is not None and new.end() == old.end()):
+        return None
+    number = _LEADING_NUMBER_RE.match(sentence)
+    return number.group(1) if number else None
+
+
 def scan(runs_dir: Path) -> dict:
     rows = []
     answers = sorted(runs_dir.glob("*/answer.md"))
     for path in answers:
         text = path.read_text(encoding="utf-8", errors="replace")
         for sentence in _SENTENCE_RE.findall(text):
-            for token in released_tokens(sentence):
+            found = [("date", token) for token in released_tokens(sentence)]
+            leading = truncated_leading_number(sentence)
+            if leading:
+                found.append(("list_label", leading))
+            for kind, token in found:
                 rows.append({
                     "run": path.parent.name,
+                    "kind": kind,
                     "token": token,
                     "cond": bool(_CONDITION_HINT_RE.search(sentence)),
                     "sentence": sentence.strip()[:120],
@@ -70,6 +102,7 @@ def scan(runs_dir: Path) -> dict:
         "runs_affected": len({r["run"] for r in rows}),
         "released_tokens": len(rows),
         "released_in_condition_sentences": sum(r["cond"] for r in rows),
+        "by_kind": {k: sum(r["kind"] == k for r in rows) for k in ("date", "list_label")},
         "rows": rows,
     }
 
@@ -89,11 +122,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     print(
         f"扫描 {report['runs_scanned']} 个 run；受影响 {report['runs_affected']} 个；"
-        f"新受审 token {report['released_tokens']} 个（条件句 {report['released_in_condition_sentences']} 个）"
+        f"新受审 token {report['released_tokens']} 个（条件句 {report['released_in_condition_sentences']} 个）；"
+        f"按类：{report['by_kind']}"
     )
     for row in report["rows"][: args.limit]:
         tag = "cond" if row["cond"] else "    "
-        print(f"[{tag}] {row['run']}  {row['token']!r}  {row['sentence']}")
+        print(f"[{tag}] [{row['kind']}] {row['run']}  {row['token']!r}  {row['sentence']}")
     return 0
 
 

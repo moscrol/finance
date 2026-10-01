@@ -95,11 +95,55 @@ def test_ab_script_lists_released_tokens(tmp_path: Path) -> None:
     run = tmp_path / "run_1"
     run.mkdir()
     (run / "answer.md").write_text(
-        "10-31日公告后股价回落。若跌破10.25元则止损；当日换手率11.30%。\n", encoding="utf-8"
+        "10-31日公告后股价回落。若跌破10.25元则止损；当日换手率11.30%。\n"
+        "1. 若跌破 812 元则止损。\n10.37 元是关键支撑，若跌破则止损。\n",
+        encoding="utf-8",
     )
     report = ab.scan(tmp_path)
     assert report["runs_scanned"] == 1
-    assert [(r["token"], r["cond"]) for r in report["rows"]] == [("10.25", True), ("11.30", False)]
-    assert report["released_in_condition_sentences"] == 1
+    assert [(r["kind"], r["token"], r["cond"]) for r in report["rows"]] == [
+        ("date", "10.25", True), ("date", "11.30", False), ("list_label", "10.37", True),
+    ]
+    assert report["released_in_condition_sentences"] == 2
+    assert report["by_kind"] == {"date": 2, "list_label": 1}
     assert ab.main(["--runs-dir", str(tmp_path)]) == 0
     assert ab.main(["--runs-dir", str(tmp_path / "missing")]) == 2
+
+
+# ---------------------------------------------------------------------------
+# 句首列表序号：``.`` / ``-`` 后紧跟数字是小数或区间，不是序号（2026-10-01）
+# ---------------------------------------------------------------------------
+
+_ROW_WITH_1037 = "股票代码=300308.SZ；交易日=2026-09-15；收盘价=10.37；支撑位=3.85；估值区间=20-30倍"
+
+
+def test_leading_decimal_is_not_eaten_as_a_list_label() -> None:
+    """``10.37 元是关键支撑…``：修前被剥成 ``37 元``——证据里有 10.37 也挂「37」（误报），
+    证据里没有时点名的也是错的数。"""
+
+    _, verified = _dated("10.37 元是关键支撑，若跌破（E1）则止损。", detail=_ROW_WITH_1037)
+    assert _flagged(verified) == []
+    _, verified = _dated("10.37 元是关键支撑，若跌破（E1）则止损。")
+    assert _flagged(verified) == ["10.37"]
+
+
+@pytest.mark.parametrize(
+    ("text", "stripped"),
+    [
+        ("1. 若跌破", "若跌破"),
+        ("1.若跌破", "若跌破"),
+        ("3、若跌破", "若跌破"),
+        ("2) 若跌破", "若跌破"),
+        ("- 1. 若跌破", "若跌破"),
+        ("十、若跌破", "若跌破"),
+        ("1- 若跌破", "若跌破"),
+        # 小数 / 区间原样保留
+        ("10.37 元", "10.37 元"),
+        ("20-30 倍", "20-30 倍"),
+        ("- 3.85 元", "- 3.85 元"),
+    ],
+)
+def test_leading_list_label_table(text: str, stripped: str) -> None:
+    from intelligence.services.episode_semantic_verifier import _LEADING_LIST_LABEL_RE
+
+    assert _LEADING_LIST_LABEL_RE.sub("", text) == stripped
