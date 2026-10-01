@@ -168,11 +168,11 @@ def collect_from_events(events: Iterable[object], source: str) -> ServedModelEvi
         if kind in _BRANCH_KINDS and not has_single and not (has_list and payload["served_models"]):
             calls = payload.get("llm_calls")
             error = str(payload.get("error") or "")
-            # 兼容标志加入前的产物：协调器异常出口没有 stop_reason；启动前
-            # 的 storage_failed 早退则有同名 stop_reason，且确实尚未调用 worker。
+            # 老协调器异常出口有占位调用账、没有 stop_reason；启动前早退
+            # 要么有同名 stop_reason，要么（父 Episode 早退）完全没有调用账。
             legacy_worker_failure = kind == "branch_failed" and (
                 error.startswith("branch_worker_exception:")
-                or (error == "storage_failed" and not payload.get("stop_reason"))
+                or (error == "storage_failed" and "llm_calls" in payload and not payload.get("stop_reason"))
             )
             called = (isinstance(calls, int) and not isinstance(calls, bool) and calls > 0) or (
                 kind == "branch_completed" and calls is None

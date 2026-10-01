@@ -163,6 +163,29 @@ def test_legacy_worker_failure_zero_is_unknown_not_proof_of_no_calls(error):
     assert ma.judge(evidence, [EXPECTED]).verdict == ma.VERDICT_NO_EVIDENCE
 
 
+def test_parent_storage_failure_before_branch_start_has_known_zero_calls(tmp_path):
+    from intelligence.tests.test_sub_research_persistence import ObservedStore, run_tree
+
+    store = ObservedStore(tmp_path, fail_kind="branch_started", fail_child=False)
+    outcome, model, _executed, _spent, _runtime = run_tree(store, plan=True)
+    assert model.child_calls == 0
+    assert outcome.stop_reason == "storage_failed"
+    branch_events = [
+        {"kind": event.kind, "payload": dict(event.payload)}
+        for event in outcome.events if event.kind == "branch_failed"
+    ]
+    assert branch_events
+    parent_event = {"kind": "model_turn", "payload": {"served_model": EXPECTED}}
+    evidence = ma.collect_from_events([parent_event, *branch_events], "storage-before-start")
+    assert ma.judge(evidence, [EXPECTED]).verdict == ma.VERDICT_ADMITTED
+    # 标志加入前的同一早退产物没有 worker 返回的任何调用账。
+    for event in branch_events:
+        for key in ("llm_calls", "llm_calls_known", "stop_reason"):
+            event["payload"].pop(key, None)
+    legacy = ma.collect_from_events([parent_event, *branch_events], "legacy-storage-before-start")
+    assert ma.judge(legacy, [EXPECTED]).verdict == ma.VERDICT_ADMITTED
+
+
 def test_directory_naming_matches_the_episode_store():
     for episode_id in ("branches-abc:branch-1", "run_20261001:msg_1", "plain-id", "带中文:x"):
         assert ma.episode_directory_name(episode_id) == episode_store._directory_name(episode_id)

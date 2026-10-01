@@ -3269,6 +3269,7 @@ class ContinuousAgentEpisode:
                 ledger.add("branch_failed", {
                     "branch_id": f"branch-{index}", "goal": goal,
                     "status": "failed", "error": "storage_failed",
+                    "stop_reason": "storage_failed", "llm_calls": 0, "llm_calls_known": True,
                     "episode_ref": branch_run.reference(f"branch-{index}").to_dict(),
                 })
             return None
