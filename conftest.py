@@ -561,3 +561,40 @@ def _leave_tmp_path_removable(request: pytest.FixtureRequest):
     yield
     # 本夹具在 tmp_path 之后登记收尾，LIFO 下先于它执行，目录此刻一定还在。
     _make_tree_removable(root)
+
+
+# ---------------------------------------------------------------------------
+# 非 macOS 机器上的 zsh 依赖（2026-10-01 质检 P2）
+#
+# launchd / 交易日守卫 / method_flywheel 等 49 条测试直接执行 /bin/zsh 或以
+# ``#!/bin/zsh`` 为 shebang 的脚本。Linux（CI、沙箱）上没有 /bin/zsh，它们报
+# FileNotFoundError，一片红淹没真问题。这里只把**恰好是「zsh 不存在」**的失败转成
+# skip：机器上有 /bin/zsh（你的 Mac）时永不触发，其他任何失败原样上报。
+# 不用模块级 skipif，是因为同文件里不依赖 zsh 的测试在 Linux 上照样该跑。
+# ---------------------------------------------------------------------------
+
+_ZSH = "/bin/zsh"
+
+
+def _is_missing_zsh(exc: BaseException) -> bool:
+    if not isinstance(exc, FileNotFoundError) or Path(_ZSH).exists():
+        return False
+    missing = str(getattr(exc, "filename", "") or "")
+    if missing == _ZSH:
+        return True
+    # 执行 shebang 为 #!/bin/zsh 的脚本：内核找不到解释器，errno 报的是脚本本身。
+    try:
+        with open(missing, "rb") as handle:
+            return handle.readline().strip() == b"#!" + _ZSH.encode()
+    except OSError:
+        return False
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item: pytest.Item):
+    outcome = yield
+    excinfo = outcome.excinfo
+    if excinfo is not None and _is_missing_zsh(excinfo[1]):
+        outcome.force_exception(
+            pytest.skip.Exception(f"需要 {_ZSH}（macOS 默认 shell），本机没有", _use_item_location=True)
+        )

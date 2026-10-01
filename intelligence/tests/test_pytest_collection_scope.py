@@ -66,6 +66,10 @@ def _colliding_clones() -> list[Path]:
     return sorted((_REPO_ROOT / "tmp").glob("*/tests/__init__.py"))
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="仓库钉 Python 3.12；tests/test_qa_local_vs_fupanhui.py 用了 3.12 的 f-string 语法，低版本收集必报错",
+)
 def test_repo_root_collection_has_no_errors() -> None:
     """在主树跑全量收集必须零 error —— 路线图那条验收命令的前提。"""
     result = _collect()
