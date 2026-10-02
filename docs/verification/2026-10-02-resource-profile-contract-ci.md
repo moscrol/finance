@@ -3,6 +3,12 @@
 被测HEAD `da86baa439aadd1a28ba21cf4abedee1fe616e06`，产品仍 `07a2879b7`。
 本页补充工程结果，不改启动预测，也不把以下失败从CI验收分母剔除。
 
+> 后续核验（原审查快照，非本返修的远端 CI）：`75af45fc0` 的 run `36965829455`
+> 已结束，Python/frontend 成功，E2E 31P3F2S，聚合 workbench-check 失败；
+> registry-check run `36965829397` 成功。下文“Python仍运行”仅是 da86 撰写时状态。
+> 本轮独立后端根因定位见 [追问诊断](2026-10-02-pr16-followup-diagnosis.md)，
+> 不是产品修复或浏览器 E2E 通过。
+
 ## 已取得的CI读数
 
 - registry-check：36964386478 success。
