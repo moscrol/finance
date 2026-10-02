@@ -48,12 +48,17 @@ def build_parser() -> argparse.ArgumentParser:
         description="检查读数产物里的生效模型（响应体 model）是否就是要测的模型。",
     )
     parser.add_argument("paths", nargs="+", help="run 目录、episode 产物文件或要递归查找的目录")
-    parser.add_argument(
+    want = parser.add_mutually_exclusive_group(required=True)
+    want.add_argument(
         "--expect-model",
         action="append",
-        required=True,
         dest="expected",
         help="期望的生效模型名（大小写/空白不敏感；可重复传以接受别名）",
+    )
+    want.add_argument(
+        "--expect-configured",
+        action="store_true",
+        help="不指定期望模型：每个产物按它自己 configure 快照里配置的模型判（回查「以为 A 实际 B」）",
     )
     parser.add_argument(
         "--allow-unreported",
@@ -84,7 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         store = default_episode_store()
     results = check_paths(
-        args.paths, args.expected, allow_unreported=args.allow_unreported, episode_store=store
+        args.paths, args.expected or (), allow_unreported=args.allow_unreported, episode_store=store,
+        expect_configured=args.expect_configured,
     )
     code = overall_exit_code(results)
     if args.json:

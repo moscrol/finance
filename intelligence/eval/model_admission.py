@@ -43,6 +43,15 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
 两条都拿不到、而分支确实调用过模型（``llm_calls > 0``，或 ``branch_completed`` 连
 ``llm_calls`` 都没有）→ 判「无证据」，**不再放行**。没调用过模型的失败分支（没起跑、
 存储失败）不需要证据。
+
+期望模型从哪来（2026-10-01 审查：准入要全程自动生效）：
+
+* 实验臂显式给（``--expect-model`` / 2×2 plan 里每格的模型）；
+* 不给时用产物自己的 ``configure`` 快照——装配根把配置的模型名写在
+  ``configure.payload.model``（``GLMAgentRuntime`` 的 ``runtime_config``）。``self_admission``
+  就按它判，continuous 臂每轮落产物时自动跑一次、结果写进 ``model_admission``；
+  ``--expect-configured`` 用同一口径回查老产物。快照里没有模型名（注入 client 时如实留空）
+  → 不判，记 ``unknown_expected``。
 """
 
 from __future__ import annotations
@@ -224,6 +233,35 @@ def _walk(node: object, evidence: ServedModelEvidence) -> None:
             _walk(item, evidence)
 
 
+def configured_models(events: Iterable[object]) -> tuple[str, ...]:
+    """``configure`` 快照里装配根写下的模型名；没有就是空元组（不猜、不拿默认值补）。"""
+
+    for event in events:
+        if _is_event(event) and event.get("kind") == "configure":  # type: ignore[union-attr]
+            model = event["payload"].get("model")  # type: ignore[index]
+            if isinstance(model, str) and model.strip():
+                return (model.strip(),)
+    return ()
+
+
+def self_admission(events: Iterable[object], source: str = "episode") -> AdmissionResult | None:
+    """按产物自己 ``configure`` 里的模型判本轮准入（含子分支）；不知道期望模型时返回 None。"""
+
+    events = list(events)
+    expected = configured_models(events)
+    if not expected:
+        return None
+    return judge(collect_from_events(events, source), expected)
+
+
+def _document_events(document: object) -> list[object]:
+    if isinstance(document, Mapping) and isinstance(document.get("events"), list):
+        return list(document["events"])
+    if isinstance(document, list):
+        return list(document)
+    return []
+
+
 def collect_from_document(document: object, source: str) -> ServedModelEvidence:
     """一个已解析的产物：认得 episode 形状就按事件取证，否则按键名递归兜底。"""
 
@@ -236,20 +274,32 @@ def collect_from_document(document: object, source: str) -> ServedModelEvidence:
     return evidence
 
 
-def load_evidence(path: Path, episode_store: Path | None = None) -> ServedModelEvidence:
-    source = str(path)
+def _load_document(path: Path) -> tuple[object | None, str | None]:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
-        return ServedModelEvidence(source, error=f"读不了：{type(exc).__name__}")
+        return None, f"读不了：{type(exc).__name__}"
     try:
         if path.suffix == ".jsonl":
-            document: object = [json.loads(line) for line in text.splitlines() if line.strip()]
-        else:
-            document = json.loads(text)
+            return [json.loads(line) for line in text.splitlines() if line.strip()], None
+        return json.loads(text), None
     except ValueError as exc:
-        return ServedModelEvidence(source, error=f"不是合法 JSON：{exc}")
+        return None, f"不是合法 JSON：{exc}"
+
+
+def load_evidence(path: Path, episode_store: Path | None = None) -> ServedModelEvidence:
+    source = str(path)
+    document, error = _load_document(path)
+    if error is not None:
+        return ServedModelEvidence(source, error=error)
     return resolve_branches(collect_from_document(document, source), episode_store)
+
+
+def configured_models_at(path: Path) -> tuple[str, ...]:
+    """产物文件里 ``configure`` 快照的模型名（读不了 / 没有都返回空元组）。"""
+
+    document, error = _load_document(path)
+    return () if error is not None else configured_models(_document_events(document))
 
 
 def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str]]:
@@ -341,23 +391,37 @@ def judge(
     return result(VERDICT_ADMITTED, f"带回的生效模型全部符合：{_fmt_counts(evidence.served)}{note}")
 
 
+def _unknown_expected(source: str) -> AdmissionResult:
+    return AdmissionResult(
+        source=source, verdict=VERDICT_NO_EVIDENCE, expected=(), served={}, unexpected={},
+        unreported=0, not_reached=0,
+        reason="产物的 configure 快照里没有模型名，不知道期望的是哪个模型（请显式 --expect-model）",
+    )
+
+
 def check_paths(
     paths: Iterable[str | Path],
     expected: Iterable[str],
     *,
     allow_unreported: bool = False,
     episode_store: str | Path | None = None,
+    expect_configured: bool = False,
 ) -> list[AdmissionResult]:
+    """``expected`` 为空且 ``expect_configured`` 时，每个产物按它自己的 ``configure.model`` 判。"""
+
     expected = tuple(expected)
     store = Path(episode_store).expanduser() if episode_store else None
     found, missing = resolve_artifacts(paths)
-    results = [
-        judge(load_evidence(path, store), expected, allow_unreported=allow_unreported)
-        for path in found
-    ]
+    results = []
+    for path in found:
+        wanted = expected or (configured_models_at(path) if expect_configured else ())
+        if not wanted:
+            results.append(_unknown_expected(str(path)))
+            continue
+        results.append(judge(load_evidence(path, store), wanted, allow_unreported=allow_unreported))
     for source in missing:
         results.append(
-            judge(ServedModelEvidence(source, error="找不到产物文件"), expected)
+            judge(ServedModelEvidence(source, error="找不到产物文件"), expected or ("?",))
         )
     return results
 
