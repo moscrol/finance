@@ -7,12 +7,14 @@ import re
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import date, datetime
 from importlib import import_module
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
 from zoneinfo import ZoneInfo
+
+from market_feature_store.trading_days import trading_day_verdict
 
 
 BEIJING = ZoneInfo("Asia/Shanghai")
@@ -52,10 +54,31 @@ def sync_akshare_market_snapshot(
     date_text = trade_date or captured.date().isoformat()
     if not DATE_PATTERN.fullmatch(date_text):
         raise ValueError("trade_date 必须为 YYYY-MM-DD")
+    requested_day = date.fromisoformat(date_text)
+    calendar = trading_day_verdict(requested_day)
     base = Path(root).expanduser()
     base.mkdir(parents=True, exist_ok=True)
     captured_at = captured.isoformat()
     daily_path = base / f"{date_text}.json"
+    # Refuse before loading AkShare: undated spot endpoints cannot observe a
+    # different day, and an unknown calendar cannot authorize an exact date.
+    if requested_day != captured.date() or not calendar.is_trading:
+        result = SnapshotSyncResult(
+            ok=False,
+            quality="failed",
+            trade_date=date_text,
+            captured_at=captured_at,
+            written_files=(),
+            errors=(
+                "AkShare 现货仅允许采集当天且已确认的交易日；"
+                f"requested={date_text}, captured={captured.date()}, calendar={calendar}",
+            ),
+            preserved_existing_snapshot=(
+                daily_path.is_file() or (base / "latest.json").is_file()
+            ),
+        )
+        _write_status(base, result)
+        return result
     existing = _read_json(daily_path)
     if (
         existing is not None

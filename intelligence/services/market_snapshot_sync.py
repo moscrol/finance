@@ -19,6 +19,7 @@ from intelligence.services.duckdb_market_snapshot import (
 from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
 )
+from market_feature_store.trading_days import trading_day_verdict
 
 
 BEIJING = ZoneInfo("Asia/Shanghai")
@@ -69,18 +70,33 @@ def sync_market_snapshot(
 ) -> MarketSnapshotSyncResult:
     captured = (now or datetime.now(BEIJING)).astimezone(BEIJING)
     requested_date = target_date or captured.date().isoformat()
-    date.fromisoformat(requested_date)
+    requested_day = date.fromisoformat(requested_date)
+    calendar = trading_day_verdict(requested_day)
+    exact_date_allowed = requested_day <= captured.date() and calendar.is_trading
+    # Spot endpoints have no historical date argument. Calendar truth and data
+    # availability are separate; absent rows never imply a market closure.
+    spot_date_error = (
+        "AkShare 现货仅允许采集当天且已确认的交易日；"
+        f"requested={requested_date}, captured={captured.date()}, calendar={calendar}"
+        if requested_day != captured.date() or not calendar.is_trading else None
+    )
     base = Path(root).expanduser()
     base.mkdir(parents=True, exist_ok=True)
 
-    protected = _protected_complete(base / f"{requested_date}.json")
+    protected = (
+        _protected_complete(base / f"{requested_date}.json")
+        if exact_date_allowed else None
+    )
     if protected is not None:
         attempt = ProviderAttempt(
             provider="existing_complete",
             requested_trade_date=requested_date,
             served_trade_date=requested_date,
             quality="complete",
-            freshness=str(protected.get("freshness") or "unknown"),
+            freshness=(
+                "historical" if requested_day < captured.date()
+                else str(protected.get("freshness") or "unknown")
+            ),
             duration_ms=0,
             published=False,
             error=f"保留更高优先级来源 {protected.get('source')}",
@@ -101,6 +117,10 @@ def sync_market_snapshot(
     attempts: list[ProviderAttempt] = []
     exact_started = time.monotonic()
     try:
+        if not exact_date_allowed:
+            raise DuckDbSnapshotUnavailable(
+                f"请求日尚未发生或未获交易日确证: {requested_date}; {calendar}"
+            )
         candidate = build_duckdb_snapshot_candidate(
             db_path,
             target_date=requested_date,
@@ -121,10 +141,12 @@ def sync_market_snapshot(
             )
         )
     else:
+        exact_freshness = "fresh" if requested_day == captured.date() else "historical"
         document = _enrich_document(
             candidate.document,
             requested_date=requested_date,
             provider="duckdb_exact",
+            freshness=exact_freshness,
         )
         written = _publish_complete_document(base, document)
         attempts.append(
@@ -133,7 +155,7 @@ def sync_market_snapshot(
                 requested_trade_date=requested_date,
                 served_trade_date=candidate.trade_date,
                 quality="complete",
-                freshness="fresh",
+                freshness=exact_freshness,
                 duration_ms=_elapsed_ms(exact_started),
                 published=True,
             )
@@ -147,8 +169,11 @@ def sync_market_snapshot(
             written=written,
         )
 
-    runner = akshare_runner
-    if runner is None and akshare_python is not None and code_root is not None:
+    runner = akshare_runner if spot_date_error is None else None
+    if (
+        runner is None and spot_date_error is None
+        and akshare_python is not None and code_root is not None
+    ):
         runner = _subprocess_akshare_runner(
             python=Path(akshare_python).expanduser(),
             code_root=Path(code_root).expanduser(),
@@ -165,7 +190,7 @@ def sync_market_snapshot(
                 freshness=None,
                 duration_ms=_elapsed_ms(akshare_started),
                 published=False,
-                error="AkShare runner 未配置",
+                error=spot_date_error or "AkShare runner 未配置",
             )
         )
     else:
@@ -249,8 +274,8 @@ def sync_market_snapshot(
                 )
 
     latest_started = time.monotonic()
-    prior_cutoff = (
-        date.fromisoformat(requested_date) - timedelta(days=1)
+    prior_cutoff = min(
+        requested_day - timedelta(days=1), captured.date()
     ).isoformat()
     try:
         candidate = build_duckdb_snapshot_candidate(
@@ -259,6 +284,11 @@ def sync_market_snapshot(
             allow_latest_before=True,
             now=captured,
         )
+        served_calendar = trading_day_verdict(candidate.trade_date)
+        if not served_calendar.is_trading:
+            raise DuckDbSnapshotUnavailable(
+                f"历史数据日期未获交易日确证: {candidate.trade_date}; {served_calendar}"
+            )
     except (DuckDbSnapshotUnavailable, ValueError) as exc:
         attempts.append(
             ProviderAttempt(

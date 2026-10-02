@@ -1,14 +1,30 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from types import ModuleType
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from intelligence.services.akshare_market_snapshot import (
     sync_akshare_market_snapshot,
 )
+
+from market_feature_store import trading_days
+
+
+@pytest.fixture(autouse=True)
+def snapshot_calendar_clock(monkeypatch):
+    class CalendarDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 10, 30)
+
+    monkeypatch.setattr(trading_days, "date", CalendarDate)
+    monkeypatch.delenv("L2_FORCE_TRADE_DAY", raising=False)
+    monkeypatch.delenv("L2_FORCE_NON_TRADE_DAY", raising=False)
 
 
 class FakeFrame:
