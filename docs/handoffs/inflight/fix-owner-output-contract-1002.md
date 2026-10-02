@@ -1,33 +1,34 @@
-# 追问输出身份：候选有界通过，内容红灯阻塞
+# 输出身份候选阻塞；接续转向 Harness 减法
 
 ## 这个分支做什么
-从发布2aea独立修复已有目标槽位时的重复direct_answer；不接管PR16比较器或R18预算线。
+保留2aea基座上的输出身份窄修复；用户纠偏后停止单题正文补丁，评审并行通用方案。
 
 ## 当前状态
-代码/测试已提交4cba44a63，基座2aea7c27e。只改TaskFrame编译与runtime别名共享，终稿校验未改。**相关632P/1F，禁止合入/发布**；无新模型/推送/部署。
-普通红例：`test_owner_output_identity.py::test_boundary_only_prose_must_not_stand_in_for_the_direct_answer`。旧基座同样1F，不豁免。
+代码4cba44a63、旧文档6ef1d41e9；本轮只加评审/快照并更新本交接，未改产品。历史相关632P/1F，**仍禁止合入/发布**。正文边界反例保持正常红，非xfail。
+并行总spec：`~/fwp-wt-harness-simplification-1002@acc743c84`（产品基线3b78fda25），v0.1 Draft未实施；本轮不改对方树，两个补丁栈收据不能互签。
 
 ## 决策与被否方案
 | 选 / 否 / 原因 |
 |---|
-| 生产端条件去重 / 否终稿放宽 / 各消费者应见同一合同 |
-| 保留独立要求与旧frame / 否全表归一、历史迁移 / 避免吞要求及改身份 |
-| 保留正常红测试 / 否xfail、逐字照抄门 / 不藏内容错误或误杀改写 |
-展开：[日期快照](../2026-10-02-owner-output-identity.md)。
-
-## 已验证
-固定4cba锁环境13文件632P/1F、收据适用性过；新身份24例、5/5变异捕获且还原。三问ASGI回放合同complete，保存intent/frame/owner/gate集合及hash一致；不认证全文。
-前端125P，浏览器40P/2既有S：原三视口及新增两问六断言均过；lint/type/build/Ruff过。独立19071/19074服务已退出，临时基座/变异树已清。
+| 拆用户要求与系统建议 / 否词表、单题例外 / 共性是语义管辖权越界 |
+| 保来源/权限/预算硬边界 / 否全部删门 / 少规则不证明质量提升 |
+| 建议复用PLAN单入口与解释版本 / 否重开规划器或改旧hash / 避免多owner及恢复失配 |
+展开：[接续快照](../2026-10-02-knevo-takeover-contract-review.md)。
 
 ## 未验证 / 已知边界
-词元重合仍让boundary-only正文冒充直接判断，answer_spans可写入未显示claim。正文仍有ONTOLOGY摘要冒作判断、重复及模板内容。原句仍走concept_definition；无目标时旧ID刻意保留。
-未跑全仓Python、前端重新安装、新远端CI、独立review或自然模型全文验收；作者自验不能移签历史独审。共享httpx有漂移；锁环境633例不替代全量。浏览器只做Python外网guard，非OS沙箱。
+21例只测旧AnswerSpec词面门，不能推广到全Episode或算产品误判率。可选项单独缺失仍complete；另有必需项失败时才在补写反馈混成必需。
+PLAN已有修订，但自拟answer_elements只能增加；TaskFrame hash/授权v1快照固定。新解释不能只改一处hash或重造预算。
+没有替代方案实施、独立评审、自然模型收益、全仓/前端重验。Knevo材料非源码。原632P/1F不可签新版本。
 
 ## 下一步
-1. 独立审2aea→4cba；另立正文见证修复，保留本红例与合法改写对照。
-2. 红灯解除后在最终组合SHA跑全量/前端默认链/registry/CI，再独立全文验收；当前不签发布。
-3. R18预算由原owner负责，R17已结案不重跑。
+1. 与v0.1 owner对齐消费者身份、PLAN撤回自拟项、版本/恢复、旧词面门退出权力四项，见[评审](../../verification/2026-10-02-knevo-takeover-contract-review.md)。
+2. 冻结实施基线后只做P1语义权限；不同时改工具目录、方法、缓冲或修复次数。
+3. R19封存/凭据退役、240格未放行；R17不重跑，R18归原owner。原身份红灯不因方向改变而豁免。
 
 ## 踩过的坑
-变异restored-full仅所选24例；中间443P/1X已失效。API消息DTO没turn_intent，查持久化messages.jsonl最后同ID记录。前端未install，只独立克隆依赖。
-证据`~/.finance-runtime/reviews/owner-output-contract-20261002T100000Z/`；[报告](../../verification/2026-10-02-owner-output-identity.md)含解释器/范围。最终文档HEAD不冒充被测SHA，见closeout。
+源码episode_factory在services。Workbench验收不能用CLI ask冒充。锁解释器在`/private/tmp/harness-opt/tmp/arena-harness-release-1002/.venv-workbench/bin/python`；共享httpx漂移。
+原身份closeout.json和vault索引已确认存在，不要再按旧摘要补造。
+
+## 已验证
+固定6ef1d离线复跑21例=8匹配/9误放/4误挡，与旧输出/哈希相同；真实verdict→补写/失败投影探针复现可选身份丢失。新增模型0，未推送/合并/部署。
+私有证据：`~/.finance-runtime/reviews/knevo-takeover-20261002T140000Z/`；探针非HTTP/独审，未替代旧正常红测试。
