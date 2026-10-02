@@ -340,8 +340,8 @@ def test_optional_identity_survives_real_verdict_repair_and_failure_projection(
         system_notices=(), presentation_kind="generic_research",
     )
     outputs = (
-        RequiredOutput(output_id, "用户所需机制解释"),
-        RequiredOutput("optional_extension", "可选延伸比较", required=False),
+        RequiredOutput(output_id, "用户所需机制解释", origin="user_request"),
+        RequiredOutput("optional_extension", "可选延伸比较", required=False, origin="method"),
     )
     answer = text if answer_present else "尚未提供说明。"
     verdict = task_fulfillment.evaluate_answer_spec_fulfillment(
@@ -350,6 +350,7 @@ def test_optional_identity_survives_real_verdict_repair_and_failure_projection(
     assert verdict.status == ("complete" if answer_present else "missing")
     assert [item.output_id for item in verdict.missing_required] == ([] if answer_present else [output_id])
     assert [item["required"] for item in verdict.to_dict()["items"]] == [True, False]
+    assert [item["origin"] for item in verdict.to_dict()["items"]] == ["user_request", "method"]
     captured = []
 
     def synthesize(messages, **kwargs):
@@ -373,6 +374,7 @@ def test_optional_identity_survives_real_verdict_repair_and_failure_projection(
         assert "optional_extension" not in prompt and "可选延伸比较" not in prompt
         assert repaired is not None and repaired[1].status == "complete"
         assert repaired[1].missing_required == ()
+        assert [item.origin for item in repaired[1].items] == ["user_request", "method"]
         assert projected.presentation_kind == "evidence_gap"
         assert "用户所需机制解释" in projected.summary[0].text
         assert "可选延伸比较" not in projected.summary[0].text

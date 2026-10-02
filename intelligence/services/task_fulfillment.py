@@ -62,6 +62,8 @@ class FulfillmentItem:
     candidate_count: int = 0
     # Preserve effective obligation through repair, projection and persistence.
     required: bool = True
+    origin: str = "legacy"
+    merged_origins: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,8 @@ class FulfillmentVerdict:
                     "reason_code": item.reason_code,
                     "candidate_count": item.candidate_count,
                     "required": item.required,
+                    "origin": item.origin,
+                    "merged_origins": list(item.merged_origins),
                 }
                 for item in self.items
             ],
@@ -530,7 +534,8 @@ def render_prompt_constraint(required: RequiredOutput) -> str:
 
     hint = marker_vocabulary_hint(required.output_id)
     suffix = f"（{hint}）" if hint else ""
-    return f"{required.output_id}：{required.description}{suffix}"
+    optional = "（可选建议，不是必需交付）" if not required.required else ""
+    return f"{required.output_id}：{optional}{required.description}{suffix}"
 
 
 _GAP_TEMPLATE_OPENINGS = (
@@ -739,6 +744,8 @@ def evaluate_task_fulfillment(
                     tuple(dict.fromkeys(item for _, ids in bound for item in ids)),
                     tuple(claim.text for claim, _ in bound),
                     required=required.required,
+                    origin=required.origin,
+                    merged_origins=required.merged_origins,
                 )
             )
             continue
@@ -778,6 +785,8 @@ def evaluate_task_fulfillment(
                     reason_code=reason_code,
                     candidate_count=len(candidates),
                     required=required.required,
+                    origin=required.origin,
+                    merged_origins=required.merged_origins,
                 )
             )
             continue
@@ -789,6 +798,8 @@ def evaluate_task_fulfillment(
                 reason_code=reason_code,
                 candidate_count=len(candidates),
                 required=required.required,
+                origin=required.origin,
+                merged_origins=required.merged_origins,
             )
         )
 

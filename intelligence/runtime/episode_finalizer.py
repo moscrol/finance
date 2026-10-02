@@ -192,6 +192,8 @@ class EpisodeFinalizer:
                     "description": item.description,
                     "evidence_types": list(item.evidence_types),
                     "required": item.required,
+                    **({"origin": item.origin} if item.origin != "legacy" else {}),
+                    **({"merged_origins": list(item.merged_origins)} if item.merged_origins else {}),
                     "grounding_mode": item.grounding_mode,
                 }
                 for item in context.contract.required_outputs
