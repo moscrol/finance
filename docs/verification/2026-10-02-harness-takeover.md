@@ -7,7 +7,7 @@
 - 树：`/tmp/harness-opt/tmp/arena-harness-release-1002`
 - 分支：`fix/harness-release-1002-takeover`
 - 代码候选：`2aea7c27ed469530bc73fb232e65830acc754647`
-- 最终 docs-only HEAD：`d58d7dcd30e83d704f3e3fe697734c1203193515`
+- 最终代码门禁锚点：`d58d7dcd30e83d704f3e3fe697734c1203193515`；之后仅有 docs-only descendant
 - 起点：`e25381b24c2c9cbb11193b4b85711e4e9a3d489a`
 - 代码修复：`beff372c6f56caf9de35b10d0f01cd513f6223e0`、`1f8a8efb3f5ae11610cbbbb35bea56a679618b34`
 - 原发布树仍为 `codex/harness-release-1002@e25381b24`，三个原有未跟踪文档保留；无 push、main 合入、部署、预测台账或业务 DB 写入。
@@ -16,7 +16,7 @@
 
 最终候选外置产物根：`/tmp/arena-harness-validation-1002/final-candidate-v2/`。
 
-- Python 全量（最终 HEAD）：**19,752 passed / 0 failed / 0 error / 78 skipped / 2 xfailed**，collected=19,832。
+- Python 全量（代码门禁锚点）：**19,752 passed / 0 failed / 0 error / 78 skipped / 2 xfailed**，collected=19,832。
 - 专用 receipt：`final-candidate-v3` 的 receipt：`/Users/a77/.finance-runtime/test-receipts/gate-NOXB0zmf/pytest.json`；`check_test_receipt.py --require-full-scope --expect-revision 2aea7c27...` 通过，锁依赖、解释器、clean、scope 对账均通过。
 - Ruff：全仓通过。
 - Frontend receipt：`final-candidate-v3/frontend/frontend.json`；install、lint、typecheck、component test、build、E2E 六项退出 0，SHA clean/稳定；组件 125 passed，E2E 34 passed / 2 skipped。
@@ -57,4 +57,4 @@ sidecar 代码 health 为当前 SHA、clean、`code_matches_repo=true`，用户�
 
 ## 下一步
 
-最终 docs-only HEAD 已完成与当前范围等价的 Python/full-scope、frontend/E2E、registry、map 门禁并绑定 receipts。下一步按用户授权 push 分支并开 GitHub PR；GitHub required checks 未通过前不 merge，用户未确认前不切生产。实验能力默认关闭。
+代码门禁锚点已完成与当前范围等价的 Python/full-scope、frontend/E2E、registry、map 门禁并绑定 receipts；其后只追加 docs-only 记录。下一步按用户授权 push 分支并开 GitHub PR；GitHub required checks 未通过前不 merge，用户未确认前不切生产。实验能力默认关闭。
