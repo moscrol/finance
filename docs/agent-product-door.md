@@ -1248,5 +1248,6 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 `evidence_read` 仅在 `ASK_EPISODE_EVIDENCE_READ=on` 且本回合 contract 显式授权时装配；
 不改 capability 地板、不自动接产品默认。复用原生 Episode 的工具预算/授权/事件/绑定；
 按 E 编号读已有 title/detail，不查新数据、不增加来源，补读进展与新增证据分开。
+普通工具前缀和 PLAN 子研究回灌正文均按实际模型可见投影累计已读覆盖；子研究只有在收件箱认领并追加消息后才计入，完成或保存但未投递不算展示。已交付部分重读不产生新增阅读量，未见页仍可记阅读进展。
 模型净收益待对照；边界、工程读数及预注册见
 [候选说明](verification/2026-10-02-evidence-reread-candidate.md)。

@@ -989,6 +989,20 @@ class _EpisodeToolAccumulator:
             if cleaned and cleaned not in self.gaps:
                 self.gaps.append(cleaned)
 
+    def note_delivered_sub_research(self, messages: Sequence[EpisodeMessage]) -> None:
+        """Seed only literal evidence in branch messages already in model input.
+
+        Branch completion and inbox insertion are not delivery. This records
+        coverage, not new read progress or a new independent evidence source.
+        """
+        if not evidence_read_enabled():
+            return
+        for message in messages:
+            if message.source == "sub_research":
+                self.read_coverage.observe(
+                    message.content, evidence=tuple(self.evidence)
+                )
+
     def retain_entity_diagnostics(self, declared: tuple[str, ...]) -> tuple[str, ...]:
         """A model finish cannot erase the tool's exact-identity diagnostic."""
         return tuple(dict.fromkeys((
@@ -1341,6 +1355,7 @@ class ContinuousAgentEpisode:
         messages: list[EpisodeMessage],
         ledger: _EpisodeLedger,
         target: InboxTarget,
+        accumulator: _EpisodeToolAccumulator | None = None,
     ) -> int:
         """把该队列的话取出来 append 进 messages。认领事件先落、消息后进——与
         ``append_model_input`` 同一个「事件在前、派生物在后」的写序。"""
@@ -1350,6 +1365,8 @@ class ContinuousAgentEpisode:
             return 0
         claimed = inbox.claim(target)
         messages.extend(claimed)
+        if accumulator is not None:
+            accumulator.note_delivered_sub_research(claimed)
         return len(claimed)
 
     @staticmethod
@@ -1672,7 +1689,10 @@ class ContinuousAgentEpisode:
 
             # INV-R5：每次模型请求前认领 next_step（pi steering）。先于历史折叠——
             # 认领的是 user 消息，折叠只碰 tool 消息，两者互不改写；先于对账是必然。
-            if self._claim_inbox(messages=messages, ledger=ledger, target="next_step"):
+            if self._claim_inbox(
+                messages=messages, ledger=ledger, target="next_step",
+                accumulator=accumulator,
+            ):
                 # 外部递了话（用户改方向 / 分支回灌）：新方向的第一批不算原地踏步。
                 accumulator.progress.note_external_input()
             perspective_checkpoint = (
@@ -2041,6 +2061,7 @@ class ContinuousAgentEpisode:
                                 ledger=ledger,
                                 result=pending_branch_result,
                                 evidence=tuple(accumulator.evidence),
+                                accumulator=accumulator,
                             )
                         continue
                 else:
@@ -2233,6 +2254,7 @@ class ContinuousAgentEpisode:
                         ledger=ledger,
                         result=pending_branch_result,
                         evidence=tuple(accumulator.evidence),
+                        accumulator=accumulator,
                     )
                 if self._harness.retrieval_complete(
                     context=context,
@@ -2273,8 +2295,14 @@ class ContinuousAgentEpisode:
             # 竞态「steer 到达 vs 模型停下」两序在这里汇合：先到的在请求前就被认领，
             # 后到的在这里被认领——两种历史都合法，都不丢话。
             if not finalization_started and ledger.inbox is not None and ledger.inbox.pending():
-                self._claim_inbox(messages=messages, ledger=ledger, target="next_turn")
-                self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+                self._claim_inbox(
+                    messages=messages, ledger=ledger, target="next_turn",
+                    accumulator=accumulator,
+                )
+                self._claim_inbox(
+                    messages=messages, ledger=ledger, target="next_step",
+                    accumulator=accumulator,
+                )
                 continue
 
             admission = self._harness.admit_finish(
@@ -2402,6 +2430,7 @@ class ContinuousAgentEpisode:
         self,
         *,
         messages: list[EpisodeMessage],
+        accumulator: _EpisodeToolAccumulator,
         tools: list[dict[str, object]],
         timeout: float,
         repair_deadline: ResearchDeadline,
@@ -2435,7 +2464,10 @@ class ContinuousAgentEpisode:
         while True:
             # INV-R5：修复轮的每次模型请求前同样认领 next_step——收件箱是唯一输入面，
             # 不因阶段而关。瞬态重试之间到的话在下一次重问价前送达。
-            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+            self._claim_inbox(
+                messages=messages, ledger=ledger, target="next_step",
+                accumulator=accumulator,
+            )
             # INV-R1：每次重问价前都对账（瞬态重试不改 messages，但重试之间可能多了
             # repair_model_retry 事件——那不是模型可见内容，派生必须对它无感）。
             ledger.verify_model_visible(messages)
@@ -2746,6 +2778,7 @@ class ContinuousAgentEpisode:
             transient_retries_left,
         ) = self._repair_model_complete(
             messages=messages,
+            accumulator=accumulator,
             tools=definitions,
             timeout=timeout,
             repair_deadline=repair_deadline,
@@ -2881,6 +2914,7 @@ class ContinuousAgentEpisode:
                 transient_retries_left,
             ) = self._repair_model_complete(
                 messages=messages,
+                accumulator=accumulator,
                 tools=[],
                 timeout=final_timeout,
                 repair_deadline=repair_deadline,
@@ -3456,6 +3490,7 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
+        accumulator: _EpisodeToolAccumulator | None = None,
     ) -> None:
         """子研究回灌走收件箱（终态稿 §6.4 第 3 条）：``inbox.send(target=next_step,
         source="sub_research")``，下一次模型请求前被认领进 messages。
@@ -3474,6 +3509,8 @@ class ContinuousAgentEpisode:
         inbox = ledger.inbox
         if inbox is None:
             append_model_input(messages, ledger, content=content, source="sub_research")
+            if accumulator is not None:
+                accumulator.note_delivered_sub_research((messages[-1],))
             return
         inbox.send(user_message(content, source="sub_research"), target="next_step")
 

@@ -279,8 +279,17 @@ class EvidenceReadCoverage:
                                 break
                             pos = prefix.find(full[0], pos + 1)
         shown_items = view.get("evidence", ())
-        if not isinstance(shown_items, (list, tuple)):
-            shown_items = ()
+        shown_items = list(shown_items) if isinstance(shown_items, (list, tuple)) else []
+        # PLAN branch feedback uses a nested projection, unlike tool_result.
+        # The caller observes this only after inbox claim / direct append; do
+        # not assume that every completed branch or stored atom was displayed.
+        if view.get("kind") == "SUB_RESEARCH_RESULTS":
+            branches = view.get("branches", ())
+            if isinstance(branches, (list, tuple)):
+                for branch in branches:
+                    items = branch.get("evidence") if isinstance(branch, dict) else None
+                    if isinstance(items, (list, tuple)):
+                        shown_items.extend(items)
         for shown in shown_items:
             if not isinstance(shown, dict):
                 continue
