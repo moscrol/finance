@@ -1018,4 +1018,4 @@ main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
 - [docs/trace-profile.md](trace-profile.md) §2 字段陷阱、§6 投影契约、§8 仪器覆盖矩阵
 - commit `09657e2a`
 
-| `R-20261002-14` | 用户继续优化授权；GLM preservation_e2e | `BEHAVIOR_EXPERIMENT` | 同模型目录A/B，无退步且无新增轮数时输入token有望下降 | 固定2题×A/B、glm-5.3-flash、16物理/600秒、先身份准入；非正式四格 | `pending`（见 `docs/verification/2026-10-02-catalog-ab-plan.md`） |
+| `R-20261002-14` | 用户继续优化授权；GLM preservation_e2e | `BEHAVIOR_EXPERIMENT` | 同模型目录A/B，无退步且无新增轮数时输入token有望下降 | 固定2题×A/B、glm-5.3-flash、16物理/600秒、先身份准入；非正式四格 | `inconclusive`（已关闭：4物理，累计100；控制B未通过严格来源审计；查询A缺格及600秒墙钟违约；见 `docs/verification/2026-10-02-catalog-ab-results.md`） |
