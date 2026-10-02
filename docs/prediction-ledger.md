@@ -27,7 +27,7 @@
 
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
-| `R-20261002-19` | 真实完整P同模型A/B：R18预算交接，D1诊断/D2未调试/M0信息足够控制；非四格验收。 | `EVAL_ONLY` | 六配对中B至少恢复一个完整有据交付，无A通过→B不通过；M0两版本两型号均过。只认样本方向、不认泛化。 | `docs/verification/2026-10-02-planning-budget-ab-plan.md`；12格各一次、每格物理帽32/240秒、全批1800秒、启动间隔≥90秒；先离线再冻结启动，不补跑；累计起点109。 | pending |
+| `R-20261002-19` | 真实完整P同模型A/B：R18预算交接，D1诊断/D2未调试/M0信息足够控制；非四格验收。 | `EVAL_ONLY` | 六配对中B至少恢复一个完整有据交付，无A通过→B不通过；M0两版本两型号均过。只认样本方向、不认泛化。 | `docs/verification/2026-10-02-planning-budget-ab-plan.md`；12格各一次、每格物理帽32/240秒、全批1800秒、启动间隔≥90秒；先离线再冻结启动，不补跑；累计起点109；实际12/12格、33份200头/14完整身份、累计142；M0四格失败，样本成功条件未达，因果收益未证。结案：`docs/verification/2026-10-02-planning-budget-ab-results.md`。 | refuted |
 | `R-20261002-18` | 工程：首轮规划借窗→根账本/工具派发交接，接R17阶段饥饿；非语义路由。 | `EVAL_ONLY` | 旧码合法首轮借窗内，实际工具可获同一绝对余量，根帽与转接后的合成地板不变；根不足/过窗拒绝。 | `docs/verification/2026-10-02-planning-budget-handoff.md`；有效RED 1P1F，新增18P/相关1505P/7变异杀；只对候选SHA和固定环境的工程性质confirmed。真实0、累计109；GLM收益/强侧非退步未证，不签F4/240，不动薄R，不合并部署。 | confirmed |
 | `R-20261002-17` | 非标准四阶段分诊：完整HTTP P×薄R四格诊断，接R15/R16；非收益或强弱标定。 | `EVAL_ONLY` | 固定D1四格各一次可留完整身份并完成评分；缺格不签F4、240不放行。 | `docs/verification/2026-10-02-model-harness-f4-live-results.md`；PG/RG/PC/RC已各一次，旧分0/0/1/0，严格技术仅PC过；9物理HTTP请求均见200头，8完整身份/1未知，累计109；303.372秒exit1/组已空。PC全文范围问题保留，不补跑，不认领收益或独立盲评。 | refuted |
 | `R-20261002-16` | 非标准四阶段分诊：四格接线，旧评分器空源码与完整入口缺口；不认领模型收益根因。计划 `docs/verification/2026-10-02-model-harness-f4-preflight-plan.md` | `EVAL_ONLY` | 固定旧评分缓存可复算且错 hash/magic 拒绝；完整对话正门可隔离数据/用户并在零外呼下留绑定型号的出站请求。 | 28新增/131相关测试、6加载器变异与原D9检查通过；两型号完整API拟发请求各16均拦截，实际0。仅接线confirmed；旧机器尺错配指标仍满分，评分可靠性/模型收益不成立，见 `docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。 | confirmed |
