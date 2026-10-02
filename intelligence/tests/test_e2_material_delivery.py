@@ -368,17 +368,23 @@ def test_material_partial_never_fabricates_a_successful_judge_on_outage():
 
 
 @pytest.mark.parametrize("mutation", ["omitted", "optional", "duplicate"])
-def test_frozen_material_contract_cannot_lose_a_question_obligation(mutation):
+@pytest.mark.parametrize("with_origin", [False, True])
+def test_frozen_material_contract_cannot_lose_a_question_obligation(mutation, with_origin):
     from intelligence.services.research_contract import ResearchTaskContract
     _, context = setup_delivery()
+    if not with_origin:
+        context = replace(context, contract=replace(context.contract, required_outputs=tuple(
+            replace(item, origin="legacy", merged_origins=()) for item in context.contract.required_outputs
+        )))
     outputs = context.contract.required_outputs
-    if mutation == "omitted":
-        outputs = (outputs[0], outputs[2])
-    elif mutation == "optional":
-        outputs = (outputs[0], replace(outputs[1], required=False), outputs[2])
-    else:
-        outputs = (*outputs, outputs[1])
-    with pytest.raises(ValueError):
+    expected = "user request cannot be optional" if with_origin and mutation == "optional" else "material_only"
+    with pytest.raises(ValueError, match=expected):
+        if mutation == "omitted":
+            outputs = (outputs[0], outputs[2])
+        elif mutation == "optional":
+            outputs = (outputs[0], replace(outputs[1], required=False), outputs[2])
+        else:
+            outputs = (*outputs, outputs[1])
         replace(context.contract, required_outputs=outputs)
     payload = context.contract.to_dict()
     if mutation == "omitted":
@@ -387,7 +393,7 @@ def test_frozen_material_contract_cannot_lose_a_question_obligation(mutation):
         payload["required_outputs"][1]["required"] = False
     else:
         payload["required_outputs"].append(payload["required_outputs"][1])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected):
         ResearchTaskContract.from_dict(payload)
 
 

@@ -1271,6 +1271,13 @@ def decide_turn(
     ):
         # An explicit history noun in a continuation must not erase the previous
         # user-owned date restriction with a newly inferred, unbounded intent.
+        # Rebuild IDs and metadata together: retire unselected hints, but never
+        # drop an already recorded user obligation (including an alias witness).
+        history_outputs = tuple(dict.fromkeys((
+            "direct_assessment", "counterpoint", "evidence_boundary",
+            *(item.output_id for item in task_frame.output_requirements
+              if item.origin == "user_request" or "user_request" in item.merged_origins),
+        )))
         task_frame = replace(
             task_frame,
             history_intent=replace(
@@ -1286,7 +1293,10 @@ def decide_turn(
             evidence_policy="comparable_multi_source_evidence"
             if history_followup.purpose == "historical_comparison"
             else "theme_multi_layer_evidence",
-            required_outputs=("direct_assessment", "counterpoint", "evidence_boundary"),
+            required_outputs=history_outputs,
+            output_requirements=tuple(
+                item for item in task_frame.output_requirements if item.output_id in history_outputs
+            ),
         )
     if (history_followup is not None and task_frame.history_intent is not None
             and task_frame.history_intent.information_cutoff is None):

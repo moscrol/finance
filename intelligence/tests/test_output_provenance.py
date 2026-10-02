@@ -203,6 +203,62 @@ def test_rebase_and_factory_preserve_user_obligation_on_type_change(new_type):
     assert output.description == requirement.description
 
 
+@pytest.mark.parametrize("origin,merged_origins", [
+    ("user_request", ()), ("method", ("method", "user_request")),
+])
+def test_history_reassembly_keeps_user_obligations_and_retires_unselected_hints(monkeypatch, origin, merged_origins):
+    from intelligence.services import turn_controller
+    from intelligence.services.conversation_materials import collect_material_turn_history
+    from intelligence.services.conversation_store import Message
+
+    def offline(_):
+        return None, None, "offline"
+
+    first = turn_controller.decide_turn(
+        "只用本地已有资料，复盘这一波农业怎么走出来的。", llm_complete=offline,
+    )
+    history = collect_material_turn_history([
+        Message("history-user", "conv", "user", first.task_frame.raw_question, "2026-10-02", "completed"),
+    ])
+    original_build = turn_controller.build_task_frame
+    user = RequiredOutput("prime_quote", "另行确认的用户要求", origin=origin, merged_origins=merged_origins)
+    retired = RequiredOutput("retired_hint", "未采用建议", required=False, origin="heuristic")
+    retained = RequiredOutput("counterpoint", "保留的建议", required=False, origin="method")
+
+    def trusted_build(*args, **kwargs):
+        frame = original_build(*args, **kwargs)
+        assert frame.history_intent is None  # Inheritance below rebuilds the output set.
+        requirements = (user, retired, retained)
+        ids = tuple(item.output_id for item in requirements)
+        return replace(
+            frame, required_outputs=tuple(dict.fromkeys((*frame.required_outputs, *ids))),
+            output_requirements=(
+                *(item for item in frame.output_requirements if item.output_id not in ids),
+                *requirements,
+            ),
+        )
+
+    monkeypatch.setattr(turn_controller, "build_task_frame", trusted_build)
+    followup = turn_controller.decide_turn(
+        "以前有没有类似？", previous_intent=first.turn_intent, previous_turn_id="t1",
+        conversation_materials=history, llm_complete=offline,
+    )
+    frame = followup.task_frame
+    assert frame.history_intent.purpose == "historical_comparison"
+    assert frame.material_contract.data_scope == "local_only"
+    assert frame.output_requirement(user.output_id) == user
+    assert user.output_id in frame.required_outputs
+    assert frame.output_requirement(retained.output_id) == retained
+    assert retired.output_id not in frame.required_outputs
+    assert frame.output_requirement(retired.output_id) is None
+    assert TaskFrame.from_dict(frame.to_dict()) == frame
+    context = _context(frame)
+    assert _by_id(context)[user.output_id].required is True
+    assert _by_id(context)[user.output_id].origin == origin
+    assert _by_id(context)[user.output_id].merged_origins == merged_origins
+    assert "evidence_search" not in context.contract.allowed_capabilities
+
+
 def test_model_input_and_finalizer_receive_same_requirement_identity():
     from intelligence.services.episode_protocol import build_episode_input
     from intelligence.runtime.episode_finalizer import EpisodeFinalizer

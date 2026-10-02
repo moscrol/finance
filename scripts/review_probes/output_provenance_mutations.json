@@ -75,5 +75,19 @@
     "old": "        output_requirements=tuple(item for item in frame.output_requirements if item.output_id in merged_outputs),",
     "new": "        output_requirements=(),",
     "targets": ["test_rebase_and_factory_preserve_user_obligation_on_type_change"]
+  },
+  {
+    "id": "history_reassembly_discards_user_obligations",
+    "path": "intelligence/services/turn_controller.py",
+    "old": "              if item.origin == \"user_request\" or \"user_request\" in item.merged_origins),",
+    "new": "              if False),",
+    "targets": ["test_history_reassembly_keeps_user_obligations_and_retires_unselected_hints"]
+  },
+  {
+    "id": "history_reassembly_keeps_orphan_metadata",
+    "path": "intelligence/services/turn_controller.py",
+    "old": "                item for item in task_frame.output_requirements if item.output_id in history_outputs",
+    "new": "                item for item in task_frame.output_requirements",
+    "targets": ["test_history_reassembly_keeps_user_obligations_and_retires_unselected_hints"]
   }
 ]
