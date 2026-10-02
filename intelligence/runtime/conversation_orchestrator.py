@@ -160,6 +160,7 @@ from intelligence.runtime.turn_control_core import (
 )
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.services.task_frame import (
+    DIRECT_OUTPUT_ALIASES,
     TaskFrame,
     build_task_frame,
     frame_blocks_contract_blind_pipelines,
@@ -778,10 +779,10 @@ def _task_frame_required_output(
 # rebound_case 槽位（它有 build_scenario_tree_artifact 这个真生产者），
 # 别名不命中，scenario_tree 仍然是硬要求。
 #
-# 提到模块级是因为它是「output 归一」的唯一事实源：工具 produces 声明的一致性
-# 测试要拿同一张表做归一，抄第二份就等于把这里的修改和那边的断言解耦。
+# 执行槽位投影仍只有这张表；纯身份别名由 TaskFrame 编译器拥有，两边共用，
+# 不能将这里依赖执行槽位的宽投影反向套到专项任务的独立要求上。
 _LEGACY_OUTPUT_ALIASES: dict[str, str] = {
-    "direct_answer": "direct_assessment",
+    **DIRECT_OUTPUT_ALIASES,
     "current_baseline": "direct_assessment",
     "evidence_boundary": "counterpoint",
     "continuation_conditions": "rebound_case",

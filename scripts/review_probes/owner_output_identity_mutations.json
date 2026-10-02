@@ -1,0 +1,37 @@
+[
+  {
+    "id": "retain-duplicate-direct-answer",
+    "path": "intelligence/services/task_frame.py",
+    "old": "if DIRECT_OUTPUT_ALIASES.get(output_id) not in known",
+    "new": "if True",
+    "targets": ["test_build_compiles_one_direct_output_and_keeps_independent_requirements", "test_rebase_deduplicates_outputs_reintroduced_by_inherited_intent"]
+  },
+  {
+    "id": "drop-direct-answer-without-target",
+    "path": "intelligence/services/task_frame.py",
+    "old": "if DIRECT_OUTPUT_ALIASES.get(output_id) not in known",
+    "new": "if output_id not in DIRECT_OUTPUT_ALIASES",
+    "targets": ["test_no_registered_target_does_not_drop_or_invent_direct_output"]
+  },
+  {
+    "id": "collapse-independent-evidence-boundary",
+    "path": "intelligence/services/task_frame.py",
+    "old": "DIRECT_OUTPUT_ALIASES: dict[str, str] = {\"direct_answer\": \"direct_assessment\"}",
+    "new": "DIRECT_OUTPUT_ALIASES: dict[str, str] = {\"direct_answer\": \"direct_assessment\", \"evidence_boundary\": \"counterpoint\"}",
+    "targets": ["test_related_but_independent_outputs_are_not_global_aliases", "test_build_compiles_one_direct_output_and_keeps_independent_requirements"]
+  },
+  {
+    "id": "bypass-inheritance-normalization",
+    "path": "intelligence/services/task_frame.py",
+    "old": "else _clean_outputs(\n            inherited_outputs,\n            canonical_outputs,\n            required_outputs,\n        )",
+    "new": "else _merge_strings(\n            inherited_outputs,\n            canonical_outputs,\n            required_outputs,\n        )",
+    "targets": ["test_rebase_deduplicates_outputs_reintroduced_by_inherited_intent", "test_manual_followup_compiles_one_identity_before_owner_execution"]
+  },
+  {
+    "id": "owner-overrides-canonical-requirements",
+    "path": "intelligence/runtime/conversation_orchestrator.py",
+    "old": "output_ids = frame.required_outputs or contract.required_outputs",
+    "new": "output_ids = contract.required_outputs",
+    "targets": ["test_owner_cannot_remove_independent_requirement_or_add_its_own_gate"]
+  }
+]

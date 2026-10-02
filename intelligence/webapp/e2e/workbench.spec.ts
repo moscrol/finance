@@ -289,6 +289,26 @@ test("stock deep-dive owns and continues a traceable Workbench answer", async ({
   ).toBeVisible();
 });
 
+for (const followUpQuestion of [
+  "那它有哪些主要风险，下一步该怎么验证？",
+  "那它的风险呢？接下来怎么验证？",
+]) {
+  test(`specialized owner preserves synonymous follow-up: ${followUpQuestion}`, async ({ page }, testInfo) => {
+    test.slow();
+    await startNewConversation(page, testInfo);
+    await selectManualSkill(page, /个股深挖/);
+    await submitQuestion(page, "请个股深挖英维克的液冷业务", 1);
+    await submitQuestion(page, followUpQuestion, 2);
+
+    const followUp = page.getByLabel("研究助手消息").nth(1);
+    await expect(followUp.getByRole("heading", { name: "个股深挖" })).toBeVisible();
+    await expect(followUp.getByText(/英维克/).first()).toBeVisible();
+    await expect(followUp.getByRole("heading", { name: "反证与缺口" })).toBeVisible();
+    await expect(followUp.getByRole("heading", { name: "下一步如何验证" })).toBeVisible();
+    await expect(followUp.getByText(/本轮尚未完成问题所需的直接回答/)).toHaveCount(0);
+  });
+}
+
 test("stop preserves cancellation and responsive drawers remain closable", async ({
   page,
 }, testInfo) => {

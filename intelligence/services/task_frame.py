@@ -81,6 +81,11 @@ _QUESTION_TYPE_BY_POLICY = {
     for question_type, policy in _POLICY_BY_QUESTION_TYPE.items()
 }
 
+# Identity aliases only, not the runtime's broader execution-slot projections.
+# A legacy direct-answer ID is redundant only when its target is already in the
+# same task. In particular, evidence_boundary and counterpoint remain distinct.
+DIRECT_OUTPUT_ALIASES: dict[str, str] = {"direct_answer": "direct_assessment"}
+
 _REBOUND_HORIZON_RE = re.compile(
     r"(?:反弹|修复).{0,12}(?:持续多久|能持续|持续性|延续多久|还能延续)"
 )
@@ -1415,13 +1420,21 @@ def _clean_outputs(*groups: tuple[str, ...]) -> tuple[str, ...]:
     assumptions and ambiguities, where trimming is a separate contract.
     """
 
-    return _merge_strings(
+    outputs = _merge_strings(
         tuple(
             str(item)
             for group in groups
             for item in group
             if str(item).strip()
         )
+    )
+    # Compile before hashing/projecting the frame so the generator, persisted
+    # intent and verifier all see the same IDs. Do not invent a missing target,
+    # infer content coverage, or rewrite previously serialized frame identities.
+    known = set(outputs)
+    return tuple(
+        output_id for output_id in outputs
+        if DIRECT_OUTPUT_ALIASES.get(output_id) not in known
     )
 
 
