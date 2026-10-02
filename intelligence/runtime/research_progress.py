@@ -106,6 +106,7 @@ class ToolCallDigest:
     status: CallStatus
     new_evidence: int = 0
     total_evidence: int = 0
+    new_read_chars: int = 0
 
     def __post_init__(self) -> None:
         if self.status not in {"new", *_NO_PROGRESS_STATUSES}:
@@ -114,9 +115,12 @@ class ToolCallDigest:
         object.__setattr__(self, "query", normalize_query(self.query))
         object.__setattr__(self, "new_evidence", max(0, int(self.new_evidence)))
         object.__setattr__(self, "total_evidence", max(0, int(self.total_evidence)))
+        object.__setattr__(self, "new_read_chars", max(0, int(self.new_read_chars)))
 
     @property
     def result_label(self) -> str:
+        if self.new_read_chars:
+            return f"read:{self.new_read_chars}chars;new_evidence:{self.new_evidence}"
         if self.status == "new":
             return f"new:{self.new_evidence}"
         return self.status
@@ -130,6 +134,10 @@ class BatchDigest:
     @property
     def new_evidence(self) -> int:
         return sum(call.new_evidence for call in self.calls)
+
+    @property
+    def new_read_chars(self) -> int:
+        return sum(call.new_read_chars for call in self.calls)
 
     @property
     def executed(self) -> int:
@@ -150,6 +158,7 @@ class BranchDigest:
 class _QueryAttempts:
     attempts: int = 0
     last_new_evidence: int = 0
+    last_new_read_chars: int = 0
 
 
 class ResearchProgressTracker:
@@ -202,14 +211,15 @@ class ResearchProgressTracker:
                 attempts = self._query_attempts.setdefault(key, _QueryAttempts())
                 attempts.attempts += 1
                 attempts.last_new_evidence = call.new_evidence
-                if call.new_evidence > 0:
+                attempts.last_new_read_chars = call.new_read_chars
+                if call.new_evidence > 0 or call.new_read_chars > 0:
                     self._tool_empty_streak[call.tool] = 0
                 elif call.status in _NO_PROGRESS_STATUSES:
                     self._tool_empty_streak[call.tool] = (
                         self._tool_empty_streak.get(call.tool, 0) + 1
                     )
             self.evidence_total += batch.new_evidence
-            if batch.new_evidence > 0:
+            if batch.new_evidence > 0 or batch.new_read_chars > 0:
                 self.stalled_batches = 0
             else:
                 self.stalled_batches += 1
@@ -257,6 +267,7 @@ class ResearchProgressTracker:
                 {"tool": tool, "query": query, "attempts": item.attempts}
                 for (tool, query), item in self._query_attempts.items()
                 if item.attempts >= REPEAT_QUERY_THRESHOLD and item.last_new_evidence == 0
+                and item.last_new_read_chars == 0
             ]
         rows.sort(key=lambda row: (-int(row["attempts"]), str(row["tool"]), str(row["query"])))
         return tuple(rows[:_MAX_LAST_BATCH_ROWS])
@@ -345,6 +356,8 @@ class ResearchProgressTracker:
             "evidence_total": evidence_total,
             "stalled_batches": stalled,
         }
+        if batch is not None and batch.new_read_chars:
+            view["new_read_chars"] = batch.new_read_chars
         if perspectives is not None:
             view["adaptive_research"] = perspectives
         if batch is not None:

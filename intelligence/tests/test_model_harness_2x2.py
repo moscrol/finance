@@ -350,6 +350,11 @@ def test_cli_plan_then_analyze(tmp_path, capsys):
          "failure_class": None}
         for r in plan["runs"]
     ]
+    # CLI 现在必须检查原始产物；这里只构造明示的单测夹具，不靠自报 exit=0。
+    for row in records:
+        artifact = tmp_path / f"episode-{row['seq']}.json"
+        artifact.write_text(json.dumps({"served_model": plan["models"][row["cell"][1]]}))
+        row["artifacts"] = [artifact.name]
     runs_path = tmp_path / "runs.jsonl"
     runs_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
     # 默认不信自报：没有 artifact 的运行一律作废，主判定不完整。

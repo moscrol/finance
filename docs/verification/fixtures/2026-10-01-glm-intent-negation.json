@@ -1,0 +1,36 @@
+{
+  "schema": "harness-intent-negation-v1",
+  "source": "R-20261001-08 diagnostic; no real user conversation included",
+  "cases": [
+    {
+      "id": "original-negative",
+      "question": "仅使用本地结构化数据，比较2026年9月29日与9月30日的A股全市场成交额。请用简表列出两日金额（亿元，保留两位小数），并写出30日比29日的增减额和增减幅度的计算式，注明日期与出处。不要推测市场涨跌原因，不联网。",
+      "expected_causal_task": false
+    },
+    {
+      "id": "without-cause-clause",
+      "question": "仅使用本地结构化数据，比较2026年9月29日与9月30日的A股全市场成交额。请用简表列出两日金额（亿元，保留两位小数），并写出30日比29日的增减额和增减幅度的计算式，注明日期与出处。不联网。",
+      "expected_causal_task": false
+    },
+    {
+      "id": "explicit-positive",
+      "question": "仅使用本地结构化数据，比较2026年9月29日与9月30日的A股全市场成交额。请用简表列出两日金额（亿元，保留两位小数），并写出30日比29日的增减额和增减幅度的计算式，注明日期与出处。不联网。请解释市场涨跌原因。",
+      "expected_causal_task": true
+    },
+    {
+      "id": "negative-no-explanation",
+      "question": "仅使用本地结构化数据，比较2026年9月29日与9月30日的A股全市场成交额。请用简表列出两日金额（亿元，保留两位小数），并写出30日比29日的增减额和增减幅度的计算式，注明日期与出处。不联网。不解释市场涨跌原因。",
+      "expected_causal_task": false
+    },
+    {
+      "id": "negative-unnecessary",
+      "question": "仅使用本地结构化数据，比较2026年9月29日与9月30日的A股全市场成交额。请用简表列出两日金额（亿元，保留两位小数），并写出30日比29日的增减额和增减幅度的计算式，注明日期与出处。不联网。无需分析市场涨跌原因。",
+      "expected_causal_task": false
+    },
+    {
+      "id": "double-negative-positive",
+      "question": "仅使用本地结构化数据，比较2026年9月29日与9月30日的A股全市场成交额。请用简表列出两日金额（亿元，保留两位小数），并写出30日比29日的增减额和增减幅度的计算式，注明日期与出处。不联网。并非不需要解释市场涨跌原因。",
+      "expected_causal_task": true
+    }
+  ]
+}

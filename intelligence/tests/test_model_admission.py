@@ -217,3 +217,95 @@ def test_cli_exit_codes_and_json(tmp_path, capsys):
     assert [r["verdict"] for r in payload["results"]] == ["admitted", "mismatch"]
     with pytest.raises(SystemExit):
         cli.main([str(good)])  # --expect-model 必填
+
+
+def _reference(path, episode_id):
+    document = json.loads(path.read_text())
+    document['events'].append({'kind': 'branch_completed', 'payload': {
+        'episode_ref': {'episode_id': episode_id}, 'llm_calls': 1,
+    }})
+    path.write_text(json.dumps(document))
+
+
+def _stored_episode(root, episode_id, model):
+    from intelligence.services.episode_store import JsonlEpisodeStore
+
+    directory = JsonlEpisodeStore(root).episode_dir(episode_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    event = {**_turn_event(1, model), 'episode_id': episode_id}
+    path = directory / ma.EVENTS_FILENAME
+    path.write_text(json.dumps(event) + '\n')
+    return path
+
+
+def test_direct_parent_artifact_does_not_hide_nested_child(tmp_path):
+    parent = _episode(tmp_path, 'glm-5.3')
+    _episode(parent / 'branches', 'glm-5.3-flash', name='child')
+    assert _check([parent])[1] == 1
+
+
+def test_parent_file_follows_referenced_child_in_explicit_store(tmp_path):
+    parent = _episode(tmp_path, 'glm-5.3') / ma.EPISODE_FILENAME
+    _reference(parent, 'invocation:child')
+    store = tmp_path / 'store'
+    _stored_episode(store, 'invocation:child', 'glm-5.3-flash')
+    results, code = _check([parent], episode_store_roots=[store])
+    assert code == 1
+    assert any(r.unexpected == {'glm-5.3-flash': 1} for r in results)
+
+
+def test_matching_referenced_child_is_admitted(tmp_path):
+    parent = _episode(tmp_path, 'glm-5.3') / ma.EPISODE_FILENAME
+    _reference(parent, 'invocation:child')
+    store = tmp_path / 'store'
+    _stored_episode(store, 'invocation:child', 'glm-5.3')
+    results, code = _check([parent], episode_store_roots=[store])
+    assert code == 0 and len(results) == 2
+
+
+def test_referenced_child_missing_is_not_parent_success(tmp_path):
+    parent = _episode(tmp_path, 'glm-5.3') / ma.EPISODE_FILENAME
+    _reference(parent, 'invocation:missing')
+    results, code = _check([parent])
+    assert code == 2
+    assert any('invocation:missing' in r.source for r in results)
+
+
+def test_events_store_resolves_sibling_automatically(tmp_path):
+    parent = _stored_episode(tmp_path, 'parent:1', 'glm-5.3')
+    _stored_episode(tmp_path, 'child:1', 'glm-5.3-flash')
+    with parent.open('a') as f:
+        f.write(json.dumps({'kind': 'branch_failed', 'payload': {
+            'episode_ref': {'episode_id': 'child:1'},
+        }}) + '\n')
+    assert _check([parent])[1] == 1
+
+
+def test_grandchild_is_checked_and_repeated_inputs_deduplicated(tmp_path):
+    parent = _stored_episode(tmp_path, 'parent:1', 'glm-5.3')
+    child = _stored_episode(tmp_path, 'child:1', 'glm-5.3')
+    _stored_episode(tmp_path, 'grandchild:1', 'glm-5.3-flash')
+    for path, ref in [(parent, 'child:1'), (child, 'grandchild:1')]:
+        with path.open('a') as f:
+            f.write(json.dumps({'kind': 'branch_completed', 'payload': {
+                'episode_ref': {'episode_id': ref},
+            }}) + '\n')
+    results, code = _check([parent, parent])
+    assert code == 1 and len(results) == 3
+
+
+def test_reference_cycle_fails_closed(tmp_path):
+    parent = _stored_episode(tmp_path, 'parent:1', 'glm-5.3')
+    with parent.open('a') as f:
+        f.write(json.dumps({'kind': 'branch_completed', 'payload': {
+            'episode_ref': {'episode_id': 'parent:1'},
+        }}) + '\n')
+    assert _check([parent])[1] == 2
+
+
+def test_malformed_reference_fails_closed(tmp_path):
+    parent = _episode(tmp_path, 'glm-5.3') / ma.EPISODE_FILENAME
+    document = json.loads(parent.read_text())
+    document['events'].append({'kind': 'branch_completed', 'payload': {'episode_ref': {}}})
+    parent.write_text(json.dumps(document))
+    assert _check([parent])[1] == 2

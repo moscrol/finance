@@ -437,6 +437,24 @@ def build_episode_instructions(
     )
 
 
+def runtime_date_context(context: ResearchRunContext) -> dict[str, object]:
+    """Shared runtime declarations, not market evidence or a coverage proof."""
+    return {
+        "today": context.today,
+        "latest_data_date": context.latest_data_date,
+        "information_cutoff": context.information_cutoff.to_dict(),
+        "date_rule": (
+            "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
+            "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
+            "。latest_data_date 只证明库内更新到哪天，不证明市场最近收盘在哪天；"
+            "未取得对应时点的交易日历、时区与收盘证据时，必须写‘库内最新可用交易日’，"
+            "不得把库内日期称为‘最近一个已收盘交易日’。"
+            "历史类比须逐一对应窗口、后续期限和指标；累计终点涨跌不证明中间先涨或先跌。"
+            "择优时交代本轮实际比较范围及筛选维度，完整候选池规模未知就说明未知"
+        ),
+    }
+
+
 def build_episode_input(
     task_frame: TaskFrame,
     context: ResearchRunContext,
@@ -454,12 +472,13 @@ def build_episode_input(
     contract_for_model = {
         key: value for key, value in context.contract.to_dict().items() if key != "task_id"
     }
+    date_context = runtime_date_context(context)
     payload: dict[str, object] = {
         "task_frame": task_frame.to_dict(),
         "research_contract": contract_for_model,
-        "today": context.today,
-        "latest_data_date": context.latest_data_date,
-        "information_cutoff": context.information_cutoff.to_dict(),
+        "today": date_context["today"],
+        "latest_data_date": date_context["latest_data_date"],
+        "information_cutoff": date_context["information_cutoff"],
         "conversation_context": context.conversation_context,
         "conversation_context_rule": (
             "历史对话仅用于消解指代、延续用户目标及复核或撤回旧判断，不得当作事实证据。"
@@ -467,15 +486,7 @@ def build_episode_input(
             "核验旧事实须在本轮授权范围取得原始证据并使用本轮编号；"
             "若本轮禁止重新读取或无法取得，则说明未重新核验，不把旧回答当已证实事实"
         ),
-        "date_rule": (
-            "today 不是行情日期；information_cutoff 是所有查询与引用事实的"
-            "不可变日期上限；市场事实还须服从 latest_data_date 和证据日期"
-            "。latest_data_date 只证明库内更新到哪天，不证明市场最近收盘在哪天；"
-            "未取得对应时点的交易日历、时区与收盘证据时，必须写‘库内最新可用交易日’，"
-            "不得把库内日期称为‘最近一个已收盘交易日’。"
-            "历史类比须逐一对应窗口、后续期限和指标；累计终点涨跌不证明中间先涨或先跌。"
-            "择优时交代本轮实际比较范围及筛选维度，完整候选池规模未知就说明未知"
-        ),
+        "date_rule": date_context["date_rule"],
         "task_frame_hash": task_frame.task_frame_hash,
         "available_tools": registry.prompt_block(
             context.contract.allowed_capabilities,

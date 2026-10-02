@@ -19,7 +19,12 @@
 ``scripts/judge_loss_point_replay.py`` 的 ``_rebuild_outcome``（保留结构化观察值，与生产一致）。
 
 退出码：0 = 新增 0（且给了 ``--baseline`` 时原样臂无漂移）；1 = 有新增待核或原样臂漂移；
-2 = 一个存证都没找到，或参数不合法。
+2 = 存证缺失、任一适用重放失败、基线范围不一致，或参数不合法（证据不完整）。
+默认全部存证适用，失败不排除。仅在用户明确批准后，可同时提供
+``--approved-non-candidates FILE --approval-sha256 SHA256``：清单绑定完整扫描
+path/hash及逐项ID、原重放错误和四份源文件hash/bytes。原始error保留，全部扫描行
+仍输出；只把精确批准项单列不适用，其他失败不豁免。报告必须写新文件。
+清单校验固定性，不替代对真实用户批准的留痕；schema见R-20261001-19协议。
 
 用法::
 
@@ -38,6 +43,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import re
@@ -207,7 +213,9 @@ def replay_ab(path: Path, relabels: tuple[Relabel, ...]) -> dict[str, Any]:
         "new": [],
     }
     try:
-        receipt = json.loads(path.read_text(encoding="utf-8"))
+        raw = path.read_bytes()
+        row["input_sha256"] = hashlib.sha256(raw).hexdigest()
+        receipt = json.loads(raw)
         row["question"] = str((receipt.get("task_frame") or {}).get("raw_question") or "")[:60]
         contract = ResearchTaskContract.from_dict(receipt.get("contract") or {})
         outcome = _load_replay_module()._rebuild_outcome(receipt.get("outcome") or {})
@@ -291,6 +299,103 @@ def _print_items(title: str, rows: list[dict[str, Any]], key: str, limit: int) -
             shown += 1
 
 
+def _sha256_text(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and set(value) <= set("0123456789abcdef")
+
+
+def _load_approved_scope(path: str | None, pin: str | None) -> dict[str, Any] | None:
+    """Only an explicit, content-pinned authorization can change applicability.
+
+    This verifies the frozen authorization artifact, not the authenticity of a
+    human decision. The operator must separately retain that decision/reference.
+    """
+    if path is None and pin is None:
+        return None
+    if not path or not _sha256_text(pin):
+        raise ValueError("批准清单与完整SHA256必须同时显式提供")
+    raw = Path(path).expanduser().read_bytes()
+    if hashlib.sha256(raw).hexdigest() != pin:
+        raise ValueError("批准清单SHA256不符")
+    data = json.loads(raw)
+    if not isinstance(data, dict) or data.get("schema") != "numeric_gate_non_candidates_v1":
+        raise ValueError("批准清单schema不支持")
+    if data.get("approved_by_user") is not True or not isinstance(data.get("approval_ref"), str) or not data["approval_ref"].strip():
+        raise ValueError("缺明确批准及批准依据")
+    entries = data.get("entries")
+    count, approved = data.get("scan_count"), data.get("approved_count")
+    if (not isinstance(entries, list) or type(count) is not int or type(approved) is not int
+            or not 0 < approved < count or len(entries) != approved or not _sha256_text(data.get("scan_sha256"))):
+        raise ValueError("批准计数/扫描指纹无效；不得空集合或全部豁免")
+    by_path = {}
+    filenames = {RECEIPT_NAME, "run.json", "report.json", "answer.md"}
+    for item in entries:
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str) or not Path(item["path"]).is_absolute():
+            raise ValueError("批准项须绑定绝对路径")
+        resolved = str(Path(item["path"]).resolve())
+        if resolved in by_path or item.get("run") != Path(resolved).parent.name or Path(resolved).name != RECEIPT_NAME:
+            raise ValueError("批准项重复或run/path不符")
+        if item.get("classification") not in {"failed_without_public_research_answer", "clarification_without_research_episode"}:
+            raise ValueError("不支持的批准分类，不得泛化排除")
+        if not _sha256_text(item.get("input_sha256")) or not isinstance(item.get("expected_replay_error"), str) or not item["expected_replay_error"]:
+            raise ValueError("批准项缺原件hash或冻结的重放失败")
+        files = item.get("files")
+        if not isinstance(files, dict) or set(files) != filenames:
+            raise ValueError("批准项须有episode/run/report/answer四件原件，不接受其他路径")
+        for proof in files.values():
+            if (not isinstance(proof, dict) or not _sha256_text(proof.get("sha256"))
+                    or type(proof.get("bytes")) is not int or proof["bytes"] < 0):
+                raise ValueError("原件hash/bytes证明无效")
+        if files[RECEIPT_NAME]["sha256"] != item["input_sha256"]:
+            raise ValueError("批准项的episode指纹自相矛盾")
+        by_path[resolved] = item
+    return {"manifest": data, "sha256": pin, "entries": by_path}
+
+
+def _bind_approved_scope(rows: list[dict[str, Any]], scope: dict[str, Any], *, verify_files: bool) -> list[dict[str, Any]]:
+    """Keep all raw rows/errors. Annotation is not successful research replay."""
+    if not isinstance(rows, list) or any(not isinstance(r, dict) for r in rows):
+        raise ValueError("扫描/基线结果必须为逐run列表")
+    pairs = []
+    identities = set()
+    by_path = {}
+    for original in rows:
+        if not isinstance(original.get("path"), str) or not _sha256_text(original.get("input_sha256")):
+            raise ValueError("扫描/基线缺路径或原件hash")
+        path = str(Path(original["path"]).resolve())
+        identity = (original["user"], original["run"])
+        if path in by_path or identity in identities:
+            raise ValueError("扫描/基线有重复原件或run身份")
+        if original.get("applicability", "applicable") not in {"applicable", "approved_non_candidate"}:
+            raise ValueError("基线带未知适用性标记")
+        if original.get("applicability") == "approved_non_candidate" and (
+            path not in scope["entries"] or original.get("approval_manifest_sha256") != scope["sha256"]
+        ):
+            raise ValueError("基线已有不相同的范围批准，不得静默换口径")
+        identities.add(identity)
+        by_path[path] = dict(original)
+        pairs.append((path, original["input_sha256"]))
+    fingerprint = hashlib.sha256(json.dumps(sorted(pairs), ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+    manifest = scope["manifest"]
+    if len(rows) != manifest["scan_count"] or fingerprint != manifest["scan_sha256"]:
+        raise ValueError("扫描/基线总体范围或原件hash漂移")
+    if not set(scope["entries"]) <= set(by_path):
+        raise ValueError("批准清单有本次范围之外的原件")
+    for path, item in scope["entries"].items():
+        row = by_path[path]
+        if row["run"] != item["run"] or row["input_sha256"] != item["input_sha256"]:
+            raise ValueError("批准run或episode内容漂移")
+        if not row.get("error") or row["error"] != item["expected_replay_error"]:
+            raise ValueError("批准对象已可重放或失败类型变化，需要重审")
+        if verify_files:
+            for name, proof in item["files"].items():
+                raw = (Path(path).parent / name).read_bytes()
+                if len(raw) != proof["bytes"] or hashlib.sha256(raw).hexdigest() != proof["sha256"]:
+                    raise ValueError(f"批准原件已改变：{item['run']}/{name}")
+        row.update(applicability="approved_non_candidate", approval_manifest_sha256=scope["sha256"],
+                   approval_reference=manifest["approval_ref"], non_candidate_classification=item["classification"])
+    return list(by_path.values())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("paths", nargs="*", help="存证文件或目录（递归找 continuous-episode.json）；不给就扫 users 根目录")
@@ -301,11 +406,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", default=None, help="逐 run 结果写成 JSON 文件")
     parser.add_argument("--baseline", default=None, help="另一棵树上 --json 的输出：比两份原样臂")
     parser.add_argument("--show", type=int, default=50, help="逐条列出的上限（0 = 全部）")
+    parser.add_argument("--approved-non-candidates", default=None, help="显式用户批准的精确不适用清单；默认不排除")
+    parser.add_argument("--approval-sha256", default=None, help="批准清单的冻结SHA256；与清单同时提供")
     args = parser.parse_args(argv)
 
     try:
         relabels = tuple(parse_relabel(raw) for raw in args.relabel) or DEFAULT_RELABELS
-    except ValueError as exc:
+        approved_scope = _load_approved_scope(args.approved_non_candidates, args.approval_sha256)
+        if approved_scope is not None and args.json and Path(args.json).exists():
+            raise ValueError("批准范围报告必须写新文件，不得覆盖历史/原件")
+    except (ValueError, OSError, TypeError, KeyError) as exc:
         print(f"参数错误：{exc}", file=sys.stderr)
         return 2
     users = [u.strip() for u in args.users.split(",") if u.strip()] if args.users else None
@@ -323,8 +433,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     rows = [replay_ab(path, relabels) for path in receipts]
+    try:
+        if approved_scope is not None:
+            rows = _bind_approved_scope(rows, approved_scope, verify_files=True)
+    except (ValueError, OSError, TypeError, KeyError) as exc:
+        print(f"批准范围错误：{exc}", file=sys.stderr)
+        return 2
+    excluded = [r for r in rows if approved_scope is not None and r.get("applicability") == "approved_non_candidate"]
     ok = [r for r in rows if not r["error"]]
-    errors = [r for r in rows if r["error"]]
+    raw_errors = [r for r in rows if r["error"]]
+    errors = [r for r in raw_errors if r not in excluded]
     touched_runs = [r for r in ok if r["touched_evidence"]]
     asis_total = sum(len(tokens) for r in ok for tokens in r["asis"].values())
     after_total = sum(len(tokens) for r in ok for tokens in r["relabeled"].values())
@@ -332,22 +450,31 @@ def main(argv: list[str] | None = None) -> int:
     new_total = sum(_count(r["new"]) for r in ok)
 
     scope = ", ".join(args.paths) if args.paths else f"{users_root}（用户：{', '.join(users) if users else '全部'}）"
-    print(f"存证 episode：{len(rows)} 个；重放失败 {len(errors)} 个；范围 {scope}；since {args.since or '-'}")
+    print(f"存证 episode：{len(rows)} 个；重放失败 {len(raw_errors)} 个；范围 {scope}；since {args.since or '-'}")
+    if approved_scope is not None:
+        print(f"范围批准：总计 {len(rows)} 个 = 适用 {len(rows) - len(excluded)} 个 + 批准不适用 {len(excluded)} 个；"
+              f"适用重放成功 {len(ok)} 个；适用组重放失败 {len(errors)} 个；清单SHA256 {approved_scope['sha256']}")
     print("改标签：" + "；".join(f"{r.dataset}「{r.old}」→「{r.new}」" for r in relabels))
     print(
         f"涉及证据卡 {sum(r['touched_evidence'] for r in ok)} 张，分布在 {len(touched_runs)} 个 run"
     )
     print(f"原样臂待核 {asis_total} 处 → 改标签臂待核 {after_total} 处：消失 {gone_total} 处，新增 {new_total} 处")
-    for row in errors[:10]:
+    for row in raw_errors[:10]:
         print(f"  重放失败 {row['user']}/{row['run']}：{row['error']}")
-    if len(errors) > 10:
-        print(f"  ……另有 {len(errors) - 10} 个重放失败（--json 看全部）")
+    if len(raw_errors) > 10:
+        print(f"  ……另有 {len(raw_errors) - 10} 个重放失败（--json 看全部）")
     _print_items("消失（逐条确认是照实复述）：", ok, "disappeared", args.show)
     _print_items("新增（必须为 0）：", ok, "new", args.show)
 
-    verdict = 0 if new_total == 0 else 1
+    verdict = 1 if new_total else (2 if errors else 0)
     if args.baseline:
-        baseline_rows = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
+        try:
+            baseline_rows = json.loads(Path(args.baseline).read_text(encoding="utf-8"))
+            if approved_scope is not None:
+                baseline_rows = _bind_approved_scope(baseline_rows, approved_scope, verify_files=False)
+        except (ValueError, OSError, TypeError, KeyError) as exc:
+            print(f"基线范围错误：{exc}", file=sys.stderr)
+            return 2
         result = compare_baseline(rows, baseline_rows)
         print(
             f"原样臂对照 {args.baseline}：漂移 {len(result['drift'])} 个 run；"
@@ -357,11 +484,27 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  漂移 {item['user']}/{item['run']}：基线 {item['baseline']} → 本次 {item['current']}")
         if result["drift"]:
             verdict = 1
+        elif verdict != 1 and (
+            result["only_in_baseline"] or result["only_in_current"]
+            or any(row.get("error") and (approved_scope is None or row.get("applicability") != "approved_non_candidate")
+                   for row in baseline_rows)
+        ):
+            verdict = 2
     if args.json:
-        Path(args.json).write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        try:
+            with Path(args.json).open("x" if approved_scope is not None else "w", encoding="utf-8") as output:
+                output.write(json.dumps(rows, ensure_ascii=False, indent=1))
+        except OSError as exc:
+            print(f"报告写入失败：{exc}", file=sys.stderr)
+            return 2
         print(f"逐 run 结果 → {args.json}")
-    if verdict == 0:
+    if verdict == 0 and approved_scope is not None:
+        print(f"✅ 适用范围通过：{len(ok)} 成功，{len(excluded)} 不适用；非全部答卷通过。新增 0"
+              + ("、原样臂无漂移" if args.baseline else ""))
+    elif verdict == 0:
         print("✅ 新增 0" + ("、原样臂无漂移" if args.baseline else ""))
+    elif verdict == 2:
+        print("⚠️ 证据不完整：重放失败或基线范围不一致，不能按全量通过用于合并")
     else:
         print("❌ 有新增待核或原样臂漂移，逐条看上面")
     return verdict

@@ -863,6 +863,7 @@ class ContinuousTurnAdapter:
                 structural=structural,
                 deadline=root_deadline,
                 retrieve_fn=guided_retriever,
+                context=context,
             )
             semantic_verifier_attempts.append(
                 _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
@@ -977,6 +978,7 @@ class ContinuousTurnAdapter:
                     structural=structural,
                     deadline=root_deadline,
                     retrieve_fn=guided_retriever,
+                    context=context,
                 )
                 semantic_verifier_attempts.append(
                     _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
@@ -1484,6 +1486,7 @@ class ContinuousTurnAdapter:
         structural: VerifiedEpisodeOutcome,
         deadline: ResearchDeadline,
         retrieve_fn: Callable[[str, float], tuple[object, ...]] | None,
+        context: ResearchRunContext | None = None,
     ) -> SemanticEpisodeOutcome:
         """调语义判官；V11 的 ``retrieve_fn`` 只在对方声明接收时才传（替身兼容）。"""
 
@@ -1495,6 +1498,8 @@ class ContinuousTurnAdapter:
         }
         if retrieve_fn is not None and _accepts_keyword(verify, "retrieve_fn"):
             kwargs["retrieve_fn"] = retrieve_fn
+        if context is not None and _accepts_keyword(verify, "context"):
+            kwargs["context"] = context
         candidate = verify(**kwargs)
         if not isinstance(candidate, SemanticEpisodeOutcome):
             raise TypeError("semantic verifier must return SemanticEpisodeOutcome")

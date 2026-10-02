@@ -65,12 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="有匹配证据且无错配时，放行「provider 未回 model」的 turn（默认按证据不全拦下）",
     )
-    parser.add_argument(
-        "--episode-store",
-        default=None,
-        help="子分支 episode 所在 store 根目录（老产物补证用）；默认按生产顺序找，存在才用",
-    )
-    parser.add_argument("--no-episode-store", action="store_true", help="不去 episode store 补证")
+    parser.add_argument("--episode-store", type=Path, action="append", default=[], help="父产物引用的分支 store 根目录；可重复，缺失分支拒绝准入")
+    parser.add_argument("--no-episode-store", action="store_true", help="不去额外 episode store 补证")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     return parser
 
@@ -83,14 +79,15 @@ def default_episode_store() -> Path | None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.no_episode_store:
-        store = None
+        stores = []
     elif args.episode_store:
-        store = Path(args.episode_store).expanduser()
+        stores = [path.expanduser() for path in args.episode_store]
     else:
-        store = default_episode_store()
+        default_store = default_episode_store()
+        stores = [default_store] if default_store is not None else []
     results = check_paths(
-        args.paths, args.expected or (), allow_unreported=args.allow_unreported, episode_store=store,
-        expect_configured=args.expect_configured,
+        args.paths, args.expected or (), allow_unreported=args.allow_unreported,
+        episode_store_roots=stores, expect_configured=args.expect_configured,
     )
     code = overall_exit_code(results)
     if args.json:
@@ -98,7 +95,8 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "exit_code": code,
-                    "episode_store": None if store is None else str(store),
+                    "episode_store": str(stores[0]) if len(stores) == 1 else None,
+                    "episode_store_roots": [str(store) for store in stores],
                     "results": [item.to_dict() for item in results],
                 },
                 ensure_ascii=False,
@@ -109,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     for item in results:
         print(f"{_MARK.get(item.verdict, '⚠️ 无证据')}  {item.source}\n    {item.reason}")
     summary = {0: "全部准入，可以当读数用。", 1: "有错配：对应读数作废。", 2: "证据不全：证明不了用的是哪个模型，不能当读数用。"}
-    print(f"\n{len(results)} 个产物 → {summary[code]}（exit {code}）；子分支补证 store：{store or '未用'}")
+    print(f"\n{len(results)} 个产物 → {summary[code]}（exit {code}）；子分支补证 store：{', '.join(str(store) for store in stores) or '未用'}")
     return code
 
 

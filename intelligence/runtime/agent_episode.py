@@ -35,6 +35,9 @@ from intelligence.services.adaptive_research import (
 )
 from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
+from intelligence.services.evidence_read import (
+    EvidenceReadCoverage, bind_evidence_read_tool, evidence_read_enabled,
+)
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     finish_rejection_fields,
@@ -808,6 +811,7 @@ class _EpisodeToolAccumulator:
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     seen_observation_prose: set[str] = field(default_factory=set)
+    read_coverage: EvidenceReadCoverage = field(default_factory=EvidenceReadCoverage)
     # 研究进展账（06 号单）：按批记「这轮有没有新证据 / 同一查询重复了几次 / 哪个工具连续空手」，
     # 底座事实，run() 叠进 runtime_budget 递给模型；停滞到底时收口。
     progress: ResearchProgressTracker = field(default_factory=ResearchProgressTracker)
@@ -911,21 +915,6 @@ class _EpisodeToolAccumulator:
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
                 new_evidence += 1
-            self.progress.record_call(
-                ToolCallDigest(
-                    call.name,
-                    observation.query or call.arguments,
-                    (
-                        "new"
-                        if new_evidence
-                        else "duplicate"
-                        if observation.evidence
-                        else "empty"
-                    ),
-                    new_evidence=new_evidence,
-                    total_evidence=len(observation.evidence),
-                )
-            )
             assert self.harness is not None
             projection = self.harness.project_tool_result(
                 observation,
@@ -947,6 +936,21 @@ class _EpisodeToolAccumulator:
             )
             self.messages.append(
                 tool_message(call.call_id, projection.model_content, source="tool_result")
+            )
+            # Navigation progress is measured only after delivery into model input.
+            # A reread keeps the old evidence identity; do not invent a new source
+            # to prevent the existing stall heuristic from closing the episode.
+            new_read_chars = (
+                self.read_coverage.observe(projection.model_content, evidence=tuple(self.evidence))
+                if evidence_read_enabled() else 0
+            )
+            self.progress.record_call(
+                ToolCallDigest(
+                    call.name, observation.query or call.arguments,
+                    "new" if new_evidence else "duplicate" if observation.evidence else "empty",
+                    new_evidence=new_evidence, total_evidence=len(observation.evidence),
+                    new_read_chars=new_read_chars,
+                )
             )
             acknowledge = getattr(self.harness, "acknowledge_tool_result", None)
             if acknowledge is not None:
@@ -1094,6 +1098,8 @@ def _seed_opening_prefetch(
         append_model_input(
             messages, accumulator.ledger, content=message, source="opening_prefetch"
         )
+        if evidence_read_enabled():
+            accumulator.read_coverage.note_complete(evidence)
         accumulator.ledger.add(
             "prefetch",
             {
@@ -3347,6 +3353,12 @@ class ContinuousAgentEpisode:
                 calc_loader=getattr(registry, "calc_loader", None),
             )
         )
+        # Explicit capability plus opt-in: a deployment switch is not authority.
+        # Bind the presented pool, never the branch ledger or another user's run.
+        if evidence_read_enabled() and "evidence_read" in context_ref.value.contract.allowed_capabilities:
+            registry = registry.with_specs(bind_evidence_read_tool(
+                presented_evidence=lambda: tuple(ledger.presented_evidence or ()),
+            ))
         coordinator = self._sub_research_coordinator
         if coordinator is None:
             return registry

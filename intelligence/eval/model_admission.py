@@ -8,7 +8,7 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
 ``glm-5.3``（``docs/handoffs/2026-09-29-8792-answer-capability-lines-map.md``，其「下一步」
 第 1 条：先钉住模型准入，钉不住就阻塞、不跑）。
 
-本模块把比对做成机器判定。只读、只用标准库、不发任何请求。
+本模块把比对做成机器判定。只读、不发任何请求；子分支地址复用生产 JsonlEpisodeStore。
 
 判定（fail-closed，证明不了就不许当读数用）：
 
@@ -52,13 +52,15 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
   就按它判，continuous 臂每轮落产物时自动跑一次、结果写进 ``model_admission``；
   ``--expect-configured`` 用同一口径回查老产物。快照里没有模型名（注入 client 时如实留空）
   → 不判，记 ``unknown_expected``。
+
+离线完整性核验：子分支：目录始终递归，不因发现父产物就停止；每个 episode_ref 必须追到子产物。
+读 events.jsonl 时自动在同一 store 找兄弟分支；公开 run 产物需显式传 episode_store_roots。
+缺失、坏引用、环路都判无证据，绝不凭父运行模型正确放行整个运行。
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
-import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,17 +77,12 @@ EXIT_CODES = {VERDICT_ADMITTED: 0, VERDICT_MISMATCH: 1, VERDICT_NO_EVIDENCE: 2}
 _SERVED_MODEL_KINDS = frozenset({"model_turn", "branch_completed"})
 _SERVED_MODELS_KINDS = frozenset({"model_turn", "runtime_result", "branch_completed", "branch_failed"})
 _BRANCH_KINDS = frozenset({"branch_completed", "branch_failed"})
-# 与 ``intelligence.services.episode_store._directory_name`` 同一规则（本模块只用标准库，
-# 抄一份；``tests/test_model_admission_branches.py`` 钉住两边逐字一致）。
-_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9._-]")
-
-
 def episode_directory_name(episode_id: str) -> str:
-    safe = _UNSAFE_NAME.sub("_", episode_id)
-    if safe == episode_id:
-        return safe
-    digest = hashlib.sha256(episode_id.encode("utf-8")).hexdigest()[:12]
-    return f"{safe}-{digest}"
+    """兼容旧调用方；目录身份始终复用生产 writer。"""
+
+    from intelligence.services.episode_store import JsonlEpisodeStore
+
+    return JsonlEpisodeStore(Path(".")).episode_dir(episode_id).name
 
 
 def normalize_model(name: object) -> str:
@@ -277,7 +274,7 @@ def collect_from_document(document: object, source: str) -> ServedModelEvidence:
 def _load_document(path: Path) -> tuple[object | None, str | None]:
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         return None, f"读不了：{type(exc).__name__}"
     try:
         if path.suffix == ".jsonl":
@@ -303,7 +300,7 @@ def configured_models_at(path: Path) -> tuple[str, ...]:
 
 
 def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str]]:
-    """文件原样收；目录先看自身有没有产物文件，没有再递归找。找不到的单列出来。"""
+    """文件原样收；目录始终递归查找，包括已含父产物的目录。找不到的单列出来。"""
 
     found: list[Path] = []
     missing: list[str] = []
@@ -314,10 +311,6 @@ def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str
             continue
         if not path.is_dir():
             missing.append(str(path))
-            continue
-        direct = [path / name for name in ARTIFACT_FILENAMES if (path / name).is_file()]
-        if direct:
-            found.extend(direct)
             continue
         hits = sorted(
             hit for name in ARTIFACT_FILENAMES for hit in path.rglob(name) if hit.is_file()
@@ -399,6 +392,34 @@ def _unknown_expected(source: str) -> AdmissionResult:
     )
 
 
+def _episode_references(path: Path) -> tuple[list[str], list[str]]:
+    """递归读引用（包括 tool telemetry）；不把配置中的 model 当证据。"""
+
+    doc, error = _load_document(path)
+    if error is not None:
+        return [], []  # load_evidence 已把同一读取错误记为 no_evidence。
+    ids: list[str] = []
+    errors: list[str] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, Mapping):
+            for key, value in node.items():
+                if key == "episode_ref":
+                    episode_id = value.get("episode_id") if isinstance(value, Mapping) else None
+                    if not isinstance(episode_id, str) or not episode_id.strip() or episode_id in {".", ".."}:
+                        errors.append("episode_ref 缺少合法 episode_id")
+                    elif episode_id not in ids:
+                        ids.append(episode_id)
+                else:
+                    walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(doc)
+    return ids, errors
+
+
 def check_paths(
     paths: Iterable[str | Path],
     expected: Iterable[str],
@@ -406,23 +427,72 @@ def check_paths(
     allow_unreported: bool = False,
     episode_store: str | Path | None = None,
     expect_configured: bool = False,
+    episode_store_roots: Iterable[str | Path] = (),
 ) -> list[AdmissionResult]:
-    """``expected`` 为空且 ``expect_configured`` 时，每个产物按它自己的 ``configure.model`` 判。"""
+    """逐产物核验完整引用链；不显式给模型时按各自产物的 configure 判。"""
 
     expected = tuple(expected)
-    store = Path(episode_store).expanduser() if episode_store else None
+    stores = {Path(root).expanduser().resolve() for root in episode_store_roots}
+    if episode_store is not None:
+        stores.add(Path(episode_store).expanduser().resolve())
     found, missing = resolve_artifacts(paths)
-    results = []
-    for path in found:
+    results: list[AdmissionResult] = []
+    visited: dict[Path, ServedModelEvidence] = {}
+
+    def fail(source: str, reason: str, wanted: tuple[str, ...]) -> ServedModelEvidence:
+        evidence = ServedModelEvidence(source, error=reason)
+        results.append(judge(evidence, wanted or ("?",)))
+        return evidence
+
+    def visit(path: Path, ancestors: frozenset[Path]) -> ServedModelEvidence:
+        path = path.resolve()
         wanted = expected or (configured_models_at(path) if expect_configured else ())
-        if not wanted:
-            results.append(_unknown_expected(str(path)))
-            continue
-        results.append(judge(load_evidence(path, store), wanted, allow_unreported=allow_unreported))
-    for source in missing:
-        results.append(
-            judge(ServedModelEvidence(source, error="找不到产物文件"), expected or ("?",))
+        if path in ancestors:
+            return fail(str(path), "episode_ref 存在环路，无法证明完整模型链", wanted)
+        if path in visited:
+            return visited[path]
+        evidence = load_evidence(path)
+        visited[path] = evidence
+        index = len(results)
+        results.append(_unknown_expected(str(path)))
+        references, errors = _episode_references(path)
+        for error in errors:
+            fail(str(path), error, wanted)
+        if references:
+            # 使用生产 writer 的目录规则；构造器不创建目录。
+            from intelligence.services.episode_store import JsonlEpisodeStore
+
+            roots = set(stores)
+            if path.name == EVENTS_FILENAME:
+                roots.add(path.parent.parent)
+            for episode_id in references:
+                hits = sorted({
+                    JsonlEpisodeStore(root).episode_dir(episode_id) / EVENTS_FILENAME
+                    for root in roots
+                    if (JsonlEpisodeStore(root).episode_dir(episode_id) / EVENTS_FILENAME).is_file()
+                })
+                if not hits:
+                    fail(f"{path} -> {episode_id}", "找不到子分支产物；请提供完整 --episode-store", wanted)
+                children = [visit(child, ancestors | {path}) for child in hits]
+                # 老父事件没带模型列表时，以真实子事件补证；子文件本身仍单独列出，
+                # 供准入收据保存完整来源和哈希，不因父 telemetry 已有模型就跳读。
+                unresolved = evidence.branch_refs.count(episode_id)
+                proven = [child for child in children if not child.error and (child.served or child.unreported)]
+                if unresolved and proven:
+                    evidence.branch_unproven -= unresolved
+                    evidence.branch_refs = [ref for ref in evidence.branch_refs if ref != episode_id]
+                    for child in proven:
+                        _merge(evidence, child)
+        results[index] = (
+            judge(evidence, wanted, allow_unreported=allow_unreported)
+            if wanted else _unknown_expected(str(path))
         )
+        return evidence
+
+    for path in found:
+        visit(path, frozenset())
+    for source in missing:
+        fail(source, "找不到产物文件", expected)
     return results
 
 

@@ -130,7 +130,7 @@ def test_replay_errors_are_reported_not_hidden(tmp_path, capsys):
     broken = tmp_path / "u1" / "runs" / "run_20260929_130000_000002" / "continuous-episode.json"
     broken.parent.mkdir(parents=True)
     broken.write_text("{not json", encoding="utf-8")
-    assert ab.main(["--users-root", str(tmp_path)]) == 0
+    assert ab.main(["--users-root", str(tmp_path)]) == 2
     out = capsys.readouterr().out
     assert "存证 episode：2 个；重放失败 1 个" in out
     assert "重放失败 u1/run_20260929_130000_000002" in out
@@ -184,3 +184,18 @@ def test_real_archived_receipts_replay(capsys):
     replayed = [row for row in rows if row["error"] is None]
     assert len(replayed) >= 2
     assert all(row["touched_evidence"] == 0 and row["new"] == [] for row in replayed)
+
+
+def test_all_replay_failures_are_not_zero_regressions(tmp_path, capsys):
+    path = tmp_path / "continuous-episode.json"
+    path.write_text("{bad json")
+    assert ab.main([str(path)]) == 2
+    assert "✅" not in capsys.readouterr().out
+
+
+def test_baseline_scope_mismatch_blocks_admission(tmp_path, capsys):
+    path = _write_receipt(tmp_path / "users", RESTATEMENT, OLD_ROW)
+    base = tmp_path / "baseline.json"
+    base.write_text("[]")
+    assert ab.main([str(path), "--baseline", str(base)]) == 2
+    assert "✅" not in capsys.readouterr().out

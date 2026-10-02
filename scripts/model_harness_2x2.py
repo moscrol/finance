@@ -14,12 +14,14 @@
     python scripts/model_harness_2x2.py analyze runs.jsonl --plan plan.json --json > analysis.json
 
 只读、不发请求。bootstrap 次数与种子是冻结规则，故意不开命令行参数。
-退出码：0 = 已出结果（含「不完整」）；2 = 输入不符合预注册。
+退出码：0 = 已出结果（含样本不完整）；1 = 模型错配；2 = 无模型证据或输入不符合预注册。
+分析入口强制 --plan 并重算 artifacts 及子分支准入；人工填 admission_exit=0 不能放行。
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -27,6 +29,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
+
+from intelligence.eval.model_admission import check_paths, overall_exit_code  # noqa: E402
 
 from intelligence.eval.model_harness_2x2 import (  # noqa: E402
     DEFAULT_MODELS,
@@ -36,7 +40,6 @@ from intelligence.eval.model_harness_2x2 import (  # noqa: E402
     UNSEEN_QUESTIONS,
     DesignError,
     analyze,
-    recompute_admission,
     plan_document,
     render,
 )
@@ -82,14 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--unseen", type=_id_list, default=list(UNSEEN_QUESTIONS))
     run.add_argument("--exclude", type=_id_list, default=list(SENSITIVITY_EXCLUDE), help="敏感性分析去掉的题")
     run.add_argument("--reps", type=int, default=DEFAULT_REPS)
-    run.add_argument(
-        "--episode-store", default=None,
-        help="子分支 episode 所在 store 根目录（重算准入时给老产物补证）",
-    )
-    run.add_argument(
-        "--trust-self-reported-admission", action="store_true",
-        help="没有 artifact 的运行沿用自报 admission_exit（默认作废为 admission_unverified）",
-    )
+    run.add_argument("--episode-store", type=Path, action="append", default=[], help="分支事件 store；准入自动追踪父子模型证据")
     run.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     return parser
 
@@ -111,49 +107,68 @@ def _plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _attest_records(records: list[dict], plan: dict, root: Path, stores: list[Path]):
+    """接受分数前自动重读证据；自报 admission_exit 仅作审计，不作准入依据。"""
+
+    models = plan.get("models")
+    if not isinstance(models, dict) or any(
+        not isinstance(models.get(key), str) or not models[key].strip() for key in ("G", "C")
+    ):
+        raise DesignError("--plan 必须冻结 G/C 的确切模型 ID")
+    checked, receipts = [], []
+    for row in records:
+        if not isinstance(row, dict) or row.get("cell") not in {"PG", "PC", "RG", "RC"}:
+            raise DesignError("运行记录必须含合法 cell")
+        paths = row.get("artifacts", [])
+        if not isinstance(paths, list) or any(not isinstance(p, str) or not p.strip() for p in paths):
+            raise DesignError("artifacts 必须是非空路径字符串的列表")
+        resolved = [Path(p).expanduser() for p in paths]
+        resolved = [p if p.is_absolute() else root / p for p in resolved]
+        results = check_paths(resolved, [models[row["cell"][1]]], episode_store_roots=stores)
+        code = overall_exit_code(results)
+        hashes = {}
+        for result in results:
+            path = Path(result.source)
+            if path.is_file():
+                hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+        checked.append({**row, "admission_exit": code})
+        receipts.append({
+            "seq": row.get("seq"), "cell": row["cell"],
+            "expected_model": models[row["cell"][1]],
+            "claimed_exit": row.get("admission_exit"), "exit_code": code,
+            "results": [r.to_dict() for r in results], "sha256": hashes,
+        })
+    return checked, receipts
+
+
 def _analyze(args: argparse.Namespace) -> int:
-    questions = None
-    unseen, reps = args.unseen, args.reps
-    models: dict[str, str] = {}
-    if args.plan:
-        plan = json.loads(args.plan.read_text(encoding="utf-8"))
-        if plan.get("schema") != PLAN_SCHEMA:
-            raise DesignError(f"{args.plan} 不是 {PLAN_SCHEMA}")
-        questions, unseen, reps = plan["questions"], plan["unseen"], int(plan["reps"])
-        models = dict(plan.get("models") or {})
-    records = _read_records(args.runs)
-    if not models and any(record.get("artifact") for record in records):
-        raise DesignError("要按产物重算准入，得给 --plan（取各格期望模型）")
-    records, admission = recompute_admission(
-        records, models, episode_store=args.episode_store,
-        trust_self_reported=args.trust_self_reported_admission,
+    if args.plan is None:
+        raise DesignError("analyze 必须提供 --plan，不能从运行自报值猜期望模型")
+    plan = json.loads(args.plan.read_text(encoding="utf-8"))
+    if not isinstance(plan, dict) or plan.get("schema") != PLAN_SCHEMA:
+        raise DesignError(f"{args.plan} 不是 {PLAN_SCHEMA}")
+    checked, receipts = _attest_records(
+        _read_records(args.runs), plan, args.runs.resolve().parent, args.episode_store,
     )
     report = analyze(
-        records,
-        questions=questions,
-        unseen=unseen,
+        checked,
+        questions=plan["questions"],
+        unseen=plan["unseen"],
         exclude=args.exclude,
-        reps=reps,
+        reps=int(plan["reps"]),
     )
-    report["admission"] = admission
-    if args.json:
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-        return 0
-    print(render(report))
-    print(
-        f"准入：按产物重算 {admission['recomputed']} 次，沿用自报 {admission['self_reported']} 次，"
-        f"无产物作废 {admission['unverified']} 次；自报与重算不一致 {len(admission['disagreements'])} 次"
-    )
-    for item in admission["disagreements"][:10]:
-        print(f"  ⚠ seq {item['seq']}：自报 exit {item['reported']}，重算 exit {item['recomputed']}（以重算为准）")
-    return 0
+    report["admission"] = receipts
+    report["plan_sha256"] = hashlib.sha256(args.plan.read_bytes()).hexdigest()
+    print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else render(report))
+    codes = {r["exit_code"] for r in receipts}
+    return 1 if 1 in codes else (2 if not receipts or 2 in codes else 0)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return _plan(args) if args.cmd == "plan" else _analyze(args)
-    except (DesignError, json.JSONDecodeError, OSError) as exc:
+    except (DesignError, json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as exc:
         print(f"输入不符合预注册：{exc}", file=sys.stderr)
         return 2
 
