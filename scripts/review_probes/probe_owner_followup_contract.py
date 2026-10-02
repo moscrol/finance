@@ -2,6 +2,9 @@
 
 Run with the workbench Python, from any directory:
     python scripts/review_probes/probe_owner_followup_contract.py --output <new-directory>
+    # Compare a fixed revision in an isolated worktree, without copying this probe:
+    python scripts/review_probes/probe_owner_followup_contract.py --repo-root <worktree> \
+        --questions '<first turn>' '<follow-up>' --output <new-directory>
 
 Uses the real in-process Workbench HTTP entry with isolated fixture/users, no
 providers or Keychain, and a Python socket audit guard (including subprocesses).
@@ -35,11 +38,16 @@ def save(path: Path, value: object) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--repo-root", type=Path, default=ROOT)
+    parser.add_argument("--questions", nargs=2, metavar=("FIRST", "FOLLOWUP"), default=QUESTIONS)
     args = parser.parse_args()
+    root = args.repo_root.expanduser().resolve()
+    head_before = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+    status_before = subprocess.check_output(["git", "-C", str(root), "status", "--short"], text=True)
     out = args.output.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=False)
     fixture = out / "fixture"
-    shutil.copytree(ROOT / "intelligence/tests/fixtures/chat_workbench_repo", fixture)
+    shutil.copytree(root / "intelligence/tests/fixtures/chat_workbench_repo", fixture)
     for key in list(os.environ):
         if key.endswith("API_KEY") or key in ("FWP_MODEL_PROFILE", "FWP_RESOURCE_PROFILE"):
             os.environ.pop(key, None)
@@ -64,15 +72,17 @@ def main() -> int:
         "sys.addaudithook(deny_network)\n"
     )
     (guard / "sitecustomize.py").write_text(guard_code, encoding="utf-8")
-    os.environ["PYTHONPATH"] = str(guard) + os.pathsep + str(ROOT)
+    os.environ["PYTHONPATH"] = str(guard) + os.pathsep + str(root)
     exec(compile(guard_code, str(guard / "sitecustomize.py"), "exec"), {})
-    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(root))
     from fastapi.testclient import TestClient
     from intelligence.api.app import create_app
     from intelligence.runtime import conversation_orchestrator as co
     from intelligence.services import llm_refine, task_fulfillment as tf, turn_controller as tc
     from intelligence.services.llm_settings import SessionLLMSettings
 
+    for module in (co, tc, tf, llm_refine):
+        assert Path(module.__file__).resolve().is_relative_to(root), "wrong product code root"
     assert llm_refine.detect_providers() == (), "provider configured: refusing replay"
     trace: list[dict] = []
     evaluations: list[dict] = []
@@ -148,7 +158,7 @@ def main() -> int:
         response = client.post("/api/conversations", json={"user": "default"})
         response.raise_for_status()
         cid = response.json()["conversation_id"]
-        for index, question in enumerate(QUESTIONS, 1):
+        for index, question in enumerate(args.questions, 1):
             response = client.post(f"/api/conversations/{cid}/messages", json={
                 "content": question, "user": "default", "skill_mode": "manual",
                 "selected_skill_ids": ["stock-deep-dive"],
@@ -172,11 +182,15 @@ def main() -> int:
         "intelligence/services/task_frame.py", "intelligence/services/turn_controller.py",
         "intelligence/services/research_contract.py", "intelligence/services/task_fulfillment.py",
         "intelligence/runtime/conversation_orchestrator.py", "intelligence/workbench_skills/research_owner.py",
+        "intelligence/services/query_understanding.py",
     )
     result = {
-        "head": subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip(),
-        "dirty_status": subprocess.check_output(["git", "-C", str(ROOT), "status", "--short"], text=True),
-        "source_sha256": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in source_paths},
+        "repo_root": str(root), "interpreter": sys.executable, "questions": list(args.questions),
+        "probe_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "head_before": head_before, "dirty_status_before": status_before,
+        "head": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
+        "dirty_status": subprocess.check_output(["git", "-C", str(root), "status", "--short"], text=True),
+        "source_sha256": {path: hashlib.sha256((root / path).read_bytes()).hexdigest() for path in source_paths},
         "scope": "instrumented offline ASGI backend; counterfactual never returned to application",
         "status": last["status"], "content": last.get("content"), "turn_intent": last.get("turn_intent"),
         "body_sha256": hashlib.sha256(last.get("content", "").encode()).hexdigest(),
