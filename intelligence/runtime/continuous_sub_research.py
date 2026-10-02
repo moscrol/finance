@@ -79,6 +79,7 @@ class ContinuousSubResearchWorker:
             # 子研究一律按 quick 裁决：注入件进 harness，Episode 不再转交。
             harness=FinanceResearchHarness(
                 mode_signals=lambda _frame, _plan: ModeSignals(user_mode="quick"),
+                native_tool_schemas=True,
             ),
             sub_research_coordinator=None,
             store=request.episode_store,

@@ -653,7 +653,7 @@ class CodexHeadlessRuntime:
                     )
             schema_path = run_dir / "episode-finish.schema.json"
             schema_path.write_text(
-                json.dumps(finish_json_schema(), ensure_ascii=False, indent=2),
+                json.dumps(finish_json_schema(context.contract, prior_evidence=context.prior_evidence), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
             with HeadlessToolGateway(

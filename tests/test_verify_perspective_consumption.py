@@ -214,8 +214,8 @@ def test_delivery_mutations_do_not_pass(sample, monkeypatch, fault):
     else:
         build = protocol.build_episode_input
 
-        def dropping_input(*args):
-            payload = json.loads(build(*args))
+        def dropping_input(*args, **kwargs):
+            payload = json.loads(build(*args, **kwargs))
             payload.pop("perspective_context" if fault == "drop_protocol" else "perspective_context_rule", None)
             return json.dumps(payload)
 

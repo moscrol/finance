@@ -22,19 +22,25 @@ from intelligence.services.episode_output_substance import (
 )
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
-    ClaimSourceBinding, binding_source_errors, grounding_scope, material_grounding_payload,
+    ClaimSourceBinding, QUOTE_REPAIR_RULE, binding_source_issues, grounding_scope, material_grounding_payload,
     material_private_tokens, render_material_claims,
+)
+from intelligence.services.material_answer_authoring import (
+    MaterialAuthoringError, compile_material_author_finish,
+    material_author_model_view, material_author_schema,
 )
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
+    ResearchTaskContract,
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.prior_evidence import PriorTurnEvidence
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
@@ -78,9 +84,14 @@ class EpisodeFinish:
     caveat_slips: int = 0
 
 
-def finish_json_schema() -> dict[str, object]:
+def finish_json_schema(
+    contract: ResearchTaskContract | None = None, *, prior_evidence: PriorTurnEvidence | None = None,
+) -> dict[str, object]:
     """Return the closed provider-facing schema for a terminal episode."""
 
+    author_schema = material_author_schema(contract, prior_evidence=prior_evidence)
+    if author_schema is not None:
+        return author_schema
     return {
         "type": "object",
         "additionalProperties": False,
@@ -407,8 +418,9 @@ def build_episode_instructions(
         "\n"
         "【终局 JSON】\n"
         "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
-        "保留顶层 render_from_claims=true 和 draft=空字符串，正文只写 binding.claims。"
-        "basis 逐项原样保留，不能把所有输出改成 user_premise。未提供 finish_format 时使用下面的旧格式。\n"
+        "若其format=material_claims_v1，正文只写answers中的逐句claims及sources，"
+        "不提交draft、bindings、basis或evidence_hashes；运行时从冻结合同编译。"
+        "未提供 finish_format 时使用下面的旧格式。\n"
         "只输出一个 JSON 对象：\n"
         '{"status":"completed|partial","draft":"自然语言回答",'
         '"gaps":["..."],"bindings":[{"output_id":"...",'
@@ -429,6 +441,8 @@ def build_episode_input(
     task_frame: TaskFrame,
     context: ResearchRunContext,
     registry: ResearchToolRegistry,
+    *,
+    include_tool_descriptions: bool = True,
 ) -> str:
     """Serialize the per-turn task, cutoff, rules, and tool table."""
 
@@ -464,7 +478,8 @@ def build_episode_input(
         ),
         "task_frame_hash": task_frame.task_frame_hash,
         "available_tools": registry.prompt_block(
-            context.contract.allowed_capabilities
+            context.contract.allowed_capabilities,
+            include_descriptions=include_tool_descriptions,
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
@@ -494,7 +509,7 @@ def build_episode_input(
 
     if material_question_outputs(context.contract):
         payload["material_delivery"] = material_delivery_payload(context.contract)
-    grounding = material_grounding_payload(context.contract)
+    grounding = material_grounding_payload(context.contract, prior_evidence=context.prior_evidence)
     if grounding is not None:
         payload["material_grounding"] = grounding
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
@@ -535,19 +550,22 @@ def build_episode_input(
         # 执行零次实体解析查询」。只在非空时注入：无阶段轮逐字节不变。
         payload["retrieval_stages"] = list(stages)
         payload["retrieval_stages_rule"] = (
-            "retrieval_stages 是本题型的标准检索阶段序列，用于规划工具调用的"
-            "顺序与覆盖面：每个阶段都应有对应的检索/取数调用伺候"
-            "（如 chain_stages/company_mapping 需要图谱查询或板块×个股类取数），"
-            "伺候不了的阶段必须在答案中声明缺口；阶段表本身不是证据，"
-            "也不改变 research_contract 的证据边界"
+            "retrieval_stages 是可选的检索路径提示。按用户问题和当前证据选择、"
+            "合并或跳过阶段；证据足以回答时即可结束，不必逐项调用工具。"
+            "只有用户所需且尚无证据支持的内容才声明缺口，无关阶段未执行不算缺口。"
+            "阶段表本身不是证据，也不改变 research_contract 的证据边界或工具权限"
         )
-    return json.dumps(payload, ensure_ascii=False)
+    return json.dumps(material_author_model_view(
+        payload, context.contract, task_frame, prior_evidence=context.prior_evidence,
+    ), ensure_ascii=False)
 
 
 def split_episode_prompt(
     task_frame: TaskFrame,
     context: ResearchRunContext,
     registry: ResearchToolRegistry,
+    *,
+    include_tool_descriptions: bool = True,
 ) -> tuple[str, str]:
     """Return ``(system, user)`` split at ``SYSTEM_PROMPT_DYNAMIC_BOUNDARY``.
 
@@ -557,7 +575,10 @@ def split_episode_prompt(
 
     return (
         build_episode_instructions(task_frame, context, registry),
-        build_episode_input(task_frame, context, registry),
+        build_episode_input(
+            task_frame, context, registry,
+            include_tool_descriptions=include_tool_descriptions,
+        ),
     )
 
 
@@ -615,6 +636,8 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "bad_claim_binding": RejectionKind.FORMAT,
     "private_material_reference": RejectionKind.FORMAT,
     "material_source_violation": RejectionKind.INTEGRITY,
+    "material_quote_mismatch": RejectionKind.FORMAT,
+    "historical_excerpt_shape": RejectionKind.FORMAT,
     "duplicate_binding": RejectionKind.FORMAT,
     # 内容不足 → 降级保留草稿
     "empty_draft": RejectionKind.SUBSTANCE,
@@ -918,6 +941,53 @@ def _is_unique_one_char_truncation(
     return True
 
 
+def _validate_binding_target_and_hashes(
+    binding: OutputEvidenceBinding,
+    contract: ResearchTaskContract,
+    evidence_hashes: set[str],
+) -> None:
+    """Keep ordinary binding checks identical before/after frozen-source preflight."""
+    required = next((item for item in contract.required_outputs if item.output_id == binding.output_id), None)
+    if required is None:
+        if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
+            # 表达槽不是可绑定 output；回灌格式说明，不冒充来源伪造。
+            raise _reject(
+                "expression_slot_binding",
+                f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
+                "bindings 里只保留契约列出的 output_id",
+            )
+        if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
+            raise _reject(
+                "expression_slot_binding",
+                f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
+                "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
+                "bindings 里只保留契约列出的 output_id",
+            )
+        raise _reject("unknown_output", f"unknown required output: {binding.output_id}")
+    if binding.basis != required.grounding_mode:
+        raise _reject(
+            "basis_mismatch",
+            f"grounding basis mismatch for {binding.output_id}: "
+            f"expected {required.grounding_mode}, got {binding.basis}",
+        )
+    unknown = set(binding.evidence_hashes) - evidence_hashes
+    if unknown:
+        if _is_unique_one_char_truncation(unknown, evidence_hashes):
+            # 只回截断值，不泄露完整白名单哈希；仍要求作者自行用观察序号。
+            raise _reject(
+                "truncated_hash",
+                "binding contains truncated evidence hash: "
+                + ",".join(sorted(str(item) for item in unknown))
+                + "; use the evidence ordinal (E1, E2, …) from the observation",
+            )
+        raise _reject(
+            "forged_hash",
+            "binding contains unknown evidence hash: "
+            + ",".join(sorted(str(item) for item in unknown)),
+        )
+
+
 def validate_episode_finish(
     value: object,
     *,
@@ -932,7 +1002,15 @@ def validate_episode_finish(
     evidence_hashes = set(evidence_by_hash)
     decoded = _finish_object(value)
     if decoded is None:
-        raise _reject("not_json_object", "finish must be one JSON object")
+        raise _reject("not_json_object", "finish must be one JSON object" + _json_failure_position(value))
+    try:
+        decoded = compile_material_author_finish(
+            decoded, context.contract, prior_evidence=getattr(context, "prior_evidence", None),
+        )
+    except MaterialAuthoringError as exc:
+        if exc.code == "historical_excerpt_shape":
+            raise _reject("historical_excerpt_shape", str(exc)) from exc
+        raise _reject(exc.code, str(exc)) from exc
     status = decoded.get("status")
     if status not in _FINISH_STATUSES:
         raise _reject("bad_status", "finish status must be completed or partial")
@@ -977,7 +1055,6 @@ def validate_episode_finish(
     if not isinstance(raw_bindings, list):
         raise _reject("bindings_not_list", "finish bindings must be a list")
     bindings: list[OutputEvidenceBinding] = []
-    allowed_outputs = {item.output_id for item in context.contract.required_outputs}
     # #819 恢复的旧工具输入（prior_evidence）已按原件校验并被 _seed_prior_evidence 注入证据池；
     # 冻结范围检查放行它们的 hash，其余证据引用照旧受 P6 材料范围规则约束。
     prior_snapshot = getattr(context, "prior_evidence", None)
@@ -986,6 +1063,13 @@ def validate_episode_finish(
         if prior_snapshot is not None
         else frozenset()
     )
+    quote_issues = []
+    integrity_issues = []
+    deferred_ref_errors = []
+    frozen_scope = grounding_scope(context.contract) in {"material_only", "local_only"}
+    # Frozen sources are inspected across the whole finish before recoverable
+    # basis/ref errors can win. Ordinary evidence keeps its per-binding order.
+    # This is validation only: never substitute an unknown ref.
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise _reject("binding_not_object", "each finish binding must be an object")
@@ -999,71 +1083,49 @@ def validate_episode_finish(
             claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw_claims)
         except ValueError as exc:
             raise _reject("bad_claim_binding", str(exc)) from exc
+        resolved_refs = []
+        unresolved_ref = False
+        for raw_ref in raw_hashes:
+            try:
+                resolved_refs.extend(resolve_evidence_refs([raw_ref], evidence))
+            except EpisodeFinishRejection as exc:
+                if not frozen_scope or exc.code != "unknown_evidence_ref":
+                    raise
+                # Unknown E ordinals retain their existing FORMAT behavior in
+                # isolation, but cannot hide a quote error or a forged source.
+                deferred_ref_errors.append(exc)
+                unresolved_ref = True
+        if (unresolved_ref and not any(resolved_refs) and not claims and not str(raw.get("gap") or "").strip()
+                and str(raw.get("basis") or "evidence") == "evidence"):
+            # This binding will be rejected by the deferred ordinal error. It
+            # has no resolved source to inspect; constructing it with its only
+            # reference removed would manufacture an empty-binding ValueError
+            # that masks source violations elsewhere in this finish.
+            continue
         binding = OutputEvidenceBinding(
             output_id=str(raw.get("output_id") or ""),
-            evidence_hashes=resolve_evidence_refs(raw_hashes, evidence),
+            evidence_hashes=tuple(resolved_refs),
             gap=str(raw.get("gap") or ""),
             basis=str(raw.get("basis") or "evidence"),
             claims=claims,
         )
-        source_errors = binding_source_errors(
+        source_issues = binding_source_issues(
             context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
         )
-        if source_errors:
-            raise _reject("material_source_violation", "; ".join(source_errors))
-        if binding.output_id not in allowed_outputs:
-            if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
-                # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
-                # 修复目标的 missing_answer_elements，模型看见 id 就当 output 去绑——
-                # 2026-09-07 两轮 theme_track 修复 2/2 死在这里：系统自己要的东西被自己
-                # 当「越界输出」硬拒（INTEGRITY 不回灌、不恢复）。它不是伪造，是把正文
-                # 要求当成了绑定槛；按 FORMAT 回灌，告诉模型写进 draft、不进 bindings。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
-                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
-                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            raise _reject(
-                "unknown_output",
-                f"unknown required output: {binding.output_id}",
-            )
-        required = next(
-            item
-            for item in context.contract.required_outputs
-            if item.output_id == binding.output_id
-        )
-        if binding.basis != required.grounding_mode:
-            raise _reject(
-                "basis_mismatch",
-                f"grounding basis mismatch for {binding.output_id}: "
-                f"expected {required.grounding_mode}, got {binding.basis}",
-            )
-        unknown = set(binding.evidence_hashes) - evidence_hashes
-        if unknown:
-            if _is_unique_one_char_truncation(unknown, evidence_hashes):
-                # 文案只回截断值，不带完整哈希——否则 FORMAT 回灌等于把白名单提示给模型。
-                raise _reject(
-                    "truncated_hash",
-                    "binding contains truncated evidence hash: "
-                    + ",".join(sorted(str(item) for item in unknown))
-                    + "; use the evidence ordinal (E1, E2, …) from the observation",
-                )
-            raise _reject(
-                "forged_hash",
-                "binding contains unknown evidence hash: "
-                + ",".join(sorted(str(item) for item in unknown)),
-            )
+        integrity_issues.extend(issue.message for issue in source_issues if issue.code != "material_quote_mismatch")
+        quote_issues.extend(issue.message for issue in source_issues if issue.code == "material_quote_mismatch")
+        if not frozen_scope:
+            _validate_binding_target_and_hashes(binding, context.contract, evidence_hashes)
         bindings.append(binding)
+    if deferred_ref_errors and quote_issues:
+        integrity_issues.append("unknown evidence ordinal exceeds frozen data scope")
+    if integrity_issues:
+        raise _reject("material_source_violation", "; ".join(integrity_issues))
+    if deferred_ref_errors:
+        raise deferred_ref_errors[0]
+    if frozen_scope:
+        for binding in bindings:
+            _validate_binding_target_and_hashes(binding, context.contract, evidence_hashes)
 
     if len({item.output_id for item in bindings}) != len(bindings):
         raise _reject("duplicate_binding", "duplicate output binding")
@@ -1141,6 +1203,14 @@ def validate_episode_finish(
                 + ",".join(derived_without_inputs)
                 + "；派生数必须能指回它算的那几条证据",
             )
+
+    if quote_issues:
+        # Sources and scope above must be valid for the *whole* finish; only the
+        # authored excerpts may be repaired. Keep failed text out of the feedback.
+        detail = "; ".join(quote_issues[:16])
+        if len(quote_issues) > 16:
+            detail += f"; {len(quote_issues) - 16} further quote mismatches"
+        raise _reject("material_quote_mismatch", detail + ". " + QUOTE_REPAIR_RULE)
 
     private_tokens = material_private_tokens(context.contract)
     if any(token in text.casefold() for text in (draft, *gaps, *(b.gap for b in bindings)) for token in private_tokens):
@@ -1346,6 +1416,21 @@ def _finish_object(value: object) -> dict[str, object] | None:
     ):
         return None
     return dict(value)
+
+
+def _json_failure_position(value: object) -> str:
+    """Report decoder coordinates only; never repair or echo rejected source text."""
+    if not isinstance(value, str):
+        return ""
+    candidate = value.strip()
+    fence = _FINAL_JSON_BLOCK_RE.fullmatch(candidate)
+    if fence is not None:
+        candidate = fence.group(1)
+    try:
+        json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        return f"; JSONDecodeError: {exc.msg} (line {exc.lineno} column {exc.colno} char {exc.pos})"
+    return ""
 
 
 def parse_finish_json(content: str) -> dict[str, object] | None:

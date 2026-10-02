@@ -240,6 +240,12 @@ def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
     assert outcome.status == "completed"
     assert outcome.usage.tool_calls == 0
     assert all(call["tools"] == [] for call in model.calls)
+    opening = next(json.loads(m["content"]) for m in model.calls[0]["messages"]
+                   if m.get("role") == "user" and '"research_contract"' in m["content"])
+    # The same material-only contract can have restored tool originals. That
+    # context keeps canonical E bindings; the M/H-only vocabulary cannot express them.
+    assert "finish_format" not in opening["material_grounding"]
+    assert "historical_assistant_statements" in opening["material_grounding"]
     blocks = [json.loads(m["content"]) for m in model.calls[0]["messages"]
               if m.get("role") == "user" and '"kind": "prior_tool_evidence"' in m["content"]]
     assert len(blocks) == 1
@@ -254,6 +260,89 @@ def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
     verified = verify_episode_outcome(context.contract, outcome)
     assert [str(getattr(issue.code, "value", issue.code)) for issue in verified.issues
             if "material_source" in str(getattr(issue.code, "value", issue.code))] == []
+
+
+@pytest.mark.parametrize("reference_loop", [False, True])
+def test_restored_original_context_keeps_legacy_format_in_repair_finalizer_and_headless(source, reference_loop):
+    from uuid import uuid4
+
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.runtime.codex_headless_runtime import CodexHeadlessRuntime
+    from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+    from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+    from intelligence.services.episode_protocol import build_episode_input, finish_json_schema
+    from intelligence.services.material_grounding import claim_finish_format
+    from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
+    from intelligence.services.research_tool_registry import ResearchToolRegistry
+    from intelligence.tests.test_agent_episode import ScriptedModel
+
+    _, _, _, frame, _, _, load = source
+    context = replace(build_episode_context(frame, task_id=f"prior-format-{uuid4().hex}"), prior_evidence=load())
+    registry = ResearchToolRegistry(())
+    bare_context = replace(context, prior_evidence=None)
+    assert "finish_format" in json.loads(build_episode_input(frame, bare_context, registry))["material_grounding"]
+    assert "format" in finish_json_schema(context.contract)["properties"]
+    assert "format" not in finish_json_schema(context.contract, prior_evidence=context.prior_evidence)["properties"]
+    assert claim_finish_format(context.contract, prior_evidence=context.prior_evidence) is None
+
+    def completed(*, revised=False):
+        text = "撤回旧答关于抛压衰竭的断言，本轮未新增核验。" if revised else "撤回旧答关于抛压衰竭的断言。"
+        return ModelTurn(json.dumps({"status": "completed", "draft": text, "gaps": [], "bindings": [
+            {"output_id": "direct_answer", "evidence_hashes": [], "basis": "evidence", "gap": "", "claims": [{
+                "text": text, "kind": "historical_assistant_statement",
+                "old_answer_coordinate": "old-answer", "historical_quote": "抛压衰竭", "basis": "assistant_judgment",
+            }]},
+            {"output_id": "evidence_boundary", "evidence_hashes": [], "basis": "user_premise", "gap": ""},
+        ]}), (), "offline")
+
+    model = ScriptedModel([completed(), completed(revised=True)])
+    loop = HarnessReferenceLoop(model) if reference_loop else ContinuousAgentEpisode(model)
+    states = []
+    first = loop.run(task_frame=frame, context=context, registry=registry, _continuation_sink=states)
+    assert first.status == "completed"
+    goal = RepairGoal(context.contract.task_id, "prior-format-repair", 1, ("evidence_boundary",),
+                      (), (), (), CoverageDelta(0, 0, 0), 0, 20)
+    result = loop.resume(states[0], first, goal)
+    assert result.status == "completed" and result.usage.tool_calls == 0
+    repair = next(json.loads(event.payload["content"]) for event in result.events
+                  if event.kind == "model_input" and event.payload.get("source") == "repair_goal")
+    assert "finish_format" not in repair
+
+    recovery = ScriptedModel([completed()])
+    EpisodeFinalizer(recovery).recover(task_frame=frame, context=context, evidence=first.evidence,
+                                       gaps=(), failure_reason="invalid_model_finish")
+    finalizer_payload = json.loads(recovery.calls[0]["messages"][1]["content"])
+    assert "finish_format" not in finalizer_payload["material_grounding"]
+    assert '"bindings"' in recovery.calls[0]["messages"][0]["content"]
+
+    class SchemaCaptured(BaseException):
+        pass
+
+    def capture(command):
+        schema = json.loads((command.cwd / "episode-finish.schema.json").read_text())
+        assert schema == finish_json_schema()
+        raise SchemaCaptured()
+
+    with pytest.raises(SchemaCaptured):
+        CodexHeadlessRuntime(command_runner=capture).run(task_frame=frame, context=context, registry=registry)
+
+
+def test_restored_originals_reject_explicit_compact_finish_at_validation(source):
+    from intelligence.services.episode_protocol import validate_episode_finish
+    from intelligence.tests.test_material_answer_authoring import compact_finish, history_setup, legacy_finish
+
+    _, _, _, _, _, _, load = source
+    _, bare_context = history_setup()
+    restored = replace(bare_context, prior_evidence=load())
+    empty = replace(restored, prior_evidence=replace(restored.prior_evidence, entries=()))
+    compact = compact_finish()
+    # A provider can ignore the advertised schema. Admission must enforce the
+    # same M/H-only boundary as the prompt, even when this answer uses no E ref.
+    with pytest.raises(ValueError, match="unsupported author format"):
+        validate_episode_finish(compact, context=restored, evidence=())
+    baseline = validate_episode_finish(compact, context=bare_context, evidence=())
+    assert validate_episode_finish(compact, context=empty, evidence=()) == baseline
+    assert validate_episode_finish(legacy_finish(restored), context=restored, evidence=()) == baseline
 
 
 def test_frozen_scope_exempts_only_restored_prior_atoms(source):
