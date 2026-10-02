@@ -4,7 +4,7 @@
 保留2aea基座上的输出身份窄修复；用户纠偏后停止单题正文补丁，评审并行通用方案。
 
 ## 当前状态
-代码4cba44a63、旧文档6ef1d41e9；本轮只加评审/快照并更新本交接，未改产品。历史相关632P/1F，**仍禁止合入/发布**。正文边界反例保持正常红，非xfail。
+代码4cba44a63、旧文档6ef1d41e9；本轮评审/快照首提交4000f7ab1，后补收尾条件，未改产品。历史相关632P/1F，**仍禁止合入/发布**。正文边界反例保持正常红，非xfail。
 并行总spec：`~/fwp-wt-harness-simplification-1002@acc743c84`（产品基线3b78fda25），v0.1 Draft未实施；本轮不改对方树，两个补丁栈收据不能互签。
 
 ## 决策与被否方案
@@ -27,8 +27,8 @@ PLAN已有修订，但自拟answer_elements只能增加；TaskFrame hash/授权v
 
 ## 踩过的坑
 源码episode_factory在services。Workbench验收不能用CLI ask冒充。锁解释器在`/private/tmp/harness-opt/tmp/arena-harness-release-1002/.venv-workbench/bin/python`；共享httpx漂移。
-原身份closeout.json和vault索引已确认存在，不要再按旧摘要补造。
+原身份closeout.json和vault索引已确认存在。新索引被既有auto-sync先提交960b17d9；vault仍46条基线错误，不称全绿。
 
 ## 已验证
-固定6ef1d离线复跑21例=8匹配/9误放/4误挡，与旧输出/哈希相同；真实verdict→补写/失败投影探针复现可选身份丢失。新增模型0，未推送/合并/部署。
+固定6ef1d离线复跑21例=8匹配/9误放/4误挡，与旧输出/哈希相同；真实verdict→补写/失败投影探针复现可选身份丢失。新增模型0，金融枝未推送/合并/部署。
 私有证据：`~/.finance-runtime/reviews/knevo-takeover-20261002T140000Z/`；探针非HTTP/独审，未替代旧正常红测试。
