@@ -1015,3 +1015,5 @@ main42 +5.3pp 未入 ±5），outcome 仍 pending；收据
 - [docs/verification/2026-08-04-improvement-loop-design-review.md](verification/2026-08-04-improvement-loop-design-review.md)
 - [docs/trace-profile.md](trace-profile.md) §2 字段陷阱、§6 投影契约、§8 仪器覆盖矩阵
 - commit `09657e2a`
+
+| `R-20261002-15` | 用户确认继续；R14批墙钟未兑现 | `HARNESS_FIX` | 等待/HTTP/晚回包/整批进程共享绝对截止；不续预算，留独占收据 | 本地原型后仓内RED→GREEN与变异；模型帽0 | `confirmed`（仅工程：28RED19P→138P、8/8变异；模型0；真实批接线未验证；见 `docs/verification/2026-10-02-eval-batch-deadline-results.md`） |
