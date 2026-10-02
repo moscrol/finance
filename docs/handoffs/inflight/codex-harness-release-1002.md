@@ -1,36 +1,35 @@
 ## 这个分支做什么
 
-把已验证的 harness 工程、证据与会话状态改进合成可审查的发布候选；保留模型决定任务和工具的空间。
+合成可审查的 harness 发布候选，保留模型决定任务和工具的空间；不把工程测试冒充模型净收益。
 
 ## 决策与被否方案
 
-- 合入 PR8、PR10、PR11–14、PR15；否掉 20 号模型档位硬语义政策，因它把弱模型继续锁进补丁车道。
-- 保留身份、权限、预算、证据版本、错误反馈；否掉 11/16/17/19 语义路由、A7、数字字段候选和工具差分分支，因迁移收益未证。
-- 把 10/1 错标快照修成一次性派生数据修复；不把它冒充代码部署，代码仍需交易日三态保护。
-- 保持 evidence_read 默认关闭、显式能力授权；不把补读改成固定流水线。完整取舍见 `docs/handoffs/2026-10-02-harness-release-scope.md` 与 `docs/verification/2026-10-02-harness-release-disposition.md`。
+- 保留 PR8、PR10、PR11–14、PR15；排除 #20 档位硬政策、11/16/17/19 硬语义路由、A7、数字字段候选和工具差分分支。
+- 身份、权限、预算、证据版本及错误反馈不降级；evidence_read 仍默认关闭且须显式授权，不改固定流水线。
+- 范围以 `docs/handoffs/2026-10-02-harness-release-scope.md` 为准；10/1 派生快照修复不是代码部署。
 
 ## 当前状态
 
-- 分支 `codex/harness-release-1002`；交接文档已独立提交，源码干净，发布计划/处置/历史审查文档仍未提交。
-- 四次 no-ff 合流已完成；证据补读覆盖修复尚未落地。实现与审查子任务因配额中止，未改代码。
-- 生产代码仍为干净 detached 版本 `2c394978…`；一次性快照修复后 readiness/health=200，但这不是代码发布。
+- 接手树 `/tmp/harness-opt/tmp/arena-harness-release-1002`，分支 `fix/harness-release-1002-takeover`，起点 `e25381b24`；最新源码提交 `1f8a8efb3`。
+- `beff372c6`：只在子研究收件箱成功认领并追加消息后记展示覆盖；嵌套正文按实际可见字符计，不奖励重读，不跨 Episode 泄漏。
+- `1f8a8efb3`：两条快照入口复用交易日三态，历史/未来/休市/未知请求不取现货；保留有真实日期的历史 DuckDB，未知候选 fail closed。
+- 原发布树 `codex/harness-release-1002@e25381b24` 与三份未跟踪文档均未改；没有 push、合入 main、部署或业务库改写。
 
 ## 已验证
 
-- 集成 focused 收据：970 passed、1 existing xfail、0 failed/error/skipped；改动 Python 的 Ruff 通过，收据已核对 revision/collection。
-- Gitea 无 push mirror，GitHub 推送不会被反向覆盖。快照修复 receipt 记录 served=2026-09-30、DB unchanged=true。
+- 干净源码 `1f8a8efb3`：锁版本本树 Python，13 文件 focused **292 passed**；全仓 Python Ruff 与两次提交 hooks 通过。
+- 本树新建独立 Python 环境，doctor 含 frontend=ready、无依赖漂移；隔离 Node 22.23.3 / pnpm 10.12.1，不升级共享环境。
+- 有效 RED：证据 3 failed/1 passed；快照 15 failed/1 passed。修复后的完整/部分投递、未投递、拒收/丢弃、隔离及日期边界已回归。
+- 完整证据、收据与命令见 `docs/verification/2026-10-02-harness-takeover.md`。
 
-## 未验证 / 已知边界
+## 门禁与未覆盖
 
-- 未跑最终全量 Python、前端、E2E、registry、GitHub Actions；未跑真实模型六条验收，也未证明 2×2/留出题净收益。
-- 休市日交易日保护代码未写；证据补读重读记账仍有已知回归。生产代码尚未切换到此分支。
+- 最终候选门禁的动态结果以 `/tmp/arena-harness-validation-1002/final-candidate/` 专用产物及其 revision/clean/scope 为准；本文不声明全量绿。原 970/1 xfail 仅属 `cf17788f`。
+- 尚无真实模型六条、多轮净收益、2×2/留出题和独立 reviewer 证据；不能据工程绿启用实验能力。GitHub checks 尚未执行，生产健康未重新验收。
 
-## 下一步
+## 下一步与坑
 
-先修证据覆盖并按“规格→质量”审查；再加交易日三态快照保护。用最终 SHA 跑等价 CI 和真实多轮验收，收据绿后开 GitHub PR，待保护检查与用户确认再合入/切 detached 生产，随后做健康检查和收尾交接。
-
-## 踩过的坑
-
-- `deploy_workbench_runtime.sh` 拒绝 Git detached snapshot，不能当部署器；不要把 focused 收据写成全量绿。
-- `latest` 快照只允许单调前进，历史错标必须先核对 `trading_day_verdict` 再原子修复；未知日期应 fail closed。
-- 不提交凭据、原始用户运行数据或一次性 `/tmp` 实验原件；不删枝、吊销 token、写预测台账，除非另有明确授权。
+- 用最终 SHA 完成整仓 Python、前端/E2E、registry，再补独立复核及有界真实多轮验收；所有证据齐后再请求用户确认 PR/main/生产切换。
+- full 收据须验 `--require-full-scope --expect-revision`，不读共享 latest 冒认本轮；专用树验证期间不得移动 HEAD。
+- 历史交付须保留 served/source 日期并标 historical；latest/meta 不倒退，不能从缺行猜休市。
+- 不提交凭据、用户原始数据、运行产物或虚拟环境；不删枝、吊销 token、写预测台账。`deploy_workbench_runtime.sh` 不是 detached 部署器。
