@@ -123,8 +123,8 @@ def loop_mode() -> str:
 
 
 def max_steps() -> int:
-    # 优先级：ASK_AGENT_MAX_STEPS 显式值 > 模型档位（FWP_MODEL_PROFILE）> DEFAULT_MAX_STEPS。
-    # standard 档的 agent_loop_max_steps == DEFAULT_MAX_STEPS，未设档位时行为不变。
+    # 旧循环资源默认值；显式ASK_AGENT_MAX_STEPS优先。不是Workbench Episode预算。
+    # standard与旧默认一致，expanded只增加资源，不改变模型身份或语义策略。
     profile_default = model_profile.active_profile().agent_loop_max_steps
     try:
         value = int(os.environ.get(ENV_MAX_STEPS) or profile_default)

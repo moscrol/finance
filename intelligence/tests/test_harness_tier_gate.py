@@ -1,4 +1,4 @@
-"""scripts/harness_tier_gate.py：强模型不得退步、弱模型要有净增益。"""
+"""Local score comparison is not generic-benefit acceptance."""
 
 from __future__ import annotations
 
@@ -32,9 +32,9 @@ IDS = ["a", "b", "c", "d"]
 @pytest.mark.parametrize(
     "wb,wn,sb,sn,expected",
     [
-        ({"a"}, {"a", "b"}, {"a", "b", "c"}, {"a", "b", "c"}, "PASS"),
-        ({"a"}, {"a"}, {"a", "b"}, {"a", "b"}, "WARN"),
-        ({"a"}, {"b"}, {"c"}, {"c"}, "WARN"),
+        ({"a"}, {"a", "b"}, {"a", "b", "c"}, {"a", "b", "c"}, "INCONCLUSIVE"),
+        ({"a"}, {"a"}, {"a", "b"}, {"a", "b"}, "INCONCLUSIVE"),
+        ({"a"}, {"b"}, {"c"}, {"c"}, "FAIL"),
         ({"a"}, {"a", "b"}, {"a", "b", "c"}, {"a", "b", "d"}, "FAIL"),
         ({"a", "b"}, {"a"}, {"a"}, {"a"}, "FAIL"),
     ],
@@ -78,7 +78,7 @@ def test_cli_exit_codes(tg, tmp_path: Path) -> None:
 
     ok = ["--weak-base", write("wb", {"a"}), "--weak-new", write("wn", {"a", "b"}),
           "--strong-base", write("sb", {"a", "b"}), "--strong-new", write("sn", {"a", "b"})]
-    assert tg.main(["check", *ok]) == 0
+    assert tg.main(["check", *ok]) == 3
     bad = ok[:-1] + [write("sn2", {"a"})]
     assert tg.main(["check", *bad]) == 1
     missing = ok[:-1] + [str(tmp_path / "nope.json")]

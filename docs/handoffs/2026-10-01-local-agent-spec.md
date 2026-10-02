@@ -1,5 +1,8 @@
 # 本地 agent 任务书（2026-10-01，harness 优化第 7–20 号提交）
 
+> 2026-10-02本分支对第20号的修正：资源不授予语义权，比较器不再给PASS/WARN或exit0放行。
+> 下文第20号历史方案须以 `docs/runtime/model-tier-harness.md` 为准；其它条目未获本次合入授权。
+
 > 给在用户 Mac 上运行的 agent。云端 agent 只能改代码、跑 Linux 测试，碰不到真实知识库、真实 run 存证、模型 API 和 GitHub/Gitea。下面这些只有本地能做。
 > 每节都写了：做什么 → 命令 → 验收口径 → 失败怎么办 → 回报什么。**按顺序做；标「需用户决定」的不要自行决定。**
 
@@ -32,7 +35,7 @@
 | 17 | fix(routing): 分析题不当定义题 + 题材左邻语法成分 + 调序盘面 + 冻结集 A7 修订 | 路由 + 量具 | **实验后，A7 需用户决定** |
 | 18 | docs(handoff): 本任务书 | 文档 | 随时 |
 | 19 | fix(routing): 无检索车道排查（口语市场词、看看X 主体、什么叫 / 怎么计算） | 路由 | **实验后** |
-| 20 | feat(harness): 模型档位 `FWP_MODEL_PROFILE`（默认行为不变）+ 强弱双模型闸门 `harness_tier_gate.py` + 设计文档 | 运行时 + 评测 | 档位接线**实验后**；闸门脚本随时可用 |
+| 20 | 本分支修正：中性资源预设，移除Controller档位策略；`harness_tier_gate.py`仅局部分数比较 | 运行时 + 工程契约 | 尚未合入；布尔分数不能验收通用收益 |
 
 第 3 号（finance_query schema 瘦身）同样是**实验后**才合入。
 
@@ -126,9 +129,9 @@ cd /tmp/harness-opt && ~/finance-workspace-private/.venv-workbench/bin/python sc
 
 实验结束后：先用 `export --out /tmp/cc_questions.jsonl` 导出题面，用目标模型（弱模型 + harness，以及强模型 ReAct 作对照）答完，整理成答卷 JSONL，再跑 `score --answers <答卷> --json`。答卷格式见 `intelligence/eval/content_correctness.py` 的模块说明。
 
-- 第 20 号的闸门：`scripts/harness_tier_gate.py selftest` 实验前就能跑。实验后，四份判分报告
-  （{实惠, 强} × {改动前, 改动后}）交给 `harness_tier_gate.py check`，强模型任何一题退步即 FAIL。
-  用法见 `docs/runtime/model-tier-harness.md` §4。
+- 第20号比较器的selftest只是软件自检；四份报告任一配置逐题退步即FAIL/exit1，非退步仍
+  INCONCLUSIVE/exit3，输入异常exit2。weak/strong标签不认证强弱，不能代替模型×引擎正式四格。
+  用法与限制见 `docs/runtime/model-tier-harness.md` §3。
 - **回报**：两个 selftest 的结果。实验后再回报各臂分数和闸门判定。
 
 ## 6. 实验结束后的合入顺序
@@ -139,7 +142,7 @@ cd /tmp/harness-opt && ~/finance-workspace-private/.venv-workbench/bin/python sc
 2. 第 3 号（schema 瘦身）。合入后要跑同一个 uq15 臂，对照台账草案 R-20261001-01。
 3. 第 11 号（比较题），然后重跑第 3 节探针。
 4. 第 13、14、15 号（核验器）。合入前第 4 节的 A/B 必须已经人工看过，而且没有异常。
-5. 第 16、17、19 号（路由），然后第 20 号（模型档位；默认 standard 与合入前逐项一致，合入后不设 `FWP_MODEL_PROFILE` 行为不变）。第 17 号带冻结集 A7 的修订，**等用户对第 7 节第 1 项做出决定后再合**。
+5. 第 16、17、19 号（路由），第20号原语义分层方案已被本分支撤回，修正见资源预设说明，不能照原方案合入。第 17 号带冻结集 A7 的修订，**等用户对第 7 节第 1 项做出决定后再合**。
 6. 全部合入后，跑一次完整的 probe v2 和 uq15 两臂，作为新基线。
 
 走 PR 合入，不要直推 main。推之前确认 Gitea 镜像不会反向覆盖。

@@ -921,8 +921,8 @@ def evidence_budget_for_query(
     elif quick:
         per_hit = 800
     total = max(DEFAULT_LLM_EVIDENCE_TOTAL_CHARS, per_hit * 4)
-    # 模型档位缩放（standard 倍率 1.0 → 原样返回）：强模型吃得下更长证据，
-    # per_hit / total / 8000 封顶同比放大，保持三者比例不变。
+    # 显式资源预设缩放；不根据模型名字/强弱选择，不宣称更多字符必然更好。
+    # standard倍率1.0保持旧值；expanded将per_hit/total/封顶同比放大。
     profile = model_profile.active_profile()
     return (
         model_profile.scale_chars(per_hit, profile=profile),

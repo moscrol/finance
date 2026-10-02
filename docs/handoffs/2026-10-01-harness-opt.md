@@ -201,6 +201,11 @@ python scripts/numeric_gate_replay_ab.py diff /tmp/a.jsonl /tmp/b.jsonl
 
 ## 13. 模型档位与强弱双模型闸门——**档位接线实验结束前不合入**
 
+> 历史方案，已由2026-10-02本分支修正：下文frontier路由分权和PASS/WARN不再是当前合同。
+> 资源配置不消费Controller策略，旧名字只兼容资源数值；无回退仍INCONCLUSIVE/exit3。
+> 见 `docs/runtime/model-tier-harness.md` 与 `docs/verification/2026-10-02-resource-profile-contract-results.md`。
+
+
 用户目标：harness 要让实惠模型达标，**也要让强模型更强**，不能只是给弱模型立规矩。设计见
 `docs/runtime/model-tier-harness.md`（地板 / 天花板 / 核查三层）。
 

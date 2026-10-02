@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
-"""Harness 改动的强弱双模型闸门：强模型不得退步，弱模型要有增益。确定性，不调模型。
+"""Local paired-score comparator; NOT a generic harness-benefit acceptance gate.
 
-背景见 docs/runtime/model-tier-harness.md。每个改动 harness 的提交，都要在「实惠模型」
-和「强模型」上各跑一次基线（改动前）与新版（改动后），四份判分报告交给本脚本：
+Historical CLI labels --weak/--strong mean configuration A/B, not verified
+model strength. Four reports must have identical nonempty case IDs and exact
+boolean outcomes. Accepted input: {"cases": {"id": true|false}}, or a consistent
+content_correctness score summary. Neither format establishes model identity,
+holdout independence, equal budgets, costs, or complete-answer faithfulness.
 
-    python3 scripts/harness_tier_gate.py check \\
-        --weak-base wb.json --weak-new wn.json \\
-        --strong-base sb.json --strong-new sn.json [--json]
-
-报告格式（二选一，可混用）：
-  * ``content_correctness_eval.py score --json`` 的原样输出（按题集补全通过名单）；
-  * 通用格式 ``{"cases": {"<case_id>": true|false, ...}}``——任何逐题判分的评测都能转成它。
-
-判定（逐题，不只看通过率——通过率持平也可能是「修好 2 题、弄坏 2 题」）：
-  FAIL  强模型有题从通过变失败（strong_regressions 非空），或弱模型净退步；
-  WARN  强模型无退步，但弱模型没有净增益（改动没用，或者只是挪了位置）；
-  PASS  强模型无退步，弱模型净增益 > 0。
-退出码：PASS/WARN = 0，FAIL = 1，输入错误 = 2。
-
-    python3 scripts/harness_tier_gate.py selftest
+Any observed per-case regression -> FAIL (exit 1, not a causal conclusion).
+Otherwise -> INCONCLUSIVE (exit 3), including both configurations improving.
+Input errors -> exit 2. Only software selftest uses exit 0. No PASS / no automatic
+release, and no recommendation to hide a regression behind model-specific use.
 """
-
 from __future__ import annotations
 
 import argparse
@@ -38,115 +29,115 @@ class GateInputError(ValueError):
     pass
 
 
+def _validated_cases(value: object, *, label: str) -> dict[str, bool]:
+    if not isinstance(value, dict) or not value:
+        raise GateInputError(f"{label}: 逐题结果必须为非空对象，缺评测不是通过")
+    if any(not isinstance(k, str) or not k.strip() for k in value):
+        raise GateInputError(f"{label}: 题号必须为非空字符串")
+    if any(type(v) is not bool for v in value.values()):
+        raise GateInputError(f"{label}: 结果必须是JSON布尔值，不能把字符串/数字转成布尔值")
+    return dict(value)
+
+
 def case_outcomes(report: dict[str, Any], *, label: str = "report") -> dict[str, bool]:
-    """把一份报告归一成 {case_id: passed}。"""
-    if isinstance(report.get("cases"), dict):
-        return {str(k): bool(v) for k, v in report["cases"].items()}
+    if not isinstance(report, dict):
+        raise GateInputError(f"{label}: 报告必须是JSON对象")
+    if "cases" in report:
+        if any(key in report for key in ("total", "passed", "failures")):
+            raise GateInputError(f"{label}: 不能混用cases和summary两种格式，否则可能掩盖矛盾计数")
+        return _validated_cases(report["cases"], label=label)
     if "failures" in report and "total" in report:
         from intelligence.eval import content_correctness as cc  # noqa: PLC0415
 
         ids = [c.id for c in cc.load_cases()]
-        if len(ids) != report["total"]:
-            raise GateInputError(
-                f"{label}: total={report['total']} 与当前题集 {len(ids)} 题不一致——题集变过，基线要重跑"
-            )
-        failed = set(report["failures"])
-        unknown = failed - set(ids)
-        if unknown:
-            raise GateInputError(f"{label}: 未知题号 {sorted(unknown)}")
-        return {cid: cid not in failed for cid in ids}
-    raise GateInputError(f"{label}: 既不是 content_correctness 报告，也不是 {{'cases': {{...}}}} 格式")
+        if type(report["total"]) is not int or report["total"] != len(ids):
+            raise GateInputError(f"{label}: total与当前题集不一致；不能补猜缺失题目")
+        failures = report["failures"]
+        if not isinstance(failures, dict) or not set(failures) <= set(ids):
+            raise GateInputError(f"{label}: failures必须为已知题号对象")
+        if type(report.get("passed")) is not int or report["passed"] != len(ids) - len(failures):
+            raise GateInputError(f"{label}: passed/total/failures读数不一致")
+        return _validated_cases({cid: cid not in failures for cid in ids}, label=label)
+    raise GateInputError(f"{label}: 不是支持的逐题分数报告")
 
 
 def compare(base: dict[str, bool], new: dict[str, bool], *, label: str) -> dict[str, Any]:
+    base = _validated_cases(base, label=label + "-base")
+    new = _validated_cases(new, label=label + "-new")
     if set(base) != set(new):
-        missing = sorted(set(base) ^ set(new))
-        raise GateInputError(f"{label}: 基线与新版题号集合不同 {missing[:10]}")
+        raise GateInputError(f"{label}: 基线与新版题号集合不同 {sorted(set(base) ^ set(new))[:10]}")
     fixed = sorted(k for k in base if not base[k] and new[k])
     broken = sorted(k for k in base if base[k] and not new[k])
-    n = len(base)
-    return {
-        "n": n,
-        "base_passed": sum(base.values()),
-        "new_passed": sum(new.values()),
-        "fixed": fixed,
-        "broken": broken,
-        "net": len(fixed) - len(broken),
-    }
+    return {"n": len(base), "base_passed": sum(base.values()), "new_passed": sum(new.values()),
+            "fixed": fixed, "broken": broken, "net": len(fixed) - len(broken)}
 
 
 def gate(weak_base, weak_new, strong_base, strong_new) -> dict[str, Any]:
-    weak = compare(weak_base, weak_new, label="weak")
-    strong = compare(strong_base, strong_new, label="strong")
-    if strong["broken"] or weak["net"] < 0:
-        verdict = "FAIL"
-    elif weak["net"] > 0:
-        verdict = "PASS"
-    else:
-        verdict = "WARN"
-    # 强弱差距：同一版 harness 下强模型领先弱模型多少题。PASS 且差距缩小 = harness 在补地板；
-    # 强模型自己也涨 = harness 在抬天花板。两者都是我们要的，分开报。
-    gap_base = strong["base_passed"] - weak["base_passed"]
-    gap_new = strong["new_passed"] - weak["new_passed"]
+    weak = compare(weak_base, weak_new, label="configuration-A")
+    strong = compare(strong_base, strong_new, label="configuration-B")
+    if set(weak_base) != set(strong_base):
+        raise GateInputError("两配置必须使用同一题号集合；不能比较不同分母")
+    regression = bool(weak["broken"] or strong["broken"])
     return {
-        "verdict": verdict,
-        "weak": weak,
-        "strong": strong,
-        "strong_regressions": strong["broken"],
-        "gap_base": gap_base,
-        "gap_new": gap_new,
+        "verdict": "FAIL" if regression else "INCONCLUSIVE",
+        "scope": "paired_case_score_comparison_only",
+        "acceptance": "not_established",
+        "strength_ordering": "not_verified",
+        "observed_change": ("regression_observed" if regression else
+                            "score_improvement_observed" if weak["fixed"] or strong["fixed"] else "unchanged"),
+        "weak": weak, "strong": strong,
+        "weak_regressions": weak["broken"], "strong_regressions": strong["broken"],
+        "gap_base": strong["base_passed"] - weak["base_passed"],
+        "gap_new": strong["new_passed"] - weak["new_passed"],
+        "missing_evidence": ["model_identity", "holdout_and_repetition", "paired_inputs_and_budgets",
+                             "full_answer_faithfulness", "cost_and_latency"],
     }
+
+
+def _unique_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise GateInputError(f"重复JSON键：{key}")
+        result[key] = value
+    return result
 
 
 def _load(path: Path, label: str) -> dict[str, bool]:
     try:
-        report = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        report = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_keys)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise GateInputError(f"{label}: 读不了 {path}: {exc}") from exc
     return case_outcomes(report, label=label)
 
 
 def _print_human(result: dict[str, Any]) -> None:
-    w, s = result["weak"], result["strong"]
-    print(f"判定 {result['verdict']}")
-    print(f"  弱模型 {w['base_passed']}/{w['n']} → {w['new_passed']}/{w['n']}（净 {w['net']:+d}）")
-    print(f"  强模型 {s['base_passed']}/{s['n']} → {s['new_passed']}/{s['n']}（净 {s['net']:+d}）")
-    print(f"  强弱差距 {result['gap_base']} → {result['gap_new']}")
-    for name, row in (("弱", w), ("强", s)):
-        if row["fixed"]:
-            print(f"  {name}模型修好：{', '.join(row['fixed'])}")
-        if row["broken"]:
-            print(f"  {name}模型弄坏：{', '.join(row['broken'])}")
-    if result["strong_regressions"]:
-        print("  ✗ 强模型退步——这个改动在限制强模型，不能合入（或只对 economy 档生效）")
+    print(f"局部比较 {result['verdict']}；通用收益未验收，不构成合入许可")
+    for label, row in (("配置A（历史weak标签）", result["weak"]), ("配置B（历史strong标签）", result["strong"])):
+        print(f"  {label} {row['base_passed']}/{row['n']} → {row['new_passed']}/{row['n']}（净 {row['net']:+d}）")
+        print(f"    改善 {row['fixed']}；回退 {row['broken']}")
+    print("  分差不代表强弱已标定；回退不自动证明因果，也不建议按模型分流绕过。")
+    print("  缺失证据：" + ", ".join(result["missing_evidence"]))
 
 
 def _selftest() -> int:
-    ids = ["a", "b", "c", "d"]
-
-    def mk(*passed: str) -> dict[str, bool]:
-        return {i: i in passed for i in ids}
-
-    cases = [
-        ("弱涨强平", (mk("a"), mk("a", "b"), mk("a", "b", "c"), mk("a", "b", "c")), "PASS"),
-        ("弱涨强也涨", (mk("a"), mk("a", "b"), mk("a", "b"), mk("a", "b", "c")), "PASS"),
-        ("弱平强平", (mk("a"), mk("a"), mk("a", "b"), mk("a", "b")), "WARN"),
-        ("弱涨但强弄坏一题", (mk("a"), mk("a", "b"), mk("a", "b", "c"), mk("a", "b", "d")), "FAIL"),
-        ("弱净退步", (mk("a", "b"), mk("a"), mk("a"), mk("a")), "FAIL"),
-        ("通过率持平但弱模型换题", (mk("a"), mk("b"), mk("c"), mk("c")), "WARN"),
+    # Software checks only; synthetic booleans never certify model improvement.
+    rows = [
+        (({"a": False}, {"a": True}, {"a": True}, {"a": True}), "INCONCLUSIVE"),
+        (({"a": False}, {"a": True}, {"a": False}, {"a": True}), "INCONCLUSIVE"),
+        (({"a": True}, {"a": True}, {"a": True}, {"a": True}), "INCONCLUSIVE"),
+        (({"a": True}, {"a": False}, {"a": True}, {"a": True}), "FAIL"),
+        (({"a": False}, {"a": True}, {"a": True}, {"a": False}), "FAIL"),
     ]
-    ok = True
-    for name, args, expected in cases:
-        got = gate(*args)["verdict"]
-        mark = "✓" if got == expected else "✗"
-        ok &= got == expected
-        print(f"{mark} {name}: {got}（期望 {expected}）")
-    try:
-        compare({"a": True}, {"b": True}, label="x")
-        print("✗ 题号不一致未报错")
+    ok = all(gate(*args)["verdict"] == expected for args, expected in rows)
+    for args in [({"a": False}, {"a": True}, {}, {}),
+                 ({"a": True}, {"a": True}, {"b": True}, {"b": True})]:
+        try:
+            gate(*args)
+        except GateInputError:
+            continue
         ok = False
-    except GateInputError:
-        print("✓ 题号不一致报错")
+    print("软件自检通过；未评测真实模型" if ok else "软件自检失败")
     return 0 if ok else 1
 
 
@@ -162,12 +153,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "selftest":
         return _selftest()
     try:
-        result = gate(
-            _load(args.weak_base, "weak-base"),
-            _load(args.weak_new, "weak-new"),
-            _load(args.strong_base, "strong-base"),
-            _load(args.strong_new, "strong-new"),
-        )
+        result = gate(_load(args.weak_base, "weak-base"), _load(args.weak_new, "weak-new"),
+                      _load(args.strong_base, "strong-base"), _load(args.strong_new, "strong-new"))
     except GateInputError as exc:
         print(f"输入错误：{exc}", file=sys.stderr)
         return 2
@@ -175,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         _print_human(result)
-    return 1 if result["verdict"] == "FAIL" else 0
+    return 1 if result["verdict"] == "FAIL" else 3
 
 
 if __name__ == "__main__":

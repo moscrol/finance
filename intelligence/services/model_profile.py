@@ -1,98 +1,57 @@
-"""模型档位（model capability profile）——harness 的「地板 / 天花板」分层开关。
+"""Explicit resource presets, not model-strength or semantic-policy profiles.
 
-同一套 harness 要同时服务两类模型：
+``FWP_RESOURCE_PROFILE=standard|expanded`` selects resource defaults for any
+model. It does not choose a model, grant a capability, or change task routing.
+The legacy ``FWP_MODEL_PROFILE`` names remain resource-only aliases when the
+new variable is absent: economy/standard -> standard, frontier -> expanded.
+An explicit empty/unknown new setting stays standard; it must not fall through
+and accidentally acquire an expanded legacy setting.
 
-* 实惠模型（economy）：需要地板——硬路由、固定步数、低置信度先澄清；
-* 强模型（frontier）：需要天花板——更多研究步数、更长证据、路由降级为建议，
-  由模型自己处理模糊问题，而不是被规则截停。
-
-核查层（数字闸、证据边界、检索硬触发下限）对所有档位一律生效，不随档位放松。
-
-选择方式：环境变量 ``FWP_MODEL_PROFILE``（standard | economy | frontier）。
-未设置或取值不认识 → ``standard``，**其所有旋钮与引入本模块前的行为逐项一致**
-（见 tests/test_model_profile.py 的等价断言）。单项环境变量（如
-``ASK_AGENT_MAX_STEPS``）优先级高于档位。
-
-economy 目前与 standard 数值相同：它是给后续「按难度分流 / 升档」预留的身份，
-具体数值要等 2×2 实验数据校准后再定，不在这里拍脑袋。
-
-本模块只依赖标准库，可被 services / runtime 任意层安全导入。
+Only the legacy agent_research loop and upstream KB character budget consume
+these defaults. Workbench Episode budgets still come from its research tier;
+this module does NOT claim to extend that loop. An expanded resource budget
+is an experimental input, not evidence of a stronger model or better answers.
 """
-
 from __future__ import annotations
 
 import os
 from dataclasses import asdict, dataclass
 
-ENV_MODEL_PROFILE = "FWP_MODEL_PROFILE"
-
-PROFILE_STANDARD = "standard"
-PROFILE_ECONOMY = "economy"
-PROFILE_FRONTIER = "frontier"
-
-ROUTE_BINDING = "binding"
-ROUTE_ADVISORY = "advisory"
+ENV_RESOURCE_PROFILE = "FWP_RESOURCE_PROFILE"
+ENV_MODEL_PROFILE = "FWP_MODEL_PROFILE"  # Deprecated resource-only compatibility.
 
 
 @dataclass(frozen=True)
-class ModelProfile:
+class ResourceProfile:
     name: str
-    # agent_research 研究循环默认步数（ASK_AGENT_MAX_STEPS 显式设置时以其为准）。
-    agent_loop_max_steps: int
-    # kb_rag 证据送达字符预算倍率：per_hit 与 total（含 8000 封顶）同比缩放。
+    agent_loop_max_steps: int  # Legacy loop only; explicit ASK_AGENT_MAX_STEPS wins.
     evidence_char_scale: float
-    # binding：controller 置信度 < 0.6 一律转澄清（地板）；
-    # advisory：不强制澄清，带检索进入 knowledge 车道，由模型自行消歧（天花板）。
-    route_authority: str
-    # 预留：按难度分流时是否允许从本档升到强模型。当前不接线，只作身份标记。
-    escalation_eligible: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
-# standard 的每个数值必须与引入本模块前的硬编码一致：
-#   agent_research.DEFAULT_MAX_STEPS = 4
-#   kb_rag.evidence_budget_for_query 无缩放（8000 封顶）
-#   turn_controller._apply_policy 低置信度 → clarify
-PROFILES: dict[str, ModelProfile] = {
-    PROFILE_STANDARD: ModelProfile(
-        name=PROFILE_STANDARD,
-        agent_loop_max_steps=4,
-        evidence_char_scale=1.0,
-        route_authority=ROUTE_BINDING,
-    ),
-    PROFILE_ECONOMY: ModelProfile(
-        name=PROFILE_ECONOMY,
-        agent_loop_max_steps=4,
-        evidence_char_scale=1.0,
-        route_authority=ROUTE_BINDING,
-        escalation_eligible=True,
-    ),
-    PROFILE_FRONTIER: ModelProfile(
-        name=PROFILE_FRONTIER,
-        agent_loop_max_steps=8,
-        evidence_char_scale=1.5,
-        route_authority=ROUTE_ADVISORY,
-    ),
+PROFILES: dict[str, ResourceProfile] = {
+    "standard": ResourceProfile("standard", 4, 1.0),
+    "expanded": ResourceProfile("expanded", 8, 1.5),
 }
+_LEGACY_ALIASES = {"standard": "standard", "economy": "standard", "frontier": "expanded"}
 
 
 def active_profile_name() -> str:
+    if ENV_RESOURCE_PROFILE in os.environ:
+        raw = os.environ[ENV_RESOURCE_PROFILE].strip().lower()
+        return raw if raw in PROFILES else "standard"
     raw = str(os.environ.get(ENV_MODEL_PROFILE) or "").strip().lower()
-    return raw if raw in PROFILES else PROFILE_STANDARD
+    return _LEGACY_ALIASES.get(raw, "standard")
 
 
-def active_profile() -> ModelProfile:
-    """每次调用都重读环境变量——测试与 A/B 切档无需重启进程内缓存。"""
+def active_profile() -> ResourceProfile:
+    """Read explicit resource configuration; never infer a tier from model identity."""
     return PROFILES[active_profile_name()]
 
 
-def route_is_advisory() -> bool:
-    return active_profile().route_authority == ROUTE_ADVISORY
-
-
-def scale_chars(value: int, *, profile: ModelProfile | None = None) -> int:
+def scale_chars(value: int, *, profile: ResourceProfile | None = None) -> int:
     scale = (profile or active_profile()).evidence_char_scale
     if scale == 1.0:
         return int(value)

@@ -1,90 +1,66 @@
-# 模型档位与 harness 分层（地板 / 天花板）
+# 资源预设与局部分数比较：不按模型强弱分配语义权
 
-2026-10-02。状态：**档位框架已接线，默认行为不变（HOLD，2×2 实验结束后与 11/13–17/19 一起合入）**；
-评测闸门 `scripts/harness_tier_gate.py` 可立即使用。
+2026-10-02，第20号的修正候选；基座 `feat/harness-opt-1001@19c820824`。
+本页取代第20号原“frontier 才放开语义策略 + PASS/WARN 闸门”的设计；尚未合并或部署。
 
-## 1. 目标
+## 1. 目标与边界
 
-同一套 harness，**实惠模型用了能达标，强模型用了能更强**，而不是只给弱模型立规矩。
-经济上的落点是：大部分题交给实惠模型，难题和没把握的题升到强模型（§5 分流）。
+目标是让弱模型发挥好、强模型有更好发挥空间，不是弱模型靠硬规则追强模型。
+权限、来源身份与硬预算必须守住；对题意的判断可能错，不应按强弱标签分配修订权。
+本次只是撤掉第20号新增的档位差别，**旧 Controller 硬路由仍在，通用可修订路由尚未实现**。
+不根据模型名称自动选档，也不把两个 GLM 型号当已标定的强弱组合。
 
-由此推出一条硬约束：**任何 harness 改动都不得让强模型变差**（§4 闸门）。只帮弱模型、
-却压住强模型的改动，要么不合，要么只对 economy 档生效。
+## 2. 显式资源配置及实际消费者
 
-## 2. 三层
+`FWP_RESOURCE_PROFILE=standard|expanded` 对任何模型都可显式选用。无此配置时，旧
+`FWP_MODEL_PROFILE=standard|economy|frontier` 仅作资源兼容：前两者映射 standard，
+frontier 映射 expanded。旧名字不再决定策略，未消费的 escalation 身份已移除。
+新配置只要存在就优先；空值/未知值回退 standard，**不再落入旧 frontier 配置**。
 
-| 层 | 内容 | economy | frontier |
-|---|---|---|---|
-| 地板 | 硬路由、固定步数、低置信度先澄清、正则车道判定 | 严格执行 | 降为建议，模型可自行处理 |
-| 天花板 | 工具质量、证据干净程度、研究步数、证据长度 | 预算保守 | 预算放开 |
-| 核查 | 数字闸、证据边界、检索硬触发下限、单位换算代码化 | **全开** | **全开** |
+| 消费路径 | standard | expanded | 边界 |
+|---|---:|---:|---|
+| `agent_research.max_steps` 旧循环默认步数 | 4 | 8 | 显式 `ASK_AGENT_MAX_STEPS` 仍优先，不是 Workbench Episode |
+| `kb_rag.evidence_budget_for_query` 字符预算及封顶 | ×1.0 / 8000 | ×1.5 / 12000 | 只是预算；更多字符不保证更多有效证据或更好答案 |
+| `turn_controller` 语义策略 | 共用 | 共用 | 不消费资源 profile；仅撤销第20号新增分权 |
+| Workbench `episode_factory` / `ContinuousAgentEpisode` | research tier 决定 | research tier 决定 | 本次不新增 profile 接线，不扩大 Episode 预算或权限 |
 
-核查层永远不随档位放松：强模型同样会编数字、同样会漏单位，核查对它只有好处没有限制。
+资源差异也是实验变量。研究通用工具接口时固定资源，不把“给新版更多预算”当接口收益。
+本次不新增生产产品门；入口与引擎区分见 `docs/agent-product-door.md`。
 
-按这个分法回看 2026-10-01 的 19 个补丁：
+## 3. `harness_tier_gate.py` 现在只做局部比较
 
-* 两边都受益（天花板 / 核查）：工具说明瘦身（−32%）、单位类与字段单位（12、15）、
-  不检索车道审计（19：该查的题不再零检索）、内容正确性题集（10）。
-* 偏地板（对强模型可能多余）：一部分正则路由（16、17 的定义/分析判定）。这些在 frontier
-  档下的影响要用 §4 的闸门实测，不能凭感觉。
+名称与四个历史 CLI 参数保留以方便迁移，但 weak/strong 仅是配置 A/B 标签，不能认证强弱。
+输入仅支持非空 `{"cases":{"case-id":true}}` 或与当前 content_correctness 题集和计数一致的
+`total/passed/failures` 报告，两种格式不能混用。四臂必须同题号；布尔值不能由字符串/数字强制转换；重复 JSON 键拒收。
+分数报告不验证模型身份、同题同数据同预算、未见题、完整答案、来源保真、成本或延迟。
 
-## 3. 当前接线（`intelligence/services/model_profile.py`）
+| 输出 | 含义 | `check` 退出码 |
+|---|---|---:|
+| FAIL | 任一配置至少一题已见回退；净分提升不能抵消。也不自动证明回退因果 | 1 |
+| INCONCLUSIVE | 没见回退，可列出分数提升，但通用收益没有被本脚本验收 | 3 |
+| 输入错误 | 缺失/空/错误类型/重复键/题集不一致/summary 计数矛盾 | 2 |
 
-选档：环境变量 `FWP_MODEL_PROFILE=standard|economy|frontier`。未设置或取值不认识 → `standard`。
+**不再输出 PASS/WARN，不再把“没有提升”用 exit 0 放行。两边都涨分仍为 INCONCLUSIVE。**
+不建议“只给弱模型启用”绕过回退。`selftest` 的 exit 0 只表示软件自检通过，绝不是模型评测。
+这是故意收紧的退出码合同；调用方须区分 exit 1/2/3，不能把非 FAIL 都当通过。
 
-| 旋钮 | 接入点 | standard（= 引入前） | economy | frontier |
-|---|---|---|---|---|
-| 研究循环步数 | `agent_research.max_steps()` | 4 | 4 | 8 |
-| 证据字符预算倍率 | `kb_rag.evidence_budget_for_query()` | 1.0（封顶 8000） | 1.0 | 1.5（封顶 12000） |
-| 路由权威 | `turn_controller._apply_policy()` | binding | binding | advisory |
-
-* **优先级**：单项环境变量（如 `ASK_AGENT_MAX_STEPS`）> 档位 > 代码默认值；上限
-  `MAX_CONFIGURED_STEPS=24` 不变。产品级硬顶 `PRODUCT_MAX_TOOL_CALLS=60` / 600s 不受档位影响。
-* **advisory 的确切含义**：controller LLM 置信度 < 0.6 时，binding 一律转 clarify；advisory 下
-  - 题面自带落点 + 车道是 chat/meta/clarify → 升到**带检索**的 knowledge 车道，由模型自行消歧；
-  - 题面自带落点 + 车道是 research/workflow/knowledge → 按原车道走后续规则（不再被截成 clarify）；
-  - 题面含指示词却无题内先行词、或带「上次/刚才/你说的」等跨轮标记（「那这个呢」「它还能涨吗」）
-    → **照旧 clarify**：信息确实缺失，强模型也猜不出。
-  - 确定性规则产出的 clarify（不经 `_apply_policy`）不受影响；检索硬触发下限对所有档位生效。
-* **economy 目前数值与 standard 相同**：它是 §5 分流预留的身份（`escalation_eligible=True`），
-  具体数值等 2×2 实验数据校准，不拍脑袋。
-* 等价性由 `intelligence/tests/test_model_profile.py` 锁死：standard 的证据预算与引入前的
-  实现逐项比对；高置信度判断在 standard 与 frontier 下 `to_dict()` 完全一致。
-
-## 4. 评测闸门（每个 harness 改动都要过）
-
-```
-# 四次运行：{实惠模型, 强模型} × {改动前, 改动后}，同一题面
-python3 scripts/content_correctness_eval.py export --out /tmp/cc_prompts.jsonl
-# …各自产出 answers.jsonl 后：
-python3 scripts/content_correctness_eval.py score --answers wb.jsonl --json > wb.json   # 其余三份同理
-python3 scripts/harness_tier_gate.py check \
-    --weak-base wb.json --weak-new wn.json --strong-base sb.json --strong-new sn.json
+```bash
+python scripts/harness_tier_gate.py selftest
+python scripts/harness_tier_gate.py check \
+  --weak-base config-a-before.json --weak-new config-a-after.json \
+  --strong-base config-b-before.json --strong-new config-b-after.json --json
 ```
 
-* **逐题判定**，不只看通过率——「修好 2 题、弄坏 2 题」通过率不变，但强模型弄坏的那题就是
-  改动在限制强模型的证据。
-* FAIL：强模型有任何一题从过变不过，或弱模型净退步；WARN：强模型无退步、弱模型无净增益；
-  PASS：强模型无退步、弱模型净增益 > 0。退出码 FAIL=1，其余 0，输入错误 2。
-* 同时报「强弱差距」（同版 harness 下强模型领先多少题）：差距缩小 = 在补地板；强模型自己也涨 =
-  在抬天花板。两者都要，分开看。
-* 任何逐题判分的评测都能接入：转成 `{"cases": {"<id>": true|false}}` 即可（路由探针、2×2 实验
-  的 judge 结果都适用）。
-* 档位本身也要过这道闸：强模型 `FWP_MODEL_PROFILE=frontier` vs `standard` 跑一遍，确认放开
-  天花板确实没有让强模型变差，再考虑把 frontier 设为强模型的默认。
+## 4. 下一阶段才研究通用界面与行为收益
 
-## 5. 路线图（按依赖排序，均需 2×2 实验数据）
+- 一次只变一种通用接口：简短目录、按需完整 schema（参数说明）、可展开其它已授权能力。
+  不按题型永久藏工具，也不把更宽的语义权只交给所谓强模型。
+- 合并工具先证职责、来源、权限和返回合同重叠；历史空结果不能单独证明该删。
+- 同模型同题同数据、可比资源对照；保留未调试题和“信息已够无需额外工具”的控制题。
+- 记录渐进展开多出来的往返与费用；检查完整答案、来源保真、完成/恢复及同质量效率。
+  强侧不退步只是底线，不是收益。不能用全量绿、档位名或布尔分数替代行为验收。
+- 正式“模型 × 薄 ReAct / 完整 8792”四格先于240题扩量；缺的模型臂明示未验证。
 
-1. **用实验数据校准档位**：先用闸门比 frontier vs standard（强模型），再定 economy 是否要比
-   standard 更紧（更少步数换成本）。
-2. **路由从命令改成提示**（frontier）：把规则的判断与理由放进提示，模型可提出不同意见；当前
-   advisory 只覆盖「低置信度不强制澄清」这一处，是最小可验证的一步。
-3. **按难度分流**：economy 先答；核查不过（数字闸 / 证据边界 / judge 低分）或模型自报没把握
-   → 升到强模型重答。成本收益最大的一项，前提是核查信号足够准——这要先看实验里核查闸的
-   误报率。
-4. 更多旋钮按「闸门实测有收益」再加，不预先铺开（工具调用预算、synthesis 预算、子研究分支数）。
-
-## 6. 本次顺带发现（未修）
-
-* 「上次说的那个怎么样」被确定性规则判成 `comparison_analog` 研究车道（与档位无关，
-  standard 下同样如此）：「上次说的」触发了类比路由。应走跨轮回指 / 澄清。记入后续路由审计。
+本工程批次 R-20261002-12 真实模型请求帽0；下一接口候选与模型对照单独冻结。
+启动预测与结果分开保存：`docs/verification/2026-10-02-resource-profile-contract.md`、
+`docs/verification/2026-10-02-resource-profile-contract-results.md`。

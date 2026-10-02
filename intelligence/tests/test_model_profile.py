@@ -1,4 +1,4 @@
-"""模型档位（FWP_MODEL_PROFILE）：standard 与引入前逐项等价；frontier 只放开天花板。"""
+"""Resource presets preserve defaults and never select Controller semantic policy."""
 
 from __future__ import annotations
 
@@ -41,6 +41,7 @@ def _legacy_evidence_budget(query: str, *, mode: str = kb_rag.DEFAULT_RAG_MODE, 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(model_profile.ENV_MODEL_PROFILE, raising=False)
+    monkeypatch.delenv(model_profile.ENV_RESOURCE_PROFILE, raising=False)
     monkeypatch.delenv(agent_research.ENV_MAX_STEPS, raising=False)
 
 
@@ -68,22 +69,19 @@ def test_unknown_profile_falls_back_to_standard(monkeypatch: pytest.MonkeyPatch,
 
 def test_profile_name_is_case_and_space_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(model_profile.ENV_MODEL_PROFILE, "  Frontier ")
-    assert model_profile.active_profile_name() == "frontier"
+    assert model_profile.active_profile_name() == "expanded"
 
 
 def test_standard_profile_matches_legacy_constants() -> None:
     std = model_profile.PROFILES["standard"]
     assert std.agent_loop_max_steps == agent_research.DEFAULT_MAX_STEPS == 4
     assert std.evidence_char_scale == 1.0
-    assert std.route_authority == model_profile.ROUTE_BINDING
+    assert set(std.to_dict()) == {"name", "agent_loop_max_steps", "evidence_char_scale"}
 
 
-def test_economy_currently_equals_standard_knobs() -> None:
-    """economy 只是分流身份，数值待实验校准——防止有人悄悄改出差异。"""
-    std = model_profile.PROFILES["standard"].to_dict()
-    eco = model_profile.PROFILES["economy"].to_dict()
-    for key in ("agent_loop_max_steps", "evidence_char_scale", "route_authority"):
-        assert eco[key] == std[key]
+def test_legacy_economy_is_resource_only_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(model_profile.ENV_MODEL_PROFILE, "economy")
+    assert model_profile.active_profile().to_dict() == model_profile.PROFILES["standard"].to_dict()
 
 
 # ---- 研究循环步数 -------------------------------------------------------------
@@ -143,14 +141,14 @@ def test_standard_low_confidence_still_clarifies() -> None:
     assert decision.needs_retrieval is False
 
 
-def test_frontier_low_confidence_self_contained_goes_knowledge_with_retrieval(
+def test_legacy_frontier_no_longer_promotes_low_confidence_to_retrieval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(model_profile.ENV_MODEL_PROFILE, "frontier")
     decision = decide_turn("随便聊聊未来", llm_complete=_llm("chat", 0.42))
-    assert decision.lane == "knowledge"
-    assert decision.needs_retrieval is True
-    assert "advisory" in decision.reason
+    assert decision.lane == "clarify"
+    assert decision.needs_retrieval is False
+    assert "advisory" not in decision.reason
 
 
 @pytest.mark.parametrize("query", ["那这个呢", "它还能涨吗", "那它呢"])
@@ -179,3 +177,43 @@ def test_high_confidence_decisions_identical_across_profiles(
     baseline = decide_turn(query, llm_complete=_llm(route_id, 0.9)).to_dict()
     monkeypatch.setenv(model_profile.ENV_MODEL_PROFILE, "frontier")
     assert decide_turn(query, llm_complete=_llm(route_id, 0.9)).to_dict() == baseline
+
+
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+@pytest.mark.parametrize("model", ["glm-5.3", "glm-5.3-flash", "unranked-model"])
+def test_resource_selection_does_not_depend_on_model_identity(monkeypatch, profile, model):
+    monkeypatch.setenv("LLM_MODEL", model)
+    monkeypatch.setenv(model_profile.ENV_RESOURCE_PROFILE, profile)
+    assert model_profile.active_profile_name() == profile
+
+
+@pytest.mark.parametrize("env,profile", [
+    ("FWP_RESOURCE_PROFILE", "standard"), ("FWP_RESOURCE_PROFILE", "expanded"),
+    ("FWP_MODEL_PROFILE", "economy"), ("FWP_MODEL_PROFILE", "frontier"),
+])
+@pytest.mark.parametrize("confidence", [0.42, 0.9])
+@pytest.mark.parametrize("query,route_id", [
+    ("随便聊聊未来", "chat"), ("请解释这个概念", "concept_definition"),
+    ("那这个呢", "stock_deep_dive"), ("今天大盘咋样", "market_watch"),
+])
+def test_resource_settings_never_change_controller_decision(monkeypatch, env, profile, confidence, query, route_id):
+    baseline = decide_turn(query, llm_complete=_llm(route_id, confidence)).to_dict()
+    monkeypatch.setenv(env, profile)
+    assert decide_turn(query, llm_complete=_llm(route_id, confidence)).to_dict() == baseline
+
+
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_episode_budget_remains_explicit_tier_not_legacy_profile(monkeypatch, profile):
+    from intelligence.services.episode_factory import build_episode_context
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.tests.test_agent_episode import _frame
+
+    baseline = build_episode_context(_frame(), task_id="resource-baseline-" + profile, capabilities=("market_data",),
+                                     tier="standard", today="2026-10-02", latest_data_date="2026-09-30")
+    monkeypatch.setenv(model_profile.ENV_RESOURCE_PROFILE, profile)
+    context = build_episode_context(_frame(), task_id="resource-selected-" + profile, capabilities=("market_data",),
+                                    tier="standard", today="2026-10-02", latest_data_date="2026-09-30")
+    assert context.policy.max_steps == 6
+    assert ContinuousAgentEpisode._remaining_tool_slots(context=context, tool_calls=0) == 6
+    assert ContinuousAgentEpisode._model_round_budget(context) == 8
+    assert context.contract.allowed_capabilities == baseline.contract.allowed_capabilities
