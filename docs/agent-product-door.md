@@ -68,6 +68,12 @@ KB字符预算；不依模型名字选档，不控制Controller语义策略或�
 资源、兼容与局部比较器退出码合同见 [资源预设说明](runtime/model-tier-harness.md)。
 布尔分数比较不能批准通用收益，本候选未合入或部署。
 
+### 评测专用目录视图（非生产入口）
+
+`intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，
+默认关闭，生产factory未接入；不删工具、不改权限或预算。启用必须保存逐请求原始/实际输入收据，
+旧历史对账不等于投影后实际发包对账。用途及边界见[工程结果](verification/2026-10-02-catalog-request-view-results.md)。
+
 ### 夜跑日报生成（代码与数据分根）
 
 收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
