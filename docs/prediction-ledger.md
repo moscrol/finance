@@ -29,6 +29,7 @@
 
 | ID | 来源 | fix_type | verification_prediction | 怎么验 | outcome |
 |---|---|---|---|---|---|
+| `R-20261002-13` | 用户令继续；通用目录去重单因素，非语义坏例修补 | `HARNESS_FIX` | 同请求完整工具说明与参数逐项相符才缩目录；原历史/工具/权限/预算不变；逐请求留原始和实际投影收据 | 评测专用客户端、先RED后GREEN、原型及真实loop接口检查；模型帽0；共享环境漂移保留 | `confirmed`（仅工程：23RED/15P→271P、6/6变异；0模型，非收益/全仓验收；见 `docs/verification/2026-10-02-catalog-request-view-results.md`） |
 | `R-20261001-01` | **溯源：非标准四阶段分诊；事后登记，非事前预注册**——10-01 审查收口：skill 视图修复；见 `docs/handoffs/2026-10-01-qc-closeout-progress.md` | `ROUTING_FIX` | 启用后 5 个新会话分别问 UP 线、均线、MA10、偏离度、回踩，均加载 stock-technicals，0 次加载三个 superseded skill | 结构测试 test_skill_view_supersession + 5 次真实 skill 加载记录；未启用不判 confirmed | `pending`（尚未完成相应验收/启用闭环） |
 | `R-20261001-02` | **溯源：非标准四阶段分诊；事后登记，非事前预注册**——10-01 审查收口：429 有界重试；见 `docs/handoffs/2026-10-01-qc-closeout-progress.md` | `HARNESS_FIX` | 启用后 14 天 provider_rate_limited 失败数低于此前 14 天的一半，deadline_exhausted 最多增 2；基线限流不足 4 次则样本不足，不确认 | 对齐运行量与供应商条件后核对失败分类；响应头冷却秒数与等待收据一致；reset_seconds 正文支持不在此修复内 | `pending`（尚未完成相应验收/启用闭环） |
 | `R-20261001-03` | **溯源：非标准四阶段分诊；事后登记，非事前预注册**——10-01 审查收口：模型准入检查；见 `docs/handoffs/2026-10-01-qc-closeout-progress.md` | `EVAL_ONLY` | 新实验验收每条读数都附实际模型证据与准入结果；错配和缺证据不得进入有效样本 | check_model_admission + analyze --plan 重算；薄驱动两模型真实准入已通过，完整产品四格未跑 | `pending`（尚未完成相应验收/启用闭环） |

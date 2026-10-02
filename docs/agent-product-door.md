@@ -99,6 +99,12 @@ Controller 首次调用与一次纠错共享剩余研究截止；过期不再发
 旧工程候选的财务/消息/历史答卷仍有失败；本轮接续尚未合并或部署，
 范围和验收见[接续计划](superpowers/plans/2026-09-30-answer-quality-closeout.md)。结构测试通过不等于回答质量通过。
 
+### 评测专用目录视图（非生产入口）
+
+`intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，
+默认关闭，生产factory未接入；不删工具、不改权限或预算。启用必须保存逐请求原始/实际输入收据，
+旧历史对账不等于投影后实际发包对账。用途及边界见[工程结果](verification/2026-10-02-catalog-request-view-results.md)。
+
 ### 夜跑日报生成（代码与数据分根）
 
 收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
