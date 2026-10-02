@@ -84,9 +84,33 @@ tests/test_market_snapshot_contract.py
 tests/test_market_snapshot_reconcile.py
 ```
 
-## 4. 后续最终候选的独立门禁产物
+## 4. 第一轮最终候选发现的夹具与时限问题
 
-外置产物根预留为 `/tmp/arena-harness-validation-1002/final-candidate/`。后续整仓 Python/Ruff、前端/E2E、registry 与刷新结构图都必须绑定实际受测的最终候选 SHA、干净树及专用日志/收据。本文的源码 focused 读数不自动升级为后续文档提交的 full 读数。
+受测候选 `f4f7b2c1b315077da16cc31cb8bb0e6131d8524e` 的整仓完整终态为
+**19,727 passed / 4 failed / 99 skipped / 2 xfailed / 0 error**，干净树及
+full-scope/revision 收据校验通过；这是可信的红集，不是发布绿。
+
+- 三条 `conformance_snapshot` 失败已复现为 3 failed / 25 passed：正向夹具请求
+  2026-07-16，却未固定采集时间，故正确触发历史现货保护。为共享场景驱动及
+  未配置 runner 案例补显式 `CURRENT_NOW`，并在该测试目录冻结共享日历时钟；
+  不改生产保护、断言、声明表或 ratchet。
+- 第四条 `tests/test_pi_review_repair.py::test_real_author_checks_execute_in_sandbox[C7-spec]`
+  是 120 秒子命令时限超时。相同 clean SHA、锁版本工具链单独复验为
+  **1 passed in 21.71s**；不扩大时限，不把单独通过抹成旧 full 已通过。
+- 修正时钟后的联合迭代为 **320 passed in 6.47s**；XML：
+  `/tmp/arena-harness-validation-1002/core-conformance-green.xml`。这次受测树包含
+  未提交的 fixture-only 改动，仍不是最终 SHA 的 full 证据。
+- 同一 f4 候选 frontend 六项全部退出 0、身份稳定：8 文件组件 125 passed；
+  E2E 34 passed / 2 skipped；registry 五项全部通过；结构图 36,963 nodes、
+  built_at_sha=f4f7b2c1…、wiki_generated=false。所有原始证据原地保留在
+  `/tmp/arena-harness-validation-1002/final-candidate/`，不移动或覆盖绝对日志路径。
+
+远端期间曾返回 Cloudflare 1033。恢复后先核对 HEAD/clean/job 终态才继续；
+没有盲目重放写操作，没有改动生产、业务库或共享解释器。
+
+## 5. 后续最终候选的独立门禁产物
+
+新一轮外置产物根为 `/tmp/arena-harness-validation-1002/final-candidate-v2/`。后续整仓 Python/Ruff、前端/E2E、registry 与刷新结构图都必须绑定实际受测的最终候选 SHA、干净树及专用日志/收据。本文的源码 focused 读数不自动升级为后续文档提交的 full 读数。
 
 - Python 使用 `scripts/run_main_gate.sh`，并用 `scripts/check_test_receipt.py --require-full-scope --expect-revision` 校验本轮专用收据，不回读共享 latest。
 - 前端使用 `scripts/run_frontend_gate.py --expect-revision`；独立端口、测试用户态、合成市场库与外置 deploy ledger，不打生产服务。

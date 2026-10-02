@@ -17,14 +17,14 @@
 
 ## 已验证
 
-- 干净源码 `1f8a8efb3`：锁版本本树 Python，13 文件 focused **292 passed**；全仓 Python Ruff 与两次提交 hooks 通过。
+- 干净源码 `1f8a8efb3`：锁版本本树 Python，focused **292 passed**；补 conformance 时钟后迭代 **320 passed**，全仓 Ruff/hooks 通过。
 - 本树新建独立 Python 环境，doctor 含 frontend=ready、无依赖漂移；隔离 Node 22.23.3 / pnpm 10.12.1，不升级共享环境。
 - 有效 RED：证据 3 failed/1 passed；快照 15 failed/1 passed。修复后的完整/部分投递、未投递、拒收/丢弃、隔离及日期边界已回归。
 - 完整证据、收据与命令见 `docs/verification/2026-10-02-harness-takeover.md`。
 
 ## 门禁与未覆盖
 
-- 最终候选门禁的动态结果以 `/tmp/arena-harness-validation-1002/final-candidate/` 专用产物及其 revision/clean/scope 为准；本文不声明全量绿。原 970/1 xfail 仅属 `cf17788f`。
+- 最终候选门禁的动态结果以 `/tmp/arena-harness-validation-1002/final-candidate-v2/` 专用产物及其 revision/clean/scope 为准；本文不声明全量绿。旧 f4 full=19727 passed/4 failed/99 skipped/2 xfailed；不放行。
 - 尚无真实模型六条、多轮净收益、2×2/留出题和独立 reviewer 证据；不能据工程绿启用实验能力。GitHub checks 尚未执行，生产健康未重新验收。
 
 ## 下一步与坑
