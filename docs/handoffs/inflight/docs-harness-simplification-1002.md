@@ -13,3 +13,5 @@
 reading_baseline已有“可跳过/证据优先”声明，勿重复修复或全删用户确认领域知识。Knevo规则数及内部实现未核；R19超时原因仍未证。
 
 私有探针 ~/.finance-runtime/harness-simplification-20261002/authority-probe.json；authority_probe.py禁止socket/子进程、LLM固定stub，0禁止项触发。source_revision=3b78fda25。产品实现与真实效果均未完成，未合并部署。
+
+用户已选择整体架构范围，新增v0.1 Draft spec：docs/superpowers/specs/2026-10-02-model-owned-harness-spec.md。覆盖语义权、按需工具/方法、执行收尾、反馈及P0–P4分阶段迁移。此为设计提案，未实施；新增模型0。下一步先评审整体契约，再明确P1切片入口与版本更新方案，不把整份架构一次重写。
