@@ -144,6 +144,107 @@ def test_cli_score_counts_missing_answers_as_failures(tmp_path: Path) -> None:
     assert report["failures"] == {"cc-tp-05": ["未作答"]}
 
 
+def test_cli_cases_output_is_explicit_and_preserves_missing_answers(tmp_path: Path, capsys) -> None:
+    from scripts import content_correctness_eval as cli, harness_tier_gate as gate
+
+    answers = tmp_path / "answers.jsonl"
+    fixtures = cc.load_fixtures()
+    missing = next(iter(fixtures))
+    answers.write_text("".join(
+        json.dumps({"case_id": cid, "answer": fx["gold"][0]}, ensure_ascii=False) + "\n"
+        for cid, fx in fixtures.items() if cid != missing
+    ), encoding="utf-8")
+    assert cli.main(["score", "--answers", str(answers), "--cases-json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert set(report) == {"cases"}
+    assert set(report["cases"]) == set(fixtures)
+    assert report["cases"][missing] is False
+    assert all(value is True for key, value in report["cases"].items() if key != missing)
+    outcomes = gate.case_outcomes(report)
+    assert gate.gate(outcomes, outcomes, outcomes, outcomes)["verdict"] == "INCONCLUSIVE"
+
+    # Preserve the original human/summary consumers; do not silently change --json.
+    assert cli.main(["score", "--answers", str(answers), "--json"]) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert "cases" not in summary
+    assert summary["passed"] == len(fixtures) - 1
+    assert summary["failures"] == {missing: ["未作答"]}
+
+
+@pytest.mark.parametrize("rows,reason", [
+    ([{"case_id": "foreign-id", "answer": "答案"}], "未知题号"),
+    ([{"case_id": "cc-tp-01", "answer": "错答"},
+      {"case_id": "cc-tp-01", "answer": "另答"}], "重复题号"),
+    ([{"case_id": "cc-tp-01", "answer": True}], "字符串"),
+    ([{"case_id": "", "answer": "答案"}], "题号"),
+    ([{"answer": "答案"}], "题号"),
+    ([[]], "对象"),
+])
+def test_cli_cases_rejects_ambiguous_answer_rows(tmp_path: Path, capsys, rows, reason: str) -> None:
+    from scripts import content_correctness_eval as cli
+
+    answers = tmp_path / "answers.jsonl"
+    answers.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    assert cli.main(["score", "--answers", str(answers), "--cases-json"]) == 2
+    output = capsys.readouterr()
+    assert not output.out
+    assert reason in output.err
+
+
+@pytest.mark.parametrize("text", [
+    '{"case_id":"cc-tp-01","answer":"错答","answer":"另答"}',
+    '{broken json}',
+])
+def test_cli_cases_rejects_duplicate_keys_and_invalid_json(tmp_path: Path, capsys, text: str) -> None:
+    from scripts import content_correctness_eval as cli
+
+    answers = tmp_path / "answers.jsonl"
+    answers.write_text(text, encoding="utf-8")
+    assert cli.main(["score", "--answers", str(answers), "--cases-json"]) == 2
+    output = capsys.readouterr()
+    assert not output.out
+    assert "输入错误" in output.err
+
+
+@pytest.mark.parametrize("kind", ["all_gold", "wrong_answer", "empty"])
+def test_cli_cases_scores_each_answer_instead_of_inventing_passes(tmp_path: Path, capsys, kind: str) -> None:
+    from scripts import content_correctness_eval as cli
+
+    fixtures = cc.load_fixtures()
+    rows = {cid: fx["gold"][0] for cid, fx in fixtures.items()} if kind != "empty" else {}
+    failed = next(iter(fixtures))
+    if kind == "wrong_answer":
+        rows[failed] = fixtures[failed]["bad"][0][0]
+    answers = tmp_path / "answers.jsonl"
+    answers.write_text("".join(
+        json.dumps({"case_id": cid, "answer": answer}) + "\n" for cid, answer in rows.items()
+    ), encoding="utf-8")
+    assert cli.main(["score", "--answers", str(answers), "--cases-json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report == {"cases": {
+        cid: kind != "empty" and not (kind == "wrong_answer" and cid == failed) for cid in fixtures
+    }}
+
+
+def test_cli_summary_still_reports_unknown_answer_ids(tmp_path: Path, capsys) -> None:
+    from scripts import content_correctness_eval as cli
+
+    answers = tmp_path / "answers.jsonl"
+    answers.write_text('{"case_id":"foreign-id","answer":"答案"}\n', encoding="utf-8")
+    assert cli.main(["score", "--answers", str(answers), "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["unknown_case_ids"] == ["foreign-id"]
+    assert report["passed"] == 0
+
+
+def test_cli_summary_and_cases_formats_are_mutually_exclusive(tmp_path: Path) -> None:
+    from scripts import content_correctness_eval as cli
+
+    with pytest.raises(SystemExit) as error:
+        cli.main(["score", "--answers", str(tmp_path / "unused"), "--json", "--cases-json"])
+    assert error.value.code == 2
+
+
 # ---------------------------------------------------------------------------
 # 单位与量纲（第四类，10-01 后补）
 # ---------------------------------------------------------------------------

@@ -3,9 +3,11 @@
 
 Historical CLI labels --weak/--strong mean configuration A/B, not verified
 model strength. Four reports must have identical nonempty case IDs and exact
-boolean outcomes. Accepted input: {"cases": {"id": true|false}}, or a consistent
-content_correctness score summary. Neither format establishes model identity,
-holdout independence, equal budgets, costs, or complete-answer faithfulness.
+boolean outcomes. Only explicit {"cases": {"id": true|false}} input is accepted.
+Summary counts erase passed-case IDs and cannot establish paired identity;
+regenerate outcomes from original answers via content_correctness_eval score
+--cases-json. Explicit IDs still do not establish model identity, unchanged
+question content, holdout independence, equal budgets, costs, or answer faithfulness.
 
 Any observed per-case regression -> FAIL (exit 1, not a causal conclusion).
 Otherwise -> INCONCLUSIVE (exit 3), including both configurations improving.
@@ -42,23 +44,14 @@ def _validated_cases(value: object, *, label: str) -> dict[str, bool]:
 def case_outcomes(report: dict[str, Any], *, label: str = "report") -> dict[str, bool]:
     if not isinstance(report, dict):
         raise GateInputError(f"{label}: 报告必须是JSON对象")
-    if "cases" in report:
-        if any(key in report for key in ("total", "passed", "failures")):
-            raise GateInputError(f"{label}: 不能混用cases和summary两种格式，否则可能掩盖矛盾计数")
-        return _validated_cases(report["cases"], label=label)
-    if "failures" in report and "total" in report:
-        from intelligence.eval import content_correctness as cc  # noqa: PLC0415
-
-        ids = [c.id for c in cc.load_cases()]
-        if type(report["total"]) is not int or report["total"] != len(ids):
-            raise GateInputError(f"{label}: total与当前题集不一致；不能补猜缺失题目")
-        failures = report["failures"]
-        if not isinstance(failures, dict) or not set(failures) <= set(ids):
-            raise GateInputError(f"{label}: failures必须为已知题号对象")
-        if type(report.get("passed")) is not int or report["passed"] != len(ids) - len(failures):
-            raise GateInputError(f"{label}: passed/total/failures读数不一致")
-        return _validated_cases({cid: cid not in failures for cid in ids}, label=label)
-    raise GateInputError(f"{label}: 不是支持的逐题分数报告")
+    if any(key in report for key in ("total", "passed", "failures", "by_class", "pass_rate")):
+        raise GateInputError(
+            f"{label}: summary或混合报告不能证明逐题身份；请从原答卷生成显式cases"
+            "（content_correctness_eval.py score --cases-json），不能按当前题集补猜通过题"
+        )
+    if "cases" not in report:
+        raise GateInputError(f"{label}: 缺少显式cases逐题结果")
+    return _validated_cases(report["cases"], label=label)
 
 
 def compare(base: dict[str, bool], new: dict[str, bool], *, label: str) -> dict[str, Any]:

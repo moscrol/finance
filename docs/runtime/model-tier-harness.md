@@ -30,21 +30,32 @@ frontier 映射 expanded。旧名字不再决定策略，未消费的 escalation
 ## 3. `harness_tier_gate.py` 现在只做局部比较
 
 名称与四个历史 CLI 参数保留以方便迁移，但 weak/strong 仅是配置 A/B 标签，不能认证强弱。
-输入仅支持非空 `{"cases":{"case-id":true}}` 或与当前 content_correctness 题集和计数一致的
-`total/passed/failures` 报告，两种格式不能混用。四臂必须同题号；布尔值不能由字符串/数字强制转换；重复 JSON 键拒收。
-分数报告不验证模型身份、同题同数据同预算、未见题、完整答案、来源保真、成本或延迟。
+输入仅支持显式非空 `{"cases":{"case-id":true}}`。旧 summary 抹掉了通过题号，
+同题数不能证明同题集；即使计数自洽也拒收，不再按当前题集补猜。带
+`total/passed/failures/by_class/pass_rate` 的汇总或混合报告一律报输入错误。
+四臂必须有同一组显式题号；布尔值不能由字符串/数字强制转换；重复 JSON 键拒收。
+题号相同仍不证明题面内容、模型身份、同数据同预算、未见题、完整答案、来源保真、成本或延迟。
+
+迁移须从原始逐题答卷重新判分：`content_correctness_eval.py score --cases-json`。
+漏答仍记 false；逐题导出拒绝陌生/重复/空题号、非对象行、非字符串答案、重复 JSON 键
+或坏 JSON，exit 2 且不输出报告，避免把身份丢失挪到导出端。空答卷保留全题 false。
+旧 `--json` 汇总展示不变，仍可展示 `unknown_case_ids`，但不是比较器输入。
+没有原答卷/逐题记录时保留缺证据，不能把旧汇总自动转换成“可信配对”，
+也不因格式迁移重发真实模型请求。
 
 | 输出 | 含义 | `check` 退出码 |
 |---|---|---:|
 | FAIL | 任一配置至少一题已见回退；净分提升不能抵消。也不自动证明回退因果 | 1 |
 | INCONCLUSIVE | 没见回退，可列出分数提升，但通用收益没有被本脚本验收 | 3 |
-| 输入错误 | 缺失/空/错误类型/重复键/题集不一致/summary 计数矛盾 | 2 |
+| 输入错误 | 缺失/空/错误类型/重复键/题号不一致/任何 summary 或混合报告 | 2 |
 
 **不再输出 PASS/WARN，不再把“没有提升”用 exit 0 放行。两边都涨分仍为 INCONCLUSIVE。**
 不建议“只给弱模型启用”绕过回退。`selftest` 的 exit 0 只表示软件自检通过，绝不是模型评测。
 这是故意收紧的退出码合同；调用方须区分 exit 1/2/3，不能把非 FAIL 都当通过。
 
 ```bash
+# 用原答卷生成一臂的显式结果；其余三臂同样处理，保持题集版本一致。
+python scripts/content_correctness_eval.py score --answers answers-a-before.jsonl --cases-json > config-a-before.json
 python scripts/harness_tier_gate.py selftest
 python scripts/harness_tier_gate.py check \
   --weak-base config-a-before.json --weak-new config-a-after.json \
