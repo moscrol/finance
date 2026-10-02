@@ -5,7 +5,7 @@
 ## 当前状态
 
 - 自有树 `/tmp/harness-opt/tmp/arena-harness-release-1002`，分支 `fix/harness-release-1002-takeover`。
-- 候选 `2aea7c27ed469530bc73fb232e65830acc754647`，最后核对 clean；起点 `e25381b24`。
+- 当前 HEAD `d58d7dcd30e83d704f3e3fe697734c1203193515`（docs-only，clean）；代码候选 `2aea7c27ed469530bc73fb232e65830acc754647`。起点 `e25381b24`。
 - `beff372c6` 修正子研究实际交付后的阅读覆盖；`1f8a8efb3` 修正快照日期身份；`2aea7c27` 只冻结 conformance 正向夹具时钟。
 - 原发布树 `codex/harness-release-1002@e25381b24` 与三个原有未跟踪文档未改；无 main 合入、生产部署或业务库写入。
 
@@ -15,7 +15,7 @@
 
 ## 验证
 
-- Python 全量：**19,731 passed / 0 failed / 0 error / 99 skipped / 2 xfailed**，collected=19,832；full-scope/revision receipt 与全仓 Ruff 通过。
+- 最终 HEAD 全量：**19,752 passed / 0 failed / 0 error / 78 skipped / 2 xfailed**，collected=19,832；full-scope/revision receipt 与全仓 Ruff 通过。
 - 前端六项均通过：组件 125 passed；E2E 34 passed / 2 skipped；registry 五项通过；code-map 36,963 nodes、no wiki，不宣称架构召回完整。
 - 独立规格审查 `SPEC_VERDICT: PASS`、代码质量审查 `CODE_QUALITY_VERDICT: PASS`，均无 blocker。质量审查的 freshness 旁路口径、错误文案、accumulator 可选参数、时区、年度表风险列为后续非阻断项。
 - 隔离 sidecar readiness 通过：只读 DB、候选 sync 生成 requested=2026-10-02、served/source=2026-09-30、provider=duckdb_latest、historical；sidecar 已停止。
@@ -23,4 +23,4 @@
 
 ## 下一步
 
-本次 handoff 更新会产生 docs-only SHA；在新 SHA 上重跑等价 Python/full-scope、frontend/registry/map 并绑定 receipts，随后按用户授权 push 分支、开 GitHub PR。required checks 通过前不 merge；用户确认前不切 8792/生产。实验能力默认关闭。
+最终 HEAD 的 Python receipt=`gate-NOXB0zmf/pytest.json`、frontend/registry/map 均已按 d58 绑定；可按用户授权 push 分支、开 GitHub PR。required checks 通过前不 merge；用户确认前不切 8792/生产。实验能力默认关闭。
