@@ -17,5 +17,5 @@ clean391P；7变异6杀1存活。f4c CI36910144597/36910144590五绿，19276P167
 已用原生EvidenceReadCoverage零模型影子复算区间准确，未接模型/产品。下一候选是有界交付区间反馈，不加金融词规则、不强制读全；须单因素对照及无需补读控制，不覆盖11失败。
 
 ## 文件/门槛
-权威docs/verification/2026-10-02-evidence-reread-real-materials.md。10/11根evidence-reread-real-glm、evidence-reread-real-flash，共享evidence-reread-real-sources（均-20261002）：原HTML/冻结/所有回包、独立acceptance、integrity、model-admission、隔离后检及coverage-gap/feedback-shadow齐，raw summary不回填。唯一启动/完成与20物理记录齐，未重开。
+结案docs/verification/2026-10-02-evidence-reread-real-results.md；预注册real-materials逐字保留。10/11根evidence-reread-real-glm、evidence-reread-real-flash，共享evidence-reread-real-sources（均-20261002）：原HTML/冻结/所有回包、独立acceptance、integrity、model-admission、隔离后检及coverage-gap/feedback-shadow齐，raw summary不回填。唯一启动/完成与20物理记录齐，未重开。
 10/11前后main/生产版本及模型/队列7521/hash/DB0444/hash一致。R18失败、R26仅接口、R25 off门、R19 955+11/旧exit2保留。04全文0/4，05焦点非全篇。真实用户/ASGI/完整review-repair、独立强模型、正式四格、PR8均未过；四格先于240。
