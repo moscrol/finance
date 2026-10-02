@@ -1,22 +1,21 @@
 # semantic-consistency / 2026-10-02
 
-## 目标/授权
-纠偏62498cc2e02b：通用harness放大弱强模型，不追坏例堆硬路由；固定逐句默认计划撤回。权威harness-goal-correction报告，评论5937624672勿重复。持续GLM开放授权preservation_e2e含必要修复；分批预注册、保留全部失败、不选优。其它模型未自动授权。PR14 draft，默认off，不合main/部署/改生产模型。今日01~09 closed；累计76。10/11已占号、未启动。
+## 目标与授权
+纠偏62498cc2e02b：通用harness放大弱强模型，不追坏例堆路由；固定逐句默认计划撤回。持续GLM开放授权preservation_e2e含必要修复；分批预注册、留全部失败、不选优。其它模型未授权。PR14 draft，默认off，不合main/部署/改生产模型。01~11均closed，累计96物理；无模型批在跑，12未占号。
 
-## 实现/工程
-实现f4c9a5dc66bf4a09c27b18dc29b0714a49087c03：evidence_read仅补本Episode已交付title/detail，flag+显式cap，不改地板/ASGI默认。新字符非新来源；跨Episode不共用E1缓存。E8/E9尾缺非旧语义错因证明。
-clean391P/14.80秒，receipt20261001T185257Z-f4c9a5dc-73036e90e007已验；7变异6杀1存活。完整CI36910144597/36910144590五绿，19276P167S2xfail/1579.59秒，checkout等树非合并；证明evidence-reread-candidate-20261002/ci-f4c。文档后继CI另查，不假称全绿。
+## 实现与工程
+产品f4c9a5dc6：evidence_read补本Episode已交付title/detail，flag+显式cap，不改地板/ASGI默认。新字符非新来源，E1不串缓存。
+clean391P；7变异6杀1存活。f4c CI36910144597/36910144590五绿，19276P167S2xfail，等树非合并。f9/019e/af8后继CI成功；新文档另查。
 
-## 06~09保留
-06/07各1HTTP401、0准入，inconclusive/身份2。撤回“选错真实key”：私有shlex未展开shell；原生两引用相同。08改同一bash入口。
-08 glm5.3：11请求，B恢复2/2、全文1/2，refuted；“交付与验收均未发生”中未交付无据，不加专门规则。B32082/361 token、34.04秒；A13319/548、16.34秒。
-09 flash：10请求，B恢复/全文2/2，限定confirmed；A测量范围歧义、日期遗漏另记。B26118/426、31.64秒；A13319/580、22.83秒。不抵消08，非净收益。两批身份0、low未验证；独立acceptance，raw summary不回填。审计订正已留档。
-结案af8cd1ea8已push，PR14评论5938954693已发。旧报告docs/verification/2026-10-02-evidence-reread-candidate.md。
+## 已关闭结果
+06/07各1HTTP401/0准入，inconclusive，私有shlex未展开shell，非证实key过期。08原生入口后11请求：B恢复2/2、全文1/2，refuted。09 flash10请求：B全文2/2，限定confirmed，非净收益。low未验证。旧报告evidence-reread-candidate，评论5938954693已发。
+10 glm5.3：10请求/10准入，真实材料离线回放限定confirmed。长题补读2次，全文保真；短题B零补读/2请求，与A相同。总B27767/475 token、29.18秒；A13783/519、17.31秒。短题菜单仍多652输入token。
+11 flash：10请求/10准入，refuted。长题核心答对却新增“港元貸款僅升0.4%”，原件0.4%是在香港使用贷款，不是币种港元贷款；短题B额外补读一次，3请求对A2。B26440/631、44.95秒；A13771/558、24.28秒。B全文1/2，low仍未验证。
 
-## 10/11当前
-权威docs/verification/2026-10-02-evidence-reread-real-materials.md。新金管局真实正文离线回放，不是真实用户/ASGI或独立盲测。长文问贷存比率/原因；无需补读对照问债券编号/第二付息日。长文B恢复+全文保真，短题B全文完整/零补读/请求不多于A，联合验收；菜单token开销仍计。
-根evidence-reread-real-glm、evidence-reread-real-flash、共享evidence-reread-real-sources（均-20261002）。分别glm5.3/flash，19项零模型预检各过；同题次序A→B/B→A，每批≤24/500秒，每案≤6/120秒/4工具，单次50秒。提交预注册→共同freeze→唯一后台pair-coordinate；R10异常则11不启动，语义失败不取消11。R10基数76、R11=76+10实耗。还没启动，勿误称结果。
+## 下一机制（尚未实施）
+实际初始交付[0,239)，两配置均首读[300,596)，留下61字符[239,300)；该段含0.4%的指标主语。10再读[0,300)补齐并保留原口径，11未补齐而换了口径。核对整份HTTP；next_offset=null仅当前页到末尾，不证明整篇已交付。不是n=1跨配置的语义因果证明。
+已用原生EvidenceReadCoverage零模型影子复算区间准确，未接模型/产品。下一候选是有界交付区间反馈，不加金融词规则、不强制读全；须单因素对照及无需补读控制，不覆盖11失败。
 
-## 门槛/隔离
-09前后main3a2718c6、生产healthy@2c394978/match=true及模型、队列7521/hash、DB0444/hash一致；10/11另做前后检。
-04行为refuted/全文0/4；05焦点限定非全篇。R18失败、R26仅接口、R25 off门、R19 955+11/旧exit2保留。真实任务/ASGI/完整review-repair、独立强模型、正式四格、PR8未过；四格先于240。
+## 文件/门槛
+权威docs/verification/2026-10-02-evidence-reread-real-materials.md。10/11根evidence-reread-real-glm、evidence-reread-real-flash，共享evidence-reread-real-sources（均-20261002）：原HTML/冻结/所有回包、独立acceptance、integrity、model-admission、隔离后检及coverage-gap/feedback-shadow齐，raw summary不回填。唯一启动/完成与20物理记录齐，未重开。
+10/11前后main/生产版本及模型/队列7521/hash/DB0444/hash一致。R18失败、R26仅接口、R25 off门、R19 955+11/旧exit2保留。04全文0/4，05焦点非全篇。真实用户/ASGI/完整review-repair、独立强模型、正式四格、PR8均未过；四格先于240。
