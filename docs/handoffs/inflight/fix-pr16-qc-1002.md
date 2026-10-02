@@ -1,39 +1,37 @@
-# PR16 质检返修在途
+# PR16返修 / Harness方向复核在途
 
 ## 这个分支做什么
-基于75af45fc0隔离修比较器F1/F2，单独定位E2E追问失败；不改owner树。
+隔离修比较器，独立复核发布候选；不抢发布/四格owner代码面，不发模型。
 
 ## 决策与被否方案
 | 选择 | 否掉 | 原因 |
 |---|---|---|
-| 只收显式cases | 修补summary/补猜题号 | 汇总丢失通过题身份 |
-| 新--cases-json并拒坏答卷 | 改旧--json或重发模型 | 保留汇总消费者，确定性迁移 |
-| E2E只定位 | 加公司名/松断言/只补别名洗绿 | 结构通过不证风险与验证答对 |
-展开见 `../2026-10-02-pr16-qc-fix.md`。
+| 显式cases | summary补猜身份 | 汇总有损 |
+| 固定候选+同义追问 | 原句E2E绿即已修 | 同义句仍缺口 |
+| 输入/工具增强 | 词表特判/松断言 | 保模型空间和事实下限 |
+展开见 `../2026-10-02-harness-alignment-review.md`；旧返修见 `../2026-10-02-pr16-qc-fix.md`。
 
 ## 当前状态
-比较器f1e90ae3a、独立诊断a68f48bfb已本地提交；未推送/合并/部署。
-F1/F2已修，E2E未修。原75af CI：Python/frontend/registry成功，E2E31P3F2S，聚合失败。
-旧owner交接“Python仍运行”过时，以verification原CI报告补注为准。
-新模型请求0，旧累计96未重审。无后台任务，原失败/收据保留。
+比较器f1e90ae3a、旧诊断a68f48bfb、跨树追问量具ddba3fb7d已本地提交；产品未修，未推送/合并/部署。
+发布候选固定2aea7c27e：原问法先判concept_definition→complete；两同义问法general_finance_qa→direct_answer缺口。双解释器复现，旁路未返回产品。
+发布owner和评测owner只读；后者另开fwp-wt-model-harness-f4-live-1002准备，读取时模型帽0，不碰其脏文件。
+本轮新增模型0；无自有后台任务。独占detached复核树已干净移除，原件保留。
 
 ## 未验证 / 已知边界
-未跑本修订全仓pytest、前端或浏览器E2E，也无新远端CI；合入仍blocked。
-共享httpx0.25.2不符lock0.28.1、doctor blocked，未改共享环境；code-map空。
-二轮主体/owner正确，继承带direct_assessment+direct_answer；专项投影未去重，后者无claim。
-旁路仅去重复旧名会complete，但产品仍missing，不能证明风险/验证质量。
+未做完整答案独立评分、自然多轮/强弱标定/收益四格、新浏览器或远端CI；不签发布。
+作者2aea专用收据19731P/99S/2X、E2E34P/2S已核来源，非本助手重跑。
+共享httpx漂移、doctor blocked、地图空；借用owner锁版本Python仅校验/离线回放，未装依赖。
 
 ## 下一步
-owner可独立审阅/移入f1e90ae3a；新SHA复验，不移签旧绿。
-E2E另修输出身份和真实内容覆盖，保留三视口断言；再验CI。不合并部署。
-详细根因与证据见 `../../verification/2026-10-02-pr16-followup-diagnosis.md`。
+发布owner读 `../../verification/2026-10-02-harness-alignment-review.md` §4，另认领统一输出身份及本轮内容覆盖；保留三视口断言，补同义/转题/真缺答负例，新SHA复验。
+比较器窄提交可独立审阅，不能整枝搬进发布候选。模型四格由原评测owner冻结题尺/完整入口/预算，不重复启动。
 
 ## 踩过的坑
-新导出也会悄悄丢陌生ID/覆盖重复ID，已补拒收；漏答仍false。
-基座同失败仅限定归因，不豁免红灯。561P非全仓，91P是变异三文件套件。
+消息completed、合同complete、正文切题是三件事。去旧别名仅解释结构失败，不是内容验收。
+发布与PR16补丁栈不同，旧红/旧绿不能互签。作者收据换解释器须拒收，已留首次拒收原件。
 
 ## 已验证
-干净a68f48bfb十一文件561P/7.33s，完整SHA收据核过；全仓Ruff/hooks过。
-f1e90ae3a七项变异7/7捕获、还原91P；CLI退出1/2/3及selftest过。
-提交后禁网后端探针复现同正文，真实网络/模型0；不是浏览器E2E。
-证据根 `~/.finance-runtime/reviews/pr16-fix-20261002T062241Z/`。
+2aea干净源码定向320P/6.04s；ddba量具/比较器四文件97P/1.31s，收据与Ruff过。
+两环境三种追问判定/正文/源码哈希一致；0模型、0网络尝试，不是浏览器E2E。
+旧a68十一文件561P与f1e七项变异原件不改签。
+证据 `~/.finance-runtime/reviews/harness-alignment-20261002T080000Z/`。
