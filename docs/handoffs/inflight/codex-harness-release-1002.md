@@ -1,35 +1,26 @@
 ## 这个分支做什么
 
-合成可审查的 harness 发布候选，保留模型决定任务和工具的空间；不把工程测试冒充模型净收益。
-
-## 决策与被否方案
-
-- 保留 PR8、PR10、PR11–14、PR15；排除 #20 档位硬政策、11/16/17/19 硬语义路由、A7、数字字段候选和工具差分分支。
-- 身份、权限、预算、证据版本及错误反馈不降级；evidence_read 仍默认关闭且须显式授权，不改固定流水线。
-- 范围以 `docs/handoffs/2026-10-02-harness-release-scope.md` 为准；10/1 派生快照修复不是代码部署。
+合成可审查的 harness 发布候选；保留模型任务与工具决策，不把工程绿冒充模型净收益。
 
 ## 当前状态
 
-- 接手树 `/tmp/harness-opt/tmp/arena-harness-release-1002`，分支 `fix/harness-release-1002-takeover`，起点 `e25381b24`；最新源码提交 `1f8a8efb3`。
-- `beff372c6`：只在子研究收件箱成功认领并追加消息后记展示覆盖；嵌套正文按实际可见字符计，不奖励重读，不跨 Episode 泄漏。
-- `1f8a8efb3`：两条快照入口复用交易日三态，历史/未来/休市/未知请求不取现货；保留有真实日期的历史 DuckDB，未知候选 fail closed。
-- 原发布树 `codex/harness-release-1002@e25381b24` 与三份未跟踪文档均未改；没有 push、合入 main、部署或业务库改写。
+- 自有树 `/tmp/harness-opt/tmp/arena-harness-release-1002`，分支 `fix/harness-release-1002-takeover`。
+- 候选 `2aea7c27ed469530bc73fb232e65830acc754647`，最后核对 clean；起点 `e25381b24`。
+- `beff372c6` 修正子研究实际交付后的阅读覆盖；`1f8a8efb3` 修正快照日期身份；`2aea7c27` 只冻结 conformance 正向夹具时钟。
+- 原发布树 `codex/harness-release-1002@e25381b24` 与三个原有未跟踪文档未改；无 main 合入、生产部署或业务库写入。
 
-## 已验证
+## 范围
 
-- 干净源码 `1f8a8efb3`：锁版本本树 Python，focused **292 passed**；补 conformance 时钟后迭代 **320 passed**，全仓 Ruff/hooks 通过。
-- 本树新建独立 Python 环境，doctor 含 frontend=ready、无依赖漂移；隔离 Node 22.23.3 / pnpm 10.12.1，不升级共享环境。
-- 有效 RED：证据 3 failed/1 passed；快照 15 failed/1 passed。修复后的完整/部分投递、未投递、拒收/丢弃、隔离及日期边界已回归。
-- 完整证据、收据与命令见 `docs/verification/2026-10-02-harness-takeover.md`。
+`evidence_read` 仍默认关闭、须显式 capability；不强制补读、不加工具地板、不改变模型工具选择。排除 #20 档位硬政策、11/16/17/19 硬语义路由、A7/数字候选/工具差分。快照两入口复用 `trading_day_verdict`：历史/未来/休市/UNKNOWN 不取现货；dated DuckDB、source/requested/served/captured、freshness 与 latest/meta 单调保护均保留。
 
-## 门禁与未覆盖
+## 验证
 
-- 最终候选门禁的动态结果以 `/tmp/arena-harness-validation-1002/final-candidate-v2/` 专用产物及其 revision/clean/scope 为准；本文不声明全量绿。旧 f4 full=19727 passed/4 failed/99 skipped/2 xfailed；不放行。
-- 尚无真实模型六条、多轮净收益、2×2/留出题和独立 reviewer 证据；不能据工程绿启用实验能力。GitHub checks 尚未执行，生产健康未重新验收。
+- Python 全量：**19,731 passed / 0 failed / 0 error / 99 skipped / 2 xfailed**，collected=19,832；full-scope/revision receipt 与全仓 Ruff 通过。
+- 前端六项均通过：组件 125 passed；E2E 34 passed / 2 skipped；registry 五项通过；code-map 36,963 nodes、no wiki，不宣称架构召回完整。
+- 独立规格审查 `SPEC_VERDICT: PASS`、代码质量审查 `CODE_QUALITY_VERDICT: PASS`，均无 blocker。质量审查的 freshness 旁路口径、错误文案、accumulator 可选参数、时区、年度表风险列为后续非阻断项。
+- 隔离 sidecar readiness 通过：只读 DB、候选 sync 生成 requested=2026-10-02、served/source=2026-09-30、provider=duckdb_latest、historical；sidecar 已停止。
+- 真实 v3：4 条消息均 complete；2 个 `glm-5.3-flash`，2 个确定性路径。v2/v4 的“4 个模型但第 3 个 partial”保留为失败记录。conversation report 的 `llm.model` 不被 `check_model_admission` 识别，原样记录 no_evidence，不伪造准入。
 
-## 下一步与坑
+## 下一步
 
-- 用最终 SHA 完成整仓 Python、前端/E2E、registry，再补独立复核及有界真实多轮验收；所有证据齐后再请求用户确认 PR/main/生产切换。
-- full 收据须验 `--require-full-scope --expect-revision`，不读共享 latest 冒认本轮；专用树验证期间不得移动 HEAD。
-- 历史交付须保留 served/source 日期并标 historical；latest/meta 不倒退，不能从缺行猜休市。
-- 不提交凭据、用户原始数据、运行产物或虚拟环境；不删枝、吊销 token、写预测台账。`deploy_workbench_runtime.sh` 不是 detached 部署器。
+本次 handoff 更新会产生 docs-only SHA；在新 SHA 上重跑等价 Python/full-scope、frontend/registry/map 并绑定 receipts，随后按用户授权 push 分支、开 GitHub PR。required checks 通过前不 merge；用户确认前不切 8792/生产。实验能力默认关闭。
