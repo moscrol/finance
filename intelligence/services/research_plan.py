@@ -23,7 +23,7 @@ _REQUIRED_PLAN_FIELDS = frozenset(
         "revision",
     }
 )
-_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals", "perspectives"))
+_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals", "perspectives", "base_revision", "revision_reason"))
 _MAX_SUMMARY_LENGTH = 500
 _MAX_ITEM_LENGTH = 300
 
@@ -105,8 +105,21 @@ class ResearchPlan:
     revision: int = 1
     branch_goals: tuple[str, ...] = ()
     perspectives: tuple[ResearchPerspective, ...] = ()
+    # None retains the legacy additive protocol; 0 explicitly starts a revision chain.
+    # This versions a model-owned plan, never the task/authorization contract.
+    base_revision: int | None = None
+    revision_reason: str = ""
 
     def __post_init__(self) -> None:
+        if self.base_revision is not None and (
+            type(self.base_revision) is not int or self.base_revision < 0
+        ):
+            raise ValueError("base_revision must be a non-negative integer")
+        if not isinstance(self.revision_reason, str) or len(self.revision_reason.strip()) > _MAX_ITEM_LENGTH:
+            raise ValueError("revision_reason must be a string of at most 300 characters")
+        object.__setattr__(self, "revision_reason", self.revision_reason.strip())
+        if self.revision_reason and self.base_revision is None:
+            raise ValueError("revision_reason requires base_revision")
         requested_mode = self.requested_mode
         if requested_mode not in {"quick", "deep"}:
             raise ValueError("requested_mode must be quick or deep")
@@ -126,7 +139,7 @@ class ResearchPlan:
             ),
         )
         for field_name, minimum, maximum in (
-            ("answer_elements", 1, 8),
+            ("answer_elements", 0 if self.base_revision is not None else 1, 8),
             ("hypotheses", 1, 4),
             ("evidence_needs", 1, 8),
             ("candidate_actions", 0, 8),
@@ -256,6 +269,8 @@ def parse_research_plan(content: str) -> ResearchPlan:
         raise ValueError(f"missing plan fields: {', '.join(sorted(missing))}")
     if payload["kind"] != "PLAN":
         raise ValueError("plan kind must be PLAN")
+    if "base_revision" in payload and payload["base_revision"] is None:
+        raise ValueError("base_revision must be a non-negative integer, not null")
 
     return ResearchPlan(
         task_summary=cast(str, payload["task_summary"]),
@@ -268,6 +283,8 @@ def parse_research_plan(content: str) -> ResearchPlan:
         revision=cast(int, payload["revision"]),
         branch_goals=cast(tuple[str, ...], payload.get("branch_goals", ())),
         perspectives=_perspectives(payload.get("perspectives", ())),
+        base_revision=cast(int | None, payload.get("base_revision")),
+        revision_reason=cast(str, payload.get("revision_reason", "")),
     )
 
 
@@ -309,6 +326,20 @@ def validate_plan_revision(
         raise ValueError("plan revision must preserve task identity")
     if current.revision <= previous.revision:
         raise ValueError("plan revision must strictly increase")
+    if current.base_revision is not None:
+        if current.base_revision != previous.revision:
+            raise ValueError(f"base_revision must match accepted plan revision {previous.revision}")
+        retracted = (
+            set(previous.answer_elements) - set(current.answer_elements)
+            or set(previous.branch_goals) - set(current.branch_goals)
+            or {item.perspective_id for item in previous.perspectives}
+            - {item.perspective_id for item in current.perspectives}
+        )
+        if retracted and not current.revision_reason:
+            raise ValueError("retracting model-owned steps requires revision_reason")
+        return
+    if previous.base_revision is not None:
+        raise ValueError("base_revision cannot be omitted after an explicitly based plan")
     removed = tuple(
         item
         for item in previous.answer_elements
@@ -348,7 +379,9 @@ def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
         "revision": plan.revision,
         "branch_goals": list(plan.branch_goals),
         **({"perspectives": [perspective_to_dict(item) for item in plan.perspectives]}
-           if plan.perspectives else {}),
+           if plan.perspectives or plan.base_revision is not None else {}),
+        **({"base_revision": plan.base_revision, "revision_reason": plan.revision_reason}
+           if plan.base_revision is not None else {}),
     }
 
 

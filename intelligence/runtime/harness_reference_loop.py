@@ -348,6 +348,15 @@ class HarnessReferenceLoop:
                     plan_failures += 1
                     invalid_actions += 1
                     ledger.add("invalid_action", {"reason": plan_result.error})
+                    for call in turn.tool_calls:
+                        payload = harness.project_tool_error(
+                            tool=call.name, error="invalid_plan", detail=plan_result.error,
+                        )
+                        model_content = json.dumps(payload, ensure_ascii=False)
+                        ledger.add("tool_error", {
+                            **payload, "call_id": call.call_id, "model_content": model_content,
+                        })
+                        messages.append(tool_message(call.call_id, model_content, source="tool_error"))
                     if plan_failures == 1:
                         append_model_input(
                             messages,
@@ -357,7 +366,10 @@ class HarnessReferenceLoop:
                             ),
                             source="steering_invalid_plan",
                         )
-                        continue
+                    else:
+                        begin_finalization("invalid_plan")
+                    # Rejected plans never fall through into tool dispatch.
+                    continue
 
             if turn.tool_calls:
                 if finalization_started:

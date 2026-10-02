@@ -711,7 +711,11 @@ class FinanceResearchHarness:
         task_id: str,
     ) -> PlanParseResult:
         result = parse_plan_candidate(content)
-        if result.plan is None or previous_plan is None:
+        if result.plan is None:
+            return result
+        if previous_plan is None:
+            if result.plan.base_revision not in (None, 0):
+                return PlanParseResult(None, "first plan base_revision must be 0")
             return result
         try:
             validate_plan_revision(

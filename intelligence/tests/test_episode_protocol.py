@@ -358,8 +358,11 @@ def _static_contract_text() -> str:
 # 同日 live 发现模型留空 draft 却漏模式字段：显式条件化终局示例，材料轮使用
 # 宿主按冻结合同构造的 wire_template；不代填返回值、不放宽来源或 basis 校验。
 # 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
+# 2026-10-02 P1a: explicitly based PLAN revisions may retract model-owned steps
+# with a reason; task requirements, authorization and resource limits stay fixed.
+# Legacy baseless plans retain additive semantics. This is an intentional change.
 _CONTRACT_FINGERPRINT = (
-    "4c907c696b68bc9cd2ec81a42158b832db89cc0f60c314e8395c06003b2e9e97"
+    "bf9f4a50f04af81fa7d46c757e300a64c7b6e81d0622e58512857b249ab10409"
 )
 
 

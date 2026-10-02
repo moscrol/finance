@@ -2074,6 +2074,8 @@ class ContinuousAgentEpisode:
                 plan_failures += 1
                 invalid_actions += 1
                 ledger.add("invalid_action", {"reason": plan_result.error})
+                for call in turn.tool_calls:
+                    accumulator._append_tool_error(call, "invalid_plan", plan_result.error)
                 if plan_failures == 1:
                     append_model_input(
                         messages,
@@ -2083,7 +2085,14 @@ class ContinuousAgentEpisode:
                         ),
                         source="steering_invalid_plan",
                     )
-                    continue
+                else:
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages, ledger=ledger, reason="invalid_plan",
+                    )
+                # No dispatch after a rejected PLAN. Once the single format
+                # hint is spent, close research instead of adding more retries.
+                continue
             if turn.tool_calls:
                 if finalization_started:
                     invalid_actions += len(turn.tool_calls)
@@ -3098,6 +3107,19 @@ class ContinuousAgentEpisode:
         execute = getattr(tool_session, "execute", None)
         if not callable(execute) or not turn.tool_calls:
             return tool_calls, invalid_actions
+        plan_result = self._harness.interpret_plan(
+            turn.content, previous_plan=accumulator.ledger.plan, task_id=context.contract.task_id,
+        )
+        # A pending protocol change cannot be committed by a deadline flush.
+        # Legacy valid PLAN+tools retains its existing behavior.
+        if plan_result.error or (
+            plan_result.plan is not None and plan_result.plan.base_revision is not None
+        ):
+            reason = plan_result.error or "PLAN not accepted before deadline"
+            accumulator.ledger.add("invalid_action", {"reason": reason})
+            for call in turn.tool_calls:
+                accumulator._append_tool_error(call, "invalid_plan", reason)
+            return tool_calls, invalid_actions + 1
         remaining = max(
             len(turn.tool_calls),
             self._remaining_tool_slots(context=context, tool_calls=tool_calls),
