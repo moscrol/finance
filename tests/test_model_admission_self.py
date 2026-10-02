@@ -107,3 +107,19 @@ def test_cli_needs_exactly_one_way_to_say_what_is_expected(tmp_path):
         cli.main([str(run)])
     with pytest.raises(SystemExit):
         cli.main(["--expect-model", "m", "--expect-configured", str(run)])
+
+
+def test_configured_admission_checks_actual_child_despite_matching_parent_telemetry(tmp_path):
+    from intelligence.services.episode_store import JsonlEpisodeStore
+
+    events = _events("glm-5.3-flash", ["glm-5.3-flash"], branch=["glm-5.3-flash"])
+    events[-1]["payload"]["episode_ref"] = {"episode_id": "child:configured"}
+    run = _artifact(tmp_path, "parent", events)
+    store = tmp_path / "store"
+    child_dir = JsonlEpisodeStore(store).episode_dir("child:configured")
+    child_dir.mkdir(parents=True)
+    child = child_dir / "events.jsonl"
+    child.write_text("\n".join(json.dumps(event) for event in _events("glm-5.3-flash", ["glm-5.3"])))
+    results = ma.check_paths([run], (), expect_configured=True, episode_store_roots=[store])
+    assert len(results) == 2 and ma.overall_exit_code(results) == 1
+    assert results[1].source == str(child) and results[1].unexpected == {"glm-5.3": 1}

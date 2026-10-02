@@ -350,29 +350,39 @@ def test_cli_plan_then_analyze(tmp_path, capsys):
          "failure_class": None}
         for r in plan["runs"]
     ]
-    # CLI 现在必须检查原始产物；这里只构造明示的单测夹具，不靠自报 exit=0。
+    runs_path = tmp_path / "runs.jsonl"
+    runs_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    # 缺少实际产物仍保留不完整报告，同时用 exit 2 拒绝证据不全。
+    assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path)]) == 2
+    strict = capsys.readouterr().out
+    assert "admission_exit_2 240" in strict and "判定：incomplete" in strict
+
+    # 逐行提供相对路径的真实测试产物；自报 exit=0 本身不授予准入。
     for row in records:
         artifact = tmp_path / f"episode-{row['seq']}.json"
         artifact.write_text(json.dumps({"served_model": plan["models"][row["cell"][1]]}))
         row["artifacts"] = [artifact.name]
-    runs_path = tmp_path / "runs.jsonl"
-    runs_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
-    # 默认不信自报：没有 artifact 的运行一律作废，主判定不完整。
+    runs_path.write_text("\n".join(json.dumps(row) for row in records), encoding="utf-8")
     assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path)]) == 0
-    strict = capsys.readouterr().out
-    assert "admission_unverified 240" in strict and "判定：incomplete" in strict
-    assert "无产物作废 240 次" in strict
-
-    trust = ["--trust-self-reported-admission"]
-    assert cli.main(["analyze", str(runs_path), "--plan", str(plan_path), *trust]) == 0
     assert "判定：model_only" in capsys.readouterr().out
 
     array_path = tmp_path / "runs.json"
     array_path.write_text(json.dumps(records), encoding="utf-8")
-    assert cli.main(["analyze", str(array_path), "--plan", str(plan_path), "--json", *trust]) == 0
+    assert cli.main(["analyze", str(array_path), "--plan", str(plan_path), "--json"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["primary"]["decision"] == "model_only"
-    assert report["admission"]["self_reported"] == 240 and report["admission"]["unverified"] == 0
+    assert len(report["admission"]) == 240
+    assert all(item["exit_code"] == 0 and item["sha256"] for item in report["admission"])
+
+
+def test_cli_cannot_bypass_artifact_admission(tmp_path, capsys):
+    cli = _cli()
+    runs_path = tmp_path / "runs.json"
+    runs_path.write_text(json.dumps(_records(_additive(model=0.2))), encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["analyze", str(runs_path), "--trust-self-reported-admission", "--json"])
+    assert exc.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
 
 
 def test_cli_rejects_bad_inputs(tmp_path, capsys):

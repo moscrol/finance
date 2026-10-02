@@ -20,11 +20,15 @@ from intelligence.eval.model_harness_2x2 import recompute_admission
 from intelligence.runtime.sub_research import (
     BranchEpisodeRef,
     BranchResult,
+    SubResearchCoordinator,
     branch_served_models_from_events,
 )
 from intelligence.runtime.sub_research_tool import branch_telemetry
 from intelligence.services import episode_store
 from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.evidence_ledger import EvidenceLedger
+from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.tests.test_sub_research import _context, _frame
 
 REPO = Path(__file__).resolve().parents[1]
 EXPECTED = "glm-5.3-flash"
@@ -45,8 +49,10 @@ def _episode(tmp_path: Path, branch_payload: dict, *, parent_model: str = EXPECT
 
 
 def _verdict(path: Path, store: Path | None = None) -> ma.AdmissionResult:
-    (result,) = ma.check_paths([path], [EXPECTED], episode_store=store)
-    return result
+    results = ma.check_paths([path], [EXPECTED], episode_store=store)
+    code = ma.overall_exit_code(results)
+    # 递归核验逐项列出父子产物；断言整个引用链的最终判定。
+    return next(result for result in results if result.exit_code == code)
 
 
 def test_parent_right_child_wrong_is_a_mismatch(tmp_path):
@@ -93,6 +99,99 @@ def test_branches_that_never_called_a_model_need_no_evidence(tmp_path):
     assert _verdict(run).verdict == ma.VERDICT_ADMITTED
 
 
+@pytest.mark.parametrize(
+    ("served_model", "use_store", "expected_verdict"),
+    [
+        ("glm-5.3", True, ma.VERDICT_MISMATCH),
+        (EXPECTED, True, ma.VERDICT_ADMITTED),
+        (None, True, ma.VERDICT_NO_EVIDENCE),
+        ("glm-5.3", False, ma.VERDICT_NO_EVIDENCE),
+    ],
+)
+def test_worker_exception_cannot_erase_model_admission_evidence(
+    tmp_path, served_model, use_store, expected_verdict,
+):
+    store = tmp_path / "episodes"
+
+    class RecordedThenFailedWorker:
+        def run(self, request):
+            if served_model is not None:
+                branch = store / ma.episode_directory_name(request.episode_ref.episode_id)
+                branch.mkdir(parents=True)
+                (branch / "events.jsonl").write_text(json.dumps({
+                    "kind": "model_turn", "payload": {"served_model": served_model},
+                }), encoding="utf-8")
+            raise RuntimeError("worker did not return its accounting")
+
+    ledger = EvidenceLedger()
+    result = SubResearchCoordinator(RecordedThenFailedWorker()).run(
+        goals=("查找反方驱动",), task_frame=_frame(), context=_context(),
+        registry=ResearchToolRegistry(()), evidence_sink_factory=ledger.branch_sink,
+    )
+    payload = branch_telemetry(result.branches[0])
+    assert payload["llm_calls_known"] is False
+    parent = tmp_path / "continuous-episode.json"
+    parent.write_text(json.dumps({"events": [
+        {"kind": "model_turn", "payload": {"served_model": EXPECTED}},
+        {"kind": "branch_failed", "payload": payload},
+    ]}), encoding="utf-8")
+    assert _verdict(parent, store if use_store else None).verdict == expected_verdict
+
+
+def test_cancelled_before_worker_starts_needs_no_model_evidence(tmp_path):
+    class NeverRunWorker:
+        def run(self, request):
+            pytest.fail("cancelled branch must not enter the worker")
+
+    checks = iter((False, True))
+    ledger = EvidenceLedger()
+    result = SubResearchCoordinator(NeverRunWorker(), is_cancelled=lambda: next(checks)).run(
+        goals=("查找反方驱动",), task_frame=_frame(), context=_context(),
+        registry=ResearchToolRegistry(()), evidence_sink_factory=ledger.branch_sink,
+    )
+    evidence = ma.collect_from_events([
+        {"kind": "model_turn", "payload": {"served_model": EXPECTED}},
+        {"kind": "branch_failed", "payload": branch_telemetry(result.branches[0])},
+    ], "cancel-before-start")
+    assert ma.judge(evidence, [EXPECTED]).verdict == ma.VERDICT_ADMITTED
+
+
+@pytest.mark.parametrize("error", ["branch_worker_exception:RuntimeError", "storage_failed"])
+def test_legacy_worker_failure_zero_is_unknown_not_proof_of_no_calls(error):
+    evidence = ma.collect_from_events([
+        {"kind": "model_turn", "payload": {"served_model": EXPECTED}},
+        {"kind": "branch_failed", "payload": {"llm_calls": 0, "error": error, "episode_ref": REF}},
+    ], "legacy-failed-worker")
+    assert ma.judge(evidence, [EXPECTED]).verdict == ma.VERDICT_NO_EVIDENCE
+
+
+def test_parent_storage_failure_before_branch_start_has_known_zero_calls(tmp_path):
+    from intelligence.tests.test_sub_research_persistence import ObservedStore, run_tree
+
+    store = ObservedStore(tmp_path, fail_kind="branch_started", fail_child=False)
+    outcome, model, _executed, _spent, _runtime = run_tree(store, plan=True)
+    assert model.child_calls == 0
+    assert outcome.stop_reason == "storage_failed"
+    branch_events = [
+        event.to_dict() for event in outcome.events if event.kind == "branch_failed"
+    ]
+    assert branch_events
+    parent_event = {"kind": "model_turn", "payload": {"served_model": EXPECTED}}
+    evidence = ma.collect_from_events([parent_event, *branch_events], "storage-before-start")
+    assert ma.judge(evidence, [EXPECTED]).verdict == ma.VERDICT_ADMITTED
+    parent = tmp_path / "continuous-episode.json"
+    parent.write_text(json.dumps({"events": [parent_event, *branch_events]}), encoding="utf-8")
+    assert _verdict(parent).verdict == ma.VERDICT_ADMITTED
+    # 标志加入前的同一早退产物没有 worker 返回的任何调用账。
+    for event in branch_events:
+        for key in ("llm_calls", "llm_calls_known", "stop_reason"):
+            event["payload"].pop(key, None)
+    legacy = ma.collect_from_events([parent_event, *branch_events], "legacy-storage-before-start")
+    assert ma.judge(legacy, [EXPECTED]).verdict == ma.VERDICT_ADMITTED
+    parent.write_text(json.dumps({"events": [parent_event, *branch_events]}), encoding="utf-8")
+    assert _verdict(parent).verdict == ma.VERDICT_ADMITTED
+
+
 def test_directory_naming_matches_the_episode_store():
     for episode_id in ("branches-abc:branch-1", "run_20261001:msg_1", "plain-id", "带中文:x"):
         assert ma.episode_directory_name(episode_id) == episode_store._directory_name(episode_id)
@@ -128,7 +227,8 @@ def test_worker_wires_branch_served_models():
     assert "served_models=branch_served_models_from_events(outcome.events)" in source
 
 
-def test_2x2_recomputes_admission_from_artifacts_and_flags_self_report_drift(tmp_path):
+@pytest.mark.parametrize("plural", [False, True])
+def test_2x2_recomputes_admission_from_artifacts_and_flags_self_report_drift(tmp_path, plural):
     good = _episode(tmp_path / "a", {"served_models": [EXPECTED], "episode_ref": REF})
     bad = _episode(tmp_path / "b", {"served_models": ["glm-5.3"], "episode_ref": REF})
     records = [
@@ -136,12 +236,21 @@ def test_2x2_recomputes_admission_from_artifacts_and_flags_self_report_drift(tmp
         {"seq": 2, "question": "D1", "cell": "PG", "score": 0.5, "admission_exit": 0, "artifact": str(bad)},
         {"seq": 3, "question": "D1", "cell": "PG", "score": 0.5, "admission_exit": 0},
     ]
-    rows, summary = recompute_admission(records, {"G": EXPECTED, "C": "claude-x"})
+    store = tmp_path / "episodes"
+    child = episode_store.JsonlEpisodeStore(store).episode_dir(REF["episode_id"])
+    child.mkdir(parents=True)
+    (child / "events.jsonl").write_text(json.dumps({
+        "kind": "model_turn", "payload": {"served_model": EXPECTED},
+    }), encoding="utf-8")
+    if plural:
+        for row in records[:2]:
+            row["artifacts"] = [row.pop("artifact")]
+    stores = {"episode_store_roots": [store]} if plural else {"episode_store": str(store)}
+    rows, summary = recompute_admission(records, {"G": EXPECTED, "C": "claude-x"}, **stores)
     assert [r["admission_exit"] for r in rows] == [0, 1, None]
     assert [r["admission_source"] for r in rows] == ["recomputed", "recomputed", "unverified"]
     assert summary["disagreements"] == [{"seq": 2, "reported": 0, "recomputed": 1}]
-    trusted, _ = recompute_admission(records, {"G": EXPECTED}, trust_self_reported=True)
-    assert trusted[2]["admission_exit"] == 0 and trusted[2]["admission_source"] == "self_reported"
+    assert summary["self_reported"] == 0 and summary["unverified"] == 1
 
 
 def test_cli_follows_the_default_episode_store(tmp_path, monkeypatch, capsys):

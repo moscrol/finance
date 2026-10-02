@@ -33,8 +33,13 @@ def _inputs(tmp_path, model='glm-5.3-flash', *, artifacts=True):
     return artifact, plan, runs
 
 
-def test_cli_rechecks_claimed_success_against_artifact(cli, tmp_path, capsys):
+@pytest.mark.parametrize("legacy_scalar", [False, True])
+def test_cli_rechecks_claimed_success_against_artifact(cli, tmp_path, capsys, legacy_scalar):
     _, plan, runs = _inputs(tmp_path, model='wrong-model')
+    if legacy_scalar:
+        row = json.loads(runs.read_text())
+        row['artifact'] = row.pop('artifacts')[0]
+        runs.write_text(json.dumps(row))
     assert cli.main(['analyze', str(runs), '--plan', str(plan), '--json']) == 1
     report = json.loads(capsys.readouterr().out)
     assert report['admission'][0]['exit_code'] == 1
@@ -88,3 +93,31 @@ def test_cli_empty_run_file_has_no_model_evidence(cli, tmp_path, capsys):
     _, plan, runs = _inputs(tmp_path)
     runs.write_text('')
     assert cli.main(['analyze', str(runs), '--plan', str(plan), '--json']) == 2
+
+
+def test_cli_multiple_stores_retains_actual_child_hashes(cli, tmp_path, capsys):
+    from intelligence.services.episode_store import JsonlEpisodeStore
+
+    artifact, plan, runs = _inputs(tmp_path)
+    doc = json.loads(artifact.read_text())
+    stores, children = [], []
+    for number in (1, 2):
+        episode_id = f"child:{number}"
+        doc['events'].append({'kind': 'branch_completed', 'payload': {
+            'llm_calls': 1, 'served_models': ['glm-5.3-flash'],
+            'episode_ref': {'episode_id': episode_id},
+        }})
+        store = tmp_path / f'store-{number}'
+        directory = JsonlEpisodeStore(store).episode_dir(episode_id)
+        directory.mkdir(parents=True)
+        child = directory / 'events.jsonl'
+        child.write_text(json.dumps({'kind': 'model_turn', 'payload': {
+            'served_model': 'wrong-child' if number == 2 else 'glm-5.3-flash',
+        }}))
+        stores.extend(['--episode-store', str(store)])
+        children.append(child)
+    artifact.write_text(json.dumps(doc))
+    assert cli.main(['analyze', str(runs), '--plan', str(plan), *stores, '--json']) == 1
+    receipt = json.loads(capsys.readouterr().out)['admission'][0]
+    assert set(receipt['sha256']) == {str(path) for path in [artifact, *children]}
+    assert len(receipt['results']) == 3

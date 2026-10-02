@@ -16,10 +16,10 @@ C（Claude）。格名 = harness 字母 + 模型字母：``PG`` ``PC`` ``RG`` ``
 - ``seq``：全局尝试序号（整数，唯一；重排的运行拿新的、更大的号）
 - ``question``、``cell``（``PG``/``PC``/``RG``/``RC``）
 - ``admission_exit``：``check_model_admission.py`` 的退出码；缺失按「无证据」处理
-- ``artifact``：这次运行的产物路径（run 目录或 ``continuous-episode.json``）。命令行
-  ``analyze`` 默认**按它重算准入**（含子分支，见 ``model_admission``），不信自报的
-  ``admission_exit``；没有 ``artifact`` 的运行作废为 ``admission_unverified``，除非显式
-  ``--trust-self-reported-admission``（2026-10-01 审查：准入要全程自动生效，不能靠人记得跑脚本）
+- ``artifacts``：这次运行的产物路径列表；兼容旧 ``artifact`` 单路径。命令行
+  ``analyze`` **按原始产物重算准入**（含子分支，见 ``model_admission``），不信自报的
+  ``admission_exit``；缺少产物时命令行保留无证据报告并退出 2。
+  正式判定不提供自报准入的旁路。
 - ``failure_class``：``stable_llm_fallback_reason``，没有失败写 ``null``
 - ``score``：machine-truth rate ∈ [0, 1]；有效运行必须有分（答错、缺数、自家 deadline
   烧完都照常计分，这些正是要测的能力）
@@ -36,6 +36,7 @@ import math
 import random
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from intelligence.eval import model_admission
@@ -478,30 +479,33 @@ def recompute_admission(
     models: Mapping[str, str],
     *,
     episode_store: str | None = None,
-    trust_self_reported: bool = False,
+    episode_store_roots: Iterable[str | Path] = (),
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """按每次运行的产物重算生效模型准入，覆盖自报的 ``admission_exit``。
 
-    期望模型取 plan 的 ``models``（格名第二个字母：G / C）。有 ``artifact`` → 用
+    期望模型取 plan 的 ``models``（格名第二个字母：G / C）。有 ``artifacts``（兼容旧单路径）→ 用
     ``model_admission.check_paths`` 重算（含子分支）；自报值与重算不一致的逐条列出。
-    没有 ``artifact``：默认记 ``unverified``（作废）；``trust_self_reported=True`` 才沿用自报。
+    没有产物一律记 ``unverified``（作废），不允许自报准入替代产物。
     """
 
     out: list[dict[str, Any]] = []
     summary: dict[str, Any] = {
         "recomputed": 0, "self_reported": 0, "unverified": 0, "disagreements": [],
-        "trust_self_reported": trust_self_reported,
     }
     for record in records:
         row = dict(record)
         cell = str(row.get("cell") or "")
         expected = str(models.get(cell[1:2]) or "").strip() if len(cell) == 2 else ""
-        artifact = row.get("artifact")
-        if artifact:
+        artifacts = row.get("artifacts", [row["artifact"]] if row.get("artifact") else [])
+        if not isinstance(artifacts, list) or any(not isinstance(path, str) or not path.strip() for path in artifacts):
+            raise DesignError("artifacts 必须是非空路径字符串的列表")
+        if artifacts:
             if not expected:
                 raise DesignError(f"seq {row.get('seq')}：plan 里没有 {cell} 格的期望模型，重算不了准入")
             code = model_admission.overall_exit_code(
-                model_admission.check_paths([str(artifact)], [expected], episode_store=episode_store)
+                model_admission.check_paths(
+                    artifacts, [expected], episode_store=episode_store, episode_store_roots=episode_store_roots,
+                )
             )
             reported = row.get("admission_exit")
             if reported is not None and int(reported) != code:
@@ -509,9 +513,6 @@ def recompute_admission(
             row["admission_exit"] = code
             row["admission_source"] = "recomputed"
             summary["recomputed"] += 1
-        elif trust_self_reported:
-            row["admission_source"] = "self_reported"
-            summary["self_reported"] += 1
         else:
             row["admission_exit"] = None
             row["admission_source"] = "unverified"

@@ -8,6 +8,9 @@ import sys
 from pathlib import Path
 
 import duckdb
+import pytest
+
+from market_feature_store import db as mfs_db
 
 from tests.test_numeric_gate_label_ab import OLD_ROW, RESTATEMENT, _write_receipt
 
@@ -68,3 +71,56 @@ def test_a_failing_step_does_not_stop_the_rest(tmp_path, monkeypatch):
     assert "RuntimeError: probe crashed" in summary
     assert "## 台账体检" in summary
     assert "跳过：库不存在" in summary
+
+
+def test_units_snapshot_keeps_committed_rows_in_wal(tmp_path, monkeypatch):
+    source = tmp_path / "source.duckdb"
+    snapshots = []
+
+    def inspect_snapshot(name, argv, out, timeout):
+        snapshot = Path(argv[-1])
+        snapshots.append(snapshot)
+        assert snapshot != source
+        with duckdb.connect(str(snapshot), read_only=True) as con:
+            assert con.execute("SELECT value FROM sample").fetchall() == [(42,)]
+        return {"name": name, "exit": 0, "stdout": "", "seconds": 0}
+
+    monkeypatch.setattr(runbook, "_run", inspect_snapshot)
+    with duckdb.connect(str(source)) as con:
+        con.execute("CREATE TABLE sample(value INTEGER)")
+        con.execute("CHECKPOINT")
+        con.execute("INSERT INTO sample VALUES (42)")
+        assert mfs_db.wal_path(source).is_file()
+        result, _ = runbook.step_units(tmp_path, source)
+        assert result["exit"] == 0
+        assert con.execute("SELECT value FROM sample").fetchall() == [(42,)]
+    assert snapshots and not snapshots[0].parent.exists()
+
+
+def test_units_snapshot_failure_never_falls_back_to_live_database(tmp_path, monkeypatch):
+    source = tmp_path / "source.duckdb"
+    duckdb.connect(str(source)).close()
+    snapshots = []
+
+    def failed_clone(source, staging):
+        snapshots.append(staging)
+        raise OSError("snapshot unavailable")
+
+    monkeypatch.setattr(mfs_db, "clone_to_staging", failed_clone)
+    monkeypatch.setattr(runbook, "_run", lambda *args: pytest.fail("must not check the live database"))
+    with pytest.raises(OSError, match="snapshot unavailable"):
+        runbook.step_units(tmp_path, source)
+    assert snapshots and not snapshots[0].parent.exists()
+
+
+@pytest.mark.parametrize(("lint_exit", "test_exit"), [(1, 0), (None, 0), (0, 1), (0, None), (0, 0)])
+def test_full_tests_cannot_hide_lint_failure_or_timeout(tmp_path, monkeypatch, lint_exit, test_exit):
+    results = iter([
+        {"name": "ruff", "exit": lint_exit, "stdout": "lint result", "seconds": 1, "log": "ruff.txt"},
+        {"name": "pytest", "exit": test_exit, "stdout": "test result", "seconds": 2, "log": "pytest.txt"},
+    ])
+    monkeypatch.setattr(runbook, "_run", lambda *args: next(results))
+    result, summary = runbook.step_full_tests(tmp_path)
+    assert (result["exit"] == 0) == (lint_exit == 0 and test_exit == 0)
+    assert "lint result" in "\n".join(summary)
+    assert "test result" in "\n".join(summary)

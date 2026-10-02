@@ -119,7 +119,7 @@ def _attest_records(records: list[dict], plan: dict, root: Path, stores: list[Pa
     for row in records:
         if not isinstance(row, dict) or row.get("cell") not in {"PG", "PC", "RG", "RC"}:
             raise DesignError("运行记录必须含合法 cell")
-        paths = row.get("artifacts", [])
+        paths = row.get("artifacts", [row["artifact"]] if row.get("artifact") else [])
         if not isinstance(paths, list) or any(not isinstance(p, str) or not p.strip() for p in paths):
             raise DesignError("artifacts 必须是非空路径字符串的列表")
         resolved = [Path(p).expanduser() for p in paths]

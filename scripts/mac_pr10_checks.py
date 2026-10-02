@@ -8,8 +8,8 @@
 步骤（每步独立超时，失败只记失败、不中断后面）：
 
 1. 换库锁平台自检（``check_swap_lock_platform.py``）；
-2. 百分数字段量纲：先 APFS ``cp -c`` 克隆生产库（秒级、零额外占盘；克隆不成就直接只读打开，
-   不做整份拷贝），再跑 ``check_percent_units.py``，跑完删克隆；
+2. 百分数字段量纲：通过仓库快照原语克隆生产库及 WAL（事务日志），
+   再对副本跑 ``check_percent_units.py``，跑完删副本；快照失败则该步失败；
 3. 标签 A/B 回放（``numeric_gate_label_ab.py``，扫 ``FORESIGHT_USERS_DIR`` 全部用户）；
 4. 生效模型准入（含子分支）抽查最近的运行：默认每个运行按它自己 ``configure`` 里配置的模型判
    （回查「以为 A 实际 B」）；给 ``--expect-model`` 则统一按那个模型判；
@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 PY = sys.executable
 
 
@@ -73,15 +74,16 @@ def step_swap_lock(out: Path) -> tuple[dict[str, Any], list[str]]:
 
 
 def step_units(out: Path, db: Path | None) -> tuple[dict[str, Any], list[str]]:
+    from market_feature_store.db import clone_to_staging
+
     if db is None or not db.is_file():
         return {"name": "02-units", "exit": None, "seconds": 0, "log": ""}, [f"跳过：库不存在（--db {db}）"]
     tmp = Path(tempfile.mkdtemp(prefix="pr10-units-"))
     clone = tmp / db.name
-    target, note = db, "直接只读打开生产库"
     try:
-        if subprocess.run(["cp", "-c", str(db), str(clone)], capture_output=True).returncode == 0:
-            target, note = clone, "对 APFS 克隆副本只读跑（cp -c）"
-        r = _run("02-units", [PY, "scripts/check_percent_units.py", "--db", str(target)], out, 300)
+        receipt = clone_to_staging(db, clone)
+        note = f"对数据库及 WAL 快照只读跑（{receipt['method']}）"
+        r = _run("02-units", [PY, "scripts/check_percent_units.py", "--db", str(clone)], out, 300)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     table = [line for line in r["stdout"].splitlines() if line.startswith("|") or line.startswith("- ")]
@@ -126,9 +128,9 @@ def step_admission(out: Path, users_root: Path, since: str, expect: str | None) 
         pairs[key] = pairs.get(key, 0) + 1
     basis = f"统一期望 {expect}" if expect else "各按自己 configure 里配置的模型"
     return r, [
-        f"{since} 以来 {len(runs)} 个运行，{basis}：" + "、".join(f"{k} {v}" for k, v in sorted(counts.items())),
-        *[f"- {key}：{n} 个运行" for key, n in sorted(pairs.items(), key=lambda kv: -kv[1])[:8]],
-        "实际服务过的模型（按 turn 计）：" + ("、".join(f"{k}×{v}" for k, v in sorted(served.items())) or "无"),
+        f"{since} 以来 {len(runs)} 个运行，{basis}，逐产物结果：" + "、".join(f"{k} {v}" for k, v in sorted(counts.items())),
+        *[f"- {key}：{n} 份产物" for key, n in sorted(pairs.items(), key=lambda kv: -kv[1])[:8]],
+        "实际服务模型的产物证据计数（父子可能重叠）：" + ("、".join(f"{k}×{v}" for k, v in sorted(served.items())) or "无"),
         f"调用过模型却没带回生效模型的子分支：{branch_unproven}（episode store：{payload.get('episode_store') or '未用'}）",
     ]
 
@@ -167,7 +169,14 @@ def step_ledger(out: Path) -> tuple[dict[str, Any], list[str]]:
 def step_full_tests(out: Path) -> tuple[dict[str, Any], list[str]]:
     lint = _run("08a-ruff", [PY, "-m", "ruff", "check", "."], out, 600)
     tests = _run("08b-pytest", [PY, "-m", "pytest", "-q", "-p", "no:cacheprovider"], out, 3600)
-    return tests, [f"ruff exit {lint['exit']}：{' '.join(_tail(lint['stdout'], 1))}", *_tail(tests["stdout"], 3)]
+    result = {
+        **tests,
+        "name": "08-full-tests",
+        "exit": next((part["exit"] for part in (lint, tests) if part["exit"] != 0), 0),
+        "seconds": lint["seconds"] + tests["seconds"],
+        "checks": {"ruff": lint, "pytest": tests},
+    }
+    return result, [f"ruff exit {lint['exit']}：{' '.join(_tail(lint['stdout'], 1))}", *_tail(tests["stdout"], 3)]
 
 
 def main(argv: list[str] | None = None) -> int:

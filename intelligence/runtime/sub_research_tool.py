@@ -291,6 +291,8 @@ def branch_telemetry(branch: BranchResult) -> dict[str, object]:
     if branch.served_models:
         # 没有就不写键（同上：不把「没测到」写成空列表）。生效模型准入读它查分支用的模型。
         payload["served_models"] = list(branch.served_models)
+    if not branch.llm_calls_known:
+        payload["llm_calls_known"] = False
     if branch.budget is not None:
         payload["budget"] = branch.budget.to_dict()
     if branch.batches:

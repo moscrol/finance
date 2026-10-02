@@ -550,10 +550,14 @@ class BranchResult:
     # ``branch_completed`` 进父事件流：父产物不存分支原文，生效模型准入只看父产物时，
     # 分支用了哪个模型此前查不到（2026-10-01 审查复现：父对、子错、准入照样通过）。
     served_models: tuple[str | None, ...] = ()
+    # worker 抛异常时没有返回调用账；数值占位 0 不能作为「没有调用模型」的证明。
+    llm_calls_known: bool = True
 
     def __post_init__(self) -> None:
         if self.status not in _BRANCH_STATUSES:
             raise ValueError("unsupported branch status")
+        if not isinstance(self.llm_calls_known, bool):
+            raise TypeError("branch llm_calls_known must be boolean")
         if any(item is not None and not isinstance(item, str) for item in self.served_models):
             raise TypeError("branch served_models must contain str or None")
         if self.persistence not in {"unknown", "ephemeral", "durable", "failed"}:
@@ -864,6 +868,7 @@ class SubResearchCoordinator:
                         traces=(),
                         gaps=("分支研究未完成",),
                         llm_calls=0,
+                        llm_calls_known=False,
                         tool_calls=self._consumed_tool_calls(request),
                         error="storage_failed" if storage_failed else f"branch_worker_exception:{type(exc).__name__}",
                         episode_ref=request.episode_ref,
