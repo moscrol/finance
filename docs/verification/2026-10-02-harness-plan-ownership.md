@@ -73,6 +73,16 @@
 - 重放测试选择器的首次 shell wrapper 将收据 `target` 误当 list，前置 assert 退出1，pytest 未启动；按实际字符串格式解析后才产生 `frozen-*` 收据。它不是一次 pytest 红/绿读数。
 - doctor 为 `offline_development`，`errors: []`，`production_verified: false`；代码地图 empty 不能推出“没有该实现”。
 
+## 收尾与 Memory
+
+产品/测试后的首个 docs-only 提交为 `d67ae831880ad4b945d8216a7a2de0d8a970919b`；本节是动作完成后的补记，最终文档 tip 以 `closeout.json` 为准，不能冒充 pytest pin。
+
+Memory 只更新项目看板/一行索引、现有能力图谱和闭环方法页。修改前已钉干净基线 `960b17d9c7b10bc9da0bc49491d997ff4d9ac1b9`。既有 auto-sync 于本地 **2026-10-03 00:15:55 +0800** 提交 `d6d3b943b0f9d5c4f0482a898b9bf023fe8ada58`；本会话未另发 Memory commit/push，读回本地 `main` 与 `gitea/main` 同指该提交。不能称「vault 未同步」，也不能把后台提交说成人工提交。
+
+- 全库 lint 仍 **exit 1 / 46 errors**，46条错误与明确修改前基线逐行一致，不是lint通过。跨本地午夜使warning从30变31；未修改检查器的同日只读基线对照也是 **46 errors / 31 warnings**，唯一warning文本差异是既有超长项目笔记增加340字节。详情 `memory-writeback-baseline.json`、`memory-sameday-comparison.json`；未清理存量。
+- 图谱审计 exit 0，但仍带大量在途/未校验项；本片两个新PLAN字段在声明分支可解析，不能代证行为。`missing_required` 这个旧符号在默认树也存在，审计的MERGED提示只认符号、不认本片行为已合入。`graph-current.log` 记录实际默认检查树及脏否，不为那些树的产品正确性签字。
+- 本片通用原则写入现有 `agent-system-closed-loop-first-principles.md`；新增机械检查已在正式测试/变异定义，不另建总架构、词表或通用审计框架。
+
 ## 复跑与接续
 
 在固定 pin 的干净隔离树中使用上述解释器，pytest 位置参数完整记录于 `frozen-targeted-receipt.json.target`；再运行 `scripts/check_test_receipt.py <新收据>`。仅这些位置参数构成相关范围，不能用 `--require-full-scope` 冒充全仓。
