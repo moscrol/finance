@@ -1016,8 +1016,9 @@ def test_deadline_after_successful_finalize_keeps_the_just_written_draft(
     assert "研究截止时间已到" not in " ".join(outcome.gaps)
 
 
+@pytest.mark.parametrize("plan_content", ["", _plan_turn().content])
 def test_deadline_after_tool_turn_does_not_invent_a_draft(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, plan_content: str,
 ) -> None:
     """工具轮 consume 失败仍停机，不得假装已经交卷。
 
@@ -1052,7 +1053,7 @@ def test_deadline_after_tool_turn_does_not_invent_a_draft(
         return _successful_runner(query, tool_context)
 
     outcome = ContinuousAgentEpisode(
-        ScriptedModel([_tool_turn("本轮已发出的补查")])
+        ScriptedModel([replace(_tool_turn("本轮已发出的补查"), content=plan_content)])
     ).run(
         task_frame=frame,
         context=context,
@@ -1061,6 +1062,8 @@ def test_deadline_after_tool_turn_does_not_invent_a_draft(
 
     assert runner_calls["n"] == 1
     assert outcome.evidence
+    assert outcome.plan is None  # Legacy flush dispatches, but does not implicitly accept a PLAN.
+    assert outcome.usage.llm_calls == 1 and outcome.usage.tool_calls == 1
     assert outcome.stop_reason == "deadline_exhausted"
     assert outcome.draft == ""
     finish = next(event for event in outcome.events if event.kind == "finish")
