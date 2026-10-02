@@ -7,10 +7,12 @@
 - 原D9四项检查保持。但D1指标与数值错配仍1.0（正确1.0/空0.0），只能作兼容分，不能作质量充分证据。
 - 原完整会话API断网预检：两GLM各16拟发请求、均stream=true、0外发，绑定请求型号正确；回答终态failed。不是served身份验证、不是F4、不是浏览器E2E。
 - 复用6d8的thin/admission两模块两测试及CLI；生产API/runtime/services零diff。
-- 28新增/131相关P（4.64s）；6/6加载器变异；Ruff绿。失败登记语法错、缺CLI62P1F、入口422、Ruff E702原件均留。
+- 28新增/131相关P（最终4.96s）；6/6加载器变异；Ruff绿。失败登记语法错、缺CLI62P1F、入口422、Ruff E702原件均留。
 - DB快照官方APFS克隆、只读hash前后71c03b7e…；原scorer空源/缓存未动；旧R14未重开。
 
 ## 下一步
-先提交/双push/Draft PR，clean重验（以动作实际收据为准，本文尚不声称完成）。真实四格另冻结严格内容评分、HTTP完整入口、每个父子物理请求、两GLM共池串行90秒与绝对预算。P当前是流式，R15非流式接线不能移签；若缓冲完整body须披露不验逐字/首字延迟。先四格，不开240，不称已标定强弱，不按模型档位硬路由。
+已提交源码 ec9295732，GitHub/Gitea均push，Draft PR19（base PR18分支）：https://github.com/moscrol/finance/pull/19 。clean源码复核131P/4.90s，收据20261002T074850Z-ec929573-3e5ccad63ca7.json；CI尚未实查，不转签PR18绿。真实四格另冻结严格内容评分、HTTP完整入口、每个父子物理请求、两GLM共池串行90秒与绝对预算。P当前是流式，R15非流式接线不能移签；若缓冲完整body须披露不验逐字/首字延迟。先四格，不开240，不称已标定强弱，不按模型档位硬路由。
 
 证据 ~/.finance-runtime/model-harness-f4-preflight-20261002/；详情 docs/verification/2026-10-02-model-harness-f4-preflight-results.md。共享httpx漂移/地图unavailable、既有PR红门均不豁免。
+
+最后预检两型号各16拟发/0外发再次通过；本树旧空index.lock经无持有者/无活git核验后隔离留存，只读git禁止optional锁，最终无遗留锁。唯一成因未证。
