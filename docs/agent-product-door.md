@@ -1201,3 +1201,11 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 提供跨等待/HTTP/进程的预算工具。不得把exit0当质量通过，不得复用旧批目录，不接生产factory。
 必须与独立物理请求帽、身份准入和持久收据配套；不保证撤销供应商计算，也不是不可信代码沙箱。
 见[工程结果与使用边界](verification/2026-10-02-eval-batch-deadline-results.md)。
+
+### 四格评测接线（非生产 / 非质量放行）
+
+- `scripts/preflight_model_harness_conversation.py`：独立子进程中从完整会话API检查配置；所有模型请求先留证再拦截，真实请求0，不能当四格或E2E。
+- `scripts/score_frozen_machine_case.py` → `intelligence/eval/frozen_machine_scorer.py`：仅接受固定私有Python3.12评分缓存；语义验收恒为未建立，旧尺会漏判指标/数值错配。
+- `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。
+- `intelligence/eval/thin_react.py`：复用既有薄循环评测对照；非生产factory；真实驱动仍需独立预算/原始HTTP/内容评分。
+- 范围与反证：`docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。
