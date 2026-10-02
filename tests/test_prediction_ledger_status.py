@@ -267,3 +267,68 @@ def test_expiry_rule_text_matches_the_code():
     assert f">{status.DEFAULT_EXPIRE_DAYS} 天过期" in rule
     assert f"`{status.CLOSED_UNVERIFIED}`" in rule
     assert "scripts/prediction_ledger_status.py" in rule
+
+
+# ── 过期分诊表（--worksheet）────────────────────────────────────────────────
+
+
+def _how_row(rid: str, how: str, outcome: str = "`pending`") -> str:
+    return f"| `{rid}` | 溯源 docs/x.md | `HARNESS_FIX` | 预测 | {how} | {outcome} |"
+
+
+def _worksheet_root(tmp_path: Path) -> Path:
+    root = _ledger(tmp_path, [
+        _how_row("R-20260801-01", "离线单测 + live 探针（8792 切流后看）"),
+        _how_row("R-20260802-02", "离线变异 3/3"),
+        _how_row("R-20260803-03", "看下一次复盘"),
+        _how_row("R-20260920-04", "离线单测"),  # 新鲜，不进分诊表
+    ])
+    ver = tmp_path / "docs" / "verification"
+    ver.mkdir(parents=True)
+    (ver / "2026-08-20-receipt.md").write_text("R-20260801-01 的 live 读数：通过", encoding="utf-8")
+    (ver / "2026-07-30-older.md").write_text("R-20260802-02 立项前的草稿", encoding="utf-8")  # 早于开立日，不算
+    (ver / "2026-08-21-suffix.md").write_text("R-20260803-03a 是另一条（带后缀）", encoding="utf-8")
+    (tmp_path / "docs" / "notes-undated.md").write_text("R-20260803-03 无日期文件不算", encoding="utf-8")
+    return root
+
+
+def test_worksheet_lists_expired_rows_with_later_mentions_only(tmp_path):
+    root = _worksheet_root(tmp_path)
+    report = status.build_report(root, as_of=date(2026, 10, 2), stale_days=14, expire_days=30)
+    sheet = {row["id"]: row for row in status.build_worksheet(root, report)}
+    assert set(sheet) == {"R-20260801-01", "R-20260802-02", "R-20260803-03"}
+    assert sheet["R-20260801-01"]["later_mentions"] == 1
+    assert sheet["R-20260801-01"]["latest_mention"] == "docs/verification/2026-08-20-receipt.md"
+    assert sheet["R-20260802-02"]["later_mentions"] == 0  # 只在开立日之前提过
+    assert sheet["R-20260803-03"]["later_mentions"] == 0  # 带后缀的号、无日期文件都不算
+    assert [sheet[r]["verification"] for r in ("R-20260801-01", "R-20260802-02", "R-20260803-03")] == [
+        "要生产读数", "离线可验", "未写明",
+    ]
+
+
+def test_worksheet_cli_renders_and_never_edits_the_ledger(tmp_path, capsys):
+    root = _worksheet_root(tmp_path)
+    ledger = root / "docs" / "prediction-ledger.md"
+    before = ledger.read_text(encoding="utf-8")
+    assert status.main(["--root", str(root), "--as-of", "2026-10-02", "--worksheet"]) == 0
+    out = capsys.readouterr().out
+    assert "过期待定分诊表（as-of 2026-10-02，3 条）" in out
+    assert "后续证据，先看它）：1 条；没有：2 条" in out
+    first_row = next(line for line in out.splitlines() if line.startswith("| R-"))
+    assert first_row.startswith("| R-20260801-01 ")  # 有后续提及的排前面
+    assert status.main(["--root", str(root), "--as-of", "2026-10-02", "--worksheet", "--json"]) == 0
+    assert len(json.loads(capsys.readouterr().out)) == 3
+    assert ledger.read_text(encoding="utf-8") == before
+
+
+def test_worksheet_puts_rows_with_later_evidence_first_even_if_younger(tmp_path, capsys):
+    root = _ledger(tmp_path, [
+        _how_row("R-20260801-01", "离线单测"),   # 更老，但没有后续提及
+        _how_row("R-20260810-02", "离线单测"),   # 更新，有后续提及
+    ])
+    ver = tmp_path / "docs" / "verification"
+    ver.mkdir(parents=True)
+    (ver / "2026-08-20-receipt.md").write_text("R-20260810-02 复跑通过", encoding="utf-8")
+    assert status.main(["--root", str(root), "--as-of", "2026-10-02", "--worksheet"]) == 0
+    rows = [line for line in capsys.readouterr().out.splitlines() if line.startswith("| R-")]
+    assert [row.split(" | ")[0] for row in rows] == ["| R-20260810-02", "| R-20260801-01"]

@@ -11,7 +11,8 @@
 2. 百分数字段量纲：先 APFS ``cp -c`` 克隆生产库（秒级、零额外占盘；克隆不成就直接只读打开，
    不做整份拷贝），再跑 ``check_percent_units.py``，跑完删克隆；
 3. 标签 A/B 回放（``numeric_gate_label_ab.py``，扫 ``FORESIGHT_USERS_DIR`` 全部用户）；
-4. 生效模型准入（含子分支）抽查最近的运行：看新判据在真实产物上放行 / 错配 / 无证据各多少；
+4. 生效模型准入（含子分支）抽查最近的运行：默认每个运行按它自己 ``configure`` 里配置的模型判
+   （回查「以为 A 实际 B」）；给 ``--expect-model`` 则统一按那个模型判；
 5. 记忆召回分档（关键词现状 vs 字符二元组对照；给了 ``--embed-model`` 再加语义档）；
 6. 工具调用按数据集统计（``audit_episode_tool_outcomes.py --by-dataset``）；
 7. 台账体检（``prediction_ledger_status.py``）；
@@ -97,15 +98,15 @@ def step_replay(out: Path) -> tuple[dict[str, Any], list[str]]:
     return r, keep + ["逐条（消失 / 新增的原句）只在本机：logs/03-replay.txt"]
 
 
-def step_admission(out: Path, users_root: Path, since: str, expect: str) -> tuple[dict[str, Any], list[str]]:
+def step_admission(out: Path, users_root: Path, since: str, expect: str | None) -> tuple[dict[str, Any], list[str]]:
     runs = sorted(
         p for p in users_root.glob("*/runs/run_*") if p.is_dir() and p.name[4:12] >= since
         and (p / "continuous-episode.json").is_file()
     )
     if not runs:
         return {"name": "04-admission", "exit": None, "seconds": 0, "log": ""}, [f"跳过：{since} 以来没有 continuous 运行"]
-    r = _run("04-admission", [PY, "scripts/check_model_admission.py", "--expect-model", expect, "--json",
-                              *map(str, runs)], out, 900)
+    want = ["--expect-model", expect] if expect else ["--expect-configured"]
+    r = _run("04-admission", [PY, "scripts/check_model_admission.py", *want, "--json", *map(str, runs)], out, 900)
     try:
         payload = json.loads(r["stdout"])
     except ValueError:
@@ -113,13 +114,20 @@ def step_admission(out: Path, users_root: Path, since: str, expect: str) -> tupl
     counts: dict[str, int] = {}
     branch_unproven = 0
     served: dict[str, int] = {}
+    pairs: dict[str, int] = {}
     for item in payload["results"]:
         counts[item["verdict"]] = counts.get(item["verdict"], 0) + 1
         branch_unproven += int(item.get("branch_unproven") or 0)
         for name, n in item["served"].items():
             served[name] = served.get(name, 0) + n
+        configured = "/".join(item.get("expected") or []) or "（未配置）"
+        actual = "/".join(sorted(item["served"])) or "（无）"
+        key = f"配置 {configured} → 实际 {actual}"
+        pairs[key] = pairs.get(key, 0) + 1
+    basis = f"统一期望 {expect}" if expect else "各按自己 configure 里配置的模型"
     return r, [
-        f"{since} 以来 {len(runs)} 个运行，期望 {expect}：" + "、".join(f"{k} {v}" for k, v in sorted(counts.items())),
+        f"{since} 以来 {len(runs)} 个运行，{basis}：" + "、".join(f"{k} {v}" for k, v in sorted(counts.items())),
+        *[f"- {key}：{n} 个运行" for key, n in sorted(pairs.items(), key=lambda kv: -kv[1])[:8]],
         "实际服务过的模型（按 turn 计）：" + ("、".join(f"{k}×{v}" for k, v in sorted(served.items())) or "无"),
         f"调用过模型却没带回生效模型的子分支：{branch_unproven}（episode store：{payload.get('episode_store') or '未用'}）",
     ]
@@ -151,7 +159,9 @@ def step_tools(out: Path, users_root: Path) -> tuple[dict[str, Any], list[str]]:
 def step_ledger(out: Path) -> tuple[dict[str, Any], list[str]]:
     today = dt.date.today().isoformat()
     r = _run("07-ledger", [PY, "scripts/prediction_ledger_status.py", "--as-of", today], out, 300)
-    return r, _tail(r["stdout"], 25)
+    sheet = _run("07b-ledger-worksheet", [PY, "scripts/prediction_ledger_status.py", "--as-of", today, "--worksheet"], out, 300)
+    head = [line for line in sheet["stdout"].splitlines()[:5] if line.strip()]
+    return r, [*_tail(r["stdout"], 25), "", *head, "分诊表全文：logs/07b-ledger-worksheet.txt"]
 
 
 def step_full_tests(out: Path) -> tuple[dict[str, Any], list[str]]:
@@ -167,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--recall-user", default="linxiaoqi5111", help="记忆召回标注集对应的用户目录名")
     parser.add_argument("--embed-model", action="append", default=[], help="语义档本地模型（需已装 sentence-transformers）")
     parser.add_argument("--admission-since", default="20260916", help="准入抽查的 run 日期下限 YYYYMMDD")
-    parser.add_argument("--expect-model", default="glm-5.3-flash", help="准入抽查的期望模型")
+    parser.add_argument("--expect-model", default=None, help="准入抽查统一按这个模型判；默认各按自己 configure 里配置的模型")
     parser.add_argument("--full-tests", action="store_true", help="另跑本机等价 CI（二三十分钟）")
     args = parser.parse_args(argv)
 

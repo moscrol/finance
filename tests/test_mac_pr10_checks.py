@@ -42,6 +42,7 @@ def test_runbook_writes_a_shareable_summary_without_private_text(tmp_path, monke
         assert f"## {title}" in summary, title
     assert "消失 1 处，新增 0 处" in summary
     assert "| T1 |" in summary  # 召回分档表进摘要
+    assert "各按自己 configure 里配置的模型" in summary
     assert SECRET not in summary
     assert "若强势股成交占比回到" not in summary, "回答原句只进本机日志"
     assert "若强势股成交占比回到" in (out / "logs" / "03-replay.txt").read_text(encoding="utf-8")

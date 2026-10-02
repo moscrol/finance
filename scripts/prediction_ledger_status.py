@@ -332,6 +332,90 @@ def render(report: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+# ── 过期分诊表（--worksheet）──────────────────────────────────────────────
+# 过期规则把「待定超过 30 天」单列出来，但每条要么重验、要么写明理由关成 expired——
+# 这是逐条判断，不能机械批量（2026-10-01 试过：标志只覆盖 30/101，来源散在 78 组）。
+# 分诊表只做两件机械的事，帮判断的人省时间：抄出「怎么验」，再列出开立日之后、文件名
+# 带日期的文档里有没有再提到这个号（可能的后续证据）。它不改台账、不下结论。
+
+_EXACT_ID = re.compile(r"(?<![\w-])(R-\d{8}-\d{2})(?![\w-])")
+_NAME_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+_LIVE_MARKERS = ("live", "Live", "切流", "生产", "8792", "真实对话", "真实题", "上线")
+
+
+def verification_kind(how: str) -> str:
+    """「怎么验」里写的是哪类证据：要生产读数 / 离线可验 / 未写明（只看关键词，是提示不是判定）。"""
+
+    if any(marker in how for marker in _LIVE_MARKERS):
+        return "要生产读数"
+    if "离线" in how:
+        return "离线可验"
+    return "未写明"
+
+
+def later_mentions(root: Path, ids: set[str]) -> dict[str, list[tuple[str, str]]]:
+    """docs/ 下文件名带日期的 Markdown 里提到这些号的位置（台账本身不算）：号 → [(日期, 相对路径)]。"""
+
+    found: dict[str, list[tuple[str, str]]] = {}
+    docs = root / "docs"
+    for path in sorted(docs.rglob("*.md")):
+        if path.name == "prediction-ledger.md":
+            continue
+        stamp = _NAME_DATE.search(path.name)
+        if stamp is None:
+            continue
+        hits = set(_EXACT_ID.findall(path.read_text(encoding="utf-8", errors="replace"))) & ids
+        for rid in hits:
+            found.setdefault(rid, []).append(("".join(stamp.groups()), str(path.relative_to(root))))
+    return found
+
+
+def build_worksheet(root: Path, report: dict[str, object]) -> list[dict[str, object]]:
+    expired = list(report["expired_pending"])  # type: ignore[arg-type]
+    _all_rows, open_rows = _ledger_rows(root)
+    line_of = dict(open_rows)
+    mentions = later_mentions(root, {str(item["id"]) for item in expired})
+    rows = []
+    for item in expired:
+        rid = str(item["id"])
+        cells = _cells(line_of.get(rid, ""))
+        how = cells[4] if len(cells) == 6 else ""
+        opened = rid[2:10]
+        later = sorted((d, path) for d, path in mentions.get(rid, []) if d > opened)
+        rows.append({
+            "id": rid,
+            "fix_type": item["fix_type"],
+            "age_days": item["age_days"],
+            "verification": verification_kind(how),
+            "how": re.sub(r"\s+", " ", how.replace("**", ""))[:90],
+            "later_mentions": len(later),
+            "latest_mention": later[-1][1] if later else "",
+        })
+    return rows
+
+
+def render_worksheet(rows: list[dict[str, object]], as_of: str) -> str:
+    kinds = Counter(str(row["verification"]) for row in rows)
+    with_later = sum(1 for row in rows if row["later_mentions"])
+    lines = [
+        f"# 过期待定分诊表（as-of {as_of}，{len(rows)} 条）",
+        "",
+        "- 「怎么验」写的证据类型：" + "、".join(f"{k} {v}" for k, v in sorted(kinds.items())),
+        f"- 开立日之后有文档再提到这个号（可能的后续证据，先看它）：{with_later} 条；没有：{len(rows) - with_later} 条",
+        "- 每条只有两种处理：重验后写 confirmed / refuted；或改成 `expired` 并写理由。过期≠证伪，不进连击。",
+        "",
+        "| 号 | fix_type | 天数 | 证据类型 | 后续提及 | 最近一处 | 怎么验（摘录） |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for row in sorted(rows, key=lambda r: (-int(r["later_mentions"] > 0), -int(r["age_days"] or 0))):
+        how = str(row["how"]).replace("|", "/")
+        lines.append(
+            f"| {row['id']} | {row['fix_type']} | {row['age_days']} | {row['verification']} | "
+            f"{row['later_mentions']} | {row['latest_mention'] or '—'} | {how} |"
+        )
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="预测台账体检（只读）")
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help="仓库根（默认本仓）")
@@ -340,6 +424,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expire-days", type=int, default=DEFAULT_EXPIRE_DAYS, help="临期/过期分界（天）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（含逐行明细）")
     parser.add_argument("--strict", action="store_true", help="枚举外取值或 refuted 连击告警时 exit 1")
+    parser.add_argument(
+        "--worksheet", action="store_true",
+        help="只出过期待定的分诊表（怎么验 + 开立日之后的文档提及），给逐条重验或关闭用",
+    )
     args = parser.parse_args(argv)
     ledger = args.root / "docs" / "prediction-ledger.md"
     if not ledger.is_file():
@@ -354,6 +442,10 @@ def main(argv: list[str] | None = None) -> int:
         stale_days=args.stale_days,
         expire_days=args.expire_days,
     )
+    if args.worksheet:
+        sheet = build_worksheet(args.root, report)
+        print(json.dumps(sheet, ensure_ascii=False, indent=2) if args.json else render_worksheet(sheet, str(report["as_of"])))
+        return 0
     print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else render(report))
     if args.strict and (report["invalid_fix_types"] or report["streak_alerts"]):
         return 1
