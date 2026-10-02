@@ -427,8 +427,8 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "limit_up": _metric("limit_up", "涨停家数", "avg", "integer"),
             "limit_down": _metric("limit_down", "跌停家数", "avg", "integer"),
             "top3_industry_ratio": _metric("top3_industry_ratio", "前三行业成交占比"),
-            "strength_return_pct": _metric("strength_avg_pct", "强势股加权涨幅"),
-            "strength_amount_pct": _metric("strength_amount_pct", "强势股成交占比"),
+            "strength_return_pct": _metric("strength_avg_pct", "强势股加权涨幅%"),
+            "strength_amount_pct": _metric("strength_amount_pct", "强势股成交占比%"),
         },
     ),
     "market_breadth_daily": _DatasetDefinition(
@@ -1040,7 +1040,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         },
         metrics={
             "rank": _metric("rank", "榜单名次", "min", "integer"),
-            "change_pct": _metric("change_pct", "区间涨幅"),
+            "change_pct": _metric("change_pct", "区间涨幅%"),
             "limit_up_count": _metric("limit_up_count", "榜内涨停家数", "max", "integer"),
         },
     ),

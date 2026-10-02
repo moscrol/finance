@@ -868,6 +868,8 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
     assert result.private_artifact["outcome"]["usage"]["invalid_actions"] == 0
     assert len(result.private_artifact["outcome"]["evidence"]) == 1
     events = result.private_artifact["events"]
+    # 每轮落产物时自动记一次生效模型准入（10-01 审查：准入要全程自动）。
+    assert "verdict" in result.private_artifact["model_admission"]
     assert sum(event["kind"] == "repair_reentry" for event in events) == int(resumed)
     assert result.private_artifact["outcome"]["usage"]["llm_calls"] == 2 + int(resumed)
     if backend == "glm":

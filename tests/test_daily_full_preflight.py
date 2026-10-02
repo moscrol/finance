@@ -44,6 +44,30 @@ class PreflightTest(unittest.TestCase):
         self.assertFalse(verdict["ok"])
         self.assertIn("localhost:3456", " ".join(verdict["problems"]))
 
+    def test_swap_lock_that_cannot_exclude_writers_blocks_the_run(self):
+        verdict = preflight_daily_update(
+            module_exists=lambda name: True,
+            cdp_probe=lambda: True,
+            swap_lock_probe=lambda: False,
+            needs_swap_lock=True,
+        )
+        self.assertFalse(verdict["ok"])
+        joined = " ".join(verdict["problems"])
+        self.assertIn("换库锁排不掉 duckdb 写者", joined)
+        self.assertIn("scripts/check_swap_lock_platform.py", joined)
+
+    def test_direct_daily_update_does_not_consult_the_swap_lock(self):
+        # daily-update 直写不换库：不查锁，也不为它起自检子进程
+        def must_not_run():
+            raise AssertionError("不换库的链不该跑换库锁自检")
+
+        verdict = preflight_daily_update(
+            module_exists=lambda name: True,
+            cdp_probe=lambda: True,
+            swap_lock_probe=must_not_run,
+        )
+        self.assertTrue(verdict["ok"])
+
 
 class RunStepTimingTest(unittest.TestCase):
     def test_ok_step_carries_elapsed(self):

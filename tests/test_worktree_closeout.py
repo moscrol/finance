@@ -151,6 +151,7 @@ def test_dry_run_samples_without_touching_anything(rig):
     assert "--apply --plan" in result.stdout
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="收口 apply 用 clonefile(2) 拷数据库残留，只有 macOS 有")
 def test_apply_archives_everything_then_removes(rig):
     tree, database = _dirty_tree(rig)
     head = git(tree, "rev-parse", "HEAD")

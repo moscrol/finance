@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import checkpoints, corrections, judgments
+from intelligence.services import checkpoints, corrections, judgments, memory_semantic
 
 DEFAULT_LOAD_WINDOW = 200
 DEFAULT_LIMIT = 5
@@ -422,6 +422,46 @@ def _method_lines(records: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def _recall_select(
+    records: list[dict[str, Any]],
+    query: str,
+    theme: str | None,
+    entity: str | None,
+    *,
+    text_keys: tuple[str, ...],
+    tag_keys: tuple[str, ...],
+    limit: int,
+    mode: str,
+    ledger_path: Path,
+    telemetry: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """关键词召回照旧先算；keyword 档直接返回它（与改动前同一个调用、同一组参数）。
+
+    semantic / hybrid 交给 ``memory_semantic.select``，那边任何一步走不通都退回这份关键词结果。
+    """
+
+    keyword = select_relevant(
+        records, query, theme, entity, text_keys=text_keys, tag_keys=tag_keys, limit=limit
+    )
+    if mode == "keyword":
+        if telemetry is not None:
+            telemetry.update(mode="keyword", effective="keyword", degraded=None)
+        return keyword
+    return memory_semantic.select(
+        records,
+        query,
+        theme,
+        entity,
+        text_keys=text_keys,
+        tag_keys=tag_keys,
+        limit=limit,
+        mode=mode,
+        keyword=keyword,
+        ledger_path=ledger_path,
+        telemetry=telemetry,
+    )
+
+
 def relevant_memory_records(
     query: str,
     theme: str | None = None,
@@ -432,12 +472,19 @@ def relevant_memory_records(
     *,
     strict: bool = False,
     recent: bool = False,
+    recall_mode: str | None = None,
+    telemetry: dict[str, Any] | None = None,
 ) -> MemoryRecall:
     """Recall records; unscoped personal recall may request the recent window.
 
     ``recent`` changes selection only, after the canonical loader has applied
     withdrawals. Callers still own identity, historical cutoff and text limits.
     Ordinary research leaves it false and keeps relevance filtering.
+
+    ``recall_mode``：相关性召回用哪条路（keyword / semantic / hybrid），None = 读
+    ``FINANCE_MEMORY_RECALL_MODE``（默认 keyword，结果与改动前逐字节相同）。评测按档对照时显式传。
+    ``telemetry``：给了就按台账（judgments / corrections）记下实际走的路、是否降级与原因；
+    只记机器字段，不记正文。见 ``memory_semantic``。
     """
 
     j_path, c_path, _ck_path, _v_path = _ledger_paths(user, users_root)
@@ -446,18 +493,23 @@ def relevant_memory_records(
     c_records, c_warning = corrections.load_corrections(c_path, window=DEFAULT_LOAD_WINDOW, **read_options)
     if strict and (j_warning or c_warning):
         raise OSError("user memory ledger unavailable")
+    mode = memory_semantic.recall_mode() if recall_mode is None else recall_mode
     return MemoryRecall(
         judgments=(sorted(j_records, key=lambda row: str(row.get("ts") or ""), reverse=True)[:max(0, limit)]
-                   if recent else select_relevant(
+                   if recent else _recall_select(
             j_records,
             query,
             theme,
             entity,
             text_keys=("memo",),
+            tag_keys=("themes", "stocks"),
             limit=limit,
+            mode=mode,
+            ledger_path=j_path,
+            telemetry=None if telemetry is None else telemetry.setdefault("judgments", {}),
         )),
         corrections=(sorted(c_records, key=lambda row: str(row.get("ts") or ""), reverse=True)[:max(0, limit)]
-                     if recent else select_relevant(
+                     if recent else _recall_select(
             c_records,
             query,
             theme,
@@ -465,6 +517,9 @@ def relevant_memory_records(
             text_keys=("correction", "original", "principle"),
             tag_keys=("themes",),
             limit=limit,
+            mode=mode,
+            ledger_path=c_path,
+            telemetry=None if telemetry is None else telemetry.setdefault("corrections", {}),
         )),
         judgments_path=j_path,
         corrections_path=c_path,

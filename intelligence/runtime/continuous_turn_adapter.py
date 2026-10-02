@@ -8,12 +8,13 @@ verification gates.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from dataclasses import asdict, dataclass, replace
 from datetime import date
 import hashlib
 import inspect
+import logging
 import os
 import re
 import time
@@ -1265,6 +1266,9 @@ class ContinuousTurnAdapter:
             "events": list(event_projection.events),
             "traces": [item.to_dict() for item in outcome.traces],
             "structural_verifier": structural.to_dict(),
+            # 本轮自动做的生效模型准入：configure 里配置的模型 vs 每轮（含子分支）实际服务的
+            # 模型。只记录、不拦截（10-01 审查：准入要全程自动，不能靠人记得跑脚本）。
+            "model_admission": _model_admission_receipt(event_projection.events),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
             "semantic_verifier_attempts": semantic_verifier_attempts,
@@ -2501,6 +2505,25 @@ def _phase_trace_payload(recorder: PhaseRecorder) -> dict[str, object]:
             "transitions": [],
             "anomalies": {"recorder_failed": ["1"]},
         }
+
+
+def _model_admission_receipt(events: Sequence[object]) -> dict[str, object]:
+    """按产物自己的 configure 快照判本轮生效模型（含子分支）；收据坏了不拖垮产物。"""
+
+    from intelligence.eval.model_admission import VERDICT_MISMATCH, self_admission
+
+    try:
+        result = self_admission(events)
+    except Exception as exc:  # noqa: BLE001 - 收据不可用不是产物不可用
+        return {"verdict": "unavailable", "reason": type(exc).__name__}
+    if result is None:
+        return {"verdict": "unknown_expected", "reason": "configure 快照里没有模型名"}
+    if result.verdict == VERDICT_MISMATCH:
+        logging.getLogger(__name__).warning(
+            "model admission mismatch: configured %s, served %s",
+            "/".join(result.expected), dict(sorted(result.served.items())),
+        )
+    return result.to_dict()
 
 
 def _private_outcome(outcome: AgentOutcome) -> dict[str, object]:

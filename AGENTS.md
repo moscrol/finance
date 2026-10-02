@@ -88,8 +88,8 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | top-gainers | 涨幅排行、涨幅前N |
 | high-volume-gainers | 放量上涨 |
 | advancers-chart | 涨家数走势 |
-| up-line | UP线、UP线更新 |
-| watchlist-ma | 自选股均线 |
+| up-line | （已被 stock-technicals 取代，2026-09-30 撤出 `.claude/skills/`；飞书退役后跑不通，目录按 #729 保留作口径参考，不要调用） |
+| watchlist-ma | （已被 stock-technicals 取代，2026-09-30 撤出 `.claude/skills/`；飞书退役后跑不通，目录按 #729 保留作口径参考，不要调用） |
 | ifind | 无触发词：共享工具库，仅供其他 skill 的脚本导入，不可独立调用 |
 | hithink-market-query | 同花顺市场查询 |
 | report-search | 研报搜索 |
@@ -102,7 +102,7 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | duckdb-backfill | 回填 duckdb、补 market_feature_store、增量补数据、fact 覆盖审计、同步 stock_high/sector_stock/limit_heat |
 | strategy-evolve | 策略进化、evolve、策略生成迭代、回测记录、前瞻收益验证（suggest 只建议、不自动改 params.json） |
 | strategy1-matrix | 策略一生成、生成策略1、策略一矩阵、策略1每日优先个股、strategy1 matrix、更新策略一。用于基于已完成的每日复盘数据、把某个交易日写入 `复盘、matrices、strategy1-priority-stock-matrix.html`、并沉淀 T1、T2、OBS、次日验证、尤其适用于避免长 SQL、长 shell 字符串、手工编辑巨大 HTML 单行导致出错 |
-| top-gainers-feishu | 强势股入库、涨幅入库、区间强势、查询强势股、强势股均线、强势股回踩（筛选口径按 #729 保留，但它读写的都是飞书强势股表，2026-09-11 退役后**当前跑不通**；只看排行用 top-gainers） |
+| top-gainers-feishu | （已被 stock-technicals 取代，2026-09-30 撤出 `.claude/skills/`；飞书退役后跑不通，目录按 #729 保留作口径参考，不要调用） |
 | foresight-feedback | 记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈 |
 | task-planner | 批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问 |
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环 |

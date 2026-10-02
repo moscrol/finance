@@ -37,6 +37,11 @@
         --cases intelligence/eval/fixtures/user_memory_recall/cases.jsonl \
         --users-root intelligence/eval/fixtures/user_memory_recall/ledgers
 
+    user_memory 分档对照（2026-08-05 handoff §3 的三档 + 混合，每档报命中 / 非标注召回 / 延迟）：
+    python3 -m intelligence.eval.retrieval_recall --cases <标注集> --users-root <某个用户的台账目录> \
+        --tiers --embed-model builtin:char-bigram --embed-model BAAI/bge-small-zh-v1.5 [--min-sim 0.5]
+    注意 ``--users-root`` 是**叶目录**（``$FORESIGHT_USERS_DIR/<user>``），给父目录会静默读出 0 命中。
+
 纪律：本尺子只读；分数低说明「召回不足」，分数高不说明「答案正确」——
     它度量的是检索层，不是推理层。
 """
@@ -67,12 +72,18 @@ def user_memory_retriever(
     *,
     users_root: str | Path | None = None,
     user: str | None = None,
+    recall_mode: str | None = None,
+    telemetry: dict[str, Any] | None = None,
 ) -> list[str]:
-    """[M] 块生产语义：limit=k 时 judgments/corrections 各至多 k 条实际入块记录的 ts。"""
+    """[M] 块生产语义：limit=k 时 judgments/corrections 各至多 k 条实际入块记录的 ts。
+
+    ``recall_mode`` 为 None 时与生产同读环境变量；分档对照显式传 keyword / semantic / hybrid。
+    """
     from intelligence.services.user_memory import relevant_memory_records
 
     recall = relevant_memory_records(
-        query, theme, entity, user=user, limit=k, users_root=users_root
+        query, theme, entity, user=user, limit=k, users_root=users_root,
+        recall_mode=recall_mode, telemetry=telemetry,
     )
     ids = [str(r.get("ts") or "").strip() for r in recall.judgments]
     ids += [str(r.get("ts") or "").strip() for r in recall.corrections]
@@ -258,6 +269,127 @@ def render_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def memory_tier_plan(embed_models: list[str]) -> list[dict[str, Any]]:
+    """分档：T0 原始问句（不带结构化意图）· T1 现状（关键词 + 意图）· 每个模型各一档语义、一档混合。"""
+    from intelligence.services.memory_semantic import BUILTIN_BIGRAM
+
+    plan: list[dict[str, Any]] = [
+        {"tier": "T0", "label": "原始问句 · 关键词", "mode": "keyword", "strip_subject": True, "model": None},
+        {"tier": "T1", "label": "+结构化意图 · 关键词（现状）", "mode": "keyword", "strip_subject": False, "model": None},
+    ]
+    for index, model in enumerate(embed_models, start=1):
+        kind = "字符二元组（非语义对照）" if model == BUILTIN_BIGRAM else f"语义 {model}"
+        suffix = f"-{index}" if len(embed_models) > 1 else ""
+        plan.append({"tier": f"T2{suffix}", "label": f"+{kind}", "mode": "semantic", "strip_subject": False, "model": model})
+        plan.append({"tier": f"T3{suffix}", "label": f"混合：关键词 + {kind}补位", "mode": "hybrid", "strip_subject": False, "model": model})
+    return plan
+
+
+def compare_memory_tiers(
+    cases: list[dict[str, Any]],
+    *,
+    k: int = 5,
+    embed_models: list[str] | None = None,
+    users_root: str | Path | None = None,
+    user: str | None = None,
+) -> dict[str, Any]:
+    """user_memory 各档对照：命中 / 召回 / 非标注召回（假阳性上限）/ 延迟，外加逐 case 明细。
+
+    语义档降级（模型没配、依赖没装、加载失败）时整档标「降级」，数字是关键词兜底的，不能当语义读。
+    """
+    import time
+
+    from intelligence.services.memory_semantic import CACHE_DIR_ENV, MODEL_ENV
+
+    rows: list[dict[str, Any]] = []
+    per_case: dict[str, dict[str, Any]] = {}
+    saved = {key: os.environ.get(key) for key in (MODEL_ENV, CACHE_DIR_ENV)}
+    # 本尺子只读：分档期间不写向量缓存（每档都现算，首查延迟因此含编码全部记录的时间）。
+    os.environ[CACHE_DIR_ENV] = "off"
+    try:
+        for tier in memory_tier_plan(list(embed_models or [])):
+            if tier["model"] is not None:
+                os.environ[MODEL_ENV] = tier["model"]
+            hits = recall_sum = false_positive = 0
+            latencies: list[float] = []
+            degraded: set[str] = set()
+            for case in cases:
+                relevant = set(case["relevant"])
+                theme = None if tier["strip_subject"] else case.get("theme")
+                entity = None if tier["strip_subject"] else case.get("entity")
+                telemetry: dict[str, Any] = {}
+                started = time.perf_counter()
+                retrieved = user_memory_retriever(
+                    case["query"], theme, entity, k, users_root=users_root, user=user,
+                    recall_mode=tier["mode"], telemetry=telemetry,
+                )
+                latencies.append((time.perf_counter() - started) * 1000)
+                degraded |= {str(v["degraded"]) for v in telemetry.values() if isinstance(v, dict) and v.get("degraded")}
+                found = set(retrieved) & relevant
+                hits += bool(found)
+                recall_sum += len(found) / len(relevant)
+                extra = len(set(retrieved) - relevant)
+                false_positive += extra
+                case_id = str(case.get("case_id") or f"case-{len(per_case) + 1}")
+                detail = per_case.setdefault(case_id, {
+                    "case_id": case_id,
+                    "query": case["query"],
+                    "subject": str(case.get("theme") or ""),
+                    "subject_chars": len(str(case.get("theme") or "")),
+                    "relevant": len(relevant),
+                    "tiers": {},
+                })
+                detail["tiers"][tier["tier"]] = {"found": len(found), "extra": extra}
+            n = len(cases) or 1
+            rows.append({
+                **{key: tier[key] for key in ("tier", "label", "mode", "model")},
+                "cases": len(cases),
+                "hits": hits,
+                "hit_rate": hits / n,
+                "recall": recall_sum / n,
+                "false_positives": false_positive,
+                "first_ms": round(latencies[0], 1) if latencies else None,
+                "rest_mean_ms": round(sum(latencies[1:]) / len(latencies[1:]), 1) if len(latencies) > 1 else None,
+                "degraded": sorted(degraded),
+            })
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    return {"k": k, "cases": len(cases), "tiers": rows, "per_case": list(per_case.values())}
+
+
+def render_tiers(report: dict[str, Any]) -> str:
+    k = report["k"]
+    lines = [f"# user_memory 分档对照（{report['cases']} cases，k={k}）", ""]
+    lines.append(f"| 档 | 说明 | hit@{k} | recall@{k} | 非标注召回（假阳性上限） | 首查 ms（含加载） | 其余均值 ms | 状态 |")
+    lines.append("|---|---|---|---|---|---|---|---|")
+    for row in report["tiers"]:
+        status = "降级：" + "、".join(row["degraded"]) + "（数字是关键词兜底）" if row["degraded"] else "正常"
+        rest = "—" if row["rest_mean_ms"] is None else row["rest_mean_ms"]
+        lines.append(
+            f"| {row['tier']} | {row['label']} | {row['hits']}/{row['cases']} | {row['recall']:.1%} | "
+            f"{row['false_positives']} | {row['first_ms']} | {rest} | {status} |"
+        )
+    tiers = [row["tier"] for row in report["tiers"]]
+    lines += ["", "## 逐 case（命中数/应召回数，括号里是非标注召回数）", ""]
+    lines.append("| case | 路由主题 | 主题字数 | " + " | ".join(tiers) + " |")
+    lines.append("|---|---|---|" + "---|" * len(tiers))
+    for row in report["per_case"]:
+        cells = [
+            f"{row['tiers'][t]['found']}/{row['relevant']}（+{row['tiers'][t]['extra']}）" for t in tiers
+        ]
+        lines.append(f"| {row['case_id']} | {row['subject'] or '—'} | {row['subject_chars']} | " + " | ".join(cells) + " |")
+    lines += [
+        "",
+        "- 读数纪律：非标注召回 = 召回了但不在标注里的条数，是假阳性的**上限**（标注只列必召回）。",
+        "- 语义档要比「字符二元组」对照好出足够多，才值得背模型加载成本；比不过就如实说（handoff §3 允许反向结论）。",
+    ]
+    return "\n".join(lines)
+
+
 def _main() -> int:
     import argparse
 
@@ -281,12 +413,36 @@ def _main() -> int:
     )
     parser.add_argument("--k", default="1,3,5", help="逗号分隔的 k 值（默认 1,3,5）")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument(
+        "--tiers", action="store_true",
+        help="user_memory 分档对照（原始问句 / 现状 / 语义 / 混合），k 取 --k 的最大值",
+    )
+    parser.add_argument(
+        "--embed-model", action="append", default=[],
+        help="分档里语义档用的本地模型，可重复；builtin:char-bigram 是零依赖的非语义对照",
+    )
+    parser.add_argument("--min-sim", type=float, default=None, help="语义相似度下限（默认 0.5）")
     args = parser.parse_args()
     ks = tuple(int(x) for x in args.k.split(",") if x.strip())
     cases = load_cases(args.cases, channel=args.channel)
     if not cases:
         print("标注集为空或全部无效（每行需含 query 与非空 relevant；--channel 过滤后可能为空）")
         return 2
+    if args.tiers:
+        if args.retriever != "user_memory":
+            print("--tiers 只支持 user_memory 通道")
+            return 2
+        if args.min_sim is not None:
+            from intelligence.services.memory_semantic import MIN_SIM_ENV
+
+            os.environ[MIN_SIM_ENV] = str(args.min_sim)
+        memory_cases = [c for c in cases if str(c.get("channel") or DEFAULT_CHANNEL) == "user_memory"]
+        tiers = compare_memory_tiers(
+            memory_cases, k=max(ks), embed_models=args.embed_model,
+            users_root=args.users_root, user=args.user,
+        )
+        print(json.dumps(tiers, ensure_ascii=False, indent=2) if args.json else render_tiers(tiers))
+        return 0
     if args.retriever == "kb_rag":
         retriever_kwargs: dict[str, Any] = {
             "kb_wiki": args.kb_wiki,

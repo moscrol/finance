@@ -47,6 +47,15 @@ repos:
         pass_filenames: false
         always_run: true
         verbose: true
+      # 棘轮门禁（2026-09-30 质检 P1「冻结新增正则路由」）：路由 / 题型判定模块的
+      # re.* 调用点只减不增。改写题会绕过字面规则，要加就在同一提交里 --update-baseline。
+      - id: regex-routes
+        name: "正则路由：路由模块不得新增正则规则"
+        language: system
+        entry: python3 scripts/check_regex_routes.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: unread-fields
         name: "字段契约：不得新增「写了没人读」的字段"
         language: system

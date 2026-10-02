@@ -19,6 +19,7 @@
 
 - `refuted` 是本账本**最有价值的输出，不要粉饰成 `pending`**。前者是「上次判错了层」的硬证据并驱动升格；后者只是「还没测」。把判错记成没测，长期命中率永远攒不出来。
 - 同类 `fix_type` 连续 ≥3 次 `refuted` → 停止再堆同类修补，升格质疑 `HARNESS`/架构层。**streak 按本项目累计，不跨项目**。
+- **过期规则**（2026-09-30 起）：`pending` 按 ID 里的日期计龄——≤14 天新鲜、15–30 天临期、**>30 天过期**。过期 ≠ `refuted`：没测不等于判错，不进连击，也不进命中率。但也不许无限挂着——体检脚本 `scripts/prediction_ledger_status.py` 点名的过期行二选一：① 按「怎么验」重验，写实际 outcome；② 显式关闭，outcome 写 `expired`，同格补一句为什么不再验（前提已变 / 代码已删 / 已被别的条目取代，写明是哪条）。脚本只读，不替人改行。
 - `fix_type` 只能取这 7 个值：`SYSTEM_PROMPT_FIX` / `TOOL_DESCRIPTION_FIX` / `ROUTING_FIX` / `DATA_CONTRACT_FIX` / `HARNESS_FIX` / `EVAL_ONLY` / `NO_SYSTEM_FIX`。**不要发明新值**（例如 `CONTROL_FLOW_FIX`）——fix_type 是冻结枚举，新增须走 skill 的 `known-gaps.md` 晋级线。
 - 只记引用、hash 和最短摘录。用户题面、答案正文、持仓/股票池、凭据不进本文件（本文件进 git）。
 - 条目来源不是标准四阶段分诊时（如代码审计、收口）**必须在溯源段写明**：这类条目只有 `fix_type` 与 `verification_prediction` 可用于 streak 统计，**不能当作已确认根因的 PRIMARY 引用**。

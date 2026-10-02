@@ -16,6 +16,14 @@ import json
 import os
 import subprocess
 from pathlib import Path
+import pytest
+
+
+requires_vault = pytest.mark.skipif(
+    not (Path(__file__).resolve().parents[1] / ".agent-memory").is_dir()
+    and not (Path.home() / "agent-memory").is_dir(),
+    reason="需要 agent-memory vault：.claude/hooks/load-memory.sh 在 vault 不可达时按设计静默退出",
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEVIN_CONFIG = ROOT / ".devin" / "config.json"
@@ -104,6 +112,7 @@ def test_devin_session_start_ignores_env_pointing_at_another_tree(
     assert decoy.name not in context, f"注入了诱饵树的事实：{context[:200]}"
 
 
+@requires_vault
 def test_codex_hook_injects_repo_facts_regardless_of_cwd(tmp_path: Path) -> None:
     """Codex 钩子：脚本路径拼对还不够，必须在目标仓里执行。
 
@@ -169,6 +178,7 @@ def test_memory_hook_binds_finance_project_in_renamed_clone(tmp_path: Path) -> N
         assert "20_projects/finhot.md" not in out, f"{entry} 入口的回写约定指向错误项目"
 
 
+@requires_vault
 def test_codex_hook_ignores_env_pointing_at_another_valid_tree(tmp_path: Path) -> None:
     """Codex 钩子的选根顺序必须与 ``.devin/config.json`` 一致：cwd 的仓根优先。
 
