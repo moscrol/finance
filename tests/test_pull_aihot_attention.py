@@ -311,7 +311,14 @@ def test_cli_slow_drip_deadline_exits_without_next_page_or_ledger(tmp_path):
     with local_instance(lambda path: (200, response, {}), drip_delay=.02) as (base, paths):
         before = time.monotonic()
         result = run_pull_cli(base, tmp_path, "--total-timeout", "0.08", "--apply")
-        assert result.returncode == 2 and "total time budget" in result.stderr
+        assert result.returncode == 2 and result.stdout == ""
+        report = json.loads(result.stderr)
+        assert set(report) == {"error", "written"} and report["written"] is False
+        # Either the socket timeout or the foreground deadline can win the race.
+        assert report["error"] in {
+            "AIHOT total time budget exhausted",
+            "AIHOT request failed; check instance availability and timeout",
+        }
         assert time.monotonic() - before < 1.5
         assert len(paths) == 1
     assert not (tmp_path / "private").exists()
