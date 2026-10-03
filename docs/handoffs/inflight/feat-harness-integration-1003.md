@@ -10,14 +10,14 @@
 
 ## 当前状态
 - 产品pin工程验收完成：Python、前端/E2E、registry、变异审计均有树外收据；真实金融Workbench调用为0。
-- 当前代码树干净，分支`feat/harness-integration-1003`；HEAD`60ff5ba76`仅为文档跟进，新的收尾文档提交将再次触发CI。
+- 代码树干净；文档收尾提交已完成，相对产品pin仍只改handoff，推送后以当前head重跑CI。
 - Draft PR #30仍未合入/部署/自动合并；PR描述已更新，但新文档提交后需刷新body中的head字段。
-- 树外`closeout.json`、`evidence-index.json`正在以最终文档头生成；证据根为`~/.finance-runtime/reviews/harness-integration-20261003/`。
+- 树外`closeout.json`、`evidence-index.json`正在以最终文档头生成；证据根为`~/.finance-runtime/reviews/harness-integration-20261003/`；日期快照为`docs/handoffs/2026-10-04-harness-integration-closeout.md`。
 - 四棵干净detached门禁树和前端残留树已点名移除；前端残留先归档到Gitea archive ref。未合入命名分支`gate-trees/mutation-fix`保留。
 
 ## 已验证
 - 产品pin：Python`20558P/76S/2X/0F`、collected`20636`，收据审计exit0；前端209 tests，E2E`52P/2S`；registry五项exit0；变异`9/12/13/14`，历史8、边界16，最终审计exit0。
-- 当前头部旧CI：workbench run`37137218464`、registry run`37137218453`均success；新文档头必须另核。
+- 旧头部CI：workbench run`37137218464`、registry run`37137218453`均success；`e01d0d789`的CI尚未出结果。
 - 清理收据：`worktree-closeout-20261004-gitea/apply-20261004T011337.json`，apply exit0；Gitea archive ref已验证。
 
 ## 未验证 / 已知边界
