@@ -48,7 +48,7 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.research_plan import ResearchPlan, plan_to_public_dict
-from intelligence.services.request_interpretation import accept_interpretation, interpretation_payload
+from intelligence.services.request_interpretation import interpretation_payload
 
 
 SdkBackend = Literal["sdk_glm", "sdk_gpt"]
@@ -736,18 +736,21 @@ class _AgentsRunState:
                     raise ValueError("PLAN revision allowance exhausted")
                 if candidate.interpretation is not None and has_tools:
                     raise ValueError("interpretation must be submitted without tools; retry tools after acceptance")
-                revised = accept_interpretation(candidate, context=self._active_context)
             except ValueError as exc:
                 error = str(exc)
             else:
-                self._active_context = revised
-                self.plan = candidate
-                if not has_tools:
-                    self._plan_turns += 1
-                self._add_event("plan", plan_to_public_dict(candidate))
-                return json.dumps({
-                    **interpretation_payload(revised), "accepted_plan_revision": candidate.revision,
-                }, ensure_ascii=False)
+                admission = harness.admit_interpretation(candidate, context=self._active_context)
+                if not admission.accepted:
+                    error = admission.error
+                else:
+                    self._active_context = admission.context
+                    self.plan = candidate
+                    if not has_tools:
+                        self._plan_turns += 1
+                    self._add_event("plan", plan_to_public_dict(candidate))
+                    return json.dumps({
+                        **admission.model_feedback, "accepted_plan_revision": candidate.revision,
+                    }, ensure_ascii=False)
         self._plan_error = error
         self._plan_failures += 1
         self._add_event("invalid_action", {"reason": error})

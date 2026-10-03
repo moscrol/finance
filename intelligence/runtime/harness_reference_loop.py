@@ -91,7 +91,6 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.request_interpretation import accept_interpretation, interpretation_payload
 
 DEFAULT_LLM_TIMEOUT = 20.0
 # 与 agent_episode.MAX_PLAN_TURNS 同值。刻意不 import：本类的独立性就是它的全部价值，
@@ -317,14 +316,19 @@ class HarnessReferenceLoop:
                             raise ValueError("PLAN revision allowance exhausted")
                         if self._is_cancelled() or context.deadline.expired:
                             raise ValueError("interpretation cancelled or deadline exhausted")
-                        context = accept_interpretation(plan_result.plan, context=context)
-                        state.context = context
-                        ledger.interpretation = context.interpretation
-                        append_model_input(messages, ledger, content=json.dumps(
-                            interpretation_payload(context), ensure_ascii=False,
-                        ), source="interpretation_accepted")
                     except ValueError as exc:
                         plan_result = PlanParseResult(None, str(exc))
+                    else:
+                        admission = harness.admit_interpretation(plan_result.plan, context=context)
+                        if not admission.accepted:
+                            plan_result = PlanParseResult(None, admission.error)
+                        else:
+                            context = admission.context
+                            state.context = context
+                            ledger.interpretation = context.interpretation
+                            append_model_input(messages, ledger, content=json.dumps(
+                                admission.model_feedback, ensure_ascii=False,
+                            ), source="interpretation_accepted")
                 if plan_result.plan is not None:
                     if not turn.tool_calls and plan_turns >= MAX_PLAN_TURNS:
                         plan_result = PlanParseResult(

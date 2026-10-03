@@ -5,7 +5,7 @@
 
 loop 只在这些方法上调领域 harness（`research_harness.ResearchHarness`）。签名与首段 docstring 直接取自 Protocol 源码，顺序即源码顺序。改接缝先改 Protocol，本表随之再生成；接缝的取舍见 `docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design.md` §4。
 
-21 个方法
+22 个方法
 
 ## `assemble_prompt`
 
@@ -30,6 +30,14 @@ def interpret_plan(self, content: 'str', *, previous_plan: 'ResearchPlan | None'
 ```
 
 这条模型输出是不是一份合法 PLAN（含相对上一份的修订合法性）。
+
+## `admit_interpretation`
+
+```python
+def admit_interpretation(self, plan: 'ResearchPlan', *, context: 'ResearchRunContext') -> 'InterpretationAdmission'
+```
+
+接纳 PLAN 的目标解释，返回 context 与模型反馈，或结构化拒绝。
 
 ## `govern_mode`
 

@@ -99,6 +99,41 @@ def test_stale_or_cross_request_proposal_does_not_mutate_current_state():
     assert ctx.interpretation is None
 
 
+@pytest.mark.parametrize("variant", ["valid", "absent", "cross_root", "stale"])
+def test_default_harness_interpretation_admission_is_structured_and_preserves_authority(variant):
+    from intelligence.services.request_interpretation import interpretation_payload
+    from intelligence.services.research_harness import FinanceResearchHarness
+    ctx = context(f"interpretation-admission-{variant}")
+    ctx.root_budget.consume_call(seconds=0.5)
+    spent = ctx.root_budget.to_snapshot()
+    payload = proposal(ctx.contract)
+    if variant == "cross_root":
+        payload["request_ref"] = "request:" + "0" * 64
+    elif variant == "stale":
+        payload["base_revision"] = 7
+    candidate = plan(None if variant == "absent" else payload)
+    result = FinanceResearchHarness().admit_interpretation(candidate, context=ctx)
+    assert result.accepted == (variant in {"valid", "absent"})
+    assert result.context.contract is ctx.contract
+    assert result.context.root_request is ctx.root_request
+    assert result.context.root_budget is ctx.root_budget
+    assert result.context.root_budget.to_snapshot() == spent
+    assert result.context.deadline is ctx.deadline
+    assert result.context.information_cutoff is ctx.information_cutoff
+    assert result.context.history_results is ctx.history_results
+    assert ctx.interpretation is None
+    if result.accepted:
+        assert result.model_feedback == interpretation_payload(result.context)
+        if variant == "valid":
+            assert result.context.interpretation.revision == 1
+        else:
+            assert result.context is ctx
+    else:
+        assert result.context is ctx
+        assert result.model_feedback == {}
+        assert ("request_ref" if variant == "cross_root" else "stale") in result.error
+
+
 @pytest.mark.parametrize("extra", [
     {"allowed_capabilities": ["web_search"]}, {"required_outputs": []}, {"deadline": 999},
     {"question_type": "methodology_discussion"}, {"subject": "另一个主体"}, {"timeframe": "未来"},
@@ -208,15 +243,106 @@ def test_continuous_admission_changes_real_prompt_before_tools_and_keeps_root(mi
             assert saved.authorization_snapshot["contract"]["task_frame_hash"] == frame().task_frame_hash
 
 
+@pytest.mark.parametrize("backend", ["continuous", "reference", "sdk"])
+@pytest.mark.parametrize("reject", [False, True])
+def test_interpretation_admission_and_feedback_belong_to_injected_harness(backend, reject):
+    """A replacement harness owns admission AND the subsequent model message."""
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+    from intelligence.runtime.openai_agents_runtime import AgentsSdkResult, OpenAIAgentsRuntime
+    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
+    from intelligence.services.research_harness import FinanceResearchHarness
+    from intelligence.services.research_plan import plan_to_public_dict
+
+    ctx = context(f"interpretation-seam-{backend}-{reject}")
+    candidate = json.dumps({"kind": "PLAN", **plan_to_public_dict(plan(proposal(ctx.contract)))})
+    seen, prompts, admissions = [], [], []
+    custom_rule = "CUSTOM_INTERPRETATION_RULE"
+    rejection = "custom harness declined this interpretation"
+
+    class CustomHarness(FinanceResearchHarness):
+        def assemble_prompt(self, task_frame, context, registry):
+            system, user = super().assemble_prompt(task_frame, context, registry)
+            payload = json.loads(user)
+            payload["interpretation_rule"] = custom_rule
+            return system, json.dumps(payload, ensure_ascii=False)
+
+        def admit_interpretation(self, plan, *, context):
+            from intelligence.services.research_harness import InterpretationAdmission
+            admissions.append(context)
+            if reject:
+                return InterpretationAdmission(context=context, model_feedback={}, error=rejection)
+            admitted = super().admit_interpretation(plan, context=context)
+            assert admitted.accepted
+            return replace(admitted, model_feedback={
+                **admitted.model_feedback, "interpretation_rule": custom_rule,
+            })
+
+    def assert_feedback(text):
+        if reject:
+            assert rejection in text
+        else:
+            feedback = json.loads(text)
+            assert feedback["interpretation_rule"] == custom_rule
+            assert feedback["interpretation"]["revision"] == 1
+            assert feedback["root_request"] == json.loads(json.dumps(ctx.root_request.to_dict()))
+
+    turns = [
+        ModelTurn(candidate, ()),
+        ModelTurn("", (ModelToolCall("safe", "market_data", {"query": "读取样例"}),)),
+        ModelTurn(_finish(), ()),
+    ]
+
+    class Model:
+        def complete(self, *, messages, **kwargs):
+            prompts.append([dict(row) for row in messages])
+            return turns.pop(0)
+
+    def runner(request):
+        assert json.loads(request.input)["interpretation_rule"] == custom_rule
+        assert_feedback(request.on_model_response(candidate, False))
+        assert request.on_model_response("", True) is None
+        request.tools[0].invoke({"query": "读取样例"})
+        return AgentsSdkResult(final_output=_finish(), llm_calls=3)
+
+    harness = CustomHarness()
+    if backend == "sdk":
+        runtime = OpenAIAgentsRuntime(runner=runner, backend="sdk_glm", model_name="offline", harness=harness)
+    else:
+        runtime_type = ContinuousAgentEpisode if backend == "continuous" else HarnessReferenceLoop
+        runtime = runtime_type(Model(), harness=harness)
+    outcome = runtime.run(task_frame=frame(), context=ctx, registry=_registry(seen))
+    assert outcome.status == "completed", (outcome.stop_reason, outcome.gaps)
+    assert admissions == [ctx]
+    assert len(seen) == 1
+    assert ctx.interpretation is None
+    assert seen[0].information_cutoff is ctx.information_cutoff
+    assert seen[0].deadline.expires_at <= ctx.deadline.expires_at
+    request = next(event for event in outcome.events if event.kind == "tool_request")
+    assert request.payload.get("interpretation_revision") == (None if reject else 1)
+    assert (outcome.plan is None) == reject
+    if backend != "sdk":
+        assert json.loads(prompts[0][1]["content"])["interpretation_rule"] == custom_rule
+        feedback = next(
+            event.payload["content"] for event in outcome.events
+            if event.kind == "model_input" and event.payload.get("source") == "interpretation_accepted"
+        ) if not reject else next(
+            row["content"] for row in prompts[1] if rejection in row["content"]
+        )
+        assert_feedback(feedback)
+        assert any(row["role"] == "user" and row["content"] == feedback for row in prompts[1])
+
+
 @pytest.mark.parametrize("backend", ["sdk_glm", "sdk_gpt"])
 @pytest.mark.parametrize("mixed", [False, True])
-def test_real_sdk_hook_admits_plan_before_tools_and_carries_interpretation(backend, mixed):
+@pytest.mark.parametrize("custom_harness", [False, True])
+def test_real_sdk_hook_admits_plan_before_tools_and_carries_interpretation(backend, mixed, custom_harness):
     from agents import Model, ModelResponse
     from agents.usage import Usage
     from openai.types.responses import ResponseFunctionToolCall, ResponseOutputMessage, ResponseOutputText
     from intelligence.runtime.openai_agents_runtime import OpenAIAgentsRuntime, build_agents_model_settings
     from intelligence.services.research_plan import plan_to_public_dict
-    ctx = context(f"interpretation-sdk-{backend}-{mixed}")
+    ctx = context(f"interpretation-sdk-{backend}-{mixed}-{custom_harness}")
     seen = []
     candidate = json.dumps({"kind": "PLAN", **plan_to_public_dict(plan(proposal(ctx.contract)))})
 
@@ -247,10 +373,22 @@ def test_real_sdk_hook_admits_plan_before_tools_and_carries_interpretation(backe
                     yield None
             return empty()
 
+    from intelligence.services.research_harness import FinanceResearchHarness
+    admissions = []
+
+    class CustomHarness(FinanceResearchHarness):
+        def admit_interpretation(self, plan, *, context):
+            admissions.append(context)
+            result = super().admit_interpretation(plan, context=context)
+            return replace(result, model_feedback={
+                **result.model_feedback, "interpretation_rule": "CUSTOM_SDK_INTERPRETATION_RULE",
+            })
+
     model = ScriptedModel()
     outcome = OpenAIAgentsRuntime(
         backend=backend, model_name="offline-scripted", model=model,
         model_settings=build_agents_model_settings(backend),
+        harness=CustomHarness() if custom_harness else None,
     ).run(task_frame=frame(), context=ctx, registry=_registry(seen))
     assert outcome.status == "completed", (outcome.stop_reason, outcome.gaps)
     assert len(seen) == 1 and outcome.usage.tool_calls == 1
@@ -258,6 +396,8 @@ def test_real_sdk_hook_admits_plan_before_tools_and_carries_interpretation(backe
     assert outcome.usage.input_tokens == 30 and outcome.usage.output_tokens == 15
     assert len(outcome.evidence) == 1
     second_input = json.dumps(model.inputs[1], ensure_ascii=False)
+    assert bool(admissions) == (custom_harness and not mixed)
+    assert ("CUSTOM_SDK_INTERPRETATION_RULE" in second_input) == (custom_harness and not mixed)
     if mixed:
         assert "invalid_plan" in second_input
         assert outcome.plan is None
@@ -395,9 +535,13 @@ def test_sdk_interpretation_respects_execution_boundary(boundary, monkeypatch):
         monkeypatch.setattr(type(ctx.deadline), "expired", property(lambda self: True))
     if boundary == "stage":
         monkeypatch.setattr(sdk, "monotonic", lambda: 10**21)
+    class MustNotAdmit(FinanceResearchHarness):
+        def admit_interpretation(self, plan, *, context):
+            raise AssertionError("runtime boundary must reject before domain admission")
+
     feedback = state.observe_model_response(
         json.dumps({"kind": "PLAN", **plan_to_public_dict(plan(proposal(ctx.contract)))}),
-        False, FinanceResearchHarness(), allow_plan=boundary != "repair",
+        False, MustNotAdmit(), allow_plan=boundary != "repair",
     )
     assert "PLAN cancelled or research stage closed" in feedback
     assert state.active_context is ctx and state.plan is None

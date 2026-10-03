@@ -812,6 +812,7 @@ _DOMAIN_MODULES = (
     "intelligence.services.mode_governor",
     "intelligence.services.mandatory_satisfiability",
     "intelligence.services.empty_pool_fallback",
+    "intelligence.services.request_interpretation",
 )
 
 

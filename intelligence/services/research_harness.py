@@ -146,6 +146,10 @@ from intelligence.services.repair_coordinator import (
     unreachable_repair_goal,
     warrant_repair,
 )
+from intelligence.services.request_interpretation import (
+    accept_interpretation,
+    interpretation_payload,
+)
 from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
@@ -173,6 +177,7 @@ __all__ = [
     "FallbackCall",
     "FinanceResearchHarness",
     "FinishAdmission",
+    "InterpretationAdmission",
     "ModeGovernance",
     "ModeSignalsFactory",
     "PublicationAssessment",
@@ -318,6 +323,23 @@ class FinishAdmission:
 
 
 @dataclass(frozen=True)
+class InterpretationAdmission:
+    """PLAN 解释接纳及模型反馈；拒绝时保留传入 context，不发布反馈。
+
+    只返回领域判定，不授予预算、不改执行位置、不发事件或落盘。
+    loop 先守住取消、截止、次数及工具同包边界，再应用接纳结果。
+    """
+
+    context: ResearchRunContext
+    model_feedback: dict[str, object]
+    error: str = ""
+
+    @property
+    def accepted(self) -> bool:
+        return not self.error
+
+
+@dataclass(frozen=True)
 class ToolResultProjection:
     """一次成功工具观察的两个出口。
 
@@ -424,6 +446,16 @@ class ResearchHarness(Protocol):
 
         三种返回：``plan`` 非空 = 合法 PLAN；``plan`` 空且 ``error`` 非空 =
         写坏的 PLAN 或非法修订；两者皆空 = 根本不是 PLAN（交给终局门或工具）。
+        """
+        ...
+
+    def admit_interpretation(
+        self, plan: ResearchPlan, *, context: ResearchRunContext,
+    ) -> InterpretationAdmission:
+        """接纳 PLAN 的目标解释，返回 context 与模型反馈，或结构化拒绝。
+
+        根请求与解释版本的领域判定及反馈归 harness；取消、截止、次数、工具
+        同包、状态持久化与事件仍归 loop。无提案时保留 context，不增加版本。
         """
         ...
 
@@ -748,6 +780,16 @@ class FinanceResearchHarness:
         except ValueError as exc:
             return PlanParseResult(None, str(exc))
         return result
+
+    def admit_interpretation(
+        self, plan: ResearchPlan, *, context: ResearchRunContext,
+    ) -> InterpretationAdmission:
+        try:
+            revised = accept_interpretation(plan, context=context)
+            feedback = interpretation_payload(revised)
+        except ValueError as exc:
+            return InterpretationAdmission(context=context, model_feedback={}, error=str(exc))
+        return InterpretationAdmission(context=revised, model_feedback=feedback)
 
     def govern_mode(
         self,

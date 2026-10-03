@@ -120,7 +120,6 @@ from intelligence.services.episode_messages import (
 )
 from intelligence.services.episode_restore import RestoreResult, RestoreUnavailable, restore_episode
 from intelligence.services.episode_authorization import capture_authorization_snapshot
-from intelligence.services.request_interpretation import accept_interpretation, interpretation_payload
 from intelligence.services.episode_entry_identity import capture_entry_identity
 from intelligence.services.episode_evidence import capture_evidence_snapshot
 from intelligence.services.episode_scope import EpisodeScope
@@ -2026,31 +2025,34 @@ class ContinuousAgentEpisode:
                         raise ValueError("PLAN revision allowance exhausted")
                     if self._is_cancelled() or context.deadline.expired:
                         raise ValueError("interpretation cancelled or deadline exhausted")
-                    revised = accept_interpretation(plan_result.plan, context=context)
                 except ValueError as exc:
                     plan_result = PlanParseResult(None, str(exc))
                 else:
-                    context = revised
-                    context_ref.value = context
-                    ledger.active_context = context
-                    if continuation_state is not None:
-                        continuation_state.context = context
-                    # Persist the accepted goal with the exact current authority before
-                    # any same-response tools/branches. Do not reset execution position.
-                    position = ledger.state
-                    if position is None:
-                        raise RuntimeError("interpretation requires an episode checkpoint")
-                    ledger.put_state(
-                        phase=position.phase, reserved_ids=position.reserved_ids,
-                        retry=position.retry, cancel=position.cancel, context=context,
-                    )
-                    append_model_input(
-                        messages, ledger,
-                        content=json.dumps(interpretation_payload(context), ensure_ascii=False),
-                        source="interpretation_accepted",
-                    )
-                    if ledger.store_failures:
-                        continue
+                    admission = self._harness.admit_interpretation(plan_result.plan, context=context)
+                    if not admission.accepted:
+                        plan_result = PlanParseResult(None, admission.error)
+                    else:
+                        context = admission.context
+                        context_ref.value = context
+                        ledger.active_context = context
+                        if continuation_state is not None:
+                            continuation_state.context = context
+                        # Persist the accepted goal with the exact current authority before
+                        # any same-response tools/branches. Do not reset execution position.
+                        position = ledger.state
+                        if position is None:
+                            raise RuntimeError("interpretation requires an episode checkpoint")
+                        ledger.put_state(
+                            phase=position.phase, reserved_ids=position.reserved_ids,
+                            retry=position.retry, cancel=position.cancel, context=context,
+                        )
+                        append_model_input(
+                            messages, ledger,
+                            content=json.dumps(admission.model_feedback, ensure_ascii=False),
+                            source="interpretation_accepted",
+                        )
+                        if ledger.store_failures:
+                            continue
             if plan_result.plan is not None:
                 if not turn.tool_calls:
                     if plan_turns >= MAX_PLAN_TURNS:

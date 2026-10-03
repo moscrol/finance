@@ -58,9 +58,30 @@
   {
     "id": "accepted_interpretation_not_delivered_to_model",
     "path": "intelligence/runtime/agent_episode.py",
-    "old": "                        content=json.dumps(interpretation_payload(context), ensure_ascii=False),",
-    "new": "                        content=json.dumps({\"interpretation\": \"not delivered\"}, ensure_ascii=False),",
+    "old": "                            content=json.dumps(admission.model_feedback, ensure_ascii=False),",
+    "new": "                            content=json.dumps({\"interpretation\": \"not delivered\"}, ensure_ascii=False),",
     "targets": ["test_continuous_admission_changes_real_prompt_before_tools_and_keeps_root"]
+  },
+  {
+    "id": "continuous_bypasses_interpretation_harness",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "admission = self._harness.admit_interpretation(plan_result.plan, context=context)",
+    "new": "admission = FinanceResearchHarness().admit_interpretation(plan_result.plan, context=context)",
+    "targets": ["test_interpretation_admission_and_feedback_belong_to_injected_harness"]
+  },
+  {
+    "id": "reference_bypasses_interpretation_harness",
+    "path": "intelligence/runtime/harness_reference_loop.py",
+    "old": "admission = harness.admit_interpretation(plan_result.plan, context=context)",
+    "new": "admission = FinanceResearchHarness().admit_interpretation(plan_result.plan, context=context)",
+    "targets": ["test_interpretation_admission_and_feedback_belong_to_injected_harness"]
+  },
+  {
+    "id": "sdk_bypasses_interpretation_harness",
+    "path": "intelligence/runtime/openai_agents_runtime.py",
+    "old": "admission = harness.admit_interpretation(candidate, context=self._active_context)",
+    "new": "admission = FinanceResearchHarness().admit_interpretation(candidate, context=self._active_context)",
+    "targets": ["test_interpretation_admission_and_feedback_belong_to_injected_harness"]
   },
   {
     "id": "continuous_repair_admits_plan_tools",
