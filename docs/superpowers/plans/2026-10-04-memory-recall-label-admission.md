@@ -23,6 +23,7 @@
 - [x] 运行 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_retrieval_recall.py intelligence/tests/test_memory_semantic.py`；红绿日志放仓外。
 - [x] 对冻结真实快照执行新版入口，确认明确拒绝旧15题；保留原始诊断读数和私有结果，只提交统计及哈希索引。
 - [ ] 更新 `docs/retrieval-recall-at-k-contract.md` 与验证报告，独立双轴审查；固定 SHA 跑本机完整门禁与 GitHub 检查后才合并。
+- [x] 对Mac核验摘要补全失效标注/读取失败的无分数说明，不输出私有诊断；有效标签仍正常出表。d4ea0eb1完整门禁发现该消费端缺口，返修后重新跑完整门禁。
 
 ## 已冻结证据
 

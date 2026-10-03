@@ -141,6 +141,17 @@ def step_recall(out: Path, users_root: Path, user: str, models: list[str]) -> tu
     for model in models:
         argv += ["--embed-model", model]
     r = _run("05-recall", argv, out, 900)
+    if r["exit"] != 0:
+        try:
+            payload = json.loads(r["stdout"])
+        except ValueError:
+            payload = None
+        status = payload.get("status") if isinstance(payload, dict) else None
+        reason = {
+            "invalid_memory_labels": "记忆标注不可用，请核对记录状态、读取窗口与身份",
+            "memory_retrieval_unavailable": "记忆读取失败，不能按零命中计分",
+        }.get(status, "记忆召回评测未完成")
+        return r, [f"未出分：{reason}；详情见本机日志 logs/05-recall.txt。"]
     rows: list[str] = []
     for line in r["stdout"].splitlines():
         if line.startswith("| case |"):
