@@ -1,0 +1,300 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-03T23:39:40.411179+00:00",
+  "summary": "PR32/33 merged; live first pair not admitted; no deployment or quality gain claim",
+  "main": "abdb31ec38dd79e5beb434e0bdf8a46b82e64741",
+  "production": "ffe1c60d84da1c36e3e5d27a53f3ecf43536905b",
+  "private_evidence": [
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-closeout-backup-status.json",
+      "bytes": 102758,
+      "sha256": "665099e3f5d6d0e2847e9a64fb3162b34d3a3c9cd63a19d9b2f9efd9ce7ddc90"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-closeout-production-health.json",
+      "bytes": 1670,
+      "sha256": "70f5766c4f58097141b66e7a4cce2927ac4da2a5b7330ae690f0453cbfe19f7b"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-frontend-65999171b/frontend.json",
+      "bytes": 2644,
+      "sha256": "27beb9cbefa8607772488c9041010f259ac68f8a093ece19090dea378428c561"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-frontend-e42233aa3/frontend.json",
+      "bytes": 2671,
+      "sha256": "ca5a6026bfedf70b8b2d22d24f8c5333cb30048a2ed8d6e3ce750bca0dff44c8"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-premerge-20261004.json",
+      "bytes": 97742,
+      "sha256": "b36dff41dec0600917a664c89622e12cb2ec3208c8f7487c73945c5e4ec6c1b2"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/CLOSED.json",
+      "bytes": 196,
+      "sha256": "66465a8509be6e72c0b1eaaea23de841a8b274201b069b4b733078654b720b70"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/deploy-ledger.jsonl",
+      "bytes": 465,
+      "sha256": "a70469b4e2c29865e419a8b54fa0421a2063f0f2338179d2d50faceb12119141"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/episodes/run_20261004_071056_785711_msg_9da8675dd41742a1bac786d594d8a4b3-4381ca6bda8c/events.jsonl",
+      "bytes": 21431,
+      "sha256": "71969258487e5557331be35ffafe0cc193f263cd6e95f3db5cf51a745342ad11"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/episodes/run_20261004_071056_785711_msg_9da8675dd41742a1bac786d594d8a4b3-4381ca6bda8c/state.json",
+      "bytes": 8102,
+      "sha256": "982bbba06b81705423fd7d75cef8d43a8d8f1134960ea029ecf9678d37decace"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/provider-inputs.json",
+      "bytes": 16271,
+      "sha256": "657e252fbd945892d31e356cf93a9f5948eaae35cf3ee58cf0021df5ce787e25"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/result.json",
+      "bytes": 3530,
+      "sha256": "966873e11808c4d2f22658026c7c6f22952aeb792226b7a6a009e909e4f0f3ed"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/checkpoints.jsonl",
+      "bytes": 69666,
+      "sha256": "e485ccbb8a1b491ddbd1272924fa70c84ad4cc68f1cc3d261b22ca05b5e6a82b"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/conversations/conv_fd83eceabcc2441f876eb887f3cdf5b7/conversation.json",
+      "bytes": 335,
+      "sha256": "1185d69d36b1909ff41ab633e845548144d0d9de69ee1f60f4d324da077f4745"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/conversations/conv_fd83eceabcc2441f876eb887f3cdf5b7/messages.jsonl",
+      "bytes": 2791,
+      "sha256": "873722ed701e54c2657a37a77a8621001e5066c94c7d421f92f20c8a3b43e43f"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/corrections.jsonl",
+      "bytes": 143720,
+      "sha256": "3b9ce46c0adb12a7121cdfc69380934700e19dcec9f4279201ca5d37aacef7ce"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/judgments.jsonl",
+      "bytes": 7715,
+      "sha256": "0df636558107614ba85eb32e7fe7a0ddbb40e76a0ee122a5f7fe3c508731e30f"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/research_evolution/product_value_events.jsonl",
+      "bytes": 2791,
+      "sha256": "b004a5dfd47e214e30708342135aeb11d195013d8cd738f6563bfaeaf4141d24"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071056_785711/answer.md",
+      "bytes": 141,
+      "sha256": "1434fc3bb01cfd53bcef69e97ae3ea7cbf5a54ff518f8e8f9bc3ad0d466d51d2"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071056_785711/continuous-episode.json",
+      "bytes": 134303,
+      "sha256": "5c1e661db336fafd02d45a9257d33c0573597ab64a0c9b0ccce63e6fe5777400"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071056_785711/report.json",
+      "bytes": 4850,
+      "sha256": "cb2affaf1ad43dcd43c02fb99bb58d122798b1e25ac7935bb3d43f087a371fde"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071056_785711/run.json",
+      "bytes": 1791,
+      "sha256": "77102a18c85456fdd1666eded39e1d4cde96d183fc4fe94ccfdf8c5487a53560"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071056_785711/stream.jsonl",
+      "bytes": 89571,
+      "sha256": "8bc60ef3f18cca39e32ee319ade54d880999f6f5827e38d22049a9d4b1100b3e"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071056_785711/trace.jsonl",
+      "bytes": 15248,
+      "sha256": "ee06b2d789ea36d2572b5df241c15cf3ecb9fd3e7d432d1603d47b4a87fc1b81"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/verdicts.jsonl",
+      "bytes": 525669,
+      "sha256": "e479c9ada909d2470cf991483e41261130114d646883c0b5c5650fc2c4a1c605"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1-process.json",
+      "bytes": 383,
+      "sha256": "c4d2a76fb5ad29a64aed10b68a57474e5efdab46c783c276daa1c85acd284df1"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/baseline-glm-5.3-flash-m2-research-price-1-process.log",
+      "bytes": 2068,
+      "sha256": "e1655ef547f7d911a6082bf4911eacb18f1e730fbfc14805589a388ea643c2bb"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/deploy-ledger.jsonl",
+      "bytes": 492,
+      "sha256": "18bb0d8c11b527ba06195751a1ed84cae9b418f80557060996252bead59a25a7"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/episodes/run_20261004_071349_770992_msg_933d4c5ada854e63a9507ad63939b121-620757775a0a/events.jsonl",
+      "bytes": 155411,
+      "sha256": "a81403051d888e80cb4811922061dae308908a26171eb70280234130bbcb9211"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/episodes/run_20261004_071349_770992_msg_933d4c5ada854e63a9507ad63939b121-620757775a0a/state.json",
+      "bytes": 235488,
+      "sha256": "6a33c662aeccb71fc8eea21644f1d7e45e5124aac78130b376d86556dfeaeeac"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/provider-inputs.json",
+      "bytes": 383258,
+      "sha256": "66b8c80b12c703a552ed8c3672d232f419c8c77500f733b3819229fad9a5969a"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/result.json",
+      "bytes": 2536,
+      "sha256": "24ecbb28e729e7381028a4231e3271927bda08bbd20b509a2a9a131448a1462c"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/checkpoints.jsonl",
+      "bytes": 69666,
+      "sha256": "e485ccbb8a1b491ddbd1272924fa70c84ad4cc68f1cc3d261b22ca05b5e6a82b"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/conversations/conv_9c1ebee4ddad47148837b3bea532cd33/conversation.json",
+      "bytes": 335,
+      "sha256": "db978c69f264af188055f8b0d21106e78ab9d949d60f287c8aee58bc25fadce4"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/conversations/conv_9c1ebee4ddad47148837b3bea532cd33/messages.jsonl",
+      "bytes": 1157,
+      "sha256": "a098fb78c712611e690070e99775d3a6e3fb931532ccfb8ca70740b85c6b18d4"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/corrections.jsonl",
+      "bytes": 143720,
+      "sha256": "3b9ce46c0adb12a7121cdfc69380934700e19dcec9f4279201ca5d37aacef7ce"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/judgments.jsonl",
+      "bytes": 7715,
+      "sha256": "0df636558107614ba85eb32e7fe7a0ddbb40e76a0ee122a5f7fe3c508731e30f"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/research_evolution/product_value_events.jsonl",
+      "bytes": 1394,
+      "sha256": "179fa98abb557a2f1412add3558475650f788a3e520f260087b67b6af878a676"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071349_770992/run.json",
+      "bytes": 627,
+      "sha256": "bbadd5bdd11cee7f6bc2405244a599fa2f87c1fc3419e976c638f8462644cea6"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071349_770992/stream.jsonl",
+      "bytes": 22255,
+      "sha256": "7f86a1777a684c4264bee75cadeff7bc4a0c2bdf55589f7571eae68fcd9613cb"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/runs/run_20261004_071349_770992/trace.jsonl",
+      "bytes": 14660,
+      "sha256": "6bfeb5314d7d44bbf38f791636b11bfe6058815d02b29d27fd528df60a911b1e"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1/users/memory-consumption-probe/verdicts.jsonl",
+      "bytes": 525669,
+      "sha256": "e479c9ada909d2470cf991483e41261130114d646883c0b5c5650fc2c4a1c605"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1-process.json",
+      "bytes": 385,
+      "sha256": "eaf2cad850bee5ecac474b671858dc0a2f73ae9668452f2d810bc3d6e145e79a"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/candidate-glm-5.3-flash-m2-research-price-1-process.log",
+      "bytes": 309,
+      "sha256": "b5bda930112ef4ecb5b17613ebeab085c762674c2e0c929a2850355f94b1ce8b"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/controller-unavailable-offline.json",
+      "bytes": 3577,
+      "sha256": "624dbc5764d77d152e3566fafe414984af10b016aacbd1fb616f6055801a9180"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/next-environment-preflight.json",
+      "bytes": 2355,
+      "sha256": "dce64ce0f7c8bb3a06a92f60fc375a164e44128d62d5c59bdf62b00fdf3c11ef"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/normalized-comparison.json",
+      "bytes": 14635,
+      "sha256": "faff6a3218617734a0b79df00c1f464574d0ea46ed42b5e836381b81d5f45893"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/offline-attribution.json",
+      "bytes": 2269,
+      "sha256": "a64a193fada9a8e2045e973770caf5ae74823f2404de9394c49a95d185d679fd"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/plan.json",
+      "bytes": 3904,
+      "sha256": "289590b3824eac7d04951f984114944951f91942e510664843a166505e936eef"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/recovered-evidence.json",
+      "bytes": 18292,
+      "sha256": "428b513dad7b67891ed5591da768aa334193976a2db17c70369cc4312258b0cb"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/live-consumption-v1/triage.md",
+      "bytes": 13086,
+      "sha256": "ae875cbba85bbb792184312221e4a604229bd10b96ae7a13e49ab84ef4dafacb"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-lexical-1004/manual-extra-adjudication.json",
+      "bytes": 557,
+      "sha256": "6ec963a330fa65d8ef550801e624f5092c8d6c92feaf4a5c1ead3496f03d1b70"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-lexical-1004/plan.json",
+      "bytes": 1131,
+      "sha256": "f186a6f5cf1d84d11505decc09253947e4232aa5795c66934130cc679d0e268c"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-lexical-1004/results.json",
+      "bytes": 64082,
+      "sha256": "b08f25d12502dbad5ab6834d410f18fbd522d18b81446e57823ec43392d3bd3d"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-release-spec-65999171.md",
+      "bytes": 742,
+      "sha256": "d99372eb9c3653c577c3f2452139e1bdb214bd8645ebb6f32ba3c8e631324a5c"
+    },
+    {
+      "path": "~/.finance-runtime/harness-quality-closeout-1003/memory-release-standards-65999171.md",
+      "bytes": 714,
+      "sha256": "a8289c685a9e0830883719ecdabf979c3400e2fa32bc3b004d23aa370289bc8d"
+    },
+    {
+      "path": "~/.finance-runtime/test-receipts/gate-22MgT0mw/pytest.json",
+      "bytes": 941,
+      "sha256": "620bc2e7aa0e4e2cf99b123fe5fb86baaa209a2c10fe04806d5334cd6c47d139"
+    },
+    {
+      "path": "~/.finance-runtime/test-receipts/gate-IeuOD5PV/pytest.json",
+      "bytes": 1002,
+      "sha256": "30d222ba02a326eb9df6e909461060d0227fc8339c0c52b38b5a8781a5b2426b"
+    }
+  ],
+  "limitations": [
+    "two seen-case attempts only; no independent holdout",
+    "candidate timeout and Wiki isolation violation invalidate A/B quality",
+    "all per-call identity for interrupted candidate unavailable",
+    "local branch receipts are not merged-SHA deployment receipts"
+  ]
+}
