@@ -148,6 +148,20 @@ _NEGATIVE_AFTER = re.compile(r"\s*(?:的)?(?:现金)?(?:缺口|净流出)")
 _POSITIVE_AFTER = re.compile(r"\s*(?:的)?(?:现金)?(?:盈余|净流入)")
 
 
+def _analysis_text(text: str) -> str:
+    """Ignore presentation-only emphasis and whitespace separating a numeric sign."""
+    cleaned = re.sub(r"[*_`]", "", text)
+
+    def join_sign(match: re.Match[str]) -> str:
+        # An ASCII sign at the start of a Markdown list is a bullet, not polarity.
+        prefix = cleaned[:match.start()].rsplit("\n", 1)[-1]
+        if match.group(1) in {"-", "+"} and not prefix.strip():
+            return match.group()
+        return match.group(1)
+
+    return re.sub(r"([−+-])\s+(?=\d)", join_sign, cleaned)
+
+
 def _signed_values(raw: str, before: str, after: str, *, rate: bool = False) -> list[float]:
     """Only infer direction from adjacent, explicit vocabulary; retain contradictions."""
     number = float(raw)
@@ -244,6 +258,9 @@ _NOW_WEAK = re.compile(r"仍然|依然|仍旧|仍|还是|还没|一直")
 _THEN = re.compile(r"当时|公告时|公告日|彼时|那时|发布时|截至[^，。；]{0,16}公告")
 _SENTENCE_SPLIT = re.compile(r"[。！？!?；;\n]")
 _CLAUSE_SPLIT = re.compile(r"[，,]|但是|然而|但|却")
+_EPISTEMIC_DENIAL_BEFORE = re.compile(
+    r"(?:不能|不可|不应)(?:视作|视为|认定(?:为)?|认为|断言|说成)\s*$"
+)
 _DENIAL_BEFORE = re.compile(
     r"(?:(?:不能|不可|不应)(?:视作|视为|认定(?:为)?|认为|断言|说成)|并非|不是|不代表|不等于)\s*$"
 )
@@ -355,7 +372,7 @@ class CaseResult:
 
 def score(case: Case, answer: str) -> CaseResult:
     failures: list[str] = []
-    text = str(answer or "")
+    text = _analysis_text(str(answer or ""))
     if not text.strip():
         return CaseResult(case.id, case.error_class, False, ["空答案"])
 
@@ -409,7 +426,7 @@ def _timepoint_failures(case: Case, text: str) -> list[str]:
         for clause in _CLAUSE_SPLIT.split(sentence):
             if _THEN.search(clause) or _mentions(clause, date_variants(case.observed_at)) or "D0" in clause:
                 anchored_then, asked_context = True, False
-            if _mentions(clause, asked):
+            if _mentions(clause, asked) or _NOW_STRONG.search(clause):
                 anchored_then, asked_context = False, True
             about_later = (
                 asked_context
@@ -417,7 +434,9 @@ def _timepoint_failures(case: Case, text: str) -> list[str]:
                 or (_NOW_WEAK.search(clause) is not None and not anchored_then)
             )
             questioned = "是否" in clause and _HEDGE.search(sentence)
-            if status.search(clause) and about_later and not (_HEDGE.search(clause) or questioned):
+            claims = list(status.finditer(clause))
+            denied = claims and all(_EPISTEMIC_DENIAL_BEFORE.search(clause[:m.start()]) for m in claims)
+            if claims and about_later and not (_HEDGE.search(clause) or questioned or denied):
                 failures.append(f"对材料没覆盖的时点下了断言：「{clause.strip()[:40]}」")
                 break
     return failures

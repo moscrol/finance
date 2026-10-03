@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 CASES = Path(__file__).resolve().parents[1] / "intelligence" / "eval" / "cases"
 
 
@@ -35,3 +37,25 @@ def test_llm_fallback_annotation_does_not_hide_the_actual_fallback_route(tmp_pat
     report = run(seeds, paraphrases)
     assert report["seed_fallback_rate"] == report["paraphrase_fallback_rate"] == 1
     assert report["llm_fallback_count"] == report["routed_total"] == 2
+
+
+@pytest.mark.parametrize("variant_lane,expected", [("research", 1), ("clarify", 0)])
+def test_consistency_uses_route_identity_separately_from_fallback_annotation(tmp_path, monkeypatch, variant_lane, expected):
+    from scripts.route_paraphrase_probe import run
+    from intelligence.services.query_resolution import QueryResolver
+    from intelligence.services import turn_controller
+
+    monkeypatch.setattr(QueryResolver, "resolve", lambda self, question: SimpleNamespace(anchor=None))
+    monkeypatch.setattr(turn_controller, "decide_turn", lambda question, **kw: SimpleNamespace(
+        lane="research" if question == "seed" else variant_lane,
+        question_type="general_finance_qa", llm_failure_reason="offline" if question == "seed" else "",
+        reason="same routing decision, different controller availability",
+    ))
+    seeds, paraphrases = tmp_path / "seeds.jsonl", tmp_path / "paraphrases.jsonl"
+    seeds.write_text(json.dumps({"id": "one", "question": "seed"}))
+    paraphrases.write_text(json.dumps({"seed": "one", "question": "variant", "style": "terse"}))
+    report = run(seeds, paraphrases)
+    assert report["consistency"] == expected
+    assert report["consistency_by_style"]["terse"] == expected
+    assert len(report["mismatches"]) == 1 - expected
+    assert report["llm_fallback_count"] == 1

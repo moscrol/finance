@@ -117,6 +117,27 @@ def test_timepoint_anchor_and_denial_are_scoped_to_the_actual_assertion():
     assert not cc.score(cases["cc-tp-02"], "8月20日公告说计划投产，不能视作已正式投产，但公司已投产。").passed
 
 
+@pytest.mark.parametrize("wrapper", ["{}", "**{}**", "__{}__", "`{}`", "*{}*"])
+def test_display_formatting_preserves_cash_direction(wrapper):
+    cases = {case.id: case for case in cc.load_cases()}
+    answer = "现金缺口为 " + wrapper.format("2.5亿元") + "。"
+    assert cc.score(cases["cc-sf-01"], answer).passed
+    assert not cc.score(cases["cc-sf-03"], answer).passed
+
+
+@pytest.mark.parametrize("sign", ["−", "-"])
+def test_spaced_negative_sign_preserves_result_direction(sign):
+    case = {case.id: case for case in cc.load_cases()}["cc-unit-02"]
+    assert cc.score(case, f"自由现金流为 {sign} 2.28 亿元。").passed
+
+
+def test_current_time_context_and_epistemic_denial_survive_clause_boundaries():
+    case = {case.id: case for case in cc.load_cases()}["cc-tp-01"]
+    assert not cc.score(case, "9月1日公告时尚未获得订单，截至目前，公司仍未获单。").passed
+    assert cc.score(case, "9月1日公告时尚未获得订单；目前不能视作未获单。").passed
+    assert not cc.score(case, "9月1日公告时尚未获得订单；目前并非未获单。").passed
+
+
 def test_trap_colliding_with_a_fact_is_rejected() -> None:
     bad = cc.Case(
         id="x",

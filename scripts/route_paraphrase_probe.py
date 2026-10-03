@@ -33,6 +33,10 @@ CASES = REPO / "intelligence" / "eval" / "cases"
 FALLBACK = "general_finance_qa"
 
 
+def _route_identity(label: str) -> str:
+    return label.removesuffix("(llm_fallback)")
+
+
 def _load_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
@@ -77,9 +81,9 @@ def run(seeds_path: Path, paraphrases_path: Path) -> dict:
         qt, anchored = route(row["question"])
         para_labels.append(qt)
         anchors += anchored
-        para_fallback += qt.removesuffix("(llm_fallback)") == f"research/{FALLBACK}"
+        para_fallback += _route_identity(qt) == f"research/{FALLBACK}"
         expected = seed_route[row["seed"]]
-        same = qt == expected
+        same = _route_identity(qt) == _route_identity(expected)
         by_style[row["style"]]["same" if same else "diff"] += 1
         if not same:
             mismatches.append({"seed": row["seed"], "style": row["style"], "seed_type": expected, "paraphrase_type": qt})
@@ -96,7 +100,7 @@ def run(seeds_path: Path, paraphrases_path: Path) -> dict:
         "clarify_count": clarify,
         "llm_fallback_count": llm_fallback,
         "routed_total": len(all_labels),
-        "seed_fallback_rate": round(sum(v.removesuffix("(llm_fallback)") == f"research/{FALLBACK}" for v in seed_route.values()) / len(seeds), 3) if seeds else None,
+        "seed_fallback_rate": round(sum(_route_identity(v) == f"research/{FALLBACK}" for v in seed_route.values()) / len(seeds), 3) if seeds else None,
         "paraphrase_fallback_rate": round(para_fallback / len(rows), 3) if rows else None,
         "seed_routes": seed_route,
         "mismatches": mismatches,
