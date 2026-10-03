@@ -1,0 +1,97 @@
+[
+  {
+    "id": "review-01",
+    "origin": "answer-08",
+    "public_answer_sha256": "d76570bfaf8945915bd489c42e75339e270269ed75f6597a99fb05047424b70b"
+  },
+  {
+    "id": "review-02",
+    "origin": "answer-01",
+    "public_answer_sha256": "f36629b79c391380ad091e0bb6cf23c30424d43e16517d4470a342aee45e239a"
+  },
+  {
+    "id": "review-03",
+    "origin": "answer-04",
+    "public_answer_sha256": "07da616e3e9f17fa98a8a568cff1612006dcd22c2f994c9dcf0bb4bee7a1fb59"
+  },
+  {
+    "id": "review-04",
+    "origin": "answer-03",
+    "public_answer_sha256": "e57e6b331470b30ba9a9bdf78c9a607becfa9a9fb62b5d77199018ff9691d7b9"
+  },
+  {
+    "id": "review-05",
+    "origin": "answer-11",
+    "public_answer_sha256": "657cc906577ea70737d9581bc4ddf7a6b671600c0e6b259def15e65be70da002"
+  },
+  {
+    "id": "review-06",
+    "origin": "answer-05",
+    "public_answer_sha256": "0e7427bc15d6285be6c0c99c022626ea6884ee4fd69e407b761429c372bcd48c"
+  },
+  {
+    "id": "review-07",
+    "origin": "answer-09",
+    "public_answer_sha256": "5ca7bdd581690bec4798e1565f948d682a16d09377eb07d259357d74be84a5b6"
+  },
+  {
+    "id": "review-08",
+    "origin": "answer-02",
+    "public_answer_sha256": "73c6496a4e17434ea0de8080203299523da3382f88dfc8cc8dd111e83ddc93f5"
+  },
+  {
+    "id": "review-09",
+    "origin": "answer-07",
+    "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d"
+  },
+  {
+    "id": "review-10",
+    "origin": "quote-repair/comparison",
+    "public_answer_sha256": "1ecc48320aab9be0c4578d534227b13e114522af0f9d29837c45df8ab771775d"
+  },
+  {
+    "id": "review-11",
+    "origin": "answer-13",
+    "public_answer_sha256": "f3e2241468fdaf64119c57688c2f0e5de585290e598a23657c99926b6451f76e"
+  },
+  {
+    "id": "review-12",
+    "origin": "quote-repair/history",
+    "public_answer_sha256": "fb648d25e683890b5c13e6c9ab9d588f6d6e9a4acb8cbfa603d5f82ff16e353e"
+  },
+  {
+    "id": "review-13",
+    "origin": "answer-06",
+    "public_answer_sha256": "78501b9e6819bb567b1c4a82ded3c020c68b8ed5110e4d9c61cc0b071b6dc20e"
+  },
+  {
+    "id": "review-14",
+    "origin": "quote-repair/news",
+    "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d"
+  },
+  {
+    "id": "review-15",
+    "origin": "answer-10",
+    "public_answer_sha256": "2ddc5ceff3c1dd6511a1c3d8549133a4c4cf241c5d2861907850b8c781e2b2e1"
+  },
+  {
+    "id": "review-16",
+    "origin": "answer-12",
+    "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d"
+  },
+  {
+    "id": "review-17",
+    "origin": "answer-14",
+    "public_answer_sha256": "af2bb5080e6a335e1396bb7a11fcc33daa59d2825b6c5be7c4043408c89f920d"
+  },
+  {
+    "id": "review-18",
+    "origin": "quote-repair/financial-holdout",
+    "public_answer_sha256": "8c8fe27d1fb783808b5d664565852d92a5fac72fa118918416fbda27ff024b58"
+  },
+  {
+    "id": "review-19",
+    "origin": "quote-repair/transmission",
+    "public_answer_sha256": "20deef9f186630ec8757bb86be56e3cbbfc6e67cce5ff4381d1f8d20b4a564d5"
+  }
+]
