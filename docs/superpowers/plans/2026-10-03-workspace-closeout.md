@@ -34,11 +34,11 @@
 
 **Files:** `intelligence/api/app.py`, `intelligence/api/river_routes.py`, `intelligence/api/river_daily_routes.py`, the matching `intelligence/services/{board_calendar,river_daily_overview,river_daily_review,opinion_attention,opinion_attention_bridge}.py`, existing/new relevant tests, and `intelligence/webapp/src/` entry points, River components, date types, API client and styles. Existing source files determine the exact import set. Never copy old generated static bundles or preview-only entry points.
 
-- [ ] Read each source handoff and capture file hashes before copying. Compare committed branch changes and dirty deltas separately against the current candidate; preserve original trees unchanged.
-- [ ] Restore existing navigation, consecutive-board calendar, River timeline, daily archive view and observation workspace. Reuse existing archive definitions, shared selected date and readonly query contracts; do not synthesize data, add collection, or connect external news.
-- [ ] Bring over the original bug fixes for late responses, date changes, latest-window anchoring and missing values. Register the matching backend routes alongside existing Workbench routes.
-- [ ] Inspect the theme candidate against the current application. Reuse it only if compatible with the existing design; do not replace the current app with stale generated HTML/CSS or an independent preview product.
-- [ ] Run the relevant backend tests with the locked `.venv-workbench/bin/python`. Run frontend lint, typecheck, component tests and build; exercise the real app's date/navigation paths through existing E2E fixtures without production writes.
+- [x] Read each source handoff and capture file hashes before copying. Compare committed branch changes and dirty deltas separately against the current candidate; preserve original trees unchanged.
+- [x] Restore existing navigation, consecutive-board calendar, River timeline, daily archive view and observation workspace. Reuse existing archive definitions, shared selected date and readonly query contracts; do not synthesize data, add collection, or connect external news.
+- [x] Bring over the original bug fixes for late responses, date changes, latest-window anchoring and missing values. Register the matching backend routes alongside existing Workbench routes.
+- [x] Inspect the theme candidate against the current application. Reuse it only if compatible with the existing design; do not replace the current app with stale generated HTML/CSS or an independent preview product.
+- [x] Run the relevant backend tests with the locked `.venv-workbench/bin/python`. Run frontend lint, typecheck, component tests and build; exercise the real app's date/navigation paths through existing E2E fixtures without production writes.
 - [ ] Commit only exact paths owned by this task; obtain specification review followed by quality review, repair any actionable findings, and return a clean candidate to the release owner.
 
 ## Task 4: Account for remaining local work
