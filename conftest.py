@@ -483,8 +483,22 @@ _PERSONAL_STATE_ENV = (
 # DuckDB**——在有库的机器上，实体锚定测试会随全市场股票名单变化而变（#310
 # 刚修过的同一种环境依赖病）。需要该词典的测试自己 setenv 指向 tmp 库，
 # 或直接给 resolve_entity_anchor 传 securities_db_path 参数。
+# 事后重判队列（intelligence/services/rejudge_pending.py）默认写真实 runtime 目录
+# ``~/.finance-runtime/rejudge-pending/index.jsonl``——生产的「待重判」积压就读它。
+# 模块自带的闸（``_should_skip_default_index_write``：PYTEST_CURRENT_TEST 在就不写）
+# 挡不住**比用例活得久的后台线程**：workbench 的 ``workbench-run_N`` 线程在用例结束、
+# pytest 已清掉 PYTEST_CURRENT_TEST 之后才走到写队列那一步。2026-09-30 实测一次全量
+# 往真队列里灌了 138 条假「待重判」，来源 test_workbench_correction_http.py /
+# test_personal_memory_recall_http.py（插桩抓到的线程名与调用栈）。
+# 进程级 env 对所有线程可见、也不随用例切换消失，所以在这里一次性改道到会话临时文件；
+# 需要验默认路径的用例自己 monkeypatch.delenv。
+_REJUDGE_PENDING_TEST_INDEX = os.path.join(
+    tempfile.mkdtemp(prefix="fwp-rejudge-pending-"), "index.jsonl"
+)
+
 _FORCED_TEST_ENV = (
     ("ENTITY_ANCHOR_SECURITIES_DB", "0"),
+    ("FINANCE_REJUDGE_PENDING_INDEX", _REJUDGE_PENDING_TEST_INDEX),
     # INV-R1「模型可见即已落账」在测试里是硬断言：两条 loop 每次请求前都对账，
     # 不一致即抛（生产只记账不炸）。全量套件里每一次脚本化模型请求都因此在验它，
     # 不另写一套「覆盖」它的用例。见 intelligence/services/episode_messages.py 文首。

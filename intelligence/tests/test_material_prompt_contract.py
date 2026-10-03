@@ -9,7 +9,7 @@ from intelligence.eval.knevo_regression import load_suite
 from intelligence.services.conversation_materials import ConversationMaterials
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_protocol import _question_type_rules, build_episode_input
-from intelligence.services.material_grounding import material_grounding_payload
+from intelligence.services.material_answer_authoring import material_author_payload
 from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
@@ -39,10 +39,10 @@ def test_numbered_material_contract_owns_prompt_without_dropping_questions(case,
     assert context.contract.to_dict() == original_contract
     assert payload["task_frame"]["raw_question"] == frame.raw_question == case.question.strip()
     assert payload["research_contract"] == json.loads(json.dumps({
-        key: value for key, value in original_contract.items() if key != "task_id"
+        key: value for key, value in original_contract.items() if key not in {"task_id", "material_grounding"}
     }))
-    assert payload["material_grounding"] == json.loads(json.dumps(material_grounding_payload(context.contract)))
-    assert payload["material_grounding"]["finish_format"]["render_from_claims"] is True
+    assert payload["material_grounding"] == json.loads(json.dumps(material_author_payload(context.contract)))
+    assert payload["material_grounding"]["finish_format"]["format"] == "material_claims_v1"
     assert [(q["question_id"], q["text"]) for q in payload["material_delivery"]["questions"]] == [
         (q.question_id, q.text) for q in context.contract.material_contract.questions
     ]
@@ -52,7 +52,7 @@ def test_numbered_material_contract_owns_prompt_without_dropping_questions(case,
 
 
 @pytest.mark.parametrize("case", PACKS, ids=lambda case: case.case_id)
-def test_writer_gets_sentence_construction_checks_without_changing_template(case):
+def test_writer_gets_sentence_construction_checks_in_compact_template(case):
     frame, context = context_for(case)
     payload = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
     format_payload = payload["material_grounding"]["finish_format"]
@@ -69,10 +69,9 @@ def test_writer_gets_sentence_construction_checks_without_changing_template(case
         assert instruction in rule
     template = json.loads(format_payload["wire_template"])
     assert template == {
-        "status": "completed", "render_from_claims": True, "draft": "", "gaps": [],
-        "bindings": [
-            {"output_id": spec.output_id, "basis": spec.grounding_mode,
-             "evidence_hashes": [], "gap": "", "claims": []}
+        "format": "material_claims_v1", "status": "completed",
+        "answers": [
+            {"output_id": spec.output_id, "claims": []}
             for spec in context.contract.required_outputs if spec.required
         ],
     }

@@ -12,6 +12,7 @@ import pytest
 from intelligence.tests.conformance_snapshot.baseline import ratchet
 from intelligence.tests.conformance_snapshot.providers import (
     CHAIN_ORDER,
+    CURRENT_NOW,
     REQUESTED,
     empty_db,
     run_publishing_scenario,
@@ -60,6 +61,7 @@ def test_unconfigured_akshare_is_declared_not_skipped(tmp_path: Path) -> None:
         db_path=empty_db(tmp_path / "market.duckdb"),
         target_date=REQUESTED,
         akshare_runner=None,
+        now=CURRENT_NOW,
     )
     rows = [item for item in result.attempts if item.provider == "akshare_exact"]
     assert rows and "未配置" in (rows[0].error or "")

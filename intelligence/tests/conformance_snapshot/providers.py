@@ -21,9 +21,11 @@ historical 等）走 notes。
 
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import subprocess
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import duckdb
 
@@ -63,6 +65,7 @@ PROVIDER_NOTES: dict[str, str] = {
 
 REQUESTED = "2026-07-16"
 PRIOR = "2026-07-15"
+CURRENT_NOW = datetime(2026, 7, 16, 16, 20, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _complete_akshare_document(trade_date: str) -> dict[str, object]:
@@ -207,6 +210,7 @@ def run_publishing_scenario(
         db_path=db_path,
         target_date=REQUESTED,
         akshare_runner=runner,
+        now=CURRENT_NOW,
     )
 
 
@@ -218,4 +222,5 @@ def run_total_failure(tmp_path: Path) -> MarketSnapshotSyncResult:
         db_path=empty_db(tmp_path / "market.duckdb"),
         target_date=REQUESTED,
         akshare_runner=failed_akshare_runner,
+        now=CURRENT_NOW,
     )

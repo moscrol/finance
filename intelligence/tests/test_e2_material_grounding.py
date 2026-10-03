@@ -23,7 +23,7 @@ from intelligence.services.episode_semantic_verifier import (
     _mismatched_weekday_indexes, _novel_numeric_condition_indexes, recheck_material_public_delivery,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.material_grounding import ClaimSourceBinding, MaterialAnchor
+from intelligence.services.material_grounding import ClaimSourceBinding, MaterialAnchor, material_grounding_payload
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.query_ledger import query_ledger_scope
 from intelligence.services.query_understanding import understand_query
@@ -128,10 +128,14 @@ def test_writer_judge_and_contract_restore_share_original_source_catalogue():
     value = outcome(context)
     calls = []
     verify(frame, context, value, lambda request: (calls.append(request), passing(request))[1])
-    assert calls[0]["material_grounding"] == {key: value for key, value in writer.items() if key not in {"finish_format", "rule"}}
+    canonical = material_grounding_payload(context.contract)
+    assert calls[0]["material_grounding"] == {key: value for key, value in canonical.items() if key not in {"finish_format", "rule"}}
     assert "finish_format" in writer
-    assert all(OLD not in row["text"] for row in writer["materials"])
-    assert writer["historical_assistant_statements"][0]["source_message_id"] == "assistant-old"
+    assert all(OLD not in row["text"] for row in writer["sources"] if row["ref"].startswith("M"))
+    assert [row for row in writer["sources"] if row["ref"].startswith("H")] == [
+        {"ref": "H1", "kind": "historical_assistant_statement", "text": OLD},
+    ]
+    assert calls[0]["material_grounding"]["historical_assistant_statements"][0]["source_message_id"] == "assistant-old"
     restored = ResearchTaskContract.from_dict(json.loads(json.dumps(context.contract.to_dict())))
     assert restored == context.contract
     damaged = json.loads(json.dumps(context.contract.to_dict()))
@@ -255,7 +259,7 @@ def test_real_episode_consumes_claim_binding_without_tool_calls():
     assert verify(frame, context, result, passing).status == "completed"
 
 
-@pytest.mark.parametrize("mutation", ["quote", "sentence"])
+@pytest.mark.parametrize("mutation", ["source", "sentence"])
 def test_real_adapter_does_not_reopen_repair_after_source_integrity_rejection(mutation):
     from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
     from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
@@ -264,8 +268,8 @@ def test_real_adapter_does_not_reopen_repair_after_source_integrity_rejection(mu
     frame, context = setup()
     value = outcome(context)
     claim = value.bindings[0].claims[0]
-    if mutation == "quote":
-        claim = replace(claim, material_anchors=(replace(claim.material_anchors[0], quote="材料中不存在"),))
+    if mutation == "source":
+        claim = replace(claim, material_anchors=(replace(claim.material_anchors[0], material_id="unknown-source"),))
     else:
         claim = replace(claim, text=claim.text.replace("。", "；"))
     value = replace(value, bindings=(replace(value.bindings[0], claims=(claim,)), value.bindings[1]))

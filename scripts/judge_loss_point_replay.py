@@ -62,6 +62,7 @@ from intelligence.services.episode_semantic_verifier import (  # noqa: E402
 )
 from intelligence.services.episode_verifier import verify_episode_outcome  # noqa: E402
 from intelligence.services.research_contract import ResearchTaskContract  # noqa: E402
+from intelligence.services.material_grounding import ClaimSourceBinding  # noqa: E402
 
 _CODE_RE = re.compile(r"^code=([a-z_]+)")
 LOSS_POINTS = (
@@ -128,6 +129,20 @@ def _rebuild_observations(item: Any) -> tuple[StructuredObservation, ...]:
     return tuple(rebuilt)
 
 
+def _rebuild_binding(payload: Mapping[str, Any]) -> OutputEvidenceBinding:
+    """Undo production to_dict recursively; preserve every typed source anchor.
+
+    Generic _build only turns the outer list into a tuple. ClaimSourceBinding
+    and MaterialAnchor are nested dataclasses, not arbitrary telemetry dicts.
+    Malformed claims remain errors; do not delete them to manufacture success.
+    """
+    raw = payload.get("claims", ())
+    if not isinstance(raw, (list, tuple)):
+        raise ValueError("archived claims must be a list")
+    claims = tuple(ClaimSourceBinding.from_dict(item) for item in raw)
+    return _build(OutputEvidenceBinding, payload, claims=claims)
+
+
 def _rebuild_outcome(
     payload: Mapping[str, Any], *, keep_observations: bool = True
 ) -> AgentOutcome:
@@ -152,7 +167,7 @@ def _rebuild_outcome(
     )
     traces = tuple(_build(ProviderTrace, item) for item in payload.get("traces") or [])
     bindings = tuple(
-        _build(OutputEvidenceBinding, item) for item in payload.get("bindings") or []
+        _rebuild_binding(item) for item in payload.get("bindings") or []
     )
     usage = _build(AgentUsage, payload.get("usage") or {})
     task_hash = str(payload.get("task_frame_hash") or "")

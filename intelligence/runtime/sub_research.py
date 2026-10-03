@@ -388,6 +388,20 @@ class BranchInvalidAction:
         return payload
 
 
+def branch_served_models_from_events(
+    events: Iterable[EpisodeEvent],
+) -> tuple[str | None, ...]:
+    """分支事件流里每条 ``model_turn`` 的生效模型（顺序保留，三态原样，不拿配置回填）。"""
+
+    served: list[str | None] = []
+    for event in events:
+        if event.kind != "model_turn":
+            continue
+        value = event.payload.get("served_model")
+        served.append(value if isinstance(value, str) else None)
+    return tuple(served)
+
+
 def branch_invalid_actions_from_events(
     events: Iterable[EpisodeEvent],
 ) -> tuple[BranchInvalidAction, ...]:
@@ -531,10 +545,21 @@ class BranchResult:
     invalid_actions: tuple[BranchInvalidAction, ...] = ()
     episode_ref: BranchEpisodeRef | None = None
     persistence: Literal["unknown", "ephemeral", "durable", "failed"] = "unknown"
+    # 分支每个 model_turn 的生效模型（响应体自报，三态同 ``ModelTurn.served_model``：
+    # None = 没到 provider，"" = provider 未回 model，非空 = 实际服务的模型）。随
+    # ``branch_completed`` 进父事件流：父产物不存分支原文，生效模型准入只看父产物时，
+    # 分支用了哪个模型此前查不到（2026-10-01 审查复现：父对、子错、准入照样通过）。
+    served_models: tuple[str | None, ...] = ()
+    # worker 抛异常时没有返回调用账；数值占位 0 不能作为「没有调用模型」的证明。
+    llm_calls_known: bool = True
 
     def __post_init__(self) -> None:
         if self.status not in _BRANCH_STATUSES:
             raise ValueError("unsupported branch status")
+        if not isinstance(self.llm_calls_known, bool):
+            raise TypeError("branch llm_calls_known must be boolean")
+        if any(item is not None and not isinstance(item, str) for item in self.served_models):
+            raise TypeError("branch served_models must contain str or None")
         if self.persistence not in {"unknown", "ephemeral", "durable", "failed"}:
             raise ValueError("unsupported branch persistence")
         if self.persistence == "failed" and self.status != "failed":
@@ -843,6 +868,7 @@ class SubResearchCoordinator:
                         traces=(),
                         gaps=("分支研究未完成",),
                         llm_calls=0,
+                        llm_calls_known=False,
                         tool_calls=self._consumed_tool_calls(request),
                         error="storage_failed" if storage_failed else f"branch_worker_exception:{type(exc).__name__}",
                         episode_ref=request.episode_ref,
@@ -981,6 +1007,7 @@ __all__ = [
     "admit_branches",
     "branch_batches_from_events",
     "branch_invalid_actions_from_events",
+    "branch_served_models_from_events",
     "branch_limits",
     "BranchResult",
     "BranchStatus",

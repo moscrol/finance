@@ -33,6 +33,7 @@ from intelligence.services.research_contract import (
     RequiredOutput,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.runtime.turn_control_core import TurnControlCore
 from intelligence.tests.test_episode_semantic_verifier import _structural
 
 # 稿里这个阈值不在证据里——数值门只有在豁免触发时才会放它过。
@@ -308,15 +309,23 @@ def test_no_forward_signal_does_not_mount() -> None:
 def test_evidence_free_task_does_not_mount() -> None:
     """钉 5：方法论题不挂——数值门整体豁免已覆盖，挂槽纯属污染契约。"""
 
-    frame = _task_frame(
-        question="均线怎么看",
-        question_type="methodology_discussion",
-        required_outputs=("method", "evidence_boundary"),
-        user_goal="讲清方法",
+    # Use the canonical route projection: the generic fixture deliberately
+    # carries a current-market evidence policy, which a method label must not
+    # erase. A genuine method request receives model_reasoning from its owner.
+    reply = json.dumps({
+        "route_id": "methodology_discussion", "confidence": 0.9,
+        "reason": "方法解释", "user_goal": "讲清方法",
+        "assumptions": [], "ambiguities": [],
+    })
+    control = TurnControlCore().control(
+        "均线怎么看", llm_complete=lambda _messages: (reply, object(), ""),
     )
+    assert control.task_frame.question_type == "methodology_discussion"
+    assert not control.needs_retrieval
 
-    _, outputs = _contract_outputs(frame)
+    context, outputs = _contract_outputs(control.task_frame)
 
+    assert not context.contract.allowed_capabilities
     assert not FORWARD_HYPOTHESIS_OUTPUT_IDS & set(outputs)
 
 

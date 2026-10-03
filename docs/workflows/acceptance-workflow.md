@@ -29,6 +29,9 @@
 1. 有效增量看三点 diff；怀疑改动已被别的 PR 抢先合入时用**树对树**：`git diff <branch> gitea/main -- <files>` 逐文件零差 = superseded，关闭并留裁决（#120 先例）。
 2. 定向测试：只跑该单触碰模块的 tests；全量留给批次门禁。
 3. handoff 写了 live 判据的，**独立复算读数**，不抄执行方数字。
+   复算前先过**生效模型准入**（spec `2026-09-02-capability-amplification-output-gate-design.md` §3.5.4 硬门 3；2026-09-30 补入，起因 09-29 GLM 重写消融预设 `glm-5.3`、实际跑的是 `glm-5.3-flash`）：
+   `.venv-workbench/bin/python scripts/check_model_admission.py --expect-model <要测的模型> <run 目录或产物>...`
+   有子研究时附 `--episode-store <实际 store 根>`；缺失分支不得放行。2×2 的 `analyze --plan` 自动从每条 artifacts 重算准入，人工 admission_exit 仅作审计。，exit 0 才算读数；1 = 错配，读数作废；2 = 证明不了（无带回的 model / 有「未回」），不得据此下能力结论。
 4. 合并走 API：`POST /repos/a77/finance-workspace-private/pulls/{n}/merge` body `{"Do":"merge"}`。`mergeable` 卡 CHECKING 不动 → 读 `docs/handoffs/2026-08-18-acceptance-followups.md` §1 与 `docs/verification/2026-08-18-acceptance-followups-closeout.md` §1（应急面、已清队列、被否的路）。`mergeable=false` 且 `conflicted_files` 有台账路径 = 真冲突，提醒对方 rebase，不代解。
 5. 裁决全文落 PR 评论。台账只留一行。
 

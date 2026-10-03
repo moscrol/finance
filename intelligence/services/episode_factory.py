@@ -39,7 +39,7 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.personal_memory_recall import QUESTION_TYPE as PERSONAL_MEMORY_RECALL, references_personal_prior
-from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
+from intelligence.services.task_frame import TaskFrame, is_counterfactual_assessment, task_frame_requires_retrieval
 from intelligence.services.premise_financial_calculation import calculation_for_frame
 from intelligence.services.user_task import (
     MaterialRef,
@@ -607,8 +607,8 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
         # 这格装的是用户自己的历史判断，不能让它被当成当前事实证据。
         return "user_premise"
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
-        return "model_reasoning"
-    if frame.user_goal.startswith("判断反事实条件") and not (
+        return "model_reasoning" if _is_evidence_free_task(frame) else "evidence"
+    if is_counterfactual_assessment(frame.raw_question) and not (
         frame.material_contract and frame.material_contract.data_scope_declared
     ):
         return "user_premise"
@@ -649,10 +649,14 @@ def _is_evidence_free_task(frame: TaskFrame) -> bool:
         # 两轴独立：显式fictional×full仍要真实检索；材料权限在P3统一冻结，
         # 不借旧evidence_free快捷通道把前提标签当授权。
         return False
+    if frame.question_type == "methodology_discussion":
+        # Controller may suggest a method route for a dated fact request. Its
+        # canonical evidence policy is authoritative through final admission,
+        # not just while choosing the execution lane.
+        return not task_frame_requires_retrieval(frame)
     return (
-        frame.question_type == "methodology_discussion"
-        or "method" in frame.required_outputs
-        or frame.user_goal.startswith("判断反事实条件")
+        "method" in frame.required_outputs
+        or is_counterfactual_assessment(frame.raw_question)
     )
 
 

@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
+from functools import wraps
 import hashlib
 import json
 import os
@@ -798,15 +800,24 @@ class _SemanticVerifierCapture:
     def provider_attempts(self) -> int:
         return int(getattr(self._delegate, "provider_attempts", 0) or 0)
 
-    def verify(self, **kwargs: object) -> SemanticEpisodeOutcome:
+    @property
+    def verify(self) -> Callable[..., SemanticEpisodeOutcome]:
         verify = getattr(self._delegate, "verify", None)
         if not callable(verify):
             raise TypeError("semantic verifier must provide verify(...)")
-        result = verify(**kwargs)
-        if not isinstance(result, SemanticEpisodeOutcome):
-            raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
-        self.latest = result
-        return result
+
+        # The adapter inspects this callable before forwarding optional inputs.
+        # Preserve the delegate's signature, not a misleading **kwargs contract.
+        # Never discard inputs or retry on TypeError: delegate failures are real.
+        @wraps(verify)
+        def capture(*args: object, **kwargs: object) -> SemanticEpisodeOutcome:
+            result = verify(*args, **kwargs)
+            if not isinstance(result, SemanticEpisodeOutcome):
+                raise TypeError("semantic verifier must return SemanticEpisodeOutcome")
+            self.latest = result
+            return result
+
+        return capture
 
 
 def _build_semantic_verifier(

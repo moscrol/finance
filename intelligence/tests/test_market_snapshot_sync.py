@@ -2,17 +2,34 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import duckdb
 
+import pytest
+
 from intelligence.services.market_snapshot_sync import sync_market_snapshot
 from intelligence.tests.test_duckdb_market_snapshot import _build_db
 
+from market_feature_store import trading_days
+
 
 BEIJING = ZoneInfo("Asia/Shanghai")
+CURRENT_NOW = datetime(2026, 7, 16, 18, 30, tzinfo=BEIJING)
+
+
+@pytest.fixture(autouse=True)
+def snapshot_calendar_clock(monkeypatch):
+    class CalendarDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 10, 30)
+
+    monkeypatch.setattr(trading_days, "date", CalendarDate)
+    monkeypatch.delenv("L2_FORCE_TRADE_DAY", raising=False)
+    monkeypatch.delenv("L2_FORCE_NON_TRADE_DAY", raising=False)
 
 
 def _akshare_document(
@@ -161,6 +178,7 @@ def test_akshare_complete_publishes_exact_target(tmp_path: Path) -> None:
         db_path=db_path,
         target_date="2026-07-16",
         akshare_runner=complete_runner,
+        now=CURRENT_NOW,
     )
 
     assert result.ok is True
@@ -195,6 +213,7 @@ def test_partial_akshare_is_not_published_and_uses_prior_duckdb(
         db_path=db_path,
         target_date="2026-07-16",
         akshare_runner=partial_runner,
+        now=CURRENT_NOW,
     )
 
     assert result.ok is True
@@ -239,6 +258,7 @@ def test_total_failure_preserves_existing_complete_snapshot(tmp_path: Path) -> N
         db_path=db_path,
         target_date="2026-07-16",
         akshare_runner=failed_runner,
+        now=CURRENT_NOW,
     )
 
     assert result.ok is False
@@ -272,6 +292,7 @@ def test_never_overwrites_higher_priority_complete_target(tmp_path: Path) -> Non
         akshare_runner=lambda *_args: (_ for _ in ()).throw(
             AssertionError("provider must not run")
         ),
+        now=CURRENT_NOW,
     )
 
     assert result.ok is True

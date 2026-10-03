@@ -18,6 +18,7 @@ from intelligence.runtime.sub_research import (
     BranchResult,
     branch_batches_from_events,
     branch_invalid_actions_from_events,
+    branch_served_models_from_events,
 )
 from intelligence.services.task_frame import TaskFrame
 
@@ -79,6 +80,7 @@ class ContinuousSubResearchWorker:
             # 子研究一律按 quick 裁决：注入件进 harness，Episode 不再转交。
             harness=FinanceResearchHarness(
                 mode_signals=lambda _frame, _plan: ModeSignals(user_mode="quick"),
+                native_tool_schemas=True,
             ),
             sub_research_coordinator=None,
             store=request.episode_store,
@@ -112,6 +114,7 @@ class ContinuousSubResearchWorker:
             invalid_actions=branch_invalid_actions_from_events(outcome.events),
             episode_ref=request.episode_ref,
             persistence=outcome.persistence,
+            served_models=branch_served_models_from_events(outcome.events),
         )
 
     @staticmethod

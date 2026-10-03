@@ -559,6 +559,7 @@ class GLMAgentRuntime:
             harness=FinanceResearchHarness(
                 mode_governor=mode_governor,
                 mode_signals=mode_signals,
+                native_tool_schemas=True,
             ),
             sub_research_coordinator=selected_coordinator,
             event_sink=event_sink,

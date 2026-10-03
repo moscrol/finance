@@ -1334,7 +1334,7 @@ def cmd_sync_hithink_research(args) -> int:
     return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
 
 
-def _daily_preflight_or_exit() -> int | None:
+def _daily_preflight_or_exit(*, needs_swap_lock: bool = False) -> int | None:
     """开跑前拦下「这个环境注定跑不完」的情况，exit 2 并说清缺什么、会挂哪几步。
 
     只挡 CLI 入口，不进 run_daily_update——测试与编排层直接调函数层，
@@ -1343,7 +1343,7 @@ def _daily_preflight_or_exit() -> int | None:
     """
     from .sync.sync_daily_full import preflight_daily_update
 
-    verdict = preflight_daily_update()
+    verdict = preflight_daily_update(needs_swap_lock=needs_swap_lock)
     if verdict["ok"]:
         return None
     print("环境预检不通过（fail closed，未发起任何抓取）：")
@@ -1437,7 +1437,8 @@ def cmd_daily_full(args) -> int:
     """
     from .sync.sync_daily_full import run_daily_full_staged
 
-    blocked = _daily_preflight_or_exit()
+    # staged 链要在 hold_swap_lock 里换库：预检顺带确认本平台这把锁排得掉写者
+    blocked = _daily_preflight_or_exit(needs_swap_lock=True)
     if blocked is not None:
         return blocked
     result = run_daily_full_staged(

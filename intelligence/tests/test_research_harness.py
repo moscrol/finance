@@ -431,8 +431,7 @@ def test_default_interpret_plan_equals_parse_plus_revision_check() -> None:
     assert rejected == PlanParseResult(None, str(caught.value))
 
 
-def test_default_steering_messages_are_the_loop_texts_verbatim() -> None:
-    """三段文案是从 loop 逐字搬来的；这里把字节钉住，搬错一个字就红。"""
+def test_default_steering_messages_preserve_research_authority() -> None:
 
     harness = FinanceResearchHarness()
     assert harness.steering_message("invalid_plan", detail="E") == (
@@ -441,11 +440,13 @@ def test_default_steering_messages_are_the_loop_texts_verbatim() -> None:
         "PLAN 不能授权工具、预算、证据或完成状态。"
         "错误：E"
     )
-    assert harness.steering_message("invalid_finish", detail="E") == (
-        "上一条终止输出无效。请保留当前任务和全部观察，"
-        "不要重启研究；修复后只输出 FINAL_JSON。"
-        "错误：E"
-    )
+    for kind in ("invalid_finish", "invalid_finish_evidence"):
+        repair = harness.steering_message(kind, detail="E")
+        assert "保留当前任务和全部观察" in repair
+        assert "研究仍开放且剩余预算允许" in repair
+        assert "当前授权工具" in repair
+        assert "partial" in repair and "gap" in repair
+        assert repair.endswith("错误：E")
     finalization = harness.steering_message("begin_finalization", detail="R")
     assert finalization.startswith("研究阶段已关闭，不得再调用工具。")
     assert finalization.endswith("关闭原因：R")

@@ -992,6 +992,9 @@ class ToolSpec:
     # Actual runner effect, certified at the owning assembly seam. Unknown is
     # denied under local_only, even when cost="local" or freshness="stable".
     io_effect: Literal["local_read", "external_or_mixed", "unknown"] = "unknown"
+    # Episode-local navigation must not reuse turn-wide E-number cache entries.
+    # The Episode session still enforces duplicate calls, authorization and budgets.
+    cache_result: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -1002,6 +1005,8 @@ class ToolSpec:
         object.__setattr__(self, "parameters", frozen_parameters)
         if not isinstance(self.produces, frozenset):
             object.__setattr__(self, "produces", frozenset(self.produces))
+        if type(self.cache_result) is not bool:
+            raise TypeError("cache_result must be a boolean")
         if self.io_effect not in {"local_read", "external_or_mixed", "unknown"}:
             raise ValueError("invalid tool IO effect")
         if self.replay not in ("safe", "never"):
@@ -1203,11 +1208,20 @@ class ResearchToolRegistry:
             normalization_note=normalization_note,
         )
 
-    def prompt_block(self, allowed: tuple[str, ...] | None = None) -> str:
+    def prompt_block(
+        self,
+        allowed: tuple[str, ...] | None = None,
+        *,
+        include_descriptions: bool = True,
+    ) -> str:
+        """Native tool schemas already carry descriptions and parameter contracts."""
         return "\n".join(
-            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）："
-            f"{spec.description}"
-            + (f"\n  · {spec.contract}" if spec.contract else "")
+            f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）"
+            + (
+                f"：{spec.description}"
+                + (f"\n  · {spec.contract}" if spec.contract else "")
+                if include_descriptions else ""
+            )
             for spec in self.authorized_specs(allowed)
         )
 
@@ -1565,6 +1579,10 @@ class ResearchToolRegistry:
                 f"{effective_context.information_cutoff.as_of_date.isoformat()}"
             ),
         )
+        if not spec.cache_result:
+            # Reread the current authorized view; a cached sibling's E1 or an
+            # earlier wider history window must never substitute for it.
+            ledger_call = fetch
         if scope is None:
             return ledger_call()
         try:

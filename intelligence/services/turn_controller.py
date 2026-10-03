@@ -43,7 +43,6 @@ from intelligence.services.route_table import (
     is_quick_fact_query,
     quick_fact_route_ok,
     render_route_table_prompt,
-    research_lane_for_dated_quick_fact,
     route_by_id,
 )
 from intelligence.services.research_contract import (
@@ -59,6 +58,8 @@ from intelligence.services.task_frame import (
     TaskFrame,
     align_task_frame,
     build_task_frame,
+    derive_required_outputs,
+    has_explicit_date,
     rebase_task_frame,
     resolve_task_frame_clarification,
     task_frame_requires_retrieval,
@@ -358,7 +359,7 @@ def _deterministic_decision(
     ):
         return _decision("meta", confidence=0.99, reason="明确系统或模型元问题")
     fine_grained_row = _fine_grained_route_row(cleaned)
-    if fine_grained_row is not None:
+    if fine_grained_row is not None and fine_grained_row.route_id != "quick_fact":
         return _decision_from_route_row(
             fine_grained_row,
             query=cleaned,
@@ -390,7 +391,11 @@ def _deterministic_decision(
     # 此前它被 is_dated_market_review 抢走（日期 + 题材词即命中），当日日报导出
     # 不存在时不会退到 DuckDB 单指标查询，而是落进通用题材研究、甚至把问题文本
     # 当成题材名——而 fact_market_daily.limit_up 这个标准口径一直在 METRICS 里。
-    if market_review_requested_date(cleaned) and parse_single_metric_intent(cleaned):
+    if (
+        fine_grained_row is None
+        and market_review_requested_date(cleaned)
+        and parse_single_metric_intent(cleaned)
+    ):
         row = route_by_id("quick_fact")
         if row is None:
             raise RuntimeError("quick_fact route is missing from ROUTE_TABLE")
@@ -402,10 +407,12 @@ def _deterministic_decision(
             confidence=0.95,
             reason="指定日期的单一白名单指标取值，走精确查询而非日报工作流",
         )
-    if is_dated_market_review(cleaned, envelope) and envelope.question_type not in {
-        "comparison_analog",
-        "theme_analysis",
-    }:
+    if (
+        fine_grained_row is None
+        and envelope.subject_kind not in {"company", "theme"}
+        and envelope.question_type not in {"comparison_analog", "theme_analysis"}
+        and is_dated_market_review(cleaned, envelope)
+    ):
         return _decision(
             "workflow",
             envelope=envelope,
@@ -453,6 +460,11 @@ def _deterministic_decision(
             reason="明确请求固定研究工作流",
             capabilities=("memory", "market_quote", "graph"),
         )
+    if fine_grained_row is not None:
+        # “多少”只证明含取值诉求，不能排除同句还要求判断或解释。
+        # quick_fact 词面只作候选；由现有 Controller 判断整轮任务，失败时
+        # 仍按主体与证据合同退回研究下限，不继续扩充排除词表。
+        return None
     if envelope.question_type == "market_technical":
         return _decision(
             "research",
@@ -536,6 +548,19 @@ def _deterministic_decision(
             reason="系统/Agent 方法论问题使用模型原生推理，不进入金融 RAG",
             capabilities=("memory",) if _MEMORY_PATTERN.search(cleaned) else (),
         )
+    return None
+
+
+def _evidence_fallback_decision(
+    query: str,
+    envelope: QueryEnvelope,
+) -> TurnDecision | None:
+    """保留原研究下限；实体身份与时效信号不能代替本轮任务意图。
+
+    这些宽兜底只在 Controller 失败或恢复已澄清任务时使用。否则公司名会先
+    绑定 stock_deep_dive，使模型永远没有机会识别同一主体的查数等自然请求。
+    """
+    cleaned = query.strip()
     owner = answer_owner_for_question_type(envelope.question_type)
     if owner is not None and (
         envelope.matched_by in _VERIFIED_SUBJECT_MATCHES
@@ -644,19 +669,7 @@ def _fine_grained_route_row(query: str) -> RouteRow | None:
             route_id = "theme_track"
         elif is_quick_fact_query(query):
             route_id = "quick_fact"
-    row = route_by_id(route_id) if route_id is not None else None
-    row = research_lane_for_dated_quick_fact(row, query)
-    if (
-        row is not None
-        and row.route_id == "quick_fact"
-        and row.lane == "knowledge"
-        and market_review_requested_date(query)
-        and parse_single_metric_intent(query) is not None
-    ):
-        # 年缺省日期（「07-21 全市成交额多少」）进了 quick_fact 词面，
-        # 但仍是指定日 + 白名单指标，不得停在 knowledge 车道。
-        return replace(row, lane="research")
-    return row
+    return route_by_id(route_id) if route_id is not None else None
 
 
 _MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")
@@ -692,9 +705,13 @@ def _controller_messages(
                 + render_route_table_prompt()
                 + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
                 "拿不准时选 clarify；不得发明表外的 route_id。"
-                "TaskFrame 已锁定主体、市场、时间和任务类型，lane 不得覆盖这些语义。"
+                "TaskFrame 已锁定主体、市场、时间及材料/工具权限边界，不得覆盖。"
+                "任务类型只是候选：确认公司或题材身份不等于用户要深挖。"
+                "按本轮诉求选择 route_id；纯查已发生的数值选 quick_fact，"
+                "同时要求判断、解释或深挖时选择相应研究路由。"
+                "系统会按合法 route_id 重算题型、必答项与证据要求。"
                 "严格输出一个 JSON 对象，" + FIELD_INSTRUCTION + "。后三项只能补充 TaskFrame；"
-                "不得返回或修改主体、市场、时间、required_outputs、证据政策。"
+                "不得返回或修改主体、市场、时间、required_outputs、材料/工具权限。"
             ),
         },
         {
@@ -723,13 +740,12 @@ def _parse_llm_decision(
     row = route_by_id(reply.route_id)
     if row is None:
         return None
-    subject = reply.subject if reply.shape == "legacy" else envelope.subject
-    timeframe = reply.timeframe if reply.shape == "legacy" else envelope.timeframe
+    # 兼容旧回复形状只兼容选路；它也不能改掉 resolver 已确认的身份和日期。
     decision = _decision_from_route_row(
         row,
         query=query,
-        subject=subject,
-        timeframe=timeframe,
+        subject=envelope.subject,
+        timeframe=envelope.timeframe,
         confidence=max(0.0, min(1.0, reply.confidence)),
         reason=reply.reason,
     )
@@ -798,7 +814,10 @@ def _apply_policy(
         )
     if decision.lane == "knowledge":
         return replace(decision, needs_template=False)
-    return replace(decision, needs_retrieval=True, needs_template=True)
+    return replace(
+        decision, needs_retrieval=True,
+        needs_template=decision.question_type != "quick_fact",
+    )
 
 
 _FAILURE_DETAIL_LIMIT = 200
@@ -810,14 +829,47 @@ _UNPARSABLE_RETRY_INSTRUCTION = (
 )
 
 
+def _complete_controller(
+    messages: list[dict[str, str]],
+    *,
+    llm_complete: LLMComplete | None,
+    deadline: ResearchDeadline | None,
+) -> tuple[str | None, object | None, str]:
+    """Admit each attempt against the same remaining research-stage budget."""
+
+    timeout = (
+        deadline.stage_timeout(llm_refine.DEFAULT_LLM_TIMEOUT)
+        if deadline is not None else None
+    )
+    if timeout is not None and timeout <= 0:
+        return None, None, "Controller 未调用：共享截止时间的研究额度已耗尽"
+    started_at = time.monotonic()
+    try:
+        if llm_complete is not None:
+            result = llm_complete(messages)
+        elif timeout is not None:
+            result = llm_refine.complete(messages, timeout=timeout)
+        else:
+            result = llm_refine.complete(messages)
+    except Exception as exc:  # noqa: BLE001 - controller 不可用必须能降级，但要留证
+        result = None, None, f"Controller 调用抛出（{type(exc).__name__}）"
+    if deadline is not None and timeout is not None and (
+        deadline.stage_timeout(llm_refine.DEFAULT_LLM_TIMEOUT) <= 0
+        or time.monotonic() - started_at >= timeout
+    ):
+        return None, None, "Controller 超出共享截止时间或本次调用额度，丢弃迟到回复"
+    return result
+
+
 def _retry_unparsable_once(
-    complete: LLMComplete,
+    llm_complete: LLMComplete | None,
     *,
     query: str,
     context: str,
     task_frame: TaskFrame,
     bad_content: str,
-) -> str | None:
+    deadline: ResearchDeadline | None,
+) -> tuple[str | None, object | None, str]:
     """解析失败后带着原样输出与纠错指令重问一次。
 
     只在「provider 回了话但读不懂」时重试：同一份 prompt 裸重发大概率换来
@@ -829,11 +881,7 @@ def _retry_unparsable_once(
     messages = _controller_messages(query, context, task_frame)
     messages.append({"role": "assistant", "content": bad_content})
     messages.append({"role": "user", "content": _UNPARSABLE_RETRY_INSTRUCTION})
-    try:
-        content, _provider, _detail = complete(messages)
-    except Exception:  # noqa: BLE001 - 与首次调用同一条降级纪律：必须能降级
-        return None
-    return content
+    return _complete_controller(messages, llm_complete=llm_complete, deadline=deadline)
 
 
 def _controller_failure(detail: str) -> tuple[str, str]:
@@ -870,6 +918,25 @@ def _safe_fallback(
 
 
 def _safe_fallback_route(query: str, envelope: QueryEnvelope) -> TurnDecision:
+    if envelope.question_type in {"general_finance_qa", "quick_fact"}:
+        candidate = _fine_grained_route_row(query)
+        if candidate is not None and candidate.route_id == "quick_fact":
+            # 语义调用失败才沿用已有查数候选；不能把已确认的研究任务降格。
+            # 成功路径仍由 Controller 判断整轮诉求，词面「多少」不抢裁决权。
+            return _decision_from_route_row(
+                candidate,
+                query=query,
+                subject=envelope.subject,
+                timeframe=envelope.timeframe,
+                confidence=0.55,
+                reason="Controller 不可用；沿用已有的精确查数候选",
+            )
+    evidence_fallback = _evidence_fallback_decision(query, envelope)
+    if evidence_fallback is not None:
+        return replace(
+            evidence_fallback,
+            reason=f"Controller 不可用；{evidence_fallback.reason}",
+        )
     if _KNOWLEDGE_QUESTION_PATTERN.search(query):
         return _decision(
             "knowledge",
@@ -911,6 +978,7 @@ def _enforce_task_frame_route(
             "web_search",
         ),
         "current_public_knowledge": ("web_search",),
+        "current_fact_evidence": ("market_quote",),
         "current_a_share_market": ("market_quote", "market_news"),
         "dated_a_share_market": ("market_quote", "market_news"),
         "current_market_scenarios": (
@@ -950,7 +1018,8 @@ def _enforce_task_frame_route(
             (),
         ),
         needs_template=(
-            decision.needs_template or lane in {"research", "workflow"}
+            decision.question_type != "quick_fact"
+            and (decision.needs_template or lane in {"research", "workflow"})
         ),
         capabilities=tuple(
             dict.fromkeys(
@@ -969,6 +1038,8 @@ def _enforce_task_frame_route(
 def _rebase_frame_for_decision(
     task_frame: TaskFrame,
     decision: TurnDecision,
+    *,
+    current_turn_frame: TaskFrame | None = None,
 ) -> TaskFrame:
     """Project a validated route row back into the canonical semantic frame."""
 
@@ -977,7 +1048,16 @@ def _rebase_frame_for_decision(
         or decision.question_type == task_frame.question_type
     ):
         return task_frame
-    return rebase_task_frame(
+    if current_turn_frame is not None and task_frame.history_intent is None:
+        # 主体可以跨轮继承，旧任务的必答项不能污染已确认的新任务类型。
+        # 保留当前绑定的主体、日期、材料权限和 Controller 补充，只将产出物
+        # 的重算基底还原为本轮请求；继续同类研究与失败退路不会进入此分支。
+        task_frame = replace(
+            task_frame,
+            question_type=current_turn_frame.question_type,
+            required_outputs=current_turn_frame.required_outputs,
+        )
+    rebased = rebase_task_frame(
         task_frame,
         question_type=decision.question_type,
         subject=(
@@ -993,6 +1073,25 @@ def _rebase_frame_for_decision(
             else task_frame.timeframe
         ),
     )
+    if rebased.question_type == "quick_fact":
+        # 语义确认为纯查数后，不携带旧任务或词面 operator 的研究产出物。
+        rebased = replace(
+            rebased,
+            required_outputs=derive_required_outputs("quick_fact", rebased.raw_question),
+        )
+    if (
+        rebased.evidence_policy in {"stable_knowledge", "model_reasoning"}
+        and task_frame_requires_retrieval(task_frame)
+    ):
+        # 题型可以重选，原题中的当期/定日事实要求不能随旧题型一起清空。
+        # 复用现有事实与时效解析；仅有公司/题材身份不构成这道下限。
+        if is_current_market_query(task_frame.raw_question):
+            rebased = replace(rebased, evidence_policy="current_fact_evidence")
+        elif has_explicit_date(task_frame.raw_question) or _FRESHNESS_PATTERN.search(
+            task_frame.raw_question
+        ):
+            rebased = replace(rebased, evidence_policy=task_frame.evidence_policy)
+    return rebased
 
 
 def _question_carries_its_own_foothold(
@@ -1391,6 +1490,7 @@ def decide_turn(
             inherited_from_turn=previous_turn_id,
             primary_subject=task_frame.subject or previous_intent.primary_subject,
         )
+    current_turn_frame = task_frame if intent.inherited_from_turn is not None else None
     if intent.inherited_from_turn is not None:
         if (task_frame.history_intent is None and previous_intent is not None
                 and previous_intent.history_intent is not None):
@@ -1474,7 +1574,9 @@ def decide_turn(
             llm_complete=llm_complete, deadline=deadline,
         )
         if recall is not None:
-            task_frame = _rebase_frame_for_decision(task_frame, recall)
+            task_frame = _rebase_frame_for_decision(
+                task_frame, recall, current_turn_frame=current_turn_frame,
+            )
             return _attach_turn_intent(recall, intent, task_frame=task_frame)
         if recall_failure:
             # A failed optional request must not silently trigger the full
@@ -1486,10 +1588,14 @@ def decide_turn(
             fallback = replace(
                 fallback, llm_failure_reason=recall_failure, llm_failure_detail=recall_detail,
             )
-            task_frame = _rebase_frame_for_decision(task_frame, fallback)
+            task_frame = _rebase_frame_for_decision(
+                task_frame, fallback, current_turn_frame=current_turn_frame,
+            )
             return _attach_turn_intent(fallback, intent, task_frame=task_frame)
     if deterministic is not None:
-        task_frame = _rebase_frame_for_decision(task_frame, deterministic)
+        task_frame = _rebase_frame_for_decision(
+            task_frame, deterministic, current_turn_frame=current_turn_frame,
+        )
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     if resolution.status == "candidate" and resolution.candidates:
         question = format_resolve_clarification(resolution)
@@ -1524,26 +1630,24 @@ def decide_turn(
             intent,
             task_frame=task_frame,
         )
-    complete = llm_refine.complete if llm_complete is None else llm_complete
-    try:
-        content, _provider, failure_detail = complete(
-            _controller_messages(effective_query, context, task_frame)
-        )
-    except Exception as exc:  # noqa: BLE001 - controller 不可用必须能降级，但要留证
-        content = None
-        failure_detail = f"Controller 调用抛出（{type(exc).__name__}）"
+    content, _provider, failure_detail = _complete_controller(
+        _controller_messages(effective_query, context, task_frame),
+        llm_complete=llm_complete,
+        deadline=deadline,
+    )
     if content is None:
         failure_reason, failure_detail = _controller_failure(failure_detail)
+        decision = _safe_fallback(
+            effective_query,
+            envelope,
+            llm_failure_reason=failure_reason,
+            llm_failure_detail=failure_detail,
+        )
+        task_frame = _rebase_frame_for_decision(
+            task_frame, decision, current_turn_frame=current_turn_frame,
+        )
         return _attach_turn_intent(
-            _enforce_task_frame_route(
-                _safe_fallback(
-                    effective_query,
-                    envelope,
-                    llm_failure_reason=failure_reason,
-                    llm_failure_detail=failure_detail,
-                ),
-                task_frame,
-            ),
+            _enforce_task_frame_route(decision, task_frame),
             intent,
             task_frame=task_frame,
         )
@@ -1552,13 +1656,15 @@ def decide_turn(
         query=effective_query,
         envelope=envelope,
     )
+    retry_failure_detail = ""
     if parsed is None:
-        retry_content = _retry_unparsable_once(
-            complete,
+        retry_content, _provider, retry_failure_detail = _retry_unparsable_once(
+            llm_complete,
             query=effective_query,
             context=context,
             task_frame=task_frame,
             bad_content=content,
+            deadline=deadline,
         )
         if retry_content is not None:
             parsed = _parse_llm_decision(
@@ -1600,15 +1706,20 @@ def decide_turn(
         # 混在一起会把一次 prompt/schema 回归误判成外部故障。
         # detail 留首次原文（声明式截断：限定语在前，截掉的是原文尾部）——
         # 生产 39 run 里 4 个 unparsable 全是空 detail，验尸零证据的教训。
+        failure_reason = "unparsable_response"
+        failure_detail = f"重试一次仍不可解析；首次输出：{content}"
+        if retry_failure_detail:
+            failure_reason, detail = _controller_failure(retry_failure_detail)
+            failure_detail = f"Controller 纠错未完成：{detail}；首次输出：{content}"
         decision = _safe_fallback(
             effective_query,
             envelope,
-            llm_failure_reason="unparsable_response",
-            llm_failure_detail=(f"重试一次仍不可解析；首次输出：{content}")[
-                :_FAILURE_DETAIL_LIMIT
-            ],
+            llm_failure_reason=failure_reason,
+            llm_failure_detail=failure_detail[:_FAILURE_DETAIL_LIMIT],
         )
-    task_frame = _rebase_frame_for_decision(task_frame, decision)
+    task_frame = _rebase_frame_for_decision(
+        task_frame, decision, current_turn_frame=current_turn_frame,
+    )
     decision = _enforce_task_frame_route(decision, task_frame)
     return _attach_turn_intent(decision, intent, task_frame=task_frame)
 

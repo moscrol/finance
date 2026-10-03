@@ -35,6 +35,9 @@ from intelligence.services.adaptive_research import (
 )
 from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
+from intelligence.services.evidence_read import (
+    EvidenceReadCoverage, bind_evidence_read_tool, evidence_read_enabled,
+)
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     finish_rejection_fields,
@@ -808,6 +811,7 @@ class _EpisodeToolAccumulator:
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     seen_observation_prose: set[str] = field(default_factory=set)
+    read_coverage: EvidenceReadCoverage = field(default_factory=EvidenceReadCoverage)
     # 研究进展账（06 号单）：按批记「这轮有没有新证据 / 同一查询重复了几次 / 哪个工具连续空手」，
     # 底座事实，run() 叠进 runtime_budget 递给模型；停滞到底时收口。
     progress: ResearchProgressTracker = field(default_factory=ResearchProgressTracker)
@@ -911,21 +915,6 @@ class _EpisodeToolAccumulator:
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
                 new_evidence += 1
-            self.progress.record_call(
-                ToolCallDigest(
-                    call.name,
-                    observation.query or call.arguments,
-                    (
-                        "new"
-                        if new_evidence
-                        else "duplicate"
-                        if observation.evidence
-                        else "empty"
-                    ),
-                    new_evidence=new_evidence,
-                    total_evidence=len(observation.evidence),
-                )
-            )
             assert self.harness is not None
             projection = self.harness.project_tool_result(
                 observation,
@@ -947,6 +936,21 @@ class _EpisodeToolAccumulator:
             )
             self.messages.append(
                 tool_message(call.call_id, projection.model_content, source="tool_result")
+            )
+            # Navigation progress is measured only after delivery into model input.
+            # A reread keeps the old evidence identity; do not invent a new source
+            # to prevent the existing stall heuristic from closing the episode.
+            new_read_chars = (
+                self.read_coverage.observe(projection.model_content, evidence=tuple(self.evidence))
+                if evidence_read_enabled() else 0
+            )
+            self.progress.record_call(
+                ToolCallDigest(
+                    call.name, observation.query or call.arguments,
+                    "new" if new_evidence else "duplicate" if observation.evidence else "empty",
+                    new_evidence=new_evidence, total_evidence=len(observation.evidence),
+                    new_read_chars=new_read_chars,
+                )
             )
             acknowledge = getattr(self.harness, "acknowledge_tool_result", None)
             if acknowledge is not None:
@@ -984,6 +988,20 @@ class _EpisodeToolAccumulator:
             cleaned = str(value or "").strip()
             if cleaned and cleaned not in self.gaps:
                 self.gaps.append(cleaned)
+
+    def note_delivered_sub_research(self, messages: Sequence[EpisodeMessage]) -> None:
+        """Seed only literal evidence in branch messages already in model input.
+
+        Branch completion and inbox insertion are not delivery. This records
+        coverage, not new read progress or a new independent evidence source.
+        """
+        if not evidence_read_enabled():
+            return
+        for message in messages:
+            if message.source == "sub_research":
+                self.read_coverage.observe(
+                    message.content, evidence=tuple(self.evidence)
+                )
 
     def retain_entity_diagnostics(self, declared: tuple[str, ...]) -> tuple[str, ...]:
         """A model finish cannot erase the tool's exact-identity diagnostic."""
@@ -1094,6 +1112,8 @@ def _seed_opening_prefetch(
         append_model_input(
             messages, accumulator.ledger, content=message, source="opening_prefetch"
         )
+        if evidence_read_enabled():
+            accumulator.read_coverage.note_complete(evidence)
         accumulator.ledger.add(
             "prefetch",
             {
@@ -1335,6 +1355,7 @@ class ContinuousAgentEpisode:
         messages: list[EpisodeMessage],
         ledger: _EpisodeLedger,
         target: InboxTarget,
+        accumulator: _EpisodeToolAccumulator | None = None,
     ) -> int:
         """把该队列的话取出来 append 进 messages。认领事件先落、消息后进——与
         ``append_model_input`` 同一个「事件在前、派生物在后」的写序。"""
@@ -1344,6 +1365,8 @@ class ContinuousAgentEpisode:
             return 0
         claimed = inbox.claim(target)
         messages.extend(claimed)
+        if accumulator is not None:
+            accumulator.note_delivered_sub_research(claimed)
         return len(claimed)
 
     @staticmethod
@@ -1543,7 +1566,7 @@ class ContinuousAgentEpisode:
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
-        finish_failures = 0
+        finish_repairs: set[str] = set()
         plan_failures = 0
         plan_turns = 0
         perspective_checkpoint_sent = False
@@ -1666,7 +1689,10 @@ class ContinuousAgentEpisode:
 
             # INV-R5：每次模型请求前认领 next_step（pi steering）。先于历史折叠——
             # 认领的是 user 消息，折叠只碰 tool 消息，两者互不改写；先于对账是必然。
-            if self._claim_inbox(messages=messages, ledger=ledger, target="next_step"):
+            if self._claim_inbox(
+                messages=messages, ledger=ledger, target="next_step",
+                accumulator=accumulator,
+            ):
                 # 外部递了话（用户改方向 / 分支回灌）：新方向的第一批不算原地踏步。
                 accumulator.progress.note_external_input()
             perspective_checkpoint = (
@@ -2035,6 +2061,7 @@ class ContinuousAgentEpisode:
                                 ledger=ledger,
                                 result=pending_branch_result,
                                 evidence=tuple(accumulator.evidence),
+                                accumulator=accumulator,
                             )
                         continue
                 else:
@@ -2227,6 +2254,7 @@ class ContinuousAgentEpisode:
                         ledger=ledger,
                         result=pending_branch_result,
                         evidence=tuple(accumulator.evidence),
+                        accumulator=accumulator,
                     )
                 if self._harness.retrieval_complete(
                     context=context,
@@ -2267,8 +2295,14 @@ class ContinuousAgentEpisode:
             # 竞态「steer 到达 vs 模型停下」两序在这里汇合：先到的在请求前就被认领，
             # 后到的在这里被认领——两种历史都合法，都不丢话。
             if not finalization_started and ledger.inbox is not None and ledger.inbox.pending():
-                self._claim_inbox(messages=messages, ledger=ledger, target="next_turn")
-                self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+                self._claim_inbox(
+                    messages=messages, ledger=ledger, target="next_turn",
+                    accumulator=accumulator,
+                )
+                self._claim_inbox(
+                    messages=messages, ledger=ledger, target="next_step",
+                    accumulator=accumulator,
+                )
                 continue
 
             admission = self._harness.admit_finish(
@@ -2278,7 +2312,6 @@ class ContinuousAgentEpisode:
                 registry=registry,
             )
             if not admission.accepted:
-                finish_failures += 1
                 invalid_actions += 1
                 reason = admission.reason
                 response = admission.response
@@ -2297,14 +2330,15 @@ class ContinuousAgentEpisode:
                 )
                 if (
                     response.reinject
-                    and finish_failures == 1
+                    and admission.repair_steering_kind not in finish_repairs
                     and not finalization_started
                 ):
+                    finish_repairs.add(admission.repair_steering_kind)
                     append_model_input(
                         messages,
                         ledger,
                         content=self._harness.steering_message(
-                            "invalid_finish", detail=reason
+                            admission.repair_steering_kind, detail=reason
                         ),
                         source="steering_invalid_finish",
                     )
@@ -2396,6 +2430,7 @@ class ContinuousAgentEpisode:
         self,
         *,
         messages: list[EpisodeMessage],
+        accumulator: _EpisodeToolAccumulator,
         tools: list[dict[str, object]],
         timeout: float,
         repair_deadline: ResearchDeadline,
@@ -2429,7 +2464,10 @@ class ContinuousAgentEpisode:
         while True:
             # INV-R5：修复轮的每次模型请求前同样认领 next_step——收件箱是唯一输入面，
             # 不因阶段而关。瞬态重试之间到的话在下一次重问价前送达。
-            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
+            self._claim_inbox(
+                messages=messages, ledger=ledger, target="next_step",
+                accumulator=accumulator,
+            )
             # INV-R1：每次重问价前都对账（瞬态重试不改 messages，但重试之间可能多了
             # repair_model_retry 事件——那不是模型可见内容，派生必须对它无感）。
             ledger.verify_model_visible(messages)
@@ -2680,7 +2718,7 @@ class ContinuousAgentEpisode:
             content=self._harness.repair_goal_message(
                 prompt_goal,
                 tools_open=research_tools_open,
-                finish_format=claim_finish_format(downgraded_contract),
+                finish_format=claim_finish_format(downgraded_contract, prior_evidence=context.prior_evidence),
             ),
             source="repair_goal",
         )
@@ -2740,6 +2778,7 @@ class ContinuousAgentEpisode:
             transient_retries_left,
         ) = self._repair_model_complete(
             messages=messages,
+            accumulator=accumulator,
             tools=definitions,
             timeout=timeout,
             repair_deadline=repair_deadline,
@@ -2875,6 +2914,7 @@ class ContinuousAgentEpisode:
                 transient_retries_left,
             ) = self._repair_model_complete(
                 messages=messages,
+                accumulator=accumulator,
                 tools=[],
                 timeout=final_timeout,
                 repair_deadline=repair_deadline,
@@ -3269,6 +3309,7 @@ class ContinuousAgentEpisode:
                 ledger.add("branch_failed", {
                     "branch_id": f"branch-{index}", "goal": goal,
                     "status": "failed", "error": "storage_failed",
+                    "stop_reason": "storage_failed", "llm_calls": 0, "llm_calls_known": True,
                     "episode_ref": branch_run.reference(f"branch-{index}").to_dict(),
                 })
             return None
@@ -3347,6 +3388,12 @@ class ContinuousAgentEpisode:
                 calc_loader=getattr(registry, "calc_loader", None),
             )
         )
+        # Explicit capability plus opt-in: a deployment switch is not authority.
+        # Bind the presented pool, never the branch ledger or another user's run.
+        if evidence_read_enabled() and "evidence_read" in context_ref.value.contract.allowed_capabilities:
+            registry = registry.with_specs(bind_evidence_read_tool(
+                presented_evidence=lambda: tuple(ledger.presented_evidence or ()),
+            ))
         coordinator = self._sub_research_coordinator
         if coordinator is None:
             return registry
@@ -3443,6 +3490,7 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
         result: SubResearchResult,
         evidence: tuple[AgentEvidence, ...] = (),
+        accumulator: _EpisodeToolAccumulator | None = None,
     ) -> None:
         """子研究回灌走收件箱（终态稿 §6.4 第 3 条）：``inbox.send(target=next_step,
         source="sub_research")``，下一次模型请求前被认领进 messages。
@@ -3461,6 +3509,8 @@ class ContinuousAgentEpisode:
         inbox = ledger.inbox
         if inbox is None:
             append_model_input(messages, ledger, content=content, source="sub_research")
+            if accumulator is not None:
+                accumulator.note_delivered_sub_research((messages[-1],))
             return
         inbox.send(user_message(content, source="sub_research"), target="next_step")
 

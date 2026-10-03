@@ -38,6 +38,24 @@ CASES = (
 )
 
 
+def _set_probe_claim(payload, row_index, *, text, kind, source, quote):
+    """Populate either the compact author envelope or the legacy finish shape."""
+    rows_key = "answers" if "answers" in payload else "bindings"
+    row = payload[rows_key][row_index]
+    if rows_key == "answers":
+        row["claims"] = [{
+            "text": text,
+            "kind": kind,
+            "sources": [{"ref": "M1", "quote": quote}] if quote else [],
+        }]
+    else:
+        row["claims"] = [{
+            "text": text,
+            "kind": kind,
+            "material_anchors": [{"material_id": source.material_id, "quote": quote}] if quote else [],
+        }]
+
+
 def probe_case(case, client):
     name, declaration, quote, expected_supported = case
     inputs, question, answer = INPUTS, QUESTION, "订单占收入比例为20÷100=20%。"
@@ -54,14 +72,15 @@ def probe_case(case, client):
     context = build_episode_context(frame, task_id="controlled-claim-judge-" + name)
     source = context.contract.material_grounding.materials[0]
     payload = json.loads(material_grounding_payload(context.contract)["finish_format"]["wire_template"])
-    payload["bindings"][0]["claims"] = [{
-        "text": answer, "kind": "material_fact",
-        "material_anchors": [{"material_id": source.material_id, "quote": inputs}],
-    }]
-    payload["bindings"][1]["claims"] = [{
-        "text": declaration, "kind": "reasoning" if name == "unbound_computation_repeat" else "premise_declaration",
-        "material_anchors": [{"material_id": source.material_id, "quote": quote}] if quote else [],
-    }]
+    _set_probe_claim(payload, 0, text=answer, kind="material_fact", source=source, quote=inputs)
+    _set_probe_claim(
+        payload,
+        1,
+        text=declaration,
+        kind="reasoning" if name == "unbound_computation_repeat" else "premise_declaration",
+        source=source,
+        quote=quote,
+    )
     parsed = validate_episode_finish(payload, context=context, evidence=())
     draft = AgentOutcome(
         task_frame_hash=frame.task_frame_hash, status=parsed.status, draft=parsed.draft,

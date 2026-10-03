@@ -168,7 +168,7 @@ from intelligence.services.conversation_materials import (
     ConversationMaterials, collect_conversation_materials, collect_material_turn_history,
 )
 from intelligence.services.material_contract import compile_material_contract
-from intelligence.services.user_task import split_user_message
+from intelligence.services.user_task import requests_frozen_previous_answer, split_user_message
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -2091,6 +2091,7 @@ class TurnOrchestrator:
                     if parts.materials else collect_conversation_materials(
                         context.material_messages or (),
                         unavailable=context.material_history_unavailable,
+                        include_assistant_statements=requests_frozen_previous_answer(query),
                     )
                 )
             elif material_contract and material_contract.needs_clarification:

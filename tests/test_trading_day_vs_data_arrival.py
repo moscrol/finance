@@ -46,6 +46,12 @@ from market_feature_store.trading_days import (
     trading_day_verdict,
 )
 
+
+requires_zsh = pytest.mark.skipif(
+    not os.path.exists("/bin/zsh"),
+    reason="需要 /bin/zsh（macOS 默认 shell）；Linux 上跳过，Mac 上照常跑",
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / "scripts" / "moneyflow" / "run_l2_pipeline.sh"
 
@@ -271,6 +277,7 @@ def _steps(step_log: Path) -> list[str]:
     return step_log.read_text().split()
 
 
+@requires_zsh
 def test_guard_skips_only_on_a_real_closure(guard_env):
     """真休市日：跳过全部步骤并 exit 0。这是唯一允许「什么都不干还算成功」的情形。"""
     env, step_log, _ = guard_env
@@ -282,6 +289,7 @@ def test_guard_skips_only_on_a_real_closure(guard_env):
     assert _steps(step_log) == ["write_to_duckdb"], "休市日只落日历台账（QC S2），不跑管线步骤"
 
 
+@requires_zsh
 def test_guard_runs_the_pipeline_on_a_zero_row_trading_day(guard_env, tmp_path):
     """事故复现位：真交易日 + 当日 0 行，必须照跑，不得跳过。
 
@@ -304,6 +312,7 @@ def test_guard_runs_the_pipeline_on_a_zero_row_trading_day(guard_env, tmp_path):
     assert "行情缺口，不是 L2 故障" in proc.stderr
 
 
+@requires_zsh
 @pytest.mark.parametrize("relative", [True, False])
 def test_guard_keeps_interpreter_valid_after_chdir(guard_env, relative):
     import sys
@@ -323,6 +332,7 @@ def test_guard_keeps_interpreter_valid_after_chdir(guard_env, relative):
     assert _steps(step_log) == ["write_to_duckdb", "run_l2_from_share", "render"]
 
 
+@requires_zsh
 def test_guard_runs_and_shouts_when_the_calendar_is_unknown(guard_env):
     """判不定：照跑 + 吼一声。绝不允许「什么都没干却 exit 0」。"""
     env, step_log, _ = guard_env
@@ -334,6 +344,7 @@ def test_guard_runs_and_shouts_when_the_calendar_is_unknown(guard_env):
     assert _steps(step_log), "判不定时步骤必须真的跑过，不能静默跳过"
 
 
+@requires_zsh
 def test_guard_treats_a_broken_probe_as_unknown_not_as_closure(guard_env, tmp_path):
     """探针自己挂了也不许跳过：import 失败必须归 unknown，照跑。
 
@@ -351,6 +362,7 @@ def test_guard_treats_a_broken_probe_as_unknown_not_as_closure(guard_env, tmp_pa
     assert _steps(step_log), "探针挂了也要干活，不能当成休市"
 
 
+@requires_zsh
 def test_guard_still_honours_the_force_non_trade_day_escape_hatch(guard_env):
     """排障开关仍有效，否则值班的人没法手动压掉一天。"""
     env, step_log, _ = guard_env

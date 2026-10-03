@@ -15,6 +15,7 @@ from intelligence.services.conversation_materials import (
 from intelligence.services.conversation_store import Message
 from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_protocol import build_episode_input
+from intelligence.services.material_answer_authoring import compile_material_author_finish
 from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
@@ -53,6 +54,7 @@ def test_original_t2_t3_bodies_and_old_answer_coordinates_reach_model():
     assert restored == frame
     assert restored.task_frame_hash == frame.task_frame_hash
     context = build_episode_context(restored, task_id="test", conversation_context="user: FORBIDDEN_OLD_SUMMARY")
+    frozen_contract = context.contract.to_dict()
     payload = json.loads(build_episode_input(restored, context, ResearchToolRegistry(())))
     assert "FORBIDDEN_OLD_SUMMARY" not in json.dumps(payload)
     marker = "## 可信历史材料与旧答来源\n"
@@ -60,9 +62,41 @@ def test_original_t2_t3_bodies_and_old_answer_coordinates_reach_model():
     assert [item["text"] for item in typed_payload["materials"]] == list(split_user_message(T2).material_texts)
     assert "甲公司的 1 亿订单两个月前已经公告" in payload["task_frame"]["raw_question"]
     assert "六篇报道都称" in payload["task_frame"]["raw_question"]
-    old = payload["task_frame"]["conversation_materials"]["assistant_statements"]
-    assert old == [{"source_message_id": "old-answer", "text": OLD, "basis": "assistant_judgment"}]
+    # The author sees one short catalogue; frame persistence and the judge keep
+    # original source identities. Check the bodies and both ends of that mapping.
+    catalogue = context.contract.material_grounding
+    sources = payload["material_grounding"]["sources"]
+    material_sources = [row for row in sources if row["ref"].startswith("M")]
+    assert material_sources == [
+        {"ref": f"M{index}", "kind": "user_material", "text": item.text}
+        for index, item in enumerate(catalogue.materials, 1)
+    ]
+    for body in (*split_user_message(T2).material_texts, *split_user_message(T3).material_texts):
+        assert body in [row["text"] for row in material_sources]
+    assert [row for row in sources if row["ref"].startswith("H")] == [
+        {"ref": "H1", "kind": "historical_assistant_statement", "text": OLD},
+    ]
+    assert catalogue.to_dict()["historical_assistant_statements"] == [
+        {"source_message_id": "old-answer", "text": OLD, "basis": "assistant_judgment"},
+    ]
+    assert catalogue.historical_assistant_statements == restored.conversation_materials.assistant_statements
+    compiled = compile_material_author_finish({
+        "format": "material_claims_v1", "status": "partial", "answers": [{
+            "output_id": "answer_q1", "claims": [{
+                "text": "上一条曾将甲的新增催化评为最强。", "kind": "historical_assistant_statement",
+                "sources": [{"ref": "H1", "quote": OLD}],
+            }],
+        }],
+    }, context.contract)
+    claim = compiled["bindings"][0]["claims"][0]
+    assert (claim["old_answer_coordinate"], claim["historical_quote"], claim["basis"]) == (
+        "old-answer", OLD, "assistant_judgment",
+    )
+    assert "assistant_statements" not in payload["task_frame"]["conversation_materials"]
+    assert OLD not in payload["conversation_context"]
+    assert context.contract.to_dict() == frozen_contract
     assert all(OLD not in item.text for item in typed.items)
+    assert payload["available_tools"] == ""
     assert context.contract.allowed_capabilities == ()
     assert context.contract.evidence_plan.requirements == ()
     assert [o.output_id for o in context.contract.required_outputs] == [*(f"answer_q{i}" for i in range(1, 9)), "evidence_boundary"]

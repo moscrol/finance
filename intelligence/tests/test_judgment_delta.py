@@ -25,7 +25,6 @@ from intelligence.services.judgment_delta import (
     episode_judgment_delta_rule,
     judgment_delta_guidance_for_query,
     judgment_delta_receipt,
-    missing_judgment_delta_elements,
     parse_judgment_delta_intent,
 )
 
@@ -200,7 +199,8 @@ def test_guidance_carries_the_narrowed_rules() -> None:
     for text in (build_judgment_delta_guidance(), build_judgment_delta_guidance_for_episode()):
         assert "待验证问题" in text
         assert "裁判变量" in text
-        assert "未发现足以推翻主判断的反证" in text
+        assert "未找到反证" in text
+        assert "不要求固定标题" in text
         # 收窄后的两条边界必须留在契约里，否则下一个人会把 R4 初版又捡回来。
         assert "不是主线" in text
         assert "主矛盾可以不止一条" in text
@@ -220,19 +220,11 @@ _GOOD_ANSWER = """
 """
 
 
-def test_good_answer_has_no_missing_elements() -> None:
-    assert missing_judgment_delta_elements(_GOOD_ANSWER) == ()
-
-
-def test_silent_answer_is_caught() -> None:
-    missing = missing_judgment_delta_elements("订单落地，看好液冷方向。")
-
-    assert set(missing) == {
-        "counter_evidence",
-        "open_questions",
-        "decider_variables",
-        "next_actions",
-    }
+def test_receipt_does_not_grade_answers_by_section_presence() -> None:
+    for answer in (_GOOD_ANSWER, "订单落地，看好液冷方向。"):
+        receipt = judgment_delta_receipt(answer, question_type="theme_analysis")
+        assert receipt["quality_assessment"] == "not_evaluated"
+        assert "missing_elements" not in receipt
 
 
 def test_receipt_shape() -> None:
@@ -246,7 +238,7 @@ def test_receipt_shape() -> None:
 
     assert receipt["check"] == "judgment_delta"
     assert receipt["judgment_delta_intent"] is True
-    assert receipt["missing_elements"] == []
+    assert receipt["quality_assessment"] == "not_evaluated"
     assert receipt["decider_variables"]
     assert receipt["material_digest"]["role_counts"][ROLE_COUNTER] == 1
     assert receipt["material_digest"]["merged_count"] == 2
@@ -256,7 +248,7 @@ def test_receipt_stays_quiet_on_non_material_questions() -> None:
     receipt = judgment_delta_receipt("收盘价 12.3 元", query="收盘价多少", question_type="quick_fact")
 
     assert receipt["judgment_delta_intent"] is False
-    assert receipt["missing_elements"] == []
+    assert receipt["quality_assessment"] == "not_evaluated"
 
 
 # ——————————————————————————————————————————— episode 接缝：契约真到得了模型

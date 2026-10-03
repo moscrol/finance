@@ -13,6 +13,12 @@ from pathlib import Path
 
 import pytest
 
+
+requires_zsh = pytest.mark.skipif(
+    not os.path.exists("/bin/zsh"),
+    reason="需要 /bin/zsh（macOS 默认 shell）；Linux 上跳过，Mac 上照常跑",
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 OPS_PYTHON_SH = ROOT / "scripts" / "lib" / "ops_python.sh"
 WRAPPERS = [
@@ -188,6 +194,7 @@ def _run_nightly_finalize(
     return proc, call_log.read_text(encoding="utf-8"), proc.stderr
 
 
+@requires_zsh
 @pytest.mark.parametrize("generation_rc", [0, 2])
 def test_generation_failure_stops_receive_and_fallback_log(tmp_path, generation_rc):
     proc, calls, _ = _run_nightly_finalize(
@@ -206,6 +213,7 @@ def test_ops_python_helper_exists() -> None:
     assert OPS_PYTHON_SH.is_file()
 
 
+@requires_zsh
 def test_ops_python_picks_workbench_venv(tmp_path: Path) -> None:
     venv_py = tmp_path / ".venv-workbench" / "bin" / "python"
     venv_py.parent.mkdir(parents=True)
@@ -223,6 +231,7 @@ def test_ops_python_picks_workbench_venv(tmp_path: Path) -> None:
     assert result.stdout == str(venv_py)
 
 
+@requires_zsh
 def test_ops_python_rejects_clt_python_even_when_forced(tmp_path: Path) -> None:
     result = _zsh_source_ops(
         {
@@ -391,6 +400,7 @@ def test_nightly_closes_the_staging_bypassing_sync_phases() -> None:
     #    塞回去测试照样绿（变异测试实测）。别把它改回文本断言。
 
 
+@requires_zsh
 def test_nightly_generation_fails_closed_when_code_root_is_missing(tmp_path: Path) -> None:
     """缺少生成代码根时不能退回 DATA_ROOT 继续产出报告。"""
     proc, calls, _ = _run_nightly_finalize(tmp_path, separate_generation=False, missing_launcher=True)
@@ -403,6 +413,7 @@ def test_nightly_generation_fails_closed_when_code_root_is_missing(tmp_path: Pat
     assert "run_daily_generation.py" not in calls
 
 
+@requires_zsh
 def test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails(tmp_path: Path) -> None:
     """同步守卫失败时，L2 仍然被尝试；生成段仍然被挡住。（工单 #51）
 
@@ -427,6 +438,7 @@ def test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails(tmp_path: P
     )
 
 
+@requires_zsh
 def test_nightly_finalize_happy_path_still_runs_generation(tmp_path: Path) -> None:
     """守卫绿时行为不变：L2 → 守卫 → 生成段 → 方法飞轮，退出 0。（工单 #51 验收 2）
 
@@ -442,6 +454,7 @@ def test_nightly_finalize_happy_path_still_runs_generation(tmp_path: Path) -> No
     assert proc.returncode == 0, f"顺利路径应退 0，实际 {proc.returncode}\n{proc.stderr[-2000:]}"
 
 
+@requires_zsh
 def test_nightly_finalize_blocks_generation_when_l2_fails(tmp_path: Path) -> None:
     """L2 失败仍然挡住生成段——提前跑 L2 不等于放宽它。（工单 #51「不要做」第 2 条）"""
     proc, calls, _ = _run_nightly_finalize(tmp_path, guard_rc=0, moneyflow_rc=1)
@@ -452,6 +465,7 @@ def test_nightly_finalize_blocks_generation_when_l2_fails(tmp_path: Path) -> Non
     assert proc.returncode == 1, f"L2 失败应退 1，实际 {proc.returncode}"
 
 
+@requires_zsh
 def test_generation_override_is_scoped_to_its_child(tmp_path: Path) -> None:
     proc, calls, _ = _run_nightly_finalize(tmp_path)
     assert proc.returncode == 0, proc.stderr
@@ -474,6 +488,7 @@ def test_generation_override_is_scoped_to_its_child(tmp_path: Path) -> None:
     assert calls.index("run_daily_generation.py") < calls.index("--phase all")
 
 
+@requires_zsh
 def test_generation_without_override_uses_code_root_not_workspace(tmp_path: Path) -> None:
     proc, calls, _ = _run_nightly_finalize(tmp_path, separate_generation=False)
     assert proc.returncode == 0, proc.stderr
@@ -481,6 +496,7 @@ def test_generation_without_override_uses_code_root_not_workspace(tmp_path: Path
     assert f"{tmp_path / 'data'}/scripts/run_daily_generation.py" not in calls
 
 
+@requires_zsh
 def test_missing_generation_launcher_refuses_workspace_fallback(tmp_path: Path) -> None:
     proc, calls, _ = _run_nightly_finalize(tmp_path, missing_launcher=True)
     assert proc.returncode == 2, proc.stderr
@@ -491,6 +507,7 @@ def test_missing_generation_launcher_refuses_workspace_fallback(tmp_path: Path) 
     assert "拒绝回退到 WORKSPACE" in proc.stderr
 
 
+@requires_zsh
 def test_generation_failure_is_not_reported_as_complete(tmp_path: Path) -> None:
     proc, calls, _ = _run_nightly_finalize(tmp_path, generation_rc=27)
     assert proc.returncode == 27, proc.stderr
@@ -509,6 +526,7 @@ def test_finalize_template_uses_accepted_runtime_and_separate_kb_archive() -> No
     assert env["FINANCE_CODE_ROOT"] != env["FINANCE_DATA_ROOT"]
 
 
+@requires_zsh
 def test_nightly_finalize_never_invokes_s7(tmp_path: Path) -> None:
     """本脚本不许嵌套调 S7：两者抢同一把 daily-full-review.lock，会自己锁死自己。
 
@@ -561,6 +579,7 @@ def test_checkpoint_installer_defaults_to_venv_and_runtime() -> None:
     )
 
 
+@requires_zsh
 def test_nightly_passes_separate_read_and_archive_roots(tmp_path):
     read = tmp_path / "sealed knowledge" / "wiki"
     write = tmp_path / "writable knowledge" / "wiki"
@@ -570,6 +589,7 @@ def test_nightly_passes_separate_read_and_archive_roots(tmp_path):
     assert f"--kb-wiki {read} --kb-receive-wiki {write}" in generation
 
 
+@requires_zsh
 def test_nightly_captures_runtime_target_before_starting_work(tmp_path):
     proc, calls, _ = _run_nightly_finalize(tmp_path, separate_generation=False, code_symlink=True)
     assert proc.returncode == 0, proc.stderr
