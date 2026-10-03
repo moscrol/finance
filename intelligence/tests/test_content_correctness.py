@@ -91,6 +91,32 @@ def test_citing_the_observed_date_does_not_excuse_a_present_tense_claim() -> Non
     assert cc.score(case, "9月1日公告时公司尚未获得订单；此后是否获单，材料没有覆盖。").passed
 
 
+@pytest.mark.parametrize("case_id,answer", [
+    ("cc-sf-01", "本期经营现金流足以覆盖资本开支，盈余2.5亿元。"),
+    ("cc-sf-01", "正2.5亿元，现金盈余2.5亿元。"),
+    ("cc-unit-02", "自由现金流为 +2.28亿元。"),
+    ("cc-cfo-01", "经营现金流为 -8.9亿元。"),
+    ("cc-sf-03", "资本开支后的现金缺口为2.5亿元。"),
+    ("cc-unit-02", "自由现金流为 -2.28亿元，同时盈余2.28亿元。"),
+])
+def test_opposite_cash_direction_cannot_pass_by_magnitude(case_id, answer):
+    case = {case.id: case for case in cc.load_cases()}[case_id]
+    assert not cc.score(case, answer).passed
+
+
+@pytest.mark.parametrize("answer", ["存在2.5亿元缺口。", "现金缺口为2.5亿元。", "自由现金流为负2.5亿元。"])
+def test_explicit_deficit_direction_is_a_valid_negative_result(answer):
+    case = {case.id: case for case in cc.load_cases()}["cc-sf-01"]
+    assert cc.score(case, answer).passed
+
+
+def test_timepoint_anchor_and_denial_are_scoped_to_the_actual_assertion():
+    cases = {case.id: case for case in cc.load_cases()}
+    assert not cc.score(cases["cc-tp-01"], "根据9月1日公告，公司当时未获单，目前仍未获单。").passed
+    assert cc.score(cases["cc-tp-02"], "8月20日公告说计划在四季度投产，不能视作已正式投产。").passed
+    assert not cc.score(cases["cc-tp-02"], "8月20日公告说计划投产，不能视作已正式投产，但公司已投产。").passed
+
+
 def test_trap_colliding_with_a_fact_is_rejected() -> None:
     bad = cc.Case(
         id="x",

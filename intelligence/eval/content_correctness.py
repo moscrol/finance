@@ -15,8 +15,8 @@ deterministic passed 的三份首发答卷，内容里照样有源文错误。�
 1. **标准答案由代码算，不手填。** 每道题只给事实（数表），``expected`` 和陷阱值都由
    本模块里有名字的恒等式算出来——「会计恒等式由代码算，不交给模型推」。手填的数字
    会和题面漂移，而且审题人也会算错。
-2. **以数值为主干。** 从答案里抽数字、换算到题目单位、按绝对值比对（符号错误在题目
-   设计上就会导致量级不同，见 ``_assert_traps_distinct``）。必须出现正确值；**陷阱值一旦
+2. **以数值为主干。** 从答案里抽数字、换算到题目单位并保留正负方向；「缺口」等受控
+   方向词也参与判分。必须出现正确值，不能同时给出相反方向；**陷阱值一旦
    出现就判错**——陷阱值是错误推理的指纹，不是题面事实，正确答卷没有理由写出它。
 3. **文字检查只用受控词表，而且只用在数字表达不了的地方**（时点断言）。每条规则在
    测试夹具里都有正例和反例；它判的是「有没有对材料覆盖不到的时点下断言」，不是
@@ -142,6 +142,27 @@ _NUM_RE = re.compile(
 # 长单位在前：「1.41万亿元」不能先被「万」吃掉（旧顺序会读成 1.41 万元）。
 _UNIT_AFTER = re.compile(r"\s*(万亿元|万亿|亿元|亿|千元|万元|万|元)")
 _RATE_AFTER = re.compile(r"\s*(个百分点|百分点|pct|%|％)")
+_NEGATIVE_BEFORE = re.compile(r"(?:缺口|净流出|负)(?:为|是|约|达|共计)?\s*$")
+_POSITIVE_BEFORE = re.compile(r"(?:盈余|净流入|正)(?:为|是|约|达|共计)?\s*$")
+_NEGATIVE_AFTER = re.compile(r"\s*(?:的)?(?:现金)?(?:缺口|净流出)")
+_POSITIVE_AFTER = re.compile(r"\s*(?:的)?(?:现金)?(?:盈余|净流入)")
+
+
+def _signed_values(raw: str, before: str, after: str, *, rate: bool = False) -> list[float]:
+    """Only infer direction from adjacent, explicit vocabulary; retain contradictions."""
+    number = float(raw)
+    negative = bool(_NEGATIVE_BEFORE.search(before) or _NEGATIVE_AFTER.match(after))
+    positive = bool(_POSITIVE_BEFORE.search(before) or _POSITIVE_AFTER.match(after))
+    if rate:
+        negative |= bool(re.search(r"(?:下降|降低|减少)(?:了|约)?\s*$", before))
+        positive |= bool(re.search(r"(?:上升|提高|提升|增加)(?:了|约)?\s*$", before))
+    explicit = raw.startswith(("-", "+"))
+    values = [number] if explicit or not (negative or positive) else []
+    if negative:
+        values.append(-abs(number))
+    if positive:
+        values.append(abs(number))
+    return values
 
 
 # 日期：年份限定 19xx/20xx、左右不贴数字；点号分隔必须写全年.月.日。旧写法
@@ -152,11 +173,11 @@ _DATE_RE = re.compile(
 )
 
 
-def extract_amounts(text: str, *, default_unit: str = "亿元") -> list[float]:
+def extract_amounts(text: str, *, default_unit: str = "亿元", signed: bool = False) -> list[float]:
     """抽出答案里的金额，换算到 ``default_unit``，返回绝对值列表。
 
     跳过日期（2026-09-01、9月1日）、季度（Q4）、百分比和 D0/D3 这类时点记号——
-    它们不是金额，混进来会和陷阱值撞车。
+    它们不是金额，混进来会和陷阱值撞车。``signed=True`` 保留数值与受控词的方向。
     """
 
     target = _UNIT_SCALE[default_unit]
@@ -175,11 +196,14 @@ def extract_amounts(text: str, *, default_unit: str = "亿元") -> list[float]:
             continue
         unit = _UNIT_AFTER.match(tail)
         scale = _UNIT_SCALE[unit.group(1)] if unit else target
-        values.append(number * scale / target)
+        numbers = _signed_values(
+            raw, cleaned[:match.start()], tail[unit.end():] if unit else tail,
+        ) if signed else [number]
+        values.extend(value * scale / target for value in numbers)
     return values
 
 
-def extract_rates(text: str) -> list[tuple[float, str]]:
+def extract_rates(text: str, *, signed: bool = False) -> list[tuple[float, str]]:
     """抽出比率读数：``(绝对值, "pct" | "pp")``。「3%」是 pct，「3个百分点」是 pp。"""
 
     out: list[tuple[float, str]] = []
@@ -192,7 +216,10 @@ def extract_rates(text: str) -> list[tuple[float, str]]:
             number = abs(float(raw))
         except ValueError:
             continue
-        out.append((number, "pct" if unit.group(1) in {"%", "％"} else "pp"))
+        numbers = _signed_values(
+            raw, text[:match.start()], text[unit.end():], rate=True,
+        ) if signed else [number]
+        out.extend((value, "pct" if unit.group(1) in {"%", "％"} else "pp") for value in numbers)
     return out
 
 
@@ -216,6 +243,10 @@ _NOW_STRONG = re.compile(r"截至目前|截至今天|截至今日|截至提问�
 _NOW_WEAK = re.compile(r"仍然|依然|仍旧|仍|还是|还没|一直")
 _THEN = re.compile(r"当时|公告时|公告日|彼时|那时|发布时|截至[^，。；]{0,16}公告")
 _SENTENCE_SPLIT = re.compile(r"[。！？!?；;\n]")
+_CLAUSE_SPLIT = re.compile(r"[，,]|但是|然而|但|却")
+_DENIAL_BEFORE = re.compile(
+    r"(?:(?:不能|不可|不应)(?:视作|视为|认定(?:为)?|认为|断言|说成)|并非|不是|不代表|不等于)\s*$"
+)
 
 
 def date_variants(iso: str) -> list[str]:
@@ -330,17 +361,19 @@ def score(case: Case, answer: str) -> CaseResult:
 
     if case.expected is not None:
         readings = {
-            "amount": extract_amounts(text, default_unit=case.unit),
-            "pct": [v for v, k in extract_rates(text) if k == "pct"],
-            "pp": [v for v, k in extract_rates(text) if k == "pp"],
+            "amount": extract_amounts(text, default_unit=case.unit, signed=True),
+            "pct": [v for v, k in extract_rates(text, signed=True) if k == "pct"],
+            "pp": [v for v, k in extract_rates(text, signed=True) if k == "pp"],
         }
         shown = {"amount": case.unit, "pct": "%", "pp": "个百分点"}
-        expected = abs(case.expected)
+        expected = case.expected
         if not any(_close(a, expected, abs_tol=0.011, rel_tol=0.005) for a in readings[case.quantity]):
             failures.append(f"缺正确值 {expected:g}{shown[case.quantity]}（{case.expected_identity}）")
+        if expected and any(_close(a, -expected, abs_tol=0.011, rel_tol=0.005) for a in readings[case.quantity]):
+            failures.append(f"出现相反方向 {-expected:g}{shown[case.quantity]}（{case.expected_identity}）")
         for name, trap in case.trap_values().items():
             kind = TRAP_KINDS.get(name, "amount")
-            if any(_close(a, abs(trap), abs_tol=0.011, rel_tol=0.005) for a in readings[kind]):
+            if any(_close(abs(a), abs(trap), abs_tol=0.011, rel_tol=0.005) for a in readings[kind]):
                 failures.append(f"出现陷阱值 {abs(trap):g}{shown[kind]}（{name}）")
 
     if case.error_class == "timepoint":
@@ -355,28 +388,38 @@ def _timepoint_failures(case: Case, text: str) -> list[str]:
     if not _mentions(text, date_variants(case.observed_at)) and "D0" not in text:
         failures.append(f"没有交代材料的观察时点 {case.observed_at}")
     sentences = _SENTENCE_SPLIT.split(text)
+    forbidden = re.compile("|".join(map(re.escape, sorted(case.forbidden_claims, key=len, reverse=True))))
     for sentence in sentences:
-        claim = next((c for c in case.forbidden_claims if c in sentence), None)
-        if claim and not _HEDGE.search(sentence):
-            failures.append(f"把预计/计划写成了已发生（「{claim}」）：「{sentence.strip()[:40]}」")
-            break
+        for clause in _CLAUSE_SPLIT.split(sentence):
+            if not case.forbidden_claims:
+                break
+            for claim in forbidden.finditer(clause):
+                denied = _DENIAL_BEFORE.search(clause[:claim.start()])
+                questioned = "是否" in clause[:claim.start()] and _HEDGE.search(sentence)
+                if not (denied or questioned or _HEDGE.search(clause)):
+                    failures.append(f"把预计/计划写成了已发生（「{claim.group()}」）：「{clause.strip()[:40]}」")
+                    break
     if not case.status_terms:
         return failures
     asked = date_variants(case.asked_at) + ["D3"]
     status = re.compile("|".join(map(re.escape, case.status_terms)))
     for sentence in sentences:
-        if not status.search(sentence):
-            continue
-        anchored_then = _THEN.search(sentence) is not None
-        cites_observed = _mentions(sentence, date_variants(case.observed_at)) or "D0" in sentence
-        about_later = (
-            _mentions(sentence, asked)
-            or (_NOW_STRONG.search(sentence) is not None and not anchored_then)
-            or (_NOW_WEAK.search(sentence) is not None and not anchored_then and not cites_observed)
-        )
-        if about_later and not _HEDGE.search(sentence):
-            failures.append(f"对材料没覆盖的时点下了断言：「{sentence.strip()[:40]}」")
-            break
+        anchored_then = False
+        asked_context = False
+        for clause in _CLAUSE_SPLIT.split(sentence):
+            if _THEN.search(clause) or _mentions(clause, date_variants(case.observed_at)) or "D0" in clause:
+                anchored_then, asked_context = True, False
+            if _mentions(clause, asked):
+                anchored_then, asked_context = False, True
+            about_later = (
+                asked_context
+                or _NOW_STRONG.search(clause) is not None
+                or (_NOW_WEAK.search(clause) is not None and not anchored_then)
+            )
+            questioned = "是否" in clause and _HEDGE.search(sentence)
+            if status.search(clause) and about_later and not (_HEDGE.search(clause) or questioned):
+                failures.append(f"对材料没覆盖的时点下了断言：「{clause.strip()[:40]}」")
+                break
     return failures
 
 

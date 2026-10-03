@@ -80,7 +80,7 @@ def test_manifest_freezes_exact_bytes_and_rejects_drift(tmp_path: Path):
     manifest = tmp_path / "sample.json"
     manifest.write_text(json.dumps(doc))
     files, digest, basis = load_manifest(manifest, tmp_path)
-    assert files == [path] and len(digest) == 64
+    assert [item.path for item in files] == [path] and len(digest) == 64
     assert basis == "synthetic frozen cohort"
     assert analyze(files)["scope"]["sample_files"] == 1
     path.write_text(path.read_text() + " ")
@@ -124,3 +124,35 @@ def test_cli_defaults_to_private_output_and_preserves_existing_reports(tmp_path,
     before = {path: path.read_bytes() for path in reports}
     assert main() == 2
     assert {path: path.read_bytes() for path in reports} == before
+
+
+def test_manifest_analysis_uses_only_the_bytes_that_were_verified(tmp_path):
+    path = episode(tmp_path, "probe", "20260826", [check("x", "kb_search")], [], revision="revision-A")
+    raw = path.read_bytes()
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"count": 1, "files": [{
+        "relative_path": path.relative_to(tmp_path).as_posix(),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }]}))
+    frozen, _, _ = load_manifest(manifest, tmp_path)
+    changed = json.loads(raw)
+    changed["events"] = [event("tool_request", "kb_search")]
+    changed["code_revision"] = "revision-B"
+    path.write_text(json.dumps(changed))
+    result = analyze(frozen)
+    assert result["run_counts"]["with_uncalled"] == 1
+    assert result["scope"]["code_revision_distinct"] == ["revision-A"]
+    assert analyze([path])["run_counts"]["with_uncalled"] == 0
+
+
+def test_manifest_does_not_claim_unfrozen_sidecar_metadata(tmp_path):
+    path = episode(tmp_path, "probe", "20260826", [], [])
+    (path.parent / "run.json").write_text(json.dumps({"code_revision": "not-frozen"}))
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"count": 1, "files": [{
+        "relative_path": path.relative_to(tmp_path).as_posix(),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }]}))
+    frozen, _, _ = load_manifest(manifest, tmp_path)
+    assert analyze(frozen)["scope"]["code_revision_unknown_runs"] == 1
+    assert analyze([path])["scope"]["code_revision_distinct"] == ["not-frozen"]

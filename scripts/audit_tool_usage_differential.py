@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 from collections import Counter
+from dataclasses import dataclass
 from datetime import date
 import json
 import os
@@ -27,7 +28,7 @@ BLIND_SPOT = (
 )
 
 
-def run_date(path: Path) -> str | None:
+def run_date(path: Path, *, allow_sidecar: bool = True) -> str | None:
     """Prefer the durable run id, falling back to run.json; never use file mtime."""
     match = RUN_DATE.match(path.parent.name)
     if match:
@@ -35,6 +36,8 @@ def run_date(path: Path) -> str | None:
             return date(*map(int, match.groups())).isoformat()
         except ValueError:
             pass
+    if not allow_sidecar:
+        return None
     try:
         stamp = json.loads((path.parent / "run.json").read_text()).get("created_at")
         if isinstance(stamp, str):
@@ -44,11 +47,13 @@ def run_date(path: Path) -> str | None:
     return None
 
 
-def code_revision(doc: dict, path: Path) -> str | None:
+def code_revision(doc: dict, path: Path, *, allow_sidecar: bool = True) -> str | None:
     """Only accept actual code-revision fields, never mistake kb_commit for code."""
     value = doc.get("code_revision")
     if isinstance(value, str) and value.strip():
         return value.strip()
+    if not allow_sidecar:
+        return None
     try:
         run = json.loads((path.parent / "run.json").read_text())
         value = run.get("code_revision")
@@ -59,7 +64,13 @@ def code_revision(doc: dict, path: Path) -> str | None:
     return None
 
 
-def load_manifest(manifest: Path, users_dir: Path) -> tuple[list[Path], str, str]:
+@dataclass(frozen=True)
+class FrozenEpisode:
+    path: Path
+    raw: bytes
+
+
+def load_manifest(manifest: Path, users_dir: Path) -> tuple[list[FrozenEpisode], str, str]:
     """Freeze a reconstructed cohort: all listed bytes must still match.
 
     Never silently substitute today's glob for a missing or changed historical run.
@@ -72,7 +83,7 @@ def load_manifest(manifest: Path, users_dir: Path) -> tuple[list[Path], str, str
     if doc.get("count") != len(doc["files"]):
         raise ValueError("manifest count mismatch")
     root = users_dir.resolve(strict=True)
-    selected: list[Path] = []
+    selected: list[FrozenEpisode] = []
     seen: set[str] = set()
     for entry in doc["files"]:
         if not isinstance(entry, dict):
@@ -91,14 +102,15 @@ def load_manifest(manifest: Path, users_dir: Path) -> tuple[list[Path], str, str
         path = (root / rel).resolve(strict=True)
         if not path.is_relative_to(root) or not path.is_file():
             raise ValueError(f"manifest path outside users root: {rel}")
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        episode_bytes = path.read_bytes()
+        actual = hashlib.sha256(episode_bytes).hexdigest()
         if actual != expected:
             raise ValueError(f"manifest SHA256 mismatch: {rel}")
-        selected.append(path)
+        selected.append(FrozenEpisode(path, episode_bytes))
     return selected, hashlib.sha256(raw).hexdigest(), str(doc.get("basis") or "unspecified")
 
 
-def analyze(paths: list[Path], *, since: str | None = None,
+def analyze(paths: list[Path | FrozenEpisode], *, since: str | None = None,
             until: str | None = None, user: str | None = None,
             named_user_dirs: frozenset[str] = frozenset()) -> dict:
     """Aggregate the exact workorder §3.0 definition; no output-id normalization."""
@@ -111,19 +123,23 @@ def analyze(paths: list[Path], *, since: str | None = None,
     scanned = included = with_checks = computable = gap_runs = suspicious = gap_instances = 0
     missing_sp = bad_json = unknown_dates = unknown_revisions = 0
 
-    for path in paths:
+    for source in paths:
+        frozen = isinstance(source, FrozenEpisode)
+        path = source.path if frozen else source
         scanned += 1
         directory_user = path.parent.parent.parent.name
         if user and directory_user != user:
             continue
-        day = run_date(path)
+        day = run_date(path, allow_sidecar=not frozen)
         if (since or until) and day is None:
             unknown_dates += 1
             continue
         if (since and day < since) or (until and day > until):
             continue
         try:
-            doc = json.loads(path.read_text(encoding="utf-8"))
+            # Hash and parse exactly the same bytes in manifest mode. Do not
+            # re-open a run that another process may have completed meanwhile.
+            doc = json.loads(source.raw if frozen else path.read_bytes())
         except (OSError, UnicodeError, ValueError):
             bad_json += 1
             continue
@@ -136,7 +152,7 @@ def analyze(paths: list[Path], *, since: str | None = None,
             dates.append(day)
         else:
             unknown_dates += 1
-        revision = code_revision(doc, path)
+        revision = code_revision(doc, path, allow_sidecar=not frozen)
         if revision:
             revisions[revision] += 1
         else:
@@ -271,7 +287,8 @@ def main() -> int:
                      named_user_dirs=frozenset(args.named_user_dir))
     if args.manifest:
         report["scope"].update(manifest_name=args.manifest.name,
-                               manifest_sha256=digest, manifest_basis=basis)
+                               manifest_sha256=digest, manifest_basis=basis,
+                               metadata_scope="frozen episode bytes and run ID; run.json sidecars excluded")
     if not report["scope"]["sample_files"]:
         print("No runs matched; no report written", file=sys.stderr)
         return 2

@@ -59,3 +59,24 @@ def test_previous_probe_is_never_overwritten(tmp_path):
     assert 'FileExistsError' in proc.stderr
     assert (output / 'sentinel').read_text() == 'do not overwrite'
     assert sorted(p.name for p in output.iterdir()) == ['sentinel']
+
+
+@pytest.mark.parametrize('command', [
+    ['git', 'checkout', '--', 'status'],
+    ['git', 'reset', '--hard', 'log'],
+    ['git', 'log', '--output=/tmp/preflight-output'],
+    ['git', '-c', 'core.pager=touch /tmp/preflight-output', 'status'],
+    ['git', 'diff', '--ext-diff'],
+    ['/tmp/git', 'status', '--porcelain'],
+    'git status --porcelain',
+])
+def test_git_guard_rejects_safe_words_inside_unsafe_commands(command):
+    from scripts.preflight_model_harness_conversation import read_only_git_command
+    assert not read_only_git_command(command)
+
+
+def test_git_guard_only_allows_exact_provenance_reads():
+    from scripts.preflight_model_harness_conversation import read_only_git_command
+    assert read_only_git_command(['git', '-C', '/repo', 'rev-parse', 'HEAD'])
+    assert read_only_git_command(['git', 'status', '--porcelain'])
+    assert not read_only_git_command(['git', 'status', '--porcelain'], shell=True)

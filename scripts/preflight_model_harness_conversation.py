@@ -19,6 +19,22 @@ import time
 import urllib.error
 
 
+def read_only_git_command(command: object, *, shell: bool = False) -> bool:
+    """Only provenance reads are needed; a safe word inside argv is not authority."""
+    if shell or not isinstance(command, (list, tuple)) or not command or command[0] != 'git':
+        return False
+    words = [str(word) for word in command[1:]]
+    if words[:1] == ['-C']:
+        if len(words) < 3:
+            return False
+        words = words[2:]
+    return tuple(words) in {
+        ('rev-parse', 'HEAD'), ('rev-parse', '--short', 'HEAD'),
+        ('rev-parse', '--show-toplevel'), ('rev-parse', '--git-dir'),
+        ('rev-parse', '--git-common-dir'), ('status', '--porcelain'),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
@@ -70,11 +86,14 @@ def main() -> int:
         raise OSError('offline preflight: all socket connections denied')
 
     def guarded_popen(command, *a, **kw):
-        if isinstance(command, (list, tuple)) and command:
-            words = [str(x) for x in command]
-            safe = {'rev-parse', 'status', 'diff', 'show', 'log', 'ls-files', 'cat-file'}
-            if Path(words[0]).name == 'git' and any(w in safe for w in words[1:]) and not kw.get('shell'):
-                return old_popen(command, *a, **kw)
+        if read_only_git_command(command, shell=bool(kw.get('shell'))) and not kw.get('executable'):
+            environment = {key: value for key, value in (kw.get('env') or os.environ).items()
+                           if not key.startswith('GIT_CONFIG')}
+            environment.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
+                               GIT_OPTIONAL_LOCKS='0', GIT_TERMINAL_PROMPT='0')
+            guarded = ['git', '--no-pager', '-c', 'core.fsmonitor=false',
+                       '-c', f'core.hooksPath={os.devnull}', *command[1:]]
+            return old_popen(guarded, *a, **{**kw, 'env': environment})
         with lock:
             blocked.append({'kind': 'subprocess', 'executable': str(command[0]) if isinstance(command, (list, tuple)) and command else 'shell'})
         raise OSError('offline preflight: subprocess denied')

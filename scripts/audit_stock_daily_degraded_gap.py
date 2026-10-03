@@ -18,9 +18,13 @@ import sys
 
 import duckdb
 
-from market_feature_store.hithink_stock_preview import preview_stock_calculation
-from market_feature_store.sync.bridge_hithink_stock_daily import resolve_universe
-from scripts.audit_dated_quote_capture import audit_capture, checked_raw, parse_quotes
+REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from market_feature_store.hithink_stock_preview import preview_stock_calculation  # noqa: E402
+from market_feature_store.sync.bridge_hithink_stock_daily import resolve_universe  # noqa: E402
+from scripts.audit_dated_quote_capture import audit_capture, checked_raw, parse_quotes  # noqa: E402
 
 CENT = Decimal("0.01")
 AMOUNT_TOLERANCE = Decimal("1.01")  # capture's yuan amount has no decimal cents
