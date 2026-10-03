@@ -10,6 +10,10 @@
 
 同针转绿；薄循环及父子模型身份相关 **78 passed**，Ruff/diff 检查通过。定向结果是开发工作树读数，不能转签固定提交的完整门禁；独立审查、全量门禁与合入状态另记。
 
+固定 `161cbf89e179` 的完整 Python 门禁为 **20341 passed / 78 skipped / 2 xfailed / 0 failed/error**，收集 20421；`~/.finance-runtime/test-receipts/gate-mefx2lkz/pytest.json` 通过完整收集面及 revision 校验。本机前端四项与 E2E 全绿，首尾同 revision 且干净，收据 `~/.finance-runtime/harness-quality-closeout-1003/pr31-frontend-161cbf89/frontend.json`。GitHub PR #31 同头 python/frontend/e2e/registry-check/workbench-check 全绿。
+
+同头独立 Standards 无可行动项；Spec 未发现薄 R 合同违规，但在同 PR 的留出集发现单轮输入漏材料的 P1，已退回 `FINANCEWORKS-4` 返修。上述收据只对原头成立；返修后的提交另验，不因工程门全绿跳过该发现。
+
 ## 原件与复验
 
 - `~/.finance-runtime/harness-quality-closeout-1003/thin-budget-red.log`：3 failed / 18 passed。
