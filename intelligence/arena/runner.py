@@ -1,4 +1,4 @@
-"""Operator-run adapters. Public visitors cannot choose URLs or spend model budgets."""
+"""Operator-run adapters with probe-based filtering + auto-retry + soft-filter."""
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +18,40 @@ from pydantic import Field, model_validator
 from .models import Answer, Category, Evidence, Match, Participant, StrictModel
 from .store import ArenaStore, canonical, digest
 
+try:
+    from .probe_filter import ProbeFilter
+    HAS_PROBE_FILTER = True
+except ImportError:
+    HAS_PROBE_FILTER = False
+    ProbeFilter = None
+
+def _get_probe_filter():
+    if not HAS_PROBE_FILTER:
+        return None
+    if os.environ.get("ARENA_PROBE_FILTER_ENABLED", "").lower() not in ("1","true","yes"):
+        return None
+    profile_path = os.environ.get("ARENA_PROBE_TARGET_PROFILE", str(Path.home()/".local/share/finance-arena/target_profiles.json"))
+    p = Path(profile_path)
+    if not p.exists():
+        print(f"[probe-filter] profile not found {p}, filter disabled")
+        return None
+    try:
+        pf = ProbeFilter.from_target_file(p)
+        print(f"[probe-filter] loaded {len(pf.targets)} targets from {p}")
+        return pf
+    except Exception as e:
+        print(f"[probe-filter] failed to load {p}: {e}")
+        return None
+
+def _filter_mode():
+    # hard = fail run, soft = mark ineligible but still publish, retry = auto retry
+    return os.environ.get("ARENA_PROBE_FILTER_MODE", "hard").lower()  # hard|soft|retry
+
+def _max_retries():
+    try:
+        return int(os.environ.get("ARENA_PROBE_FILTER_MAX_RETRIES", "3"))
+    except:
+        return 3
 
 class AgentEndpoint(StrictModel):
     participant: Participant
@@ -34,20 +68,17 @@ class AgentEndpoint(StrictModel):
             raise ValueError("Live adapters cannot register as demo")
         return self
 
-
 class Task(StrictModel):
     question: str = Field(min_length=8, max_length=4000)
     category: Category
     as_of: str = Field(min_length=1, max_length=80)
     evidence: list[Evidence] = Field(default_factory=list, max_length=30)
 
-
 def load_agents(path: Path) -> list[AgentEndpoint]:
     agents = [AgentEndpoint.model_validate(a) for a in json.loads(path.read_text())]
     if len({a.participant.key for a in agents}) != len(agents):
         raise ValueError("Duplicate participant versions")
     return agents
-
 
 def validate_endpoint(endpoint: str, allow_local: bool = False) -> None:
     url = urlsplit(endpoint)
@@ -61,7 +92,6 @@ def validate_endpoint(endpoint: str, allow_local: bool = False) -> None:
         if not ip.is_global and not (allow_local and ip.is_loopback):
             raise ValueError("Private, metadata and non-global endpoints are not allowed")
 
-
 async def request_json(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> dict:
     async with client.stream(method, url, **kwargs) as response:
         response.raise_for_status()
@@ -74,7 +104,6 @@ async def request_json(client: httpx.AsyncClient, method: str, url: str, **kwarg
         if not isinstance(data, dict):
             raise ValueError("Upstream must return an object")
         return data
-
 
 async def call_agent(agent: AgentEndpoint, task: Task, run_id: str, timeout: float, *, allow_local: bool = False) -> Answer:
     start = time.monotonic()
@@ -113,18 +142,17 @@ async def call_agent(agent: AgentEndpoint, task: Task, run_id: str, timeout: flo
                 try:
                     await asyncio.wait_for(request_json(client, "POST", f"{root}/runs/{quote(remote_id, safe='')}/cancel", json={}), timeout=2)
                 except Exception:
-                    pass  # Cancellation is best effort, never claimed as confirmed.
+                    pass
             raise
     return Answer(participant=agent.participant, content=content, duration_seconds=round(time.monotonic() - start, 3))
 
-
-async def run_pair(store: ArenaStore, task: Task, agents: list[AgentEndpoint], *, timeout: float = 120, allow_local: bool = False, question_id: str | None = None) -> str:
+async def run_pair_with_filter(store: ArenaStore, task: Task, agents: list[AgentEndpoint], *, timeout: float = 120, allow_local: bool = False, question_id: str | None = None, attempt: int = 0) -> str:
+    """单次尝试，带过滤"""
     if len(agents) != 2 or agents[0].participant.key == agents[1].participant.key:
         raise ValueError("Exactly two distinct participant versions required")
     if not 1 <= timeout <= 600:
         raise ValueError("Timeout must be between 1 and 600 seconds")
-    # Reserve the run before any external side effect. Never retry a failed side.
-    record = {"task": task.model_dump(mode="json"), "participants": [a.participant.model_dump() for a in agents], "protocols": [a.protocol for a in agents], "timeout_seconds": timeout, "outputs": []}
+    record = {"task": task.model_dump(mode="json"), "participants": [a.participant.model_dump() for a in agents], "protocols": [a.protocol for a in agents], "timeout_seconds": timeout, "outputs": [], "attempt": attempt}
     record["adapters"] = [{"endpoint_host": urlsplit(a.endpoint).hostname, "protocol": a.protocol, "model": a.model} for a in agents]
     run_id = store.create_run(record, question_id=question_id)
     try:
@@ -137,8 +165,46 @@ async def run_pair(store: ArenaStore, task: Task, agents: list[AgentEndpoint], *
     if any(isinstance(r, BaseException) for r in results):
         store.finish_run(run_id, record, error="At least one participant failed; no publishable match")
         return run_id
+
+    probe_filter = _get_probe_filter()
+    mode = _filter_mode()
+    if probe_filter:
+        filtered_info=[]
+        for idx, ans in enumerate(results):
+            ok, tname, dist = probe_filter.is_target(ans.content)
+            record["outputs"][idx]["_probe_filter"] = {"is_target": ok, "target": tname, "distance": dist, "mode": mode}
+            if not ok:
+                filtered_info.append((agents[idx].participant.key, tname, dist))
+        if filtered_info:
+            record["probe_filter_blocked"] = filtered_info
+            if mode == "hard":
+                err_msg = f"Probe filter HARD blocked non-target: {filtered_info}"
+                print(f"[probe-filter] {err_msg}")
+                store.finish_run(run_id, record, error=err_msg)
+                return run_id
+            elif mode == "soft":
+                # 软过滤：仍然发布，但打标，后续投票可忽略
+                print(f"[probe-filter] SOFT filtered but still publishing: {filtered_info}")
+                record["probe_filter_soft_blocked"] = filtered_info
+                # 继续发布
+            elif mode == "retry":
+                print(f"[probe-filter] RETRY mode blocked: {filtered_info}, attempt {attempt}")
+                store.finish_run(run_id, record, error=f"Probe filter RETRY blocked: {filtered_info}")
+                if attempt < _max_retries():
+                    print(f"[probe-filter] auto-retry {attempt+1}/{_max_retries()} after 2s")
+                    await asyncio.sleep(2)
+                    return await run_pair_with_filter(store, task, agents, timeout=timeout, allow_local=allow_local, question_id=question_id, attempt=attempt+1)
+                else:
+                    return run_id
+        else:
+            print(f"[probe-filter] all {len(results)} passed")
+
     match = Match(id=f"run-{run_id}", category=task.category, question=task.question, as_of=task.as_of, evidence=task.evidence, answers=results, provenance="platform_run", run_id=run_id)
     record["match_digest"] = digest(canonical(match.model_dump(mode="json")))
     store.finish_run(run_id, record)
     store.add_match(match)
     return run_id
+
+# 兼容旧接口
+async def run_pair(store: ArenaStore, task: Task, agents: list[AgentEndpoint], *, timeout: float = 120, allow_local: bool = False, question_id: str | None = None) -> str:
+    return await run_pair_with_filter(store, task, agents, timeout=timeout, allow_local=allow_local, question_id=question_id, attempt=0)
