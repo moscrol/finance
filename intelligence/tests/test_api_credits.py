@@ -387,7 +387,8 @@ def test_same_expiry_consumes_earlier_grant_first(users_env):
 
 
 def test_overrun_becomes_debt_blocks_admission_and_is_repaid_by_next_grant(users_env):
-    store = _store()
+    # The grant expires relative to T0, not the wall clock on the test runner.
+    store = _store(clock=_Clock())
     store.grant("u1", KIND_GIFT, 20)
     decision = store.reserve("u1")  # 余额 20 > 0，允许最后一问
     assert decision.allowed
@@ -743,7 +744,7 @@ def test_endpoint_gifts_holds_settles_actual_usage_then_denies(api):
 
 
 def test_balance_endpoint_and_bootstrap_summary(api):
-    credits = _store(signup_gift=0, exempt_users=frozenset({"owner"}))
+    credits = _store(signup_gift=0, exempt_users=frozenset({"owner"}), clock=_Clock())
     client = api(credits)
     credits.grant(
         "u1", KIND_MONTHLY, 300, expires_at=T0 + timedelta(days=30), note="9 月"
