@@ -54,6 +54,7 @@ const apiMocks = vi.hoisted(() => ({
   getArtifactProjection: vi.fn(),
   getArtifactText: vi.fn(),
   getBootstrap: vi.fn(),
+  getBoardCalendar: vi.fn(),
   getConversationMessages: vi.fn(),
   getCredits: vi.fn(),
   getFollowups: vi.fn(),
@@ -1870,6 +1871,18 @@ describe("Workbench navigation reliability", () => {
       next_expiry: null,
     });
     apiMocks.getWorkbenchOverview.mockResolvedValue(workbenchOverview);
+    apiMocks.getBoardCalendar.mockResolvedValue({
+      status: "ok",
+      message: "已加载交易日与连板数据",
+      start_date: "2026-09-01",
+      end_date: "2026-09-30",
+      min_boards: 3,
+      recommended_min_boards: 3,
+      market_data_cutoff: "2026-09-24",
+      board_data_cutoff: "2026-09-24",
+      calendar_days: [],
+      trading_days: [],
+    });
     apiMocks.approveForecastReflection.mockResolvedValue({
       ...workbenchOverview.learning_feedback,
       pending_reflections: [],
@@ -1920,7 +1933,7 @@ describe("Workbench navigation reliability", () => {
     apiMocks.forgetSavedLLM.mockResolvedValue(llmConfig);
   });
 
-  it("opens on today and navigates across the five product surfaces", async () => {
+  it("opens on today and navigates across the six product surfaces", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -1949,6 +1962,11 @@ describe("Workbench navigation reliability", () => {
       "2026-07-01.reflection.codex.duckdb.json",
       ["direction:semi"],
     );
+    await user.click(screen.getByRole("button", { name: "连板日历" }));
+    expect(
+      await screen.findByRole("heading", { name: "哪一天，哪些股走到了几板" }),
+    ).toBeVisible();
+    expect(screen.getByText("系统建议起始门槛")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "问答" }));
     expect(screen.getByLabelText("输入研究问题")).toBeVisible();
   });

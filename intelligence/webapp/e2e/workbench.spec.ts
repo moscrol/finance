@@ -88,7 +88,7 @@ async function startNewConversation(page: Page, testInfo: TestInfo) {
 async function selectWorkbenchSection(
   page: Page,
   testInfo: TestInfo,
-  section: "今日" | "主题" | "信号" | "验证" | "问答",
+  section: "今日" | "主题" | "信号" | "验证" | "连板日历" | "问答",
 ) {
   if (testInfo.project.name === "mobile") {
     await page.getByRole("button", { name: "打开会话列表" }).click();
@@ -103,7 +103,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   await expect(page.getByLabel("输入研究问题")).toBeVisible();
 });
 
-test("structured workbench keeps five surfaces available", async ({
+test("structured workbench keeps six surfaces available", async ({
   page,
 }, testInfo) => {
   await selectWorkbenchSection(page, testInfo, "今日");
@@ -119,6 +119,10 @@ test("structured workbench keeps five surfaces available", async ({
   await selectWorkbenchSection(page, testInfo, "验证");
   await expect(
     page.getByRole("heading", { name: "机构胜率、资金流与假设回检" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "连板日历");
+  await expect(
+    page.getByRole("heading", { name: "哪一天，哪些股走到了几板" }),
   ).toBeVisible();
   await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByLabel("输入研究问题")).toBeVisible();

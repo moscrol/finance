@@ -1,0 +1,333 @@
+{
+  "baseline": "bd0be25db7b5ed04d12a86ed6f726aaf4fda3e04",
+  "board_commit": "cfc68ea05af3be8eb251e712ad4d0515a2ae2e86",
+  "theme_commit": "717d243be",
+  "sources": [
+    {
+      "source": "main-dirty",
+      "path": "intelligence/api/river_routes.py",
+      "sha256": "a73f513307d3800df52dabae42490928de369b6f5c16e7c737ac1bb328540ca4"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/api/river_daily_routes.py",
+      "sha256": "d0e4d06119db38e09a57db54f8a9741c6c8d9ffe5c264925892527d31a4c293a"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/services/river_daily_overview.py",
+      "sha256": "06ab64d24bd96effd078ffb691f7b8ecff1a84ff7502078abb295301fb4a4880"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/services/river_daily_review.py",
+      "sha256": "3f29672b44b472829d466aa8e610811b68c1dfcdde46edcb15bc7c1fff23ee63"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/services/opinion_attention.py",
+      "sha256": "654f67ae476599d95bdf941f5c08139e99f9215ecf652fdb42fd564d18cae975"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/services/opinion_attention_bridge.py",
+      "sha256": "f32dd372a780f04991d0316d620b08c71f895244a80a444082f47949a2766e78"
+    },
+    {
+      "source": "main-dirty",
+      "path": "tests/test_river_daily_overview.py",
+      "sha256": "f1ffcee6f2387b3dc7e3ac946b9cb3f372e8cfa1c72231010644262eb13e6f76"
+    },
+    {
+      "source": "main-dirty",
+      "path": "tests/test_river_daily_review.py",
+      "sha256": "53ae8685a3d8c6881101358280ad34ac6f91502176f1b9443d94264192dcc0df"
+    },
+    {
+      "source": "main-dirty",
+      "path": "tests/test_opinion_attention.py",
+      "sha256": "37da3fd441e6e1716f91ac35bd88c1bb57b93cb606fdcbe0aa06e64436f2d3b3"
+    },
+    {
+      "source": "main-dirty",
+      "path": "tests/test_limitup_history_window.py",
+      "sha256": "3a8f0a10be52993ea15ce6d56d0532e980b8ab1fab0b31245bcdd543da976566"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/tests/test_river_routes_registered.py",
+      "sha256": "7e3baab237e243220488ef50cdd28df223e87d211c82b6c0ed3b0a66f4a4bb72"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/AttentionPanel.test.tsx",
+      "sha256": "a9d8c5c2a1e5459f5d4054aaeb3c83f97688181206a2962037e029ab75912b70"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/CohortPanel.tsx",
+      "sha256": "89beabe89523b6032a5ac3f64d327b0d36f5be8be8adc7603285ed79a3d80628"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/DailyReviewWorkspace.test.tsx",
+      "sha256": "c8ec2a76caba7067b73ef3225f88aa27197c847931c96cb055b18eec88e2d146"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/DailyReviewWorkspace.tsx",
+      "sha256": "f2dd01eadd2e30b9bdc8bee60d8a98b098feec10589b835edcd6d6804993a23e"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/DailyRiverDashboard.test.tsx",
+      "sha256": "22506b0a716929ae83a761fb1070750103eacd1c1f4b8be6eb4b27f132c55c04"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/DailyRiverDashboard.tsx",
+      "sha256": "3d3efc438c3bf36d986b9daa9ca282197c6dffccfdd7cd78a303c4e1ebecbacd"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/EntityPicker.tsx",
+      "sha256": "c47246ecb5135dbaf30b7b9108b867e0c3bee80d77aa8de8dfedc1fcb4b89153"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/LimitUpDashboard.tsx",
+      "sha256": "2f40b722bc48610cced0b83991236d64a96e054b3aef65b139bd85062ab15155"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/LimitUpHistory.test.tsx",
+      "sha256": "fdbaef3d7d67e06717b83124642b9c71a6306b006c503e1e7430b96df3bc5c10"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/ObservationWorkbench.test.tsx",
+      "sha256": "1eef629a851a9b82c6f952535eb0a7c7c1eabd732e31aeb8bc4a7daed4c35878"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/ObservationWorkbench.tsx",
+      "sha256": "9aa5805ddd1caa9a266e48654b0eff68ea83bbae196e7388177c2673b64fe54d"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/OriginalDailyReview.tsx",
+      "sha256": "3a6afe4145e6564767ab29aa48711d2c047d30ee0344a3f1487fdd0aebec9046"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/OriginalScan.test.tsx",
+      "sha256": "57390a7d58b0bf178af306c1115c52a6d095ab8294f8cb30aaf54f5c4ad8f55f"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/OriginalWorkbench.test.tsx",
+      "sha256": "04e9bf2fd6d6286224c10570ce4ba68e117c07782bbc56098378daec0be0504c"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/RangePanel.tsx",
+      "sha256": "e655d5f92d390a10a1faeb5e12def41cc1a5aa8194b4dc131069c55063e5e86f"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/RiverHome.tsx",
+      "sha256": "029f4bf93e2e41aff7eac9231f5ce19eee0cab4b26284e3517525b90b82a2050"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/RiverTimeline.tsx",
+      "sha256": "cd876536243fa7ac0354cccf4f5e953bd59af8ff26bd2ef08d4212cfaf991ba1"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/RiverWorkbench.tsx",
+      "sha256": "c5f9c0098fbf0285fff87f6beaf6673a3b16d98e692aa0ef7ed6df7441d915a9"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/ScanPanel.test.tsx",
+      "sha256": "cbc6c296681926bd7d647cee7648c84d794aba367ebb2f3c22ade79f6a5bf9a2"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/ScanPanel.tsx",
+      "sha256": "dfeca7a6e0ef50dd9cda80dfd0a78423b5287fa8d4a6efcfd8a3b49d2cb13d02"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/ShKline.tsx",
+      "sha256": "62361b537258040e3765507849d871e269d6b4a05a164390e8973e4c48c7d1bd"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/SliceDrawer.tsx",
+      "sha256": "9206a773863b1f7e5b55635e72fedac9787ad643f9c2ac21c2baea2afd61b9f5"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/components/river/TimelineViewport.tsx",
+      "sha256": "c5a73437995e67e0682cbd8f367d492c10a14bc8f8a547171ce59088a52ecb40"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/api.ts",
+      "sha256": "b76e1c3b8af63353d322671df77c2cd4fefeb97d94070f336f4261dc6db715ff"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/dailyMath.ts",
+      "sha256": "4c6e4d2cedc4e424de5621f373dd0d33ca46d5ed279e42aae2dca9d70d7feb8a"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/dailyTypes.ts",
+      "sha256": "1542a2e9814dbda1d367dcfb99f41851c826e2f47ed4446bc4c55b8f9f454e62"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/format.ts",
+      "sha256": "50594571cf6eb707309ea74b9a72745d1c620544093a552d2e6c926ada92eabd"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/observation.ts",
+      "sha256": "73cc5dad24df50a585ab346ed074ba90706b157ed44e09b2508735681ce99b8c"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/reviewTypes.ts",
+      "sha256": "4407ba590e84c8760a6ffe7d0ff5ce0a1100ee8bf4737c2d90ce714be9cc5e38"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river/types.ts",
+      "sha256": "0a2f4988c92cb82371a7e1ee9a8609f21da812c5830095fd0a558acbba2ab8c9"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/river.css",
+      "sha256": "7831b4b426d9ef5505e4c3fedb2e3e4ff2e1e9bb4fb24f2dc58450c7e86306b0"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/riverDaily.css",
+      "sha256": "393e710d6dbb1bac4a38a8583302e32d2289edfc03c787e821e196b690e64506"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/riverOriginal.css",
+      "sha256": "73dedbdf0569c6d76325a1db5fcd65c86b7e62ce59d42bf9bbf43fadc8750a6e"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/riverObservation.css",
+      "sha256": "cc2218a7d8df7acf4bf7cf94d0a3841a5ff332c40e71339fbea68954c002c904"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/webapp/src/riverReview.css",
+      "sha256": "4e0b7eb458500df78f4eb70799c372d79b8d73654644e25fd20fac59a044b72a"
+    },
+    {
+      "source": "main-dirty",
+      "path": "docs/handoffs/2026-09-29-original-8798-optimization.md",
+      "sha256": "cb330974d5e016ab1bf18fa4ecd2bff6809360e130eec75c2cd5235e69a56aa8"
+    },
+    {
+      "source": "main-dirty",
+      "path": "docs/handoffs/2026-09-29-daily-review-dashboard-implementation.md",
+      "sha256": "075e9ecefe7ce6faa53f6c0ad3d23b024e3e9e64c70d5686531793ac101534b7"
+    },
+    {
+      "source": "main-dirty",
+      "path": "docs/handoffs/2026-09-29-agent-consumption-observation.md",
+      "sha256": "56d20363a9d70647fc51dc2a7c306c009fbe6d26e75a1d9061a95b4cc69bfd08"
+    },
+    {
+      "source": "main-dirty",
+      "path": "docs/handoffs/inflight/arena-river-opinion-0929.md",
+      "sha256": "abe7edd499f5355e5441207c95969f455691f70cbc4bffb8b819160656cf259b"
+    },
+    {
+      "source": "main-dirty",
+      "path": ".tmp/arena-8798-opt/before/intelligence/webapp/src/App.tsx",
+      "sha256": "3cf9271f15a6454f500e4bca5aec4434ce2865305fb76d3de1a944197877a998"
+    },
+    {
+      "source": "board-dirty",
+      "path": "intelligence/services/board_calendar.py",
+      "sha256": "97af17dcbf232d284c64baf167153c69eda0a0ae4d6fe4be58244cb3a6202f55"
+    },
+    {
+      "source": "board-dirty",
+      "path": "intelligence/tests/test_board_calendar.py",
+      "sha256": "e146368a5a726007c2c85411f621bc80e0f75bdbe425b0b8180651225585dee3"
+    },
+    {
+      "source": "board-dirty",
+      "path": "intelligence/webapp/src/components/BoardCalendarDashboard.tsx",
+      "sha256": "3d03041ea6c90765d07b1253fa22e13b8c2b89db653bf536176511870351b033"
+    },
+    {
+      "source": "board-dirty",
+      "path": "intelligence/webapp/src/components/BoardCalendarDashboard.test.tsx",
+      "sha256": "5ebfba57f61446d866d297b5a6f653b32c50abf7acf424c0cb38107bc159023a"
+    },
+    {
+      "source": "board-dirty",
+      "path": "intelligence/tests/test_workbench_api.py",
+      "sha256": "46f97c0c9b1f06dd7c46306050f4c9d569c4b7628c716351ad6305250077c828"
+    },
+    {
+      "source": "board-dirty",
+      "path": "intelligence/webapp/src/styles.css",
+      "sha256": "0731c38385509564179e40b6e47a74cfb87c6a1979a38a4eaeead80349d44abd"
+    },
+    {
+      "source": "theme-717d243be",
+      "path": "intelligence/webapp/src/theme-tech.css",
+      "sha256": "aadad04b58c7a288b0cccf3b4b7ba158ddb1c0e39da2fc7f1e196773918742b0"
+    },
+    {
+      "source": "theme-717d243be",
+      "path": "intelligence/webapp/src/theme.ts",
+      "sha256": "2b3a99f71b07fdcb0d040430b33926f3faf0074d055a9824f49cd8274da5f78b"
+    },
+    {
+      "source": "theme-717d243be",
+      "path": "intelligence/webapp/src/components/TechBackdrop.tsx",
+      "sha256": "aecc0f895bf7d51c66ba45d86a720521178d2fb107ad5fef2d1c2f12c4349f35"
+    },
+    {
+      "source": "theme-717d243be",
+      "path": "intelligence/webapp/src/components/DecodeTitle.tsx",
+      "sha256": "8d1fb4c3a22d82778ee99d41fe357518d1ff42d4d3056c120d7af551c9d69c50"
+    },
+    {
+      "source": "theme-717d243be",
+      "path": "intelligence/webapp/src/vite-env.d.ts",
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "source": "main-dirty",
+      "path": "docs/handoffs/2026-09-29-river-aihot-attention.md",
+      "sha256": "50d94e82786c2da31d244b8638e58c6da150ab2381d45bb4f0ddfff8906f75ad"
+    },
+    {
+      "source": "main-dirty",
+      "path": "intelligence/services/river.py",
+      "sha256": "0a25b9448336420f4bf54541d94644f541443e1cf69c27d20149b24d9b08a5dc"
+    }
+  ],
+  "baseline_inputs": [
+    {
+      "path": "intelligence/services/river.py",
+      "sha256": "0a25b9448336420f4bf54541d94644f541443e1cf69c27d20149b24d9b08a5dc"
+    }
+  ]
+}
