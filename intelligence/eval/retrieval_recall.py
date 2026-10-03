@@ -9,7 +9,8 @@
     - **生产 @k = 每通道 k，不是全局 top-k**（质检 Q2 收口）。
     - user_memory（[M] 块）：retrieved@k = `relevant_memory_records`
       在 limit=k 下实际会装进 [M] 块的记录（judgments + corrections 各至多 k 条，
-      并集可达 2k，与生产一致）。记录身份 = 台账行的 ``ts``。
+      并集可达 2k，与生产一致）。旧标注身份 = ``ts``；新集可显式使用 stable 身份。
+      评分前拒绝不可达或身份有歧义的标注，不自动删题或迁移台账。
     - experience_cards：retrieved@k = `select_relevant_cards(limit=k)` 的相关卡
       ``ts``（生产默认 k=3）；常驻卡不看 query、无条件入 prompt，不属检索召回。
     - kb_rag（W 源）：retrieved@k = `kb_rag.retrieve`（hybrid、require_fresh）
@@ -55,6 +56,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from intelligence.eval.memory_recall_labels import (
+    InvalidMemoryLabels,
+    memory_identity,
+    require_memory_labels,
+)
+
 DEFAULT_KS = (1, 3, 5)
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "user_memory_recall"
 FIXTURE_CASES = FIXTURE_DIR / "cases.jsonl"
@@ -74,6 +81,7 @@ def user_memory_retriever(
     user: str | None = None,
     recall_mode: str | None = None,
     telemetry: dict[str, Any] | None = None,
+    identity_mode: str = "ts",
 ) -> list[str]:
     """[M] 块生产语义：limit=k 时 judgments/corrections 各至多 k 条实际入块记录的 ts。
 
@@ -85,8 +93,8 @@ def user_memory_retriever(
         query, theme, entity, user=user, limit=k, users_root=users_root,
         recall_mode=recall_mode, telemetry=telemetry,
     )
-    ids = [str(r.get("ts") or "").strip() for r in recall.judgments]
-    ids += [str(r.get("ts") or "").strip() for r in recall.corrections]
+    ids = [memory_identity("judgment", r, identity_mode) for r in recall.judgments]
+    ids += [memory_identity("correction", r, identity_mode) for r in recall.corrections]
     return [i for i in ids if i]
 
 
@@ -201,6 +209,12 @@ def evaluate_cases(
     **retriever_kwargs: Any,
 ) -> dict[str, Any]:
     """逐 case 跑检索并汇总。返回含 per-case 明细与宏平均的报告 dict。"""
+    label_audit = None
+    if retriever is user_memory_retriever and cases:
+        label_audit = require_memory_labels(
+            cases, users_root=retriever_kwargs.get("users_root"), user=retriever_kwargs.get("user"),
+            identity_mode=retriever_kwargs.get("identity_mode", "ts"),
+        )
     per_case: list[dict[str, Any]] = []
     for case in cases:
         relevant = set(case["relevant"])
@@ -232,6 +246,8 @@ def evaluate_cases(
         "hit_rate_at": {},
         "per_case": per_case,
     }
+    if label_audit is not None:
+        report["label_audit"] = label_audit
     for k in ks:
         if per_case:
             report["recall_at"][k] = sum(r["recall_at"][k] for r in per_case) / len(per_case)
@@ -292,6 +308,7 @@ def compare_memory_tiers(
     embed_models: list[str] | None = None,
     users_root: str | Path | None = None,
     user: str | None = None,
+    identity_mode: str = "ts",
 ) -> dict[str, Any]:
     """user_memory 各档对照：命中 / 召回 / 非标注召回（假阳性上限）/ 延迟，外加逐 case 明细。
 
@@ -301,6 +318,9 @@ def compare_memory_tiers(
 
     from intelligence.services.memory_semantic import CACHE_DIR_ENV, MODEL_ENV
 
+    label_audit = require_memory_labels(
+        cases, users_root=users_root, user=user, identity_mode=identity_mode,
+    )
     rows: list[dict[str, Any]] = []
     per_case: dict[str, dict[str, Any]] = {}
     saved = {key: os.environ.get(key) for key in (MODEL_ENV, CACHE_DIR_ENV)}
@@ -322,6 +342,7 @@ def compare_memory_tiers(
                 retrieved = user_memory_retriever(
                     case["query"], theme, entity, k, users_root=users_root, user=user,
                     recall_mode=tier["mode"], telemetry=telemetry,
+                    identity_mode=identity_mode,
                 )
                 latencies.append((time.perf_counter() - started) * 1000)
                 degraded |= {str(v["degraded"]) for v in telemetry.values() if isinstance(v, dict) and v.get("degraded")}
@@ -358,7 +379,8 @@ def compare_memory_tiers(
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
-    return {"k": k, "cases": len(cases), "tiers": rows, "per_case": list(per_case.values())}
+    return {"k": k, "cases": len(cases), "tiers": rows, "per_case": list(per_case.values()),
+            "label_audit": label_audit}
 
 
 def render_tiers(report: dict[str, Any]) -> str:
@@ -390,7 +412,7 @@ def render_tiers(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _main() -> int:
+def _run() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="recall@k 尺子（离线只读）")
@@ -405,6 +427,10 @@ def _main() -> int:
     )
     parser.add_argument("--users-root", default=None, help="台账目录（默认当前用户 userspace）")
     parser.add_argument("--user", default=None, help="用户 id")
+    parser.add_argument(
+        "--memory-identity", choices=("ts", "stable"), default="ts",
+        help="user_memory 标注身份：旧集 ts；新集显式 stable（台账类型:记录id）",
+    )
     parser.add_argument("--kb-wiki", default=None, help="KB wiki 路径（默认 KNOWLEDGE_WIKI 环境变量）")
     parser.add_argument("--kb-mode", default=None, help="kb_rag 检索模式（默认 hybrid）")
     parser.add_argument(
@@ -440,6 +466,7 @@ def _main() -> int:
         tiers = compare_memory_tiers(
             memory_cases, k=max(ks), embed_models=args.embed_model,
             users_root=args.users_root, user=args.user,
+            identity_mode=args.memory_identity,
         )
         print(json.dumps(tiers, ensure_ascii=False, indent=2) if args.json else render_tiers(tiers))
         return 0
@@ -451,6 +478,8 @@ def _main() -> int:
         }
     else:
         retriever_kwargs = {"users_root": args.users_root, "user": args.user}
+        if args.retriever == "user_memory":
+            retriever_kwargs["identity_mode"] = args.memory_identity
     report = evaluate_cases(
         cases,
         RETRIEVERS[args.retriever],
@@ -459,6 +488,14 @@ def _main() -> int:
     )
     print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else render_report(report))
     return 0
+
+
+def _main() -> int:
+    try:
+        return _run()
+    except InvalidMemoryLabels as exc:
+        print(json.dumps({"status": "invalid_memory_labels", "label_audit": exc.report}, ensure_ascii=False, indent=2))
+        return 2
 
 
 if __name__ == "__main__":
