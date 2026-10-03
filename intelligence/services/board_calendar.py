@@ -32,12 +32,15 @@ def _date_text(value: object) -> str | None:
 
 
 def _parse_date(value: str | date | None, *, field: str) -> date | None:
-    if value is None or value == "":
+    if value is None:
         return None
     if isinstance(value, date):
         return value
     try:
-        return date.fromisoformat(str(value))
+        parsed = date.fromisoformat(str(value))
+        if parsed.isoformat() != value:
+            raise ValueError
+        return parsed
     except ValueError as exc:
         raise ValueError(f"{field} 必须是 YYYY-MM-DD") from exc
 
@@ -199,27 +202,38 @@ def build_board_calendar(
                 "trading_days": [],
             }
         has_board_table = _table_exists(con, BOARD_TABLE)
-        market_cutoff, board_cutoff = con.execute(
-            f"""
-            SELECT
-                (SELECT MAX(trade_date) FROM {MARKET_TABLE}),
-                {f'(SELECT MAX(trade_date) FROM {BOARD_TABLE})' if has_board_table else 'NULL'}
-            """
-        ).fetchone()
-        recommended = (
-            _recommended_min_boards(con, start=start, end=end)
+        today = date.today()
+        market_cutoff = con.execute(
+            f"SELECT MAX(trade_date) FROM {MARKET_TABLE} WHERE trade_date <= ?",
+            [today],
+        ).fetchone()[0]
+        board_cutoff = (
+            con.execute(
+                f"SELECT MAX(trade_date) FROM {BOARD_TABLE} WHERE trade_date <= ?",
+                [today],
+            ).fetchone()[0]
             if has_board_table
+            else None
+        )
+        recommendation_end = min(end, today)
+        recommended = (
+            _recommended_min_boards(
+                con,
+                start=start,
+                end=recommendation_end,
+            )
+            if has_board_table and start <= recommendation_end
             else 2
         )
         threshold = min_boards if min_boards is not None else recommended
         market_rows = con.execute(
             f"""
-            SELECT trade_date
+            SELECT DISTINCT trade_date
             FROM {MARKET_TABLE}
-            WHERE trade_date BETWEEN ? AND ?
+            WHERE trade_date BETWEEN ? AND ? AND trade_date <= ?
             ORDER BY trade_date
             """,
-            [start, end],
+            [start, end, today],
         ).fetchall()
         trading_dates = [row[0] for row in market_rows]
         board_by_date: dict[date, list[dict[str, Any]]] = {}
@@ -231,19 +245,19 @@ def build_board_calendar(
                     f"""
                     SELECT DISTINCT trade_date
                     FROM {BOARD_TABLE}
-                    WHERE trade_date BETWEEN ? AND ?
+                    WHERE trade_date BETWEEN ? AND ? AND trade_date <= ?
                     """,
-                    [start, end],
+                    [start, end, today],
                 ).fetchall()
             }
             board_rows = con.execute(
                 f"""
                 SELECT trade_date, stock_ts_code, stock_name, boards, theme, pct_chg
                 FROM {BOARD_TABLE}
-                WHERE trade_date BETWEEN ? AND ? AND boards >= ?
+                WHERE trade_date BETWEEN ? AND ? AND trade_date <= ? AND boards >= ?
                 ORDER BY trade_date, boards DESC, stock_name
                 """,
-                [start, end, threshold],
+                [start, end, today, threshold],
             ).fetchall()
             for trading_date in sorted({row[0] for row in board_rows}):
                 board_by_date[trading_date] = _group_boards(
@@ -268,17 +282,9 @@ def build_board_calendar(
         ]
         status = "ok" if trading_days else "no_market_data"
         message = "已加载交易日与连板数据" if trading_days else "该日期范围暂无市场交易日数据"
-        if has_board_table and board_cutoff is not None and board_cutoff < max(trading_dates, default=start):
-            message = "连板数据落后于市场交易日；缺失日期保持显式标记"
-            status = "partial"
-        if not has_board_table:
-            message = "连板数据表不存在；仅返回交易日"
-            status = "partial"
-
         calendar_days: list[dict[str, Any]] = []
         trading_day_by_date = {item["date"]: item for item in trading_days}
         trading_date_set = set(trading_dates)
-        today = date.today()
         current = start
         while current <= end:
             current_text = current.isoformat()
@@ -305,20 +311,29 @@ def build_board_calendar(
                     {
                         "date": current_text,
                         "weekday": current.weekday(),
-                        "is_trading_day": False,
+                        "is_trading_day": calendar_status == "market_data_missing",
                         "calendar_status": calendar_status,
                         "data_status": data_status,
                         "board_groups": [],
                         "stock_count": 0,
                     }
                 )
+            if current == end:
+                break
             current += timedelta(days=1)
 
-        if has_board_table and any(
-            day["data_status"] == "board_data_missing" for day in trading_days
-        ):
+        gaps = []
+        if not has_board_table:
+            gaps.append("连板数据表不存在")
+        elif any(day["data_status"] == "board_data_missing" for day in trading_days):
+            gaps.append("部分交易日缺少连板数据")
+        if any(day["calendar_status"] == "market_data_missing" for day in calendar_days):
+            gaps.append("部分交易日缺少市场日数据")
+        if any(day["calendar_status"] == "calendar_unknown" for day in calendar_days):
+            gaps.append("部分日期无法确认交易日历")
+        if gaps:
             status = "partial"
-            message = "部分交易日缺少连板数据；缺失日期保持显式标记"
+            message = "；".join([*gaps, "缺失与未知日期保持显式标记"])
         return {
             "status": status,
             "message": message,
