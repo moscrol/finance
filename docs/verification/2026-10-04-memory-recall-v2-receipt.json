@@ -1,0 +1,92 @@
+{
+  "scope": "private frozen memory diagnostic v2; hashes only; not deployment or final-answer acceptance",
+  "runtime_relative_root": "harness-quality-closeout-1003/memory-recall-20261004",
+  "revision": "d4ea0eb13c8d1d1c7c0c98e40872bd7efd71321b",
+  "artifacts": [
+    {
+      "file": "snapshot-manifest.json",
+      "sha256": "752ef54f671f7c2358bcf6f453c499ed65c40de815453b9b19dab4132f311d74",
+      "bytes": 2411
+    },
+    {
+      "file": "cases-v2.jsonl",
+      "sha256": "7020064df38281b9cacaa60c6a432dfde1ed8bf9100093031bad3fd5ae4d5c2c",
+      "bytes": 12520
+    },
+    {
+      "file": "negative-cases-v2.json",
+      "sha256": "8aff71c8f50cd786f46f8fc5b514d70eb67a5471a4955e939529fe4e503f4308",
+      "bytes": 474
+    },
+    {
+      "file": "preregistration-v2.json",
+      "sha256": "d79b5ceb8e327ff457c75a7ddfca11c4662f1142b247a0a9051267205a51359b",
+      "bytes": 1675
+    },
+    {
+      "file": "label-admission-v2.json",
+      "sha256": "71d74d93898adf876235011d199766ed70690ec32fdf7675bdfbbfa978e91158",
+      "bytes": 4663
+    },
+    {
+      "file": "bge-model-metadata.json",
+      "sha256": "1ac875b96fdf6a4f3aef54b2a0a8a5d38e69c2a30e559e1328518016e5323c2f",
+      "bytes": 4147
+    },
+    {
+      "file": "bge-model-download-manifest.json",
+      "sha256": "4240191679ae02c25f28cad69bba029f9e170f6f3f7a9ed1f8d0a2576e9e33f4",
+      "bytes": 1795
+    },
+    {
+      "file": "semantic-requirements.lock",
+      "sha256": "bd49a95fd7c6deb8947c7e14912071685696ba53f8dbca78d997efe2f13a16da",
+      "bytes": 573
+    },
+    {
+      "file": "tiers-v2-attempt2.json",
+      "sha256": "02bb2f619134078bd3c7418750704e4d0c065f3df481aefe194580e209e6d13a",
+      "bytes": 27502
+    },
+    {
+      "file": "calls-v2-attempt2.json",
+      "sha256": "51ad96f808326acb5e6ae860551d5a2e2c6e4f57d0f0cc1f4a784046cd94457c",
+      "bytes": 107697
+    },
+    {
+      "file": "negative-results-v2-attempt2.json",
+      "sha256": "92db02e3bdf91c04ba215d5332b5beae2a8a4ed3f79b8ac402c053dbf77a1e49",
+      "bytes": 14739
+    },
+    {
+      "file": "manual-adjudication-v2.json",
+      "sha256": "8b3142ff40d1d732ea01afe11d63dcb214323f90eb54c05143d567d5ad1b8468",
+      "bytes": 95830
+    },
+    {
+      "file": "delivery-v2.json",
+      "sha256": "5876d176b7e68f11b4816ddd9c160f4af570e5953681335473b15af464a96ae5",
+      "bytes": 129839
+    },
+    {
+      "file": "v2-attempt2-reason.json",
+      "sha256": "04e2099d4c3cc843ded78dea25f25bed184669b1bacfb16adb0461ead493a0f3",
+      "bytes": 367
+    },
+    {
+      "file": "v2-execution-revision-note.json",
+      "sha256": "3f65b190bf77fcffa3ca91641877998252afcb622ece46dc05d41fee826fb1d7",
+      "bytes": 316
+    },
+    {
+      "file": "runbook-label-red.log",
+      "sha256": "8eb7f44cddc8a4f17b88e6876596bfcb27a0a7adb94d32e157f9cf5992c3e682",
+      "bytes": 2854
+    },
+    {
+      "file": "runbook-summary-green-final.log",
+      "sha256": "1e0eae1f709f1767c4c53f6f351cd0bf9214ea65873b556fca44e6d3014ffc57",
+      "bytes": 199
+    }
+  ]
+}

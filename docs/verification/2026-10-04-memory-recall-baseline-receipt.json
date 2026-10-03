@@ -1,0 +1,27 @@
+{
+  "baseline_revision": "eb927244c0530b7840ee9d79b5f068084a7c61a2",
+  "raw_root": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004",
+  "snapshot_unchanged": {
+    "judgments.jsonl": true,
+    "corrections.jsonl": true,
+    "checkpoints.jsonl": true,
+    "verdicts.jsonl": true
+  },
+  "artifacts": {
+    "snapshot-manifest.json": "752ef54f671f7c2358bcf6f453c499ed65c40de815453b9b19dab4132f311d74",
+    "preregistration.json": "1a66146b5a05e67072955660c7b7aadc777a0a0c2ad5812edf966abfc9e5b5f0",
+    "label-reachability.json": "66836aa53c801ca49c415c1d23450303b29cdd8e494fcfc92e852d8ee06eba00",
+    "tiers-v1.json": "88eab1cdc59c3bc50c21c5a4f78770648ec019d01879fa05f24a1320e8ad6d87",
+    "calls-v1.json": "e66923a5d008d8c49b6972706a22ee851223c81e6e5eb88a50d4cd82e0fb75c1",
+    "record-detail-v1.json": "14f28bada903b54a782e8a20812fed3d9614796fae1340cf0c1d4c9c66a437ef",
+    "manual-adjudication-v1.json": "b6a665157517fa6867f2a7b54719af5ce53639cb5d9777d6e332a71ee4165cee",
+    "consumption-isolation.json": "58cc660ea2b3ba8a73e059eb1d290efab180331d06e378a4fd0690dc71f5efd5",
+    "admission-v1.json": "f775b4ec6efad3b382ab44c1212fd10a5f33de931d2d4a89082b5365befa6b91",
+    "label-admission-red.log": "3908bf32d80807ca22c56bfd188f5ab3292d18a4dc6531babe81646edc763176",
+    "label-admission-green-final.log": "6a9c5595acaadcf7552efbbb024ad8f785ac61167eda8a5deae8c2d6e6dc830d",
+    "read-failure-red.log": "f6f4019befb5c164ee53eb2723c8d80ca1a4fe0a6fef7a85bfa983887f70203e",
+    "read-failure-green.log": "849a34ce321df1c95eb309eee0e62da95110170faa66089c9f871b763dd6dd70",
+    "input-change-red.log": "c884161b78b665c231d434bfa7da612e642f208628f71935084552bf898b89ce",
+    "input-change-green.log": "6bef01b7fc9d1df817a8cd15e4d4b9a4ec53a81a807f04d9665dea1c97a8fef7"
+  }
+}
