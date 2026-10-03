@@ -2063,9 +2063,7 @@ def build_episode_registry(
                     )
                 )
             for record in recall.corrections:
-                correction = str(record.get("correction") or "").strip()
-                principle = str(record.get("principle") or "").strip()
-                body = principle or correction
+                body = user_memory.correction_memory_text(record)
                 if not body:
                     continue
                 evidence.append(

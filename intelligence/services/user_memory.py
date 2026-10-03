@@ -275,14 +275,22 @@ def _judgment_lines(
     return lines
 
 
+def correction_memory_text(record: dict[str, Any]) -> str:
+    """Keep the user's concrete correction before any generalized principle."""
+    correction = str(record.get("correction") or "").strip()
+    principle = str(record.get("principle") or "").strip()
+    if correction and principle and principle != correction:
+        return f"{correction}\n补充原则：{principle}"
+    return correction or principle
+
+
 def _correction_lines(records: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for rec in records:
         correction = str(rec.get("correction") or "").strip()
         if not correction:
             continue
-        principle = str(rec.get("principle") or "").strip()
-        body = principle or correction
+        body = correction_memory_text(rec)
         date = str(rec.get("ts") or "")[:10]
         own = f"[M·你的纠偏原则 {date}]" if date else "[M·你的纠偏原则]"
         lines.append(f"- {own}：{body}")
