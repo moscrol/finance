@@ -60,6 +60,10 @@ class FulfillmentItem:
     # 该输出实际取到了几条候选 claim。配合 reason_code 才能区分
     # 「一条都没取到」和「取到了但对不上」——这两种要修的地方完全不同。
     candidate_count: int = 0
+    # Preserve effective obligation through repair, projection and persistence.
+    required: bool = True
+    origin: str = "legacy"
+    merged_origins: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -70,7 +74,7 @@ class FulfillmentVerdict:
 
     @property
     def missing_required(self) -> tuple[FulfillmentItem, ...]:
-        return tuple(item for item in self.items if item.status != "fulfilled")
+        return tuple(item for item in self.items if item.required and item.status != "fulfilled")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -95,6 +99,9 @@ class FulfillmentVerdict:
                     "gap": item.gap,
                     "reason_code": item.reason_code,
                     "candidate_count": item.candidate_count,
+                    "required": item.required,
+                    "origin": item.origin,
+                    "merged_origins": list(item.merged_origins),
                 }
                 for item in self.items
             ],
@@ -527,7 +534,8 @@ def render_prompt_constraint(required: RequiredOutput) -> str:
 
     hint = marker_vocabulary_hint(required.output_id)
     suffix = f"（{hint}）" if hint else ""
-    return f"{required.output_id}：{required.description}{suffix}"
+    optional = "（可选建议，不是必需交付）" if not required.required else ""
+    return f"{required.output_id}：{optional}{required.description}{suffix}"
 
 
 _GAP_TEMPLATE_OPENINGS = (
@@ -735,6 +743,9 @@ def evaluate_task_fulfillment(
                     "fulfilled",
                     tuple(dict.fromkeys(item for _, ids in bound for item in ids)),
                     tuple(claim.text for claim, _ in bound),
+                    required=required.required,
+                    origin=required.origin,
+                    merged_origins=required.merged_origins,
                 )
             )
             continue
@@ -773,6 +784,9 @@ def evaluate_task_fulfillment(
                     gap=detail,
                     reason_code=reason_code,
                     candidate_count=len(candidates),
+                    required=required.required,
+                    origin=required.origin,
+                    merged_origins=required.merged_origins,
                 )
             )
             continue
@@ -783,14 +797,13 @@ def evaluate_task_fulfillment(
                 gap=detail,
                 reason_code=reason_code,
                 candidate_count=len(candidates),
+                required=required.required,
+                origin=required.origin,
+                merged_origins=required.merged_origins,
             )
         )
 
-    required_items = tuple(
-        item
-        for required, item in zip(output_items, items)
-        if required.required
-    )
+    required_items = tuple(item for item in items if item.required)
     if all(item.status == "fulfilled" for item in required_items):
         return FulfillmentVerdict("complete", tuple(items))
     if any(item.status == "partial" for item in required_items):
@@ -851,10 +864,11 @@ def fail_closed_answer_spec(
     "the AI model was unavailable" from "we have no data on this topic".
     """
 
+    if verdict.status == "complete":
+        return answer_spec
     missing = tuple(
         item.gap or f"仍缺少：{item.output_id}"
-        for item in verdict.items
-        if item.status != "fulfilled"
+        for item in verdict.missing_required
     )
     detail = "；".join(dict.fromkeys(missing)) or "本轮回答未覆盖用户问题的全部必需部分。"
     gap_text = f"本轮尚未完成问题所需的直接回答：{detail}"

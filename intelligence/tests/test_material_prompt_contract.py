@@ -16,7 +16,8 @@ from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.turn_controller import decide_turn
 
 PACKS = tuple(case for case in load_suite() if case.case_id.startswith("K260917-pack"))
-LEGACY_HEADINGS = ("跟踪表达契约", "情景树表达契约", "排序与情景表达契约")
+TYPE_GUIDANCE_HEADINGS = ("跟踪方法建议（可选）", "情景树表达契约", "排序方法建议（可选）")
+RETIRED_HEADINGS = ("跟踪表达契约", "排序与情景表达契约")
 
 
 def context_for(case):
@@ -31,7 +32,7 @@ def test_numbered_material_contract_owns_prompt_without_dropping_questions(case,
     original_contract = context.contract.to_dict()
     payload = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
     rules = payload["question_type_rules"]
-    assert all(heading not in rules for heading in LEGACY_HEADINGS)
+    assert all(heading not in rules for heading in (*TYPE_GUIDANCE_HEADINGS, *RETIRED_HEADINGS))
     assert "financial_data" not in rules
     assert "memory_lookup" not in rules
     assert "E1、E2" not in rules
@@ -80,11 +81,12 @@ def test_writer_gets_sentence_construction_checks_in_compact_template(case):
 @pytest.mark.parametrize("scope,clarify", [
     ("full", False), (None, True), ("material_only", True),
 ])
-def test_unsettled_or_non_material_scope_keeps_legacy_prompt(scope, clarify):
+def test_unsettled_or_non_material_scope_keeps_type_guidance(scope, clarify):
     frame, context = context_for(PACKS[0])
     ordinary = replace(context, contract=replace(context.contract, material_contract=None))
     expected = _question_type_rules(frame, ordinary)
-    assert all(heading in expected for heading in LEGACY_HEADINGS)
+    assert all(heading in expected for heading in TYPE_GUIDANCE_HEADINGS)
+    assert all(heading not in expected for heading in RETIRED_HEADINGS)
     changed = replace(context, contract=replace(context.contract, material_contract=replace(
         context.contract.material_contract, data_scope=scope,
         classification="boundary_uncertain" if clarify else "constraint_confirmed",
@@ -120,14 +122,15 @@ def test_material_prompt_preserves_typed_discipline_and_opt_in_reasoning(monkeyp
     assert _question_type_rules(frame, context) == workflow_guidance(frame.question_type)
 
 
-def test_unnumbered_material_prompt_is_unchanged():
+def test_unnumbered_material_prompt_keeps_ordinary_type_guidance():
     frame, context = context_for(PACKS[0])
     context = replace(context, contract=replace(context.contract, material_contract=replace(
         context.contract.material_contract, questions=(),
     )))
     ordinary = replace(context, contract=replace(context.contract, material_contract=None))
     rules = _question_type_rules(frame, context)
-    assert all(heading in rules for heading in LEGACY_HEADINGS)
+    assert all(heading in rules for heading in TYPE_GUIDANCE_HEADINGS)
+    assert all(heading not in rules for heading in RETIRED_HEADINGS)
     assert rules == _question_type_rules(frame, ordinary)
 
 

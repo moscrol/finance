@@ -1,0 +1,65 @@
+[
+  {
+    "id": "retraction_not_consumed",
+    "path": "intelligence/services/research_plan.py",
+    "old": "        if retracted and not current.revision_reason:\n            raise ValueError(\"retracting model-owned steps requires revision_reason\")\n        return",
+    "new": "        if retracted and not current.revision_reason:\n            raise ValueError(\"retracting model-owned steps requires revision_reason\")\n        pass",
+    "targets": ["test_explicit_plan_revision_can_retract_its_own_steps", "test_retracted_plan_is_consumed_and_persisted_without_rewriting_task_or_budget"]
+  },
+  {
+    "id": "stale_base_accepted",
+    "path": "intelligence/services/research_plan.py",
+    "old": "        if current.base_revision != previous.revision:",
+    "new": "        if False:",
+    "targets": ["test_versioned_plan_rejects_stale_downgraded_or_unexplained_retraction", "test_repeated_stale_plan_with_tool_never_dispatches"]
+  },
+  {
+    "id": "silent_retraction_accepted",
+    "path": "intelligence/services/research_plan.py",
+    "old": "        if retracted and not current.revision_reason:",
+    "new": "        if False:",
+    "targets": ["test_versioned_plan_rejects_stale_downgraded_or_unexplained_retraction"]
+  },
+  {
+    "id": "protocol_downgrade_accepted",
+    "path": "intelligence/services/research_plan.py",
+    "old": "    if previous.base_revision is not None:\n        raise ValueError(\"base_revision cannot be omitted after an explicitly based plan\")",
+    "new": "    if False:\n        raise ValueError(\"base_revision cannot be omitted after an explicitly based plan\")",
+    "targets": ["test_versioned_plan_rejects_stale_downgraded_or_unexplained_retraction"]
+  },
+  {
+    "id": "optional_promoted_in_repair",
+    "path": "intelligence/services/task_fulfillment.py",
+    "old": "        return tuple(item for item in self.items if item.required and item.status != \"fulfilled\")",
+    "new": "        return tuple(item for item in self.items if item.status != \"fulfilled\")",
+    "targets": ["test_optional_identity_survives_real_verdict_repair_and_failure_projection"]
+  },
+  {
+    "id": "optional_promoted_in_failure_projection",
+    "path": "intelligence/services/task_fulfillment.py",
+    "old": "        for item in verdict.missing_required\n    )",
+    "new": "        for item in verdict.items if item.status != \"fulfilled\"\n    )",
+    "targets": ["test_optional_identity_survives_real_verdict_repair_and_failure_projection"]
+  },
+  {
+    "id": "repeated_invalid_plan_dispatched",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            if plan_result.error:\n                plan_failures += 1",
+    "new": "            if plan_result.error and plan_failures == 0:\n                plan_failures += 1",
+    "targets": ["test_repeated_stale_plan_with_tool_never_dispatches", "test_repeated_stale_mixed_plans_are_rejected_by_both_loops"]
+  },
+  {
+    "id": "deadline_flush_ignores_plan_admission",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if plan_result.error or (\n            plan_result.plan is not None and plan_result.plan.base_revision is not None\n        ):",
+    "new": "        if False:",
+    "targets": ["test_deadline_flush_does_not_dispatch_unaccepted_plan_tools"]
+  },
+  {
+    "id": "feedback_restores_additive_only_rule",
+    "path": "intelligence/services/adaptive_research.py",
+    "old": "    if plan.base_revision is not None:\n        return {",
+    "new": "    if False:\n        return {",
+    "targets": ["test_based_revision_feedback_allows_retraction_and_real_loop_consumes_it"]
+  }
+]

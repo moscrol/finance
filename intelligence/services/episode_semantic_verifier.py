@@ -3236,7 +3236,7 @@ class SemanticEpisodeVerifier:
                 "read_status_notice": memory_gap_public_notice(contract, verified.outcome.evidence),
             }
         if parse_ranking_intent(frame.raw_question, frame.question_type):
-            # 生产方（排序契约）要模型填 1..N 的优先级，检查方（判官）得知道那一列是研判。
+            # 作者若采用排序矩阵，判官应区分其中的优先级研判与同行外部事实。
             # 非排序题不加键，送判载荷逐字节不变。
             payload["ranking_contract"] = judge_ranking_contract_block()
         from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs

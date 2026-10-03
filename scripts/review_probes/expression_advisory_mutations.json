@@ -1,0 +1,93 @@
+[
+  {
+    "id": "template_reopens_structural_gap",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "            structural = structural_candidate\n",
+    "new": "            from intelligence.services.track_contract import contract_missing_outputs as track_missing\n            from intelligence.services.ranking_contract import contract_missing_outputs as ranking_missing\n            template_missing = (*track_missing(outcome.draft, query=context.contract.question), *ranking_missing(outcome.draft, query=context.contract.question))\n            structural = replace(structural_candidate, missing_outputs=tuple(dict.fromkeys((*structural_candidate.missing_outputs, *template_missing))))\n",
+    "targets": ["test_real_episode_does_not_spend_a_repair_for_template_absence"]
+  },
+  {
+    "id": "template_reopens_semantic_gap",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "        # Check the adapter's own sanitizer before deciding whether to resume.",
+    "new": "        from intelligence.services.track_contract import contract_missing_outputs\n        missing = contract_missing_outputs(candidate.public_answer, query=frame.raw_question)\n        if missing:\n            candidate = replace(candidate, status=\"partial\", verified=replace(candidate.verified, missing_outputs=missing))\n        # Check the adapter's own sanitizer before deciding whether to resume.",
+    "targets": ["test_real_episode_does_not_spend_a_repair_for_template_absence", "test_repair_can_remove_an_unsupported_condition_without_replacing_the_template"]
+  },
+  {
+    "id": "public_template_stub_restored",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "    return answer, conflicts, receipt\n",
+    "new": "    from intelligence.services.track_contract import append_contract_stub, missing_contract_elements\n    if receipt[\"missing_template_elements\"]:\n        return append_contract_stub(answer, missing_contract_elements(answer)), (\"跟踪输出未完成\", *conflicts), receipt\n    return answer, conflicts, receipt\n",
+    "targets": ["test_real_episode_does_not_spend_a_repair_for_template_absence", "test_bad_condition_is_removed_but_trusted_answer_is_delivered_as_partial"]
+  },
+  {
+    "id": "template_name_grants_rewrite",
+    "path": "intelligence/services/repair_coordinator.py",
+    "old": "        contract_rewrite=material_rewrite,",
+    "new": "        contract_rewrite=material_rewrite or bool(missing_outputs and set(missing_outputs) <= {\"track_ttl\", \"ranking_matrix\"}),",
+    "targets": ["test_same_named_user_obligation_is_not_erased_or_reclassified_by_template_name"]
+  },
+  {
+    "id": "template_name_rejects_user_binding",
+    "path": "intelligence/services/episode_protocol.py",
+    "old": "        if binding.output_id not in allowed_outputs:",
+    "new": "        if binding.output_id not in allowed_outputs or binding.output_id in {\"track_ttl\", \"ranking_matrix\"}:",
+    "targets": ["test_same_named_user_obligation_is_not_erased_or_reclassified_by_template_name"]
+  },
+  {
+    "id": "track_method_becomes_mandatory",
+    "path": "intelligence/services/track_contract.py",
+    "old": "【跟踪方法建议（可选）】",
+    "new": "【跟踪表达契约：必须按此结构】",
+    "targets": ["test_episode_methods_are_visible_optional_and_do_not_prescribe_a_fixed_form", "test_real_episode_does_not_spend_a_repair_for_template_absence"]
+  },
+  {
+    "id": "ranking_method_becomes_mandatory",
+    "path": "intelligence/services/ranking_contract.py",
+    "old": "【排序方法建议（可选）】",
+    "new": "【排序表达契约：必须按此结构】",
+    "targets": ["test_episode_methods_are_visible_optional_and_do_not_prescribe_a_fixed_form", "test_real_episode_does_not_spend_a_repair_for_template_absence"]
+  },
+  {
+    "id": "track_receipt_claims_missing_obligations",
+    "path": "intelligence/services/track_contract.py",
+    "old": "        \"missing_outputs\": [],",
+    "new": "        \"missing_outputs\": list(missing),",
+    "targets": ["test_real_episode_does_not_spend_a_repair_for_template_absence"]
+  },
+  {
+    "id": "ranking_receipt_claims_missing_obligations",
+    "path": "intelligence/services/ranking_contract.py",
+    "old": "        \"missing_outputs\": [],",
+    "new": "        \"missing_outputs\": list(missing),",
+    "targets": ["test_real_episode_does_not_spend_a_repair_for_template_absence"]
+  },
+  {
+    "id": "review_only_requires_fake_output",
+    "path": "intelligence/runtime/repair_budget.py",
+    "old": "    if not goal.missing_answer_elements and not goal.unsupported_claims:",
+    "new": "    if not goal.missing_answer_elements:",
+    "targets": ["test_review_only_repair_is_tool_closed_and_consumes_existing_headroom", "test_legal_repair_reuses_same_session_and_is_reverified"]
+  },
+  {
+    "id": "spent_delivery_falls_through_to_tools",
+    "path": "intelligence/runtime/repair_budget.py",
+    "old": "    delivery_candidate = need.shape.delivery",
+    "new": "    delivery_candidate = allow_delivery_repair and need.shape.delivery",
+    "targets": ["test_review_only_repair_is_tool_closed_and_consumes_existing_headroom"]
+  },
+  {
+    "id": "backfill_buys_second_prose_turn",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "                    delivery_repair_attempted = True",
+    "new": "                    delivery_repair_attempted = False",
+    "targets": ["test_real_episode_receives_stage_anchored_review_in_same_history"]
+  },
+  {
+    "id": "diagnostic_revokes_material_rewrite",
+    "path": "intelligence/services/repair_coordinator.py",
+    "old": "        and not rejected_claims and not structural.mandatory_missing_capabilities",
+    "new": "        and not (rejected_claims or review_feedback) and not structural.mandatory_missing_capabilities",
+    "targets": ["test_judge_rejected_gap_can_rewrite_without_tools_or_stale_revocation"]
+  }
+]

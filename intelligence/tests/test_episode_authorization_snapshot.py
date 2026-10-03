@@ -23,7 +23,7 @@ def _fixture():
     rig = build_rig(f"authorization-{uuid4().hex}")
     spec = replace(rig.registry.resolve("market_data"), capability="finance_query", io_effect="local_read")
     rig.registry = ResearchToolRegistry((spec,))
-    rig.context = replace(rig.context, contract=replace(
+    rig.context = replace(rig.context, root_request=None, contract=replace(
         rig.context.contract, allowed_capabilities=("finance_query",),
         required_outputs=tuple(replace(output, evidence_types=("finance_query",)) for output in rig.context.contract.required_outputs),
         material_contract=MaterialContract("constraint_confirmed", "real", "local_only", data_scope_declared=True),

@@ -1,4 +1,7 @@
-"""排序与情景表达契约（10 号单）：把「谁更值得研究」答成可机械再排序的结构。
+"""排序方法、旧表格解析与机械推演。
+
+Episode 使用可选方法；表格是否被旧解析器识别不参与任务完成判定。legacy ask
+仍使用下述强模板。机械推演沿用先前箭头假设，是参考而非新证据或必需结论。
 
 背景（为什么要这个层）：
     多公司排序题（「英维克、申菱环境、高澜股份谁更值得优先研究」）今天落在
@@ -14,10 +17,9 @@
       人读的表就是机器读的表，表格、正文、计算只有一份。
     - **确定性意图路由**：排序词面 × 多对象信号双门；涨幅排行/成交额前 N 等
       快事实排除；非排序题零改动。
-    - **程序核对**：缺矩阵 / 缺改判条件 / 竞争解释不足 / 缺下一步 → 合成 id 并入
-      ``missing_outputs``（与 track_contract 同一条 contract_rewrite 修复路径）。
+    - **模板诊断**：矩阵 / 改判条件 / 竞争解释 / 下一步的解析结果只作只读诊断。
     - **机械再排序**：``apply_scenario`` 按改判条件表的箭头（↑ 上移一位、↑↑ 两位）
-      稳定重排——不凭空给权重、概率或弹性；未覆盖的变量如实答「排序不变，需补敏感性」。
+      稳定重排——不凭空给权重、概率或弹性；未覆盖变量仅表示旧规则无法确定影响。
       这也是反向验证的判据：改成本/订单/需求条件应改排序，只换文案不应改推导。
     - **让输出成为下一轮输入**：改判条件登记 ``checkpoints.jsonl``
       （source=``ranking_flip_condition``），07 回检、09 续研、foresight 发问都读得到。
@@ -176,17 +178,15 @@ def build_ranking_guidance() -> str:
 
 
 def build_ranking_guidance_for_episode() -> str:
-    """episode 主路径版——纪律同 :func:`build_ranking_guidance`，证据记号换成 E1、E2…。"""
-    return "\n".join(
-        [
-            "【排序与情景表达契约】本题为多对象研究优先级/排序题，draft 必须按此结构组织"
-            "（表头逐字照抄，程序据此解析；这些是正文表达要求，不是可绑定的 output_id）：",
-            *_structure_lines(
-                "证据序号 E1、E2…",
-                "上一轮结论只能来自 conversation_context 里的先前排序或 memory_lookup 召回，"
-                "没有就声明「无上一轮排序，本期建立基线」",
-            ),
-        ]
+    """Episode 可选比较方法，不规定表格、段落数量或排序算法。"""
+    return (
+        "【排序方法建议（可选）】以任务合同为准，自主选择能回答问题的比较方式。\n"
+        "可围绕影响结论的共同维度比较对象，说明优先判断、证据和不确定性；"
+        "有帮助时再用矩阵、竞争解释或改判条件，段落、列表和表格都可以。\n"
+        "区分外部事实与研究优先级研判；事实引用真实证据（E1、E2…），"
+        "不能编造弹性、权重或概率填空。未知变量应说明其影响尚不能确定，不能当作零影响。\n"
+        "续问时可对照 conversation_context 或 memory_lookup 的真实旧结论，"
+        "说明新信息为何改变或不足以改变判断。方法建议不新增必需输出。"
     )
 
 
@@ -206,12 +206,7 @@ def episode_ranking_rule(
     conversation_context: str = "",
     history_intent: HistoryIntent | None = None,
 ) -> str:
-    """episode 指令的条件注入口：命中排序意图返回 episode 版契约，否则空串。
-
-    再排序追问且会话上下文里有上一轮矩阵时，追加系统机械推演出的「再排序基线」
-    （见 :func:`rerank_baseline_note`）——情景变化更新排序这件事由确定性规则先算一遍，
-    模型负责解释与据证据偏离，而不是凭印象重排。
-    """
+    """按任务选择可选方法；有旧矩阵时附带机械参考，模型仍负责研判。"""
     if not parse_ranking_intent(query, question_type, history_intent=history_intent):
         return ""
     text = build_ranking_guidance_for_episode()
@@ -555,19 +550,17 @@ JUDGE_PRIORITY_GROUNDING = "model_reasoning"
 
 
 def judge_ranking_contract_block() -> dict[str, object]:
-    """送给语义判官的排序契约说明：「优先级」列是契约要求填的研判，不是事实断言。
+    """若作者选用矩阵，向判官区分研究优先级与外部事实。
 
-    为什么要这一块：契约（生产方）要模型填 1..N 的优先级，判官（检查方）收到的却是普通
-    编号句，于是按事实句审「凭什么排第 1」——实测一张 8 行公司矩阵 7 行被拒，判官逐条
-    写明「行情数字本身有 E4 支持，不是拒绝原因」。缝在生产方与检查方之间，就补在送判
-    载荷里；不动删句判据，不给优先级数字发证据。
+    旧强模板曾让作者填 1..N，判官却按无证据事实删掉整行。Episode 如今不强制
+    矩阵，但作者自主选择它时仍需区分研判与事实；不改变同行事实的证据要求。
     """
     return {
         "matrix_headers": list(MATRIX_HEADERS),
         "priority_column": "优先级",
         "priority_grounding": JUDGE_PRIORITY_GROUNDING,
         "note": (
-            "公司矩阵表的「优先级」列是排序契约要求模型填写的研究优先级研判（1..N），"
+            "若作者采用公司矩阵表，其中「优先级」列是研究优先级研判（1..N），"
             "属 model_reasoning，不是事实断言；只审同行其他格的数字、日期与证据绑定，"
             "不得仅因优先级数字无证据或无排序规则而拒绝该行。"
         ),
@@ -587,10 +580,8 @@ def matrix_header_mapping(line: str) -> dict[str, int] | None:
 def mark_priority_as_judgment(row_line: str, mapping: dict[str, int]) -> str | None:
     """把矩阵行的「优先级」格 ``N`` 改成 ``N（研判）``；已标、无整数、非表行则 ``None``。
 
-    刻意不清空：``missing_contract_elements`` 要求优先级列完整，清空会被判成缺矩阵、
-    触发契约重写、模型再填回去——循环。整数保留，``_INT_RE`` 解析与机械再排序不受
-    影响；读者与判官看到的是「这是研判」。这是 spec 2026-09-02 §3.3「置信度标注写进
-    正文」第一处真正落到正文的实现——此前标注只进 issues / 控制面。
+    保留作者的排序而标明「这是研判」，不把优先级改写成外部事实。整数保留，
+    ``_INT_RE`` 解析与机械再排序不受影响；模板是否完整不参与 Episode 完成判定。
     """
     text = str(row_line or "")
     if not _TABLE_LINE_RE.match(text):
@@ -628,7 +619,7 @@ def parse_ranking_artifact(answer: str) -> RankingArtifact:
     )
 
 
-# ——————————————————————————————————————————— 程序核对 → missing_outputs
+# ——————————————————————————————————————————— 旧解析器诊断标签（非任务义务）
 RANKING_CONTRACT_OUTPUT_IDS: dict[str, str] = {
     "matrix": "ranking_matrix",
     "flip_conditions": "ranking_flip_conditions",
@@ -637,13 +628,6 @@ RANKING_CONTRACT_OUTPUT_IDS: dict[str, str] = {
     "rerank_table": "ranking_rerank_table",
 }
 RANKING_CONTRACT_OUTPUT_ID_SET = frozenset(RANKING_CONTRACT_OUTPUT_IDS.values())
-EXPRESSION_SLOT_HINTS: dict[str, str] = {
-    "ranking_matrix": "固定表头的公司矩阵表（每家一行，优先级 1..N）",
-    "ranking_flip_conditions": "固定表头的改判条件表（≥2 行，方向用 ↑/↓）",
-    "ranking_competing_explanations": "「竞争解释」段 ≥2 条互斥解释并各写「区分变量：…」",
-    "ranking_next_actions": "「下一步」段，每条以 补关键缺口：/比较替代解释：/检验条件： 开头",
-    "ranking_rerank_table": "「新旧排序对照」表（公司 / 原优先级 / 新优先级 / 变动原因）",
-}
 
 
 def missing_contract_elements(
@@ -651,7 +635,7 @@ def missing_contract_elements(
     *,
     scenario_update: bool = False,
 ) -> tuple[str, ...]:
-    """扫描回答缺了契约的哪几件。非排序题的调用方应先自己判断是否要查。"""
+    """扫描旧模板未识别件；不判断任务是否完成。调用方先判断意图。"""
     artifact = parse_ranking_artifact(answer)
     missing: list[str] = []
     if len(artifact.matrix) < 2 or not artifact.priority_complete:
@@ -678,7 +662,7 @@ def contract_missing_outputs(
     question_type: str | None = None,
     history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
-    """程序核对：排序题的契约缺件 → missing_outputs 词表输出项 id。非排序题恒空。"""
+    """旧模板未识别项（历史标签），仅供诊断，不是任务合同缺项。"""
     if not parse_ranking_intent(query, question_type, history_intent=history_intent):
         return ()
     return tuple(
@@ -688,31 +672,6 @@ def contract_missing_outputs(
         )
         if key in RANKING_CONTRACT_OUTPUT_IDS
     )
-
-
-def merge_ranking_missing_outputs(
-    existing: tuple[str, ...] | list[str],
-    answer: str,
-    *,
-    query: str = "",
-    question_type: str | None = None,
-    history_intent: HistoryIntent | None = None,
-) -> tuple[str, ...]:
-    """把排序契约缺件并入 repair 用的 missing_outputs。非排序题原样返回。"""
-    extra = contract_missing_outputs(
-        answer, query=query, question_type=question_type, history_intent=history_intent
-    )
-    return tuple(dict.fromkeys((*tuple(existing or ()), *extra)))
-
-
-def expression_slot_note(slots: tuple[str, ...]) -> str:
-    """修复目标里的排序表达槽说明：写进 draft，不当 output 绑。"""
-    hints = [
-        f"{slot} → {EXPRESSION_SLOT_HINTS[slot]}"
-        for slot in slots
-        if slot in EXPRESSION_SLOT_HINTS
-    ]
-    return "；".join(hints)
 
 
 # ——————————————————————————————————————————— 机械再排序
@@ -924,13 +883,13 @@ def _render_order(order: tuple[str, ...]) -> str:
 
 
 def rerank_baseline_note(query: str, conversation_context: str) -> str:
-    """再排序基线：按上一轮改判条件表机械推演，注入 episode 指令。没有上一轮矩阵返回空串。"""
+    """沿用旧箭头假设的参考推演；没有上一轮矩阵返回空串。"""
     prior = latest_prior_artifact(conversation_context)
     if prior is None:
         return ""
     update = apply_scenario(prior, scenario_text=query)
     lines = [
-        "【再排序基线】系统已按上一轮改判条件表机械推演（这是推演基线，不是新证据）：",
+        "【再排序参考】仅沿用上一轮改判条件表的箭头假设机械推演，不是新证据或必需结论：",
         f"- 上一轮排序：{_render_order(update.before)}",
     ]
     if update.matched:
@@ -952,11 +911,10 @@ def rerank_baseline_note(query: str, conversation_context: str) -> str:
         if update.watchpoints:
             lines.append("- 观察点更新：" + "；".join(update.watchpoints))
     else:
-        lines.append(f"- {update.reason}")
+        lines.append("- 旧条件没有覆盖该变量，机械规则不能确定其影响。")
     lines.append(
-        "- draft 的「新旧排序对照」表必须以此为基线；若你据本轮证据偏离机械结果，"
-        "在「变动原因」列写出依据（证据序号）。未命中的情景变量如实写"
-        "「排序不变，需补该变量的敏感性」并给出优先补什么。"
+        "- 自主判断这些旧假设是否仍适用，并结合本轮证据说明判断与不确定性；"
+        "可采用其他推理或表达方式，未命中旧规则不等于实际排序不变。"
     )
     return "\n".join(lines)
 
@@ -982,10 +940,9 @@ def ranking_receipt(
     conversation_context: str = "",
     history_intent: HistoryIntent | None = None,
 ) -> dict[str, object]:
-    """EVAL 可读收据：``missing_outputs`` 恒在场；``ranking_intent`` 区分「契约齐」与「不适用」。
+    """v2 只读模板诊断；missing_outputs 兼容键为空，不宣称任务已完成。
 
-    再排序题另给 ``prior_rerank``（机械推演）与 ``rerank_consistent``（模型的新旧对照表
-    是否与机械结果同序；无对照表或无上一轮矩阵时 None）——「表格、正文、计算一致」的程序核对。
+    prior_rerank / rerank_consistent 仅描述是否沿用旧箭头规则，不能判研判正确与否。
     """
     intent = parse_ranking_intent(query, question_type, history_intent=history_intent)
     scenario_update = parse_scenario_update_intent(query) if intent else False
@@ -1005,9 +962,12 @@ def ranking_receipt(
                 rerank_consistent = model_order == update.after
     return {
         "check": "ranking_contract",
+        "schema_version": 2,
+        "authority": "advisory",
         "ranking_intent": intent,
         "scenario_update_intent": scenario_update,
-        "missing_outputs": list(missing),
+        "missing_outputs": [],
+        "missing_template_elements": list(missing),
         "matrix_rows": len(artifact.matrix) if artifact else 0,
         "flip_rows": len(artifact.flip_conditions) if artifact else 0,
         "competing_explanations": len(artifact.explanations) if artifact else 0,

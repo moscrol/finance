@@ -106,7 +106,7 @@ def admit_finish(self, content: 'object', *, context: 'ResearchRunContext', evid
 ## `classify_repair_need`
 
 ```python
-def classify_repair_need(self, outcome: 'AgentOutcome', structural: 'VerifiedEpisodeOutcome', *, rejected_claims: 'tuple[str, ...]', semantic_gap_outputs: 'tuple[str, ...]') -> 'RepairNeed'
+def classify_repair_need(self, outcome: 'AgentOutcome', structural: 'VerifiedEpisodeOutcome', *, rejected_claims: 'tuple[str, ...]', semantic_gap_outputs: 'tuple[str, ...]', review_feedback: 'tuple[str, ...]' = ()) -> 'RepairNeed'
 ```
 
 主轮终局过完结构 / 语义验证之后：这次失败该修什么、属于哪一类。

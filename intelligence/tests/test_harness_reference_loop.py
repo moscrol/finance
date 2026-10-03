@@ -256,6 +256,40 @@ def _outcome_core(outcome) -> dict[str, object]:
 # ── 1. 首轮身份 ───────────────────────────────────────────────────────────
 
 
+def test_based_retraction_has_same_plan_and_outcome_in_both_loops() -> None:
+    from intelligence.tests.test_agent_episode import _plan_turn as plan_turn
+
+    revised = replace(plan_turn(
+        revision=2, base_revision=1, answer_elements=["Revised approach"],
+        revision_reason="Retire a self-proposed approach.",
+    ), tool_calls=_tool_turn().tool_calls)
+    (_, episode), (_, reference) = _run_both([
+        plan_turn(base_revision=0), revised, _finish_turn(),
+    ])
+    assert _outcome_core(episode) == _outcome_core(reference)
+    assert episode.status == "completed"
+    assert episode.plan.answer_elements == ("Revised approach",)
+    assert episode.plan.base_revision == 1
+
+
+def test_repeated_stale_mixed_plans_are_rejected_by_both_loops() -> None:
+    from intelligence.tests.test_agent_episode import _plan_turn as plan_turn, _finish_turn as finish_turn
+
+    stale = [replace(plan_turn(revision=2, base_revision=0), tool_calls=(
+        ModelToolCall(f"stale-{index}", "market_data", {"query": "never"}),
+    )) for index in (1, 2)]
+    (_, episode), (_, reference) = _run_both([
+        plan_turn(base_revision=0), *stale,
+        finish_turn(status="partial", hashes=(), gap="No evidence yet"),
+    ])
+    assert _outcome_core(episode) == _outcome_core(reference)
+    for outcome in (episode, reference):
+        assert outcome.usage.tool_calls == 0 and outcome.usage.invalid_actions == 2
+        assert outcome.plan.revision == 1
+        receipts = [event.payload["model_content"] for event in outcome.events if event.kind == "tool_error"]
+        assert len(receipts) == 2 and all(json.loads(item)["error"] == "invalid_plan" for item in receipts)
+
+
 def test_first_request_to_the_model_is_byte_identical() -> None:
     (episode_model, _), (reference_model, _) = _run_both(
         [_tool_turn(), _finish_turn()]

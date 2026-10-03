@@ -41,19 +41,14 @@ from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.prior_evidence import PriorTurnEvidence
+from intelligence.services.request_interpretation import interpretation_payload
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
-from intelligence.services.ranking_contract import (
-    RANKING_CONTRACT_OUTPUT_ID_SET,
-    episode_ranking_rule,
-)
+from intelligence.services.ranking_contract import episode_ranking_rule
 from intelligence.services.scenario_tree import episode_scenario_rule
-from intelligence.services.track_contract import (
-    TRACK_CONTRACT_OUTPUT_ID_SET,
-    episode_track_rule,
-)
+from intelligence.services.track_contract import episode_track_rule
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
@@ -194,12 +189,8 @@ def _question_type_rules(
         if task_frame.question_type == "valuation_estimate"
         else ""
     )
-    # 跟踪题表达契约（knevo q8 回灌，episode 版）：文本住在 track_contract
-    # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
-    # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
-    # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
-    # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
-    # 历史 rank/trace 不叠前向排序/持续跟踪/情景契约；同一意图也传到修复、收据与写入门。
+    # 跟踪 / 排序只注入可选方法，不拥有合同之外的完成裁决权。
+    # 历史 rank/trace 不叠前向方法；同一可信意图仍传到收据与写入门。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
@@ -363,6 +354,11 @@ def build_episode_instructions(
         "PLAN 只是可观察研究意图，不能授权工具、预算、证据或完成状态；候选动作不等于"
         "调用许可。branch_goals 只是申请，只有运行时批准 deep 后才能执行；它不能指定"
         "权限、预算或继续派生分支。计划修订必须保持原任务且 revision 严格递增。\n"
+        "修订时提供 base_revision（首次为0，其后为已接受计划的 revision）。"
+        "可调整或撤回自拟的 answer_elements、branch_goals、perspectives；撤回时提供"
+        "简短 revision_reason。已采用 base_revision 后须继续携带；旧式无此字段的计划只允许追加。\n"
+        "计划调整不删除用户原题或任务合同的必需输出，不改题型、主体、时间窗与授权，"
+        "不重置预算、截止或取消；已派分支的证据和费用保留。可直接答复，无须额外规划轮。\n"
         "\n"
         "【工具与观察】\n"
         "若本轮提供 material_grounding，以下工具证据要求按其 data_scope 条件化："
@@ -474,6 +470,7 @@ def build_episode_input(
     }
     date_context = runtime_date_context(context)
     payload: dict[str, object] = {
+        **interpretation_payload(context, initial_goal=task_frame.user_goal),
         "task_frame": task_frame.to_dict(),
         "research_contract": contract_for_model,
         "today": date_context["today"],
@@ -666,9 +663,6 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "derived_without_inputs": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
-    # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
-    # 是系统自己在修复目标里给的 id，不是伪造——回灌重写。
-    "expression_slot_binding": RejectionKind.FORMAT,
 }
 
 
@@ -960,21 +954,7 @@ def _validate_binding_target_and_hashes(
     """Keep ordinary binding checks identical before/after frozen-source preflight."""
     required = next((item for item in contract.required_outputs if item.output_id == binding.output_id), None)
     if required is None:
-        if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
-            # 表达槽不是可绑定 output；回灌格式说明，不冒充来源伪造。
-            raise _reject(
-                "expression_slot_binding",
-                f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
-                "bindings 里只保留契约列出的 output_id",
-            )
-        if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
-            raise _reject(
-                "expression_slot_binding",
-                f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
-                "bindings 里只保留契约列出的 output_id",
-            )
+        # Method names grant neither binding identity nor a repair exemption.
         raise _reject("unknown_output", f"unknown required output: {binding.output_id}")
     if binding.basis != required.grounding_mode:
         raise _reject(
@@ -1146,7 +1126,7 @@ def validate_episode_finish(
         # Preserve a partial and never turn an empty read into a user premise.
         bindings[0] = replace(bindings[0], evidence_hashes=(), gap=recall_notice, claims=())
         draft, gaps, status = recall_notice, (recall_notice,), "partial"
-    # prior_recall 是咨询槽（episode_factory._ADVISORY_OUTPUT_IDS），合同要求记忆空命中时写
+    # 自动挂载的 prior_recall 是咨询槽（按挂载来源 required=False），合同要求记忆空命中时写
     # binding.gap「用户记忆无相关命中」。写手常把记忆缺口条目本身当 user_premise 绑上——
     # 2026-09-27 生产探针 2/2（run_20260927_211317_791596、run_20260927_215652_267095），
     # 整稿因下面的 evidence_type_floor 拒收、收尾兜底再拒一次而降级。只引用了缺口条目的

@@ -17,7 +17,6 @@ import pytest
 
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.episode_factory import (
-    _ADVISORY_OUTPUT_IDS,
     build_episode_context,
 )
 from intelligence.services.episode_protocol import (
@@ -463,11 +462,14 @@ def test_prompt_rule_absent_without_mounted_slots() -> None:
     assert "basis 用 model_reasoning" not in _question_type_rules(frame, context)
 
 
-def test_advisory_set_is_not_mutated() -> None:
-    """钉 12：可选性不外溢——三槽绝不能被塞进全局 advisory 集合。
-
-    塞进去会把 market_forecast 的**必选**前瞻槽一起降成可选。这条直接断言
-    集合内容，不依赖钉 2 间接覆盖。
-    """
-
-    assert not FORWARD_HYPOTHESIS_OUTPUT_IDS & _ADVISORY_OUTPUT_IDS
+@pytest.mark.parametrize("output_id", sorted(FORWARD_HYPOTHESIS_OUTPUT_IDS))
+def test_existing_forward_requirement_is_not_demoted_by_advisory_mount(output_id) -> None:
+    """同名硬要求保留；不再让全局 ID 名单决定可选性。"""
+    frame = _task_frame(
+        question="请判断A股明天走势", question_type="market_forecast",
+        required_outputs=(output_id,),
+    )
+    context, _ = _contract_outputs(frame)
+    output = next(item for item in context.contract.required_outputs if item.output_id == output_id)
+    assert output.required is True
+    assert output.origin == "legacy"

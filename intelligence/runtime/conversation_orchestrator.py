@@ -756,7 +756,15 @@ def _task_frame_required_output(
     output_id: str,
     *,
     evidence_types: tuple[str, ...] = (),
+    frame: TaskFrame | None = None,
 ) -> RequiredOutput:
+    supplied = frame.output_requirement(output_id) if frame is not None else None
+    if supplied is not None:
+        return replace(
+            supplied,
+            description=supplied.description or _TASK_FRAME_OUTPUT_DESCRIPTIONS.get(output_id, output_id),
+            evidence_types=supplied.evidence_types or evidence_types,
+        )
     return RequiredOutput(
         output_id=output_id,
         description=_TASK_FRAME_OUTPUT_DESCRIPTIONS.get(
@@ -798,19 +806,20 @@ def _merge_frame_outputs(
 ) -> tuple[RequiredOutput, ...]:
     """Keep legacy execution slots while exposing every canonical frame slot."""
 
-    known = {item.output_id for item in existing}
-    legacy_aliases = _LEGACY_OUTPUT_ALIASES
+    from intelligence.services.output_requirement import merge_output_requirement
+
+    outputs = {item.output_id: item for item in existing}
     evidence_types = tuple(capabilities) or ("evidence_boundary",)
-    additions = tuple(
-        _task_frame_required_output(
-            output_id,
-            evidence_types=evidence_types,
-        )
-        for output_id in frame.required_outputs
-        if output_id not in known
-        and legacy_aliases.get(output_id, output_id) not in known
-    )
-    return (*existing, *additions)
+    for output_id in frame.required_outputs:
+        target = output_id if output_id in outputs else _LEGACY_OUTPUT_ALIASES.get(output_id, output_id)
+        incoming = _task_frame_required_output(output_id, evidence_types=evidence_types, frame=frame)
+        if target not in outputs:
+            outputs[output_id] = incoming
+        elif frame.output_requirement(output_id) is not None:
+            # Legacy frames retain their exact old execution mapping. Explicit
+            # metadata must not disappear when its ID becomes an execution alias.
+            outputs[target] = merge_output_requirement(outputs[target], incoming)
+    return tuple(outputs.values())
 
 
 def _specialized_owner_required_outputs(
@@ -834,7 +843,7 @@ def _specialized_owner_required_outputs(
     # Legacy contracts without a canonical frame can still use their own IDs.
     output_ids = frame.required_outputs or contract.required_outputs
     return tuple(
-        _task_frame_required_output(output_id)
+        _task_frame_required_output(output_id, frame=frame)
         for output_id in dict.fromkeys(output_ids)
     )
 

@@ -1,0 +1,86 @@
+[
+  {
+    "id": "stale_interpretation_accepted",
+    "path": "intelligence/services/request_interpretation.py",
+    "old": "    if proposal.base_revision != revision:",
+    "new": "    if False:",
+    "targets": ["test_stale_or_cross_request_proposal_does_not_mutate_current_state"]
+  },
+  {
+    "id": "cross_root_interpretation_accepted",
+    "path": "intelligence/services/request_interpretation.py",
+    "old": "    if proposal.request_ref != root[\"request_ref\"] or (current is not None and current.request_ref != proposal.request_ref):",
+    "new": "    if False:",
+    "targets": ["test_stale_or_cross_request_proposal_does_not_mutate_current_state"]
+  },
+  {
+    "id": "root_rebuilt_from_execution_projection",
+    "path": "intelligence/services/research_contract.py",
+    "old": "        if self.root_request is None:\n            object.__setattr__(self, \"root_request\", RootRequest.from_contract(self.contract))",
+    "new": "        if True:\n            object.__setattr__(self, \"root_request\", RootRequest.from_contract(self.contract))",
+    "targets": ["test_root_survives_execution_projection_and_finalizer_without_rebuilding"]
+  },
+  {
+    "id": "interpretation_version_not_incremented",
+    "path": "intelligence/services/request_interpretation.py",
+    "old": "        proposal.request_ref, revision + 1, proposal.goal, proposal.reason,",
+    "new": "        proposal.request_ref, max(1, revision), proposal.goal, proposal.reason,",
+    "targets": ["test_interpretation_revision_is_separate_from_plan_revision_and_authority"]
+  },
+  {
+    "id": "root_question_lossy",
+    "path": "intelligence/services/request_interpretation.py",
+    "old": "            \"raw_question\": self.raw_question,",
+    "new": "            \"raw_question\": self.raw_question.strip(),",
+    "targets": ["test_root_request_is_exact_and_not_the_model_summary"]
+  },
+  {
+    "id": "sdk_response_hook_detached",
+    "path": "intelligence/runtime/openai_agents_runtime.py",
+    "old": "            self.pending = request.on_model_response(content, has_tools)",
+    "new": "            self.pending = None",
+    "targets": ["test_real_sdk_hook_admits_plan_before_tools_and_carries_interpretation"]
+  },
+  {
+    "id": "sdk_rejected_packet_dispatches",
+    "path": "intelligence/runtime/openai_agents_runtime.py",
+    "old": "            if self._plan_error:\n                self._add_event(\"tool_error\", {\"tool\": name, \"error\": \"invalid_plan\", \"detail\": self._plan_error})",
+    "new": "            if False:\n                self._add_event(\"tool_error\", {\"tool\": name, \"error\": \"invalid_plan\", \"detail\": self._plan_error})",
+    "targets": ["test_real_sdk_hook_admits_plan_before_tools_and_carries_interpretation", "test_sdk_interpretation_respects_execution_boundary"]
+  },
+  {
+    "id": "sdk_turn_cap_resets_per_segment",
+    "path": "intelligence/runtime/openai_agents_runtime.py",
+    "old": "                    agent, current_input, context=request, max_turns=remaining,",
+    "new": "                    agent, current_input, context=request, max_turns=request.max_turns,",
+    "targets": ["test_sdk_plan_segments_share_total_timeout_turn_cap_and_provider_history"]
+  },
+  {
+    "id": "accepted_interpretation_not_delivered_to_model",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "                        content=json.dumps(interpretation_payload(context), ensure_ascii=False),",
+    "new": "                        content=json.dumps({\"interpretation\": \"not delivered\"}, ensure_ascii=False),",
+    "targets": ["test_continuous_admission_changes_real_prompt_before_tools_and_keeps_root"]
+  },
+  {
+    "id": "continuous_repair_admits_plan_tools",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if repair_plan.error or repair_plan.plan is not None:",
+    "new": "        if False:",
+    "targets": ["test_repair_does_not_admit_or_dispatch_new_interpretation"]
+  },
+  {
+    "id": "authorization_ignores_accepted_root_reference",
+    "path": "intelligence/services/episode_authorization.py",
+    "old": "        if interpretation is not None and interpretation.request_ref != root.to_dict()[\"request_ref\"]:",
+    "new": "        if False:",
+    "targets": ["test_recovery_snapshot_versions_interpretation_without_resigning_legacy"]
+  },
+  {
+    "id": "finalizer_uses_initial_interpretation_only",
+    "path": "intelligence/runtime/episode_finalizer.py",
+    "old": "            \"request_interpretation\": interpretation_payload(context, initial_goal=task_frame.user_goal),",
+    "new": "            \"request_interpretation\": {\"interpretation\": {\"revision\": 0}, \"root_request\": {}},",
+    "targets": ["test_root_survives_execution_projection_and_finalizer_without_rebuilding"]
+  }
+]
