@@ -1,6 +1,6 @@
 # Harness 四片主线集成：发现、裁决与验收边界
 
-本快照记到 `46d9875c60fcdbec75a0366ded453d2d49f33971`，不是最终发布批准。工程验收按固定提交留收据；本快照之后的完整门禁结果在下述树外证据根与 Draft PR #30 更新，不把旧读数移签。
+本快照记录本轮受验产品代码 pin `d09e3b08d3b7b8ee49c27b6fb6c00c8cec464fc8`，不是最终发布批准。工程验收按固定提交留收据；完整门禁、变异审计和 GitHub 检查均在下述树外证据根与 Draft PR #30 留有 revision-scoped 原件，不把旧读数移签。
 
 ## 目标与授权
 
@@ -75,12 +75,23 @@
 | 同上 | 同目录 registry 五项 exit 0；ledger 102 行反向引用 warning 保留，不称零警告 |
 | 同上 | `final-5266b5f8-mutations/audit.json`：四组 9/12/13/13，历史 8、边界 16；还原哈希一致 |
 | 同上 | GitHub `workbench-check` run 37130902893 的 python/frontend/e2e/聚合与 `registry-check` run 37130902904 全绿，PR 仍 Draft |
-| `46d9875c6` 及其后 | 重新 pin 全量门禁与 14 项表达变异；最终结果读证据根的 `closeout.json` 和 PR，不借上行读数 |
+| `46d9875c6` 及其后 | 混合诊断修补后的定向 411 passed 只作迭代证据，不转签；随后以 `d09e3b08d3b7b8ee49c27b6fb6c00c8cec464fc8` 重新 pin 全量门禁、前端、registry、四组变异、历史/边界探针与 GitHub required checks。最终结果见证据根 `closeout.json` 与 PR #30，不借上行读数 |
+| `d09e3b08d3b7b8ee49c27b6fb6c00c8cec464fc8` | Python `20,558P / 76S / 2X / 0F`，collected `20,636`，收据审计 exit 0；前端 209 unit、E2E 52P/2S；registry 五项 exit 0；变异 `9/12/13/14`，历史 8、边界 16，审计 exit 0；GitHub `workbench-check` 与 `registry-check` 全绿。ledger 仍有 102 条反向 warning，不称零 warning |
+| 同上 | 该 pin 的最终生产补丁为 `46d9875c6`；补丁没有新增独立静态审查覆盖。真实金融 Workbench 调用仍为 0，工程绿不等于回答质量提升 |
 
 ## 接手边界与工具沉淀
 
 - 验收解释器固定 `/private/tmp/harness-opt/tmp/arena-harness-release-1002/.venv-workbench/bin/python`；`env -i`、`umask 022`、`FORESIGHT_LLM_KEYCHAIN=0`、树外新收据目录。Node 22.23.3 为独立安装。共享依赖和生产数据不改。
 - 重用 `run_main_gate.sh`、`run_frontend_gate.py` 与三类既有变异运行器；本轮补入仓内的是失配定义的自动检查和混合诊断反例，不新建第二套验收框架。树外批次 shell/审计器只作固定 pin 的重放清单。
 - `frontend/index.lock` 曾残留：先确认无 Git 进程/文件占用，再归档锁文件；首次启动失败保留，另起 r2 目录，不覆盖证据。
-- 后续先核最终 pin 收据与独审补丁覆盖，再由用户决定下一步。12 格草案在 `live-comparison-approval-draft.md`，尚未预注册；实际模型、配置、物理调用帽、费用和盲审须先确认。
+- 最终工程收口已完成；后续只剩用户决定是否另行批准补丁独审或最多 12 格真实对照。`live-comparison-approval-draft.md` 仍未预注册；实际模型、配置、物理调用帽、费用和盲审须先确认。
 - R17/R19、正式 240 格封存。CLI、脚本模型、E2E、`completed` 与工具次数均不能替代真实 Workbench 入口、完整响应身份或回答质量判断。
+
+## 最终工程验收读数
+
+- 本地 Python：`final-d09e3b08/python-receipts/gate-puOnUDe7/pytest.json`，解释器 `/private/tmp/harness-opt/tmp/arena-harness-release-1002/.venv-workbench/bin/python`，依赖指纹 `66726d345bf37ce5`，`20558 passed / 76 skipped / 2 xfailed`，`failed=0`，collected `20636`；`check_test_receipt.py --require-full-scope` exit 0。
+- 本地前端：`final-d09e3b08/frontend/frontend.json`，revision/首尾身份稳定且干净，frozen install/lint/typecheck/test/build 全绿，22 files / 209 tests，Playwright `52 passed / 2 skipped`。
+- 本地 registry：`check-parseability`、`check`、`backfill-tables --check`、`generate-views --check`、`ledger-spec-crosswalk` 全部 exit 0；反向回指 warning 102 条保留。
+- 本地变异：`final-d09e3b08-mutations/audit-final.json`，revision 一致、complete、还原哈希一致；PLAN 归属/请求解释/输出溯源/表达建议分别 `9/12/13/14`，历史 `8`、交付边界 `16`。
+- GitHub：`workbench-check` run `37133397297`、`registry-check` run `37133397266`，required checks 全部 success；PR #30 仍 Draft、OPEN、CLEAN、无 auto-merge。
+- 这些读数证明工程合同和测试敏感性，不证明真实模型回答质量；最终补丁独立复审未授权/未覆盖，真实 Workbench 对照仍为 0 次。
