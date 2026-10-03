@@ -50,6 +50,9 @@ def run_thin_react(
     An existing artifact is refused rather than re-used as another sample.
     Provider retries remain the adapter's policy; physical attempt counts are
     preserved in each model_turn, separately from this loop's turn count.
+    Every request exposes the remaining resources. The last permitted turn,
+    or a turn after tool exhaustion, receives no tool menu and must use the
+    evidence already returned. Neither boundary grants an extra model turn.
     """
     if not question.strip() or not expected_model.strip():
         raise ValueError("question and expected_model are required")
@@ -111,14 +114,39 @@ def run_thin_react(
         return payload
 
     for index in range(max_turns):
-        if clock() >= deadline:
+        remaining_seconds = deadline - clock()
+        if remaining_seconds <= 0:
+            return finish("deadline_exhausted_local")
+        tools_remaining = max_tool_calls - calls
+        last_turn = index == max_turns - 1
+        menu_closed_reason = (
+            "tool_budget_exhausted" if tools_remaining == 0
+            else "last_model_turn" if last_turn else None
+        )
+        request_budget = {
+            "model_turns_remaining": max_turns - index,
+            "tool_calls_remaining": tools_remaining,
+            "wall_seconds_remaining": remaining_seconds,
+            "menu_closed_reason": menu_closed_reason,
+        }
+        budget_message = {
+            "role": "user",
+            "content": "本轮资源（模型轮数包含本轮）："
+            + json.dumps(request_budget, ensure_ascii=False)
+            + ("。本轮只能依据已有证据给出最终答复，明确资料缺口，不再调用工具。"
+               if menu_closed_reason else "。按剩余额度选择工具，也可直接依据证据作答。"),
+        }
+        request_timeout = min(llm_timeout, deadline - clock())
+        if request_timeout <= 0:
             return finish("deadline_exhausted_local")
         try:
-            turn = model.complete(messages=messages, tools=tools,
-                                  timeout=min(llm_timeout, deadline - clock()))
+            turn = model.complete(messages=[*messages, budget_message],
+                                  tools=[] if menu_closed_reason else tools,
+                                  timeout=request_timeout)
         except Exception as exc:  # keep partial identity evidence on adapter failure
             return finish("model_exception:" + type(exc).__name__)
-        payload["events"].append({"kind": "model_turn", "payload": turn.to_dict()})
+        payload["events"].append({"kind": "model_turn", "payload": turn.to_dict(),
+                                  "request_budget": request_budget})
         payload["admission_exit"] = admit()
         if payload["admission_exit"]:
             return finish("model_admission_rejected")
