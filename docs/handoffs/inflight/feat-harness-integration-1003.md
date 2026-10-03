@@ -1,29 +1,27 @@
 ## 这个分支做什么
-从`origin/main@06198093eb7d4cf57ff20e26a2fa7a7df9df8726`集成Harness四片并完成版本锁定的工程验收；不扩剩余P1b。
+继续四片Harness候选，处理独审S1并刷新主线验收；用户要求验收过关后上线，质量门未过不发布。任务FINANCEWORKS-3。
 
 ## 决策与被否方案
-- 以产品代码pin`d09e3b08`归账，文档后续单列；否用`60ff5ba76`改签产品收据，因为它只改handoff。
-- 保留主线来源/绑定预检与拒绝顺序；否全选候选实现，因为会削弱冻结材料合同。
-- canonical因果答案必需、`cause_attribution`启发式提示可选；否恢复第二硬槽或删测试，因为都破坏用户义务边界。
-- adapter合并阶段反馈与交付说明；否在coordinator并集旧裸索引，因为索引可能已不属于当前稿。
-- 临时树逐棵安全收口；否全仓`--apply`，因为ignored users/快照、进程和未合分支不可由脚本替人判断。
+- 接纳/反馈统一经ResearchHarness；否只换开场prompt，因为后续又注回默认规则。
+- loop保留取消/截止/次数/同包工具/持久化；否把副作用搬进领域接口，因为不是S1所需。
+- 新Protocol方法不静默回落默认harness，否则替换失效；不扩finalizer/SDK repair提示重构。
+- 选工程与内容分别验；否把测试绿、12格预验当质量通过。背景/取舍见[本轮快照](../2026-10-04-harness-interpretation-seam.md)。
 
 ## 当前状态
-- 产品pin工程验收完成：Python、前端/E2E、registry、变异审计均有树外收据；真实金融Workbench调用为0。
-- 产品pin之后只改handoff；文档当前HEAD由Git读取，不在本文写自身SHA。PR #30保持Draft；未合入/部署/自动合并。
-- 收尾动态状态以证据根`~/.finance-runtime/reviews/harness-integration-20261003/`的`closeout.json`、`evidence-index.json`及PR实际head为准，避免为抄写CI结果循环提交文档。
-- 五棵detached门禁树已点名移除；前端260个残留文件和3个数据库保全在本地归档，代码archive ref推至Gitea。命名分支`gate-trees/mutation-fix`保留；具体收口见[日期快照](../2026-10-04-harness-integration-closeout.md)。
+- 已并入main@108835e27，merge=28cf79c4；产品pin=25de6994bdb79b57e9cf06fcb81f6f5796c67079，已推GitHub/Gitea并回读。
+- PR #30仍Draft/OPEN，无auto-merge；生产仍ffe1c60d。条件部署授权不等于质量已通过。
+- 本机全量/变异已结束；前端临时树先保全260文件+3DB后移除，四个变异临时树已移除。旧mutation-fix与其它活动树保留。
+- 新证据根`~/.finance-runtime/reviews/harness-release-20261004/`；原封口证据根harness-integration-20261003不改。
+- 当前文档HEAD由Git读取；CI按实际PR head与树外收据核对，不在本文追逐自身SHA。
 
 ## 已验证
-- 产品pin：Python`20558P/76S/2X/0F`、collected`20636`，收据审计exit0；前端209 tests，E2E`52P/2S`；registry五项exit0；变异`9/12/13/14`，历史8、边界16，最终审计exit0。
-- 文档头`5070054a`的workbench run`37142366948`、registry run`37142366939`均success；这是历史SHA证据，不自动覆盖后续提交。
-- 清理收据：`worktree-closeout-20261004-gitea/apply-20261004T011337.json`，apply exit0；Gitea archive ref已验证。
+25de：Python20584P/76S/2X、collected20662、18warnings；完整范围/解释器/依赖/clean审计exit0。前端209、E2E52P/2S、registry五项exit0。变异9/15/13/14，历史8、边界16，audit-final.exit0。273项是补丁迭代，不代全量。
 
 ## 未验证 / 已知边界
-最终生产补丁`46d9875c6`没有独立审查；只读审查覆盖`5266b5f8`，实际模型为`glm-5.2`，费用basis unknown。结构门禁不证明回答质量；未做真实对照、题型/主体/时间窗在线修订、完整HTTP新计划、SDK跨进程恢复。R17/R19/240格封存。
+新版独立Spec/Standards尚未完成，任务板已请求；历史Spec507与Standards60ff不转签。25de GitHub workbench37150212381待终态，registry37150212352已success。真实问答新增调用0、未证明内容提升；SDK跨进程恢复及剩余P1b不在范围。
 
 ## 下一步
-接手先对照closeout、Git当前HEAD与PR实际head/required checks；三者不符则标未收口，不转签旧绿。用户另批后才做补丁独审或最多12格真实Workbench对照；不合main、不部署。
+先读FINANCEWORKS-1/3及评论，查当前Git/PR/CI。等用户批准费用：树外`model-acceptance-approval-draft.md`建议审查+最多12格预验总上限50元，尚未批准；实际通道计价与物理调用/token/时间帽未核实，不调用模型。12格只验链路与答卷，正式质量门另冻方案；R17/R19/240格不动。未过质量与独审不合main、不部署。
 
 ## 踩过的坑
-Python收据必须按revision、解释器、依赖指纹、dirty和完整收集面审计；初次lsof PATH不全时不删。清理时`git status`干净仍不等于可删：ignored数据、launcher、锁、无具名提交都要fail-closed。详见`docs/handoffs/2026-10-03-harness-main-integration.md`及2026-10-04收尾快照。
+旧d09e绿只属旧基线。JSON载荷tuple会变list；参数化SDK测试须独立Episode ID。工具context不是ResearchRunContext。一次watch300秒超时不代表CI失败/成功。清理PATH含/usr/sbin:/sbin，ignored数据先保全；Gitea代码备份不等于数据已上传。
