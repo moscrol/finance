@@ -1,0 +1,29 @@
+# macOS / CPython 3.12 nightly collection and chart runtime.
+# Optional overlay: install with `python -m pip install -r requirements-nightly-macos.lock`.
+# Preserve the test/consumer pins; never copy the unrelated shared environment.
+-r requirements-dev.lock
+-c requirements-dev.lock
+
+# Exact mandatory closure of AkShare 1.18.64 and Matplotlib 3.11.0.
+# Derived from installed package metadata; optional/full/dev extras are excluded.
+akshare==1.18.64
+beautifulsoup4==4.15.0
+contourpy==1.4.0
+curl-cffi==0.16.0
+cycler==0.12.1
+decorator==5.3.1
+et-xmlfile==2.0.0
+fonttools==4.65.0
+html5lib==1.1
+jsonpath==0.82.2
+kiwisolver==1.5.1
+lxml==6.1.1
+matplotlib==3.11.0
+mini-racer==0.14.1
+openpyxl==3.1.5
+pillow==12.3.0
+pyparsing==3.3.2
+soupsieve==2.9.2
+tabulate==0.10.0
+webencodings==0.6.1
+xlrd==2.0.2
