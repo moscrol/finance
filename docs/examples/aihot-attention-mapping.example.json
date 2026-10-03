@@ -1,0 +1,22 @@
+{
+  "sources": {
+    "<exact AIHOT source.name>": {
+      "participant_key": "<reviewed independent publisher group>",
+      "kind": "<reviewed source kind>"
+    }
+  },
+  "entities": {
+    "<local sector alias>": {
+      "id": "<canonical sector id>",
+      "name": "<canonical sector name>"
+    }
+  },
+  "items": {
+    "<exact AIHOT item.id>": {
+      "event_key": "<reviewed event identifier>",
+      "origin_key": "<reviewed original publication identifier>",
+      "entity_keys": ["<local sector alias>"],
+      "removed": false
+    }
+  }
+}

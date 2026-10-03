@@ -61,6 +61,7 @@ import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
 import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
+import { StaleDataBanner } from "./components/StaleDataBanner";
 import { TechBackdrop } from "./components/TechBackdrop";
 import { LimitUpDashboard } from "./components/river/LimitUpDashboard";
 import { RiverWorkbench } from "./components/river/RiverHome";
@@ -1261,6 +1262,13 @@ export default function App() {
               重试
             </button>
           </div>
+        )}
+
+        {["today", "themes", "signals", "validation", "board_calendar", "river", "ladder"].includes(surface.kind) && overview?.market_freshness && (
+          <StaleDataBanner
+            freshness={overview.market_freshness}
+            viewingDate={surface.kind === "river" || surface.kind === "ladder" ? marketFocusDate : null}
+          />
         )}
 
         {(surface.kind === "home" || surface.kind === "ask") && (

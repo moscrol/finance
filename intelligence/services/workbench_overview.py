@@ -4,10 +4,12 @@ import json
 import re
 import statistics
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import duckdb
 
+from market_feature_store import trading_days
 from intelligence.services.market_moneyflow import load_moneyflow_snapshot
 from intelligence.services.forecast_learning import learning_feedback_projection
 from intelligence.services.research_queue import load_research_queue
@@ -31,6 +33,101 @@ _QUEUE_LABELS = {
 _KNOWLEDGE_STAGES = ("暗流", "观察", "萌芽", "第一轮", "催化共振", "一致认同")
 _MARKET_STAGES = ("未确认", "首次响应", "扩散", "主升", "分歧 / 兑现")
 _FORECAST_SAMPLE_GOAL = 25
+_CN_TZ = ZoneInfo("Asia/Shanghai")
+_SESSION_SETTLED = time(15, 30)
+_MAX_LISTED_MISSING = 30
+
+
+def _scheduled_trading_day(day: date) -> bool | None:
+    """Use the shared calendar without its wall-clock or operations overrides."""
+    if day.weekday() >= 5:
+        return False
+    closures = trading_days.closed_dates(day.year)
+    return None if closures is None else day not in closures
+
+
+def market_freshness(
+    as_of: str | None, now: datetime | None = None
+) -> dict[str, object]:
+    """Compare the database's latest market date with the latest settled session.
+
+    Historical UI selection is deliberately not an input. Calendar knowledge is
+    shared with trading_days; unknown years never become a zero-day lag. Naive
+    test clocks are interpreted in Shanghai, independently of the host timezone.
+    The gap lists scheduled dates after the cutoff, not an audit of table rows.
+    """
+    moment = now if now is not None else datetime.now(_CN_TZ)
+    moment = (
+        moment.replace(tzinfo=_CN_TZ)
+        if moment.tzinfo is None
+        else moment.astimezone(_CN_TZ)
+    )
+    candidate = moment.date()
+    if moment.time() < _SESSION_SETTLED:
+        candidate -= timedelta(days=1)
+    expected = None
+    for _ in range(40):
+        trading = _scheduled_trading_day(candidate)
+        if trading is None:
+            break
+        if trading:
+            expected = candidate
+            break
+        candidate -= timedelta(days=1)
+    result: dict[str, object] = {
+        "as_of": as_of,
+        "expected_trade_date": expected.isoformat() if expected else None,
+        "status": "missing" if not as_of else "unknown",
+        "lag_trading_days": None,
+        "missing_trade_dates": [],
+        "calendar_certain": expected is not None,
+        "checked_at": moment.isoformat(timespec="seconds"),
+    }
+    if not as_of:
+        return result
+    try:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", as_of):
+            raise ValueError("market date must be YYYY-MM-DD")
+        cutoff = date.fromisoformat(as_of)
+    except (TypeError, ValueError):
+        result["status"] = "invalid"
+        return result
+    if cutoff > moment.date():
+        result["status"] = "future"
+        return result
+    trading = _scheduled_trading_day(cutoff)
+    if trading is None:
+        result["calendar_certain"] = False
+        return result
+    if not trading:
+        result["status"] = "invalid"
+        return result
+    if expected is None:
+        return result
+    if cutoff > expected:
+        # Today's row can exist before settlement; it is not a future date or
+        # proof that the latest completed session's data has been finalized.
+        result["status"] = "unsettled"
+        return result
+    cursor = cutoff + timedelta(days=1)
+    missing: list[str] = []
+    lag = 0
+    while cursor <= expected:
+        trading = _scheduled_trading_day(cursor)
+        if trading is None:
+            result["calendar_certain"] = False
+            return result
+        if trading:
+            lag += 1
+            if len(missing) < _MAX_LISTED_MISSING:
+                missing.append(cursor.isoformat())
+        cursor += timedelta(days=1)
+    result.update(
+        status="stale" if lag else "current",
+        lag_trading_days=lag,
+        missing_trade_dates=missing,
+    )
+    return result
 
 
 def _date_text(value: object) -> str | None:
@@ -919,6 +1016,7 @@ def build_workbench_overview(
             "logic_effectiveness": agent_payload.get("logic_effectiveness", {}),
             "hypothesis_status": "等待市场数据",
         },
+        "market_freshness": market_freshness(None),
         "data_status": [
             {
                 "key": "database",
@@ -944,6 +1042,10 @@ def build_workbench_overview(
             target_date = _date_text(
                 con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()[0]
             )
+        freshness = market_freshness(target_date)
+        # Preserve a known invalid/unknown cutoff if another overview section
+        # cannot be read, instead of silently hiding its freshness warning.
+        missing_response["market_freshness"] = freshness
         sellside_warnings = []
         if target_date:
             winrate, sellside_flow, sellside_date = _load_sellside(
@@ -1062,6 +1164,7 @@ def build_workbench_overview(
                     "同日可回检" if agent_date == target_date else "等待同日知识事件"
                 ),
             },
+            "market_freshness": freshness,
             "data_status": statuses,
             "agent_artifact": (
                 str((queue_path or agent_path).relative_to(root))

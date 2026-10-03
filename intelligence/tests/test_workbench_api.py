@@ -4048,6 +4048,52 @@ def test_workbench_overview_is_fail_closed_without_market_database(
     assert response.status_code == 200
     assert response.json()["market"]["stage"] == "数据缺失"
     assert response.json()["data_status"][0]["status"] == "missing"
+    assert response.json()["market_freshness"]["status"] == "missing"
+    assert response.json()["market_freshness"]["as_of"] is None
+    assert response.json()["market_freshness"]["lag_trading_days"] is None
+
+
+@pytest.mark.parametrize(
+    ("latest_date", "status", "lag"),
+    [("2026-09-24", "stale", 2), ("2026-09-29", "current", 0)],
+)
+def test_workbench_overview_api_exposes_database_freshness_at_frozen_time(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    latest_date: str,
+    status: str,
+    lag: int,
+) -> None:
+    from datetime import datetime
+    from intelligence.services import workbench_overview
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat("2026-09-29T08:00:00+00:00").astimezone(tz)
+
+    monkeypatch.setattr(workbench_overview, "datetime", FrozenDatetime)
+    database = tmp_path / "repo" / "db" / "market_feature_store.duckdb"
+    _write_overview_market_db(database, trade_date=latest_date)
+    with duckdb.connect(str(database)) as con:
+        con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-23')")
+
+    response = client.get("/api/workbench/overview")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["as_of_date"] == latest_date
+    assert payload["market"]["trade_date"] == latest_date
+    assert payload["market_freshness"] == {
+        "as_of": latest_date,
+        "expected_trade_date": "2026-09-29",
+        "status": status,
+        "lag_trading_days": lag,
+        "missing_trade_dates": ["2026-09-28", "2026-09-29"] if lag else [],
+        "calendar_certain": True,
+        "checked_at": "2026-09-29T16:00:00+08:00",
+    }
 
 
 def test_board_calendar_endpoint_uses_configured_market_database(

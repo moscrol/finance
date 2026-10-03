@@ -2217,6 +2217,44 @@ p {
   display: none;
 }
 
+.stale-data-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 18px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--amber);
+  border-radius: 7px;
+  color: var(--amber);
+  background: var(--amber-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.stale-data-banner > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.stale-data-banner > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.stale-data-banner.uncertain,
+.stale-data-banner.historical {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+@media (max-width: 640px) {
+  .stale-data-banner {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+}
+
 .global-error {
   position: sticky;
   z-index: 15;
