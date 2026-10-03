@@ -906,7 +906,12 @@ class ContinuousTurnAdapter:
                         *(f"claim_index:{index}" for index in semantic.rejected_claim_indexes),
                         *semantic.delivery_repair_notes,
                     ),
-                    review_feedback=semantic_repair_feedback(semantic),
+                    # Stage-anchored review feedback replaces raw claim indexes,
+                    # but independent delivery-check notes are not part of it.
+                    review_feedback=tuple(dict.fromkeys((
+                        *semantic_repair_feedback(semantic),
+                        *semantic.delivery_repair_notes,
+                    ))),
                     # 判官删了哪几句、为什么删：修复轮的作者必须看得到，
                     # 否则只能对着「缺某个输出」重发同一份结构。
                     rejected_claim_notes=_rejected_claim_notes(semantic, context),

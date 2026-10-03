@@ -232,6 +232,58 @@ def test_review_only_repair_is_tool_closed_and_consumes_existing_headroom(case):
     assert not root.grant(admission.grant)  # no duplicate allocation or refund of spent time
 
 
+def test_mixed_review_and_delivery_feedback_reaches_same_session_repair(numeric_delete_mode):
+    from intelligence.services.episode_session import CallbackEpisodeSession
+    from intelligence.tests.test_research_delivery_checks import _financial_evidence
+
+    bad_condition = "若评分低于987654321，则重新评估 E1。"
+    draft = PROSE + "2026中报含金量为1.587元/元。" + bad_condition
+    frame, context, initial = setup(draft=draft)
+    context = replace(context, deadline=ResearchDeadline.from_timeout(0))
+    initial = replace(initial, evidence=(*initial.evidence, *_financial_evidence()))
+    goals, checks = [], []
+
+    class Runtime:
+        def start(self, _frame, *, context, registry):
+            def resume(previous, goal):
+                goals.append(goal)
+                return replace(previous, draft=PROSE, stop_reason="repair_finish", events=(
+                    *previous.events, EpisodeEvent(len(previous.events) + 1, "model_turn", {
+                        "task_frame_hash": frame.task_frame_hash,
+                    }),
+                ))
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id, outcome=initial, resume_callback=resume,
+            )
+
+    class Verifier(SemanticEpisodeVerifier):
+        def verify(self, **kwargs):
+            result = super().verify(**kwargs)
+            checks.append(result)
+            return result
+
+    # No tool budget remains; both independently produced diagnoses must ride
+    # the same existing tool-closed repair, not buy another author turn.
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(), mode="on",
+        context_factory=lambda *_a, **_kw: context, registry_factory=lambda *_a, **_kw: "registry",
+        semantic_verifier=Verifier(judge_fn=lambda _request: {
+            "passed": True, "rejected_sentence_indexes": [], "issues": [],
+        }),
+    ).handle(frame=frame, control=_control(frame))
+    assert checks[0].sentence_verdicts and checks[0].delivery_repair_notes
+    assert len(goals) == 1 and len(checks) == 2
+    goal = goals[0]
+    assert set(checks[0].delivery_repair_notes) <= set(goal.unsupported_claims)
+    anchored = [json.loads(item) for item in goal.unsupported_claims if item.startswith("{")]
+    assert any(item["sentence"] == bad_condition for item in anchored)
+    assert not any(item.startswith("claim_index:") for item in goal.unsupported_claims)
+    assert len(goal.unsupported_claims) == len(set(goal.unsupported_claims))
+    assert goal.remaining_calls == 0 and not goal.reopen_tools
+    assert result.status == "completed" and result.answer == PROSE
+
+
 def test_retired_rejection_event_remains_readable_without_an_active_emitter(tmp_path):
     from intelligence.services.episode_store import JsonlEpisodeStore
 

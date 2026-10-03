@@ -84,6 +84,13 @@
     "targets": ["test_real_episode_receives_stage_anchored_review_in_same_history"]
   },
   {
+    "id": "review_feedback_drops_delivery_notes",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "                    review_feedback=tuple(dict.fromkeys((\n                        *semantic_repair_feedback(semantic),\n                        *semantic.delivery_repair_notes,\n                    ))),",
+    "new": "                    review_feedback=semantic_repair_feedback(semantic),",
+    "targets": ["test_mixed_review_and_delivery_feedback_reaches_same_session_repair"]
+  },
+  {
     "id": "diagnostic_revokes_material_rewrite",
     "path": "intelligence/services/repair_coordinator.py",
     "old": "        and not rejected_claims and not structural.mandatory_missing_capabilities",
