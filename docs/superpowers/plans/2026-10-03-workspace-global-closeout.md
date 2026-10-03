@@ -10,7 +10,7 @@
 
 ---
 
-基线：`c84034070451e1d40f8e45ddd8adc40af87f4f34`。当前生产代码 `45a7dcfc219f70fce58c17a7487d05e6c969f403`；二者只差两份发布文档。上一轮证据位于 `~/.finance-runtime/reviews/workspace-closeout-1003/`，本轮原件与操作收据位于 `~/.finance-runtime/reviews/workspace-global-closeout-1003/`。
+基线：`c84034070451e1d40f8e45ddd8adc40af87f4f34`。开工时生产代码为 `45a7dcfc219f70fce58c17a7487d05e6c969f403`；与基线只差两份发布文档。最终工程发布为 GitHub #28 / `ffe1c60d84da`，动作、验证和未完成边界见 [最终交接](../../handoffs/2026-10-03-workspace-global-closeout.md)。上一轮证据位于 `~/.finance-runtime/reviews/workspace-closeout-1003/`，本轮原件与操作收据位于 `~/.finance-runtime/reviews/workspace-global-closeout-1003/`。
 
 ## Task 1：冻结队列和保留范围
 
@@ -25,9 +25,9 @@ Files: 本计划；仓外 `inventory.json`、`retention.json`、`progress.json`�
 Sources: Gitea PR #956；`docs/verification/2026-09-28-answer-capability-evaluation.md`；`docs/verification/2026-09-29-pi-continuation-review.md`；对应冻结材料和裁决。
 
 - [x] 对照 PR #24 与当前主干完成工程/试验/质量分账及 pi 重叠边界；`quality956/audit.md` 核对 82/82 原件、61/61 内嵌副本，未确认可立即窄修的无人负责产品缺陷。
-- [ ] 对仍可复现且无人负责的问题定位第一次偏差，先使用冻结输入与离线探针；只有离线证据不够才做有界、模型身份可核验的真实对照。
-- [ ] 有可修代码时另列具体文件和验收针，最小修复后走独立 Spec、Standards 和适当测试；不以更长提示或关闭硬约束冒充质量改善。
-- [ ] 原标准不能通过时保留失败/不可追溯裁决及原件，写清已交付与未证明的边界；Gitea 旧 PR 关闭必须带实际接替 PR 或明确废弃理由。
+- [x] 对仍可复现且无人负责的问题定位第一次偏差，先使用冻结输入与离线探针；只有离线证据不够才做有界、模型身份可核验的真实对照。
+- [x] 条件核对完成：未证明无人负责且可立即窄修的产品缺陷；三题新跑和 8 次原始返回重放完成，27 条来源投影一致。输出协议/语义恢复与 pi 活动线重叠，未改产品来制造通过；本项完成的是处置，不是质量修复。
+- [x] 保留原标准未通过及当前三题 unusable / partial / unusable 裁决；2026-10-03 11:42:15 UTC 留 GitHub #24 接替与详细质量评论后关闭 Gitea #956，回读 closed/merged=false。
 
 ## Task 3：工具差值审计遗留 #966
 
@@ -46,16 +46,16 @@ Sources: Gitea PR #991；`docs/workflows/dual-remote-collaboration.md`；`script
 - [x] 75 棵各有一条具名处置；工程落地同时核提交/补丁/源文件身份，旧实验明确保全而不恢复。
 - [x] 对第一批 35 棵和原件释放后的第二批 12 棵生成 fresh dry-run，根代理独立复核。第二批一棵因启动器引用保留，未绕过门禁。
 - [x] 两轮按原收据 apply：35 + 11 = 46 棵完成保全回收，0失败/0临时跳过；`cleanup-round1-candidates/apply-20261003T174832.json`、`cleanup-round2/apply-20261003T175639.json`。此时余 29 棵；不删除分支或恢复引用，不冒用其他聊天的 artifact。
-- [ ] 主检出保留且不丢用户数据；其可识别的在途源码先对账和保全，不把混合树测试当版本验收。旧 refs 和回滚快照不为减少数量而删除。
+- [x] 主检出保留且不丢用户数据；其可识别的在途源码先对账和保全，不把混合树测试当版本验收。旧 refs 和回滚快照不为减少数量而删除。
 
 ## Task 5：发布、备份与最终全量对账
 
 Files: 本计划；`docs/handoffs/inflight/codex-workspace-global-closeout-1003.md`；日期交接快照；必要的最小代码修复。
 
-- [ ] 任何产品代码修复都在独立分支通过本机等价检查与 GitHub 所需检查后合并；按实际合并代码创建新运行快照并验证真实会话。纯记录变更不重复重启服务。
-- [ ] GitHub/Gitea 每张原开放 PR 必须有已合、明确接替、拒绝或仍在实际处理的证据；不静默关单、不改写旧失败。
-- [ ] 重新扫描全部工作树；每棵剩余树有具体保留理由，每项可交付工程有合入与部署身份，真正未完成项单列，不能以“本轮完成”代称全仓完成。
-- [ ] 运行 GitHub→Gitea 备份并核验回读；回写能力/项目索引时保持工程与质量结论独立；最后给出当前数量与完整收据。
+- [x] 任何产品代码修复都在独立分支通过本机等价检查与 GitHub 所需检查后合并；按实际合并代码创建新运行快照并验证真实会话。纯记录变更不重复重启服务。
+- [x] GitHub/Gitea 每张原开放 PR 必须有已合、明确接替、拒绝或仍在实际处理的证据；不静默关单、不改写旧失败。
+- [x] 重新扫描全部工作树；每棵剩余树有具体保留理由，每项可交付工程有合入与部署身份，真正未完成项单列，不能以“本轮完成”代称全仓完成。
+- [x] 运行 GitHub→Gitea 备份并核验回读；回写能力/项目索引时保持工程与质量结论独立；最后给出当前数量与完整收据。
 
 ## Task 6：恢复漏收的看板日期提示
 
@@ -63,10 +63,10 @@ Source: `5944c1d783f1c04185d90f371cdf7de0fc287989`；仓外 `tree-plan/unlanded-
 
 Files: `intelligence/services/workbench_overview.py`；`intelligence/tests/test_market_freshness.py`；相应 overview/API 测试；`intelligence/webapp/src/{types.ts,App.tsx,styles.css,components/StaleDataBanner.tsx,components/StaleDataBanner.test.tsx}`；必要的应用接线测试。
 
-- [ ] 对照原提交，只恢复最近已收盘交易日的日历计算、overview 字段、类型、提示组件和当前页面接线。沿用上海时区与盘后 15:30 阈值，缺日列表最多 30 个，不触发抓取或写库。
-- [ ] 补齐无日期、坏日期、未来日期、未知日历、节假日/盘中/盘后边界，不能误把未知或非法日期说成最新。历史查看日期与数据库最新数据日期分别表达，不能用历史选择制造同步告警。
-- [ ] 使用冻结时刻和临时 DuckDB 验证真实 overview 响应及前端消费；覆盖提示、隐藏、未知状态和窄屏展示。当前路由、检查器默认状态及主题样式不随旧提交倒退。
-- [ ] 独立 Spec、Standards 审核后纳入本轮 GitHub PR 与部署。
+- [x] 对照原提交，只恢复最近已收盘交易日的日历计算、overview 字段、类型、提示组件和当前页面接线。沿用上海时区与盘后 15:30 阈值，缺日列表最多 30 个，不触发抓取或写库。
+- [x] 补齐无日期、坏日期、未来日期、未知日历、节假日/盘中/盘后边界，不能误把未知或非法日期说成最新。历史查看日期与数据库最新数据日期分别表达，不能用历史选择制造同步告警。
+- [x] 使用冻结时刻和临时 DuckDB 验证真实 overview 响应及前端消费；覆盖提示、隐藏、未知状态和窄屏展示。当前路由、检查器默认状态及主题样式不随旧提交倒退。
+- [x] 独立 Spec、Standards 审核后纳入本轮 GitHub PR 与部署。
 
 ## Task 7：收尾 AIHOT 手动导入入口
 
@@ -74,8 +74,8 @@ Source: 主检出 `docs/handoffs/2026-09-29-river-aihot-attention.md` 与冻结�
 
 Files: `scripts/{import_aihot_attention.py,pull_aihot_attention.py}`；`tests/test_{import_aihot_attention,pull_aihot_attention}.py`；`docs/learning/ledger-map.md`；`docs/examples/aihot-attention-mapping.example.json`（已有则核验）；必要的使用文档。共享服务只在真实导入缺陷可复现时最小修改。
 
-- [ ] 恢复离线导出导入和显式实例拉取入口；默认只预览，只有 `--apply` 追加既有私有观察台账，共用原文件锁与版本链。映射必须显式输入，不猜来源独立性/板块归属。
-- [ ] 网络拉取仅访问给定实例；分页、响应大小、条数、时限有界，分页不完整/重复游标/坏契约/冲突重复项整批拒绝，不写部分结果、不继续访问文章原文。HTTP 重定向也不能隐式扩大目标范围。
-- [ ] 离线 CLI 与模拟 HTTP 测试覆盖 dry-run 零写入、`--apply` 临时台账幂等、坏输入零追加、分页完整性及边界。原件错误不通过修改原件遮掩；不运行真实生产导入、不配置新后台采集或定时任务。
-- [ ] 注册唯一台账路径/写入者，提供无密钥且明确占位的映射模板与操作说明；说明上线入口不等于已接入真实 A 股资讯源。
-- [ ] 独立 Spec、Standards 审核后纳入本轮 GitHub PR 与部署。
+- [x] 恢复离线导出导入和显式实例拉取入口；默认只预览，只有 `--apply` 追加既有私有观察台账，共用原文件锁与版本链。映射必须显式输入，不猜来源独立性/板块归属。
+- [x] 网络拉取仅访问给定实例；分页、响应大小、条数、时限有界，分页不完整/重复游标/坏契约/冲突重复项整批拒绝，不写部分结果、不继续访问文章原文。HTTP 重定向也不能隐式扩大目标范围。
+- [x] 离线 CLI 与模拟 HTTP 测试覆盖 dry-run 零写入、`--apply` 临时台账幂等、坏输入零追加、分页完整性及边界。原件错误不通过修改原件遮掩；不运行真实生产导入、不配置新后台采集或定时任务。
+- [x] 注册唯一台账路径/写入者，提供无密钥且明确占位的映射模板与操作说明；说明上线入口不等于已接入真实 A 股资讯源。
+- [x] 独立 Spec、Standards 审核后纳入本轮 GitHub PR 与部署。
