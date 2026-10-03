@@ -17,6 +17,8 @@ GitHub PR32 前端失败与本机稳定探针都在点击后得到 aria-pressed=
 - [x] 在 OriginalWorkbench.test.tsx 写稳定回归：观察首次可见 gridcell 并原生点击，回传选择日期后仍选中5板；再外部换回原日，全部梯队重新选中。旧代码明确失败。
 - [x] LimitUpDashboard.tsx 仅把 focusDate/data/loading 同步 effect 改为 useLayoutEffect；保留 load 的普通 effect。
 - [x] 同一回归转绿，整文件及 lint/typecheck 通过；去掉全部临时 DEBUG 日志。
-- [ ] 独立 Spec/Standards 审查，再将补丁纳入 PR32 的门禁修复提交；候选固定新 SHA 后跑本机完整与前端/E2E/GitHub。FINANCEWORKS-8 内容质量仍独立验收。
+- [x] 独立 Spec/Standards 审查通过（另19项组件验证）；补丁纳入PR32。
+- [x] 前端build生成仓内跟踪的 intelligence/api/static/index.html 与对应哈希JS，提交产物后再次build验证字节稳定，避免仅源码修了而部署仍旧包。
+- [ ] 候选固定新 SHA 后跑本机完整与前端/E2E/GitHub。FINANCEWORKS-8 内容质量仍独立验收。
 
 原日志保留在私有 runtime 的 ladder-repro-56d0131b/。这只是发布阻塞项修复，不证明模型回答更好。
