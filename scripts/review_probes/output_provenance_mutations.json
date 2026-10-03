@@ -1,0 +1,93 @@
+[
+  {
+    "id": "program_optional_promoted",
+    "path": "intelligence/services/episode_factory.py",
+    "old": "required=slot.required, origin=\"research_program\",",
+    "new": "required=True, origin=\"research_program\",",
+    "targets": ["test_program_required_bit_reaches_contract_without_an_advisory_name_list"]
+  },
+  {
+    "id": "frame_source_discarded",
+    "path": "intelligence/services/episode_factory.py",
+    "old": "output_id: frame.output_requirement(output_id) or RequiredOutput(",
+    "new": "output_id: RequiredOutput(",
+    "targets": ["test_explicit_frame_requirement_wins_over_same_named_advisory", "test_real_runtime_entry_preserves_optional_vs_user_obligation"]
+  },
+  {
+    "id": "factory_makes_all_outputs_required",
+    "path": "intelligence/services/episode_factory.py",
+    "old": "required=output_requirements[output_id].required,",
+    "new": "required=True,",
+    "targets": ["test_frame_optional_metadata_survives_contract_and_fulfillment", "test_real_runtime_entry_preserves_optional_vs_user_obligation"]
+  },
+  {
+    "id": "alias_hard_obligation_erased",
+    "path": "intelligence/services/output_requirement.py",
+    "old": "existing, required=existing.required or incoming.required, origin=owner.origin,",
+    "new": "existing, required=incoming.required, origin=owner.origin,",
+    "targets": ["test_alias_merge_cannot_promote_suggestion_or_drop_explicit_requirement"]
+  },
+  {
+    "id": "alias_other_origins_lost",
+    "path": "intelligence/services/output_requirement.py",
+    "old": "merged_origins=origins if len(origins) > 1 else (),",
+    "new": "merged_origins=(),",
+    "targets": ["test_merged_origins_round_trip_and_authorization_detect_source_loss"]
+  },
+  {
+    "id": "unknown_metadata_silently_accepted",
+    "path": "intelligence/services/output_requirement.py",
+    "old": "        if set(value) - set(cls.__dataclass_fields__):",
+    "new": "        if False:",
+    "targets": ["test_bad_frame_metadata_fails_closed"]
+  },
+  {
+    "id": "legacy_snapshot_shape_changed",
+    "path": "intelligence/services/output_requirement.py",
+    "old": "        if self.origin == \"legacy\":",
+    "new": "        if False:",
+    "targets": ["test_legacy_payload_and_authorization_snapshot_stay_exact"]
+  },
+  {
+    "id": "envelope_hint_loses_optional_identity",
+    "path": "intelligence/services/task_frame.py",
+    "old": "RequiredOutput(output_id, \"\", required=False, origin=\"heuristic\")",
+    "new": "RequiredOutput(output_id, \"\", required=True, origin=\"heuristic\")",
+    "targets": ["test_envelope_hints_are_optional_through_real_frame_and_contract"]
+  },
+  {
+    "id": "owner_uses_legacy_defaults",
+    "path": "intelligence/runtime/conversation_orchestrator.py",
+    "old": "    supplied = frame.output_requirement(output_id) if frame is not None else None",
+    "new": "    supplied = None",
+    "targets": ["test_specialized_owner_uses_frame_metadata_not_owner_slot_defaults", "test_alias_merge_cannot_promote_suggestion_or_drop_explicit_requirement"]
+  },
+  {
+    "id": "fulfillment_report_loses_source",
+    "path": "intelligence/services/task_fulfillment.py",
+    "old": "                    \"origin\": item.origin,",
+    "new": "                    \"origin\": \"legacy\",",
+    "targets": ["test_frame_optional_metadata_survives_contract_and_fulfillment", "test_optional_identity_survives_real_verdict_repair_and_failure_projection"]
+  },
+  {
+    "id": "rebase_discards_user_metadata",
+    "path": "intelligence/services/task_frame.py",
+    "old": "        output_requirements=tuple(item for item in frame.output_requirements if item.output_id in merged_outputs),",
+    "new": "        output_requirements=(),",
+    "targets": ["test_rebase_and_factory_preserve_user_obligation_on_type_change"]
+  },
+  {
+    "id": "history_reassembly_discards_user_obligations",
+    "path": "intelligence/services/turn_controller.py",
+    "old": "            *(item.output_id for item in task_frame.output_requirements\n              if item.origin == \"user_request\" or \"user_request\" in item.merged_origins),",
+    "new": "            *(item.output_id for item in task_frame.output_requirements\n              if False),",
+    "targets": ["test_history_reassembly_keeps_user_obligations_and_retires_unselected_hints"]
+  },
+  {
+    "id": "history_reassembly_keeps_orphan_metadata",
+    "path": "intelligence/services/turn_controller.py",
+    "old": "                item for item in task_frame.output_requirements if item.output_id in history_outputs",
+    "new": "                item for item in task_frame.output_requirements",
+    "targets": ["test_history_reassembly_keeps_user_obligations_and_retires_unselected_hints"]
+  }
+]

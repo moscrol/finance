@@ -121,12 +121,14 @@ EXPRESSION_MUTATIONS = {
         "new": "conversation_context=context.conversation_context,\n        history_intent=None,",
         "test": f"{EXPRESSION_TEST}::test_original_four_turn_prompts_use_history_not_forward_contracts",
     },
-    "drop_history_repair_scope": {
+    # The template-to-repair merger was deleted. Challenge the public receipt
+    # boundary instead; locating a retired helper is not a behavioral kill.
+    "drop_history_public_scope": {
         "module": "intelligence.runtime.continuous_turn_adapter",
-        "owner": None, "function": "_with_track_contract_gaps",
-        "old": "    merged = merge_track_missing_outputs(",
-        "new": "    context = replace(context, history_intent=None)\n    merged = merge_track_missing_outputs(",
-        "test": f"{EXPRESSION_TEST}::test_repair_does_not_replace_history_evidence_gaps_with_forward_slots",
+        "owner": None, "function": "_track_public_delivery",
+        "old": "history_intent=context.history_intent,",
+        "new": "history_intent=None,",
+        "test": f"{EXPRESSION_TEST}::test_actual_adapter_receipts_and_repair_keep_history_missing",
     },
     "drop_history_receipt_scope": {
         "module": "intelligence.runtime.continuous_turn_adapter",

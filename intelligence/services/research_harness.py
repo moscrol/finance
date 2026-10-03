@@ -146,11 +146,6 @@ from intelligence.services.repair_coordinator import (
     unreachable_repair_goal,
     warrant_repair,
 )
-from intelligence.services.ranking_contract import (
-    RANKING_CONTRACT_OUTPUT_ID_SET,
-    expression_slot_note as ranking_expression_slot_note,
-)
-from intelligence.services.track_contract import TRACK_CONTRACT_OUTPUT_ID_SET
 from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
@@ -545,6 +540,7 @@ class ResearchHarness(Protocol):
         *,
         rejected_claims: tuple[str, ...],
         semantic_gap_outputs: tuple[str, ...],
+        review_feedback: tuple[str, ...] = (),
     ) -> RepairNeed:
         """主轮终局过完结构 / 语义验证之后：这次失败该修什么、属于哪一类。
 
@@ -736,7 +732,11 @@ class FinanceResearchHarness:
         task_id: str,
     ) -> PlanParseResult:
         result = parse_plan_candidate(content)
-        if result.plan is None or previous_plan is None:
+        if result.plan is None:
+            return result
+        if previous_plan is None:
+            if result.plan.base_revision not in (None, 0):
+                return PlanParseResult(None, "first plan base_revision must be 0")
             return result
         try:
             validate_plan_revision(
@@ -1065,12 +1065,14 @@ class FinanceResearchHarness:
         *,
         rejected_claims: tuple[str, ...],
         semantic_gap_outputs: tuple[str, ...],
+        review_feedback: tuple[str, ...] = (),
     ) -> RepairNeed:
         return classify_repair_need(
             outcome,
             structural,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
+            review_feedback=review_feedback,
         )
 
     def warrant_repair(
@@ -1133,37 +1135,6 @@ class FinanceResearchHarness:
                 "核对原稿 gaps 中影响结论的来源、日期和覆盖限制，在正文用自然语言交代；"
                 "无关或已充分披露的缺口无需重复，不得把私有诊断原样粘贴。"
                 "提交完整 draft 并沿用真实证据绑定；不能核验的部分仍须如实标记未核验。"
-            )
-        # 跟踪题的表达槽以合成 id 混在 missing_answer_elements 里；不说明的话模型会把它们
-        # 当 output 去绑（2026-09-07 两轮 theme_track 修复 2/2 因此被 unknown_output 硬拒）。
-        # 只在真有表达槽时加这一键：其它修复轮的消息逐字节不变。
-        track_slots = tuple(
-            item for item in goal.missing_answer_elements if item in TRACK_CONTRACT_OUTPUT_ID_SET
-        )
-        # 排序题表达槽（10 号单）同一条说明：跟踪-only 时文本逐字节不变。
-        ranking_slots = tuple(
-            item
-            for item in goal.missing_answer_elements
-            if item in RANKING_CONTRACT_OUTPUT_ID_SET
-        )
-        expression_slots = (*track_slots, *ranking_slots)
-        if expression_slots:
-            hints: list[str] = []
-            if track_slots:
-                hints.append(
-                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；"
-                    "track_next_watch → 「下期关注」每项须含指标/事件、时间节点与可证伪触发条件；"
-                    "只用现有证据支持的条件，不编造数字阈值；无法补齐时保留可信正文并明确缺口；"
-                    "track_quad_or_baseline → 四态对照或「无上期基线」声明"
-                )
-            if ranking_slots:
-                hints.append(ranking_expression_slot_note(ranking_slots))
-            payload["expression_elements_note"] = (
-                "以下缺件是正文表达要求，写进 draft 即可，不要作为 bindings 的 output_id："
-                + "、".join(expression_slots)
-                + "（"
-                + "；".join(hints)
-                + "）"
             )
         return json.dumps(payload, ensure_ascii=False)
 

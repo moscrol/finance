@@ -1016,8 +1016,9 @@ def test_deadline_after_successful_finalize_keeps_the_just_written_draft(
     assert "研究截止时间已到" not in " ".join(outcome.gaps)
 
 
+@pytest.mark.parametrize("plan_content", ["", _plan_turn().content])
 def test_deadline_after_tool_turn_does_not_invent_a_draft(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, plan_content: str,
 ) -> None:
     """工具轮 consume 失败仍停机，不得假装已经交卷。
 
@@ -1052,7 +1053,7 @@ def test_deadline_after_tool_turn_does_not_invent_a_draft(
         return _successful_runner(query, tool_context)
 
     outcome = ContinuousAgentEpisode(
-        ScriptedModel([_tool_turn("本轮已发出的补查")])
+        ScriptedModel([replace(_tool_turn("本轮已发出的补查"), content=plan_content)])
     ).run(
         task_frame=frame,
         context=context,
@@ -1061,6 +1062,8 @@ def test_deadline_after_tool_turn_does_not_invent_a_draft(
 
     assert runner_calls["n"] == 1
     assert outcome.evidence
+    assert outcome.plan is None  # Legacy flush dispatches, but does not implicitly accept a PLAN.
+    assert outcome.usage.llm_calls == 1 and outcome.usage.tool_calls == 1
     assert outcome.stop_reason == "deadline_exhausted"
     assert outcome.draft == ""
     finish = next(event for event in outcome.events if event.kind == "finish")
@@ -2361,6 +2364,197 @@ def test_latest_valid_plan_revision_is_retained() -> None:
     assert outcome.plan.open_gaps == ()
     assert outcome.usage.tool_calls == 0
     assert [event.kind for event in outcome.events].count("plan") == 2
+
+
+def test_retracted_plan_is_consumed_and_persisted_without_rewriting_task_or_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    from intelligence.services.episode_store import JsonlEpisodeStore
+    from intelligence.services.research_plan import parse_research_plan
+
+    frame = _frame()
+    base = _context(frame, max_steps=6)
+    root = InMemoryRootBudgetLedger(
+        episode_id=base.contract.task_id, initial_calls=6, hard_calls_cap=6,
+        initial_seconds=30, hard_seconds_cap=30,
+    )
+    context = replace(base, root_budget=root)
+    original = context.contract.to_dict()
+    before = root.to_snapshot()
+    seen_contexts = []
+
+    def runner(query, tool_context):
+        seen_contexts.append(tool_context)
+        return _successful_runner(query, tool_context)
+
+    model = ScriptedModel([
+        _plan_turn(base_revision=0, branch_goals=["自拟附加研究"]),
+        replace(_plan_turn(
+            revision=2, base_revision=1, answer_elements=["只写直接判断"],
+            branch_goals=[], revision_reason="撤回自拟延伸；仍回答原题。",
+        ), tool_calls=(ModelToolCall("c1", "market_data", {"query": "新计划取证"}),)),
+        _finish_turn(),
+    ])
+    store = JsonlEpisodeStore(tmp_path)
+    outcome = ContinuousAgentEpisode(model, store=store).run(
+        task_frame=frame, context=context, registry=_market_registry(runner),
+    )
+    assert outcome.status == "completed"
+    assert outcome.plan is not None and outcome.plan.answer_elements == ("只写直接判断",)
+    assert outcome.plan.branch_goals == ()
+    assert outcome.usage.llm_calls == 3 and outcome.usage.tool_calls == 1
+    assert len(seen_contexts) == 1
+    assert context.contract.to_dict() == original
+    assert context.root_budget is root and context.deadline is base.deadline
+    after = root.to_snapshot()
+    for key in ("allocated_calls", "allocated_seconds", "hard_calls_cap", "hard_seconds_cap", "grants", "promotions"):
+        assert after[key] == before[key]
+    assert after["remaining_calls"] == before["remaining_calls"] - 1
+    assert after["remaining_seconds"] <= before["remaining_seconds"]
+    events, state = JsonlEpisodeStore(tmp_path).load(context.contract.task_id)
+    assert state is not None and state.terminal
+    plans = [event for event in events if event.kind == "plan"]
+    assert len(plans) == 2
+    payload = plans[-1].to_dict()["payload"]
+    assert payload.pop("task_frame_hash") == frame.task_frame_hash
+    assert payload.pop("at")
+    latest = parse_research_plan(json.dumps({"kind": "PLAN", **payload}))
+    assert latest == outcome.plan
+    assert all(event.payload["task_frame_hash"] == frame.task_frame_hash for event in plans)
+    # The subsequent model input contains the accepted replacement, not a new task.
+    assert any("只写直接判断" in str(message.get("content", "")) for message in model.calls[-1]["messages"])
+    assert outcome.bindings[0].output_id == "direct_assessment"
+
+
+def test_plan_retraction_does_not_remove_a_required_answer() -> None:
+    frame = _frame()
+    context = _context(frame, max_steps=5)
+    model = ScriptedModel([
+        replace(_plan_turn(base_revision=0), tool_calls=_tool_turn("已授权取证").tool_calls),
+        _plan_turn(revision=2, base_revision=1, answer_elements=[],
+                   revision_reason="放弃原计划的写法，不是撤销用户要求。"),
+        ModelTurn(json.dumps({
+            "status": "completed", "draft": "延伸分析不能代替用户要求的判断。",
+            "gaps": [], "bindings": [],
+        }), (), "scripted", ""),
+        _finish_turn(status="partial", hashes=(), gap="用户所需判断仍缺证据"),
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=_market_registry(_successful_runner),
+    )
+    assert outcome.plan is not None and outcome.plan.revision == 2
+    assert outcome.status == "partial"
+    assert outcome.usage.invalid_actions == 1
+    rejections = [event for event in outcome.events if event.kind == "invalid_action"]
+    assert "direct_assessment" in rejections[0].payload["reason"]
+    assert outcome.bindings[0].output_id == "direct_assessment"
+    assert outcome.bindings[0].gap
+    assert context.contract.required_outputs[0].required
+
+
+def test_repeated_stale_plan_with_tool_never_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    frame = _frame()
+    calls = []
+    stale = [replace(_plan_turn(revision=2, base_revision=0), tool_calls=(
+        ModelToolCall(f"stale-call-{index}", "market_data", {"query": "不应派发"}),
+    )) for index in (1, 2)]
+    model = ScriptedModel([
+        _plan_turn(base_revision=0), *stale,
+        _finish_turn(status="partial", hashes=(), gap="未取得证据"),
+    ])
+
+    def runner(query, context):
+        calls.append(query)
+        return _successful_runner(query, context)
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=_context(frame, max_steps=6), registry=_market_registry(runner),
+    )
+    assert calls == [] and outcome.usage.tool_calls == 0
+    assert outcome.plan is not None and outcome.plan.revision == 1
+    assert len([event for event in outcome.events if event.kind == "plan"]) == 1
+    errors = [event for event in outcome.events if event.kind == "tool_error"]
+    assert len(errors) == 2
+    assert [event.payload["call_id"] for event in errors] == ["stale-call-1", "stale-call-2"]
+    assert all(event.payload["error"] == "invalid_plan" for event in errors)
+    assert outcome.usage.llm_calls == 4 and outcome.usage.invalid_actions == 2
+    assert model.calls[-1]["tools"] == [], "spent format repair cannot reopen research"
+    assert [e.payload["reason"] for e in outcome.events if e.kind == "finalization"] == ["invalid_plan"]
+    receipts = [message for message in model.calls[-1]["messages"] if message["role"] == "tool"]
+    assert [message["tool_call_id"] for message in receipts] == ["stale-call-1", "stale-call-2"]
+    sources = [event.payload.get("source") for event in outcome.events if event.kind == "model_input"]
+    assert sources.count("steering_invalid_plan") == 1
+
+
+def test_cancelled_revision_cannot_replace_plan_or_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    cancelled = Event()
+
+    class CancellingRevision(ScriptedModel):
+        def complete(self, **kwargs):
+            turn = super().complete(**kwargs)
+            if len(self.calls) == 2:
+                cancelled.set()
+            return turn
+
+    model = CancellingRevision([
+        _plan_turn(base_revision=0),
+        replace(_plan_turn(
+            revision=2, base_revision=1, answer_elements=["Replacement"],
+            revision_reason="Change research approach.",
+        ), tool_calls=(ModelToolCall("cancelled-call", "market_data", {"query": "never"}),)),
+    ])
+
+    def runner(query, context):
+        raise AssertionError("cancelled revision must not dispatch")
+
+    frame = _frame()
+    outcome = ContinuousAgentEpisode(model, is_cancelled=cancelled.is_set).run(
+        task_frame=frame, context=_context(frame), registry=_market_registry(runner),
+    )
+    assert outcome.stop_reason == "cancelled"
+    assert outcome.plan is not None and outcome.plan.revision == 1
+    assert outcome.usage.llm_calls == 2 and outcome.usage.tool_calls == 0
+    assert len([event for event in outcome.events if event.kind == "plan"]) == 1
+
+
+@pytest.mark.parametrize("plan_content", [
+    _plan_turn(base_revision=0).content,
+    _plan_turn(base_revision=4).content,
+    '{"kind":"PLAN"}',
+])
+def test_deadline_flush_does_not_dispatch_unaccepted_plan_tools(monkeypatch, plan_content) -> None:
+    monkeypatch.setattr(agent_episode_module, "_consume_root_seconds", lambda *args: False)
+    frame = _frame()
+    model = ScriptedModel([replace(
+        _tool_turn("never", call_id="unaccepted"), content=plan_content,
+    )])
+
+    def runner(query, context):
+        raise AssertionError("unaccepted PLAN must not dispatch through flush")
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=_context(frame), registry=_market_registry(runner),
+    )
+    assert outcome.stop_reason == "deadline_exhausted"
+    assert outcome.plan is None
+    assert outcome.usage.llm_calls == 1 and outcome.usage.tool_calls == 0
+    assert not any(event.kind == "tool_request" for event in outcome.events)
+    errors = [event for event in outcome.events if event.kind == "tool_error"]
+    assert len(errors) == 1 and errors[0].payload["call_id"] == "unaccepted"
+    assert errors[0].payload["error"] == "invalid_plan"
+
+
+@pytest.mark.parametrize("base_revision", [1, 5])
+def test_first_plan_cannot_claim_an_unseen_base_revision(base_revision: int) -> None:
+    from intelligence.services.research_harness import FinanceResearchHarness
+
+    result = FinanceResearchHarness().interpret_plan(
+        _plan_turn(base_revision=base_revision).content, previous_plan=None, task_id="same-task",
+    )
+    assert result.plan is None and "base_revision" in result.error
 
 
 def test_plan_cannot_authorize_unknown_tool_or_weaken_invalid_action_count() -> None:
@@ -4661,7 +4855,8 @@ def test_deep_plan_without_observable_complexity_keeps_standard_budget() -> None
     assert decision.payload["reason"] == "no_observable_deep_condition"
 
 
-def test_approved_branch_results_return_to_the_same_primary_history() -> None:
+@pytest.mark.parametrize("retract", [False, True])
+def test_approved_branch_results_return_to_the_same_primary_history(retract: bool) -> None:
     frame = _frame()
     base = _context(frame, max_steps=6)
     root_budget = InMemoryRootBudgetLedger(
@@ -4688,8 +4883,11 @@ def test_approved_branch_results_return_to_the_same_primary_history() -> None:
         content_hash="branch-evidence-1",
     )
 
+    branch_dispatches = []
+
     class StubCoordinator:
         def run(self, **kwargs):
+            branch_dispatches.append(kwargs)
             sink = kwargs["evidence_sink_factory"]("branch-1")
             sink.append(branch_evidence)
             return SubResearchResult(
@@ -4721,7 +4919,13 @@ def test_approved_branch_results_return_to_the_same_primary_history() -> None:
                 evidence_needs=["盘面结构"],
                 open_gaps=[],
                 branch_goals=["查找反方驱动"],
+                **({"base_revision": 0} if retract else {}),
             ),
+            *([_plan_turn(
+                revision=2, base_revision=1, branch_goals=[],
+                revision_reason="不再扩查该自拟分支，已取得的证据仍参与结论。",
+                requested_mode="deep",
+            )] if retract else []),
             _finish_turn(hashes=("branch-evidence-1",)),
         ]
     )
@@ -4738,9 +4942,15 @@ def test_approved_branch_results_return_to_the_same_primary_history() -> None:
     )
 
     assert outcome.status == "completed"
-    assert outcome.usage.llm_calls == 4
+    assert outcome.usage.llm_calls == 4 + int(retract)
     assert outcome.usage.tool_calls == 1
+    assert len(branch_dispatches) == 1
+    assert outcome.plan is not None
+    assert outcome.plan.branch_goals == (() if retract else ("查找反方驱动",))
+    assert outcome.bindings[0].evidence_hashes == ("branch-evidence-1",)
     kinds = [event.kind for event in outcome.events]
+    assert kinds.count("mode_decision") == 1
+    assert kinds.count("branch_completed") == 1
     assert kinds.index("plan") < kinds.index("mode_decision")
     assert kinds.index("mode_decision") < kinds.index("branch_started")
     assert kinds.index("branch_started") < kinds.index("branch_completed")

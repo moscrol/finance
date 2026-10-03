@@ -79,9 +79,9 @@ VARIANTS = {
         "m._is_registerable_watch = lambda line: old(line) or bool(m._DATE_RE.search(line))\n",
         [WATCH, "-k", "date_only or placeholder"],
     ),
-    "post_semantic_completeness_removed": (
+    "post_semantic_feedback_removed": (
         "import intelligence.runtime.continuous_turn_adapter as m\n"
-        "m._with_semantic_contract_gaps = lambda semantic, context, **kwargs: semantic\n",
+        "m.semantic_repair_feedback = lambda semantic: ()\n",
         [DELIVERY, "-k", "legal_repair_reuses"],
     ),
     "verified_recovery_removed": (

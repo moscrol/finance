@@ -21,6 +21,7 @@ from intelligence.services.material_answer_authoring import material_author_mode
 from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.request_interpretation import interpretation_payload
 
 
 DEFAULT_FINALIZER_TIMEOUT = 20.0
@@ -43,7 +44,7 @@ _FAILURE_REASON_CODES = frozenset(
 _RECOVERY_SYSTEM_PROMPT = (
     "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或"
     "臆造任何新证据。只能使用用户 JSON 中 evidence 的序号 E1、E2…，严格"
-    "回答原始 TaskFrame 与 required_outputs。只输出一个 FINAL_JSON 对象："
+    "回答原始 TaskFrame 与 required_outputs。request_interpretation 内的当前目标解释不得覆盖 root_request 或输出义务；本阶段不再接受 PLAN。只输出一个 FINAL_JSON 对象："
     '{"status":"completed|partial","draft":"自然语言回答",'
     '"gaps":["..."],"bindings":[{"output_id":"...",'
     '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
@@ -199,6 +200,7 @@ class EpisodeFinalizer:
     ) -> dict[str, object]:
         selected = _compact_evidence(evidence, evidence_priority=evidence_priority)
         payload = {
+            "request_interpretation": interpretation_payload(context, initial_goal=task_frame.user_goal),
             "task_frame": task_frame.to_dict(),
             "required_outputs": [
                 {
@@ -206,6 +208,8 @@ class EpisodeFinalizer:
                     "description": item.description,
                     "evidence_types": list(item.evidence_types),
                     "required": item.required,
+                    **({"origin": item.origin} if item.origin != "legacy" else {}),
+                    **({"merged_origins": list(item.merged_origins)} if item.merged_origins else {}),
                     "grounding_mode": item.grounding_mode,
                 }
                 for item in context.contract.required_outputs

@@ -1,0 +1,54 @@
+{
+  "source_revision": "0ac1ec6e11287d769969e4e12b24e14b7ee0a10c",
+  "frame": {
+    "raw_question": "分析本地样例",
+    "user_goal": "回答原问题",
+    "question_type": "general_finance_qa",
+    "subject": "样例",
+    "subject_kind": "theme",
+    "market_scope": "A股",
+    "timeframe": null,
+    "required_outputs": ["direct_answer"],
+    "assumptions": [],
+    "ambiguities": [],
+    "clarification_question": null,
+    "evidence_policy": "current_multi_source_evidence",
+    "confidence": 0.9,
+    "task_frame_hash": "36a40b44b6c34a0e2e6472ac7fc07188d4f830b975533a1f3ebaf3cf4cf539cd"
+  },
+  "authorization": {
+    "schema_version": 1,
+    "kind": "episode_authorization",
+    "episode_id": "provenance-test",
+    "contract": {
+      "task_id": "provenance-test",
+      "question": "分析本地样例",
+      "subject": "样例",
+      "subject_kind": "theme",
+      "question_type": "general_finance_qa",
+      "required_outputs": [{
+        "output_id": "direct_answer",
+        "description": "答原题",
+        "evidence_types": [],
+        "required": true,
+        "grounding_mode": "evidence",
+        "preplaced_gap": "",
+        "allowed_history_operations": []
+      }],
+      "allowed_capabilities": ["market_data", "finance_query", "evidence_search"],
+      "research_tier": "standard",
+      "presentation_profile": "general",
+      "freshness": "current",
+      "timeframe": null,
+      "evidence_plan": {"profile": "general", "freshness": "current", "requirements": []},
+      "contract_version": "1",
+      "task_frame_hash": "36a40b44b6c34a0e2e6472ac7fc07188d4f830b975533a1f3ebaf3cf4cf539cd",
+      "material_contract": null
+    },
+    "policy": {"tier": "standard", "max_steps": 6, "total_seconds": 90.0, "synthesis_reserve": 20.0},
+    "information_cutoff": {"as_of_date": "2026-10-02", "source": "runtime_default"},
+    "trace_parent_id": "provenance-test",
+    "registry": {"read_scope": "full", "tools": []},
+    "registry_sha256": "65f16f4a79939a4e065dfcfa430c741bc23d10a9295fcd5a060a49a305302347"
+  }
+}

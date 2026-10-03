@@ -360,8 +360,12 @@ def _static_contract_text() -> str:
 # 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
 # 2026-09-28: material-only authors use a compact versioned envelope; runtime
 # restores contract-owned representation fields before unchanged validation.
+# 2026-10-02 P1a: explicitly based PLAN revisions may retract model-owned steps
+# with a reason; task requirements, authorization and resource limits stay fixed.
+# Legacy baseless plans retain additive semantics. This is an intentional change.
+# 2026-10-03 integration: retain both material_claims_v1 and reasoned PLAN revisions.
 _CONTRACT_FINGERPRINT = (
-    "6fb986a32565cf8c5ee8d5ffb0dbc49a79be897bdf0fd3393773a9229c23368d"
+    "abbbbc7cc02d60a7fc2199b0b8686cf56067cebeab2290911c93e2d28b544c1c"
 )
 
 
@@ -520,13 +524,8 @@ def test_episode_runtimes_mark_system_prompt_dynamic_boundary() -> None:
         ), path
 
 
-def test_track_questions_get_episode_track_contract() -> None:
-    """跟踪题的 episode 指令必须带跟踪表达契约（knevo q8 回灌的 episode 版）。
-
-    此前该契约只接在 legacy ask_synthesis 路径——生产主路径（episode）的
-    跟踪题仍被答成一次性全景重跑。episode 版术语必须对齐本路径：基线来源
-    是 memory_lookup / conversation_context，不是 legacy 的 [M]/[V] 检索块。
-    """
+def test_track_questions_get_optional_episode_method() -> None:
+    """方法可见但不新增义务；证据记号对齐 Episode 而非 legacy 检索块。"""
     frame = dataclasses.replace(
         _frame(),
         raw_question="光伏自上次之后有什么新变化",
@@ -536,9 +535,9 @@ def test_track_questions_get_episode_track_contract() -> None:
     rules = payload["question_type_rules"]
     instructions = build_episode_instructions(frame, _context(frame), _registry())
 
-    assert "跟踪表达契约" not in instructions
-    assert "跟踪表达契约" in rules
-    assert "无上期基线，本期建立基线" in rules
+    assert "跟踪方法建议" not in instructions
+    assert "跟踪方法建议（可选）" in rules
+    assert "不能编造旧结论" in rules
     assert "memory_lookup" in rules
     # legacy 检索块记号不得泄漏进 episode 指令——episode 里没有这些块。
     for legacy_marker in ("[M]", "[V]", "[D0]", "[D6]", "[W7]"):
@@ -549,8 +548,8 @@ def test_non_track_questions_keep_instructions_unchanged() -> None:
     frame = _frame()
     instructions = build_episode_instructions(frame, _context(frame), _registry())
     payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
-    assert "跟踪表达契约" not in instructions
-    assert "跟踪表达契约" not in payload["question_type_rules"]
+    assert "跟踪方法建议" not in instructions
+    assert "跟踪方法建议" not in payload["question_type_rules"]
 
 
 def test_forecast_episode_gets_causal_hypothesis_contract() -> None:

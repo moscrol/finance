@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_protocol import EpisodeFinishRejection, validate_episode_finish
+from intelligence.services.task_fulfillment import evaluate_task_fulfillment
 from intelligence.services.query_understanding import (
     is_market_cause_query,
     understand_query,
@@ -23,16 +25,23 @@ def assert_scope(question, expected):
         frame, task_id="scope-" + uuid.uuid4().hex, capabilities=("finance_query", "memory_lookup"),
         today="2026-10-01", latest_data_date="2026-09-30", timeout=30,
     )
-    required = {o.output_id for o in context.contract.required_outputs if o.required}
+    outputs = {o.output_id: o for o in context.contract.required_outputs}
+    required = {output_id for output_id, output in outputs.items() if output.required}
     assert is_market_cause_query(question) is expected
     assert (envelope.question_type == "market_cause") is expected
     assert ("cause_attribution" in envelope.operators) is expected
     if expected:
-        assert (CAUSAL_OUTPUTS | {"counterpoint"}) <= required
+        # The canonical causal answer remains mandatory. The extra operator
+        # hint must not become a second hard obligation solely by its name.
+        assert {"causal_chain", "counterpoint"} <= required
+        hint = outputs["cause_attribution"]
+        assert (hint.required, hint.origin) == (False, "heuristic")
+        assert frame.output_requirement("cause_attribution").required is False
     else:
-        assert not (CAUSAL_OUTPUTS & required)
+        assert not (CAUSAL_OUTPUTS & outputs.keys())
     assert frame.raw_question == question
     assert context.contract.question == question
+    return context
 
 
 @pytest.mark.parametrize("case", json.loads(FIXTURE.read_text())["cases"], ids=lambda c: c["id"])
@@ -96,6 +105,25 @@ def test_scope_and_reported_questions_are_not_new_tasks(question):
 ])
 def test_positive_double_negative_and_mixed_tasks_survive(question):
     assert_scope(question, True)
+
+
+def test_missing_causal_answer_still_fails_after_operator_hint_becomes_optional():
+    context = assert_scope("请解释市场为什么上涨。", True)
+    outputs = {item.output_id: item for item in context.contract.required_outputs}
+    verdict = evaluate_task_fulfillment(
+        question=context.contract.question,
+        required_outputs=(outputs["causal_chain"], outputs["cause_attribution"]),
+        answer_text="尚未形成因果分析。", claims=(), sources=(),
+    )
+    assert tuple(item.output_id for item in verdict.missing_required) == ("causal_chain",)
+    with pytest.raises(EpisodeFinishRejection) as error:
+        validate_episode_finish(
+            {"status": "completed", "draft": "市场表现存在多个可能影响因素。", "gaps": [], "bindings": []},
+            context=context, evidence=(),
+        )
+    assert error.value.code == "missing_evidence"
+    assert "causal_chain" in str(error.value)
+    assert "cause_attribution" not in str(error.value)
 
 
 def test_local_data_constraint_and_comparison_are_not_lost():

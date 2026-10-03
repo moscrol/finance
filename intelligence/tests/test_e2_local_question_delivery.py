@@ -206,16 +206,21 @@ def test_local_answer_cannot_complete_with_only_reasoning_claims():
 
 
 @pytest.mark.parametrize("mutation", ["remove", "optional", "reasoning"])
-def test_restore_cannot_erase_or_weaken_a_local_question(mutation):
+@pytest.mark.parametrize("with_origin", [False, True])
+def test_restore_cannot_erase_or_weaken_a_local_question(mutation, with_origin):
     _, context = setup()
     raw = context.contract.to_dict()
+    if not with_origin:
+        for item in raw["required_outputs"]:
+            item.pop("origin", None)
     if mutation == "remove":
         raw["required_outputs"] = raw["required_outputs"][1:]
     elif mutation == "optional":
         raw["required_outputs"][0]["required"] = False
     else:
         raw["required_outputs"][0]["grounding_mode"] = "model_reasoning"
-    with pytest.raises(ResearchContractError, match="local_only"):
+    expected = "user request cannot be optional" if with_origin and mutation == "optional" else "local_only"
+    with pytest.raises(ResearchContractError, match=expected):
         ResearchTaskContract.from_dict(raw)
 
 

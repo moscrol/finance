@@ -14,7 +14,6 @@ import pytest
 
 from intelligence.runtime.continuous_turn_adapter import (
     ContinuousTurnAdapter,
-    _with_track_contract_gaps,
 )
 from intelligence.runtime.turn_control_core import TurnControlResult
 from intelligence.services import ranking_contract as ranking, track_contract as track
@@ -81,7 +80,7 @@ def test_original_four_turn_prompts_use_history_not_forward_contracts(tmp_path):
         system, user = FinanceResearchHarness().assemble_prompt(
             frame, context, ResearchToolRegistry(())
         )
-        for heading in ("【跟踪表达契约】", "【排序与情景表达契约】", "【情景树表达契约】"):
+        for heading in ("【跟踪方法建议", "【排序方法建议", "【情景树表达契约】"):
             assert heading not in system + user, (n + 1, heading)
         # These are real positive triggers without the authoritative task context.
         if n == 1:
@@ -97,15 +96,13 @@ def test_repair_does_not_replace_history_evidence_gaps_with_forward_slots(tmp_pa
     original = verify_episode_outcome(context.contract, outcome)
     assert original.missing_outputs
     assert not FORWARD_SLOTS.intersection(original.missing_outputs)
-    actual = _with_track_contract_gaps(original, context)
-    assert actual == original
-    assert actual.issues == original.issues  # No relaxation of evidence/finish gates.
-    # Removing historical intent, not merely renaming question_type, restores both.
-    ordinary = replace(context, history_intent=None)
-    with_forward = _with_track_contract_gaps(original, ordinary)
-    assert "track_next_watch" in with_forward.missing_outputs
-    assert "ranking_matrix" in with_forward.missing_outputs
-    assert set(original.missing_outputs) <= set(with_forward.missing_outputs)
+    from intelligence.services.repair_coordinator import classify_repair_need
+
+    need = classify_repair_need(outcome, original, rejected_claims=(), semantic_gap_outputs=())
+    assert need.missing_outputs == original.missing_outputs
+    assert not FORWARD_SLOTS.intersection(need.missing_outputs)
+    # Ordinary forward tasks also have no second, name-based completion gate.
+    assert not need.shape.contract_rewrite
 
 
 @pytest.mark.parametrize("contract", [track, ranking], ids=["track", "ranking"])
@@ -117,12 +114,10 @@ def test_shared_consumers_accept_authoritative_intent_not_answer_wording(tmp_pat
     parser = contract.parse_track_intent if contract is track else contract.parse_ranking_intent
     legacy = contract.track_guidance_for_query if contract is track else contract.ranking_guidance_for_query
     rule = contract.episode_track_rule if contract is track else contract.episode_ranking_rule
-    merger = contract.merge_track_missing_outputs if contract is track else contract.merge_ranking_missing_outputs
     receipt = contract.contract_receipt if contract is track else contract.ranking_receipt
     assert not parser(**kw)
     assert legacy(**kw) == rule(**kw) == ""
     assert contract.contract_missing_outputs("", **kw) == ()
-    assert merger(("direct_assessment",), "", **kw) == ("direct_assessment",)
     saved = receipt(RANKING_ANSWER + _TRACK_ANSWER, **kw)
     assert saved["track_intent" if contract is track else "ranking_intent"] is False
     assert saved["missing_outputs"] == []
@@ -280,7 +275,7 @@ def test_forward_history_analogy_and_explicit_cancellation_keep_forward_template
     frame = understand_query(query).task_frame
     assert frame.history_intent is None
     system, user = FinanceResearchHarness().assemble_prompt(frame, _context(frame), ResearchToolRegistry(()))
-    assert "【排序与情景表达契约】" in system + user
+    assert "【排序方法建议（可选）】" in system + user
     store = ConversationStore("history-cancel", root=tmp_path / "cancel")
     conv = store.create_conversation()
     first = _decide(store, conv, FIRST)
@@ -289,5 +284,5 @@ def test_forward_history_analogy_and_explicit_cancellation_keep_forward_template
     system, user = FinanceResearchHarness().assemble_prompt(
         cancelled.task_frame, _context(cancelled.task_frame), ResearchToolRegistry(())
     )
-    assert "【跟踪表达契约】" in system + user
-    assert "【排序与情景表达契约】" in system + user
+    assert "【跟踪方法建议（可选）】" in system + user
+    assert "【排序方法建议（可选）】" in system + user

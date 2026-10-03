@@ -410,24 +410,41 @@ _COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
+def _initial_output_requirements(frame: TaskFrame) -> dict[str, RequiredOutput]:
     if frame.question_type == PERSONAL_MEMORY_RECALL:
-        return ("prior_recall",)
-    if _has_owned_premise_calculation(frame):
-        return ("direct_answer", "evidence_boundary")
-    outputs = frame.required_outputs
-    if frame.question_type == "comparison_analog":
-        outputs = tuple(dict.fromkeys((*outputs, *_COMPARISON_ANALOG_OUTPUT_IDS)))
-    if frame.question_type == "valuation_estimate":
-        outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
+        ids = ("prior_recall",)
+    elif _has_owned_premise_calculation(frame):
+        ids = ("direct_answer", "evidence_boundary")
+    else:
+        ids = frame.required_outputs
+        if frame.question_type == "comparison_analog":
+            ids = tuple(dict.fromkeys((*ids, *_COMPARISON_ANALOG_OUTPUT_IDS)))
+        if frame.question_type == "valuation_estimate":
+            ids = tuple(dict.fromkeys((*ids, *_VALUATION_REQUIRED_OUTPUTS)))
+    ids = tuple(dict.fromkeys((*ids, *(
+        item.output_id for item in frame.output_requirements
+        if item.origin == "user_request" or "user_request" in item.merged_origins
+    ))))
+    outputs = {
+        output_id: frame.output_requirement(output_id) or RequiredOutput(
+            output_id, _require_output_description(output_id),
+        )
+        for output_id in ids
+    }
+    if frame.question_type == PERSONAL_MEMORY_RECALL or _has_owned_premise_calculation(frame):
+        return outputs
     from intelligence.services.research_contract import compile_research_program
 
-    program = compile_research_program(
-        frame.raw_question,
-        question_class=frame.question_type,
-    )
-    extras = tuple(slot.slot_id for slot in program.required_fact_slots)
-    return tuple(dict.fromkeys((*outputs, *extras)))
+    program = compile_research_program(frame.raw_question, question_class=frame.question_type)
+    for slot in program.required_fact_slots:
+        # Presence in the frame is an existing obligation, not evidence that the
+        # compiler owns it. Never demote by matching a global advisory ID list.
+        if slot.slot_id not in outputs:
+            outputs[slot.slot_id] = RequiredOutput(
+                slot.slot_id, _require_output_description(slot.slot_id),
+                required=slot.required, origin="research_program",
+            )
+    return outputs
 
 
 def _with_prior_recall(
@@ -463,28 +480,6 @@ _RESIDUAL_PRIME_SLOTS: tuple[tuple[str, str], ...] = (
     ("news_search", "prime_news"),
     ("memory_lookup", "prime_memory"),
 )
-
-# 契约里存在但缺了不判失败的槽位：装配层加的检索引导（prime_*）与用户先验
-# 召回（prior_recall）。它们的作用是让「调对应工具」对完成契约有贡献，
-# 不是用户点名要的产出，所以缺口降级为 gap 行，不进 missing_outputs。
-_ADVISORY_OUTPUT_IDS = frozenset(
-    {
-        "prior_recall",
-        "prime_memory",
-        "prime_quote",
-        "prime_news",
-        "dual_red_snapshot",
-        "aggregate_count",
-        "detail_rows",
-        "cross_table_intersection",
-        "catalog_preflight",
-        "contradiction_audit",
-        "substitute_observation",
-        "volume_qualification",
-        "volume_step_trajectory",
-    }
-)
-
 
 def _with_residual_prime(
     output_ids: tuple[str, ...],
@@ -682,13 +677,13 @@ def _with_forward_hypothesis_slots(
        「这题是不是问前瞻」没有因果关系，用它当门是借来的判据。若 live 显示误触
        发噪声集中在无判断槽的题上，收窄时第一个该加的就是这个门。
     2. 契约里还没有任何前瞻槽（交集为空）。必须对**定稿后**的 output_ids 判断，
-       否则看不见 valuation_estimate 在 `_required_output_ids` 里追加的
+       否则看不见 valuation_estimate 在 `_initial_output_requirements` 里追加的
        invalidation_conditions，会对估值题重复挂槽。
     3. 不是 evidence-free 题。方法论 / 反事实题全契约非 evidence，数值门的整体
        豁免已经覆盖，挂槽纯属污染契约。
 
     挂上的槽是 `required=False`：**不写情景分析不算失败**，写了阈值有合法身份。
-    可选性由返回的集合携带，不进 `_ADVISORY_OUTPUT_IDS`——那是全局降级，会把
+    可选性由本次挂载身份携带，不靠全局 ID 名单降级——那会把
     market_forecast 的**必选**前瞻槽也一起降掉。
     """
 
@@ -729,7 +724,8 @@ def build_episode_context(
 
     material = frame.material_contract
     material_only = _material_restricted(material)
-    output_ids = _required_output_ids(frame)
+    output_requirements = _initial_output_requirements(frame)
+    output_ids = tuple(output_requirements)
     grounding_modes = tuple(
         _grounding_mode(frame, output_id) for output_id in output_ids
     )
@@ -772,8 +768,14 @@ def build_episode_context(
     output_ids = _with_prior_recall(output_ids, frame, capability_tuple)
     output_ids = _with_residual_prime(output_ids, frame, capability_tuple)
     # 挂在最后：交集判据要看**定稿后**的 output_ids（含 valuation_estimate 在
-    # `_required_output_ids` 里追加的 invalidation_conditions），否则会重复挂槽。
+    # `_initial_output_requirements` 里追加的 invalidation_conditions），否则会重复挂槽。
     output_ids, forward_slots = _with_forward_hypothesis_slots(output_ids, frame)
+    for output_id in output_ids:
+        if output_id not in output_requirements:
+            output_requirements[output_id] = RequiredOutput(
+                output_id, _require_output_description(output_id),
+                required=False, origin="heuristic",
+            )
     material_descriptions: dict[str, str] = {}
     if material_only:
         assert material is not None
@@ -795,6 +797,21 @@ def build_episode_context(
         material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
         output_ids = (*material_descriptions, "evidence_boundary")
         forward_slots = frozenset()
+
+    if material_descriptions:
+        # Numbered questions replace legacy type defaults, not independently
+        # recorded user obligations. Read/grounding restrictions still apply.
+        output_ids = tuple(dict.fromkeys((*output_ids, *(
+            item.output_id for item in frame.output_requirements
+            if item.origin == "user_request" or "user_request" in item.merged_origins
+        ))))
+        for output_id, description in material_descriptions.items():
+            output_requirements[output_id] = RequiredOutput(
+                output_id, description, origin="user_request",
+            )
+        output_requirements["evidence_boundary"] = RequiredOutput(
+            "evidence_boundary", _require_output_description("evidence_boundary"), origin="runtime",
+        )
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds
@@ -830,9 +847,9 @@ def build_episode_context(
                 output_id=output_id,
                 description=(
                     "仅回顾本次召回的用户历史记录；没有可用记录则明确披露召回状态，不形成市场判断"
-                    if frame.question_type == PERSONAL_MEMORY_RECALL
+                    if frame.question_type == PERSONAL_MEMORY_RECALL and output_id == "prior_recall"
                     else material_descriptions[output_id] if output_id in material_descriptions
-                    else _require_output_description(output_id)
+                    else output_requirements[output_id].description or _require_output_description(output_id)
                 ),
                 # 前瞻信号挂上的槽 evidence_types 必须是**空**：这几格由推理
                 # 填、没有任何工具能填。`_required_output_evidence_types` 对不
@@ -852,32 +869,11 @@ def build_episode_context(
                         ),
                     )
                 ),
-                # 金融研究中的 prior_recall 是**可选**槽位；纯个人回顾合同以它为唯一必需项。
-                # 生产 users 根下 24 个用户的 judgments/corrections 全为空，
-                # 台账为空时 memory_lookup 正确地返回零命中，这一格绑不上。
-                # 若设 required=True，`completed` 检查（episode_protocol:318）
-                # 会因为它缺 binding 而把每一道题材问答都压成 partial——
-                # 那是给所有老用户引入回归，只为了接一个新工具。
-                #
-                # required=False 下它仍然完整存在于契约与提示词里，模型看得见、
-                # 可以绑、绑了会被校验（basis 必须是 user_premise）；只是没有
-                # 先验可取时不判失败。
-                #
-                # prime_quote / prime_news 同理改为可选（2026-08-19）：这两格
-                # 是装配层替 controller 加的检索引导，不是用户点名的产出。
-                # 描述文本本来就写着「取不到则写明缺口」——设计意图是 caveat
-                # 而非硬门。required=True 的实际后果是 run_20260819_130854：
-                # 混绑一条 finance_query 就整篇换成「现有证据不足」。可选后
-                # 槽位仍在契约里引导模型调 market_data / news_search，缺了
-                # 只降为 gap，不再单独打死整篇。
-                #
-                # 前瞻信号挂上的三槽（`forward_slots`）同样可选，但走的是**本次
-                # 挂槽**这个事实，不是 `_ADVISORY_OUTPUT_IDS`：那个集合是全局的，
-                # 把三个 id 加进去会连 market_forecast 的必选前瞻槽一起降级。
-                required=(
-                    (frame.question_type == PERSONAL_MEMORY_RECALL or output_id not in _ADVISORY_OUTPUT_IDS)
-                    and output_id not in forward_slots
-                ),
+                # Obligation comes from this producer, never from the slot name.
+                required=output_requirements[output_id].required,
+                origin=output_requirements[output_id].origin,
+                merged_origins=output_requirements[output_id].merged_origins,
+                preplaced_gap=output_requirements[output_id].preplaced_gap,
                 # 同理直接给 model_reasoning，不进 `_grounding_mode`——那个函数
                 # 按题型/问句判签法，让它再去感知「这个槽是不是本次挂上来的」
                 # 会把两件事揉进一个判据。

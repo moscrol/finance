@@ -163,6 +163,41 @@ def test_real_loop_updates_perspectives_in_the_same_tool_round(monkeypatch):
     assert "perspectives" in [event.payload for event in outcome.events if event.kind == "plan"][-1]
 
 
+def test_based_revision_feedback_allows_retraction_and_real_loop_consumes_it(monkeypatch):
+    monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
+    monkeypatch.setenv("WORKBENCH_RESEARCH_PROGRESS", "on")
+    monkeypatch.setenv("FORESIGHT_STRICT_DERIVATION", "1")
+    first = parse_research_plan(_plan_json(
+        base_revision=0, perspectives=[_perspective()], branch_goals=["Self-proposed extension"],
+    ))
+    second = replace(
+        first, revision=2, base_revision=1, revision_reason="This self-proposed angle is irrelevant.",
+        answer_elements=("Direct answer",), branch_goals=(), perspectives=(),
+    )
+    model = ScriptedModel([
+        replace(_tool_turn("first", "c1"), content=json.dumps({"kind": "PLAN", **plan_to_public_dict(first)})),
+        replace(_tool_turn("alternative", "c2"), content=json.dumps({"kind": "PLAN", **plan_to_public_dict(second)})),
+        _finish_turn(("hash-first", "hash-alternative")),
+    ])
+    outcome = _run(model)
+    assert outcome.status == "completed" and outcome.plan == second
+    assert outcome.usage.llm_calls == 3 and outcome.usage.tool_calls == 2
+    assert outcome.usage.invalid_actions == 0
+    blocks = _budget_blocks(model)
+    for index, plan in enumerate((first, second)):
+        view = blocks[index]["research_progress"]["adaptive_research"]
+        constraint = json.loads(perspective_checkpoint_message(plan))["plan_revision_constraints"]
+        assert view["plan_revision_constraints"] == constraint == {
+            "minimum_revision": plan.revision + 1,
+            "base_revision": plan.revision,
+            "retraction_requires_revision_reason": True,
+        }
+    assert blocks[0]["research_progress"]["adaptive_research"]["unresolved_perspective_ids"] == ["sustainability"]
+    assert blocks[1]["research_progress"]["adaptive_research"]["model_reported_perspectives"] == []
+    assert blocks[1]["research_progress"]["adaptive_research"]["unresolved_perspective_ids"] == []
+    assert len(outcome.evidence) == 2  # Retraction does not erase the previous observation.
+
+
 def test_plan_only_submission_uses_the_same_progress_channel(monkeypatch):
     monkeypatch.setenv("WORKBENCH_ADAPTIVE_RESEARCH", "on")
     model = ScriptedModel([
