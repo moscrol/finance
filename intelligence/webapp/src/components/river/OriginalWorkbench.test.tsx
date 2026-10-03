@@ -73,6 +73,29 @@ describe("original ladder reading flow", () => {
     rerender(<LimitUpDashboard focusDate="2026-09-23" onFocusDate={onFocusDate}/>);
     await waitFor(() => expect(screen.getByRole("button", { name: "5板 · 1家" })).toHaveAttribute("aria-pressed", "true"));
   });
+  it("an immediate click on the first visible calendar preserves the rung", async () => {
+    const onFocusDate = vi.fn();
+    let clicked = false;
+    const observer = new MutationObserver(() => {
+      const cell = screen.queryByRole("gridcell", { name: "2026-09-23 5板 1家" });
+      if (cell && !clicked) {
+        clicked = true;
+        cell.click();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    try {
+      const { rerender } = render(<LimitUpDashboard focusDate="2026-09-24" onFocusDate={onFocusDate}/>);
+      await waitFor(() => expect(onFocusDate).toHaveBeenCalledWith("2026-09-23"));
+      rerender(<LimitUpDashboard focusDate="2026-09-23" onFocusDate={onFocusDate}/>);
+      await waitFor(() => expect(screen.getByRole("button", { name: "5板 · 1家" })).toHaveAttribute("aria-pressed", "true"));
+      rerender(<LimitUpDashboard focusDate="2026-09-24" onFocusDate={onFocusDate}/>);
+      expect(screen.getByRole("combobox", { name: "连板当前交易日" })).toHaveValue("2026-09-24");
+      expect(screen.getByRole("button", { name: "全部梯队 · 2" })).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      observer.disconnect();
+    }
+  });
   it("latest window escapes a historical anchor and explicitly propagates its actual date", async () => {
     const notify = vi.fn();
     render(<LimitUpDashboard focusDate="2026-01-06" onFocusDate={notify}/>);

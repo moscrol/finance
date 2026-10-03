@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Flame, RefreshCw, Trophy } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getKline, getLimitUpCalendar } from "../../river/api";
 import { ShKline } from "./ShKline";
 import { TimelineViewport } from "./TimelineViewport";
@@ -115,7 +115,8 @@ export function LimitUpDashboard({ focusDate = null, onFocusDate, onOpenRiver }:
     return () => { requestId.current += 1; };
   }, [load]);
 
-  useEffect(() => {
+  // Apply external focus before a newly visible calendar can receive a click.
+  useLayoutEffect(() => {
     if (!focusDate || !data || loading || handledFocus.current === focusDate) return;
     handledFocus.current = focusDate;
     selectedRef.current = focusDate;
