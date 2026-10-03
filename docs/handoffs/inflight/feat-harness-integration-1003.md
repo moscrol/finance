@@ -1,27 +1,26 @@
 ## 这个分支做什么
-继续四片Harness候选，处理独审S1并刷新主线验收；用户要求验收过关后上线，质量门未过不发布。任务FINANCEWORKS-3。
+四片Harness候选及S1接缝修复；工程、独审、真实质量均过才上线。任务FINANCEWORKS-3。
 
 ## 决策与被否方案
-- 接纳/反馈统一经ResearchHarness；否只换开场prompt，因为后续又注回默认规则。
-- loop保留取消/截止/次数/同包工具/持久化；否把副作用搬进领域接口，因为不是S1所需。
-- 新Protocol方法不静默回落默认harness，否则替换失效；不扩finalizer/SDK repair提示重构。
-- 选工程与内容分别验；否把测试绿、12格预验当质量通过。背景/取舍见[本轮快照](../2026-10-04-harness-interpretation-seam.md)。
+- 接纳/反馈统一经ResearchHarness；loop保留取消/截止/预算/持久化，否默认harness回落。
+- 用户已批复审+最多12格预验共用50元；否把授权、测试绿或预验当正式质量通过。
+- 标准API适用于自建Workbench；否把Coding套餐当免费额度。先核账户、再设共享费用硬帽；否事后超支再停。
+- 细节见[本轮预算预检](../2026-10-04-harness-budgeted-preflight.md)及[产品修复](../2026-10-04-harness-interpretation-seam.md)。
 
 ## 当前状态
-- 已并入main@108835e27，merge=28cf79c4；产品pin=25de6994bdb79b57e9cf06fcb81f6f5796c67079，已推GitHub/Gitea并回读。
-- PR #30仍Draft/OPEN，无auto-merge；生产仍ffe1c60d。条件部署授权不等于质量已通过。
-- 本机全量/变异已结束；前端临时树先保全260文件+3DB后移除，四个变异临时树已移除。旧mutation-fix与其它活动树保留。
-- 新证据根`~/.finance-runtime/reviews/harness-release-20261004/`；原封口证据根harness-integration-20261003不改。
-- 当前文档HEAD由Git读取；CI按实际PR head与树外收据核对，不在本文追逐自身SHA。
+- 产品pin=25de6994bdb79b57e9cf06fcb81f6f5796c67079，含main@108835e27；本轮重新fetch未变。文档HEAD由Git读取。
+- PR30仍Draft/OPEN，无auto-merge；生产仍ffe1c60d，未合入/部署。无模型实验运行中。
+- 预算已批；账户页需用户Chrome登录。已请登录智谱finance/overview后回复“已登录”，不用发密钥/验证码或充值。
+- 新证据根`~/.finance-runtime/reviews/harness-budgeted-preflight-20261004/`，先读approval.md、preflight-findings.md与status/。旧harness-release-20261004及harness-integration-20261003均封存不可覆盖。
 
 ## 已验证
-25de：Python20584P/76S/2X、collected20662、18warnings；完整范围/解释器/依赖/clean审计exit0。前端209、E2E52P/2S、registry五项exit0。变异9/15/13/14，历史8、边界16，audit-final.exit0。273项是补丁迭代，不代全量。
+25de完整本机与CI已过；dfe文档头CI亦全成功。本轮33项离线预算/运输测试、16项payload断言及Ruff通过，非全量或独审。官方标准价：flash输入/输出0.8/2.8、glm5.3为8/28元每百万token；不等于账户实付已核。
 
 ## 未验证 / 已知边界
-新版独立Spec/Standards尚未完成，任务板已请求；历史Spec507与Standards60ff不转签。25de GitHub workbench37150212381待终态，registry37150212352已success。真实问答新增调用0、未证明内容提升；SDK跨进程恢复及剩余P1b不在范围。
+新版独立Spec/Standards仍缺。真实答题/新独审请求0，质量未知。现有调用帽是每turn，root帽是工具/时间；未建立本批共享CNY/token准入。agent两入口及通用chat默认无max_tokens，合成帽不传播；low effort可启用5.3必需思考。不能据超时断言上游停止收费。
 
 ## 下一步
-先读FINANCEWORKS-1/3及评论，查当前Git/PR/CI。等用户批准费用：树外`model-acceptance-approval-draft.md`建议审查+最多12格预验总上限50元，尚未批准；实际通道计价与物理调用/token/时间帽未核实，不调用模型。12格只验链路与答卷，正式质量门另冻方案；R17/R19/240格不动。未过质量与独审不合main、不部署。
+读最新任务version/评论与Git/PR。登录后核账户，补并离线验证全运输尝试发前持久预占，含子调用/重试/独审/判卷；不能保证50元则继续停。再冻3题完整多轮、数据、6对AB/BA顺序、匿名评分和停止规则，经claim_ledger_id预注册。12格不代正式效果；R17/R19/240不动。当前不改生产通道、不碰其它活动树。
 
 ## 踩过的坑
-旧d09e绿只属旧基线。JSON载荷tuple会变list；参数化SDK测试须独立Episode ID。工具context不是ResearchRunContext。一次watch300秒超时不代表CI失败/成功。清理PATH含/usr/sbin:/sbin，ignored数据先保全；Gitea代码备份不等于数据已上传。
+目录有依赖先串行建，勿并行重定向竞态。旧glm-5.3*通配价误套flash；CLI模型名/估价不是账单。无usage记未知。封口哈希只证完整性。清理先查ignored数据；Gitea代码ref不等于数据备份。
