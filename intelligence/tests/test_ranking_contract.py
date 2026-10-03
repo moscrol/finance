@@ -21,7 +21,6 @@ from intelligence.services.episode_protocol import (
 )
 from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.repair_coordinator import CoverageDelta, RepairGoal
-from intelligence.services.track_contract import is_contract_rewrite_only
 from intelligence.tests.test_episode_protocol import _context, _frame, _registry
 from intelligence.tests.test_track_slot_repair_binding import (
     _binding,
@@ -132,7 +131,7 @@ def test_latest_prior_artifact_picks_the_most_recent_complete_matrix() -> None:
 def test_episode_rule_embeds_mechanical_rerank_baseline_for_followups() -> None:
     followup = "如果铜价回落20%，英维克、申菱环境、高澜股份的排序会怎么变？观察点怎么改"
     rule = rc.episode_ranking_rule(followup, "theme_analysis", conversation_context=PRIOR_CONTEXT)
-    assert "【再排序基线】" in rule
+    assert "【再排序参考】" in rule
     assert "上一轮排序：英维克 > 申菱环境 > 高澜股份" in rule
     assert "机械再排序结果：申菱环境 > 英维克 > 高澜股份" in rule
     assert "观察点更新：铜价周度均价，30 天内" in rule
@@ -140,9 +139,9 @@ def test_episode_rule_embeds_mechanical_rerank_baseline_for_followups() -> None:
         "如果树脂价格暴涨，排序会怎么变", "theme_analysis", conversation_context=PRIOR_CONTEXT
     )
     assert "没有覆盖该变量" in uncovered and "机械再排序结果" not in uncovered
-    # 没有上一轮矩阵：只有契约，没有基线段；首问也没有基线段
-    assert "【再排序基线】" not in rc.episode_ranking_rule(followup, "theme_analysis")
-    assert "【再排序基线】" not in rc.episode_ranking_rule(FROZEN[0], "theme_analysis", conversation_context=PRIOR_CONTEXT)
+    # 无上一轮矩阵或首次询问：不编造参考推演。
+    assert "【再排序参考】" not in rc.episode_ranking_rule(followup, "theme_analysis")
+    assert "【再排序参考】" not in rc.episode_ranking_rule(FROZEN[0], "theme_analysis", conversation_context=PRIOR_CONTEXT)
 
 
 def test_receipt_checks_model_rerank_table_against_mechanical_result() -> None:
@@ -155,13 +154,14 @@ def test_receipt_checks_model_rerank_table_against_mechanical_result() -> None:
     assert receipt["scenario_update_intent"] is True
     assert receipt["prior_rerank"]["after"] == ["申菱环境", "英维克", "高澜股份"]
     assert receipt["rerank_consistent"] is True
-    assert "ranking_rerank_table" not in receipt["missing_outputs"]
+    assert "ranking_rerank_table" not in receipt["missing_template_elements"]
     inconsistent = consistent.replace("| 申菱环境 | 2 | 1 |", "| 申菱环境 | 2 | 3 |").replace(
         "| 高澜股份 | 3 | 3 |", "| 高澜股份 | 3 | 1 |"
     )
     assert rc.ranking_receipt(inconsistent, query=followup, conversation_context=PRIOR_CONTEXT)["rerank_consistent"] is False
     no_table = rc.ranking_receipt(ANSWER, query=followup, conversation_context=PRIOR_CONTEXT)
-    assert no_table["rerank_consistent"] is None and "ranking_rerank_table" in no_table["missing_outputs"]
+    assert no_table["rerank_consistent"] is None and "ranking_rerank_table" in no_table["missing_template_elements"]
+    assert no_table["missing_outputs"] == [] and no_table["authority"] == "advisory"
     first_ask = rc.ranking_receipt(ANSWER, query=FROZEN[0], conversation_context=PRIOR_CONTEXT)
     assert first_ask["prior_rerank"] is None and first_ask["rerank_consistent"] is None
 
@@ -170,7 +170,8 @@ def test_receipt_checks_model_rerank_table_against_mechanical_result() -> None:
 def test_guidance_carries_fixed_headers_and_discipline() -> None:
     legacy = rc.build_ranking_guidance()
     episode = rc.build_ranking_guidance_for_episode()
-    for text in (legacy, episode):
+    # Legacy ask retains its fixed template; Episode only offers methods.
+    for text in (legacy,):
         assert "| " + " | ".join(rc.MATRIX_HEADERS) + " |" in text
         assert "| " + " | ".join(rc.FLIP_HEADERS) + " |" in text
         assert "| " + " | ".join(rc.RERANK_HEADERS) + " |" in text
@@ -189,7 +190,7 @@ def test_for_query_returns_empty_when_not_routed() -> None:
     assert rc.ranking_guidance_for_query("深信服毛利率多少", "valuation") == ""
     assert rc.episode_ranking_rule("今天液冷板块怎么样", "theme_analysis") == ""
     assert "排序与情景表达契约" in rc.ranking_guidance_for_query(FROZEN[0], "theme_analysis")
-    assert "排序与情景表达契约" in rc.episode_ranking_rule(FROZEN[0], "theme_analysis")
+    assert "排序方法建议（可选）" in rc.episode_ranking_rule(FROZEN[0], "theme_analysis")
 
 
 # —— 解析 ——
@@ -246,20 +247,10 @@ def test_contract_missing_outputs_only_for_ranking_questions() -> None:
         "ranking_next_actions",
     )
     assert "ranking_rerank_table" in rc.contract_missing_outputs(prose, query=FROZEN[5])
-    merged = rc.merge_ranking_missing_outputs(
-        ("direct_assessment", "ranking_matrix"), prose, query=FROZEN[0]
-    )
-    assert merged == ("direct_assessment", *ids)
-    assert rc.merge_ranking_missing_outputs(("direct_assessment",), prose, query="今天液冷板块怎么样") == (
-        "direct_assessment",
-    )
-
-
-def test_expression_slots_count_as_contract_rewrite_only() -> None:
-    assert is_contract_rewrite_only(("ranking_matrix", "ranking_flip_conditions"))
-    assert is_contract_rewrite_only(("track_ttl", "ranking_next_actions"))
-    assert not is_contract_rewrite_only(("ranking_matrix", "direct_assessment"))
-    assert not is_contract_rewrite_only(("ranking_matrix",), rejected_claims=("c1",))
+    receipt = rc.ranking_receipt(prose, query=FROZEN[0])
+    assert receipt["missing_template_elements"] == list(ids)
+    assert receipt["missing_outputs"] == []
+    assert receipt["authority"] == "advisory"
 
 
 # —— 机械再排序（反向验证） ——
@@ -357,9 +348,9 @@ def test_ranking_questions_get_episode_ranking_contract_in_rules_only() -> None:
     payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
     rules = payload["question_type_rules"]
     instructions = build_episode_instructions(frame, _context(frame), _registry())
-    assert "排序与情景表达契约" in rules
-    assert "| " + " | ".join(rc.MATRIX_HEADERS) + " |" in rules
-    assert "排序与情景表达契约" not in instructions
+    assert "排序方法建议（可选）" in rules
+    assert "| " + " | ".join(rc.MATRIX_HEADERS) + " |" not in rules
+    assert "排序方法建议" not in instructions
     for legacy_marker in ("[M]", "[V]", "[D6]", "[W7]"):
         assert legacy_marker not in rules
 
@@ -367,24 +358,23 @@ def test_ranking_questions_get_episode_ranking_contract_in_rules_only() -> None:
 def test_non_ranking_questions_keep_rules_unchanged() -> None:
     frame = _frame()
     payload = json.loads(build_episode_input(frame, _context(frame), _registry()))
-    assert "排序与情景表达契约" not in payload["question_type_rules"]
+    assert "排序方法建议" not in payload["question_type_rules"]
 
 
 @pytest.mark.parametrize("slot", sorted(rc.RANKING_CONTRACT_OUTPUT_ID_SET))
-def test_binding_a_ranking_slot_is_a_recoverable_format_rejection(slot: str) -> None:
+def test_binding_a_retired_ranking_id_is_an_unknown_output(slot: str) -> None:
     with pytest.raises(EpisodeFinishRejection) as excinfo:
         validate_episode_finish(
             _finish([_binding("change_summary"), _binding(slot)]),
             context=_track_context(),
             evidence=_evidence(),
         )
-    assert excinfo.value.code == "expression_slot_binding"
-    assert excinfo.value.kind is RejectionKind.FORMAT
-    message = str(excinfo.value)
-    assert slot in message and "写进 draft" in message and "公司矩阵表" in message
+    assert excinfo.value.code == "unknown_output"
+    assert excinfo.value.kind is RejectionKind.INTEGRITY
+    assert slot in str(excinfo.value)
 
 
-def test_repair_goal_message_explains_ranking_slots_and_keeps_track_text() -> None:
+def test_repair_message_does_not_invent_ranking_instructions_from_ids() -> None:
     harness = FinanceResearchHarness()
 
     def goal(*elements: str) -> RepairGoal:
@@ -404,12 +394,10 @@ def test_repair_goal_message_explains_ranking_slots_and_keeps_track_text() -> No
     with_ranking = json.loads(
         harness.repair_goal_message(goal("ranking_matrix", "ranking_flip_conditions", "direct_assessment"), tools_open=False)
     )
-    note = with_ranking["expression_elements_note"]
-    assert "ranking_matrix" in note and "公司矩阵表" in note and "direct_assessment" not in note
-    assert "改判条件表" in note and "不要作为 bindings 的 output_id" in note
+    assert with_ranking["missing_answer_elements"] == ["ranking_matrix", "ranking_flip_conditions", "direct_assessment"]
+    assert "expression_elements_note" not in with_ranking
     track_only = json.loads(harness.repair_goal_message(goal("track_ttl", "change_summary"), tools_open=False))
-    assert track_only["expression_elements_note"].endswith("四态对照或「无上期基线」声明）")
-    assert "公司矩阵" not in track_only["expression_elements_note"]
+    assert "expression_elements_note" not in track_only
     without = json.loads(harness.repair_goal_message(goal("direct_assessment"), tools_open=False))
     assert "expression_elements_note" not in without
 

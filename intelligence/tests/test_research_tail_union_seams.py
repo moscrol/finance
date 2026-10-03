@@ -68,13 +68,13 @@ def _history_delivery(history=True):
 
 
 @pytest.mark.parametrize("history", [False, True])
-def test_final_track_projection_preserves_history_intent_without_disabling_track(history):
+def test_final_track_projection_keeps_diagnostics_advisory_and_preserves_history(history):
     _, context, _ = _history_delivery(history)
     answer, notices, receipt = _track_public_delivery(FACT, context)
-    assert bool(receipt["missing_outputs"]) is not history
-    assert bool(notices) is not history
-    assert (CONTRACT_STUB_HEADING in answer) is not history
-    assert FACT in answer
+    assert bool(receipt["missing_template_elements"]) is not history
+    assert receipt["missing_outputs"] == [] and receipt["authority"] == "advisory"
+    assert notices == ()
+    assert answer == FACT and CONTRACT_STUB_HEADING not in answer
 
 
 @pytest.mark.parametrize("exit_kind", ["normal", "verified_recovery"])

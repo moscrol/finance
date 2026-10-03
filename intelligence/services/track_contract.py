@@ -1,4 +1,7 @@
-"""题材跟踪表达契约（slice 4）：delta-only + 观点四态对照 + 结论 TTL + 下期关注。
+"""跟踪方法、旧模板解析与观察项登记。
+
+Episode 的方法是可选建议，模板诊断不参与完成判定。legacy ask 仍使用下述强模板；
+本模块保留解析和登记规则，但它们识别不到某种写法不等于任务未完成。
 
 背景（knevo q8 蒸馏的回灌）：
     knevo finance-industry-track 的核心是「上期基线为锚，只报变化」的 delta-only
@@ -189,32 +192,14 @@ def build_track_guidance() -> str:
 
 
 def build_track_guidance_for_episode() -> str:
-    """episode 主路径版跟踪契约——纪律同 :func:`build_track_guidance`，术语换血。
-
-    legacy 版的「上期基线」指向 [M]/[V] 检索块、证据引用用 [D0]/[W7] 编号——
-    这些是 ask_synthesis 路径的记号，episode 里不存在：episode 的记忆通道是
-    memory_lookup 工具、证据纪律是 evidence_hash 绑定。原样注入会让模型对照
-    一个不存在的块。两版共存于本模块（单一真本源），改纪律要两边一起动。
-    """
-    return "\n".join(
-        [
-            "【跟踪表达契约】本题为持续跟踪类问题，draft 必须按此结构组织：\n"
-            "1. delta-only 纪律：以上期基线为锚只报有信息量的变化；上期结论仍成立的项"
-            "写一句「无变化」即可，禁止重跑全景模板凑字数。上期基线只能来自 "
-            "memory_lookup 召回的用户既有判断或 conversation_context 里的先前结论；"
-            "两处都无相关记录时，draft 开头显式声明「无上期基线，本期建立基线」，"
-            "禁止虚构或臆测上期说过什么。\n"
-            "2. 观点四态对照：对每条召回的既有判断给显式判定——"
-            "「支持 / 削弱 / 无变化 / 信息不足」四态之一；判定必须由本轮 evidence "
-            "支撑并进入对应 binding，没有证据支撑的判定只能写「信息不足」。\n"
-            "3. 结论 TTL：本期每条新结论标注「复核期限：YYYY-MM-DD」——跟踪级默认 "
-            "30 天、框架级默认 90 天；到期未复核视为待复核，不得当作已验证事实引用。\n"
-            "4. 下期关注清单（draft 结尾必给）：每项 = 指标/事件 + 时间节点 + 触发条件"
-            "（可观察、可证伪，如「若 X 月中报毛利率 <Y% 则削弱扩产逻辑」）；"
-            "禁止「持续关注市场情绪」这类不可证伪表述。\n"
-            "5. 跟踪不改变证据纪律：变化必须来自本轮工具证据，"
-            "不得由「距上次隔了很久」推断「肯定有变化」。"
-        ]
+    """Episode 可选方法；任务合同与证据要求仍是交付依据。"""
+    return (
+        "【跟踪方法建议（可选）】按任务合同回答用户真正关心的变化，自主选择正文结构。\n"
+        "有真实上期基线时，可比较哪些判断得到支持、削弱或仍不确定；"
+        "基线可来自 memory_lookup 或 conversation_context，未取得时如实说明，不能编造旧结论。\n"
+        "优先呈现有信息量的变化及其证据；需要后续研究时，可说明哪些可观察信号会改变判断。"
+        "复核时间和触发条件应有依据，不为凑模板编造期限或数字。\n"
+        "这些是方法建议，不新增必需输出；标题、四态措辞、有效期和关注清单均可按任务取舍。"
     )
 
 
@@ -230,7 +215,7 @@ def track_guidance_for_query(
 def episode_track_rule(
     query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
 ) -> str:
-    """episode 指令的条件注入口：命中跟踪意图返回 episode 版契约，否则空串。"""
+    """按可信任务上下文选择可选方法；不增加输出义务。"""
     if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ""
     return build_track_guidance_for_episode()
@@ -297,15 +282,7 @@ def append_contract_stub(answer: str, missing: tuple[str, ...]) -> str:
     return f"{body}\n\n{stub}"
 
 
-# —— Q4（bookgap S8）：契约缺件的程序核对——「能程序判定的约束进程序，不堆 prompt」。
-# 三件套（四态对照/无基线声明、TTL、下期关注）是可确定检查的输出结构，此前只有
-# prompt 约束 + 可见补全段（append_contract_stub），live 遵守不全且缺件不进任何
-# 机器可读通道。这里把缺件映射成 ``repair_coordinator.missing_outputs`` 词表里的
-# 输出项 id（直接可并入 ``build_repair_goal(missing_outputs=...)`` 的缺口修复环），
-# 并给出 EVAL 可读收据。episode 运行时由 continuous_turn_adapter 合并进
-# missing_outputs，表达层-only 缺口走 ``contract_rewrite_candidate``（tool-closed
-# delivery），不写进 verifier ``issues``（#224 放行门吃前缀，生造文案会改门禁）。
-# prompt 原文一字不动。
+# 旧解析器的诊断标签，保留历史收据可比性；不再是 Episode 缺项或修复授权。
 TRACK_CONTRACT_OUTPUT_IDS: dict[str, str] = {
     "quad_or_baseline": "track_quad_or_baseline",
     "ttl": "track_ttl",
@@ -334,11 +311,7 @@ def contract_missing_outputs(
     question_type: str | None = None,
     history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
-    """程序核对：跟踪题的契约缺件 → missing_outputs 词表输出项 id。
-
-    非跟踪意图恒返回空元组（普通问答零改动）。返回值形状与
-    ``repair_coordinator.build_repair_goal(missing_outputs=...)`` 兼容。
-    """
+    """旧模板未识别项（历史标签），仅供诊断，不是任务合同缺项。"""
     if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ()
     return tuple(
@@ -346,39 +319,6 @@ def contract_missing_outputs(
         for key in missing_contract_elements(answer)
         if key in TRACK_CONTRACT_OUTPUT_IDS
     )
-
-
-def merge_track_missing_outputs(
-    existing: tuple[str, ...] | list[str],
-    answer: str,
-    *,
-    query: str = "",
-    question_type: str | None = None,
-    history_intent: HistoryIntent | None = None,
-) -> tuple[str, ...]:
-    """把跟踪契约缺件并入 repair 用的 missing_outputs。非跟踪题原样返回。"""
-    extra = contract_missing_outputs(
-        answer, query=query, question_type=question_type, history_intent=history_intent
-    )
-    return tuple(dict.fromkeys((*tuple(existing or ()), *extra)))
-
-
-def is_contract_rewrite_only(
-    missing_outputs: tuple[str, ...] | list[str],
-    *,
-    rejected_claims: tuple[str, ...] = (),
-    semantic_gap_outputs: tuple[str, ...] = (),
-) -> bool:
-    """缺口全是表达槽（跟踪四态/TTL/下期关注，或排序矩阵/改判条件…），没有证据/语义缺口。"""
-    from intelligence.services.ranking_contract import RANKING_CONTRACT_OUTPUT_ID_SET
-
-    if rejected_claims or semantic_gap_outputs:
-        return False
-    missing = tuple(missing_outputs or ())
-    if not missing:
-        return False
-    expression_slots = TRACK_CONTRACT_OUTPUT_ID_SET | RANKING_CONTRACT_OUTPUT_ID_SET
-    return all(item in expression_slots for item in missing)
 
 
 def parse_prior_verdict_check(answer: str) -> str | None:
@@ -469,10 +409,9 @@ def contract_receipt(
     as_of: str | None = None,
     history_intent: HistoryIntent | None = None,
 ) -> dict[str, object]:
-    """EVAL 可读收据：``missing_outputs`` 字段恒在场（空列表 = 契约齐/非跟踪题）。
+    """v2 只读模板诊断。兼容键 missing_outputs 为空，不宣称任务已完成。
 
-    只含 JSON 原生类型，可直接落 ledger/trace/eval 载荷；``track_intent``
-    区分「契约齐」与「本题不适用契约」两种空缺件。
+    missing_template_elements 只反映解析器未识别的旧模板元素。
     """
     track_intent = parse_track_intent(query, question_type, history_intent=history_intent)
     missing = contract_missing_outputs(
@@ -483,8 +422,11 @@ def contract_receipt(
     verdict = parse_prior_verdict_check(body) if track_intent else None
     return {
         "check": "track_contract",
+        "schema_version": 2,
+        "authority": "advisory",
         "track_intent": track_intent,
-        "missing_outputs": list(missing),
+        "missing_outputs": [],
+        "missing_template_elements": list(missing),
         "prior_verdict_check": verdict,
         "valid_until": valid,
         "ttl_status": ttl_status(valid, as_of=as_of) if track_intent else "missing",

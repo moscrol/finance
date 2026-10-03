@@ -92,7 +92,7 @@ class ContractGuidancePromptTests(unittest.TestCase):
 
 
 class ContractMissingOutputsTests(unittest.TestCase):
-    """Q4：契约缺件程序核对进 repair_coordinator.missing_outputs 词表 + EVAL 可读收据。"""
+    """旧模板解析结果只进诊断收据，不再成为 Episode 合同缺项。"""
 
     _BARE = "固态电池还在发酵，可以继续看。"
     _COMPLETE = (
@@ -132,93 +132,31 @@ class ContractMissingOutputsTests(unittest.TestCase):
 
         from intelligence.services.track_contract import contract_receipt
 
-        # 缺件收据：missing_outputs 在场且列出缺件
+        # 诊断列出未识别模板；兼容 missing_outputs 不冒充交付义务。
         receipt = contract_receipt(self._BARE, query="固态电池最新进展如何")
         self.assertEqual(receipt["check"], "track_contract")
         self.assertTrue(receipt["track_intent"])
         self.assertEqual(
-            receipt["missing_outputs"],
+            receipt["missing_template_elements"],
             ["track_quad_or_baseline", "track_ttl", "track_next_watch"],
         )
-        # 非跟踪题：字段仍在场（空 = 不适用），且整体可 JSON 序列化（EVAL 可读）
+        self.assertEqual(receipt["missing_outputs"], [])
+        self.assertEqual(receipt["authority"], "advisory")
+        self.assertEqual(receipt["schema_version"], 2)
+        # 非跟踪题：字段仍在场（空 = 不适用），整体可 JSON 序列化。
         plain = contract_receipt(self._BARE, query="固态电池产业链全景")
         self.assertFalse(plain["track_intent"])
         self.assertEqual(plain["missing_outputs"], [])
         json.dumps(receipt), json.dumps(plain)
 
-    def test_output_ids_compose_into_repair_goal(self) -> None:
-        """词表兼容不是口头承诺：缺件 id 能原样进 build_repair_goal 的缺口修复环。"""
-        from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
-        from intelligence.services.repair_coordinator import (
-            build_repair_goal,
-            progress_from_ledger,
-        )
-        from intelligence.services.track_contract import contract_missing_outputs
+    def test_template_diagnostic_never_claims_task_completion(self) -> None:
+        from intelligence.services.track_contract import contract_receipt
 
-        snap = EvidenceLedgerSnapshot(
-            evidence_ids=("e1",),
-            covered_outputs=(),
-            open_gaps=(),
-            independent_source_families=("market",),
-            evidence_source_families=(("e1", "market"),),
-            evidence_targets=(("e1", ()),),
-        )
-        missing = contract_missing_outputs(self._BARE, query="固态电池最新进展如何")
-        goal = build_repair_goal(
-            episode_id="episode-1",
-            missing_outputs=missing,
-            previous_progress=progress_from_ledger(snap, snap),
-            remaining_calls=2,
-            remaining_seconds=30.0,
-        )
-        self.assertEqual(goal.missing_answer_elements, missing)
-
-    def test_merge_track_gaps_into_existing_missing_outputs(self) -> None:
-        from intelligence.services.track_contract import merge_track_missing_outputs
-
-        merged = merge_track_missing_outputs(
-            ("direct_assessment",),
-            self._BARE,
-            query="固态电池最新进展如何",
-        )
-        self.assertEqual(
-            merged,
-            (
-                "direct_assessment",
-                "track_quad_or_baseline",
-                "track_ttl",
-                "track_next_watch",
-            ),
-        )
-        self.assertEqual(
-            merge_track_missing_outputs(
-                ("direct_assessment",),
-                self._BARE,
-                query="固态电池产业链全景",
-            ),
-            ("direct_assessment",),
-        )
-
-    def test_contract_rewrite_only_when_gaps_are_track_ids(self) -> None:
-        from intelligence.services.track_contract import is_contract_rewrite_only
-
-        self.assertTrue(
-            is_contract_rewrite_only(
-                ("track_quad_or_baseline", "track_ttl", "track_next_watch")
-            )
-        )
-        self.assertFalse(
-            is_contract_rewrite_only(
-                ("direct_assessment", "track_ttl"),
-            )
-        )
-        self.assertFalse(
-            is_contract_rewrite_only(
-                ("track_ttl",),
-                rejected_claims=("claim_index:0",),
-            )
-        )
-        self.assertFalse(is_contract_rewrite_only(()))
+        for answer in (self._BARE, self._COMPLETE):
+            receipt = contract_receipt(answer, query="跟踪一下")
+            self.assertEqual(receipt["missing_outputs"], [])
+            self.assertEqual(receipt["authority"], "advisory")
+            self.assertNotIn("completed", receipt)
 
     def test_receipt_exposes_machine_readable_verdict_and_ttl(self) -> None:
         from intelligence.services.track_contract import contract_receipt

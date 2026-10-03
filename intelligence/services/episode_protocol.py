@@ -40,15 +40,9 @@ from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
-from intelligence.services.ranking_contract import (
-    RANKING_CONTRACT_OUTPUT_ID_SET,
-    episode_ranking_rule,
-)
+from intelligence.services.ranking_contract import episode_ranking_rule
 from intelligence.services.scenario_tree import episode_scenario_rule
-from intelligence.services.track_contract import (
-    TRACK_CONTRACT_OUTPUT_ID_SET,
-    episode_track_rule,
-)
+from intelligence.services.track_contract import episode_track_rule
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
@@ -184,12 +178,8 @@ def _question_type_rules(
         if task_frame.question_type == "valuation_estimate"
         else ""
     )
-    # 跟踪题表达契约（knevo q8 回灌，episode 版）：文本住在 track_contract
-    # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
-    # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
-    # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
-    # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
-    # 历史 rank/trace 不叠前向排序/持续跟踪/情景契约；同一意图也传到修复、收据与写入门。
+    # 跟踪 / 排序只注入可选方法，不拥有合同之外的完成裁决权。
+    # 历史 rank/trace 不叠前向方法；同一可信意图仍传到收据与写入门。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
@@ -639,9 +629,6 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "derived_without_inputs": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
-    # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
-    # 是系统自己在修复目标里给的 id，不是伪造——回灌重写。
-    "expression_slot_binding": RejectionKind.FORMAT,
 }
 
 
@@ -1019,27 +1006,6 @@ def validate_episode_finish(
         if source_errors:
             raise _reject("material_source_violation", "; ".join(source_errors))
         if binding.output_id not in allowed_outputs:
-            if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
-                # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
-                # 修复目标的 missing_answer_elements，模型看见 id 就当 output 去绑——
-                # 2026-09-07 两轮 theme_track 修复 2/2 死在这里：系统自己要的东西被自己
-                # 当「越界输出」硬拒（INTEGRITY 不回灌、不恢复）。它不是伪造，是把正文
-                # 要求当成了绑定槛；按 FORMAT 回灌，告诉模型写进 draft、不进 bindings。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
-                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
-                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
             raise _reject(
                 "unknown_output",
                 f"unknown required output: {binding.output_id}",
