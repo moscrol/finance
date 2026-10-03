@@ -121,11 +121,11 @@ describe("original daily navigation", () => {
     await waitFor(() => expect(screen.getByTestId("review-date")).toHaveTextContent("2026-09-24"));
     expect(fetch).toHaveBeenLastCalledWith("/api/river/daily-overview?days=40", expect.anything());
   });
-  it("does not pretend an unavailable backend is an empty report", async () => {
+  it("keeps the market failure visible while mounting the independent selected archive", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 404 })));
     render(<OriginalDailyReview {...props}/>);
     expect(await screen.findByRole("alert")).toHaveTextContent("配套后端已发布");
-    expect(screen.queryByTestId("review-date")).not.toBeInTheDocument();
+    expect(screen.getByTestId("review-date")).toHaveTextContent("2026-09-24");
   });
 });
 

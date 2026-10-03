@@ -33,3 +33,23 @@ it.each([
   if (status === "missing") expect(await screen.findByText("这一天尚无结构化日报归档")).toBeInTheDocument();
   else expect(await screen.findByText(`${selected} 日报`)).toBeInTheDocument();
 });
+
+it.each(["error", "pending"])("loads the selected archive independently while the market request is %s", async marketState => {
+  const selected = "2026-08-04";
+  const notify = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("daily-overview")) return marketState === "error"
+      ? { ok: false, status: 503 }
+      : new Promise<Response>(() => {});
+    return { ok: true, json: async () => ({
+      schema_version: 1, trade_date: selected, status: "available", available_dates: [selected],
+      report: { facts: {}, industries: [], matrices: { double_red: [], stock_highs: [], limit_up: [] }, engines: [], sections: [], diagnostics: [], warnings: [], core_board: [] },
+    }) };
+  }));
+  render(<OriginalDailyReview focusDate={selected} onFocusDate={notify} onResearch={vi.fn()} onAttention={vi.fn()}/>);
+  await waitFor(() => expect(fetch).toHaveBeenCalledWith(`/api/river/daily-review?as_of=${selected}`, expect.anything()));
+  expect(await screen.findByRole("button", { name: "展开完整日报 · 0 章节" })).toBeInTheDocument();
+  expect(screen.getByLabelText("复盘当前交易日")).toHaveValue(selected);
+  expect(notify).not.toHaveBeenCalled();
+  if (marketState === "error") expect(await screen.findByRole("alert")).toHaveTextContent("503");
+});

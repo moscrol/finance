@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClipboardCheck, Download, FileSearch, LockKeyhole } from "lucide-react";
 import { getLimitUpCalendar } from "../../river/api";
 import type { LimitUpDay } from "../../river/types";
@@ -9,9 +9,21 @@ import "../../riverObservation.css";
 
 const STORE = "foresight.observation-workbench.v1";
 interface Notebook { forms: Record<string, ObservationForm>; records: ObservationRecord[] }
-function notebook(): Notebook {
+function notebook(strict = false): Notebook {
   try { const value = JSON.parse(window.localStorage.getItem(STORE) ?? "{}"); return { forms: value.forms ?? {}, records: Array.isArray(value.records) ? value.records : [] }; }
-  catch { return { forms: {}, records: [] }; }
+  catch (error) { if (strict) throw error; return { forms: {}, records: [] }; }
+}
+// Frozen fields come from persistence; only append-only reviews and unsaved records merge in.
+function mergeRecords(stored: ObservationRecord[], local: ObservationRecord[]): ObservationRecord[] {
+  const merged = new Map(stored.map(record => [record.id, record]));
+  for (const record of local) {
+    const saved = merged.get(record.id);
+    if (!saved) { merged.set(record.id, record); continue; }
+    const reviews = new Map(saved.reviews.map(review => [JSON.stringify(review), review]));
+    for (const review of record.reviews) reviews.set(JSON.stringify(review), review);
+    merged.set(record.id, { ...saved, reviews: [...reviews.values()] });
+  }
+  return [...merged.values()];
 }
 const verdicts: [ObservationVerdict, string][] = [["pending", "未评估"], ["supports", "支持"], ["opposes", "反对"], ["missing", "缺数据"]];
 function show(value: unknown, suffix = "") { return typeof value === "number" && Number.isFinite(value) ? `${value.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}${suffix}` : typeof value === "string" && value ? value : "—"; }
@@ -26,6 +38,7 @@ export function ObservationWorkbench({ date, dates, subject = "全市场", onDat
   const [lens, setLens] = useState<ObservationLens>("spt");
   const [form, setForm] = useState<ObservationForm>(() => blankObservation(subject));
   const [records, setRecords] = useState<ObservationRecord[]>(() => notebook().records);
+  const recordsRef = useRef(records);
   const [review, setReview] = useState<ReviewSnapshot | null>(null);
   const [ladder, setLadder] = useState<LimitUpDay | null>(null);
   const [archiveError, setArchiveError] = useState(false);
@@ -36,6 +49,15 @@ export function ObservationWorkbench({ date, dates, subject = "全市场", onDat
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [revision, setRevision] = useState(0);
   const key = `${date ?? "pending"}|${subject}|${lens}`;
+  useEffect(() => {
+    const syncRecords = (event: StorageEvent) => {
+      if (event.key !== STORE && event.key !== null) return;
+      recordsRef.current = mergeRecords(notebook().records, recordsRef.current);
+      setRecords(recordsRef.current);
+    };
+    window.addEventListener("storage", syncRecords);
+    return () => window.removeEventListener("storage", syncRecords);
+  }, []);
   useEffect(() => { setForm(notebook().forms[key] ?? blankObservation(subject)); setNotice(""); setPrompt(""); }, [key, subject]);
   useEffect(() => {
     setReview(null); setLadder(null); setArchiveError(false); setLadderError(false);
@@ -56,14 +78,38 @@ export function ObservationWorkbench({ date, dates, subject = "全市场", onDat
   }, [date, revision]);
   const template = observationTemplates[lens];
   const facts = review?.report?.facts ?? {};
-  const saveNotebook = (data: Notebook) => {
-    try { window.localStorage.setItem(STORE, JSON.stringify(data)); setStorageError(false); return true; }
-    catch { setStorageError(true); return false; }
+  const saveNotebook = async (update: (data: Notebook) => Notebook) => {
+    let keptInMemory = false;
+    const acceptRecords = (data: Notebook) => { recordsRef.current = data.records; setRecords(data.records); };
+    const keepInMemory = () => {
+      const stored = notebook();
+      acceptRecords(update({ ...stored, records: mergeRecords(stored.records, recordsRef.current) }));
+      keptInMemory = true; setStorageError(true);
+    };
+    try {
+      if (!navigator.locks?.request) throw new Error("cross-tab-lock-unavailable");
+      // Every notebook writer uses this origin-wide exclusive lock, including draft edits.
+      await navigator.locks.request(STORE, () => {
+        try {
+          const stored = notebook(true);
+          const next = update({ ...stored, records: mergeRecords(stored.records, recordsRef.current) });
+          window.localStorage.setItem(STORE, JSON.stringify(next));
+          acceptRecords(next); setStorageError(false);
+        } catch (error) {
+          // Retain failed changes before releasing the lock, so a queued local save can retry them.
+          keepInMemory(); throw error;
+        }
+      });
+      return true;
+    } catch {
+      if (!keptInMemory) keepInMemory();
+      return false;
+    }
   };
   const change = (next: ObservationForm) => {
-    setForm(next); const stored = notebook(); stored.forms[key] = next; saveNotebook(stored);
+    setForm(next); void saveNotebook(stored => ({ ...stored, forms: { ...stored.forms, [key]: next } }));
   };
-  const freeze = () => {
+  const freeze = async () => {
     if (!date) return;
     const problem = observationValidation(form, date, lens);
     if (problem) { setNotice(problem); return; }
@@ -74,15 +120,16 @@ export function ObservationWorkbench({ date, dates, subject = "全市场", onDat
       framework_source: template.source, framework_version: "2026-09-29-observation-v1", criteria_snapshot: structuredClone(template.criteria), form: structuredClone(form),
       evidence: { archive_status: review?.status ?? (archiveError ? "error" : "pending"), archive_sha256: review?.provenance?.sha256 ?? null, archive_generated_at: review?.provenance?.generated_at ?? null, archive_path: review?.provenance?.source_path ?? null, ladder_date: ladder?.trade_date ?? null, viewed_facts: Object.fromEntries(["market_stage", "total_amount", "volume_ratio", "top3_industry_ratio", "advancers", "advancers_ma5"].map(k => [k, facts[k] ?? null])), ladder_summary: ladder ? { max_boards: ladder.max_boards, leader_name: ladder.leader?.name ?? null } : null }, reviews: [],
     };
-    const next = [record, ...records]; setRecords(next);
-    const stored = notebook(); stored.records = next; const saved = saveNotebook(stored);
+    setNotice("正在保存冻结记录…");
+    const saved = await saveNotebook(stored => ({ ...stored, records: [record, ...stored.records] }));
     setNotice(saved ? "原始条件已冻结到本浏览器。后续只能追加复查；尚未写入服务器或Agent台账。" : "原始条件仅在本页内存冻结，未保存到浏览器；请立即导出。");
   };
-  const appendReview = (record: ObservationRecord, outcome: "supports" | "opposes" | "insufficient") => {
+  const appendReview = async (record: ObservationRecord, outcome: "supports" | "opposes" | "insufficient") => {
     const note = reviewNotes[record.id]?.trim();
     if (!note) { setNotice("追加复查前，请写明复查数据日、证据与原因；只选涨跌不能代替验证。"); return; }
-    const next = records.map(r => r.id === record.id ? { ...r, reviews: [...r.reviews, { recorded_at: new Date().toISOString(), outcome, note }] } : r);
-    setRecords(next); const stored = notebook(); stored.records = next; const saved = saveNotebook(stored);
+    const addition = { recorded_at: new Date().toISOString(), outcome, note };
+    setNotice("正在保存追加复查…");
+    const saved = await saveNotebook(stored => ({ ...stored, records: stored.records.map(r => r.id === record.id ? { ...r, reviews: [...r.reviews, addition] } : r) }));
     setNotice(saved ? "已追加人工复查。原假设、条件和证据引用没有覆盖。" : "复查仅在本页内存追加，未持久保存；请立即导出。");
   };
   return <section className="output-workbench observation-workbench" aria-label="人工观察验证工作区">
@@ -103,7 +150,7 @@ export function ObservationWorkbench({ date, dates, subject = "全市场", onDat
       <div className="obs-criteria">{template.criteria.map(c => <article key={c.id}><h3>{c.title}</h3><p>{c.question}</p><div className="obs-boundary">{c.boundary}</div><label>人工判定<select aria-label={`${c.title} 人工判定`} value={form.assessments[c.id]?.verdict ?? "pending"} onChange={e => change({ ...form, assessments: { ...form.assessments, [c.id]: { note: form.assessments[c.id]?.note ?? "", verdict: e.target.value as ObservationVerdict } } })}>{verdicts.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><textarea aria-label={`${c.title} 证据备注`} placeholder="写下数据日、实体、观察值或原文位置；也可以明确说明缺什么。" maxLength={4000} value={form.assessments[c.id]?.note ?? ""} onChange={e => change({ ...form, assessments: { ...form.assessments, [c.id]: { verdict: form.assessments[c.id]?.verdict ?? "pending", note: e.target.value } } })}/></article>)}</div>
       <section className="obs-conditions"><label>什么出现才升级为确认？<textarea aria-label="确认条件" placeholder="声明指标、口径、观察窗口和由你选择的阈值；不要只写“继续走强”。" maxLength={4000} value={form.confirmation} onChange={e => change({ ...form, confirmation: e.target.value })}/></label><label>什么出现会推翻或降级？<textarea aria-label="推翻条件" placeholder="写在结果出来之前；反证出现后不得事后移动门槛。" maxLength={4000} value={form.invalidation} onChange={e => change({ ...form, invalidation: e.target.value })}/></label><label>拟复查日期<input type="date" aria-label="拟复查日期" min={date ?? undefined} value={form.reviewDate} onChange={e => change({ ...form, reviewDate: e.target.value })}/><small>人工指定日期，不自动假设它是下一交易日；没有后续数据就保留待复查。</small></label></section>
       <div className="obs-freeze"><button type="button" disabled={!date} onClick={freeze}><LockKeyhole size={14}/>冻结这次观察</button><p>形成时间记录为现在。历史归档不等于当时可得信息，本页不计算预测胜率、不回填未来数据。</p></div>
-      {notice && <p className="obs-notice" role="status">{notice}</p>}{storageError && <p role="alert">浏览器存储不可用，当前内容只在页面内存中；请导出记录后再离开。</p>}
+      {notice && <p className="obs-notice" role="status">{notice}</p>}{storageError && <p role="alert">浏览器存储不可用或无法安全加锁，当前改动仅在页面内存中；请导出记录后再离开。</p>}
       <details className="obs-method"><summary>方法来源与存储边界</summary><p>{template.source}</p><p>判读基线已有规则ID；模板只组织观察顺序，不注入未经标定的倍数、天数或自动买卖信号。浏览器草稿与人工复查不是服务器正式台账，也不会自动交给Agent。导出的JSON保留事实引用、人工判定与形成时间，研究问题可由你手动交给Agent继续核验。</p></details>
       <div className="obs-section-label">03 / 冻结记录与追加复查 <span>{records.length} 条 · 本浏览器，不跨设备同步</span></div>
       {!records.length && <div className="obs-empty">还没有冻结记录。先写假设与反证，再看后来的结果。</div>}

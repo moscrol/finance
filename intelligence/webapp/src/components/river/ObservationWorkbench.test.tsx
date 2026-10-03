@@ -17,6 +17,7 @@ beforeEach(() => {
     removeItem: (key: string) => { values.delete(key); },
     clear: () => values.clear(),
   });
+  vi.stubGlobal("navigator", { locks: { request: vi.fn(async (_name: string, write: () => void) => write()) } });
   vi.mocked(getLimitUpCalendar).mockReset().mockResolvedValue({ start: "2026-09-24", end: "2026-09-24", days: [], stats: { trading_days: 0, avg_total: 0, avg_max_boards: 0, max_boards: 0, max_boards_date: null } });
   vi.stubGlobal("fetch", vi.fn(async () => response(snapshot())));
 });
@@ -109,4 +110,72 @@ it("reports unavailable browser persistence without claiming the record reached 
   expect(screen.getByRole("alert")).toHaveTextContent("浏览器存储不可用");
   expect(screen.queryByText(/原始条件已冻结到本浏览器/)).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "导出记录" })).toBeInTheDocument();
+  expect(localStorage.getItem(store)).toBeNull();
+});
+
+it("keeps a failed review append in memory without changing the persisted frozen record", async () => {
+  render(<ObservationWorkbench {...props}/>);
+  await screen.findByText("87.5%"); fill();
+  fireEvent.click(screen.getByRole("button", { name: "冻结这次观察" }));
+  await screen.findByText(/原始条件已冻结到本浏览器/);
+  const before = localStorage.getItem(store)!;
+  const original = JSON.parse(before).records[0] as ObservationRecord;
+  vi.spyOn(window.localStorage, "setItem").mockImplementation(() => { throw new Error("quota"); });
+  fireEvent.change(screen.getByLabelText(`复查证据 ${original.id}`), { target: { value: "待导出的复查证据" } });
+  fireEvent.click(screen.getByRole("button", { name: "追加：信息不足" }));
+  await screen.findByText(/复查仅在本页内存追加/);
+  expect(localStorage.getItem(store)).toBe(before);
+  expect(screen.getByText("待导出的复查证据", { selector: "p" })).toBeInTheDocument();
+  expect(screen.queryByText(/已追加人工复查/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "导出记录" })).toBeInTheDocument();
+});
+
+it.each(["freeze", "review"])("preserves another tab's completed records and reviews when this stale tab saves %s", async action => {
+  render(<ObservationWorkbench {...props}/>);
+  await screen.findByText("87.5%"); fill();
+  fireEvent.click(screen.getByRole("button", { name: "冻结这次观察" }));
+  const stored = JSON.parse(localStorage.getItem(store)!);
+  const original = structuredClone(stored.records[0]) as ObservationRecord;
+  const fromOtherTab = { ...structuredClone(original), id: "other-tab-frozen" };
+  const otherReview = { recorded_at: "2026-10-03T00:00:00Z", outcome: "insufficient", note: "另一页已完成的复查" };
+  localStorage.setItem(store, JSON.stringify({ ...stored, records: [fromOtherTab, { ...original, reviews: [otherReview] }] }));
+  // The storage event need not have reached this tab before the next user action.
+  if (action === "freeze") fireEvent.click(screen.getByRole("button", { name: "冻结这次观察" }));
+  else {
+    fireEvent.change(screen.getByLabelText(`复查证据 ${original.id}`), { target: { value: "本页追加复查" } });
+    fireEvent.click(screen.getByRole("button", { name: "追加：信息不足" }));
+  }
+  const records = JSON.parse(localStorage.getItem(store)!).records as ObservationRecord[];
+  expect(records.map(record => record.id)).toContain("other-tab-frozen");
+  const retained = records.find(record => record.id === original.id)!;
+  expect(retained.form).toEqual(original.form);
+  expect(retained.evidence).toEqual(original.evidence);
+  expect(retained.reviews).toEqual(action === "freeze" ? [otherReview] : [otherReview, expect.objectContaining({ note: "本页追加复查" })]);
+});
+
+it.each(["unavailable", "rejected"])("keeps the observation exportable without persisting when the cross-tab lock is %s", async condition => {
+  vi.stubGlobal("navigator", condition === "unavailable" ? {} : { locks: { request: vi.fn().mockRejectedValue(new Error("lock denied")) } });
+  render(<ObservationWorkbench {...props}/>);
+  await screen.findByText("87.5%"); fill();
+  fireEvent.click(screen.getByRole("button", { name: "冻结这次观察" }));
+  expect(await screen.findByText(/原始条件仅在本页内存冻结/)).toBeInTheDocument();
+  expect(localStorage.getItem(store)).toBeNull();
+  expect(screen.getByRole("button", { name: "导出记录" })).toBeInTheDocument();
+  expect(screen.queryByText(/原始条件已冻结到本浏览器/)).not.toBeInTheDocument();
+});
+
+it("does not report a frozen record as saved while its cross-tab lock is pending", async () => {
+  render(<ObservationWorkbench {...props}/>);
+  await screen.findByText("87.5%"); fill();
+  let release!: () => void;
+  vi.stubGlobal("navigator", { locks: { request: vi.fn((_name: string, write: () => void) => new Promise<void>(resolve => {
+    release = () => { write(); resolve(); };
+  })) } });
+  fireEvent.click(screen.getByRole("button", { name: "冻结这次观察" }));
+  expect(JSON.parse(localStorage.getItem(store)!).records).toEqual([]);
+  expect(screen.queryByRole("button", { name: "导出记录" })).not.toBeInTheDocument();
+  expect(screen.queryByText(/原始条件已冻结到本浏览器/)).not.toBeInTheDocument();
+  await act(async () => release());
+  expect(await screen.findByText(/原始条件已冻结到本浏览器/)).toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem(store)!).records).toHaveLength(1);
 });

@@ -146,6 +146,65 @@ test("an explicitly selected archive remains readable when its market day is mis
   await noOverflow(page);
 });
 
+test("an explicit archive loads when the independent market API fails", async ({ page }, testInfo) => {
+  await navigate(page, testInfo, "连板");
+  await expect(page.getByLabel("连板当前交易日")).toHaveValue(latest);
+  await page.route("**/api/river/daily-overview?*", route => route.fulfill({ status: 503, json: { detail: "synthetic market unavailable" } }));
+  await page.getByRole("button", { name: "同日复盘 ↗" }).click();
+  await expect(page.getByRole("alert")).toContainText("503");
+  await expect(page.getByLabel("复盘当前交易日")).toHaveValue(latest);
+  await expect(page.getByRole("button", { name: "展开完整日报 · 0 章节" })).toBeVisible();
+});
+
+test("two tabs serialize simultaneous freezes and reviews without replacing frozen conditions", async ({ page, context }, testInfo) => {
+  const other = await context.newPage();
+  await marketFixtures(other);
+  await other.goto("/");
+  for (const [index, tab] of [page, other].entries()) {
+    await navigate(tab, testInfo, "长河");
+    await tab.getByRole("button", { name: "观察验证", exact: true }).click();
+    await expect(tab.getByText("87.5%", { exact: true })).toBeVisible();
+    await tab.getByLabel("待验证假设").fill(`标签页 ${index + 1} 的原始假设`);
+    await tab.getByLabel("确认条件", { exact: true }).fill(`标签页 ${index + 1} 的确认条件`);
+    await tab.getByLabel("推翻条件", { exact: true }).fill(`标签页 ${index + 1} 的推翻条件`);
+    await tab.getByLabel("拟复查日期").fill("2026-09-28");
+    for (const select of await tab.getByRole("combobox", { name: /人工判定/ }).all()) await select.selectOption("missing");
+  }
+  const holdLock = () => page.evaluate(() => new Promise<void>(held => {
+    void navigator.locks.request("foresight.observation-workbench.v1", () => new Promise<void>(release => {
+      (window as Window & { releaseObservationLock?: () => void }).releaseObservationLock = release;
+      held();
+    }));
+  }));
+  const releaseLock = () => page.evaluate(() => (window as Window & { releaseObservationLock?: () => void }).releaseObservationLock?.());
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("foresight.observation-workbench.v1")!));
+  await holdLock();
+  try {
+    await Promise.all([page, other].map(tab => tab.getByRole("button", { name: "冻结这次观察" }).click()));
+    expect((await stored()).records).toHaveLength(0);
+    await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.filter(lock => lock.name === "foresight.observation-workbench.v1").length)).toBe(2);
+  } finally { await releaseLock(); }
+  for (const tab of [page, other]) await expect(tab.getByText(/原始条件已冻结到本浏览器/)).toBeVisible();
+  await expect.poll(async () => (await stored()).records.length).toBe(2);
+  const frozen = (await stored()).records;
+  expect(frozen.map((record: { form: { hypothesis: string } }) => record.form.hypothesis).sort()).toEqual(["标签页 1 的原始假设", "标签页 2 的原始假设"]);
+  for (const [index, tab] of [page, other].entries()) {
+    await expect(tab.locator(".obs-record")).toHaveCount(2);
+    await tab.getByLabel(`复查证据 ${frozen[0].id}`).fill(`标签页 ${index + 1} 的追加证据`);
+  }
+  await holdLock();
+  try {
+    await Promise.all([page, other].map(tab => tab.locator(".obs-record").filter({ has: tab.getByLabel(`复查证据 ${frozen[0].id}`) }).getByRole("button", { name: "追加：信息不足" }).click()));
+    expect((await stored()).records[0].reviews).toHaveLength(0);
+    await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending?.filter(lock => lock.name === "foresight.observation-workbench.v1").length)).toBe(2);
+  } finally { await releaseLock(); }
+  await expect.poll(async () => (await stored()).records[0].reviews.length).toBe(2);
+  const final = (await stored()).records;
+  expect(final[0].reviews.map((review: { note: string }) => review.note).sort()).toEqual(["标签页 1 的追加证据", "标签页 2 的追加证据"]);
+  expect(final.map((record: { reviews: unknown[] }) => ({ ...record, reviews: [] }))).toEqual(frozen);
+  await other.close();
+});
+
 test("theme remains an optional persistent choice and the conversation entry stays usable", async ({ page }, testInfo) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "paper");
   await page.getByRole("button", { name: "切换为科技主题" }).click();

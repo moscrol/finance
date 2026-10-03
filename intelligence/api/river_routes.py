@@ -216,21 +216,33 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
     if not days:
         raise HTTPException(status_code=404, detail=f"{start}~{end} 没有交易日")
     ref = _resolve(con, days[-1], entity)
-    # 实体在这段日子里可能跨过换源（.TI → .FP）。按名字取全部代码，标记 codes_seen。
-    codes = [
-        r["c"]
-        for r in _rows(
-            con,
-            """
-            SELECT DISTINCT sector_ts_code AS c FROM fact_sector_daily
-            WHERE sector_name = ? AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-            """,
-            [ref.name, start, end],
-        )
-    ]
-    if not codes:
-        codes = [ref.code_on_date]
-    ph = ",".join("?" for _ in codes)
+    # 名称可跨日换码；显式代码只接受自身或 resolve_entity 已登记的历史别名。
+    # 每日只选择一个实际 published 代码，盘面、热度、资金/成分共用，避免同名重复求和。
+    aliases = river_svc._alias_map(con)
+    candidates = [entity, *sorted(old for old, current in aliases.items() if current == entity)]
+    ph = ",".join("?" for _ in candidates)
+    sector_rows: dict[str, dict[str, Any]] = {}
+    codes: list[str] = []
+    for r in _rows(
+        con,
+        f"""
+        SELECT CAST(trade_date AS DATE) AS d, sector_ts_code, pct_chg, amount, diff_ratio, strength
+        FROM fact_sector_daily
+        WHERE (sector_ts_code IN ({ph}) OR sector_name = ?)
+          AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+        ORDER BY d, CASE WHEN sector_ts_code = ? THEN 0 WHEN sector_name = ? THEN 1 ELSE 2 END,
+                 sector_ts_code
+        """,  # noqa: S608
+        [*candidates, entity, start, end, entity, entity],
+    ):
+        sector_rows.setdefault(_iso(r["d"]) or "", r)
+        if r["sector_ts_code"] not in codes:
+            codes.append(r["sector_ts_code"])
+    # Keep the endpoint identity aligned with the same deterministic last-day selection.
+    ref = _resolve(con, days[-1], sector_rows[days[-1]]["sector_ts_code"])
+    selected_params = [value for day, row in sector_rows.items() for value in (day, row["sector_ts_code"])]
+    selected_values = ",".join("(?, ?)" for _ in sector_rows)
+    selected_cte = f"WITH selected_sectors(d, sector_ts_code) AS (VALUES {selected_values})"
 
     market_rows = {
         _iso(r["d"]): r
@@ -245,34 +257,21 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
             [start, end],
         )
     }
-    sector_rows: dict[str, dict[str, Any]] = {}
-    for r in _rows(
-        con,
-        f"""
-        SELECT CAST(trade_date AS DATE) AS d, sector_ts_code, pct_chg, amount, diff_ratio, strength
-        FROM fact_sector_daily
-        WHERE sector_ts_code IN ({ph})
-          AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-        ORDER BY d, sector_ts_code
-        """,  # noqa: S608
-        [*codes, start, end],
-    ):
-        sector_rows.setdefault(_iso(r["d"]) or "", r)
-
     heat_rows: dict[str, dict[str, Any]] = {}
     if _has_table(con, "fact_theme_limit_heat_daily"):
         for r in _rows(
             con,
             f"""
-            SELECT CAST(trade_date AS DATE) AS d, MAX(limit_up_count) AS limit_up_count,
+            {selected_cte}
+            SELECT CAST(f.trade_date AS DATE) AS d, MAX(limit_up_count) AS limit_up_count,
                    MAX(total_count) AS total_count, MAX(limit_up_ratio) AS limit_up_ratio,
                    MIN(rank) AS rank, ANY_VALUE(top_stocks_json) AS top_stocks_json
-            FROM fact_theme_limit_heat_daily
-            WHERE sector_ts_code IN ({ph})
-              AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+            FROM fact_theme_limit_heat_daily AS f
+            JOIN selected_sectors AS s ON CAST(f.trade_date AS DATE) = CAST(s.d AS DATE)
+                                     AND f.sector_ts_code = s.sector_ts_code
             GROUP BY 1
             """,  # noqa: S608
-            [*codes, start, end],
+            selected_params,
         ):
             heat_rows[_iso(r["d"]) or ""] = r
 
@@ -300,7 +299,8 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
         for r in _rows(
             con,
             f"""
-            SELECT CAST(trade_date AS DATE) AS d,
+            {selected_cte}
+            SELECT CAST(f.trade_date AS DATE) AS d,
                    COUNT(*) AS n_stocks,
                    COUNT(pct_chg) AS n_with_pct,
                    COUNT(fund_flow_1d) AS n_with_fund,
@@ -314,12 +314,12 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
                    MAX(pct_chg) AS top_pct,
                    ARG_MAX(stock_name, amount) AS amount_leader,
                    MAX(amount) AS amount_leader_amount
-            FROM fact_sector_stock_daily
-            WHERE sector_ts_code IN ({ph})
-              AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+            FROM fact_sector_stock_daily AS f
+            JOIN selected_sectors AS s ON CAST(f.trade_date AS DATE) = CAST(s.d AS DATE)
+                                     AND f.sector_ts_code = s.sector_ts_code
             GROUP BY 1
             """,  # noqa: S608
-            [*codes, start, end],
+            selected_params,
         ):
             d = _iso(r["d"]) or ""
             sources = r["fund_sources"]
@@ -638,7 +638,7 @@ def _sh_kline(con: Any, start: str, end: str, entity: str | None = None) -> dict
 def _entity_nav(con: Any, entity: str, dates: list[str]) -> dict[str, Any] | None:
     """板块区间净值线：用 fact_sector_daily.pct_chg 逐日累乘，起点 1.0。
 
-    板块表没有 OHLC，只能画一条线；缺日不补零，净值在缺口处断开并记入 coverage。
+    板块表没有 OHLC，只能画一条线；缺日不补零，缺口及其后的累计净值未知。
     entity 可以是 sector_ts_code 或 sector_name。
     """
     if not dates:
@@ -658,21 +658,21 @@ def _entity_nav(con: Any, entity: str, dates: list[str]) -> dict[str, Any] | Non
         return None
     pct = {(_iso(r["d"]) or ""): _num(r["pct_chg"]) for r in rows}
     nav: dict[str, float | None] = {}
-    cur = 1.0
+    cur: float | None = 1.0
     for d in dates:
         p = pct.get(d)
         if p is None:
-            nav[d] = None
-            continue
-        cur *= 1 + p / 100
-        nav[d] = round(cur, 4)
+            cur = None
+        elif cur is not None:
+            cur *= 1 + p / 100
+        nav[d] = None if cur is None else round(cur, 4)
     covered = sum(1 for d in dates if pct.get(d) is not None)
     return {
         "name": rows[-1]["sector_name"],
         "pct": pct,
         "nav": nav,
         "coverage": round(covered / len(dates), 3),
-        "note": "净值 = 区间内 pct_chg 逐日累乘，起点 1.0；缺日断开不补零" + ("" if covered == len(dates) else f"，缺 {len(dates) - covered} 天"),
+        "note": "净值 = 区间内 pct_chg 逐日累乘，起点 1.0；缺日不补零，缺口及后续累计净值未知" + ("" if covered == len(dates) else f"，缺 {len(dates) - covered} 天"),
     }
 
 
