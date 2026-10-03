@@ -37,7 +37,8 @@
 - pytest：**18,876 passed / 0 failed / 0 error / 76 skipped / 2 xfailed / 0 xpassed / 18 warnings**，耗时 **1072.80s（17:52.80）**，exit 0。
 - 收据：`full-2-e859b5ff9/gate-1PINvBdI/pytest.json`；原始日志 `full-2-e859b5ff9.log` 与 `.../pytest.log.txt`。
 - `check_test_receipt.py --require-full-scope --expect-revision e859b5ff9508ab1297dd15edf8a9fa3e166a9b7f`：exit 0。收集 **18,954**，与 `18,876+76+2` 对平；无 ignore、keyword、deselect、mark、maxfail 或 last-failed 收窄；revision、解释器、依赖指纹、dirty=false 均一致。
-- 之前 900 秒上限中断的 `full-e859b5ff9.log` 保留为未完成红/中断现场，不冒充失败或通过；本次用新证据目录和新 basetemp 完成。
+- 之前 900 秒上限中断的 `full-e859b5ff9.log` 及 `full-e859b5ff9/gate-sdgkKwxb/pytest.log.txt` 保留为未完成现场，不当作测试失败或通过；本次用新证据目录和新 basetemp 完成。
+- 首次收据复核见 `full-2-receipt-check.log`。文档提交后的 `final-receipt-check.log` 因 HEAD 已不同而正确 exit 1；随后从干净临时检出的 **e859b5ff9** 复核，`pinned-recheck-receipt.log` exit 0，额外核对仓根 target。没有改校验器、旧收据或冒签后续文档 SHA；临时检出已移除。
 
 ### 本片撤保护反证
 
@@ -49,17 +50,19 @@
 - 明细中的 SDK 拒绝包有参数化执行 **6F/8**，连续反馈 **1F/4**，连续 repair **1F/2**，finalizer **1F/2**；因此只能说 12/12 定义被捕获，**不能说所有参数化变体都红**。
 - `mutation-audit.json` 的 `killed=12,total=12` 是本片第二片定义，不与第一片的 13 项变异相加为本片单一套件。
 
-### HTTP 专项与其他检查
+### 固定 pin 的定向复验与其他检查
 
-- `http-2.log`：真实 Workbench 会话入口专项 **58 passed / 1 warning / 10.33s**；使用脚本模型、脚本来源和判官，证明解释回执、观察驱动取证、答案和持久化接线，不证明自然金融质量。
-- SDK 真实 SDK + 离线模型专项包含 `sdk_glm` / `sdk_gpt`、混合包拒绝、下一输入中的接纳回执、usage 汇总、共享总 timeout/轮次（`[3,2,1]`）和 timeout 后 repair 保留解释；其断言属于固定 pin 全仓及第二片 42 项测试。
-- registry/台账五项和提交 hooks 在本片提交前已通过；本片提交后不修改代码或测试。
+- 干净临时检出的 **e859b5ff9** 重新执行 `test_request_interpretation.py`、`test_workbench_research_chain.py`、`test_episode_finalizer.py` 三文件：**70 passed / 0 skipped / 0 error / 1 warning**，10.64s。日志 `pinned-final-related.log`、JUnit `pinned-final-related.xml`；收据 `pinned-final-related/20261003T063847Z-e859b5ff-b063d31a9b2f.json`。不是移用提交前的70P。
+- 其中 `test_http_goal_revision_reaches_tools_answer_and_durable_state` 使用真实 Workbench 会话 API 与脚本模型/来源/判官，检查解释回执、观察驱动取证、答案、入口身份和持久化检查点。证明接线，不证明自然金融质量。
+- SDK 真实 SDK + 离线模型专项包含 `sdk_glm` / `sdk_gpt`、混合包拒绝、下一输入中的接纳回执、usage 汇总、共享总 timeout/轮次（`[3,2,1]`）和 timeout 后 repair 保留解释；其断言属于固定 pin 全仓及第二片42项测试。
+- 本片产品提交 hooks 通过，见 `code-commit.log`：含 Ruff、层级、路径、字段、数据集归属、工具可达性和运行目录保鲜。**没有另取本片完整 registry/台账五项收据**，不搬第一片结果。本片代码 pin 之后只有文档改动。
 
 ## 失败历程与不能移签的读数
 
 1. 全仓第一次执行在约 93% 被命令 900 秒上限中断，没有最终 pytest 收据；不能把停点读作挂死或绿。
 2. 新目录复跑耗时超过 900 秒但在 1800 秒上限内完成；只用最终固定 pin 的 `full-2` 收据签全仓，不挪用第一片的 18,832 passed，也不挪用提交前 dirty 读数。
-3. 变异审计脚本最初手工生成的中间 JSON 曾把 12 个定义写成 `killed=12`；本报告以逐项结果、恢复字节和固定 pin Git blob复核后的 `mutation-audit.json` 为准，不把“所有参数化变体全红”写成结论。
+3. `unit-red.log` 保留新增能力尚未实现的初始红例；后续反馈事件未登记、工具上下文测试误用等问题在迭代中修复。`http-2.log` 的58P、`prepin-related.log` 的458P/1S、`prepin-final.log` 的70P均属于 **fde21a6c1 上的未提交迭代**，不作为 e859b5ff9 的独立固定版收据。最终全仓与上面的70项复验是新执行。
+4. 12/12变异结论按定义而非参数化用例计数；`mutation-audit.json` 复核了逐项红绿、定义字节和还原后的 Git blob，不声明全部参数化变体都红。
 
 ## 未验证范围与下一片
 
@@ -69,4 +72,8 @@
 - 代码地图仍不可作为架构覆盖证明；Memory 回写只在独立本地候选树，未整合共享主目录。
 - R17/R19 继续封存，正式 240 格不放行。后续若改代码，必须重新 pin、重新全仓和变异验证；不能把本报告收据移到新 tip。
 
-详细计划见 `docs/superpowers/plans/2026-10-03-harness-request-interpretation.md`，在途状态见 `docs/handoffs/inflight/feat-harness-output-provenance-1003.md`，日期决策快照见 `docs/handoffs/2026-10-03-harness-request-interpretation.md`。
+## Memory 本地候选
+
+候选 **`2d540127942291b5879e098d73c50f85767795b9`** 在 `~/agent-memory-wt-harness-output-provenance-1003`，含本片 `47d58730` 与记录口径修订；共享主目录未写入/推送/整合。lint仍有存量46错/31警告，新旧错误逐条一致，只有既有项目页超长警告的字节数改变；见 `memory-refined-lint-comparison.json`。图谱固定候选审计exit0，111行/338断言，新增 `RootRequest/accept_interpretation/PlanHooks` 三项均PENDING；符号存在不证明行为或合入，见 `memory-refined-frozen-graph.log`。
+
+详细计划见[本片计划](../superpowers/plans/2026-10-03-harness-request-interpretation.md)，接手见[inflight](../handoffs/inflight/feat-harness-output-provenance-1003.md)，取舍与工具沉淀见[日期交接](../handoffs/2026-10-03-harness-request-interpretation.md)。证据根 `closeout.json` 记录最终文档 tip、Memory 本地候选与关键原件 SHA-256；不改写第一片的 closeout。
