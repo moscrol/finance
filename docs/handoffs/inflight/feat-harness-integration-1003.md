@@ -1,25 +1,30 @@
 ## 这个分支做什么
-从GitHub主线06198093e集成Harness四片并验收；不扩剩余P1b。
-
-## 当前状态
-独占树`~/fwp-wt-harness-integration-1003`。产品验收 pin 为`d09e3b08d3b7b8ee49c27b6fb6c00c8cec464fc8`，其最后生产补丁为`46d9875c6`；本次后续只补验收文档，不改产品代码。Draft [PR #30](https://github.com/moscrol/finance/pull/30) 未合并/部署，未启用自动合并。
+从`origin/main@06198093eb7d4cf57ff20e26a2fa7a7df9df8726`集成Harness四片并完成版本锁定的工程验收；不扩剩余P1b。
 
 ## 决策与被否方案
-- 保主线材料预检/拒绝顺序；否全选候选：会削弱冻结来源检查。
-- 路由同步输出ID与来源；否删来源：用户义务见证不能丢。
-- causal_chain必需、cause_attribution提示可选；否退回双硬槽，补缺因果答案拒收反例。
-- 阶段诊断并入独立交付说明；否裸索引并集：旧索引不属于当前稿。
-展开见[日期快照](../2026-10-03-harness-main-integration.md)。
+- 以产品代码pin`d09e3b08`归账，文档后续单列；否用`60ff5ba76`改签产品收据，因为它只改handoff。
+- 保留主线来源/绑定预检与拒绝顺序；否全选候选实现，因为会削弱冻结材料合同。
+- canonical因果答案必需、`cause_attribution`启发式提示可选；否恢复第二硬槽或删测试，因为都破坏用户义务边界。
+- adapter合并阶段反馈与交付说明；否在coordinator并集旧裸索引，因为索引可能已不属于当前稿。
+- 临时树逐棵安全收口；否全仓`--apply`，因为ignored users/快照、进程和未合分支不可由脚本替人判断。
 
-## 未验证 / 已知边界
-独立规格/代码只读审查覆盖5266b5f8；46d9875c6修补未另独审。CLI实际模型glm-5.2，不是Claude；费用字段约$8.34、计价依据unknown。原Codex额度失败保留。
-题型/主体/时间窗在线修订、完整HTTP新计划交付、SDK跨进程恢复未由本轮验收。金融Workbench真实对照0；脚本模型/E2E不是回答质量证据。R17/R19和240格封存。
-
-## 下一步
-核对树外`closeout.json`、最终 PR checks 和 docs-only follow-up SHA。补丁独审需先确认模型身份与费用，不自行追加调用。真实对照最多12格需另批型号、配置、物理调用帽、费用和判卷；草案未预注册。合main/部署均等用户明确批准。
-
-## 踩过的坑
-共享主目录和旧候选不动。Python只用`/private/tmp/harness-opt/tmp/arena-harness-release-1002/.venv-workbench/bin/python`，env -i、umask 022、Keychain=0、独立收据。源码变更重新pin；变异红不是产品失败。
+## 当前状态
+- 产品pin工程验收完成：Python、前端/E2E、registry、变异审计均有树外收据；真实金融Workbench调用为0。
+- 当前代码树干净，分支`feat/harness-integration-1003`；HEAD`60ff5ba76`仅为文档跟进，新的收尾文档提交将再次触发CI。
+- Draft PR #30仍未合入/部署/自动合并；PR描述已更新，但新文档提交后需刷新body中的head字段。
+- 树外`closeout.json`、`evidence-index.json`正在以最终文档头生成；证据根为`~/.finance-runtime/reviews/harness-integration-20261003/`。
+- 四棵干净detached门禁树和前端残留树已点名移除；前端残留先归档到Gitea archive ref。未合入命名分支`gate-trees/mutation-fix`保留。
 
 ## 已验证
-`d09e3b08`：Python `20558P/76S/2X/0F`，collected `20636`，收据审计 exit 0；前端 209P、E2E 52P/2S；registry 五项 exit 0；变异 `9/12/13/14`，历史 8、边界 16，审计 exit 0。GitHub run `37133397297`/`37133397266` 全绿，PR仍 Draft。ledger 反向 warning 102 条保留；工程绿不等于回答质量提升。
+- 产品pin：Python`20558P/76S/2X/0F`、collected`20636`，收据审计exit0；前端209 tests，E2E`52P/2S`；registry五项exit0；变异`9/12/13/14`，历史8、边界16，最终审计exit0。
+- 当前头部旧CI：workbench run`37137218464`、registry run`37137218453`均success；新文档头必须另核。
+- 清理收据：`worktree-closeout-20261004-gitea/apply-20261004T011337.json`，apply exit0；Gitea archive ref已验证。
+
+## 未验证 / 已知边界
+最终生产补丁`46d9875c6`没有独立审查；只读审查覆盖`5266b5f8`，实际模型为`glm-5.2`，费用basis unknown。结构门禁不证明回答质量；未做真实对照、题型/主体/时间窗在线修订、完整HTTP新计划、SDK跨进程恢复。R17/R19/240格封存。
+
+## 下一步
+等新文档头的GitHub required checks完成，刷新PR head/Draft/auto-merge；生成并核对closeout与证据索引。用户另批后才做补丁独审或最多12格真实Workbench对照；不合main、不部署。
+
+## 踩过的坑
+Python收据必须按revision、解释器、依赖指纹、dirty和完整收集面审计；初次lsof PATH不全时不删。清理时`git status`干净仍不等于可删：ignored数据、launcher、锁、无具名提交都要fail-closed。详见`docs/handoffs/2026-10-03-harness-main-integration.md`及2026-10-04收尾快照。
