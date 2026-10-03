@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 
 from intelligence.services import river as river_svc
 from intelligence.services import river_query as rq
+from market_feature_store.sync.sync_theme_capital_from_baskets import FUND_CALIBERS
 
 DEFAULT_ENTITY_FALLBACK = "人工智能"
 TRACK_LABELS: dict[str, str] = {
@@ -301,8 +302,11 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
             f"""
             SELECT CAST(trade_date AS DATE) AS d,
                    COUNT(*) AS n_stocks,
+                   COUNT(pct_chg) AS n_with_pct,
                    COUNT(fund_flow_1d) AS n_with_fund,
-                   SUM(fund_flow_1d) AS fund_flow_1d,
+                   CASE WHEN COUNT(DISTINCT COALESCE(source, 'unknown')) = 1
+                        THEN SUM(CAST(fund_flow_1d AS DECIMAL(18,4))) END AS fund_flow_1d,
+                   LIST(DISTINCT COALESCE(source, 'unknown') ORDER BY COALESCE(source, 'unknown')) AS fund_sources,
                    SUM(CASE WHEN pct_chg >= 9.5 THEN 1 ELSE 0 END) AS n_limit_like,
                    SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END) AS n_up,
                    SUM(CASE WHEN pct_chg < 0 THEN 1 ELSE 0 END) AS n_down,
@@ -318,6 +322,9 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
             [*codes, start, end],
         ):
             d = _iso(r["d"]) or ""
+            sources = r["fund_sources"]
+            calibers = sorted(FUND_CALIBERS.get(source, f"unknown:{source}") for source in sources)
+            r["fund_caliber"] = calibers[0] if len(sources) == 1 else "mixed:" + "|".join(calibers)
             cap_rows[d] = r
             stock_rows[d] = r
 
@@ -384,6 +391,7 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
                 if c is None or not c.get("n_with_fund")
                 else {
                     "fund_flow_1d": _num(c.get("fund_flow_1d")),
+                    "fund_caliber": c["fund_caliber"],
                     "n_with_fund": int(c.get("n_with_fund") or 0),
                     "n_stocks": int(c.get("n_stocks") or 0),
                 },
@@ -391,9 +399,10 @@ def _timeline(con: Any, entity: str, start: str, end: str) -> dict[str, Any]:
                 if st is None
                 else {
                     "n_stocks": int(st.get("n_stocks") or 0),
-                    "n_up": int(st.get("n_up") or 0),
-                    "n_down": int(st.get("n_down") or 0),
-                    "n_limit_like": int(st.get("n_limit_like") or 0),
+                    "n_with_pct": int(st["n_with_pct"]),
+                    "n_up": int(st["n_up"]) if st["n_with_pct"] else None,
+                    "n_down": int(st["n_down"]) if st["n_with_pct"] else None,
+                    "n_limit_like": int(st["n_limit_like"]) if st["n_with_pct"] else None,
                     "top_name": st.get("top_name"),
                     "top_pct": _num(st.get("top_pct")),
                     "amount_leader": st.get("amount_leader"),
@@ -495,53 +504,49 @@ def _cohort_options(con: Any) -> dict[str, list[str]]:
 # --------------------------------------------------------------------------- #
 # 区间：每日累计曲线
 # --------------------------------------------------------------------------- #
-def _range_curve(con: Any, agg: rq.RangeAggregate) -> list[dict[str, Any]]:
+def _range_curve(con: Any, agg: rq.RangeAggregate, *, entity: str | None = None) -> list[dict[str, Any]]:
+    requested = entity or agg.entity_name
+    dates = rq.trading_days(con, agg.start, agg.end)
     if agg.kind == "stock":
         rows = _rows(
             con,
             """
-            SELECT CAST(trade_date AS DATE) AS d, close, pct_chg, amount FROM fact_stock_daily
+            SELECT CAST(trade_date AS DATE) AS d, close, pre_close, pct_chg, amount FROM fact_stock_daily
             WHERE (stock_ts_code = ? OR stock_name = ?)
               AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
             ORDER BY d
             """,
-            [agg.entity_id, agg.entity_name, agg.start, agg.end],
+            [requested, requested, agg.start, agg.end],
         )
-        base = None
+        rows, _ = rq._dedupe_by_date(rows)
+        base = next((_num(r["pre_close"]) for r in rows if _num(r["pre_close"])), None)
+        by_date = {_iso(r["d"]): r for r in rows}
         out = []
-        for r in rows:
-            close = _num(r["close"])
-            if base is None and close:
-                base = close
+        for day in sorted(set(dates) | set(by_date)):
+            r = by_date.get(day, {})
+            close = _num(r.get("close"))
             out.append(
                 {
-                    "date": _iso(r["d"]),
-                    "pct_chg": _num(r["pct_chg"]),
+                    "date": day,
+                    "pct_chg": _num(r.get("pct_chg")),
                     "cum_pct": None if not (base and close) else round((close / base - 1) * 100, 4),
-                    "amount": _num(r["amount"]),
+                    "amount": _num(r.get("amount")),
                 }
             )
         return out
-    codes = list(agg.codes_seen) or [agg.entity_id]
-    ph = ",".join("?" for _ in codes)
-    rows = _rows(
-        con,
-        f"""
-        SELECT CAST(trade_date AS DATE) AS d, ANY_VALUE(pct_chg) AS pct_chg, ANY_VALUE(amount) AS amount
-        FROM fact_sector_daily
-        WHERE (sector_ts_code IN ({ph}) OR sector_name = ?)
-          AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-        GROUP BY 1 ORDER BY d
-        """,  # noqa: S608
-        [*codes, agg.entity_name, agg.start, agg.end],
-    )
-    cum = 1.0
+    # Use the aggregate's same row selection and deterministic duplicate handling.
+    rows, _ = rq._dedupe_by_date(rq._sector_rows(con, agg.start, agg.end, requested))
+    by_date = {_iso(r["d"]): r for r in rows}
+    cum: float | None = 1.0
     out = []
-    for r in rows:
-        p = _num(r["pct_chg"])
-        if p is not None:
+    for day in sorted(set(dates) | set(by_date)):
+        r = by_date.get(day, {})
+        p = _num(r.get("pct_chg"))
+        if p is None:
+            cum = None
+        elif cum is not None:
             cum *= 1 + p / 100
-        out.append({"date": _iso(r["d"]), "pct_chg": p, "cum_pct": round((cum - 1) * 100, 4), "amount": _num(r["amount"])})
+        out.append({"date": day, "pct_chg": p, "cum_pct": None if cum is None else round((cum - 1) * 100, 4), "amount": _num(r.get("amount"))})
     return out
 
 
@@ -945,10 +950,23 @@ def register_river_routes(app: FastAPI, *, market_db_path: Path | None = None) -
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         con = _connect(db())
         try:
-            curve = _range_curve(con, agg)
+            curve = [] if require_complete and not agg.trustworthy else _range_curve(con, agg, entity=entity)
         finally:
             con.close()
         payload = agg.to_dict()
+        missing_returns = [point["date"] for point in curve if point["cum_pct"] is None]
+        if missing_returns:
+            payload["trustworthy"] = False
+            payload["coverage"]["missing_return_dates"] = missing_returns
+            payload["caveats"].append(
+                "累计收益缺口：" + "、".join(missing_returns)
+                + "；曲线不跨未知日续算。非严格标量仅按已记录数据估计，不代表完整区间。"
+            )
+            if require_complete:
+                payload["values"] = dict.fromkeys(payload["values"], None)
+                payload["peak_date"] = None
+                payload["gaps"].append({"metric": "*", "reason": "require_complete=True：累计收益字段不完整，本层不给数"})
+                curve = []
         payload["curve"] = curve
         return payload
 

@@ -21,12 +21,12 @@ const VALUE_LABELS: Record<string, string> = {
 };
 
 function CurveChart({ result, onPickDate }: { result: RangeResult; onPickDate: (date: string) => void }) {
-  const points = result.curve.filter((p) => p.cum_pct !== null);
+  const points = result.curve;
   const width = 720;
   const height = 180;
   const pad = { l: 44, r: 12, t: 12, b: 26 };
   const { path, area, xs, yOf, zeroY, minV, maxV } = useMemo(() => {
-    const values = points.map((p) => p.cum_pct as number);
+    const values = points.flatMap((p) => p.cum_pct === null ? [] : [p.cum_pct]);
     const minV = Math.min(0, ...values);
     const maxV = Math.max(0, ...values);
     const span = maxV - minV || 1;
@@ -34,14 +34,22 @@ function CurveChart({ result, onPickDate }: { result: RangeResult; onPickDate: (
     const innerH = height - pad.t - pad.b;
     const xs = points.map((_, i) => pad.l + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW));
     const yOf = (v: number) => pad.t + innerH - ((v - minV) / span) * innerH;
-    const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${xs[i].toFixed(1)},${yOf(p.cum_pct as number).toFixed(1)}`).join(" ");
+    const segments: number[][] = [];
+    points.forEach((point, i) => {
+      if (point.cum_pct === null) return;
+      if (i === 0 || points[i - 1].cum_pct === null) segments.push([]);
+      segments[segments.length - 1].push(i);
+    });
+    const segmentPath = (indices: number[]) => indices.map((i, n) => `${n === 0 ? "M" : "L"}${xs[i].toFixed(1)},${yOf(points[i].cum_pct as number).toFixed(1)}`).join(" ");
+    const path = segments.map(segmentPath).join(" ");
     const zeroY = yOf(0);
-    const area = points.length ? `${path} L${xs[xs.length - 1].toFixed(1)},${zeroY.toFixed(1)} L${xs[0].toFixed(1)},${zeroY.toFixed(1)} Z` : "";
+    const area = segments.map(indices => `${segmentPath(indices)} L${xs[indices[indices.length - 1]].toFixed(1)},${zeroY.toFixed(1)} L${xs[indices[0]].toFixed(1)},${zeroY.toFixed(1)} Z`).join(" ");
     return { path, area, xs, yOf, zeroY, minV, maxV };
   }, [points, pad.l, pad.r, pad.t, pad.b]);
 
-  if (points.length === 0) return <div className="empty-output">区间内没有可画的每日读数</div>;
-  const last = points[points.length - 1].cum_pct as number;
+  const known = points.filter(point => point.cum_pct !== null);
+  if (known.length === 0) return <div className="empty-output">区间内没有可画的每日读数</div>;
+  const last = known[known.length - 1].cum_pct as number;
   const peakIndex = result.peak_date ? points.findIndex((p) => p.date === result.peak_date) : -1;
   const ticks = [0, Math.floor(points.length / 2), points.length - 1].filter((v, i, a) => a.indexOf(v) === i);
 
@@ -53,7 +61,7 @@ function CurveChart({ result, onPickDate }: { result: RangeResult; onPickDate: (
       <text x={pad.l - 6} y={zeroY + 4} className="tick" textAnchor="end">0</text>
       <path d={area} className={`area ${last >= 0 ? "up" : "down"}`} />
       <path d={path} className={`line ${last >= 0 ? "up" : "down"}`} />
-      {peakIndex >= 0 && (
+      {peakIndex >= 0 && points[peakIndex].cum_pct !== null && (
         <g>
           <circle cx={xs[peakIndex]} cy={yOf(points[peakIndex].cum_pct as number)} r={4} className="peak" />
           <text x={xs[peakIndex]} y={yOf(points[peakIndex].cum_pct as number) - 8} className="tick" textAnchor="middle">
@@ -96,6 +104,7 @@ export function RangePanel({ entity, start, end, onPickDate }: RangePanelProps) 
     if (!entity || !start || !end) return;
     let cancelled = false;
     setLoading(true);
+    setResult(null);
     setError(null);
     getRange(entity, start, end, { requireComplete })
       .then((res) => {
@@ -138,7 +147,7 @@ export function RangePanel({ entity, start, end, onPickDate }: RangePanelProps) 
               {result.trustworthy ? "覆盖干净 · 未跨换源" : "读数有保留"}
             </span>
             <span className="slice-badge">
-              覆盖 {result.coverage.actual_days}/{result.coverage.expected_days} 天
+              行情行覆盖 {result.coverage.actual_days}/{result.coverage.expected_days} 天
             </span>
             <span className="slice-badge">{result.method === "compounded_daily" ? "每日涨幅连乘" : "收盘对收盘"}</span>
             {result.codes_seen.length > 1 && <span className="slice-badge danger">跨换源 {result.codes_seen.join(" → ")}</span>}

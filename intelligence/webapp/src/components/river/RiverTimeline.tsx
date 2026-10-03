@@ -69,23 +69,25 @@ function cellFor(track: Track, day: TimelineDay, scales: Scales): CellView {
     }
     case "capital": {
       const c = day.capital;
+      if (c?.fund_caliber.startsWith("mixed:")) return missing("资金", `混合口径 ${c.fund_caliber}，不可相加（${c.n_with_fund}/${c.n_stocks} 只有数）`);
       if (!c || c.fund_flow_1d === null) return missing("资金", "成分股当日没有资金流字段（不是净流入为 0）");
       return {
         color: heatColor(c.fund_flow_1d, scales.fund),
         text: `${c.fund_flow_1d > 0 ? "+" : ""}${c.fund_flow_1d.toFixed(0)}`,
-        title: `${day.date} 成分股主力净流入合计 ${c.fund_flow_1d.toFixed(2)} 亿（${c.n_with_fund}/${c.n_stocks} 只有数）`,
+        title: `${day.date} 成分股资金流合计 ${c.fund_flow_1d.toFixed(2)} 亿 · 口径 ${c.fund_caliber}（${c.n_with_fund}/${c.n_stocks} 只有数）`,
         missing: false,
       };
     }
     case "stock": {
       const s = day.stock;
       if (!s || s.n_stocks === 0) return missing("个股", "当日没有成分股行");
+      if (!s.n_with_pct || s.n_up === null || s.n_down === null) return missing("个股", `涨跌幅缺失（0/${s.n_stocks} 只有数）`);
       const denom = s.n_up + s.n_down;
       const ratio = denom ? s.n_up / denom : 0.5;
       return {
         color: "transparent",
         text: s.n_limit_like ? `${s.n_limit_like}` : "",
-        title: `${day.date} 成分股 ${s.n_stocks} 只：涨 ${s.n_up} / 跌 ${s.n_down} · 涨停级 ${s.n_limit_like} · 领涨 ${s.top_name ?? "—"} ${fmtPct(s.top_pct)} · 成交最大 ${s.amount_leader ?? "—"}`,
+        title: `${day.date} 成分股 ${s.n_stocks} 只（涨跌幅覆盖 ${s.n_with_pct}/${s.n_stocks}）：涨 ${s.n_up} / 跌 ${s.n_down} · 涨停级 ${s.n_limit_like ?? "—"} · 领涨 ${s.top_name ?? "—"} ${fmtPct(s.top_pct)} · 成交最大 ${s.amount_leader ?? "—"}`,
         missing: false,
         bar: ratio,
       };

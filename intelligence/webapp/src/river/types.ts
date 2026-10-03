@@ -67,15 +67,17 @@ export interface TimelineOpinion {
 
 export interface TimelineCapital {
   fund_flow_1d: number | null;
+  fund_caliber: string;
   n_with_fund: number;
   n_stocks: number;
 }
 
 export interface TimelineStock {
   n_stocks: number;
-  n_up: number;
-  n_down: number;
-  n_limit_like: number;
+  n_with_pct: number;
+  n_up: number | null;
+  n_down: number | null;
+  n_limit_like: number | null;
   top_name: string | null;
   top_pct: number | null;
   amount_leader: string | null;
@@ -226,6 +228,7 @@ export interface RangeResult {
     complete: boolean;
     clean: boolean;
     missing_dates: string[];
+    missing_return_dates?: string[];
     duplicate_dates: string[];
   };
   codes_seen: string[];

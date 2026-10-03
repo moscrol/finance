@@ -4,6 +4,7 @@ import { TRACKS } from "../src/river/types";
 
 const dates = ["2026-01-06", "2026-09-23", "2026-09-24"];
 const latest = dates[2];
+const archiveOnlyDate = "2026-08-04";
 const entity = { id: "S1", name: "测试板块", pct_chg: 1, amount: 500 };
 
 // Synthetic reader fixtures only. The real App, navigation, request lifecycle,
@@ -33,9 +34,9 @@ async function marketFixtures(page: Page) {
         coverage: Object.fromEntries(TRACKS.map(track => [track, { table: "fixture", min: dates[0], max: latest, rows: 3, exists: true }])),
         cohort_options: { market_stage: [], volume_state: [], concentration_state: [] } },
       "daily-overview": { start: visible[0], end: visible.at(-1), days: visible.map(date => ({ date })), calendar: dates, sectors: [], latest_market_date: latest },
-      "daily-review": { schema_version: 1, trade_date: day, available_dates: [latest],
-        status: day === latest ? "available" : "missing", message: "所选日无归档；未替换为其他日期。",
-        report: day === latest ? { facts: { market_stage: "合成测试阶段", volume_ratio: 87.5, total_amount: 15000 },
+      "daily-review": { schema_version: 1, trade_date: day, available_dates: [latest, archiveOnlyDate],
+        status: [latest, archiveOnlyDate].includes(day) ? "available" : "missing", message: "所选日无归档；未替换为其他日期。",
+        report: [latest, archiveOnlyDate].includes(day) ? { facts: { market_stage: "合成测试阶段", volume_ratio: 87.5, total_amount: 15000 },
           industries: [], matrices: { double_red: [], stock_highs: [], limit_up: [] }, engines: [], sections: [], diagnostics: [], warnings: [], core_board: [] } : null,
         provenance: { source_path: "fixture/daily-review.json", sha256: "fixture-sha", generated_at: "2026-09-24T20:00:00+08:00", note: "合成测试归档" } },
       kline: { start: visible[0], end: visible.at(-1), days: [], source: "fixture", strength_source: "fixture" },
@@ -131,6 +132,18 @@ test("observations persist frozen conditions and append a review without a model
   expect(modelWrites).toEqual([]);
   await noOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("observation.png") });
+});
+
+test("an explicitly selected archive remains readable when its market day is missing", async ({ page }, testInfo) => {
+  await navigate(page, testInfo, "长河");
+  await page.getByLabel("复盘当前交易日").selectOption(dates[0]);
+  await expect(page.getByRole("heading", { name: "这一天尚无结构化日报归档" })).toBeVisible();
+  await page.getByRole("button", { name: archiveOnlyDate, exact: true }).click();
+  await expect(page.getByLabel("复盘当前交易日")).toHaveValue(archiveOnlyDate);
+  await expect(page.getByText(`${archiveOnlyDate} 日报`, { exact: true })).toBeVisible();
+  await expect(page.getByText(/所选日报日期暂无行情/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "这一天尚无结构化日报归档" })).toHaveCount(0);
+  await noOverflow(page);
 });
 
 test("theme remains an optional persistent choice and the conversation entry stays usable", async ({ page }, testInfo) => {
