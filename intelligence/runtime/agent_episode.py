@@ -1822,6 +1822,12 @@ class ContinuousAgentEpisode:
                 )
 
             model_elapsed = max(0.0, monotonic() - model_started)
+            opening_tool_context = None
+            if is_opening_call and _round == 1 and not finalization_started and turn.tool_calls and not turn.error:
+                opening_tool_context = self._handoff_opening_budget(
+                    context=context, ledger=ledger, model_started=model_started,
+                    model_timeout=timeout, model_elapsed=model_elapsed,
+                )
             llm_calls += turn.provider_attempts
             # 与 repair_reentry 对齐：asked / configured / 入场残余必须落在
             # 同一条 model_turn 上。2026-08-16 L01 首轮合成 TimeoutError 墙钟
@@ -2151,10 +2157,25 @@ class ContinuousAgentEpisode:
                 yield StepPoint("before_tool_dispatch", llm_calls, tool_calls, turn_id=turn_id)
                 batch_started = monotonic()
                 branch_event_offset = len(ledger.events)
+                if opening_tool_context is not None:
+                    # Keep the latest contract/permissions after mode governance.
+                    # Intervening work may spend funds or tighten the parent clock.
+                    root = context.root_budget
+                    funded = max(0.0, float(root.remaining_seconds)) if root is not None else 0.0
+                    allocated = float(getattr(root, "allocated_seconds", 0.0))
+                    headroom = max(0.0, float(getattr(root, "hard_seconds_cap", allocated)) - allocated)
+                    available = max(0.0, min(funded, funded + headroom - MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS))
+                    opening_tool_context = replace(context, deadline=ResearchDeadline(
+                        expires_at=min(
+                            opening_tool_context.deadline.expires_at,
+                            context.deadline.expires_at - MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS,
+                            monotonic() + available,
+                        ),
+                    ))
                 batch = tool_session.execute(
                     turn.tool_calls,
                     registry=registry,
-                    context=context,
+                    context=opening_tool_context or context,
                     remaining_slots=self._remaining_tool_slots(
                         context=context,
                         tool_calls=tool_calls,
@@ -3222,6 +3243,60 @@ class ContinuousAgentEpisode:
         if borrowable <= 0.0:
             return baseline
         return max(0.0, min(float(self._turn_ceiling(context)), baseline + borrowable))
+
+    @staticmethod
+    def _handoff_opening_budget(
+        *, context: ResearchRunContext, ledger: "_EpisodeLedger",
+        model_started: float, model_timeout: float, model_elapsed: float,
+    ) -> ResearchRunContext | None:
+        """Carry an already-authorized opening loan into its first tool batch.
+
+        Lazy: the ordinary positive-stage path is unchanged. The loan ends at
+        the ORIGINAL model window, never a fresh timeout after the model wait.
+        Transfer only existing root headroom, before debit/dispatch; preserve
+        the synthesis floor in both wall-clock and root accounting. No call
+        grants, promotions, permission changes or follow-up/recovery re-loans.
+        """
+        deadline = context.deadline
+        floor = MIN_SYNTHESIS_RESERVE_FLOOR_SECONDS
+        root = context.root_budget
+        if (
+            type(deadline) is not ResearchDeadline
+            or deadline.synthesis_reserve <= floor
+            or deadline.stage_timeout(model_timeout) > 0.0
+            or root is None
+            or ledger.store_failures
+        ):
+            return None
+        now = monotonic()
+        expires_at = min(model_started + model_timeout, deadline.expires_at - floor)
+        window = max(0.0, expires_at - now)
+        funded = max(0.0, float(root.remaining_seconds))
+        allocated = float(getattr(root, "allocated_seconds", 0.0))
+        hard_cap = float(getattr(root, "hard_seconds_cap", allocated))
+        headroom = max(0.0, hard_cap - allocated)
+        window = min(window, max(0.0, funded + headroom - model_elapsed - floor))
+        if window <= 0.001:
+            return None
+        needed = max(0.0, model_elapsed + window - funded)
+        if needed > 1e-9:
+            grant = BudgetGrant(
+                grant_id=f"opening-handoff-{context.contract.task_id}",
+                episode_id=context.contract.task_id, cycle=0,
+                calls_granted=0, seconds_granted=needed,
+            )
+            grant_fn = getattr(root, "grant", None)
+            if not callable(grant_fn) or not grant_fn(grant):
+                return None
+        child_deadline = ResearchDeadline(expires_at=min(expires_at, now + window))
+        ledger.add("opening_budget_handoff", {
+            "model_elapsed": model_elapsed, "seconds_granted": needed,
+            "tool_window_seconds": window, "expires_at": child_deadline.expires_at,
+            "synthesis_floor_seconds": floor,
+            "parent_expires_at": deadline.expires_at,
+            "parent_remaining_at_handoff": deadline.remaining(),
+        })
+        return replace(context, deadline=child_deadline)
 
     def _followup_planning_timeout(self, context: ResearchRunContext) -> float:
         """证据到手后的规划窗：预扣后不够一次写作时，向 reserve 借到地板。

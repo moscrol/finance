@@ -99,6 +99,12 @@ Controller 首次调用与一次纠错共享剩余研究截止；过期不再发
 旧工程候选的财务/消息/历史答卷仍有失败；本轮接续尚未合并或部署，
 范围和验收见[接续计划](superpowers/plans/2026-09-30-answer-quality-closeout.md)。结构测试通过不等于回答质量通过。
 
+### 评测专用目录视图（非生产入口）
+
+`intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，
+默认关闭，生产factory未接入；不删工具、不改权限或预算。启用必须保存逐请求原始/实际输入收据，
+旧历史对账不等于投影后实际发包对账。用途及边界见[工程结果](verification/2026-10-02-catalog-request-view-results.md)。
+
 ### 夜跑日报生成（代码与数据分根）
 
 收尾仍走 `nightly_full_review.sh finalize`，不是另一条数据写入链。其内部以绝对路径启动
@@ -1251,3 +1257,19 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 普通工具前缀和 PLAN 子研究回灌正文均按实际模型可见投影累计已读覆盖；子研究只有在收件箱认领并追加消息后才计入，完成或保存但未投递不算展示。已交付部分重读不产生新增阅读量，未见页仍可记阅读进展。
 模型净收益待对照；边界、工程读数及预注册见
 [候选说明](verification/2026-10-02-evidence-reread-candidate.md)。
+
+
+### 评测批时间监护（非生产入口）
+
+`scripts/run_eval_bounded.py`是显式、一次性评测启动器；`intelligence.eval.batch_deadline`
+提供跨等待/HTTP/进程的预算工具。不得把exit0当质量通过，不得复用旧批目录，不接生产factory。
+必须与独立物理请求帽、身份准入和持久收据配套；不保证撤销供应商计算，也不是不可信代码沙箱。
+见[工程结果与使用边界](verification/2026-10-02-eval-batch-deadline-results.md)。
+
+### 四格评测接线（非生产 / 非质量放行）
+
+- `scripts/preflight_model_harness_conversation.py`：独立子进程中从完整会话API检查配置；所有模型请求先留证再拦截，真实请求0，不能当四格或E2E。
+- `scripts/score_frozen_machine_case.py` → `intelligence/eval/frozen_machine_scorer.py`：仅接受固定私有Python3.12评分缓存；语义验收恒为未建立，旧尺会漏判指标/数值错配。
+- `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。
+- `intelligence/eval/thin_react.py`：复用既有薄循环评测对照；非生产factory；真实驱动仍需独立预算/原始HTTP/内容评分。
+- 范围与反证：`docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。
