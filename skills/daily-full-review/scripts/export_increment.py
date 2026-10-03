@@ -17,8 +17,8 @@
 用法：
   python3 export_increment.py [--date YYYY-MM-DD] [--db PATH] [--out-root DIR] [--keep N]
   --date     默认取库内 fact_market_daily 的最新 trade_date。
-  --db       默认 <repo>/db/market_feature_store.duckdb。
-  --out-root 默认 <repo>/db/snapshots（iCloud 目的地已于 2026-09-01 退役，
+  --db       默认 MARKET_FEATURE_STORE_DB，未设置时取 <data-root>/db/market_feature_store.duckdb。
+  --out-root 默认 <data-root>/db/snapshots（iCloud 目的地已于 2026-09-01 退役，
              历史 2026-09-01 及之前的增量仍在 ~/Library/Mobile Documents/
              com~apple~CloudDocs/duckdb-snapshots/）。
   --keep     只保留最近 N 份增量 tar.gz（可选；默认不清理）。
@@ -44,15 +44,18 @@ try:
     REPO_ROOT = Path(__file__).resolve().parents[3]
 except IndexError:  # 脚本被复制到别处(如 /tmp)测试时, 退回当前目录, 靠 --db 显式指定
     REPO_ROOT = Path.cwd()
-DEFAULT_DB = REPO_ROOT / "db" / "market_feature_store.duckdb"
-# iCloud 目的地已退役（2026-09-01），默认落仓内本地目录；
+# 代码快照与数据分离；未配置数据根时保留手动执行的仓内默认值。
+DATA_ROOT = Path(
+    os.environ.get("FINANCE_DATA_ROOT") or os.environ.get("FINANCE_WS") or REPO_ROOT
+).expanduser()
+DEFAULT_DB = Path(
+    os.environ.get("MARKET_FEATURE_STORE_DB") or DATA_ROOT / "db" / "market_feature_store.duckdb"
+).expanduser()
+# iCloud 目的地已退役（2026-09-01），默认落数据仓本地目录；
 # DUCKDB_SNAPSHOT_OUT_ROOT 仍可整体重定向（逃生口）。
 DEFAULT_OUT = Path(
-    os.environ.get(
-        "DUCKDB_SNAPSHOT_OUT_ROOT",
-        str(REPO_ROOT / "db" / "snapshots"),
-    )
-)
+    os.environ.get("DUCKDB_SNAPSHOT_OUT_ROOT") or DATA_ROOT / "db" / "snapshots"
+).expanduser()
 
 
 def _tables_with_trade_date(con: duckdb.DuckDBPyConnection) -> list[str]:

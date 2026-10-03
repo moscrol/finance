@@ -134,6 +134,7 @@ from intelligence.services.self_use_maturity import (
     trading_days_from_duckdb,
 )
 from intelligence.services.workbench_overview import build_workbench_overview
+from intelligence.services.board_calendar import build_board_calendar
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -3703,6 +3704,25 @@ def create_app(
             runtime_paths.knowledge_wiki,
         )
 
+    @app.get("/api/workbench/board-calendar")
+    def workbench_board_calendar(
+        month: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        min_boards: int | None = Query(default=None, ge=2, le=20),
+    ) -> dict[str, object]:
+        """交易日历与连板个股的只读投影。"""
+        try:
+            return build_board_calendar(
+                default_market_db_path(),
+                month=month,
+                start_date=start_date,
+                end_date=end_date,
+                min_boards=min_boards,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
     # Reviewed learning survives immutable code-snapshot switches, like overview data.
     learning_root = runtime_paths.finance_root / "docs" / "learning" / "forecast-lessons"
 
@@ -3760,6 +3780,11 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
         return learning_feedback_projection(learning_root)
+
+    # Register read-only market views before the SPA/static fallback.
+    from intelligence.api.river_routes import register_river_routes
+
+    register_river_routes(app)
 
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():

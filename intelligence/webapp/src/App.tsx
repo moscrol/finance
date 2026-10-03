@@ -3,9 +3,11 @@ import {
   KeyRound,
   LoaderCircle,
   LockKeyhole,
+  Moon,
   PanelLeftOpen,
   PanelRightOpen,
   RefreshCw,
+  Sun,
 } from "lucide-react";
 import {
   useCallback,
@@ -51,12 +53,20 @@ import {
 } from "./api";
 import { ArtifactLibrary } from "./components/ArtifactLibrary";
 import { ArtifactViewer } from "./components/ArtifactViewer";
+import { BoardCalendarDashboard } from "./components/BoardCalendarDashboard";
 import { Composer } from "./components/Composer";
 import { ConversationList } from "./components/ConversationList";
+import { DecodeTitle } from "./components/DecodeTitle";
 import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
 import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
+import { TechBackdrop } from "./components/TechBackdrop";
+import { LimitUpDashboard } from "./components/river/LimitUpDashboard";
+import { RiverWorkbench } from "./components/river/RiverHome";
+import { applyTheme, getInitialTheme, type WorkbenchTheme } from "./theme";
+import "./river.css";
+import "./theme-tech.css";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
 import {
@@ -117,6 +127,9 @@ export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [credits, setCredits] = useState<CreditsSummary | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "today" });
+  const [marketFocusDate, setMarketFocusDate] = useState<string | null>(null);
+  const [theme, setTheme] = useState<WorkbenchTheme>(getInitialTheme);
+  useEffect(() => { applyTheme(theme); }, [theme]);
   const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
   const [overviewRefreshing, setOverviewRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -1118,7 +1131,7 @@ export default function App() {
     [messages, runBundles],
   );
   const activeSection: WorkbenchSection = (
-    ["today", "themes", "signals", "validation", "ask"] as const
+    ["today", "themes", "signals", "validation", "board_calendar", "ladder", "river", "ask"] as const
   ).includes(surface.kind as WorkbenchSection)
     ? (surface.kind as WorkbenchSection)
     : "ask";
@@ -1127,6 +1140,9 @@ export default function App() {
     themes: ["主题雷达", "主题状态矩阵", "知识共识与盘面确认分轴展示"],
     signals: ["事件收件箱", "晨会边际变化", "只推变化，不重复旧观点"],
     validation: ["回检台", "验证与校准", "机构胜率 · Level2 · 假设回检"],
+    board_calendar: ["交易日历", "连板梯队", "按交易日查看 ≥2板 / ≥3板个股"],
+    ladder: ["连板复盘", "连板梯队与晋级", "指数同轴 · 逐日阅读 · 同日复盘"],
+    river: ["记忆长河", "时间记忆长河", "每日复盘 · 观察验证 · 六轨对齐"],
     ask: ["研究线程", activeConversation?.title ?? "新对话", "每轮重新检索当前证据"],
   };
   const [sectionKicker, sectionTitle, sectionSubtitle] =
@@ -1145,6 +1161,7 @@ export default function App() {
         inspectorOpen ? "inspector-open" : "inspector-closed"
       }`}
     >
+      {theme === "tech" && <TechBackdrop running={Boolean(runningLive)} />}
       <ConversationList
         conversations={conversations}
         activeConversationId={activeConversationId}
@@ -1172,10 +1189,20 @@ export default function App() {
           </button>
           <div className="chat-title">
             <span className="thread-kicker">{sectionKicker}</span>
-            <strong>{sectionTitle}</strong>
+            <strong>{theme === "tech" ? <DecodeTitle text={sectionTitle} /> : sectionTitle}</strong>
             <small>{sectionSubtitle}</small>
           </div>
           <div className="chat-topbar-actions">
+            <button
+              className="icon-button theme-toggle"
+              type="button"
+              aria-label={theme === "tech" ? "切换为暖纸主题" : "切换为科技主题"}
+              title={theme === "tech" ? "切换为暖纸主题" : "切换为科技主题"}
+              aria-pressed={theme === "tech"}
+              onClick={() => setTheme(current => current === "tech" ? "paper" : "tech")}
+            >
+              {theme === "tech" ? <Sun aria-hidden="true" size={17} /> : <Moon aria-hidden="true" size={17} />}
+            </button>
             <button
               className={`model-status-button ${
                 llmConfig?.ready ? "ready" : "pending"
@@ -1288,6 +1315,26 @@ export default function App() {
               onRefresh={refreshOverview}
             />
           )}
+
+        {surface.kind === "board_calendar" && <BoardCalendarDashboard
+          focusDate={marketFocusDate}
+          onOpenLadder={date => { setMarketFocusDate(date); navigateSection("ladder"); }}
+        />}
+
+        {surface.kind === "river" && (
+          <RiverWorkbench
+            focusDate={marketFocusDate}
+            onFocusDate={setMarketFocusDate}
+            onOpenLadder={date => { setMarketFocusDate(date); navigateSection("ladder"); }}
+          />
+        )}
+        {surface.kind === "ladder" && (
+          <LimitUpDashboard
+            focusDate={marketFocusDate}
+            onFocusDate={setMarketFocusDate}
+            onOpenRiver={date => { setMarketFocusDate(date); navigateSection("river"); }}
+          />
+        )}
 
         {surface.kind === "library" && (
           <ArtifactLibrary

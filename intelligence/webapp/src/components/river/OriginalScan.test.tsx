@@ -1,0 +1,30 @@
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import { getScan } from "../../river/api";
+import type { ScanResult } from "../../river/types";
+import { ScanPanel } from "./ScanPanel";
+vi.mock("../../river/api", () => ({ getScan: vi.fn() }));
+beforeEach(() => vi.mocked(getScan).mockReset());
+const result = (day: string): ScanResult => ({ as_of: day, mode: "dislocation", count: 1, rows: [{ entity_id: "S1", entity_name: `板块${day}`, pct_chg: -1, diff_ratio: -10, amount: 1e10, strict_double_red: false, limit_up_count: 1, coverage_90d: 5, coverage_cumulative: 40, days_since_last_report: 3, fund_flow_1d: null, fund_caliber: "em-main-net", market_pctile: .2, opinion_pctile: .9, dislocation: .7 }] });
+const props = { tradingDays: ["2026-09-23", "2026-09-24"], onPickEntity: vi.fn() };
+it("changing scan day notifies the shared date and removes obsolete rows while loading", async () => {
+  vi.mocked(getScan).mockResolvedValueOnce(result("2026-09-24")).mockImplementationOnce(() => new Promise(() => {}));
+  const notify = vi.fn();
+  render(<ScanPanel {...props} asOf="2026-09-24" onDateChange={notify}/>);
+  await screen.findByText("板块2026-09-24");
+  fireEvent.change(screen.getByRole("combobox", { name: "横扫交易日" }), { target: { value: "2026-09-23" } });
+  expect(notify).toHaveBeenCalledWith("2026-09-23");
+  expect(screen.queryByText("板块2026-09-24")).not.toBeInTheDocument();
+  expect(screen.getByText("计算中…")).toBeInTheDocument();
+});
+it("late older scan results cannot overwrite the current date or its research-coverage definition", async () => {
+  let release!: (data: ScanResult) => void;
+  vi.mocked(getScan).mockImplementationOnce(() => new Promise(resolve => { release = resolve; })).mockResolvedValue(result("2026-09-24"));
+  const { rerender } = render(<ScanPanel {...props} asOf="2026-09-23"/>);
+  rerender(<ScanPanel {...props} asOf="2026-09-24"/>);
+  await screen.findByText("板块2026-09-24");
+  await act(async () => { release(result("2026-09-23")); });
+  expect(screen.queryByText("板块2026-09-23")).not.toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: /研报覆盖分位/ })).toBeInTheDocument();
+  expect(screen.queryByRole("columnheader", { name: /舆论分位/ })).not.toBeInTheDocument();
+});

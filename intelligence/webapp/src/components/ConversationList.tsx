@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Boxes,
   CalendarDays,
+  ChartNoAxesCombined,
   ChevronRight,
   FolderArchive,
   Layers3,
@@ -11,6 +12,8 @@ import {
   PanelLeftClose,
   RadioTower,
   Search,
+  Waves,
+  Flame,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Conversation, CreditsSummary, WorkbenchSection } from "../types";
@@ -20,6 +23,9 @@ const outputNavigation = [
   { section: "themes", label: "主题", Icon: Layers3 },
   { section: "signals", label: "信号", Icon: RadioTower },
   { section: "validation", label: "验证", Icon: BadgeCheck },
+  { section: "board_calendar", label: "连板日历", Icon: ChartNoAxesCombined },
+  { section: "ladder", label: "连板", Icon: Flame },
+  { section: "river", label: "长河", Icon: Waves },
   { section: "ask", label: "问答", Icon: MessageCircle },
 ] satisfies Array<{
   section: WorkbenchSection;

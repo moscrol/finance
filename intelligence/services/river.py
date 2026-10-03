@@ -1123,6 +1123,19 @@ def slice_river(
         }
     finally:
         con.close()
+    # Public messages remain a separate opinion subtype, never report coverage.
+    from intelligence.services.opinion_attention_bridge import river_attention_objects
+
+    attention = river_attention_objects(as_of, cutoff, eid)
+    if attention:
+        opinion = tracks["opinion"]
+        if isinstance(opinion, Gap):
+            for item in attention:
+                item["payload"]["report_coverage_gap"] = opinion.to_dict()
+        tracks["opinion"] = [
+            *(opinion if isinstance(opinion, list) else []),
+            *(RiverObject(**item) for item in attention),
+        ]
     if teaching_labels_db is not None:
         from intelligence.services.teaching_framework.river_objects import teaching_objects
 
