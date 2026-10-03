@@ -107,3 +107,43 @@ def test_cli_stable_mode_accepts_explicit_label(tmp_path, monkeypatch, capsys):
                                   "--memory-identity", "stable", "--json"])
     assert recall._main() == 0
     assert json.loads(capsys.readouterr().out)["hit_rate_at"]["5"] == 1
+
+
+@pytest.mark.parametrize("entry", ["api", "tiers", "cli", "tiers_cli"])
+def test_read_failure_after_admission_is_not_a_recall_miss(tmp_path, monkeypatch, capsys, entry):
+    from pathlib import Path
+
+    path = tmp_path / "corrections.jsonl"
+    write_rows(path, [{"ts": "target", "correction": "订单兑现"}])
+    cases = [case("target")]
+    labels = tmp_path / "cases.jsonl"
+    write_rows(labels, cases)
+    read_text = Path.read_text
+    reads = 0
+
+    def interrupted_read(self, *args, **kwargs):
+        nonlocal reads
+        if self == path:
+            reads += 1
+            # Admission reads active, window and raw successfully. The actual
+            # retriever must report a subsequent IO failure, never a score of 0.
+            if reads > 3:
+                raise PermissionError("private-ledger-path")
+        return read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", interrupted_read)
+    if entry in {"api", "tiers"}:
+        with pytest.raises(OSError, match="memory retrieval unavailable"):
+            if entry == "api":
+                score(tmp_path, cases)
+            else:
+                recall.compare_memory_tiers(cases, users_root=tmp_path)
+    else:
+        argv = ["recall", "--cases", str(labels), "--users-root", str(tmp_path), "--json"]
+        if entry == "tiers_cli":
+            argv.append("--tiers")
+        monkeypatch.setattr("sys.argv", argv)
+        assert recall._main() == 2
+        output = capsys.readouterr().out
+        assert json.loads(output) == {"status": "memory_retrieval_unavailable"}
+        assert "private-ledger-path" not in output

@@ -18,6 +18,8 @@
     "consumption-isolation.json": "58cc660ea2b3ba8a73e059eb1d290efab180331d06e378a4fd0690dc71f5efd5",
     "admission-v1.json": "f775b4ec6efad3b382ab44c1212fd10a5f33de931d2d4a89082b5365befa6b91",
     "label-admission-red.log": "3908bf32d80807ca22c56bfd188f5ab3292d18a4dc6531babe81646edc763176",
-    "label-admission-green-final.log": "6a9c5595acaadcf7552efbbb024ad8f785ac61167eda8a5deae8c2d6e6dc830d"
+    "label-admission-green-final.log": "6a9c5595acaadcf7552efbbb024ad8f785ac61167eda8a5deae8c2d6e6dc830d",
+    "read-failure-red.log": "f6f4019befb5c164ee53eb2723c8d80ca1a4fe0a6fef7a85bfa983887f70203e",
+    "read-failure-green.log": "849a34ce321df1c95eb309eee0e62da95110170faa66089c9f871b763dd6dd70"
   }
 }

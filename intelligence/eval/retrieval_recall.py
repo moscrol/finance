@@ -71,6 +71,10 @@ FIXTURE_LEDGERS = FIXTURE_DIR / "ledgers"
 Retriever = Callable[..., list[str]]
 
 
+class MemoryRetrievalUnavailable(OSError):
+    """The measured retrieval failed; a missing result is not a scored miss."""
+
+
 def user_memory_retriever(
     query: str,
     theme: str | None,
@@ -89,10 +93,13 @@ def user_memory_retriever(
     """
     from intelligence.services.user_memory import relevant_memory_records
 
-    recall = relevant_memory_records(
-        query, theme, entity, user=user, limit=k, users_root=users_root,
-        recall_mode=recall_mode, telemetry=telemetry,
-    )
+    try:
+        recall = relevant_memory_records(
+            query, theme, entity, user=user, limit=k, users_root=users_root,
+            recall_mode=recall_mode, telemetry=telemetry, strict=True,
+        )
+    except (OSError, ValueError):
+        raise MemoryRetrievalUnavailable("memory retrieval unavailable") from None
     ids = [memory_identity("judgment", r, identity_mode) for r in recall.judgments]
     ids += [memory_identity("correction", r, identity_mode) for r in recall.corrections]
     return [i for i in ids if i]
@@ -495,6 +502,9 @@ def _main() -> int:
         return _run()
     except InvalidMemoryLabels as exc:
         print(json.dumps({"status": "invalid_memory_labels", "label_audit": exc.report}, ensure_ascii=False, indent=2))
+        return 2
+    except MemoryRetrievalUnavailable:
+        print(json.dumps({"status": "memory_retrieval_unavailable"}))
         return 2
 
 
