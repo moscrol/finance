@@ -69,6 +69,8 @@ class _Clock:
 def _store(**kwargs) -> CreditStore:
     kwargs.setdefault("enabled", True)
     kwargs.setdefault("pricing", TEST_PRICING)
+    # Grant dates are relative to T0; wall time must not expire fixture balances.
+    kwargs.setdefault("clock", _Clock())
     return CreditStore(**kwargs)
 
 
