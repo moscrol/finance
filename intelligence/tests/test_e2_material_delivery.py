@@ -368,17 +368,23 @@ def test_material_partial_never_fabricates_a_successful_judge_on_outage():
 
 
 @pytest.mark.parametrize("mutation", ["omitted", "optional", "duplicate"])
-def test_frozen_material_contract_cannot_lose_a_question_obligation(mutation):
+@pytest.mark.parametrize("with_origin", [False, True])
+def test_frozen_material_contract_cannot_lose_a_question_obligation(mutation, with_origin):
     from intelligence.services.research_contract import ResearchTaskContract
     _, context = setup_delivery()
+    if not with_origin:
+        context = replace(context, contract=replace(context.contract, required_outputs=tuple(
+            replace(item, origin="legacy", merged_origins=()) for item in context.contract.required_outputs
+        )))
     outputs = context.contract.required_outputs
-    if mutation == "omitted":
-        outputs = (outputs[0], outputs[2])
-    elif mutation == "optional":
-        outputs = (outputs[0], replace(outputs[1], required=False), outputs[2])
-    else:
-        outputs = (*outputs, outputs[1])
-    with pytest.raises(ValueError):
+    expected = "user request cannot be optional" if with_origin and mutation == "optional" else "material_only"
+    with pytest.raises(ValueError, match=expected):
+        if mutation == "omitted":
+            outputs = (outputs[0], outputs[2])
+        elif mutation == "optional":
+            outputs = (outputs[0], replace(outputs[1], required=False), outputs[2])
+        else:
+            outputs = (*outputs, outputs[1])
         replace(context.contract, required_outputs=outputs)
     payload = context.contract.to_dict()
     if mutation == "omitted":
@@ -387,7 +393,7 @@ def test_frozen_material_contract_cannot_lose_a_question_obligation(mutation):
         payload["required_outputs"][1]["required"] = False
     else:
         payload["required_outputs"].append(payload["required_outputs"][1])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected):
         ResearchTaskContract.from_dict(payload)
 
 
@@ -464,20 +470,31 @@ def test_gap_hash_caveat_cannot_escape_memo_limit_after_normalization():
 
 
 def test_old_ranking_and_track_templates_do_not_reopen_material_question_gaps():
-    from intelligence.runtime.continuous_turn_adapter import _with_track_contract_gaps
-    from intelligence.services.track_contract import merge_track_missing_outputs
-    from intelligence.services.ranking_contract import merge_ranking_missing_outputs
+    from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+    from intelligence.services import track_contract, ranking_contract
+    from intelligence.tests.test_continuous_turn_adapter import _control
 
-    _, context = setup_delivery()
+    frame, context = setup_delivery()
     for kind, text in [("theme_stock_priority", "比较甲和乙谁更受益，排序并逐题回答"), ("theme_track", "继续跟踪商业航天")]:
         changed = replace(context, contract=replace(context.contract, question_type=kind, question=text))
         outcome = outcome_for(changed, all_gap=True)
         verified = verify_episode_outcome(changed.contract, outcome)
         # Ensure this is a real template trigger rather than an idle stub.
-        legacy = merge_track_missing_outputs((), outcome.draft, query=text, question_type=kind)
-        legacy = merge_ranking_missing_outputs(legacy, outcome.draft, query=text, question_type=kind)
-        assert legacy
-        assert _with_track_contract_gaps(verified, changed).missing_outputs == ()
+        legacy = track_contract.contract_missing_outputs(outcome.draft, query=text, question_type=kind)
+        legacy += ranking_contract.contract_missing_outputs(outcome.draft, query=text, question_type=kind)
+        assert legacy and verified.missing_outputs == ()
+
+        class Runtime:
+            def run(self, **_kwargs):
+                return outcome
+
+        result = ContinuousTurnAdapter(
+            runtime=Runtime(), mode="on", context_factory=lambda *_a, **_kw: changed,
+            registry_factory=lambda *_a, **_kw: ResearchToolRegistry(()),
+            semantic_verifier=SemanticEpisodeVerifier(judge_fn=material_judge_report),
+        ).handle(frame=frame, control=_control(frame))
+        assert result.private_artifact["structural_verifier"]["missing_outputs"] == []
+        assert result.private_artifact["repair_attempts"] == 0
 
 
 @pytest.mark.parametrize("body", ["乙是否满足升级条件？", "### 未决事项", "待补", "> 缺少乙的订单毛利率，无法判断是否满足升级条件。"])

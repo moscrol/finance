@@ -761,7 +761,7 @@ def test_real_episode_receives_stage_anchored_review_in_same_history(
     context = replace(context, root_budget=InMemoryRootBudgetLedger(
         episode_id=context.contract.task_id, initial_calls=2,
         hard_calls_cap=2 if repair_case == "no_budget" else 3,
-        initial_seconds=60.0, hard_seconds_cap=120.0,
+        initial_seconds=60.0, hard_seconds_cap=60.0 if repair_case == "no_budget" else 120.0,
     ))
     evidence = AgentEvidence(
         tool="market_data", title="市场结构", detail="上涨家数仍待改善。",
@@ -1487,12 +1487,13 @@ class _NeverWarrantedHarness(FinanceResearchHarness):
 class _DeliveryOnlyHarness(FinanceResearchHarness):
     """领域把一切失败都解释成「有证据没写出稿」，从不申请重开工具。"""
 
-    def classify_repair_need(self, outcome, structural, *, rejected_claims, semantic_gap_outputs):
+    def classify_repair_need(self, outcome, structural, *, rejected_claims, semantic_gap_outputs, review_feedback=()):
         need = super().classify_repair_need(
             outcome,
             structural,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
+            review_feedback=review_feedback,
         )
         return replace(
             need,

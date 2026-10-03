@@ -424,6 +424,8 @@ def run_generic_research(
                     "description": item.description,
                     "evidence_types": list(item.evidence_types),
                     "required": item.required,
+                    **({"origin": item.origin} if item.origin != "legacy" else {}),
+                    **({"merged_origins": list(item.merged_origins)} if item.merged_origins else {}),
                 }
                 for item in contract.required_outputs
             ],

@@ -318,6 +318,68 @@ class TestPerspectiveCarryOver:
         assert "本轮视角约束" not in captured["user"]
 
 
+@pytest.mark.parametrize("output_id", ["analysis_alpha", "analysis_beta"])
+@pytest.mark.parametrize("answer_present", [False, True])
+def test_optional_identity_survives_real_verdict_repair_and_failure_projection(
+    monkeypatch: pytest.MonkeyPatch, output_id: str, answer_present: bool,
+) -> None:
+    from intelligence.services import answer_model
+    from intelligence.services.research_contract import RequiredOutput
+
+    question = "解释一个给定机制"
+    text = "系统将输入转换成输出。"
+    claim = answer_model.Claim(
+        claim_id=f"{output_id}:1", text=text, claim_type="summary", theme="机制",
+        evidence_ids=("S1",), status=answer_model.ClaimStatus.VERIFIED,
+    )
+    spec = answer_model.AnswerSpec(
+        research_spec=answer_model.resolve_answer_profile(question, profile="general"),
+        summary=(claim,), verified_facts=(), company_table=(), counter_evidence=(),
+        gaps=(), triggers=(), next_actions=(),
+        sources=(answer_model.EvidenceRef(evidence_id="S1", source="给定说明", detail=text),),
+        system_notices=(), presentation_kind="generic_research",
+    )
+    outputs = (
+        RequiredOutput(output_id, "用户所需机制解释", origin="user_request"),
+        RequiredOutput("optional_extension", "可选延伸比较", required=False, origin="method"),
+    )
+    answer = text if answer_present else "尚未提供说明。"
+    verdict = task_fulfillment.evaluate_answer_spec_fulfillment(
+        question=question, required_outputs=outputs, answer_text=answer, answer_spec=spec,
+    )
+    assert verdict.status == ("complete" if answer_present else "missing")
+    assert [item.output_id for item in verdict.missing_required] == ([] if answer_present else [output_id])
+    assert [item["required"] for item in verdict.to_dict()["items"]] == [True, False]
+    assert [item["origin"] for item in verdict.to_dict()["items"]] == ["user_request", "method"]
+    captured = []
+
+    def synthesize(messages, **kwargs):
+        captured.append(messages)
+        return llm_refine.SynthesisResult(text, "stub", "stub", "stop"), ""
+
+    monkeypatch.setattr(llm_refine, "synthesize_messages", synthesize)
+    repaired = ask_synthesis.repair_unfulfilled_answer(
+        question=question, answer_text=answer, answer_spec=spec, verdict=verdict,
+        required_outputs=outputs, timeout=30,
+    )
+    projected = task_fulfillment.fail_closed_answer_spec(spec, verdict)
+    if answer_present:
+        assert captured == []
+        assert repaired is None
+        assert projected is spec
+    else:
+        assert len(captured) == 1
+        prompt = captured[0][1]["content"]
+        assert output_id in prompt
+        assert "optional_extension" not in prompt and "可选延伸比较" not in prompt
+        assert repaired is not None and repaired[1].status == "complete"
+        assert repaired[1].missing_required == ()
+        assert [item.origin for item in repaired[1].items] == ["user_request", "method"]
+        assert projected.presentation_kind == "evidence_gap"
+        assert "用户所需机制解释" in projected.summary[0].text
+        assert "可选延伸比较" not in projected.summary[0].text
+
+
 class TestNoOpGuards:
     def test_nothing_missing_means_no_call(
         self, monkeypatch: pytest.MonkeyPatch, stub_registry: None

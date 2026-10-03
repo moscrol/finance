@@ -267,6 +267,69 @@ def test_plan_revision_can_add_but_cannot_remove_answer_elements() -> None:
         )
 
 
+@pytest.mark.parametrize("removed_field, initial, revised", [
+    ("answer_elements", ["用户任务的回答", "自拟延伸分析"], ["用户任务的回答"]),
+    ("answer_elements", ["最后一个自拟分析项"], []),
+    ("branch_goals", ["自拟比较"], []),
+    ("perspectives", [{"perspective_id": "p1", "question": "自拟角度", "status": "open"}], []),
+])
+def test_explicit_plan_revision_can_retract_its_own_steps(removed_field, initial, revised) -> None:
+    first = parse_research_plan(_plan_json(**{removed_field: initial}, base_revision=0))
+    second = parse_research_plan(_plan_json(
+        **{removed_field: revised}, revision=2, base_revision=1,
+        revision_reason="这条自拟研究路线不再适用，原始用户任务仍保留。",
+    ))
+    validate_plan_revision(first, second, original_task_id="task-1", current_task_id="task-1")
+    payload = plan_to_public_dict(second)
+    assert payload[removed_field] == revised
+    assert payload["base_revision"] == 1
+    assert payload["revision_reason"] == second.revision_reason
+    assert parse_research_plan(json.dumps({"kind": "PLAN", **payload})) == second
+
+
+@pytest.mark.parametrize("overrides, error", [
+    ({"base_revision": 0}, "base_revision"),
+    ({"base_revision": 2}, "base_revision"),
+    ({}, "base_revision"),
+    ({"base_revision": 1, "answer_elements": ["counterpoint"]}, "revision_reason"),
+])
+def test_versioned_plan_rejects_stale_downgraded_or_unexplained_retraction(overrides, error) -> None:
+    first = parse_research_plan(_plan_json(base_revision=0))
+    second = parse_research_plan(_plan_json(revision=3, **overrides))
+    with pytest.raises(ValueError, match=error):
+        validate_plan_revision(first, second, original_task_id="task-1", current_task_id="task-1")
+
+
+@pytest.mark.parametrize("overrides", [
+    {"base_revision": -1}, {"base_revision": True}, {"base_revision": "0"},
+    {"base_revision": None}, {"base_revision": 0.0},
+    {"revision_reason": "reason without a base"}, {"base_revision": 0, "revision_reason": 1},
+    {"base_revision": 0, "revision_reason": "r" * 301},
+])
+def test_plan_revision_metadata_is_strict(overrides) -> None:
+    with pytest.raises(ValueError):
+        parse_research_plan(_plan_json(**overrides))
+
+
+def test_legacy_plan_can_explicitly_adopt_revision_ownership_without_rewriting_history() -> None:
+    first = parse_research_plan(_plan_json())
+    second = parse_research_plan(_plan_json(
+        revision=2, base_revision=1, answer_elements=["Revised approach"],
+        revision_reason="Original approach did not help answer the request.",
+    ))
+    validate_plan_revision(first, second, original_task_id="t", current_task_id="t")
+    assert "base_revision" not in plan_to_public_dict(first)
+    with pytest.raises(ValueError, match="preserve task identity"):
+        validate_plan_revision(first, second, original_task_id="t", current_task_id="other")
+
+
+@pytest.mark.parametrize("field", ["question", "required_outputs", "allowed_capabilities", "deadline", "max_calls"])
+def test_versioned_plan_cannot_mutate_request_or_authority(field) -> None:
+    result = parse_plan_candidate(_plan_json(base_revision=0, **{field: []}))
+    assert result.plan is None
+    assert result.error == f"unknown plan fields: {field}"
+
+
 def test_plan_revision_cannot_remove_an_already_published_branch_goal() -> None:
     first = parse_research_plan(
         _plan_json(branch_goals=["核验公司兑现"], revision=1)

@@ -24,7 +24,6 @@ from uuid import uuid4
 from intelligence.services.agent_runtime import AgentOutcome
 from intelligence.services.episode_verifier import VerifiedEpisodeOutcome
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
-from intelligence.services.track_contract import is_contract_rewrite_only
 
 
 @dataclass(frozen=True)
@@ -490,9 +489,9 @@ COLD_RESTART_STOP_REASONS = frozenset({"deadline_exhausted", "model_unavailable"
 class RepairFailureShape:
     """一次失败终局在领域眼里的形状。三者互斥与否由 ``admit_repair`` 分流决定。
 
-    - ``delivery``：有证据、有结构缺口，但没写出稿或没绑定——tool-closed 交付修复。
+    - ``delivery``：有证据未成稿，或只剩核验拒句需修订——tool-closed 交付修复。
     - ``cold_restart``：零证据饿死（窗烧穿 / 主路径模型不可用）——重开工具一发。
-    - ``contract_rewrite``：缺的全是契约表达槽——从已有证据/材料补写，不开工具。
+    - ``contract_rewrite``：合同授权的材料交付补写，不由模板槽名授予。
     - ``input_only_rewrite``：仅依据材料交付的显式许可；不要求题号，不伪造证据计数。
 
     不看预算、不看 cycle 状态（「交付修复只许一次」是底座的账，由调用方叠）。
@@ -513,6 +512,7 @@ def classify_repair_failure(
     missing_outputs: tuple[str, ...],
     rejected_claims: tuple[str, ...],
     semantic_gap_outputs: tuple[str, ...],
+    review_feedback: tuple[str, ...] = (),
 ) -> RepairFailureShape:
     """领域失败分类。``missing_outputs`` 是结构缺口 ∪ 语义缺口（调用方已合并）。"""
 
@@ -541,20 +541,22 @@ def classify_repair_failure(
         } for item in structural.issue_items)
     )
     return RepairFailureShape(
-        delivery=bool(
-            outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
-            and has_evidence
-            and structural.missing_outputs
-            and (not outcome.draft.strip() or not outcome.bindings)
-        ),
+        delivery=bool(has_evidence and (
+            (
+                outcome.stop_reason in DELIVERY_REPAIR_STOP_REASONS
+                and structural.missing_outputs
+                and (not outcome.draft.strip() or not outcome.bindings)
+            )
+            or (
+                (rejected_claims or review_feedback) and outcome.draft.strip()
+                and not missing_outputs and not structural.mandatory_missing_capabilities
+                and not structural.issue_items
+            )
+        )),
         cold_restart=(
             outcome.stop_reason in COLD_RESTART_STOP_REASONS and not has_evidence
         ),
-        contract_rewrite=material_rewrite or is_contract_rewrite_only(
-            missing_outputs,
-            rejected_claims=rejected_claims,
-            semantic_gap_outputs=semantic_gap_outputs,
-        ),
+        contract_rewrite=material_rewrite,
         input_only_rewrite=material_rewrite,
     )
 
@@ -586,11 +588,14 @@ def classify_repair_need(
     *,
     rejected_claims: tuple[str, ...],
     semantic_gap_outputs: tuple[str, ...],
+    review_feedback: tuple[str, ...] = (),
 ) -> RepairNeed:
     """这次失败该修什么、属于哪一类、要补几个格。
 
     ``missing_outputs`` = 结构缺口 ∪ 语义缺口（去重保序）；``missing_capabilities``
     取契约要求却没拿到的 capability；格数按去重后的两组之和。
+    review_feedback 是阶段化修订诊断：仅剩诊断时可申请纯文字修订，但不能把
+    被撤销的材料缺失声明等同于新事实拒绝，从而撤销既有 input-only rewrite。
     """
 
     missing_outputs = tuple(
@@ -600,13 +605,14 @@ def classify_repair_need(
     return RepairNeed(
         missing_outputs=missing_outputs,
         missing_capabilities=missing_capabilities,
-        rejected_claims=tuple(rejected_claims),
+        rejected_claims=tuple(review_feedback or rejected_claims),
         shape=classify_repair_failure(
             outcome,
             structural,
             missing_outputs=missing_outputs,
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
+            review_feedback=review_feedback,
         ),
         work_units=_count_work_units(missing_outputs, missing_capabilities),
     )

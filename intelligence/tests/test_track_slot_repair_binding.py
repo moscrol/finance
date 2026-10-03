@@ -1,11 +1,7 @@
-"""跟踪题修复轮：表达槽 id 被当 output 绑时要可修正，不能硬拒（2026-09-07 两轮 theme_track 2/2 复现）。
+"""Retired template IDs have no authority outside the actual task contract.
 
-形状：``track_contract`` 把「TTL / 下期关注 / 四态」缺件以合成 id（``track_ttl`` …）并进
-``RepairGoal.missing_answer_elements``；模型看见 id 就当 output 去绑；``validate_episode_finish``
-判 ``unknown_output``（INTEGRITY，不回灌不恢复）→ 整轮 ``invalid_repair_finish``。
-系统自己要的东西被自己当越界硬拒。两处修：① 绑到表达槽 → ``expression_slot_binding``（FORMAT，
-回灌可修正提示）；② REPAIR_GOAL 消息在真有表达槽时多一键说明「写进 draft、不进 bindings」，
-其它修复轮的消息逐字节不变。
+Historical event dictionaries remain untouched. New unknown bindings and repair
+goals no longer receive special treatment from a template-name list.
 """
 
 from __future__ import annotations
@@ -103,16 +99,15 @@ def _binding(output_id: str) -> dict:
 
 
 @pytest.mark.parametrize("slot", sorted(TRACK_CONTRACT_OUTPUT_ID_SET))
-def test_binding_an_expression_slot_is_a_recoverable_format_rejection(slot: str) -> None:
+def test_binding_a_retired_template_id_is_an_unknown_output(slot: str) -> None:
     with pytest.raises(EpisodeFinishRejection) as excinfo:
         validate_episode_finish(
             _finish([_binding("change_summary"), _binding(slot)]), context=_context(), evidence=_evidence()
         )
-    assert excinfo.value.code == "expression_slot_binding"
-    assert excinfo.value.kind is RejectionKind.FORMAT
-    assert REJECTION_KINDS["expression_slot_binding"] is RejectionKind.FORMAT
-    message = str(excinfo.value)
-    assert slot in message and "写进 draft" in message and "复核期限" in message
+    assert excinfo.value.code == "unknown_output"
+    assert excinfo.value.kind is RejectionKind.INTEGRITY
+    assert slot in str(excinfo.value)
+    assert "expression_slot_binding" not in REJECTION_KINDS
 
 
 def test_a_truly_unknown_output_is_still_an_integrity_rejection() -> None:
@@ -146,15 +141,9 @@ def _goal(*elements: str) -> RepairGoal:
     )
 
 
-def test_repair_goal_message_explains_expression_slots_only_when_present() -> None:
-    harness = FinanceResearchHarness()
-    with_slots = json.loads(
-        harness.repair_goal_message(_goal("track_ttl", "track_next_watch", "change_summary"), tools_open=False)
-    )
-    note = with_slots["expression_elements_note"]
-    assert "track_ttl" in note and "track_next_watch" in note and "change_summary" not in note
-    assert "不要作为 bindings 的 output_id" in note and "复核期限" in note
-    assert all(part in note for part in ("指标/事件", "时间节点", "可证伪触发条件", "不编造数字阈值", "保留可信正文"))
-    # 没有表达槽的修复轮：消息里没有这一键，形状与拆分前逐字节相同（既有测试钉着）。
-    without = json.loads(harness.repair_goal_message(_goal("change_summary"), tools_open=False))
-    assert "expression_elements_note" not in without
+@pytest.mark.parametrize("output_id", ["track_ttl", "track_next_watch", "change_summary"])
+def test_repair_message_does_not_reinterpret_an_obligation_by_its_name(output_id) -> None:
+    payload = json.loads(FinanceResearchHarness().repair_goal_message(_goal(output_id), tools_open=False))
+    assert payload["missing_answer_elements"] == [output_id]
+    assert "expression_elements_note" not in payload
+    assert "不要作为 bindings" not in json.dumps(payload, ensure_ascii=False)
