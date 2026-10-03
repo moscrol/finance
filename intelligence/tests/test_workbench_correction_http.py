@@ -233,6 +233,30 @@ def test_http_correction_reaches_fresh_first_request(tmp_path, monkeypatch, offl
         ).status_code == 404
 
 
+def test_http_recalled_correction_keeps_specific_content_before_principle(tmp_path, offline_http):
+    client, calls = offline_http
+    correction = "光刻胶研究先核客户验证批次、订单验收日期，不能由规划产能推断量产兑现。"
+    principle = "区分愿景与已发生的公司事实。"
+    wrong = "规划产能就等于已经量产兑现。"
+    path, _ = corrections.record_correction(
+        tmp_path / "users" / "alice" / "corrections.jsonl",
+        correction=correction, principle=principle, original=wrong,
+        themes=["光刻胶"], ts="2026-09-01T02:00:00+00:00",
+    )
+    before = path.read_bytes()
+    fresh = _conversation(client, "alice")
+    calls.clear()
+    created = _send(client, "alice", fresh, QUERY)
+    text, memory, task = _first_request_memory(tmp_path, calls, created, "alice", fresh)
+    assert correction in text
+    assert principle in text
+    assert memory.detail.index(correction) < memory.detail.index(principle)
+    assert wrong not in text
+    assert memory.source_date == "2026-09-01"
+    assert correction not in task["conversation_context"]
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize("ledger", ["corrections", "judgments"])
 @pytest.mark.parametrize("content", ["{broken-private-sentinel", "[]"])
 def test_http_corrupt_memory_is_unavailable_not_empty(tmp_path, offline_http, ledger, content):

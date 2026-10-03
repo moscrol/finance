@@ -64,7 +64,8 @@ class BuildMemoryBlockTests(unittest.TestCase):
         self.assertIn("[M]", block)
         # W2 逐条归属：每条自带「这是你 X 日的判断/纠偏原则」，日期逐条不丢。
         self.assertIn("[M·你的判断 2026-07-01][数据安全]", block)
-        self.assertIn("[M·你的纠偏原则 2026-07-02]：时间尺度要对齐", block)
+        self.assertIn("[M·你的纠偏原则 2026-07-02]：别把当日强度当中期赔率", block)
+        self.assertIn("补充原则：时间尺度要对齐", block)
         self.assertIn("回检校准", block)
         self.assertIn("命中率 75%", block)
         self.assertIn("使用要求", block)
@@ -91,6 +92,10 @@ class BuildMemoryBlockTests(unittest.TestCase):
     def test_correction_falls_back_to_correction_text(self) -> None:
         block = build_memory_block([], [{"correction": "应该看板块容量", "ts": "2026-07-02T00:00:00Z"}])
         self.assertIn("[M·你的纠偏原则 2026-07-02]：应该看板块容量", block)
+
+    def test_duplicate_principle_is_not_repeated(self) -> None:
+        block = build_memory_block([], [{"correction": "应该看板块容量", "principle": " 应该看板块容量 "}])
+        self.assertEqual(block.count("应该看板块容量"), 1)
 
 
 class PeerHitLineTests(unittest.TestCase):

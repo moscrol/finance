@@ -268,13 +268,17 @@ store 拒绝进入控制操作，不以空锁静默兼容；任务目录的 chec
 v1/v2 读回保持原版本、摘要和语义，缺失的来源标记只取 unknown，不猜本地读取权限。
 新捕获写 v3，摘要覆盖来源标记、展示原件和分类；账本与展示不得借同一 hash 改写来源标记。
 上一轮可信原件与本轮预取均先播种，再保存第一次检查点，随后才派发模型。
-用户纠偏开口读侧（`feat/architecture-audit-0924`，审计分支候选，未合入/部署）：
+用户纠偏开场读侧（当前主干已有实现；部署与真实效果须另验）：
 Workbench 写侧从被纠正的 completed assistant 的 turn_intent 透传主体，不猜新主题。
 有明确公司/题材主体的研究题，合同授权 memory_lookup 且身份已解析时，装配层复用该工具
 runner 自动加入 opening_prefetch，首请求前进入证据账本；提供可选 prior_recall 先验槽，
 不要求模型再主动调用工具。1 秒子期限与根研究期限/合成保留预算取交集；最多两项并发读取，
 无排队，迟到结果不发布。空命中、超时、失败、繁忙分别标为 user_memory_gap；无身份不回落
 默认用户。命中仍为 user_memory，不能绑定市场事实；缺口不能绑定判断，消息不含台账路径。
+纠偏展示先保留具体 `correction`，再附不同的 `principle`；CLI记忆块与Episode使用同一展示函数。
+抽象原则不替代具体纠偏，旧的错误说法 `original` 不作为先验交付。Episode仍遵守每条1000字符、
+合计6000字符及明确截断提示；具体正文优先占预算。该变更只补齐已召回内容，不改变召回排序/默认，
+也不自动裁决跨用途或新旧记录冲突。
 material_only/local_only 保持既有不预取上限。离线定向收据见
 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`；不证明真实模型采用或金融质量。
 纠偏自动写侧使用同一台账 inode 锁包住查重与 canonical append；锁等待最多 0.2 秒，
