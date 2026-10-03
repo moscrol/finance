@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "suite_id": "harness-quality-holdout-20261004",
+  "manifest": "/Users/a77/.codex/worktrees/9020/finance-workspace-private/intelligence/eval/fixtures/harness_quality_holdout_20261004.json",
+  "manifest_sha256": "32f4416057ca12df2459f0fd48bc3607fd2c1afe22eee2f46820860c7af405db",
+  "case_count": 12,
+  "tuning_case_ids": [],
+  "status": "holdout_frozen_not_run",
+  "cases": [
+    {
+      "id": "HN-01",
+      "type": "news",
+      "as_of": "2026-10-04",
+      "question_sha256": "cb5a6e91570b9d51ce5b1f8433d4f2c9b3321974738efaf44654baf21555fe2f",
+      "turns_sha256": "bafece51c4ddced37ac9b3bfc0f2c91b6f5457cb506306f81e32f1f9ccf22d46",
+      "materials_sha256": "f37587956aa2d5335419955fa6c9322a8cfbfb9ccbf389cf47de90a53fc8fe80",
+      "gold_sha256": "3b0d4a185b586cf30e88f1c652bfbfc72a423a201b66d64c0b8aacfd2af472dd"
+    },
+    {
+      "id": "HN-02",
+      "type": "news",
+      "as_of": "2026-10-04",
+      "question_sha256": "fa55e0be271117c3526e0e98310e69ead034a92582b4a3a6debce1d915d66b07",
+      "turns_sha256": "456ad66117a276176b020d2622d578907af725025e285d51547496792be546d3",
+      "materials_sha256": "9e2334d554768133fc0125d1613cfc10007e633045d89595035111ebcd3d75b7",
+      "gold_sha256": "c39fbe010721a1ff4287d550f508de28f4055c5619c353a41f0140e6286fc312"
+    },
+    {
+      "id": "FN-01",
+      "type": "financial",
+      "as_of": "2025-12-31",
+      "question_sha256": "962f1657e80c902625d78796ee97ee2c16cfc1c49f82659c783bbb178817a781",
+      "turns_sha256": "a8679cc2f1eb8e52ceca15b12ef23655f8cd71bacb46c2a3860d603652f76454",
+      "materials_sha256": "00343f3ed3188098619b9f5050d572894aee7d791868f7d720c799421559211e",
+      "gold_sha256": "0704682a6ad14ef3bb4d6914c9910119f81733c25304c4b30721cc023b87db8a"
+    },
+    {
+      "id": "FN-02",
+      "type": "financial",
+      "as_of": "2025-12-31",
+      "question_sha256": "e4b8f9496b8ffaf1e0088f993ef784a0ae5acc65d2d5dd1bb3f5940b58c982d3",
+      "turns_sha256": "a541680af99926ce69d80bfcca27ef1c16f6c8c4499300899c5a5c5ed5bcea39",
+      "materials_sha256": "c9ad35447d00d3add6a0140c4d89ae9a316e892efc02552ee3b7cabc68cf105f",
+      "gold_sha256": "c0c3c52af621aae4133eeb6955487709d52d78d21c4d0f629d6dc1526ca2aaf9"
+    },
+    {
+      "id": "TR-01",
+      "type": "transmission",
+      "as_of": "2025-12-31",
+      "question_sha256": "ff537313ac3b1fb811702e403e5350b367e7bcbab9ff863786d80eb1a119819f",
+      "turns_sha256": "684fb60b34fc7e8560a4d7d92aa93fec6f505878423f827bbcb25dc1af10f675",
+      "materials_sha256": "28bda6981b231e1ae05b52f9a2275b38969d50625d9462d7c186364f9fb8187b",
+      "gold_sha256": "ca88cfaefb829548cc823a10fb60434588c266f0db4808b4a9cf30b94175217b"
+    },
+    {
+      "id": "TR-02",
+      "type": "transmission",
+      "as_of": "2025-12-31",
+      "question_sha256": "76546e8157367b82776d0da7604701eb11939dc0a9539349ccb5361b087c6aa9",
+      "turns_sha256": "ac489d2db57410e798bf20d173d66194071ba14adb0f4ab4f4c9dbc747f2fb9a",
+      "materials_sha256": "8b3890f324a95aad9eb18af93d932c6a5123415c667dd49d4d87af9a49bbae90",
+      "gold_sha256": "9c98c89436eafbde058434feb0facb527356ef75f275213365849a1f4c473962"
+    },
+    {
+      "id": "MY-01",
+      "type": "method",
+      "as_of": "2026-10-04",
+      "question_sha256": "fd932780be2ef512100fdc53289250fa38233404114f3e4e2565eb5cb0be872b",
+      "turns_sha256": "41f10edb699e254c4431fd59ca7fb67204647b05fdf7effddbb17b4dd5e861fa",
+      "materials_sha256": "b2cab0bd805509398fa8c0092d68f7f6045e63be14d180f5da0aa054d95589a3",
+      "gold_sha256": "fd6f838a736d8249396900eb7f82db528ab125b20de5ac9af0f464a839b68586"
+    },
+    {
+      "id": "MY-02",
+      "type": "method",
+      "as_of": "2026-10-04",
+      "question_sha256": "6ea85bdd10c53a4126c200cf526e6638805d8008fcbf8860a4234c79eb5cccdb",
+      "turns_sha256": "d48df7ef0c2347a646e9a696d471899deeb797199fa60184777f935cbec8fa24",
+      "materials_sha256": "0fa43a6619b8bd75c7cc3589b4fa7e7d662e8ccfe76de8d39be4357a2cc22c62",
+      "gold_sha256": "5e833ddd4955ade82da2db374959c4f479daf66b36962fbe034a8ee044fe0a1e"
+    },
+    {
+      "id": "RW-01",
+      "type": "rewrite",
+      "as_of": "2026-10-04",
+      "question_sha256": "bcc5331de54ec58486f2c2ffb41b34396dbe93eb9a789dda50e966013b0f9c4b",
+      "turns_sha256": "8f1b100f75146968f396582b09f739b50f79011a9a70c637087aca1682062d62",
+      "materials_sha256": "031c6426a894a5e3bd8502074e2929a0af164c2dcf1c7f71faaf0a8208eb5ea6",
+      "gold_sha256": "784d4fe1af6590ed5f6dbdd92d3c508b977ddf93df55302c04a7fcbede1c6901"
+    },
+    {
+      "id": "RW-02",
+      "type": "rewrite",
+      "as_of": "2026-10-04",
+      "question_sha256": "f6e3bc2fdbcdceea280668e3f862a20a1839fc866b3b065db55a35003ef43e75",
+      "turns_sha256": "b50f48085e098022e448da4fc2b38b54eb8555ca8073227399625172ea6f5b40",
+      "materials_sha256": "8458cae6a68260783a1c27592be383d43e3c3353238b6ec2dc74b7a69105dd16",
+      "gold_sha256": "02e9619e566872e779ebb747bc1b41f239aae17a8fb8342647c0b41103d0c11f"
+    },
+    {
+      "id": "MT-01",
+      "type": "multiturn",
+      "as_of": "2026-10-04",
+      "question_sha256": "b76beccb942dcf36f15cd00a3291e640f23ec3687ac38af6331c2ad9064114ff",
+      "turns_sha256": "ce74f906248a8b1c9cf22ec39e403a0eebf3ed0af8d35be026557308eab1d3b6",
+      "materials_sha256": "48cdff6cce0665f33423fa21d82847c2a0ad3637f798a30352b9bf71135b301d",
+      "gold_sha256": "9558f158efa09cb540f3c0a464e8ca761d1a11463e20f5e00cbcee72f7df87f5"
+    },
+    {
+      "id": "MT-02",
+      "type": "multiturn",
+      "as_of": "2026-10-04",
+      "question_sha256": "89809df6b600f29a86058f9682881b9eb6930e7515ed252e4f4c933ef7f8f716",
+      "turns_sha256": "65691c11a31977a405c394ba88cd377ff6209244ceeb4394360580a16ab7fa97",
+      "materials_sha256": "17050c31a468c216143a0f10042d51263796afbb2f26b1966dcba43f457ed89e",
+      "gold_sha256": "c99f4b17967450f4190e7414416c991e52e907998cd5fe6875aaad61e2f1bbce"
+    }
+  ],
+  "freeze_revision": 2,
+  "supersedes": {
+    "manifest_sha256": "dc2e5a859b9c2a93b80b03c4780c8bd4bf8083809e291687db6b7153375708b7",
+    "git_revision": "161cbf89e17975b1c470e7fc2c84c6297fbee610",
+    "reason": "独立Spec审查发现十个单轮发送文本缺材料，首次模型运行前修正；真值、材料及多轮输入未变。"
+  }
+}
