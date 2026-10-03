@@ -44,7 +44,11 @@ from market_feature_store.consumption_registry import (  # noqa: E402
 )
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
-RUNLOG = SKILL_DIR / "state" / "runlog.md"
+# Code stays in the frozen snapshot; logs, quality receipts and captures share
+# the existing data-root contract used by the nightly wrappers.
+_DATA_ROOT = Path(os.environ.get("FINANCE_DATA_ROOT") or os.environ.get("FINANCE_WS") or ROOT).expanduser()
+STATE_DIR = _DATA_ROOT / "skills" / "daily-full-review" / "state"
+RUNLOG = STATE_DIR / "runlog.md"
 PY = sys.executable
 CLI = [PY, "-m", "market_feature_store.cli"]
 
@@ -223,7 +227,7 @@ def run_release_steps(trade_date: str, timeout: int, plan: str = "full") -> tupl
     if same_day["status"] != "ok":
         return results, False
 
-    quality_json = SKILL_DIR / "state" / f"quality-{trade_date}.json"
+    quality_json = STATE_DIR / f"quality-{trade_date}.json"
     cross_day = run_step(
         "cross-day-gate",
         CLI + ["check-daily", "--trade-date", trade_date, "--json", str(quality_json), "--plan", plan],
@@ -415,7 +419,6 @@ def sync_hithink_step(label: str, trade_date: str, timeout: int) -> dict:
 OPTIONAL_SKIP_STEPS = ("capture-dated-quotes", "attach-capture-names", "bridge-gap-fill")
 
 # 捕获是数据不是代码：夜跑从冻结代码根执行，但捕获落在数据根（S7 导出 FINANCE_DATA_ROOT/FINANCE_WS）。
-_DATA_ROOT = Path(os.environ.get("FINANCE_DATA_ROOT") or os.environ.get("FINANCE_WS") or ROOT)
 QUOTE_CAPTURE_ROOT = Path(
     os.environ.get("FINANCE_QUOTE_CAPTURE_ROOT") or _DATA_ROOT / "db" / "quote-captures" / "tencent"
 )
