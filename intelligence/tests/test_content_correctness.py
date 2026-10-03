@@ -131,6 +131,14 @@ def test_spaced_negative_sign_preserves_result_direction(sign):
     assert cc.score(case, f"自由现金流为 {sign} 2.28 亿元。").passed
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_markdown_heading_boundary_does_not_become_a_negative_sign(newline):
+    cases = {case.id: case for case in cc.load_cases()}
+    answer = newline.join(("自由现金流", "---", "2.5亿元。"))
+    assert cc.score(cases["cc-sf-03"], answer).passed
+    assert not cc.score(cases["cc-sf-01"], answer).passed
+
+
 def test_current_time_context_and_epistemic_denial_survive_clause_boundaries():
     case = {case.id: case for case in cc.load_cases()}["cc-tp-01"]
     assert not cc.score(case, "9月1日公告时尚未获得订单，截至目前，公司仍未获单。").passed

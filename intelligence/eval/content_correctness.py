@@ -159,7 +159,7 @@ def _analysis_text(text: str) -> str:
             return match.group()
         return match.group(1)
 
-    return re.sub(r"([−+-])\s+(?=\d)", join_sign, cleaned)
+    return re.sub(r"([−+-])[^\S\r\n]+(?=\d)", join_sign, cleaned)
 
 
 def _signed_values(raw: str, before: str, after: str, *, rate: bool = False) -> list[float]:
