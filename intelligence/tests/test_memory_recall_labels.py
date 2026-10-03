@@ -147,3 +147,36 @@ def test_read_failure_after_admission_is_not_a_recall_miss(tmp_path, monkeypatch
         output = capsys.readouterr().out
         assert json.loads(output) == {"status": "memory_retrieval_unavailable"}
         assert "private-ledger-path" not in output
+
+
+@pytest.mark.parametrize("change", ["deleted", "replaced"])
+@pytest.mark.parametrize("tiers", [False, True])
+def test_ledger_change_after_admission_invalidates_scores(tmp_path, monkeypatch, capsys, change, tiers):
+    path = tmp_path / "corrections.jsonl"
+    write_rows(path, [{"ts": "target", "correction": "订单兑现"}])
+    labels = tmp_path / "cases.jsonl"
+    write_rows(labels, [case("target")])
+    retriever = recall.user_memory_retriever
+    changed = False
+
+    def changing_retriever(*args, **kwargs):
+        nonlocal changed
+        if not changed:
+            if change == "deleted":
+                path.unlink()
+            else:
+                write_rows(path, [{"ts": "target", "correction": "无关资料"}])
+            changed = True
+        return retriever(*args, **kwargs)
+
+    monkeypatch.setattr(recall, "user_memory_retriever", changing_retriever)
+    monkeypatch.setitem(recall.RETRIEVERS, "user_memory", changing_retriever)
+    argv = ["recall", "--cases", str(labels), "--users-root", str(tmp_path), "--json"]
+    if tiers:
+        argv.append("--tiers")
+    monkeypatch.setattr("sys.argv", argv)
+    assert recall._main() == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "invalid_memory_labels"
+    assert report["label_audit"]["input_changed"] is True
+    assert "tiers" not in report and "hit_rate_at" not in report

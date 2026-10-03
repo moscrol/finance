@@ -20,6 +20,8 @@
     "label-admission-red.log": "3908bf32d80807ca22c56bfd188f5ab3292d18a4dc6531babe81646edc763176",
     "label-admission-green-final.log": "6a9c5595acaadcf7552efbbb024ad8f785ac61167eda8a5deae8c2d6e6dc830d",
     "read-failure-red.log": "f6f4019befb5c164ee53eb2723c8d80ca1a4fe0a6fef7a85bfa983887f70203e",
-    "read-failure-green.log": "849a34ce321df1c95eb309eee0e62da95110170faa66089c9f871b763dd6dd70"
+    "read-failure-green.log": "849a34ce321df1c95eb309eee0e62da95110170faa66089c9f871b763dd6dd70",
+    "input-change-red.log": "c884161b78b665c231d434bfa7da612e642f208628f71935084552bf898b89ce",
+    "input-change-green.log": "6bef01b7fc9d1df817a8cd15e4d4b9a4ec53a81a807f04d9665dea1c97a8fef7"
   }
 }

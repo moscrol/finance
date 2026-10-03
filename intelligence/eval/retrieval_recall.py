@@ -60,6 +60,7 @@ from intelligence.eval.memory_recall_labels import (
     InvalidMemoryLabels,
     memory_identity,
     require_memory_labels,
+    require_unchanged_ledgers,
 )
 
 DEFAULT_KS = (1, 3, 5)
@@ -254,6 +255,9 @@ def evaluate_cases(
         "per_case": per_case,
     }
     if label_audit is not None:
+        require_unchanged_ledgers(
+            label_audit, users_root=retriever_kwargs.get("users_root"), user=retriever_kwargs.get("user"),
+        )
         report["label_audit"] = label_audit
     for k in ks:
         if per_case:
@@ -386,6 +390,7 @@ def compare_memory_tiers(
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+    require_unchanged_ledgers(label_audit, users_root=users_root, user=user)
     return {"k": k, "cases": len(cases), "tiers": rows, "per_case": list(per_case.values()),
             "label_audit": label_audit}
 

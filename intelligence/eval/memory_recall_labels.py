@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,24 @@ class InvalidMemoryLabels(ValueError):
     def __init__(self, report: dict[str, Any]) -> None:
         super().__init__("invalid memory labels; inspect label audit before scoring")
         self.report = report
+
+
+def ledger_fingerprints(*, users_root: str | Path | None = None, user: str | None = None) -> dict[str, str | None]:
+    root = Path(users_root).expanduser() if users_root is not None else userspace.user_space(user).root
+    result = {}
+    for name in ("judgments.jsonl", "corrections.jsonl"):
+        try:
+            result[name] = hashlib.sha256((root / name).read_bytes()).hexdigest()
+        except FileNotFoundError:
+            result[name] = None
+        except OSError:
+            raise InvalidMemoryLabels({"valid": False, "unavailable_ledgers": [name]}) from None
+    return result
+
+
+def require_unchanged_ledgers(audit: dict[str, Any], **kwargs: Any) -> None:
+    if ledger_fingerprints(**kwargs) != audit["ledger_sha256"]:
+        raise InvalidMemoryLabels({"valid": False, "input_changed": True})
 
 
 def memory_identity(kind: str, record: dict[str, Any], mode: str = "ts") -> str:
@@ -45,6 +64,7 @@ def audit_memory_labels(
     """
     if identity_mode not in {"ts", "stable"}:
         raise ValueError("memory identity must be ts or stable")
+    fingerprints = ledger_fingerprints(users_root=users_root, user=user)
     root = Path(users_root).expanduser() if users_root is not None else userspace.user_space(user).root
     inventories: dict[str, Counter[str]] = {name: Counter() for name in ("raw", "active", "window")}
     counts = {}
@@ -88,16 +108,19 @@ def audit_memory_labels(
                 state = "missing"
             labels.append({"identity": key, "state": state})
         audited.append({"case_id": str(case.get("case_id") or ""), "labels": labels})
-    return {
+    report = {
         "valid": not errors and not ambiguous and all(
             label["state"] == "reachable" for case in audited for label in case["labels"]
         ),
         "identity_mode": identity_mode,
+        "ledger_sha256": fingerprints,
         "counts": counts,
         "unavailable_ledgers": errors,
         "ambiguous_candidates": ambiguous,
         "cases": audited,
     }
+    require_unchanged_ledgers(report, users_root=users_root, user=user)
+    return report
 
 
 def require_memory_labels(cases: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:

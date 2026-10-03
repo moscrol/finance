@@ -57,6 +57,9 @@ CLI 返回 JSON `status=invalid_memory_labels`、退出码 2，无命中/召回�
 实际检索使用严格读取；准入后读取异常也拒绝出分，CLI返回
 `status=memory_retrieval_unavailable` / 退出2，API抛 `MemoryRetrievalUnavailable`。
 错误不携带私有台账路径或正文，不能将IO故障解释为正常未命中。
+准入与评分前后核对两本台账字节哈希；删除、替换等变化使评分作废，
+`invalid_memory_labels` 的 `label_audit.input_changed=true`。首尾采样不能证明
+期间未发生又恢复的变化，真实评测仍须使用独占冻结副本。
 
 旧 `ts` 身份保持显式兼容，只有唯一且可达才准入。新冻结集可使用
 `--memory-identity stable`（API：`identity_mode="stable"`）：标签为
