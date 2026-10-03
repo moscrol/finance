@@ -51,7 +51,7 @@
   {
     "id": "deadline_flush_ignores_plan_admission",
     "path": "intelligence/runtime/agent_episode.py",
-    "old": "        if plan_result.error or (\n            plan_result.plan is not None and plan_result.plan.base_revision is not None\n        ):",
+    "old": "        if plan_result.error or (\n            plan_result.plan is not None and (\n                plan_result.plan.base_revision is not None or plan_result.plan.interpretation is not None\n            )\n        ):",
     "new": "        if False:",
     "targets": ["test_deadline_flush_does_not_dispatch_unaccepted_plan_tools"]
   },

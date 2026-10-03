@@ -79,8 +79,8 @@
   {
     "id": "history_reassembly_discards_user_obligations",
     "path": "intelligence/services/turn_controller.py",
-    "old": "              if item.origin == \"user_request\" or \"user_request\" in item.merged_origins),",
-    "new": "              if False),",
+    "old": "            *(item.output_id for item in task_frame.output_requirements\n              if item.origin == \"user_request\" or \"user_request\" in item.merged_origins),",
+    "new": "            *(item.output_id for item in task_frame.output_requirements\n              if False),",
     "targets": ["test_history_reassembly_keeps_user_obligations_and_retires_unselected_hints"]
   },
   {

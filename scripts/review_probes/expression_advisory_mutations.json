@@ -30,8 +30,8 @@
   {
     "id": "template_name_rejects_user_binding",
     "path": "intelligence/services/episode_protocol.py",
-    "old": "        if binding.output_id not in allowed_outputs:",
-    "new": "        if binding.output_id not in allowed_outputs or binding.output_id in {\"track_ttl\", \"ranking_matrix\"}:",
+    "old": "    if required is None:\n        # Method names grant neither binding identity nor a repair exemption.",
+    "new": "    if required is None or binding.output_id in {\"track_ttl\", \"ranking_matrix\"}:\n        # Method names grant neither binding identity nor a repair exemption.",
     "targets": ["test_same_named_user_obligation_is_not_erased_or_reclassified_by_template_name"]
   },
   {
