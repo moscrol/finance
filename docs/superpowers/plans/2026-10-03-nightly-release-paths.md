@@ -52,5 +52,5 @@ DEFAULT_OUT = Path(os.environ.get("DUCKDB_SNAPSHOT_OUT_ROOT") or DATA_ROOT / "db
 ### Task 3: 验证、依赖说明与交接
 
 - [x] 用 `/Users/a77/.codex/worktrees/9020/finance-workspace-private/.venv-workbench/bin/python -m pytest` 跑新测试与相关定向测试；ruff 验改动文件，记录红/绿仓外收据。
-- [ ] 总控提供经过独立环境验证的可选 macOS 夜跑锁；保留 dev/consumer 锁，排除与锁定 httpx 冲突、且 local 计划未用的 mootdx。
-- [ ] 记录发现的路径、已核对的路径和启动副作用；更新本分支交接，仅 pathspec 提交，交总控审查。UI 树保持 `1be7500c`，本子任务不推送、合并、部署。
+- [x] 总控提供经过独立环境验证的可选 macOS 夜跑锁；保留 dev/consumer 锁，排除与锁定 httpx 冲突、且 local 计划未用的 mootdx。
+- [x] 记录发现的路径、已核对的路径和启动副作用；更新本分支交接，仅 pathspec 提交，交总控审查。UI 树保持 `1be7500c`，本子任务不推送、合并、部署。
