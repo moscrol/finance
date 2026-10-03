@@ -24,14 +24,14 @@ durable 38 种 · live 3 种
 | `inbox_claimed` | durable | — | intent | — | `intelligence/services/episode_inbox.py` |
 | `inbox_discarded` | durable | — | — | — | `intelligence/services/episode_inbox.py` |
 | `inbox_inserted` | durable | — | — | content | `intelligence/services/episode_inbox.py` |
-| `invalid_action` | durable | research | observe | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py` |
+| `invalid_action` | durable | research | observe | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/openai_agents_runtime.py` |
 | `mode_decision` | durable | planning | plan | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py` |
 | `model_error` | durable | research | — | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/services/episode_restore.py` |
 | `model_input` | durable | — | intent | content | `intelligence/services/episode_messages.py` |
 | `model_intent` | durable | — | intent | — | `intelligence/runtime/agent_episode.py` |
 | `model_turn` | durable | research | — | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/dsh_stub_runtime.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/openai_agents_runtime.py` |
 | `persistence_failed` | durable | — | — | — | `intelligence/runtime/agent_episode.py` |
-| `plan` | durable | planning | plan | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/codex_headless_runtime.py`, `intelligence/runtime/harness_reference_loop.py` |
+| `plan` | durable | planning | plan | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/codex_headless_runtime.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/openai_agents_runtime.py` |
 | `prefetch` | durable | — | — | — | `intelligence/runtime/agent_episode.py` |
 | `prompt_assembled` | durable | — | configure | system, user | `intelligence/services/episode_messages.py` |
 | `repair_goal` | durable | repair | plan | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/openai_agents_runtime.py` |

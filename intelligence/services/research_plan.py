@@ -8,6 +8,9 @@ import re
 from typing import Literal, cast
 
 
+from intelligence.services.request_interpretation import InterpretationProposal
+
+
 ResearchMode = Literal["quick", "deep"]
 
 _REQUIRED_PLAN_FIELDS = frozenset(
@@ -23,7 +26,7 @@ _REQUIRED_PLAN_FIELDS = frozenset(
         "revision",
     }
 )
-_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals", "perspectives", "base_revision", "revision_reason"))
+_PLAN_FIELDS = frozenset((*_REQUIRED_PLAN_FIELDS, "branch_goals", "perspectives", "base_revision", "revision_reason", "interpretation"))
 _MAX_SUMMARY_LENGTH = 500
 _MAX_ITEM_LENGTH = 300
 
@@ -109,8 +112,11 @@ class ResearchPlan:
     # This versions a model-owned plan, never the task/authorization contract.
     base_revision: int | None = None
     revision_reason: str = ""
+    interpretation: InterpretationProposal | None = None
 
     def __post_init__(self) -> None:
+        if self.interpretation is not None and not isinstance(self.interpretation, InterpretationProposal):
+            raise ValueError("interpretation must be an InterpretationProposal")
         if self.base_revision is not None and (
             type(self.base_revision) is not int or self.base_revision < 0
         ):
@@ -285,6 +291,7 @@ def parse_research_plan(content: str) -> ResearchPlan:
         perspectives=_perspectives(payload.get("perspectives", ())),
         base_revision=cast(int | None, payload.get("base_revision")),
         revision_reason=cast(str, payload.get("revision_reason", "")),
+        interpretation=InterpretationProposal.from_dict(payload["interpretation"]) if "interpretation" in payload else None,
     )
 
 
@@ -369,6 +376,7 @@ def validate_plan_revision(
 
 def plan_to_public_dict(plan: ResearchPlan) -> dict[str, object]:
     return {
+        **({"interpretation": plan.interpretation.to_dict()} if plan.interpretation is not None else {}),
         "task_summary": plan.task_summary,
         "answer_elements": list(plan.answer_elements),
         "hypotheses": list(plan.hypotheses),

@@ -35,6 +35,7 @@ from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.research_reasoning import guidance as reasoning_guidance
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.request_interpretation import interpretation_payload
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
@@ -446,6 +447,7 @@ def build_episode_input(
         key: value for key, value in context.contract.to_dict().items() if key != "task_id"
     }
     payload: dict[str, object] = {
+        **interpretation_payload(context, initial_goal=task_frame.user_goal),
         "task_frame": task_frame.to_dict(),
         "research_contract": contract_for_model,
         "today": context.today,

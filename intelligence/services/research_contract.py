@@ -22,6 +22,7 @@ from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.request_interpretation import RootRequest, TaskInterpretation
 from intelligence.services.output_requirement import (
     GroundingMode as GroundingMode,
     RequiredOutput as RequiredOutput,
@@ -1305,6 +1306,15 @@ class ResearchRunContext:
     # run / 助手消息。由入口在核对过 run 归属之后绑定；None = 没有可信入口
     # （离线驱动、CLI、测试），恢复时按「未绑定」处理，不会与任何门匹配上。
     entry_identity: EpisodeEntryIdentity | None = None
+    # Model-owned goal, not a mutation of the root execution/authorization contract.
+    interpretation: TaskInterpretation | None = None
+    root_request: RootRequest | None = None
+
+    def __post_init__(self) -> None:
+        # replace(context, contract=repair_projection) must retain the original
+        # request. A genuinely new request must construct its own context.
+        if self.root_request is None:
+            object.__setattr__(self, "root_request", RootRequest.from_contract(self.contract))
 
 
 @dataclass(frozen=True)

@@ -22,6 +22,7 @@ from intelligence.services.research_contract import (
     InformationCutoff, RESEARCH_TIERS, ResearchPolicy, ResearchRunContext, ResearchTaskContract,
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.request_interpretation import RootRequest, TaskInterpretation
 
 _VERSION = 1
 _KIND = "episode_authorization"
@@ -138,10 +139,17 @@ class EpisodeAuthorizationSnapshot:
     trace_parent_id: str
     registry: Mapping[str, object]
     registry_sha256: str
+    interpretation: TaskInterpretation | None = None
+    root_request: RootRequest | None = None
 
     def to_dict(self) -> dict[str, object]:
         return _json_copy({
-            "schema_version": _VERSION, "kind": _KIND, "episode_id": self.episode_id,
+            "schema_version": 2 if self.root_request is not None else _VERSION,
+            **({
+                "root_request": self.root_request.to_dict(),
+                "interpretation": self.interpretation.to_dict() if self.interpretation is not None else None,
+            } if self.root_request is not None else {}),
+            "kind": _KIND, "episode_id": self.episode_id,
             "contract": _contract_payload(self.contract), "policy": asdict(self.policy),
             "information_cutoff": self.information_cutoff.to_dict(),
             "trace_parent_id": self.trace_parent_id,
@@ -150,12 +158,19 @@ class EpisodeAuthorizationSnapshot:
 
     @classmethod
     def from_dict(cls, payload: object, *, episode_id: str) -> EpisodeAuthorizationSnapshot:
-        raw = _object(_json_copy(payload, path="authorization"), _FIELDS, "snapshot")
-        if type(raw["schema_version"]) is not int or raw["schema_version"] != _VERSION or raw["kind"] != _KIND:
+        copied = _json_copy(payload, path="authorization")
+        version = copied.get("schema_version") if isinstance(copied, dict) else None
+        fields = _FIELDS | {"root_request", "interpretation"} if type(version) is int and version == 2 else _FIELDS
+        raw = _object(copied, fields, "snapshot")
+        if type(version) is not int or version not in (1, 2) or raw["kind"] != _KIND:
             raise ValueError("unsupported authorization snapshot version/kind")
         if not isinstance(episode_id, str) or not episode_id.strip() or episode_id != episode_id.strip() or raw["episode_id"] != episode_id:
             raise ValueError("authorization episode identity mismatch")
         contract = _parse_contract(raw["contract"], episode_id=episode_id)
+        root = RootRequest.from_dict(raw["root_request"]) if version == 2 else None
+        interpretation = TaskInterpretation.from_dict(raw["interpretation"]) if version == 2 and raw["interpretation"] is not None else None
+        if interpretation is not None and interpretation.request_ref != root.to_dict()["request_ref"]:
+            raise ValueError("authorization interpretation request_ref mismatch")
         policy_raw = _object(raw["policy"], frozenset({"tier", "max_steps", "total_seconds", "synthesis_reserve"}), "policy")
         if not isinstance(policy_raw["tier"], str) or policy_raw["tier"] not in RESEARCH_TIERS:
             raise ValueError("authorization policy tier is invalid")
@@ -178,7 +193,7 @@ class EpisodeAuthorizationSnapshot:
         if raw["registry_sha256"] != _digest(registry):
             raise ValueError("authorization registry declaration digest mismatch")
         return cls(episode_id, contract, policy, cutoff, raw["trace_parent_id"],
-                   _json_freeze(registry, path="authorization.registry"), raw["registry_sha256"])
+                   _json_freeze(registry, path="authorization.registry"), raw["registry_sha256"], interpretation, root)
 
 
 def capture_authorization_snapshot(context: ResearchRunContext, registry: ResearchToolRegistry) -> dict[str, object]:
@@ -196,7 +211,10 @@ def capture_authorization_snapshot(context: ResearchRunContext, registry: Resear
     }
     value = EpisodeAuthorizationSnapshot(
         context.contract.task_id, context.contract, context.policy, context.information_cutoff,
-        context.trace_parent_id, manifest, _digest(manifest),
+        context.trace_parent_id, manifest, _digest(manifest), context.interpretation,
+        # Preserve the v1 byte shape while the root is exactly reconstructible.
+        # Once interpretation/repair diverges, v2 must carry the original root.
+        context.root_request if context.interpretation is not None or context.root_request != RootRequest.from_contract(context.contract) else None,
     ).to_dict()
     # Encoding/validation failure is required-persistence failure at the caller.
     return EpisodeAuthorizationSnapshot.from_dict(value, episode_id=context.contract.task_id).to_dict()

@@ -27,8 +27,10 @@ DRAFT = "当前上涨家数增加，但成交未同步扩大。据此判断，�
 
 
 class ObservingModel:
-    def __init__(self, *, fabricated_reference: bool = False) -> None:
+    def __init__(self, *, fabricated_reference: bool = False, revise_goal: bool = False) -> None:
         self.fabricated_reference = fabricated_reference
+        self.revise_goal = revise_goal
+        self.accepted_goal_seen = False
         self.observations: list[dict] = []
         self.judge_requests: list[dict] = []
         self.writer_calls = 0
@@ -54,6 +56,21 @@ class ObservingModel:
         task = json.loads(
             next(row["content"] for row in messages if row["role"] == "user")
         )
+        if self.revise_goal:
+            if self.writer_calls == 1:
+                return ModelTurn(json.dumps({
+                    "kind": "PLAN", "task_summary": "回答市场演绎与前提", "answer_elements": ["情景与条件"],
+                    "hypotheses": ["上涨广度不等于趋势已确认"], "evidence_needs": ["市场广度与成交"], "candidate_actions": [],
+                    "open_gaps": [], "requested_mode": "quick", "revision": 1, "base_revision": 0,
+                    "interpretation": {
+                        "request_ref": task["root_request"]["request_ref"], "base_revision": 0,
+                        "goal": "基于当前市场证据说明后续情景及失效条件，不把推演当事实",
+                        "reason": "原问询问未来演绎而非复述行情",
+                    },
+                }, ensure_ascii=False), ())
+            receipts = [json.loads(row["content"]) for row in messages if row["role"] == "user" and '"revision": 1' in row["content"]]
+            assert any(row.get("interpretation", {}).get("revision") == 1 and row["root_request"]["raw_question"] == QUESTION for row in receipts)
+            self.accepted_goal_seen = True
         observed = [
             json.loads(row["content"]) for row in messages if row["role"] == "tool"
         ]
@@ -175,8 +192,9 @@ def test_http_research_follows_observation_and_persists_identity(
     monkeypatch: pytest.MonkeyPatch,
     first_result: str,
     fabricated_reference: bool,
+    revise_goal: bool = False,
 ):
-    model = ObservingModel(fabricated_reference=fabricated_reference)
+    model = ObservingModel(fabricated_reference=fabricated_reference, revise_goal=revise_goal)
     executed: list[str] = []
 
     def registry(frame, context, **kwargs):
@@ -254,7 +272,7 @@ def test_http_research_follows_observation_and_persists_identity(
         response.raise_for_status()
         result = response.json()
 
-    assert executed[0] == "initial"
+    assert executed and executed[0] == "initial", (executed, payload, result)
     assert len(executed) == 2, (executed, payload, result)
     expected = {"empty": "recover:empty", "error": "recover:tool_exception"}.get(
         first_result, first_result
@@ -265,7 +283,8 @@ def test_http_research_follows_observation_and_persists_identity(
             model.observations[0]["detail"]
             == "RuntimeError: offline source unavailable"
         )
-    assert model.writer_calls == 3
+    assert model.writer_calls == 3 + int(revise_goal)
+    assert model.accepted_goal_seen == revise_goal
     artifact_path = (
         RunStore(user_id="alice").run_dir(run_id) / "continuous-episode.json"
     )
@@ -296,6 +315,12 @@ def test_http_research_follows_observation_and_persists_identity(
     store = JsonlEpisodeStore(offline_workbench / "episodes")
     events, state = store.load(episode_id)
     assert state is not None and state.terminal
+    if revise_goal:
+        assert state.authorization_snapshot["schema_version"] == 2
+        assert state.authorization_snapshot["root_request"]["raw_question"] == QUESTION
+        assert state.authorization_snapshot["interpretation"]["revision"] == 1
+        assert state.authorization_snapshot["contract"]["required_outputs"] == state.authorization_snapshot["root_request"]["required_outputs"]
+        assert all(row.payload.get("interpretation_revision") == 1 for row in events if row.kind == "tool_request")
     assert dict(state.entry_identity) == {
         "schema_version": 1,
         "kind": "episode_entry_identity",
@@ -310,6 +335,12 @@ def test_http_research_follows_observation_and_persists_identity(
     assert artifact["runtime_handle"]["episode_id"] == episode_id
     assert artifact["runtime_handle"]["state"] == "closed"
     assert artifact["runtime_handle"]["scope"]["derive_mismatches"] == 0
+
+
+def test_http_goal_revision_reaches_tools_answer_and_durable_state(offline_workbench, monkeypatch):
+    test_http_research_follows_observation_and_persists_identity(
+        offline_workbench, monkeypatch, "lead-a", False, revise_goal=True,
+    )
 
 
 def test_http_oracle_detects_observation_replacement(offline_workbench, monkeypatch):
