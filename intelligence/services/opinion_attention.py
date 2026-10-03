@@ -179,6 +179,16 @@ def append_observations(path: Path, observations: list[dict[str, Any]]) -> dict[
         fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
         stream.seek(0)
         existing = [json.loads(line) for line in stream if line.strip()]
+        # Validate history under the same lock as append. A damaged row for another
+        # material must not be ignored while new rows extend an unreadable ledger.
+        try:
+            for row in existing:
+                if (not isinstance(row, dict) or type(row.get("schema_version")) is not int
+                        or row["schema_version"] != SCHEMA_VERSION or not timestamp(row.get("recorded_at"))
+                        or any(not isinstance(row.get(key), str) or not row[key] for key in ("material_id", "revision_id"))):
+                    raise ValueError("invalid opinion ledger history; refusing append")
+        except OverflowError as exc:
+            raise ValueError("invalid opinion ledger timestamp; refusing append") from exc
         latest = {row["material_id"]: row for row in existing}
         pending = []
         skipped = 0

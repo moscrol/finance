@@ -618,8 +618,20 @@ export interface LearningFeedback {
   approved_rule_count: number;
 }
 
+export interface MarketFreshness {
+  /** Latest market date in the database, independent of the selected viewing date. */
+  as_of: string | null;
+  expected_trade_date: string | null;
+  status: "current" | "stale" | "missing" | "invalid" | "future" | "unknown" | "unsettled";
+  lag_trading_days: number | null;
+  missing_trade_dates: string[];
+  calendar_certain: boolean;
+  checked_at: string;
+}
+
 export interface WorkbenchOverview {
   as_of_date: string | null;
+  market_freshness?: MarketFreshness;
   market: MarketOverview;
   themes: ThemeState[];
   theme_axes: {

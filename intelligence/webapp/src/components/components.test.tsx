@@ -14,12 +14,14 @@ import {
 } from "../displayText";
 import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
+import type { LimitUpCalendar } from "../river/types";
 import type {
   ArtifactDescriptor,
   Bootstrap,
   ChatMessage,
   Conversation,
   LLMConfig,
+  MarketFreshness,
   PerspectiveDescription,
   ProductSkillDescription,
   Run,
@@ -1969,6 +1971,74 @@ describe("Workbench navigation reliability", () => {
     expect(screen.getByText("系统建议起始门槛")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "问答" }));
     expect(screen.getByLabelText("输入研究问题")).toBeVisible();
+  });
+
+  it("consumes overview freshness on market surfaces and hides it in research", async () => {
+    const freshness: MarketFreshness = {
+      as_of: "2026-09-24",
+      expected_trade_date: "2026-09-29",
+      status: "stale",
+      lag_trading_days: 2,
+      missing_trade_dates: ["2026-09-28", "2026-09-29"],
+      calendar_certain: true,
+      checked_at: "2026-09-29T16:00:00+08:00",
+    };
+    apiMocks.getWorkbenchOverview.mockResolvedValue({ ...workbenchOverview, market_freshness: freshness });
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("alert", { name: "盘面数据日期" })).toHaveTextContent("共 2 个交易日");
+    await user.click(screen.getByRole("button", { name: "连板日历" }));
+    expect(screen.getByRole("alert", { name: "盘面数据日期" })).toHaveTextContent("截至 2026-09-24");
+    await user.click(screen.getByRole("button", { name: "问答" }));
+    expect(screen.queryByRole("alert", { name: "盘面数据日期" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "今日" }));
+    expect(screen.getByRole("alert", { name: "盘面数据日期" })).toHaveTextContent("共 2 个交易日");
+  });
+
+  it("keeps a historical ladder selection separate from the latest overview date", async () => {
+    const freshness: MarketFreshness = {
+      as_of: "2026-09-29",
+      expected_trade_date: "2026-09-29",
+      status: "current",
+      lag_trading_days: 0,
+      missing_trade_dates: [],
+      calendar_certain: true,
+      checked_at: "2026-09-29T16:00:00+08:00",
+    };
+    apiMocks.getWorkbenchOverview.mockResolvedValue({ ...workbenchOverview, market_freshness: freshness });
+    const calendar: LimitUpCalendar = {
+      start: "2026-09-24",
+      end: "2026-09-29",
+      days: ["2026-09-24", "2026-09-29"].map(trade_date => ({
+        trade_date, ladder: {}, promotion_rate: {}, promotion_estimated: [],
+        total: 0, high_boards: 0, max_boards: 0, details: [], top_themes: [], market: null, leader: null,
+      })),
+      stats: { trading_days: 2, avg_total: 0, avg_max_boards: 0, max_boards: 0, max_boards_date: null },
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async input => {
+      const url = String(input);
+      if (url.startsWith("/api/limitup/calendar")) return new Response(JSON.stringify(calendar));
+      if (url.startsWith("/api/river/kline")) return new Response(JSON.stringify({ days: [] }));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    try {
+      const user = userEvent.setup();
+      render(<App />);
+      await screen.findByRole("heading", { name: "轮动" });
+      await user.click(screen.getByRole("button", { name: "连板" }));
+      await user.selectOptions(await screen.findByLabelText("连板当前交易日"), "2026-09-24");
+
+      const notice = screen.getByRole("status", { name: "观察日期" });
+      expect(notice).toHaveTextContent("选择观察日 2026-09-24");
+      expect(notice).toHaveTextContent("库内最新盘面日期 2026-09-29");
+      expect(screen.queryByRole("alert", { name: "盘面数据日期" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "今日" }));
+      expect(screen.queryByRole("status", { name: "观察日期" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert", { name: "盘面数据日期" })).not.toBeInTheDocument();
+    } finally {
+      fetchMock.mockRestore();
+    }
   });
 
   it("restores the latest conversation and submits in hybrid mode", async () => {
