@@ -1,0 +1,51 @@
+[
+  {
+    "id": "guess-summary-identity",
+    "path": "scripts/harness_tier_gate.py",
+    "old": "    if any(key in report for key in (\"total\", \"passed\", \"failures\", \"by_class\", \"pass_rate\")):",
+    "new": "    if \"failures\" in report and \"total\" in report:\n        from intelligence.eval import content_correctness as cc\n        return {case.id: case.id not in report[\"failures\"] for case in cc.load_cases()}\n    if any(key in report for key in (\"total\", \"passed\", \"failures\", \"by_class\", \"pass_rate\")):",
+    "targets": ["test_summary_without_explicit_case_ids_is_not_pairable"]
+  },
+  {
+    "id": "ignore-class-and-rate-in-mixed-report",
+    "path": "scripts/harness_tier_gate.py",
+    "old": "(\"total\", \"passed\", \"failures\", \"by_class\", \"pass_rate\")",
+    "new": "(\"total\", \"passed\", \"failures\")",
+    "targets": ["test_cases_cannot_hide_any_summary_field"]
+  },
+  {
+    "id": "drop-unknown-answer-ids",
+    "path": "scripts/content_correctness_eval.py",
+    "old": "if cases_json and unknown:",
+    "new": "if False:",
+    "targets": ["test_cli_cases_rejects_ambiguous_answer_rows"]
+  },
+  {
+    "id": "overwrite-duplicate-answer-ids",
+    "path": "scripts/content_correctness_eval.py",
+    "old": "if cid in answers:",
+    "new": "if False:",
+    "targets": ["test_cli_cases_rejects_ambiguous_answer_rows"]
+  },
+  {
+    "id": "overwrite-duplicate-json-keys",
+    "path": "scripts/content_correctness_eval.py",
+    "old": "object_pairs_hook=_unique_answer_keys if cases_json else None",
+    "new": "object_pairs_hook=None",
+    "targets": ["test_cli_cases_rejects_duplicate_keys_and_invalid_json"]
+  },
+  {
+    "id": "missing-answer-becomes-pass",
+    "path": "scripts/content_correctness_eval.py",
+    "old": "cc.CaseResult(case.id, case.error_class, False, [\"未作答\"])",
+    "new": "cc.CaseResult(case.id, case.error_class, True, [])",
+    "targets": ["test_cli_cases_output_is_explicit_and_preserves_missing_answers"]
+  },
+  {
+    "id": "export-all-as-passed",
+    "path": "scripts/content_correctness_eval.py",
+    "old": "{r.case_id: r.passed for r in results}",
+    "new": "{r.case_id: True for r in results}",
+    "targets": ["test_cli_cases_scores_each_answer_instead_of_inventing_passes"]
+  }
+]

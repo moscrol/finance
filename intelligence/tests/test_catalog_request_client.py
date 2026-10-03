@@ -195,14 +195,23 @@ def test_real_loop_client_seam_and_receipts(kind):
     result = loop.run(task_frame=frame, context=context, registry=registry)
     assert result.status == "completed"
     assert len(receipts) == len(base.calls) == 2
-    assert receipts[0]["applied"]
     for receipt, wire in zip(receipts, base.calls):
         assert receipt["sent_request"] == wire
         assert receipt["original_request"]["tools"] == wire["tools"]
-    assert (
-        entries[0].description
-        in receipts[0]["original_request"]["messages"][1]["content"]
-    )
+    if kind == "glm_runtime":
+        # The production composition root already omits duplicate descriptions
+        # when native tool schemas are supplied. This experiment must preserve
+        # that request unchanged, not force it back through the full catalog.
+        assert all(not receipt["applied"] for receipt in receipts)
+        assert receipts[0]["reason"] == "catalog_mismatch"
+        assert receipts[0]["original_request"] == receipts[0]["sent_request"]
+        assert entries[0].description in base.calls[0]["tools"][0]["function"]["description"]
+    else:
+        assert receipts[0]["applied"]
+        assert (
+            entries[0].description
+            in receipts[0]["original_request"]["messages"][1]["content"]
+        )
     assert (
         entries[0].description
         not in receipts[0]["sent_request"]["messages"][1]["content"]
