@@ -6803,3 +6803,27 @@ def test_readable_replacement_still_translates_a_standalone_term() -> None:
     )
 
     assert "涨停热度" in sanitize_conversation_answer("信号 limit_heat 命中三个题材。")
+
+
+def test_dated_market_review_keeps_task_frame_date_without_daily_export() -> None:
+    assert conversation_orchestrator._market_review_ask_date(
+        daily_review_as_of=None,
+        question_type="dated_market_review",
+        timeframe="2026-07-22",
+    ) == "2026-07-22"
+
+
+def test_market_review_date_prefers_matching_daily_export() -> None:
+    assert conversation_orchestrator._market_review_ask_date(
+        daily_review_as_of="2026-07-21",
+        question_type="dated_market_review",
+        timeframe="2026-07-22",
+    ) == "2026-07-21"
+
+
+def test_non_dated_lane_does_not_inherit_timeframe_as_ask_date() -> None:
+    assert conversation_orchestrator._market_review_ask_date(
+        daily_review_as_of=None,
+        question_type="market_watch",
+        timeframe="2026-07-22",
+    ) is None

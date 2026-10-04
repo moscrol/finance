@@ -54,6 +54,7 @@ def _db(tmp_path: Path) -> Path:
           volume_state varchar,
           limit_up integer,
           limit_down integer,
+          advancers integer,
           sh_index_pct_chg double
         )
         """
@@ -61,9 +62,9 @@ def _db(tmp_path: Path) -> Path:
     con.execute(
         """
         insert into fact_market_daily values
-          ('2026-07-23', '反弹阶段', 3, 21949.97, -17.27, '缩量观望', 116, 2, 0.2519),
-          ('2026-07-24', '反弹阶段', 4, 18000, -10, '缩量', 80, 1, 0.1),
-          ('2026-08-21', '反弹阶段', 10, 30000, 5, '放量', 90, 0, 1.2)
+          ('2026-07-23', '反弹阶段', 3, 21949.97, -17.27, '缩量观望', 116, 2, 1530, 0.2519),
+          ('2026-07-24', '反弹阶段', 4, 18000, -10, '缩量', 80, 1, 1800, 0.1),
+          ('2026-08-21', '反弹阶段', 10, 30000, 5, '放量', 90, 0, 3200, 1.2)
         """
     )
     con.execute(
@@ -155,6 +156,7 @@ def test_a1_lock_fields_and_four_bags(tmp_path: Path) -> None:
     assert row["amount_vs_yesterday_pct"] == -17.27
     assert row["limit_up"] == 116
     assert row["limit_down"] == 2
+    assert row["advancers"] == 1530
     dual = pack.bag(BAG_DUAL_RED)
     assert dual is not None and not dual.empty
     assert {row["sector_name"] for row in dual.rows} == {"电力设备", "锂矿"}
@@ -163,6 +165,8 @@ def test_a1_lock_fields_and_four_bags(tmp_path: Path) -> None:
     assert heat.rows[0]["sector_name"] == "储能"
     rendered = pack.render()
     assert "21949.97" in rendered
+    assert "上涨 1530 家" in rendered
+    assert "储能(40家)" in rendered
     assert "电力设备" in rendered
     assert "储能" in rendered
     assert "半导体" in rendered

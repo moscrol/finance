@@ -1750,6 +1750,30 @@ def workbench_correction_guard_reason(user_id: str) -> str | None:
     return None
 
 
+def _market_review_ask_date(
+    *,
+    daily_review_as_of: str | None,
+    question_type: str,
+    timeframe: str | None,
+) -> str | None:
+    """Keep an explicit historical standing date when no daily export exists.
+
+    ``dated_market_review`` previously passed ``None`` unless a matching daily-review
+    artifact happened to exist. ``answer_query`` then used the database tip, turning a
+    historical question into a latest-snapshot answer. Only an ISO date owned by the
+    task frame is accepted; other lanes retain the old behavior.
+    """
+
+    if daily_review_as_of:
+        return daily_review_as_of
+    candidate = str(timeframe or "").strip()
+    if question_type == "dated_market_review" and re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}", candidate
+    ):
+        return candidate
+    return None
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -3205,10 +3229,14 @@ class TurnOrchestrator:
             skill_claims, skill_citations = self._skill_claim_bundle(skill_outputs)
             ask_options = AskOptions(
                 query=contextual_query,
-                date=(
-                    daily_review_output.as_of
-                    if daily_review_output is not None and market_review_requested
-                    else None
+                date=_market_review_ask_date(
+                    daily_review_as_of=(
+                        daily_review_output.as_of
+                        if daily_review_output is not None and market_review_requested
+                        else None
+                    ),
+                    question_type=turn_intent.question_type,
+                    timeframe=task_frame.timeframe,
                 ),
                 user=self.run_store.user_id,
                 compose=True,

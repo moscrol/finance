@@ -362,6 +362,26 @@ class DeadlineClampTests(unittest.TestCase):
 class MarketReviewProseContractTests(unittest.TestCase):
     """市场复盘也必须服从 AnswerSpec 事实边界。"""
 
+    def test_base_answer_spec_keeps_ranked_rows_beyond_old_eight_line_cap(self) -> None:
+        result = AskResult(
+            query="2026-07-22 涨停集中在哪些题材",
+            trade_date="2026-07-22",
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        evidence = tuple(f"排名 {index}：题材{index}，涨停 {20-index} 家" for index in range(1, 13))
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            evidence_blocks=evidence,
+            direct_lines=("涨停热度按排名展开。",),
+        )
+
+        texts = [claim.text for claim in result.answer_spec.verified_facts]
+        self.assertIn("排名 10：题材10，涨停 10 家", texts)
+        self.assertEqual(len(texts), 12)
+
     def test_market_review_prose_with_unsupported_fact_is_rejected(self) -> None:
         result = AskResult(
             query="复盘今天的A股",

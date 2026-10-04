@@ -34,8 +34,8 @@ C5 就出过：24 条证据全绑定，只因 ``counterpoint`` 少一个标记�
 
 * 词表只有一处真源：``task_fulfillment.evaluate_marker_coverage``（两个引擎共用
   的同一个定义），本模块不另立第二张表。
-* 缺口模板（``answer_is_gap_template``）整篇豁免：那是运行时自己的诚实降级
-  文案，状态通道已经如实反映，再判一次只会把「已声明的缺口」重复降级。
+* 缺口模板只有在没有输出契约时豁免；一旦本轮声明了必需输出，它就是可观测的
+  未完成交付，必须进入降级状态并允许运行时做一次有界修复，不能把模板当答案。
 * 落点走既有 ``answer_status`` 通道（``complete_report`` 取
   ``research_status`` 与 ``answer_status`` 里更差的那个），不新增终态类型。
 """
@@ -189,18 +189,30 @@ def review_public_delivery(
     chars = substance_chars(body)
     reasons: list[str] = []
 
-    # 运行时自己的缺口模板整篇豁免：它本来就是「没答出来」的诚实声明，
-    # 状态通道已如实反映，再判一次只会把同一件事降级两遍。
+    # 只有**没有输出契约**的自由问答才允许缺口模板整篇豁免。
+    # 一旦本轮声明了 required_outputs，缺口模板仍然要经过覆盖率与体量门：
+    # 否则会出现模型根本没运行、必答项全缺，却因「证据不足」模板被标成 ok。
     if answer_is_gap_template(body):
+        if not output_ids:
+            return PublicDeliveryReceipt(
+                verdict=VERDICT_OK,
+                text=body,
+                answer_status=None,
+                missing_outputs=(),
+                dangling_pointers=(),
+                substance_chars=chars,
+                required_output_count=0,
+                reasons=("gap_template_exempt",),
+            )
         return PublicDeliveryReceipt(
-            verdict=VERDICT_OK,
+            verdict=VERDICT_INCOMPLETE,
             text=body,
-            answer_status=None,
-            missing_outputs=(),
+            answer_status="partial",
+            missing_outputs=output_ids,
             dangling_pointers=(),
             substance_chars=chars,
             required_output_count=len(output_ids),
-            reasons=("gap_template_exempt",),
+            reasons=("gap_template_with_required_outputs", "required_outputs_absent"),
         )
 
     coverage = evaluate_marker_coverage(output_ids, body)

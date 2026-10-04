@@ -172,7 +172,12 @@ class MarketWatchPack:
                 f"- 全市场成交额：{row.get('total_amount')} 亿元；"
                 f"较前一日 {row.get('amount_vs_yesterday_pct')}%；"
                 f"涨停 {row.get('limit_up')} 家；跌停 {row.get('limit_down')} 家；"
-                f"上证 {row.get('sh_index_pct_chg')}%；"
+                + (
+                    f"上涨 {row.get('advancers')} 家；"
+                    if row.get("advancers") is not None
+                    else ""
+                )
+                + f"上证 {row.get('sh_index_pct_chg')}%；"
                 f"量能 {row.get('volume_state') or '未标注'}；"
                 f"阶段 {row.get('market_stage') or '未标注'}"
                 + (
@@ -219,7 +224,11 @@ class MarketWatchPack:
             lines.append("- 涨停热度该日无行。")
         else:
             names = "、".join(
-                str(row.get("sector_name") or "")
+                (
+                    f"{row.get('sector_name')}({row.get('limit_up_count')}家)"
+                    if row.get("limit_up_count") is not None
+                    else str(row.get("sector_name") or "")
+                )
                 for row in heat.rows
                 if row.get("sector_name")
             )
@@ -668,6 +677,7 @@ def _query_market_daily(con: Any, standing: str | None) -> PackBag:
         "volume_state",
         "limit_up",
         "limit_down",
+        "advancers",
         "sh_index_pct_chg",
     )
     available = {
