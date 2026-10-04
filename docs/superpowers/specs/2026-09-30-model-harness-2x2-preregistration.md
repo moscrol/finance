@@ -217,3 +217,32 @@ R17 的 RG/RC 均在工具额度用尽后仍获得菜单，第二轮越额而空
    - F3：Pi 只在响应体 model 与配置不同时记录，「一致」和「未报」分不开；P 的 workflow 路径没有 served_model，
      `check_model_admission.py` 判无证据（exit 2）。开跑前补齐。
 5. §5–§6 未改；240 次与 G 列 120/180 次均未启动；F1–F4 仍未全部通过。
+
+### 2026-10-05 开跑前修订：G 列两臂正式对照（8792 对 Pi），一格未跑
+
+1. **用户决定**（10-04 晚，原话）：「arena没对照了，现在最简单的对照就是glm在pi和8792的对照，最能展示我们的harness是否优于极简的pi」；
+   10-05「Try again」后执行。本轮只跑 G 列两臂：
+   - **PG** = 8792 @`bd2c58b3775f`，生产分流原样（不强制引擎）。每次运行用独立探针用户，防止记忆在重复间串题。
+   - **RG 格本轮由 Pi 变体填**（定义见 10-04 修订），不是 `thin_react.py`；thin_react 的 R、C 列、ΔM、I 与 240 次都不在本轮。
+2. **题集与排程**：沿用 §3 与 §5。`plan`（种子 20260930）的 20 题；每格每题 3 次；按 plan 的 `seq` 只取 PG、RG 两格的行，
+   拉丁方先后保留，共 120 次。两格同属 zhipu，**全程串行，相邻启动 ≥ 90 秒**。冻结的 plan 存
+   `~/.finance-runtime/harness-arms-20261004/batch/plan-2x2.json`（sha256 见同目录 `plan-2x2.sha256`）。
+3. **准入**（每次运行结束即判，逐条记证据等级）：
+   - PG 走 Episode 路径：`check_model_admission.py --expect-model glm-5.3-flash`，exit 0 才有效。
+   - PG 走 workflow 路径，以及 RG（Pi）：现有产物没有服务端回报的模型。按「配置为 glm-5.3-flash，且无任何错配记录」准入，
+     分别标 `configured_only` / `no_mismatch`。
+   - 任一错配即作废重排。这是两臂对称的较弱证据，报告时一并写明。
+4. **作废与计分**：同 §5。provider 限流、过载、不可用作废重排，同格同题最多 2 次；其余失败照常计 0 分。
+   Pi 臂墙钟上限 1200 秒，视为本地截止，照常计分。
+5. **判分**：10-01 恢复判分器的 `score_case`（sha256 `dee223de…`），经只读包装调用。
+6. **判定（冻结）**：
+   - Δ = 格均值(RG) − 格均值(PG)：每题先对 3 次取均值，再对 20 题取均值。
+   - 噪声底取两格翻转率的最大值。
+   - 可判须同时满足：|Δ| ≥ 噪声底；|Δ| ≥ 0.10；按题有放回 bootstrap 10,000 次（种子 20260930）的 95% 区间不含 0。
+   - 实现直接复用 `intelligence/eval/model_harness_2x2.py` 的 `select_valid` / `outcome_label` / `bootstrap_ci` / `gate`，
+     以及 `variance_baseline.per_question_flip_rate`。
+   - 结论：可判且 Δ < 0 →「GLM-5.3-flash 下，8792 外壳在本题集优于极简 Pi」；可判且 Δ > 0 →「极简 Pi 优于 8792 外壳」；
+     不可判 →「本样本量下差异不可分辨，不得宣称 8792 外壳优于 Pi」。
+   - 次要分析只报告，不改主判定：只看 unseen 10 题；去掉 D2/D5/D6；按 PG 实际引擎（workflow / episode）分组描述；
+     墙钟、工具次数、token 列为次要指标。
+7. 运行中途不改本节；中断后按 seq 续跑，不换题、不加轮。
