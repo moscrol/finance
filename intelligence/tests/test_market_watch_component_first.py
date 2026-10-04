@@ -12,6 +12,7 @@ from intelligence.services.ask import (
     _answer_market_review,
     _resolve_market_data_context,
     bind_market_watch_pack,
+    bind_research_program,
 )
 from intelligence.services.ask_types import AskOptions, AskResult
 from intelligence.services.conversation_store import ConversationStore
@@ -597,3 +598,57 @@ def test_market_review_answer_spec_prioritizes_explicit_day_pack(tmp_path: Path)
     assert "显式站立日：2026-07-23" in facts
     assert "上涨 1530 家" in facts
     assert facts.index("显式站立日：2026-07-23") < facts.index("2026-09-30")
+
+
+def test_dated_market_review_binds_exact_day_pack_before_answering(tmp_path: Path) -> None:
+    query = "2026-07-23 复盘下今天A股整体情况"
+    frame = build_task_frame(query, understand_query(query))
+    assert frame.question_type == "dated_market_review"
+    options = AskOptions(
+        query=query,
+        date=frame.timeframe,
+        market_db_path=_db(tmp_path),
+        compose=True,
+    )
+
+    bound = bind_research_program(options, frame=frame)
+
+    assert bound.market_watch_pack is not None
+    assert bound.market_watch_pack.standing_date == "2026-07-23"
+    rendered = bound.market_watch_pack.render()
+    assert "全市场成交额：21949.97" in rendered
+    assert "上涨 1530 家" in rendered
+
+
+def test_dated_ladder_metric_intent_binds_pack_without_broad_date_routing(tmp_path: Path) -> None:
+    ladder_query = "2026-07-22 高标股的晋级情况如何，有没有出现空档"
+    ladder_frame = build_task_frame(ladder_query, understand_query(ladder_query))
+    assert ladder_frame.question_type == "general_finance_qa"
+    db = _db(tmp_path)
+    bound = bind_research_program(
+        AskOptions(
+            query=ladder_query,
+            date=ladder_frame.timeframe,
+            market_db_path=db,
+            compose=True,
+        ),
+        frame=ladder_frame,
+    )
+    assert bound.market_watch_pack is not None
+    assert bound.market_watch_pack.standing_date == "2026-07-22"
+    rendered = bound.market_watch_pack.render()
+    assert "立新能源(5板，晋级率1/1=100%)" in rendered
+    assert "2至5板连续，未见层级空档" in rendered
+
+    stock_query = "2026-07-22 华工科技这只票现在什么情况"
+    stock_frame = build_task_frame(stock_query, understand_query(stock_query))
+    stock_bound = bind_research_program(
+        AskOptions(
+            query=stock_query,
+            date=stock_frame.timeframe,
+            market_db_path=db,
+            compose=True,
+        ),
+        frame=stock_frame,
+    )
+    assert stock_bound.market_watch_pack is None

@@ -642,7 +642,25 @@ def bind_research_program(
         question_class = str(getattr(frame, "question_type", "") or "")
     program = compile_research_program(text, question_class=question_class)
     _ = program.to_dict()
-    if is_market_watch_query(text) or question_class == "market_watch":
+    from intelligence.services.metric_spec import METRICS
+
+    required_outputs = set(getattr(frame, "required_outputs", ()) or ())
+    ladder_metric_intent = bool(
+        getattr(frame, "timeframe", None)
+        and "change_summary" not in required_outputs
+        and any(
+            alias in text
+            for key in ("max_boards", "promotion_rate")
+            for alias in METRICS[key].aliases
+        )
+    )
+    if is_market_watch_query(text) or question_class in {
+        "market_watch",
+        "dated_market_review",
+    } or ladder_metric_intent:
+        # A dated review owns the same exact-day evidence contract as market_watch.
+        # Without this branch the TaskFrame date reached AskOptions, but the four-bag
+        # pack never ran; _answer_market_review then rebuilt evidence from the DB tip.
         bound = bind_market_watch_pack(options, frame=frame, query=query)
         return replace(bound, research_program=program)
     from intelligence.services.market_watch_pack import (
