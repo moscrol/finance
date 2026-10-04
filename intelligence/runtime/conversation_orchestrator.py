@@ -2188,6 +2188,25 @@ class TurnOrchestrator:
                 task_frame = decision.task_frame
                 assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)
+            if decision.llm_failure_reason.startswith("personal_recall_"):
+                # Failure to resolve recall scope is not a negative decision.
+                # Do not publish or execute the provisional financial/knowledge frame.
+                # A cancellation may arrive after the controller returns but before
+                # this failure is published.  Preserve cancellation precedence over
+                # the synthetic recall-scope failure in that race.
+                self._check_cancelled()
+                self._trace(
+                    run_id, assistant_message_id, conversation_id,
+                    "controller", "turn_controller",
+                    {
+                        "raw_question": query,
+                        "llm_failure_reason": decision.llm_failure_reason,
+                        "llm_failure_detail": redact(decision.llm_failure_detail),
+                    },
+                    status="failed",
+                )
+                text_chunks.append("本次未能确认你的回顾范围，请稍后重试；原问题已保留。")
+                raise RuntimeError("personal_recall_scope_unresolved")
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
                 raw_envelope,
