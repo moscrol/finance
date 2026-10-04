@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from intelligence.services.material_financial_semantics import MATERIAL_FINANCIAL_SEMANTICS_RULE
 from intelligence.services.material_grounding import grounding_scope
 
 if TYPE_CHECKING:
@@ -52,6 +53,7 @@ MATERIAL_REVIEW_RULE = (
     "使用 submit_grounding_report 提交一个严格报告，字段以本次工具定义为准；无工具时只输出同形 JSON。"
     "passed=true 要求无拒句且必答问题已答或合法披露缺口；合法缺口不是已回答。"
     "拒句只按显式 rejected_sentence_indexes 与逐条 supported 执行，issues 是说明而非索引来源。"
+    + MATERIAL_FINANCIAL_SEMANTICS_RULE
 )
 
 CLAIM_CHECK_RULE = (
