@@ -1,35 +1,23 @@
 ## 这个分支做什么
-
-FINANCEWORKS-8：修“命中纠偏却只给抽象原则”，保留具体正文进入模型输入。
+FINANCEWORKS-8：命中后的具体纠偏正文交付。本分支已合入，当前工作接续codex/memory-consumption-closeout-1004。
 
 ## 决策与被否方案
-
-| 选择 | 否决 | 理由 |
+| 选了什么 | 否了什么 | 为什么 |
 |---|---|---|
-| correction在前＋不同principle在后 | 仅principle | 实际指标/矩阵名称在正文，被遗漏会妨碍答对 |
-| 两出口共用展示函数 | 重新总结/新语义分类器 | 缺口是展示，额外模型或词表增加不必要误差 |
-| 保持keyword | 按BGE23/24切默认 | 额外返回、用途/冲突与冷启动尚未通过 |
-
-详细选择与证据在同日memory-correction-delivery计划及验证报告。私有探针需要人工语义核对，只保留特定数据回归；通用能力落在统一展示函数及HTTP回归。
+| 局部修复按范围验收 | 工程绿代表答案质量 | 原始自然提问仍有召回/控制器缺口 |
+| 默认keyword保持 | 按带主题召回高分切默认 | 用途污染和真实输入未验 |
 
 ## 当前状态
-
-GitHub PR33接续PR32。33596f7b记忆增量的独立Spec/Standards均无发现，GitHub全部叶子绿；现已合并PR32的日期竞态修复与门禁诊断，须以最终新头重跑本机完整/前端/E2E/GitHub。R-20261004-02仍pending，不把已见题包装成预注册收益。诊断与被否方案见同日memory-release-blockers快照。
+GitHub PR33固定e42233aa31ca通过门禁后合入，PR32/33最终主干abdb31ec38dd。Gitea本轮备份success。8792仍ffe1c60d84da，未部署本增量。完整状态及原件见docs/verification/2026-10-04-memory-consumption-closeout.md和同名receipt。
 
 ## 已验证
-
-有效红证据3F/1P；相关228P，Ruff及diff检查绿。真实冻结两例×两个出口4项具体内容恢复，原台账不变、网络0。合成HTTP捕获证明首provider请求收到具体纠偏及补充原则，不传original、不泄露路径，保留跨用户/撤销/预算。
+干净完整Python 20369P/78S/2X、收集面无收窄；前端lint/typecheck/test/build/E2E、GitHub五项和独立Spec/Standards均过。旧环境红、日期竞态红、构建改脏树和中断收据均保留且未采信。
 
 ## 未验证 / 已知边界
-
-模型调用与最终答案改善均未测。产品/开发用途和历史权限混读、同题后续澄清不完整仍存在；不调整生产默认。PR32日期选中态已稳定复现并最小修复，整文件14P；最终新头全部门禁仍须收齐。
+真实flash首对未通过准入：旧版目标漏召回；候选控制器超时转一般金融研究后未交付，另有诊断知识库隔离遗漏。两次保留，余六次停止。不能宣称弱强模型获益或记忆整体验收完成。
 
 ## 下一步
-
-1. 最终头确认审查覆盖＋完整门禁；PR32及本枝全部绿后按既有授权合入、Gitea回读。
-2. 真实会话/模型消费验收，按冻结范围评内容；用途、矛盾与延迟另验。
-3. PR30负责人正修PLAN接口P2；继续总板、2×2评分准入、内容修复和发布/树收口，不关闭父任务。
+从接续分支inflight和同日memory-consumption-followup-spec继续；任务板FINANCEWORKS-8仍in_progress。发布另需固定合并SHA门禁与真实入口内容证据。Pi活动树及主检出只读。
 
 ## 踩过的坑
-
-本树使用9020的锁定venv（软链），主检出httpx有漂移，勿改共享依赖。门禁从git取完整SHA；干净PATH需保留uvx目录。展示修复与向量分数是两层证据，别混写。
+完整门禁PATH需含uvx；build跟踪产物要先提交。WORKBENCH_KNOWLEDGE_WIKI优先于KB_VAULT；EpisodeState用to_dict序列化。已见题不能转成独立留出题。
