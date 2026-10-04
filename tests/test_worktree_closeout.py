@@ -300,17 +300,59 @@ def test_unreachable_remote_refuses_to_act(rig):
     assert tree.is_dir() and rig.refs("refs/archive") == []
 
 
+def test_one_reason_covers_every_named_tree(rig):
+    first, second = rig.add_tree("fwp-wt-shared-a"), rig.add_tree("fwp-wt-shared-b")
+
+    result = rig.run("--tree", str(first), "--tree", str(second), "--reason", "both landed in #12")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    reasons = {Path(rec["path"]).name: rec["reason"] for rec in rig.receipt(result)[1]["trees"]}
+    assert reasons == {"fwp-wt-shared-a": "both landed in #12", "fwp-wt-shared-b": "both landed in #12"}
+
+
+def test_per_tree_reasons_pair_by_position(rig):
+    # 2026-10-04 dry-20261004T232659 的形状：--reason 曾是普通 store，只留最后一条并写给两棵树。
+    first, second = rig.add_tree("fwp-wt-pair-a"), rig.add_tree("fwp-wt-pair-b")
+
+    result = rig.run("--tree", str(first), "--reason", "A: gate tree, verdict stored outside",
+                     "--tree", str(second), "--reason", "B: provenance branch landed in #30")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    receipt = rig.receipt(result)[1]
+    reasons = {Path(rec["path"]).name: rec["reason"] for rec in receipt["trees"]}
+    assert reasons == {"fwp-wt-pair-a": "A: gate tree, verdict stored outside",
+                       "fwp-wt-pair-b": "B: provenance branch landed in #30"}
+    assert receipt["summary"]["eligible"] == 2  # 收据就是 apply 的计划：两棵都带着自己的理由进去
+
+
+@pytest.mark.parametrize(("n_trees", "n_reasons"), [(2, 3), (3, 2)])
+def test_reason_count_that_pairs_with_nothing_exits_5_writing_nothing(rig, n_trees, n_reasons):
+    trees = [rig.add_tree(f"fwp-wt-count-{i}") for i in range(n_trees)]
+    args = [arg for tree in trees for arg in ("--tree", str(tree))]
+    args += [arg for i in range(n_reasons) for arg in ("--reason", f"reason {i}")]
+
+    result = rig.run(*args)
+
+    assert result.returncode == 5, result.stdout + result.stderr
+    assert f"--tree {n_trees} 棵、--reason {n_reasons} 条" in result.stderr
+    assert not rig.out.exists()  # 连收据目录都没建
+
+
 @pytest.mark.parametrize("args", [
     ["--apply", "--tree", "x"],
     ["--apply"],
     ["--apply", "--plan", "PLAN", "--release-lock", "x"],
     [],
+    # 计划里的树只认计划自己的 reason：--reason 管不到它们，混进来的 --tree 也说不清该配哪条。
+    ["--plan", "PLAN", "--tree", "x"],
+    ["--plan", "PLAN", "--reason", "r"],
 ])
 def test_usage_errors_exit_5(rig, args):
     plan = rig.out.parent / "hand-written.json"
     plan.write_text(json.dumps([{"path": "x", "reason": "r"}]))
     result = rig.run(*[str(plan) if a == "PLAN" else a for a in args])
     assert result.returncode == 5, result.stdout + result.stderr
+    assert not rig.out.exists()  # 参数错：收据目录都不建
 
 
 def test_apply_rejects_a_hand_written_plan(rig):
