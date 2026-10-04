@@ -212,8 +212,12 @@ def binding_source_issues(
     evidence: tuple,
     *,
     frozen_prior_hashes: frozenset[str] = frozenset(),
+    claim_origins: tuple[int, ...] = (),
 ) -> tuple[MaterialSourceIssue, ...]:
     """Mechanical source-scope check for one finish binding.
+
+    ``claim_origins`` maps each (possibly cut) claim to the writer's claim index, so
+    issues name the authored claim and identical issues on its pieces collapse into one.
 
     ``frozen_prior_hashes`` are the content hashes of prior-turn tool atoms that
     ``_seed_prior_evidence`` restored after verifying the original artifact of the
@@ -224,7 +228,10 @@ def binding_source_issues(
     scope = grounding_scope(contract)
     if scope not in {"material_only", "local_only"}:
         return ()
-    errors = [MaterialSourceIssue(f"{binding.output_id}.claims[{index}]: {issue.message}", issue.code)
+    def authored(index: int) -> int:
+        return claim_origins[index] if index < len(claim_origins) else index
+
+    errors = [MaterialSourceIssue(f"{binding.output_id}.claims[{authored(index)}]: {issue.message}", issue.code)
               for index, claim in enumerate(binding.claims)
               for issue in _claim_source_issues(contract, claim, draft)]
     if binding.gap and binding.claims:
@@ -290,6 +297,47 @@ def claim_sentences(text: str) -> tuple[str, ...]:
     return tuple(parts)
 
 
+def split_claim_sentences(
+    decoded: Mapping[str, object],
+) -> tuple[Mapping[str, object], dict[str, tuple[int, ...]]]:
+    """Cut multi-sentence claim bindings at ``claim_sentences`` boundaries after rendering.
+
+    Per-claim review still sees one sentence per claim, but the cut itself is mechanical:
+    each piece is an exact slice of the writer's text and keeps that claim's kind and
+    source anchors, and the public draft keeps the writer's own paragraphs, so no sentence
+    or source is rewritten. Returning the whole finish to the writer for this cost a
+    repair round on most frozen material drafts and ended runs whose content had already
+    been corrected (docs/verification/2026-10-04-material-claim-sentence-split.md).
+    Source identity, private references and slot coverage are still checked per piece.
+
+    Also returns, per output id, the writer's claim index behind every piece, so feedback
+    can point at the claim the writer actually authored.
+    """
+    bindings = decoded.get("bindings")
+    if decoded.get("render_from_claims") is not True or not isinstance(bindings, list):
+        return decoded, {}
+    split, origins, changed = [], {}, False
+    for raw in bindings:
+        claims = raw.get("claims") if isinstance(raw, Mapping) else None
+        if not isinstance(claims, list):
+            split.append(raw)
+            continue
+        pieces, owners = [], []
+        for index, claim in enumerate(claims):
+            text = claim.get("text") if isinstance(claim, Mapping) else None
+            parts = claim_sentences(text) if isinstance(text, str) else ()
+            if len(parts) > 1:
+                changed = True
+                pieces.extend({**claim, "text": part} for part in parts)
+                owners.extend(index for _ in parts)
+            else:
+                pieces.append(claim)
+                owners.append(index)
+        split.append({**raw, "claims": pieces})
+        origins[str(raw.get("output_id") or "")] = tuple(owners)
+    return ({**decoded, "bindings": split} if changed else decoded), (origins if changed else {})
+
+
 def render_material_claims(contract: ResearchTaskContract, raw_bindings: object) -> str:
     """Render one authored copy; the protocol still validates every source and slot."""
     from intelligence.services.material_delivery import material_input_output_ids, material_question_outputs
@@ -302,9 +350,6 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
     questions = {item.output_id: item.question_id for item in material_question_outputs(contract)}
     blocks = []
     seen = set()
-    sentence_errors = []
-    private_locations = []
-    private_tokens = material_private_tokens(contract)
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise ValueError("claim rendering requires binding objects")
@@ -320,31 +365,11 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
             raise ValueError("a gap cannot carry answered claims")
         if not gap.strip() and not claims:
             raise ValueError("claim rendering requires sentences or a disclosed gap")
-        if any(token in gap.casefold() for token in private_tokens):
-            private_locations.append(f"{output_id}.gap")
-        for index, claim in enumerate(claims):
-            if any(token in claim.text.casefold() for token in private_tokens):
-                private_locations.append(f"{output_id}.claims[{index}]")
-            count = len(claim_sentences(claim.text))
-            if count != 1:
-                # 一次反馈各槽位的错误，避免有限续修机会逐个消耗在首错上；不改写正文或来源。
-                sentence_errors.append(f"{output_id}.claims[{index}] has {count} sentences")
+        # A multi-sentence claim is published as one paragraph; split_claim_sentences then cuts
+        # its binding at the same boundaries, so this text and the per-claim review stay aligned.
         title = questions.get(output_id) or ("证据边界" if output_id == "evidence_boundary" else "")
         body = gap.strip() if gap else "\n\n".join(claim.text.strip() for claim in claims)
         blocks.append(("## " + title + "\n" if title else "") + body)
-    if sentence_errors:
-        locations = "; ".join(sentence_errors[:16])
-        remainder = len(sentence_errors) - 16
-        if remainder > 0:
-            locations += f"; {remainder} further invalid claims"
-        if private_locations:
-            locations += "; private material references in " + ", ".join(private_locations[:16])
-        raise ValueError(
-            "claim rendering requires one sentence per claim: " + locations
-            + ". Split at sentence punctuation (including semicolons) and line breaks; "
-            "recheck every binding and bind each resulting claim to its own supporting sources. "
-            "Keep material IDs and message coordinates in private bindings, never in public text."
-        )
     return "\n\n".join(blocks)
 
 

@@ -102,7 +102,7 @@ def test_legacy_source_identity_and_quote_rejections_are_distinct(mutation, code
 @pytest.mark.parametrize("mutation", [
     "unknown_format", "legacy_top", "basis", "hashes", "raw_coordinate", "unknown_output", "duplicate_output",
     "unknown_M", "unknown_H", "E9", "fake_quote", "history_as_M", "material_as_H", "two_H", "empty_H",
-    "multisentence", "gap_and_claims", "missing_output",
+    "gap_and_claims", "missing_output",
 ])
 def test_compact_protocol_rejects_invalid_structure_and_sources(mutation):
     _, context = history_setup()
@@ -131,8 +131,6 @@ def test_compact_protocol_rejects_invalid_structure_and_sources(mutation):
         claim["sources"].append(deepcopy(claim["sources"][0]))
     elif mutation == "empty_H":
         claim["sources"] = []
-    elif mutation == "multisentence":
-        claim["text"] = "复述旧答。没有重新核验。"
     elif mutation == "missing_output":
         raw["answers"].pop()
     else:
@@ -148,6 +146,19 @@ def test_compact_protocol_rejects_invalid_structure_and_sources(mutation):
         assert error.value.code == "material_source_violation" and error.value.kind.value == "integrity"
     assert raw == saved
 
+
+def test_compact_multisentence_history_claim_is_cut_and_each_piece_keeps_one_history_source():
+    _, context = history_setup()
+    raw = compact_finish()
+    raw["answers"][0]["claims"][0]["text"] = "复述旧答。没有重新核验。"
+    saved = deepcopy(raw)
+    parsed = validate_episode_finish(raw, context=context, evidence=())
+    pieces = parsed.bindings[0].claims
+    assert [piece.text for piece in pieces] == ["复述旧答。", "没有重新核验。"]
+    assert {(piece.kind, piece.old_answer_coordinate, piece.historical_quote) for piece in pieces} == {
+        ("historical_assistant_statement", "assistant-old", "收盘价为68.78元")
+    }
+    assert "复述旧答。没有重新核验。" in parsed.draft and raw == saved
 
 def test_compact_partial_preserves_authored_status_gap_and_every_claim():
     _, context = history_setup()
