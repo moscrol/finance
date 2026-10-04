@@ -23,7 +23,7 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
     ClaimSourceBinding, QUOTE_REPAIR_RULE, binding_source_issues, grounding_scope, material_grounding_payload,
-    material_private_tokens, render_material_claims,
+    material_private_tokens, render_material_claims, split_claim_sentences,
 )
 from intelligence.services.material_answer_authoring import (
     MaterialAuthoringError, compile_material_author_finish,
@@ -1038,7 +1038,11 @@ def validate_episode_finish(
             draft = render_material_claims(context.contract, decoded.get("bindings"))
         except ValueError as exc:
             raise _reject("bad_claim_binding", str(exc)) from exc
+        # The writer's text is published as written; only its bindings are cut per sentence,
+        # so per-claim review and every source check below still see one sentence per claim.
+        decoded, claim_origins = split_claim_sentences(decoded)
     else:
+        claim_origins = {}
         draft = _normalize_natural_language_layout(draft)
     # 题设计算的程序表准入跟在两条 draft 来源之后：无论 draft 是模型原文还是按
     # 材料主张渲染出来的，只要合同带 premise_calculation，就要过同一道表格硬校验。
@@ -1121,7 +1125,8 @@ def validate_episode_finish(
             claims=claims,
         )
         source_issues = binding_source_issues(
-            context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes
+            context.contract, binding, draft, evidence, frozen_prior_hashes=frozen_prior_hashes,
+            claim_origins=claim_origins.get(binding.output_id, ()),
         )
         integrity_issues.extend(issue.message for issue in source_issues if issue.code != "material_quote_mismatch")
         quote_issues.extend(issue.message for issue in source_issues if issue.code == "material_quote_mismatch")

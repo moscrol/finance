@@ -59,13 +59,19 @@ def test_markdown_closers_stay_with_exact_claim_and_judge_sentence(marker):
 
 
 def test_markdown_does_not_merge_separate_sentences_or_steal_next_opener():
+    from intelligence.services.episode_semantic_verifier import _numbered_sentences
+
     assert claim_sentences("甲收入100万元。**订单20万元。**") == ("甲收入100万元。", "**订单20万元。**")
     assert claim_sentences("**收入100万元；订单20万元。**") == ("**收入100万元；", "订单20万元。**")
     _, context = setup()
     payload = claim_finish(context)
-    payload["bindings"][0]["claims"][0]["text"] = "**收入100万元；订单20万元。**"
-    with pytest.raises(ValueError, match="one sentence"):
-        validate_episode_finish(payload, context=context, evidence=())
+    text = "**收入100万元；订单20万元。**"
+    payload["bindings"][0]["claims"][0]["text"] = text
+    parsed = validate_episode_finish(payload, context=context, evidence=())
+    # The emphasis span is published intact; only the binding is cut where the judge cuts.
+    assert text in parsed.draft
+    assert tuple(claim.text for claim in parsed.bindings[0].claims) == claim_sentences(text)
+    assert [row["text"] for row in _numbered_sentences(parsed.draft)][1:3] == list(claim_sentences(text))
 
 
 @pytest.mark.parametrize("location", ["claim", "top_gap", "binding_gap"])
@@ -94,15 +100,13 @@ def test_claim_first_finish_renders_exact_sentences_and_retains_sources():
     assert payload["draft"] == ""
 
 
-@pytest.mark.parametrize("mutation", ["quote", "multisentence", "dual_draft", "duplicate", "unknown_output", "empty_binding", "gap_and_claims", "string_flag"])
+@pytest.mark.parametrize("mutation", ["quote", "dual_draft", "duplicate", "unknown_output", "empty_binding", "gap_and_claims", "string_flag"])
 def test_claim_first_does_not_bypass_validation(mutation):
     _, context = setup()
     payload = claim_finish(context)
     binding = payload["bindings"][0]
     if mutation == "quote":
         binding["claims"][0]["material_anchors"][0]["quote"] = "不存在的原文"
-    elif mutation == "multisentence":
-        binding["claims"][0]["text"] = "收入100万元；订单20万元。"
     elif mutation == "dual_draft":
         payload["draft"] = "另一份正文。"
     elif mutation == "duplicate":
@@ -176,20 +180,35 @@ def test_claim_rendering_does_not_bypass_memo_limit(length, valid):
             validate_episode_finish(payload, context=context, evidence=())
 
 
-def test_multisentence_error_locates_claim_without_rewriting_payload():
+def test_multisentence_claim_is_cut_into_exact_pieces_without_rewriting_payload():
+    from copy import deepcopy
+
     _, context = setup()
     payload = claim_finish(context)
     text = "计算采用订单除收入；材料未说明日期。"
     payload["bindings"][1]["claims"][0]["text"] = text
-    with pytest.raises(ValueError) as error:
-        validate_episode_finish(payload, context=context, evidence=())
-    assert error.value.code == "bad_claim_binding"
-    assert "evidence_boundary.claims[0]" in str(error.value)
-    assert "2 sentences" in str(error.value)
-    assert payload["bindings"][1]["claims"][0]["text"] == text
+    saved = deepcopy(payload)
+    parsed = validate_episode_finish(payload, context=context, evidence=())
+    boundary = next(binding for binding in parsed.bindings if binding.output_id == "evidence_boundary")
+    assert tuple(claim.text for claim in boundary.claims) == ("计算采用订单除收入；", "材料未说明日期。")
+    assert {claim.kind for claim in boundary.claims} == {"premise_declaration"}
+    # Published as the writer wrote it, one paragraph; the caller's payload is untouched.
+    assert "\n" + text in parsed.draft and payload == saved
 
 
-def test_multisentence_feedback_batches_locations_and_private_references_without_mutation():
+def test_cut_pieces_keep_every_source_anchor_of_their_claim():
+    _, context = setup()
+    payload = claim_finish(context)
+    claim = payload["bindings"][0]["claims"][0]
+    claim["text"] = "收入100万元；订单20万元。"
+    parsed = validate_episode_finish(payload, context=context, evidence=())
+    anchors = outcome(context).bindings[0].claims[0].material_anchors
+    assert [piece.text for piece in parsed.bindings[0].claims] == ["收入100万元；", "订单20万元。"]
+    assert all(piece.material_anchors == anchors and piece.kind == "material_fact"
+               for piece in parsed.bindings[0].claims)
+
+
+def test_cut_claim_still_fails_source_checks_without_mutation():
     from copy import deepcopy
 
     _, context = setup()
@@ -200,27 +219,16 @@ def test_multisentence_feedback_batches_locations_and_private_references_without
     saved = deepcopy(payload)
     with pytest.raises(ValueError) as error:
         validate_episode_finish(payload, context=context, evidence=())
-    message = str(error.value)
-    assert error.value.code == "bad_claim_binding"
-    assert "answer_q1.claims[0] has 2 sentences" in message
-    assert "evidence_boundary.claims[0] has 2 sentences" in message
-    assert "private material references in evidence_boundary.claims[0]" in message
-    assert source_id not in message and payload == saved
-
-
-def test_multisentence_feedback_is_bounded_and_reports_remaining_errors():
-    from copy import deepcopy
-
-    _, context = setup()
-    payload = claim_finish(context)
-    claim = deepcopy(payload["bindings"][0]["claims"][0])
-    claim["text"] = "收入100万元；订单20万元。"
-    payload["bindings"][0]["claims"] = [deepcopy(claim) for _ in range(20)]
+    assert error.value.code == "private_material_reference" and error.value.kind.value == "format"
+    assert source_id not in str(error.value) and payload == saved
+    payload["bindings"][1]["claims"][0]["text"] = "仅依据用户材料。不引入外部事实。"
+    payload["bindings"][0]["claims"][0]["material_anchors"][0]["quote"] = "不存在的原文"
     with pytest.raises(ValueError) as error:
         validate_episode_finish(payload, context=context, evidence=())
+    # Both pieces carry the bad anchor; feedback names the one claim the writer authored.
+    assert error.value.code == "material_quote_mismatch"
     message = str(error.value)
-    assert "claims[15]" in message and "claims[16]" not in message
-    assert "4 further invalid claims" in message
+    assert message.count("answer_q1.claims[0]") == 1 and "answer_q1.claims[1]" not in message
 
 
 @pytest.mark.parametrize("reference_loop", [False, True])
@@ -231,8 +239,9 @@ def test_one_format_retry_receives_all_claim_locations_and_preserves_bindings(re
     frame, context = setup()
     good = claim_finish(context)
     bad = deepcopy(good)
-    bad["bindings"][0]["claims"][0]["text"] = "收入100万元；订单20万元。"
-    bad["bindings"][1]["claims"][0]["text"] = "仅依据用户材料。结论限于材料。"
+    source_id = context.contract.material_grounding.materials[0].material_id
+    bad["bindings"][0]["claims"][0]["material_anchors"][0]["quote"] = "不存在的原文"
+    bad["bindings"][1]["claims"][0]["material_anchors"] = [{"material_id": source_id, "quote": "也不存在的原文"}]
     calls = []
 
     class Writer:
@@ -258,7 +267,8 @@ def test_last_format_error_reaches_repair_writer_without_extra_attempt(reference
     frame, context = setup()
     good = claim_finish(context)
     bad = deepcopy(good)
-    bad["bindings"][1]["claims"][0]["text"] = "计算采用订单除收入；材料未说明日期。"
+    source_id = context.contract.material_grounding.materials[0].material_id
+    bad["bindings"][1]["claims"][0]["material_anchors"] = [{"material_id": source_id, "quote": "不存在的原文"}]
     calls = []
 
     class Writer:
@@ -275,13 +285,14 @@ def test_last_format_error_reaches_repair_writer_without_extra_attempt(reference
                       (), (), (), CoverageDelta(0, 0, 0), 0, 20)
     result = loop.resume(states[0], first, goal)
     assert len(calls) == 3 and result.status == "completed"
-    feedback = [message["content"] for message in calls[2] if message["role"] == "user" and "one sentence" in message["content"]]
+    feedback = [message["content"] for message in calls[2]
+                if message["role"] == "user" and "quote does not match" in message["content"]]
     assert len(feedback) == 1
     assert "evidence_boundary.claims[0]" in feedback[0]
     # 第二次失败在本集只落账、不再多花一次模型调用；它到修复轮才交给作者。
     injected = [event for event in first.events
                 if event.kind == "model_input" and event.payload.get("source") == "steering_invalid_finish"]
-    assert len(injected) == 1 and "one sentence" not in injected[0].payload["content"]
+    assert len(injected) == 1 and "quote does not match" not in injected[0].payload["content"]
     assert any(event.kind == "invalid_action" and "evidence_boundary.claims[0]" in event.payload["reason"]
                for event in first.events)
     carried = [event for event in result.events
@@ -304,7 +315,8 @@ def test_second_repair_cycle_does_not_resend_the_rejection_it_already_delivered(
     frame, context = setup()
     good = claim_finish(context)
     bad = deepcopy(good)
-    bad["bindings"][1]["claims"][0]["text"] = "计算采用订单除收入；材料未说明日期。"
+    source_id = context.contract.material_grounding.materials[0].material_id
+    bad["bindings"][1]["claims"][0]["material_anchors"] = [{"material_id": source_id, "quote": "不存在的原文"}]
     calls = []
 
     class Writer:
@@ -329,7 +341,8 @@ def test_second_repair_cycle_does_not_resend_the_rejection_it_already_delivered(
                if event.kind == "model_input" and event.payload.get("source") == "repair_last_rejection"]
     assert len(carried) == 1
     # 第二轮开场作者读到的历史里，那条格式错误仍只有第一轮送达的那一份。
-    heard = [message["content"] for message in calls[3] if message["role"] == "user" and "one sentence" in message["content"]]
+    heard = [message["content"] for message in calls[3]
+             if message["role"] == "user" and "quote does not match" in message["content"]]
     assert len(heard) == 1
 
 
