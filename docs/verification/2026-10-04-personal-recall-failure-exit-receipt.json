@@ -1,0 +1,30 @@
+{
+  "scope": "Synthetic offline failure evidence only; dirty-stage tests are not final revision gates.",
+  "evidence": [
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/controller-failure-extract-1004.json",
+      "bytes": 2719,
+      "sha256": "c2eb43c530758be09cd6af0ab18abc6096ba9686934060ea6c181c89524b84ab"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/controller-failure-http-red-1004.log",
+      "bytes": 56537,
+      "sha256": "b55dbedb40efe0fad091f9e58cd20a309cb2de8d45461d5ca0aa44bec057e2ec"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/controller-failure-http-green-attempt1-1004.log",
+      "bytes": 783,
+      "sha256": "9e4aa3c782b7aa5e342536cc90d0885cfb10863d439182ba9c1304d215aaa330"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/controller-failure-http-green-1004.log",
+      "bytes": 783,
+      "sha256": "6e3432098b28e0a2de3b00594d258b36c2931d888787d6712c4ba2d5dd2d7c7e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/controller-failure-regression-1004.log",
+      "bytes": 1185,
+      "sha256": "5abb4b202c181dc2d044911684c56f1d1881333db90c3cd1b14609e1f3d1b020"
+    }
+  ]
+}
