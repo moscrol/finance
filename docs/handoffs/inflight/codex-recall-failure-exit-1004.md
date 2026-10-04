@@ -1,20 +1,21 @@
 ## 这个分支做什么
-FINANCEWORKS-8：个人回顾范围仲裁失败时停止未经确认的任务，保留原题。总目标仍为弱模型可靠、强模型收益，尚未验收。
 
-## 决策与被否方案
-| 选了什么 | 否了什么 | 为什么 |
-|---|---|---|
-| 消费已有personal_recall_*失败标识，复用failed终态 | 新关键词、自动改成纯回顾、服务故障问用户澄清 | 失败不是语义否定；混合任务不能缩权限合同 |
-| 只拦个人回顾范围未判定 | 全部Controller失败都阻断 | 本轮已证实范围有限，普通金融保留原路径 |
+FINANCEWORKS-8：个人回顾范围仲裁失败时停止未经确认的任务、保留原题。PR36 已合入并发布；完整发布事实见 [`docs/handoffs/2026-10-04-recall-failure-deploy.md`](../2026-10-04-recall-failure-deploy.md)。
 
 ## 当前状态
-已实现HTTP执行前短路并更新产品门；18反例由18F转18P，含下一轮不继承错误目标共19P；相关5文件回归422P。均dirty阶段读数，最终SHA门禁与独立审查待办。PR35合入、备份收据及方案比较见同日sidecar-isolation-closeout日期快照。
 
-## 未验证 / 已知边界
-成功纯/混合回顾及普通金融由既有回归覆盖；本轮provider均替身，故障矩阵用计数拒绝点阻止越界后续执行，不证明全工具隔离。零真实云调用，默认检索/8792未切；独立新记忆集、必要后续限定和两档模型内容收益均未过。
+- 合并提交：`04799bc6fb60472e5207275720f09d2ab0935c0c`；`origin/main` 与 `gitea/main` 一致。
+- 合并后全量收据：`/Users/a77/.finance-runtime/test-receipts/gate-rzY8XTss/pytest.json`，`20398 passed / 78 skipped / 2 xfailed`，full-scope 已核验。
+- 生产快照：`/Users/a77/.finance-runtime/finance-workspace-04799bc6fb60`；回滚点 `ffe1c60d84da`。health/readiness、真实 Episode 烟测、Gitea 备份和验收树拆除均有正式记录指针。
+
+## 未完成与边界
+
+弱模型/强模型配对收益、真实自然题、必要后续限定和记忆候选语义验收仍未完成；`FINANCEWORKS-1` 不得标完成。Pi 的 PR30/`feat/harness-integration-1003` 仍在途，不得接管或清理。其他 worktree 只按任务板和 `worktree_closeout.py` 点名处理。
 
 ## 下一步
-固定提交后独立双轴及完整本机/GitHub门禁，全部绿才合入备份。继续步骤2/3独立自然题和排序/限定交付；成本与身份准入沿FINANCEWORKS-3，不借其套餐外额度，不碰Pi活动树。旧v1/R17/R19/240不重抽。
 
-## 踩过的坑
-Controller失败后保留候选TaskFrame并不等于保留用户目标：纯回顾曾被写成定义/产业链；必须在执行和会话继承之前停下。读取失败不能说用户没有记录。
+Pi 完成 PR30 后，按 FINANCEWORKS-3 验收；再处理 FINANCEWORKS-6/9 的内容真值和双模型验收。下一次发布必须重新做 main-tip 全量门禁、健康/就绪检查和真实业务烟测。
+
+## 建议调用的 skills
+
+`manage-taskboard`、`code-review`、`harness-architecture-review`、`handoff`。
