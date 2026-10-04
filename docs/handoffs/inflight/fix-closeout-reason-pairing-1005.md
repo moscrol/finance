@@ -13,12 +13,13 @@
 
 ## 当前状态
 
-代码 + 测试 + lessons_learned 在 `22cd1f0ff`，本交接另一提交，均已推送，无未提交改动。CI 看 PR。
+代码、测试、lessons_learned、本交接均已提交推送，无未提交改动；提交列表与 CI 看 PR。
 
 ## 已验证
 
 - 先红后绿：新测试打 `bd2c58b37` 为 5F/5P，改后 10P（明细在 PR 描述）。
-- 提交时 13 道 pre-commit 过；本机门禁读数按最终 head 取，见 PR 评论。
+- 变异 6 门（spec 在 `~/.finance-runtime/reviews/closeout-reason-pairing-1005/`）：首轮 M4「0 条理由不补空串」SURVIVED，已补 `test_tree_without_reason_is_sampled_and_blocked`。
+- 提交时 13 道 pre-commit 过；终轮变异与本机门禁读数按最终 head 取，见 PR 评论。
 - 同族：34 个含 `action="append"` 的非测试文件全看过，只此一处。
 
 ## 未验证 / 已知边界
@@ -34,4 +35,5 @@ CI 四叶绿 + 用户确认后合入；合入后本文件转日期快照或删�
 ## 踩过的坑
 
 - 同族扫描用 `head -30` 截了文件清单（输出恰好 30 行），险些漏看 5 个文件就断言「没有第二处」：先数清分母。
+- 旧测试从没走过 CLI 的「`--tree` 不带 `--reason`」：0 条那档是变异才露出的，红绿对比看不出（旧代码那里本来就对）。
 - 沉淀：原则进 `.claude/lessons_learned.md`；不做门禁——哪些参数成对要语义判断，全仓只此一例。

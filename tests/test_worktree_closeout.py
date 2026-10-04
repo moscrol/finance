@@ -300,6 +300,18 @@ def test_unreachable_remote_refuses_to_act(rig):
     assert tree.is_dir() and rig.refs("refs/archive") == []
 
 
+def test_tree_without_reason_is_sampled_and_blocked(rig):
+    # 0 条理由：点名的树照样进收据、各自因没写理由被阻塞；配不到理由不能把树从计划里丢掉（zip 会静默截断）。
+    first, second = rig.add_tree("fwp-wt-bare-a"), rig.add_tree("fwp-wt-bare-b")
+
+    result = rig.run("--tree", str(first), "--tree", str(second))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    trees = rig.receipt(result)[1]["trees"]
+    assert [Path(rec["path"]).name for rec in trees] == ["fwp-wt-bare-a", "fwp-wt-bare-b"]
+    assert all(rec["reason"] == "" and any("没写理由" in b for b in rec["blockers"]) for rec in trees)
+
+
 def test_one_reason_covers_every_named_tree(rig):
     first, second = rig.add_tree("fwp-wt-shared-a"), rig.add_tree("fwp-wt-shared-b")
 
