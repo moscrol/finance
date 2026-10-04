@@ -44,10 +44,11 @@
 5. 读 arena 的首错诊断（`task6-first-error-20261004/`：首错都在第一个 model_turn，属推理越界），再用同一冻结源量化交付损失。
    19 份答卷里 7 份 unusable **全是交付失败**；12 条可追 run 中 10 条首个拒收是「一句一 claim」。
 6. FINANCEWORKS-6 改向：先退出 harness 自己造成的交付损失。实现分支 `fix/material-claim-sentence-split-1004`
-   （cf14e8498 + d940a287f）。离线重放首稿结构合法 1/20 → 10/20，引用与私有 ID 反向对照照拒，变异 5/5。
+   （cf14e8498 + d940a287f，**PR #40**）。离线重放首稿结构合法 1/20 → 10/20，引用与私有 ID 反向对照照拒，变异 5/5；
+   本机全量门禁 20400 passed / 0 failed（d940a287f，收据 `gate-Xb03H7Pu` 经 `check_test_receipt.py --require-full-scope` 判可采信）。
    证据 `docs/verification/2026-10-04-material-claim-sentence-split.md`（在该分支上）。
-7. 发现 arena 停止前已提交 `cc1888e71`（`fix/material-financial-semantics-1004`，双远端），并新建两棵树，留下一个孤儿全量 pytest。
-   该 pytest 跑完：20382 passed / 18 failed，18 条全在 `tests/test_pi_review_repair.py`，与其改动无关。疑为它在沙箱内跑的环境红，未复核。
+7. 发现 arena 停止前已提交 `cc1888e71`（`fix/material-financial-semantics-1004`，双远端），并开了 **PR #38**（open），新建两棵树，留下一个孤儿全量 pytest。
+   该 pytest 跑完：20382 passed / 18 failed，18 条全在 `tests/test_pi_review_repair.py`，与其改动无关。同一批测试在本轮 PR #40 门禁里全绿，佐证是它在沙箱内跑的环境红。
 8. 5 条只在本机的分支推到 gitea（不推 GitHub，GitHub 是公开仓）：`fix/8792-answer-review-0929`、
    `feat/harness-output-provenance-1003`、`feat/harness-plan-ownership-1002`、`fix/owner-output-contract-1002`、
    `fix/pr16-qc-1002`。收据 `gitea-backup.txt`，SHA 逐条一致。
@@ -90,9 +91,9 @@ c+ 指补丁不在 main 的提交数，「落地」指新增行在 main 的占�
 | 树 | 去向与理由 |
 |---|---|
 | `~/fwp-wt-harness-integration-1003` [PR30 @bffc675da] | Pi 活动树，不碰 |
-| `.claude/worktrees/kind-engelbart-aa727f` [fix/material-claim-sentence-split-1004] | 本轮代码分支，待合入裁决 |
-| `~/fwp-wt-takeover-closeout-1004` [docs/takeover-closeout-1004] | 本轮文档分支（本 PR） |
-| `~/fwp-wt-material-financial-semantics-1004` [cc1888e71，双远端] | arena 遗留，待用户裁决是否评测或关闭 |
+| `.claude/worktrees/kind-engelbart-aa727f` [fix/material-claim-sentence-split-1004] | 本轮代码分支，PR #40，待合入裁决 |
+| `~/fwp-wt-takeover-closeout-1004` [docs/takeover-closeout-1004] | 本轮文档分支，PR #39 |
+| `~/fwp-wt-material-financial-semantics-1004` [cc1888e71，双远端，PR #38] | arena 遗留，待用户裁决是否评测或关闭 |
 | `~/.finance-runtime/reviews/harness-integration-20261003/gate-trees/mutation-fix` [c+2，双远端] | PR30 家族探针树，PR30 定案后回收 |
 
 **内容已在 PR30 推送头（2）：PR30 定案后回收**
@@ -131,7 +132,9 @@ c+ 指补丁不在 main 的提交数，「落地」指新增行在 main 的占�
 | `~/.codex/worktrees/remote-sync-handoff-0930` [6 个文档提交，双远端] | 内容基本未进 main（dual-remote-collaboration.md 4/48 行）。判断是否已被 main 后续版本取代；树可回收，分支保留 |
 | `.claude/worktrees/unclosed-session-stats-838ac4` [fix/main-gate-tmpdir-isolation，c+0] | 有未提交的 `tests/test_main_gate_receipt.py`（+22 行，09-30 09:59），归属不明。用 `worktree_closeout` 的 salvage 保全后回收 |
 
-嵌套在主检出下的树（`.claude/worktrees/*`、`.worktrees/*`）目前拆不动：`worktree_safety.context_blockers` 对启动器引用做路径前缀匹配，
+可回收树 dry-run（只读，未 apply）：点名 7 棵，无阻塞 2 棵（`fwp-wt-harness-simplification-1002`、`fwp-wt-pr16-qc-1002`）。另 5 棵 /tmp 树的唯一阻塞是启动器前缀误报：约 29 个 `com.a77.ima-*` launchd plist 引用目录 `/private/tmp`。收据 `~/.finance-runtime/reviews/claude-takeover-20261004/closeout/dry-20261004T163245.json`。
+
+嵌套在主检出下的树（`.claude/worktrees/*`、`.worktrees/*`）目前也拆不动：`worktree_safety.context_blockers` 对启动器引用做路径前缀匹配，
 主检出被引用，导致全部误标「被启动器引用」。09-25 只修了 `$HOME` 特例，见 `scripts/worktree_safety.py:229`。
 
 ## 验证与收据
@@ -144,14 +147,14 @@ c+ 指补丁不在 main 的提交数，「落地」指新增行在 main 的占�
 
 ## 下一步
 
-1. 用户确认后合入 `fix/material-claim-sentence-split-1004`；部署走切 8792 规程（`deploy-8792-switch-procedure`）。
+1. 用户确认后合入 PR #40（CI 通过为前提）；部署走切 8792 规程（`deploy-8792-switch-procedure`）。PR #39 为纯文档，可同批。
 2. 预注册 GLM 同模型旧/新配对：未调参 holdout，主指标为交付率与硬错误。前置是标准 API 的运输与费用硬边界，
    Pi 记 `live_ready=false`，见 `~/.finance-runtime/reviews/harness-budgeted-preflight-20261004/forward-20261004T1256/workbench-preflight/admission-status.md`。
 3. 下一个交付因素：输出 schema 违规（JSON 破损、字段类型、未知字段、历史摘录形状）在 20 份首稿中占 4 份。
 4. 内容推理错（现金流口径、时点、未说明≠无影响）另立因素，优先供给信息与工具：确定性现金流桥接计算、按需方法资料。
    不加坏例硬规则。
-5. 用户裁决 arena 的 cc1888e71：在 holdout 上评测，或关闭。
-6. 用户点头后，按上表对可回收树跑 `worktree_closeout.py` dry-run → apply。修 `worktree_safety` 嵌套树误报，同族修复要带变异测试。
+5. 用户裁决 arena 的 PR #38（cc1888e71）：在 holdout 上评测，或留理由关闭。
+6. 用户点头后，对无阻塞的 2 棵直接 apply（`worktree_closeout.py --apply --plan <上面的 dry 收据>`）。其余先修 `worktree_safety` 的祖先目录前缀误报（主检出、/private/tmp 两族），带变异测试，再重新 dry-run。
 
 ## 不要做
 
