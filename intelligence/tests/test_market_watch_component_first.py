@@ -113,6 +113,26 @@ def _db(tmp_path: Path) -> Path:
         "insert into fact_theme_limit_heat_daily values "
         "('2026-07-23', '储能', 40, 0.1), ('2026-07-24', '半导体', 20, 0.2)"
     )
+    con.execute(
+        """
+        create table fact_limit_advance_daily(
+          trade_date date,
+          stock_name varchar,
+          boards integer,
+          promotion_rate varchar,
+          theme varchar
+        )
+        """
+    )
+    con.execute(
+        """
+        insert into fact_limit_advance_daily values
+          ('2026-07-22', '立新能源', 5, '1/1=100%', '电力'),
+          ('2026-07-22', '华银电力', 4, '1/1=100%', '电力'),
+          ('2026-07-22', '美利云', 3, '1/3=33%', '算力租赁'),
+          ('2026-07-22', '共进股份', 2, '9/116=8%', '交换机')
+        """
+    )
     con.close()
     return path
 
@@ -543,3 +563,37 @@ def test_writer_lock_is_not_rendered_as_no_data(tmp_path: Path, monkeypatch) -> 
     assert "复盘写入中" in rendered
     assert "无行情数据" not in rendered
     assert "该日无行" not in rendered
+
+
+def test_market_watch_pack_renders_ladder_and_detects_no_level_gap(tmp_path: Path) -> None:
+    pack = run_market_watch_pack(
+        "2026-07-22 高标股晋级情况，有没有空档",
+        market_db_path=_db(tmp_path),
+    )
+    rendered = pack.render()
+    assert "立新能源(5板，晋级率1/1=100%)" in rendered
+    assert "美利云(3板，晋级率1/3=33%)" in rendered
+    assert "2至5板连续，未见层级空档" in rendered
+
+
+def test_market_review_answer_spec_prioritizes_explicit_day_pack(tmp_path: Path) -> None:
+    options = AskOptions(
+        query="2026-07-23 复盘下今天A股整体情况",
+        date="2026-07-23",
+        market_db_path=_db(tmp_path),
+        compose=False,
+        supplemental_evidence="- 市场数据截至：2026-09-30。\n- 最新盘面占位。",
+    )
+    bound = bind_market_watch_pack(options)
+    result = _answer_market_review(bound, AskResult(
+            query=options.query,
+            trade_date=options.date,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        ))
+    assert result.answer_spec is not None
+    facts = "\n".join(claim.text for claim in result.answer_spec.verified_facts)
+    assert "显式站立日：2026-07-23" in facts
+    assert "上涨 1530 家" in facts
+    assert facts.index("显式站立日：2026-07-23") < facts.index("2026-09-30")
