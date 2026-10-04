@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import socket
+import subprocess
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -23,6 +27,69 @@ from intelligence.services.run_store import RunStore
 
 
 STALE = "⚠️已被新证据取代"
+
+
+@pytest.mark.skipif(not Path("/bin/zsh").exists(), reason="sidecar launcher uses zsh")
+@pytest.mark.parametrize("source", ["parent", "launcher", "both", "defaults"])
+@pytest.mark.parametrize("relative", [False, True], ids=["absolute", "relative"])
+def test_sidecar_writable_state_stays_in_probe_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source: str, relative: bool,
+) -> None:
+    """Execute the shell; actual readers and the rejudge writer must agree."""
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(tmp_path)
+    output = (tmp_path / "probe ' output").resolve()
+    outside = tmp_path / "synthetic-production"
+    outside.mkdir()
+    marker = outside / "keep.txt"
+    marker.write_text("must remain unchanged")
+    env = {key: os.environ[key] for key in ("HOME", "PATH", "LANG", "TMPDIR") if key in os.environ}
+    env["HOME"] = str(outside)
+    keys = (
+        "FORESIGHT_EPISODE_STORE", "FINANCE_DEPLOY_LEDGER",
+        "FINANCE_REJUDGE_PENDING_INDEX", "FINANCE_MEMORY_VECTOR_CACHE_DIR",
+    )
+    inherited = {key: str(outside / key.lower()) for key in keys}
+    if source in {"parent", "both"}:
+        env.update(inherited)
+    launcher = tmp_path / "launcher"
+    exports = "export FORESIGHT_BUILTIN_LLM_API_KEY=synthetic-no-provider\n"
+    if source in {"launcher", "both"}:
+        exports += "".join(f"export {key}={shlex.quote(value)}\n" for key, value in inherited.items())
+    launcher.write_text(exports)
+    # This interpreter substitute ignores uvicorn arguments and starts no server.
+    reader = tmp_path / "resolve_state.py"
+    reader.write_text(
+        "import json\n"
+        "from pathlib import Path\n"
+        "from intelligence.services.episode_store import resolve_episode_store_root\n"
+        "from intelligence.runtime.deploy_ledger import resolve_ledger_path\n"
+        "from intelligence.services.rejudge_pending import pending_index_path, append_pending\n"
+        "from intelligence.services.memory_semantic import cache_root\n"
+        "from intelligence.userspace import users_dir\n"
+        "paths = {'users': users_dir(), 'episodes': resolve_episode_store_root(), 'deploy': resolve_ledger_path(), "
+        "'rejudge': pending_index_path(), 'memory_cache': cache_root()}\n"
+        f"assert all(p is not None and p.resolve().is_relative_to(Path({str(output)!r})) for p in paths.values()), paths\n"
+        "append_pending({'run_id': 'synthetic-probe'})\n"
+        "print(json.dumps({k: str(v) for k, v in paths.items()}))\n"
+    )
+    python = tmp_path / "fake python"
+    python.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(reader))}\n")
+    python.chmod(0o755)
+    spec = probe.SidecarSpec(
+        port=8796, repo_root=root, python=python, launcher=launcher,
+        users_dir=(Path(output.name) if relative else output) / "users", user="synthetic-probe",
+    )
+    result = subprocess.run(
+        ["/bin/zsh", "-f", "-c", probe.sidecar_zsh(spec)],
+        cwd=tmp_path, env=env, text=True, capture_output=True, timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    paths = {key: Path(value) for key, value in json.loads(result.stdout).items()}
+    assert all(path.is_relative_to(output) for path in paths.values()), paths
+    assert json.loads(paths["rejudge"].read_text())["run_id"] == "synthetic-probe"
+    assert list(outside.iterdir()) == [marker]
+    assert marker.read_text() == "must remain unchanged"
 
 
 def _write_run_dir(

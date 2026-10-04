@@ -1,24 +1,5 @@
-## 这个分支做什么
-FINANCEWORKS-8：记录PR32/33合入与真实消费失败，固定下一步验收，避免把工程绿当答案收益。
-
-## 决策与被否方案
-| 选了什么 | 否了什么 | 为什么 |
-|---|---|---|
-| 首对失败即封口 | 改题/切semantic补跑 | 对照不满足合同及环境准入 |
-| 默认keyword保持 | 按带主题23/24切BGE | 原问句、污染及冷启动未过 |
-| 复用公共预算工作 | 再造一套调用监督器 | FINANCEWORKS-3已有负责人，避免争抢树 |
-
 ## 当前状态
-PR32/33已合至abdb31ec38dd，候选完整门禁与双轴绿；Gitea备份success。8792仍ffe1c60d84da，未部署。真实flash首对：基线漏召回，候选控制器超时转一般研究后未交付；诊断另有知识库隔离遗漏和事后序列化错，已保全。详见同日memory-consumption-closeout报告与receipt。
-
-## 已验证
-PR32完整20366P、PR33完整20369P；各78S/2X，未缩窄且原SHA收据可采信。前端/E2E、GitHub五项及双轴过。原问句keyword/二元组/混合=2/8/10（分母24改写=8意图），网络0；新环境5种越界根均拒绝、序列化通过。
-
-## 未验证 / 已知边界
-独立留出、用途/矛盾采用、弱强模型收益未过。真实候选缺终态及全调用身份；150秒只是外层截止，不是Episode预算。路径解析通过不等于全工具隔离。FINANCEWORKS-8和父任务未完成。
+本分支文档经固定095bb2078的完整本机/前端E2E/GitHub/双轴通过后已合至4948fd0a0。未部署、未宣称内容收益。
 
 ## 下一步
-按同日memory-consumption-followup-spec完成无云模型的准入与原问句检索验证；成本/token硬帽复用FINANCEWORKS-3后再冻结新真实对照。旧v1两次保留，余六次禁补；R17/R19/240禁重开。部署需固定合并SHA门禁和真实入口内容证据。
-
-## 踩过的坑
-WORKBENCH_KNOWLEDGE_WIKI优先于KB_VAULT；状态用to_dict序列化。记忆users-root是叶目录。该分支仅文档，不改生产；Pi及主检出仍只读。当前树复用PR33树，9020保持原受验头。
+接续已转FINANCEWORKS-8绑定的codex/eval-sidecar-state-isolation-1004；读同名inflight与同日memory-raw-query-and-isolation报告。原v1已封口，禁止补发，预算沿共同工作。
