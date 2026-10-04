@@ -675,8 +675,8 @@ def _build_base_answer_spec_from_sections(
     )
 
     evidence_lines = _presentable_lines(
-        "\n".join(result.sections.get("证据链", [])),
         *evidence_blocks,
+        "\n".join(result.sections.get("证据链", [])),
     )
     verified_facts = tuple(
         answer_model.make_claim(

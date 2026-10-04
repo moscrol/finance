@@ -22,6 +22,7 @@ BAG_MARKET = "market_daily"
 BAG_MAINLINE = "mainline"
 BAG_DUAL_RED = "dual_red"
 BAG_LIMIT_HEAT = "limit_heat"
+BAG_LADDER = "limit_advance"
 REQUIRED_BAGS = (BAG_MARKET, BAG_MAINLINE, BAG_DUAL_RED, BAG_LIMIT_HEAT)
 
 PROBE_ROLE_OBSERVATION = "出清/分歧观察"
@@ -83,6 +84,7 @@ class MarketWatchPack:
     bags: tuple[PackBag, ...]
     probes: tuple[ProbeReceipt, ...] = ()
     staleness_disclosure: str | None = None
+    ladder: PackBag | None = None
 
     def bag(self, name: str) -> PackBag | None:
         for item in self.bags:
@@ -235,6 +237,39 @@ class MarketWatchPack:
             lines.append(
                 f"- 涨停热度 served_date={heat.served_date}：{names}。"
             )
+        ladder = self.ladder
+        if ladder is not None and ladder.locked:
+            lines.append("- 连板梯队：locked。复盘写入中，请稍后。")
+        elif ladder is not None and ladder.empty:
+            lines.append("- 连板梯队该日无行。")
+        elif ladder is not None:
+            levels = sorted(
+                {
+                    int(row["boards"])
+                    for row in ladder.rows
+                    if row.get("boards") is not None and int(row["boards"]) >= 2
+                },
+                reverse=True,
+            )
+            entries = "、".join(
+                f"{row.get('stock_name')}({row.get('boards')}板，晋级率{row.get('promotion_rate') or '未标注'})"
+                for row in ladder.rows
+                if row.get("stock_name")
+            )
+            lines.append(
+                f"- 连板梯队 served_date={ladder.served_date}：{entries}。"
+            )
+            if levels:
+                expected = set(range(min(levels), max(levels) + 1))
+                missing = sorted(expected - set(levels), reverse=True)
+                if missing:
+                    lines.append(
+                        "- 连板层级空档：" + "、".join(f"{level}板" for level in missing) + "。"
+                    )
+                else:
+                    lines.append(
+                        f"- 连板层级：{min(levels)}至{max(levels)}板连续，未见层级空档。"
+                    )
         if self.probes:
             lines.append(SUBSTITUTE_BLOCK_TITLE)
             lines.extend(render_probe_lines(self.probes))
@@ -616,6 +651,7 @@ def run_market_watch_pack(
             bags=bags,
             probes=probes,
             staleness_disclosure=staleness,
+            ladder=_query_ladder(con, standing),
         )
     finally:
         con.close()
@@ -903,6 +939,51 @@ def _query_limit_heat(con: Any, standing: str | None) -> PackBag:
         return _empty(BAG_LIMIT_HEAT, standing)
     return PackBag(
         name=BAG_LIMIT_HEAT,
+        requested_date=standing,
+        served_date=standing,
+        status="hit",
+        rows=rows,
+    )
+
+
+def _query_ladder(con: Any, standing: str | None) -> PackBag:
+    if standing is None or not _has_table(con, "fact_limit_advance_daily"):
+        return _empty(BAG_LADDER, standing)
+    columns = {
+        str(row[1])
+        for row in con.execute(
+            "pragma table_info('fact_limit_advance_daily')"
+        ).fetchall()
+    }
+    required = {"stock_name", "boards"}
+    if not required <= columns:
+        return _empty(BAG_LADDER, standing)
+    promotion = "promotion_rate" if "promotion_rate" in columns else "null"
+    theme = "theme" if "theme" in columns else "null"
+    fetched = con.execute(
+        f"""
+        select stock_name, boards, {promotion} as promotion_rate, {theme} as theme
+        from fact_limit_advance_daily
+        where trade_date = cast(? as date) and boards >= 2
+        order by boards desc, stock_name
+        limit 30
+        """,
+        [standing],
+    ).fetchall()
+    rows = tuple(
+        {
+            "stock_name": str(name),
+            "boards": boards,
+            "promotion_rate": rate,
+            "theme": theme_name,
+        }
+        for name, boards, rate, theme_name in fetched
+        if name
+    )
+    if not rows:
+        return _empty(BAG_LADDER, standing)
+    return PackBag(
+        name=BAG_LADDER,
         requested_date=standing,
         served_date=standing,
         status="hit",
