@@ -2,25 +2,25 @@
 四片Harness候选及S1接缝修复；工程、独审、真实质量均过才上线。任务FINANCEWORKS-3。
 
 ## 决策与被否方案
-- 接纳/反馈统一经ResearchHarness；loop保留取消/截止/预算/持久化，否默认harness回落。
-- 用户已批复审+最多12格预验共用50元；否把授权、测试绿或预验当正式质量通过。
-- 标准API适用于自建Workbench；否把Coding套餐当免费额度。先核账户、再设共享费用硬帽；否事后超支再停。
-- 细节见[本轮预算预检](../2026-10-04-harness-budgeted-preflight.md)及[产品修复](../2026-10-04-harness-interpretation-seam.md)。
+- 接纳/反馈经ResearchHarness；loop保留取消/截止/预算/持久化，否默认harness回落。
+- 最新授权“没有总上限，plan随便用”：套餐内按需用，否继续用50元闸阻塞；不扩张为套餐外无限现金。
+- 真Claude Code复审用套餐；Workbench须标准API，否伪装工具绕用途限制。
+- 两轴静态通过不代质量/新main；否转签旧报告。详见[套餐复审](../2026-10-04-harness-plan-review.md)。
 
 ## 当前状态
-- 产品pin=25de6994bdb79b57e9cf06fcb81f6f5796c67079，含main@108835e27；本轮重新fetch未变。文档HEAD由Git读取。
-- PR30仍Draft/OPEN，无auto-merge；生产仍ffe1c60d，未合入/部署。无模型实验运行中。
-- 预算已批；账户页需用户Chrome登录。已请登录智谱finance/overview后回复“已登录”，不用发密钥/验证码或充值。
-- 新证据根`~/.finance-runtime/reviews/harness-budgeted-preflight-20261004/`，先读approval.md、preflight-findings.md与status/。旧harness-release-20261004及harness-integration-20261003均封存不可覆盖。
+- 产品pin=25de6994bdb79b57e9cf06fcb81f6f5796c67079，含main@108835e27。起始docs头fe26223；当前头由Git读。
+- 新Spec/Standards已终结，均未发现确定P1/P2阻塞。Claude Code客户端、后端glm-5.3；64+104次请求全完成，无失败/切通道，后台已退出。
+- main另进展到180dbf1e7（本轮观察，需重取），25de未含新记忆/前端/sidecar增量，不签组合验收。
+- PR30仍Draft/OPEN，无auto-merge；生产软链仍ffe1c60d，未合入/部署。Workbench新模型请求0。
 
 ## 已验证
-25de完整本机与CI已过；dfe文档头CI亦全成功。本轮33项离线预算/运输测试、16项payload断言及Ruff通过，非全量或独审。官方标准价：flash输入/输出0.8/2.8、glm5.3为8/28元每百万token；不等于账户实付已核。
+有效套餐及账户绑定已核；两轴只读/互隔离/出站沙箱各11项通过，全部回包身份/usage/结算及输入哈希审计过。25de既有完整本机/CI另列，不转签docs头。证据在`~/.finance-runtime/reviews/harness-budgeted-preflight-20261004/plan-review-20261004T1025/`，读closeout.json和两轴live/report.md、audit.json。
 
 ## 未验证 / 已知边界
-新版独立Spec/Standards仍缺。真实答题/新独审请求0，质量未知。现有调用帽是每turn，root帽是工具/时间；未建立本批共享CNY/token准入。agent两入口及通用chat默认无max_tokens，合成帽不传播；low effort可启用5.3必需思考。不能据超时断言上游停止收费。
+独审未执行测试；SDK真实时序/恢复/claim对齐仍有盲点。快照未带变异脚本，作者补核51定义锚点不冒充独审。CLI美元估价非实付、推理token未独立返回。标准API现金通道/边界、完整预注册、真实质量及新main组合未验；套餐许可不覆盖Workbench。
 
 ## 下一步
-读最新任务version/评论与Git/PR。登录后核账户，补并离线验证全运输尝试发前持久预占，含子调用/重试/独审/判卷；不能保证50元则继续停。再冻3题完整多轮、数据、6对AB/BA顺序、匿名评分和停止规则，经claim_ledger_id预注册。12格不代正式效果；R17/R19/240不动。当前不改生产通道、不碰其它活动树。
+读最新任务/Git/PR；独占树前向集成最新main，按新SHA补门禁与受影响复审。再完成标准API准入，冻结3题完整多轮、数据、6对AB/BA、匿名评分和停止规则，经claim_ledger_id预注册。最多12格仅预验，失败不补跑；正式效果/金融错误/发布门另验。R17/R19/240、共享Memory、其它活动树及生产配置不动。
 
 ## 踩过的坑
-目录有依赖先串行建，勿并行重定向竞态。旧glm-5.3*通配价误套flash；CLI模型名/估价不是账单。无usage记未知。封口哈希只证完整性。清理先查ignored数据；Gitea代码ref不等于数据备份。
+裸CLI模型名不等于回包；工具身份不等于模型身份。bare模式只露Read，临时目录需隔离。只读快照不是完整仓，缺scripts应列盲点。缺usage不按0；账页0%不等于无限额度。旧封口不可覆盖，Gitea代码ref非数据备份。
