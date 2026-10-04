@@ -1,0 +1,31 @@
+{
+  "scope": "specific correction delivery; not final model quality",
+  "runtime_relative_root": "harness-quality-closeout-1003/memory-recall-20261004",
+  "artifacts": [
+    {
+      "file": "correction-delivery-red-attempt2.log",
+      "sha256": "47774a43555538d636ba967f0fea2de51133186a1fba377ea3d859cc571e0416",
+      "bytes": 7699
+    },
+    {
+      "file": "correction-delivery-green.log",
+      "sha256": "9f986ef9d1c09161c80cef1876136a10896a190fd1940b4f8a2bec4c766176d8",
+      "bytes": 1025
+    },
+    {
+      "file": "delivery-v2.json",
+      "sha256": "5876d176b7e68f11b4816ddd9c160f4af570e5953681335473b15af464a96ae5",
+      "bytes": 129839
+    },
+    {
+      "file": "delivery-fixed.json",
+      "sha256": "1f05515aa814186169daf80d1089e4255c7acb6b70fad7f56b4f95fda2161081",
+      "bytes": 163545
+    },
+    {
+      "file": "delivery-fixed-comparison.json",
+      "sha256": "77475cd94e79e26cd162b68c02993257eff1ea780b794f35f0b980dfaa16dfc5",
+      "bytes": 1294
+    }
+  ]
+}

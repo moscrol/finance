@@ -44,12 +44,44 @@ def test_runbook_writes_a_shareable_summary_without_private_text(tmp_path, monke
     for title in ("换库锁平台自检", "百分数字段量纲", "标签 A/B 回放", "生效模型准入抽查", "记忆召回分档", "工具调用按数据集", "台账体检"):
         assert f"## {title}" in summary, title
     assert "消失 1 处，新增 0 处" in summary
-    assert "| T1 |" in summary  # 召回分档表进摘要
+    assert "未出分：记忆标注不可用" in summary
+    assert "| T1 |" not in summary  # 缺失标注不能冒充召回分数
     assert "各按自己 configure 里配置的模型" in summary
     assert SECRET not in summary
     assert "若强势股成交占比回到" not in summary, "回答原句只进本机日志"
     assert "若强势股成交占比回到" in (out / "logs" / "03-replay.txt").read_text(encoding="utf-8")
     assert "可以贴回来" in capsys.readouterr().out
+
+
+def test_recall_summary_keeps_table_for_complete_labels(tmp_path):
+    from intelligence.eval.retrieval_recall import load_cases
+
+    cases = load_cases(REPO / "intelligence/eval/cases/retrieval_recall_v1.jsonl", channel="user_memory")
+    user = tmp_path / "users" / "fixture"
+    user.mkdir(parents=True)
+    labels = sorted({identity for case in cases for identity in case["relevant"]})
+    (user / "corrections.jsonl").write_text("\n".join(
+        json.dumps({"ts": ts, "correction": SECRET, "themes": ["裕太微"]}, ensure_ascii=False)
+        for ts in labels
+    ), encoding="utf-8")
+    (tmp_path / "out" / "logs").mkdir(parents=True)
+    result, lines = runbook.step_recall(tmp_path / "out", user.parent, user.name, [])
+    assert result["exit"] == 0
+    assert "| T1 |" in "\n".join(lines)
+    assert SECRET not in "\n".join(lines)
+
+
+@pytest.mark.parametrize("stdout", [
+    json.dumps({"status": "memory_retrieval_unavailable", "error": SECRET}),
+    SECRET,
+    json.dumps([SECRET]),
+])
+def test_recall_failure_summary_never_exposes_private_diagnostics(tmp_path, monkeypatch, stdout):
+    monkeypatch.setattr(runbook, "_run", lambda *a: {"exit": 2, "stdout": stdout})
+    result, lines = runbook.step_recall(tmp_path, tmp_path / "users", "fixture", [])
+    assert result["exit"] == 2
+    assert "未出分" in "\n".join(lines)
+    assert SECRET not in "\n".join(lines)
 
 
 def test_runbook_refuses_without_users_dir(tmp_path, monkeypatch):

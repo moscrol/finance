@@ -113,6 +113,8 @@
 
 ## 5. Runtime revision 核验
 
+记忆消费诊断（2026-10-04）：`KB_VAULT`不保证覆盖完整知识根，须回读实际`WORKBENCH_KNOWLEDGE_WIKI`及RAG索引解析；`EpisodeState.entry_identity`是冻结mapping，用`to_dict()`提取可JSON化副本。HTTP `completed`可对应`episode.partial`与`prior_recall`缺失，必须对照原始正文。外层150秒停止与Episode自身600秒预算分列；中断时没有最终LLM账本，不能用已完成的几条model_turn当作全部调用。原始失败和取证限制见`verification/2026-10-04-memory-consumption-closeout.md`。
+
 `/api/health` 当前会在 `runtime.source_revision` 暴露 revision，并同时给出 `source_dirty`；因此服务重启后可先用 health 做快速核验。Acceptance preflight 仍必须把 revision 冻结进 artifact，不能只依赖事后 health 查询。
 
 ## 6. Cross-harness normalized profile
