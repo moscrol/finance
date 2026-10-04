@@ -1,0 +1,620 @@
+{
+  "scope": "Private original paths/hashes only. No user ledger bodies or credentials. Runtime path probes use synthetic data; BGE labels/records remain private. No output claims of real model adoption.",
+  "evidence": [
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-consumption-doc-spec-095bb2078.md",
+      "bytes": 890,
+      "sha256": "fcf2278e662a805714ab2217fe871b4b3cf51eb206624d1efc611a95cdc5b687"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-consumption-doc-standards-095bb2078.md",
+      "bytes": 714,
+      "sha256": "f249964feceacfed6a3ca2503e89b8f14598783036c7d43924f5549907b0c8ad"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-docs-frontend-095bb2078/frontend.json",
+      "bytes": 2676,
+      "sha256": "78f6d16de7b25e705570fbc5cc4d1c04362b4c0c58694a3ae21e69c0a0a9e203"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-docs-premerge-095bb2078.json",
+      "bytes": 2057,
+      "sha256": "2a90dacb378d57dedb18e26a1407b0b2f99f964f6f12477daae8653edc178760"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/bounded/finished.json",
+      "bytes": 203,
+      "sha256": "b3890ae0698e6a1b3517c7652527e81ba31f8cf089d258f7c34748e47e4bf965"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/bounded/started.json",
+      "bytes": 179,
+      "sha256": "ecb48b155b504913eb9c57d825a9cc1836cf9507ba02b878943f8418625baa35"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/bounded/stdout.log",
+      "bytes": 844,
+      "sha256": "b966ed229e201dcf1814403b48958902beb612eb38755c74e589eb733cc8a55d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/manual-adjudication.json",
+      "bytes": 10314,
+      "sha256": "0b68fee8170df1955bb3ee26e11b16cda02cd209a4737c3d7febf5ed1f39f865"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/plan.json",
+      "bytes": 1617,
+      "sha256": "e128aedc2fdebf576685f8ff58719cf80727f2fc2273859ca1ee6f03b3116557"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/rank-profile.json",
+      "bytes": 3576,
+      "sha256": "b5d4e8c42ddbbd02ec13fd82ce00d36cbcc7cd0d6ba2d0e5424b9ba8a534480e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/results.json",
+      "bytes": 134345,
+      "sha256": "5d13ddcb1b2b1c00c3c292ded14048c097d0b9c04ef97b5a53f443b51aad89b4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/raw-query-bge-1004/run.py",
+      "bytes": 5129,
+      "sha256": "9764221d04dfd98ba806531144ad891dd90d6934a4decae54da44ea607fdba81"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/attempt1-runner.json",
+      "bytes": 271,
+      "sha256": "ed1548c197f3023dc296e9159a0b67d7d0ef9ce6dff50a70631532ccb7f5ea45"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/deploy-ledger.jsonl",
+      "bytes": 531,
+      "sha256": "cd569fa08c9f674ae10b9d60621deb3c2fe2c6983912811ce64a98ecb58231e6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/result.json",
+      "bytes": 97412,
+      "sha256": "92bad4530e9e323f409a09b740a59255c593a036cb42a40e474c3069b2f72fc0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/conversations/conv_ca5b8e195367487bbda142e6a04761e6/conversation.json",
+      "bytes": 301,
+      "sha256": "76dc3df5dda70f7c3e8aef7fc974b8e505c0e53655b782a2c990ef78b1e2aa72"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/conversations/conv_ca5b8e195367487bbda142e6a04761e6/messages.jsonl",
+      "bytes": 3454,
+      "sha256": "10ffee116de6a88f8e4badedf09adbddb1109a1681f22ff8f8dc59c42b52673c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/research_evolution/product_value_events.jsonl",
+      "bytes": 2753,
+      "sha256": "6162c1e4dba55893cd7daf498bb009c9f741fb2933e1e157193d1ec67633ab51"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/runs/run_20261004_101821_765230/answer.md",
+      "bytes": 161,
+      "sha256": "90376e90f49f6e0e52d712e7be26c4c8cf9eedb54ec1ef20eb90430d923a472d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/runs/run_20261004_101821_765230/report.json",
+      "bytes": 6905,
+      "sha256": "4937b15b948ae4c0457ae3b49547543a15bc12fce9ce15d9e9cd90476ab08549"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/runs/run_20261004_101821_765230/run.json",
+      "bytes": 1532,
+      "sha256": "7c90f738e1bc30a573dc01fc8d8287eb67875567348c3119c8d4c9535647e523"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/runs/run_20261004_101821_765230/stream.jsonl",
+      "bytes": 30529,
+      "sha256": "a7d05135eabec8797b4fdc770365dfd6066a835f5f9512fd81185ee253c8ecf3"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/alice/runs/run_20261004_101821_765230/trace.jsonl",
+      "bytes": 12156,
+      "sha256": "b23fa3595848e1c6e2c99a4bbbae3d1f4ce8aa2fbc94a14f1d889b10aa339851"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5-supervisor/finished.json",
+      "bytes": 202,
+      "sha256": "4177c8dacc088c7b23cc3f21e73cdda2039320a995729e959fefbc22cbd12ed7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5-supervisor/started.json",
+      "bytes": 179,
+      "sha256": "b9d211364154ea46d0158dc865075c6388caebb11ec4242b681aca8e72ba5204"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/controller-unavailable-5-supervisor/stdout.log",
+      "bytes": 670,
+      "sha256": "a7461e98fd789252c7b00a302c4bf559f2daebfbc8436140796b53a20bce979a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/plan.json",
+      "bytes": 1617,
+      "sha256": "9de3972ef8200f42061111a826262e9d0c21d4b8c1456b242f2a9652e605b8e6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/probe-attempt1.py",
+      "bytes": 9967,
+      "sha256": "bf22a04b8c53873642148f3824b84ae45aa0c75c80dca12846057e8ffe1f0e9c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/probe-attempt2.py",
+      "bytes": 10099,
+      "sha256": "5676e4135e04b5ad84e317d282c23cfb32dbf0492782247326d5783dbf41e91e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/probe-attempt3.py",
+      "bytes": 10123,
+      "sha256": "70f20567aec9f05378d7d6f84f467f7a1863fce7acb66dcf6fe62e06a19f050e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/probe-attempt4.py",
+      "bytes": 10140,
+      "sha256": "b000fc90d3ddfc652c9d4cbd7ca0c52af626d036cb2cce7b26abce2d153bfb7b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/probe.py",
+      "bytes": 10498,
+      "sha256": "612ec31e3094c66c94fd7a75d514f9c6886f3ecb3268f1bf0bf54d7e29ad7ed6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-1/result.json",
+      "bytes": 3154,
+      "sha256": "4b08013b11a39dc531766491d6a43aa500702e16c216d0388eb88764a41a6fbe"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-1/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-1/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-1-supervisor/finished.json",
+      "bytes": 201,
+      "sha256": "00934e3725d29023d06f3ff0e01cd35a07ca28148bea886907a9c16271280bfd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-1-supervisor/started.json",
+      "bytes": 178,
+      "sha256": "e77008136d4ea61bf5970b72664476fdc41fb00de397d885e646c79889937907"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-1-supervisor/stdout.log",
+      "bytes": 727,
+      "sha256": "78aa54bdf4fe80b3404b0c7f1f16e7e6823196464e77ab279f8550ce2cc2b856"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-2/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-2/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-2-supervisor/finished.json",
+      "bytes": 202,
+      "sha256": "1df8ffae7559b695bcfcd9516cc6ee5ba365fba243d8128d1aea878e305d6988"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-2-supervisor/started.json",
+      "bytes": 177,
+      "sha256": "ffe92c3ccc761d239b240a6050472d5c21d9269b6b58efebc05aff3c16199282"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-2-supervisor/stdout.log",
+      "bytes": 1014,
+      "sha256": "67b69fb7d80cafb3da821d95ea36d6422f6ef963c78a3f3f75fefff05524438e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/deploy-ledger.jsonl",
+      "bytes": 520,
+      "sha256": "5ff05b2c2fb445666b1a1098c68394e82b2ef06232b3a09a194c51318179b956"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/episodes/run_20261004_101425_938472_msg_3435d8fc307542a2a8ed88e81d14ad68-de5871ac97e3/events.jsonl",
+      "bytes": 24364,
+      "sha256": "2b69618b0f6f610f7bf222a39689d0002c98097fe7a4b4ec1dcf4b0ab9df3768"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/episodes/run_20261004_101425_938472_msg_3435d8fc307542a2a8ed88e81d14ad68-de5871ac97e3/state.json",
+      "bytes": 8137,
+      "sha256": "84ea15cfe2ff5d6dee088845d9cf483421cca53a17464ccd56b8b2797f400179"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/result.json",
+      "bytes": 17955,
+      "sha256": "d1a966bbef5019056c5fc2a392ca41ee8b5bb2be6f9cfc227a81193e1eb6526f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/conversations/conv_58abb25218ce43feace2fc528bad5fdb/conversation.json",
+      "bytes": 301,
+      "sha256": "9d6c3d778cc9f9259ef7865f4f85fa87f6ca6d9f4b3db427ab0973ea8c06a2aa"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/conversations/conv_58abb25218ce43feace2fc528bad5fdb/messages.jsonl",
+      "bytes": 3017,
+      "sha256": "b111e60aef26edf7909c6cc906af829a1052a6ef255bc7cf53da6757f5bc6a7b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/research_evolution/product_value_events.jsonl",
+      "bytes": 2753,
+      "sha256": "cd8161a871db14fc4df6e935ddbd71e410ff7049a42bdacdae66539fe593ab3c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/runs/run_20261004_101425_938472/answer.md",
+      "bytes": 300,
+      "sha256": "aed630a9654653b4f71ad3ca5a9c109a37580db43a4af213e730564e9233a035"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/runs/run_20261004_101425_938472/continuous-episode.json",
+      "bytes": 148573,
+      "sha256": "ac9bbcf7a0f780811548755a3ee4732e46f14311541c80438c7f752ff84443a7"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/runs/run_20261004_101425_938472/report.json",
+      "bytes": 3727,
+      "sha256": "ec4cfc30c6397620377795ed0fd21874e84b6beb5c0dad2774f0c4ee4ff19d30"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/runs/run_20261004_101425_938472/run.json",
+      "bytes": 1863,
+      "sha256": "3cf42246942c62c7834acf8d8a26d8023c76faad0f6c6085a348cdeb7fac94ad"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/runs/run_20261004_101425_938472/stream.jsonl",
+      "bytes": 21960,
+      "sha256": "b38c3362ef1adc3fe691da6d1c4576248ceb2964568bf9d483f712a0af5ffcc5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/alice/runs/run_20261004_101425_938472/trace.jsonl",
+      "bytes": 9349,
+      "sha256": "3f1ad3fd1a034cbf81c3b043128819208dca5fff836153038a85a8b92a42ea27"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3-supervisor/finished.json",
+      "bytes": 199,
+      "sha256": "987201ee4b6a69654dd0aef1b95e88711da13ef873b1551fde5ef06d3d6779dd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3-supervisor/started.json",
+      "bytes": 177,
+      "sha256": "1e006550eb2439719da01bfa0697a35b2abf991904bbdedbd9fa2cadbb616f3d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-3-supervisor/stdout.log",
+      "bytes": 753,
+      "sha256": "ef629beeb3c3a2ac66ee3252196380b3b30e3322f77ccd1c2799d25ff373205b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/deploy-ledger.jsonl",
+      "bytes": 520,
+      "sha256": "c47c803fa6af729dec8b9bde95809f45c908ce7a37c3d9418fe0a742b6e63e82"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/episodes/run_20261004_101547_070986_msg_641c5c965eee449b95bb2dbd603aedf4-a06a516a3158/events.jsonl",
+      "bytes": 24353,
+      "sha256": "05beb8792da3125490d4e336d0a75fcf4ea3dbfdd1e2c821a94a4f4d0ddb7b01"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/episodes/run_20261004_101547_070986_msg_641c5c965eee449b95bb2dbd603aedf4-a06a516a3158/state.json",
+      "bytes": 8431,
+      "sha256": "666d8848bea8c352f30b8ea051d0facaa7d0801bdf0bba4460f8e2a69d28e398"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/result.json",
+      "bytes": 116972,
+      "sha256": "15e476254b874a882c4c48cc1cd1f8daca04457e6487907a59fb09b49f0ef178"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/conversations/conv_38002e3f8a684e67b28da7f56c2ef9cb/conversation.json",
+      "bytes": 301,
+      "sha256": "f27e896e5b70a5d5dd4c7f43c7900dcc7663ee9911a835cc8a19876eee26a986"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/conversations/conv_38002e3f8a684e67b28da7f56c2ef9cb/messages.jsonl",
+      "bytes": 3076,
+      "sha256": "b09a225d5ef18f044eb47701d1c0d0c1912dd4ad2d4ee1c8047516e96016f6b8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/research_evolution/product_value_events.jsonl",
+      "bytes": 2753,
+      "sha256": "d37874da81f026e5f6e7569c9b5f5ac8e5ede00b9c54e8c7f0e0917dfbfee0c1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/runs/run_20261004_101547_070986/answer.md",
+      "bytes": 359,
+      "sha256": "23e771d6a5f1835ff0e37559414d5187ad4cc84ca31072ee0a697d0bdad7a8c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/runs/run_20261004_101547_070986/continuous-episode.json",
+      "bytes": 148797,
+      "sha256": "1ad36c9f0dad06b39818eccdd61d7f290f06dc9a11dbe2535669f0a4cd43771e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/runs/run_20261004_101547_070986/report.json",
+      "bytes": 3728,
+      "sha256": "06dd815348b9be5697b685e14e5690e7df0cb1ea62c0b0882546ca32d69ba236"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/runs/run_20261004_101547_070986/run.json",
+      "bytes": 1863,
+      "sha256": "0678405bfe4d6167bdf79256974812e45c8ebfac8deaf7471fa9bd8f6d690b7b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/runs/run_20261004_101547_070986/stream.jsonl",
+      "bytes": 22198,
+      "sha256": "35f40afa4dc6c46806cb729dd9d98562efe55995d63aa9d9cc4f9e46ba57541b"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/alice/runs/run_20261004_101547_070986/trace.jsonl",
+      "bytes": 9350,
+      "sha256": "26eafe16a8fa1c3b94666c1ed13ebb18c957287711a4ae02b9b1ef2631a8c348"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4-supervisor/finished.json",
+      "bytes": 198,
+      "sha256": "a355f4e25da77cc7b655d9a79f2bb9942f892434655c0bf42624c690e2aa5ddd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4-supervisor/started.json",
+      "bytes": 178,
+      "sha256": "092ab0e3ea27b95f2df4f4f6f22f14eb7dbbf2d2eb788c24ed9efa3f3ed8f896"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-4-supervisor/stdout.log",
+      "bytes": 649,
+      "sha256": "47e6ab368fd0be5a7eaff10561fa5a6f99b5becdb69d15d8f27fb852bfcb8676"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/deploy-ledger.jsonl",
+      "bytes": 520,
+      "sha256": "591d0e4d53dab57a05933d7379b9a8b7eb2e57ab40fb591c359bbbd4e80b2ce4"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/episodes/run_20261004_101816_601215_msg_4a223e78a3b0492f81e8afabb39d99b6-960b86c7f380/events.jsonl",
+      "bytes": 24353,
+      "sha256": "5340005312be9af77d2c05e1f749c13043d4f3b57bd455cec669057c6ae59caf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/episodes/run_20261004_101816_601215_msg_4a223e78a3b0492f81e8afabb39d99b6-960b86c7f380/state.json",
+      "bytes": 8431,
+      "sha256": "0c831a17591dc742fe49c656957c30f112e1b3126cfa6d6b1d220c4ce9e7ec36"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/rejudge-pending/index.jsonl",
+      "bytes": 532,
+      "sha256": "af6548878aff30b812b0735b4b9d3cd34d01c2c0a90ac14cc6b5c1a0ce227e16"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/result.json",
+      "bytes": 141561,
+      "sha256": "66e8edba4f58c3133db40640481ae41488262e14d267a1b7c12eeb6a3baa97c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/conversations/conv_725df841693145c8b18dcf3ee1de6113/conversation.json",
+      "bytes": 301,
+      "sha256": "bb823b069a63d72df7959a7afaa07d7b968b67a2136c1e893a7acd9a74bd74f0"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/conversations/conv_725df841693145c8b18dcf3ee1de6113/messages.jsonl",
+      "bytes": 3076,
+      "sha256": "008008fbf9fd2240aa809dcd7e086384769075b358451805a158a8572aa6b2bf"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/research_evolution/product_value_events.jsonl",
+      "bytes": 2753,
+      "sha256": "4e8b153e99fd04e287de0166a10c3682bf9a58bd49274fb921c34509e4a5091d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/runs/run_20261004_101816_601215/answer.md",
+      "bytes": 359,
+      "sha256": "23e771d6a5f1835ff0e37559414d5187ad4cc84ca31072ee0a697d0bdad7a8c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/runs/run_20261004_101816_601215/continuous-episode.json",
+      "bytes": 148797,
+      "sha256": "7a96a38af8e3a8cdeca02e4f91ff168f89d59013438ce09384d209163d44dfc9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/runs/run_20261004_101816_601215/report.json",
+      "bytes": 3728,
+      "sha256": "de41da16b8551ff78c0849108c57c773ee7725a9099a005f72a5663ddf85753f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/runs/run_20261004_101816_601215/run.json",
+      "bytes": 1863,
+      "sha256": "a5b8e87bb55d1a3c6734f75e64cea7077fe635a6a6564a148b2f8a7118fba86a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/runs/run_20261004_101816_601215/stream.jsonl",
+      "bytes": 22198,
+      "sha256": "8d20703b290cbd7900425034e3ab9365232755929e9c22b1286b9bfc04d37157"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/alice/runs/run_20261004_101816_601215/trace.jsonl",
+      "bytes": 9350,
+      "sha256": "ce2c2a68cd6b775706c4d02c11c094f27fdabffff69efe4c2d36ee5d871c6212"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5-supervisor/finished.json",
+      "bytes": 201,
+      "sha256": "fd433748b7a482de8319f32fbc5ea34f40171cccf231dda07d38af5aad8f078c"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5-supervisor/started.json",
+      "bytes": 176,
+      "sha256": "f23aba93ae7a925918f0cf05ff389bdd8311c86a611f0ab5b26634f18ad09f10"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-alice-5-supervisor/stdout.log",
+      "bytes": 649,
+      "sha256": "925f6e7ea584703e807bed1fe1eb050d5ed01f51ef188d6adeb05c612f366183"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/deploy-ledger.jsonl",
+      "bytes": 518,
+      "sha256": "38d85da09cee70a9871608490575e58c43ad15d6f191ebf3bc71fb323fba1914"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/episodes/run_20261004_101819_219259_msg_7df4ace6b8524e2a87f88150cc8211e5-72ed11a4f6d8/events.jsonl",
+      "bytes": 24343,
+      "sha256": "279ea012d637e09780903a8cce7cd9805977f7eb44705a9a9e2e41afa6ce2032"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/episodes/run_20261004_101819_219259_msg_7df4ace6b8524e2a87f88150cc8211e5-72ed11a4f6d8/state.json",
+      "bytes": 8410,
+      "sha256": "38c44dd4710f68d3af7b7fee8e39dcfef89df3bcb2714d3e61b71265a4183777"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/rejudge-pending/index.jsonl",
+      "bytes": 532,
+      "sha256": "33d6d12aafa4c62679a06ded4a74fdf45c0acf0322e12ee5d8edf516fafc9723"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/result.json",
+      "bytes": 126989,
+      "sha256": "24e1c05e9934e776d9c60896de11c84857c195eff91f86a90df6c7fb8ca34071"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/alice/corrections.jsonl",
+      "bytes": 147,
+      "sha256": "625a5e23adc83bb72e369c503b4b88b2864f09f3317f24df3a6f395a9dc0ab65"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/conversations/conv_350dc412c15e4a818c05eaf1359ece82/conversation.json",
+      "bytes": 299,
+      "sha256": "41fd7bd0834f75bea00f01c44d5acc171c40bb0640ed2bd60bee0079363c4d6d"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/conversations/conv_350dc412c15e4a818c05eaf1359ece82/messages.jsonl",
+      "bytes": 3076,
+      "sha256": "561238b35211045205680805a55f8e53257ab83c99a28dbb57931a1c16c2bb8a"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/corrections.jsonl",
+      "bytes": 140,
+      "sha256": "0bfb22b8a56ef7486f091388744717a3d51bd9acb1e0f8777333ed44ca28ef23"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/research_evolution/product_value_events.jsonl",
+      "bytes": 2749,
+      "sha256": "576167dce41dea430eb8c3dcd38eb93eb0c597ac01854c0bf74b3bd55060c250"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/runs/run_20261004_101819_219259/answer.md",
+      "bytes": 359,
+      "sha256": "23e771d6a5f1835ff0e37559414d5187ad4cc84ca31072ee0a697d0bdad7a8c5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/runs/run_20261004_101819_219259/continuous-episode.json",
+      "bytes": 148721,
+      "sha256": "3a4a52a41666796940fc3d1d82640418f690c70f092e391802ddb519e4ebcf36"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/runs/run_20261004_101819_219259/report.json",
+      "bytes": 3728,
+      "sha256": "7e75992681fdb002234b32ecb49f906a8f3778460483bd31f26600ddf777abf6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/runs/run_20261004_101819_219259/run.json",
+      "bytes": 1861,
+      "sha256": "be147b0f6cf72e389cac7f0b2802447f1d43dc06e49c961591578283b4c48295"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/runs/run_20261004_101819_219259/stream.jsonl",
+      "bytes": 22198,
+      "sha256": "bec7e49e221af247b9b80d2c9bff2d510648119586a503c5da54effee36b3e79"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5/users/bob/runs/run_20261004_101819_219259/trace.jsonl",
+      "bytes": 9350,
+      "sha256": "2dfc690c221c9040f428a7f01cd79a9e89f4c3c337783163389a0b75d0eef3e6"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5-supervisor/finished.json",
+      "bytes": 201,
+      "sha256": "3125e45f1c539b4174bd2c5dade7242dc3b2001214513fca71c101a39fe1a071"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5-supervisor/started.json",
+      "bytes": 177,
+      "sha256": "16cd992fba42d6427227f718912f3ee4ee76f87d84d0e927e7b0e93b67c3f5f9"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/memory-recall-20261004/runtime-isolation-1004/recall-bob-5-supervisor/stdout.log",
+      "bytes": 645,
+      "sha256": "c7aa622aaa49f5699818b30a8aea9bf7fb3096ff176b05ed6d76ce9e3e8bc087"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-state-own-write-recovery/receipt.json",
+      "bytes": 395,
+      "sha256": "37712a0a973b74ca4c10bc6c44fb0c7be219aa3288362814b3a665c2180dc984"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-state-red-1004.log",
+      "bytes": 11609,
+      "sha256": "da4ce065694bee97ed2d213aecf1323d27db977deb1269dd29146f8c2d9858d5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-state-safe-red-1004.log",
+      "bytes": 15084,
+      "sha256": "0784d95618b780c22f775a1e310d108585e8bf3b581bff9a19bdbfd0755b5fe8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/gate-1jk0wKq0/pytest.json",
+      "bytes": 1003,
+      "sha256": "82801ab77d06bd728d855bb76331d864c8cf75ca26a1b01ecd644d36a088d931"
+    }
+  ]
+}

@@ -125,6 +125,13 @@ def sidecar_zsh(spec: SidecarSpec) -> str:
     repo = shlex.quote(str(spec.repo_root))
     python = shlex.quote(str(spec.python))
     users = shlex.quote(str(spec.users_dir))
+    # User/run relocation alone does not move Episode or background judge state.
+    # Override after launcher exports so a probe cannot append to production logs.
+    state = spec.users_dir.parent / "state"
+    episodes = shlex.quote(str(state / "episodes"))
+    deploy_ledger = shlex.quote(str(state / "deploy-ledger.jsonl"))
+    rejudge_index = shlex.quote(str(state / "rejudge-pending" / "index.jsonl"))
+    memory_cache = shlex.quote(str(state / "memory-vectors"))
     user = shlex.quote(spec.user)
     port = str(int(spec.port))
     return f"""
@@ -139,6 +146,10 @@ export WORKBENCH_REPO_ROOT={repo}
 export PYTHONPATH={repo}
 export FORESIGHT_USERS_DIR={users}
 export FORESIGHT_USER={user}
+export FORESIGHT_EPISODE_STORE={episodes}
+export FINANCE_DEPLOY_LEDGER={deploy_ledger}
+export FINANCE_REJUDGE_PENDING_INDEX={rejudge_index}
+export FINANCE_MEMORY_VECTOR_CACHE_DIR={memory_cache}
 if [[ -z "${{FORESIGHT_BUILTIN_LLM_API_KEY:-}}${{OPENAI_API_KEY:-}}" ]]; then
   print -u2 -- "sidecar: no LLM key after sourcing launcher exports"
   exit 1
