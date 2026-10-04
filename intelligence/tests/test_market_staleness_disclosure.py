@@ -21,7 +21,16 @@ from intelligence.tests.test_market_watch_component_first import _db
 
 def add_market_day(db: Path, day: str) -> None:
     con = duckdb.connect(str(db))
-    con.execute("insert into fact_market_daily values (?, '阶段', 1, 120, 1, '平稳', 1, 0, 0.1)", [day])
+    con.execute(
+        """
+        insert into fact_market_daily(
+          trade_date, market_stage, stage_day, total_amount,
+          amount_vs_yesterday_pct, volume_state, limit_up, limit_down,
+          sh_index_pct_chg
+        ) values (?, '阶段', 1, 120, 1, '平稳', 1, 0, 0.1)
+        """,
+        [day],
+    )
     con.close()
 
 
