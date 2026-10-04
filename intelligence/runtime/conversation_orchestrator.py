@@ -2191,6 +2191,10 @@ class TurnOrchestrator:
             if decision.llm_failure_reason.startswith("personal_recall_"):
                 # Failure to resolve recall scope is not a negative decision.
                 # Do not publish or execute the provisional financial/knowledge frame.
+                # A cancellation may arrive after the controller returns but before
+                # this failure is published.  Preserve cancellation precedence over
+                # the synthetic recall-scope failure in that race.
+                self._check_cancelled()
                 self._trace(
                     run_id, assistant_message_id, conversation_id,
                     "controller", "turn_controller",

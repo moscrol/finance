@@ -11,9 +11,13 @@ import pytest
 
 from intelligence.api import app as app_module
 from intelligence.runtime import conversation_orchestrator
+from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
+from intelligence.services.conversation_store import ConversationStore
 from intelligence.services import episode_tools, llm_refine, turn_controller
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.run_store import RunStore
+from intelligence.services.turn_controller import TurnDecision
 from intelligence.tests.test_workbench_correction_http import _conversation, _send
 
 
@@ -136,3 +140,62 @@ def test_failed_recall_does_not_seed_the_next_turn(monkeypatch, failed_recall_ht
     assert received[0]["previous_intent"] is None
     assert received[0]["previous_turn_id"] is None
     assert downstream == []
+
+
+@pytest.mark.parametrize("query", [
+    "我之前记录的检查清单是什么？只回顾我的记录。",
+    "结合我之前的判断，评估光刻胶现在的上涨空间。",
+])
+def test_recall_failure_preserves_cancellation_after_controller_returns(tmp_path, query):
+    """Cancellation wins when it races the unresolved-recall failure exit."""
+    conversations = ConversationStore("alice", root=tmp_path / "conversations")
+    runs = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversations.create_conversation()
+    run = runs.create_run(query, "ask", session_id=conversation.conversation_id)
+    conversations.append_message(
+        conversation.conversation_id, "user", query, run_id=run.run_id,
+    )
+    assistant = conversations.append_message(
+        conversation.conversation_id, "assistant", "", status="pending", run_id=run.run_id,
+    )
+    cancelled = False
+
+    def controller(_query, **_kwargs):
+        nonlocal cancelled
+        cancelled = True
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=False,
+            needs_memory=True,
+            needs_template=False,
+            llm_failure_reason="personal_recall_provider_error",
+            llm_failure_detail="synthetic-only",
+        )
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversations,
+        run_store=runs,
+        turn_controller_fn=controller,
+        is_cancelled=lambda: cancelled,
+        cancellation_reason=lambda: "cancelled_by_user",
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail("cancelled recall must not retrieve"),
+        lane_answer_fn=lambda *_args, **_kwargs: pytest.fail("cancelled recall must not author"),
+    )
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run.run_id,
+        assistant_message_id=assistant.message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "cancelled"
+    assert runs.load_run(run.run_id).status == "cancelled"
+    stored = next(
+        message
+        for message in conversations.load_messages(conversation.conversation_id)
+        if message.message_id == assistant.message_id
+    )
+    assert stored.status == "cancelled"
