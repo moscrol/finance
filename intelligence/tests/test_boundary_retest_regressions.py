@@ -346,7 +346,9 @@ def test_cross_layout_rejection_flows_through_bounded_delivery_repair(monkeypatc
     assert FACT in result.answer and "0.5" not in result.answer
     if repair == "none":
         assert result.status == "partial"
-        assert result.private_artifact["track_contract"]["missing_outputs"] == ["track_next_watch"]
+        receipt = result.private_artifact["track_contract"]
+        assert receipt["missing_template_elements"] == ["track_next_watch"]
+        assert receipt["missing_outputs"] == []
     else:
         assert result.status == "completed" and len(checks) == 2
         assert len(goals) == 1 and goals[0].remaining_calls == 0 and not goals[0].reopen_tools

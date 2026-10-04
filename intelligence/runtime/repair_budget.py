@@ -261,6 +261,7 @@ def grant_for_delivery_repair(
     The grant cannot reopen tools. Evidence-free delivery requires the domain's
     explicit ``input_only_rewrite`` permission; both forms remain bounded by
     the tier cycle cap (``cycle_allowed``) and the root seconds ledger.
+    A review-only repair may have rejected claims but no missing output slot.
     """
 
     # A domain-approved input-only rewrite can disclose missing inputs without
@@ -270,7 +271,7 @@ def grant_for_delivery_repair(
         return None
     if not cycle_allowed:
         return None
-    if not goal.missing_answer_elements:
+    if not goal.missing_answer_elements and not goal.unsupported_claims:
         return None
     window = size_repair_window(
         work_units=0,
@@ -359,9 +360,8 @@ def admit_repair(
     冷启动），前一种铸不出（领域不批或账本拒）就试下一种。``allow_delivery_repair``
     （交付修复只许一次）是 cycle 状态，属这里，不属领域。
 
-    ``need.shape.contract_rewrite`` is the track-contract expression seam
-    (四态 / TTL / 下期关注): rewrite the draft from already collected
-    evidence, do not reopen tools even if the research window is still open.
+    ``delivery`` / ``contract_rewrite`` are domain-approved rewrites from
+    existing evidence or authorized material, never permission to reopen tools.
     """
 
     goal = build_repair_goal(
@@ -377,7 +377,7 @@ def admit_repair(
         # 只是随车带给作者看的病因，不进任何预算/形状判据。
         rejected_claim_notes=rejected_claim_notes,
     )
-    delivery_candidate = allow_delivery_repair and need.shape.delivery
+    delivery_candidate = need.shape.delivery
     contract_rewrite_candidate = need.shape.contract_rewrite
     grant: BudgetGrant | None = None
     delivery_only = False
@@ -396,7 +396,7 @@ def admit_repair(
         and allow_delivery_repair
         and (not tools_open or delivery_candidate or contract_rewrite_candidate)
         and (evidence_count > 0 or need.shape.input_only_rewrite)
-        and need.missing_outputs
+        and (need.missing_outputs or need.rejected_claims)
     ):
         grant = grant_for_delivery_repair(
             goal,

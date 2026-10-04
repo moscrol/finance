@@ -232,7 +232,7 @@ def test_size_repair_window_fails_closed_on_tiny_cap_and_no_calls() -> None:
     ) == (0, 8.0)
 
 
-# --- M6：失败分类搬到领域侧，与 adapter 原内联表达式逐格相等 ---------------------
+# --- M6：旧交付/冷启 + 纯核验修订；模板名称不再授权 contract_rewrite --------
 
 
 _EVIDENCE = AgentEvidence(
@@ -268,25 +268,20 @@ def _verified(*, stop_reason, has_evidence, draft, has_binding, structural_missi
     return outcome, structural
 
 
-def _legacy_candidates(outcome, structural, *, missing_outputs, rejected_claims, semantic_gap_outputs):
-    """adapter `_resume_for_gap` 拆分前的三条内联表达式（去掉 allow_delivery_repair）。"""
+def _expected_candidates(outcome, structural, *, missing_outputs, rejected_claims, semantic_gap_outputs):
+    """旧交付 / 冷启加纯核验修订；无合同不授予材料补写权。"""
 
-    from intelligence.services.track_contract import is_contract_rewrite_only
-
-    delivery = bool(
-        outcome.stop_reason in {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
-        and outcome.evidence
-        and structural.missing_outputs
-        and (not outcome.draft.strip() or not outcome.bindings)
-    )
+    delivery = bool(outcome.evidence and (
+        (outcome.stop_reason in {"sdk_invalid_finish", "sdk_invalid_repair_finish", "sdk_timeout"}
+         and structural.missing_outputs
+         and (not outcome.draft.strip() or not outcome.bindings))
+        or (rejected_claims and outcome.draft.strip() and not missing_outputs)
+    ))
     cold = outcome.stop_reason in {"deadline_exhausted", "model_unavailable"} and not outcome.evidence
-    rewrite = is_contract_rewrite_only(
-        missing_outputs, rejected_claims=rejected_claims, semantic_gap_outputs=semantic_gap_outputs
-    )
-    return delivery, cold, rewrite
+    return delivery, cold, False
 
 
-def test_classify_repair_failure_matches_adapter_inline_predicates() -> None:
+def test_classify_repair_failure_matches_explicit_predicate_grid() -> None:
     stop_reasons = (
         "model_finish",
         "sdk_timeout",
@@ -324,21 +319,21 @@ def test_classify_repair_failure_matches_adapter_inline_predicates() -> None:
             rejected_claims=rejected,
             semantic_gap_outputs=semantic,
         )
-        legacy = _legacy_candidates(
+        expected = _expected_candidates(
             outcome,
             structural,
             missing_outputs=missing_outputs,
             rejected_claims=rejected,
             semantic_gap_outputs=semantic,
         )
-        assert (shape.delivery, shape.cold_restart, shape.contract_rewrite) == legacy, (
+        assert (shape.delivery, shape.cold_restart, shape.contract_rewrite) == expected, (
             stop_reason, has_evidence, draft, has_binding, structural_missing, semantic, rejected
         )
         seen["delivery"] += shape.delivery
         seen["cold_restart"] += shape.cold_restart
         seen["contract_rewrite"] += shape.contract_rewrite
-    # 三类各自都在网格里真的出现过，否则等价断言是空话。
-    assert all(count > 0 for count in seen.values()), seen
+    assert seen["delivery"] > 0 and seen["cold_restart"] > 0
+    assert seen["contract_rewrite"] == 0  # 含旧模板名也不自动取得授权。
 
 
 def test_stop_reason_sets_moved_verbatim() -> None:

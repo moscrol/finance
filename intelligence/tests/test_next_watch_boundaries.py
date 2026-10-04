@@ -58,7 +58,9 @@ def test_next_watch_stops_before_following_sections(tmp_path, boundary):
 def test_f1_date_only_remainder_is_not_complete_or_registerable(tmp_path):
     answer = BASE + INCOMPLETE + "缺口：" + GAP
     assert missing_contract_elements(answer) == ("next_watch",)
-    assert contract_receipt(answer, query="继续跟踪")['missing_outputs'] == ["track_next_watch"]
+    receipt = contract_receipt(answer, query="继续跟踪")
+    assert receipt['missing_template_elements'] == ["track_next_watch"]
+    assert receipt['missing_outputs'] == [] and receipt['authority'] == 'advisory'
     assert parse_next_watch_items(answer, as_of="2026-09-18") == ()
     path = tmp_path / "checkpoints.jsonl"
     assert ingest_next_watch(path, answer, query="继续跟踪", as_of="2026-09-18") == []

@@ -11,7 +11,6 @@ _OUTPUT_DESCRIPTIONS，build_episode_context 直接 ValueError，命中三词族
 from __future__ import annotations
 
 from intelligence.services.episode_factory import (
-    _ADVISORY_OUTPUT_IDS,
     _OUTPUT_DESCRIPTIONS,
     _required_output_evidence_types,
     build_episode_context,
@@ -26,18 +25,12 @@ FULL_CAPS = ("market_data", "finance_query", "kb_search", "news_search")
 
 
 def test_every_program_fact_slot_is_registered_in_contract_layer() -> None:
-    """结构不变量：research program 的每个 fact slot 必须三处登记齐。
-
-    变异：从 _OUTPUT_DESCRIPTIONS / _ADVISORY_OUTPUT_IDS 删任一 fact slot
-    条目，或新增 FactSlot 不登记 → 本测试红。
-    """
+    """描述/证据类型仍须登记；required 直接来自 FactSlot，不抄第二张名单。"""
 
     for slot in _SLOT_BY_OPERATOR.values():
         slot_id = slot.slot_id
         assert slot_id in _OUTPUT_DESCRIPTIONS, f"{slot_id} 缺契约描述（装配会炸）"
-        assert slot_id in _ADVISORY_OUTPUT_IDS, (
-            f"{slot_id} 不在 advisory 集合（可选取数收据会被当必选格判失败）"
-        )
+        assert slot.required is False
         evidence_types = _required_output_evidence_types(slot_id, FULL_CAPS)
         assert set(evidence_types) <= {"market_data", "finance_query"}, (
             f"{slot_id} 的 evidence_types 回退成了全量能力列表"

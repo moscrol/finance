@@ -47,6 +47,8 @@ from intelligence.services.research_tool_registry import (
     copy_tool_parameters,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.research_plan import ResearchPlan, plan_to_public_dict
+from intelligence.services.request_interpretation import interpretation_payload
 
 
 SdkBackend = Literal["sdk_glm", "sdk_gpt"]
@@ -381,6 +383,7 @@ class AgentsSdkRequest:
     model_settings: object | None = None
     model_factory: SdkModelFactory | None = None
     continuation_input: InitVar[object | None] = None
+    on_model_response: Callable[[str, bool], str | None] | None = None
 
     def __post_init__(self, continuation_input: object | None) -> None:
         if not self.instructions.strip() or not self.input.strip():
@@ -494,6 +497,7 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
         FunctionTool,
         RunConfig,
         Runner,
+        RunHooks,
         set_trace_provider,
     )
     from agents.run_config import ToolExecutionConfig
@@ -565,7 +569,28 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
         tool_execution=ToolExecutionConfig(max_function_tool_concurrency=1),
     )
 
-    async def execute() -> object:
+    class PlanHooks(RunHooks):
+        def __init__(self) -> None:
+            self.pending: str | None = None
+
+        async def on_llm_end(self, context, agent, response):
+            if request.on_model_response is None:
+                return
+            content = "\n".join(
+                part.text for item in response.output if getattr(item, "type", "") == "message"
+                for part in item.content if getattr(part, "type", "") == "output_text"
+            )
+            has_tools = any(getattr(item, "type", "") == "function_call" for item in response.output)
+            self.pending = request.on_model_response(content, has_tools)
+
+        async def on_llm_start(self, context, agent, system_prompt, input_items):
+            if self.pending is not None:
+                input_items.append({"role": "user", "content": self.pending})
+                self.pending = None
+
+    hooks = PlanHooks()
+
+    async def execute() -> list[object]:
         provider_input: object = request.input
         continuation_input = request._continuation_input
         if continuation_input is not None:
@@ -575,34 +600,48 @@ def _run_openai_agents_sdk(request: AgentsSdkRequest) -> AgentsSdkResult:
                 *continuation_input,
                 {"role": "user", "content": request.input},
             ]
+        async def bounded_drive() -> list[object]:
+            # A PLAN-only response ends an SDK segment, not the research turn.
+            # All segments share one absolute timeout and decreasing turn cap.
+            current_input = provider_input
+            results = []
+            remaining = request.max_turns
+            while remaining > 0:
+                result = await Runner.run(
+                    agent, current_input, context=request, max_turns=remaining,
+                    run_config=run_config, hooks=hooks,
+                )
+                results.append(result)
+                remaining -= max(1, int(result.context_wrapper.usage.requests))
+                if hooks.pending is None:
+                    break
+                to_input = getattr(result, "to_input_list", None)
+                if not callable(to_input):
+                    break
+                current_input = [*to_input(), {"role": "user", "content": hooks.pending}]
+                hooks.pending = None
+            return results
+
         try:
-            return await asyncio.wait_for(
-                Runner.run(
-                    agent,
-                    provider_input,
-                    context=request,
-                    max_turns=request.max_turns,
-                    run_config=run_config,
-                ),
-                timeout=request.timeout,
-            )
+            return await asyncio.wait_for(bounded_drive(), timeout=request.timeout)
         finally:
             if model_aclose is not None:
                 await model_aclose()
 
     try:
-        result = asyncio.run(execute())
+        results = asyncio.run(execute())
+        result = results[-1]
     except asyncio.TimeoutError as exc:
         raise TimeoutError("OpenAI Agents SDK run exceeded deadline") from exc
-    usage = result.context_wrapper.usage
+    usages = [item.context_wrapper.usage for item in results]
     to_input_list = getattr(result, "to_input_list", None)
     continuation_input = to_input_list() if callable(to_input_list) else None
     return AgentsSdkResult(
         final_output=result.final_output,
-        llm_calls=max(1, int(usage.requests)),
-        input_tokens=int(usage.input_tokens),
-        output_tokens=int(usage.output_tokens),
-        provider_attempts=int(usage.requests),
+        llm_calls=sum(max(1, int(usage.requests)) for usage in usages),
+        input_tokens=sum(int(usage.input_tokens) for usage in usages),
+        output_tokens=sum(int(usage.output_tokens) for usage in usages),
+        provider_attempts=sum(int(usage.requests) for usage in usages),
         batched_tool_calls_dropped=int(
             getattr(model, "batched_tool_calls_dropped", 0)
         ),
@@ -619,6 +658,7 @@ class _SdkSnapshot:
     gaps: tuple[str, ...]
     executed_count: int
     duplicate_queries: int
+    plan: ResearchPlan | None
 
 
 class _AgentsRunState:
@@ -632,6 +672,10 @@ class _AgentsRunState:
         tool_stage_expires_at: float | None = None,
     ) -> None:
         self._registry = registry
+        self.plan: ResearchPlan | None = None
+        self._plan_failures = 0
+        self._plan_turns = 0
+        self._plan_error = ""
         self._context = context
         self._active_context = context
         self._is_cancelled = is_cancelled
@@ -667,6 +711,53 @@ class _AgentsRunState:
             if required.required and required.grounding_mode == "evidence":
                 self.evidence_ledger.open_gap(required.output_id)
         self.initial_evidence_snapshot = self.evidence_ledger.snapshot()
+
+    @property
+    def active_context(self) -> ResearchRunContext:
+        return self._active_context
+
+    def observe_model_response(self, content: str, has_tools: bool, harness: ResearchHarness, *, allow_plan: bool = True) -> str | None:
+        # SDK calls this after the provider response, BEFORE function dispatch.
+        self._plan_error = ""
+        result = harness.interpret_plan(content, previous_plan=self.plan, task_id=self._context.contract.task_id)
+        if result.plan is None and not result.error:
+            return None
+        error = result.error
+        candidate = result.plan
+        if candidate is not None:
+            try:
+                if (
+                    not allow_plan or not self._tools_open or self._is_cancelled()
+                    or self._active_context.deadline.expired
+                    or (self._tool_stage_expires_at is not None and monotonic() >= self._tool_stage_expires_at)
+                ):
+                    raise ValueError("PLAN cancelled or research stage closed")
+                if not has_tools and self._plan_turns >= 2:
+                    raise ValueError("PLAN revision allowance exhausted")
+                if candidate.interpretation is not None and has_tools:
+                    raise ValueError("interpretation must be submitted without tools; retry tools after acceptance")
+            except ValueError as exc:
+                error = str(exc)
+            else:
+                admission = harness.admit_interpretation(candidate, context=self._active_context)
+                if not admission.accepted:
+                    error = admission.error
+                else:
+                    self._active_context = admission.context
+                    self.plan = candidate
+                    if not has_tools:
+                        self._plan_turns += 1
+                    self._add_event("plan", plan_to_public_dict(candidate))
+                    return json.dumps({
+                        **admission.model_feedback, "accepted_plan_revision": candidate.revision,
+                    }, ensure_ascii=False)
+        self._plan_error = error
+        self._plan_failures += 1
+        self._add_event("invalid_action", {"reason": error})
+        if self._plan_failures >= 2:
+            self._tools_open = False
+            return harness.steering_message("begin_finalization", detail=error)
+        return harness.steering_message("invalid_plan", detail=error)
 
     def tools(self) -> tuple[AgentsSdkTool, ...]:
         if not self._tools_open:
@@ -709,6 +800,9 @@ class _AgentsRunState:
         raw_arguments: Mapping[str, object] | str,
     ) -> dict[str, object]:
         with self._lock:
+            if self._plan_error:
+                self._add_event("tool_error", {"tool": name, "error": "invalid_plan", "detail": self._plan_error})
+                return {"status": "rejected", "tool": name, "error": "invalid_plan", "detail": self._plan_error}
             try:
                 prepared = self._registry.prepare(name, raw_arguments)
             except (InvalidResearchToolArguments, ValueError) as exc:
@@ -804,6 +898,7 @@ class _AgentsRunState:
                 gaps=tuple(self._gaps),
                 executed_count=self._executed_count,
                 duplicate_queries=self._duplicate_queries,
+                plan=self.plan,
             )
 
     def _reservation_error(
@@ -917,6 +1012,9 @@ class _AgentsRunState:
             return payload
 
     def _add_event(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
+        if self._active_context.interpretation is not None:
+            payload = {**payload, "interpretation_revision": self._active_context.interpretation.revision,
+                       "request_ref": self._active_context.interpretation.request_ref}
         event = EpisodeEvent(self._next_sequence, kind, payload)
         self._next_sequence += 1
         self._events.append(event)
@@ -1179,6 +1277,7 @@ class OpenAIAgentsRuntime:
             model=self._model,
             model_settings=self._model_settings,
             model_factory=self._model_factory,
+            on_model_response=lambda content, has_tools: state.observe_model_response(content, has_tools, self._harness),
         )
         try:
             result = self._call_runner(request, context=context)
@@ -1199,6 +1298,11 @@ class OpenAIAgentsRuntime:
                 gap=stop_reason,
                 llm_calls=1,
             )
+        finally:
+            # A bounded timeout after acceptance must not rewind interpretation.
+            if continuation_state is not None:
+                continuation_state.context = state.active_context
+        context = state.active_context
         if continuation_state is not None:
             continuation_state.continuation_input = result._continuation_input
 
@@ -1252,6 +1356,7 @@ class OpenAIAgentsRuntime:
             gaps=gaps,
             stop_reason=stop_reason,
             events=events,
+            plan=state.plan,
             bindings=bindings,
             usage=AgentUsage(
                 llm_calls=result.llm_calls,
@@ -1365,6 +1470,11 @@ class OpenAIAgentsRuntime:
                 },
                 ensure_ascii=False,
             )
+        if context.interpretation is not None:
+            repair_message = json.dumps({
+                "kind": "REPAIR_CONTEXT", "repair_goal_message": repair_message,
+                "request_interpretation": interpretation_payload(context),
+            }, ensure_ascii=False)
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: constitution stays system; repair
         # suffix and user/task JSON are per-turn. No cache_control this increment.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
@@ -1398,6 +1508,9 @@ class OpenAIAgentsRuntime:
             ),
             model_factory=self._model_factory,
             continuation_input=state.continuation_input,
+            on_model_response=lambda content, has_tools: state.run_state.observe_model_response(
+                content, has_tools, self._harness, allow_plan=False,
+            ),
         )
         try:
             result = self._call_runner(request, context=context)
@@ -1642,6 +1755,7 @@ class OpenAIAgentsRuntime:
             stop_reason=stop_reason,
             events=events,
             bindings=(),
+            plan=snapshot.plan,
             usage=AgentUsage(
                 llm_calls=llm_calls,
                 tool_calls=snapshot.executed_count,

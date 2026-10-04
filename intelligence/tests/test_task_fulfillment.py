@@ -40,6 +40,23 @@ def _source(detail: str, evidence_id: str = "G1") -> EvidenceRef:
     )
 
 
+def test_optional_output_keeps_identity_in_all_verdict_states():
+    text = "风险仍需观察。"
+    for answer, claims, sources, status in (
+        (text, (_claim("counter:1", text),), (_source(text),), "fulfilled"),
+        ("缺少反证证据。", (), (), "partial"),
+        ("普通说明。", (), (), "missing"),
+    ):
+        verdict = evaluate_task_fulfillment(
+            question="解释一个机制", answer_text=answer, claims=claims, sources=sources,
+            required_outputs=(RequiredOutput("counterpoint", "可选反方观点", required=False),),
+        )
+        assert verdict.items[0].status == status
+        assert verdict.items[0].required is False
+        assert verdict.status == "complete" and verdict.missing_required == ()
+        assert verdict.to_dict()["items"][0]["required"] is False
+
+
 def test_mainline_requires_direct_assessment_and_supporting_evidence():
     verdict = evaluate_task_fulfillment(
         question="目前市场的主线是什么，给我你的判断依据",

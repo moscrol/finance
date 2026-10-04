@@ -105,8 +105,12 @@ class _Ledger:
         self.events: list[EpisodeEvent] = []
         # INV-R1 对账失败的落账点（本 loop 没有 EpisodeScope，账就在这里）。
         self.derive_mismatches: list[str] = []
+        self.interpretation = None
 
     def add(self, kind: str, payload: dict[str, object]) -> None:
+        if self.interpretation is not None:
+            payload = {**payload, "interpretation_revision": self.interpretation.revision,
+                       "request_ref": self.interpretation.request_ref}
         self.events.append(EpisodeEvent(len(self.events) + 1, kind, payload))
 
     def verify_model_visible(self, messages: list[EpisodeMessage]) -> bool:
@@ -172,6 +176,7 @@ class HarnessReferenceLoop:
     ) -> AgentOutcome:
         harness = self._harness
         ledger = _Ledger()
+        ledger.interpretation = context.interpretation
         ledger.add(
             "task",
             {
@@ -303,6 +308,27 @@ class HarnessReferenceLoop:
                     previous_plan=plan,
                     task_id=context.contract.task_id,
                 )
+                if plan_result.plan is not None and plan_result.plan.interpretation is not None:
+                    try:
+                        if turn.tool_calls:
+                            raise ValueError("interpretation must be submitted without tools; retry tools after acceptance")
+                        if plan_turns >= MAX_PLAN_TURNS:
+                            raise ValueError("PLAN revision allowance exhausted")
+                        if self._is_cancelled() or context.deadline.expired:
+                            raise ValueError("interpretation cancelled or deadline exhausted")
+                    except ValueError as exc:
+                        plan_result = PlanParseResult(None, str(exc))
+                    else:
+                        admission = harness.admit_interpretation(plan_result.plan, context=context)
+                        if not admission.accepted:
+                            plan_result = PlanParseResult(None, admission.error)
+                        else:
+                            context = admission.context
+                            state.context = context
+                            ledger.interpretation = context.interpretation
+                            append_model_input(messages, ledger, content=json.dumps(
+                                admission.model_feedback, ensure_ascii=False,
+                            ), source="interpretation_accepted")
                 if plan_result.plan is not None:
                     if not turn.tool_calls and plan_turns >= MAX_PLAN_TURNS:
                         plan_result = PlanParseResult(
@@ -348,6 +374,15 @@ class HarnessReferenceLoop:
                     plan_failures += 1
                     invalid_actions += 1
                     ledger.add("invalid_action", {"reason": plan_result.error})
+                    for call in turn.tool_calls:
+                        payload = harness.project_tool_error(
+                            tool=call.name, error="invalid_plan", detail=plan_result.error,
+                        )
+                        model_content = json.dumps(payload, ensure_ascii=False)
+                        ledger.add("tool_error", {
+                            **payload, "call_id": call.call_id, "model_content": model_content,
+                        })
+                        messages.append(tool_message(call.call_id, model_content, source="tool_error"))
                     if plan_failures == 1:
                         append_model_input(
                             messages,
@@ -357,7 +392,10 @@ class HarnessReferenceLoop:
                             ),
                             source="steering_invalid_plan",
                         )
-                        continue
+                    else:
+                        begin_finalization("invalid_plan")
+                    # Rejected plans never fall through into tool dispatch.
+                    continue
 
             if turn.tool_calls:
                 if finalization_started:
@@ -623,6 +661,14 @@ class HarnessReferenceLoop:
         if isinstance(turn, AgentOutcome):
             return turn
 
+        repair_plan = harness.interpret_plan(
+            turn.content, previous_plan=state.plan, task_id=context.contract.task_id,
+        )
+        if repair_plan.error or repair_plan.plan is not None:
+            invalid_actions += 1
+            reason = repair_plan.error or "PLAN admission is closed during repair"
+            ledger.add("invalid_action", {"reason": reason})
+            return stop("invalid_repair_plan", reason)
         performed_tool_action = False
         if turn.tool_calls and tools_open:
             batch = state.session.execute(

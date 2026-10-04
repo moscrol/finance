@@ -118,6 +118,7 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
     ]
     payload = json.loads(sent["messages"][1]["content"])
     assert set(payload) == {
+        "request_interpretation",
         "task_frame",
         "required_outputs",
         "evidence",
@@ -127,6 +128,8 @@ def test_recovery_contains_task_required_outputs_and_existing_evidence_only() ->
         "failure_reason",
     }
     assert payload["task_frame"] == frame.to_dict()
+    assert payload["request_interpretation"]["root_request"]["raw_question"] == frame.raw_question
+    assert payload["request_interpretation"]["interpretation"]["revision"] == 0
     assert payload["required_outputs"] == [
         {
             "output_id": "direct_assessment",

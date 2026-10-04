@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import json
+
 import pytest
 
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
@@ -110,20 +112,19 @@ def _delivery(*, repair="none", draft=HEAD + WATCH + BAD, initial_check_raises=F
 
 @pytest.mark.usefixtures("numeric_delete_mode")
 @pytest.mark.parametrize("mode", ["llm", "off"])
-@pytest.mark.parametrize("repair", ["none", "still_missing", "still_bad", "empty_failure", "raises", "recheck_raises"])
+@pytest.mark.parametrize("repair", ["none", "still_bad", "empty_failure", "raises", "recheck_raises"])
 def test_bad_condition_is_removed_but_trusted_answer_is_delivered_as_partial(monkeypatch, tmp_path, mode, repair):
     monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
     result, goals, checks = _delivery(repair=repair)
     assert FACT in result.answer and "2026-10-21" in result.answer
     assert "987654321" not in result.answer and "876543210" not in result.answer
     assert result.status == "partial"
-    assert CONTRACT_STUB_HEADING in result.answer
-    assert "触发条件" in result.answer and result.open_gaps
+    assert CONTRACT_STUB_HEADING not in result.answer and result.open_gaps
     receipt = result.private_artifact["track_contract"]
-    assert receipt["missing_outputs"] == ["track_next_watch"]
+    assert receipt["missing_template_elements"] == ["track_next_watch"]
+    assert receipt["missing_outputs"] == [] and receipt["authority"] == "advisory"
     semantic = result.private_artifact["semantic_verifier"]
-    assert semantic["status"] == "partial"
-    assert "track_next_watch" in semantic["verified"]["missing_outputs"]
+    assert "track_next_watch" not in semantic["verified"]["missing_outputs"]
     assert any("numeric_condition" in issue for check in checks for issue in check.issues)
     assert len(goals) == (0 if repair == "none" else 1)
     if repair in {"raises", "recheck_raises"}:
@@ -136,11 +137,28 @@ def test_bad_condition_is_removed_but_trusted_answer_is_delivered_as_partial(mon
         assert not phases.get("anomalies")
         assert result.citations
     if goals:
-        assert "track_next_watch" in goals[0].missing_answer_elements
+        assert goals[0].missing_answer_elements == ()
+        assert json.loads(goals[0].unsupported_claims[0])["sentence"] == BAD
         assert goals[0].remaining_calls == 0 and not goals[0].reopen_tools
     path = tmp_path / "checkpoints.jsonl"
     assert ingest_next_watch(path, result.answer, query="请登记为长期跟踪", as_of="2026-09-18") == []
     assert not path.exists()
+
+
+@pytest.mark.usefixtures("numeric_delete_mode")
+@pytest.mark.parametrize("mode", ["llm", "off"])
+def test_repair_can_remove_an_unsupported_condition_without_replacing_the_template(monkeypatch, mode):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+    result, goals, checks = _delivery(repair="still_missing")
+    assert len(goals) == 1 and len(checks) == 2
+    assert goals[0].missing_answer_elements == () and goals[0].unsupported_claims
+    assert goals[0].remaining_calls == 0 and not goals[0].reopen_tools
+    assert result.status == "completed" and not result.open_gaps
+    assert FACT in result.answer and BAD not in result.answer
+    assert CONTRACT_STUB_HEADING not in result.answer
+    receipt = result.private_artifact["track_contract"]
+    assert receipt["missing_template_elements"] == ["track_next_watch"]
+    assert receipt["missing_outputs"] == []
 
 
 @pytest.mark.parametrize("mode", ["llm", "off"])

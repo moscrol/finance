@@ -661,6 +661,9 @@ class _EpisodeLedger:
     def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
         event_payload = dict(payload)
         event_payload["task_frame_hash"] = self._task_frame_hash
+        if self.active_context is not None and self.active_context.interpretation is not None:
+            event_payload["interpretation_revision"] = self.active_context.interpretation.revision
+            event_payload["request_ref"] = self.active_context.interpretation.request_ref
         if kind == "finish":
             # INV-R5：收口前清箱。箱里没送到模型的话逐条落 inbox_discarded，reason 按终局分
             # （取消 → cancelled，其余 → episode_finished），事件序都在 finish 之前——
@@ -2014,6 +2017,42 @@ class ContinuousAgentEpisode:
             )
             pending_mode_message: ModeGovernance | None = None
             pending_branch_result: SubResearchResult | None = None
+            if plan_result.plan is not None and plan_result.plan.interpretation is not None:
+                try:
+                    if turn.tool_calls:
+                        raise ValueError("interpretation must be submitted without tools; retry tools after acceptance")
+                    if plan_turns >= MAX_PLAN_TURNS:
+                        raise ValueError("PLAN revision allowance exhausted")
+                    if self._is_cancelled() or context.deadline.expired:
+                        raise ValueError("interpretation cancelled or deadline exhausted")
+                except ValueError as exc:
+                    plan_result = PlanParseResult(None, str(exc))
+                else:
+                    admission = self._harness.admit_interpretation(plan_result.plan, context=context)
+                    if not admission.accepted:
+                        plan_result = PlanParseResult(None, admission.error)
+                    else:
+                        context = admission.context
+                        context_ref.value = context
+                        ledger.active_context = context
+                        if continuation_state is not None:
+                            continuation_state.context = context
+                        # Persist the accepted goal with the exact current authority before
+                        # any same-response tools/branches. Do not reset execution position.
+                        position = ledger.state
+                        if position is None:
+                            raise RuntimeError("interpretation requires an episode checkpoint")
+                        ledger.put_state(
+                            phase=position.phase, reserved_ids=position.reserved_ids,
+                            retry=position.retry, cancel=position.cancel, context=context,
+                        )
+                        append_model_input(
+                            messages, ledger,
+                            content=json.dumps(admission.model_feedback, ensure_ascii=False),
+                            source="interpretation_accepted",
+                        )
+                        if ledger.store_failures:
+                            continue
             if plan_result.plan is not None:
                 if not turn.tool_calls:
                     if plan_turns >= MAX_PLAN_TURNS:
@@ -2107,6 +2146,8 @@ class ContinuousAgentEpisode:
                 plan_failures += 1
                 invalid_actions += 1
                 ledger.add("invalid_action", {"reason": plan_result.error})
+                for call in turn.tool_calls:
+                    accumulator._append_tool_error(call, "invalid_plan", plan_result.error)
                 if plan_failures == 1:
                     append_model_input(
                         messages,
@@ -2116,7 +2157,14 @@ class ContinuousAgentEpisode:
                         ),
                         source="steering_invalid_plan",
                     )
-                    continue
+                else:
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages, ledger=ledger, reason="invalid_plan",
+                    )
+                # No dispatch after a rejected PLAN. Once the single format
+                # hint is spent, close research instead of adding more retries.
+                continue
             if turn.tool_calls:
                 if finalization_started:
                     invalid_actions += len(turn.tool_calls)
@@ -2864,6 +2912,23 @@ class ContinuousAgentEpisode:
                 carried_draft=previous.draft,
                 carried_bindings=previous.bindings,
             )
+        # Repair grants cover existing gaps, not new goal/PLAN admission. Reject
+        # the whole proposal+tools packet before any effect, just as deadline flush.
+        repair_plan = self._harness.interpret_plan(
+            turn.content, previous_plan=ledger.plan, task_id=context.contract.task_id,
+        )
+        if repair_plan.error or repair_plan.plan is not None:
+            reason = repair_plan.error or "PLAN admission is closed during repair"
+            ledger.add("invalid_action", {"reason": reason})
+            for call in turn.tool_calls:
+                accumulator._append_tool_error(call, "invalid_plan", reason)
+            return self._stopped_outcome(
+                task_frame=task_frame, status="partial" if accumulator.evidence else "failed",
+                stop_reason="invalid_repair_plan", gap=reason, ledger=ledger,
+                evidence=accumulator.evidence, traces=accumulator.traces, gaps=accumulator.gaps,
+                llm_calls=llm_calls, tool_calls=tool_calls, invalid_actions=invalid_actions + 1,
+                carried_draft=previous.draft, carried_bindings=previous.bindings,
+            )
         if turn.tool_calls:
             batch_started = monotonic()
             branch_event_offset = len(ledger.events)
@@ -3159,6 +3224,21 @@ class ContinuousAgentEpisode:
         execute = getattr(tool_session, "execute", None)
         if not callable(execute) or not turn.tool_calls:
             return tool_calls, invalid_actions
+        plan_result = self._harness.interpret_plan(
+            turn.content, previous_plan=accumulator.ledger.plan, task_id=context.contract.task_id,
+        )
+        # A pending protocol change cannot be committed by a deadline flush.
+        # Legacy valid PLAN+tools retains its existing behavior.
+        if plan_result.error or (
+            plan_result.plan is not None and (
+                plan_result.plan.base_revision is not None or plan_result.plan.interpretation is not None
+            )
+        ):
+            reason = plan_result.error or "PLAN not accepted before deadline"
+            accumulator.ledger.add("invalid_action", {"reason": reason})
+            for call in turn.tool_calls:
+                accumulator._append_tool_error(call, "invalid_plan", reason)
+            return tool_calls, invalid_actions + 1
         remaining = max(
             len(turn.tool_calls),
             self._remaining_tool_slots(context=context, tool_calls=tool_calls),

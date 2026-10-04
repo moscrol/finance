@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
+from intelligence.services.output_requirement import RequiredOutput
 from intelligence.services.material_contract import MaterialContract, compile_material_contract
 from intelligence.services.conversation_materials import ConversationMaterials
 from intelligence.services.user_task import (
@@ -157,9 +158,28 @@ class TaskFrame:
     history_intent: HistoryIntent | None = None
     material_contract: MaterialContract | None = None
     conversation_materials: ConversationMaterials | None = None
+    # Trusted producer metadata. Missing rows retain the old obligation; neither
+    # a controller nor PLAN may use this field to relabel user requirements.
+    output_requirements: tuple[RequiredOutput, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.output_requirements, tuple) or any(
+            not isinstance(item, RequiredOutput) for item in self.output_requirements
+        ):
+            raise ValueError("output requirements must contain RequiredOutput values")
+        ids = tuple(item.output_id for item in self.output_requirements)
+        if len(set(ids)) != len(ids) or not set(ids).issubset(self.required_outputs):
+            raise ValueError("output requirements must uniquely reference frame outputs")
+
+    def output_requirement(self, output_id: str) -> RequiredOutput | None:
+        return next((item for item in self.output_requirements if item.output_id == output_id), None)
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
+        if self.output_requirements:
+            payload["output_requirements"] = [item.to_dict() for item in self.output_requirements]
+        else:
+            payload.pop("output_requirements")
         for key in _INPUT_UNDERSTANDING_FIELDS:
             if not payload.get(key):
                 payload.pop(key, None)
@@ -257,8 +277,12 @@ class TaskFrame:
                 for items in (user_premises, referenced)
             ):
                 return None
+            requirements = value.get("output_requirements", ())
+            if not isinstance(requirements, (list, tuple)):
+                return None
             return cls(
                 raw_question=str(value["raw_question"]),
+                output_requirements=tuple(RequiredOutput.from_dict(item) for item in requirements),
                 user_goal=str(value["user_goal"]),
                 question_type=question_type,
                 subject=subject,
@@ -497,6 +521,7 @@ def build_task_frame(
             "不得写成已验证规律"
         )
 
+    defaults = derive_required_outputs(question_type, core)
     outputs = derive_required_outputs(
         question_type,
         core,
@@ -526,6 +551,14 @@ def build_task_frame(
         market_scope=market_scope,
         timeframe=timeframe,
         required_outputs=outputs,
+        # The envelope's extra research hints are not user obligations. Keep
+        # type/wording defaults legacy until their request coverage is migrated.
+        output_requirements=tuple(
+            # Leave description to the execution-slot assembler, as before.
+            RequiredOutput(output_id, "", required=False, origin="heuristic")
+            for output_id in outputs
+            if output_id not in defaults and output_id in envelope.required_outputs
+        ) if history_intent is None else (),
         assumptions=_merge_strings(tuple(assumptions)),
         ambiguities=tuple(ambiguities),
         clarification_question=(
@@ -616,10 +649,15 @@ def rebase_task_frame(
     if question_type == "personal_memory_recall":
         if frame.material_contract is not None or frame.history_intent is not None:
             return frame
+        outputs = _clean_outputs(("prior_recall",), tuple(
+            item.output_id for item in frame.output_requirements
+            if item.origin == "user_request" or "user_request" in item.merged_origins
+        ))
         return replace(
             frame, question_type=question_type, subject=_safe_subject(subject, frame.raw_question),
-            subject_kind=subject_kind or frame.subject_kind, required_outputs=("prior_recall",),
+            subject_kind=subject_kind or frame.subject_kind, required_outputs=outputs,
             evidence_policy="personal_memory_recall", timeframe=timeframe,
+            output_requirements=tuple(item for item in frame.output_requirements if item.output_id in outputs),
         )
 
     if frame.history_intent is not None:
@@ -661,6 +699,10 @@ def rebase_task_frame(
             required_outputs,
         )
     )
+    merged_outputs = _clean_outputs(merged_outputs, tuple(
+        item.output_id for item in frame.output_requirements
+        if item.origin == "user_request" or "user_request" in item.merged_origins
+    ))
     return replace(
         frame,
         question_type=question_type,
@@ -668,6 +710,7 @@ def rebase_task_frame(
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,
         required_outputs=merged_outputs,
+        output_requirements=tuple(item for item in frame.output_requirements if item.output_id in merged_outputs),
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],

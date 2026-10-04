@@ -22,6 +22,11 @@ from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.request_interpretation import RootRequest, TaskInterpretation
+from intelligence.services.output_requirement import (
+    GroundingMode as GroundingMode,
+    RequiredOutput as RequiredOutput,
+)
 from intelligence.services.material_contract import MaterialContract
 from intelligence.services.material_grounding import MaterialGrounding
 from intelligence.services.premise_financial_calculation import PremiseCalculation
@@ -44,7 +49,6 @@ AnswerOwner: TypeAlias = Literal[
 ]
 OwnerExecutionMode: TypeAlias = Literal["inline", "subtask"]
 ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
-GroundingMode: TypeAlias = Literal["evidence", "user_premise", "model_reasoning"]
 InformationCutoffSource: TypeAlias = Literal[
     "requested",
     "latest_available",
@@ -1024,20 +1028,6 @@ FORWARD_HYPOTHESIS_OUTPUT_IDS = frozenset(
 
 
 @dataclass(frozen=True)
-class RequiredOutput:
-    output_id: str
-    description: str
-    evidence_types: tuple[str, ...] = ()
-    required: bool = True
-    grounding_mode: GroundingMode = "evidence"
-    # W2：静态预检 / 动态不可达降级预置的缺口声明。空串表示没有预置。
-    preplaced_gap: str = ""
-    # History is an operation-scoped contract, not a blanket capability grant.
-    # Empty means this output accepts ordinary evidence only.
-    allowed_history_operations: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
 class OutputStatus:
     output_id: str
     # fulfilled is D5's answered projection; legal_gap is disclosed, not answered.
@@ -1167,7 +1157,7 @@ class ResearchTaskContract:
             "subject": self.subject,
             "subject_kind": self.subject_kind,
             "question_type": self.question_type,
-            "required_outputs": [asdict(item) for item in self.required_outputs],
+            "required_outputs": [item.to_dict() for item in self.required_outputs],
             "allowed_capabilities": list(self.allowed_capabilities),
             "research_tier": self.research_tier,
             "presentation_profile": self.presentation_profile,
@@ -1192,22 +1182,10 @@ class ResearchTaskContract:
         for raw in raw_outputs:
             if not isinstance(raw, dict):
                 raise ResearchContractError("required output 必须是 object")
-            evidence_types = raw.get("evidence_types", ())
-            if not isinstance(evidence_types, (list, tuple)):
-                raise ResearchContractError("evidence_types 必须是 list")
-            outputs.append(
-                RequiredOutput(
-                    output_id=str(raw.get("output_id") or ""),
-                    description=str(raw.get("description") or ""),
-                    evidence_types=tuple(str(item) for item in evidence_types),
-                    required=bool(raw.get("required", True)),
-                    grounding_mode=str(raw.get("grounding_mode") or "evidence"),
-                    preplaced_gap=str(raw.get("preplaced_gap") or ""),
-                    allowed_history_operations=tuple(
-                        str(item) for item in raw.get("allowed_history_operations", ())
-                    ) if isinstance(raw.get("allowed_history_operations", ()), (list, tuple)) else (),
-                )
-            )
+            try:
+                outputs.append(RequiredOutput.from_dict(raw))
+            except ValueError as exc:
+                raise ResearchContractError(str(exc)) from exc
         capabilities = value.get("allowed_capabilities", ())
         if not isinstance(capabilities, (list, tuple)):
             raise ResearchContractError("allowed_capabilities 必须是 list")
@@ -1328,6 +1306,15 @@ class ResearchRunContext:
     # run / 助手消息。由入口在核对过 run 归属之后绑定；None = 没有可信入口
     # （离线驱动、CLI、测试），恢复时按「未绑定」处理，不会与任何门匹配上。
     entry_identity: EpisodeEntryIdentity | None = None
+    # Model-owned goal, not a mutation of the root execution/authorization contract.
+    interpretation: TaskInterpretation | None = None
+    root_request: RootRequest | None = None
+
+    def __post_init__(self) -> None:
+        # replace(context, contract=repair_projection) must retain the original
+        # request. A genuinely new request must construct its own context.
+        if self.root_request is None:
+            object.__setattr__(self, "root_request", RootRequest.from_contract(self.contract))
 
 
 @dataclass(frozen=True)
