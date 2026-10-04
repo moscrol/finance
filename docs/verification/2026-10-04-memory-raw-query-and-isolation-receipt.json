@@ -615,6 +615,46 @@
       "path": "/Users/a77/.finance-runtime/test-receipts/gate-1jk0wKq0/pytest.json",
       "bytes": 1003,
       "sha256": "82801ab77d06bd728d855bb76331d864c8cf75ca26a1b01ecd644d36a088d931"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-spec-67d08ac73.md",
+      "bytes": 759,
+      "sha256": "f5dae71351edace777f2705dc2b0506ae39c4ae7fed13259acb8a49e923bfcae"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-spec-probe-67d08ac73.json",
+      "bytes": 7957,
+      "sha256": "65d5de62da17e145ec608e745cafd06dd9d8a3e20767e1c13894b64839952dc2"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-spec-evidence-67d08ac73.json",
+      "bytes": 3215,
+      "sha256": "6a8d7ea7deb30673db5bdd0854d1b66547391616fb6c0f12af4191cadaad256e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-standards-67d08ac73.md",
+      "bytes": 715,
+      "sha256": "25b22f6c156000854d267982a319b5106d823c2240bd37cc479a17a086963068"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-relative-safe-red-1004.log",
+      "bytes": 21201,
+      "sha256": "e0a93db789d856b47d1a4bfd2934fb8cbabd4c5fe8f58ca2965f25bbfef84c30"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/harness-quality-closeout-1003/sidecar-relative-green-1004.log",
+      "bytes": 199,
+      "sha256": "92ff7d7aec5385182ef5cab8dfc0e44f2a1a6d375964f3be6b85ff18b130f41f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/gate-sOkMuK9W/pytest.json",
+      "bytes": 1004,
+      "sha256": "321f83c617463b781bee3ccb72870298232d45ad6a40eb1aa699e89133fb7bd1"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/test-receipts/gate-sOkMuK9W/pytest.log.txt",
+      "bytes": 20860,
+      "sha256": "67ae3046c69fb563f81853b9e685bad4db522ccec27a2e2ec33123410acb290c"
     }
   ]
 }

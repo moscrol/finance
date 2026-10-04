@@ -8,10 +8,10 @@ FINANCEWORKS-8：修现有评测 sidecar 的四种输出状态路径遗漏，固
 | 默认keyword保持 | 凭22/24切BGE或只缩k | 无关/跨用途、后续限定和冷启动仍未过 |
 
 ## 当前状态
-sidecar四根绑定已修，旧安全反例3F→定向22P。详细诊断及首次测试误写恢复见同日memory-raw-query-and-isolation报告和receipt。PR34已合至4948fd0a0，生产仍旧版本。
+sidecar四根绑定已修；独立复审发现相对路径随shell切目录错落，已将users及state按调用cwd固定成绝对路径，安全反例4F/4P→两文件27P。报告的semantic/hybrid排序差异已校正。原67d08ac73全量因返修主动中断（exit2），不得转签；最终新头状态跟随GitHub PR35和FINANCEWORKS-8最新收据。详细诊断及首次测试误写恢复见同日memory-raw-query-and-isolation报告和receipt。PR34已合至4948fd0a0，生产仍旧版本。
 
 ## 未验证 / 已知边界
-当前定向读数来自dirty阶段，完整固定头门禁/独立审查看最终PR与任务板。本修复只改评测启动器；真实Workbench答案、独立留出、两档模型收益未通过。空Wiki及三条HTTP分支不能代签全部工具。成本/token预占仍沿FINANCEWORKS-3，不动其活动树或额度。
+当前27P定向读数来自dirty阶段，完整固定头门禁/增量独审看最终PR与任务板。本修复只改评测启动器；真实Workbench答案、独立留出、两档模型收益未通过。空Wiki及三条HTTP分支不能代签全部工具。成本/token预占仍沿FINANCEWORKS-3，不动其活动树或额度。
 
 ## 下一步
 先按最终头收齐门禁、独审、合入备份；然后冻结新的自然题集及必要后续限定，比较通用排序/完整交付。controller失败出口另验。不得重开旧v1、R17/R19/240，不把本地BGE或脚本替身当真实模型答案。
