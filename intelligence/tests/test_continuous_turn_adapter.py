@@ -6511,3 +6511,19 @@ def test_repair_admission_cap_is_lifted_for_a_long_rejected_draft(monkeypatch) -
     assert result.private_artifact["repair_cycles"] == 1
     assert seen and seen[0] > 90.0
     assert seen[0] == pytest.approx(15.0 + 9388 / 120.0)
+
+
+def test_contractual_gap_template_enters_bounded_delivery_repair() -> None:
+    frame = _frame(required_outputs=("direct_assessment", "supporting_evidence"))
+    gap = (
+        "关于目前市场结构如何，现有证据不足，暂不能可靠回答。"
+        "仍需核验：直接判断、支持证据；可直接重试。"
+    )
+
+    assert adapter_module._public_delivery_requires_repair(gap, frame) is True
+    assert (
+        adapter_module._public_delivery_requires_repair(
+            "当前市场结构偏强，成交额扩张提供支持。", frame
+        )
+        is False
+    )

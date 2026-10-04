@@ -747,3 +747,22 @@ def test_render_task_understanding_lists_what_the_frame_holds() -> None:
 
     feel = render_task_understanding(_frame_for("龙头不涨了，是不是这条线要退潮了"))
     assert "竞争解释" in feel and "待澄清" in feel
+
+
+def test_multiday_market_evolution_requires_change_and_phase_assessment() -> None:
+    assert derive_required_outputs(
+        "dated_market_review",
+        "2026-07-16 到 07-22 这几天，成交量和涨停家数的变化说明了什么",
+    ) == (
+        "change_summary",
+        "direct_assessment",
+        "supporting_evidence",
+        "risk_signals",
+    )
+
+
+def test_single_day_market_review_keeps_standard_output_contract() -> None:
+    assert derive_required_outputs(
+        "dated_market_review",
+        "2026-07-22 成交量和涨停家数如何",
+    ) == ("market_summary", "mainline_structure", "risk_signals")

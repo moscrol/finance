@@ -27,23 +27,23 @@ class GroundedBudgetProfile:
 
 grounded_deep = GroundedBudgetProfile(
     name="grounded_deep",
-    # 146.55s observed end-to-end need * 1.2 = 175.86s; round the bounded
-    # deployment profile up to 180s rather than claiming percentile coverage.
-    root_seconds=180,
-    # 97s two-phase minimum plus 3s of local hand-off room; retrieval keeps 80s.
-    synthesis_reserve_seconds=100,
-    # Preserve the preregistered bounded synthesis-child ceiling below root.
-    child_seconds=115,
-    # ceil(33.338s * 1.2), from the frozen composer replay.
-    composer_grant_seconds=40,
-    # ceil(46.982s * 1.2), from the frozen semantic-judge replay.
+    # The Pi-vs-production diagnostic reproduced a real composer timeout at
+    # 40.110s on D1 even though retrieval had completed. Keep a bounded product
+    # envelope, but reserve enough tail room for the model to finish instead of
+    # replacing a nearly-complete answer with a deterministic template.
+    root_seconds=210,
+    # 60s composer + 57s judge + 3s local hand-off room.
+    synthesis_reserve_seconds=120,
+    # A child may use the full two-phase tail while remaining below the root.
+    child_seconds=150,
+    composer_grant_seconds=60,
     judge_reserve_seconds=57,
-    # Exact admission floor: 40s composer grant + 57s judge reserve.
-    minimum_two_phase_entry_seconds=97,
+    minimum_two_phase_entry_seconds=117,
     measurement_basis=(
-        "single preregistered A4 canary plus frozen replay: 146.55s observed "
-        "end-to-end need, 20% slack = 175.86s; engineering headroom only, "
-        "not p95 or another latency percentile"
+        "single preregistered A4 canary plus frozen Pi-vs-production D1 diagnostic: "
+        "the former measured 146.55s end-to-end; the latter exhausted the old "
+        "40s composer slice at 40.110s and fell back to a lower-quality template. "
+        "The 60s composer grant is bounded remediation headroom, not p95."
     ),
 )
 

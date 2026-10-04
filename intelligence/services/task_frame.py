@@ -106,6 +106,29 @@ _DECISION_METHOD_RE = re.compile(
 _INVALIDATION_FOLLOWUP_RE = re.compile(
     r"(?:什么时候|何时|哪些条件|什么条件).{0,16}(?:失效|证伪|不成立|作废)"
 )
+_MULTIDAY_RANGE_MARKERS = (
+    "这几天",
+    "本周",
+    "上周",
+    "最近一周",
+    "过去一周",
+    "近一周",
+    "到",
+    "至",
+)
+_MARKET_EVOLUTION_SIGNALS = (
+    "成交量",
+    "成交额",
+    "涨停",
+    "跌停",
+    "上涨家数",
+    "下跌家数",
+    "指数",
+    "换手率",
+    "连板",
+    "市场宽度",
+)
+_MARKET_EVOLUTION_INTENTS = ("变化", "演变", "趋势", "走向", "说明", "意味")
 
 
 @dataclass(frozen=True)
@@ -1293,7 +1316,27 @@ def derive_required_outputs(
     )
 
 
+def _is_multiday_market_evolution_question(question: str) -> bool:
+    normalized = " ".join(str(question or "").split())
+    has_range = any(marker in normalized for marker in _MULTIDAY_RANGE_MARKERS)
+    signal_count = sum(token in normalized for token in _MARKET_EVOLUTION_SIGNALS)
+    has_interpretation = any(
+        token in normalized for token in _MARKET_EVOLUTION_INTENTS
+    )
+    return has_range and signal_count >= 2 and has_interpretation
+
+
 def _explicit_required_outputs(question: str) -> tuple[str, ...]:
+    # 多日盘面演变题不能退化成单日复盘的「摘要 + 主线」。用户同时给出时间段、
+    # 多个动态指标并问变化含义时，合同必须要求比较变化并落到阶段判断；这是可泛化的
+    # 领域语义，不绑定某个日期、指标读数或 gold 措辞。
+    if _is_multiday_market_evolution_question(question):
+        return (
+            "change_summary",
+            "direct_assessment",
+            "supporting_evidence",
+            "risk_signals",
+        )
     if _COMPARATIVE_DECISION_RE.search(question):
         return (
             "comparison_conclusion",

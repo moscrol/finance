@@ -252,7 +252,11 @@ class TestPhasesAreRecorded:
         )
 
         assert timeouts[0] == grounded_deep.composer_grant_seconds
-        assert grounded_deep.judge_reserve_seconds <= timeouts[1] <= 115
+        assert (
+            grounded_deep.judge_reserve_seconds
+            <= timeouts[1]
+            <= grounded_deep.child_seconds
+        )
         assert deadlines[0] is deadlines[1]
         assert deadlines[0].expires_at <= options.deadline.expires_at
 
@@ -266,7 +270,7 @@ class TestPhasesAreRecorded:
 
         class ScriptedDeadline:
             expires_at = 999_999.0
-            remaining_seconds = 97.0
+            remaining_seconds = 117.0
 
             def remaining(self) -> float:
                 return self.remaining_seconds
@@ -298,7 +302,7 @@ class TestPhasesAreRecorded:
             repair_drop_invalid=True,
         )
 
-        assert timeouts == [40, 57]
+        assert timeouts == [60, 57]
 
 
 class TestFailingPhaseIsIdentifiable:

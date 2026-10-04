@@ -84,6 +84,7 @@ from intelligence.services.research_tool_registry import (
 from intelligence.services.run_store import redact, redact_value
 from intelligence.services.session_projection import CAUSE_VERIFIED, TerminalFacts, view
 from intelligence.services.task_frame import TaskFrame, frame_blocks_contract_blind_pipelines
+from intelligence.services.public_delivery_gate import review_public_delivery
 from intelligence.services.judgment_delta import judgment_delta_receipt
 from intelligence.services.pricing_split import pricing_split_receipt
 from intelligence.services.ranking_contract import (
@@ -188,6 +189,19 @@ class ContinuousTurnResult:
     # 形状）：R15 对照 9:2:0 里多题的失分不是缺口本身，而是缺口变成了
     # 句号——追问负担全落在用户身上。
     open_gaps: tuple[str, ...] = ()
+
+
+def _public_delivery_requires_repair(answer: str, frame: TaskFrame) -> bool:
+    """Return whether a contractual gap template needs the bounded repair loop."""
+
+    receipt = review_public_delivery(
+        answer,
+        required_outputs=frame.required_outputs,
+    )
+    return bool(
+        receipt.applied
+        and "gap_template_with_required_outputs" in receipt.reasons
+    )
 
 
 class SemanticVerifier(Protocol):
@@ -884,6 +898,10 @@ class ContinuousTurnAdapter:
                     semantic.gap_output_ids
                     or semantic_repair_feedback(semantic)
                     or semantic.verified.missing_outputs
+                    or _public_delivery_requires_repair(
+                        semantic.public_answer,
+                        frame,
+                    )
                 )
                 and repair_attempts < max_repair_cycles
                 and not repair_terminal
@@ -917,7 +935,17 @@ class ContinuousTurnAdapter:
                     # 判官删了哪几句、为什么删：修复轮的作者必须看得到，
                     # 否则只能对着「缺某个输出」重发同一份结构。
                     rejected_claim_notes=_rejected_claim_notes(semantic, context),
-                    semantic_gap_outputs=semantic.gap_output_ids,
+                    semantic_gap_outputs=(
+                        semantic.gap_output_ids
+                        or (
+                            frame.required_outputs
+                            if _public_delivery_requires_repair(
+                                semantic.public_answer,
+                                frame,
+                            )
+                            else ()
+                        )
+                    ),
                     allow_delivery_repair=not delivery_repair_attempted,
                 )
                 if repaired is None:

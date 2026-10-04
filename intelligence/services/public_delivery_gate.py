@@ -34,8 +34,8 @@ C5 就出过：24 条证据全绑定，只因 ``counterpoint`` 少一个标记�
 
 * 词表只有一处真源：``task_fulfillment.evaluate_marker_coverage``（两个引擎共用
   的同一个定义），本模块不另立第二张表。
-* 缺口模板（``answer_is_gap_template``）整篇豁免：那是运行时自己的诚实降级
-  文案，状态通道已经如实反映，再判一次只会把「已声明的缺口」重复降级。
+* 缺口模板只有在没有输出契约时豁免；一旦本轮声明了必需输出，它就是可观测的
+  未完成交付，必须进入降级状态并允许运行时做一次有界修复，不能把模板当答案。
 * 落点走既有 ``answer_status`` 通道（``complete_report`` 取
   ``research_status`` 与 ``answer_status`` 里更差的那个），不新增终态类型。
 """
