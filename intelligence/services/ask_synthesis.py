@@ -688,7 +688,12 @@ def _build_base_answer_spec_from_sections(
             evidence_tier="base_finance",
             evidence_ids=evidence_ids,
         )
-        for index, line in enumerate(evidence_lines[:8], start=1)
+        # Preserve enough row-level facts for the composer/verifier contract. Eight
+        # lines truncated ranked market tables before count/rank fields, so a model
+        # could faithfully restate a tool observation (for example "涨停 10 家")
+        # and still be rejected as ``added_number`` because the intermediate
+        # AnswerSpec had dropped that row.
+        for index, line in enumerate(evidence_lines[:16], start=1)
         if evidence_ids
     )
 

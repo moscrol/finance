@@ -192,23 +192,33 @@ def test_pointer_only_body_has_no_deliverable() -> None:
     assert "no_substantive_body" in receipt.reasons
 
 
-def test_runtime_gap_template_is_exempt() -> None:
-    """运行时自己的缺口模板不再降级一次：状态通道已经如实反映了。"""
+def test_runtime_gap_template_is_exempt_without_output_contract() -> None:
+    """无输出契约的自由问答仍可诚实交付缺口模板。"""
+
+    template = "关于A股，现有证据不足，暂不能给出可靠结论。"
+    receipt = review_public_delivery(template)
+
+    assert receipt.verdict == VERDICT_OK
+    assert receipt.reasons == ("gap_template_exempt",)
+    assert receipt.text == template
+
+
+def test_gap_template_cannot_satisfy_required_outputs() -> None:
+    """有明确必答项时，「证据不足」不能把全缺答案伪装成 ok。"""
 
     template = (
         "关于A股，现有证据不足，暂不能给出可靠结论。"
         "仍需核验：直接回答用户问题并说明判断强度、提供主要反证或竞争性解释。"
     )
-
     receipt = review_public_delivery(
         template,
         required_outputs=REQUIRED_OUTPUTS,
         descriptions=_descriptions(),
     )
 
-    assert receipt.verdict == VERDICT_OK
-    assert receipt.reasons == ("gap_template_exempt",)
-    assert receipt.text == template
+    assert receipt.verdict != VERDICT_OK
+    assert "gap_template_exempt" not in receipt.reasons
+    assert receipt.missing_outputs
 
 
 def test_boundary_only_body_is_incomplete() -> None:
