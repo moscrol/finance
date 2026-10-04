@@ -1,5 +1,7 @@
 # 原质检建议落实基线
 
+> 接替：10-04 晚的复核见 [2026-10-04-harness-followthrough-status.md](2026-10-04-harness-followthrough-status.md)。本页保留 10-03 的读数，不改。
+
 观察时间：2026-10-03 23:22–23:30（Asia/Taipei）。父任务 FINANCEWORKS-1；本次核验 FINANCEWORKS-2。规格：`docs/superpowers/specs/2026-10-03-harness-quality-closeout-spec.md`。
 
 ## 固定版本与实时读数
