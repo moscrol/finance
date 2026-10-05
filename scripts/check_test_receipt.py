@@ -261,21 +261,72 @@ def check_executed_counts(counts: dict | None) -> tuple[bool, str]:
 _NARROWING = ("ignore", "ignore_glob", "deselect", "keyword", "markexpr", "last_failed")
 
 
+def positional_narrowing(receipt: dict) -> str:
+    """位置参数收窄到的目标；没给位置参数或只指仓根时返回空串。
+
+    ``target`` 是 conftest 写的 ``" ".join(session.config.args)``。不给位置参数时
+    pytest 把调用目录的绝对路径补成唯一参数，所以在仓根裸跑 `pytest -q` 的全量收据，
+    target 逐字等于 ``tree``（2026-10-05 盘点本机 12885 张收据：2521 张如此，7 张写
+    ``.``）。认作仓根的只有：空、``.`` / ``./``、与 ``tree`` 相同的路径（normpath 后比，
+    吃掉尾斜杠）。只做词法比较、不碰文件系统：收据常在别的树、别的机器上验。
+
+    其余一律算收窄，包括指向仓根的符号链接别名、从上级目录跑的相对路径——收据没记
+    调用目录，认不出就按收窄报，朝安全方向错。也因为没记调用目录，相对路径一律按
+    「在仓根调用」理解：在子目录里显式跑 `pytest .` 这类归一成 ``.`` 的写法会被误认成
+    仓根，这是唯一朝不安全方向错的一类；在子目录里裸跑写的是子目录绝对路径，认得出。
+    """
+
+    target = str(receipt.get("target") or "").strip()
+    if os.path.normpath(target) == ".":
+        return ""
+    tree = receipt.get("tree")
+    if tree and os.path.normpath(target) == os.path.normpath(str(tree)):
+        return ""
+    return target
+
+
+def describe_target(receipt: dict) -> str:
+    """表头「目标」行。与收集面那行同由 ``positional_narrowing`` 判定，两行不会互相矛盾。"""
+
+    narrowed = positional_narrowing(receipt)
+    if narrowed:
+        return f"{len(narrowed.split())} 个位置参数（收窄）：{narrowed}"
+    target = str(receipt.get("target") or "").strip()
+    return f"{target}（= 仓根）" if target else "(未给位置参数 = 仓根)"
+
+
+def _abbreviate(target: str, keep: int = 3) -> str:
+    parts = target.split()
+    head = " ".join(parts[:keep])
+    return f"{head} …另 {len(parts) - keep} 个" if len(parts) > keep else head
+
+
 def describe_collection_scope(receipt: dict) -> tuple[bool | None, str]:
-    """收据是不是一次**没被收窄**的读数。
+    """收据是不是一次**没被收窄**的读数：位置参数与收窄旋钮都要查。
 
     治的形状：``target`` 只记位置参数，`pytest -q` 与
     `pytest -q --ignore=scripts/archive` 写出来的收据逐字相同。
     `docs/verification/re06-*/REVIEW.md` 两份复核都只能从交接正文里找回
     「命令含 --ignore=...」——收据自身证不了收集面，于是「全量绿」不可审计。
 
-    返回 ``None`` 表示旧格式收据（没有 scope 段）：不是绿也不是红，是**不知道**。
+    只查旋钮也不够（2026-10-05 实测）：59 个文件的定向跑（旋钮全空，collected=1585）
+    被判「未被收窄」「可采信」，而目标行明明是一串文件——位置参数本身就是收窄。
+
+    返回 ``None`` 表示旧格式收据（没有 scope 段）且位置参数指向仓根：旋钮查不了，
+    不是绿也不是红，是**不知道**。位置参数已经收窄的旧收据直接判收窄。
     """
 
+    used = []
+    narrowed = positional_narrowing(receipt)
+    if narrowed:
+        used.append(
+            f"位置参数指定了 {len(narrowed.split())} 个路径（不是仓根）：{_abbreviate(narrowed)}"
+        )
     scope = receipt.get("scope")
     if not isinstance(scope, dict):
+        if used:
+            return False, "收集面被收窄：" + used[0] + "（收据无 scope 段，收窄旋钮另不可审计）"
         return None, "收据无 scope 段（旧格式）——收集面不可审计，别当全量结论用"
-    used = []
     for key in _NARROWING:
         value = scope.get(key)
         if value:
@@ -284,7 +335,7 @@ def describe_collection_scope(receipt: dict) -> tuple[bool | None, str]:
         used.append(f"maxfail={scope['maxfail']}")
     if used:
         return False, "收集面被收窄：" + "；".join(used)
-    return True, f"收集面未被收窄（collected={scope.get('collected', '?')}）"
+    return True, f"收集面未被收窄（位置参数 = 仓根，collected={scope.get('collected', '?')}）"
 
 
 def check_collected_matches_counts(receipt: dict) -> tuple[bool | None, str]:
@@ -322,8 +373,8 @@ def main() -> int:
     ap.add_argument(
         "--require-full-scope",
         action="store_true",
-        help="要求收据是一次未被 --ignore/-k/-m/--deselect 收窄的读数；"
-        "旧格式收据（无 scope 段）按 fail closed 拒绝",
+        help="要求收据是一次未被收窄的读数：位置参数只能为空、. 或仓根（tree），"
+        "也没用 --ignore/-k/-m/--deselect 等旋钮；旧格式收据（无 scope 段）按 fail closed 拒绝",
     )
     ap.add_argument(
         "--require-target",
@@ -377,7 +428,7 @@ def main() -> int:
     print(f"  收据     {path}")
     print(f"  产生于   {receipt.get('finished_at', '?')}")
     print(f"  来自树   {receipt.get('tree', '(未记)')}")
-    print(f"  目标     {receipt.get('target') or '(全量)'}")
+    print(f"  目标     {describe_target(receipt)}")
     counts = receipt.get("counts") or {}
     print(
         f"  读数     passed={counts.get('passed', '?')} "

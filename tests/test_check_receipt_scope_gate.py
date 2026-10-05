@@ -18,6 +18,11 @@
   ``--require-full-scope`` 才升成拦截；旧格式收据按 fail closed 拒绝。
 - 收执对账：收了 N 条就该有 N 条读数，对不上即「没跑完」。这也是 counts 补上
   xfailed/xpassed 的原因——不补的话对账永远不平，等于没有这道账。
+
+第二个失败形状（2026-10-05 实测）：只看旋钮，不看 ``target`` 本身。59 个文件的
+定向跑（`pytest -q tests/a.py …`，collected=1585，旋钮全空）在
+``--require-full-scope`` 下打出「收集面未被收窄」「可采信」，而目标行明明是一串
+文件。位置参数也是收窄：``target`` 只能为空、``.`` 或与 ``tree`` 相同的仓根路径。
 """
 
 from __future__ import annotations
@@ -102,6 +107,76 @@ def test_old_format_receipt_is_unknown_not_green(receipt) -> None:
     ok, message = ctr.describe_collection_scope(receipt)
     assert ok is None
     assert "不可审计" in message
+
+
+# 合成仓根：位置参数与 tree 只做词法比较，不碰文件系统，所以不必是真目录。
+_TREE = "/srv/fwp-tree"
+_UNNARROWED = {"ignore": [], "ignore_glob": [], "deselect": [], "keyword": "",
+               "markexpr": "", "maxfail": 0, "last_failed": False, "collected": 12442}
+# 2026-10-04 那张收据的形状：59 个文件、旋钮全空。
+_FILE_LIST = " ".join(f"tests/test_case_{i:02d}.py" for i in range(59))
+
+
+def test_file_list_target_is_narrowing_even_with_every_knob_empty() -> None:
+    ok, message = ctr.describe_collection_scope(
+        {"tree": _TREE, "target": _FILE_LIST, "scope": dict(_UNNARROWED)}
+    )
+    assert ok is False
+    assert "位置参数" in message and "59" in message
+    assert "tests/test_case_00.py" in message and "另 56 个" in message  # 判定行只列头几个
+    assert "未被收窄" not in message
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "intelligence/tests",      # 本机 8 张 ≥10000 passed 的收据就是这个形状
+        f"{_TREE}/tests",          # 在子目录里裸跑 pytest：pytest 补的是子目录绝对路径
+        "/srv/other-tree",         # 别的树（嵌套夹具仓的收据就是这样）
+    ],
+)
+def test_any_single_target_other_than_the_repo_root_is_narrowing(target) -> None:
+    ok, message = ctr.describe_collection_scope(
+        {"tree": _TREE, "target": target, "scope": dict(_UNNARROWED)}
+    )
+    assert ok is False
+    assert "位置参数" in message and target in message
+
+
+@pytest.mark.parametrize("target", ["", "  ", ".", "./", _TREE, f"{_TREE}/"])
+def test_repo_root_spellings_are_not_narrowing(target) -> None:
+    """守卫（旧代码上也绿）：裸 `pytest -q` 在仓根跑，pytest 把调用目录的绝对路径
+    补成唯一位置参数，所以真全量收据的 target 逐字等于 tree——不能被新判据误伤。"""
+    ok, message = ctr.describe_collection_scope(
+        {"tree": _TREE, "target": target, "scope": dict(_UNNARROWED)}
+    )
+    assert ok is True
+    assert "未被收窄" in message
+
+
+def test_absolute_root_is_unrecognisable_without_the_tree_field() -> None:
+    """没有 tree 就认不出一条绝对路径是不是仓根：按收窄报，朝安全方向错。"""
+    ok, message = ctr.describe_collection_scope(
+        {"target": _TREE, "scope": dict(_UNNARROWED)}
+    )
+    assert ok is False
+    assert "位置参数" in message
+
+
+def test_positional_and_knob_narrowing_are_both_listed() -> None:
+    ok, message = ctr.describe_collection_scope(
+        {"tree": _TREE, "target": "tests/a.py", "scope": {**_UNNARROWED, "keyword": "slow"}}
+    )
+    assert ok is False
+    assert "位置参数" in message and "tests/a.py" in message
+    assert "keyword=slow" in message
+
+
+def test_old_format_receipt_with_a_file_list_is_known_narrowed() -> None:
+    """无 scope 段时旋钮不可审计，但位置参数已足以判定收窄——那就不是「不知道」。"""
+    ok, message = ctr.describe_collection_scope({"tree": _TREE, "target": "tests/a.py"})
+    assert ok is False
+    assert "位置参数" in message and "scope" in message
 
 
 def test_counts_reconcile_when_nothing_was_truncated() -> None:
@@ -196,6 +271,71 @@ def test_old_receipt_fails_closed_under_require_full_scope(
     assert "不可审计" in capsys.readouterr().out
 
 
+def test_file_list_target_fails_under_require_full_scope(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    receipt = _receipt_matching_this_machine(
+        tree=_TREE, target=_FILE_LIST, scope=dict(_UNNARROWED)
+    )
+    assert _run_main(tmp_path, monkeypatch, receipt, "--require-full-scope") == 1
+    out = capsys.readouterr().out
+    assert "收集面被收窄或不可审计" in out
+    assert "位置参数" in out
+    assert "收集面未被收窄" not in out
+    assert "✅ 可采信" not in out
+
+
+@pytest.mark.parametrize("target", ["", ".", _TREE])
+def test_root_targets_still_pass_under_require_full_scope(
+    target, tmp_path, monkeypatch, capsys
+) -> None:
+    """守卫（旧代码上也绿）：run_main_gate.sh 的全量收据 target == tree，不能被误拦。"""
+    receipt = _receipt_matching_this_machine(
+        tree=_TREE, target=target, scope=dict(_UNNARROWED)
+    )
+    assert _run_main(tmp_path, monkeypatch, receipt, "--require-full-scope") == 0
+    out = capsys.readouterr().out
+    assert "收集面未被收窄" in out
+    assert "✅ 可采信" in out
+
+
+def test_file_list_target_without_the_flag_reports_but_does_not_block(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """验子集读数是正当用法（--require-target）：默认只报，不拦。"""
+    receipt = _receipt_matching_this_machine(
+        tree=_TREE, target=_FILE_LIST, scope=dict(_UNNARROWED)
+    )
+    assert _run_main(tmp_path, monkeypatch, receipt) == 0
+    out = capsys.readouterr().out
+    assert "✅ 可采信" in out
+    assert "收集面被收窄" in out and "位置参数" in out
+    assert "收集面被收窄或不可审计" not in out
+    assert "收集面未被收窄" not in out
+
+
+def _header(out: str) -> str:
+    return next(line for line in out.splitlines() if line.lstrip().startswith("目标"))
+
+
+def test_target_header_and_scope_line_agree(tmp_path, monkeypatch, capsys) -> None:
+    """目标行与收集面行同源：不会一行列文件清单、另一行写「未被收窄」，
+    也不会一行写「全量」、另一行写「被收窄」（旧夹具 target="" + --ignore 就是这样）。"""
+    _run_main(tmp_path, monkeypatch, _receipt_matching_this_machine(
+        tree=_TREE, target=_FILE_LIST, scope=dict(_UNNARROWED)))
+    assert "59 个位置参数" in _header(capsys.readouterr().out)
+
+    _run_main(tmp_path, monkeypatch, _receipt_matching_this_machine(
+        tree=_TREE, target=_TREE, scope=dict(_UNNARROWED)))
+    assert "仓根" in _header(capsys.readouterr().out)
+
+    _run_main(tmp_path, monkeypatch, _receipt_matching_this_machine(tree=_TREE))
+    out = capsys.readouterr().out
+    assert "收集面被收窄" in out                 # 默认夹具带 --ignore=scripts/archive
+    assert "全量" not in _header(out)
+    assert "仓根" in _header(out)
+
+
 def test_a_real_run_writes_scope_and_xfail_counts_into_its_receipt(tmp_path) -> None:
     """端到端：接线也要有人测。
 
@@ -231,3 +371,8 @@ def test_a_real_run_writes_scope_and_xfail_counts_into_its_receipt(tmp_path) -> 
     assert {"xfailed", "xpassed"} <= set(receipt["counts"])
     ok, _ = ctr.check_collected_matches_counts(receipt)
     assert ok is True
+    # 写方与检方对同一个 target 的理解要一致：位置参数逐字落账，检方认得出它不是仓根
+    assert receipt["target"] == "tests/test_check_receipt_zero_count_gate.py"
+    ok, message = ctr.describe_collection_scope(receipt)
+    assert ok is False
+    assert "位置参数" in message and f"keyword={keyword}" in message
