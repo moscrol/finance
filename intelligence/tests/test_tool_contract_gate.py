@@ -187,6 +187,8 @@ def test_kb_search_contract_names_the_deep_read_reread_action() -> None:
         assert phrase in contract, f"{phrase} 没写进 kb_search 契约"
 
     assert "kb_search 检索「页名 章节名」" in contract, "契约没给出补读某一节的具体动作"
-    assert kb_rag.DEEP_READ_ITEM_CHARS == tool_result_budget.MAX_EVIDENCE_DETAIL_CHARS, (
-        "深读切段宽度与模型可见 detail 上限脱钩——契约里「每段完整不截」这句就不再成立"
+    # 「每段完整不截」只要求段长不超过模型可见 detail 上限。2026-10-06 上限放到 800 后
+    # 段长保持 240（同一总预算下段粒度与跨页分配不变），两者不再相等。
+    assert kb_rag.DEEP_READ_ITEM_CHARS <= tool_result_budget.MAX_EVIDENCE_DETAIL_CHARS, (
+        "深读切段比模型可见 detail 上限还宽——契约里「每段完整不截」这句就不再成立"
     )
