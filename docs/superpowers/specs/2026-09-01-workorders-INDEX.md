@@ -92,3 +92,4 @@
 | 85 | `2026-09-23-hithink-research-observations-pr810-workorder.md` | P1（中单） | 金融 | ✅ **已合**（PR #894 → `1053f59a7`，09-24 合并列车，联合预览四叶绿；K3 Spec / Quality 两轴 PASS_WITH_LIMITS）。#810 已关（指针 → #894）。离线验证不证明真实限流 / 夜跑恢复；部署另行授权。 |
 | 86 | `2026-09-23-deploy-help-fail-closed-pr846-workorder.md` | P1（小单，半天） | 金融 | ✅ **已合**（PR #902 → `3bb81b963`，09-24 01:19；#846 已关留指针）。 |
 | 87 | `2026-09-23-briefing-consumption-pr847-workorder.md` | P1（小单；live 验收依赖 #61） | 金融 | ✅ **代码已合**（PR #902 → `3bb81b963`；#847 已关留指针）；live 验收依赖 #61。 |
+| 88 | `2026-10-05-remaining-work-dispatch-workorder.md`（母单，13 个工作包；各包按任务板 FINANCEWORKS-N 分派，不另取工单号） | **P0–P2** | 金融 | ⏳ 待派。10-05 收尾后的剩余工作：同模型 harness 对照 v6、内容质量门、“代码替模型做决定”的缺陷修复、PR #30 去留、身份与路由取证、工具面、记忆、台账、技术债、数据空列与换源、Knevo 周回归、工作区收口、会话注入读错树。状态以任务板为准，全部关闭后回写本行。 |
