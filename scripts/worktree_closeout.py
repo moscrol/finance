@@ -31,6 +31,10 @@
    apply 的复核以它为基准。没写理由也算阻塞项。「无阻塞」（CLEAR）只说明拆了不丢东西、没人在用，
    不说明该拆：回滚锚、保留约定、在途线本脚本认不出（2026-09-28 实测：8792 切走后的上一版快照
    没有任何进程与启动器引用，照样报 CLEAR），去留看理由。
+
+   点名几棵、理由各不相同时，每棵 ``--tree`` 后面跟它自己的 ``--reason``，第 i 条配第 i 棵；
+   只写一条则用于全部；条数既不是 0、1 也不等于树数就退 5，不猜。``--plan`` 里每条写自己的
+   ``reason``，不与 ``--tree`` / ``--reason`` 混用（``--reason`` 管不到计划里的树）。
 2. apply：``--apply --plan <dry-run 收据>``，只处理采样时没有阻塞项的树，逐棵：
 
    a. 复核：HEAD 仍是采样值；没有进程打开树里的文件（开轮一次全量 lsof），也没有进程 cwd
@@ -86,6 +90,8 @@ APFS 克隆：别按 du 估节省，别压缩 DuckDB
 
 用法：
     python3 scripts/worktree_closeout.py --tree ~/fwp-wt-foo --reason "#123 已合入，内容 97% 在 main"
+    python3 scripts/worktree_closeout.py --tree ~/fwp-wt-a --reason "理由 A" --tree ~/fwp-wt-b --reason "理由 B"
+    python3 scripts/worktree_closeout.py --tree ~/fwp-wt-a --tree ~/fwp-wt-b --reason "两棵同一个理由"
     python3 scripts/worktree_closeout.py --plan plan.json     # [{"path", "reason", "release_lock"}]
     python3 scripts/worktree_closeout.py --apply --plan <输出目录>/dry-<时刻>.json
 """
@@ -691,7 +697,25 @@ def close_tree(rec: dict, result: dict, *, ctx: dict, args, out_dir: Path, date:
 # ---------------------------------------------------------------- 入口
 
 
-def _load_items(args) -> tuple[dict, list[dict]]:
+def pair_reasons(trees: list[str], reasons: list[str]) -> list[str]:
+    """每棵 ``--tree`` 配一条理由：不写 → 全空，一条 → 用于全部，与树同数 → 第 i 条配第 i 棵。
+
+    别的条数报 ValueError，不猜。argparse 把两种参数各收各的、不记彼此先后，所以只能按位置配。
+    ``--reason`` 曾是普通 store：``--tree A --reason RA --tree B --reason RB`` 只留下 RB 并写给
+    两棵树，不报错（2026-10-04 dry-run 收据 ``dry-20261004T232659`` 因此作废）。
+    """
+
+    if len(reasons) == len(trees):
+        return list(reasons)
+    if len(reasons) <= 1:
+        return (reasons or [""]) * len(trees)
+    raise ValueError(
+        f"--tree {len(trees)} 棵、--reason {len(reasons)} 条，配不上：--reason 要么不写，要么只写一条"
+        "（用于全部 --tree），要么每棵 --tree 各写一条（第 i 条配第 i 棵）"
+    )
+
+
+def _load_items(args, tree_reasons: list[str]) -> tuple[dict, list[dict]]:
     meta: dict = {}
     raw_items: list = []
     if args.plan:
@@ -703,7 +727,7 @@ def _load_items(args) -> tuple[dict, list[dict]]:
         else:
             raise ValueError("plan 必须是列表，或带 trees 列表的对象（dry-run 收据）")
     released = {os.path.abspath(os.path.expanduser(p)) for p in args.release_lock}
-    raw_items += [{"path": p, "reason": args.reason or ""} for p in args.tree]
+    raw_items += [{"path": p, "reason": reason} for p, reason in zip(args.tree, tree_reasons)]
     items = []
     for raw in raw_items:
         if isinstance(raw, str):
@@ -871,9 +895,13 @@ def main(argv: list[str] | None = None) -> int:
         epilog=__doc__.split("\n", 1)[1],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--tree", action="append", default=[], help="点名一棵树（可多次）")
-    parser.add_argument("--reason", default="", help="--tree 的理由（写进收据与封存提交）")
-    parser.add_argument("--plan", help="dry-run：计划 JSON；apply：dry-run 收据")
+    parser.add_argument("--tree", action="append", default=[], help="点名一棵树（可多次；理由的配法见 --reason）")
+    parser.add_argument("--reason", action="append", default=[],
+                        help="--tree 的理由（写进收据与封存提交；可多次）：只写一条 = 用于全部 --tree；"
+                             "每棵各写一条 = 第 i 条配第 i 棵，如 --tree A --reason RA --tree B --reason RB；"
+                             "别的条数退 5")
+    parser.add_argument("--plan", help="dry-run：计划 JSON（每条写自己的 reason，不与 --tree / --reason 混用）；"
+                                       "apply：dry-run 收据")
     parser.add_argument("--release-lock", action="append", default=[],
                         help="允许 unlock 这棵上锁的树（可多次；plan 里用 release_lock）")
     parser.add_argument("--apply", action="store_true", help="真动手（只接受 dry-run 收据）")
@@ -894,10 +922,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.apply and (args.tree or args.release_lock or args.reason or not args.plan):
         parser.error("--apply 只接受 dry-run 收据（点名、理由、解锁都以收据为准）："
                      "先不带 --apply 跑一遍，再 --apply --plan <收据>")
+    if args.plan and (args.tree or args.reason):
+        parser.error("--plan 不与 --tree / --reason 混用：计划里的树只认计划自己的 reason，--reason 管不到它们；"
+                     "要加树就写进计划")
     if not args.apply and not (args.tree or args.plan):
         parser.error("没点名任何树：--tree <路径> 或 --plan <计划.json>")
     try:
-        meta, items = _load_items(args)
+        tree_reasons = pair_reasons(args.tree, args.reason)
+    except ValueError as exc:
+        parser.error(str(exc))
+    try:
+        meta, items = _load_items(args, tree_reasons)
     except (OSError, ValueError) as exc:
         print(f"plan 读不了: {exc}", file=sys.stderr)
         return EXIT_USAGE
