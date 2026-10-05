@@ -73,6 +73,7 @@ from intelligence.services.ask import (
     prepare_existing_answer,
     render_conversation_answer,
     repair_unfulfilled_answer,
+    should_bind_market_watch_research,
     synthesize_prepared_answer,
     synthesize_shadow_grounded_answer,
 )
@@ -3306,7 +3307,7 @@ class TurnOrchestrator:
                     self.run_store.add_degrade(run_id, code)
                 if disclosure_pack is not None:
                     report["disclosure_scan_pack"] = disclosure_pack.to_dict()
-            if turn_intent.question_type == "market_watch":
+            if should_bind_market_watch_research(contextual_query, frame=task_frame):
                 ask_options = bind_research_program(
                     ask_options,
                     frame=task_frame,
