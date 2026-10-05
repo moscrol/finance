@@ -421,10 +421,15 @@ def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str
                 for step in document
             )
             refs, ref_errors = _episode_references(trace)
-            # Episode 的普通流程 trace 无模型台账时不是另一份模型证据；不让它
-            # 制造空证据误报。有台账/引用/坏形状则必须查，不能被旁边 Episode 遮住。
+            trace_evidence = collect_from_trace(document, str(trace)) if isinstance(document, list) else None
+            has_branch_evidence = trace_evidence is not None and bool(
+                trace_evidence.served or trace_evidence.unreported or trace_evidence.not_reached
+                or trace_evidence.branch_unproven or trace_evidence.error
+            )
+            # 普通流程 trace 不重复充当空模型证据；但子分支可只带调用账/身份、
+            # 没有 ledger 或 episode_ref。这些信息不能被旁边的正常 Episode 遮住。
             sibling_evidence = any((trace.parent / name).is_file() for name in ARTIFACT_FILENAMES)
-            if error or has_ledger or refs or ref_errors or not sibling_evidence:
+            if error or has_ledger or has_branch_evidence or refs or ref_errors or not sibling_evidence:
                 hits.append(trace)
         if hits:
             found.extend(hits)

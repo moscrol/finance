@@ -133,6 +133,22 @@ def test_matching_trace_does_not_override_missing_episode_child(tmp_path):
     assert _check(tmp_path)[1] == 2
 
 
+@pytest.mark.parametrize("branch,code", (
+    ({"kind": "branch_failed", "payload": {"status": "failed", "llm_calls": 0,
+        "llm_calls_known": False, "error": "branch_worker_exception:RuntimeError"}}, 2),
+    ({"kind": "branch_completed", "payload": {"llm_calls": 1, "served_models": ["wrong-model"]}}, 1),
+), ids=("unknown-calls", "mismatch"))
+def test_episode_sibling_cannot_hide_trace_only_branch_evidence(tmp_path, branch, code):
+    _trace(tmp_path, {"name": "sub_research", "output_summary": json.dumps({"events": [branch]})})
+    (tmp_path / ma.EPISODE_FILENAME).write_text(json.dumps({"events": [
+        {"kind": "model_turn", "payload": {"served_model": MODEL}},
+    ]}))
+    assert _check(tmp_path / "trace.jsonl")[1] == code
+    results, directory_code = _check(tmp_path)
+    assert directory_code == code
+    assert len(results) == 2
+
+
 def test_plain_episode_trace_without_ledger_does_not_add_a_spurious_failure(tmp_path):
     _trace(tmp_path, {"step_id": "intent", "name": "controller", "output_summary": "{}"})
     (tmp_path / ma.EPISODE_FILENAME).write_text(json.dumps({"events": [
