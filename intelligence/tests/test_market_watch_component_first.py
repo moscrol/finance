@@ -13,6 +13,7 @@ from intelligence.services.ask import (
     _resolve_market_data_context,
     bind_market_watch_pack,
     bind_research_program,
+    should_bind_market_watch_research,
 )
 from intelligence.services.ask_types import AskOptions, AskResult
 from intelligence.services.conversation_store import ConversationStore
@@ -611,6 +612,7 @@ def test_dated_market_review_binds_exact_day_pack_before_answering(tmp_path: Pat
         compose=True,
     )
 
+    assert should_bind_market_watch_research(query, frame=frame)
     bound = bind_research_program(options, frame=frame)
 
     assert bound.market_watch_pack is not None
@@ -625,6 +627,7 @@ def test_dated_ladder_metric_intent_binds_pack_without_broad_date_routing(tmp_pa
     ladder_frame = build_task_frame(ladder_query, understand_query(ladder_query))
     assert ladder_frame.question_type == "general_finance_qa"
     db = _db(tmp_path)
+    assert should_bind_market_watch_research(ladder_query, frame=ladder_frame)
     bound = bind_research_program(
         AskOptions(
             query=ladder_query,
@@ -642,6 +645,7 @@ def test_dated_ladder_metric_intent_binds_pack_without_broad_date_routing(tmp_pa
 
     stock_query = "2026-07-22 华工科技这只票现在什么情况"
     stock_frame = build_task_frame(stock_query, understand_query(stock_query))
+    assert not should_bind_market_watch_research(stock_query, frame=stock_frame)
     stock_bound = bind_research_program(
         AskOptions(
             query=stock_query,

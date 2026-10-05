@@ -625,25 +625,14 @@ def v_block_for_ask(
     )
 
 
-def bind_research_program(
-    options: AskOptions,
-    *,
-    frame: Any = None,
-    query: str | None = None,
-) -> AskOptions:
-    """Compile a ResearchProgram; market_watch still binds the four-bag pack first."""
+def should_bind_market_watch_research(query: str, *, frame: Any = None) -> bool:
+    """Return whether the orchestration entry must bind the exact-day market pack."""
 
-    from intelligence.services.query_understanding import is_market_watch_query
-    from intelligence.services.research_contract import compile_research_program
-
-    text = query or options.query
-    question_class = ""
-    if frame is not None:
-        question_class = str(getattr(frame, "question_type", "") or "")
-    program = compile_research_program(text, question_class=question_class)
-    _ = program.to_dict()
     from intelligence.services.metric_spec import METRICS
+    from intelligence.services.query_understanding import is_market_watch_query
 
+    text = str(query or "")
+    question_class = str(getattr(frame, "question_type", "") or "")
     required_outputs = set(getattr(frame, "required_outputs", ()) or ())
     ladder_metric_intent = bool(
         getattr(frame, "timeframe", None)
@@ -654,10 +643,30 @@ def bind_research_program(
             for alias in METRICS[key].aliases
         )
     )
-    if is_market_watch_query(text) or question_class in {
-        "market_watch",
-        "dated_market_review",
-    } or ladder_metric_intent:
+    return bool(
+        is_market_watch_query(text)
+        or question_class in {"market_watch", "dated_market_review"}
+        or ladder_metric_intent
+    )
+
+
+def bind_research_program(
+    options: AskOptions,
+    *,
+    frame: Any = None,
+    query: str | None = None,
+) -> AskOptions:
+    """Compile a ResearchProgram; market reviews bind the exact-day pack first."""
+
+    from intelligence.services.research_contract import compile_research_program
+
+    text = query or options.query
+    question_class = ""
+    if frame is not None:
+        question_class = str(getattr(frame, "question_type", "") or "")
+    program = compile_research_program(text, question_class=question_class)
+    _ = program.to_dict()
+    if should_bind_market_watch_research(text, frame=frame):
         # A dated review owns the same exact-day evidence contract as market_watch.
         # Without this branch the TaskFrame date reached AskOptions, but the four-bag
         # pack never ran; _answer_market_review then rebuilt evidence from the DB tip.
