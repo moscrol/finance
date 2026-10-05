@@ -1,0 +1,155 @@
+{"label": "result-tree-allows-nonfinite-red", "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "-o", "faulthandler_timeout=45", "--junitxml", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-red.xml", "--basetemp", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/pytest/result-tree-allows-nonfinite-red", "intelligence/tests/test_research_harness_slice_regressions.py", "tests/test_history_tool_diagnostics.py", "-k", "test_nonfinite_result_is_rejected_before_success_admission or test_actual_calculator_cannot_publish_nonfinite_legacy_result"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree", "revision": "458fd9de3c13f4293587f969bc733e136079ef53", "started_at": "2026-10-05T10:33:01.545272+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree  HEAD @ 458fd9de3 +未提交改动
+rootdir: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 105 items / 84 deselected / 21 selected
+
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain-nan] FAILED [  4%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain-inf] FAILED [  9%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain--inf] FAILED [ 14%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested-nan] FAILED [ 19%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested-inf] FAILED [ 23%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested--inf] FAILED [ 28%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary-nan] FAILED [ 33%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary-inf] FAILED [ 38%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary--inf] FAILED [ 42%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table-nan] FAILED [ 47%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table-inf] FAILED [ 52%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table--inf] FAILED [ 57%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart-nan] FAILED [ 61%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart-inf] FAILED [ 66%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart--inf] FAILED [ 71%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params-nan] FAILED [ 76%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params-inf] FAILED [ 80%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params--inf] FAILED [ 85%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('nan')] FAILED [ 90%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('inf')] FAILED [ 95%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[-float('inf')] FAILED [100%]
+
+=================================== FAILURES ===================================
+____ test_nonfinite_result_is_rejected_before_success_admission[plain-nan] _____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+____ test_nonfinite_result_is_rejected_before_success_admission[plain-inf] _____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+____ test_nonfinite_result_is_rejected_before_success_admission[plain--inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+____ test_nonfinite_result_is_rejected_before_success_admission[nested-nan] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+____ test_nonfinite_result_is_rejected_before_success_admission[nested-inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+___ test_nonfinite_result_is_rejected_before_success_admission[nested--inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+___ test_nonfinite_result_is_rejected_before_success_admission[summary-nan] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('summary_non_scalar',)
+___ test_nonfinite_result_is_rejected_before_success_admission[summary-inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('summary_non_scalar',)
+___ test_nonfinite_result_is_rejected_before_success_admission[summary--inf] ___
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('summary_non_scalar',)
+____ test_nonfinite_result_is_rejected_before_success_admission[table-nan] _____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('table_non_scalar',)
+____ test_nonfinite_result_is_rejected_before_success_admission[table-inf] _____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('table_non_scalar',)
+____ test_nonfinite_result_is_rejected_before_success_admission[table--inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('table_non_scalar',)
+____ test_nonfinite_result_is_rejected_before_success_admission[chart-nan] _____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('chart_series_invalid',)
+____ test_nonfinite_result_is_rejected_before_success_admission[chart-inf] _____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('chart_series_invalid',)
+____ test_nonfinite_result_is_rejected_before_success_admission[chart--inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ('chart_series_invalid',)
+____ test_nonfinite_result_is_rejected_before_success_admission[params-nan] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+____ test_nonfinite_result_is_rejected_before_success_admission[params-inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+___ test_nonfinite_result_is_rejected_before_success_admission[params--inf] ____
+intelligence/tests/test_research_harness_slice_regressions.py:233: in test_nonfinite_result_is_rejected_before_success_admission
+    assert "result_not_finite_json" in errors
+E   AssertionError: assert 'result_not_finite_json' in ()
+_ test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('nan')] __
+intelligence/tests/test_research_harness_slice_regressions.py:245: in test_actual_calculator_cannot_publish_nonfinite_legacy_result
+    assert isinstance(outcome, dc.CalculationError)
+E   assert False
+E    +  where False = isinstance(DerivedCalculation(calc_id='1fc0070f3b63be57', purpose='synthetic ratio', script="emit({'value': float('nan')})", input_evidence_hashes=('fixture',), input_refs=('E1',), as_of='2026-07-01', result={'value': nan}, enforcement='seatbelt+process', exit_code=0, duration_ms=35, stdout_tail='', stderr_tail='', runtime={'python': '3.12.13', 'interpreter': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'prelude_version': '5', 'platform': 'Darwin'}, db_fingerprint='', notes=(), params={}, inputs=({'ref': 'E1', 'hash': 'fixture', 'tool': 'market_data', 'title': '\u5408\u6210\u5e02\u573a\u5feb\u7167', 'source': 'fixture', 'as_of': '2026-07-01', 'tier': '', 'observations': []},), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+E    +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+_ test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('inf')] __
+intelligence/tests/test_research_harness_slice_regressions.py:245: in test_actual_calculator_cannot_publish_nonfinite_legacy_result
+    assert isinstance(outcome, dc.CalculationError)
+E   assert False
+E    +  where False = isinstance(DerivedCalculation(calc_id='26b049125ce1c00a', purpose='synthetic ratio', script="emit({'value': float('inf')})", input_evidence_hashes=('fixture',), input_refs=('E1',), as_of='2026-07-01', result={'value': inf}, enforcement='seatbelt+process', exit_code=0, duration_ms=34, stdout_tail='', stderr_tail='', runtime={'python': '3.12.13', 'interpreter': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'prelude_version': '5', 'platform': 'Darwin'}, db_fingerprint='', notes=(), params={}, inputs=({'ref': 'E1', 'hash': 'fixture', 'tool': 'market_data', 'title': '\u5408\u6210\u5e02\u573a\u5feb\u7167', 'source': 'fixture', 'as_of': '2026-07-01', 'tier': '', 'observations': []},), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+E    +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+_ test_actual_calculator_cannot_publish_nonfinite_legacy_result[-float('inf')] _
+intelligence/tests/test_research_harness_slice_regressions.py:245: in test_actual_calculator_cannot_publish_nonfinite_legacy_result
+    assert isinstance(outcome, dc.CalculationError)
+E   assert False
+E    +  where False = isinstance(DerivedCalculation(calc_id='cee5e7fa42b599b4', purpose='synthetic ratio', script="emit({'value': -float('inf')})", input_evidence_hashes=('fixture',), input_refs=('E1',), as_of='2026-07-01', result={'value': -inf}, enforcement='seatbelt+process', exit_code=0, duration_ms=35, stdout_tail='', stderr_tail='', runtime={'python': '3.12.13', 'interpreter': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'prelude_version': '5', 'platform': 'Darwin'}, db_fingerprint='', notes=(), params={}, inputs=({'ref': 'E1', 'hash': 'fixture', 'tool': 'market_data', 'title': '\u5408\u6210\u5e02\u573a\u5feb\u7167', 'source': 'fixture', 'as_of': '2026-07-01', 'tier': '', 'observations': []},), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+E    +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+- generated xml file: /private/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain-nan] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain-inf] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain--inf] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested-nan] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested-inf] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested--inf] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary-nan] - AssertionError: assert 'result_not_finite_json' in ('summary_non_scalar',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary-inf] - AssertionError: assert 'result_not_finite_json' in ('summary_non_scalar',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary--inf] - AssertionError: assert 'result_not_finite_json' in ('summary_non_scalar',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table-nan] - AssertionError: assert 'result_not_finite_json' in ('table_non_scalar',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table-inf] - AssertionError: assert 'result_not_finite_json' in ('table_non_scalar',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table--inf] - AssertionError: assert 'result_not_finite_json' in ('table_non_scalar',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart-nan] - AssertionError: assert 'result_not_finite_json' in ('chart_series_invalid',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart-inf] - AssertionError: assert 'result_not_finite_json' in ('chart_series_invalid',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart--inf] - AssertionError: assert 'result_not_finite_json' in ('chart_series_invalid',)
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params-nan] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params-inf] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params--inf] - AssertionError: assert 'result_not_finite_json' in ()
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('nan')] - assert False
+ +  where False = isinstance(DerivedCalculation(calc_id='1fc0070f3b63be57', purpose='synthetic ratio', script="emit({'value': float('nan')})", input_evidence_hashes=('fixture',), input_refs=('E1',), as_of='2026-07-01', result={'value': nan}, enforcement='seatbelt+process', exit_code=0, duration_ms=35, stdout_tail='', stderr_tail='', runtime={'python': '3.12.13', 'interpreter': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'prelude_version': '5', 'platform': 'Darwin'}, db_fingerprint='', notes=(), params={}, inputs=({'ref': 'E1', 'hash': 'fixture', 'tool': 'market_data', 'title': '\u5408\u6210\u5e02\u573a\u5feb\u7167', 'source': 'fixture', 'as_of': '2026-07-01', 'tier': '', 'observations': []},), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+ +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('inf')] - assert False
+ +  where False = isinstance(DerivedCalculation(calc_id='26b049125ce1c00a', purpose='synthetic ratio', script="emit({'value': float('inf')})", input_evidence_hashes=('fixture',), input_refs=('E1',), as_of='2026-07-01', result={'value': inf}, enforcement='seatbelt+process', exit_code=0, duration_ms=34, stdout_tail='', stderr_tail='', runtime={'python': '3.12.13', 'interpreter': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'prelude_version': '5', 'platform': 'Darwin'}, db_fingerprint='', notes=(), params={}, inputs=({'ref': 'E1', 'hash': 'fixture', 'tool': 'market_data', 'title': '\u5408\u6210\u5e02\u573a\u5feb\u7167', 'source': 'fixture', 'as_of': '2026-07-01', 'tier': '', 'observations': []},), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+ +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[-float('inf')] - assert False
+ +  where False = isinstance(DerivedCalculation(calc_id='cee5e7fa42b599b4', purpose='synthetic ratio', script="emit({'value': -float('inf')})", input_evidence_hashes=('fixture',), input_refs=('E1',), as_of='2026-07-01', result={'value': -inf}, enforcement='seatbelt+process', exit_code=0, duration_ms=35, stdout_tail='', stderr_tail='', runtime={'python': '3.12.13', 'interpreter': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'prelude_version': '5', 'platform': 'Darwin'}, db_fingerprint='', notes=(), params={}, inputs=({'ref': 'E1', 'hash': 'fixture', 'tool': 'market_data', 'title': '\u5408\u6210\u5e02\u573a\u5feb\u7167', 'source': 'fixture', 'as_of': '2026-07-01', 'tier': '', 'observations': []},), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)
+ +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError
+====================== 21 failed, 84 deselected in 1.38s =======================
+
+EXIT=1 STATUS=completed

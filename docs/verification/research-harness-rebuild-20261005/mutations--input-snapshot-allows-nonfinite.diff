@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/derived_calculation.py b/intelligence/services/derived_calculation.py
+index 2d360fb5e..bfe6c39d2 100644
+--- a/intelligence/services/derived_calculation.py
++++ b/intelligence/services/derived_calculation.py
+@@ -352,7 +352,7 @@ def run_derived_calculation(
+         params_json = canonical_params(params)
+         # Includes restored inputs_from_calc snapshots. A valid result cannot
+         # launder nonfinite inputs or parameters by simply not using them.
+-        json.dumps(payload, ensure_ascii=False, allow_nan=False)
++        json.dumps(payload, ensure_ascii=False)
+     except (TypeError, ValueError, OverflowError):
+         return CalculationError(
+             ERROR_INVALID_INPUT, "计算输入与参数必须是有限数值的 JSON；缺值请明确标注，不用 NaN/Infinity",

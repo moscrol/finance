@@ -12,19 +12,19 @@
 
 ## 当前状态
 
-已提交 `07f4523b8063df3be4c75347855728e07f9b7d8c`，树干净，未 push、未合并、未部署。决策与完整收据见 `docs/handoffs/2026-10-05-research-harness-rebuild.md`。
+实现提交07f4523b8；最终受测tip为干净458fd9de3。其后仅有文档/收据归档，不移签旧收据为新HEAD。未push、合并、部署。决策见`docs/handoffs/2026-10-05-research-harness-rebuild.md`；八项承接/原件见`docs/verification/2026-10-05-research-harness-rebuild-results.md`。
 
 ## 已验证
 
-完整 Python：20501P/0F/0E/75S/2X；Ruff与全范围收据校验通过。前端 install/lint/typecheck/Vitest/build/E2E 全绿（210 Vitest，52 E2E+2S）。六组变异均撤保护变红、恢复变绿；194条历史诊断定向回归通过。
+458fd9de3：Python20501P/0F/0E/75S/2X，全范围/身份校验过；前端210P、E2E52P/2S，lint/typecheck/build过；registry五项过（101条反链warning）。六组变异均红→绿，恢复105P。a96c1fe历史诊断基线23P，首次3红为新旧合同冲突，不是既有红。
 
 ## 未验证 / 已知边界
 
-未验证 GitHub Actions、真实 CLI/Workbench、真实 provider/自然模型答案、生产服务 revision、财务语义质量；语义 judge 仍默认 off。Python/前端都是本机收据，不能替代部署验收。
+未验GitHub Actions、真实provider/自然模型研究答案及生产revision；E2E虽启隔离Workbench服务，不证明自然模型质量。语义judge默认off。外部Agent Memory未回写，本轮认领仅finance-clean；跨仓项目索引仍待维护。
 
 ## 下一步
 
-用户确认后再 push/开 PR；以新 revision 重取 CI 与真实入口收据，随后另做合并/部署验收。若继续改代码，先重跑绑定新 SHA 的全量门禁。
+先审本地提交；推送/PR另确认，CI须绑定实际候选。真实问题验收另冻结模型/材料/预算；未授权不合并部署。续改代码则重取新SHA完整门禁；文档封存不宣称新HEAD全量重跑。
 
 ## 踩过的坑
 

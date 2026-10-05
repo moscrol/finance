@@ -1,0 +1,174 @@
+"""Offline reviewer regressions against finance-clean@a96c1fef.
+
+Run from the reviewed checkout with the project's interpreter:
+    PYTHONPATH=src python -m pytest -q -p no:cacheprovider <this file>
+Only synthetic data and process-local objects are used.
+"""
+
+import math
+
+import pytest
+
+from finance_harness.contracts import (
+    ClaimCategory,
+    ClaimItem,
+    DeltaStatus,
+    MemoryLifecycleState,
+    ResearchBaseline,
+    ToolMetadata,
+    ToolResultEnvelope,
+    ToolStatus,
+)
+from finance_harness.memory_guard import MemoryGuardError, MemoryStore
+from finance_harness.research_pipeline import ResearchPipeline
+from finance_harness.tool_envelope import compute_derived_metric, wrap_tool_execution
+from finance_harness.verifier import DeterministicVerifier, SemanticVerifier, TargetedRepairEngine
+
+
+def envelope(*, as_of="2026-06-30", published_at=None, status=ToolStatus.SUCCESS, data=None):
+    return ToolResultEnvelope(
+        status=status,
+        data=data if data is not None else {"gross_margin_pct": 10.0},
+        metadata=ToolMetadata(
+            source="review_fixture", as_of=as_of, published_at=published_at,
+            evidence_id="fixture_ev",
+        ),
+    )
+
+
+def baseline(claim):
+    return ResearchBaseline(
+        baseline_id="fixture_baseline", subject="600519.SH", as_of_date="2026-07-01",
+        claims=[claim],
+    )
+
+
+@pytest.mark.parametrize("case", ["empty", "timeout", "contradiction", "future"])
+def test_tracking_must_not_unconditionally_support(case):
+    claim = ClaimItem(
+        claim_id="c1", statement="2026年7月毛利率将维持在90%以上",
+        category=ClaimCategory.INFERENCE,
+    )
+    inputs = {
+        "empty": [],
+        "timeout": [envelope(status=ToolStatus.TIMEOUT)],
+        "contradiction": [envelope(as_of="2026-07-02", data={"subject": "600519.SH", "gross_margin_pct": 10.0})],
+        "future": [envelope(as_of="2027-06-30")],
+    }
+    delta = ResearchPipeline().track_incremental_update(baseline(claim), "2026-07-02", inputs[case])
+    assert delta.deltas[0].status != DeltaStatus.SUPPORTED, delta.model_dump()
+
+
+def test_returned_candidate_cannot_change_internal_confirmation_state():
+    store = MemoryStore()
+    candidate = store.register_candidate("not confirmed", ClaimCategory.ASSUMPTION)
+    try:
+        candidate.lifecycle_state = MemoryLifecycleState.CONFIRMED
+    except (AttributeError, TypeError, ValueError):
+        pass  # An immutable projection is also a valid implementation.
+    assert store.query_active_context() == []
+
+
+def test_future_publication_is_not_available_at_baseline_cutoff():
+    claim = ClaimItem(
+        claim_id="c1", statement="毛利率为10%", category=ClaimCategory.FACT,
+        evidence_ids=["fixture_ev"],
+    )
+    report = DeterministicVerifier.verify_baseline(
+        baseline(claim), {"fixture_ev": envelope(published_at="2026-08-30")}
+    )
+    assert not report.is_clean, report.model_dump()
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [(TimeoutError("deadline"), ToolStatus.TIMEOUT),
+     (PermissionError("denied"), ToolStatus.PERMISSION_DENIED)],
+)
+def test_tool_error_classification(error, expected):
+    def fail():
+        raise error
+    result = wrap_tool_execution("review_fixture", "2026-06-30", fail)
+    assert result.status == expected, result.model_dump()
+
+
+def test_business_failure_payload_not_usable_as_fact_evidence():
+    result = wrap_tool_execution(
+        "review_fixture", "2026-06-30", lambda: {"ok": False, "error": "permission denied"}
+    )
+    assert not result.is_usable, result.model_dump()
+
+
+def test_fact_with_wrong_entity_and_wrong_number_is_not_verified():
+    pipeline = ResearchPipeline()
+    ev_id = pipeline.add_evidence(envelope(data={"subject": "OTHER_STOCK", "gross_margin_pct": 10.0}))
+    claim = ClaimItem(
+        claim_id="c1", statement="茅台毛利率为99%", category=ClaimCategory.FACT,
+        evidence_ids=[ev_id],
+    )
+    result = pipeline.build_and_verify_baseline("600519.SH", "2026-07-01", [claim])
+    assert result.claims[0].category != ClaimCategory.FACT or result.open_gaps, result.model_dump()
+
+
+def test_semantic_guard_does_not_reject_a_negated_causal_overreach():
+    claim = ClaimItem(
+        claim_id="c1", statement="毛利率回升并不意味着绝对定价权",
+        category=ClaimCategory.INFERENCE,
+    )
+    report = SemanticVerifier.review_claim(claim)
+    assert report is None or report.passed, report.model_dump()
+
+
+def test_targeted_repair_rejects_an_unrelated_unverified_replacement():
+    original = ClaimItem(
+        claim_id="c1", statement="毛利率为99%", category=ClaimCategory.FACT,
+        evidence_ids=["missing"],
+    )
+    result = DeterministicVerifier.verify_baseline(baseline(original), {}).results[0]
+    try:
+        replacement = TargetedRepairEngine.repair_claim(
+            original, result,
+            lambda claim, report: ClaimItem(
+                claim_id="unrelated", statement="new unverified fact", category=ClaimCategory.FACT
+            ),
+        )
+    except (ValueError, TypeError):
+        return
+    assert replacement.claim_id == original.claim_id
+    assert replacement.category != ClaimCategory.FACT or replacement.evidence_ids
+
+
+@pytest.mark.parametrize("numerator", [float("nan"), float("inf")], ids=["nan", "inf"])
+def test_calculation_does_not_mark_nonfinite_result_usable(numerator):
+    result = compute_derived_metric("gross_margin", numerator, 1.0, "2026-06-30")
+    assert not result.is_usable or math.isfinite(result.data["value"]), result.model_dump()
+
+
+def test_control_registration_policy_denies_new_candidates():
+    store = MemoryStore(allow_candidate_registration=False)
+    with pytest.raises(MemoryGuardError):
+        store.register_candidate("not authorized", ClaimCategory.ASSUMPTION)
+    assert store.list_pending_candidates() == []
+
+
+def test_control_empty_response_is_nodata():
+    result = wrap_tool_execution("review_fixture", "2026-06-30", lambda: None)
+    assert result.status == ToolStatus.NODATA
+    assert not result.is_usable
+
+
+def test_control_division_by_zero_rejected():
+    result = compute_derived_metric("gross_margin", 1.0, 0.0, "2026-06-30")
+    assert result.status == ToolStatus.BAD_PARAM
+    assert not result.is_usable
+
+
+def test_control_future_observation_is_rejected():
+    claim = ClaimItem(
+        claim_id="c1", statement="毛利率为10%", category=ClaimCategory.FACT,
+        evidence_ids=["fixture_ev"],
+    )
+    report = DeterministicVerifier.verify_baseline(
+        baseline(claim), {"fixture_ev": envelope(as_of="2026-08-30")}
+    )
+    assert not report.is_clean
