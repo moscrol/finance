@@ -3162,6 +3162,32 @@ def _merge_orphan_grounded_markers(answer: str) -> str:
     return "\n".join(merged)
 
 
+def normalize_grounded_binding_lines(answer: str) -> str:
+    """把每个完整出处标记作为一个绑定单元的终点，不以物理行代替绑定边界。
+
+    模型可能连续写「甲 + marker A + 乙 + marker B」。不能只读 A、把乙也
+    绑给甲，更不能合并 A/B 的证据。这里只恢复已有标记的分隔，不选来源、
+    不按标点猜句子；标记后的无绑定尾文保留为独立行，交原门禁拒收。
+    """
+    # 只折叠完整 marker 内的换行，正文换行仍是边界；残缺 marker 不补全。
+    folded = _GROUNDED_CLAIM_MARKER_RE.sub(
+        lambda match: " ".join(match.group(0).splitlines()), answer,
+    )
+    lines: list[str] = []
+    for raw_line in folded.splitlines():
+        start = 0
+        for marker in _GROUNDED_CLAIM_MARKER_RE.finditer(raw_line):
+            lines.append(raw_line[start:marker.end()].strip())
+            start = marker.end()
+        if start == 0:
+            lines.append(raw_line)
+        elif raw_line[start:].strip():
+            lines.append(raw_line[start:].strip())
+    # 分割之后才归并独立 marker：前一物理行可能也含已绑定正文 + 待绑定尾句。
+    # 原归并规则只接无 marker 的前一行，不跨空行/标题，也不吞重复的空标记。
+    return _merge_orphan_grounded_markers("\n".join(lines))
+
+
 def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str:
     """把 marker 的 claim_ids 里混入的 EvidenceAtom id 换成它所属的 claim id。
 
@@ -3301,7 +3327,9 @@ def rebind_entity_claim_ids(answer: str, answer_spec: AnswerSpec) -> str:
             f"claim_type={_grounded_claim_type(target)} -->",
         )
 
-    return "\n".join(rewrite(line) for line in answer.splitlines())
+    return "\n".join(
+        rewrite(line) for line in normalize_grounded_binding_lines(answer).splitlines()
+    )
 
 
 def parse_grounded_sentences(
@@ -3309,7 +3337,7 @@ def parse_grounded_sentences(
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:
     sentences: list[GroundedSentence] = []
     unbound_lines: list[str] = []
-    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
+    for raw_line in normalize_grounded_binding_lines(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             continue
@@ -3433,6 +3461,14 @@ def validate_grounded_composer_answer(
             )
         )
     for sentence in sentences:
+        if not sentence.text:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_empty_binding",
+                    "error",
+                    f"第 {sentence.sentence_index} 句出处标记没有正文。",
+                )
+            )
         source_claims = tuple(
             claim_registry[claim_id]
             for claim_id in sentence.claim_ids
@@ -3705,7 +3741,7 @@ def present_grounded_composer_answer(
 ) -> str:
     # 展示边界兜底：违规标题在此确定性剔除（validate/repair 之外的最后一道）。
     cleaned = _drop_disallowed_headings(
-        _merge_orphan_grounded_markers(answer),
+        normalize_grounded_binding_lines(answer),
         answer_spec,
     )
     # 先整文剥完整标注，再剥残片，最后才逐行 rstrip。原先只做逐行剥离：
@@ -3761,7 +3797,7 @@ def repair_grounded_composer_answer(
     # 就是从半截开始的。标题行不清除这个标记：删掉的句子和幸存句之间插一个小标题，
     # 悬空关系照样存在。
     previous_sentence_dropped = False
-    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
+    for raw_line in normalize_grounded_binding_lines(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             heading = _heading_line_text(line)
@@ -4386,7 +4422,7 @@ def trim_to_last_complete_grounded_line(answer: str) -> str:
     照常过确定性门禁。一句完整的都没有时返回空串，由调用方按截断降级。
     """
 
-    lines = str(answer or "").splitlines()
+    lines = normalize_grounded_binding_lines(str(answer or "")).splitlines()
     for index in range(len(lines) - 1, -1, -1):
         line = lines[index].rstrip()
         if line.endswith("-->") and _GROUNDED_CLAIM_MARKER_RE.search(line):

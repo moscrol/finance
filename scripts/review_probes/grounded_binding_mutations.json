@@ -1,0 +1,61 @@
+{
+  "file": "intelligence/services/answer_model.py",
+  "pytest": ["intelligence/tests/test_grounded_binding_boundaries.py"],
+  "mutants": [
+    {
+      "name": "parser reverts to first marker per physical line",
+      "old": "for raw_line in normalize_grounded_binding_lines(answer).splitlines():\n        line = raw_line.strip()\n        if not line or _is_nonclaim_line(line):\n            continue\n        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)",
+      "new": "for raw_line in _merge_orphan_grounded_markers(answer).splitlines():\n        line = raw_line.strip()\n        if not line or _is_nonclaim_line(line):\n            continue\n        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)",
+      "expected_red": ["test_each_marker_keeps_its_own_body_ids_and_index[]", "test_neighbour_cannot_donate_its_evidence_to_another_unit[False]"]
+    },
+    {
+      "name": "repair reverts to physical-line indexes",
+      "old": "for raw_line in normalize_grounded_binding_lines(answer).splitlines():\n        line = raw_line.strip()\n        if not line or _is_nonclaim_line(line):\n            heading = _heading_line_text(line)",
+      "new": "for raw_line in _merge_orphan_grounded_markers(answer).splitlines():\n        line = raw_line.strip()\n        if not line or _is_nonclaim_line(line):\n            heading = _heading_line_text(line)",
+      "expected_red": ["test_rejected_index_means_the_same_unit_to_parser_and_repair", "test_repair_acts_only_on_the_invalid_unit_and_preserves_neighbours[True]"]
+    },
+    {
+      "name": "unbound tail silently disappears",
+      "old": "elif raw_line[start:].strip():\n            lines.append(raw_line[start:].strip())",
+      "new": "elif raw_line[start:].strip():\n            pass",
+      "expected_red": ["test_unbound_tail_cannot_borrow_the_preceding_marker_even_with_known_numbers", "test_partial_marker_never_becomes_a_complete_binding"]
+    },
+    {
+      "name": "empty marker accepted as a sentence",
+      "old": "if not sentence.text:\n            issues.append(",
+      "new": "if False:\n            issues.append(",
+      "expected_red": ["test_an_empty_extra_marker_is_rejected_not_merged_or_discarded"]
+    },
+    {
+      "name": "entity rebinder sees the entire physical line",
+      "old": "rewrite(line) for line in normalize_grounded_binding_lines(answer).splitlines()",
+      "new": "rewrite(line) for line in answer.splitlines()",
+      "expected_red": ["test_company_rebinding_does_not_move_the_previous_units_source"]
+    },
+    {
+      "name": "presentation drops neighbours of an internal term",
+      "old": "normalize_grounded_binding_lines(answer),\n        answer_spec,",
+      "new": "_merge_orphan_grounded_markers(answer),\n        answer_spec,",
+      "expected_red": ["test_presentation_drops_only_the_unit_with_an_internal_term"]
+    },
+    {
+      "name": "truncation loses completed inline units",
+      "old": "lines = normalize_grounded_binding_lines(str(answer or \"\")).splitlines()",
+      "new": "lines = str(answer or \"\").splitlines()",
+      "expected_red": ["test_truncation_keeps_completed_units_before_an_inline_partial_tail"]
+    },
+    {
+      "name": "judge sees a different indexing layout",
+      "file": "intelligence/services/llm_refine.py",
+      "old": "grounded_answer = normalize_grounded_binding_lines(grounded_answer)",
+      "new": "grounded_answer = normalize_grounded_binding_lines(grounded_answer) if False else grounded_answer",
+      "expected_red": ["test_judge_messages_present_the_same_units_used_for_indexing", "test_real_synthesis_consumers_preserve_inline_bindings[False-False]"]
+    },
+    {
+      "name": "wrapped marker not folded before splitting",
+      "old": "lambda match: \" \".join(match.group(0).splitlines()), answer,",
+      "new": "lambda match: match.group(0), answer,",
+      "expected_red": ["test_wrapped_marker_and_next_line_marker_share_the_same_boundary_rule"]
+    }
+  ]
+}

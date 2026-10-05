@@ -2438,6 +2438,10 @@ def build_grounding_judge_messages(
     grounded_answer: str,
     registry_block: str,
 ) -> list[dict]:
+    from intelligence.services.answer_model import normalize_grounded_binding_lines
+
+    # 判官看到的正文行与 parser / repair 的编号共享边界，不能只修其中一层。
+    grounded_answer = normalize_grounded_binding_lines(grounded_answer)
     return [
         {"role": "system", "content": _GROUNDING_JUDGE_SYSTEM_PROMPT},
         {
