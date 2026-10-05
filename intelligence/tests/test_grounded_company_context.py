@@ -92,8 +92,19 @@ def test_adjacent_known_companies_are_checked_separately():
     assert not _errors(_line(spec, "三环集团和丽珠集团及中信证券。"), spec)
 
 
-@pytest.mark.parametrize("evidence", ("新三环集团。", "华中三环集团。", "华为三环集团。"),
-                         ids=("new", "internal-zhong", "internal-wei"))
+@pytest.mark.parametrize("name", ("三环集团银行", "中信证券集团", "丽珠集团股份"),
+                         ids=("bank", "group", "shares"))
+def test_company_suffix_inside_a_longer_name_is_not_an_entity_boundary(name):
+    spec = _spec()
+    assert "grounded_composer_added_company" in {
+        i.code for i in _errors(_line(spec, name + "仍需核实。"), spec)
+    }
+    exact = _spec(name + "。")
+    assert not _errors(_line(exact, name + "仍需核实。"), exact)
+
+
+@pytest.mark.parametrize("evidence", ("新三环集团。", "华中三环集团。", "华为三环集团。", "三环集团银行。"),
+                         ids=("new", "internal-zhong", "internal-wei", "longer-suffix"))
 def test_recovered_name_must_be_whole_in_its_evidence(evidence):
     spec = _spec(evidence)
     bad = _line(spec, "公司暴露中三环集团仍需核实。")

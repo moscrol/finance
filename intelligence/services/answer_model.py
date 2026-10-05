@@ -31,8 +31,9 @@ _NUMBER_WITH_UNIT_RE = re.compile(
     r"(?:%|pct|bp|亿元|亿|万|家|只|日|天|周|年|月|元|倍|个|点)"
 )
 _COMPANY_RE = re.compile(
-    r"[\u4e00-\u9fff]{2,10}?(?:股份|集团|银行|证券)"
+    r"[\u4e00-\u9fff]{2,10}(?:股份|集团|银行|证券)"
 )
+_COMPANY_LIST_JOIN_RE = re.compile(r"(?<=(?:股份|集团|银行|证券))(?:和|及|与)")
 # _COMPANY_RE 向左最多吞 10 个汉字，会把公司名前面的虚词一起吞进来：证据里写的是
 # 「三环集团拟最高10亿元回购股份」，正文写「其中三环集团…」，匹配出的却是
 # 「其中三环集团」，`not in allowed_text` 成立，于是报「增加证据外公司」。这些前缀
@@ -51,7 +52,7 @@ _COMPANY_NAME_PREFIXES: tuple[str, ...] = (
     "及",
 )
 # 只认开头的完整引导短语，不在名字内部寻找「中/为/的/和」等单字切点。
-# 上面的惰性公司匹配先结束于第一个公司后缀，避免吞掉相邻的另一家公司。
+# 公司列表只在后缀紧邻显式连接词时分开，不把长名内部的「证券/集团」当边界。
 _COMPANY_CONTEXT_PREFIX_RE = re.compile(
     r"(?:公司暴露(?:包括|包含|涉及|中|含)|"
     r"[\u4e00-\u9fff]{1,6}方向(?:的|包括|包含|涉及)|"
@@ -98,12 +99,12 @@ def _company_is_known_with_context(company: str, allowed_text: str) -> bool:
     if _company_is_known(company, allowed_text):
         return True
     prefix = _COMPANY_CONTEXT_PREFIX_RE.match(company)
-    if prefix is None:
+    if prefix is None or _COMPANY_RE.search(company[:prefix.end()]) is not None:
         return False
     candidate = company[prefix.end():]
     if _COMPANY_RE.fullmatch(candidate) is None:
         return False
-    for occurrence in re.finditer(re.escape(candidate), allowed_text):
+    for occurrence in re.finditer(re.escape(candidate) + r"(?!股份|集团|银行|证券)", allowed_text):
         left = re.search(r"[\u4e00-\u9fff]*$", allowed_text[:occurrence.start()])
         assert left is not None
         context = left.group(0)
@@ -3661,7 +3662,7 @@ def validate_grounded_composer_answer(
         new_companies = sorted(
             {
                 company
-                for company in _COMPANY_RE.findall(sentence.text)
+                for company in _COMPANY_RE.findall(_COMPANY_LIST_JOIN_RE.sub(" ", sentence.text))
                 if not _company_is_known_with_context(company, allowed_text)
             }
         )

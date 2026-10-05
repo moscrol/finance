@@ -18,6 +18,11 @@
 退出码：0 = 全部准入；1 = 有产物实际服务了别的模型（读数作废）；
 2 = 证明不了（没有产物 / 没有任何 turn 带回 model / 有「未回」且未显式放行）。
 
+Workbench 固定流程的 run 没有 Episode 时，也读取 ``trace.jsonl`` 中具名
+``llm_call_ledger`` 的逐次 ``reported_model``；不从报告顶层、配置或请求字段补证。
+身份冲突/坏台账仍拒收，累计快照不能覆盖先前错配，JSON 编码的子分支引用照常追查。
+这是模型身份门，不证明检索环境等价、回答质量或运行成功。
+
 只读、不发请求。判定逻辑在 ``intelligence/eval/model_admission.py``。
 """
 
