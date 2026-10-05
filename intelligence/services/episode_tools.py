@@ -66,7 +66,7 @@ FAST_PATH_RUNNER_SUPPORTED_TYPES = frozenset({"market_technical"})
 # services 不 import runtime，与 DETERMINISTIC_OWNER_TYPES 的包含关系由
 # tests/test_route_composition_gate.py 钉住（同 DO_NOT_LENGTHEN 手法）。
 _FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES | frozenset(
-    {"external_market", "dated_market_review"}
+    {"external_market"}
 )
 _SUPPORT_FOCUS_RE = re.compile(r"支撑")
 _RESISTANCE_FOCUS_RE = re.compile(r"反弹|上涨空间|压力|阻力")
@@ -240,7 +240,10 @@ def _finance_query_basis(
 
 
 _DEFAULT_EVIDENCE_SEARCH_JUDGE = object()
-_AGENT_FINANCE_QUERY_MAX_ROWS = 25
+# 2026-10-06 由 25 放到 60（用户：凡是限制模型能力的都要放开）。历史 run 里约 29% 的
+# 调用要的行数超过 25（写过 30 / 100 / 200）；申万一级 31 个行业、一天四五十只涨停股
+# 在 25 行下都要拆查。60 行在每条证据明细上限内约 2–5 万字，仍在单轮上下文可承受范围。
+_AGENT_FINANCE_QUERY_MAX_ROWS = 60
 
 
 def _agent_finance_parameters() -> dict[str, object]:

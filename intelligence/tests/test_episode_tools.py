@@ -1948,7 +1948,8 @@ def test_agent_finance_query_bounds_broad_result_before_model_observation(
                 float(index) / 10,
                 float(index) / 20,
             )
-            for index in range(60)
+            # 比 Agent 行数上限多出一截，才真的撞到上限（上限 2026-10-06 由 25 放到 60）。
+            for index in range(episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS + 35)
         ],
     )
     connection.close()
@@ -1981,15 +1982,16 @@ def test_agent_finance_query_bounds_broad_result_before_model_observation(
             "time_range": {"start": "2026-07-24", "end": "2026-07-24"},
             "group_by": [],
             "order_by": [{"field": "return_pct", "direction": "desc"}],
-            "limit": 100,
+            "limit": 1000,
         },
         context=context,
         step_id="finance-query-observation-budget:1",
     )
 
-    assert len(observation.evidence) == 25
-    assert observation.trace.result_count == 25
-    assert "已按 Agent 上下文预算截断至 25 条" in observation.observation
+    cap = episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS
+    assert len(observation.evidence) == cap
+    assert observation.trace.result_count == cap
+    assert f"已按 Agent 上下文预算截断至 {cap} 条" in observation.observation
     assert observation.dataset == "sector_daily"
     assert observation.caliber == "fact_sector_daily"
     assert "amount" in observation.payload_field_names

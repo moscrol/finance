@@ -140,11 +140,15 @@ DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 # quick_fact 不在此列（R-20260828-05）：排名/过滤/区间取值必须进 episode
 # 才能碰到 finance_query。单日休市仍由 deterministic_lane_answer 在
 # adapter 之前 canned（C1/C2），不依赖本集合。
+#
+# market_watch / dated_market_review 不在此列（2026-10-06 用户决策原话：「另外episode
+# 可以更好发挥的话就走episode，如果固定的workflow限制了model，那就不要了」）。
+# 同一 GLM、同一工具与库的 Pi 对照里，这两类题让路给引擎 B 后模型零工具调用、
+# 合成器截断换模板、逐句删稿，答案明显差于让模型自己查的 Pi；走 Episode 的题
+# 正确性已与 Pi 持平。推翻的是 2026-08-30 编排合同 §7「❌ 把包并进 A 当第一执行者」。
 DETERMINISTIC_OWNER_TYPES = frozenset(
     {
         "external_market",
-        "dated_market_review",
-        "market_watch",
         "watchlist_digest",
         "disclosure_scan",
     }

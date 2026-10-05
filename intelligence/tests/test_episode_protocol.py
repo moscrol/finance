@@ -362,17 +362,29 @@ def _static_contract_text() -> str:
 # restores contract-owned representation fields before unchanged validation.
 # 2026-10-05: 用户授权放宽篇幅，draft 1000 改为共享常量 4000；其余约束不变。
 # AST 指纹不含插值常量值，数值另由下面的模型实际指令测试锁定。
+# 2026-10-06: 【何时停止】里的篇幅句改了措辞（用户：凡是限制模型能力的都放开）。
+# 旧句「draft 控制在 N 汉字以内，优先保留直接判断、决定性依据……」要模型为篇幅
+# 取舍依据；新句「篇幅由问题决定，上限 N 汉字（只为保证结构化终止完整）」，并正面要求
+# 写清关键数据及其日期与来源、不为压篇幅省掉证据里的关键数字。
+# 同日【何时停止】也改了：旧句「必需输出已有足够直接证据时应停止研究」让模型够了就停
+# （同题 8792 每题 1–7 次查询，Pi 5–21 次并自发做双源互证）；新句要求关键判断尽量
+# 交叉核对（另一数据源、相邻日期或反证）后再停，仍禁止为耗步数调与问题无关的工具。
+# 其余约束一字未动。
 _CONTRACT_FINGERPRINT = (
-    "10d1a82a896cba7765f41a1e9ff19c860df5d5a10f64cb9533eddc2e4dce74fe"
+    "f3aa46a893f44398470d163ab0b0532dba99befea3c542337d6dfd27bda70aed"
 )
 
 
 def test_instruction_draft_cap_is_the_authorized_shared_budget() -> None:
     from intelligence.services.episode_protocol import EPISODE_DRAFT_MAX_CHARS
 
-    assert EPISODE_DRAFT_MAX_CHARS == 4000
+    assert EPISODE_DRAFT_MAX_CHARS == 6000
     instructions = build_episode_instructions(_frame(), _context(_frame()), _registry())
-    assert f"draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in instructions
+    assert f"上限 {EPISODE_DRAFT_MAX_CHARS} 汉字" in instructions
+    assert "篇幅由问题决定" in instructions
+    # 旧措辞让模型为了篇幅主动删依据，放开后不得回来。
+    assert "优先保留直接判断、决定性依据" not in instructions
+    assert "不要为了压缩篇幅省掉证据里的关键数字" in instructions
 
 
 def test_instruction_reshape_kept_every_constraint_verbatim() -> None:

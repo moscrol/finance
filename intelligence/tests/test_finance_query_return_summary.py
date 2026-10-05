@@ -255,13 +255,16 @@ def test_sector_code_universes_survive_projection_without_name_merging(return_db
 
 
 def test_long_date_set_refuses_instead_of_delivering_truncated_card(return_db):
+    # 日期集合要长到超过证据卡预算才测得到拒交（预算 2026-10-06 由 240 放到 800）。
+    days = 400
+    start = date(2026, 9, 18) - timedelta(days=days - 1)
     with duckdb.connect(str(return_db)) as con:
         con.execute("DELETE FROM fact_stock_daily")
         con.executemany("INSERT INTO fact_stock_daily VALUES (?, '600673.SH', 1)", [
-            (date(2026, 6, 1) + timedelta(days=i),) for i in range(90)
+            (start + timedelta(days=i),) for i in range(days)
         ])
     with pytest.raises(fq.FinanceQueryLimitExceeded, match="缩短 time_range"):
-        run(return_db, time_range={"start": "2026-06-01", "end": "2026-09-18"})
+        run(return_db, time_range={"start": start.isoformat(), "end": "2026-09-18"})
 
 
 def test_sample_day_extrema_exposes_the_live_counterexample(return_db):

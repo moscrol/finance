@@ -1098,7 +1098,7 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 **B 在 Workbench 里接两种题，别只记住第一种**（2026-08-30 修正，此前本行写「仅三条确定性题型」，三处都已漂）：
 
-1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES` 实为**五条**——`external_market` / `dated_market_review` / `market_watch` / `watchlist_digest` / `disclosure_scan`（`continuous_turn_adapter.py:111`，个数以该常量为准，勿写死）。**`quick_fact` 已被明确移出**（`:108`，R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。
+1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES`（`continuous_turn_adapter.py`，个数以该常量为准，勿写死）现为 `external_market` / `watchlist_digest` / `disclosure_scan`。**`quick_fact` 已被明确移出**（R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。**`market_watch` / `dated_market_review` 2026-10-06 起也移出、走 A**（用户决策原话：「另外episode可以更好发挥的话就走episode，如果固定的workflow限制了model，那就不要了」）：同一 GLM、同一工具与库的 Pi 对照里，这两类题让路给 B 后模型零工具调用、合成器截断换模板、逐句删稿，答案明显差于让模型自己查的 Pi。这推翻了 2026-08-30 编排合同 §7 的「❌ 把包并进 A 当第一执行者」，修订记录在该合同文末。
 2. **ownerless 长尾 → `generic_research_owner` 循环**：`research_task_contract` 非空时 `_answer_query_impl` **整条早退**、D 块一次不跑（`ask.py:3055-3059`）；契约只在 `conversation_orchestrator.py:2809` 设上，条件是「研究题 + 无专属椅子」（`:2245`）。这一条是 `run_agent_loop`，**不是写死流程**——把 B 整体说成「写死流程」会把它接长尾的能力漏掉。
 
 A 与 B 的门禁接线不对等：A 的结构门、`episode_semantic_verifier` 与修复循环由 `runtime/continuous_turn_adapter.py` 装配；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。判官实现已位于 `services/episode_semantic_verifier.py`，不能再用「判官在 runtime 所以 B 不能引用」解释现状；模块可引用不等于两条引擎已接通同一门禁。历史并轨方案见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3，现状以源码及对应测试为准。
@@ -1183,6 +1183,14 @@ A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢�
 - **B 的绑定边界（同日续修）**：完整出处标记结束一个绑定单元，同一物理行里的多个标记分别解析；不按标点拆作者的语义、不合并邻句证据。解析、逐句修复、主体改绑、截断保留、公开呈现和判官输入共用 `normalize_grounded_binding_lines`。无出处尾句、残缺标记、空标记及未知来源仍拒收；不补写公司名、不代选来源。D4 原稿有 20 个标记却只被旧解析器读成 7 段，先前把后续绑定丢失归咎于作者漏引的判断已纠正。
 
 - **B 的公司上下文（10-06 续修候选）**：只恢复候选开头有限的完整引导短语（公司暴露、方向、为重点的业务描述），不在名字内部按「中/为/的」切后缀。恢复后的完整名字须在当前绑定证据的可识别左边界出现，不递归剥前缀，不借邻句或全答案证据；仅在公司后缀紧邻显式列表连接词时分开相邻公司，不把长名内部的「证券/集团」当公司边界。此规则不是完整中文实体识别，也不改变数字、来源或事实类型约束；局部误报消失不代表整稿通过。
+
+**2026-10-06 模型优先（用户：「总之初衷就是要发挥model的能力，让模型回答的更好」，并要求「什么时间预算啊等等限制模型能力的，都要做优化」）**，在上面这些修补之上继续放开：
+
+- **盘面题回到 A**：见上「两条引擎」第 1 条。单日复盘的必需输出把 `direct_assessment` 放在首位（`task_frame._default_required_outputs`），因为分类器会把「高标晋级有没有空档」这类具体问题也判成 `dated_market_review`，旧三格里没有「回答用户问的那件事」。
+- **A 的工具观察上限**：`tool_result_budget.MAX_OBSERVATION_CHARS` / `MAX_EVIDENCE_DETAIL_CHARS` / `MAX_EVIDENCE_TITLE_CHARS` 放大，按 Pi 同题 134 次工具调用实测标定，正常结果整份进模型；B 的 `agent_research` 读同一常量。旧上限截掉了 28% 的观察叙述。
+- **A 的终稿篇幅**：`EPISODE_DRAFT_MAX_CHARS` 再放大，提示词改成「篇幅由问题决定，上限只为保证结构化终止完整」，不再要求「只保留决定性依据」。
+- **主体候选不再先追问**：实体解析处于 candidate（「X+主题词」形状的未登记名称）时，`turn_controller` 不硬锚、也不反问，把候选写进 `ambiguities` / `assumptions` 交给研究核实；查无此标的由模型说明检索范围。升级前已挂起的追问仍可按原路径收口。
+- **Episode 本来就不缺时间**：生产启动器已是 max 档（回合墙钟、研究步数、工具面全开），同题实测 1–3 分钟模型自己停手；卡住它的是上面这几条，而不是墙钟。
 
 10-05 七组旧/候选配对的有限事实评分均通过，但候选仍大量删句，不能据此宣称整体质量改善。后续引用修补只做同稿离线重放，非重新生成或公开交付验收；见[接续记录](handoffs/2026-10-05-harness-budget-takeover.md)。
 

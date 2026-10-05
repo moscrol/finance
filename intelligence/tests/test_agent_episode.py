@@ -2728,8 +2728,10 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "公开网页中的预测或观点" in system_prompt
     assert "news_search 未返回同一时间窗口证据" in system_prompt
     assert "不得用普通 web_search 摘要补成已核验因果" in system_prompt
-    assert "不得为了耗尽步数调用非必需工具" in system_prompt
-    assert f"{EPISODE_DRAFT_MAX_CHARS} 汉字以内" in system_prompt
+    # 2026-10-06：停止条件从「够了就停」改成「交叉核对后再停」，仍禁止为耗步数乱调工具。
+    assert "关键判断已尽量交叉核对" in system_prompt
+    assert "不得为了耗尽步数调用与问题无关的工具" in system_prompt
+    assert f"上限 {EPISODE_DRAFT_MAX_CHARS} 汉字" in system_prompt
 
 
 def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> None:
@@ -2787,7 +2789,7 @@ def test_valuation_model_contract_explains_scenario_and_financial_bindings() -> 
     assert "没有直接 evidence 的项目" in rules
 
 
-def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds() -> None:
+def test_finalization_reminder_keeps_key_evidence_without_new_thresholds() -> None:
     frame = _frame()
     model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
 
@@ -2800,7 +2802,9 @@ def test_finalization_reminder_prefers_decisive_evidence_without_new_thresholds(
     finalization_messages = model.calls[1]["messages"]
     reminder = finalization_messages[-1]["content"]
     assert "不要逐条复述全部观察" in reminder
-    assert "只保留最关键依据" in reminder
+    # 2026-10-06：不再要模型「只保留最关键依据」——那是为篇幅删依据。
+    assert "写清支撑结论的关键依据" in reminder
+    assert "只保留最关键依据" not in reminder
     assert "条件写相对变化" in reminder
     assert "不得新增证据中没有的数值阈值" in reminder
     assert "一个明确标注的主观基准区间" in reminder

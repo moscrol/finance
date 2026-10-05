@@ -240,3 +240,15 @@ A 看见这些题型继续拒收——这是椅子，不是故障。`answer_quer
 - 勒死单 P0/P1 旁支交付不自动兑现本单判别 1–3。
 - **`market_watch` / `dated_market_review` / `external_market` 今天仍能 compose**（三把都算，初版漏了盘面），算合同未兑现，归 P3，不得解释成「工作流引擎还在」。盘面的具体形状见 §0 判别 1 那段：`compose=False` 只在 `pack.should_stop` 时锁，正常出数时沿用 `compose=True`。**验收时别拿停摆态当通过**。
 - 门页在落地前提前改成目标态会让下一个 agent 把未实施当成现状——**改代码的那次提交再改门页**。
+
+---
+
+## 11. 修订：盘面题回到 A（2026-10-06，用户决策）
+
+§7 的「❌ 把包并进 A 当第一执行者」与 §8「包填格 + 只 A 做研究」对 `market_watch` / `dated_market_review` 两类题**作废**；`external_market` / `watchlist_digest` / `disclosure_scan` 不在本次修订范围，仍按本稿。
+
+用户原话（2026-10-06）：「另外episode可以更好发挥的话就走episode，如果固定的workflow限制了model，那就不要了。总之初衷就是要发挥model的能力，让模型回答的更好」。
+
+依据：同一 GLM-5.3-flash、同一套工具与主库，10-04/05 的 8792 对 Pi 同题对照（`~/.finance-runtime/harness-arms-20261004/blind-review-v5/REPORT.md`、`~/.finance-runtime/pi-vs-8792-claude-review-1005/ANALYSIS.md`）里，盘面题走 B 后模型零工具调用，合成器在强制思考下截断后整篇换模板，校验器逐句删稿，公开稿前贴内部数据包；Pi 自选 6–21 次查询，答案明显更好。走 A 的题正确性已与 Pi 持平。本稿当年担心的「润色即第二作者、数字所有权破」，由 A 已有的 E 号证据绑定与结构门承担，不再靠禁止模型执笔。
+
+落地：`continuous_turn_adapter.DETERMINISTIC_OWNER_TYPES` 去掉这两类题（`forecast_residual_budget.DO_NOT_LENGTHEN_QUESTION_TYPES` 同步），门页同提交改。B 的盘面包代码暂不删：先用旁路实例同题复测确认 A 不比 Pi 差，再另开单清理。
