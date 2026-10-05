@@ -688,9 +688,13 @@ class FinanceResearchHarness:
                 f"错误：{detail}"
             )
         if kind == "invalid_finish":
+            # 2026-10-06 旁路复测 D6：模型先写了一份完整的 Markdown 回答（不是 JSON），
+            # 被拒后重写时压成了 215 字的摘要——修格式不该顺手删内容。
             return (
                 "上一条终止输出无效。请保留当前任务和全部观察，"
                 "修正下列格式或内容问题后输出 FINAL_JSON。"
+                "若上一条正文本身已是完整回答、只是没按 JSON 输出，就把正文原样放进 draft"
+                "（不要缩写，不要删掉证据里的数字），补齐 bindings。"
                 "若还缺事实，仅在研究仍开放且剩余预算允许时使用当前授权工具补查；"
                 "不能补齐则明确 partial 和具体 gap，不猜补证据。"
                 f"错误：{detail}"
