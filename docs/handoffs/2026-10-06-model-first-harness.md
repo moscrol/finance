@@ -1,6 +1,6 @@
 # 2026-10-06 模型优先 harness：盘面题回 Episode，放开卡模型的上限与门
 
-分支 `feat/model-first-harness-1006`，叠在 #52（`fix/harness-budget-unconstraint-1005`）头 `c6961f4c7` 上。
+分支 `feat/model-first-harness-1006`，起初叠在 #52（`fix/harness-budget-unconstraint-1005`）头 `c6961f4c7` 上，收尾时变基到 #52 新头 `842e4bff9`（下文提交号为变基前的号，内容不变）。
 
 ## 背景
 
