@@ -1178,6 +1178,9 @@ A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢�
 - **B 的 composer 截断**：保留到最后一句出处标记完整的句子，照常过逐句确定性门禁；phase 记 `status=ok` + `reason_code=truncated_response`。一句完整的都没有才降级。**A 的规则不变**：工具轮或 FINAL_JSON 一旦 `length` 仍整轮拒收（见上「连续运行保存与截断边界」）——A 的终稿是一个整体 JSON，B 的正文是逐句自带绑定的。
 - **锚点日期**：用户问题里的日期与 AnswerSpec 站立日不算证据外日期（`answer_model.anchor_dates_for`）。推断 / 缺口句可直接引用；事实句只在同时写出所绑证据自己的日期（对照写法）时放行，单独把锚点日期挂在别的交易日的数字上仍按 `grounded_composer_added_date` 拦。
 - **A 的终稿篇幅**：`episode_protocol.EPISODE_DRAFT_MAX_CHARS`，系统提示、收口提醒与终局恢复器三处共用；GLM 5.x 工具轮显式带 `llm_refine.agent_turn_max_tokens`（`LLM_AGENT_MAX_TOKENS_BY_MODEL`，未命中的模型请求体不变），不再靠压正文防截断。
+- **B 的引用记账**：已引用的已知 `evidence_atom_ids` 可确定性补回遗漏的 owner claim；不改正文或 `claim_type`，未知编号与缺口升级成事实仍拒收。只有紧邻「缩量（约）」的幅度可对应负值证据，不能借同句其他位置的「缩量」放行上涨数字；数字抽取保留证据字段分隔，避免把负号吃成词中连接符。
+
+10-05 七组旧/候选配对的有限事实评分均通过，但候选仍大量删句，不能据此宣称整体质量改善。后续引用修补只做同稿离线重放，非重新生成或公开交付验收；见[接续记录](handoffs/2026-10-05-harness-budget-takeover.md)。
 
 判官独立性另计：`deterministic` 不曾调用模型判官，公开 `correlated_judge=null`，不能把机械门的 `passed` 当成独立审核。方差评测优先读取私有 `judge_mode`，将其计入 `no_judge`（包括修复前公开误写 `false` 的样本），不进入 `independent_n`；只有新公开收据而无私有块时记 unknown。旧收据若既无模式又无私有原件，无法追溯是否关闭，不能据此给关闭实验背书。
 
