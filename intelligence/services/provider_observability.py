@@ -16,7 +16,33 @@ ProviderStatus = Literal[
     "fallback_success",
     "fallback_failed",
     "future_of_cutoff",
+    "error",
+    "timeout",
+    "permission_denied",
+    "bad_param",
+    "ok",  # existing finance_query historical-match producer
+    "failed",  # legacy ask orchestration traces
+    "skipped",
 ]
+
+# These statuses describe a completed lookup, not verified facts. In particular,
+# empty is not a negative fact, stale is not fresh, and future material is only
+# a cutoff notice. Unknown producer statuses must not default to success.
+_LOOKUP_RESULT_STATUSES = frozenset({
+    "success", "ok", "partial", "empty", "stale", "fallback_success", "future_of_cutoff",
+})
+_FAILED_RESULT_STATUSES = frozenset({
+    "error", "timeout", "permission_denied", "bad_param", "request_error",
+    "parse_error", "proxy_unavailable", "fallback_failed", "disabled", "not_attempted",
+    "failed", "skipped",
+})
+
+
+def provider_result_error(status: str) -> str | None:
+    """Stable public failure code; never project an unknown provider string."""
+    if status in _LOOKUP_RESULT_STATUSES:
+        return None
+    return status if status in _FAILED_RESULT_STATUSES else "unknown_provider_status"
 
 
 @dataclass(frozen=True)
