@@ -56,10 +56,11 @@ def _replay_run(run: Path, model, decode_spec) -> dict:
         raise ValueError("run has no composer draft; templates and Episode answers are not drafts")
     payload = json.loads(original["answer_spec.json"])
     normalizations = []
-    # Some historical AnswerSpecs serialize null; the existing parser wants str.
-    if payload["research_spec"].get("company_scope") is None:
+    # Market-only historical runs use null/blank; the parser requires nonblank str.
+    scope = payload["research_spec"].get("company_scope")
+    if scope is None or (isinstance(scope, str) and not scope.strip()):
         payload["research_spec"]["company_scope"] = "-"
-        normalizations.append("research_spec.company_scope:null-or-missing->dash")
+        normalizations.append("research_spec.company_scope:empty->dash")
     spec = decode_spec(payload)
     canonical = model.rebind_entity_claim_ids(
         model.canonicalize_grounded_claim_ids(raw, spec), spec,

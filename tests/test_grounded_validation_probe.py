@@ -65,14 +65,15 @@ def test_replay_rejects_missing_draft_or_question(frozen_run, filename, field, b
         probe._replay_run(frozen_run, answer_model, answer_spec_from_payload)
 
 
-def test_replay_records_nullable_scope_normalization(frozen_run):
+@pytest.mark.parametrize("empty_scope", [None, "", " "])
+def test_replay_records_empty_scope_normalization(frozen_run, empty_scope):
     path = frozen_run / "answer_spec.json"
     payload = json.loads(path.read_text())
-    payload["research_spec"]["company_scope"] = None
+    payload["research_spec"]["company_scope"] = empty_scope
     path.write_text(json.dumps(payload))
     row = probe._replay_run(frozen_run, answer_model, answer_spec_from_payload)
-    assert row["normalizations"] == ["research_spec.company_scope:null-or-missing->dash"]
-    assert json.loads(path.read_text())["research_spec"]["company_scope"] is None
+    assert row["normalizations"] == ["research_spec.company_scope:empty->dash"]
+    assert json.loads(path.read_text())["research_spec"]["company_scope"] == empty_scope
 
 
 def test_replay_rejects_inputs_changed_during_validation(frozen_run):
