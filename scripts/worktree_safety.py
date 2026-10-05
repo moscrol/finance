@@ -173,16 +173,9 @@ def sample_launchers(*, timeout: float, home: Path | None = None) -> dict:
     """launchd plists, ~/.local/bin launchers and runtime symlinks (no lsof; cheap to repeat)."""
     home = home or Path.home()
     references, errors = [], []
-    home_real = Path(os.path.realpath(home))
 
     def add_reference(raw: str, source: Path, kind: str = "launcher"):
-        target = Path(os.path.realpath(raw))
-        # A launcher whose WorkingDirectory is $HOME (or `/`, `/Users`) is not the code root of any
-        # tree; keeping it would mark every tree under the home directory as referenced.
-        # 2026-09-25: an exec-server plist whose WorkingDirectory was the home directory blocked 37 trees.
-        if kind != "process" and home_real.is_relative_to(target):
-            return
-        references.append({"kind": kind, "path": str(target), "source": str(source)})
+        references.append({"kind": kind, "path": os.path.realpath(raw), "source": str(source)})
 
     for directory, is_plist in ((home / "Library/LaunchAgents", True), (home / ".local/bin", False)):
         try:
@@ -221,13 +214,18 @@ def sample_launchers(*, timeout: float, home: Path | None = None) -> dict:
 
 
 def context_blockers(path: str, context: dict) -> list[str]:
+    """References that name the tree itself or a path inside it.
+
+    A reference to an ancestor names that directory, not the trees nested below it: $HOME
+    (2026-09-25: one exec-server plist with WorkingDirectory=$HOME blocked 37 trees), the main
+    checkout root and /private/tmp (2026-10-05: launchers naming them blocked every tree under
+    .worktrees, .claude/worktrees and /private/tmp). A job that runs code from a tree names a
+    path inside it, and that still blocks.
+    """
     root = Path(path).resolve()
     blockers = []
     for ref in context["references"]:
-        target = Path(ref["path"])
-        if target.is_relative_to(root) or (
-            ref["kind"] != "process" and root.is_relative_to(target)
-        ):
+        if Path(ref["path"]).is_relative_to(root):
             label = "进程" if ref["kind"] == "process" else "被 launchd/启动器引用"
             blockers.append(f"{label}: {ref['source']} -> {ref['path']}")
     return sorted(set(blockers))
