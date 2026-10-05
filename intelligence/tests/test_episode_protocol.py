@@ -360,9 +360,19 @@ def _static_contract_text() -> str:
 # 2026-09-21: distinguish local nonmatches, unverified gaps and negative facts.
 # 2026-09-28: material-only authors use a compact versioned envelope; runtime
 # restores contract-owned representation fields before unchanged validation.
+# 2026-10-05: 用户授权放宽篇幅，draft 1000 改为共享常量 4000；其余约束不变。
+# AST 指纹不含插值常量值，数值另由下面的模型实际指令测试锁定。
 _CONTRACT_FINGERPRINT = (
-    "6fb986a32565cf8c5ee8d5ffb0dbc49a79be897bdf0fd3393773a9229c23368d"
+    "10d1a82a896cba7765f41a1e9ff19c860df5d5a10f64cb9533eddc2e4dce74fe"
 )
+
+
+def test_instruction_draft_cap_is_the_authorized_shared_budget() -> None:
+    from intelligence.services.episode_protocol import EPISODE_DRAFT_MAX_CHARS
+
+    assert EPISODE_DRAFT_MAX_CHARS == 4000
+    instructions = build_episode_instructions(_frame(), _context(_frame()), _registry())
+    assert f"draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in instructions
 
 
 def test_instruction_reshape_kept_every_constraint_verbatim() -> None:

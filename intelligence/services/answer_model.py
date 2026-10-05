@@ -24,6 +24,8 @@ _DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
 _NUMBER_RE = re.compile(
     r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?(?![A-Za-z0-9])"
 )
+# 只允许紧邻「缩量（约）」的那个幅度省略负号，不能因同句出现缩量就放行所有正数。
+_SHRINK_MAGNITUDE_PREFIX_RE = re.compile(r"缩量\s*(?:约\s*)?$")
 _NUMBER_WITH_UNIT_RE = re.compile(
     r"(?<![A-Za-z])[-+]?\d+(?:\.\d+)?\s*"
     r"(?:%|pct|bp|亿元|亿|万|家|只|日|天|周|年|月|元|倍|个|点)"
@@ -3172,7 +3174,8 @@ def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str
 
     atom id 唯一指向它的所属 claim，所以这是可确定还原的笔误，不是无出处的引用。
     parse_decision_brief 早就对 brief 做了同样的规范化（canonical_claim_id），
-    这里只是把同一条规则补到 composer 侧。
+    这里只是把同一条规则补到 composer 侧。若 evidence_atom_ids 已引用已知 atom，
+    但 claim_ids 漏了它的 owner，也确定性补回；未知 ID 和非事实属性留给原校验器拒绝。
     """
     allowed = {claim.claim_id for claim in _all_answer_claims(answer_spec)}
     owner = {
@@ -3196,6 +3199,12 @@ def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str
                 mapped.append(resolved)
             else:
                 mapped.append(raw_id)
+        # 10-05 冻结复测：结论句已引事实 atom，只因漏列 owner claim 被整句删除。
+        # 不改正文/claim_type、不删除未知 ID；补回 gap owner 后事实升级检查仍必须拦截。
+        for atom_id in re.split(r"[,，、\s]+", match.group("atom_ids")):
+            resolved = owner.get(atom_id.strip(), "")
+            if resolved in allowed:
+                mapped.append(resolved)
         deduped = list(dict.fromkeys(mapped))
         if deduped == raw_ids:
             return match.group(0)
@@ -3511,9 +3520,11 @@ def validate_grounded_composer_answer(
             "",
             _expanded_date_text(allowed_text),
         )
+        # 数字不能在抹掉字段分隔符后抽取：total_amount\n-10.27 拼成
+        # total_amount-10.27 会让正则跳过负号，再把 +10.27 当成有据数字。
         allowed_numbers = {
             _normalize_number_token(token)
-            for token in _NUMBER_RE.findall(normalized_allowed_text)
+            for token in _NUMBER_RE.findall(_expanded_date_text(allowed_text))
         }
         negative_magnitude = any(
             term in sentence.text
@@ -3551,14 +3562,17 @@ def validate_grounded_composer_answer(
                 if re.sub(r"\s+", "", token) not in normalized_allowed_text
             }
             | {
-                token
-                for token in _NUMBER_RE.findall(date_scope)
+                match.group(0)
+                for match in _NUMBER_RE.finditer(date_scope)
                 if (
-                    _normalize_number_token(token) not in allowed_numbers
+                    _normalize_number_token(match.group(0)) not in allowed_numbers
                     and not (
-                        negative_magnitude
-                        and not _normalize_number_token(token).startswith("-")
-                        and f"-{_normalize_number_token(token)}"
+                        (
+                            negative_magnitude
+                            or _SHRINK_MAGNITUDE_PREFIX_RE.search(date_scope[:match.start()])
+                        )
+                        and not _normalize_number_token(match.group(0)).startswith("-")
+                        and f"-{_normalize_number_token(match.group(0))}"
                         in allowed_numbers
                     )
                 )
