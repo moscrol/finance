@@ -544,7 +544,7 @@ taskctl issue list
 
 ## 6. 已在途，不要重复派
 
-- **`worktree_safety` 前缀误报修复**：用户 10-05 在独立会话启动，截至 16:45 还没开 PR。WP-12a 依赖它。
+- **`worktree_safety` 前缀误报修复**：用户 10-05 在独立会话启动，已开 PR #49（`fix/worktree-safety-ancestor-refs-1005`），待合入。WP-12a 要等它合入后再做。
 - **8792 vs Pi 对照线**：会话 `claude-code:bec914d0…`，以及会话树 `8792-pi-performance-analysis`。认领 WP-1 前，先在 FINANCEWORKS-5 协调。
 
 ## 7. 登记与回写
