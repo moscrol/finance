@@ -1301,6 +1301,42 @@ def _apply_compat_payload(payload: dict, *, model: str) -> None:
         return
 
 
+# Episode 工具轮的输出上限（2026-10-05）。终局 draft 篇幅从 1000 字放到 4000 字后，
+# FINAL_JSON 连同强制思考的 token 可能越过端点的默认上限，而默认值没有公开依据
+# （本机 1603 个历史工具轮最大实得约 5000 token，从未截断，但那是 1000 字上限下的读数）。
+# Coding Plan 端点对 glm-5.x 接受 131072（Pi 对同一模型的配置），这里取 32768。
+# 形如「glm-5:32768」，逗号分隔、首个命中的模型名前缀生效；未命中的模型请求体逐字节同前；
+# 设成空串即整体关闭。
+AGENT_TURN_MAX_TOKENS_ENV = "LLM_AGENT_MAX_TOKENS_BY_MODEL"
+_DEFAULT_AGENT_TURN_MAX_TOKENS_BY_MODEL = "glm-5:32768"
+
+
+def agent_turn_max_tokens(model: str | None) -> int | None:
+    """工具轮（Episode）该带的 ``max_tokens``；不命中返回 None，不改请求体。"""
+
+    spec = os.environ.get(AGENT_TURN_MAX_TOKENS_ENV)
+    if spec is None:
+        spec = _DEFAULT_AGENT_TURN_MAX_TOKENS_BY_MODEL
+    name = (model or "").strip().lower()
+    for clause in spec.split(","):
+        prefix, sep, value = clause.partition(":")
+        prefix = prefix.strip().lower()
+        if not (sep and prefix and name.startswith(prefix)):
+            continue
+        try:
+            limit = int(value.strip())
+        except ValueError:
+            return None
+        return limit if limit > 0 else None
+    return None
+
+
+def _apply_agent_turn_max_tokens(payload: dict, *, model: str) -> None:
+    limit = agent_turn_max_tokens(model)
+    if limit is not None:
+        payload["max_tokens"] = limit
+
+
 def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
     """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
 
@@ -1670,6 +1706,7 @@ def _post_chat_message_stream(
         # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
         stream_options={"include_usage": True},
     )
+    _apply_agent_turn_max_tokens(payload, model=provider.model)
     _apply_thinking_controls(
         payload,
         disable_thinking=(
@@ -1816,6 +1853,7 @@ def _post_chat_message(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = _chat_payload(provider, messages, temperature)
+    _apply_agent_turn_max_tokens(payload, model=provider.model)
     _apply_thinking_controls(
         payload,
         disable_thinking=(
@@ -2438,12 +2476,17 @@ def synthesize_messages(
     deadline: Deadline | None = None,
     max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
     max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
+    allow_truncated: bool = False,
 ) -> tuple[SynthesisResult | None, str]:
     """Run a synthesis turn from a full ``messages`` list (system + history).
 
     Shared by single-turn :func:`synthesize` and the multi-turn driver. Returns
     ``(result, reason)``; on any failure ``result`` is ``None`` and ``reason``
-    explains why so the caller degrades gracefully."""
+    explains why so the caller degrades gracefully.
+
+    ``allow_truncated``：调用方能逐句校验时传 True，``finish_reason=length`` 不再
+    整篇作废，而是带着 ``finish_reason="length"`` 交回，由调用方丢掉残尾。缺省
+    False，其余调用方（判官 JSON、旧合成）行为不变。"""
     rejection = _budget_rejection()
     if rejection is not None:
         return None, rejection
@@ -2535,8 +2578,10 @@ def synthesize_messages(
         return None, "LLM 合成返回空内容，已降级为模板"
     if finish_reason != "stop":
         if finish_reason == "length":
-            return None, "LLM 合成响应被截断，已降级为模板"
-        return None, "LLM 合成未正常停止，已降级为模板"
+            if not allow_truncated:
+                return None, "LLM 合成响应被截断，已降级为模板"
+        else:
+            return None, "LLM 合成未正常停止，已降级为模板"
     return (
         SynthesisResult(
             answer=text,

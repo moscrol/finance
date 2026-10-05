@@ -600,12 +600,14 @@ def run_judge_replay(
     issues = answer_model.validate_grounded_composer_answer(
         candidate,
         frozen.answer_spec,
+        question=frozen.question,
     )
     serialized_issues = tuple(issue.to_dict() for issue in issues)
     if any(issue.severity == "error" for issue in issues):
         repaired = answer_model.repair_grounded_composer_answer(
             candidate,
             frozen.answer_spec,
+            question=frozen.question,
         )
         if repaired is None:
             return _blocked_judge_artifact(

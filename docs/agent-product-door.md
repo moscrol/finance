@@ -1170,6 +1170,15 @@ A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢�
 
 读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：单引证据的明确来源/公告发布日期断言与其唯一 `source_date` 矛盾 → `evidence_date_mismatch` 删句（两种模式都生效）；计划/假设/疑问与其他事件日期不因同句引用被认作来源日期，正文里偶然出现的同日也不能给错误发布日期背书（该门有意不作完备语义判定）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
 
+### 写手的篇幅、时间与截断（2026-10-05，Pi 对照后放开）
+
+起因是同题 8792 对 Pi 的对照：固定流程的 composer 在强制思考的 GLM 上多次 `finish_reason=length`，整篇换成模板；校验器把用户问题自带的日期判成「证据外日期」，删掉模型「数据截至 X，并不是您问的 Y」的边界说明。数值都以代码为准，不在本页写死：
+
+- **B 的 composer / 判官输出上限**：`ask_synthesis.GROUNDED_COMPOSER_MAX_TOKENS` / `GROUNDING_JUDGE_MAX_TOKENS`（可用同名 env 回调）；时间预算在 `research_policy.grounded_deep`。准入地板与授时分开：地板 = `MINIMUM_COMPOSER_SLICE_SECONDS` + 判官预留，授时可以更大；两者绑成一个数时，授时一抬，检索稍慢 composer 就会被整段跳过。
+- **B 的 composer 截断**：保留到最后一句出处标记完整的句子，照常过逐句确定性门禁；phase 记 `status=ok` + `reason_code=truncated_response`。一句完整的都没有才降级。**A 的规则不变**：工具轮或 FINAL_JSON 一旦 `length` 仍整轮拒收（见上「连续运行保存与截断边界」）——A 的终稿是一个整体 JSON，B 的正文是逐句自带绑定的。
+- **锚点日期**：用户问题里的日期与 AnswerSpec 站立日不算证据外日期（`answer_model.anchor_dates_for`）。推断 / 缺口句可直接引用；事实句只在同时写出所绑证据自己的日期（对照写法）时放行，单独把锚点日期挂在别的交易日的数字上仍按 `grounded_composer_added_date` 拦。
+- **A 的终稿篇幅**：`episode_protocol.EPISODE_DRAFT_MAX_CHARS`，系统提示、收口提醒与终局恢复器三处共用；GLM 5.x 工具轮显式带 `llm_refine.agent_turn_max_tokens`（`LLM_AGENT_MAX_TOKENS_BY_MODEL`，未命中的模型请求体不变），不再靠压正文防截断。
+
 判官独立性另计：`deterministic` 不曾调用模型判官，公开 `correlated_judge=null`，不能把机械门的 `passed` 当成独立审核。方差评测优先读取私有 `judge_mode`，将其计入 `no_judge`（包括修复前公开误写 `false` 的样本），不进入 `independent_n`；只有新公开收据而无私有块时记 unknown。旧收据若既无模式又无私有原件，无法追溯是否关闭，不能据此给关闭实验背书。
 
 写手连接由 Workbench「模型连接」或内置 provider 链选择，不受 `continuous_glm` 历史引擎名限制。K3（精确模型名 `kimi-k3`）的 Chat Completions 请求统一不传 `temperature`，因为现有网关会拒绝该参数；其余模型保持原采样参数，工具、流式与 token 上限不变。部署中的首选/兜底、判官模式以启动环境及实际 run 自报模型为准，不在本页写死。

@@ -15,7 +15,8 @@ owner 的检索窗口里，而地板是按根 180s 标定的——发钱的和�
 这里钉的是不变量而不是某次跑通。断言全部落在「两个数之间的关系」上，所以将来谁再动
 ``composer_grant_seconds`` / ``judge_reserve_seconds`` / 供给信封，红的是断言而不是线上：
 
-1. 地板必须恰好等于两段之和（不是另拍的常量）；
+1. 地板必须恰好等于「最小可写 composer 段 + 判官预留」（不是另拍的常量），
+   授时不得低于那一段（2026-10-05 起授时与地板分开，见下方类说明）；
 2. owner 检索窗口单独供给时，quick/standard 必然装不下——这是回归见证，同时说明
    「把 for_tier 的 90 抬上去」是错的杠杆（那把尺子正被 benchmark 用作 A/B 基线）；
 3. 根信封供给时，三个 tier 全部可准入；
@@ -31,7 +32,10 @@ from intelligence.services.research_contract import (
     ResearchDeadline,
     ResearchPolicy,
 )
-from intelligence.services.research_policy import grounded_deep
+from intelligence.services.research_policy import (
+    MINIMUM_COMPOSER_SLICE_SECONDS,
+    grounded_deep,
+)
 from intelligence.tests.test_synthesis_phase_observability import (
     _fake_chain,
     _result,
@@ -64,13 +68,30 @@ def _root_synthesis_window() -> float:
 
 
 class TestAdmissionFloorArithmetic:
-    """地板不是拍出来的第三个数，它必须等于它所保护的两段之和。"""
+    """地板不是拍出来的第三个数，它等于「最小可写的一段 composer + 判官预留」。
 
-    def test_floor_is_exactly_grant_plus_judge_reserve(self) -> None:
+    2026-10-05 起授时（composer 最多拿多少）与地板（最少要多少才开写）分开：
+    两者绑成一个数时，授时从 60s 抬到 240s 会把地板一起抬到 297s，检索稍慢
+    composer 就整段被跳过、直接换模板——放宽预算反而丢掉模型答案。
+    """
+
+    def test_floor_is_minimum_composer_slice_plus_judge_reserve(self) -> None:
         assert grounded_deep.minimum_two_phase_entry_seconds == (
-            grounded_deep.composer_grant_seconds
+            MINIMUM_COMPOSER_SLICE_SECONDS
             + grounded_deep.judge_reserve_seconds
         )
+
+    def test_grant_never_drops_below_the_admitted_minimum_slice(self) -> None:
+        assert grounded_deep.composer_grant_seconds >= MINIMUM_COMPOSER_SLICE_SECONDS
+
+    def test_full_two_phase_tail_fits_inside_the_root_turn(self) -> None:
+        """授时拿满时，研究 + composer 满额 + 判官预留仍在根 turn 之内。"""
+
+        assert (
+            _OBSERVED_RESEARCH_SECONDS
+            + grounded_deep.composer_grant_seconds
+            + grounded_deep.judge_reserve_seconds
+        ) <= grounded_deep.root_seconds
 
     @pytest.mark.parametrize("tier", _TIERS)
     def test_owner_retrieval_window_alone_cannot_fund_two_phase(
@@ -255,15 +276,17 @@ class TestAdmissionBehaviourPerTier:
     ) -> None:
         """地板与授时读生效 profile；抬高地板必须立刻改变准入判定。
 
-        这是「门槛和发钱的那套绑在一起」的可执行证据：模块级常量说 97 能进，
-        而生效 profile 说 200 不能进，最终以生效 profile 为准。
+        这是「门槛和发钱的那套绑在一起」的可执行证据：模块级常量说能进，
+        而生效 profile 的地板高过合成窗口、说不能进，最终以生效 profile 为准。
         """
 
         from dataclasses import replace as dataclass_replace
 
+        # 相对值而不是写死的 200：地板必须高过本用例能给出的合成窗口，
+        # 否则授时一调整，这条「抬地板就该拒入」的证据会悄悄变成准入。
         strict = dataclass_replace(
             grounded_deep,
-            minimum_two_phase_entry_seconds=200,
+            minimum_two_phase_entry_seconds=int(_root_synthesis_window()) + 1,
         )
         result = _result()
         assert result.answer_spec is not None

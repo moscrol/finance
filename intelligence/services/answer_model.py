@@ -1631,6 +1631,7 @@ def _heading_gate_issues(
     code: str,
     severity: str,
     fact_severity: str | None = None,
+    anchor_re: re.Pattern[str] | None = None,
 ) -> tuple[QualityIssue, ...]:
     subjects = _allowed_heading_subjects(answer_spec)
     allowed_text, allowed_numbers = _heading_fact_corpus(answer_spec)
@@ -1641,7 +1642,7 @@ def _heading_gate_issues(
             continue
         if _is_disallowed_heading(heading, subjects):
             fact_like = _heading_requires_fact_binding(
-                heading,
+                _scrub_anchor_dates(heading, anchor_re),
                 allowed_text=allowed_text,
                 allowed_numbers=allowed_numbers,
             )
@@ -3335,8 +3336,20 @@ def parse_grounded_sentences(
 def validate_grounded_composer_answer(
     answer: str,
     answer_spec: AnswerSpec,
+    *,
+    question: str = "",
 ) -> tuple[QualityIssue, ...]:
+    """逐句核对 composer 正文没有越出所绑证据。
+
+    ``question``：用户原问题。里面点名的日期（与 AnswerSpec 站立日）是锚点日期，
+    不算「证据外日期」——推断 / 缺口句可以直接引用它来划边界；事实句只在同时写出
+    所绑证据自己的日期时（「数据截至 09-30，并不是 07-22」这种对照）才放行，单独
+    把锚点日期挂在事实句上仍按证据外日期拦，防止把别的交易日的数字说成锚点那天的。
+    缺省空串时与旧行为逐字节一致。
+    """
+
     issues: list[QualityIssue] = []
+    anchor_re = _anchor_date_regex(anchor_dates_for(question, answer_spec)) if question else None
     leaked = _engineering_leaks(
         answer,
         answer_spec,
@@ -3370,6 +3383,7 @@ def validate_grounded_composer_answer(
             code="grounded_composer_unverified_heading",
             severity="warning",
             fact_severity="error",
+            anchor_re=anchor_re,
         )
     )
     atoms = evidence_atoms_from_answer_spec(answer_spec)
@@ -3505,10 +3519,20 @@ def validate_grounded_composer_answer(
             term in sentence.text
             for term in ("下跌", "下降", "回落", "萎缩", "收缩", "减少")
         )
+        # 日期 / 数字只在 ``date_scope`` 上查。锚点日期放行时把它从这份文本里抹掉：
+        # 它是用户问题里的日期，按日期整体放行，「07」「22」不再被当成证据外数字。
+        date_scope = sentence.text
+        if anchor_re is not None:
+            scrubbed, anchor_hits = anchor_re.subn(" ", sentence.text)
+            if anchor_hits and (
+                sentence.claim_type != "fact"
+                or _mentions_supported_date(scrubbed, normalized_allowed_text)
+            ):
+                date_scope = scrubbed
         new_dates = sorted(
             {
                 token
-                for token in _DATE_RE.findall(sentence.text)
+                for token in _DATE_RE.findall(date_scope)
                 if re.sub(r"\s+", "", token) not in normalized_allowed_text
             }
         )
@@ -3523,12 +3547,12 @@ def validate_grounded_composer_answer(
             )
         new_numbers = sorted(
             {
-                token for token in _DATE_RE.findall(sentence.text)
+                token for token in _DATE_RE.findall(date_scope)
                 if re.sub(r"\s+", "", token) not in normalized_allowed_text
             }
             | {
                 token
-                for token in _NUMBER_RE.findall(sentence.text)
+                for token in _NUMBER_RE.findall(date_scope)
                 if (
                     _normalize_number_token(token) not in allowed_numbers
                     and not (
@@ -3705,6 +3729,7 @@ def repair_grounded_composer_answer(
     *,
     rejected_sentence_indexes: tuple[int, ...] = (),
     drop_invalid: bool = False,
+    question: str = "",
 ) -> str | None:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     claim_registry = {
@@ -3713,6 +3738,9 @@ def repair_grounded_composer_answer(
     rejected = set(rejected_sentence_indexes)
     heading_subjects = _allowed_heading_subjects(answer_spec)
     heading_text_corpus, heading_numbers = _heading_fact_corpus(answer_spec)
+    anchor_re = (
+        _anchor_date_regex(anchor_dates_for(question, answer_spec)) if question else None
+    )
     repaired_lines: list[str] = []
     sentence_index = 0
     # 上一句正文是否被丢弃。丢句会让下一句的「反之/但/因此」失去前件，正文读起来
@@ -3727,7 +3755,7 @@ def repair_grounded_composer_answer(
                 heading is not None
                 and _is_disallowed_heading(heading, heading_subjects)
                 and _heading_requires_fact_binding(
-                    heading,
+                    _scrub_anchor_dates(heading, anchor_re),
                     allowed_text=heading_text_corpus,
                     allowed_numbers=heading_numbers,
                 )
@@ -3772,6 +3800,7 @@ def repair_grounded_composer_answer(
         line_issues = validate_grounded_composer_answer(
             raw_line,
             answer_spec,
+            question=question,
         )
         if not line_issues and sentence_index not in rejected:
             if previous_sentence_dropped:
@@ -3807,6 +3836,7 @@ def repair_grounded_composer_answer(
         for issue in validate_grounded_composer_answer(
             repaired,
             answer_spec,
+            question=question,
         )
     ):
         return None
@@ -4236,6 +4266,118 @@ def _expanded_date_text(text: str) -> str:
             f"\n{month_number}月{day_number}日"
         )
     return expanded
+
+
+# 用户问题里点名的日期（锚点日期）。不靠 ``\b``：CJK 字符也算 \w，「截至2026-07-22」
+# 中间没有词边界，``_DATE_RE`` 会漏。
+_ANCHOR_FULL_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?(?!\d)"
+)
+# 缺年份的「07-22」只认 - 与 /：点号会把「10.27%」这种小数认成 10 月 27 日，再借锚点放行
+# 把正文里的同一个数字从数字检查里抹掉。
+_ANCHOR_PADDED_MONTH_DAY_RE = re.compile(r"(?<![\d年/.-])(\d{2})[-/](\d{2})(?![\d/.%-])")
+_ANCHOR_CN_MONTH_DAY_RE = re.compile(r"(?<![\d年])(\d{1,2})\s*月\s*(\d{1,2})\s*日?(?!\d)")
+
+
+def anchor_dates_for(
+    question: str,
+    answer_spec: AnswerSpec | None = None,
+) -> tuple[str, ...]:
+    """用户问题里的日期 + AnswerSpec 的站立日，规范成 ``YYYY-MM-DD``。
+
+    这些日期来自用户输入，不是模型写的：校验器拿它们当「证据外日期」会把模型
+    「数据截至 09-30，并不是您问的 07-22」这类边界说明整句删掉（2026-10-05
+    Pi-vs-production D6 实测，16 个 error 里 10 个是题目自带的日期）。
+    只有年份唯一时才把「07-22」「7月22日」这类缺年份的写法补成完整日期。
+    """
+
+    text = str(question or "")
+    found: list[str] = []
+    years: set[str] = set()
+
+    def add(year: str, month: str, day: str) -> None:
+        month_number, day_number = int(month), int(day)
+        if not (1 <= month_number <= 12 and 1 <= day_number <= 31):
+            return
+        iso = f"{year}-{month_number:02d}-{day_number:02d}"
+        if iso not in found:
+            found.append(iso)
+        years.add(year)
+
+    for year, month, day in _ANCHOR_FULL_DATE_RE.findall(text):
+        add(year, month, day)
+    research_spec = getattr(answer_spec, "research_spec", None)
+    standing = re.fullmatch(
+        r"(20\d{2})-(\d{2})-(\d{2})",
+        str(getattr(research_spec, "as_of", "") or "").strip(),
+    )
+    if standing:
+        add(*standing.groups())
+    if len(years) == 1:
+        year = next(iter(years))
+        remainder = _ANCHOR_FULL_DATE_RE.sub(" ", text)
+        for month, day in (
+            *_ANCHOR_PADDED_MONTH_DAY_RE.findall(remainder),
+            *_ANCHOR_CN_MONTH_DAY_RE.findall(remainder),
+        ):
+            add(year, month, day)
+    return tuple(found)
+
+
+def _anchor_date_regex(anchor_dates: tuple[str, ...]) -> re.Pattern[str] | None:
+    """匹配正文里锚点日期的各种写法（含模型常写的「7 月 22 日」空格体）。"""
+
+    alternatives: list[str] = []
+    for iso in anchor_dates:
+        year, month, day = iso.split("-")
+        month_pattern = f"0?{int(month)}"
+        day_pattern = f"0?{int(day)}(?!\\d)"
+        alternatives.extend(
+            (
+                rf"(?<!\d){year}\s*[-/.年]\s*{month_pattern}\s*[-/.月]\s*{day_pattern}(?:\s*日)?",
+                rf"(?<![\d年]){month_pattern}\s*月\s*{day_pattern}(?:\s*日)?",
+                rf"(?<![\d/.-]){month}[-/]{day}(?![\d/.%-])",
+                # 只到月份的边界说法（「7 月下旬」「7月份」）。后缀限死，「7 个」「7 板」不受影响。
+                rf"(?<![\d年]){month_pattern}\s*月\s*(?:上旬|中旬|下旬|份|初|底|末)",
+            )
+        )
+    if not alternatives:
+        return None
+    return re.compile("|".join(f"(?:{item})" for item in alternatives))
+
+
+_SUPPORTED_DATE_PROBE_RE = re.compile(
+    r"(?<!\d)20\d{2}\s*[-/.年]\s*\d{1,2}\s*[-/.月]\s*\d{1,2}\s*日?(?!\d)"
+)
+
+
+def _scrub_anchor_dates(text: str, anchor_re: re.Pattern[str] | None) -> str:
+    """小标题不绑 claim：「关于 2026-07-22 晋级：缺口与边界」里的日期是用户问的那天，
+    抹掉后再判它有没有夹带事实，而不是因为日期里的数字被当成未绑定事实整行删掉。"""
+
+    return anchor_re.sub(" ", text) if anchor_re is not None else text
+
+
+def _mentions_supported_date(text: str, normalized_allowed_text: str) -> bool:
+    return any(
+        re.sub(r"\s+", "", token) in normalized_allowed_text
+        for token in _SUPPORTED_DATE_PROBE_RE.findall(text)
+    )
+
+
+def trim_to_last_complete_grounded_line(answer: str) -> str:
+    """被 ``finish_reason=length`` 截断的 composer 原稿：保留到最后一句出处标记完整的句子。
+
+    截断只会落在最后一行；前面写完的句子各自带着完整的 claim/EvidenceAtom 标记，
+    照常过确定性门禁。一句完整的都没有时返回空串，由调用方按截断降级。
+    """
+
+    lines = str(answer or "").splitlines()
+    for index in range(len(lines) - 1, -1, -1):
+        line = lines[index].rstrip()
+        if line.endswith("-->") and _GROUNDED_CLAIM_MARKER_RE.search(line):
+            return "\n".join(lines[: index + 1]).strip()
+    return ""
 
 
 def humanize(text: str) -> str:
