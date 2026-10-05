@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import Enum
 import json
+import os
 import re
 from typing import cast
 
@@ -738,6 +739,23 @@ def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
 
 
+AUDIENCE_DIRECTION_GATE_ENV = "WORKBENCH_AUDIENCE_DIRECTION_GATE"
+
+
+def audience_direction_gate_enabled() -> bool:
+    """「明天哪个方向」出口门是受众层政策，缺省关（自用 = 能力 max）。
+
+    用户 2026-09-13：「目前我们自己使用，就要达到能力的 max，合规的边界后续再去考虑」，
+    不荐股 / 不给方向这类受众红线属于渲染 / 导出 / 分享层，不该卡内部能力；2026-10-06
+    又定「凡是限制模型能力的都要优化」。同题对照里 Pi 直接给出带依据的方向排序被盲评判
+    可用，而这道门把 8792 同样的答案连拒两次、降成缺口模板。面向外部受众的部署设
+    ``WORKBENCH_AUDIENCE_DIRECTION_GATE=on`` 恢复。
+    """
+
+    raw = str(os.environ.get(AUDIENCE_DIRECTION_GATE_ENV) or "").strip().lower()
+    return raw in {"on", "1", "true", "yes"}
+
+
 def forward_direction_call_hits(
     draft: str, *, question: str
 ) -> tuple[compliance_gate.Hit, ...]:
@@ -747,8 +765,11 @@ def forward_direction_call_hits(
     「长电科技怎么看」里写「次日更容易高开分歧」不归这里管）；是这类问法则整篇
     按子句扫，条件句免检（观察剧本的升级 / 降级条件天然长成「若明天开盘 X 高开」）。
     词表与判据都住在 ``compliance_gate``（一份词表多个消费者），这里只做接线。
+    2026-10-06 起只在 ``audience_direction_gate_enabled()`` 时生效。
     """
 
+    if not audience_direction_gate_enabled():
+        return ()
     if not compliance_gate.is_next_day_direction_question(question):
         return ()
     return tuple(compliance_gate.forward_call_hits(draft))

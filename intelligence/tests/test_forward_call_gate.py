@@ -9,6 +9,9 @@
 ② 答案侧按子句扫，条件句免检——观察剧本自己的升级 / 降级条件不能被拦；
 ③ 拒收是可修正的回灌（SUBSTANCE），第二稿改成剧本形状就过；且 harness 的
    ``admit_finish`` 与 Episode loop 走的是同一条门。
+
+2026-10-06 起这是受众层政策：缺省关（自用 = 能力 max，用户 09-13 / 10-06 决策），
+对外部署设 ``WORKBENCH_AUDIENCE_DIRECTION_GATE=on`` 才拦。下面钉门行为的用例显式开门。
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.services import compliance_gate as cg
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_protocol import (
+    AUDIENCE_DIRECTION_GATE_ENV,
     REJECTION_KINDS,
     EpisodeFinishRejection,
     RejectionKind,
@@ -206,7 +210,28 @@ def _evidence():
     return tuple(evidence)
 
 
-def test_validate_finish_rejects_a_forward_call_for_a_next_day_question() -> None:
+@pytest.fixture
+def audience_gate(monkeypatch):
+    """受众层部署（对外分享 / 导出）显式打开这道门；自用缺省关（2026-10-06）。"""
+
+    monkeypatch.setenv(AUDIENCE_DIRECTION_GATE_ENV, "on")
+
+
+def test_self_use_default_admits_a_labelled_direction_call(monkeypatch) -> None:
+    """自用缺省：问「明天哪个方向」，带依据、标明是基准判断的方向排序照常交付。
+
+    用户 2026-09-13「目前我们自己使用，就要达到能力的 max，合规的边界后续再去考虑」；
+    同题对照里 Pi 给出的方向排序被盲评判可用，而这道门把 8792 同样的答案拒成缺口模板。
+    """
+
+    monkeypatch.delenv(AUDIENCE_DIRECTION_GATE_ENV, raising=False)
+    assert forward_direction_call_hits(D9_DRAFT, question=D9_QUESTION) == ()
+    finish = validate_episode_finish(_finish(D9_DRAFT), context=_context(D9_QUESTION), evidence=_evidence())
+    assert finish.status == "completed"
+    assert "最可能先动" in finish.draft
+
+
+def test_validate_finish_rejects_a_forward_call_for_a_next_day_question(audience_gate) -> None:
     with pytest.raises(EpisodeFinishRejection) as excinfo:
         validate_episode_finish(_finish(D9_DRAFT), context=_context(D9_QUESTION), evidence=_evidence())
     assert excinfo.value.code == "forward_direction_call"
@@ -226,13 +251,13 @@ def test_validate_finish_accepts_the_same_draft_for_a_non_forward_question() -> 
     assert finish.status == "completed"
 
 
-def test_validate_finish_accepts_an_observation_script_for_the_next_day_question() -> None:
+def test_validate_finish_accepts_an_observation_script_for_the_next_day_question(audience_gate) -> None:
     finish = validate_episode_finish(_finish(SCRIPT_DRAFT), context=_context(D9_QUESTION), evidence=_evidence())
     assert finish.status == "completed"
     assert forward_direction_call_hits(SCRIPT_DRAFT, question=D9_QUESTION) == ()
 
 
-def test_harness_admit_finish_walks_through_the_same_gate() -> None:
+def test_harness_admit_finish_walks_through_the_same_gate(audience_gate) -> None:
     admission = FinanceResearchHarness().admit_finish(
         _finish(D9_DRAFT), context=_context(D9_QUESTION), evidence=_evidence(), registry=_market_registry(_successful_runner)
     )
@@ -241,7 +266,7 @@ def test_harness_admit_finish_walks_through_the_same_gate() -> None:
     assert admission.response is not None and admission.response.reinject
 
 
-def test_episode_reinjects_the_rewrite_hint_and_accepts_the_second_script_shaped_draft() -> None:
+def test_episode_reinjects_the_rewrite_hint_and_accepts_the_second_script_shaped_draft(audience_gate) -> None:
     """有牙的一对：第一稿领涨判断被拒并回灌改写提示，第二稿剧本形状通过；事件里留下病因。"""
 
     model = ScriptedModel(

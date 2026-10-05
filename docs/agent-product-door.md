@@ -1190,7 +1190,9 @@ A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢�
 - **A 的工具观察上限**：`tool_result_budget.MAX_OBSERVATION_CHARS` / `MAX_EVIDENCE_DETAIL_CHARS` / `MAX_EVIDENCE_TITLE_CHARS` 放大，按 Pi 同题 134 次工具调用实测标定，正常结果整份进模型；B 的 `agent_research` 读同一常量。旧上限截掉了 28% 的观察叙述。
 - **A 的终稿篇幅**：`EPISODE_DRAFT_MAX_CHARS` 再放大，提示词改成「篇幅由问题决定，上限只为保证结构化终止完整」，不再要求「只保留决定性依据」。
 - **主体候选不再先追问**：实体解析处于 candidate（「X+主题词」形状的未登记名称）时，`turn_controller` 不硬锚、也不反问，把候选写进 `ambiguities` / `assumptions` 交给研究核实；查无此标的由模型说明检索范围。升级前已挂起的追问仍可按原路径收口。
-- **Episode 本来就不缺时间**：生产启动器已是 max 档（回合墙钟、研究步数、工具面全开），同题实测 1–3 分钟模型自己停手；卡住它的是上面这几条，而不是墙钟。
+- **Episode 本来就不缺总时间**：生产启动器已是 max 档（回合墙钟、研究步数、工具面全开），同题实测 1–3 分钟模型自己停手。卡住它的是上面这几条，以及**单次模型调用上限** `glm_agent_runtime.DEFAULT_GLM_LLM_TIMEOUT`：GLM-5.3-flash 强制思考，工具观察放大后上下文变长，旁路复测 D9 一轮流式已出字仍在旧上限被截断、整题降成缺口模板；已按 `provider_latency` 的思考 / 出字速度标定放大，仍受回合剩余预算约束。
+- **「明天哪个方向」出口门改为受众层开关**：`episode_protocol.forward_direction_call_hits` 只在 `WORKBENCH_AUDIENCE_DIRECTION_GATE=on` 时拦（缺省关）。依据是用户 09-13「目前我们自己使用，就要达到能力的 max，合规的边界后续再去考虑」——不给方向这类受众红线属于渲染 / 导出 / 分享层；同题 Pi 给出带依据的方向排序被盲评判可用，而这道门把 8792 同样的答案连拒两次降成模板。对外部署再打开。
+- **题面数字不再被点名「待核」**：`episode_semantic_verifier` 判条件句里的数有没有出处时，用户题面自带的数（如「边际量超过10%、成交额高于500亿」）算题设；题面没有的数照旧要出处。
 
 10-05 七组旧/候选配对的有限事实评分均通过，但候选仍大量删句，不能据此宣称整体质量改善。后续引用修补只做同稿离线重放，非重新生成或公开交付验收；见[接续记录](handoffs/2026-10-05-harness-budget-takeover.md)。
 
