@@ -31,7 +31,7 @@ _NUMBER_WITH_UNIT_RE = re.compile(
     r"(?:%|pct|bp|亿元|亿|万|家|只|日|天|周|年|月|元|倍|个|点)"
 )
 _COMPANY_RE = re.compile(
-    r"[\u4e00-\u9fff]{2,10}(?:股份|集团|银行|证券)"
+    r"[\u4e00-\u9fff]{2,10}?(?:股份|集团|银行|证券)"
 )
 # _COMPANY_RE 向左最多吞 10 个汉字，会把公司名前面的虚词一起吞进来：证据里写的是
 # 「三环集团拟最高10亿元回购股份」，正文写「其中三环集团…」，匹配出的却是
@@ -50,6 +50,13 @@ _COMPANY_NAME_PREFIXES: tuple[str, ...] = (
     "与",
     "及",
 )
+# 只认开头的完整引导短语，不在名字内部寻找「中/为/的/和」等单字切点。
+# 上面的惰性公司匹配先结束于第一个公司后缀，避免吞掉相邻的另一家公司。
+_COMPANY_CONTEXT_PREFIX_RE = re.compile(
+    r"(?:公司暴露(?:包括|包含|涉及|中|含)|"
+    r"[\u4e00-\u9fff]{1,6}方向(?:的|包括|包含|涉及)|"
+    r"(?:以[\u4e00-\u9fff]{1,10})?为(?:发展)?重点的)"
+)
 _ALLOWED_METHODOLOGY_ENGINEERING_TERMS = frozenset(
     {
         "RAG",
@@ -67,8 +74,8 @@ _ALLOWED_METHODOLOGY_ENGINEERING_TERMS = frozenset(
 def _company_is_known(company: str, allowed_text: str) -> bool:
     """公司名是否已在证据里出现（容忍被吞进来的前置虚词）。
 
-    只剥已知虚词，且剥完仍要是个像样的名字（至少 2 个汉字 + 后缀词）。真正新出现的
-    公司剥不出任何在证据里的形式，仍然照报。
+    这里只剥有限的已知虚词，不能把任意后缀子串当作公司；否则「新三环集团」也会
+    因为包含证据里的「三环集团」而被错误放行。
     """
 
     if company in allowed_text:
@@ -79,6 +86,34 @@ def _company_is_known(company: str, allowed_text: str) -> bool:
         and company[len(prefix) :] in allowed_text
         for prefix in _COMPANY_NAME_PREFIXES
     )
+
+
+def _company_is_known_with_context(company: str, allowed_text: str) -> bool:
+    """恢复有限上下文，恢复后按完整名字核对当前绑定证据。
+
+    不递归剥前缀，也不把证据里的「华中三环集团」当作「三环集团」。证据侧的
+    左边界须为非汉字，或同样可识别的完整引导短语；这不是通用中文实体识别器。
+    """
+
+    if _company_is_known(company, allowed_text):
+        return True
+    prefix = _COMPANY_CONTEXT_PREFIX_RE.match(company)
+    if prefix is None:
+        return False
+    candidate = company[prefix.end():]
+    if _COMPANY_RE.fullmatch(candidate) is None:
+        return False
+    for occurrence in re.finditer(re.escape(candidate), allowed_text):
+        left = re.search(r"[\u4e00-\u9fff]*$", allowed_text[:occurrence.start()])
+        assert left is not None
+        context = left.group(0)
+        if (
+            not context
+            or context in _COMPANY_NAME_PREFIXES
+            or _COMPANY_CONTEXT_PREFIX_RE.fullmatch(context) is not None
+        ):
+            return True
+    return False
 
 
 _CERTAINTY_PROMOTION_TERMS = (
@@ -3627,7 +3662,7 @@ def validate_grounded_composer_answer(
             {
                 company
                 for company in _COMPANY_RE.findall(sentence.text)
-                if not _company_is_known(company, allowed_text)
+                if not _company_is_known_with_context(company, allowed_text)
             }
         )
         if new_companies:

@@ -1,0 +1,42 @@
+{
+  "file": "intelligence/services/answer_model.py",
+  "pytest": ["intelligence/tests/test_grounded_company_context.py"],
+  "mutants": [
+    {
+      "name": "context recovery disconnected from validator",
+      "old": "if not _company_is_known_with_context(company, allowed_text)",
+      "new": "if not _company_is_known(company, allowed_text)",
+      "expected_red": ["test_context_is_retained_by_validator_and_repair[exposure-in]", "test_synthesis_retains_supported_context_but_rejects_a_new_company[judge-off]"]
+    },
+    {
+      "name": "searching internal context phrase launders a new name",
+      "old": "prefix = _COMPANY_CONTEXT_PREFIX_RE.match(company)",
+      "new": "prefix = _COMPANY_CONTEXT_PREFIX_RE.search(company)",
+      "expected_red": ["test_context_letters_inside_a_name_do_not_license_suffix_evidence[internal-phrase]"]
+    },
+    {
+      "name": "recovered name accepts arbitrary evidence substring",
+      "old": "context = left.group(0)",
+      "new": "context = ''",
+      "expected_red": ["test_recovered_name_must_be_whole_in_its_evidence[new]", "test_recovered_name_must_be_whole_in_its_evidence[internal-zhong]"]
+    },
+    {
+      "name": "company extraction greedily merges neighbours",
+      "old": "r\"[\\u4e00-\\u9fff]{2,10}?(?:股份|集团|银行|证券)\"",
+      "new": "r\"[\\u4e00-\\u9fff]{2,10}(?:股份|集团|银行|证券)\"",
+      "expected_red": ["test_adjacent_known_companies_are_checked_separately"]
+    },
+    {
+      "name": "stripping context twice changes the company identity",
+      "old": "candidate = company[prefix.end():]",
+      "new": "candidate = company[prefix.end():].removeprefix('和')",
+      "expected_red": ["test_context_letters_inside_a_name_do_not_license_suffix_evidence[no-second-prefix]"]
+    },
+    {
+      "name": "company evidence borrowed from all claims",
+      "old": "if not _company_is_known_with_context(company, allowed_text)",
+      "new": "if not _company_is_known_with_context(company, '\\n'.join(c.text for c in _all_answer_claims(answer_spec)))",
+      "expected_red": ["test_recovery_never_borrows_a_neighbouring_binding", "test_synthesis_retains_supported_context_but_rejects_a_new_company[judge-off]"]
+    }
+  ]
+}
