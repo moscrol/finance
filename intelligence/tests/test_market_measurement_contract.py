@@ -68,12 +68,13 @@ def query(root: Path, query_spec: fq.FinanceQuerySpec):
 
 def test_heat_evidence_names_both_denominators_without_changing_values(market_root):
     result = query(market_root, spec("theme_limit_heat_daily"))
-    first = result.evidence[0].detail
+    first = next(item.detail for item in result.evidence if "板块名称=甲方向" in item.detail)
+    row = next(row for row in result.rows if row["sector_name"] == "甲方向")
     assert "板块内涨停占比%=5" in first
     assert "占全市场涨停家数比例%=20" in first
     assert "板块成分股家数=120" in first
-    assert result.rows[0]["limit_up_ratio"] == 5
-    assert result.rows[0]["market_share"] == 20
+    assert row["limit_up_ratio"] == 5
+    assert row["market_share"] == 20
     assert not result.quality_gaps
     assert "limit_up_ratio=limit_up_count/total_count" in result.observation
     assert "market_share=limit_up_count/market_limit_up_count" in result.observation
@@ -85,7 +86,8 @@ def test_heat_evidence_names_both_denominators_without_changing_values(market_ro
 def test_ladder_evidence_distinguishes_survivors_from_cohort_success(market_root):
     result = query(market_root, spec("limit_advance_daily"))
     assert len(result.evidence) == 4
-    assert "同板位晋级率（非个股概率）=1/4=25%" in result.evidence[1].detail
+    middle = next(item.detail for item in result.evidence if "股票名称=乙股" in item.detail)
+    assert "同板位晋级率（非个股概率）=1/4=25%" in middle
     assert "N-1→N" in result.observation
     assert "同日同板位" in result.observation
     assert "无板位空档不等于全部晋级" in result.observation
