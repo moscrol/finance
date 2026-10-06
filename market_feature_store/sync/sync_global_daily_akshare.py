@@ -1,17 +1,22 @@
 """外盘指数与美股日线：AKShare（新浪）写入链（2026-10-06）。
 
 替代停抓中的复盘会 global-market 接口（2026-09-07 起账号风控；`fact_global_*` 停在 2026-09-02，
-另有上游回填时复制旧值的行）。口径与复盘会写入的 2025 行一致——2026-10-06 探针逐日核过
-道指、恒指、苹果 06-08~06-12 的收盘与涨跌幅，完全相同：
+另有上游回填时复制旧值的行）。口径与复盘会写入的行一致——2026-10-06 探针逐日核过道指、恒指、
+苹果 06-08~06-12 的收盘与涨跌幅，完全相同：
 
 - 主键是 A 股日历日 D；那一行放外盘「日历日 D」那一场，外盘休市取 D 之前最近一场，
   source_trade_date 如实写会话日。绝不拿 D 之后的会话填 D。
-- 涨跌幅 = 本场收盘 ÷ 上一场收盘 − 1（未复权收盘，与复盘会同算法）；美股 5 日涨跌 = 本场 ÷ 五场前 − 1。
-- 美元市值没有来源，写入的行留空；名称、交易所、业务、产业地位沿用该代码最近一行。
+- 指数涨跌幅 = 本场收盘 ÷ 上一场收盘 − 1。美股收盘写实际收盘（未复权），涨跌幅与 5 日涨跌按前复权
+  序列算（经济收益）——拆股日用未复权收盘相除会算出 -75% 这种假暴跌（2026-10-06 审计实见 CRWD）。
+- 美元市值没有来源，按新值写入的美股行留空；名称、交易所、业务、产业地位沿用该行或该代码最近一行。
 
-只写调用方点名的 (A 股日, 代码) 对：断档（目标表缺行的 A 股交易日）与复制旧值（与查询层
-`finance_query._stale_clone_pairs` 同一判据）。其余已有行不动。默认只算不写；写入只允许落在
-克隆库上（主库先克隆、验收、再原子换名，见 duckdb-backfill）。
+只写三类 (A 股日, 代码)：
+- gap：表尾之后的 A 股交易日（全宇宙）；表内空洞只计数不写。
+- clone：查询层 `finance_query._stale_clone_pairs` 同一判据（收盘与涨跌幅同上一行、涨跌幅非 0、会话日不同）。
+- frozen：收盘与涨跌幅同上一行但没被上一条判据认出（会话日也一起被复制），且两条独立证据都成立——
+  源头在两行之间确实开过新会话、新会话的真实涨跌幅与库里不同。只满足前者的是合法休市重复或停牌平盘，不动。
+写入方式：本行与上一行对应同一场会话（外盘休市）时只改会话日、数值沿用上一行的有效值；
+否则写新浪的实际值。默认只算不写；写入只允许落在克隆库上（主库先克隆、验收、再原子换名，见 duckdb-backfill）。
 """
 
 from __future__ import annotations
@@ -21,7 +26,7 @@ from bisect import bisect_right
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable
 
 import duckdb
 
@@ -34,11 +39,15 @@ INDEX_SOURCES: dict[str, tuple[str, str, str, str]] = {
     "HKTECH": ("stock_hk_index_daily_sina", "HSTECH", "恒生科技", "hk"),
 }
 STOCK_SOURCE = "stock_us_daily"
+STOCK_QFQ_SOURCE = "stock_us_daily_qfq"
 SOURCE_PREFIX = "akshare:sina"
-# 断档 / 复制行里取不到数的比例超过它，或任一指数取不到，就停下来问人（任务计划 G8）。
+SESSION_FIX_SOURCE = f"{SOURCE_PREFIX}/session-fix"
+# 断档 / 复制 / 冻结行里取不到数的比例超过它，或任一指数取不到，就停下来问人（任务计划 G8）。
 MAX_SKIP_RATIO = 0.05
+# 冻结行确认：源头新会话的涨跌幅与库里差超过它（百分点）才算库里是抄来的。
+FROZEN_PCT_TOLERANCE = 0.02
 
-# (接口名, 新浪代码) -> [(会话日, 收盘)]，按日期升序。测试注入假的，生产走 AKShare。
+# (接口名, 新浪代码) -> [(会话日, 收盘)]。测试注入假的，生产走 AKShare。
 Fetcher = Callable[[str, str], list[tuple[date, float]]]
 
 _CLONE_SQL = """
@@ -48,6 +57,13 @@ with x as (select {key} as k, trade_date, source_trade_date as s, close, pct_chg
 select k, trade_date from x
 where close = pc and pct_chg = pp and pct_chg <> 0 and s <> ps and trade_date >= ?
 """
+_FROZEN_CANDIDATE_SQL = """
+with x as (select {key} as k, trade_date, source_trade_date as s, close, pct_chg,
+  lag(close) over w as pc, lag(pct_chg) over w as pp, lag(source_trade_date) over w as ps
+  from {table} where trade_date <= ? window w as (partition by {key} order by trade_date))
+select k, trade_date, pct_chg from x
+where close = pc and pct_chg = pp and not (pct_chg <> 0 and s <> ps) and trade_date >= ?
+"""
 
 
 @dataclass
@@ -55,42 +71,10 @@ class TableReport:
     table: str
     targets: dict[str, int] = field(default_factory=dict)
     computed: int = 0
+    written_as: dict[str, int] = field(default_factory=dict)
     skipped: list[dict] = field(default_factory=list)
     samples: list[dict] = field(default_factory=list)
     validation: dict = field(default_factory=dict)
-
-
-def akshare_fetcher(sleep: float = 0.5) -> Fetcher:
-    """真实取数：每次请求后睡 ``sleep`` 秒。新浪接口一次返回整段历史。"""
-
-    import akshare as ak
-    import pandas as pd
-
-    def fetch(function: str, symbol: str) -> list[tuple[date, float]]:
-        if function == STOCK_SOURCE:
-            frame = ak.stock_us_daily(symbol=symbol, adjust="")
-        else:
-            frame = getattr(ak, function)(symbol=symbol)
-        time.sleep(sleep)
-        days = pd.to_datetime(frame["date"]).dt.date
-        return sorted(
-            (day, float(close)) for day, close in zip(days, frame["close"]) if close == close
-        )
-
-    return fetch
-
-
-def _a_share_days(con, start: date, end: date) -> list[date]:
-    rows = con.execute(
-        "select distinct trade_date from fact_market_daily where trade_date between ? and ? order by 1",
-        [start, end],
-    ).fetchall()
-    return [row[0] for row in rows]
-
-
-def _clone_pairs(con, table: str, key: str, start: date, end: date) -> set[tuple[str, date]]:
-    rows = con.execute(_CLONE_SQL.format(key=key, table=table), [end, start]).fetchall()
-    return {(str(code), day) for code, day in rows}
 
 
 class _History:
@@ -111,6 +95,7 @@ def _session_values(
     """A 股日 ``day`` 对应的会话：日历日 ``day`` 那一场，休市取之前最近一场。
 
     只用 ``complete_before`` 之前已收完的会话，也绝不用 ``day`` 之后的会话（无前视）。
+    返回 (会话日, 收盘, 涨跌幅%, 5 场涨跌%)。
     """
 
     bound = min(day, complete_before - timedelta(days=1))
@@ -126,21 +111,45 @@ def _session_values(
     return session, close, pct, pct5
 
 
-def _targets(con, table: str, key: str, codes: Iterable[str], days: list[date], start: date, end: date):
-    """断档 = 表尾之后的 A 股交易日（全宇宙）；复制行 = 查询层同一判据。内部空洞只计数不写。"""
+def akshare_fetcher(sleep: float = 0.5) -> Fetcher:
+    """真实取数：每次请求后睡 ``sleep`` 秒。新浪接口一次返回整段历史。"""
 
-    existing = {
-        (str(code), day)
-        for code, day in con.execute(
-            f"select {key}, trade_date from {table} where trade_date between ? and ?", [start, end]
-        ).fetchall()
-    }
-    last = con.execute(f"select max(trade_date) from {table}").fetchone()[0]
-    tail_days = [day for day in days if last is None or day > last]
-    gaps = {(code, day) for code in codes for day in tail_days}
-    holes = sum(1 for code in codes for day in days if (last is None or day <= last) and (code, day) not in existing)
-    clones = _clone_pairs(con, table, key, start, end)
-    return gaps, clones, holes
+    import akshare as ak
+    import pandas as pd
+
+    def fetch(function: str, symbol: str) -> list[tuple[date, float]]:
+        if function == STOCK_SOURCE:
+            frame = ak.stock_us_daily(symbol=symbol, adjust="")
+        elif function == STOCK_QFQ_SOURCE:
+            frame = ak.stock_us_daily(symbol=symbol, adjust="qfq")
+        else:
+            frame = getattr(ak, function)(symbol=symbol)
+        time.sleep(sleep)
+        days = pd.to_datetime(frame["date"]).dt.date
+        return sorted(
+            (day, float(close)) for day, close in zip(days, frame["close"]) if close == close
+        )
+
+    return fetch
+
+
+@dataclass(frozen=True)
+class _Spec:
+    table: str
+    key: str
+    is_stock: bool
+
+
+_INDEX = _Spec("fact_global_index_daily", "code", False)
+_STOCK = _Spec("fact_global_stock_daily", "ts_code", True)
+
+
+def _a_share_days(con, start: date, end: date) -> list[date]:
+    rows = con.execute(
+        "select distinct trade_date from fact_market_daily where trade_date between ? and ? order by 1",
+        [start, end],
+    ).fetchall()
+    return [row[0] for row in rows]
 
 
 def plan_rebuild(
@@ -152,121 +161,204 @@ def plan_rebuild(
     complete_before: date | None = None,
     validate_days: int = 60,
 ) -> dict:
-    """算出要写的行与对账结果，不写库。返回 {status, reports, index_rows, stock_rows}。"""
+    """算出要写的行与对账结果，不写库。返回 {status, reasons, window, reports, index_rows, stock_rows}。"""
 
     complete_before = complete_before or date.today()
     days = _a_share_days(con, start, end)
-    index_codes = [row[0] for row in con.execute("select distinct code from fact_global_index_daily order by 1").fetchall()]
-    stock_codes = [row[0] for row in con.execute("select distinct ts_code from fact_global_stock_daily order by 1").fetchall()]
     now = datetime.now()
-
-    index_report = TableReport("fact_global_index_daily")
-    stock_report = TableReport("fact_global_stock_daily")
-    index_gaps, index_clones, index_holes = _targets(con, "fact_global_index_daily", "code", index_codes, days, start, end)
-    stock_gaps, stock_clones, stock_holes = _targets(con, "fact_global_stock_daily", "ts_code", stock_codes, days, start, end)
-    index_report.targets = {"gap": len(index_gaps), "clone": len(index_clones - index_gaps)}
-    stock_report.targets = {"gap": len(stock_gaps), "clone": len(stock_clones - stock_gaps)}
-    index_report.validation["internal_holes_not_written"] = index_holes
-    stock_report.validation["internal_holes_not_written"] = stock_holes
-
-    histories: dict[str, list[tuple[date, float]] | None] = {}
-
-    def history(code: str, function: str, symbol: str, report: TableReport):
-        if code not in histories:
-            try:
-                histories[code] = _History(fetch(function, symbol))
-            except Exception as exc:  # noqa: BLE001 — 单只取不到记账，不拖垮整批
-                histories[code] = None
-                report.skipped.append({"code": code, "reason": f"fetch_failed: {type(exc).__name__}"})
-        return histories[code]
-
-    index_meta = {
-        code: (name, group)
-        for code, name, group in con.execute(
-            "select code, arg_max(name, trade_date), arg_max(market_group, trade_date) from fact_global_index_daily group by 1"
-        ).fetchall()
-    }
-    stock_meta = {
-        row[0]: row[1:]
-        for row in con.execute(
-            "select ts_code, arg_max(name_cn, trade_date), arg_max(name_en, trade_date), arg_max(exchange, trade_date), "
-            "arg_max(business, trade_date), arg_max(industry_position, trade_date) from fact_global_stock_daily group by 1"
-        ).fetchall()
-    }
-
-    index_rows: list[tuple] = []
-    for code, day in sorted(index_gaps | index_clones):
-        function, symbol, default_name, default_group = INDEX_SOURCES.get(code, (None, None, code, None))
-        if function is None:
-            index_report.skipped.append({"code": code, "day": day.isoformat(), "reason": "no_source_mapping"})
-            continue
-        values = history(code, function, symbol, index_report)
-        session = _session_values(values, day, complete_before) if values else None
-        if session is None:
-            if values:
-                index_report.skipped.append({"code": code, "day": day.isoformat(), "reason": "no_session"})
-            continue
-        name, group = index_meta.get(code, (default_name, default_group))
-        session_day, close, pct, _ = session
-        index_rows.append((day, session_day, code, name, group, close, pct, "final", f"{SOURCE_PREFIX}/{function}", now))
-    index_report.computed = len(index_rows)
-
-    stock_rows: list[tuple] = []
-    for code, day in sorted(stock_gaps | stock_clones):
-        values = history(code, STOCK_SOURCE, code, stock_report)
-        session = _session_values(values, day, complete_before) if values else None
-        if session is None:
-            if values:
-                stock_report.skipped.append({"code": code, "day": day.isoformat(), "reason": "no_session"})
-            continue
-        name_cn, name_en, exchange, business, position = stock_meta.get(code, (None, None, None, None, None))
-        session_day, close, pct, pct5 = session
-        stock_rows.append((day, session_day, code, name_cn, name_en, exchange, close, pct, pct5, None,
-                           business, position, f"{SOURCE_PREFIX}/{STOCK_SOURCE}", now))
-    stock_report.computed = len(stock_rows)
-
-    for report, rows in ((index_report, index_rows), (stock_report, stock_rows)):
-        report.samples = [_row_sample(row) for row in rows[:5]]
-    index_report.validation.update(_validate(con, "fact_global_index_daily", "code", histories, upper=end,
-                                             validate_days=validate_days, clones=index_clones,
-                                             complete_before=complete_before))
-    stock_report.validation.update(_validate(con, "fact_global_stock_daily", "ts_code", histories, upper=end,
-                                             validate_days=validate_days, clones=stock_clones,
-                                             complete_before=complete_before))
-
-    status, reasons = _verdict(index_report, stock_report, index_codes)
+    out: dict = {}
+    reports = []
+    index_codes: list[str] = []
+    for spec in (_INDEX, _STOCK):
+        report = TableReport(spec.table)
+        rows, codes = _plan_table(con, spec, days=days, start=start, end=end, fetch=fetch,
+                                  complete_before=complete_before, now=now, report=report,
+                                  validate_days=validate_days)
+        out["stock_rows" if spec.is_stock else "index_rows"] = rows
+        if not spec.is_stock:
+            index_codes = codes
+        reports.append(report)
+    status, reasons = _verdict(reports[0], reports[1], index_codes)
     return {
         "status": status,
         "reasons": reasons,
         "window": {"start": start.isoformat(), "end": end.isoformat(), "a_share_days": len(days),
                    "complete_before": complete_before.isoformat()},
-        "reports": [vars(index_report), vars(stock_report)],
-        "index_rows": index_rows,
-        "stock_rows": stock_rows,
+        "reports": [vars(report) for report in reports],
+        **out,
     }
 
 
+def _plan_table(con, spec: _Spec, *, days, start, end, fetch, complete_before, now, report: TableReport,
+                validate_days: int):
+    key, table = spec.key, spec.table
+    codes = [row[0] for row in con.execute(f"select distinct {key} from {table} order by 1").fetchall()]
+    lookback = start - timedelta(days=40)
+    stored: dict[str, dict[date, tuple]] = {}
+    if spec.is_stock:
+        query = (f"select {key}, trade_date, source_trade_date, close, pct_chg, pct_chg_5d, market_cap_usd, "
+                 f"name_cn, name_en, exchange, business, industry_position from {table} where trade_date between ? and ?")
+    else:
+        query = (f"select {key}, trade_date, source_trade_date, close, pct_chg, null, null, name, market_group, "
+                 f"null, null, null from {table} where trade_date between ? and ?")
+    for row in con.execute(query, [lookback, end]).fetchall():
+        stored.setdefault(str(row[0]), {})[row[1]] = row[2:]
+    latest_meta = {}
+    if spec.is_stock:
+        for row in con.execute(
+            "select ts_code, arg_max(name_cn, trade_date), arg_max(name_en, trade_date), arg_max(exchange, trade_date), "
+            "arg_max(business, trade_date), arg_max(industry_position, trade_date) from fact_global_stock_daily group by 1"
+        ).fetchall():
+            latest_meta[row[0]] = row[1:]
+    else:
+        for row in con.execute(
+            "select code, arg_max(name, trade_date), arg_max(market_group, trade_date) from fact_global_index_daily group by 1"
+        ).fetchall():
+            latest_meta[row[0]] = row[1:]
+
+    last = con.execute(f"select max(trade_date) from {table}").fetchone()[0]
+    tail_days = [day for day in days if last is None or day > last]
+    gaps = {(code, day) for code in codes for day in tail_days}
+    report.validation["internal_holes_not_written"] = sum(
+        1 for code in codes for day in days if (last is None or day <= last) and day not in stored.get(code, {})
+    )
+    clones = {(str(code), day) for code, day in
+              con.execute(_CLONE_SQL.format(key=key, table=table), [end, start]).fetchall()}
+    candidates = con.execute(_FROZEN_CANDIDATE_SQL.format(key=key, table=table), [end, start]).fetchall()
+
+    histories: dict[str, tuple[_History | None, _History | None]] = {}
+
+    def history(code: str) -> tuple[_History | None, _History | None]:
+        if code in histories:
+            return histories[code]
+        try:
+            if spec.is_stock:
+                main = _History(fetch(STOCK_SOURCE, code))
+                try:
+                    adjusted = _History(fetch(STOCK_QFQ_SOURCE, code))
+                except Exception:  # noqa: BLE001 — 前复权取不到时涨跌幅退回未复权口径
+                    adjusted = None
+            else:
+                function, symbol, _name, _group = INDEX_SOURCES[code]
+                main = _History(fetch(function, symbol))
+                adjusted = None
+        except Exception as exc:  # noqa: BLE001 — 单只取不到记账，不拖垮整批
+            report.skipped.append({"code": code, "reason": f"fetch_failed: {type(exc).__name__}"})
+            main, adjusted = None, None
+        histories[code] = (main or None, adjusted or None)
+        return histories[code]
+
+    def returns(code: str, day: date):
+        """(会话日, 实际收盘, 涨跌幅, 5 场涨跌)；美股涨跌按前复权口径。"""
+
+        main, adjusted = history(code)
+        if not main:
+            return None
+        values = _session_values(main, day, complete_before)
+        if values is None:
+            return None
+        if adjusted:
+            adjusted_values = _session_values(adjusted, day, complete_before)
+            if adjusted_values is not None and adjusted_values[0] == values[0]:
+                return values[0], values[1], adjusted_values[2], adjusted_values[3]
+        return values
+
+    frozen = set()
+    for code, day, stored_pct in candidates:
+        code = str(code)
+        if (code, day) in clones or (spec.table == _INDEX.table and code not in INDEX_SOURCES):
+            continue
+        earlier = [d for d in stored.get(code, {}) if d < day]
+        if not earlier:
+            continue
+        now_values, prev_values = returns(code, day), returns(code, max(earlier))
+        if now_values is None or prev_values is None or now_values[0] == prev_values[0] or now_values[2] is None:
+            continue
+        # 候选行收盘与上一行相同，而源头确实开了新会话：只有真平盘（真实涨跌≈0 且库里涨跌≈0）才自洽。
+        # 真实涨跌不为 0（收盘本该动了）或库里涨跌与真实不符（抄的上一行），都是冻结。
+        true_pct = now_values[2]
+        flat = abs(true_pct) <= FROZEN_PCT_TOLERANCE and abs(stored_pct or 0.0) <= FROZEN_PCT_TOLERANCE
+        if not flat:
+            frozen.add((code, day))
+
+    report.targets = {"gap": len(gaps), "clone": len(clones - gaps), "frozen": len(frozen - gaps - clones)}
+    kinds = {target: "gap" for target in gaps}
+    kinds.update({target: "clone" for target in clones if target not in kinds})
+    kinds.update({target: "frozen" for target in frozen if target not in kinds})
+
+    rows: list[tuple] = []
+    written_as = {"values": 0, "session_fix": 0}
+    by_code: dict[str, list[date]] = {}
+    for code, day in kinds:
+        by_code.setdefault(code, []).append(day)
+    for code in sorted(by_code):
+        if not spec.is_stock and code not in INDEX_SOURCES:
+            report.skipped.append({"code": code, "reason": "no_source_mapping"})
+            continue
+        effective = dict(stored.get(code, {}))  # day -> (session, close, pct, pct5, cap, d1..d5)
+        for day in sorted(by_code[code]):
+            values = returns(code, day)
+            if values is None:
+                if history(code)[0]:
+                    report.skipped.append({"code": code, "day": day.isoformat(), "reason": "no_session"})
+                continue
+            session, close, pct, pct5 = values
+            earlier = [d for d in effective if d < day]
+            previous_day = max(earlier) if earlier else None
+            previous_session = returns(code, previous_day)[0] if previous_day and returns(code, previous_day) else None
+            own = stored.get(code, {}).get(day)
+            descriptors = own[5:] if own else latest_meta.get(code, (None,) * (5 if spec.is_stock else 2))
+            if not spec.is_stock:
+                descriptors = descriptors[:2]
+            if previous_day is not None and previous_session == session:
+                # 外盘休市：与上一行同一场会话，数值沿用上一行的有效值，只把会话日写对。
+                _, close, pct, pct5, cap = effective[previous_day][:5]
+                source = SESSION_FIX_SOURCE
+                written_as["session_fix"] += 1
+            else:
+                cap = None
+                source = f"{SOURCE_PREFIX}/{STOCK_SOURCE if spec.is_stock else INDEX_SOURCES[code][0]}"
+                written_as["values"] += 1
+            effective[day] = (session, close, pct, pct5, cap, *descriptors)
+            if spec.is_stock:
+                name_cn, name_en, exchange, business, position = (tuple(descriptors) + (None,) * 5)[:5]
+                rows.append((day, session, code, name_cn, name_en, exchange, close, pct, pct5, cap,
+                             business, position, source, now))
+            else:
+                name, group = (tuple(descriptors) + (None, None))[:2]
+                if name is None:
+                    name, group = INDEX_SOURCES[code][2], INDEX_SOURCES[code][3]
+                rows.append((day, session, code, name, group, close, pct, "final", source, now))
+    report.computed = len(rows)
+    report.written_as = written_as
+    report.samples = [_row_sample(row) for row in rows[:5]]
+    report.validation.update(_validate(con, spec, set(kinds), returns, upper=end, validate_days=validate_days))
+    return rows, codes
+
+
 def _row_sample(row: tuple) -> dict:
+    stock = len(row) == 14
     return {"trade_date": row[0].isoformat(), "source_trade_date": row[1].isoformat(), "code": row[2],
-            "close": row[5] if len(row) == 10 else row[6], "pct_chg": row[6] if len(row) == 10 else row[7]}
+            "close": row[6] if stock else row[5], "pct_chg": row[7] if stock else row[6],
+            "source": row[12] if stock else row[8]}
 
 
-def _validate(con, table, key, histories, *, upper, validate_days, clones, complete_before):
-    """库内旧行对账：表里最近 ``validate_days`` 个已有交易日上、非复制的旧行，用新源重算后逐行比对
-    收盘、涨跌幅与会话日。旧行来自复盘会，是与新源独立的一份数。"""
+def _validate(con, spec: _Spec, targets: set, returns, *, upper: date, validate_days: int) -> dict:
+    """库内旧行对账：表里最近 ``validate_days`` 个已有交易日上、不在写入目标里的旧行，用新源重算后
+    逐行比对收盘、涨跌幅与会话日。旧行来自复盘会，是与新源独立的一份数。"""
 
     rows = con.execute(
-        f"select {key}, trade_date, source_trade_date, close, pct_chg from {table} "
+        f"select {spec.key}, trade_date, source_trade_date, close, pct_chg from {spec.table} "
         f"where trade_date <= ? and trade_date >= (select min(trade_date) from (select distinct trade_date "
-        f"from {table} where trade_date <= ? order by trade_date desc limit ?))",
+        f"from {spec.table} where trade_date <= ? order by trade_date desc limit ?))",
         [upper, upper, validate_days],
     ).fetchall()
     checked = exact = session_mismatch = 0
     worst: list[dict] = []
     for code, day, session_day, close, pct in rows:
-        if (str(code), day) in clones or not histories.get(str(code)):
+        if (str(code), day) in targets:
             continue
-        values = _session_values(histories[str(code)], day, complete_before)
+        values = returns(str(code), day)
         if values is None:
             continue
         checked += 1
@@ -278,7 +370,8 @@ def _validate(con, table, key, histories, *, upper, validate_days, clones, compl
         if close_ok and pct_ok and new_session == session_day:
             exact += 1
         elif len(worst) < 10:
-            worst.append({"code": str(code), "day": day.isoformat(), "old": [session_day.isoformat() if session_day else None, close, pct],
+            worst.append({"code": str(code), "day": day.isoformat(),
+                          "old": [session_day.isoformat() if session_day else None, close, pct],
                           "new": [new_session.isoformat(), new_close, new_pct]})
     return {"checked": checked, "exact": exact, "session_mismatch": session_mismatch,
             "exact_ratio": round(exact / checked, 4) if checked else None, "mismatches": worst}
@@ -294,6 +387,9 @@ def _verdict(index_report: TableReport, stock_report: TableReport, index_codes: 
         missing = total - report.computed
         if total and missing / total > MAX_SKIP_RATIO:
             reasons.append(f"{report.table} 缺口 {missing}/{total} 超过 {MAX_SKIP_RATIO:.0%}")
+        # 每一行要么按新值写、要么只修会话日；对不上说明有行走了第三条没人审过的路。
+        if sum(report.written_as.values()) != report.computed:
+            reasons.append(f"{report.table} 写入方式计数 {report.written_as} 与算出行数 {report.computed} 对不上")
     return ("needs_user" if reasons else "ok"), reasons
 
 

@@ -96,8 +96,8 @@ def test_dry_run_reports_targets_and_writes_nothing(tmp_path: Path) -> None:
     assert result["status"] == "ok" and result["applied"] is None
     index_report, stock_report = result["reports"]
     # 表尾之后 4 个 A 股日 × 2 个代码；外加 DJI 09-02 一行复制旧值。
-    assert index_report["targets"] == {"gap": 8, "clone": 1}
-    assert stock_report["targets"] == {"gap": 8, "clone": 0}
+    assert index_report["targets"] == {"gap": 8, "clone": 1, "frozen": 0}
+    assert stock_report["targets"] == {"gap": 8, "clone": 0, "frozen": 0}
     assert _sha(db) == before
 
 
@@ -200,3 +200,130 @@ def test_apply_refuses_the_main_database(tmp_path: Path) -> None:
 
     assert result["status"] == "refused"
     assert _sha(db) == before
+
+
+# ---- 七月初：两地休市、休市型复制、未标出的冻结、拆股 ----------------------------------------
+# 07-01 香港回归纪念日（港股休市）；07-03 美国独立日补休（美股休市）。
+JULY_A_SHARE = ["2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-06", "2026-07-07"]
+JULY_US = ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30", "2026-07-01",
+           "2026-07-02", "2026-07-06", "2026-07-07"]
+JULY_HK = ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30", "2026-07-02",
+           "2026-07-03", "2026-07-06", "2026-07-07"]
+DJI_JULY = {day: 100.0 + index * 1.5 for index, day in enumerate(JULY_US)}
+HSI_JULY = {day: 200.0 + index * 2.0 for index, day in enumerate(JULY_HK)}
+# 07-06 一拆四：未复权收盘从 404 掉到 101，前复权序列连续。
+SPLT_RAW = {"2026-06-24": 396.0, "2026-06-25": 397.0, "2026-06-26": 398.0, "2026-06-29": 399.0, "2026-06-30": 400.0,
+            "2026-07-01": 402.0, "2026-07-02": 404.0, "2026-07-06": 101.5, "2026-07-07": 102.0}
+SPLT_QFQ = {day: (close / 4 if day < "2026-07-06" else close) for day, close in SPLT_RAW.items()}
+# 真平盘：每天都有会话、收盘一直 50、涨跌一直 0——收盘与涨跌同上一行，却是对的。
+FLAT = {day: 50.0 for day in JULY_US}
+
+
+def july_fetch(function: str, symbol: str) -> list[tuple[date, float]]:
+    table = {
+        ("index_us_stock_sina", ".DJI"): DJI_JULY,
+        ("stock_hk_index_daily_sina", "HSI"): HSI_JULY,
+        ("stock_us_daily", "SPLT"): SPLT_RAW,
+        ("stock_us_daily_qfq", "SPLT"): SPLT_QFQ,
+        ("stock_us_daily", "FLAT"): FLAT,
+        ("stock_us_daily_qfq", "FLAT"): FLAT,
+    }[(function, symbol)]
+    return [(D(day), close) for day, close in table.items()]
+
+
+def _pct(series: dict, day: str, previous: str) -> float:
+    return (series[day] / series[previous] - 1) * 100
+
+
+def _build_july(path: Path) -> Path:
+    with duckdb.connect(str(path)) as con:
+        init_db(con)
+        for day in JULY_A_SHARE:
+            con.execute("insert into fact_market_daily (trade_date) values (?)", [day])
+        dji = [
+            ("2026-06-30", "2026-06-30", DJI_JULY["2026-06-30"], _pct(DJI_JULY, "2026-06-30", "2026-06-29")),
+            ("2026-07-01", "2026-07-01", DJI_JULY["2026-07-01"], _pct(DJI_JULY, "2026-07-01", "2026-06-30")),
+            ("2026-07-02", "2026-07-02", DJI_JULY["2026-07-02"], _pct(DJI_JULY, "2026-07-02", "2026-07-01")),
+            # 休市型复制：会话日往前推成 07-03，数值抄 07-02（已被查询层判据标出）。
+            ("2026-07-03", "2026-07-03", DJI_JULY["2026-07-02"], _pct(DJI_JULY, "2026-07-02", "2026-07-01")),
+            # 未标出的冻结：07-06 美股照常开盘，库里却连会话日一起抄了上一行。
+            ("2026-07-06", "2026-07-03", DJI_JULY["2026-07-02"], _pct(DJI_JULY, "2026-07-02", "2026-07-01")),
+        ]
+        hsi = [
+            ("2026-06-30", "2026-06-30", HSI_JULY["2026-06-30"], _pct(HSI_JULY, "2026-06-30", "2026-06-29")),
+            # 合法休市重复：港股 07-01 休市，会话日如实停在 06-30。
+            ("2026-07-01", "2026-06-30", HSI_JULY["2026-06-30"], _pct(HSI_JULY, "2026-06-30", "2026-06-29")),
+            ("2026-07-02", "2026-07-02", HSI_JULY["2026-07-02"], _pct(HSI_JULY, "2026-07-02", "2026-06-30")),
+            ("2026-07-03", "2026-07-03", HSI_JULY["2026-07-03"], _pct(HSI_JULY, "2026-07-03", "2026-07-02")),
+            ("2026-07-06", "2026-07-06", HSI_JULY["2026-07-06"], _pct(HSI_JULY, "2026-07-06", "2026-07-03")),
+        ]
+        for code, rows, group in (("DJI", dji, "us"), ("HSI", hsi, "hk")):
+            for day, session, close, pct in rows:
+                con.execute("insert into fact_global_index_daily values (?, ?, ?, ?, ?, ?, ?, 'final', 'fupanhui', now())",
+                            [day, session, code, code, group, close, pct])
+        for day in ("2026-06-30", "2026-07-01", "2026-07-02"):
+            previous = JULY_US[JULY_US.index(day) - 1]
+            con.execute(
+                "insert into fact_global_stock_daily values (?, ?, 'SPLT', '拆股', 'Split', 'NYSE', ?, ?, 0.5, 9.9e9, "
+                "'业务', '地位', 'fupanhui', now())",
+                [day, day, SPLT_RAW[day], _pct(SPLT_RAW, day, previous)],
+            )
+            con.execute(
+                "insert into fact_global_stock_daily values (?, ?, 'FLAT', '平盘', 'Flat', 'NYSE', 50.0, 0.0, 0.0, 1.0e9, "
+                "'业务', '地位', 'fupanhui', now())",
+                [day, day],
+            )
+    return path
+
+
+def _july_rows(db: Path, table: str, key: str, code: str) -> dict:
+    with duckdb.connect(str(db), read_only=True) as con:
+        return {str(day): (str(session), close, pct, source) for day, session, close, pct, source in con.execute(
+            f"select trade_date, source_trade_date, close, pct_chg, source from {table} where {key} = ?", [code]).fetchall()}
+
+
+def test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values(tmp_path: Path) -> None:
+    db = _build_july(tmp_path / "clone.duckdb")
+
+    result = glob.run(db, start=D("2026-06-30"), end=D("2026-07-07"), apply=True,
+                      main_db_path=tmp_path / "main.duckdb", fetch=july_fetch, complete_before=D("2026-10-06"))
+
+    assert result["status"] == "ok"
+    assert result["reports"][0]["targets"] == {"gap": 2, "clone": 1, "frozen": 1}
+    dji = _july_rows(db, "fact_global_index_daily", "code", "DJI")
+    # 休市型：会话日改回 07-02，数值保留库里原值，来源标成只修会话日。
+    assert dji["2026-07-03"][:3] == ("2026-07-02", DJI_JULY["2026-07-02"], pytest.approx(_pct(DJI_JULY, "2026-07-02", "2026-07-01")))
+    assert dji["2026-07-03"][3] == glob.SESSION_FIX_SOURCE
+    # 冻结：认出来并写成 07-06 那一场的真实值。
+    assert dji["2026-07-06"][:3] == ("2026-07-06", DJI_JULY["2026-07-06"], pytest.approx(_pct(DJI_JULY, "2026-07-06", "2026-07-02")))
+    # 合法休市重复（会话日如实停在上一场）不动。
+    hsi = _july_rows(db, "fact_global_index_daily", "code", "HSI")
+    assert hsi["2026-07-01"][3] == "fupanhui"
+
+
+def test_split_day_return_uses_the_adjusted_series_and_close_stays_actual(tmp_path: Path) -> None:
+    db = _build_july(tmp_path / "clone.duckdb")
+
+    glob.run(db, start=D("2026-06-30"), end=D("2026-07-07"), apply=True,
+             main_db_path=tmp_path / "main.duckdb", fetch=july_fetch, complete_before=D("2026-10-06"))
+
+    splt = _july_rows(db, "fact_global_stock_daily", "ts_code", "SPLT")
+    # 美股 07-03 休市：断档行沿用 07-02 的值、会话日写 07-02。
+    assert splt["2026-07-03"][:2] == ("2026-07-02", SPLT_RAW["2026-07-02"])
+    # 拆股日：收盘写实际收盘 101.5，涨跌幅是经济收益 +0.495%，不是未复权相除的 -74.9%。
+    assert splt["2026-07-06"][1] == 101.5
+    assert splt["2026-07-06"][2] == pytest.approx(_pct(SPLT_QFQ, "2026-07-06", "2026-07-02"))
+    assert splt["2026-07-06"][2] > -1
+
+
+def test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy(tmp_path: Path) -> None:
+    db = _build_july(tmp_path / "clone.duckdb")
+
+    result = glob.run(db, start=D("2026-06-30"), end=D("2026-07-07"), apply=True,
+                      main_db_path=tmp_path / "main.duckdb", fetch=july_fetch, complete_before=D("2026-10-06"))
+
+    # 两只股票各 3 个表尾断档日；平盘股的已有行不进冻结目标。
+    assert result["reports"][1]["targets"] == {"gap": 6, "clone": 0, "frozen": 0}
+    flat = _july_rows(db, "fact_global_stock_daily", "ts_code", "FLAT")
+    assert {day: row[3] for day, row in flat.items() if day <= "2026-07-02"} == {
+        "2026-06-30": "fupanhui", "2026-07-01": "fupanhui", "2026-07-02": "fupanhui"}
