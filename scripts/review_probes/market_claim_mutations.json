@@ -3,6 +3,42 @@
   "pytest": ["intelligence/tests/test_market_claim_checks.py"],
   "mutants": [
     {
+      "name": "panic release arm removed",
+      "old": "_PANIC = re.compile(r\"恐慌(?:宣泄|特征)\")",
+      "new": "_PANIC = re.compile(r\"恐慌(?:特征)\")",
+      "expected_red": ["test_panic_descriptors_are_not_certified_from_totals[panic-release]"]
+    },
+    {
+      "name": "panic feature arm removed",
+      "old": "_PANIC = re.compile(r\"恐慌(?:宣泄|特征)\")",
+      "new": "_PANIC = re.compile(r\"恐慌(?:宣泄)\")",
+      "expected_red": ["test_panic_descriptors_are_not_certified_from_totals[panic-feature]"]
+    },
+    {
+      "name": "forward dependency arm loses quality shape",
+      "old": "    r\"(?:修复质量|反弹质量|行情质量|主线存续).{0,12}(?<!不)(?:依赖度|依赖|取决于)\"",
+      "new": "    r\"(?:修复质量|反弹质量|行情质量).{0,12}(?<!不)(?:依赖度|依赖|取决于)\"",
+      "expected_red": ["test_mainline_dependency_descriptors_are_not_certified_from_totals[forward-dependency]"]
+    },
+    {
+      "name": "reverse dependency arm loses topic target",
+      "old": "    r\"|(?<!不)(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)\"",
+      "new": "    r\"|(?<!不)(?:依赖度|依赖|取决于).{0,12}(?:主线|增量|资金|持续性)\"",
+      "expected_red": ["test_mainline_dependency_descriptors_are_not_certified_from_totals[reverse-dependency]"]
+    },
+    {
+      "name": "forward dependency denial loses negation guard",
+      "old": "    r\"(?:修复质量|反弹质量|行情质量|主线存续).{0,12}(?<!不)(?:依赖度|依赖|取决于)\"",
+      "new": "    r\"(?:修复质量|反弹质量|行情质量|主线存续).{0,12}(?:依赖度|依赖|取决于)\"",
+      "expected_red": ["test_explicit_dependency_denials_are_not_mechanism_claims[not-dependent]"]
+    },
+    {
+      "name": "reverse dependency denial loses negation guard",
+      "old": "    r\"|(?<!不)(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)\"",
+      "new": "    r\"|(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)\"",
+      "expected_red": ["test_explicit_dependency_denials_are_not_mechanism_claims[not-dependent-reverse]"]
+    },
+    {
       "name": "foreign contract inherits outcome measurements",
       "old": "    if verified.contract is None or verified.contract.task_frame_hash != outcome.task_frame_hash:",
       "new": "    if verified.contract is None:",

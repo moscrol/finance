@@ -54,6 +54,11 @@ _AMOUNT_SUBJECT = re.compile(r"(?:全市场|两市|大盘|市场)成交额")
 _AMOUNT_BRIDGE = re.compile(r"\s*(?:(?:环比|较前一交易日|小幅|明显|继续|呈现|已经|已|仍|的|是|为)\s*)*$")
 _WEIGHT = re.compile(r"(?:指数|反弹).{0,14}(?:靠|由).{0,10}权重.{0,8}(?:拉动|推动)|权重(?:股)?.{0,8}(?:拉动|推动)(?:了)?指数")
 _CLEARING = re.compile(r"风险(?:已经|已|得到|完成|充分|正在|逐步|的)?(?:出清|释放)|情绪宣泄式出清|出清得到验证")
+_PANIC = re.compile(r"恐慌(?:宣泄|特征)")
+_DEPENDENCY = re.compile(
+    r"(?:修复质量|反弹质量|行情质量|主线存续).{0,12}(?<!不)(?:依赖度|依赖|取决于)"
+    r"|(?<!不)(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)"
+)
 _FLOW = re.compile(r"(?:资金.{0,12}(?:入场|迁移|回流)|集中回流)")
 _RISK_HEADING = re.compile(r"^(?:#{1,6}\s*|\*\*|__)?(?:风险信号与观察条件|风险信号|风险观察|风险与观察条件)(?:\*\*|__)?[：:]?$")
 _DURATION_TOKEN = r"\d+(?:\s*[-~～至到—]\s*\d+)?\s*(?:个交易日|交易日|天|日)"
@@ -300,11 +305,13 @@ def market_claim_findings(
         if not scope_targets or not scope_allowed or not scope_allowed <= trusted.keys():
             continue
         for clause in _CLAUSE.split(text):
-            patterns = (_WEIGHT, _CLEARING, _FLOW) if "资金" in text else (_WEIGHT, _CLEARING)
+            patterns = (_WEIGHT, _CLEARING, _PANIC, _DEPENDENCY)
+            if "资金" in text:
+                patterns += (_FLOW,)
             if any(_asserted(clause, match) for pattern in patterns for match in pattern.finditer(clause)):
                 findings.append(MarketClaimFinding(index, EVIDENCE_SCOPE, scope_targets,
-                    "本句可用绑定仅有成交额、涨跌/涨停统计或题材热度；它们不能证明权重贡献、资金来源/回流"
-                    "或情绪出清机制。保留观测与阶段比较，补相应证据或明确写成待验证假设及验证方法；"
+                    "本句可用绑定仅有成交额、涨跌/涨停统计或题材热度；它们不能证明权重贡献、资金来源/回流、"
+                    "恐慌/出清机制或主线依赖。保留观测与阶段比较，补相应证据或明确写成待验证假设及验证方法；"
                     "不能靠邻句免责声明把事实断言放行，不扩大读取权限。"))
                 break
     return tuple(dict.fromkeys(findings))

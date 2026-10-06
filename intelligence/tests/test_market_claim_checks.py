@@ -128,6 +128,8 @@ def test_direction_counterexamples_are_not_rejected(claim):
     "涨停集中说明资金不是普涨回补，而是集中回流硬件主线。",
     "跌停减少不等于风险出清，但全面反弹才是出清得到验证的证据。",
     "缺少权重贡献数据，但指数反弹靠少数权重拉动。",
+    "放量重挫，是最典型的恐慌宣泄日。",
+    "修复质量对主线存续的依赖度高。",
 ])
 @pytest.mark.parametrize("mode", ["off", "llm"])
 def test_totals_do_not_prove_mechanisms_and_deletion_is_not_completion(monkeypatch, claim, mode):
@@ -154,6 +156,7 @@ def test_totals_do_not_prove_mechanisms_and_deletion_is_not_completion(monkeypat
     "总量数据不足以证明资金集中回流硬件主线。",
     "假设资金集中回流硬件主线，后续需核对资金流向。",
     "量价与广度共同改善，可描述为修复，不能确认风险出清。",
+    "若跌停家数重新抬升，视为恐慌二次启动。",
     "07-22指数微涨与下跌家数背离未做权重贡献拆分。",
     "成交额反映交易规模，不构成对资金来源、买卖动机的判断。",
     "风险已经出清吗？",
@@ -563,6 +566,51 @@ def test_absence_in_another_clause_does_not_excuse_a_new_mechanism(prefix):
 
 def test_hypothesis_is_not_mechanism_evidence_but_is_not_deleted_as_a_fact():
     _, verified = _case("指数反弹可能由权重股拉动。")
+    assert _findings(verified) == ()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "放量重挫，是最典型的恐慌宣泄日。",
+        "跌停激增呈现恐慌特征。",
+    ],
+    ids=["panic-release", "panic-feature"],
+)
+def test_panic_descriptors_are_not_certified_from_totals(claim):
+    _, verified = _case(claim)
+    rows = [json.loads(row) for row in _findings(verified)]
+    assert len(rows) == 1
+    assert rows[0]["reasons"] == ["market_evidence_scope"]
+    assert rows[0]["sentence"] == claim
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "修复质量对主线存续的依赖度高。",
+        "后续取决于题材持续性。",
+    ],
+    ids=["forward-dependency", "reverse-dependency"],
+)
+def test_mainline_dependency_descriptors_are_not_certified_from_totals(claim):
+    _, verified = _case(claim)
+    rows = [json.loads(row) for row in _findings(verified)]
+    assert len(rows) == 1
+    assert rows[0]["reasons"] == ["market_evidence_scope"]
+    assert rows[0]["sentence"] == claim
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "主线存续不依赖增量资金。",
+        "后续不取决于题材持续性。",
+    ],
+    ids=["not-dependent", "not-dependent-reverse"],
+)
+def test_explicit_dependency_denials_are_not_mechanism_claims(claim):
+    _, verified = _case(claim)
     assert _findings(verified) == ()
 
 
