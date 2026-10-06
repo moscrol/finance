@@ -16,9 +16,16 @@ git push -u origin fix/example
 gh pr create --repo moscrol/finance --base main --head fix/example --body-file <正文文件>
 ```
 
-GitHub main 要求 `workbench-check` 与 `registry-check` 通过；管理员同样受保护，
-禁止强推和删除 main。源端删掉已完成的工作分支后，备份端仍保留历史引用。
-分支数量不同是正常备份状态，不能因此把 Gitea 旧枝批量重建到 GitHub。
+合入纪律：`workbench-check` 与 `registry-check` 必须通过，管理员也遵守；
+不强推、不删除 main。**纪律不等于平台强制**：2026-10-07 01:05 +08:00
+只读核查时，`moscrol/finance` 已是 PUBLIC，但 main 的 `protected=false`、
+仓库 rulesets 为空。公开只使保护可配置，不会自动启用保护；当时仍靠人工检查。
+变更保护配置须经用户确认，并回读 required checks、管理员约束、强推/删除设置；
+实际生效前不得宣称“管理员同样受保护”。核查依据见
+[接手核查记录](../handoffs/2026-10-07-review-takeover.md)。
+
+源端删掉已完成的工作分支后，备份端仍保留历史引用。分支数量不同是正常备份状态，
+不能因此把 Gitea 旧枝批量重建到 GitHub。
 
 ## 本地备份任务
 
