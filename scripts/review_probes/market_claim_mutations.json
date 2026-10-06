@@ -96,7 +96,7 @@
       "name": "neighbor denial excuses asserted mechanism",
       "old": "text = _REPORTED_QUOTE.sub(\"\", original.replace(\"**\", \"\").replace(\"__\", \"\"))",
       "new": "text = _REPORTED_QUOTE.sub(\"\", original.replace(\"**\", \"\").replace(\"__\", \"\"))\n        if _NONASSERTED_PREFIX.search(text):\n            continue",
-      "expected_red": ["test_absence_in_another_clause_does_not_excuse_a_new_mechanism"]
+      "expected_red": ["test_absence_in_another_clause_does_not_excuse_a_new_mechanism[no-evidence]", "test_absence_in_another_clause_does_not_excuse_a_new_mechanism[not-observed]", "test_absence_in_another_clause_does_not_excuse_a_new_mechanism[no-flow]"]
     },
     {
       "name": "duration range spelling falsely changes user premise",

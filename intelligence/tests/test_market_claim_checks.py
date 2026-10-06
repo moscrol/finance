@@ -553,7 +553,8 @@ def test_denied_risk_rule_is_not_a_new_monitoring_condition(prefix):
     assert _findings(verified) == ()
 
 
-@pytest.mark.parametrize("prefix", ["没有证据确认风险出清", "未见权重贡献", "并无资金流向数据"])
+@pytest.mark.parametrize("prefix", ["没有证据确认风险出清", "未见权重贡献", "并无资金流向数据"],
+                         ids=["no-evidence", "not-observed", "no-flow"])
 def test_absence_in_another_clause_does_not_excuse_a_new_mechanism(prefix):
     claim = prefix + "，但指数反弹靠少数权重拉动。"
     _, verified = _case(claim)
