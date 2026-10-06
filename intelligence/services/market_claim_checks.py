@@ -10,7 +10,7 @@ not invent a corrected phase, weights, fund flows or a risk-clearing mechanism.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -60,6 +60,8 @@ _DEPENDENCY = re.compile(
     r"|(?<!不)(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)"
 )
 _FLOW = re.compile(r"(?:资金.{0,12}(?:入场|迁移|回流)|集中回流)")
+_CONDITIONAL_START = re.compile(r"^\s*(?:若|如果)")
+_CONDITIONAL_RESULT = re.compile(r"则|那么|视为")
 _RISK_HEADING = re.compile(r"^(?:#{1,6}\s*|\*\*|__)?(?:风险信号与观察条件|风险信号|风险观察|风险与观察条件)(?:\*\*|__)?[：:]?$")
 _DURATION_TOKEN = r"\d+(?:\s*[-~～至到—]\s*\d+)?\s*(?:个交易日|交易日|天|日)"
 _USER_DURATION = re.compile(r"(?<![\d./-])" + _DURATION_TOKEN + r"(?!均|移动平均)")
@@ -243,6 +245,26 @@ def _asserted(clause: str, match: re.Match[str]) -> bool:
                 or _NONASSERTED_SUFFIX.search(clause[match.end():]))
 
 
+def _mechanism_clauses(text: str) -> Iterator[tuple[str, bool]]:
+    """Carry a leading if-premise only to its adjacent marked consequence.
+
+    Commas may join a pair; contrasts and sentence boundaries never do. The
+    next clause cannot reuse a spent premise. This is finite abstention for
+    mechanism facts, not validation of the implication or a risk window.
+    """
+    parts = re.split(f"({_CLAUSE.pattern})", text)
+    for index in range(0, len(parts), 2):
+        clause = parts[index]
+        previous = parts[index - 2] if index >= 2 else ""
+        conditional = bool(
+            index >= 2 and parts[index - 1] in {"，", ","}
+            and _CONDITIONAL_START.match(previous)
+            and not _CONDITIONAL_RESULT.search(previous)
+            and _CONDITIONAL_RESULT.match(clause.lstrip())
+        )
+        yield clause, conditional
+
+
 def market_claim_findings(
     sentences: Sequence[Mapping[str, object]], verified: VerifiedEpisodeOutcome,
 ) -> tuple[MarketClaimFinding, ...]:
@@ -304,7 +326,9 @@ def market_claim_findings(
         # Other evidence is left to entailment review, not certified by this absence check.
         if not scope_targets or not scope_allowed or not scope_allowed <= trusted.keys():
             continue
-        for clause in _CLAUSE.split(text):
+        for clause, conditional in _mechanism_clauses(text):
+            if conditional:
+                continue
             patterns = (_WEIGHT, _CLEARING, _PANIC, _DEPENDENCY)
             if "资金" in text:
                 patterns += (_FLOW,)

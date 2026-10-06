@@ -15,7 +15,7 @@
       "expected_red": ["test_panic_descriptors_are_not_certified_from_totals[panic-feature]"]
     },
     {
-      "name": "forward dependency arm loses quality shape",
+      "name": "forward dependency arm loses mainline subject",
       "old": "    r\"(?:修复质量|反弹质量|行情质量|主线存续).{0,12}(?<!不)(?:依赖度|依赖|取决于)\"",
       "new": "    r\"(?:修复质量|反弹质量|行情质量).{0,12}(?<!不)(?:依赖度|依赖|取决于)\"",
       "expected_red": ["test_mainline_dependency_descriptors_are_not_certified_from_totals[forward-dependency]"]
@@ -37,6 +37,60 @@
       "old": "    r\"|(?<!不)(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)\"",
       "new": "    r\"|(?:依赖度|依赖|取决于).{0,12}(?:主线|题材|增量|资金|持续性)\"",
       "expected_red": ["test_explicit_dependency_denials_are_not_mechanism_claims[not-dependent-reverse]"]
+    },
+    {
+      "name": "conditional consequences become asserted mechanisms",
+      "old": "            if conditional:\n                continue\n            patterns = (_WEIGHT, _CLEARING, _PANIC, _DEPENDENCY)",
+      "new": "            if False:\n                continue\n            patterns = (_WEIGHT, _CLEARING, _PANIC, _DEPENDENCY)",
+      "expected_red": ["test_adjacent_conditional_mechanisms_are_not_current_facts[panic]", "test_adjacent_conditional_mechanisms_are_not_current_facts[dependency]", "test_adjacent_conditional_mechanisms_are_not_current_facts[weight]", "test_adjacent_conditional_mechanisms_are_not_current_facts[flow]", "test_adjacent_conditional_mechanisms_are_not_current_facts[clearing]"]
+    },
+    {
+      "name": "condition anywhere exempts independent clauses",
+      "old": "        for clause, conditional in _mechanism_clauses(text):",
+      "new": "        if _CONDITIONAL_START.match(text):\n            continue\n        for clause, conditional in _mechanism_clauses(text):",
+      "expected_red": ["test_conditional_scope_does_not_shield_independent_mechanisms[contrast]", "test_conditional_scope_does_not_shield_independent_mechanisms[however]", "test_conditional_scope_does_not_shield_independent_mechanisms[next-clause]"]
+    },
+    {
+      "name": "conditional scope crosses non-comma boundaries",
+      "old": "            index >= 2 and parts[index - 1] in {\"，\", \",\"}",
+      "new": "            index >= 2",
+      "expected_red": ["test_conditional_scope_does_not_shield_independent_mechanisms[semicolon]", "test_conditional_scope_does_not_shield_independent_mechanisms[ascii-semicolon]", "test_conditional_scope_does_not_shield_independent_mechanisms[period]", "test_conditional_scope_does_not_shield_independent_mechanisms[exclamation]", "test_conditional_scope_does_not_shield_independent_mechanisms[question]", "test_conditional_scope_does_not_shield_independent_mechanisms[dash]"]
+    },
+    {
+      "name": "neighbor denial lends a conditional premise",
+      "old": "            and _CONDITIONAL_START.match(previous)\n",
+      "new": "",
+      "expected_red": ["test_conditional_scope_does_not_shield_independent_mechanisms[neighbor-denial]"]
+    },
+    {
+      "name": "unmarked current fact inherits condition",
+      "old": "            and _CONDITIONAL_RESULT.match(clause.lstrip())\n",
+      "new": "",
+      "expected_red": ["test_conditional_scope_does_not_shield_independent_mechanisms[current-fact]"]
+    },
+    {
+      "name": "spent premise is reused for next clause",
+      "old": "            and not _CONDITIONAL_RESULT.search(previous)\n",
+      "new": "",
+      "expected_red": ["test_conditional_scope_does_not_shield_independent_mechanisms[spent-premise]"]
+    },
+    {
+      "name": "if spelling loses conditional scope",
+      "old": "_CONDITIONAL_START = re.compile(r\"^\\s*(?:若|如果)\")",
+      "new": "_CONDITIONAL_START = re.compile(r\"^\\s*(?:若)\")",
+      "expected_red": ["test_adjacent_conditional_mechanisms_are_not_current_facts[dependency]"]
+    },
+    {
+      "name": "implicit view loses conditional scope",
+      "old": "_CONDITIONAL_RESULT = re.compile(r\"则|那么|视为\")",
+      "new": "_CONDITIONAL_RESULT = re.compile(r\"则|那么\")",
+      "expected_red": ["test_adjacent_conditional_mechanisms_are_not_current_facts[implicit-view]"]
+    },
+    {
+      "name": "ascii comma loses conditional scope",
+      "old": "parts[index - 1] in {\"，\", \",\"}",
+      "new": "parts[index - 1] in {\"，\"}",
+      "expected_red": ["test_adjacent_conditional_mechanisms_are_not_current_facts[ascii-comma]"]
     },
     {
       "name": "foreign contract inherits outcome measurements",

@@ -588,10 +588,12 @@ def test_panic_descriptors_are_not_certified_from_totals(claim):
 @pytest.mark.parametrize(
     "claim",
     [
+        "主线存续高度依赖龙头表现。",
+        "后续取决于题材表现。",
         "修复质量对主线存续的依赖度高。",
         "后续取决于题材持续性。",
     ],
-    ids=["forward-dependency", "reverse-dependency"],
+    ids=["forward-dependency", "reverse-dependency", "quality-dependency", "topic-duration"],
 )
 def test_mainline_dependency_descriptors_are_not_certified_from_totals(claim):
     _, verified = _case(claim)
@@ -612,6 +614,72 @@ def test_mainline_dependency_descriptors_are_not_certified_from_totals(claim):
 def test_explicit_dependency_denials_are_not_mechanism_claims(claim):
     _, verified = _case(claim)
     assert _findings(verified) == ()
+
+
+@pytest.mark.parametrize("claim", [
+    "若跌停家数重新抬升，则视为恐慌宣泄。",
+    "如果修复质量不足，那么主线存续取决于增量资金。",
+    "若跌停家数重新抬升，视为恐慌特征。",
+    "若修复质量不足, 则主线存续取决于增量资金。",
+    "若主线存续取决于增量资金，则降低判断。",
+    "若跌停家数重新抬升则视为恐慌宣泄。",
+    "若风险已经出清，则继续验证。",
+    "若反弹继续，则指数反弹靠少数权重拉动。",
+    "若增量活跃，则资金集中回流硬件主线。",
+    "若跌停家数下降，则风险已经出清。",
+], ids=["panic", "dependency", "implicit-view", "ascii-comma", "antecedent", "local",
+        "clearing-premise", "weight", "flow", "clearing"])
+def test_adjacent_conditional_mechanisms_are_not_current_facts(claim):
+    frame, verified = _case(SAFE + "\n" + claim)
+    assert _findings(verified) == ()
+    assert claim in _result(frame, verified).public_answer
+    _, initial = _case(SAFE)
+    projected = verifier.recheck_material_public_delivery(_result(frame, initial), projected=SAFE + "\n" + claim)
+    assert claim in projected.public_answer
+    assert not projected.repair_output_ids
+
+
+@pytest.mark.parametrize("claim", [
+    "若跌停家数重新抬升，则视为恐慌宣泄，但主线存续取决于增量资金。",
+    "若跌停家数重新抬升，则视为恐慌宣泄，然而主线存续取决于增量资金。",
+    "若跌停家数重新抬升，则继续观察，主线存续取决于增量资金。",
+    "若跌停家数重新抬升；则主线存续取决于增量资金。",
+    "若跌停家数重新抬升;则主线存续取决于增量资金。",
+    "若跌停家数重新抬升。则主线存续取决于增量资金。",
+    "若跌停家数重新抬升！则主线存续取决于增量资金。",
+    "若跌停家数重新抬升？则主线存续取决于增量资金。",
+    "若跌停家数重新抬升——则主线存续取决于增量资金。",
+    "若跌停家数重新抬升但主线存续取决于增量资金。",
+    "若跌停家数重新抬升，则继续观察，不过主线存续取决于增量资金。",
+    "若跌停家数重新抬升，则继续观察，而是主线存续取决于增量资金。",
+    "若跌停家数重新抬升，事实上主线存续取决于增量资金。",
+    "若跌停家数重新抬升则继续观察，则主线存续取决于增量资金。",
+    "没有证据证明风险出清，则主线存续取决于增量资金。",
+    "主线存续不依赖增量资金，但跌停激增呈现恐慌特征。",
+    "主线存续依赖龙头表现，若跌停减少则继续观察。",
+], ids=["contrast", "however", "next-clause", "semicolon", "ascii-semicolon", "period",
+        "exclamation", "question", "dash", "bare-contrast", "nevertheless", "rather",
+        "current-fact", "spent-premise", "neighbor-denial", "local-denial", "later-condition"])
+def test_conditional_scope_does_not_shield_independent_mechanisms(claim):
+    from intelligence.services.market_claim_checks import market_claim_findings
+
+    # Exercise a single input row so sentence splitting cannot hide a scope leak.
+    _, verified = _case(claim)
+    findings = market_claim_findings([{"index": 1, "text": claim}], verified)
+    assert len(findings) == 1
+    assert findings[0].reason == "market_evidence_scope"
+    assert findings[0].output_ids == ("direct_assessment",)
+    assert any("market_evidence_scope" in row for row in _findings(verified))
+
+
+def test_conditional_mechanism_does_not_authorize_a_numeric_risk_window():
+    claim = "若缩量持续30天，则视为恐慌宣泄。"
+    frame, verified = _case(SAFE + "\n**风险观察**：\n" + claim)
+    rows = [json.loads(row) for row in _findings(verified)]
+    assert [row["reasons"] for row in rows] == [["market_risk_threshold"]]
+    result = _result(frame, verified)
+    assert result.status == "partial"
+    assert "risk_signals" in result.repair_output_ids
 
 
 def test_neighbor_clause_does_not_supply_date_for_contradiction():
