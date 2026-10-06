@@ -138,7 +138,7 @@ from intelligence.services.research_contract import (
 from intelligence.services.market_claim_checks import (
     AMOUNT_DIRECTION, EVIDENCE_SCOPE, MARKET_REASONS, PATH_SCOPE, RISK_THRESHOLD,
     MarketClaimFinding, has_bound_market_totals, market_claim_findings,
-    risk_sentence_indexes, risk_window_tokens,
+    risk_sentence_indexes, risk_window_tokens, user_risk_window_tokens,
 )
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
 from intelligence.services.task_fulfillment import answer_has_output_marker
@@ -5547,12 +5547,12 @@ def _market_claim_findings(
     # here, nor change the contract or borrow an optional scenario's authority.
     risk_indexes = risk_sentence_indexes(sentences)
     historical = historical_claim_texts(contract, verified.outcome.bindings, verified.outcome.draft)
-    user_basis = _question_quantities(contract)
+    user_basis = user_risk_window_tokens(_DATE_TOKEN_RE.sub("", contract.question))
     return (*findings, *(MarketClaimFinding(int(row["index"]), RISK_THRESHOLD, (risk.output_id,),
                         _MARKET_REPAIR_NOTES[RISK_THRESHOLD])
                         for row in sentences if row["index"] in risk_indexes
                         and str(row["text"]) not in historical
-                        and any(_normalize_quantity(window) not in user_basis
+                        and any(window not in user_basis
                                 for window in risk_window_tokens(str(row["text"])))))
 
 
@@ -5615,7 +5615,7 @@ def _with_market_repair_debt(
     targets = tuple(dict.fromkeys(targets))
     if not targets:
         return outcome
-    notice = "部分市场阶段、机制或观察条件尚未通过依据核对；已保留其他已核实内容，相关分析仍需修订。"
+    notice = "部分市场阶段、机制或观察条件尚未通过依据核对；已保留其余内容，相关分析仍需修订，保留不代表已逐项核实。"
     retained = _retained_delivery_hashes(outcome, outcome.public_answer)
     outputs = tuple(replace(item, status="missing", gap=item.gap or notice)
                     if item.output_id in targets else item for item in verified.completion.outputs)

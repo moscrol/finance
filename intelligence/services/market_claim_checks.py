@@ -43,7 +43,7 @@ _TOTAL_DATASETS = frozenset(_TOTAL_FIELDS)
 _IDENTITY = ("tool", "title", "detail", "source", "source_date", "independent_key", "evidence_tier")
 _DATE = re.compile(r"(?<!\d)(?:(?P<year>20\d{2})-)?(?P<month>\d{1,2})[-/](?P<day>\d{1,2})(?!\d)")
 _CLAUSE = re.compile(r"[，,。；;！？!?]|但是|然而|不过|而是|但|却|——")
-_NONASSERTED_PREFIX = re.compile(r"不能|无法|不足以|不等于|未能|并非|不是|尚未|并未|未做|缺少|可能|假设|待验证|仍需|需要|是否|若|如果")
+_NONASSERTED_PREFIX = re.compile(r"不能|无法|不足以|不等于|未能|并非|不是|尚未|并未|未做|没有|并无|未见|缺少|可能|假设|待验证|仍需|需要|是否|若|如果")
 _REPORTED_QUOTE = re.compile(
     r'(?:旧稿|原文|作者|评论员|他人)(?:中)?(?:称|说|写道|认为)\s*(?:“[^”]*”|「[^」]*」|"[^"]*")'
 )
@@ -56,9 +56,11 @@ _WEIGHT = re.compile(r"(?:指数|反弹).{0,14}(?:靠|由).{0,10}权重.{0,8}(?:
 _CLEARING = re.compile(r"风险(?:已经|已|得到|完成|充分|正在|逐步|的)?(?:出清|释放)|情绪宣泄式出清|出清得到验证")
 _FLOW = re.compile(r"(?:资金.{0,12}(?:入场|迁移|回流)|集中回流)")
 _RISK_HEADING = re.compile(r"^(?:#{1,6}\s*|\*\*|__)?(?:风险信号与观察条件|风险信号|风险观察|风险与观察条件)(?:\*\*|__)?[：:]?$")
+_DURATION_TOKEN = r"\d+(?:\s*[-~～至到—]\s*\d+)?\s*(?:个交易日|交易日|天|日)"
+_USER_DURATION = re.compile(r"(?<![\d./-])" + _DURATION_TOKEN + r"(?!均|移动平均)")
 _RISK_WINDOW = re.compile(
     r"(?:若|如果)[^。；;，,]{0,40}?(?:延续|持续|观察)\s*"
-    r"(?P<window>\d+(?:\s*[-~～至—]\s*\d+)?\s*(?:天|个交易日|交易日|日))"
+    r"(?P<window>" + _DURATION_TOKEN + r")"
 )
 
 
@@ -87,6 +89,21 @@ def risk_sentence_indexes(sentences: Sequence[Mapping[str, object]]) -> frozense
     return frozenset(indexes)
 
 
+def _normalize_duration(window: str) -> str:
+    # Range separators and the optional counter do not change the duration;
+    # trading days and calendar days remain different units.
+    return re.sub(r"[-~～到—]", "至", "".join(window.split())).replace("个交易日", "交易日")
+
+
+def user_risk_window_tokens(date_masked_question: str) -> frozenset[str]:
+    """Match complete durations after the caller masks explicit calendar dates.
+
+    No dimensionless fallback: counts, numeric substrings and MA lookbacks
+    cannot suppress an unsupported prospective-window finding.
+    """
+    return frozenset(_normalize_duration(m[0]) for m in _USER_DURATION.finditer(date_masked_question))
+
+
 def risk_window_tokens(text: str) -> frozenset[str]:
     """Prospective windows, not dates, formula lookbacks or raw observation counts.
 
@@ -103,7 +120,7 @@ def risk_window_tokens(text: str) -> frozenset[str]:
             if (_NONASSERTED_PREFIX.search(clause[:match.start()])
                     or _NONASSERTED_SUFFIX.search(clause[match.end():])):
                 continue
-            windows.add("".join(match["window"].split()))
+            windows.add(_normalize_duration(match["window"]))
     return frozenset(windows)
 
 

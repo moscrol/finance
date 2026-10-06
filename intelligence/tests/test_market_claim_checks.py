@@ -331,11 +331,34 @@ def test_risk_window_report_denial_or_question_is_not_a_new_condition(claim):
     assert _findings(verified) == ()
 
 
-def test_user_supplied_window_is_not_certified_or_rejected_by_this_finite_gate():
-    _, verified = _case("**风险信号与观察条件**：\n若缩量持续30天则改判。")
-    verified = replace(verified, contract=replace(verified.contract,
-                                                 question="请以30天为观察窗口。"))
+@pytest.mark.parametrize("question,window", [
+    ("请以30天为观察窗口。", "30天"),
+    ("请以3个交易日为观察窗口。", "3个交易日"),
+    ("请以3交易日为观察窗口。", "3交易日"),
+    ("请以3交易日为观察窗口。", "3个交易日"),
+    ("请以1至2天为观察窗口。", "1-2天"),
+    ("请以1～2个交易日为观察窗口。", "1至2个交易日"),
+], ids=["days", "trading-days", "trading-days-no-counter", "trading-counter-variant", "range", "trading-range"])
+def test_user_supplied_window_is_not_certified_or_rejected_by_this_finite_gate(question, window):
+    _, verified = _case("**风险信号与观察条件**：\n若缩量持续" + window + "则改判。")
+    verified = replace(verified, contract=replace(verified.contract, question=question))
     assert _findings(verified) == ()
+
+
+@pytest.mark.parametrize("question,window", [
+    ("30家涨停说明什么？", "30天"),
+    ("相对20日均额的量比说明什么？", "30天"),
+    ("相对20日均额的量比说明什么？", "20日"),
+    ("2026-07-20说明什么？", "20日"),
+    ("2026年7月20日说明什么？", "20日"),
+    ("请按3个交易日观察。", "3天"),
+    ("请按3天观察。", "3个交易日"),
+    ("请看前30天的历史。", "3天"),
+], ids=["counts", "different-window", "formula", "date", "chinese-date", "trading-to-calendar", "calendar-to-trading", "substring"])
+def test_user_numbers_or_different_time_units_do_not_supply_the_risk_window(question, window):
+    _, verified = _case("**风险观察**：\n若缩量持续" + window + "则改判。")
+    verified = replace(verified, contract=replace(verified.contract, question=question))
+    assert any("market_risk_threshold" in row for row in _findings(verified))
 
 
 def test_no_named_required_slot_means_no_arbitrary_fallback_repair_target():
@@ -418,6 +441,7 @@ def test_unlocated_phase_path_is_a_scope_gap_not_a_false_arithmetic_verdict():
     result = _result(frame, verified)
     assert result.status == "partial" and "change_summary" in result.repair_output_ids
     assert claim not in result.public_answer and SAFE in result.public_answer
+    assert "保留不代表已逐项核实" in result.public_answer
 
 
 @pytest.mark.parametrize("citation", ["E4、E999", "E4、E1"])
@@ -508,6 +532,32 @@ def test_market_gap_reenters_the_same_session_and_rechecks_without_new_tools(rep
     else:
         assert result.status != "completed"
         assert "direct_assessment" in result.private_artifact["semantic_verifier"]["repair_output_ids"]
+
+
+@pytest.mark.parametrize("claim", [
+    "没有证据证明风险已经出清。",
+    "指数反弹并没有靠权重股拉动。",
+    "未见资金集中回流硬件主线。",
+    "并无证据表明风险已经出清。",
+    "07-17没有说全市场成交额环比缩量。",
+], ids=["no-evidence", "no-weight", "not-observed", "no-basis", "denied-direction"])
+def test_explicit_absence_or_denial_is_not_an_asserted_market_claim(claim):
+    frame, verified = _case(SAFE + "\n" + claim)
+    assert _findings(verified) == ()
+    assert claim in _result(frame, verified).public_answer
+
+
+@pytest.mark.parametrize("prefix", ["没有证据支持", "并无依据采用", "未见依据支持"])
+def test_denied_risk_rule_is_not_a_new_monitoring_condition(prefix):
+    _, verified = _case("**风险观察**：\n" + prefix + "若缩量持续30天则改判。")
+    assert _findings(verified) == ()
+
+
+@pytest.mark.parametrize("prefix", ["没有证据确认风险出清", "未见权重贡献", "并无资金流向数据"])
+def test_absence_in_another_clause_does_not_excuse_a_new_mechanism(prefix):
+    claim = prefix + "，但指数反弹靠少数权重拉动。"
+    _, verified = _case(claim)
+    assert any("market_evidence_scope" in row for row in _findings(verified))
 
 
 def test_hypothesis_is_not_mechanism_evidence_but_is_not_deleted_as_a_fact():

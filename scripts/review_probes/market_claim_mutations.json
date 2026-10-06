@@ -87,6 +87,43 @@
       "expected_red": ["test_hypothesis_is_not_mechanism_evidence_but_is_not_deleted_as_a_fact"]
     },
     {
+      "name": "explicit absence becomes asserted mechanism",
+      "old": "|没有|并无|未见|缺少",
+      "new": "|缺少",
+      "expected_red": ["test_explicit_absence_or_denial_is_not_an_asserted_market_claim[no-evidence]", "test_explicit_absence_or_denial_is_not_an_asserted_market_claim[not-observed]", "test_explicit_absence_or_denial_is_not_an_asserted_market_claim[no-basis]"]
+    },
+    {
+      "name": "neighbor denial excuses asserted mechanism",
+      "old": "text = _REPORTED_QUOTE.sub(\"\", original.replace(\"**\", \"\").replace(\"__\", \"\"))",
+      "new": "text = _REPORTED_QUOTE.sub(\"\", original.replace(\"**\", \"\").replace(\"__\", \"\"))\n        if _NONASSERTED_PREFIX.search(text):\n            continue",
+      "expected_red": ["test_absence_in_another_clause_does_not_excuse_a_new_mechanism"]
+    },
+    {
+      "name": "duration range spelling falsely changes user premise",
+      "old": "re.sub(r\"[-~～到—]\", \"至\", \"\".join(window.split()))",
+      "new": "\"\".join(window.split())",
+      "expected_red": ["test_user_supplied_window_is_not_certified_or_rejected_by_this_finite_gate[range]"]
+    },
+    {
+      "name": "trading days lose unit during user premise extraction",
+      "old": "(?:个交易日|交易日|天|日)",
+      "new": "(?:天|日)",
+      "expected_red": ["test_user_numbers_or_different_time_units_do_not_supply_the_risk_window[calendar-to-trading]"]
+    },
+    {
+      "name": "moving average lookback authorizes prospective duration",
+      "old": " + r\"(?!均|移动平均)\"",
+      "new": "",
+      "expected_red": ["test_user_numbers_or_different_time_units_do_not_supply_the_risk_window[formula]"]
+    },
+    {
+      "name": "calendar date authorizes prospective duration",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "user_basis = user_risk_window_tokens(_DATE_TOKEN_RE.sub(\"\", contract.question))",
+      "new": "user_basis = user_risk_window_tokens(contract.question)",
+      "expected_red": ["test_user_numbers_or_different_time_units_do_not_supply_the_risk_window[chinese-date]"]
+    },
+    {
       "name": "missing named output reopens arbitrary first output",
       "old": "targets = (preferred,) if preferred in eligible else ()",
       "new": "targets = (preferred,) if preferred in eligible else eligible[:1]",
