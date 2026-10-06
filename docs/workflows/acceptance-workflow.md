@@ -94,6 +94,11 @@ git -C /Users/a77/finance-workspace-private worktree add --detach \
 # 软链被 .gitignore 忽略，不影响「快照干净」判据。先补软链、确认可执行，再进下面的 bootout。
 ln -s /Users/a77/finance-workspace-private/.venv-workbench ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench
 test -x ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench/bin/python
+# 四叶过后，下面四步（bootout → ln → 账本 record → bootstrap）用脚本跑（2026-10-06 起）：
+#   bash ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/switch_8792.sh "$sha" <切换记录目录>
+# 它先核完整 SHA / 快照 HEAD / 快照干净 / venv 可执行，任一不过就退出 2、不碰服务和链接；
+# bootout 后轮询到服务卸载且 8792 端口空出才 bootstrap（bootout 是异步的，紧跟 bootstrap 会撞
+# 「Bootstrap failed: 5」，2026-09-27 实测）；账本 record 固定带 --port。手动跑下面的命令时，同样要等卸载完。
 launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 /bin/ln -sfh ~/.finance-runtime/finance-workspace-${sha:0:12} /Users/a77/finance-workspace-runtime
 # ⚠️ 脚本从**新快照**里取，不要从主检出取（2026-08-21 实测补入）：主检出常年停在别的任务分支上，
