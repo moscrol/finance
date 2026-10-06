@@ -202,6 +202,7 @@ def _finance_query_basis(
 ) -> dict[str, object]:
     audit = result.audit
     window = audit.requested_time_range
+    note = finance_query.interpretation_note(spec)
     return {
         "dataset": spec.dataset,
         "metrics": list(spec.metrics),
@@ -228,6 +229,7 @@ def _finance_query_basis(
         "row_unit": "groups" if spec.group_by else "rows",
         "candidate_pool_size": None,
         "candidate_pool_size_status": "unknown_not_counted",
+        **({"interpretation_note": note} if note else {}),
         **({"field_quality": {
             "status": "partial", "scope": "requested_fields_in_returned_slice",
             "gaps": list(result.quality_gaps),

@@ -1,0 +1,63 @@
+{
+  "file": "intelligence/services/finance_query.py",
+  "pytest": "intelligence/tests/test_market_measurement_contract.py",
+  "mutants": [
+    {
+      "name": "ratio label loses its denominator",
+      "old": "_metric(\"limit_up_ratio\", \"板块内涨停占比%\")",
+      "new": "_metric(\"limit_up_ratio\", \"涨停占比\")",
+      "expected_red": ["test_heat_evidence_names_both_denominators_without_changing_values"]
+    },
+    {
+      "name": "market share uses the other denominator",
+      "old": "market_share=limit_up_count/market_limit_up_count×100",
+      "new": "market_share=limit_up_count/total_count×100",
+      "expected_red": ["test_heat_evidence_names_both_denominators_without_changing_values"]
+    },
+    {
+      "name": "ladder rate becomes an individual probability",
+      "old": "_dimension(\"promotion_rate\", \"同板位晋级率（非个股概率）\")",
+      "new": "_dimension(\"promotion_rate\", \"个股晋级概率\")",
+      "expected_red": ["test_ladder_evidence_distinguishes_survivors_from_cohort_success"]
+    },
+    {
+      "name": "coverage note is removed from discovery",
+      "old": "{definition.coverage}{definition.interpretation_note}",
+      "new": "{definition.coverage}",
+      "expected_red": [
+        "test_catalog_and_executed_basis_share_the_measurement_note[theme_limit_heat_daily]",
+        "test_catalog_and_executed_basis_share_the_measurement_note[limit_advance_daily]"
+      ]
+    },
+    {
+      "name": "interpretation only lives in prunable prose",
+      "file": "intelligence/services/episode_tools.py",
+      "old": "**({\"interpretation_note\": note} if note else {}),",
+      "new": "**({\"interpretation_note\": note} if False else {}),",
+      "expected_red": [
+        "test_measurement_note_reaches_actual_model_view_after_pruning[theme_limit_heat_daily-off]",
+        "test_measurement_note_reaches_actual_model_view_after_pruning[theme_limit_heat_daily-on]",
+        "test_measurement_note_reaches_actual_model_view_after_pruning[limit_advance_daily-off]",
+        "test_measurement_note_reaches_actual_model_view_after_pruning[limit_advance_daily-on]"
+      ]
+    },
+    {
+      "name": "group aggregates pretend to be raw row formulas",
+      "old": "note = definition.interpretation_note\n    if spec.group_by:",
+      "new": "note = definition.interpretation_note\n    if False:",
+      "expected_red": [
+        "test_grouped_heat_discloses_aggregation_not_a_recomputed_union_ratio",
+        "test_grouped_ladder_does_not_turn_maximum_into_each_stock_height"
+      ]
+    },
+    {
+      "name": "engine omits the interpretation",
+      "old": "note = interpretation_note(spec)\n        if note:",
+      "new": "note = interpretation_note(spec)\n        if False:",
+      "expected_red": [
+        "test_catalog_and_executed_basis_share_the_measurement_note[theme_limit_heat_daily]",
+        "test_catalog_and_executed_basis_share_the_measurement_note[limit_advance_daily]"
+      ]
+    }
+  ]
+}

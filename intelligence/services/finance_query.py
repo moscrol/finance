@@ -305,6 +305,9 @@ class _DatasetDefinition:
     evidence_tier: str = "L4_structured"
     population: Literal["full", "subset", "single"] = "full"
     coverage: str = ""
+    # Measurement meaning, not another market observation or source-health claim.
+    # Shared by tool discovery, execution prose and the durable query_basis.
+    interpretation_note: str = ""
     # 时间残缺：该日之前不是这个宇宙的全集（历史回填残段）。和 population=subset
     # 不是一回事——后者是**每天**都只收一部分，前者是**某日之后才齐**。
     # 只写在 coverage 散文里不够：事后 advisory 必须能按 time_range 分流。
@@ -1001,6 +1004,13 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "按题材看涨停分布用 theme_limit_heat_daily。本表回答「谁在梯队、最高几板、"
             "题材归属、晋级率」；promotion_rate 是文本（如 1/2=50%），不能当数值聚合。"
         ),
+        interpretation_note=(
+            "原始行口径：boards=N 是当日成功连板的板位；promotion_rate 有值时是来源的"
+            "N-1→N 板晋级数/前一交易日对应板位候选数，百分比取整，不是个股晋级概率。"
+            "同日同板位的比例文本会在多只成功股上重复，不能相加或按个股条数加权。"
+            "本表不含晋级失败者；无板位空档不等于全部晋级。判断断板/失败名单须核对前日"
+            "候选及当日状态，不能只看今日成功者。缺失晋级率不表示零或全部成功。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -1008,7 +1018,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "stock_name": _dimension("stock_name", "股票名称"),
             "theme": _dimension("theme", "题材归属", null_label="未标注"),
             "first_limit_date": _dimension("first_limit_date", "首板日", "date"),
-            "promotion_rate": _dimension("promotion_rate", "晋级率"),
+            "promotion_rate": _dimension("promotion_rate", "同板位晋级率（非个股概率）"),
         },
         metrics={
             "boards": _metric("boards", "连板数", "max", "integer"),
@@ -1142,6 +1152,15 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "**全量板块的涨停热度榜**（每板块涨停家数 / 占比 / "
             "排名）。「涨停集中在哪些题材」「哪个板块涨停最多」这类**全市分布**问题用这张。"
         ),
+        interpretation_note=(
+            "原始行口径：limit_up_ratio=limit_up_count/total_count×100，分母是来源统计的"
+            "板块成分股家数；market_share=limit_up_count/market_limit_up_count×100，分母是"
+            "同日同范围全市场涨停家数；两者均为百分数（非小数比例），不能互换。"
+            "题材成员重叠，跨题材涨停家数或占比不能相加当作去重覆盖；合并方向须查"
+            "theme_limit_stock_daily，在同日按 stock_code 去重并核对明细覆盖。"
+            "单日热度只描述横截面，不证明资金迁移；跨日比较须同范围、同成分口径，"
+            "涨停家数/占比变化也不是资金净流入。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -1155,9 +1174,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "market_limit_up_count": _metric(
                 "market_limit_up_count", "全市场涨停家数", "max", "integer"
             ),
-            "total_count": _metric("total_count", "题材家数", "max", "integer"),
-            "limit_up_ratio": _metric("limit_up_ratio", "涨停占比"),
-            "market_share": _metric("market_share", "市场占比"),
+            "total_count": _metric("total_count", "板块成分股家数", "max", "integer"),
+            "limit_up_ratio": _metric("limit_up_ratio", "板块内涨停占比%"),
+            "market_share": _metric("market_share", "占全市场涨停家数比例%"),
             "rank": _metric("rank", "热度排名", "min", "integer"),
         },
     ),
@@ -1920,7 +1939,7 @@ def _dataset_catalog_text() -> str:
     for name in _PUBLIC_DATASETS:
         definition = _DATASETS[name]
         scope = _POPULATION_LABEL[definition.population]
-        lines.append(f"- {name}（{scope}）：{definition.coverage}")
+        lines.append(f"- {name}（{scope}）：{definition.coverage}{definition.interpretation_note}")
     return "\n".join(lines)
 _PUBLIC_DIMENSIONS = sorted(
     {field for dataset in _DATASETS.values() for field in dataset.dimensions}
@@ -1943,6 +1962,29 @@ def dataset_field_hint(dataset: str | None = None) -> str:
             f"metrics={','.join(sorted(definition.metrics))}"
         )
     return "；".join(parts)
+
+
+def interpretation_note(spec: FinanceQuerySpec) -> str:
+    """Code-owned measurement semantics; never facts inferred from returned rows.
+
+    The formulas describe original rows. A grouped result must also disclose the
+    actual aggregations: e.g. AVG(ratio) is not SUM(numerator)/SUM(denominator).
+    """
+    definition = _DATASETS.get(spec.dataset)
+    if definition is None or not definition.interpretation_note:
+        return ""
+    note = definition.interpretation_note
+    if spec.group_by:
+        operations = "、".join(
+            f"{name}={definition.metrics[name].aggregate}"
+            for name in spec.metrics if name in definition.metrics
+        )
+        note += (
+            f"本次按 {','.join(spec.group_by)} 分组，指标聚合为 {operations or '无数值聚合'}；"
+            "分组值不能套用原始行公式：比例均值不是合并群体的比例，求和不自动去重，"
+            "最大板位不是该组每只股票的板位；需要原始口径时按日期及对象取明细。"
+        )
+    return note
 
 
 def dataset_physical_table(dataset: str) -> str:
@@ -2467,6 +2509,9 @@ class FinanceQuery:
             )
         if quality_gaps:
             observation = "；".join((*quality_gaps, observation))
+        note = interpretation_note(spec)
+        if note:
+            observation = f"{note}；{observation}"
         audit = FinanceQueryAudit(
             dataset=spec.dataset,
             physical_sql=compiled.sql,
