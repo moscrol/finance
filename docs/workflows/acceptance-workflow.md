@@ -52,12 +52,12 @@
 **完成判据**（2026-08-27 起从人眼比对改为 exit code，工单 §P1-a；起因 #444 分支尖收据冒充批次门禁、合并后 main tip 无收据零报警）：四件套全绿，且下面命令 **exit 0**——
 
 ```bash
-git fetch gitea main   # 不 fetch 则 gitea/main 是旧的，两个门都对着过期主干验
+git fetch origin main   # 2026-09-30 起 GitHub origin 是主干，Gitea 只收定时备份、会滞后；不 fetch 则对着过期主干验
 .venv-workbench/bin/python scripts/check_test_receipt.py <收据路径> \
-  --expect-revision "$(git rev-parse gitea/main)" --base-drift-max 5
+  --expect-revision "$(git rev-parse origin/main)" --base-drift-max 5
 ```
 
-exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告时把该 SHA 写进台账行。
+exit 0 只对「命令里那个 `origin/main` 解析出的 SHA」成立；报告时把该 SHA 写进台账行。
 `--expect-revision` 治「收据证明的是另一棵树」（全等比较，防 startswith 削弱），
 `--base-drift-max` 治「分支基座落后主干 N 张合并仍拿分支绿冒充合流绿」。
 收据不在 main tip 上 → 先在 main tip 重跑全量，不许拿旧收据凑数。
@@ -81,13 +81,19 @@ exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告�
 
 ```bash
 # ⚠️ 这条 fetch 不能省（2026-08-18 实测补入）：验收 session 总是刚合完 PR 才切，
-# 那一刻 finance-workspace-private 的 gitea/main **必然落后**（本次落后 10 次合并）。
+# 那一刻本地的远端跟踪引用**必然落后**（当时落后 10 次合并）。
 # 少了它，rev-parse 拿到旧 sha，8792 会被钉在合并前的 revision，而三项验证全会通过
 # ——因为它们只校验「加载的代码 == 那个 sha」，不校验「那个 sha == 主干最新」。
-git -C /Users/a77/finance-workspace-private fetch gitea main
-sha=$(git -C /Users/a77/finance-workspace-private rev-parse gitea/main)
+# 2026-09-30 起主干是 GitHub origin；Gitea 只收定时备份，会更滞后，别从它取 sha。
+git -C /Users/a77/finance-workspace-private fetch origin main
+sha=$(git -C /Users/a77/finance-workspace-private rev-parse origin/main)
 git -C /Users/a77/finance-workspace-private worktree add --detach \
   ~/.finance-runtime/finance-workspace-${sha:0:12} "$sha"
+# ⚠️ 生产启动器用「快照目录/.venv-workbench/bin/python」起 uvicorn，新检出的快照没有 venv。
+# 不补这条软链，bootstrap 后服务 exit 127 循环重启（2026-10-06 切 f3b97499aaff 实测停机约 4 分钟）。
+# 软链被 .gitignore 忽略，不影响「快照干净」判据。先补软链、确认可执行，再进下面的 bootout。
+ln -s /Users/a77/finance-workspace-private/.venv-workbench ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench
+test -x ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench/bin/python
 launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 /bin/ln -sfh ~/.finance-runtime/finance-workspace-${sha:0:12} /Users/a77/finance-workspace-runtime
 # ⚠️ 脚本从**新快照**里取，不要从主检出取（2026-08-21 实测补入）：主检出常年停在别的任务分支上，
@@ -143,9 +149,9 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
 
 回滚 = 反向 `ln -sfh` 到上一快照目录（历史快照都保留在 `~/.finance-runtime/`）+ bootstrap。
 
-切后补打 gitea 备份：`tar -czf ~/backups/gitea-$(date +%Y%m%d)-post<PR号>.tar.gz -C /opt/homebrew/var gitea`。
+切后确认备份已覆盖新主干：`git ls-remote gitea refs/heads/main` 应等于新 sha（GitHub→Gitea 定时备份，见 `dual-remote-collaboration.md`「本地备份任务」；没覆盖就按那一节手动跑一轮 runner）。2026-09-30 之前的 `tar -czf ~/backups/gitea-…` 口径已被它取代。
 
-**完成判据**：三项验证读数齐 + 备份文件在 `~/backups/`。
+**完成判据**：三项验证读数齐 + Gitea 的 `main` 已是新 sha。
 
 ## 5. 回写台账
 
