@@ -110,12 +110,19 @@ def lean_tool_observation(payload: Mapping[str, Any]) -> dict[str, Any]:
         leaned["evidence"] = items
     return leaned
 
-# Matches ``agent_research._MAX_OBSERVATION_CHARS`` so the two engines bound
-# their context the same way.  Engine B has had this cap for a while; Engine A
-# (the production research path) had none, which is the asymmetry this fixes.
-MAX_OBSERVATION_CHARS = 900
-MAX_EVIDENCE_DETAIL_CHARS = 240
-MAX_EVIDENCE_TITLE_CHARS = 120
+# ``agent_research`` reads the same constant so the two engines bound their
+# context the same way.
+#
+# 2026-10-06 calibration (user decision: lift every bound that limits the
+# model).  The old 900 / 240 / 120 clipped 28% of observations and every long
+# evidence row; Pi, given the same tools on the same database, saw them whole
+# and answered better.  Measured over Pi's 134 tool calls (harness-arms v5):
+# observation p95 2210 / max 3000, evidence detail p95 223 / max 619.  The new
+# bounds sit above those maxima, so a normal tool result reaches the model
+# unclipped; they remain a guard only against pathological outputs.
+MAX_OBSERVATION_CHARS = 4000
+MAX_EVIDENCE_DETAIL_CHARS = 800
+MAX_EVIDENCE_TITLE_CHARS = 300
 
 # Where a reader can recover what was elided.  Named, not a bare "truncated"
 # flag: "there was more" without "and here is where it is" is not auditable.

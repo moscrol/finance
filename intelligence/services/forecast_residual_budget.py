@@ -14,11 +14,11 @@ from __future__ import annotations
 from typing import Iterable
 
 FORECAST_RESIDUAL_QUESTION_TYPE = "market_forecast"
+# 与 ``continuous_turn_adapter.DETERMINISTIC_OWNER_TYPES`` 同集（跨层不 import，
+# 由 test_forecast_residual_budget 用等式钉住）。盘面两类题 2026-10-06 起走 Episode。
 DO_NOT_LENGTHEN_QUESTION_TYPES = frozenset(
     {
         "external_market",
-        "dated_market_review",
-        "market_watch",
         "watchlist_digest",
         "disclosure_scan",
     }

@@ -77,8 +77,12 @@ EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
 # 可以取回」。命中块加相邻块 1200 字送达，模型只见前 240 字——这就是「找到了却没读到
 # 答案」的第一损失点。段落级证据把整节装进模型真能看见的形状里：不是加大上下文，
 # 是把已经取回却看不见的字变成看得见，并且每段可独立引用（E 号）。
+#
+# 2026-10-06 模型可见的 detail 上限放大后，段长不跟着变：段长只需 ≤ 可见上限（每段
+# 送达时完整不截），保持 240 让同一总预算下段落粒度与跨页分配不变。
 # ---------------------------------------------------------------------------
-DEEP_READ_ITEM_CHARS = MAX_EVIDENCE_DETAIL_CHARS
+DEEP_READ_ITEM_CHARS = 240
+assert DEEP_READ_ITEM_CHARS <= MAX_EVIDENCE_DETAIL_CHARS, "深读段必须整段落在模型可见的 detail 上限内"
 DEEP_READ_PER_HIT_CHARS = 1200
 DEEP_READ_TOTAL_CHARS = 3000
 DEEP_READ_TOTAL_ENV = "KB_DEEP_READ_TOTAL_CHARS"

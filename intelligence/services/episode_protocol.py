@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import Enum
 import json
+import os
 import re
 from typing import cast
 
@@ -61,7 +62,9 @@ _FINISH_STATUSES = frozenset({"completed", "partial"})
 # 2026-10-05 由 1000/1200 放到 4000：同题对照里 8792 正确但篇幅只有 Pi 的三到六成，
 # Pi 最长一份 3412 字。原上限是「保证 FINAL_JSON 不被截断」的传输预算；GLM 工具轮
 # 现在显式带 ``llm_refine.agent_turn_max_tokens``，不再靠压正文来防截断。
-EPISODE_DRAFT_MAX_CHARS = 4000
+# 2026-10-06 再放到 6000 并改措辞（用户：凡是限制模型能力的都要放开）：上限只防失控，
+# 篇幅由问题决定；提示词不再要求「只保留决定性依据」。
+EPISODE_DRAFT_MAX_CHARS = 6000
 # 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
 # derived_calculation 模块（它反向依赖注册表，成环），只认名字。
 DERIVED_CALCULATION_TOOL = "derived_calculation"
@@ -409,11 +412,12 @@ def build_episode_instructions(
         "不得用同一次工具返回的相邻证据代替，也不得正文使用后漏绑。\n"
         "\n"
         "【何时停止】\n"
-        "必需输出"
-        "已有足够直接证据时应停止研究，不得为了耗尽步数调用非必需工具。\n"
-        "不要套固定标题、行数或段落模板。终止时不要调用工具，"
-        f"为保证结构化终止完整，draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内，优先保留直接"
-        "判断、决定性依据、继续条件和失效条件；这不要求固定标题或段数。\n"
+        "必需输出都有直接证据、关键判断已尽量交叉核对（另一数据源、相邻日期或反证）"
+        "后再停止研究；不得为了耗尽步数调用与问题无关的工具。\n"
+        "不要套固定标题、行数或段落模板。终止时不要调用工具。"
+        f"draft 篇幅由问题决定，上限 {EPISODE_DRAFT_MAX_CHARS} 汉字（只为保证结构化终止完整）："
+        "先直接回答，再写清关键数据及其日期与来源、推理、继续条件和失效条件；"
+        "不要为了压缩篇幅省掉证据里的关键数字；这不要求固定标题或段数。\n"
         "\n"
         "【排版】\n"
         "上面禁止的是「按固定小标题填空」，不是禁止排版：用哪些结构由内容"
@@ -735,6 +739,23 @@ def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
 
 
+AUDIENCE_DIRECTION_GATE_ENV = "WORKBENCH_AUDIENCE_DIRECTION_GATE"
+
+
+def audience_direction_gate_enabled() -> bool:
+    """「明天哪个方向」出口门是受众层政策，缺省关（自用 = 能力 max）。
+
+    用户 2026-09-13：「目前我们自己使用，就要达到能力的 max，合规的边界后续再去考虑」，
+    不荐股 / 不给方向这类受众红线属于渲染 / 导出 / 分享层，不该卡内部能力；2026-10-06
+    又定「凡是限制模型能力的都要优化」。同题对照里 Pi 直接给出带依据的方向排序被盲评判
+    可用，而这道门把 8792 同样的答案连拒两次、降成缺口模板。面向外部受众的部署设
+    ``WORKBENCH_AUDIENCE_DIRECTION_GATE=on`` 恢复。
+    """
+
+    raw = str(os.environ.get(AUDIENCE_DIRECTION_GATE_ENV) or "").strip().lower()
+    return raw in {"on", "1", "true", "yes"}
+
+
 def forward_direction_call_hits(
     draft: str, *, question: str
 ) -> tuple[compliance_gate.Hit, ...]:
@@ -744,8 +765,11 @@ def forward_direction_call_hits(
     「长电科技怎么看」里写「次日更容易高开分歧」不归这里管）；是这类问法则整篇
     按子句扫，条件句免检（观察剧本的升级 / 降级条件天然长成「若明天开盘 X 高开」）。
     词表与判据都住在 ``compliance_gate``（一份词表多个消费者），这里只做接线。
+    2026-10-06 起只在 ``audience_direction_gate_enabled()`` 时生效。
     """
 
+    if not audience_direction_gate_enabled():
+        return ()
     if not compliance_gate.is_next_day_direction_question(question):
         return ()
     return tuple(compliance_gate.forward_call_hits(draft))

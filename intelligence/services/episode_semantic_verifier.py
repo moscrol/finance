@@ -5621,6 +5621,7 @@ def _novel_numeric_condition_tokens(
     memory_restatements = frozenset() if personal_recall else _bound_memory_restatement_indexes(sentences, verified)
     personal_quantities = _bound_personal_recall_quantities(verified) if personal_recall else {}
     unsupported: dict[int, tuple[str, ...]] = {}
+    question_quantities = _question_quantities(contract)
     evidence_quantities = _bound_evidence_quantities(verified.outcome)
     observation_values = _bound_observation_values(verified.outcome)
     percent_fields = _bound_percent_field_values(verified.outcome)
@@ -5722,6 +5723,7 @@ def _novel_numeric_condition_tokens(
             quantity.strip()
             for quantity in quantities
             if _normalize_quantity(quantity)
+            and _normalize_quantity(quantity) not in question_quantities
             and not _quantity_supported_by_evidence(
                 quantity,
                 evidence_quantities,
@@ -5734,6 +5736,24 @@ def _novel_numeric_condition_tokens(
         if missing:
             unsupported[index] = missing
     return unsupported
+
+
+def _question_quantities(contract: object) -> frozenset[str]:
+    """用户题面里自带的数量（如「边际量超过10%、成交额高于500亿」）。
+
+    这些是用户给的条件，不是模型编出来的阈值；答案复述它们不该被点名「待核」
+    （2026-10-06 旁路复测 D3：用户自己的「10%」「500亿」被标成证据里找不到出处）。
+    与 PR #52 把题目里的日期视作锚点日期同一个道理。
+    """
+
+    question = str(getattr(contract, "question", "") or "")
+    if not question:
+        return frozenset()
+    text = _DATE_TOKEN_RE.sub("", question)
+    found = (*_ARABIC_QUANTITY_RE.findall(text), *_CHINESE_QUANTITY_RE.findall(text))
+    return frozenset(
+        normalized for normalized in (_normalize_quantity(item) for item in found) if normalized
+    )
 
 
 # 句末标点连同其后的收尾符（加粗 / 引号 / 括号）一起算句尾：说明插在标点之前。

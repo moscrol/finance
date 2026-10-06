@@ -10,6 +10,7 @@ from intelligence.runtime.sub_research import BranchResult, SubResearchResult
 from intelligence.services.agent_research import AgentEvidence, evidence_content_hash
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
 from intelligence.tests.test_agent_episode import (
     InMemoryRootBudgetLedger,
     ResearchDeadline,
@@ -28,7 +29,8 @@ def _atom() -> AgentEvidence:
     item = AgentEvidence(
         tool="news_search",
         title="分支完整材料",
-        detail="原文" * 450,
+        # 比模型可见的 detail 上限长得多：读页要读到上限之外，才谈得上「新送达」。
+        detail="原文" * 900,
         source="fixture:branch-delivery",
         source_date="2026-07-21",
         evidence_tier="L3",
@@ -124,9 +126,14 @@ def _progress(model):
     ][-1]
 
 
+# 读页结果的投影里证据本身会再露出 detail 前 MAX_EVIDENCE_DETAIL_CHARS-1 字，所以偏移量
+# 都落在可见上限之外（上限 2026-10-06 由 240 放到 800）。
+_CAP = MAX_EVIDENCE_DETAIL_CHARS
+
+
 @pytest.mark.parametrize(
     "shown_chars,offset,expected_new_chars",
-    [(None, 239, 0), (300, 250, 50), (300, 400, 100)],
+    [(None, _CAP - 1, 0), (_CAP + 100, _CAP + 50, 50), (_CAP + 100, _CAP + 200, 100)],
 )
 def test_claimed_branch_coverage_counts_only_unseen_delivered_characters(
     monkeypatch, shown_chars, offset, expected_new_chars
@@ -166,7 +173,7 @@ def test_delivered_coverage_does_not_leak_when_episode_runner_is_reused(monkeypa
     monkeypatch.setenv("ASK_EPISODE_EVIDENCE_READ", "on")
     item = _atom()
     frame = _frame()
-    model = ScriptedModel([*_turns(item, offset=400), *_turns(item, offset=400)])
+    model = ScriptedModel([*_turns(item, offset=_CAP + 200), *_turns(item, offset=_CAP + 200)])
     harness = _DeliveryHarness()
     episode = ContinuousAgentEpisode(
         model, harness=harness, sub_research_coordinator=_Coordinator(item)
@@ -179,7 +186,7 @@ def test_delivered_coverage_does_not_leak_when_episode_runner_is_reused(monkeypa
     assert first.status == "completed"
     assert _progress(model).get("new_read_chars", 0) == 0
 
-    harness.detail_chars = 300
+    harness.detail_chars = _CAP + 100
     second = episode.run(
         task_frame=frame,
         context=_read_context(frame, task_id="branch-delivery-second"),
@@ -240,7 +247,7 @@ def test_saved_branch_text_is_not_covered_until_correct_inbox_claim(monkeypatch)
         messages=messages, ledger=ledger, target="next_step", accumulator=accumulator,
     ) == 1
     assert len(messages) == 1
-    assert accumulator.read_coverage.ranges[(item.content_hash, "detail")] == [(0, 900)]
+    assert accumulator.read_coverage.ranges[(item.content_hash, "detail")] == [(0, len(item.detail))]
     assert accumulator.read_coverage.ranges[(item.content_hash, "title")] == [(0, len(item.title))]
 
 
@@ -265,7 +272,7 @@ def test_legacy_direct_branch_delivery_seeds_only_after_append(monkeypatch):
     _, _, accumulator, messages = _pending_delivery(item, with_inbox=False)
     assert len(messages) == 1
     assert item.detail in messages[0].content
-    assert accumulator.read_coverage.ranges[(item.content_hash, "detail")] == [(0, 900)]
+    assert accumulator.read_coverage.ranges[(item.content_hash, "detail")] == [(0, len(item.detail))]
 
 
 def test_branch_delivery_does_not_activate_disabled_read_tracking(monkeypatch):
