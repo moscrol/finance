@@ -601,6 +601,27 @@ def cmd_sync_polymarket_macro_odds(args) -> int:
     return 0
 
 
+def cmd_sync_global_daily_akshare(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_global_daily_akshare import akshare_fetcher, run as run_global
+
+    result = run_global(
+        Path(args.db),
+        start=_date.fromisoformat(args.start_date),
+        end=_date.fromisoformat(args.end_date),
+        apply=args.apply,
+        main_db_path=DB_PATH,
+        fetch=akshare_fetcher(sleep=args.sleep),
+        validate_days=args.validate_days,
+    )
+    text = json.dumps(result, ensure_ascii=False, indent=1, default=str)
+    if args.report:
+        Path(args.report).write_text(text + "\n", encoding="utf-8")
+    print(text if len(text) < 6000 else text[:6000] + "\n…（完整报告见 --report）")
+    return {"ok": 0, "needs_user": 3, "refused": 2}.get(result.get("status"), 1)
+
+
 def cmd_sync_fupanhui_public_assets(args) -> int:
     from .sync.sync_fupanhui_public_assets import align_bounds, sync as sync_public_assets, sync_range
 
@@ -2414,6 +2435,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
     p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
     p_idx.set_defaults(func=cmd_sync_index_daily)
+
+    p_gl = sub.add_parser(
+        "sync-global-daily-akshare",
+        help="外盘指数与美股日线换源重建（AKShare 新浪）：补表尾断档、重取复制旧值行；默认只算不写",
+    )
+    p_gl.add_argument("--db", required=True, help="目标库路径；--apply 时必须是克隆库，不接受主库")
+    p_gl.add_argument("--start-date", required=True, help="起始 A 股交易日 YYYY-MM-DD（复制行判定窗口起点）")
+    p_gl.add_argument("--end-date", required=True, help="结束 A 股交易日 YYYY-MM-DD")
+    p_gl.add_argument("--apply", action="store_true", help="状态 ok 时写入 --db（只写克隆库）")
+    p_gl.add_argument("--report", default=None, help="把 dry-run / 写入报告存成 JSON")
+    p_gl.add_argument("--sleep", type=float, default=0.5, help="每次请求后的间隔秒数，默认 0.5")
+    p_gl.add_argument("--validate-days", type=int, default=60, help="库内旧行对账的交易日数，默认 60")
+    p_gl.set_defaults(func=cmd_sync_global_daily_akshare)
 
     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
     p_sw.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
