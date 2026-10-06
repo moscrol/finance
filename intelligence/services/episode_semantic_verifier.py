@@ -39,6 +39,7 @@ from intelligence.services.agent_research import (
     AgentEvidence,
     StructuredObservation,
     describe_lost_observation,
+    evidence_content_hash,
     grounded_values_in_text,
 )
 from intelligence.services.provider_observability import provider_gap_messages
@@ -121,7 +122,9 @@ from intelligence.services.judge_mode import (
     semantic_judge_mode,
 )
 from intelligence.services.judge_source_recheck import recheck_draft, recheck_enabled
-from intelligence.services.finance_query import FinanceQuerySpec, FinanceQueryValidationError
+from intelligence.services.finance_query import (
+    MARKET_VOLUME_RATIO_DEFINITION, FinanceQuerySpec, FinanceQueryValidationError,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
@@ -5635,7 +5638,8 @@ def _novel_numeric_condition_tokens(
             continue
         if text in historical or index in memory_restatements:
             continue
-        candidate = _mask_bound_short_date_heading(text, verified.outcome)
+        candidate = _mask_market_ratio_definition(text, verified)
+        candidate = _mask_bound_short_date_heading(candidate, verified.outcome)
         candidate = _mask_cited_short_dates(candidate, verified.outcome)
         # References remain in the draft for citation validation, but their
         # ordinals must not trigger a numeric backfill or sentence deletion.
@@ -5736,6 +5740,102 @@ def _novel_numeric_condition_tokens(
         if missing:
             unsupported[index] = missing
     return unsupported
+
+
+_MARKET_RATIO_EXPLANATION_RE = re.compile(
+    r"量比\s*(?P<value>\d+(?:\.\d+)?)\s*[%％]\s*[（(]\s*"
+    r"(?P<relation>低于|高于|等于)\s*100\s*[%％]\s*[，,]\s*"
+    r"即成交额(?P=relation)\s*20\s*日均额(?:水平)?\s*[）)]"
+)
+_MARKET_RATIO_FIELD_RE = re.compile(r"(?:^|[；;])量比%=([0-9]+(?:\.[0-9]+)?)(?=$|[；;])")
+
+
+def _mask_market_ratio_definition(text: str, verified: VerifiedEpisodeOutcome) -> str:
+    """Mask only a verified formula comparison, never arbitrary metadata numbers.
+
+    The no-citation fallback deliberately uses the *intersection* of required
+    evidence bindings: the legacy draft has no machine-owned sentence→output
+    coordinate. We cannot safely borrow a definition from just one other slot.
+    Explicit citations additionally narrow that intersection. This conservative
+    recognition does not assert that the rest of the sentence is sound.
+    """
+    if not _MARKET_RATIO_EXPLANATION_RE.search(text) or verified.contract is None:
+        return text
+    bindings = {binding.output_id: binding for binding in verified.outcome.bindings}
+    required = [spec for spec in verified.contract.required_outputs
+                if spec.required and spec.grounding_mode == "evidence"]
+    if not required:
+        return text
+    pools = [set(binding.evidence_hashes) if (binding := bindings.get(spec.output_id))
+             and not binding.gap and binding.basis == "evidence" else set() for spec in required]
+    allowed = set.intersection(*pools)
+    cited = cited_evidence_ordinals(text)
+    if cited:
+        by_id = _evidence_by_ordinal(verified.outcome)
+        if any(ordinal not in by_id for ordinal in cited):
+            return text
+        allowed.intersection_update(str(getattr(by_id[ordinal], "content_hash", "")) for ordinal in cited)
+    # A digest is a content identity, not a trusted label. Check the recorded
+    # card as well as its event association; partial/legacy metadata grants no
+    # definition exemption. These checks never fetch or repair missing data.
+    identity_fields = ("tool", "title", "detail", "source", "source_date", "independent_key")
+    rows_by_hash = {
+        row.content_hash: row for row in verified.outcome.evidence
+        if isinstance(row.content_hash, str) and row.content_hash in allowed
+        and row.tool == "finance_query"
+        and all(isinstance(getattr(row, key), str) for key in identity_fields)
+        and row.independent_key.startswith("duckdb:market_daily:")
+        and row.content_hash == evidence_content_hash(row)
+    }
+    definition_hashes: set[str] = set()
+    for event in verified.outcome.events:
+        payload = event.payload
+        basis = payload.get("query_basis")
+        if not (event.kind == "tool_result" and payload.get("ok") is True
+                and payload.get("tool") == "finance_query"
+                and payload.get("task_frame_hash") == verified.outcome.task_frame_hash
+                and isinstance(basis, Mapping)
+                and basis.get("dataset") == "market_daily"
+                and basis.get("group_by") in ([], ())
+                and isinstance(basis.get("metrics"), (list, tuple))
+                and all(isinstance(metric, str) for metric in basis["metrics"])
+                and "volume_ratio" in basis["metrics"]
+                and isinstance(basis.get("interpretation_note"), str)
+                and MARKET_VOLUME_RATIO_DEFINITION in basis["interpretation_note"]):
+            continue
+        emitted_rows = payload.get("evidence")
+        emitted_hashes = payload.get("evidence_hashes")
+        if not isinstance(emitted_rows, (list, tuple)) or not isinstance(
+            emitted_hashes, (list, tuple)
+        ):
+            continue
+        for emitted in emitted_rows:
+            if not isinstance(emitted, Mapping):
+                continue
+            digest = emitted.get("content_hash")
+            if not isinstance(digest, str) or digest not in emitted_hashes:
+                continue
+            actual = rows_by_hash.get(digest)
+            if actual is not None and all(
+                emitted.get(key) == getattr(actual, key) for key in identity_fields
+            ):
+                definition_hashes.add(digest)
+    rows = [rows_by_hash[digest] for digest in definition_hashes]
+
+    def replace_definition(match: re.Match[str]) -> str:
+        value = Decimal(match.group("value"))
+        relation = "低于" if value < 100 else "高于" if value > 100 else "等于"
+        supported = any(
+            Decimal(field.group(1)) == value
+            for row in rows
+            if (field := _MARKET_RATIO_FIELD_RE.search(row.detail)) is not None
+        )
+        if not supported or match.group("relation") != relation:
+            return match.group()
+        # Leave the actually observed value visible to all existing checks.
+        return f"量比{match.group('value')}%（相对均额的定义比较）"
+
+    return _MARKET_RATIO_EXPLANATION_RE.sub(replace_definition, text)
 
 
 def _question_quantities(contract: object) -> frozenset[str]:

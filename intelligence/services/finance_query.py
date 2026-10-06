@@ -391,6 +391,12 @@ _RETURN_SUMMARY_COVERAGE = (
 )
 
 
+# Shared by tool metadata and the verifier's narrow definition check. This is
+# measurement semantics, not an observed ratio or authority for a forecast.
+MARKET_VOLUME_RATIO_DEFINITION = (
+    "volume_ratio=total_amount/amount_ma20×100 是相对20日均额的百分数，不是倍数。"
+)
+
 _DATASETS: dict[str, _DatasetDefinition] = {
     "market_daily": _DatasetDefinition(
         table="fact_market_daily",
@@ -407,8 +413,8 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         interpretation_note=(
             "原始行口径：total_amount 是全市场成交额（亿元），成交额不是成交股数；"
             "amount_change_pct 是成交额较前一交易日的百分比变化，"
-            "volume_ratio=total_amount/amount_ma20×100 是相对20日均额的百分数，不是倍数。"
-            "成交额反映交易规模，不能单独证明增量资金入场、资金来源、存量资金迁移或买卖动机；"
+            + MARKET_VOLUME_RATIO_DEFINITION
+            + "成交额反映交易规模，不能单独证明增量资金入场、资金来源、存量资金迁移或买卖动机；"
             "放量下跌、跌停减少也不能据此确认风险已经出清。"
             "指数涨跌与涨跌家数背离只说明两种统计不同，权重股拉动须有指数贡献证据。"
             "涨停家数只是市场广度的一部分；某题材涨停集中不能排除其他个股或全市场风险偏好回升。"

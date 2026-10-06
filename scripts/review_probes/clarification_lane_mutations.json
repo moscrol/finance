@@ -17,8 +17,8 @@
     },
     {
       "name": "actual unresolved input axes disappear",
-      "old": "    return (match.group(\"before\") or match.group(\"after\")) if match else None",
-      "new": "    return None",
+      "old": "            return _input_axis(match)",
+      "new": "            return None",
       "expected_red": ["test_rebound_clarification_answer_still_resolves_subject"]
     },
     {
@@ -26,6 +26,30 @@
       "old": "        for clause in re.split(r\"[。；;！？!?]|但\", item)",
       "new": "        for clause in (item,)",
       "expected_red": ["test_actual_missing_inputs_are_not_waived[missing-material]"]
+    },
+    {
+      "name": "negated access gap becomes a blocking question",
+      "old": "        if not match.group(\"denied\"):",
+      "new": "        if True:",
+      "expected_red": ["test_research_uncertainty_is_retained_without_subject_clarification[denied-read]", "test_research_uncertainty_is_retained_without_subject_clarification[denied-later]"]
+    },
+    {
+      "name": "access-scope subject disappears from the input grammar",
+      "old": "_INPUT_AXIS = rf\"(?:{_ACCESS_INPUT_AXIS}|主体|市场|数据源|工具|对象)\"",
+      "new": "_INPUT_AXIS = r\"(?:主体|市场|数据源|工具|对象)\"",
+      "expected_red": ["test_actual_missing_inputs_are_not_waived[permission]", "test_explicit_access_gaps_survive_unrelated_negation_and_defaults[scope-before]"]
+    },
+    {
+      "name": "ordinary analytical boundary becomes an access gap",
+      "old": "r\"(?:权限(?:边界|范围)?|(?:工具|数据源|读取|访问|取数|私有材料|账户)(?:的)?\"",
+      "new": "r\"(?:边界|权限(?:边界|范围)?|(?:工具|数据源|读取|访问|取数|私有材料|账户)(?:的)?\"",
+      "expected_red": ["test_research_uncertainty_is_retained_without_subject_clarification[conclusion-boundary]", "test_research_uncertainty_is_retained_without_subject_clarification[risk-boundary]"]
+    },
+    {
+      "name": "access authorization is mistaken for absent material",
+      "old": "lambda match: \"\" if _input_axis(match) == \"权限\" else match.group(), text,",
+      "new": "lambda match: match.group(), text,",
+      "expected_red": ["test_explicit_access_gaps_survive_unrelated_negation_and_defaults[default-other-clause]"]
     },
     {
       "name": "alignment loses shared input gap instruction",

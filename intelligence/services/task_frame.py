@@ -1006,23 +1006,47 @@ def _is_missing_material_ambiguity(item: str) -> bool:
     text = str(item or "")
     if not text or _SELF_RESOLVED_RE.search(text):
         return False
+    # 「私有材料的读取范围缺失」缺的是访问授权，不是材料正文。
+    # 只投影这个明确短语；其他子句真的缺材料仍应优先追问。
+    text = _INPUT_GAP_RE.sub(
+        lambda match: "" if _input_axis(match) == "权限" else match.group(), text,
+    )
     return bool(
         _MISSING_MATERIAL_NOUN_RE.search(text) and _MISSING_MATERIAL_STATE_RE.search(text)
     )
 
 
+# One explicit input-axis grammar, not proximity routing.「研究边界不明，需读取…」
+# never borrows the later verb to become an access gap. The same grammar handles
+# forward/reversed phrasing; a negation belongs only to its matched phrase.
+_ACCESS_INPUT_AXIS = (
+    r"(?:权限(?:边界|范围)?|(?:工具|数据源|读取|访问|取数|私有材料|账户)(?:的)?"
+    r"(?:使用|读取|访问)?(?:权限)?(?:权限|边界|范围))"
+)
+_INPUT_AXIS = rf"(?:{_ACCESS_INPUT_AXIS}|主体|市场|数据源|工具|对象)"
+_INPUT_GAP_RE = re.compile(
+    r"(?P<denied>而非|并非|不是|不存在|无需|不用|不需要|不应|不要)?"
+    rf"(?:(?P<before>{_INPUT_AXIS})(?:的)?"
+    r"(?:指代|身份|范围|选择|归属)*(?:仍然|仍|还|均|尚|依然|存在)?"
+    r"(?:不明(?:确)?|未明确|没有明确|未指定|未给出|缺失|冲突|有歧义|"
+    r"未能唯一确定|无法唯一(?:确定|绑定))"
+    r"|(?:缺少可唯一绑定的|缺少明确的?|不明(?:确)?的?|未明确的?|"
+    r"无法(?:唯一)?确定的?|未指定的?)(?:分析|研究|具体)?"
+    rf"(?P<after>{_INPUT_AXIS}))"
+)
+
+
+def _input_axis(match: re.Match[str]) -> str:
+    axis = match.group("before") or match.group("after")
+    return axis if axis in {"主体", "市场", "数据源", "工具", "对象"} else "权限"
+
+
 def _unresolved_input_axis(item: str) -> str | None:
-    # Narrow the two legacy input-gap checks: `结论.*可能` is uncertainty,
-    # not a missing subject. The gap must describe the input axis itself.
-    match = re.search(
-        r"(?P<before>主体|市场|数据源|工具|对象)(?:的)?(?:指代|身份|范围|选择|归属)?"
-        r"(?:仍然|仍|尚|依然|存在)?(?:不明(?:确)?|未明确|没有明确|未指定|"
-        r"未给出|缺失|冲突|有歧义|未能唯一确定|无法唯一(?:确定|绑定))"
-        r"|(?:缺少可唯一绑定的|缺少明确的?|不明(?:确)?的?|未明确的?|"
-        r"无法(?:唯一)?确定的?|未指定的?)(?:分析|研究|具体)?"
-        r"(?P<after>主体|市场|数据源|工具|对象)", item,
-    )
-    return (match.group("before") or match.group("after")) if match else None
+    # A denied gap cannot block; nor can it waive a genuine gap later on.
+    for match in _INPUT_GAP_RE.finditer(str(item or "")):
+        if not match.group("denied"):
+            return _input_axis(match)
+    return None
 
 
 def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
@@ -1038,6 +1062,8 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
     axis = next((axis for item in ambiguities if (axis := _unresolved_input_axis(item))), None)
     if axis == "市场":
         return "你希望我按 A 股、美股，还是其他市场来判断？"
+    if axis in {"数据源", "工具", "权限", "边界"}:
+        return "你希望我使用哪个数据源或工具，允许的读取范围是什么？"
     if axis is not None:
         return "你希望我围绕哪个明确主体继续判断？"
     return None

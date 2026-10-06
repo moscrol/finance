@@ -1,0 +1,72 @@
+{
+  "file": "intelligence/services/episode_semantic_verifier.py",
+  "pytest": ["intelligence/tests/test_market_ratio_definition.py"],
+  "mutants": [
+    {
+      "name": "numeric consumer stops applying the local definition projection",
+      "old": "        candidate = _mask_market_ratio_definition(text, verified)",
+      "new": "        candidate = text",
+      "expected_red": ["test_known_ratio_definition_is_not_a_new_observation[plain]", "test_known_ratio_definition_is_not_a_new_observation[cited]"]
+    },
+    {
+      "name": "required binding intersection becomes union",
+      "old": "    allowed = set.intersection(*pools)",
+      "new": "    allowed = set.union(*pools)",
+      "expected_red": ["test_required_bindings_use_intersection_not_union", "test_missing_required_binding_cannot_lend_the_definition"]
+    },
+    {
+      "name": "explicit references stop narrowing evidence authority",
+      "old": "        allowed.intersection_update(str(getattr(by_id[ordinal], \"content_hash\", \"\")) for ordinal in cited)",
+      "new": "        pass",
+      "expected_red": ["test_explicit_citation_to_other_bound_row_cannot_borrow_the_definition"]
+    },
+    {
+      "name": "failed tool result lends a definition",
+      "old": "event.kind == \"tool_result\" and payload.get(\"ok\") is True",
+      "new": "event.kind == \"tool_result\"",
+      "expected_red": ["test_metadata_must_belong_to_the_actual_bound_tool_row[failed-tool]"]
+    },
+    {
+      "name": "foreign task event lends a definition",
+      "old": "                and payload.get(\"task_frame_hash\") == verified.outcome.task_frame_hash\n",
+      "new": "",
+      "expected_red": ["test_unattributed_or_foreign_task_event_cannot_lend_the_definition[other-task]", "test_unattributed_or_foreign_task_event_cannot_lend_the_definition[None]"]
+    },
+    {
+      "name": "aggregated ratios inherit the raw-row definition",
+      "old": "                and basis.get(\"group_by\") in ([], ())\n",
+      "new": "",
+      "expected_red": ["test_other_query_metadata_cannot_authorize_formula_constants[aggregation]"]
+    },
+    {
+      "name": "malformed definition containers are coerced into authorization",
+      "old": "                and isinstance(basis.get(\"interpretation_note\"), str)\n                and MARKET_VOLUME_RATIO_DEFINITION in basis[\"interpretation_note\"]",
+      "new": "                and MARKET_VOLUME_RATIO_DEFINITION in str(basis.get(\"interpretation_note\"))",
+      "expected_red": ["test_other_query_metadata_cannot_authorize_formula_constants[list-note]", "test_other_query_metadata_cannot_authorize_formula_constants[object-note]"]
+    },
+    {
+      "name": "matching hash label replaces matching event content",
+      "old": "            if actual is not None and all(\n                emitted.get(key) == getattr(actual, key) for key in identity_fields\n            ):",
+      "new": "            if actual is not None:",
+      "expected_red": ["test_event_row_content_must_match_not_just_its_hash_label[value]", "test_event_row_content_must_match_not_just_its_hash_label[date]"]
+    },
+    {
+      "name": "forged content hash accepted in every container",
+      "old": "        and row.content_hash == evidence_content_hash(row)\n",
+      "new": "",
+      "expected_red": ["test_consistent_but_invalid_hash_labels_cannot_authorize_the_definition[forged-hash]"]
+    },
+    {
+      "name": "wrong ratio comparison ignored",
+      "old": "        if not supported or match.group(\"relation\") != relation:",
+      "new": "        if not supported:",
+      "expected_red": ["test_formula_constants_do_not_license_market_facts_or_new_thresholds[reversed-relation]"]
+    },
+    {
+      "name": "unobserved ratio inherits another value's definition",
+      "old": "        if not supported or match.group(\"relation\") != relation:",
+      "new": "        if match.group(\"relation\") != relation:",
+      "expected_red": ["test_formula_constants_do_not_license_market_facts_or_new_thresholds[invented-value]"]
+    }
+  ]
+}
