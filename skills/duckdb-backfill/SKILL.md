@@ -141,6 +141,7 @@ MARKET_FEATURE_STORE_DB=<主库> python3 -m market_feature_store.cli sync-global
 # 4) 用户确认后按 sync_daily_full 的换库临界区换名：hold_swap_lock → 身份 / mtime 复核 → backup_before_swap → atomic_swap_into_place
 ```
 
+美股前复权缺失、错场或收益窗口缺场时，该行跳过并在 `skipped` 标 `adjusted_*`；不退回裸价收益（拆股会造假暴跌）。
 缺口超过 5% 或任一指数取不到，状态 `needs_user`、不写。**日更尚未接入**：2026-09-30 之后的交易日要再跑一轮（或接进 local 计划）。
 首轮记录：`~/.finance-runtime/backfill-overseas-rebuild-1006/`（计划、授权原话、审计、dry-run、换库收据与备份路径）。
 

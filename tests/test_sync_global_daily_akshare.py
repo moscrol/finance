@@ -37,6 +37,9 @@ HISTORIES = {
 
 
 def fake_fetch(function: str, symbol: str) -> list[tuple[date, float]]:
+    # 本夹具没有拆股，前复权序列与裸价相同；显式提供，而不是靠异常回退。
+    if function == glob.STOCK_QFQ_SOURCE:
+        function = glob.STOCK_SOURCE
     if (function, symbol) not in HISTORIES:
         raise LookupError(symbol)
     return list(HISTORIES[(function, symbol)])
@@ -314,6 +317,63 @@ def test_split_day_return_uses_the_adjusted_series_and_close_stays_actual(tmp_pa
     assert splt["2026-07-06"][1] == 101.5
     assert splt["2026-07-06"][2] == pytest.approx(_pct(SPLT_QFQ, "2026-07-06", "2026-07-02"))
     assert splt["2026-07-06"][2] > -1
+
+
+@pytest.mark.parametrize("failure", ["exception", "empty", "stale", "missing_previous", "missing_five_back", "zero", "nan"])
+def test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback(tmp_path: Path, failure: str) -> None:
+    db = _build_july(tmp_path / "clone.duckdb")
+    before = _sha(db)
+
+    def fetch(function: str, symbol: str):
+        if function != glob.STOCK_QFQ_SOURCE or symbol != "SPLT":
+            return july_fetch(function, symbol)
+        if failure == "exception":
+            raise RuntimeError("provider unavailable")
+        if failure == "empty":
+            return []
+        rows = july_fetch(function, symbol)
+        if failure == "stale":
+            return [(day, close) for day, close in rows if day <= D("2026-07-02")]
+        if failure in {"missing_previous", "missing_five_back"}:
+            missing = D("2026-07-02" if failure == "missing_previous" else "2026-06-26")
+            return [(day, close) for day, close in rows if day != missing]
+        bad = 0.0 if failure == "zero" else float("nan")
+        return [(day, bad if day == D("2026-07-06") else close) for day, close in rows]
+
+    result = glob.run(db, start=D("2026-06-30"), end=D("2026-07-07"), apply=True,
+                      main_db_path=tmp_path / "main.duckdb", fetch=fetch, complete_before=D("2026-10-06"))
+
+    assert result["status"] == "needs_user" and result["applied"] is None
+    assert any(item["code"] == "SPLT" and item["reason"].startswith("adjusted_")
+               for item in result["reports"][1]["skipped"])
+    assert any("缺口" in reason for reason in result["reasons"])
+    assert _sha(db) == before
+
+
+def test_adjusted_failure_below_threshold_skips_only_the_affected_stock(tmp_path: Path) -> None:
+    db = _build_july(tmp_path / "clone.duckdb")
+    with duckdb.connect(str(db)) as con:
+        # 21 个代码，缺 1 个 = 4.76%，沿用既有 5% 容忍线，不扩大为全批停写。
+        for i in range(19):
+            con.execute("insert into fact_global_stock_daily select trade_date, source_trade_date, ?, name_cn, name_en, "
+                        "exchange, close, pct_chg, pct_chg_5d, market_cap_usd, business, industry_position, source, updated_at "
+                        "from fact_global_stock_daily where ts_code = 'FLAT'", [f"GOOD{i}"])
+
+    def fetch(function: str, symbol: str):
+        if function == glob.STOCK_QFQ_SOURCE and symbol == "SPLT":
+            raise RuntimeError("provider unavailable")
+        return july_fetch(function, "FLAT" if symbol.startswith("GOOD") else symbol)
+
+    result = glob.run(db, start=D("2026-06-30"), end=D("2026-07-07"), apply=True,
+                      main_db_path=tmp_path / "main.duckdb", fetch=fetch, complete_before=D("2026-10-06"))
+
+    assert result["status"] == "ok" and result["applied"]["stock_rows"] == 60
+    assert result["reports"][1]["targets"]["gap"] == 63
+    assert result["reports"][1]["skipped"]
+    splt = _july_rows(db, "fact_global_stock_daily", "ts_code", "SPLT")
+    assert set(splt) == {"2026-06-30", "2026-07-01", "2026-07-02"}
+    assert all(row[3] == "fupanhui" for row in splt.values())
+    assert _july_rows(db, "fact_global_stock_daily", "ts_code", "GOOD0")["2026-07-06"][2] == 0.0
 
 
 def test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy(tmp_path: Path) -> None:

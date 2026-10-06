@@ -8,6 +8,7 @@
   source_trade_date 如实写会话日。绝不拿 D 之后的会话填 D。
 - 指数涨跌幅 = 本场收盘 ÷ 上一场收盘 − 1。美股收盘写实际收盘（未复权），涨跌幅与 5 日涨跌按前复权
   序列算（经济收益）——拆股日用未复权收盘相除会算出 -75% 这种假暴跌（2026-10-06 审计实见 CRWD）。
+- 美股前复权缺失、错场或收益窗口不完整时跳过该行并记缺口，不用裸价收益兜底；拆股会让这种兜底伪造暴跌。
 - 美元市值没有来源，按新值写入的美股行留空；名称、交易所、业务、产业地位沿用该行或该代码最近一行。
 
 只写三类 (A 股日, 代码)：
@@ -21,6 +22,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from bisect import bisect_right
 from dataclasses import dataclass, field
@@ -227,6 +229,7 @@ def _plan_table(con, spec: _Spec, *, days, start, end, fetch, complete_before, n
     candidates = con.execute(_FROZEN_CANDIDATE_SQL.format(key=key, table=table), [end, start]).fetchall()
 
     histories: dict[str, tuple[_History | None, _History | None]] = {}
+    unavailable_returns: dict[tuple[str, date], str] = {}
 
     def history(code: str) -> tuple[_History | None, _History | None]:
         if code in histories:
@@ -236,7 +239,8 @@ def _plan_table(con, spec: _Spec, *, days, start, end, fetch, complete_before, n
                 main = _History(fetch(STOCK_SOURCE, code))
                 try:
                     adjusted = _History(fetch(STOCK_QFQ_SOURCE, code))
-                except Exception:  # noqa: BLE001 — 前复权取不到时涨跌幅退回未复权口径
+                except Exception as exc:  # noqa: BLE001 — 留缺口，不以裸价收益冒充经济收益
+                    report.skipped.append({"code": code, "reason": f"adjusted_fetch_failed: {type(exc).__name__}"})
                     adjusted = None
             else:
                 function, symbol, _name, _group = INDEX_SOURCES[code]
@@ -257,10 +261,28 @@ def _plan_table(con, spec: _Spec, *, days, start, end, fetch, complete_before, n
         values = _session_values(main, day, complete_before)
         if values is None:
             return None
-        if adjusted:
-            adjusted_values = _session_values(adjusted, day, complete_before)
-            if adjusted_values is not None and adjusted_values[0] == values[0]:
-                return values[0], values[1], adjusted_values[2], adjusted_values[3]
+        if spec.is_stock:
+            reason = ""
+            adjusted_values = None
+            if not adjusted:
+                reason = "adjusted_history_unavailable"
+            else:
+                # 当前、前一场和前五场必须是同一组会话；只比最后一天会漏掉中间缺场。
+                raw_end = bisect_right(main.dates, values[0])
+                adjusted_end = bisect_right(adjusted.dates, values[0])
+                raw_days = main.dates[max(0, raw_end - 6):raw_end]
+                adjusted_days = adjusted.dates[max(0, adjusted_end - 6):adjusted_end]
+                if raw_days != adjusted_days:
+                    reason = "adjusted_session_window_mismatch"
+                elif any(not math.isfinite(close) or close <= 0
+                         for close in adjusted.closes[max(0, adjusted_end - 6):adjusted_end]):
+                    reason = "adjusted_invalid_close"
+                else:
+                    adjusted_values = _session_values(adjusted, day, complete_before)
+            if adjusted_values is None:
+                unavailable_returns[(code, day)] = reason or "adjusted_no_session"
+                return None
+            return values[0], values[1], adjusted_values[2], adjusted_values[3]
         return values
 
     frozen = set()
@@ -300,7 +322,8 @@ def _plan_table(con, spec: _Spec, *, days, start, end, fetch, complete_before, n
             values = returns(code, day)
             if values is None:
                 if history(code)[0]:
-                    report.skipped.append({"code": code, "day": day.isoformat(), "reason": "no_session"})
+                    report.skipped.append({"code": code, "day": day.isoformat(),
+                                           "reason": unavailable_returns.get((code, day), "no_session")})
                 continue
             session, close, pct, pct5 = values
             earlier = [d for d in effective if d < day]
