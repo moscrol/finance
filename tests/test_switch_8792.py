@@ -98,7 +98,9 @@ def test_failed_precheck_never_touches_the_service_or_the_link(box, defect: str)
     result = box["run"](revision)
 
     assert result.returncode == 2
-    assert "ABORT" in result.stderr
+    reason = {"no-venv": ".venv-workbench", "short-sha": "40-char", "dirty-snapshot": "dirty"}[defect]
+    # 短 SHA 也过不了「快照 HEAD == SHA」那一关；钉住原因，长度检查才不是摆设。
+    assert "ABORT" in result.stderr and reason in result.stderr
     assert "launchctl" not in box["effects"].read_text()
     assert box["link"].resolve() == box["old"].resolve()
 
