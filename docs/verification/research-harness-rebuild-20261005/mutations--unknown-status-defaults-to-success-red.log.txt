@@ -1,0 +1,103 @@
+{"label": "unknown-status-defaults-to-success-red", "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "-o", "faulthandler_timeout=45", "--junitxml", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success-red.xml", "--basetemp", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/pytest/unknown-status-defaults-to-success-red", "intelligence/tests/test_research_harness_slice_regressions.py", "tests/test_history_tool_diagnostics.py", "-k", "test_failed_business_result_cannot_supply_evidence_or_look_successful or test_failed_payload_retains_trusted_diagnostic_without_leaking_provider_text"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree", "revision": "458fd9de3c13f4293587f969bc733e136079ef53", "started_at": "2026-10-05T10:32:49.850201+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree  HEAD @ 458fd9de3 +未提交改动
+rootdir: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 105 items / 91 deselected / 14 selected
+
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[error] PASSED [  7%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[timeout] PASSED [ 14%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[permission_denied] PASSED [ 21%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[bad_param] PASSED [ 28%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[request_error] PASSED [ 35%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[parse_error] PASSED [ 42%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[disabled] PASSED [ 50%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[not_attempted] PASSED [ 57%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[fallback_failed] PASSED [ 64%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[proxy_unavailable] PASSED [ 71%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[failed] PASSED [ 78%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[skipped] PASSED [ 85%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[unexpected_provider_status] FAILED [ 92%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_failed_payload_retains_trusted_diagnostic_without_leaking_provider_text FAILED [100%]
+
+=================================== FAILURES ===================================
+_ test_failed_business_result_cannot_supply_evidence_or_look_successful[unexpected_provider_status] _
+intelligence/tests/test_research_harness_slice_regressions.py:72: in test_failed_business_result_cannot_supply_evidence_or_look_successful
+    assert result.evidence == ()
+E   AssertionError: assert (AgentEvidence(tool='market_data', title='合成市场快照', detail='上涨家数增加。', source='fixture', internal_locator='', source_date='2026-07-01', evidence_tier='', supports=(), contradicts=(), independent_key='', freshness='unknown', content_hash='fixture', observations=(), history_provenance=None, derived_from=(), reexcerpted=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown'),) == ()
+E     
+E     Left contains one more item: AgentEvidence(tool='market_data', title='合成市场快照', detail='上涨家数增加。', source='fixture', internal_locator='', source_date...pped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown')
+E     
+E     Full diff:
+E     - ()
+E     + (
+E     +     AgentEvidence(
+E     +         tool='market_data',
+E     +         title='合成市场快照',
+E     +         detail='上涨家数增加。',
+E     +         source='fixture',
+E     +         internal_locator='',
+E     +         source_date='2026-07-01',
+E     +         evidence_tier='',
+E     +         supports=(),
+E     +         contradicts=(),
+E     +         independent_key='',
+E     +         freshness='unknown',
+E     +         content_hash='fixture',
+E     +         observations=(),
+E     +         history_provenance=None,
+E     +         derived_from=(),
+E     +         reexcerpted=None,
+E     +         pointer_dropped=None,
+E     +         structural_neighbor_demoted=None,
+E     +         deep_read=False,
+E     +         publisher_kind='',
+E     +         document_type='',
+E     +         io_effect='unknown',
+E     +     ),
+E     + )
+_ test_failed_payload_retains_trusted_diagnostic_without_leaking_provider_text _
+intelligence/tests/test_research_harness_slice_regressions.py:119: in test_failed_payload_retains_trusted_diagnostic_without_leaking_provider_text
+    assert model["ok"] is False and model["status"] == "unknown_provider_status"
+E   assert (True is False)
+- generated xml file: /private/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_failed_business_result_cannot_supply_evidence_or_look_successful[unexpected_provider_status] - AssertionError: assert (AgentEvidence(tool='market_data', title='合成市场快照', detail='上涨家数增加。', source='fixture', internal_locator='', source_date='2026-07-01', evidence_tier='', supports=(), contradicts=(), independent_key='', freshness='unknown', content_hash='fixture', observations=(), history_provenance=None, derived_from=(), reexcerpted=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown'),) == ()
+  
+  Left contains one more item: AgentEvidence(tool='market_data', title='合成市场快照', detail='上涨家数增加。', source='fixture', internal_locator='', source_date...pped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='', io_effect='unknown')
+  
+  Full diff:
+  - ()
+  + (
+  +     AgentEvidence(
+  +         tool='market_data',
+  +         title='合成市场快照',
+  +         detail='上涨家数增加。',
+  +         source='fixture',
+  +         internal_locator='',
+  +         source_date='2026-07-01',
+  +         evidence_tier='',
+  +         supports=(),
+  +         contradicts=(),
+  +         independent_key='',
+  +         freshness='unknown',
+  +         content_hash='fixture',
+  +         observations=(),
+  +         history_provenance=None,
+  +         derived_from=(),
+  +         reexcerpted=None,
+  +         pointer_dropped=None,
+  +         structural_neighbor_demoted=None,
+  +         deep_read=False,
+  +         publisher_kind='',
+  +         document_type='',
+  +         io_effect='unknown',
+  +     ),
+  + )
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_failed_payload_retains_trusted_diagnostic_without_leaking_provider_text - assert (True is False)
+================= 2 failed, 12 passed, 91 deselected in 1.43s ==================
+
+EXIT=1 STATUS=completed

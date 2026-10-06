@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index 824da6c4f..99905a5b9 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -560,7 +560,7 @@ def _validate_params_argument(value: object) -> dict[str, object]:
+     if not isinstance(value, Mapping):
+         raise InvalidResearchToolArguments("params argument must be a JSON object")
+     try:
+-        encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True, allow_nan=False)
++        encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True)
+     except (TypeError, ValueError) as exc:
+         raise InvalidResearchToolArguments("params argument must be JSON-serialisable") from exc
+     if len(encoded) > DERIVED_CALCULATION_MAX_PARAMS_CHARS:

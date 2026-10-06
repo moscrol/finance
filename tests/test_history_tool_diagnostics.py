@@ -119,14 +119,17 @@ def test_model_cannot_declare_a_trusted_diagnostic_in_arguments(tmp_path):
         }), context=context, step_id="untrusted-marker")
 
 
+@pytest.mark.parametrize("status", ["partial", "parse_error", "request_error"])
 @pytest.mark.parametrize("dates", [[], [None], ["2026-08-05"], ["2026-08-02"], ["2026-08-04", None, "2026-08-05"]])
-def test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose(tmp_path, dates):
+def test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose(tmp_path, dates, status):
     _, context, _ = _registry(tmp_path)
     spec = finance_query.FinanceQuerySpec.from_arguments(_request())
     diagnostic_only = episode_tools._finance_query_failure_result(
         spec, finance_query.FinanceQueryValidationError("not a metric: stage_day"),
     )
-    raw = replace(diagnostic_only, evidence=tuple(
+    # A diagnostic grants no evidence eligibility. A usable subset must declare
+    # partial; a failed producer must not be rescued merely by in-window dates.
+    raw = replace(diagnostic_only, trace=replace(diagnostic_only.trace, status=status), evidence=tuple(
         agent_research.AgentEvidence(
             tool="finance_query", title="allowed" if day == "2026-08-04" else "forbidden",
             detail="allowed-body" if day == "2026-08-04" else "forbidden-body",
@@ -140,12 +143,13 @@ def test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose(tmp_path,
     result = registry.execute("finance_query", "x", context=context, step_id="mixed")
     assert "stage_day→market_daily.dimension" in result.observation
     assert "forbidden" not in result.observation
-    assert len(result.evidence) == dates.count("2026-08-04")
+    assert len(result.evidence) == (dates.count("2026-08-04") if status == "partial" else 0)
     assert all(item.source_date == "2026-08-04" for item in result.evidence)
 
 
+@pytest.mark.parametrize("status", ["partial", "parse_error", "request_error"])
 @pytest.mark.parametrize("keep_in_cutoff", [False, True])
-def test_diagnostic_survives_cutoff_without_restoring_in_scope_future_fact(tmp_path, keep_in_cutoff):
+def test_diagnostic_survives_cutoff_without_restoring_in_scope_future_fact(tmp_path, keep_in_cutoff, status):
     _, context, _ = _registry(tmp_path)
     # The research authorization can end later, but it cannot lift the cutoff.
     context = replace(context, history_intent=replace(context.history_intent, requested_end="2026-08-31"))
@@ -154,7 +158,7 @@ def test_diagnostic_survives_cutoff_without_restoring_in_scope_future_fact(tmp_p
         finance_query.FinanceQueryValidationError("not a metric: stage_day"),
     )
     dates = ["2026-08-05"] + (["2026-08-04"] if keep_in_cutoff else [])
-    raw = replace(raw, evidence=tuple(
+    raw = replace(raw, trace=replace(raw.trace, status=status), evidence=tuple(
         agent_research.AgentEvidence(
             tool="finance_query", source="fixture", source_date=day,
             title="allowed" if day == "2026-08-04" else "forbidden",
@@ -168,9 +172,10 @@ def test_diagnostic_survives_cutoff_without_restoring_in_scope_future_fact(tmp_p
     result = registry.execute("finance_query", "x", context=context, step_id="cutoff")
     assert "stage_day→market_daily.dimension" in result.observation
     assert "forbidden" not in result.observation
-    assert len(result.evidence) == int(keep_in_cutoff)
-    assert result.trace.status == ("parse_error" if keep_in_cutoff else "future_of_cutoff")
-    assert len(result.evidence_hashes) == int(keep_in_cutoff)
+    kept = int(keep_in_cutoff and status == "partial")
+    assert len(result.evidence) == kept
+    assert result.trace.status == ("future_of_cutoff" if status == "partial" and not kept else status)
+    assert len(result.evidence_hashes) == kept
     assert "2026-08-05" not in context.authorized_trade_dates
 
 

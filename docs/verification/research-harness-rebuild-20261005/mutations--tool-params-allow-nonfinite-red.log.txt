@@ -1,0 +1,35 @@
+{"label": "tool-params-allow-nonfinite-red", "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "-o", "faulthandler_timeout=45", "--junitxml", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite-red.xml", "--basetemp", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/pytest/tool-params-allow-nonfinite-red", "intelligence/tests/test_research_harness_slice_regressions.py", "tests/test_history_tool_diagnostics.py", "-k", "test_nonfinite_calculation_parameter_rejected_at_tool_boundary"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree", "revision": "458fd9de3c13f4293587f969bc733e136079ef53", "started_at": "2026-10-05T10:32:55.732146+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree  HEAD @ 458fd9de3 +未提交改动
+rootdir: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 105 items / 102 deselected / 3 selected
+
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_calculation_parameter_rejected_at_tool_boundary[nan] FAILED [ 33%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_calculation_parameter_rejected_at_tool_boundary[inf] FAILED [ 66%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_calculation_parameter_rejected_at_tool_boundary[-inf] FAILED [100%]
+
+=================================== FAILURES ===================================
+_____ test_nonfinite_calculation_parameter_rejected_at_tool_boundary[nan] ______
+intelligence/tests/test_research_harness_slice_regressions.py:253: in test_nonfinite_calculation_parameter_rejected_at_tool_boundary
+    with pytest.raises(InvalidResearchToolArguments):
+E   Failed: DID NOT RAISE <class 'intelligence.services.research_tool_registry.InvalidResearchToolArguments'>
+_____ test_nonfinite_calculation_parameter_rejected_at_tool_boundary[inf] ______
+intelligence/tests/test_research_harness_slice_regressions.py:253: in test_nonfinite_calculation_parameter_rejected_at_tool_boundary
+    with pytest.raises(InvalidResearchToolArguments):
+E   Failed: DID NOT RAISE <class 'intelligence.services.research_tool_registry.InvalidResearchToolArguments'>
+_____ test_nonfinite_calculation_parameter_rejected_at_tool_boundary[-inf] _____
+intelligence/tests/test_research_harness_slice_regressions.py:253: in test_nonfinite_calculation_parameter_rejected_at_tool_boundary
+    with pytest.raises(InvalidResearchToolArguments):
+E   Failed: DID NOT RAISE <class 'intelligence.services.research_tool_registry.InvalidResearchToolArguments'>
+- generated xml file: /private/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_calculation_parameter_rejected_at_tool_boundary[nan] - Failed: DID NOT RAISE <class 'intelligence.services.research_tool_registry.InvalidResearchToolArguments'>
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_calculation_parameter_rejected_at_tool_boundary[inf] - Failed: DID NOT RAISE <class 'intelligence.services.research_tool_registry.InvalidResearchToolArguments'>
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_calculation_parameter_rejected_at_tool_boundary[-inf] - Failed: DID NOT RAISE <class 'intelligence.services.research_tool_registry.InvalidResearchToolArguments'>
+====================== 3 failed, 102 deselected in 1.19s =======================
+
+EXIT=1 STATUS=completed
