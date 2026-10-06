@@ -317,6 +317,11 @@ class _DatasetDefinition:
     cutoff_column: str | None = None
     # Static, code-owned relation only; callers supply a validated spec, never SQL.
     relation_sql: str | None = None
+    # 复制旧值检测的主键列（物理列名）。设了就检查「收盘与涨跌幅和同一主键上一 A 股日完全相同、
+    # 外盘会话日却不同」的行——那是上游回填把前一天的数原样抄到后面几天（2026-10-06 实测：
+    # 海外指数 2025-01~2026-09 有 187 行、海外核心股 1944 行是这种形状，道指 07-15~07-24 十天同一个数）。
+    # 只标注不删除：被标的行仍返回，但带「不可当作该日行情」的说明。
+    clone_key: str | None = None
 
     @property
     def fields(self) -> dict[str, _FieldDefinition]:
@@ -530,7 +535,8 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
             "amount": _metric("amount", "成交额亿", "sum"),
             "marginal_volume_pct": _metric("diff_ratio", "边际量"),
-            "strength": _metric("strength", "强度"),
+            # 不开放 strength：fact_sector_daily.strength 从未有过一个非空值（2026-10-06 全表实测），
+            # 开放只会让模型白花一次查询再收到「字段缺值」。板块强度看 mainline_sector_daily。
             **_RETURN_SUMMARY_FIELDS,
         },
     ),
@@ -1055,8 +1061,11 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
             "**不要按 session_date 当时间轴**——问「今天隔夜」应对 A 股日。"
             "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
+            "⚠️ 部分日期是上游回填复制的旧值（收盘与涨跌幅和上一 A 股日完全相同、会话日却不同）；"
+            "工具会逐行标注，被标注的行不可当作该日外盘行情，引用时写成缺口。"
         ),
         time_field="trade_date",
+        clone_key="code",
         dimensions={
             "trade_date": _dimension("trade_date", "A股对照日", "date"),
             "session_date": _dimension("source_trade_date", "外盘会话日", "date"),
@@ -1084,8 +1093,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "**不开放市值**：`market_cap_usd` 是原样美元（英伟达约 5.4e12），不是亿。"
             "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
             "与 `global_index_daily` 同一套 A 股日历。"
+            "⚠️ 少数日期是上游回填复制的旧值，工具会逐行标注，被标注的行不可当作该日行情。"
         ),
         time_field="trade_date",
+        clone_key="ts_code",
         dimensions={
             "trade_date": _dimension("trade_date", "A股对照日", "date"),
             "session_date": _dimension("source_trade_date", "外盘会话日", "date"),
@@ -2263,8 +2274,8 @@ FINANCE_QUERY_PARAMETERS: dict[str, object] = {
             # 所以这条描述的第一句就是形状，且给出「只排一个字段也要包方括号」的反例。
             "description": (
                 "数组，即使只排一个字段也要用方括号包起来。"
-                '例：[{"field": "strength", "direction": "desc"}]。'
-                '多字段按先后依次生效：[{"field": "strength", "direction": "desc"}, '
+                '例：[{"field": "return_pct", "direction": "desc"}]。'
+                '多字段按先后依次生效：[{"field": "return_pct", "direction": "desc"}, '
                 '{"field": "amount", "direction": "desc"}]。'
                 '写成单个对象 {"field": ..., "direction": ...} 会被拒绝。'
                 # 这条约束是写例子时实跑才发现的（_compile_query:1031）：
@@ -2358,6 +2369,7 @@ class FinanceQuery:
         connection: Any | None = None
         stop_monitor = Event()
         interrupted_for: list[str] = []
+        clone_pairs: frozenset[tuple[str, str]] = frozenset()
         try:
             if cancelled():
                 raise FinanceQueryCancelled("finance query cancelled")
@@ -2410,6 +2422,11 @@ class FinanceQuery:
                     sector_universes = tuple(reversed(sector_universes))
                     return_dates = tuple(reversed(return_dates))
                     quality_counts = tuple(reversed(quality_counts))
+                if _DATASETS[spec.dataset].clone_key:
+                    check_query()
+                    clone_pairs = _stale_clone_pairs(
+                        connection, _DATASETS[spec.dataset], spec, information_cutoff
+                    )
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
@@ -2443,6 +2460,10 @@ class FinanceQuery:
         dataset = _DATASETS[spec.dataset]
         quality_gaps, row_gaps, unavailable_metrics = _query_quality(
             spec, rows, dataset=dataset, aggregate_counts=quality_counts,
+        )
+        quality_gaps, row_gaps = _apply_clone_flags(
+            spec, rows, dataset=dataset, clone_pairs=clone_pairs,
+            gaps=quality_gaps, row_gaps=row_gaps,
         )
         evidence = _rows_to_evidence(
             rows,
@@ -3085,6 +3106,97 @@ _OBSERVATION_METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
 
 def _metric_unavailable(value: object) -> bool:
     return value is None or (isinstance(value, float) and not math.isfinite(value))
+
+
+_CLONE_ROW_NOTE = "疑似复制旧值：收盘与涨跌幅和上一 A 股日完全相同、外盘会话日却不同，不可当作该日真实行情"
+
+
+def _iso_day(value: object) -> str | None:
+    if value is None or value == "":
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)[:10]
+
+
+def _stale_clone_pairs(
+    connection: Any,
+    dataset: _DatasetDefinition,
+    spec: FinanceQuerySpec,
+    information_cutoff: InformationCutoff,
+) -> frozenset[tuple[str, str]]:
+    """(主键, A 股日) 中「收盘与涨跌幅和同主键上一行完全相同、会话日却不同」的行。
+
+    上一行在全表上按 A 股日排（窗口起点之前的那天也算），只看截止日之前的数据，不前视。
+    会话日相同的重复是合法的（外盘休市时 A 股日对照到同一场会话），不标。
+    表名与列名都来自代码里的数据集定义，不接受调用方输入。
+    """
+
+    key = dataset.clone_key
+    if not key:
+        return frozenset()
+    upper = information_cutoff.as_of_date
+    start = None
+    if spec.time_range is not None:
+        if spec.time_range.end is not None:
+            upper = min(upper, spec.time_range.end)
+        start = spec.time_range.start
+    sql = (
+        f"with x as (select {key} as k, trade_date, source_trade_date as s, close, pct_chg, "
+        "lag(close) over w as pc, lag(pct_chg) over w as pp, lag(source_trade_date) over w as ps "
+        f"from {dataset.table} where trade_date <= ? "
+        f"window w as (partition by {key} order by trade_date)) "
+        "select k, trade_date from x where close = pc and pct_chg = pp and s <> ps"
+        + (" and trade_date >= ?" if start is not None else "")
+    )
+    parameters: list[object] = [upper] + ([start] if start is not None else [])
+    found = connection.execute(sql, parameters).fetchall()
+    return frozenset(
+        (str(code), day) for code, raw in found if (day := _iso_day(raw)) is not None
+    )
+
+
+def _apply_clone_flags(
+    spec: FinanceQuerySpec,
+    rows: tuple[dict[str, object], ...],
+    *,
+    dataset: _DatasetDefinition,
+    clone_pairs: frozenset[tuple[str, str]],
+    gaps: tuple[str, ...],
+    row_gaps: tuple[tuple[str, ...], ...],
+) -> tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]:
+    """把复制旧值的行逐行标出来；聚合结果（行里没有主键或日期）只能按窗口提示。"""
+
+    if not clone_pairs or not rows:
+        return gaps, row_gaps
+    key_dimension = next(
+        (name for name, field in dataset.dimensions.items() if field.column == dataset.clone_key),
+        None,
+    )
+    per_row = [list(parts) for parts in row_gaps] if row_gaps else [[] for _ in rows]
+    flagged: list[str] = []
+    rows_carry_identity = key_dimension is not None and all(
+        key_dimension in row and "trade_date" in row for row in rows
+    )
+    if rows_carry_identity:
+        for index, row in enumerate(rows):
+            day = _iso_day(row.get("trade_date"))
+            code = row.get(key_dimension)
+            if code is not None and day is not None and (str(code), day) in clone_pairs:
+                per_row[index].append(_CLONE_ROW_NOTE)
+                flagged.append(f"{code}@{day}")
+        if not flagged:
+            return gaps, row_gaps
+        listed = "、".join(flagged[:8]) + ("…" if len(flagged) > 8 else "")
+        note = (
+            f"数据质量：{spec.dataset} 本次返回中有 {len(flagged)} 行疑似上游回填复制旧值（{listed}）；"
+            "这些行的数不可当作该日行情，引用时写成缺口。"
+        )
+    else:
+        sample = "、".join(f"{code}@{day}" for code, day in sorted(clone_pairs)[:6])
+        note = (
+            f"数据质量：{spec.dataset} 在请求窗口内有 {len(clone_pairs)} 个（代码，日期）疑似复制旧值（如 {sample}）；"
+            "本次是聚合或未带代码与日期的结果，可能混入这些旧值，需按代码与日期逐行复核。"
+        )
+    return (*gaps, note), tuple(tuple(parts) for parts in per_row)
 
 
 def _query_quality(
