@@ -340,7 +340,8 @@ def test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback(tmp_
         bad = 0.0 if failure == "zero" else float("nan")
         return [(day, bad if day == D("2026-07-06") else close) for day, close in rows]
 
-    result = glob.run(db, start=D("2026-06-30"), end=D("2026-07-07"), apply=True,
+    # 只计划拆股日之后，避免更早的目标因末场错位先挡住，掩盖「当前场对齐、前一场缺失」。
+    result = glob.run(db, start=D("2026-07-06"), end=D("2026-07-07"), apply=True,
                       main_db_path=tmp_path / "main.duckdb", fetch=fetch, complete_before=D("2026-10-06"))
 
     assert result["status"] == "needs_user" and result["applied"] is None
