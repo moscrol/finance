@@ -51,6 +51,7 @@ def test_holiday_quick_fact_is_canned_without_llm() -> None:
         ("2026-05-01 全市场涨停了多少家", "2026-04-30"),  # 公告休市日（劳动节）
         ("2026-07-25 市场怎么样", "2026-07-24"),  # 周六
     ],
+    ids=["announced-closure", "saturday"],
 )
 def test_canned_holiday_answer_names_the_previous_trading_day(query: str, previous: str) -> None:
     """2026-10-06 盲评 D8：只说休市被判部分可用——参照要的是「无数据 + 最近交易日」。
