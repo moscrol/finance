@@ -85,6 +85,17 @@ def test_estimate_fills_where_supplier_turnover_is_missing_without_mixing_column
     assert any("turnover_est" in gap for gap in result.quality_gaps)
 
 
+def test_missing_supplier_turnover_points_the_model_at_the_estimate(db: Path) -> None:
+    # 生产 D2 的形状：模型只要了 turnover，整列为空；提示得在出错现场点名 turnover_est。
+    result = _run(db, metrics=["turnover"], filters=[{"field": "stock_code", "op": "eq", "value": "688038.SH"}])
+
+    gap = next(gap for gap in result.quality_gaps if "stock_daily.turnover（" in gap)
+    assert "改取 turnover_est" in gap and "推算" in gap
+    # 原值在的行不产生缺值提示，也就不会被引去推算值。
+    present = _run(db, metrics=["turnover"], filters=[{"field": "stock_code", "op": "eq", "value": "688109.SH"}])
+    assert not any("turnover_est" in gap for gap in present.quality_gaps)
+
+
 def test_ranking_by_the_estimate_uses_the_estimate(db: Path) -> None:
     result = _run(
         db,

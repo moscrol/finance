@@ -3250,6 +3250,13 @@ def _apply_clone_flags(
     return (*gaps, note), tuple(tuple(parts) for parts in per_row)
 
 
+# 字段缺值时同表里可以改取的列：只在缺值提示里点名，不自动换源——换不换由模型定，引用推算值时它要写明。
+# 2026-10-06 生产 D2（华工科技）：模型要了 turnover，2026-07 整列为空，答案里就没有换手率。
+_UNAVAILABLE_METRIC_HINTS: dict[tuple[str, str], str] = {
+    ("stock_daily", "turnover"): "要换手率可改取 turnover_est（按 成交量×收盘÷流通市值 推算，引用时写明是推算值）。",
+}
+
+
 def _query_quality(
     spec: FinanceQuerySpec,
     rows: tuple[dict[str, object], ...],
@@ -3285,6 +3292,7 @@ def _query_quality(
                 f"字段可用性降级：{spec.dataset}.{name}（{dataset.metrics[name].label}）"
                 f"在本次返回的 {affected}/{len(rows)} 行中缺值、非有限值或聚合输入不全；"
                 "仅保留已知事实，不据此确认该指标、完整总量或排名，不补零、不自动换源。"
+                + _UNAVAILABLE_METRIC_HINTS.get((spec.dataset, name), "")
             )
     if "high_status" in spec.dimensions:
         unknown = 0
