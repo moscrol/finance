@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/derived_calculation_artifacts.py b/intelligence/services/derived_calculation_artifacts.py
+index d61043ae4..8978ff137 100644
+--- a/intelligence/services/derived_calculation_artifacts.py
++++ b/intelligence/services/derived_calculation_artifacts.py
+@@ -181,7 +181,7 @@ def result_contract_errors(result: Mapping[str, object]) -> tuple[str, ...]:
+     # remain readable; only admission of new calculations changes here.
+     json_error = ""
+     try:
+-        json.dumps(dict(result), ensure_ascii=False, allow_nan=False)
++        json.dumps(dict(result), ensure_ascii=False)
+     except (ValueError, OverflowError):
+         json_error = "result_not_finite_json"
+     except TypeError:

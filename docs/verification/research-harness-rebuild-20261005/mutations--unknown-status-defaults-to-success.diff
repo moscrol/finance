@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/provider_observability.py b/intelligence/services/provider_observability.py
+index 10c9d62f4..c1e5ac2b1 100644
+--- a/intelligence/services/provider_observability.py
++++ b/intelligence/services/provider_observability.py
+@@ -42,7 +42,7 @@ def provider_result_error(status: str) -> str | None:
+     """Stable public failure code; never project an unknown provider string."""
+     if status in _LOOKUP_RESULT_STATUSES:
+         return None
+-    return status if status in _FAILED_RESULT_STATUSES else "unknown_provider_status"
++    return status if status in _FAILED_RESULT_STATUSES else None
+ 
+ 
+ @dataclass(frozen=True)

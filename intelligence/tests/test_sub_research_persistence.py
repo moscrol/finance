@@ -118,9 +118,12 @@ def registry(executed):
     ),))
 
 
-def run_tree(store, *, rounds=1, goals=("核验甲",), before_child=None, plan=False):
+def run_tree(store, *, rounds=1, goals=("核验甲",), before_child=None, plan=False, owner=None):
     from intelligence.services.mode_governor import ModeSignals
     context = _context("max", allowed=("market_data", "sub_research"))
+    if owner is not None:
+        # 生产入口给根 Episode 绑定的就是这个（continuous_turn_adapter: entry_identity.bind(task_id)）。
+        context = replace(context, entry_identity=owner.bind(context.contract.task_id))
     model = TreeModel(store, context.contract.task_id, rounds=rounds, goals=goals, before_child=before_child, plan=plan)
     executed = []
     runtime = GLMAgentRuntime(
@@ -664,3 +667,29 @@ def test_fenced_store_preserves_optional_spool_and_read_only_diagnostics(tmp_pat
     other = FencedEpisodeStore(MemoryEpisodeStore())
     other.append("unrelated", (EpisodeEvent(1, "task", {}),))
     assert not other.failure  # the fence is per tree, never process global
+
+
+@pytest.mark.parametrize("plan", [False, True])
+def test_branches_of_a_door_bound_episode_still_persist(tmp_path, plan):
+    """2026-10-06 旁路复测 D9：生产入口给根 Episode 绑了 entry identity（09-22 起），分支沿用
+    父上下文就带着「绑在父 episode 上」的身份去存自己的状态，校验报 episode mismatch，
+    整棵树 storage_failed、本轮失败。分支不是从门进来的，也不按自己的 id 恢复，不该带父身份。"""
+
+    from intelligence.services.episode_entry_identity import EntryIdentity
+
+    owner = EntryIdentity(
+        entry="workbench_conversation", user_id="user-alpha", conversation_id="conv-alpha",
+        run_id="run-alpha", assistant_message_id="msg-alpha",
+    )
+    store = ObservedStore(tmp_path)
+    outcome, model, executed, _spent, _runtime = run_tree(store, plan=plan, owner=owner)
+    assert outcome.persistence == "durable", outcome.stop_reason
+    assert outcome.stop_reason != "storage_failed"
+    starts = [e for e in outcome.events if e.kind == "branch_started"]
+    ends = [e for e in outcome.events if e.kind == "branch_completed"]
+    assert starts and len(starts) == len(ends)
+    assert executed and model.child_calls >= 1
+    reopened = JsonlEpisodeStore(tmp_path)
+    for start in starts:
+        _events, state = reopened.load(dict(start.payload["episode_ref"])["episode_id"])
+        assert state is not None and state.terminal and state.entry_identity is None

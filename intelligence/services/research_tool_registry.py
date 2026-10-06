@@ -18,7 +18,7 @@ import urllib.parse
 from intelligence.services.tool_payload import tool_payload_meta
 
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
-from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.provider_observability import ProviderTrace, provider_result_error
 from intelligence.services.research_contract import (
     InformationCutoff,
     ResearchRunContext,
@@ -560,7 +560,7 @@ def _validate_params_argument(value: object) -> dict[str, object]:
     if not isinstance(value, Mapping):
         raise InvalidResearchToolArguments("params argument must be a JSON object")
     try:
-        encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True)
+        encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True, allow_nan=False)
     except (TypeError, ValueError) as exc:
         raise InvalidResearchToolArguments("params argument must be JSON-serialisable") from exc
     if len(encoded) > DERIVED_CALCULATION_MAX_PARAMS_CHARS:
@@ -817,17 +817,25 @@ class ToolRunResult:
             raise TypeError("tool evidence must contain AgentEvidence values")
         if not isinstance(self.trace, ProviderTrace):
             raise TypeError("tool trace must be a ProviderTrace")
+        gaps = tuple(dict.fromkeys(str(item).strip() for item in self.gaps if str(item).strip()))
+        observation = str(self.observation or "")
+        failure = provider_result_error(self.trace.status)
+        if (failure is not None and evidence) or failure == "unknown_provider_status" or (
+            self.trace.status == "empty" and evidence
+        ):
+            # A failed producer cannot populate the evidence ledger merely by
+            # returning a nonempty tuple. Partial producers must say partial.
+            # Retain operational diagnostics and gaps, not purported facts from
+            # the failed payload. Raw trace.detail stays in the private trace.
+            reason = failure or "empty_with_evidence"
+            notice = f"工具结果不可作为事实依据（{reason}）；本次未交付证据，不能据此断言事实不存在。"
+            gaps = tuple(dict.fromkeys((*gaps, notice)))
+            evidence = ()
+            observation = notice
+            object.__setattr__(self, "trace", replace(self.trace, result_count=0))
         object.__setattr__(self, "evidence", evidence)
-        object.__setattr__(self, "observation", str(self.observation or ""))
-        object.__setattr__(
-            self,
-            "gaps",
-            tuple(
-                dict.fromkeys(
-                    str(item).strip() for item in self.gaps if str(item).strip()
-                )
-            ),
-        )
+        object.__setattr__(self, "observation", observation)
+        object.__setattr__(self, "gaps", gaps)
         dataset, caliber, names, digest = tool_payload_meta(
             dataset=self.dataset,
             caliber=self.caliber,
@@ -938,13 +946,12 @@ class ToolObservation:
         error = self.telemetry.get("calculation_error")
         if self.tool == "derived_calculation" and isinstance(error, Mapping):
             return {"ok": False, "error": str(error["code"]), "status": self.trace.status}
-        failed = self.trace.status in {
-            "error", "timeout", "request_error", "parse_error", "proxy_unavailable",
-            "fallback_failed", "disabled", "not_attempted",
-        }
-        if failed:
-            return {"ok": False, "error": self.trace.status, "status": self.trace.status}
-        return {"ok": True}
+        error = provider_result_error(self.trace.status)
+        if error is not None:
+            return {"ok": False, "error": error, "status": error}
+        # Even a successful empty/stale/partial lookup must keep its actual
+        # qualification in both the audit receipt and the model-facing view.
+        return {"ok": True, "status": self.trace.status}
 
 
 @dataclass(frozen=True)

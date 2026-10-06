@@ -1,0 +1,54 @@
+{
+  "file": "intelligence/eval/model_admission.py",
+  "pytest": ["intelligence/tests/test_model_admission_trace.py"],
+  "mutants": [
+    {
+      "name": "request model masquerades as returned model",
+      "old": "reported = record.get(\"reported_model\")",
+      "new": "reported = record.get(\"requested_model\")",
+      "expected_red": ["test_wrong_response_model_overrides_matching_request", "test_workbench_trace_admits_only_response_reported_identity[file]"]
+    },
+    {
+      "name": "conflicted stream identity accepted",
+      "old": "or record.get(\"identity_conflict\") is not False",
+      "new": "or False",
+      "expected_red": ["test_inconsistent_or_malformed_identity_cannot_be_admitted[conflict]", "test_inconsistent_or_malformed_identity_cannot_be_admitted[bad-conflict-type]"]
+    },
+    {
+      "name": "identity state contradiction ignored",
+      "old": "or record.get(\"identity_state\") != (\"reported\" if has_report else \"unreported\")",
+      "new": "or False",
+      "expected_red": ["test_inconsistent_or_malformed_identity_cannot_be_admitted[state-conflict]", "test_missing_identity_fields_fail_closed_even_with_another_good_call[identity_state]"]
+    },
+    {
+      "name": "trace directory discovery disabled",
+      "old": "for trace in sorted(path.rglob(TRACE_FILENAME)):",
+      "new": "for trace in []:",
+      "expected_red": ["test_workbench_trace_admits_only_response_reported_identity[directory]", "test_cli_reads_run_directory_without_allow_unreported"]
+    },
+    {
+      "name": "JSON encoded child reference skipped",
+      "old": "walk(_trace_payload(step))",
+      "new": "pass",
+      "expected_red": ["test_episode_references_in_encoded_trace_payload_are_followed[mismatch]"]
+    },
+    {
+      "name": "conflicting attempt reuses id to erase mismatch",
+      "old": "if seen[attempt_id] == record:",
+      "new": "if True:",
+      "expected_red": ["test_conflicting_reuse_of_attempt_id_is_not_deduplicated_away"]
+    },
+    {
+      "name": "episode sibling hides trace-only branch evidence",
+      "old": "or has_branch_evidence or refs",
+      "new": "or refs",
+      "expected_red": ["test_episode_sibling_cannot_hide_trace_only_branch_evidence[unknown-calls]", "test_episode_sibling_cannot_hide_trace_only_branch_evidence[mismatch]"]
+    },
+    {
+      "name": "unknown branch accounting discarded",
+      "old": "collect_branch_events(payload)",
+      "new": "pass",
+      "expected_red": ["test_branch_unknown_call_count_in_trace_does_not_become_zero"]
+    }
+  ]
+}

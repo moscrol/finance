@@ -1,0 +1,72 @@
+
+> market-intelligence-workbench@0.1.0 test:e2e /Users/a77/finance-clean/intelligence/webapp
+> playwright test
+
+[workbench] INFO:     Started server process [46708]
+[workbench] INFO:     Waiting for application startup.
+[workbench] INFO:     Application startup complete.
+[workbench] INFO:     Uvicorn running on http://127.0.0.1:20981 (Press CTRL+C to quit)
+[research-evolution-binding] INFO:     Started server process [46759]
+[research-evolution-binding] INFO:     Waiting for application startup.
+[research-evolution-binding] INFO:     Application startup complete.
+[research-evolution-binding] INFO:     Uvicorn running on http://127.0.0.1:20984 (Press CTRL+C to quit)
+
+Running 54 tests using 1 worker
+
+  ✓  1 [desktop] › e2e/research-evolution-binding.spec.ts:29:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (1.2s)
+  ✓  2 [desktop] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.2s)
+  ✓  3 [desktop] › e2e/research-evolution.spec.ts:37:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (105ms)
+  ✓  4 [desktop] › e2e/research-evolution.spec.ts:62:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (13ms)
+  ✓  5 [desktop] › e2e/research-evolution.spec.ts:81:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (9ms)
+  ✓  6 [desktop] › e2e/research-evolution.spec.ts:99:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (9ms)
+  ✓  7 [desktop] › e2e/research-evolution.spec.ts:119:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (495ms)
+  ✓  8 [desktop] › e2e/river.spec.ts:70:1 › original ladder, daily archive and six tracks keep the same historical date (1.5s)
+  ✓  9 [desktop] › e2e/river.spec.ts:99:1 › observations persist frozen conditions and append a review without a model request (899ms)
+  ✓  10 [desktop] › e2e/river.spec.ts:137:1 › an explicitly selected archive remains readable when its market day is missing (328ms)
+  ✓  11 [desktop] › e2e/river.spec.ts:149:1 › an explicit archive loads when the independent market API fails (463ms)
+  ✓  12 [desktop] › e2e/river.spec.ts:159:1 › two tabs serialize simultaneous freezes and reviews without replacing frozen conditions (935ms)
+  ✓  13 [desktop] › e2e/river.spec.ts:208:1 › theme remains an optional persistent choice and the conversation entry stays usable (1.5s)
+  ✓  14 [desktop] › e2e/workbench.spec.ts:106:1 › structured workbench keeps six surfaces available (427ms)
+  ✓  15 [desktop] › e2e/workbench.spec.ts:131:1 › model settings switch between managed model and session BYOK (550ms)
+  ✓  16 [desktop] › e2e/workbench.spec.ts:160:1 › real chat persists three fresh turns, skills, SSE, and regeneration (7.2s)
+  ✓  17 [desktop] › e2e/workbench.spec.ts:246:1 › stock deep-dive owns and continues a traceable Workbench answer (3.3s)
+  ✓  18 [desktop] › e2e/workbench.spec.ts:296:1 › stop preserves cancellation and responsive drawers remain closable (1.6s)
+  -  19 [tablet] › e2e/research-evolution-binding.spec.ts:29:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定
+  ✓  20 [tablet] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.3s)
+  ✓  21 [tablet] › e2e/research-evolution.spec.ts:37:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (88ms)
+  ✓  22 [tablet] › e2e/research-evolution.spec.ts:62:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (14ms)
+  ✓  23 [tablet] › e2e/research-evolution.spec.ts:81:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (9ms)
+  ✓  24 [tablet] › e2e/research-evolution.spec.ts:99:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (7ms)
+  ✓  25 [tablet] › e2e/research-evolution.spec.ts:119:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (462ms)
+  ✓  26 [tablet] › e2e/river.spec.ts:70:1 › original ladder, daily archive and six tracks keep the same historical date (1.6s)
+  ✓  27 [tablet] › e2e/river.spec.ts:99:1 › observations persist frozen conditions and append a review without a model request (898ms)
+  ✓  28 [tablet] › e2e/river.spec.ts:137:1 › an explicitly selected archive remains readable when its market day is missing (329ms)
+  ✓  29 [tablet] › e2e/river.spec.ts:149:1 › an explicit archive loads when the independent market API fails (465ms)
+  ✓  30 [tablet] › e2e/river.spec.ts:159:1 › two tabs serialize simultaneous freezes and reviews without replacing frozen conditions (929ms)
+  ✓  31 [tablet] › e2e/river.spec.ts:208:1 › theme remains an optional persistent choice and the conversation entry stays usable (1.5s)
+  ✓  32 [tablet] › e2e/workbench.spec.ts:106:1 › structured workbench keeps six surfaces available (425ms)
+  ✓  33 [tablet] › e2e/workbench.spec.ts:131:1 › model settings switch between managed model and session BYOK (554ms)
+  ✓  34 [tablet] › e2e/workbench.spec.ts:160:1 › real chat persists three fresh turns, skills, SSE, and regeneration (8.0s)
+  ✓  35 [tablet] › e2e/workbench.spec.ts:246:1 › stock deep-dive owns and continues a traceable Workbench answer (3.3s)
+  ✓  36 [tablet] › e2e/workbench.spec.ts:296:1 › stop preserves cancellation and responsive drawers remain closable (1.8s)
+  -  37 [mobile] › e2e/research-evolution-binding.spec.ts:29:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定
+  ✓  38 [mobile] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.6s)
+  ✓  39 [mobile] › e2e/research-evolution.spec.ts:37:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (102ms)
+  ✓  40 [mobile] › e2e/research-evolution.spec.ts:62:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (13ms)
+  ✓  41 [mobile] › e2e/research-evolution.spec.ts:81:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (8ms)
+  ✓  42 [mobile] › e2e/research-evolution.spec.ts:99:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (11ms)
+  ✓  43 [mobile] › e2e/research-evolution.spec.ts:119:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (5.5s)
+  ✓  44 [mobile] › e2e/river.spec.ts:70:1 › original ladder, daily archive and six tracks keep the same historical date (1.8s)
+  ✓  45 [mobile] › e2e/river.spec.ts:99:1 › observations persist frozen conditions and append a review without a model request (1.5s)
+  ✓  46 [mobile] › e2e/river.spec.ts:137:1 › an explicitly selected archive remains readable when its market day is missing (588ms)
+  ✓  47 [mobile] › e2e/river.spec.ts:149:1 › an explicit archive loads when the independent market API fails (763ms)
+  ✓  48 [mobile] › e2e/river.spec.ts:159:1 › two tabs serialize simultaneous freezes and reviews without replacing frozen conditions (1.4s)
+  ✓  49 [mobile] › e2e/river.spec.ts:208:1 › theme remains an optional persistent choice and the conversation entry stays usable (2.0s)
+  ✓  50 [mobile] › e2e/workbench.spec.ts:106:1 › structured workbench keeps six surfaces available (3.5s)
+  ✓  51 [mobile] › e2e/workbench.spec.ts:131:1 › model settings switch between managed model and session BYOK (838ms)
+  ✓  52 [mobile] › e2e/workbench.spec.ts:160:1 › real chat persists three fresh turns, skills, SSE, and regeneration (7.8s)
+  ✓  53 [mobile] › e2e/workbench.spec.ts:246:1 › stock deep-dive owns and continues a traceable Workbench answer (4.2s)
+  ✓  54 [mobile] › e2e/workbench.spec.ts:296:1 › stop preserves cancellation and responsive drawers remain closable (3.2s)
+
+  2 skipped
+  52 passed (1.4m)

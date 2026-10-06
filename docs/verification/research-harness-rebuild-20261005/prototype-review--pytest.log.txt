@@ -1,0 +1,119 @@
+..FFFFFFFFFFFFFF....                                                     [100%]读数收据: /tmp/finance-harness-qc-a96c1fe.M0rnrU/20261005T060456Z-a96c1fef-9b3b596733f2.json
+
+=================================== FAILURES ===================================
+____________ test_tracking_must_not_unconditionally_support[empty] _____________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:59: in test_tracking_must_not_unconditionally_support
+    assert delta.deltas[0].status != DeltaStatus.SUPPORTED, delta.model_dump()
+E   AssertionError: {'as_of_date': '2026-07-02', 'baseline_ref': 'fixture_baseline', 'deltas': [{'claim_id': 'c1', 'delta_evidence_ids': [], 'reasoning': '跟踪数据符合预期', 'revised_statement': None, ...}], 'new_open_gaps': [], ...}
+E   assert <DeltaStatus.SUPPORTED: 'SUPPORTED'> != <DeltaStatus.SUPPORTED: 'SUPPORTED'>
+E    +  where <DeltaStatus.SUPPORTED: 'SUPPORTED'> = ClaimDelta(claim_id='c1', status=<DeltaStatus.SUPPORTED: 'SUPPORTED'>, delta_evidence_ids=[], reasoning='跟踪数据符合预期', revised_statement=None).status
+E    +  and   <DeltaStatus.SUPPORTED: 'SUPPORTED'> = DeltaStatus.SUPPORTED
+___________ test_tracking_must_not_unconditionally_support[timeout] ____________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:59: in test_tracking_must_not_unconditionally_support
+    assert delta.deltas[0].status != DeltaStatus.SUPPORTED, delta.model_dump()
+E   AssertionError: {'as_of_date': '2026-07-02', 'baseline_ref': 'fixture_baseline', 'deltas': [{'claim_id': 'c1', 'delta_evidence_ids': ['fixture_ev'], 'reasoning': '跟踪数据符合预期', 'revised_statement': None, ...}], 'new_open_gaps': [], ...}
+E   assert <DeltaStatus.SUPPORTED: 'SUPPORTED'> != <DeltaStatus.SUPPORTED: 'SUPPORTED'>
+E    +  where <DeltaStatus.SUPPORTED: 'SUPPORTED'> = ClaimDelta(claim_id='c1', status=<DeltaStatus.SUPPORTED: 'SUPPORTED'>, delta_evidence_ids=['fixture_ev'], reasoning='跟踪数据符合预期', revised_statement=None).status
+E    +  and   <DeltaStatus.SUPPORTED: 'SUPPORTED'> = DeltaStatus.SUPPORTED
+________ test_tracking_must_not_unconditionally_support[contradiction] _________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:59: in test_tracking_must_not_unconditionally_support
+    assert delta.deltas[0].status != DeltaStatus.SUPPORTED, delta.model_dump()
+E   AssertionError: {'as_of_date': '2026-07-02', 'baseline_ref': 'fixture_baseline', 'deltas': [{'claim_id': 'c1', 'delta_evidence_ids': ['fixture_ev'], 'reasoning': '跟踪数据符合预期', 'revised_statement': None, ...}], 'new_open_gaps': [], ...}
+E   assert <DeltaStatus.SUPPORTED: 'SUPPORTED'> != <DeltaStatus.SUPPORTED: 'SUPPORTED'>
+E    +  where <DeltaStatus.SUPPORTED: 'SUPPORTED'> = ClaimDelta(claim_id='c1', status=<DeltaStatus.SUPPORTED: 'SUPPORTED'>, delta_evidence_ids=['fixture_ev'], reasoning='跟踪数据符合预期', revised_statement=None).status
+E    +  and   <DeltaStatus.SUPPORTED: 'SUPPORTED'> = DeltaStatus.SUPPORTED
+____________ test_tracking_must_not_unconditionally_support[future] ____________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:59: in test_tracking_must_not_unconditionally_support
+    assert delta.deltas[0].status != DeltaStatus.SUPPORTED, delta.model_dump()
+E   AssertionError: {'as_of_date': '2026-07-02', 'baseline_ref': 'fixture_baseline', 'deltas': [{'claim_id': 'c1', 'delta_evidence_ids': ['fixture_ev'], 'reasoning': '跟踪数据符合预期', 'revised_statement': None, ...}], 'new_open_gaps': [], ...}
+E   assert <DeltaStatus.SUPPORTED: 'SUPPORTED'> != <DeltaStatus.SUPPORTED: 'SUPPORTED'>
+E    +  where <DeltaStatus.SUPPORTED: 'SUPPORTED'> = ClaimDelta(claim_id='c1', status=<DeltaStatus.SUPPORTED: 'SUPPORTED'>, delta_evidence_ids=['fixture_ev'], reasoning='跟踪数据符合预期', revised_statement=None).status
+E    +  and   <DeltaStatus.SUPPORTED: 'SUPPORTED'> = DeltaStatus.SUPPORTED
+______ test_returned_candidate_cannot_change_internal_confirmation_state _______
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:69: in test_returned_candidate_cannot_change_internal_confirmation_state
+    assert store.query_active_context() == []
+E   AssertionError: assert [MemoryRecord...n_notes=None)] == []
+E     
+E     Left contains one more item: MemoryRecord(memory_id='mem_5ee80ca6ba', content='not confirmed', category=<ClaimCategory.ASSUMPTION: 'ASSUMPTION'>, l...IFIED'>, source_baseline_id=None, created_at='2026-10-05T14:04:55.726891', confirmed_at=None, falsification_notes=None)
+E     Use -v to get more diff
+_________ test_future_publication_is_not_available_at_baseline_cutoff __________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:80: in test_future_publication_is_not_available_at_baseline_cutoff
+    assert not report.is_clean, report.model_dump()
+E   AssertionError: {'baseline_id': 'fixture_baseline', 'failed_claims': 0, 'passed_claims': 1, 'results': [{'claim_id': 'c1', 'diagnostics': [], 'passed': True, 'remediation_hint': None, ...}], ...}
+E   assert not True
+E    +  where True = VerificationReport(baseline_id='fixture_baseline', total_claims=1, passed_claims=1, failed_claims=0, results=[ClaimVerificationResult(claim_id='c1', passed=True, violations=[], diagnostics=[], remediation_hint=None)]).is_clean
+________________ test_tool_error_classification[error0-TIMEOUT] ________________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:92: in test_tool_error_classification
+    assert result.status == expected, result.model_dump()
+E   AssertionError: {'data': None, 'error_message': 'deadline', 'metadata': {'as_of': '2026-06-30', 'coverage': None, 'evidence_id': 'ev_c6e9d98d064c', 'fetched_at': '2026-10-05T06:04:55Z', ...}, 'status': <ToolStatus.ERROR: 'ERROR'>}
+E   assert <ToolStatus.ERROR: 'ERROR'> == <ToolStatus.T...UT: 'TIMEOUT'>
+E     
+E     - TIMEOUT
+E     + ERROR
+___________ test_tool_error_classification[error1-PERMISSION_DENIED] ___________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:92: in test_tool_error_classification
+    assert result.status == expected, result.model_dump()
+E   AssertionError: {'data': None, 'error_message': 'denied', 'metadata': {'as_of': '2026-06-30', 'coverage': None, 'evidence_id': 'ev_49530c8f399e', 'fetched_at': '2026-10-05T06:04:55Z', ...}, 'status': <ToolStatus.ERROR: 'ERROR'>}
+E   assert <ToolStatus.ERROR: 'ERROR'> == <ToolStatus.P...SSION_DENIED'>
+E     
+E     - PERMISSION_DENIED
+E     + ERROR
+__________ test_business_failure_payload_not_usable_as_fact_evidence ___________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:99: in test_business_failure_payload_not_usable_as_fact_evidence
+    assert not result.is_usable, result.model_dump()
+E   AssertionError: {'data': {'error': 'permission denied', 'ok': False}, 'error_message': None, 'metadata': {'as_of': '2026-06-30', 'cove...evidence_id': 'ev_45a49ecc7dbb', 'fetched_at': '2026-10-05T06:04:55Z', ...}, 'status': <ToolStatus.SUCCESS: 'SUCCESS'>}
+E   assert not True
+E    +  where True = ToolResultEnvelope(status=<ToolStatus.SUCCESS: 'SUCCESS'>, data={'ok': False, 'error': 'permission denied'}, metadata=..._at='2026-10-05T06:04:55Z', source='review_fixture', coverage=None, evidence_id='ev_45a49ecc7dbb'), error_message=None).is_usable
+_________ test_fact_with_wrong_entity_and_wrong_number_is_not_verified _________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:110: in test_fact_with_wrong_entity_and_wrong_number_is_not_verified
+    assert result.claims[0].category != ClaimCategory.FACT or result.open_gaps, result.model_dump()
+E   AssertionError: {'as_of_date': '2026-07-01', 'baseline_id': 'base_cda064e90c', 'claims': [{'category': <ClaimCategory.FACT: 'FACT'>, '...'evidence_ids': ['fixture_ev'], 'falsification_conditions': [], ...}], 'created_at': '2026-10-05T14:04:55.732872', ...}
+E   assert (<ClaimCategory.FACT: 'FACT'> != <ClaimCategory.FACT: 'FACT'> or [])
+E    +  where <ClaimCategory.FACT: 'FACT'> = ClaimItem(claim_id='c1', statement='茅台毛利率为99%', category=<ClaimCategory.FACT: 'FACT'>, evidence_ids=['fixture_ev'], falsification_conditions=[], observable_signals=[], next_check_date=None).category
+E    +  and   <ClaimCategory.FACT: 'FACT'> = ClaimCategory.FACT
+E    +  and   [] = ResearchBaseline(baseline_id='base_cda064e90c', subject='600519.SH', as_of_date='2026-07-01', created_at='2026-10-05T1... evidence_ids=['fixture_ev'], falsification_conditions=[], observable_signals=[], next_check_date=None)], open_gaps=[]).open_gaps
+________ test_semantic_guard_does_not_reject_a_negated_causal_overreach ________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:119: in test_semantic_guard_does_not_reject_a_negated_causal_overreach
+    assert report is None or report.passed, report.model_dump()
+E   AssertionError: {'claim_id': 'c1', 'diagnostics': ['Causal leap: cannot claim absolute pricing power from single margin increase'], 'passed': False, 'remediation_hint': None, ...}
+E   assert (ClaimVerificationResult(claim_id='c1', passed=False, violations=[<ViolationType.CAUSAL_OVERREACH: 'CAUSAL_OVERREACH'>], diagnostics=['Causal leap: cannot claim absolute pricing power from single margin increase'], remediation_hint=None) is None or False)
+E    +  where False = ClaimVerificationResult(claim_id='c1', passed=False, violations=[<ViolationType.CAUSAL_OVERREACH: 'CAUSAL_OVERREACH'>], diagnostics=['Causal leap: cannot claim absolute pricing power from single margin increase'], remediation_hint=None).passed
+_______ test_targeted_repair_rejects_an_unrelated_unverified_replacement _______
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:137: in test_targeted_repair_rejects_an_unrelated_unverified_replacement
+    assert replacement.claim_id == original.claim_id
+E   AssertionError: assert 'unrelated' == 'c1'
+E     
+E     - c1
+E     + unrelated
+_________ test_calculation_does_not_mark_nonfinite_result_usable[nan] __________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:144: in test_calculation_does_not_mark_nonfinite_result_usable
+    assert not result.is_usable or math.isfinite(result.data["value"]), result.model_dump()
+E   AssertionError: {'data': {'metric': 'gross_margin', 'percentage': nan, 'value': nan}, 'error_message': None, 'metadata': {'as_of': '20...evidence_id': 'ev_114ca0964f5c', 'fetched_at': '2026-10-05T06:04:55Z', ...}, 'status': <ToolStatus.SUCCESS: 'SUCCESS'>}
+E   assert (not True or False)
+E    +  where True = ToolResultEnvelope(status=<ToolStatus.SUCCESS: 'SUCCESS'>, data={'metric': 'gross_margin', 'value': nan, 'percentage':...05T06:04:55Z', source='derived_calculation', coverage='arithmetic', evidence_id='ev_114ca0964f5c'), error_message=None).is_usable
+E    +  and   False = <built-in function isfinite>(nan)
+E    +    where <built-in function isfinite> = math.isfinite
+_________ test_calculation_does_not_mark_nonfinite_result_usable[inf] __________
+/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py:144: in test_calculation_does_not_mark_nonfinite_result_usable
+    assert not result.is_usable or math.isfinite(result.data["value"]), result.model_dump()
+E   AssertionError: {'data': {'metric': 'gross_margin', 'percentage': inf, 'value': inf}, 'error_message': None, 'metadata': {'as_of': '20...evidence_id': 'ev_877f44c999a3', 'fetched_at': '2026-10-05T06:04:55Z', ...}, 'status': <ToolStatus.SUCCESS: 'SUCCESS'>}
+E   assert (not True or False)
+E    +  where True = ToolResultEnvelope(status=<ToolStatus.SUCCESS: 'SUCCESS'>, data={'metric': 'gross_margin', 'value': inf, 'percentage':...05T06:04:55Z', source='derived_calculation', coverage='arithmetic', evidence_id='ev_877f44c999a3'), error_message=None).is_usable
+E    +  and   False = <built-in function isfinite>(inf)
+E    +    where <built-in function isfinite> = math.isfinite
+=========================== short test summary info ============================
+FAILED ::test_tracking_must_not_unconditionally_support[empty] - AssertionErr...
+FAILED ::test_tracking_must_not_unconditionally_support[timeout] - AssertionE...
+FAILED ::test_tracking_must_not_unconditionally_support[contradiction] - Asse...
+FAILED ::test_tracking_must_not_unconditionally_support[future] - AssertionEr...
+FAILED ::test_returned_candidate_cannot_change_internal_confirmation_state - ...
+FAILED ::test_future_publication_is_not_available_at_baseline_cutoff - Assert...
+FAILED ::test_tool_error_classification[error0-TIMEOUT] - AssertionError: {'d...
+FAILED ::test_tool_error_classification[error1-PERMISSION_DENIED] - Assertion...
+FAILED ::test_business_failure_payload_not_usable_as_fact_evidence - Assertio...
+FAILED ::test_fact_with_wrong_entity_and_wrong_number_is_not_verified - Asser...
+FAILED ::test_semantic_guard_does_not_reject_a_negated_causal_overreach - Ass...
+FAILED ::test_targeted_repair_rejects_an_unrelated_unverified_replacement - A...
+FAILED ::test_calculation_does_not_mark_nonfinite_result_usable[nan] - Assert...
+FAILED ::test_calculation_does_not_mark_nonfinite_result_usable[inf] - Assert...
+14 failed, 6 passed in 0.45s

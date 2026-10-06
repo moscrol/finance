@@ -1,0 +1,371 @@
+{
+  "description": "Raw log/receipt copies; paths and revision fields are unchanged. No test execution is implied by copying. Basetemp, test DBs and deploy ledger excluded.",
+  "files": [
+    {
+      "source": "/tmp/finance-harness-rebuild/gate-usDv3oqZ/pytest.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/first-full-red--pytest.json",
+      "bytes": 1229,
+      "sha256": "aaa11c2869c39bd8d77231826460de29df375953b125673c2c33617de4db5433"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/gate-usDv3oqZ/pytest.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/first-full-red--pytest.log.txt",
+      "bytes": 29288,
+      "sha256": "160002f55043bb10a5cf14e75222f88ac9b406d34df67c3c9ac5be623d2bf0bc"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/gate-mka74QL1/pytest.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/code-full-green--pytest.json",
+      "bytes": 856,
+      "sha256": "aabca6151edcaef2a4c9814a4dbb0db0265994c78c8467a232eeafba0740d5dd"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/gate-mka74QL1/pytest.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/code-full-green--pytest.log.txt",
+      "bytes": 26766,
+      "sha256": "a5d4cb93e46cfb328281309c330e3e59be1ba6d93ddcbb0dd3ec271584f213b3"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/gate-HFDkHJlM/pytest.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/verified-full-green--pytest.json",
+      "bytes": 856,
+      "sha256": "4e74a017ce39f168715408289047b9d56a9766e9ac6f66842df2e934623b4515"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/gate-HFDkHJlM/pytest.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/verified-full-green--pytest.log.txt",
+      "bytes": 26767,
+      "sha256": "648af910b5104d5af6bc41782ca1d0a54b3d04ca2ae2a46074cc5a0fafc4c40d"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/receipt-check-458fd9de3.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/verified-full-green--receipt-check.log.txt",
+      "bytes": 892,
+      "sha256": "baa3b1738ae8169429b24302a5d2cbf773ee193fa9550d39c486380ef8036973"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend.json",
+      "bytes": 2582,
+      "sha256": "adc66381575c2810a98171779512102f269634f7be339b110cb60617d044a406"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend-0.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "470812fcd7439c5833d44bde559e6aa3c86cf4378b98c9d6aefe9cf4c6e98d27"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend-1.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend-1.log.txt",
+      "bytes": 101,
+      "sha256": "4febfa67217b4de0b40cc296944a1d4a9b19985e55b4fdda5451c6b3c36b0a8a"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend-2.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend-2.log.txt",
+      "bytes": 199,
+      "sha256": "ed82ade2dd2cff3c9e59a5ee599fbd2fd712d19e72d6a29d78e554fc8e87ee55"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend-3.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend-3.log.txt",
+      "bytes": 3394,
+      "sha256": "dbef4041a90cf8ef0a24b7b8d6de5ec8e6477683d9251676ced3dc1cd87f0142"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend-4.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend-4.log.txt",
+      "bytes": 1228,
+      "sha256": "9dd2069894841178c46880a9e2e09918c70d92d99a5d0cbdf7ad278226b59962"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/frontend-458fd9de3/frontend-5.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/frontend--frontend-5.log.txt",
+      "bytes": 8752,
+      "sha256": "f0a85b4c9066714c2b430b163e5ba9d7d2524648322f69eccdb99021937804e7"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/registry-458fd9de3/0.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/registry--0.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/registry-458fd9de3/1.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/registry--1.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/registry-458fd9de3/2.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/registry--2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/registry-458fd9de3/3.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/registry--3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/registry-458fd9de3/4.log.txt",
+      "archive": "docs/verification/research-harness-rebuild-20261005/registry--4.log.txt",
+      "bytes": 2068,
+      "sha256": "b7776945feec8a294f080c815ad28c21db66f9006f59a3f4873e5e14d5b5f667"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/registry-458fd9de3/registry.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/registry--registry.json",
+      "bytes": 1847,
+      "sha256": "462a7e71a916a09bc601da8efff3d53fbc864adc33ce10ab836878e7f3a498c8"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/baseline.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--baseline.log.txt",
+      "bytes": 17604,
+      "sha256": "6c23bfa0bcc6072dc6100fd7a74e649bd843ee8c8cfb9e8b1c04d1e99ddd9c7b"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/baseline.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--baseline.xml",
+      "bytes": 18809,
+      "sha256": "f571226bb7dc31b8514138a5189c384d59e00037e7aba6d43e1041326231b29e"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/definitions.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--definitions.json",
+      "bytes": 2425,
+      "sha256": "8687252fa149bf292784c5070ff171d8cabf0e601ffee57b2e75f06287d057bb"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger-green.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--failed-payload-enters-ledger-green.log.txt",
+      "bytes": 3047,
+      "sha256": "ab53258711fa9207a2534d03e2c4dfaf7a030f21833dec5502e1a6fad83eefb1"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger-green.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--failed-payload-enters-ledger-green.xml",
+      "bytes": 1326,
+      "sha256": "f6b0fd6948c7e54ab43bfc159f374cc0c835c81a439d4446315ea536deec6476"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger-red.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--failed-payload-enters-ledger-red.log.txt",
+      "bytes": 17216,
+      "sha256": "fe1f49ee56dadf703ff232e972517361f28c8eab5be062cc876119c227817e2c"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger-red.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--failed-payload-enters-ledger-red.xml",
+      "bytes": 14587,
+      "sha256": "ab9a1378c8d37581dd30b164416dc2d2cb81166682ba78f1b2ab13905822eef8"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger.diff",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--failed-payload-enters-ledger.diff",
+      "bytes": 921,
+      "sha256": "8d72c46d31369acd1b6282e46565292c22a1bac21dbe6b318ed23ed56804be08"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite-green.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--input-snapshot-allows-nonfinite-green.log.txt",
+      "bytes": 2478,
+      "sha256": "54b34f6203cd8cf1451ef96a991308e2646bd8929bf9796e8140d6f0b5404da0"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite-green.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--input-snapshot-allows-nonfinite-green.xml",
+      "bytes": 800,
+      "sha256": "6376fb29df5253b321eed47acec272ae87eeba7ed3b37e36871960c9d84b5627"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite-red.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--input-snapshot-allows-nonfinite-red.log.txt",
+      "bytes": 4391,
+      "sha256": "dc8b74f45fd4ba1f704f143c6e8646a9a3b4f4ac9f4579d93b1ae59704547862"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite-red.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--input-snapshot-allows-nonfinite-red.xml",
+      "bytes": 2120,
+      "sha256": "e91c1129a578cb48b43fdd43ca4577d3ed7ecfdce0c3c47ea4d9e1ea6d9f1cde"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite.diff",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--input-snapshot-allows-nonfinite.diff",
+      "bytes": 828,
+      "sha256": "8634aaeed54285f43e42ad2fc381e9b94c3b198c982a3e876267c1836d8d0429"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/lookup-status-loses-qualification-green.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--lookup-status-loses-qualification-green.log.txt",
+      "bytes": 3137,
+      "sha256": "ceed6a026dc1973b50066b3327652f07c45d4d2d53a820798cddd1e469683c9c"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/lookup-status-loses-qualification-green.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--lookup-status-loses-qualification-green.xml",
+      "bytes": 1555,
+      "sha256": "64dd049118ba7fa2b910237024ac2997cf2f81a46bf2b1370eafcdacdd4ca143"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/lookup-status-loses-qualification-red.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--lookup-status-loses-qualification-red.log.txt",
+      "bytes": 6609,
+      "sha256": "90a2a443e0926ddc758e01febeb0ab99473f01c6272414028a72e490496d8052"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/lookup-status-loses-qualification-red.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--lookup-status-loses-qualification-red.xml",
+      "bytes": 3389,
+      "sha256": "ab1e16d1741c80a4bb58df041b76a2625747d2440c49294f26e699e20e33f424"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/lookup-status-loses-qualification.diff",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--lookup-status-loses-qualification.diff",
+      "bytes": 634,
+      "sha256": "4bb8437a23da1f18da4a535b7d78a362e3f6ce856438abd365728ce2e329c107"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/restored-full.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--restored-full.log.txt",
+      "bytes": 17624,
+      "sha256": "a489bd54075a6ef417e31833ecaa6842df91848aa375bf5deafb3f3f37408220"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/restored-full.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--restored-full.xml",
+      "bytes": 18809,
+      "sha256": "ae9f55eb55f1f2e6e15ca2af038f08271adc3d34ce184083c332753370c193c3"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-green.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--result-tree-allows-nonfinite-green.log.txt",
+      "bytes": 5155,
+      "sha256": "b05f73c1b0137ad55c3615b2e71d0067d4217bcce7e82ae015b3ab9e846d144c"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-green.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--result-tree-allows-nonfinite-green.xml",
+      "bytes": 3908,
+      "sha256": "c4aa2b4785ad96b7ab06b376bcdbcc4fef4ba3bb18ea51a5e0e5c640551174a3"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-red.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--result-tree-allows-nonfinite-red.log.txt",
+      "bytes": 21774,
+      "sha256": "b660de020bdfe1cec3ab4fc159c8da49a8fc7a5f7989265046cd4695b68004e1"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-red.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--result-tree-allows-nonfinite-red.xml",
+      "bytes": 16540,
+      "sha256": "a1141e84c4c523d7c13abc7491550679a48e12c1242326576c5f4ac549bf9fcd"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite.diff",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--result-tree-allows-nonfinite.diff",
+      "bytes": 718,
+      "sha256": "88c3c5c5f3fe580f23b7549ac3f6638cf73044a7acc94a280f62d586c889535e"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/results.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--results.json",
+      "bytes": 46862,
+      "sha256": "0a2f2a45268d273c53b15c49ec13917f26f7a515af4431d0024c824bb268c17a"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite-green.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--tool-params-allow-nonfinite-green.log.txt",
+      "bytes": 2402,
+      "sha256": "1022dab5762adec9e5168f2a5c38dd9f71d8f424c2d1845eccb89edf8dd15747"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite-green.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--tool-params-allow-nonfinite-green.xml",
+      "bytes": 751,
+      "sha256": "f75e67125b072cf8ee341e23bbb42a5cbae04087a845714d1bcf16bbaeaaa4d2"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite-red.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--tool-params-allow-nonfinite-red.log.txt",
+      "bytes": 4446,
+      "sha256": "04147b6ca416ece336dac45ab7b272195a04c1dae61576a82c80ac8b74198509"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite-red.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--tool-params-allow-nonfinite-red.xml",
+      "bytes": 2107,
+      "sha256": "49eb1c708f0a40a9a1d846ca1914974696b042b728857e01dd56f8e0fedda379"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/tool-params-allow-nonfinite.diff",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--tool-params-allow-nonfinite.diff",
+      "bytes": 853,
+      "sha256": "a2d08854fce6d738d40c4b3580404a908d8d7788317b430387ffddf6fab3eb2d"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success-green.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--unknown-status-defaults-to-success-green.log.txt",
+      "bytes": 4326,
+      "sha256": "4c32caa1cd6437fc5580aef8cba6f45e2a66385254bd95e81d9844d9a3a4e5ac"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success-green.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--unknown-status-defaults-to-success-green.xml",
+      "bytes": 2847,
+      "sha256": "86906c4cd938292654d5979c7f57378cb7b2e247642ed9fcb6fe389fdf953004"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success-red.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--unknown-status-defaults-to-success-red.log.txt",
+      "bytes": 8797,
+      "sha256": "ee4487625137e84e7e371c53521adbab923d8987305f9eb5ead391902439842c"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success-red.xml",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--unknown-status-defaults-to-success-red.xml",
+      "bytes": 6843,
+      "sha256": "25905ce2d0b38c80ef2ae6e28e6aa0d0af59608ae4ebf4298eae668f42ce19e9"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/mutations-458fd9de3/unknown-status-defaults-to-success.diff",
+      "archive": "docs/verification/research-harness-rebuild-20261005/mutations--unknown-status-defaults-to-success.diff",
+      "bytes": 652,
+      "sha256": "1d07c4bab557df94c3afb95c1a176f1408d73201194cce165e98d57d9b0c0a85"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/history-baseline-a96c1fe.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/history-baseline--pytest.log.txt",
+      "bytes": 211,
+      "sha256": "81a0d483e9856efde468dbd3e8f7531b34af3e660645830998da5dea125aa49b"
+    },
+    {
+      "source": "/tmp/finance-harness-rebuild/history-baseline-a96c1fe/20261005T151154Z-a96c1fef-65cd3aa6f6dc.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/history-baseline--pytest.json",
+      "bytes": 857,
+      "sha256": "bfb15453589669e8b1b389062e642d6d35709bd65c4487a38f21a1b8942aa95f"
+    },
+    {
+      "source": "/tmp/finance-harness-qc-a96c1fe.M0rnrU/combined-review.log",
+      "archive": "docs/verification/research-harness-rebuild-20261005/prototype-review--pytest.log.txt",
+      "bytes": 13125,
+      "sha256": "5b801aee5508fd9924e4e28429f706716e37c3bb5a77b5a99e4ca01306b894f1"
+    },
+    {
+      "source": "/tmp/finance-harness-qc-a96c1fe.M0rnrU/20261005T060456Z-a96c1fef-9b3b596733f2.json",
+      "archive": "docs/verification/research-harness-rebuild-20261005/prototype-review--pytest.json",
+      "bytes": 1864,
+      "sha256": "308553747f362811f144f98303c6b28dd5177d5174d03f243b7390eead4032e8"
+    },
+    {
+      "source": "/tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py",
+      "archive": "docs/verification/research-harness-rebuild-20261005/prototype-review--probe.py.txt",
+      "bytes": 6601,
+      "sha256": "26f7041a9d9768a1aad165321ec65c9f1ea67dcd5d856e9b3d710f5555813f93"
+    }
+  ]
+}

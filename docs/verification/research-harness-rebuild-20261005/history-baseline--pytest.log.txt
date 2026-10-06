@@ -1,0 +1,3 @@
+.......................                                                  [100%]读数收据: /tmp/finance-harness-rebuild/history-baseline-a96c1fe/20261005T151154Z-a96c1fef-65cd3aa6f6dc.json
+
+23 passed in 2.77s

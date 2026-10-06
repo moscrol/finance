@@ -109,6 +109,7 @@ from intelligence.services.empty_pool_fallback import (
     propose_empty_pool_fallback,
 )
 from intelligence.services.episode_protocol import (
+    EPISODE_DRAFT_MAX_CHARS,
     RejectionResponse,
     attach_evidence_ordinals,
     cited_evidence_ordinals,
@@ -687,9 +688,13 @@ class FinanceResearchHarness:
                 f"错误：{detail}"
             )
         if kind == "invalid_finish":
+            # 2026-10-06 旁路复测 D6：模型先写了一份完整的 Markdown 回答（不是 JSON），
+            # 被拒后重写时压成了 215 字的摘要——修格式不该顺手删内容。
             return (
                 "上一条终止输出无效。请保留当前任务和全部观察，"
                 "修正下列格式或内容问题后输出 FINAL_JSON。"
+                "若上一条正文本身已是完整回答、只是没按 JSON 输出，就把正文原样放进 draft"
+                "（不要缩写，不要删掉证据里的数字），补齐 bindings。"
                 "若还缺事实，仅在研究仍开放且剩余预算允许时使用当前授权工具补查；"
                 "不能补齐则明确 partial 和具体 gap，不猜补证据。"
                 f"错误：{detail}"
@@ -708,7 +713,7 @@ class FinanceResearchHarness:
                 "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
                 "原始观察，立即基于已有证据序号 E1、E2… 输出 FINAL_JSON；"
                 "证据不足的 required output 必须标 partial 并写明 gap。"
-                "不要逐条复述全部观察，只保留最关键依据；条件写相对变化，"
+                "不要逐条复述全部观察，写清支撑结论的关键依据；条件写相对变化，"
                 "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
                 "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
                 "必须把直接证据序号放入对应 output binding，否则删去数字。"
@@ -716,7 +721,7 @@ class FinanceResearchHarness:
                 "output binding；不得用同一次工具返回的另一条证据代替。"
                 "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
                 "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
-                "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
+                f"为保证 FINAL_JSON 完整，draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内；这是传输预算，"
                 "不要求固定标题、段数或措辞。"
                 f"关闭原因：{detail}"
             )

@@ -3713,9 +3713,6 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
 @pytest.mark.parametrize(
     "question_type",
     (
-        "external_market",
-        "dated_market_review",
-        "market_watch",
         "watchlist_digest",
         "disclosure_scan",
     ),
@@ -3754,6 +3751,46 @@ def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     assert result.answer == ""
     assert result.private_artifact is None
     assert "支撑位或压力位" not in result.answer
+
+
+@pytest.mark.parametrize("question_type", ("market_watch", "dated_market_review", "external_market"))
+def test_market_questions_enter_episode_instead_of_declining(question_type: str) -> None:
+    """2026-10-06 用户决策：盘面题与外盘题不再让路给引擎 B 的固定流程。
+
+    同题对照里固定流程模型零工具调用、合成器截断换模板，答案明显差于让模型
+    自己查的 Pi；外盘固定流程不读本地外盘表、只打停抓中的复盘会接口，历史日
+    直接吐「未取得」模板。本测钉入口：handle 必须走到 context_factory，不得拒接、不得走快路径。
+    """
+
+    frame = _frame(question_type=question_type)
+    calls: list[str] = []
+
+    def track(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise RuntimeError("stop-after-entry")
+
+        return call
+
+    class Runtime:
+        run = track("runtime")
+
+    class Semantic:
+        verify = track("semantic")
+
+    ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=track("context"),
+        registry_factory=track("registry"),
+        fast_path_runner=track("fast_path"),
+        structural_verifier=track("structural"),
+        semantic_verifier=Semantic(),
+        task_id_factory=lambda: f"{question_type}-entry",
+    ).handle(frame=frame, control=_control(frame))
+
+    assert "context" in calls
+    assert "fast_path" not in calls
 
 
 def test_structured_quick_fact_enters_episode_instead_of_declining() -> None:
@@ -6345,7 +6382,7 @@ def test_unrestricted_deterministic_owner_types_still_decline(contract_kind) -> 
     else:
         contract = None
     frame = replace(
-        _frame(question_type="external_market"), material_contract=contract
+        _frame(question_type="watchlist_digest"), material_contract=contract
     )
     class Semantic:
         def verify(self, **_kwargs):

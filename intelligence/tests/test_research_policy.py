@@ -55,15 +55,17 @@ def test_grounded_deep_profile_freezes_diagnostic_budget_math() -> None:
     """冻结诊断只能形成工程预算，不能冒充延迟分位数。"""
 
     assert grounded_deep.name == "grounded_deep"
-    assert grounded_deep.root_seconds == 210
-    assert grounded_deep.synthesis_reserve_seconds == 120
-    assert grounded_deep.child_seconds == 150
-    assert grounded_deep.composer_grant_seconds == 60
+    assert grounded_deep.root_seconds == 420
+    assert grounded_deep.synthesis_reserve_seconds == 300
+    assert grounded_deep.child_seconds == 300
+    assert grounded_deep.composer_grant_seconds == 240
     assert grounded_deep.judge_reserve_seconds == 57
+    # 地板只保最小可写的一段（60s）+ 判官预留，不随授时一起抬。
     assert grounded_deep.minimum_two_phase_entry_seconds == 117
     assert "single preregistered A4" in grounded_deep.measurement_basis
     assert "Pi-vs-production D1" in grounded_deep.measurement_basis
     assert "146.55s" in grounded_deep.measurement_basis
+    assert "three times in nine" in grounded_deep.measurement_basis
     assert "not p95" in grounded_deep.measurement_basis
     trace = ResearchExecutionBudget(
         ResearchExecutionPolicy(
@@ -76,9 +78,9 @@ def test_grounded_deep_profile_freezes_diagnostic_budget_math() -> None:
             synthesis_reserve=grounded_deep.synthesis_reserve_seconds,
         ),
     ).to_trace()
-    assert trace["synthesis_reserve_ms"] == 120_000
+    assert trace["synthesis_reserve_ms"] == 300_000
     assert trace["grounded_budget_profile"]["name"] == "grounded_deep"
-    assert trace["grounded_budget_profile"]["child_seconds"] == 150
+    assert trace["grounded_budget_profile"]["child_seconds"] == 300
 
 
 def test_research_budget_stops_after_configured_call_count() -> None:

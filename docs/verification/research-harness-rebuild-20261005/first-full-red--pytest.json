@@ -1,0 +1,38 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/finance-clean",
+  "revision": "72a95fe4751efdd51aa6b1c398a4fa96aaf2de13",
+  "branch": "feat/finance-research-harness-slice",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/finance-clean",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 20564
+  },
+  "counts": {
+    "passed": 20484,
+    "failed": 3,
+    "error": 0,
+    "skipped": 75,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "tests/test_history_tool_diagnostics.py::test_diagnostic_survives_cutoff_without_restoring_in_scope_future_fact[False]",
+    "tests/test_history_tool_diagnostics.py::test_diagnostic_survives_cutoff_without_restoring_in_scope_future_fact[True]",
+    "tests/test_history_tool_diagnostics.py::test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose[dates4]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-10-05T09:28:03+00:00"
+}
