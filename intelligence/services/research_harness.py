@@ -110,6 +110,7 @@ from intelligence.services.empty_pool_fallback import (
 )
 from intelligence.services.episode_protocol import (
     EPISODE_DRAFT_MAX_CHARS,
+    THRESHOLD_GROUNDING_RULE,
     RejectionResponse,
     attach_evidence_ordinals,
     cited_evidence_ordinals,
@@ -713,9 +714,9 @@ class FinanceResearchHarness:
                 "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
                 "原始观察，立即基于已有证据序号 E1、E2… 输出 FINAL_JSON；"
                 "证据不足的 required output 必须标 partial 并写明 gap。"
-                "不要逐条复述全部观察，写清支撑结论的关键依据；条件写相对变化，"
-                "不得新增证据中没有的数值阈值。若用户要求预测，只保留一个"
-                "明确标注的主观基准区间及其不确定性。每个保留的精确数字"
+                "不要逐条复述全部观察，写清支撑结论的关键依据。"
+                f"{THRESHOLD_GROUNDING_RULE}若用户要求预测，给出一个"
+                "明确标注的主观基准区间及其不确定性。每个保留的精确数字事实"
                 "必须把直接证据序号放入对应 output binding，否则删去数字。"
                 "每条被正文使用的观察事实也必须把其直接证据序号加入对应 "
                 "output binding；不得用同一次工具返回的另一条证据代替。"

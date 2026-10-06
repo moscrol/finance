@@ -369,9 +369,11 @@ def _static_contract_text() -> str:
 # 同日【何时停止】也改了：旧句「必需输出已有足够直接证据时应停止研究」让模型够了就停
 # （同题 8792 每题 1–7 次查询，Pi 5–21 次并自发做双源互证）；新句要求关键判断尽量
 # 交叉核对（另一数据源、相邻日期或反证）后再停，仍禁止为耗步数调与问题无关的工具。
-# 其余约束一字未动。
+# 2026-10-06 answer-quality：阈值规则从全禁改为按已签 grounding_mode 条件化，
+# 与收口共用 THRESHOLD_GROUNDING_RULE；常量的实际投递另由
+# test_threshold_instruction_contract 钉住。没有修改验证器或扩充槽位权限。
 _CONTRACT_FINGERPRINT = (
-    "f3aa46a893f44398470d163ab0b0532dba99befea3c542337d6dfd27bda70aed"
+    "0b5147b531644c52ad14deacc3849869597f16099fbb0e85cbebf42d3b996104"
 )
 
 

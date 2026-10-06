@@ -1,0 +1,31 @@
+{
+  "file": "intelligence/services/episode_protocol.py",
+  "pytest": ["intelligence/tests/test_threshold_instruction_contract.py", "intelligence/tests/test_optional_forward_slots.py"],
+  "mutants": [
+    {
+      "name": "drafting loses conditional threshold authority",
+      "old": "f\"{THRESHOLD_GROUNDING_RULE}\\n\"",
+      "new": "\"观察事实与分析判断分开；不得编造精确数值阈值。\\n\"",
+      "expected_red": ["test_initial_and_final_messages_preserve_conditional_threshold_authority[model_reasoning-False]"]
+    },
+    {
+      "name": "finalization reinstates blanket threshold ban",
+      "file": "intelligence/services/research_harness.py",
+      "old": "f\"{THRESHOLD_GROUNDING_RULE}若用户要求预测，给出一个\"",
+      "new": "\"不得新增证据中没有的数值阈值。若用户要求预测，给出一个\"",
+      "expected_red": ["test_initial_and_final_messages_preserve_conditional_threshold_authority[model_reasoning-True]"]
+    },
+    {
+      "name": "evidence slots can invent thresholds",
+      "old": "否则使用已绑定事实支持的条件或相对变化，不自拟精确阈值。",
+      "new": "否则也可自拟精确阈值。",
+      "expected_red": ["test_initial_and_final_messages_preserve_conditional_threshold_authority[evidence-True]"]
+    },
+    {
+      "name": "forward threshold masquerades as historical fact",
+      "old": "明确标为主观监测线，说明选择理由与不确定性",
+      "new": "直接作为已验证规律",
+      "expected_red": ["test_initial_and_final_messages_preserve_conditional_threshold_authority[model_reasoning-False]"]
+    }
+  ]
+}

@@ -65,6 +65,16 @@ _FINISH_STATUSES = frozenset({"completed", "partial"})
 # 2026-10-06 再放到 6000 并改措辞（用户：凡是限制模型能力的都要放开）：上限只防失控，
 # 篇幅由问题决定；提示词不再要求「只保留决定性依据」。
 EPISODE_DRAFT_MAX_CHARS = 6000
+
+# One rule at drafting and finalization: authorization belongs to the signed
+# output mode, not to whether a threshold happens to be in historical data.
+THRESHOLD_GROUNDING_RULE = (
+    "观察事实与分析判断分开；不得把精确数值阈值写成历史事实或已校准规律。"
+    "仅当本轮契约将对应输出的 grounding_mode 设为 model_reasoning，"
+    "才可提出有依据的自拟前瞻阈值，并明确标为主观监测线，说明选择理由与不确定性；"
+    "已观察事实仍须绑定直接证据，不得借主观条件豁免。"
+    "否则使用已绑定事实支持的条件或相对变化，不自拟精确阈值。"
+)
 # 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
 # derived_calculation 模块（它反向依赖注册表，成环），只认名字。
 DERIVED_CALCULATION_TOOL = "derived_calculation"
@@ -389,7 +399,7 @@ def build_episode_instructions(
         "不得从截断日线心算累计或据局部行断言全段涨跌范围。\n"
         "比较相对强弱须对齐实际观测日期集合及行情口径，收益率相减用百分点；"
         "日期集合不同、摘要未知或无可核验计算时列缺口，不猜数或强判跑赢跑输。\n"
-        "观察事实与分析判断分开；不得编造精确数值阈值。\n"
+        f"{THRESHOLD_GROUNDING_RULE}\n"
         "\n"
         "【表达边界】\n"
         "不得在"

@@ -2718,7 +2718,8 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
 
     system_prompt = model.calls[0]["messages"][0]["content"]
     assert "观察事实与分析判断分开" in system_prompt
-    assert "不得编造精确数值阈值" in system_prompt
+    assert "不得把精确数值阈值写成历史事实或已校准规律" in system_prompt
+    assert "对应输出的 grounding_mode 设为 model_reasoning" in system_prompt
     assert "不得在答案中暴露内部工具名、provider 或哈希" in system_prompt
     assert "阶段第N天”只是数据提供方的阶段标签" in system_prompt
     assert "必须给出一个明确标注的基准判断" in system_prompt
@@ -2805,8 +2806,9 @@ def test_finalization_reminder_keeps_key_evidence_without_new_thresholds() -> No
     # 2026-10-06：不再要模型「只保留最关键依据」——那是为篇幅删依据。
     assert "写清支撑结论的关键依据" in reminder
     assert "只保留最关键依据" not in reminder
-    assert "条件写相对变化" in reminder
-    assert "不得新增证据中没有的数值阈值" in reminder
+    assert "否则使用已绑定事实支持的条件或相对变化" in reminder
+    assert "明确标为主观监测线" in reminder
+    assert "不得新增证据中没有的数值阈值" not in reminder
     assert "一个明确标注的主观基准区间" in reminder
     assert "每个保留的精确数字" in reminder
     assert "每条被正文使用的观察事实" in reminder
