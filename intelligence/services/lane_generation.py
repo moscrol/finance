@@ -11,6 +11,7 @@ from intelligence.services.ask import AskResult
 from intelligence.services.honesty_gates import (
     bound_caliber_disclosure,
     calendar_disclosure,
+    calendar_previous_trading_day,
     empty_caliber_disclosure,
     retired_table_disclosure,
 )
@@ -56,7 +57,12 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
         # 峰值被吞。休市句由 with_calendar_disclosure 在检索后前置。
         disclosure = calendar_disclosure(frame)
         if disclosure and not question_has_retrievable_trading_day_range(query):
-            return disclosure if disclosure.endswith("。") else f"{disclosure}。"
+            # 只说休市不够：用户得知道该去问哪天（2026-10-06 盲评 D8 因此判部分可用）。
+            text = disclosure.rstrip("。")
+            previous = calendar_previous_trading_day(frame)
+            if previous:
+                text += f"；最近的前一交易日是 {previous}，需要行情可以改问该日"
+            return f"{text}。"
     bound = bound_caliber_disclosure(query)
     if bound is not None:
         return bound
