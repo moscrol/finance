@@ -3,6 +3,36 @@
   "pytest": "intelligence/tests/test_market_measurement_contract.py",
   "mutants": [
     {
+      "name": "mainline source value pretends to be billions",
+      "old": "_metric(\"amount\", \"成交额（源值，单位未核验）\", \"sum\")",
+      "new": "_metric(\"amount\", \"成交额亿\", \"sum\")",
+      "expected_red": ["test_unverified_money_units_are_not_invented_from_magnitude[mainline-amount]"]
+    },
+    {
+      "name": "mainline money flow gets an unproven unit",
+      "old": "_metric(\"net_inflow_1d\", \"1日净流入（源值，单位未核验）\", \"sum\")",
+      "new": "_metric(\"net_inflow_1d\", \"1日净流入亿元\", \"sum\")",
+      "expected_red": ["test_unverified_money_units_are_not_invented_from_magnitude[mainline-flow]"]
+    },
+    {
+      "name": "leader seal borrows another dataset unit",
+      "old": "_metric(\"fd_amount\", \"封单额（源值，单位未核验）\", \"max\")",
+      "new": "_metric(\"fd_amount\", \"封单额万元\", \"max\")",
+      "expected_red": ["test_unverified_money_units_are_not_invented_from_magnitude[leader-seal]"]
+    },
+    {
+      "name": "turnover is treated as new funding",
+      "old": "不能单独证明增量资金入场",
+      "new": "可以单独证明增量资金入场",
+      "expected_red": ["test_market_totals_describe_activity_not_fund_origin_or_completed_liquidation"]
+    },
+    {
+      "name": "foreign date becomes proof of availability",
+      "old": "不能仅凭日期标签",
+      "new": "可以仅凭日期标签",
+      "expected_red": ["test_foreign_calendar_label_does_not_prove_publication_before_cutoff"]
+    },
+    {
       "name": "ratio label loses its denominator",
       "old": "_metric(\"limit_up_ratio\", \"板块内涨停占比%\")",
       "new": "_metric(\"limit_up_ratio\", \"涨停占比\")",

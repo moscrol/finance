@@ -1,8 +1,9 @@
 """Market statistics must keep their denominators in the model-visible tool result.
 
-Synthetic rows reproduce the shapes found in live D4/D6 without freezing their
-answers: overlapping themes, different ratio denominators, and a full ladder
-whose middle cohort does not all advance. No model call or production DB write.
+Synthetic rows reproduce live measurement shapes, not frozen answers: different
+ratio denominators, a full ladder with incomplete cohort success, unverified
+money units, and ambiguous foreign dates. Aggregate fixtures do not prove actual
+membership overlap. No model call or production DB write.
 """
 from __future__ import annotations
 
@@ -42,6 +43,17 @@ def market_root(tmp_path: Path) -> Path:
             ('2026-07-22', '丁股', 2, '2/20=10%')""")
         con.execute("CREATE TABLE fact_market_daily (trade_date DATE, limit_up INTEGER)")
         con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-22', 30)")
+        con.execute("CREATE TABLE fact_mainline_theme_daily (trade_date DATE, sector_count INTEGER)")
+        con.execute("INSERT INTO fact_mainline_theme_daily VALUES ('2026-07-22', 2)")
+        con.execute("""CREATE TABLE fact_mainline_sector_daily (
+            trade_date DATE, sector_name VARCHAR, amount DOUBLE, net_inflow_1d DOUBLE)""")
+        con.execute("INSERT INTO fact_mainline_sector_daily VALUES ('2026-07-22', '甲板块', 7022875.4, 4473476293)")
+        con.execute("""CREATE TABLE fact_leader_height_daily (
+            trade_date DATE, leader_name VARCHAR, height INTEGER, fd_amount DOUBLE)""")
+        con.execute("INSERT INTO fact_leader_height_daily VALUES ('2026-07-22', '甲股', 5, 23686.2996)")
+        con.execute("""CREATE TABLE fact_global_index_daily (
+            trade_date DATE, source_trade_date DATE, code VARCHAR, pct_chg DOUBLE)""")
+        con.execute("INSERT INTO fact_global_index_daily VALUES ('2026-07-22', '2026-07-22', 'IXIC', 0.6214)")
     return tmp_path
 
 
@@ -53,6 +65,10 @@ def spec(dataset: str) -> fq.FinanceQuerySpec:
         ),
         "limit_advance_daily": (("boards",), ("trade_date", "stock_name", "promotion_rate")),
         "market_daily": (("limit_up",), ("trade_date",)),
+        "mainline_theme_daily": (("sector_count",), ("trade_date",)),
+        "mainline_sector_daily": (("amount", "net_inflow_1d"), ("trade_date", "sector_name")),
+        "leader_height_daily": (("height", "seal_amount"), ("trade_date", "leader_name")),
+        "global_index_daily": (("return_pct",), ("trade_date", "session_date", "index_code")),
     }
     metrics, dimensions = fields[dataset]
     return fq.FinanceQuerySpec(dataset=dataset, metrics=metrics, dimensions=dimensions,
@@ -104,12 +120,15 @@ def test_notes_are_schema_semantics_not_minted_evidence(market_root):
     empty = query(market_root, replace(query_spec, filters=(fq.QueryFilter("sector_name", "eq", "未命中"),)))
     assert not empty.evidence
     assert "未命中" in empty.observation
-    ordinary = query(market_root, spec("market_daily"))
+    ordinary = query(market_root, spec("mainline_theme_daily"))
     assert ordinary.observation == ordinary.evidence[0].detail
     assert "无板位空档" not in ordinary.observation
 
 
-@pytest.mark.parametrize("dataset", ["theme_limit_heat_daily", "limit_advance_daily"])
+@pytest.mark.parametrize("dataset", [
+    "theme_limit_heat_daily", "limit_advance_daily", "market_daily",
+    "mainline_sector_daily", "leader_height_daily", "global_index_daily",
+])
 def test_catalog_and_executed_basis_share_the_measurement_note(market_root, dataset):
     query_spec = spec(dataset)
     result = query(market_root, query_spec)
@@ -123,7 +142,10 @@ def test_catalog_and_executed_basis_share_the_measurement_note(market_root, data
 
 
 @pytest.mark.parametrize("lean", ["off", "on"])
-@pytest.mark.parametrize("dataset", ["theme_limit_heat_daily", "limit_advance_daily"])
+@pytest.mark.parametrize("dataset", [
+    "theme_limit_heat_daily", "limit_advance_daily", "market_daily",
+    "mainline_sector_daily", "leader_height_daily", "global_index_daily",
+])
 def test_measurement_note_reaches_actual_model_view_after_pruning(market_root, monkeypatch, lean, dataset):
     monkeypatch.setenv("ASK_EPISODE_LEAN_OBSERVATION", lean)
     frame = TaskFrame(raw_question="2026-07-22 核查涨停分布与晋级情况", user_goal="核查盘面",
@@ -222,6 +244,52 @@ def test_empty_query_keeps_interpretation_separate_from_no_rows(market_root):
     assert "缺失晋级率" in basis["interpretation_note"]
 
 
+def test_market_totals_describe_activity_not_fund_origin_or_completed_liquidation(market_root):
+    result = query(market_root, spec("market_daily"))
+    assert "成交额不是成交股数" in result.observation
+    assert "不能单独证明增量资金入场" in result.observation
+    assert "不能据此确认风险已经出清" in result.observation
+    assert "指数贡献" in result.observation
+    assert result.evidence[0].detail == "交易日=2026-07-22；涨停家数=30"
+    assert not result.quality_gaps
+
+
+@pytest.mark.parametrize("dataset,metric,label,raw", [
+    ("mainline_sector_daily", "amount", "成交额（源值，单位未核验）", 7022875.4),
+    ("mainline_sector_daily", "net_inflow_1d", "1日净流入（源值，单位未核验）", 4473476293),
+    ("leader_height_daily", "seal_amount", "封单额（源值，单位未核验）", 23686.2996),
+], ids=["mainline-amount", "mainline-flow", "leader-seal"])
+def test_unverified_money_units_are_not_invented_from_magnitude(market_root, dataset, metric, label, raw):
+    result = query(market_root, spec(dataset))
+    assert result.rows[0][metric] == raw
+    assert f"{label}=" in result.evidence[0].detail
+    assert "单位未核验" in episode_tools._finance_query_basis(spec(dataset), result)["interpretation_note"]
+    assert "成交额亿=" not in result.evidence[0].detail
+    assert "万元=" not in result.evidence[0].detail
+    assert len(result.evidence) == 1
+
+
+def test_mainline_grouping_does_not_claim_unique_fund_flow(market_root):
+    grouped = replace(spec("mainline_sector_daily"), dimensions=("trade_date",), group_by=("trade_date",))
+    result = query(market_root, grouped)
+    note = episode_tools._finance_query_basis(grouped, result)["interpretation_note"]
+    assert "同一板块可在多个题材下重复" in note
+    assert "成分股也可能重叠" in note
+    assert "净流入不能直接相加" in note
+    assert "amount=sum" in note
+    assert "net_inflow_1d=sum" in note
+    assert result.rows[0]["amount"] == 7022875.4
+
+
+def test_foreign_calendar_label_does_not_prove_publication_before_cutoff(market_root):
+    result = query(market_root, spec("global_index_daily"))
+    assert "外盘会话日=2026-07-22" in result.evidence[0].detail
+    note = episode_tools._finance_query_basis(spec("global_index_daily"), result)["interpretation_note"]
+    assert "可知时点" in note
+    assert "交易时区" in note
+    assert "不能仅凭日期标签" in note
+
+
 def test_unknown_dataset_has_no_measurement_claim():
     assert fq.interpretation_note(replace(spec("market_daily"), dataset="not_registered")) == ""
 
@@ -266,6 +334,6 @@ def test_promotion_sync_repeats_level_statistic_only_on_successful_stocks(tmp_pa
 
 
 def test_unrelated_query_does_not_advertise_market_interpretation(market_root):
-    query_spec = spec("market_daily")
+    query_spec = spec("mainline_theme_daily")
     basis = episode_tools._finance_query_basis(query_spec, query(market_root, query_spec))
     assert "interpretation_note" not in basis

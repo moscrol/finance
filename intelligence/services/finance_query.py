@@ -404,6 +404,16 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "来源未查/空值不能称为供应商标签，行级 source 不代替字段血缘；confidence 非校准准确率。"
             "volume_ratio 为 total_amount/amount_ma20*100 的百分数，不是倍数。"
         ),
+        interpretation_note=(
+            "原始行口径：total_amount 是全市场成交额（亿元），成交额不是成交股数；"
+            "amount_change_pct 是成交额较前一交易日的百分比变化，"
+            "volume_ratio=total_amount/amount_ma20×100 是相对20日均额的百分数，不是倍数。"
+            "成交额反映交易规模，不能单独证明增量资金入场、资金来源、存量资金迁移或买卖动机；"
+            "放量下跌、跌停减少也不能据此确认风险已经出清。"
+            "指数涨跌与涨跌家数背离只说明两种统计不同，权重股拉动须有指数贡献证据。"
+            "涨停家数只是市场广度的一部分；某题材涨停集中不能排除其他个股或全市场风险偏好回升。"
+            "机制解释可以作为待验证假设，但不能写成这些总量数据直接观测到的事实。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -636,6 +646,15 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "该表排名只能得到主线内部的top，全市涨停集中度要查 theme_limit_heat_daily。"
             "板块 high_status 空值为未核验，不能用个股新高表替代板块状态。"
         ),
+        interpretation_note=(
+            "原始行是交易日×题材×板块，同一板块可在多个题材下重复，不同板块成分股也可能重叠。"
+            "成交额、涨停家数和净流入不能直接相加作为去重后的题材或全市场总量；"
+            "合并前须核验同日名单、统计范围与重复项。"
+            "amount、net_inflow_1d 保留入库源值，单位未核验；不能按数值大小猜万元/亿元，"
+            "也不能套用其他数据集的同名字段单位。资金流统计范围和算法未核验时，"
+            "正负值不能证明账户净入金，更不能证明同一笔资金从一个方向迁往另一个方向。"
+            "周期状态、强度是来源标签或指标，不是已经核实的因果或独立资金行为证据。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -654,9 +673,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "max_limit_height": _metric(
                 "max_limit_height", "最高连板", "max", "integer"
             ),
-            "amount": _metric("amount", "成交额亿", "sum"),
+            "amount": _metric("amount", "成交额（源值，单位未核验）", "sum"),
             "relative_amount": _metric("amount_relative_ratio", "相对成交额"),
-            "net_inflow_1d": _metric("net_inflow_1d", "1日净流入", "sum"),
+            "net_inflow_1d": _metric("net_inflow_1d", "1日净流入（源值，单位未核验）", "sum"),
             "strength": _metric("strength", "强度"),
             "strength_change": _metric("strength_chg", "强度变化"),
         },
@@ -807,9 +826,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "sw_l1": _dimension("sw_l1", "申万一级行业"),
             "sw_l1_code": _dimension("sw_l1_code", "申万一级代码"),
         },
-        # 刻意不放 amount：见上面 coverage。语义层「八处成交额口径一致（亿）」是
-        # test_amount_metric_labels_carry_unit 钉住的不变量；为了多一个指标去放宽它，
-        # 等于改门禁迁就代码。要暴露就得先在写入侧统一单位，那是另一个单子。
+        # 刻意不放 amount：见上面 coverage。这里没有已核验、统一为亿元的指标。
+        # mainline_sector_daily 已暴露的旧源值另作「单位未核验」标记，不代表允许
+        # 新增更多未知单位指标。要开放本列，先核验写入侧单位与历史来源。
         metrics={
             "close": _metric("close", "行业指数收盘"),
             "pre_close": _metric("pre_close", "前收盘"),
@@ -977,6 +996,12 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         coverage=(
             "每日 1 行的连板高度。"
         ),
+        interpretation_note=(
+            "本表记录当日最高连板高度及龙头，不是完整梯队或晋级候选名单。"
+            "seal_amount 保留上游 fd_amount 源值，单位未核验；"
+            "不能按数值量级补成万元/亿元，也不能借其他表的封单字段单位换算。"
+            "封单是订单状态，不等于已成交额或真实净流入；高度和封单不能单独保证次日继续晋级。"
+        ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
@@ -986,7 +1011,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         metrics={
             "height": _metric("height", "最高连板高度", "max", "integer"),
             "limit_times": _metric("limit_times", "龙头连板数", "max", "integer"),
-            "seal_amount": _metric("fd_amount", "封单额", "max"),
+            "seal_amount": _metric("fd_amount", "封单额（源值，单位未核验）", "max"),
         },
     ),
     # 连板梯队的个股明细。leader_height_daily 只有「每日 1 行的最高度」，
@@ -1065,6 +1090,12 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
             "**不要按 session_date 当时间轴**——问「今天隔夜」应对 A 股日。"
             "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
+        ),
+        interpretation_note=(
+            "trade_date 是库内A股对照日，session_date 是来源标记的外盘会话日；"
+            "两者都不自动证明收盘数据的可知时点。做历史盘后判断须同时核验外盘会话日、"
+            "交易时区和收盘/发布时间，不能仅凭日期标签认定同日外盘收盘在A股盘后已知。"
+            "未核实时如实保留时点缺口，不能把未发生的收盘当成隔夜事实。"
         ),
         time_field="trade_date",
         dimensions={
@@ -2507,11 +2538,13 @@ class FinanceQuery:
                 f"{dataset.label}：本次条件与截止时点内未命中本地记录；"
                 "不证明事件未发生，也不证明数据覆盖完整。"
             )
-        if quality_gaps:
-            observation = "；".join((*quality_gaps, observation))
         note = interpretation_note(spec)
         if note:
             observation = f"{note}；{observation}"
+        # Availability failures stay first; interpretation still precedes rows
+        # and is also retained separately in the model-visible query basis.
+        if quality_gaps:
+            observation = "；".join((*quality_gaps, observation))
         audit = FinanceQueryAudit(
             dataset=spec.dataset,
             physical_sql=compiled.sql,

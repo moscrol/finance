@@ -338,7 +338,7 @@ def test_requested_time_range_lands_in_trace(tmp_path: Path) -> None:
 
 
 def test_amount_metric_labels_carry_unit() -> None:
-    """§1.3-C：八处成交额口径一致，金额类带「亿」。"""
+    """Known amounts carry units; the legacy mainline source value must not invent one."""
 
     amount_labels = []
     for dataset_name, dataset in _DATASETS.items():
@@ -351,13 +351,14 @@ def test_amount_metric_labels_carry_unit() -> None:
                 amount_labels.append((dataset_name, field_name, field.label))
 
     assert amount_labels
-    missing_unit = [
-        item for item in amount_labels if "亿" not in item[2]
-    ]
-    assert missing_unit == []
-    unique = {label for _dataset, _field, label in amount_labels}
-    # 个股/板块成交额统一「成交额亿」；全市总量可以是「市场成交额亿」。
-    assert unique <= {"成交额亿", "市场成交额亿"}
+    # Precisely name the unresolved legacy field: no blanket exception for
+    # any new amount field or another dataset with an unverified unit.
+    unverified = {("mainline_sector_daily", "amount", "成交额（源值，单位未核验）")}
+    missing_unit = {item for item in amount_labels if "亿" not in item[2]}
+    assert missing_unit == unverified
+    known_labels = {label for ds, field, label in amount_labels if (ds, field, label) not in unverified}
+    assert known_labels <= {"成交额亿", "市场成交额亿"}
+    assert "sw_l1_daily" not in {ds for ds, _field, _label in amount_labels}
 
 
 def test_truncation_notice_names_uncovered_prefix() -> None:
