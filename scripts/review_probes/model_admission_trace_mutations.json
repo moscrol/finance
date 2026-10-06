@@ -3,6 +3,24 @@
   "pytest": ["intelligence/tests/test_model_admission_trace.py"],
   "mutants": [
     {
+      "name": "ordinary progress prose is parsed as JSON again",
+      "old": "if progress_stage and not payload.lstrip().startswith((\"{\", \"[\")):",
+      "new": "if False:",
+      "expected_red": ["test_progress_prose_and_structured_telemetry_can_coexist_with_ledger[file]", "test_plain_progress_without_ledger_is_not_model_evidence"]
+    },
+    {
+      "name": "truncated structured progress payload is ignored",
+      "old": "if progress_stage and not payload.lstrip().startswith((\"{\", \"[\")):",
+      "new": "if progress_stage:",
+      "expected_red": ["test_structured_branch_inside_progress_stage_is_still_checked"]
+    },
+    {
+      "name": "branch prose is accepted as harmless progress",
+      "old": "if progress_stage and not payload.lstrip().startswith((\"{\", \"[\")):",
+      "new": "if not payload.lstrip().startswith((\"{\", \"[\")):",
+      "expected_red": ["test_identity_bearing_steps_cannot_disguise_broken_payloads_as_prose[sub_research-not-json]", "test_identity_bearing_steps_cannot_disguise_broken_payloads_as_prose[branch_failed-not-json]"]
+    },
+    {
       "name": "request model masquerades as returned model",
       "old": "reported = record.get(\"reported_model\")",
       "new": "reported = record.get(\"requested_model\")",

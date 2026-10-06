@@ -48,6 +48,73 @@ def test_workbench_trace_admits_only_response_reported_identity(tmp_path, direct
     assert results[0].source == str(path)
 
 
+@pytest.mark.parametrize("directory", (False, True), ids=("file", "directory"))
+def test_progress_prose_and_structured_telemetry_can_coexist_with_ledger(tmp_path, directory):
+    from intelligence.services.agent_runtime import EpisodeEvent
+    from intelligence.services.episode_progress import project_episode_progress
+    from intelligence.services.run_store import RunStore
+
+    progress = project_episode_progress(EpisodeEvent(
+        sequence=1, kind="tool_request", payload={"name": "finance_query"},
+    ))
+    store = RunStore(root=tmp_path / "runs")
+    run = store.create_run(question="probe", task_type="ask")
+    for step_id, name, summary in (
+        ("menu", "planning", "此步未开放可调用工具。"),
+        (progress.key, progress.stage, progress.message),
+        ("verification", "verification", "正在核验证据绑定与回答完整性。"),
+        ("telemetry", "context_growth", json.dumps({"turn_count": 1})),
+        ("llm_budget", "llm_call_ledger", json.dumps({"records": [_record()]})),
+    ):
+        store.append_step(run.run_id, step_id=step_id, name=name, status="completed",
+                          output_summary=summary)
+    path = store.run_dir(run.run_id)
+    results, code = _check(path if directory else path / "trace.jsonl")
+    assert code == 0 and len(results) == 1
+    assert results[0].served == {MODEL: 1}
+    assert results[0].unreported == results[0].not_reached == 0
+
+
+@pytest.mark.parametrize("summary", ("", "not-json", "正在核对调用台账。"))
+@pytest.mark.parametrize("name", ("llm_call_ledger", "sub_research", "branch_failed"))
+def test_identity_bearing_steps_cannot_disguise_broken_payloads_as_prose(tmp_path, summary, name):
+    path = _trace(tmp_path, {"name": name, "output_summary": summary}, _step([_record()]))
+    assert _check(path)[1] == 2
+
+
+@pytest.mark.parametrize("summary", ('{"episode_ref":', "[broken", '[{"kind":"branch_failed"'))
+def test_json_like_telemetry_cannot_disguise_truncation_as_prose(tmp_path, summary):
+    path = _trace(tmp_path, {"name": "research", "output_summary": summary}, _step([_record()]))
+    assert _check(path)[1] == 2
+
+
+def test_plain_progress_without_ledger_is_not_model_evidence(tmp_path):
+    path = _trace(tmp_path, {"name": "planning", "output_summary": "已形成研究计划。"})
+    assert _check(path)[1] == 2
+    (tmp_path / ma.EPISODE_FILENAME).write_text(json.dumps({"events": [
+        {"kind": "model_turn", "payload": {"served_model": MODEL}},
+    ]}))
+    results, code = _check(tmp_path)
+    assert code == 0 and len(results) == 1
+
+
+def test_progress_prose_does_not_hide_top_level_child_reference(tmp_path):
+    path = _trace(tmp_path, _step([_record()]), {
+        "name": "research", "output_summary": "一项补充研究已返回证据。",
+        "episode_ref": {"episode_id": "missing-child"},
+    })
+    assert _check(path)[1] == 2
+
+
+def test_structured_branch_inside_progress_stage_is_still_checked(tmp_path):
+    path = _trace(tmp_path, _step([_record()]), {
+        "name": "research", "output_summary": json.dumps({"events": [{
+            "kind": "branch_completed", "payload": {"served_models": ["wrong-model"]},
+        }]}),
+    })
+    assert _check(path)[1] == 1
+
+
 def test_wrong_response_model_overrides_matching_request(tmp_path):
     path = _trace(tmp_path, _step([_record(
         reported_model="wrong-model", model=MODEL, requested_model=MODEL,

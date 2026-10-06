@@ -281,12 +281,24 @@ def _is_workbench_trace(document: object) -> bool:
 
 
 def _trace_payload(step: object) -> Mapping:
-    """调用台账与子分支遍历共用解码，JSON 字符串不能藏住 episode_ref。"""
+    """解码结构化载荷；公开进度文字不是模型证据，也不是坏 JSON。
+
+    RunStore 的 output_summary 同时承载 JSON 遥测与 EpisodeProgress 的自然语言。
+    仅进度阶段允许纯文字；具名台账/分支仍要求对象。任何以 { / [ 开始的载荷都
+    尝试解码且坏形状拒收，避免截断的 episode_ref 被当成可忽略的进度。
+    """
 
     if not isinstance(step, Mapping) or not isinstance(step.get("name"), str):
         raise ValueError("workbench trace 缺少合法步骤名")
     payload = step.get("output_summary")
     if isinstance(payload, str):
+        # 与 episode_progress.EpisodeProgress 的 stage 词表对应；这里只识别载荷
+        # 类型，不从进度的措辞、阶段名或请求配置推断调用身份。
+        progress_stage = step["name"] in {
+            "understanding", "planning", "research", "repair", "verification", "finalizing",
+        }
+        if progress_stage and not payload.lstrip().startswith(("{", "[")):
+            return {}
         payload = json.loads(payload)
     if not isinstance(payload, Mapping):
         raise ValueError("workbench trace output_summary 不是对象")
