@@ -1,0 +1,36 @@
+{"label": "result-tree-allows-nonfinite-green", "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "-o", "faulthandler_timeout=45", "--junitxml", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-green.xml", "--basetemp", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/pytest/result-tree-allows-nonfinite-green", "intelligence/tests/test_research_harness_slice_regressions.py", "tests/test_history_tool_diagnostics.py", "-k", "test_nonfinite_result_is_rejected_before_success_admission or test_actual_calculator_cannot_publish_nonfinite_legacy_result"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree", "revision": "458fd9de3c13f4293587f969bc733e136079ef53", "started_at": "2026-10-05T10:33:03.229805+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree  HEAD @ 458fd9de3
+rootdir: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 105 items / 84 deselected / 21 selected
+
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain-nan] PASSED [  4%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain-inf] PASSED [  9%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[plain--inf] PASSED [ 14%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested-nan] PASSED [ 19%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested-inf] PASSED [ 23%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[nested--inf] PASSED [ 28%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary-nan] PASSED [ 33%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary-inf] PASSED [ 38%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[summary--inf] PASSED [ 42%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table-nan] PASSED [ 47%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table-inf] PASSED [ 52%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[table--inf] PASSED [ 57%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart-nan] PASSED [ 61%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart-inf] PASSED [ 66%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[chart--inf] PASSED [ 71%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params-nan] PASSED [ 76%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params-inf] PASSED [ 80%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_result_is_rejected_before_success_admission[params--inf] PASSED [ 85%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('nan')] PASSED [ 90%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[float('inf')] PASSED [ 95%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_actual_calculator_cannot_publish_nonfinite_legacy_result[-float('inf')] PASSED [100%]
+
+- generated xml file: /private/tmp/finance-harness-rebuild/mutations-458fd9de3/result-tree-allows-nonfinite-green.xml -
+====================== 21 passed, 84 deselected in 1.19s =======================
+
+EXIT=0 STATUS=completed

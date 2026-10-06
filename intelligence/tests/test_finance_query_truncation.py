@@ -11,7 +11,10 @@ from pathlib import Path
 import duckdb
 
 from intelligence.services.episode_factory import build_episode_context
-from intelligence.services.episode_tools import build_episode_registry
+from intelligence.services.episode_tools import (
+    _AGENT_FINANCE_QUERY_MAX_ROWS,
+    build_episode_registry,
+)
 from intelligence.services.finance_query import (
     _DATASETS,
     FinanceQuery,
@@ -168,7 +171,7 @@ def test_truncation_notice_survives_the_context_budget(tmp_path: Path) -> None:
                 float(index),
                 float(index),
             )
-            for index in range(25)
+            for index in range(_AGENT_FINANCE_QUERY_MAX_ROWS)
         ],
     )
     registry, context = _registry(tmp_path, task_id="truncation-survives-budget")
@@ -182,13 +185,17 @@ def test_truncation_notice_survives_the_context_budget(tmp_path: Path) -> None:
             "time_range": {"start": "2026-07-23", "end": "2026-07-23"},
             "group_by": [],
             "order_by": [{"field": "return_pct", "direction": "desc"}],
-            "limit": 25,
+            "limit": _AGENT_FINANCE_QUERY_MAX_ROWS,
         },
         context=context,
         step_id="truncation-survives-budget:1",
     )
 
-    budgeted = budget_tool_observation({"observation": observation.observation})
+    # 不变量是「截断提示排在被截的数据之前」，与预算取值无关：显式用 900 字符预算，
+    # 生产预算放大（2026-10-06）后本条仍真的撞到截断。
+    budgeted = budget_tool_observation(
+        {"observation": observation.observation}, max_observation_chars=900
+    )
 
     # 先证明这条观察确实撞了预算，否则下面两条断言只是空转。
     assert budgeted["context_budget"]["truncated"] is True

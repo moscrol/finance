@@ -24,6 +24,8 @@ _DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
 _NUMBER_RE = re.compile(
     r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?(?![A-Za-z0-9])"
 )
+# 只允许紧邻「缩量（约）」的那个幅度省略负号，不能因同句出现缩量就放行所有正数。
+_SHRINK_MAGNITUDE_PREFIX_RE = re.compile(r"缩量\s*(?:约\s*)?$")
 _NUMBER_WITH_UNIT_RE = re.compile(
     r"(?<![A-Za-z])[-+]?\d+(?:\.\d+)?\s*"
     r"(?:%|pct|bp|亿元|亿|万|家|只|日|天|周|年|月|元|倍|个|点)"
@@ -31,6 +33,7 @@ _NUMBER_WITH_UNIT_RE = re.compile(
 _COMPANY_RE = re.compile(
     r"[\u4e00-\u9fff]{2,10}(?:股份|集团|银行|证券)"
 )
+_COMPANY_LIST_JOIN_RE = re.compile(r"(?<=(?:股份|集团|银行|证券))(?:和|及|与)")
 # _COMPANY_RE 向左最多吞 10 个汉字，会把公司名前面的虚词一起吞进来：证据里写的是
 # 「三环集团拟最高10亿元回购股份」，正文写「其中三环集团…」，匹配出的却是
 # 「其中三环集团」，`not in allowed_text` 成立，于是报「增加证据外公司」。这些前缀
@@ -47,6 +50,13 @@ _COMPANY_NAME_PREFIXES: tuple[str, ...] = (
     "和",
     "与",
     "及",
+)
+# 只认开头的完整引导短语，不在名字内部寻找「中/为/的/和」等单字切点。
+# 公司列表只在后缀紧邻显式连接词时分开，不把长名内部的「证券/集团」当边界。
+_COMPANY_CONTEXT_PREFIX_RE = re.compile(
+    r"(?:公司暴露(?:包括|包含|涉及|中|含)|"
+    r"[\u4e00-\u9fff]{1,6}方向(?:的|包括|包含|涉及)|"
+    r"(?:以[\u4e00-\u9fff]{1,10})?为(?:发展)?重点的)"
 )
 _ALLOWED_METHODOLOGY_ENGINEERING_TERMS = frozenset(
     {
@@ -65,8 +75,8 @@ _ALLOWED_METHODOLOGY_ENGINEERING_TERMS = frozenset(
 def _company_is_known(company: str, allowed_text: str) -> bool:
     """公司名是否已在证据里出现（容忍被吞进来的前置虚词）。
 
-    只剥已知虚词，且剥完仍要是个像样的名字（至少 2 个汉字 + 后缀词）。真正新出现的
-    公司剥不出任何在证据里的形式，仍然照报。
+    这里只剥有限的已知虚词，不能把任意后缀子串当作公司；否则「新三环集团」也会
+    因为包含证据里的「三环集团」而被错误放行。
     """
 
     if company in allowed_text:
@@ -77,6 +87,34 @@ def _company_is_known(company: str, allowed_text: str) -> bool:
         and company[len(prefix) :] in allowed_text
         for prefix in _COMPANY_NAME_PREFIXES
     )
+
+
+def _company_is_known_with_context(company: str, allowed_text: str) -> bool:
+    """恢复有限上下文，恢复后按完整名字核对当前绑定证据。
+
+    不递归剥前缀，也不把证据里的「华中三环集团」当作「三环集团」。证据侧的
+    左边界须为非汉字，或同样可识别的完整引导短语；这不是通用中文实体识别器。
+    """
+
+    if _company_is_known(company, allowed_text):
+        return True
+    prefix = _COMPANY_CONTEXT_PREFIX_RE.match(company)
+    if prefix is None or _COMPANY_RE.search(company[:prefix.end()]) is not None:
+        return False
+    candidate = company[prefix.end():]
+    if _COMPANY_RE.fullmatch(candidate) is None:
+        return False
+    for occurrence in re.finditer(re.escape(candidate) + r"(?!股份|集团|银行|证券)", allowed_text):
+        left = re.search(r"[\u4e00-\u9fff]*$", allowed_text[:occurrence.start()])
+        assert left is not None
+        context = left.group(0)
+        if (
+            not context
+            or context in _COMPANY_NAME_PREFIXES
+            or _COMPANY_CONTEXT_PREFIX_RE.fullmatch(context) is not None
+        ):
+            return True
+    return False
 
 
 _CERTAINTY_PROMOTION_TERMS = (
@@ -1631,6 +1669,7 @@ def _heading_gate_issues(
     code: str,
     severity: str,
     fact_severity: str | None = None,
+    anchor_re: re.Pattern[str] | None = None,
 ) -> tuple[QualityIssue, ...]:
     subjects = _allowed_heading_subjects(answer_spec)
     allowed_text, allowed_numbers = _heading_fact_corpus(answer_spec)
@@ -1641,7 +1680,7 @@ def _heading_gate_issues(
             continue
         if _is_disallowed_heading(heading, subjects):
             fact_like = _heading_requires_fact_binding(
-                heading,
+                _scrub_anchor_dates(heading, anchor_re),
                 allowed_text=allowed_text,
                 allowed_numbers=allowed_numbers,
             )
@@ -3159,6 +3198,32 @@ def _merge_orphan_grounded_markers(answer: str) -> str:
     return "\n".join(merged)
 
 
+def normalize_grounded_binding_lines(answer: str) -> str:
+    """把每个完整出处标记作为一个绑定单元的终点，不以物理行代替绑定边界。
+
+    模型可能连续写「甲 + marker A + 乙 + marker B」。不能只读 A、把乙也
+    绑给甲，更不能合并 A/B 的证据。这里只恢复已有标记的分隔，不选来源、
+    不按标点猜句子；标记后的无绑定尾文保留为独立行，交原门禁拒收。
+    """
+    # 只折叠完整 marker 内的换行，正文换行仍是边界；残缺 marker 不补全。
+    folded = _GROUNDED_CLAIM_MARKER_RE.sub(
+        lambda match: " ".join(match.group(0).splitlines()), answer,
+    )
+    lines: list[str] = []
+    for raw_line in folded.splitlines():
+        start = 0
+        for marker in _GROUNDED_CLAIM_MARKER_RE.finditer(raw_line):
+            lines.append(raw_line[start:marker.end()].strip())
+            start = marker.end()
+        if start == 0:
+            lines.append(raw_line)
+        elif raw_line[start:].strip():
+            lines.append(raw_line[start:].strip())
+    # 分割之后才归并独立 marker：前一物理行可能也含已绑定正文 + 待绑定尾句。
+    # 原归并规则只接无 marker 的前一行，不跨空行/标题，也不吞重复的空标记。
+    return _merge_orphan_grounded_markers("\n".join(lines))
+
+
 def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str:
     """把 marker 的 claim_ids 里混入的 EvidenceAtom id 换成它所属的 claim id。
 
@@ -3171,7 +3236,8 @@ def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str
 
     atom id 唯一指向它的所属 claim，所以这是可确定还原的笔误，不是无出处的引用。
     parse_decision_brief 早就对 brief 做了同样的规范化（canonical_claim_id），
-    这里只是把同一条规则补到 composer 侧。
+    这里只是把同一条规则补到 composer 侧。若 evidence_atom_ids 已引用已知 atom，
+    但 claim_ids 漏了它的 owner，也确定性补回；未知 ID 和非事实属性留给原校验器拒绝。
     """
     allowed = {claim.claim_id for claim in _all_answer_claims(answer_spec)}
     owner = {
@@ -3195,6 +3261,12 @@ def canonicalize_grounded_claim_ids(answer: str, answer_spec: AnswerSpec) -> str
                 mapped.append(resolved)
             else:
                 mapped.append(raw_id)
+        # 10-05 冻结复测：结论句已引事实 atom，只因漏列 owner claim 被整句删除。
+        # 不改正文/claim_type、不删除未知 ID；补回 gap owner 后事实升级检查仍必须拦截。
+        for atom_id in re.split(r"[,，、\s]+", match.group("atom_ids")):
+            resolved = owner.get(atom_id.strip(), "")
+            if resolved in allowed:
+                mapped.append(resolved)
         deduped = list(dict.fromkeys(mapped))
         if deduped == raw_ids:
             return match.group(0)
@@ -3291,7 +3363,9 @@ def rebind_entity_claim_ids(answer: str, answer_spec: AnswerSpec) -> str:
             f"claim_type={_grounded_claim_type(target)} -->",
         )
 
-    return "\n".join(rewrite(line) for line in answer.splitlines())
+    return "\n".join(
+        rewrite(line) for line in normalize_grounded_binding_lines(answer).splitlines()
+    )
 
 
 def parse_grounded_sentences(
@@ -3299,7 +3373,7 @@ def parse_grounded_sentences(
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:
     sentences: list[GroundedSentence] = []
     unbound_lines: list[str] = []
-    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
+    for raw_line in normalize_grounded_binding_lines(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             continue
@@ -3335,8 +3409,20 @@ def parse_grounded_sentences(
 def validate_grounded_composer_answer(
     answer: str,
     answer_spec: AnswerSpec,
+    *,
+    question: str = "",
 ) -> tuple[QualityIssue, ...]:
+    """逐句核对 composer 正文没有越出所绑证据。
+
+    ``question``：用户原问题。里面点名的日期（与 AnswerSpec 站立日）是锚点日期，
+    不算「证据外日期」——推断 / 缺口句可以直接引用它来划边界；事实句只在同时写出
+    所绑证据自己的日期时（「数据截至 09-30，并不是 07-22」这种对照）才放行，单独
+    把锚点日期挂在事实句上仍按证据外日期拦，防止把别的交易日的数字说成锚点那天的。
+    缺省空串时与旧行为逐字节一致。
+    """
+
     issues: list[QualityIssue] = []
+    anchor_re = _anchor_date_regex(anchor_dates_for(question, answer_spec)) if question else None
     leaked = _engineering_leaks(
         answer,
         answer_spec,
@@ -3370,6 +3456,7 @@ def validate_grounded_composer_answer(
             code="grounded_composer_unverified_heading",
             severity="warning",
             fact_severity="error",
+            anchor_re=anchor_re,
         )
     )
     atoms = evidence_atoms_from_answer_spec(answer_spec)
@@ -3410,6 +3497,14 @@ def validate_grounded_composer_answer(
             )
         )
     for sentence in sentences:
+        if not sentence.text:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_empty_binding",
+                    "error",
+                    f"第 {sentence.sentence_index} 句出处标记没有正文。",
+                )
+            )
         source_claims = tuple(
             claim_registry[claim_id]
             for claim_id in sentence.claim_ids
@@ -3497,18 +3592,30 @@ def validate_grounded_composer_answer(
             "",
             _expanded_date_text(allowed_text),
         )
+        # 数字不能在抹掉字段分隔符后抽取：total_amount\n-10.27 拼成
+        # total_amount-10.27 会让正则跳过负号，再把 +10.27 当成有据数字。
         allowed_numbers = {
             _normalize_number_token(token)
-            for token in _NUMBER_RE.findall(normalized_allowed_text)
+            for token in _NUMBER_RE.findall(_expanded_date_text(allowed_text))
         }
         negative_magnitude = any(
             term in sentence.text
             for term in ("下跌", "下降", "回落", "萎缩", "收缩", "减少")
         )
+        # 日期 / 数字只在 ``date_scope`` 上查。锚点日期放行时把它从这份文本里抹掉：
+        # 它是用户问题里的日期，按日期整体放行，「07」「22」不再被当成证据外数字。
+        date_scope = sentence.text
+        if anchor_re is not None:
+            scrubbed, anchor_hits = anchor_re.subn(" ", sentence.text)
+            if anchor_hits and (
+                sentence.claim_type != "fact"
+                or _mentions_supported_date(scrubbed, normalized_allowed_text)
+            ):
+                date_scope = scrubbed
         new_dates = sorted(
             {
                 token
-                for token in _DATE_RE.findall(sentence.text)
+                for token in _DATE_RE.findall(date_scope)
                 if re.sub(r"\s+", "", token) not in normalized_allowed_text
             }
         )
@@ -3523,18 +3630,21 @@ def validate_grounded_composer_answer(
             )
         new_numbers = sorted(
             {
-                token for token in _DATE_RE.findall(sentence.text)
+                token for token in _DATE_RE.findall(date_scope)
                 if re.sub(r"\s+", "", token) not in normalized_allowed_text
             }
             | {
-                token
-                for token in _NUMBER_RE.findall(sentence.text)
+                match.group(0)
+                for match in _NUMBER_RE.finditer(date_scope)
                 if (
-                    _normalize_number_token(token) not in allowed_numbers
+                    _normalize_number_token(match.group(0)) not in allowed_numbers
                     and not (
-                        negative_magnitude
-                        and not _normalize_number_token(token).startswith("-")
-                        and f"-{_normalize_number_token(token)}"
+                        (
+                            negative_magnitude
+                            or _SHRINK_MAGNITUDE_PREFIX_RE.search(date_scope[:match.start()])
+                        )
+                        and not _normalize_number_token(match.group(0)).startswith("-")
+                        and f"-{_normalize_number_token(match.group(0))}"
                         in allowed_numbers
                     )
                 )
@@ -3552,8 +3662,8 @@ def validate_grounded_composer_answer(
         new_companies = sorted(
             {
                 company
-                for company in _COMPANY_RE.findall(sentence.text)
-                if not _company_is_known(company, allowed_text)
+                for company in _COMPANY_RE.findall(_COMPANY_LIST_JOIN_RE.sub(" ", sentence.text))
+                if not _company_is_known_with_context(company, allowed_text)
             }
         )
         if new_companies:
@@ -3667,7 +3777,7 @@ def present_grounded_composer_answer(
 ) -> str:
     # 展示边界兜底：违规标题在此确定性剔除（validate/repair 之外的最后一道）。
     cleaned = _drop_disallowed_headings(
-        _merge_orphan_grounded_markers(answer),
+        normalize_grounded_binding_lines(answer),
         answer_spec,
     )
     # 先整文剥完整标注，再剥残片，最后才逐行 rstrip。原先只做逐行剥离：
@@ -3705,6 +3815,7 @@ def repair_grounded_composer_answer(
     *,
     rejected_sentence_indexes: tuple[int, ...] = (),
     drop_invalid: bool = False,
+    question: str = "",
 ) -> str | None:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     claim_registry = {
@@ -3713,13 +3824,16 @@ def repair_grounded_composer_answer(
     rejected = set(rejected_sentence_indexes)
     heading_subjects = _allowed_heading_subjects(answer_spec)
     heading_text_corpus, heading_numbers = _heading_fact_corpus(answer_spec)
+    anchor_re = (
+        _anchor_date_regex(anchor_dates_for(question, answer_spec)) if question else None
+    )
     repaired_lines: list[str] = []
     sentence_index = 0
     # 上一句正文是否被丢弃。丢句会让下一句的「反之/但/因此」失去前件，正文读起来
     # 就是从半截开始的。标题行不清除这个标记：删掉的句子和幸存句之间插一个小标题，
     # 悬空关系照样存在。
     previous_sentence_dropped = False
-    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
+    for raw_line in normalize_grounded_binding_lines(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             heading = _heading_line_text(line)
@@ -3727,7 +3841,7 @@ def repair_grounded_composer_answer(
                 heading is not None
                 and _is_disallowed_heading(heading, heading_subjects)
                 and _heading_requires_fact_binding(
-                    heading,
+                    _scrub_anchor_dates(heading, anchor_re),
                     allowed_text=heading_text_corpus,
                     allowed_numbers=heading_numbers,
                 )
@@ -3772,6 +3886,7 @@ def repair_grounded_composer_answer(
         line_issues = validate_grounded_composer_answer(
             raw_line,
             answer_spec,
+            question=question,
         )
         if not line_issues and sentence_index not in rejected:
             if previous_sentence_dropped:
@@ -3807,6 +3922,7 @@ def repair_grounded_composer_answer(
         for issue in validate_grounded_composer_answer(
             repaired,
             answer_spec,
+            question=question,
         )
     ):
         return None
@@ -4236,6 +4352,118 @@ def _expanded_date_text(text: str) -> str:
             f"\n{month_number}月{day_number}日"
         )
     return expanded
+
+
+# 用户问题里点名的日期（锚点日期）。不靠 ``\b``：CJK 字符也算 \w，「截至2026-07-22」
+# 中间没有词边界，``_DATE_RE`` 会漏。
+_ANCHOR_FULL_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?(?!\d)"
+)
+# 缺年份的「07-22」只认 - 与 /：点号会把「10.27%」这种小数认成 10 月 27 日，再借锚点放行
+# 把正文里的同一个数字从数字检查里抹掉。
+_ANCHOR_PADDED_MONTH_DAY_RE = re.compile(r"(?<![\d年/.-])(\d{2})[-/](\d{2})(?![\d/.%-])")
+_ANCHOR_CN_MONTH_DAY_RE = re.compile(r"(?<![\d年])(\d{1,2})\s*月\s*(\d{1,2})\s*日?(?!\d)")
+
+
+def anchor_dates_for(
+    question: str,
+    answer_spec: AnswerSpec | None = None,
+) -> tuple[str, ...]:
+    """用户问题里的日期 + AnswerSpec 的站立日，规范成 ``YYYY-MM-DD``。
+
+    这些日期来自用户输入，不是模型写的：校验器拿它们当「证据外日期」会把模型
+    「数据截至 09-30，并不是您问的 07-22」这类边界说明整句删掉（2026-10-05
+    Pi-vs-production D6 实测，16 个 error 里 10 个是题目自带的日期）。
+    只有年份唯一时才把「07-22」「7月22日」这类缺年份的写法补成完整日期。
+    """
+
+    text = str(question or "")
+    found: list[str] = []
+    years: set[str] = set()
+
+    def add(year: str, month: str, day: str) -> None:
+        month_number, day_number = int(month), int(day)
+        if not (1 <= month_number <= 12 and 1 <= day_number <= 31):
+            return
+        iso = f"{year}-{month_number:02d}-{day_number:02d}"
+        if iso not in found:
+            found.append(iso)
+        years.add(year)
+
+    for year, month, day in _ANCHOR_FULL_DATE_RE.findall(text):
+        add(year, month, day)
+    research_spec = getattr(answer_spec, "research_spec", None)
+    standing = re.fullmatch(
+        r"(20\d{2})-(\d{2})-(\d{2})",
+        str(getattr(research_spec, "as_of", "") or "").strip(),
+    )
+    if standing:
+        add(*standing.groups())
+    if len(years) == 1:
+        year = next(iter(years))
+        remainder = _ANCHOR_FULL_DATE_RE.sub(" ", text)
+        for month, day in (
+            *_ANCHOR_PADDED_MONTH_DAY_RE.findall(remainder),
+            *_ANCHOR_CN_MONTH_DAY_RE.findall(remainder),
+        ):
+            add(year, month, day)
+    return tuple(found)
+
+
+def _anchor_date_regex(anchor_dates: tuple[str, ...]) -> re.Pattern[str] | None:
+    """匹配正文里锚点日期的各种写法（含模型常写的「7 月 22 日」空格体）。"""
+
+    alternatives: list[str] = []
+    for iso in anchor_dates:
+        year, month, day = iso.split("-")
+        month_pattern = f"0?{int(month)}"
+        day_pattern = f"0?{int(day)}(?!\\d)"
+        alternatives.extend(
+            (
+                rf"(?<!\d){year}\s*[-/.年]\s*{month_pattern}\s*[-/.月]\s*{day_pattern}(?:\s*日)?",
+                rf"(?<![\d年]){month_pattern}\s*月\s*{day_pattern}(?:\s*日)?",
+                rf"(?<![\d/.-]){month}[-/]{day}(?![\d/.%-])",
+                # 只到月份的边界说法（「7 月下旬」「7月份」）。后缀限死，「7 个」「7 板」不受影响。
+                rf"(?<![\d年]){month_pattern}\s*月\s*(?:上旬|中旬|下旬|份|初|底|末)",
+            )
+        )
+    if not alternatives:
+        return None
+    return re.compile("|".join(f"(?:{item})" for item in alternatives))
+
+
+_SUPPORTED_DATE_PROBE_RE = re.compile(
+    r"(?<!\d)20\d{2}\s*[-/.年]\s*\d{1,2}\s*[-/.月]\s*\d{1,2}\s*日?(?!\d)"
+)
+
+
+def _scrub_anchor_dates(text: str, anchor_re: re.Pattern[str] | None) -> str:
+    """小标题不绑 claim：「关于 2026-07-22 晋级：缺口与边界」里的日期是用户问的那天，
+    抹掉后再判它有没有夹带事实，而不是因为日期里的数字被当成未绑定事实整行删掉。"""
+
+    return anchor_re.sub(" ", text) if anchor_re is not None else text
+
+
+def _mentions_supported_date(text: str, normalized_allowed_text: str) -> bool:
+    return any(
+        re.sub(r"\s+", "", token) in normalized_allowed_text
+        for token in _SUPPORTED_DATE_PROBE_RE.findall(text)
+    )
+
+
+def trim_to_last_complete_grounded_line(answer: str) -> str:
+    """被 ``finish_reason=length`` 截断的 composer 原稿：保留到最后一句出处标记完整的句子。
+
+    截断只会落在最后一行；前面写完的句子各自带着完整的 claim/EvidenceAtom 标记，
+    照常过确定性门禁。一句完整的都没有时返回空串，由调用方按截断降级。
+    """
+
+    lines = normalize_grounded_binding_lines(str(answer or "")).splitlines()
+    for index in range(len(lines) - 1, -1, -1):
+        line = lines[index].rstrip()
+        if line.endswith("-->") and _GROUNDED_CLAIM_MARKER_RE.search(line):
+            return "\n".join(lines[: index + 1]).strip()
+    return ""
 
 
 def humanize(text: str) -> str:

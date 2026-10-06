@@ -211,7 +211,9 @@ def test_qualifier_line_survives_the_context_budget() -> None:
         "本地 DuckDB · D4 同日主线结构",
         limit=61,
     )
-    budgeted = budget_tool_observation({"observation": observation})
+    # 不变量是「限定语排在它约束的数据之前」，与预算取值无关；显式用一个比这条观察
+    # 短的预算，生产预算放大后（2026-10-06）本条仍真的撞到截断。
+    budgeted = budget_tool_observation({"observation": observation}, max_observation_chars=900)
 
     # 先证明这条观察确实撞了预算，否则断言是空转。
     assert budgeted["context_budget"]["truncated"] is True

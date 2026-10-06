@@ -1,0 +1,49 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/finance-clean",
+  "revision": "a96c1fef8c21d9a61f226c160d88ea5ea341205f",
+  "branch": "feat/finance-research-harness-slice",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_harness.py /tmp/finance-harness-qc-a96c1fe.M0rnrU/test_review_regressions.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 20
+  },
+  "counts": {
+    "passed": 6,
+    "failed": 14,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "::test_business_failure_payload_not_usable_as_fact_evidence",
+    "::test_calculation_does_not_mark_nonfinite_result_usable[inf]",
+    "::test_calculation_does_not_mark_nonfinite_result_usable[nan]",
+    "::test_fact_with_wrong_entity_and_wrong_number_is_not_verified",
+    "::test_future_publication_is_not_available_at_baseline_cutoff",
+    "::test_returned_candidate_cannot_change_internal_confirmation_state",
+    "::test_semantic_guard_does_not_reject_a_negated_causal_overreach",
+    "::test_targeted_repair_rejects_an_unrelated_unverified_replacement",
+    "::test_tool_error_classification[error0-TIMEOUT]",
+    "::test_tool_error_classification[error1-PERMISSION_DENIED]",
+    "::test_tracking_must_not_unconditionally_support[contradiction]",
+    "::test_tracking_must_not_unconditionally_support[empty]",
+    "::test_tracking_must_not_unconditionally_support[future]",
+    "::test_tracking_must_not_unconditionally_support[timeout]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-10-05T06:04:56+00:00"
+}

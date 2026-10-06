@@ -25,25 +25,35 @@ class GroundedBudgetProfile:
     measurement_basis: str
 
 
+# 准入地板里的 composer 段：低于它就不值得开写。它与 composer 的**授时**分开——
+# 授时是「有时间时最多给多少」，地板是「最少要多少才开写」。两者绑成同一个数时，
+# 授时一抬，地板跟着抬，检索稍慢 composer 就整段被跳过、直接换模板（2026-10-05）。
+MINIMUM_COMPOSER_SLICE_SECONDS = 60
+_JUDGE_RESERVE_SECONDS = 57
+
 grounded_deep = GroundedBudgetProfile(
     name="grounded_deep",
-    # The Pi-vs-production diagnostic reproduced a real composer timeout at
-    # 40.110s on D1 even though retrieval had completed. Keep a bounded product
-    # envelope, but reserve enough tail room for the model to finish instead of
-    # replacing a nearly-complete answer with a deterministic template.
-    root_seconds=210,
-    # 60s composer + 57s judge + 3s local hand-off room.
-    synthesis_reserve_seconds=120,
+    # 2026-10-05 Pi-vs-production postfix runs: with a 2400-token / 60s composer,
+    # the forced-thinking GLM writer hit ``finish_reason=length`` on three of nine
+    # fixed-flow answers and the whole draft was replaced by a template. The output
+    # cap went up, so the time grant has to go up with it; otherwise truncation just
+    # turns into ``deadline_exhausted_local``.
+    root_seconds=420,
+    # 240s composer + 57s judge + 3s local hand-off room.
+    synthesis_reserve_seconds=300,
     # A child may use the full two-phase tail while remaining below the root.
-    child_seconds=150,
-    composer_grant_seconds=60,
-    judge_reserve_seconds=57,
-    minimum_two_phase_entry_seconds=117,
+    child_seconds=300,
+    composer_grant_seconds=240,
+    judge_reserve_seconds=_JUDGE_RESERVE_SECONDS,
+    minimum_two_phase_entry_seconds=(
+        MINIMUM_COMPOSER_SLICE_SECONDS + _JUDGE_RESERVE_SECONDS
+    ),
     measurement_basis=(
         "single preregistered A4 canary plus frozen Pi-vs-production D1 diagnostic: "
         "the former measured 146.55s end-to-end; the latter exhausted the old "
         "40s composer slice at 40.110s and fell back to a lower-quality template. "
-        "The 60s composer grant is bounded remediation headroom, not p95."
+        "2026-10-05 postfix runs truncated the 2400-token composer three times in nine; "
+        "the 240s grant pairs with the larger output cap and is headroom, not p95."
     ),
 )
 

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="3" time="1.229" timestamp="2026-10-05T18:32:58.845882+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_harness_slice_regressions" name="test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[params]" time="0.000" /><testcase classname="intelligence.tests.test_research_harness_slice_regressions" name="test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[evidence]" time="0.000"><failure message="AssertionError: invalid inputs must be rejected before executing a script">intelligence/tests/test_research_harness_slice_regressions.py:272: in test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them
+    outcome = dc.run_derived_calculation(
+intelligence/services/derived_calculation.py:361: in run_derived_calculation
+    run = calculation_sandbox.run_script(
+intelligence/tests/test_research_harness_slice_regressions.py:262: in forbidden
+    raise AssertionError("invalid inputs must be rejected before executing a script")
+E   AssertionError: invalid inputs must be rejected before executing a script</failure></testcase><testcase classname="intelligence.tests.test_research_harness_slice_regressions" name="test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[prior_inputs]" time="0.000"><failure message="AssertionError: invalid inputs must be rejected before executing a script">intelligence/tests/test_research_harness_slice_regressions.py:272: in test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them
+    outcome = dc.run_derived_calculation(
+intelligence/services/derived_calculation.py:361: in run_derived_calculation
+    run = calculation_sandbox.run_script(
+intelligence/tests/test_research_harness_slice_regressions.py:262: in forbidden
+    raise AssertionError("invalid inputs must be rejected before executing a script")
+E   AssertionError: invalid inputs must be rejected before executing a script</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index 824da6c4f..db495c8cb 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -951,7 +951,7 @@ class ToolObservation:
+             return {"ok": False, "error": error, "status": error}
+         # Even a successful empty/stale/partial lookup must keep its actual
+         # qualification in both the audit receipt and the model-facing view.
+-        return {"ok": True, "status": self.trace.status}
++        return {"ok": True}
+ 
+ 
+ @dataclass(frozen=True)

@@ -1,0 +1,4 @@
+# Keep byte-preserved diagnostic captures out of source-style whitespace checks.
+*.log.txt binary
+*.xml binary
+*.diff binary

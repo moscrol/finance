@@ -1,0 +1,21 @@
+{"label": "failed-payload-enters-ledger-green", "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "-o", "faulthandler_timeout=45", "--junitxml", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger-green.xml", "--basetemp", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/pytest/failed-payload-enters-ledger-green", "intelligence/tests/test_research_harness_slice_regressions.py", "tests/test_history_tool_diagnostics.py", "-k", "test_real_episode_retains_prior_evidence_but_cannot_cite_failed_result or test_contradictory_empty_result_does_not_become_positive_evidence or test_legacy_runner_adapter_uses_the_same_evidence_admission_gate"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree", "revision": "458fd9de3c13f4293587f969bc733e136079ef53", "started_at": "2026-10-05T10:32:46.842150+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree  HEAD @ 458fd9de3
+rootdir: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 105 items / 99 deselected / 6 selected
+
+intelligence/tests/test_research_harness_slice_regressions.py::test_contradictory_empty_result_does_not_become_positive_evidence PASSED [ 16%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_legacy_runner_adapter_uses_the_same_evidence_admission_gate[3] PASSED [ 33%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_legacy_runner_adapter_uses_the_same_evidence_admission_gate[4] PASSED [ 50%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_real_episode_retains_prior_evidence_but_cannot_cite_failed_result[timeout] PASSED [ 66%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_real_episode_retains_prior_evidence_but_cannot_cite_failed_result[permission_denied] PASSED [ 83%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_real_episode_retains_prior_evidence_but_cannot_cite_failed_result[unexpected_provider_status] PASSED [100%]
+
+- generated xml file: /private/tmp/finance-harness-rebuild/mutations-458fd9de3/failed-payload-enters-ledger-green.xml -
+======================= 6 passed, 99 deselected in 2.59s =======================
+
+EXIT=0 STATUS=completed

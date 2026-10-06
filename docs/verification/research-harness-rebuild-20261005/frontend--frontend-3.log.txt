@@ -1,0 +1,37 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/finance-clean/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/finance-clean/intelligence/webapp[39m
+
+ [32m✓[39m src/components/river/ScanPanel.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 182[2mms[22m[39m
+ [32m✓[39m src/components/river/OriginalDailyReview.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 320[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 371[2mms[22m[39m
+ [32m✓[39m src/components/BoardCalendarDashboard.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 453[2mms[22m[39m
+ [32m✓[39m src/components/river/DailyReviewWorkspace.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 996[2mms[22m[39m
+ [32m✓[39m src/components/river/OriginalWorkbench.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 1099[2mms[22m[39m
+ [32m✓[39m src/components/river/OriginalScan.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+ [32m✓[39m src/components/river/DailyRiverDashboard.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1179[2mms[22m[39m
+   [33m[2m✓[22m[39m daily river[2m > [22mselecting a heat cell links date and sector and opens research [33m 429[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 234[2mms[22m[39m
+ [32m✓[39m src/components/river/LimitUpHistory.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 198[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 279[2mms[22m[39m
+ [32m✓[39m src/components/river/ObservationWorkbench.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 1861[2mms[22m[39m
+ [32m✓[39m src/components/river/RiverTimeline.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 219[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/components/river/RangePanel.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 175[2mms[22m[39m
+ [32m✓[39m src/components/StaleDataBanner.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 153[2mms[22m[39m
+ [32m✓[39m src/components/river/AttentionPanel.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 88[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 167[2mms[22m[39m
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/theme.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m86 tests[22m[2m)[22m[33m 7298[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the six product surfaces [33m 419[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[32m210 passed[39m[22m[90m (210)[39m
+[2m   Start at [22m 18:32:47
+[2m   Duration [22m 9.11s[2m (transform 1.43s, setup 4.33s, collect 3.64s, tests 15.49s, environment 8.95s, prepare 1.22s)[22m
+
