@@ -65,9 +65,8 @@ FAST_PATH_RUNNER_SUPPORTED_TYPES = frozenset({"market_technical"})
 # 确定性臂跑「尚未接入」占位（F1 修了生产、评测臂没跟上的活漂移）。
 # services 不 import runtime，与 DETERMINISTIC_OWNER_TYPES 的包含关系由
 # tests/test_route_composition_gate.py 钉住（同 DO_NOT_LENGTHEN 手法）。
-_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES | frozenset(
-    {"external_market"}
-)
+# external_market 2026-10-06 起进 Episode（见 DETERMINISTIC_OWNER_TYPES 注释），不再分臂。
+_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUPPORT_FOCUS_RE = re.compile(r"支撑")
 _RESISTANCE_FOCUS_RE = re.compile(r"反弹|上涨空间|压力|阻力")
 

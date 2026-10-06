@@ -146,9 +146,14 @@ DEFAULT_VERIFICATION_RESERVE_SECONDS = DEFAULT_JUDGE_TIMEOUT_SECONDS + 10.0
 # 同一 GLM、同一工具与库的 Pi 对照里，这两类题让路给引擎 B 后模型零工具调用、
 # 合成器截断换模板、逐句删稿，答案明显差于让模型自己查的 Pi；走 Episode 的题
 # 正确性已与 Pi 持平。推翻的是 2026-08-30 编排合同 §7「❌ 把包并进 A 当第一执行者」。
+#
+# external_market 同日也移出（同一原话）：引擎 B 的外盘管线不读本地 fact_global_index_daily，
+# 只实时打复盘会 global-market 接口（2026-09-07 起账号风控停抓，返回 markets_not_list），
+# 再回落 Yahoo（历史日取不到）。生产探针「2026-07-17 隔夜美股表现怎么样」21 秒吐出
+# 「本轮未取得可核验的美股收盘行情」模板，而本地库当日有数。走 Episode 后模型用
+# finance_query 查本地外盘表（带复制旧值逐行标注），并可配新闻与网页检索。
 DETERMINISTIC_OWNER_TYPES = frozenset(
     {
-        "external_market",
         "watchlist_digest",
         "disclosure_scan",
     }

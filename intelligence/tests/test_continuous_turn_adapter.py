@@ -3713,7 +3713,6 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
 @pytest.mark.parametrize(
     "question_type",
     (
-        "external_market",
         "watchlist_digest",
         "disclosure_scan",
     ),
@@ -3754,12 +3753,13 @@ def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
     assert "支撑位或压力位" not in result.answer
 
 
-@pytest.mark.parametrize("question_type", ("market_watch", "dated_market_review"))
+@pytest.mark.parametrize("question_type", ("market_watch", "dated_market_review", "external_market"))
 def test_market_questions_enter_episode_instead_of_declining(question_type: str) -> None:
-    """2026-10-06 用户决策：盘面题不再让路给引擎 B 的固定流程。
+    """2026-10-06 用户决策：盘面题与外盘题不再让路给引擎 B 的固定流程。
 
     同题对照里固定流程模型零工具调用、合成器截断换模板，答案明显差于让模型
-    自己查的 Pi。本测钉入口：handle 必须走到 context_factory，不得拒接、不得走快路径。
+    自己查的 Pi；外盘固定流程不读本地外盘表、只打停抓中的复盘会接口，历史日
+    直接吐「未取得」模板。本测钉入口：handle 必须走到 context_factory，不得拒接、不得走快路径。
     """
 
     frame = _frame(question_type=question_type)
@@ -6382,7 +6382,7 @@ def test_unrestricted_deterministic_owner_types_still_decline(contract_kind) -> 
     else:
         contract = None
     frame = replace(
-        _frame(question_type="external_market"), material_contract=contract
+        _frame(question_type="watchlist_digest"), material_contract=contract
     )
     class Semantic:
         def verify(self, **_kwargs):
