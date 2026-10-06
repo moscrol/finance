@@ -1,0 +1,44 @@
+[
+  {
+    "id": "failed-payload-enters-ledger",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "if (failure is not None and evidence) or failure == \"unknown_provider_status\" or (\n            self.trace.status == \"empty\" and evidence\n        ):",
+    "new": "if False:",
+    "targets": ["test_real_episode_retains_prior_evidence_but_cannot_cite_failed_result", "test_contradictory_empty_result_does_not_become_positive_evidence", "test_legacy_runner_adapter_uses_the_same_evidence_admission_gate"]
+  },
+  {
+    "id": "unknown-status-defaults-to-success",
+    "path": "intelligence/services/provider_observability.py",
+    "old": "return status if status in _FAILED_RESULT_STATUSES else \"unknown_provider_status\"",
+    "new": "return status if status in _FAILED_RESULT_STATUSES else None",
+    "targets": ["test_failed_business_result_cannot_supply_evidence_or_look_successful", "test_failed_payload_retains_trusted_diagnostic_without_leaking_provider_text"]
+  },
+  {
+    "id": "lookup-status-loses-qualification",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "return {\"ok\": True, \"status\": self.trace.status}",
+    "new": "return {\"ok\": True}",
+    "targets": ["test_result_status_survives_model_budget_without_equating_empty_to_failure"]
+  },
+  {
+    "id": "tool-params-allow-nonfinite",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True, allow_nan=False)",
+    "new": "encoded = json.dumps(dict(value), ensure_ascii=False, sort_keys=True)",
+    "targets": ["test_nonfinite_calculation_parameter_rejected_at_tool_boundary"]
+  },
+  {
+    "id": "input-snapshot-allows-nonfinite",
+    "path": "intelligence/services/derived_calculation.py",
+    "old": "json.dumps(payload, ensure_ascii=False, allow_nan=False)",
+    "new": "json.dumps(payload, ensure_ascii=False)",
+    "targets": ["test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them"]
+  },
+  {
+    "id": "result-tree-allows-nonfinite",
+    "path": "intelligence/services/derived_calculation_artifacts.py",
+    "old": "json.dumps(dict(result), ensure_ascii=False, allow_nan=False)",
+    "new": "json.dumps(dict(result), ensure_ascii=False)",
+    "targets": ["test_nonfinite_result_is_rejected_before_success_admission", "test_actual_calculator_cannot_publish_nonfinite_legacy_result"]
+  }
+]

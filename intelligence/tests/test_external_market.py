@@ -63,6 +63,38 @@ def test_target_trade_date_uses_last_completed_us_session() -> None:
     )
 
 
+def test_live_fupanhui_is_not_called_unless_switched_on(monkeypatch) -> None:
+    """2026-10-06：复盘会账号风控停抓期间，生产每问一次外盘都在打 global-market 接口。
+
+    默认不发请求、留 disabled 轨迹；显式打开才走实时接口。注入 fetcher 的调用方不受开关影响。
+    """
+
+    from market_feature_store.sources import fupanhui_source
+
+    calls: list[str] = []
+
+    def live(path, params, timeout):
+        calls.append(path)
+        return {"source_trade_date": "2026-07-13", "markets": []}
+
+    monkeypatch.setattr(fupanhui_source, "api_get", live)
+    monkeypatch.delenv(external_market.FUPANHUI_LIVE_ENV, raising=False)
+
+    off = external_market.fetch_fupanhui_global_market("昨天美股", today=date(2026, 7, 14))
+    assert calls == []
+    assert off.quotes == () and off.trace.status == "disabled"
+
+    monkeypatch.setenv(external_market.FUPANHUI_LIVE_ENV, "1")
+    external_market.fetch_fupanhui_global_market("昨天美股", today=date(2026, 7, 14))
+    assert calls == ["/api/v1/client/reviews/global-market"]
+
+    monkeypatch.delenv(external_market.FUPANHUI_LIVE_ENV, raising=False)
+    injected = external_market.fetch_fupanhui_global_market(
+        "昨天美股", today=date(2026, 7, 14), fetcher=live,
+    )
+    assert len(calls) == 2 and injected.trace.status != "disabled"
+
+
 def test_structured_market_data_avoids_finance_fallback(monkeypatch) -> None:
     structured = _provider_quotes(
         provider=external_market.FUPANHUI_PROVIDER,

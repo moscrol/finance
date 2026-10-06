@@ -1,0 +1,15 @@
+diff --git a/intelligence/services/research_tool_registry.py b/intelligence/services/research_tool_registry.py
+index 824da6c4f..8a5bb6bc2 100644
+--- a/intelligence/services/research_tool_registry.py
++++ b/intelligence/services/research_tool_registry.py
+@@ -820,9 +820,7 @@ class ToolRunResult:
+         gaps = tuple(dict.fromkeys(str(item).strip() for item in self.gaps if str(item).strip()))
+         observation = str(self.observation or "")
+         failure = provider_result_error(self.trace.status)
+-        if (failure is not None and evidence) or failure == "unknown_provider_status" or (
+-            self.trace.status == "empty" and evidence
+-        ):
++        if False:
+             # A failed producer cannot populate the evidence ledger merely by
+             # returning a nonempty tuple. Partial producers must say partial.
+             # Retain operational diagnostics and gaps, not purported facts from

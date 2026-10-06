@@ -12,6 +12,7 @@ from intelligence.services.historical_research.episode import (
 from intelligence.services.query_understanding import understand_query
 from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.services.tool_result_budget import MAX_OBSERVATION_CHARS
 from intelligence.tests.test_historical_research_episode import _registry
 
 
@@ -94,7 +95,7 @@ def test_case_pages_are_complete_real_model_json_and_cover_all_hypotheses(saved_
             context=context,
             step_id=f"page-{offset}",
         )
-        assert len(result.observation) <= 900
+        assert len(result.observation) <= MAX_OBSERVATION_CHARS
         page = model_view(result)
         assert page["kind"] == "research_draft"
         assert page["result_ref"] == ref

@@ -343,3 +343,21 @@ def test_marking_is_idempotent_and_survives_delivery_recheck(monkeypatch):
     again = verifier._mark_numeric_condition_doubts(result)
     assert again.public_answer == result.public_answer
     assert recheck_material_public_delivery(result).public_answer == result.public_answer
+
+
+def test_numbers_the_user_wrote_in_the_question_are_premises_not_inventions():
+    """2026-10-06 旁路复测 D3：用户问「边际量超过10%、成交额高于500亿」，答案复述这两个
+    条件却被点名「待核：未在证据中找到出处」。用户给的数是题设，不是模型编的阈值；
+    题面里没有的数照旧要出处。"""
+
+    question = "2026-07-22 哪些板块同时满足涨幅为正、边际量超过10%、成交额高于500亿"
+    restated = "若边际量超过10%且成交额高于500亿，则该板块入选。"
+    _frame_, verified = _structural(restated, detail="现金流观察基准0.2。")
+    assert numeric_condition_unsupported(verified), "没有题设时这两个数确实找不到出处"
+
+    premised = replace(verified, contract=replace(verified.contract, question=question))
+    assert not numeric_condition_unsupported(premised)
+
+    _frame_, invented = _structural("若成交额高于800亿，则该板块入选。", detail="现金流观察基准0.2。")
+    invented = replace(invented, contract=replace(invented.contract, question=question))
+    assert numeric_condition_unsupported(invented), "题面里没有的 800亿 仍须有出处"

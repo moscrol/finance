@@ -78,6 +78,7 @@ ERROR_SANDBOX_VIOLATION = "sandbox_violation"
 ERROR_SCRIPT_ERROR = "script_error"
 ERROR_NO_RESULT = "no_result_emitted"
 ERROR_INVALID_RESULT = "invalid_result_contract"
+ERROR_INVALID_INPUT = "invalid_calculation_input"
 ERROR_SANDBOX_UNAVAILABLE = "sandbox_unavailable"
 ERROR_BASE_CALC_NOT_FOUND = "base_calc_not_found"
 
@@ -280,7 +281,7 @@ def canonical_params(params: Mapping[str, object] | None) -> str:
 
     if not params:
         return ""
-    return json.dumps(dict(params), ensure_ascii=False, sort_keys=True, default=str)
+    return json.dumps(dict(params), ensure_ascii=False, sort_keys=True, allow_nan=False)
 
 
 def compute_calc_id(
@@ -347,7 +348,15 @@ def run_derived_calculation(
     payload = [*evidence_payload(inputs), *prior_payload]
     hashes = tuple(str(item["hash"]) for item in payload)
     fingerprint = db_fingerprint(mounted_db) if mounted_db else ""
-    params_json = canonical_params(params)
+    try:
+        params_json = canonical_params(params)
+        # Includes restored inputs_from_calc snapshots. A valid result cannot
+        # launder nonfinite inputs or parameters by simply not using them.
+        json.dumps(payload, ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError, OverflowError):
+        return CalculationError(
+            ERROR_INVALID_INPUT, "计算输入与参数必须是有限数值的 JSON；缺值请明确标注，不用 NaN/Infinity",
+        )
     try:
         run = calculation_sandbox.run_script(
             script,
@@ -509,6 +518,8 @@ def success_observation(calc: DerivedCalculation) -> str:
 def error_observation(error: CalculationError) -> str:
     if error.code == ERROR_BASE_CALC_NOT_FOUND:
         hint = "检查 inputs_from_calc 的计算编号（回答正文与产物文件名 calc-<id> 里那 16 位），或改为重新取数再算。"
+    elif error.code == ERROR_INVALID_INPUT:
+        hint = "检查参数与输入快照中的非有限数值；补齐可信输入后再算，不把缺值改成零。"
     elif error.retryable_by_rewriting:
         hint = "在本轮剩余预算内改脚本后可重试；未修好时保留独立可信事实并列明计算缺口。"
         if "table()" in error.detail:

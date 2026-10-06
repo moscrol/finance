@@ -1863,20 +1863,20 @@ class TestSchemaExamplesAreRunnable:
             "order_by",
             {
                 "dataset": "sector_daily",
-                "metrics": ["strength"],
+                "metrics": ["return_pct"],
                 "dimensions": ["sector_name"],
-                "order_by": [{"field": "strength", "direction": "desc"}],
+                "order_by": [{"field": "return_pct", "direction": "desc"}],
             },
-            '[{"field": "strength", "direction": "desc"}]',
+            '[{"field": "return_pct", "direction": "desc"}]',
         ),
         (
             "order_by",
             {
                 "dataset": "sector_daily",
-                "metrics": ["strength", "amount"],
+                "metrics": ["return_pct", "amount"],
                 "dimensions": ["sector_name"],
                 "order_by": [
-                    {"field": "strength", "direction": "desc"},
+                    {"field": "return_pct", "direction": "desc"},
                     {"field": "amount", "direction": "desc"},
                 ],
             },

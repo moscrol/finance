@@ -18,7 +18,6 @@ from intelligence.services.query_resolution import (
     QueryResolution,
     QueryResolver,
     apply_entity_tristate_answer,
-    format_resolve_clarification,
     is_entity_tristate_clarification,
 )
 from intelligence.services.disclosure_scan_pack import is_disclosure_scan_query
@@ -1598,34 +1597,50 @@ def decide_turn(
         )
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     if resolution.status == "candidate" and resolution.candidates:
-        question = format_resolve_clarification(resolution)
+        # 2026-10-06（用户：代码替模型做决定、限制了模型的流程都不要了）：不再先追问。
+        # 同题对照里「天工量子科技」在这里被截成一句 32 字反问，一次没查；Pi 用同一套
+        # 工具查了 7 个渠道，答「查无此标的 + 查了哪些范围 + 可能原因」。R13-A3 的教训
+        # 照旧成立——不硬锚任何候选：主体留空，候选原样写进 ambiguities / assumptions，
+        # 由研究去核实。
+        candidates = "、".join(
+            dict.fromkeys(item.name for item in resolution.candidates if item.name)
+        )
         task_frame = replace(
             task_frame,
             ambiguities=tuple(
                 dict.fromkeys(
                     (
                         *task_frame.ambiguities,
-                        "主体可能是公司名，也可能是已登记主题，硬锚会改工具和结论",
+                        "主体可能是公司名，也可能是已登记主题"
+                        + (f"（候选：{candidates}）" if candidates else "")
+                        + "，本地未能确定",
                     )
                 )
             ),
-            clarification_question=question,
+            assumptions=tuple(
+                dict.fromkeys(
+                    (
+                        *task_frame.assumptions,
+                        "先检索核实主体：查到对应上市公司就按公司回答；查无此标的就说明"
+                        "查了哪些范围与可能原因，再就最可能的解释作答，不反问用户",
+                    )
+                )
+            ),
+            clarification_question=None,
         )
         envelope = project_task_frame(task_frame, envelope)
         resolution = replace(resolution, envelope=envelope)
-        intent = replace(
-            intent,
-            pending_task_frame=task_frame.to_dict(),
-            clarification_rounds=1,
-            task_frame_hash=task_frame.task_frame_hash,
-        )
+        intent = replace(intent, task_frame_hash=task_frame.task_frame_hash)
         return _attach_turn_intent(
             _decision(
-                "clarify",
+                "research",
                 envelope=envelope,
                 confidence=task_frame.confidence,
-                reason="实体解析处于 candidate，硬锚会改主体和工具，追问一次",
-                clarification_questions=(question,),
+                reason="实体解析处于 candidate：不硬锚、不追问，交给研究核实主体",
+                capabilities=_route_capabilities(
+                    envelope.question_type,
+                    ("market_quote", "market_news", "financials", "filings", "web_search", "graph"),
+                ),
             ),
             intent,
             task_frame=task_frame,

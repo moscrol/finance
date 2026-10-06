@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import urllib.parse
 import urllib.request
@@ -67,6 +68,14 @@ class _ProviderQuotes:
 
 
 StructuredFetcher = Callable[[str, dict[str, str], int], object]
+
+# 复盘会实时接口默认不打：2026-09-07 起账号风控停抓，接口返回非行情（markets_not_list），
+# 而密集探测会续期惩罚。只在显式打开时才发请求；调用方注入 fetcher（测试、回放）不受影响。
+FUPANHUI_LIVE_ENV = "EXTERNAL_MARKET_FUPANHUI_LIVE"
+
+
+def fupanhui_live_enabled() -> bool:
+    return os.environ.get(FUPANHUI_LIVE_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def overnight_session_date(*, now: datetime | None = None) -> date:
@@ -151,6 +160,17 @@ def fetch_fupanhui_global_market(
     today: date | None = None,
 ) -> _ProviderQuotes:
     if fetcher is None:
+        if not fupanhui_live_enabled():
+            return _ProviderQuotes(
+                (),
+                None,
+                ProviderTrace(
+                    provider=FUPANHUI_PROVIDER,
+                    capability="structured_market_quotes",
+                    status="disabled",
+                    detail=f"live fupanhui calls are off unless {FUPANHUI_LIVE_ENV}=1",
+                ),
+            )
         from market_feature_store.sources.fupanhui_source import api_get
 
         fetcher = api_get
