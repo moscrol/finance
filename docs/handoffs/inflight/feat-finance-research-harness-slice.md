@@ -9,23 +9,24 @@
 - 合法子集要求 `partial` / 否把 `parse_error` 当部分成功：producer 必须声明资格。
 - 未知状态 fail-closed / 否默认成功：固定公开码且不泄露私有 trace。
 - 既有精确计算错误码优先 / 否通用码遮蔽：保持兼容。
+- 并入 main 用合并提交 / 否 rebase：a96c1fe 已推送，rebase 要强推。
 
 ## 当前状态
 
-实现提交07f4523b8；最终受测tip为干净458fd9de3。其后仅有文档/收据归档，不移签旧收据为新HEAD。未push、合并、部署。决策见`docs/handoffs/2026-10-05-research-harness-rebuild.md`；八项承接/原件见`docs/verification/2026-10-05-research-harness-rebuild-results.md`。
-
-## 已验证
-
-458fd9de3：Python20501P/0F/0E/75S/2X，全范围/身份校验过；前端210P、E2E52P/2S，lint/typecheck/build过；registry五项过（101条反链warning）。六组变异均红→绿，恢复105P。a96c1fe历史诊断基线23P，首次3红为新旧合同冲突，不是既有红。
+已合入 #59（main `d5d7c5f6017e`，树与 PR 头 `3826f011a` 相同）；10-06 14:38 CST 已切 8792 并验收，回执 `docs/verification/2026-10-06-cutover-post59.md`。本分支不再续改，新工作从最新 origin/main 另开。决策见 `docs/handoffs/2026-10-05-research-harness-rebuild.md`。
 
 ## 未验证 / 已知边界
 
-未验GitHub Actions、真实provider/自然模型研究答案及生产revision；E2E虽启隔离Workbench服务，不证明自然模型质量。语义judge默认off。外部Agent Memory未回写，本轮认领仅finance-clean；跨仓项目索引仍待维护。
+真实 provider 数据真值、自然模型投研质量未验收；长电探针 n=1，只证明链路通、该题数字对。白名单外状态一律清证据：新 producer 若用新状态串会被静默判失败（现有 20 处 `ToolRunResult` 构造点已核对）。main 推送 CI 汇总任务因 GitHub 账单未启动，修好后 `gh run rerun 37422443444 --failed`。语义 judge 默认 off。
 
 ## 下一步
 
-先审本地提交；推送/PR另确认，CI须绑定实际候选。真实问题验收另冻结模型/材料/预算；未授权不合并部署。续改代码则重取新SHA完整门禁；文档封存不宣称新HEAD全量重跑。
+真实问题验收另冻结模型/材料/预算。修好 GitHub 账单后补跑 main 汇总检查。新增工具状态值时同步 `provider_observability` 白名单与反例测试。
 
 ## 踩过的坑
 
-完整收据必须看 `revision`、解释器、依赖指纹、dirty 和 collected 对账；定向绿不能覆盖全量结论。历史失败状态夹具不能暗示部分证据，合法子集要显式 `partial`。不要把脚本 judge、结构 verifier 或变异绿读成自然模型质量。
+完整收据必须看 `revision`、解释器、依赖指纹、dirty 和 collected 对账；定向绿不能覆盖全量结论。合并后 main 是新提交号，旧收据不移签，批次门禁须在 main tip 重跑。合法子集要显式 `partial`。不要把脚本 judge、结构 verifier 或变异绿读成自然模型质量。
+
+## 已验证
+
+PR 头 `3826f011a` 与 main tip `d5d7c5f6`：Python 20693P/0F/0E/75S/2X，collected 对平，`--require-full-scope`、`--expect-revision origin/main` 均 exit 0；前端 210P、E2E 52P/2S；registry 5 项过；PR CI 五项全绿。8792：readiness 13/13、health 三读、账本 check、长电探针（判官 passed、degrade 0、数字与库一致）。旧底座 `458fd9de3` 的收据与变异见 `docs/verification/2026-10-05-research-harness-rebuild-results.md`。
