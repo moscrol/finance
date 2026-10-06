@@ -1,0 +1,17 @@
+{
+  "_note": "仅为配置模板，不是市场事实。替换来源、条目ID、事件与板块身份后再使用；板块ID和名称必须核对 canonical fact_sector_daily/config_sector_alias。不要把这个模板直接用于生产导入。",
+  "sources": {
+    "待填写的官方信源名称": { "participant_key": "publisher:REPLACE_OFFICIAL", "kind": "official" },
+    "待填写的媒体名称": { "participant_key": "publisher:REPLACE_MEDIA_GROUP", "kind": "media" }
+  },
+  "entities": {
+    "待填写的题材映射键": { "id": "REPLACE_CANONICAL_SECTOR_ID", "name": "待填写的板块名称" }
+  },
+  "items": {
+    "REPLACE_AIHOT_ITEM_ID": {
+      "event_key": "REPLACE_REVIEWED_EVENT_KEY",
+      "origin_key": "REPLACE_ORIGINAL_ANNOUNCEMENT_OR_REPORT_ID",
+      "entity_keys": ["待填写的题材映射键"]
+    }
+  }
+}

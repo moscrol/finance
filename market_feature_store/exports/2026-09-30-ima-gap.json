@@ -1,0 +1,271 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-30",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [
+    "AI医疗"
+  ],
+  "stock_run": [
+    "松原安全",
+    "襄阳轴承",
+    "康希诺",
+    "近岸蛋白",
+    "义翘神州",
+    "昭衍新药",
+    "龙蟠科技",
+    "美诺华",
+    "药石科技",
+    "恒瑞医药",
+    "康龙化成"
+  ],
+  "themes": [
+    {
+      "theme": "新能源车",
+      "bucket": "today_do_ima",
+      "priority": 193.91,
+      "stocks": [
+        "光智科技",
+        "江淮汽车",
+        "松原安全",
+        "襄阳轴承",
+        "众捷股份"
+      ],
+      "page_class": "stub",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 618,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "医药",
+      "bucket": "today_do_ima",
+      "priority": 192.98,
+      "stocks": [
+        "百普赛斯",
+        "康希诺",
+        "近岸蛋白",
+        "义翘神州",
+        "泰诺麦博-U"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 2994,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "医疗",
+      "bucket": "today_do_ima",
+      "priority": 187.96,
+      "stocks": [
+        "百普赛斯",
+        "康希诺",
+        "近岸蛋白",
+        "义翘神州",
+        "昭衍新药"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 352,
+      "action": "skip_mega",
+      "reason": "过宽伞页，15 章会写成行业综述"
+    },
+    {
+      "theme": "锂",
+      "bucket": "today_do_ima",
+      "priority": 185.74,
+      "stocks": [
+        "上海洗霸",
+        "南华生物",
+        "龙蟠科技",
+        "盟固利",
+        "先导智能"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 1676,
+      "action": "skip_have_l1",
+      "reason": "已有 L1（核心机制/产业链），不重复 IMA"
+    },
+    {
+      "theme": "合成生物",
+      "bucket": "today_do_ima",
+      "priority": 183.52,
+      "stocks": [
+        "康希诺",
+        "近岸蛋白",
+        "义翘神州",
+        "美诺华",
+        "药石科技"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 3038,
+      "action": "skip_have_deepdive",
+      "reason": "已有 ThemeRadar / ima_deep_dive 15 章材料"
+    },
+    {
+      "theme": "AI医疗",
+      "bucket": "today_do_ima",
+      "priority": 178.42,
+      "stocks": [
+        "百普赛斯",
+        "义翘神州",
+        "药石科技",
+        "恒瑞医药",
+        "康龙化成"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 976,
+      "action": "run_deepdive",
+      "reason": "概念卡偏薄，缺 15 章边界/分篮"
+    },
+    {
+      "theme": "创新药",
+      "bucket": "today_find_official_evidence",
+      "priority": 185.22,
+      "stocks": [
+        "百普赛斯",
+        "昭衍新药",
+        "泰诺麦博-U",
+        "药明康德",
+        "键凯科技"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/kb-wt-8792-readiness-0927/wiki",
+      "chars": 6380,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "光智科技",
+      "theme": "新能源车",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "江淮汽车",
+      "theme": "新能源车",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "松原安全",
+      "theme": "新能源车",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "襄阳轴承",
+      "theme": "新能源车",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "众捷股份",
+      "theme": "新能源车",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "百普赛斯",
+      "theme": "医药",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "康希诺",
+      "theme": "医药",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "近岸蛋白",
+      "theme": "医药",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "义翘神州",
+      "theme": "医药",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "泰诺麦博-U",
+      "theme": "医药",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "昭衍新药",
+      "theme": "医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "上海洗霸",
+      "theme": "锂",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "南华生物",
+      "theme": "锂",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "龙蟠科技",
+      "theme": "锂",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "盟固利",
+      "theme": "锂",
+      "action": "skip_no_entity",
+      "reason": "无实体页，不空建"
+    },
+    {
+      "company": "先导智能",
+      "theme": "锂",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "美诺华",
+      "theme": "合成生物",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "药石科技",
+      "theme": "合成生物",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "恒瑞医药",
+      "theme": "AI医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "康龙化成",
+      "theme": "AI医疗",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 1,
+    "stock_run": 11,
+    "themes": 7,
+    "stocks": 20
+  }
+}

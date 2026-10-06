@@ -1105,3 +1105,37 @@ Notes:
 | cross-day-gate | ok | 0 |  |
 | export-increment | ok | 1 |  |
 | quality-gate | COMPLETE | - | check_daily_review_data.py |
+
+## 2026-10-05 | run 2026-10-05 18:30 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| hithink-stock-daily | ok | 7 |  |
+| stock-daily | fail | 26 | last source=bridge-stock-daily; canonical rows=0 [retry r1] |
+| stock-daily / stock-daily (snapshot) | fail | 14 | code=1 |
+| stock-daily / stock-daily fallback | fail | 0 | code=1 |
+| stock-daily / bridge-stock-daily | fail | 0 | code=2 |
+| stock-daily / stock-daily (snapshot) | fail | 11 | code=1 |
+| stock-daily / stock-daily fallback | fail | 0 | code=1 |
+| stock-daily / bridge-stock-daily | fail | 0 | code=2 |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：stock-daily
+
+## 2026-10-06 | run 2026-10-06 18:30 | plan=local
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| hithink-stock-daily | ok | 8 |  |
+| stock-daily | fail | 22 | last source=bridge-stock-daily; canonical rows=0 [retry r1] |
+| stock-daily / stock-daily (snapshot) | fail | 10 | code=1 |
+| stock-daily / stock-daily fallback | fail | 1 | code=1 |
+| stock-daily / bridge-stock-daily | fail | 1 | code=2 |
+| stock-daily / stock-daily (snapshot) | fail | 10 | code=1 |
+| stock-daily / stock-daily fallback | fail | 0 | code=1 |
+| stock-daily / bridge-stock-daily | fail | 1 | code=2 |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：stock-daily

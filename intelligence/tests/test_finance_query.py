@@ -1625,13 +1625,8 @@ def test_stock_high_query_groups_by_period(market_db: Path) -> None:
     assert all("3y" != row["high_period"] for row in result.rows)
 
 
-def test_null_high_status_renders_as_fact_not_unknown(market_db: Path) -> None:
-    """high_status 的 NULL 是「非新高」这个事实，不是数据缺失。
-
-    渲染成「未知」会让模型把多数个股不是新高误读成数据没回填
-    （2026-08-13 A10：GROUP BY high_status 按成交额降序，NULL 组天然最大，
-    top25 全「未知」→ 模型错误宣告数据缺口）。
-    """
+def test_null_high_status_is_unverified_not_negative(market_db: Path) -> None:
+    """Missing enrichment cannot certify a negative; explicit source labels survive."""
     spec = FinanceQuerySpec.from_arguments(
         {
             "dataset": "sector_stock_daily",
@@ -1648,8 +1643,9 @@ def test_null_high_status_renders_as_fact_not_unknown(market_db: Path) -> None:
         deadline=ResearchDeadline.from_timeout(2.0),
     )
 
-    assert "新高状态=非新高" in result.observation
-    assert "新高状态=未知" not in result.observation
+    assert "新高状态=非新高" not in result.observation
+    assert "新高状态=未知（新高标记未核验）" in result.observation
+    assert result.quality_gaps
     # 有值的行照常显示
     assert "新高状态=20d" in result.observation
 

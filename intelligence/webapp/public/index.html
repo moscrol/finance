@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金融 Dashboard 工作台 · 8792 同款</title>
+<style>
+:root{
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color:#252421; background:#f3f2ef;
+  --ink:#252421; --muted:#6d6963; --faint:#948f88; --line:#dfdcd6; --line-strong:#cac5bd;
+  --surface:#ffffff; --surface-soft:#f7f5f2; --accent:#c65f3e; --accent-soft:#f6e8e2;
+  --amber:#9a5f08; --amber-soft:#fff4dd; --red:#a9342f; --red-soft:#fff0ef; --blue:#496f91; --blue-soft:#edf3f8; --green:#4d7a5f; --green-soft:#eef5ef;
+  --shadow:0 18px 52px rgba(50,45,39,0.10); --shadow-sm:0 6px 20px rgba(50,45,39,0.08);
+}
+*{box-sizing:border-box} body{margin:0;background: radial-gradient(circle at 48% 0%, rgba(236,226,216,0.48), transparent 30rem), #f3f2ef; min-height:100vh}
+.header{padding:22px 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,0.92);backdrop-filter:blur(16px);position:sticky;top:0;z-index:10}
+.header h1{font-size:22px;margin:0;letter-spacing:-0.02em} .header h1 em{color:var(--accent);font-style:normal}
+.sub{font-size:12px;color:var(--muted);margin-top:6px;max-width:800px}
+.main{max-width:1200px;margin:0 auto;padding:24px 22px 80px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);overflow:hidden;transition:transform .15s, box-shadow .15s;cursor:pointer;text-decoration:none;color:inherit;display:block}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--line-strong)}
+.card-head{padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#fdfaf6);display:flex;justify-content:space-between;align-items:center}
+.card-head h3{font-size:14px;margin:0;letter-spacing:-0.01em} .badge{font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);font-weight:700}
+.badge.new{background:var(--accent-soft);color:var(--accent);border-color:#e8c2b3} .badge.hot{background:var(--red-soft);color:var(--red);border-color:#e9c0be}
+.card-body{padding:14px 18px;font-size:12px;line-height:1.6;color:var(--muted)}
+.card-body b{color:var(--ink)}
+.card-foot{padding:10px 18px;background:var(--surface-soft);border-top:1px solid var(--line);font-size:11px;color:var(--faint);display:flex;justify-content:space-between}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>金融 Dashboard 工作台 <em>8792 同款</em></h1>
+  <div class="sub">连板周历 · 记忆长河 · 上证K线 · 探针过滤 全部统一为 8792 浅色纸质风格，支持 K线附着信息、MA5+周均线结合、分歧一致、多轨联动</div>
+</div>
+<div class="main">
+  <div class="grid">
+    <a class="card" href="./limitup-calendar-dashboard/index.html"><div class="card-head"><h3>连板周历 · 周一到周五 + 断板联动</h3><span class="badge new">v5 8792同款</span></div><div class="card-body"><b>每行一周，周一到周五</b>，一股一行必显示分歧/一致，5板+断板表现写在次日格子，次日表现写在次次日格子。点击股票看 35日K线，红虚线连板日，紫虚线断板日。<br><br>数据：fact_limit_advance_daily + hithink + stock_daily，60天，5板+追踪断板次日命运。</div><div class="card-foot"><span>limitup-calendar</span><span>点击进入 →</span></div></a>
+    <a class="card" href="./sse-kline-dashboard/index.html"><div class="card-head"><h3>上证直观组合 · K线+MA5+周均线+信息附着</h3><span class="badge hot">直观版 v2</span></div><div class="card-body"><b>四轨同X轴联动</b>：日K+MA5+周均线（背景绿多头/黄分歧/红空头）+ 成交额+涨停+上涨家数 + 龙头高度+连板梯队 + 周K周均线。鼠标十字线联动，右侧Inspector自动解读 MA5+周均线结合。<br><br>支持自定义记忆标注，存 localStorage。</div><div class="card-foot"><span>sse-kline · 180日K 52周K</span><span>点击进入 →</span></div></a>
+    <a class="card" href="./memory-river-dashboard/index.html"><div class="card-head"><h3>时间记忆长河 · 多轨道横向</h3><span class="badge new">混合多轨</span></div><div class="card-body"><b>市场/龙头/连板梯队/题材/纠偏/研究</b>多轨道，横向可缩放拖拽，重要度 ★★★ 高亮。点击事件看详情，跳转连板日历K线。数据来自 market_feature_store 90天 480事件，可扩展你的个人记忆。<br><br>支持过滤、搜索、导出。</div><div class="card-foot"><span>memory-river · 90天</span><span>点击进入 →</span></div></a>
+  </div>
+  <div style="margin-top:24px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;font-size:11px;color:var(--muted);line-height:1.7">
+    <b style="color:var(--ink)">部署位置</b><br>
+    - 连板周历：intelligence/webapp/public/limitup-calendar/index.html (33K) + data.json 3.8M v4<br>
+    - 上证K线：public/sse-kline/index.html (30K) + data.json 234K<br>
+    - 记忆长河：public/memory-river/index.html (18K) + data.json 156K<br>
+    - 统一入口：market_snapshot/ 下各 dashboard_*.html 备份<br><br>
+    <b style="color:var(--ink)">风格统一</b>：全部使用 :root 变量 --ink #252421 --line #dfdcd6 --surface #ffffff --accent #c65f3e --shadow，和 8792 工作台 styles.css 一致，浅色纸质背景 radial-gradient。<br><br>
+    <b style="color:var(--ink)">下一步</b>：可把记忆长河的生成器接入 daily-full 自动更新，或把上证K线的自定义标注同步到 Obsidian agent-memory。
+  </div>
+</div>
+</body>
+</html>

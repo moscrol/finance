@@ -3761,6 +3761,11 @@ def create_app(
             raise HTTPException(404, str(exc)) from exc
         return learning_feedback_projection(learning_root)
 
+    # Keep the existing river endpoints ahead of static resources and the SPA.
+    from intelligence.api.river_routes import register_river_routes
+
+    register_river_routes(app)
+
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")

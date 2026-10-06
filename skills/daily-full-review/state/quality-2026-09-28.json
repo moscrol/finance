@@ -1,0 +1,11 @@
+{
+  "trade_date": "2026-09-28",
+  "window": 20,
+  "plan": "local",
+  "gaps": [],
+  "row_anomalies": [],
+  "range_violations": [],
+  "quoteless_sectors": [],
+  "ok": true,
+  "brief": "通过"
+}
