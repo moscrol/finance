@@ -1,0 +1,44 @@
+{
+  "file": "intelligence/services/task_frame.py",
+  "pytest": ["intelligence/tests/test_clarification_input_gaps.py", "intelligence/tests/test_lane_call_identity.py", "intelligence/tests/test_task_frame.py"],
+  "mutants": [
+    {
+      "name": "direct reply loses controller call identity",
+      "file": "intelligence/runtime/conversation_orchestrator.py",
+      "old": "        self._trace_llm_call_ledger(run_id, assistant_message_id, conversation_id)\n        answer_text = sanitize_conversation_answer(answer.answer)",
+      "new": "        answer_text = sanitize_conversation_answer(answer.answer)",
+      "expected_red": ["test_direct_lane_persists_controller_identity_before_terminal[expected-0-clarify]", "test_direct_lane_persists_controller_identity_before_terminal[wrong-1-chat]", "test_direct_lane_persists_controller_identity_before_terminal[-2-meta]"]
+    },
+    {
+      "name": "ordinary conclusion uncertainty again blocks input",
+      "old": "    axis = next((axis for item in ambiguities if (axis := _unresolved_input_axis(item))), None)",
+      "new": "    axis = '主体' if any('结论可能' in item for item in ambiguities) else next((axis for item in ambiguities if (axis := _unresolved_input_axis(item))), None)",
+      "expected_red": ["test_frozen_d6_alignment_does_not_replace_answer_with_subject_question", "test_frozen_d6_controller_reaches_research_and_receives_input_gap_guidance"]
+    },
+    {
+      "name": "actual unresolved input axes disappear",
+      "old": "    return (match.group(\"before\") or match.group(\"after\")) if match else None",
+      "new": "    return None",
+      "expected_red": ["test_rebound_clarification_answer_still_resolves_subject"]
+    },
+    {
+      "name": "default in another clause erases absent material",
+      "old": "        for clause in re.split(r\"[。；;！？!?]|但\", item)",
+      "new": "        for clause in (item,)",
+      "expected_red": ["test_actual_missing_inputs_are_not_waived[missing-material]"]
+    },
+    {
+      "name": "alignment loses shared input gap instruction",
+      "old": "                + CLARIFICATION_INPUT_RULE\n                + \"只有无法自行消解的输入缺口才写入 ambiguities。\"",
+      "new": "                + \"只有无法自行消解的输入缺口才写入 ambiguities。\"",
+      "expected_red": ["test_alignment_call_receives_same_input_gap_rule"]
+    },
+    {
+      "name": "controller loses shared input gap instruction",
+      "file": "intelligence/services/turn_controller.py",
+      "old": "                + CLARIFICATION_INPUT_RULE\n                + \"TaskFrame 已锁定主体、市场、时间及材料/工具权限边界，不得覆盖。\"",
+      "new": "                + \"TaskFrame 已锁定主体、市场、时间及材料/工具权限边界，不得覆盖。\"",
+      "expected_red": ["test_frozen_d6_controller_reaches_research_and_receives_input_gap_guidance"]
+    }
+  ]
+}

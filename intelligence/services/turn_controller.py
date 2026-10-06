@@ -54,6 +54,7 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.personal_memory_recall import QUESTION_TYPE as PERSONAL_MEMORY_RECALL, references_personal_prior
 from intelligence.services.task_frame import (
+    CLARIFICATION_INPUT_RULE,
     TaskFrame,
     align_task_frame,
     build_task_frame,
@@ -703,8 +704,9 @@ def _controller_messages(
                 "下面是唯一合法的路由表，你必须从中选择最匹配的一行：\n"
                 + render_route_table_prompt()
                 + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
-                "拿不准时选 clarify；不得发明表外的 route_id。"
-                "TaskFrame 已锁定主体、市场、时间及材料/工具权限边界，不得覆盖。"
+                "不得发明表外的 route_id。"
+                + CLARIFICATION_INPUT_RULE
+                + "TaskFrame 已锁定主体、市场、时间及材料/工具权限边界，不得覆盖。"
                 "任务类型只是候选：确认公司或题材身份不等于用户要深挖。"
                 "按本轮诉求选择 route_id；纯查已发生的数值选 quick_fact，"
                 "同时要求判断、解释或深挖时选择相应研究路由。"

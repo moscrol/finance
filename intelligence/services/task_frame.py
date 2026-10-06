@@ -46,6 +46,15 @@ LLMComplete = Callable[
     [list[dict[str, str]]], tuple[str | None, object | None, str]
 ]
 
+CLARIFICATION_INPUT_RULE = (
+    "仅在缺少必须由用户提供的输入、无法安全继续时才澄清："
+    "例如指代对象不明、材料未提供或权限边界冲突。"
+    "结论尚不确定、常用术语可有不同统计口径，不等于缺少主体；"
+    "能用声明口径、完整呈现分组或条件化回答解决时继续研究，"
+    "将默认理解写入 assumptions，保留不确定性，不泛问用户要哪个主体。"
+    "assumptions 不得补造材料或扩大读取权限。"
+)
+
 _POLICY_BY_QUESTION_TYPE: dict[str, str] = {
     "personal_memory_recall": "personal_memory_recall",
     "concept_definition": "stable_knowledge",
@@ -925,7 +934,8 @@ def _alignment_messages(frame: TaskFrame) -> list[dict[str, str]]:
                 "任务类型、required_outputs 和证据政策；不得修改这些字段。"
                 "严格输出 JSON，键只能是 user_goal,assumptions,ambiguities,"
                 "user_premises,competing_explanations,method_candidates。"
-                "只有会改变主体、工具或结论的歧义才写入 ambiguities。"
+                + CLARIFICATION_INPUT_RULE
+                + "只有无法自行消解的输入缺口才写入 ambiguities。"
                 "user_premises 只写用户自己声明的假设或观察；competing_explanations "
                 "每项含 label,claim,observables；method_candidates 每项含 "
                 "condition,expectation,applicability,counterexamples，状态一律未验证。"
@@ -1001,25 +1011,36 @@ def _is_missing_material_ambiguity(item: str) -> bool:
     )
 
 
-def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
-    blocking = next(
-        (
-            item
-            for item in ambiguities
-            if re.search(r"(?:主体|市场|数据源|工具|结论|对象).*(?:不明|冲突|改变|可能)", item)
-            or re.search(r"(?:不明|冲突|改变).*(?:主体|市场|数据源|工具|结论|对象)", item)
-        ),
-        None,
+def _unresolved_input_axis(item: str) -> str | None:
+    # Narrow the two legacy input-gap checks: `结论.*可能` is uncertainty,
+    # not a missing subject. The gap must describe the input axis itself.
+    match = re.search(
+        r"(?P<before>主体|市场|数据源|工具|对象)(?:的)?(?:指代|身份|范围|选择|归属)?"
+        r"(?:仍然|仍|尚|依然|存在)?(?:不明(?:确)?|未明确|没有明确|未指定|"
+        r"未给出|缺失|冲突|有歧义|未能唯一确定|无法唯一(?:确定|绑定))"
+        r"|(?:缺少可唯一绑定的|缺少明确的?|不明(?:确)?的?|未明确的?|"
+        r"无法(?:唯一)?确定的?|未指定的?)(?:分析|研究|具体)?"
+        r"(?P<after>主体|市场|数据源|工具|对象)", item,
     )
-    if blocking is None:
-        if any(item == MATERIAL_OUT_OF_WINDOW_AMBIGUITY for item in ambiguities):
-            return MATERIAL_OUT_OF_WINDOW_CLARIFICATION
-        if any(_is_missing_material_ambiguity(item) for item in ambiguities):
-            return MISSING_MATERIAL_CLARIFICATION
-        return None
-    if "市场" in blocking:
+    return (match.group("before") or match.group("after")) if match else None
+
+
+def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
+    if any(item == MATERIAL_OUT_OF_WINDOW_AMBIGUITY for item in ambiguities):
+        return MATERIAL_OUT_OF_WINDOW_CLARIFICATION
+    # A default for one clause must not erase a missing document in another.
+    if any(
+        _is_missing_material_ambiguity(clause)
+        for item in ambiguities
+        for clause in re.split(r"[。；;！？!?]|但", item)
+    ):
+        return MISSING_MATERIAL_CLARIFICATION
+    axis = next((axis for item in ambiguities if (axis := _unresolved_input_axis(item))), None)
+    if axis == "市场":
         return "你希望我按 A 股、美股，还是其他市场来判断？"
-    return "你希望我围绕哪个明确主体继续判断？"
+    if axis is not None:
+        return "你希望我围绕哪个明确主体继续判断？"
+    return None
 
 
 def frame_blocks_contract_blind_pipelines(frame: TaskFrame) -> bool:

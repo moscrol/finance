@@ -4298,6 +4298,10 @@ class TurnOrchestrator:
         warnings: Sequence[str] = (),
         as_of: str | None = None,
     ) -> TurnResult:
+        # A canned/clarification reply can follow a real controller call. This
+        # early return must preserve response identities before terminal events,
+        # even when the reply itself did not call a generation model.
+        self._trace_llm_call_ledger(run_id, assistant_message_id, conversation_id)
         answer_text = sanitize_conversation_answer(answer.answer)
         self._emit(
             run_id,
