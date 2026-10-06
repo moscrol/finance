@@ -47,6 +47,22 @@ def calendar_disclosure(frame: TaskFrame) -> str | None:
     return None
 
 
+_PREVIOUS_TRADING_DAY_RE = re.compile(r"前一交易日\s*(\d{4}-\d{2}-\d{2})")
+
+
+def calendar_previous_trading_day(frame: TaskFrame) -> str | None:
+    """同一条休市假设里写明的前一交易日；没写（表外年份）或不休市则 None。
+
+    与 ``calendar_disclosure`` 读同一条假设，不重新推算日历。
+    """
+
+    for item in frame.assumptions:
+        if "休市" in item:
+            match = _PREVIOUS_TRADING_DAY_RE.search(item)
+            return match.group(1) if match else None
+    return None
+
+
 def with_calendar_disclosure(answer: str, frame: TaskFrame) -> str:
     """确定性前置休市事实——不依赖模型转述。"""
 
