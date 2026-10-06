@@ -126,6 +126,24 @@ python3 skills/duckdb-backfill/scripts/backfill_dragon_seats_full.py --start-dat
 
 三条硬约束（实测事故换来的）：外盘/核心股等主键 = 请求的 A 股日历日，不信接口回写的 `trade_date`；龙头高度按请求日 as-of UPSERT，趋势图历史点只填洞；验收对源头抽查，不只数行数。恒定宇宙（core 50 / global_index 5 / global_stock 194）已进 `check_daily` 断档 + 行数收缩门禁；auction / events / mapping / regulation_event 天然稀疏，靠 ops `empty` 台账区分「接口没有」和「没同步」。
 
+## 外盘（global_index / global_stock）：停抓期间走新浪（2026-10-06 起）
+
+复盘会 global-market 停抓后，外盘两张表用 `sync-global-daily-akshare` 补：只写表尾断档、查询层判出的复制旧值行、
+以及两证据确认的冻结行（与上一行完全相同，且源头确实开过非平盘的新会话）；其余已有行不动。口径与复盘会一致
+（A 股日 D 放外盘日历日 D 那一场，休市取前一场；美股收盘写实际值、涨跌按前复权算经济收益），探针逐日核过。
+
+```bash
+# 1) clone_to_staging 主库 → 克隆库，记下主库身份与 mtime/size（换库前要核）
+# 2) dry-run（默认）：看 targets / skipped / 对账 exact_ratio；--db 必须给，主库路径用 MARKET_FEATURE_STORE_DB 指准
+MARKET_FEATURE_STORE_DB=<主库> python3 -m market_feature_store.cli sync-global-daily-akshare --db <克隆库> \
+  --start-date <复制行判定起点> --end-date <最后一个 A 股交易日> --report <报告.json>
+# 3) 用户看过 dry-run 后 --apply（只写克隆库；--db 指向主库会被拒），克隆库上跑 check-daily 对照主库
+# 4) 用户确认后按 sync_daily_full 的换库临界区换名：hold_swap_lock → 身份 / mtime 复核 → backup_before_swap → atomic_swap_into_place
+```
+
+缺口超过 5% 或任一指数取不到，状态 `needs_user`、不写。**日更尚未接入**：2026-09-30 之后的交易日要再跑一轮（或接进 local 计划）。
+首轮记录：`~/.finance-runtime/backfill-overseas-rebuild-1006/`（计划、授权原话、审计、dry-run、换库收据与备份路径）。
+
 ## 收尾对齐（新表/新列入库后逐条过）
 
 1. **门禁**：稳定每日有的表进 `market_feature_store/quality.py` 的 `GAP_TABLES`；宇宙恒定的再进 `ROW_ANOMALY_TABLES`。棘轮：历史空的先补齐再进门禁。
