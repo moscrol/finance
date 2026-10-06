@@ -9,4 +9,4 @@
   - **运行时确定性注入**：`finance-longtail-baseline` / `finance-degraded-fallback` 由 `ASK_LONGTAIL_BASELINE` / `ASK_DEGRADED_FALLBACK` 注入，不可路由也不可手动调，上面两条都不适用。
   **三份名单都会漂，以 frontmatter 与 `ls .claude/skills` 为准，别抄这里的。**
 - **`duckdb-backfill` 2026-09-07 起已暴露、可被你直接触发**，别再当它是隐藏件。此前它既标 `disable` 又不在软链里，回补任务从来读不到它，agent 只能硬跑 `daily-full` 过历史日——而那正是回补红线第一条禁止的：`daily-full` 是「取最新」语义，写到历史日等于把今天盘中价写成那天收盘。
-- 项目 hooks 在 `.claude/settings.json`：SessionStart 注入记忆底座（`.claude/hooks/load-memory.sh`）与工作区事实（`scripts/session_facts.sh`），SessionEnd 检测交接过期。用户级 `~/.claude/settings.json` 另有危险 git 命令拦截、共享仓陈旧树拦截、编辑后 ruff。hook 退出码恒 0，观测设施故障不阻断会话。
+- 项目 hooks 在 `.claude/settings.json`：SessionStart 注入记忆底座（`.claude/hooks/load-memory.sh`）与工作区事实（`scripts/session_facts.sh`），SessionEnd 检测交接过期。hook 退出码恒 0，观测设施故障不阻断会话。用户级 `~/.claude/settings.json` 目前不注册任何 hook（2026-10-06 查，用户决定暂不恢复）：`~/.claude/hooks/` 里的 6 个 hook（危险 git 命令拦截、共享仓陈旧树拦截、编辑后 ruff，以及 `session-context.sh` 等 3 个 SessionStart 注入）只在 `settings.json.bak-*` 里注册过，当前既不拦截也不注入。所以 git 操作按 AGENTS.md「Git 与合并」自律，改完 Python 自己跑 `.venv-workbench/bin/python -m ruff check <文件>`。
