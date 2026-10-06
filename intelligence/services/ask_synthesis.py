@@ -63,6 +63,27 @@ from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.research_policy import grounded_deep
 
 
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+# Grounded composer 的输出上限（2026-10-05）。GLM-5.3-flash 在 Coding Plan 端点强制开
+# 思考，思考 token 与正文、逐句出处标记共用这个上限；旧值 2400 在九次固定流程合成里
+# 截断三次，每次整篇换成模板。Pi 给同一模型配的是 131072。字数闸 max_chars 仍是
+# 客户端兜底，不依赖上游是否兑现 max_tokens。
+GROUNDED_COMPOSER_MAX_TOKENS = _positive_int_env("GROUNDED_COMPOSER_MAX_TOKENS", 32768)
+GROUNDED_COMPOSER_MAX_CHARS = _positive_int_env("GROUNDED_COMPOSER_MAX_CHARS", 40000)
+# 判官只回一段 JSON，但同样强制思考：1200 会在给出判定之前就被截断。
+GROUNDING_JUDGE_MAX_TOKENS = _positive_int_env("GROUNDING_JUDGE_MAX_TOKENS", 8192)
+# 截断后保住了写完的句子：phase 记 status=ok + reason_code=truncated_response。
+# 走 ``stable_llm_fallback_reason`` 已有的「截断」归一，不往那张兼任判官闸门的表里加新码。
+_TRUNCATED_SALVAGED_REASON = "LLM 合成响应被截断，已保留截断前写完的句子"
+
+
 # few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
 # 最多注入 EXEMPLAR_MAX_FILES 篇、总长度上限 EXEMPLAR_MAX_CHARS（超量会稀释证据注意力）。
 EXEMPLAR_DIR = REPO_ROOT / "skills" / "stock-deep-dive" / "exemplars"
@@ -2147,9 +2168,20 @@ def synthesize_shadow_grounded_answer(
         timeout=compose_timeout,
         deadline=deadline,
         temperature=0.2,
-        max_tokens=2400 * token_budget_scale,
-        max_chars=16000 * token_budget_scale,
+        max_tokens=GROUNDED_COMPOSER_MAX_TOKENS * token_budget_scale,
+        max_chars=GROUNDED_COMPOSER_MAX_CHARS * token_budget_scale,
+        allow_truncated=True,
     )
+    salvage_reason = ""
+    if composed is not None and composed.finish_reason == "length":
+        # 正文本来就逐句校验：被截断时只丢最后那半句，写完的句子照常进确定性门禁。
+        # 一句完整的都没有才按截断降级。
+        salvaged = answer_model.trim_to_last_complete_grounded_line(composed.answer)
+        if salvaged:
+            composed = replace(composed, answer=salvaged)
+            salvage_reason = _TRUNCATED_SALVAGED_REASON
+        else:
+            composed, compose_reason = None, "LLM 合成响应被截断，已降级为模板"
     _record_synthesis_phase(
         result,
         name="composer",
@@ -2157,7 +2189,7 @@ def synthesize_shadow_grounded_answer(
         remaining_ms_at_entry=compose_remaining_ms,
         timeout_s=compose_timeout,
         started=compose_started,
-        reason=compose_reason if composed is None else "",
+        reason=compose_reason if composed is None else salvage_reason,
     )
     if composed is None:
         result.grounded_composer_shadow = (
@@ -2186,6 +2218,7 @@ def synthesize_shadow_grounded_answer(
         answer_model.validate_grounded_composer_answer(
             raw_answer,
             result.answer_spec,
+            question=options.query,
         )
     )
     candidate_answer = raw_answer
@@ -2198,6 +2231,7 @@ def synthesize_shadow_grounded_answer(
                 raw_answer,
                 result.answer_spec,
                 drop_invalid=repair_drop_invalid,
+                question=options.query,
             )
         )
         if deterministic_repair is None:
@@ -2260,7 +2294,7 @@ def synthesize_shadow_grounded_answer(
                 timeout=judge_timeout,
                 deadline=deadline,
                 temperature=0.0,
-                max_tokens=1200 * token_budget_scale,
+                max_tokens=GROUNDING_JUDGE_MAX_TOKENS * token_budget_scale,
                 max_chars=8000 * token_budget_scale,
             )
     else:
@@ -2270,7 +2304,7 @@ def synthesize_shadow_grounded_answer(
             timeout=judge_timeout,
             deadline=deadline,
             temperature=0.0,
-            max_tokens=1200 * token_budget_scale,
+            max_tokens=GROUNDING_JUDGE_MAX_TOKENS * token_budget_scale,
             max_chars=8000 * token_budget_scale,
         )
     _record_synthesis_phase(
@@ -2379,6 +2413,7 @@ def synthesize_shadow_grounded_answer(
             result.answer_spec,
             rejected_sentence_indexes=judge_applied_indexes,
             drop_invalid=repair_drop_invalid,
+            question=options.query,
         )
         if semantic_repair is None:
             result.grounded_composer_shadow = (

@@ -1382,7 +1382,15 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
             "supporting_evidence",
             "evidence_boundary",
         ),
-        "dated_market_review": ("market_summary", "mainline_structure", "risk_signals"),
+        # direct_assessment 在首位（2026-10-06）：分类器把「高标晋级有没有空档」这类
+        # 具体问题也判成 dated_market_review，旧三格（总量 / 主线 / 风险）里没有
+        # 「回答用户问的那件事」，模型只能写成泛泛的复盘。
+        "dated_market_review": (
+            "direct_assessment",
+            "market_summary",
+            "mainline_structure",
+            "risk_signals",
+        ),
         "market_forecast": (
             "direct_assessment",
             "scenario_paths",

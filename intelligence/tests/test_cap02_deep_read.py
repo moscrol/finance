@@ -146,9 +146,11 @@ def _retrieve(wiki: Path, rows: list[dict[str, object]], **kwargs: object) -> kb
 # ---------------------------------------------------------------------------
 # 常数钉死：深读每段宽度 = 模型可见 detail 上限。改任何一边都要一起改。
 # ---------------------------------------------------------------------------
-def test_deep_read_item_chars_pinned_to_model_visible_detail_cap() -> None:
-    assert kb_rag.DEEP_READ_ITEM_CHARS == MAX_EVIDENCE_DETAIL_CHARS
-    assert agent_research.WEB_FETCH_FOCUS_ITEM_CHARS == MAX_EVIDENCE_DETAIL_CHARS
+def test_deep_read_item_chars_fit_inside_model_visible_detail_cap() -> None:
+    # 段长只需整段落在模型可见的 detail 上限内（送达时不被截）；2026-10-06 上限放大后
+    # 段长保持 240，不再与上限相等。
+    assert kb_rag.DEEP_READ_ITEM_CHARS <= MAX_EVIDENCE_DETAIL_CHARS
+    assert agent_research.WEB_FETCH_FOCUS_ITEM_CHARS == kb_rag.DEEP_READ_ITEM_CHARS
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +201,7 @@ def test_table_crossing_truncation_boundary_delivers_header_and_units_to_model()
         "| 主焦煤（03月） | 1498 | 32.2 |",
         "| 主焦煤（04月） | 1570 | 33.0 |",
     ]
-    slices = kb_rag.section_slices("\n".join([header, sep, *rows]), MAX_EVIDENCE_DETAIL_CHARS)
+    slices = kb_rag.section_slices("\n".join([header, sep, *rows]), kb_rag.DEEP_READ_ITEM_CHARS)
 
     assert len(slices) > 1, "跨 240 字边界必须切成多片"
     for item in slices:

@@ -45,6 +45,7 @@ from intelligence.services.kb_selection_noise import filter_structural_noise
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
 from intelligence.services.research_state import EvidenceObservation, ResearchState
+from intelligence.services.tool_result_budget import MAX_OBSERVATION_CHARS
 
 ENV_MODE = "ASK_AGENT_LOOP"
 ENV_MAX_STEPS = "ASK_AGENT_MAX_STEPS"
@@ -58,7 +59,8 @@ MAX_CONFIGURED_STEPS = 24
 DEFAULT_LLM_TIMEOUT = 15
 NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
-_MAX_OBSERVATION_CHARS = 900
+# 两条引擎同一个观察上限（tool_result_budget 记录了 2026-10-06 的标定依据）。
+_MAX_OBSERVATION_CHARS = MAX_OBSERVATION_CHARS
 # kb_search 送达窗（V3 / R-20260821-15）。
 # 旧硬编码 hits[:5] + excerpt[:160] = 800 字符上限。默认与 retrieve() 对齐：
 # max_hits=6（episode_tools / kb_rag.DEFAULT_RAG_K），正文走 llm_evidence

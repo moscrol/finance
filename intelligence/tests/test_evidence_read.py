@@ -23,10 +23,18 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.research_tool_registry import ToolObservation
+from intelligence.services.tool_result_budget import (
+    MAX_EVIDENCE_DETAIL_CHARS,
+    MAX_OBSERVATION_CHARS,
+)
 from intelligence.runtime.research_progress import (
     ResearchProgressTracker,
     ToolCallDigest,
 )
+
+# 模型在普通工具结果里看到 detail 的前 _SEEN 字（截断留一字给省略号）；读页要越过它才算新送达。
+# 上限 2026-10-06 由 240 放到 800，下面的偏移量都按常量算，不手抄数。
+_SEEN = MAX_EVIDENCE_DETAIL_CHARS - 1
 
 
 def atom(text="背景" * 170 + "测试材料：交付日期为二月八日，尚未验收。", **kw):
@@ -98,7 +106,7 @@ def test_unicode_escape_heavy_pages_survive_actual_projection_losslessly():
     text, offset, pages = "", 0, 0
     while offset is not None:
         r = run_read([a], offset=offset, limit=600)
-        assert len(r.observation) <= 900
+        assert len(r.observation) <= MAX_OBSERVATION_CHARS
         view = json.loads(project(r, [a]).model_content)
         page = json.loads(view["observation"])
         text += page["text"]
@@ -169,12 +177,12 @@ def test_registry_requires_separate_explicit_authorization():
 
 
 def test_delivery_coverage_counts_only_unseen_exact_original_characters():
-    a = atom("文" * 900)
+    a = atom("文" * (_SEEN + 700))
     tracker = EvidenceReadCoverage()
     preview = json.dumps(
         {
             "tool": "fixture",
-            "evidence": [{"evidence_id": "E1", "detail": a.detail[:239] + "…"}],
+            "evidence": [{"evidence_id": "E1", "detail": a.detail[:_SEEN] + "…"}],
         }
     )
     assert tracker.observe(preview, evidence=(a,)) == 0
@@ -185,11 +193,11 @@ def test_delivery_coverage_counts_only_unseen_exact_original_characters():
             evidence=(a,),
         )
 
-    assert observe(0, 239) == 0
-    assert observe(239, 100) == 100
-    assert observe(239, 100) == 0
-    assert observe(289, 100) == 50
-    fake = json.loads(project(run_read([a], offset=500, limit=100), [a]).model_content)
+    assert observe(0, 600) == 0
+    assert observe(_SEEN, 100) == 100
+    assert observe(_SEEN, 100) == 0
+    assert observe(_SEEN + 50, 100) == 50
+    fake = json.loads(project(run_read([a], offset=_SEEN + 261, limit=100), [a]).model_content)
     p = json.loads(fake["observation"])
     p["text"] = "伪" * 100
     fake["observation"] = json.dumps(p)
@@ -229,7 +237,7 @@ def test_native_episode_wiring_is_gated_and_reread_does_not_mint_evidence(
 
     monkeypatch.setenv("ASK_EPISODE_EVIDENCE_READ", "on" if enabled else "off")
     monkeypatch.setenv("WORKBENCH_RESEARCH_STALL_FINALIZE_BATCHES", "1")
-    a = replace(atom("文" * 900), tool="financial_data")
+    a = replace(atom("文" * (_SEEN + 700)), tool="financial_data")
     a = replace(a, content_hash=evidence_content_hash(a))
     frame = _frame()
     context = _context(frame, task_id=f"read-native-{enabled}-{authorized}")
@@ -284,7 +292,7 @@ def test_native_episode_wiring_is_gated_and_reread_does_not_mint_evidence(
                             "evidence_read",
                             {
                                 "evidence_id": "E1",
-                                "offset": 239 + (self.calls - 2) * 100,
+                                "offset": _SEEN + (self.calls - 2) * 100,
                                 "limit": 100,
                             },
                         ),
@@ -328,7 +336,7 @@ def test_native_episode_wiring_is_gated_and_reread_does_not_mint_evidence(
         assert [
             json.loads(json.loads(r["model_content"])["observation"])["text"]
             for r in reads
-        ] == [a.detail[239:339], a.detail[339:439]]
+        ] == [a.detail[_SEEN:_SEEN + 100], a.detail[_SEEN + 100:_SEEN + 200]]
         assert not any(
             e.kind == "finalization" and e.payload.get("reason") == "research_stalled"
             for e in outcome.events
@@ -364,15 +372,15 @@ def test_prefetch_and_full_narrative_are_not_counted_as_new_read_text():
 
 
 def test_clipped_narrative_prefix_also_seeds_delivered_coverage():
-    a = atom("原文" * 300)
+    a = atom("原文" * (_SEEN + 300))
     c = EvidenceReadCoverage()
     c.observe(
-        json.dumps({"tool": "fixture", "observation": "引文：" + a.detail[:400] + "…"}),
+        json.dumps({"tool": "fixture", "observation": "引文：" + a.detail[:_SEEN + 160] + "…"}),
         evidence=(a,),
     )
     assert (
         c.observe(
-            project(run_read([a], offset=350, limit=100), [a]).model_content,
+            project(run_read([a], offset=_SEEN + 110, limit=100), [a]).model_content,
             evidence=(a,),
         )
         == 50

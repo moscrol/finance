@@ -18,6 +18,8 @@ spec：``docs/superpowers/specs/2026-09-02-research-harness-loop-decouple-design
 
 from __future__ import annotations
 
+from intelligence.services.episode_protocol import EPISODE_DRAFT_MAX_CHARS
+
 import ast
 from dataclasses import replace
 import itertools
@@ -447,10 +449,14 @@ def test_default_steering_messages_preserve_research_authority() -> None:
         assert "当前授权工具" in repair
         assert "partial" in repair and "gap" in repair
         assert repair.endswith("错误：E")
+    # 修格式不删内容（2026-10-06 D6：完整 Markdown 回答被拒后重写成 215 字摘要）。
+    format_repair = harness.steering_message("invalid_finish", detail="E")
+    assert "把正文原样放进 draft" in format_repair
+    assert "不要缩写" in format_repair
     finalization = harness.steering_message("begin_finalization", detail="R")
     assert finalization.startswith("研究阶段已关闭，不得再调用工具。")
     assert finalization.endswith("关闭原因：R")
-    assert "draft 控制在 1000 汉字以内" in finalization
+    assert f"draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in finalization
     with pytest.raises(ValueError):
         harness.steering_message("nope", detail="")  # type: ignore[arg-type]
 

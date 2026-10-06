@@ -87,31 +87,55 @@ def _theme_lexicon_resolver(tmp_path) -> QueryResolver:
     return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
 
 
-def test_controller_asks_clarify_when_resolver_returns_candidate(tmp_path) -> None:
+def test_controller_researches_candidate_entity_instead_of_asking(tmp_path) -> None:
+    """2026-10-06：候选主体不再先追问，交给研究去核实（同题对照里「天工量子科技」
+    被截成一句反问、一次没查）。R13-A3 的教训照旧：不硬锚任何候选，主体留空，
+    候选原样写进歧义说明，由模型查完再答。"""
+
     decision = decide_turn(
         "立新能源怎么看",
         llm_complete=_no_llm,
         resolver=_theme_lexicon_resolver(tmp_path),
     )
 
-    assert decision.lane == "clarify"
-    question = " ".join(decision.clarification_questions)
-    assert "立新能源" in question
-    assert "新能源" in question
+    assert decision.lane == "research"
+    assert decision.needs_retrieval
+    assert decision.clarification_questions == ()
+    assert decision.subject is None
+    frame = decision.task_frame
+    assert frame is not None
+    assert frame.clarification_question is None
+    assert frame.subject is None
+    ambiguity = " ".join(frame.ambiguities)
+    assert "立新能源" in ambiguity and "新能源" in ambiguity
+    assert any("不反问用户" in item for item in frame.assumptions)
     assert decision.turn_intent is not None
-    assert decision.turn_intent.pending_task_frame is not None
+    assert decision.turn_intent.pending_task_frame is None
 
 
-def test_controller_resumes_entity_tristate_clarification_as_company(tmp_path) -> None:
+def test_controller_still_resumes_a_legacy_entity_tristate_clarification(tmp_path) -> None:
+    """升级前已经挂起的「公司还是板块」追问：用户答了之后仍按公司收口。"""
+
     first = decide_turn(
         "立新能源怎么看",
         llm_complete=_no_llm,
         resolver=_theme_lexicon_resolver(tmp_path),
     )
+    assert first.task_frame is not None and first.turn_intent is not None
+    pending = replace(
+        first.task_frame,
+        clarification_question="你问的是立新能源还是新能源板块？",
+    )
+    legacy_intent = replace(
+        first.turn_intent,
+        pending_task_frame=pending.to_dict(),
+        clarification_rounds=1,
+        task_frame_hash=pending.task_frame_hash,
+    )
 
     resumed = decide_turn(
         "立新能源",
-        previous_intent=first.turn_intent,
+        previous_intent=legacy_intent,
         previous_turn_id="msg-kc17",
         llm_complete=_no_llm,
         resolver=_theme_lexicon_resolver(tmp_path),

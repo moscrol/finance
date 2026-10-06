@@ -40,7 +40,13 @@ ChatWithTools = Callable[..., tuple[dict | None, object | None, str]]
 # 瞬态错误判据已上移到 services.agent_runtime（修复轮与 provider 链共用一份，
 # 不另建第二份清单）。本模块内保留原私有名，调用点不动。
 _is_transient_provider_error = is_transient_model_error
-DEFAULT_GLM_LLM_TIMEOUT = 75.0
+# 单次模型调用上限（Episode 工具轮与终局恢复共用）。2026-10-06 由 75 放到 180（用户：
+# 「什么时间预算啊等等限制模型能力的，都要做优化」）：GLM-5.3-flash 强制思考，首字前
+# 思考实测可到 ~62s 且波动五倍，之后约 120–300 字/秒（provider_latency 的标定）；工具
+# 观察放大后上下文变长，旁路复测 D9 第 3 轮流式已出字仍在 75s 被截断、整题降成缺口模板。
+# 180 ≈ 思考 62s + 6000 字终稿 50s + 余量；它只是上限，仍受回合剩余预算约束
+# （stage_timeout = min(本值, remaining − reserve)）。
+DEFAULT_GLM_LLM_TIMEOUT = 180.0
 _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
     "standard": 75.0,
