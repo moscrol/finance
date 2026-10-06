@@ -43,6 +43,8 @@ from intelligence.services.episode_semantic_verifier import (
     comparison_baseline_unsupported,
     draft_sentence_count,
     numeric_condition_repair_feedback,
+    market_claim_repair_feedback,
+    retain_market_debt_after_deletion,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
     review_public_claim_scope,
@@ -1012,6 +1014,7 @@ class ContinuousTurnAdapter:
                     retrieve_fn=guided_retriever,
                     context=context,
                 )
+                semantic_candidate = retain_market_debt_after_deletion(semantic, semantic_candidate)
                 semantic_verifier_attempts.append(
                     _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
                 )
@@ -1716,7 +1719,8 @@ class ContinuousTurnAdapter:
         # The grant is fixed before diagnostics are added; no extra repair turn.
         goal = replace(
             admission.goal,
-            unsupported_claims=numeric_condition_repair_feedback(structural),
+            unsupported_claims=(*numeric_condition_repair_feedback(structural),
+                                *market_claim_repair_feedback(structural)),
         )
         candidate = resume(goal)
         if not isinstance(candidate, AgentOutcome):

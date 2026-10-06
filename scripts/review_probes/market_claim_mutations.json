@@ -1,0 +1,151 @@
+{
+  "file": "intelligence/services/market_claim_checks.py",
+  "pytest": ["intelligence/tests/test_market_claim_checks.py"],
+  "mutants": [
+    {
+      "name": "foreign contract inherits outcome measurements",
+      "old": "    if verified.contract is None or verified.contract.task_frame_hash != outcome.task_frame_hash:",
+      "new": "    if verified.contract is None:",
+      "expected_red": ["test_contract_and_outcome_task_identities_must_match"]
+    },
+    {
+      "name": "failed tool rows count as measurements",
+      "old": "event.kind == \"tool_result\" and payload.get(\"ok\") is True",
+      "new": "event.kind == \"tool_result\"",
+      "expected_red": ["test_untrusted_tool_metadata_never_becomes_a_market_measurement[failed]"]
+    },
+    {
+      "name": "foreign event lends a measurement",
+      "old": "                and payload.get(\"task_frame_hash\") == outcome.task_frame_hash\n",
+      "new": "",
+      "expected_red": ["test_untrusted_tool_metadata_never_becomes_a_market_measurement[foreign-task]"]
+    },
+    {
+      "name": "aggregate treated as raw measurement",
+      "old": "basis[\"dataset\"] in _TOTAL_DATASETS and basis.get(\"group_by\") in ([], ())",
+      "new": "basis[\"dataset\"] in _TOTAL_DATASETS",
+      "expected_red": ["test_aggregate_metadata_does_not_supply_raw_amount_changes"]
+    },
+    {
+      "name": "hash label replaces true content identity",
+      "old": "             and row.content_hash == evidence_content_hash(row)",
+      "new": "",
+      "expected_red": ["test_same_fake_hash_in_event_and_card_is_not_authority"]
+    },
+    {
+      "name": "duplicate card identities accepted",
+      "old": "isinstance(row.content_hash, str) and counts[row.content_hash] == 1",
+      "new": "isinstance(row.content_hash, str)",
+      "expected_red": ["test_duplicate_card_identity_cannot_supply_direction_measurements"]
+    },
+    {
+      "name": "event and actual card equality removed",
+      "old": "and all(item.get(key) == getattr(card, key) for key in _IDENTITY)",
+      "new": "and True",
+      "expected_red": ["test_wrong_event_content_not_just_wrong_hash_is_rejected"]
+    },
+    {
+      "name": "comparison intersection becomes global union",
+      "old": "common = set.intersection(*pools) if pools else set()",
+      "new": "common = set.union(*pools) if pools else set()",
+      "expected_red": ["test_cross_slot_values_cannot_prove_a_sentence_contradiction"]
+    },
+    {
+      "name": "explicit direction references stop narrowing",
+      "old": "direction_allowed = direction_pool if not cited else direction_pool & cited_hashes",
+      "new": "direction_allowed = direction_pool",
+      "expected_red": ["test_explicit_citation_cannot_borrow_a_different_days_value"]
+    },
+    {
+      "name": "scope reference borrows uncited report",
+      "old": "scope_allowed = scope_pool if not cited else scope_pool & cited_hashes",
+      "new": "scope_allowed = scope_pool",
+      "expected_red": ["test_explicit_market_citation_does_not_inherit_uncited_report_support"]
+    },
+    {
+      "name": "mixed support mistaken for total-only evidence",
+      "old": "if not scope_targets or not scope_allowed or not scope_allowed <= trusted.keys():",
+      "new": "if not scope_targets or not scope_allowed:",
+      "expected_red": ["test_other_slots_mechanism_evidence_prevents_an_absence_verdict"]
+    },
+    {
+      "name": "conflicting same-date changes pick a value",
+      "old": "return {day: next(iter(group)) for day, group in values.items() if len(group) == 1 and None not in group}",
+      "new": "return {day: max(group) for day, group in values.items() if None not in group}",
+      "expected_red": ["test_conflicting_same_day_values_are_not_last_write_wins"]
+    },
+    {
+      "name": "neighboring clause lends a date",
+      "old": "local_date = bool(subjects and _DATE.search(clause[:subjects[-1].start()]))",
+      "new": "local_date = bool(subjects)",
+      "expected_red": ["test_neighbor_clause_does_not_supply_date_for_contradiction"]
+    },
+    {
+      "name": "hypotheses become asserted mechanisms",
+      "old": "    return not (_NONASSERTED_PREFIX.search(clause[:match.end()])\n                or _NONASSERTED_SUFFIX.search(clause[match.end():]))",
+      "new": "    return True",
+      "expected_red": ["test_hypothesis_is_not_mechanism_evidence_but_is_not_deleted_as_a_fact"]
+    },
+    {
+      "name": "missing named output reopens arbitrary first output",
+      "old": "targets = (preferred,) if preferred in eligible else ()",
+      "new": "targets = (preferred,) if preferred in eligible else eligible[:1]",
+      "expected_red": ["test_no_named_required_slot_means_no_arbitrary_fallback_repair_target"]
+    },
+    {
+      "name": "unknown classification disables bound checks",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "    findings = market_claim_findings(sentences, verified)",
+      "new": "    if verified.contract and verified.contract.subject_kind == \"unknown\":\n        return ()\n    findings = market_claim_findings(sentences, verified)",
+      "expected_red": ["test_unknown_question_class_does_not_disable_bound_market_checks"]
+    },
+    {
+      "name": "evidence risk window gate skipped",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "if contract is None or not has_bound_market_totals(verified, \"risk_signals\"):",
+      "new": "if True:",
+      "expected_red": ["test_evidence_threshold_needs_revision_not_just_a_doubt_suffix", "test_totals_scalar_or_formula_constant_cannot_authorize_a_monitoring_duration[scalar-count]", "test_totals_scalar_or_formula_constant_cannot_authorize_a_monitoring_duration[formula-lookback]", "test_optional_forward_slot_cannot_authorize_an_evidence_risk_threshold"]
+    },
+    {
+      "name": "unverified risk support treated as verified totals",
+      "old": "return targets == (output_id,) and bool(pool) and pool <= _raw_total_cards(verified).keys()",
+      "new": "return targets == (output_id,) and bool(pool)",
+      "expected_red": ["test_unverified_risk_evidence_is_not_a_verified_total_only_schema"]
+    },
+    {
+      "name": "final public projection skips market checker",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "    market = _market_claim_findings(sentences, before)",
+      "new": "    market = ()",
+      "expected_red": ["test_final_projection_rechecks_new_bad_text_and_keeps_safe_neighbor"]
+    },
+    {
+      "name": "final deletion loses actionable feedback",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "elif stage in {VERDICT_STAGE_PREFLIGHT, VERDICT_STAGE_JUDGE, VERDICT_STAGE_DELIVERY} and decision in {",
+      "new": "elif stage in {VERDICT_STAGE_PREFLIGHT, VERDICT_STAGE_JUDGE} and decision in {",
+      "expected_red": ["test_final_delivery_feedback_keeps_specific_repair_instructions"]
+    },
+    {
+      "name": "market deletions no longer reopen required outputs",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "    if not reasons or outcome.verified.contract is None:\n        return outcome",
+      "new": "    return outcome",
+      "expected_red": ["test_unlocated_phase_path_is_a_scope_gap_not_a_false_arithmetic_verdict", "test_evidence_threshold_needs_revision_not_just_a_doubt_suffix"]
+    },
+    {
+      "name": "same-session omission edit clears analysis debt",
+      "file": "intelligence/runtime/continuous_turn_adapter.py",
+      "old": "                semantic_candidate = retain_market_debt_after_deletion(semantic, semantic_candidate)\n",
+      "new": "",
+      "expected_red": ["test_market_gap_reenters_the_same_session_and_rechecks_without_new_tools[delete_only]", "test_market_gap_reenters_the_same_session_and_rechecks_without_new_tools[formatted_deletion]"]
+    },
+    {
+      "name": "genuine new revision inherits stale debt",
+      "file": "intelligence/services/episode_semantic_verifier.py",
+      "old": "    if not bodies(candidate.verified.outcome.draft) <= prior:\n        return candidate",
+      "new": "    if False:\n        return candidate",
+      "expected_red": ["test_market_gap_reenters_the_same_session_and_rechecks_without_new_tools[correct]"]
+    }
+  ]
+}

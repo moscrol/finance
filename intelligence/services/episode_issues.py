@@ -45,6 +45,7 @@ class IssueCode(str, Enum):
     NUMERIC_UNSUPPORTED = "numeric_unsupported"
     CALENDAR_WEEKDAY_MISMATCH = "calendar_weekday_mismatch"
     PATH_TREND_MISMATCH = "path_trend_mismatch"
+    MARKET_CLAIM_UNSUPPORTED = "market_claim_unsupported"
     MARKER_LOSS = "marker_loss"
     UNRESOLVED_EVIDENCE_ORDINAL = "unresolved_evidence_ordinal"
     # #55：句内完整日期与其唯一所引证据携带的日期全部不符（机械探测，替代判官抓的那类）。
@@ -92,6 +93,7 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.NUMERIC_UNSUPPORTED: ReleaseAction.BLOCK,
     IssueCode.CALENDAR_WEEKDAY_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.PATH_TREND_MISMATCH: ReleaseAction.BLOCK,
+    IssueCode.MARKET_CLAIM_UNSUPPORTED: ReleaseAction.BLOCK,
     IssueCode.MARKER_LOSS: ReleaseAction.BLOCK,
     IssueCode.UNRESOLVED_EVIDENCE_ORDINAL: ReleaseAction.BLOCK,
     # #55：与 weekday / path 同一档——机械删句后由 preflight 修复，修不好就 BLOCK。

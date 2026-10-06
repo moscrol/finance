@@ -135,6 +135,11 @@ from intelligence.services.research_contract import (
     derive_stage_caps,
     policy_for_env,
 )
+from intelligence.services.market_claim_checks import (
+    AMOUNT_DIRECTION, EVIDENCE_SCOPE, MARKET_REASONS, PATH_SCOPE, RISK_THRESHOLD,
+    MarketClaimFinding, has_bound_market_totals, market_claim_findings,
+    risk_sentence_indexes, risk_window_tokens,
+)
 from intelligence.services.task_frame import TaskFrame, last_explicit_iso_date
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.tool_result_budget import MAX_EVIDENCE_TITLE_CHARS
@@ -1047,7 +1052,7 @@ def semantic_repair_feedback(outcome: SemanticEpisodeOutcome) -> tuple[str, ...]
                     and item.get("reasons") == [VERDICT_REASON_JUDGE]
                 )
             ]
-        elif stage in {VERDICT_STAGE_PREFLIGHT, VERDICT_STAGE_JUDGE} and decision in {
+        elif stage in {VERDICT_STAGE_PREFLIGHT, VERDICT_STAGE_JUDGE, VERDICT_STAGE_DELIVERY} and decision in {
             VERDICT_DELETED, VERDICT_DEMOTED,
         }:
             pending.append({
@@ -1075,6 +1080,11 @@ def semantic_repair_feedback(outcome: SemanticEpisodeOutcome) -> tuple[str, ...]
             "stage": "current_draft", "sentence_index": index,
             "sentence": sentence,
         })
+    for item in pending:
+        notes = tuple(_MARKET_REPAIR_NOTES[reason] for reason in item.get("reasons", ())
+                      if reason in MARKET_REASONS)
+        if notes:
+            item["repair_instruction"] = " ".join(notes)
     return tuple(dict.fromkeys((
         *(json.dumps(item, ensure_ascii=False, separators=(",", ":")) for item in pending),
         *legacy_indexes,
@@ -1221,13 +1231,16 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> 
     # Projections and trusted-draft recovery may change text AFTER verify().
     # Reuse R6's finite checker, not a new judge or a receipt for an older draft.
     sentences = _numbered_sentences(public)
-    rejected = _financial_claim_mismatch_indexes(sentences, before)
+    financial = _financial_claim_mismatch_indexes(sentences, before)
+    market = _market_claim_findings(sentences, before)
+    reasons = _mechanical_reasons_by_index(financial=financial, market=market)
+    rejected = tuple(sorted(reasons))
     if rejected:
         verdicts = tuple(
             _sentence_verdict_record(
                 stage=VERDICT_STAGE_DELIVERY, judge_round=None, index=int(item["index"]),
                 sentence=str(item["text"]), decision=VERDICT_DELETED,
-                reasons=(VERDICT_REASON_FINANCIAL,), issues=(), verified=before,
+                reasons=reasons[int(item["index"])], issues=(), verified=before,
             )
             for item in sentences if item["index"] in rejected
         )
@@ -1237,6 +1250,7 @@ def _recheck_research_delivery(outcome: SemanticEpisodeOutcome, public: str) -> 
             public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
             sentence_verdicts=(*outcome.sentence_verdicts, *verdicts),
         ), verdicts)
+        outcome = _with_market_repair_debt(outcome, verdicts)
         public = outcome.public_answer
         before = outcome.verified
     findings = (
@@ -1829,6 +1843,7 @@ class SemanticEpisodeVerifier:
             evidence_date=_mismatched_evidence_date_indexes(sentences, verified),
             stock_code=_unknown_stock_code_indexes(sentences, verified),
             financial=_financial_claim_mismatch_indexes(sentences, verified),
+            market=_market_claim_findings(sentences, verified),
         )
         for index in decision_for:
             # 语义拒句的理由就是判官本身；v8 降级关掉时机械集为全集，也可能有
@@ -1984,6 +1999,7 @@ class SemanticEpisodeVerifier:
         ):
             outcome = replace(outcome, guided_retrieval=self._guided_result)
         outcome = _with_financial_repair_debt(outcome, self._sentence_verdicts)
+        outcome = _with_market_repair_debt(outcome, self._sentence_verdicts)
         outcome = recheck_material_public_delivery(outcome)
         contract = structurally_verified.contract
         calculation = contract.premise_calculation if contract else None
@@ -2301,6 +2317,8 @@ class SemanticEpisodeVerifier:
             structural,
         )
         financial_rejected = _financial_claim_mismatch_indexes(sentences, structural)
+        market_findings = _market_claim_findings(sentences, structural)
+        market_rejected = tuple(sorted({finding.sentence_index for finding in market_findings}))
         weekday_rejected = _mismatched_weekday_indexes(
             sentences,
             structural,
@@ -2322,6 +2340,7 @@ class SemanticEpisodeVerifier:
                         *path_rejected,
                         *evidence_date_rejected,
                         *financial_rejected,
+                        *market_rejected,
                     )
                 )
             )
@@ -2335,6 +2354,7 @@ class SemanticEpisodeVerifier:
                     (path_rejected, _PATH_TREND_ISSUE),
                     (evidence_date_rejected, _EVIDENCE_DATE_ISSUE),
                     (financial_rejected, _FINANCIAL_CLAIM_ISSUE),
+                    (market_rejected, _MARKET_CLAIM_ISSUE),
                 )
                 if indexes
             )
@@ -2350,6 +2370,7 @@ class SemanticEpisodeVerifier:
                     path=path_rejected,
                     evidence_date=evidence_date_rejected,
                     financial=financial_rejected,
+                    market=market_findings,
                 ),
             )
             before_repair = structural.outcome.draft
@@ -4835,6 +4856,7 @@ def _mechanical_reasons_by_index(
     evidence_date: tuple[int, ...] = (),
     stock_code: tuple[int, ...] = (),
     financial: tuple[int, ...] = (),
+    market: tuple[MarketClaimFinding, ...] = (),
 ) -> dict[int, tuple[str, ...]]:
     """每个索引被哪些机械探测器点名（同一句可被多个探测器同时点）。"""
 
@@ -4850,7 +4872,9 @@ def _mechanical_reasons_by_index(
     ):
         for index in indexes:
             reasons.setdefault(int(index), []).append(code)
-    return {index: tuple(codes) for index, codes in reasons.items()}
+    for finding in market:
+        reasons.setdefault(finding.sentence_index, []).append(finding.reason)
+    return {index: tuple(dict.fromkeys(codes)) for index, codes in reasons.items()}
 
 
 def _issues_naming_sentence(issues: tuple[str, ...], index: int) -> tuple[str, ...]:
@@ -4977,13 +5001,15 @@ def _apply_numeric_condition_gate(
     rejected = set(report.rejected_sentence_indexes)
     numeric = _numeric_condition_deletion_indexes(sentences, verified)
     financial = _financial_claim_mismatch_indexes(sentences, verified)
-    rejected.update((*numeric, *financial))
+    market = _market_claim_findings(sentences, verified)
+    rejected.update((*numeric, *financial, *(finding.sentence_index for finding in market)))
     if rejected == set(report.rejected_sentence_indexes):
         return call
     issues = tuple(dict.fromkeys((
         *report.issues,
         *(_NUMERIC_CONDITION_ISSUE.message for _ in [0] if numeric),
         *(_FINANCIAL_CLAIM_ISSUE.message for _ in [0] if financial),
+        *(_MARKET_CLAIM_ISSUE.serialize() for _ in [0] if market),
     )))
     return replace(
         call,
@@ -5127,6 +5153,7 @@ def _mechanical_sentence_indexes(
             *_mismatched_evidence_date_indexes(sentences, verified),
             *_unknown_stock_code_indexes(sentences, verified),
             *_financial_claim_mismatch_indexes(sentences, verified),
+            *(finding.sentence_index for finding in _market_claim_findings(sentences, verified)),
         )
     )
 
@@ -5489,6 +5516,128 @@ def _mask_cited_short_dates(text: str, outcome: AgentOutcome) -> str:
         if (int(match["month"]), int(match["day"])) in anchored:
             text = text[:match.start("date")] + " " + text[match.end("date"):]
     return text
+
+
+_MARKET_CLAIM_ISSUE = Issue(
+    IssueCode.MARKET_CLAIM_UNSUPPORTED, "market_claim",
+    "market comparison or mechanism exceeds its bound measurement scope",
+)
+_MARKET_REPAIR_NOTES = {
+    AMOUNT_DIRECTION: "按已绑定逐日成交额环比核对放量/缩量方向及比较基准，保留真实读数并修正矛盾。",
+    PATH_SCOPE: "逐段对齐量能路径的日期和比较基准，不根据恐慌等标签猜日期，也不把缺少对应关系当成已证实方向错误。",
+    EVIDENCE_SCOPE: "成交额、涨跌统计和题材热度不能证明权重贡献、资金回流或风险出清；补对应证据或写成带验证方法的明确假设，保留有据分析，不靠邻句免责声明授权。",
+    RISK_THRESHOLD: "风险观察槽要求证据依据；自拟数值窗不能靠待核后缀变成有据条件。按已有授权补依据或改成不含虚构阈值的可观察条件，不擅改合同、不扩大读取权限。",
+}
+
+
+def _market_claim_findings(
+    sentences: list[dict[str, object]], verified: VerifiedEpisodeOutcome,
+) -> tuple[MarketClaimFinding, ...]:
+    findings = market_claim_findings(sentences, verified)
+    contract = verified.contract
+    if contract is None or not has_bound_market_totals(verified, "risk_signals"):
+        return findings
+    risk = next((o for o in contract.required_outputs if o.output_id == "risk_signals"
+                 and o.required and o.grounding_mode == "evidence"), None)
+    if risk is None:
+        return findings
+    # The verified total-only schema has no prospective duration field. A
+    # count of 30 or a 20-day MA cannot authorize a 30/20-day decision window.
+    # Do not reuse the general numeric detector's dimensionless observations
+    # here, nor change the contract or borrow an optional scenario's authority.
+    risk_indexes = risk_sentence_indexes(sentences)
+    historical = historical_claim_texts(contract, verified.outcome.bindings, verified.outcome.draft)
+    user_basis = _question_quantities(contract)
+    return (*findings, *(MarketClaimFinding(int(row["index"]), RISK_THRESHOLD, (risk.output_id,),
+                        _MARKET_REPAIR_NOTES[RISK_THRESHOLD])
+                        for row in sentences if row["index"] in risk_indexes
+                        and str(row["text"]) not in historical
+                        and any(_normalize_quantity(window) not in user_basis
+                                for window in risk_window_tokens(str(row["text"])))))
+
+
+def market_claim_repair_feedback(verified: VerifiedEpisodeOutcome) -> tuple[str, ...]:
+    sentences = _numbered_sentences(verified.outcome.draft)
+    texts = {row["index"]: row["text"] for row in sentences}
+    return tuple(json.dumps({
+        "stage": "before_repair", "sentence_index": finding.sentence_index,
+        "sentence": texts[finding.sentence_index], "reasons": [finding.reason],
+        "output_ids": list(finding.output_ids), "repair_instruction": finding.repair_instruction,
+    }, ensure_ascii=False) for finding in _market_claim_findings(sentences, verified))
+
+
+def retain_market_debt_after_deletion(
+    previous: SemanticEpisodeOutcome, candidate: SemanticEpisodeOutcome,
+) -> SemanticEpisodeOutcome:
+    """Same-session deletion/citation/formatting edits cannot discharge analysis.
+
+    A fresh semantic verification still runs first. New substantive prose is
+    left to that review; this finite check only prevents an omission-only edit
+    from silently clearing existing required-output debt.
+    """
+    pending = tuple(row for row in previous.sentence_verdicts
+                    if row.get("decision") == VERDICT_DELETED
+                    and MARKET_REASONS.intersection(row.get("reasons", ())))
+    if not pending or previous.verified.outcome.task_frame_hash != candidate.verified.outcome.task_frame_hash:
+        return candidate
+
+    def bodies(text: str) -> set[str]:
+        return {re.sub(r"[\s*_#]+", "", strip_evidence_ordinals(
+                    _LEADING_LIST_LABEL_RE.sub("", str(row["text"]))))
+                for row in _numbered_sentences(text)} - {""}
+
+    prior = bodies(previous.verified.outcome.draft)
+    prior.update(body for row in pending for body in bodies(str(row.get("sentence") or "")))
+    if not bodies(candidate.verified.outcome.draft) <= prior:
+        return candidate
+    ledger = list(candidate.sentence_verdicts)
+    for row in pending:
+        if row not in ledger:
+            ledger.append(row)
+    return _with_market_repair_debt(replace(candidate, sentence_verdicts=tuple(ledger)), pending)
+
+
+def _with_market_repair_debt(
+    outcome: SemanticEpisodeOutcome, verdicts: Sequence[Mapping[str, object]],
+) -> SemanticEpisodeOutcome:
+    reasons = tuple(dict.fromkeys(reason for row in verdicts if row.get("decision") == VERDICT_DELETED
+                                 for reason in row.get("reasons", ()) if reason in MARKET_REASONS))
+    if not reasons or outcome.verified.contract is None:
+        return outcome
+    verified = outcome.verified
+    eligible = tuple(o.output_id for o in verified.contract.required_outputs
+                     if o.required and o.grounding_mode == "evidence")
+    targets = []
+    for reason in reasons:
+        preferred = ("risk_signals" if reason == RISK_THRESHOLD else "direct_assessment"
+                     if reason == EVIDENCE_SCOPE else "change_summary")
+        targets.extend((preferred,) if preferred in eligible else ())
+    targets = tuple(dict.fromkeys(targets))
+    if not targets:
+        return outcome
+    notice = "部分市场阶段、机制或观察条件尚未通过依据核对；已保留其他已核实内容，相关分析仍需修订。"
+    retained = _retained_delivery_hashes(outcome, outcome.public_answer)
+    outputs = tuple(replace(item, status="missing", gap=item.gap or notice)
+                    if item.output_id in targets else item for item in verified.completion.outputs)
+    issues = tuple(Issue(IssueCode.REQUIRED_OUTPUT_GAP, target, notice) for target in targets)
+    verified = replace(verified,
+        verified_status="partial" if verified.verified_status == "completed" else verified.verified_status,
+        missing_outputs=tuple(dict.fromkeys((*verified.missing_outputs, *targets))),
+        completion=replace(verified.completion, outputs=outputs, status="partial",
+                           task_coverage="partial", business_status="partial"),
+        issue_items=tuple(dict.fromkeys((*verified.issue_items, *issues))))
+    public = outcome.public_answer
+    if public and notice not in public:
+        public += "\n\n" + notice
+    return replace(outcome, verified=verified,
+        public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=public)),
+        status="partial" if outcome.status == "completed" else outcome.status,
+        gap_output_ids=tuple(dict.fromkeys((*outcome.gap_output_ids, *targets))),
+        repair_output_ids=tuple(dict.fromkeys((*outcome.repair_output_ids, *targets))),
+        issues=tuple(dict.fromkeys((*outcome.issues, *verified.issues))),
+        delivery_retained_evidence_hashes=retained,
+        delivery_repair_notes=tuple(dict.fromkeys((*outcome.delivery_repair_notes,
+                                                 *(_MARKET_REPAIR_NOTES[reason] for reason in reasons)))))
 
 
 def _with_financial_repair_debt(
