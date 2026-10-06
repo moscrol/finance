@@ -134,16 +134,26 @@ def test_apply_on_clone_follows_the_existing_calendar_contract(tmp_path: Path) -
     assert stock[5] == "akshare:sina/stock_us_daily"
 
 
-def test_never_reads_a_session_after_the_row_date_or_an_unfinished_one(tmp_path: Path) -> None:
+def test_never_reads_a_session_after_the_row_date(tmp_path: Path) -> None:
+    # 截止日放得很远，只剩「不晚于行日期」这一道约束在起作用。
+    db = _build(tmp_path / "clone.duckdb")
+
+    _run(db, apply=True, complete_before=D("2026-12-31"))
+
+    with duckdb.connect(str(db), read_only=True) as con:
+        closes = [row[0] for row in con.execute("select close from fact_global_index_daily").fetchall()]
+        late = con.execute("select count(*) from fact_global_index_daily where source_trade_date > trade_date").fetchone()[0]
+    assert 999.0 not in closes and late == 0
+
+
+def test_never_reads_an_unfinished_session(tmp_path: Path) -> None:
     db = _build(tmp_path / "clone.duckdb")
 
     _run(db, apply=True, complete_before=D("2026-09-08"))
 
     with duckdb.connect(str(db), read_only=True) as con:
-        closes = [row[0] for row in con.execute("select close from fact_global_index_daily").fetchall()]
         session = con.execute("select source_trade_date from fact_global_index_daily "
                               "where code = 'DJI' and trade_date = '2026-09-08'").fetchone()[0]
-    assert 999.0 not in closes
     # 09-08 那一场还没收完（complete_before），只能用此前最后一场 09-04。
     assert str(session) == "2026-09-04"
 
