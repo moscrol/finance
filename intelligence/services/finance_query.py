@@ -370,6 +370,24 @@ def _metric(
     return _FieldDefinition(column, label, "metric", aggregate, value_kind)
 
 
+# fact_stock_daily.turnover（供应商原值换手率%）2025-10 至 2026-08 几乎全空：主力源 mootdx 不给换手率。
+# 换手率可由 成交量(手)×100×收盘 ÷ 流通市值 推出，流通市值取板块成分快照（同一股票挂多个板块时同值，按日去重）。
+# 2026-10-06 对账：与东财、同花顺、iFinD、新浪原值相比，7–8 月 99% 误差 <2%，各月 95% 以上 <10%。
+# 单列成 turnover_est，不并进 turnover：原值与推算值混在一列，逐行就分不出来源。
+# 只有调用方要 turnover_est 时才换成带 join 的关系（见 _turnover_relation），其余查询仍是单表。
+_STOCK_DAILY_RELATION = "(SELECT *, CAST(NULL AS DOUBLE) AS turnover_est FROM fact_stock_daily)"
+_STOCK_DAILY_TURNOVER_RELATION = """(
+    SELECT s.*,
+           CASE WHEN m.float_mcap_yi > 0 AND s.volume > 0 AND s.close > 0
+                THEN s.volume * s.close / m.float_mcap_yi / 1e4 END AS turnover_est
+    FROM fact_stock_daily AS s
+    LEFT JOIN (
+        SELECT trade_date, stock_ts_code, MAX(float_mcap_yi) AS float_mcap_yi
+        FROM fact_sector_stock_daily
+        GROUP BY trade_date, stock_ts_code
+    ) AS m USING (trade_date, stock_ts_code)
+)"""
+
 _RETURN_SUMMARY_KEYS = {
     "stock_daily": "stock_code", "sector_daily": "sector_code", "sw_l1_daily": "sw_l1_code",
 }
@@ -479,6 +497,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
     ),
     "stock_daily": _DatasetDefinition(
         table="fact_stock_daily",
+        relation_sql=_STOCK_DAILY_RELATION,
         label="个股日频行情",
         population="full",
         coverage=(
@@ -488,6 +507,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "筛选只支持 stock_code，名称和逐日行情另查，避免名称变化拆组或数值筛选改变分母。"
             "均值单位亿，分母仅为窗口内已入库的有限数值行数（含零，不含空值/NaN/无穷），"
             "不等于窗口应有交易日数；统计在返回行数截断前完成，不要从截断明细心算。"
+            "turnover 是供应商原值换手率%，2025-10 至 2026-08 基本为空；要换手率请取 turnover_est："
+            "按 成交量×收盘÷流通市值 推算的换手率%，2026-04 起多数交易日覆盖八成以上，"
+            "与东财、同花顺、iFinD、新浪原值对账多数误差在 2% 以内、九成五以上在 10% 以内；"
+            "引用时写明是推算值，缺流通市值的行为空。"
             + _RETURN_SUMMARY_COVERAGE
         ),
         time_field="trade_date",
@@ -502,6 +525,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
             "amount": _metric("amount", "成交额亿", "sum"),
             "turnover": _metric("turnover", "换手率"),
+            "turnover_est": _metric("turnover_est", "换手率推算%"),
             "amount_mean": _metric("amount", "成交额均值亿"),
             "amount_valid_count": _metric("amount", "有效成交额样本数", "count", "integer"),
             **_RETURN_SUMMARY_FIELDS,
@@ -2407,6 +2431,14 @@ class FinanceQuery:
                 check_query()
                 self._check_entities(connection, spec, information_cutoff, check_query)
                 check_query()
+                turnover_relation = _turnover_relation(connection, spec)
+                if turnover_relation is not None:
+                    compiled = _compile_query(
+                        spec,
+                        information_cutoff=information_cutoff,
+                        max_rows=self._limits.max_rows,
+                        relation_override=turnover_relation,
+                    )
                 cursor = connection.execute(
                     compiled.sql,
                     list(compiled.parameters),
@@ -2791,6 +2823,7 @@ def _compile_query(
     *,
     information_cutoff: InformationCutoff,
     max_rows: int,
+    relation_override: str | None = None,
 ) -> _CompiledQuery:
     dataset = _DATASETS.get(spec.dataset)
     if dataset is None:
@@ -2965,7 +2998,7 @@ def _compile_query(
         where_parts.append(clause)
         parameters.extend(values)
 
-    relation = dataset.relation_sql or _quote(dataset.table)
+    relation = relation_override or dataset.relation_sql or _quote(dataset.table)
     sql = f"SELECT {', '.join(select_parts)} FROM {relation}"
     if where_parts:
         sql += " WHERE " + " AND ".join(where_parts)
@@ -3106,6 +3139,22 @@ _OBSERVATION_METRIC_COLUMNS: dict[str, tuple[str, ...]] = {
 
 def _metric_unavailable(value: object) -> bool:
     return value is None or (isinstance(value, float) and not math.isfinite(value))
+
+
+def _turnover_relation(connection: Any, spec: FinanceQuerySpec) -> str | None:
+    """调用方要 turnover_est、且库里有推算所需的两列时，返回带 join 的关系；否则 None，该列保持空值。"""
+
+    if spec.dataset != "stock_daily":
+        return None
+    wanted = {*spec.metrics, *(item.field for item in spec.filters), *(item.field for item in spec.order_by)}
+    if "turnover_est" not in wanted:
+        return None
+    found = connection.execute(
+        "SELECT COUNT(DISTINCT table_name) FROM information_schema.columns "
+        "WHERE (table_name = 'fact_sector_stock_daily' AND column_name = 'float_mcap_yi') "
+        "OR (table_name = 'fact_stock_daily' AND column_name = 'volume')"
+    ).fetchone()
+    return _STOCK_DAILY_TURNOVER_RELATION if found and found[0] == 2 else None
 
 
 _CLONE_ROW_NOTE = "疑似复制旧值：收盘与涨跌幅和上一 A 股日完全相同、外盘会话日却不同，不可当作该日真实行情"
