@@ -3127,6 +3127,8 @@ def _stale_clone_pairs(
 
     上一行在全表上按 A 股日排（窗口起点之前的那天也算），只看截止日之前的数据，不前视。
     会话日相同的重复是合法的（外盘休市时 A 股日对照到同一场会话），不标。
+    涨跌幅为 0 的不标：收盘没变时真实涨跌幅本来就该是 0，停牌或平盘与复制分不开；
+    收盘没变而涨跌幅不为 0，这一行自相矛盾，只能是抄来的。
     表名与列名都来自代码里的数据集定义，不接受调用方输入。
     """
 
@@ -3144,7 +3146,7 @@ def _stale_clone_pairs(
         "lag(close) over w as pc, lag(pct_chg) over w as pp, lag(source_trade_date) over w as ps "
         f"from {dataset.table} where trade_date <= ? "
         f"window w as (partition by {key} order by trade_date)) "
-        "select k, trade_date from x where close = pc and pct_chg = pp and s <> ps"
+        "select k, trade_date from x where close = pc and pct_chg = pp and pct_chg <> 0 and s <> ps"
         + (" and trade_date >= ?" if start is not None else "")
     )
     parameters: list[object] = [upper] + ([start] if start is not None else [])

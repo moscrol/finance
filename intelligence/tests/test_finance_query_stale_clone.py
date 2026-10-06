@@ -25,6 +25,8 @@ _ROWS = [
     ("2026-07-15", "2026-07-14", "HSI", 24340.73, 0.525),  # 合法：港股休市，对照同一场会话
     ("2026-07-16", "2026-07-16", "HSI", 25008.60, 1.327),
     ("2026-07-17", "2026-07-17", "HSI", 24562.24, -1.785),
+    ("2026-07-15", "2026-07-15", "HALT", 10.0, 0.0),
+    ("2026-07-16", "2026-07-16", "HALT", 10.0, 0.0),  # 合法：停牌两天，收盘不变、涨跌幅 0 自洽
 ]
 
 
@@ -69,8 +71,9 @@ def test_cloned_rows_are_flagged_and_legal_holiday_repeats_are_not(db: Path) -> 
         ("2026-07-16", True),
         ("2026-07-17", True),
     ]
-    # 第一次出现的那天不标；港股休市对照同一场会话的重复也不标。
+    # 第一次出现的那天不标；港股休市对照同一场会话的重复、停牌的 0% 重复也不标。
     assert not any("疑似复制旧值" in e.detail for e in result.evidence if "HSI" in e.detail)
+    assert not any("疑似复制旧值" in e.detail for e in result.evidence if "HALT" in e.detail)
     assert any("DJI@2026-07-16" in gap and "不可当作该日行情" in gap for gap in result.quality_gaps)
     # 只标注，不删行：被标的行仍然返回。
     assert len(result.evidence) == len(_ROWS)
