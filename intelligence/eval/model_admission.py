@@ -26,6 +26,11 @@ spec ``docs/superpowers/specs/2026-09-02-capability-amplification-output-gate-de
 
 * ``continuous-episode.json``（run 目录产物，``events`` = ``{sequence, kind, payload}``）；
 * ``events.jsonl``（``JsonlEpisodeStore``，每行一个同形事件）；
+* ``trace.jsonl`` 的 ``llm_call_ledger.output_summary.records``：只认响应
+  ``reported_model``，不认配置 ``model`` 或 ``requested_model``。逐尝试核对身份状态，
+  冲突/坏台账拒收；失败且未报身份的尝试仍记「未回」，不能伪装成未调用。
+  旧台账的 ``not_called`` 默认值不证明没调用，因为 ledger 本身就是 provider 尝试账。
+  累计快照按相同 attempt_id + 相同记录去重，不采用最后一份覆盖前面的证据。
 * 其它 JSON / JSONL：退回按键名 ``served_model`` / ``served_models`` 递归收集。
 
 事件里取证的位置：``model_turn`` / ``branch_completed`` 的 ``served_model``（continuous
@@ -68,6 +73,7 @@ from pathlib import Path
 
 EPISODE_FILENAME = "continuous-episode.json"
 EVENTS_FILENAME = "events.jsonl"
+TRACE_FILENAME = "trace.jsonl"
 ARTIFACT_FILENAMES = (EPISODE_FILENAME, EVENTS_FILENAME)
 
 VERDICT_ADMITTED = "admitted"
@@ -267,9 +273,86 @@ def _document_events(document: object) -> list[object]:
     return []
 
 
-def collect_from_document(document: object, source: str) -> ServedModelEvidence:
-    """一个已解析的产物：认得 episode 形状就按事件取证，否则按键名递归兜底。"""
+def _is_workbench_trace(document: object) -> bool:
+    return isinstance(document, list) and any(
+        isinstance(step, Mapping) and "name" in step and "output_summary" in step
+        for step in document
+    )
 
+
+def _trace_payload(step: object) -> Mapping:
+    """调用台账与子分支遍历共用解码，JSON 字符串不能藏住 episode_ref。"""
+
+    if not isinstance(step, Mapping) or not isinstance(step.get("name"), str):
+        raise ValueError("workbench trace 缺少合法步骤名")
+    payload = step.get("output_summary")
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    if not isinstance(payload, Mapping):
+        raise ValueError("workbench trace output_summary 不是对象")
+    return payload
+
+
+def collect_from_trace(steps: Iterable[object], source: str) -> ServedModelEvidence:
+    """只消费具名调用台账，不递归搜索模型字段或信任可读摘要。"""
+
+    evidence = ServedModelEvidence(source)
+    seen: dict[str, Mapping] = {}
+
+    def collect_branch_events(node: object) -> None:
+        if isinstance(node, Mapping):
+            if _is_event(node) and node.get("kind") in _BRANCH_KINDS:
+                _merge(evidence, collect_from_events([node], source))
+            else:
+                for value in node.values():
+                    collect_branch_events(value)
+        elif isinstance(node, list):
+            for value in node:
+                collect_branch_events(value)
+
+    for step in steps:
+        try:
+            payload = _trace_payload(step)
+        except ValueError as exc:
+            evidence.error = evidence.error or f"workbench trace 解码失败：{exc}"
+            continue
+        collect_branch_events(payload)
+        if step.get("name") != "llm_call_ledger":
+            continue
+        records = payload.get("records")
+        if not isinstance(records, list):
+            evidence.error = evidence.error or "llm_call_ledger 缺少合法 records"
+            continue
+        for record in records:
+            if not isinstance(record, Mapping):
+                evidence.error = evidence.error or "llm_call_ledger record 不是对象"
+                continue
+            attempt_id = record.get("attempt_id")
+            if isinstance(attempt_id, str) and attempt_id:
+                if attempt_id in seen:
+                    if seen[attempt_id] == record:
+                        continue
+                    evidence.error = evidence.error or "llm_call_ledger attempt_id 记录冲突"
+                seen[attempt_id] = record
+            # 先保留响应身份，错配仍优先于坏形状/冲突。请求名永远不能补证。
+            reported = record.get("reported_model")
+            evidence.add("" if reported is None else reported)
+            has_report = isinstance(reported, str) and bool(reported.strip())
+            if (
+                "reported_model" not in record
+                or record.get("identity_state") != ("reported" if has_report else "unreported")
+                or record.get("identity_conflict") is not False
+                or record.get("status") not in ("success", "failed")
+            ):
+                evidence.error = evidence.error or "llm_call_ledger 身份缺失、状态矛盾或冲突"
+    return evidence
+
+
+def collect_from_document(document: object, source: str) -> ServedModelEvidence:
+    """认得 episode/trace 形状就按各自合同取证，否则按键名递归兜底。"""
+
+    if _is_workbench_trace(document):
+        return collect_from_trace(document, source)
     if isinstance(document, Mapping) and isinstance(document.get("events"), list):
         return collect_from_events(document["events"], source)
     if isinstance(document, list) and document and all(_is_event(item) for item in document):
@@ -297,7 +380,13 @@ def load_evidence(path: Path, episode_store: Path | None = None) -> ServedModelE
     document, error = _load_document(path)
     if error is not None:
         return ServedModelEvidence(source, error=error)
-    return resolve_branches(collect_from_document(document, source), episode_store)
+    if path.name == TRACE_FILENAME:
+        if not isinstance(document, list):
+            return ServedModelEvidence(source, error="workbench trace 不是步骤列表")
+        evidence = collect_from_trace(document, source)
+    else:
+        evidence = collect_from_document(document, source)
+    return resolve_branches(evidence, episode_store)
 
 
 def configured_models_at(path: Path) -> tuple[str, ...]:
@@ -323,6 +412,25 @@ def resolve_artifacts(paths: Iterable[str | Path]) -> tuple[list[Path], list[str
         hits = sorted(
             hit for name in ARTIFACT_FILENAMES for hit in path.rglob(name) if hit.is_file()
         )
+        for trace in sorted(path.rglob(TRACE_FILENAME)):
+            if not trace.is_file():
+                continue
+            document, error = _load_document(trace)
+            has_ledger = isinstance(document, list) and any(
+                isinstance(step, Mapping) and step.get("name") == "llm_call_ledger"
+                for step in document
+            )
+            refs, ref_errors = _episode_references(trace)
+            trace_evidence = collect_from_trace(document, str(trace)) if isinstance(document, list) else None
+            has_branch_evidence = trace_evidence is not None and bool(
+                trace_evidence.served or trace_evidence.unreported or trace_evidence.not_reached
+                or trace_evidence.branch_unproven or trace_evidence.error
+            )
+            # 普通流程 trace 不重复充当空模型证据；但子分支可只带调用账/身份、
+            # 没有 ledger 或 episode_ref。这些信息不能被旁边的正常 Episode 遮住。
+            sibling_evidence = any((trace.parent / name).is_file() for name in ARTIFACT_FILENAMES)
+            if error or has_ledger or has_branch_evidence or refs or ref_errors or not sibling_evidence:
+                hits.append(trace)
         if hits:
             found.extend(hits)
         else:
@@ -446,6 +554,13 @@ def _episode_references(path: Path) -> tuple[list[str], list[str]]:
             for value in node:
                 walk(value)
 
+    if path.name == TRACE_FILENAME or _is_workbench_trace(doc):
+        for step in doc if isinstance(doc, list) else ():
+            try:
+                walk(_trace_payload(step))
+            except ValueError as exc:
+                errors.append(f"workbench trace 解码失败：{exc}")
+    # 保留原顶层递归语义；结构化字段中的引用也必须核验。
     walk(doc)
     return ids, errors
 

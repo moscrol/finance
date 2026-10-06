@@ -57,6 +57,11 @@ from intelligence.services.track_contract import (
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
+# Episode 终局 draft 的篇幅上限（汉字），系统提示、收口提醒与终局恢复器三处共用。
+# 2026-10-05 由 1000/1200 放到 4000：同题对照里 8792 正确但篇幅只有 Pi 的三到六成，
+# Pi 最长一份 3412 字。原上限是「保证 FINAL_JSON 不被截断」的传输预算；GLM 工具轮
+# 现在显式带 ``llm_refine.agent_turn_max_tokens``，不再靠压正文来防截断。
+EPISODE_DRAFT_MAX_CHARS = 4000
 # 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
 # derived_calculation 模块（它反向依赖注册表，成环），只认名字。
 DERIVED_CALCULATION_TOOL = "derived_calculation"
@@ -407,7 +412,7 @@ def build_episode_instructions(
         "必需输出"
         "已有足够直接证据时应停止研究，不得为了耗尽步数调用非必需工具。\n"
         "不要套固定标题、行数或段落模板。终止时不要调用工具，"
-        "为保证结构化终止完整，draft 控制在 1000 汉字以内，优先保留直接"
+        f"为保证结构化终止完整，draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内，优先保留直接"
         "判断、决定性依据、继续条件和失效条件；这不要求固定标题或段数。\n"
         "\n"
         "【排版】\n"

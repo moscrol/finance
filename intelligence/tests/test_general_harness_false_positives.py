@@ -92,3 +92,36 @@ def test_a_company_absent_from_evidence_is_still_reported() -> None:
 def test_stripping_a_prefix_may_not_manufacture_a_match() -> None:
     """剥完必须仍是个像样的名字，不能靠剥字凑出证据里的子串。"""
     assert _company_is_known("和某某银行", CORPUS) is False
+
+
+def test_a_context_prefix_may_be_removed_only_for_a_complete_company_name() -> None:
+    """公司名正则吞进「公司暴露中」时，允许按明确连接词恢复。"""
+    from intelligence.services.answer_model import _company_is_known_with_context
+
+    assert _company_is_known_with_context(
+        "公司暴露中三环集团",
+        "公司暴露含三环集团（MLCC、光通信陶瓷组件）",
+    ) is True
+    assert _company_is_known_with_context(
+        "算力方向的三环集团",
+        "AI算力方向包含三环集团",
+    ) is True
+
+
+def test_an_arbitrary_prefix_may_not_be_stripped_to_hide_a_new_company() -> None:
+    from intelligence.services.answer_model import _company_is_known_with_context
+
+    assert _company_is_known_with_context(
+        "新三环集团",
+        "证据只出现三环集团",
+    ) is False
+
+
+def test_a_company_descriptor_is_not_treated_as_a_new_company() -> None:
+    """「复星医药」后的业务描述以「集团」结尾，不是新公司名。"""
+    from intelligence.services.answer_model import _company_is_known_with_context
+
+    assert _company_is_known_with_context(
+        "为重点的综合医药健康集团",
+        "复星医药（以创新药为发展重点的综合医药健康集团）",
+    ) is True

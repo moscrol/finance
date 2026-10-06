@@ -1170,6 +1170,22 @@ A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢�
 
 读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：单引证据的明确来源/公告发布日期断言与其唯一 `source_date` 矛盾 → `evidence_date_mismatch` 删句（两种模式都生效）；计划/假设/疑问与其他事件日期不因同句引用被认作来源日期，正文里偶然出现的同日也不能给错误发布日期背书（该门有意不作完备语义判定）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
 
+### 写手的篇幅、时间与截断（2026-10-05，Pi 对照后放开）
+
+起因是同题 8792 对 Pi 的对照：固定流程的 composer 在强制思考的 GLM 上多次 `finish_reason=length`，整篇换成模板；校验器把用户问题自带的日期判成「证据外日期」，删掉模型「数据截至 X，并不是您问的 Y」的边界说明。数值都以代码为准，不在本页写死：
+
+- **B 的 composer / 判官输出上限**：`ask_synthesis.GROUNDED_COMPOSER_MAX_TOKENS` / `GROUNDING_JUDGE_MAX_TOKENS`（可用同名 env 回调）；时间预算在 `research_policy.grounded_deep`。准入地板与授时分开：地板 = `MINIMUM_COMPOSER_SLICE_SECONDS` + 判官预留，授时可以更大；两者绑成一个数时，授时一抬，检索稍慢 composer 就会被整段跳过。
+- **B 的 composer 截断**：保留到最后一句出处标记完整的句子，照常过逐句确定性门禁；phase 记 `status=ok` + `reason_code=truncated_response`。一句完整的都没有才降级。**A 的规则不变**：工具轮或 FINAL_JSON 一旦 `length` 仍整轮拒收（见上「连续运行保存与截断边界」）——A 的终稿是一个整体 JSON，B 的正文是逐句自带绑定的。
+- **锚点日期**：用户问题里的日期与 AnswerSpec 站立日不算证据外日期（`answer_model.anchor_dates_for`）。推断 / 缺口句可直接引用；事实句只在同时写出所绑证据自己的日期（对照写法）时放行，单独把锚点日期挂在别的交易日的数字上仍按 `grounded_composer_added_date` 拦。
+- **A 的终稿篇幅**：`episode_protocol.EPISODE_DRAFT_MAX_CHARS`，系统提示、收口提醒与终局恢复器三处共用；GLM 5.x 工具轮显式带 `llm_refine.agent_turn_max_tokens`（`LLM_AGENT_MAX_TOKENS_BY_MODEL`，未命中的模型请求体不变），不再靠压正文防截断。
+- **B 的引用记账**：已引用的已知 `evidence_atom_ids` 可确定性补回遗漏的 owner claim；不改正文或 `claim_type`，未知编号与缺口升级成事实仍拒收。只有紧邻「缩量（约）」的幅度可对应负值证据，不能借同句其他位置的「缩量」放行上涨数字；数字抽取保留证据字段分隔，避免把负号吃成词中连接符。
+
+- **B 的绑定边界（同日续修）**：完整出处标记结束一个绑定单元，同一物理行里的多个标记分别解析；不按标点拆作者的语义、不合并邻句证据。解析、逐句修复、主体改绑、截断保留、公开呈现和判官输入共用 `normalize_grounded_binding_lines`。无出处尾句、残缺标记、空标记及未知来源仍拒收；不补写公司名、不代选来源。D4 原稿有 20 个标记却只被旧解析器读成 7 段，先前把后续绑定丢失归咎于作者漏引的判断已纠正。
+
+- **B 的公司上下文（10-06 续修候选）**：只恢复候选开头有限的完整引导短语（公司暴露、方向、为重点的业务描述），不在名字内部按「中/为/的」切后缀。恢复后的完整名字须在当前绑定证据的可识别左边界出现，不递归剥前缀，不借邻句或全答案证据；仅在公司后缀紧邻显式列表连接词时分开相邻公司，不把长名内部的「证券/集团」当公司边界。此规则不是完整中文实体识别，也不改变数字、来源或事实类型约束；局部误报消失不代表整稿通过。
+
+10-05 七组旧/候选配对的有限事实评分均通过，但候选仍大量删句，不能据此宣称整体质量改善。后续引用修补只做同稿离线重放，非重新生成或公开交付验收；见[接续记录](handoffs/2026-10-05-harness-budget-takeover.md)。
+
 判官独立性另计：`deterministic` 不曾调用模型判官，公开 `correlated_judge=null`，不能把机械门的 `passed` 当成独立审核。方差评测优先读取私有 `judge_mode`，将其计入 `no_judge`（包括修复前公开误写 `false` 的样本），不进入 `independent_n`；只有新公开收据而无私有块时记 unknown。旧收据若既无模式又无私有原件，无法追溯是否关闭，不能据此给关闭实验背书。
 
 写手连接由 Workbench「模型连接」或内置 provider 链选择，不受 `continuous_glm` 历史引擎名限制。K3（精确模型名 `kimi-k3`）的 Chat Completions 请求统一不传 `temperature`，因为现有网关会拒绝该参数；其余模型保持原采样参数，工具、流式与 token 上限不变。部署中的首选/兜底、判官模式以启动环境及实际 run 自报模型为准，不在本页写死。
@@ -1275,6 +1291,6 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 - `scripts/preflight_model_harness_conversation.py`：独立子进程中从完整会话API检查配置；所有模型请求先留证再拦截，真实请求0，不能当四格或E2E。
 - `scripts/score_frozen_machine_case.py` → `intelligence/eval/frozen_machine_scorer.py`：仅接受固定私有Python3.12评分缓存；语义验收恒为未建立，旧尺会漏判指标/数值错配。
-- `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。
+- `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。兼容 Workbench `trace.jsonl` 的调用台账，只读 `reported_model` 并核对身份状态/冲突；累计快照去重不覆盖旧错配，编码的子分支引用仍追查。没有台账的普通 Episode trace 不重复充当模型证据；身份准入不等于内容质量通过。
 - `intelligence/eval/thin_react.py`：复用既有薄循环评测对照；非生产factory；真实驱动仍需独立预算/原始HTTP/内容评分。
 - 范围与反证：`docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。

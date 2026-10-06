@@ -403,7 +403,12 @@ class TestDiagnosticCarriesPhases:
             ask.AskOptions(query=result.query, grounded_presenter=True),
             result,
         )
-        assert caps == [(2400, 16000), (1200, 8000)]
+        # 10-05 用户授权：思考 + 正文 + 出处标记共享的预算已提高，旧 2400/1200
+        # 不再是生产合同；仍锁定传到 provider 的实际值，防只改常量不改接线。
+        assert caps == [
+            (ask_synthesis.GROUNDED_COMPOSER_MAX_TOKENS, ask_synthesis.GROUNDED_COMPOSER_MAX_CHARS),
+            (ask_synthesis.GROUNDING_JUDGE_MAX_TOKENS, 8000),
+        ]
 
 
 class TestAdmissionControl:

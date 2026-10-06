@@ -109,6 +109,7 @@ from intelligence.services.empty_pool_fallback import (
     propose_empty_pool_fallback,
 )
 from intelligence.services.episode_protocol import (
+    EPISODE_DRAFT_MAX_CHARS,
     RejectionResponse,
     attach_evidence_ordinals,
     cited_evidence_ordinals,
@@ -716,7 +717,7 @@ class FinanceResearchHarness:
                 "output binding；不得用同一次工具返回的另一条证据代替。"
                 "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
                 "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
-                "为保证 FINAL_JSON 完整，draft 控制在 1000 汉字以内；这是传输预算，"
+                f"为保证 FINAL_JSON 完整，draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内；这是传输预算，"
                 "不要求固定标题、段数或措辞。"
                 f"关闭原因：{detail}"
             )
