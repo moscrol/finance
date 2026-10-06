@@ -12,6 +12,7 @@ from intelligence.services.agent_runtime import (
     public_agent_evidence,
 )
 from intelligence.services.episode_protocol import (
+    EPISODE_DRAFT_MAX_CHARS,
     attach_evidence_ordinals,
     evidence_ordinal_table,
     strip_hashes_for_model,
@@ -56,7 +57,7 @@ _RECOVERY_SYSTEM_PROMPT = (
     "解释、工具调用或 JSON 之外的文本。"
     "原因归因缺少同一时间窗口的新闻证据时，不得用普通网页摘要补成已核验因果，"
     "只能保留盘面事实并把网页内容标为外部观点候选。"
-    "draft 先直接回答用户问题、只保留决定性依据且不超过1200字。"
+    f"draft 先直接回答用户问题，再写清关键数据及其日期与来源，不超过{EPISODE_DRAFT_MAX_CHARS}字。"
     "若 required_outputs 包含 scenario_range，必须给出保守、中性、乐观三种"
     "条件化情景中的实际估值倍数或市值区间；不能把当前单一 PB、标题或空表当作"
     "情景区间。若包含 financial_business_anchor，其 binding 必须至少包含一个 "

@@ -1,0 +1,43 @@
+{
+  "file": "intelligence/services/answer_model.py",
+  "pytest": ["intelligence/tests/test_grounded_bookkeeping.py", "intelligence/tests/test_episode_protocol.py"],
+  "mutants": [
+    {
+      "name": "omit cited atom owner recovery",
+      "old": "for atom_id in re.split(r\"[,，、\\s]+\", match.group(\"atom_ids\")):\n            resolved = owner.get(atom_id.strip(), \"\")",
+      "new": "for atom_id in ():\n            resolved = owner.get(atom_id.strip(), \"\")",
+      "expected_red": ["test_cited_atom_restores_its_owner_claim", "test_restored_owner_cannot_promote_a_gap_to_fact"]
+    },
+    {
+      "name": "drop fact promotion protection",
+      "old": "_grounded_claim_type(claim) != \"fact\"\n                for claim in source_claims",
+      "new": "False\n                for claim in source_claims",
+      "expected_red": ["test_restored_owner_cannot_promote_a_gap_to_fact"]
+    },
+    {
+      "name": "remove shrink magnitude acceptance",
+      "old": "or _SHRINK_MAGNITUDE_PREFIX_RE.search(date_scope[:match.start()])",
+      "new": "or False",
+      "expected_red": ["test_volume_shrink_magnitude_can_omit_minus[\\u7f29\\u91cf 10.27%-True]", "test_volume_shrink_magnitude_can_omit_minus[\\u7f29\\u91cf 10.27%-False]"]
+    },
+    {
+      "name": "allow every number when shrink appears anywhere",
+      "old": "or _SHRINK_MAGNITUDE_PREFIX_RE.search(date_scope[:match.start()])",
+      "new": "or '缩量' in date_scope",
+      "expected_red": ["test_shrink_word_does_not_exempt_other_or_unknown_numbers[\\u7f29\\u91cf\\u9636\\u6bb5\\u5df2\\u7ecf\\u7ed3\\u675f\\uff0c\\u6210\\u4ea4\\u989d\\u4e0a\\u6da8 10.27%\\u3002]"]
+    },
+    {
+      "name": "erase field separators before extracting signed numbers",
+      "old": "for token in _NUMBER_RE.findall(_expanded_date_text(allowed_text))",
+      "new": "for token in _NUMBER_RE.findall(normalized_allowed_text)",
+      "expected_red": ["test_shrink_word_does_not_exempt_other_or_unknown_numbers[\\u6210\\u4ea4\\u989d\\u8f83\\u524d\\u4e00\\u65e5\\u4e0a\\u6da8 10.27%\\uff0c\\u6da8\\u8dcc\\u7ed3\\u6784\\u504f\\u5f3a\\u3002]"]
+    },
+    {
+      "name": "restore old episode draft cap despite unchanged AST text fingerprint",
+      "file": "intelligence/services/episode_protocol.py",
+      "old": "EPISODE_DRAFT_MAX_CHARS = 4000",
+      "new": "EPISODE_DRAFT_MAX_CHARS = 1000",
+      "expected_red": ["test_instruction_draft_cap_is_the_authorized_shared_budget"]
+    }
+  ]
+}

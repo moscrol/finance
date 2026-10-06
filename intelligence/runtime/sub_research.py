@@ -916,6 +916,11 @@ class SubResearchCoordinator:
             policy=ResearchPolicy("quick", calls, seconds, 0.0),
             trace_parent_id=reference.episode_id,
             root_budget=budget,
+            # 入口身份绑在父 episode 上（09-22 起生产入口必绑）。分支不是从门进来的，
+            # 也不能按自己的 id 单独恢复（恢复要求 contract.task_id == episode_id），
+            # 沿用父身份只会让分支存状态时校验 episode mismatch、整棵树 storage_failed
+            # （2026-10-06 旁路复测 D9）。分支记为「未绑定」，归属由 branch_parent 引用表达。
+            entry_identity=None,
         )
         return BranchRequest(
             branch_id=branch_id,

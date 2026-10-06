@@ -122,12 +122,13 @@ def test_executed_query_basis_survives_registry_and_model_budget(query_case, mon
     observation, projection, facing = execute()
     executed, result = calls[0]
 
+    cap = episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS
     assert observation.trace.status == "success"
     assert facing["ok"] is True
-    assert executed.limit == result.audit.applied_limit == result.audit.row_count == 25
-    assert len(observation.evidence) == 25
+    assert executed.limit == result.audit.applied_limit == result.audit.row_count == cap
+    assert len(observation.evidence) == cap
     assert facing["context_budget"]["truncated"] is True
-    assert "截断至 25 条" in facing["observation"]
+    assert f"截断至 {cap} 条" in facing["observation"]
     assert "实际覆盖" in facing["observation"]
     basis = facing["query_basis"]
     assert basis == projection.audit_payload["query_basis"] == observation.query_basis
@@ -140,7 +141,7 @@ def test_executed_query_basis_survives_registry_and_model_budget(query_case, mon
     assert basis["dimensions"] == ["trade_date", "sector_code", "sector_name"]
     assert basis["requested_time_range"] == {"start": "2026-07-22", "end": "2026-07-23"}
     assert basis["information_cutoff"] == "2026-07-23"
-    assert basis["applied_limit"] == basis["returned_row_count"] == 25
+    assert basis["applied_limit"] == basis["returned_row_count"] == cap
     assert basis["row_unit"] == "rows"
     assert basis["candidate_pool_size"] is None
     assert basis["candidate_pool_size_status"] == "unknown_not_counted"
@@ -168,7 +169,7 @@ def test_no_order_or_window_is_not_invented(query_case):
 def test_engine_limit_is_reported_even_when_lower_than_episode_cap(query_case):
     execute, calls, _ = query_case
     _, _, facing = execute()
-    assert calls[0][0].limit == 25
+    assert calls[0][0].limit == episode_tools._AGENT_FINANCE_QUERY_MAX_ROWS
     assert calls[0][1].audit.applied_limit == 3
     assert facing["query_basis"]["applied_limit"] == 3
     assert facing["query_basis"]["returned_row_count"] == 3

@@ -180,6 +180,21 @@ Controller 首次调用与一次纠错共享剩余研究截止；过期不再发
 沙箱内置辅助代码版本 `PRELUDE_VERSION = "5"` 进入 `calc_id`，不复用初版 v4 的计算身份。
 这只保证本地计算及产物一致性，不证明输入行情或公司财务事实真实。
 
+### 工具结果与计算准入（研究 harness 修复候选）
+
+正式入口继续复用 `FinanceResearchHarness` 和 `ResearchToolRegistry`，不另设研究循环或记忆门。
+`ToolRunResult` 在证据入账前隔离失败/未知状态夹带的证据；`empty` 却带证据也隔离并留缺口。
+已知正常状态保留原值：`partial` 不变完整，`stale` 不变新鲜，`empty` 不证明事实不存在；
+`future_of_cutoff` 仍受原信息截止与账本规则约束。模型回执和审计使用同一业务状态投影，
+未知状态公开为固定错误码，私有 trace 保留原诊断；可信 `ToolDiagnostic` 不成为事实引用。
+
+派生计算在执行前校验参数与已组装输入快照，在成功准入前校验整个结果树，拒绝 NaN/Infinity
+及非 JSON 对象。缺值仍用 `None`，不补零；原精确错误码、计算身份组成与历史产物读取保持。
+这些是状态/形状约束，不证明脚本实际使用了声明输入、算术正确或外部事实真实。
+语义判官默认关闭的策略未改；接线、离线替身或程序检查不等于自然模型语义核验。
+追查原型撤除、八项初审承接或验收范围时，读
+[本次决策与证据](handoffs/2026-10-05-research-harness-rebuild.md)。生产生效须另核运行 revision。
+
 ### 工具局部失败与进展记账
 
 `finance_query` 返回的 `query_basis` 记录实际筛选、分组、取样排序与交付排序、请求窗口、
@@ -1098,7 +1113,7 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 **B 在 Workbench 里接两种题，别只记住第一种**（2026-08-30 修正，此前本行写「仅三条确定性题型」，三处都已漂）：
 
-1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES` 实为**五条**——`external_market` / `dated_market_review` / `market_watch` / `watchlist_digest` / `disclosure_scan`（`continuous_turn_adapter.py:111`，个数以该常量为准，勿写死）。**`quick_fact` 已被明确移出**（`:108`，R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。
+1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES`（`continuous_turn_adapter.py`，个数以该常量为准，勿写死）现为 `external_market` / `watchlist_digest` / `disclosure_scan`。**`quick_fact` 已被明确移出**（R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。**`market_watch` / `dated_market_review` 2026-10-06 起也移出、走 A**（用户决策原话：「另外episode可以更好发挥的话就走episode，如果固定的workflow限制了model，那就不要了」）：同一 GLM、同一工具与库的 Pi 对照里，这两类题让路给 B 后模型零工具调用、合成器截断换模板、逐句删稿，答案明显差于让模型自己查的 Pi。这推翻了 2026-08-30 编排合同 §7 的「❌ 把包并进 A 当第一执行者」，修订记录在该合同文末。
 2. **ownerless 长尾 → `generic_research_owner` 循环**：`research_task_contract` 非空时 `_answer_query_impl` **整条早退**、D 块一次不跑（`ask.py:3055-3059`）；契约只在 `conversation_orchestrator.py:2809` 设上，条件是「研究题 + 无专属椅子」（`:2245`）。这一条是 `run_agent_loop`，**不是写死流程**——把 B 整体说成「写死流程」会把它接长尾的能力漏掉。
 
 A 与 B 的门禁接线不对等：A 的结构门、`episode_semantic_verifier` 与修复循环由 `runtime/continuous_turn_adapter.py` 装配；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。判官实现已位于 `services/episode_semantic_verifier.py`，不能再用「判官在 runtime 所以 B 不能引用」解释现状；模块可引用不等于两条引擎已接通同一门禁。历史并轨方案见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3，现状以源码及对应测试为准。
@@ -1169,6 +1184,32 @@ A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢�
 2026-09-17 复核：8792 `bf662e9310ff` 的启动器未设置 `ASK_SEMANTIC_JUDGE`（默认 llm），`ASK_EVIDENCE_JUDGE=auto`；**代码已部署不等于 off 已启用**。两个开关与重启窗口另待确认，当前事实以启动器及实际 run 私有收据为准。
 
 读收据别读反：`judge_status` 闭集不变（`passed / repaired / rejected / unavailable`），两种模式下都表示「过了门 / 门删了句并修好 / 修不好 / 结构守卫未放行」；**谁在判**看私有块 `semantic_verifier.judge_mode`（`llm` | `deterministic`，落在 `continuous-episode.json`），公开 `gate_receipt` 键集未动（`RECEIPT_KEYS` 是被钉死的 schema v1 合同）。判官此前抓到的两类绑定错误的去向：单引证据的明确来源/公告发布日期断言与其唯一 `source_date` 矛盾 → `evidence_date_mismatch` 删句（两种模式都生效）；计划/假设/疑问与其他事件日期不因同句引用被认作来源日期，正文里偶然出现的同日也不能给错误发布日期背书（该门有意不作完备语义判定）；引用了别的槽绑定的 E → 只记 `sentence_verdicts[stage=census]` 与 `cited_outside_slot_count`，不删（R-20260821-06）。B 侧健康度多一桶 `deterministic_only`，不冒充 `full_pass`。默认翻转与判官专属路径退役见工单 #56。
+
+### 写手的篇幅、时间与截断（2026-10-05，Pi 对照后放开）
+
+起因是同题 8792 对 Pi 的对照：固定流程的 composer 在强制思考的 GLM 上多次 `finish_reason=length`，整篇换成模板；校验器把用户问题自带的日期判成「证据外日期」，删掉模型「数据截至 X，并不是您问的 Y」的边界说明。数值都以代码为准，不在本页写死：
+
+- **B 的 composer / 判官输出上限**：`ask_synthesis.GROUNDED_COMPOSER_MAX_TOKENS` / `GROUNDING_JUDGE_MAX_TOKENS`（可用同名 env 回调）；时间预算在 `research_policy.grounded_deep`。准入地板与授时分开：地板 = `MINIMUM_COMPOSER_SLICE_SECONDS` + 判官预留，授时可以更大；两者绑成一个数时，授时一抬，检索稍慢 composer 就会被整段跳过。
+- **B 的 composer 截断**：保留到最后一句出处标记完整的句子，照常过逐句确定性门禁；phase 记 `status=ok` + `reason_code=truncated_response`。一句完整的都没有才降级。**A 的规则不变**：工具轮或 FINAL_JSON 一旦 `length` 仍整轮拒收（见上「连续运行保存与截断边界」）——A 的终稿是一个整体 JSON，B 的正文是逐句自带绑定的。
+- **锚点日期**：用户问题里的日期与 AnswerSpec 站立日不算证据外日期（`answer_model.anchor_dates_for`）。推断 / 缺口句可直接引用；事实句只在同时写出所绑证据自己的日期（对照写法）时放行，单独把锚点日期挂在别的交易日的数字上仍按 `grounded_composer_added_date` 拦。
+- **A 的终稿篇幅**：`episode_protocol.EPISODE_DRAFT_MAX_CHARS`，系统提示、收口提醒与终局恢复器三处共用；GLM 5.x 工具轮显式带 `llm_refine.agent_turn_max_tokens`（`LLM_AGENT_MAX_TOKENS_BY_MODEL`，未命中的模型请求体不变），不再靠压正文防截断。
+- **B 的引用记账**：已引用的已知 `evidence_atom_ids` 可确定性补回遗漏的 owner claim；不改正文或 `claim_type`，未知编号与缺口升级成事实仍拒收。只有紧邻「缩量（约）」的幅度可对应负值证据，不能借同句其他位置的「缩量」放行上涨数字；数字抽取保留证据字段分隔，避免把负号吃成词中连接符。
+
+- **B 的绑定边界（同日续修）**：完整出处标记结束一个绑定单元，同一物理行里的多个标记分别解析；不按标点拆作者的语义、不合并邻句证据。解析、逐句修复、主体改绑、截断保留、公开呈现和判官输入共用 `normalize_grounded_binding_lines`。无出处尾句、残缺标记、空标记及未知来源仍拒收；不补写公司名、不代选来源。D4 原稿有 20 个标记却只被旧解析器读成 7 段，先前把后续绑定丢失归咎于作者漏引的判断已纠正。
+
+- **B 的公司上下文（10-06 续修候选）**：只恢复候选开头有限的完整引导短语（公司暴露、方向、为重点的业务描述），不在名字内部按「中/为/的」切后缀。恢复后的完整名字须在当前绑定证据的可识别左边界出现，不递归剥前缀，不借邻句或全答案证据；仅在公司后缀紧邻显式列表连接词时分开相邻公司，不把长名内部的「证券/集团」当公司边界。此规则不是完整中文实体识别，也不改变数字、来源或事实类型约束；局部误报消失不代表整稿通过。
+
+**2026-10-06 模型优先（用户：「总之初衷就是要发挥model的能力，让模型回答的更好」，并要求「什么时间预算啊等等限制模型能力的，都要做优化」）**，在上面这些修补之上继续放开：
+
+- **盘面题回到 A**：见上「两条引擎」第 1 条。单日复盘的必需输出把 `direct_assessment` 放在首位（`task_frame._default_required_outputs`），因为分类器会把「高标晋级有没有空档」这类具体问题也判成 `dated_market_review`，旧三格里没有「回答用户问的那件事」。
+- **A 的工具观察上限**：`tool_result_budget.MAX_OBSERVATION_CHARS` / `MAX_EVIDENCE_DETAIL_CHARS` / `MAX_EVIDENCE_TITLE_CHARS` 放大，按 Pi 同题 134 次工具调用实测标定，正常结果整份进模型；B 的 `agent_research` 读同一常量。旧上限截掉了 28% 的观察叙述。
+- **A 的终稿篇幅**：`EPISODE_DRAFT_MAX_CHARS` 再放大，提示词改成「篇幅由问题决定，上限只为保证结构化终止完整」，不再要求「只保留决定性依据」。
+- **主体候选不再先追问**：实体解析处于 candidate（「X+主题词」形状的未登记名称）时，`turn_controller` 不硬锚、也不反问，把候选写进 `ambiguities` / `assumptions` 交给研究核实；查无此标的由模型说明检索范围。升级前已挂起的追问仍可按原路径收口。
+- **Episode 本来就不缺总时间**：生产启动器已是 max 档（回合墙钟、研究步数、工具面全开），同题实测 1–3 分钟模型自己停手。卡住它的是上面这几条，以及**单次模型调用上限** `glm_agent_runtime.DEFAULT_GLM_LLM_TIMEOUT`：GLM-5.3-flash 强制思考，工具观察放大后上下文变长，旁路复测 D9 一轮流式已出字仍在旧上限被截断、整题降成缺口模板；已按 `provider_latency` 的思考 / 出字速度标定放大，仍受回合剩余预算约束。
+- **「明天哪个方向」出口门改为受众层开关**：`episode_protocol.forward_direction_call_hits` 只在 `WORKBENCH_AUDIENCE_DIRECTION_GATE=on` 时拦（缺省关）。依据是用户 09-13「目前我们自己使用，就要达到能力的 max，合规的边界后续再去考虑」——不给方向这类受众红线属于渲染 / 导出 / 分享层；同题 Pi 给出带依据的方向排序被盲评判可用，而这道门把 8792 同样的答案连拒两次降成模板。对外部署再打开。
+- **题面数字不再被点名「待核」**：`episode_semantic_verifier` 判条件句里的数有没有出处时，用户题面自带的数（如「边际量超过10%、成交额高于500亿」）算题设；题面没有的数照旧要出处。
+
+10-05 七组旧/候选配对的有限事实评分均通过，但候选仍大量删句，不能据此宣称整体质量改善。后续引用修补只做同稿离线重放，非重新生成或公开交付验收；见[接续记录](handoffs/2026-10-05-harness-budget-takeover.md)。
 
 判官独立性另计：`deterministic` 不曾调用模型判官，公开 `correlated_judge=null`，不能把机械门的 `passed` 当成独立审核。方差评测优先读取私有 `judge_mode`，将其计入 `no_judge`（包括修复前公开误写 `false` 的样本），不进入 `independent_n`；只有新公开收据而无私有块时记 unknown。旧收据若既无模式又无私有原件，无法追溯是否关闭，不能据此给关闭实验背书。
 
@@ -1275,6 +1316,6 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 - `scripts/preflight_model_harness_conversation.py`：独立子进程中从完整会话API检查配置；所有模型请求先留证再拦截，真实请求0，不能当四格或E2E。
 - `scripts/score_frozen_machine_case.py` → `intelligence/eval/frozen_machine_scorer.py`：仅接受固定私有Python3.12评分缓存；语义验收恒为未建立，旧尺会漏判指标/数值错配。
-- `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。
+- `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。兼容 Workbench `trace.jsonl` 的调用台账，只读 `reported_model` 并核对身份状态/冲突；累计快照去重不覆盖旧错配，编码的子分支引用仍追查。没有台账的普通 Episode trace 不重复充当模型证据；身份准入不等于内容质量通过。
 - `intelligence/eval/thin_react.py`：复用既有薄循环评测对照；非生产factory；真实驱动仍需独立预算/原始HTTP/内容评分。
 - 范围与反证：`docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。

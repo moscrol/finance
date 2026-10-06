@@ -45,6 +45,33 @@ def test_holiday_quick_fact_is_canned_without_llm() -> None:
     assert "2026-02-17" in answer.answer
 
 
+@pytest.mark.parametrize(
+    ("query", "previous"),
+    [
+        ("2026-05-01 全市场涨停了多少家", "2026-04-30"),  # 公告休市日（劳动节）
+        ("2026-07-25 市场怎么样", "2026-07-24"),  # 周六
+    ],
+    ids=["announced-closure", "saturday"],
+)
+def test_canned_holiday_answer_names_the_previous_trading_day(query: str, previous: str) -> None:
+    """2026-10-06 盲评 D8：只说休市被判部分可用——参照要的是「无数据 + 最近交易日」。
+
+    前一交易日取自同一条休市假设，不在交付层重算日历；指令性文案仍不进公开答案。
+    """
+
+    decision = decide_turn(query)
+
+    def boom(_messages):
+        raise AssertionError("holiday answers stay deterministic")
+
+    answer = generate_lane_answer(query, decision, llm_complete=boom).answer
+
+    assert answer.startswith(calendar_disclosure(decision.task_frame))
+    assert f"最近的前一交易日是 {previous}" in answer
+    assert "回答须先说明" not in answer
+    assert answer.endswith("。") and not answer.endswith("。。")
+
+
 def test_weekend_review_still_goes_to_research_not_canned_knowledge() -> None:
     """C1：路由仍是 research（不是 knowledge 车道），但休市日必须罐头短路。"""
 

@@ -324,11 +324,15 @@ def test_empty_query_result_has_no_next_page():
 
 
 def test_oversized_field_is_explicitly_omitted_without_clipping_json():
-    payload = _payload([{"entity_code": "A.FP", "entity_name": "超长源名称" * 100, "trade_date": "2026-08-04", "sector": {"pct_chg": 1.25}}])
+    from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+
+    # 字段要长过模型可见的 detail 上限才算超大（上限 2026-10-06 由 240 放到 800）。
+    long_name = "超长源名称" * (MAX_EVIDENCE_DETAIL_CHARS // 5 + 20)
+    payload = _payload([{"entity_code": "A.FP", "entity_name": long_name, "trade_date": "2026-08-04", "sector": {"pct_chg": 1.25}}])
     _, details = _project(_result(payload, result_ref=REF))
     assert any(row.get("projection_status") == "oversized_field_omitted" for row in details)
     assert any(row.get("sector", {}).get("pct_chg") == 1.25 for row in details)
-    assert len(payload["rows"][0]["entity_name"]) > 240
+    assert len(payload["rows"][0]["entity_name"]) > MAX_EVIDENCE_DETAIL_CHARS
 
 
 def test_tool_schema_exposes_feature_rules_from_the_same_definition_source(tmp_path):
