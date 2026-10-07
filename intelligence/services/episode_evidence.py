@@ -34,6 +34,7 @@ _FIELDS_BY_VERSION = {
     2: _COMMON_FIELDS | {"presentations"},
     3: _COMMON_FIELDS | {"presentations"},
     4: _COMMON_FIELDS | {"presentations"},
+    5: _COMMON_FIELDS | {"presentations"},
 }
 _STRING_FIELDS = (
     "tool", "title", "detail", "source", "internal_locator", "evidence_tier",
@@ -53,12 +54,16 @@ _IO_ATOM_FIELDS = _LEGACY_ATOM_FIELDS | {"io_effect"}
 # complete ``HistoricalEvidenceProvenance`` record or ``None``; restore goes
 # through ``HistoricalEvidenceProvenance.from_dict`` so a partial or unknown
 # provenance shape fails closed instead of becoming an ordinary card.
-_ATOM_FIELDS = _IO_ATOM_FIELDS | {"history_provenance"}
+_HISTORY_ATOM_FIELDS = _IO_ATOM_FIELDS | {"history_provenance"}
+# v5: optional retrieval bucket, separate from content identity/target bindings.
+_ATOM_FIELDS = _HISTORY_ATOM_FIELDS | {"retrieval_direction"}
 
 
 def _atom_fields(version: int) -> frozenset[str]:
-    if version >= 4:
+    if version >= 5:
         return _ATOM_FIELDS
+    if version == 4:
+        return _HISTORY_ATOM_FIELDS
     if version == 3:
         return _IO_ATOM_FIELDS
     return _LEGACY_ATOM_FIELDS
@@ -66,6 +71,11 @@ def _atom_fields(version: int) -> frozenset[str]:
 
 def _atom_payload(item: AgentEvidence, *, version: int) -> dict[str, object]:
     payload = _json_copy(asdict(item), path="atom")
+    if version < 5:
+        # Missing direction on old cards remains unknown. A labelled card has
+        # no lossless older shape; do not silently discard its retrieval bucket.
+        if payload.pop("retrieval_direction") is not None:
+            raise ValueError("legacy evidence snapshot cannot preserve retrieval direction")
     if version < 4:
         # Old snapshots had no historical source identity. Preserve their exact
         # bytes/digest; a card that carries provenance has no lossless old shape.
@@ -101,6 +111,12 @@ def _digest(body: dict[str, object]) -> str:
 
 def _atom(raw: object, *, version: int) -> AgentEvidence:
     atom = _object(raw, _atom_fields(version), "atom")
+    if version >= 5:
+        direction = atom["retrieval_direction"]
+        if direction is not None and (
+            not isinstance(direction, str) or direction not in {"support", "counter"}
+        ):
+            raise ValueError("invalid evidence retrieval direction")
     if version >= 3 and atom["io_effect"] not in ("local_read", "external_or_mixed", "unknown"):
         raise ValueError("evidence IO effect must be an audited declaration or unknown")
     if any(not isinstance(atom[key], str) for key in _STRING_FIELDS):
@@ -154,7 +170,7 @@ class EvidenceCheckpointEntry:
     branch_owner: str | None
     cutoff_status: str
 
-    def to_dict(self, *, version: int = 4) -> dict[str, object]:
+    def to_dict(self, *, version: int = 5) -> dict[str, object]:
         return {
             "atom": _atom_payload(self.atom, version=version),
             "targets": list(self.targets), "branch_owner": self.branch_owner,
@@ -167,7 +183,7 @@ class EvidencePresentation:
     atom: AgentEvidence
     classification: str
 
-    def to_dict(self, *, version: int = 4) -> dict[str, object]:
+    def to_dict(self, *, version: int = 5) -> dict[str, object]:
         return {
             "atom": _atom_payload(self.atom, version=version),
             "classification": self.classification,
@@ -195,9 +211,12 @@ def _presentation_source_day(value: str) -> date | None:
 def classify_presentation(
     item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
 ) -> str:
-    """Request links may vary; every other admitted field still belongs to the first writer."""
+    """Request links/buckets may vary; admitted source facts belong to the first writer."""
     if original is not None:
-        if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
+        if replace(
+            item, supports=original.supports, contradicts=original.contradicts,
+            retrieval_direction=original.retrieval_direction,
+        ) != original:
             raise ValueError("presented evidence differs from its admitted original")
         return "admitted"
     # The registry can expose future-only results as a dated notice. This is a
@@ -218,7 +237,7 @@ class EpisodeEvidenceSnapshot:
     presentations: tuple[EvidencePresentation, ...]
     covered_outputs: tuple[str, ...]
     open_gaps: tuple[str, ...]
-    schema_version: int = 4
+    schema_version: int = 5
 
     @property
     def presented_hashes(self) -> tuple[str, ...]:

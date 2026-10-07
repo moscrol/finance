@@ -135,14 +135,68 @@ def test_unqualified_source_dates_are_not_admitted(source, day):
         load()
 
 
-@pytest.mark.parametrize("legacy", [False, True])
-def test_nullable_history_metadata_preserves_ordinary_prior_evidence(source, legacy):
+@pytest.mark.parametrize(
+    "missing_metadata",
+    [(), ("retrieval_direction",), ("retrieval_direction", "history_provenance")],
+)
+def test_additive_metadata_preserves_ordinary_prior_evidence(source, missing_metadata):
     _, _, _, _, payload, save, load = source
-    if legacy:
-        for row in payload["outcome"]["evidence"]:
-            row.pop("history_provenance")
+    for row in payload["outcome"]["evidence"]:
+        for key in missing_metadata:
+            row.pop(key)
     save()
-    assert load().entries[0][1] == replace(_atom(), supports=())
+    atom = load().entries[0][1]
+    assert atom == replace(_atom(), supports=())
+    assert atom.retrieval_direction is None
+
+
+@pytest.mark.parametrize("direction", ["support", "counter"])
+def test_prior_evidence_preserves_retrieval_direction_without_old_bindings(source, direction):
+    _, _, _, _, payload, save, load = source
+    row = payload["outcome"]["evidence"][1]
+    row["retrieval_direction"] = direction
+    save()
+
+    assert load().entries[0][1] == replace(
+        _atom(), supports=(), retrieval_direction=direction
+    )
+
+
+@pytest.mark.parametrize("direction", ["support", "counter"])
+def test_retrieval_direction_does_not_admit_excluded_prior_tool(source, direction):
+    _, _, _, _, payload, save, load = source
+    payload["outcome"]["evidence"][0].update(
+        tool="evidence_search", retrieval_direction=direction
+    )
+    save()
+    snapshot = load()
+    assert snapshot.excluded_ordinals == ("E1",)
+    assert snapshot.entries[0][1] == replace(_atom(), supports=())
+
+
+@pytest.mark.parametrize("direction", [False, 1, [], {}, "", "conclusion", "反方"])
+def test_invalid_retrieval_direction_is_rejected_without_coercion(source, direction):
+    _, _, _, _, payload, save, load = source
+    payload["outcome"]["evidence"][1]["retrieval_direction"] = direction
+    save()
+    with pytest.raises(ValueError, match="invalid evidence retrieval direction"):
+        load()
+
+
+@pytest.mark.parametrize("mutation", ["new_missing_history", "missing_title", "unknown_field"])
+def test_retrieval_metadata_does_not_relax_complete_prior_schema(source, mutation):
+    _, _, _, _, payload, save, load = source
+    row = payload["outcome"]["evidence"][1]
+    row["retrieval_direction"] = "counter"
+    if mutation == "new_missing_history":
+        row.pop("history_provenance")
+    elif mutation == "missing_title":
+        row.pop("title")
+    else:
+        row["retrieval_stance"] = "counter"
+    save()
+    with pytest.raises(ValueError, match="incomplete or unknown prior evidence schema"):
+        load()
 
 
 @pytest.mark.parametrize("value", [False, "", {}, {"query_id": "forged"}])

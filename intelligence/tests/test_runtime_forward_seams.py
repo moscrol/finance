@@ -31,7 +31,7 @@ def test_current_roundtrip_preserves_exact_io_provenance(effect):
     atom = _atom(io_effect=effect)
     ledger.append(atom)
     payload = ledger.to_recovery_snapshot(episode_id="e", presented_evidence=(atom,))
-    assert payload["schema_version"] == 4
+    assert payload["schema_version"] == 5
     snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id="e")
     assert snapshot.presented_evidence == (atom,)
     assert snapshot.entries[0].atom.io_effect == effect
@@ -76,7 +76,7 @@ def test_old_snapshots_remain_exact_and_do_not_invent_local_read_authority(versi
     upgraded = EvidenceLedger.from_recovery_snapshot(old, episode_id="episode").to_recovery_snapshot(
         episode_id="episode", presented_evidence=restored.presented_evidence,
     )
-    assert upgraded["schema_version"] == 4
+    assert upgraded["schema_version"] == 5
     assert upgraded["entries"][0]["atom"]["io_effect"] == "unknown"
     # An old version is not a route to erase the new authority field.
     old["entries"][0]["atom"]["io_effect"] = "local_read"
@@ -98,35 +98,46 @@ def test_new_provenance_cannot_be_silently_downgraded_to_legacy_wire_shape():
 # --- v4: historical source identity travels with the private atom -------------
 
 
-def test_v4_roundtrip_preserves_history_provenance_as_a_complete_record():
+@pytest.mark.parametrize("version", [4, 5])
+def test_v4_and_current_roundtrip_preserve_history_provenance_as_a_complete_record(version):
     ledger = EvidenceLedger()
     atom = _history_atom()
     ledger.append(atom)
     payload = ledger.to_recovery_snapshot(episode_id="e", presented_evidence=(atom,))
-    assert payload["schema_version"] == 4
+    if version == 4:
+        payload = _legacy_payload(payload, 4)
+    assert payload["schema_version"] == version
     stored = payload["entries"][0]["atom"]["history_provenance"]
     assert stored["query_id"] == "history-query-stable" and stored["row_index"] == 0
     assert stored["research_only"] is True and stored["promotion_eligible"] is False
     snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id="e")
     assert snapshot.presented_evidence == (atom,)
     assert snapshot.entries[0].atom.history_provenance == atom.history_provenance
+    assert snapshot.entries[0].atom.content_hash == atom.content_hash
+    assert snapshot.entries[0].atom.retrieval_direction is None
     assert snapshot.to_dict() == payload
     assert EvidenceLedger.from_recovery_snapshot(payload, episode_id="e").items() == (atom,)
 
 
-def test_v4_ordinary_atoms_persist_an_explicit_null_provenance():
+@pytest.mark.parametrize("version", [4, 5])
+def test_v4_and_current_ordinary_atoms_persist_an_explicit_null_provenance(version):
     _, _, payload = _fixture()
+    if version == 4:
+        payload = _legacy_payload(payload, 4)
     assert all(entry["atom"]["history_provenance"] is None for entry in payload["entries"])
     restored = EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
     assert all(item.history_provenance is None for item in restored.presented_evidence)
 
 
 @pytest.mark.parametrize("mutation", ["row_hash", "operation", "extra_key", "missing_key", "qualification"])
-def test_v4_restore_reruns_provenance_identity_validation(mutation):
+@pytest.mark.parametrize("version", [4, 5])
+def test_v4_and_current_restore_rerun_provenance_identity_validation(mutation, version):
     ledger = EvidenceLedger()
     atom = _history_atom()
     ledger.append(atom)
     payload = ledger.to_recovery_snapshot(episode_id="e", presented_evidence=(atom,))
+    if version == 4:
+        payload = _legacy_payload(payload, 4)
     for location in ("entries", "presentations"):
         provenance = payload[location][0]["atom"]["history_provenance"]
         if mutation == "row_hash":
@@ -157,7 +168,7 @@ def test_v3_snapshots_remain_exact_and_do_not_invent_history_provenance():
     upgraded = EvidenceLedger.from_recovery_snapshot(old, episode_id="episode").to_recovery_snapshot(
         episode_id="episode", presented_evidence=restored.presented_evidence,
     )
-    assert upgraded["schema_version"] == 4
+    assert upgraded["schema_version"] == 5
     assert upgraded["entries"][0]["atom"]["history_provenance"] is None
     # An old version is not a route to smuggle source identity past validation.
     old["entries"][0]["atom"]["history_provenance"] = None
@@ -174,3 +185,15 @@ def test_history_provenance_cannot_be_silently_downgraded_to_v3_wire_shape():
     snapshot = EpisodeEvidenceSnapshot.from_dict(payload, episode_id="e")
     with pytest.raises(ValueError, match="legacy"):
         replace(snapshot, schema_version=3).to_dict()
+
+
+def test_retrieval_direction_cannot_hide_same_hash_historical_source_conflict():
+    atom = _history_atom(retrieval_direction="support")
+    ledger = EvidenceLedger()
+    ledger.append(atom)
+    changed = replace(
+        atom, retrieval_direction="counter",
+        history_provenance=replace(atom.history_provenance, row_hash="c" * 16),
+    )
+    with pytest.raises(ValueError, match="differs from its admitted original"):
+        ledger.to_recovery_snapshot(episode_id="e", presented_evidence=(changed,))

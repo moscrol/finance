@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date
+import json
+
+import pytest
 
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.evidence_search import (
@@ -13,6 +16,8 @@ from intelligence.services.research_contract import (
     InformationCutoff,
     ResearchDeadline,
 )
+from intelligence.services.research_harness import FinanceResearchHarness
+from intelligence.services.research_tool_registry import ToolObservation
 
 
 def _response(
@@ -76,6 +81,115 @@ def _is_counter_query(query: str) -> bool:
             "政策收紧",
         )
     )
+
+
+@pytest.mark.parametrize("lean", [False, True])
+@pytest.mark.parametrize(
+    ("support_count", "counter_count", "detail_repeats", "counter_repeats"),
+    [(1, 1, 700, 1), (10, 2, 70, 1), (1, 1, 700, 700)],
+)
+def test_retrieval_direction_survives_long_shared_model_projection(
+    monkeypatch, lean: bool, support_count: int, counter_count: int,
+    detail_repeats: int, counter_repeats: int,
+) -> None:
+    monkeypatch.setenv("ASK_EPISODE_LEAN_OBSERVATION", "on" if lean else "off")
+    support = tuple(
+        _hit(f"support-{index}", f"设备需求证据{index}", "设备需求正文。" * detail_repeats)
+        for index in range(support_count)
+    )
+    counter = tuple(
+        _hit(f"counter-{index}", f"设备需求线索{index}", "设备需求待验证线索" * counter_repeats)
+        for index in range(counter_count)
+    )
+
+    def retrieve(query: str) -> WikiRagResult:
+        return _response(query, *(counter if _is_counter_query(query) else support))
+
+    result = EvidenceSearch(retrieve).search(
+        query="设备需求",
+        anchor=None,
+        information_cutoff=_cutoff(),
+        deadline=ResearchDeadline.from_timeout(2.0),
+    )
+    observation = ToolObservation(
+        tool="evidence_search",
+        query="设备需求",
+        evidence=result.evidence,
+        observation=result.observation,
+        trace=result.trace,
+        evidence_hashes=tuple(item.content_hash for item in result.evidence),
+    )
+    projection = FinanceResearchHarness().project_tool_result(
+        observation, evidence_so_far=result.evidence, seen_prose=set()
+    )
+    facing = json.loads(projection.model_content)
+
+    assert len(result.observation) > 4000
+    assert "[反方]" in result.observation
+    assert "[反方]" not in facing["observation"]
+    assert [row.get("retrieval_direction") for row in facing["evidence"]] == (
+        ["support"] * support_count + ["counter"] * counter_count
+    )
+    for ordinal, (hit, atom, audit_row, model_row) in enumerate(
+        zip((*support, *counter), result.evidence, projection.audit_payload["evidence"],
+            facing["evidence"], strict=True),
+        1,
+    ):
+        assert atom.detail == hit.excerpt
+        assert (atom.source, atom.source_date, atom.evidence_tier, atom.content_hash) == (
+            hit.file_path, "2026-07-24", "L1", hit.content_hash
+        )
+        assert atom.supports == atom.contradicts == ()
+        assert audit_row["content_hash"] == hit.content_hash
+        assert model_row["evidence_id"] == f"E{ordinal}"
+        assert (model_row["source"], model_row["source_date"], model_row["evidence_tier"]) == (
+            hit.file_path, "2026-07-24", "L1"
+        )
+        assert model_row.get("supports", []) == model_row.get("contradicts", []) == []
+        short_detail = detail_repeats == 70 if ordinal <= support_count else counter_repeats == 1
+        if short_detail:
+            assert model_row["detail"] == hit.excerpt
+        else:
+            assert len(model_row["detail"]) < len(hit.excerpt)
+
+    again = FinanceResearchHarness().project_tool_result(
+        observation, evidence_so_far=result.evidence, seen_prose=set(projection.seen_prose)
+    )
+    repeated = json.loads(again.model_content)
+    assert repeated["noise_prune"]["collapsed_prose"] is True
+    assert "[支持]" not in repeated["observation"]
+    assert "[反方]" not in repeated["observation"]
+    assert repeated["evidence"] == facing["evidence"]
+    assert again.audit_payload == projection.audit_payload
+
+
+def test_same_content_keeps_each_actual_retrieval_direction_and_one_ordinal() -> None:
+    hit = _hit("shared", "设备需求证据", "设备需求待验证线索")
+    results = []
+    for counter_only in (False, True):
+        def retrieve(query: str) -> WikiRagResult:
+            return _response(query, hit) if _is_counter_query(query) == counter_only else _response(query)
+
+        results.append(EvidenceSearch(retrieve).search(
+            query="设备需求", anchor=None, information_cutoff=_cutoff(),
+            deadline=ResearchDeadline.from_timeout(2.0),
+        ))
+
+    evidence = tuple(atom for result in results for atom in result.evidence)
+    assert len(evidence) == 2
+    harness = FinanceResearchHarness()
+    seen = set()
+    for result, direction in zip(results, ("support", "counter"), strict=True):
+        projection = harness.project_tool_result(
+            ToolObservation("evidence_search", "设备需求", result.evidence, result.observation, result.trace),
+            evidence_so_far=evidence, seen_prose=seen,
+        )
+        seen = set(projection.seen_prose)
+        facing = json.loads(projection.model_content)
+        assert facing["evidence_ids"] == ["E1"]
+        assert facing["evidence"][0]["retrieval_direction"] == direction
+        assert facing["evidence"][0]["detail"] == hit.excerpt
+        assert projection.audit_payload["evidence"][0]["content_hash"] == hit.content_hash
 
 
 def test_search_preserves_apertures_buckets_and_counter_evidence() -> None:

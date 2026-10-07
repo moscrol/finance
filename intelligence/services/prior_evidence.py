@@ -107,12 +107,17 @@ def restored_prior_hashes(events: Sequence[object]) -> frozenset[str]:
 def _original_atom(raw: object) -> AgentEvidence:
     """Reconstruct the complete stored schema without coercing or dropping fields."""
     expected = {field.name for field in fields(AgentEvidence)}
-    if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
+    accepted_shapes = (
+        expected,
+        expected - {"retrieval_direction"},
+        expected - {"retrieval_direction", "history_provenance"},
+    )
+    if not isinstance(raw, dict) or set(raw) not in accepted_shapes:
         raise ValueError("incomplete or unknown prior evidence schema")
     # Explicit additive-schema compatibility, not a general missing-field escape.
-    # Old ordinary atoms had no historical metadata; old history atoms cannot
-    # acquire source identity merely by taking the None default.
-    raw = {"history_provenance": None, **raw}
+    # Prior schemas lacked retrieval direction, with or without history metadata.
+    # Defaults neither assign a retrieval bucket nor confer historical identity.
+    raw = {"history_provenance": None, "retrieval_direction": None, **raw}
     values = dict(raw)
     history = raw["history_provenance"]
     if not isinstance(raw["tool"], str):
@@ -124,7 +129,13 @@ def _original_atom(raw: object) -> AgentEvidence:
     elif raw["tool"] in {"history_query", "read_history_result"}:
         raise ValueError("missing historical provenance")
     sequences = {"supports", "contradicts", "derived_from", "observations"}
-    nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
+    nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted",
+                "retrieval_direction"}
+    direction = raw["retrieval_direction"]
+    if direction is not None and (
+        not isinstance(direction, str) or direction not in {"support", "counter"}
+    ):
+        raise ValueError("invalid evidence retrieval direction")
     for key in set(raw) - sequences - nullable - {"deep_read", "history_provenance"}:
         if not isinstance(raw[key], str):
             raise ValueError("invalid evidence text field")

@@ -282,10 +282,11 @@ def _mainline_context_block_for_llm(
                 breakout = high_status_label or near_breakout_label or ""
                 breakout_text = f"，{breakout}" if breakout else ""
                 startup_text = f"，启动日{startup_date_small}" if startup_date_small else ""
+                limit_up_text = "未提供" if limit_up_count is None else str(limit_up_count)
                 sector_bits.append(
                     f"{sector_name}({sw_l1 or '-'}，{cycle_status or '未标注'}/{cycle_level or '-'}，"
                     f"涨{_fmt_optional(sector_pct)}%，边际量{_fmt_optional(diff_ratio)}%，"
-                    f"成交{_fmt_optional(sector_amount)}亿，涨停{limit_up_count or 0}，{volume_state}{breakout_text}{startup_text})"
+                    f"成交{_fmt_optional(sector_amount)}亿，涨停{limit_up_text}，{volume_state}{breakout_text}{startup_text})"
                 )
             lines.append(f"- {theme_name}核心板块：" + "；".join(sector_bits))
         lines.append("- 使用要求：回答时要区分连续主线与新启动主线；cycle_status=分歧/消亡不能写成无条件主升；涨幅为正但 diff_ratio 为负时，优先解释为缩量强修复/存量抱团，而不是低位放量启动。")

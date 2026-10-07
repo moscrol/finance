@@ -32,7 +32,7 @@ import pytest
 import intelligence.runtime.agent_episode as agent_episode_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
-from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext, evidence_content_hash
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -562,6 +562,54 @@ def test_lean_switch_slims_only_the_model_view_and_leaves_the_audit_untouched(mo
     assert {"source", "source_date", "evidence_tier", "evidence_id", "title", "detail"} <= set(lean_view["evidence"][0])
     assert lean_view["gaps"] == ["缺少反方证据"] and lean_view["evidence_ids"] == ["E1", "E2"]
     assert len(leaned.model_content) < len(baseline.model_content)
+
+
+@pytest.mark.parametrize("lean", [False, True])
+def test_retrieval_direction_preserves_original_roles_and_ordinal_finish_bindings(monkeypatch, lean) -> None:
+    monkeypatch.setenv("ASK_EPISODE_LEAN_OBSERVATION", "on" if lean else "off")
+    original = (
+        replace(_evidence("evidence-1"), supports=("direct_assessment",)),
+        replace(_evidence("evidence-2", title="第二条"), contradicts=("direct_assessment",)),
+    )
+    labelled = (
+        replace(original[0], retrieval_direction="support"),
+        replace(original[1], retrieval_direction="counter"),
+    )
+    harness = FinanceResearchHarness()
+    baseline = harness.project_tool_result(
+        _observation(original), evidence_so_far=original, seen_prose=set()
+    )
+    projection = harness.project_tool_result(
+        _observation(labelled), evidence_so_far=labelled, seen_prose=set()
+    )
+    facing = json.loads(projection.model_content)
+    assert facing["evidence_ids"] == ["E1", "E2"]
+    assert [row["retrieval_direction"] for row in facing["evidence"]] == ["support", "counter"]
+    assert [
+        {key: value for key, value in row.items() if key != "retrieval_direction"}
+        for row in facing["evidence"]
+    ] == json.loads(baseline.model_content)["evidence"]
+    for ordinal, (old, new) in enumerate(zip(original, labelled, strict=True), 1):
+        assert evidence_content_hash(new) == evidence_content_hash(old)
+        assert new.to_observation(f"E{ordinal}") == old.to_observation(f"E{ordinal}")
+
+    context = _context(_frame())
+    registry = _registry(original)
+    content = _finish_content(hashes=("E1", "E2"))
+    admission = harness.admit_finish(
+        content, context=context, evidence=labelled, registry=registry
+    )
+    assert admission.accepted is True
+    assert admission.bindings == (OutputEvidenceBinding("direct_assessment", ("evidence-1", "evidence-2")),)
+    assert admission == harness.admit_finish(
+        content, context=context, evidence=original, registry=registry
+    )
+    for direction in ("support", "counter"):
+        invalid = json.loads(content)
+        invalid["bindings"][0]["output_id"] = direction
+        assert harness.admit_finish(
+            json.dumps(invalid), context=context, evidence=labelled, registry=registry
+        ).accepted is False
 
 
 def test_default_govern_mode_equals_governor_decide_and_message() -> None:

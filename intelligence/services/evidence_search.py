@@ -509,6 +509,7 @@ def _project_evidence(
             independent_key=hit.file_path,
             freshness=hit.index_freshness or "unknown",
             content_hash=hit.content_hash,
+            retrieval_direction="support" if stance == "支持" else "counter",
         )
         evidence.append(
             draft

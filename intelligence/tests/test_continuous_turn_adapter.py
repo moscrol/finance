@@ -5990,9 +5990,12 @@ def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
 
 
 @pytest.mark.parametrize("persistence_failed", [False, True])
-def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed) -> None:
-    """回填只许补证据；即便候选被长度门拒绝，保存失败也必须传到产品终态。"""
+def test_backfill_turn_delivers_supported_longer_revision(
+    monkeypatch, persistence_failed
+) -> None:
+    """有据的补查长稿继续验真；正文、绑定与新增调用记录一起交付。"""
 
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "llm")
     frame = _frame()
     control = _control(frame, capabilities=("market_data",))
     context = build_episode_context(
@@ -6011,7 +6014,21 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed)
         supports=("direct_assessment",),
         independent_key="market",
     )
+    filled_evidence = AgentEvidence(
+        tool="market_data",
+        title="指数与市场宽度",
+        detail="上证指数收于3870点；上涨3200家、下跌2200家，市场涨多跌少。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="w5-claim-2",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
     draft = "我的基准判断是反弹仍可持续。若指数跌破3870点则失效。"
+    revised_draft = (
+        "上涨3200家、下跌2200家，市场涨多跌少。"
+        "上证指数收于3870点。若指数跌破3870点则失效。"
+    )
     initial_events = (
         EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
         EpisodeEvent(2, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
@@ -6030,16 +6047,27 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed)
         ),
         usage=AgentUsage(1, 1, 0),
     )
-    bloated = replace(
+    repaired = replace(
         initial,
-        draft=draft + "另外再给一个新结论。",
+        draft=revised_draft,
+        evidence=(evidence, filled_evidence),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment", ("w5-claim-1", "w5-claim-2"), ""
+            ),
+        ),
         status="failed" if persistence_failed else initial.status,
         persistence="failed" if persistence_failed else initial.persistence,
         events=(
             *initial_events,
-            EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(3, "model_turn", {"tool_calls": [{"name": "market_data"}]}),
+            EpisodeEvent(4, "tool_result", {"evidence_hashes": ["w5-claim-2"]}),
+            EpisodeEvent(5, "model_turn", {"content": revised_draft}),
         ),
+        usage=AgentUsage(3, 2, 0),
     )
+    goals = []
+    judge_requests = []
 
     class Runtime:
         def run(self, **_kwargs):
@@ -6049,8 +6077,9 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed)
             del task_frame, registry
 
             def resume(previous, goal):
-                del previous, goal
-                return bloated
+                assert previous is initial
+                goals.append(goal)
+                return repaired
 
             return CallbackEpisodeSession(
                 episode_id=context.contract.task_id,
@@ -6058,19 +6087,14 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed)
                 resume_callback=resume,
             )
 
-    class Semantic:
-        def verify(self, *, frame, structurally_verified, deadline):
-            del frame, deadline
-            return SemanticEpisodeOutcome(
-                verified=structurally_verified,
-                status="completed",
-                public_answer=structurally_verified.outcome.draft,
-                judge_status="passed",
-            )
+    def judge(request):
+        # Local judge stub controls admission only; deterministic checks stay real.
+        judge_requests.append(request)
+        return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
 
     result = ContinuousTurnAdapter(
         runtime=Runtime(),
-        semantic_verifier=Semantic(),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=judge),
         runtime_name="continuous_glm",
         mode="on",
         context_factory=lambda *_args, **_kwargs: context,
@@ -6078,14 +6102,169 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed)
         repair_seconds_cap=30.0,
     ).handle(frame=frame, control=control)
 
+    assert len(goals) == 1
+    assert goals[0].missing_evidence_modes == ("market_data",)
+    assert goals[0].remaining_calls == 1
+    artifact = result.private_artifact
+    assert artifact["outcome"]["draft"] == revised_draft
+    assert artifact["outcome"]["usage"]["llm_calls"] == 3
+    assert artifact["outcome"]["usage"]["tool_calls"] == 2
+    assert [event["sequence"] for event in artifact["events"]] == [1, 2, 3, 4, 5]
+    assert artifact["events"][-1]["payload"]["content"] == revised_draft
+    assert artifact["outcome"]["bindings"][0]["evidence_hashes"] == [
+        "w5-claim-1", "w5-claim-2"
+    ]
+    assert artifact["outcome"]["evidence"][-1]["detail"] == filled_evidence.detail
     if persistence_failed:
         assert result.status == "failed"
-        assert result.private_artifact["failure"]["type"] == "storage_failed"
-        assert result.private_artifact["outcome"]["draft"] == bloated.draft
+        assert artifact["failure"]["type"] == "storage_failed"
+        assert not judge_requests
+        assert "上涨3200家" not in result.answer
+        assert not result.citations
     else:
-        assert result.private_artifact["backfill_turns"] == 1
-        assert result.private_artifact["outcome"]["draft"] == draft
-    assert "另外再给一个新结论" not in result.answer
+        assert result.status == "completed"
+        assert result.answer == revised_draft
+        assert artifact["backfill_turns"] == 1
+        assert artifact["repair_cycles"] == 0
+        assert artifact["structural_verifier"]["verified_status"] == "completed"
+        assert artifact["semantic_verifier"]["judge_status"] == "passed"
+        assert artifact["metrics"]["provider_attempts"] == 3
+        assert artifact["metrics"]["tool_calls"] == 2
+        assert len(judge_requests) == 1
+        assert "上涨3200家" in str(judge_requests[0]["sentences"])
+        assert "指数与市场宽度" in str(result.citations)
+
+
+@pytest.mark.parametrize("numeric_mark", [False, True], ids=["delete", "mark"])
+@pytest.mark.parametrize(
+    "candidate_draft",
+    [
+        "若指数跌破3999点则失效。",
+        "上涨家数修复。上证指数收于3870点。若指数跌破3999点则失效。",
+    ],
+    ids=["shorter", "longer"],
+)
+def test_backfill_revision_still_checks_unbound_numbers_for_any_length(
+    monkeypatch, candidate_draft, numeric_mark
+) -> None:
+    """真实判官关闭路径仍识别无依据数值：短稿长稿都删除或就地标注。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+    monkeypatch.setenv("FINANCE_NUMERIC_CONDITION_MARK", "1" if numeric_mark else "0")
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-backfill-unbound-number",
+        capabilities=control.capabilities,
+        timeout=90.0,
+    )
+    context = replace(
+        context,
+        root_budget=InMemoryRootBudgetLedger(
+            episode_id=context.contract.task_id,
+            initial_calls=1,
+            hard_calls_cap=2,
+            initial_seconds=30.0,
+            hard_seconds_cap=90.0,
+        ),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场结构",
+        detail="上涨家数修复。",
+        source="本地行情",
+        source_date="2026-07-26",
+        content_hash="backfill-number-initial",
+        supports=("direct_assessment",),
+        independent_key="market",
+    )
+    filled_evidence = replace(
+        evidence,
+        detail="上涨家数修复；上证指数收于3870点。",
+        content_hash="backfill-number-filled",
+    )
+    initial = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="上涨家数修复。若指数跌破3870点则失效。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+            EpisodeEvent(2, "model_turn", {"content": "上涨家数修复。"}),
+        ),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+        ),
+        usage=AgentUsage(1, 1, 0),
+    )
+    candidate = replace(
+        initial,
+        draft=candidate_draft,
+        evidence=(evidence, filled_evidence),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (filled_evidence.content_hash,)),
+        ),
+        events=(
+            *initial.events,
+            EpisodeEvent(3, "model_turn", {"content": candidate_draft}),
+        ),
+        usage=AgentUsage(2, 2, 0),
+    )
+    goals = []
+
+    class Runtime:
+        def run(self, **_kwargs):
+            raise AssertionError("resumable runtime must not receive a second run")
+
+        def start(self, task_frame, *, context, registry):
+            del task_frame, registry
+
+            def resume(previous, goal):
+                assert previous is initial
+                goals.append(goal)
+                return candidate
+
+            return CallbackEpisodeSession(
+                episode_id=context.contract.task_id,
+                outcome=initial,
+                resume_callback=resume,
+            )
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=SemanticEpisodeVerifier(judge_fn=_raises),
+        runtime_name="continuous_glm",
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert len(goals) == 1
+    artifact = result.private_artifact
+    assert artifact["backfill_turns"] == 1
+    assert artifact["repair_cycles"] == 0
+    assert artifact["outcome"]["draft"] == candidate_draft
+    assert artifact["outcome"]["usage"]["llm_calls"] == 2
+    assert artifact["events"][-1]["payload"]["content"] == candidate_draft
+    semantic = artifact["semantic_verifier"]
+    assert semantic["judge_mode"] == "deterministic"
+    assert artifact["metrics"]["judge_usage"]["calls"] == 0
+    assert any(
+        row["decision"] == ("marked" if numeric_mark else "deleted")
+        and "3999" in row["sentence"]
+        and "novel_numeric_condition" in row["reasons"]
+        for row in semantic["sentence_verdicts"]
+    )
+    if numeric_mark:
+        # Existing default marks the threshold without downgrading product status.
+        assert result.status == "completed"
+        assert "待核：「3999点」未在证据中找到出处" in result.answer
+    else:
+        assert "3999" not in result.answer
 
 
 def _company_numeric_frame() -> TaskFrame:

@@ -41,7 +41,6 @@ from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     comparison_baseline_unsupported,
-    draft_sentence_count,
     numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
@@ -1734,8 +1733,6 @@ class ContinuousTurnAdapter:
                 draft=outcome.draft,
                 bindings=candidate.bindings or outcome.bindings,
             )
-        if draft_sentence_count(candidate.draft) > draft_sentence_count(outcome.draft):
-            return None
         verified = self._structural_verifier(context.contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
