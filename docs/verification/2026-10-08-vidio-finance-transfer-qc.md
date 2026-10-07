@@ -110,11 +110,26 @@ FWP_TEST_RECEIPT_PATH=<本轮独占收据路径> \
 
 同一锁定环境：干净基线的补写组 16P，`1a055b87` 为 9F/7P。核定义与真实调用后，只将测试夹具改成合法最小 `AnswerSpec`，不在生产添加吞缺字段的兜底；新增两个真实 registry 补写实例，验证完整镜头/共同限制送达或超预算拒发，原重新过门禁断言保留。新消费文件由 33 增至 35 例；原 33 例收据不改签。
 
-干净 `0154b06d1ed3adcdcc5236d6441155e44d4ab37c` 两文件 **51P**，独立收据 `fulfillment-fixed-code-receipt.json` 及校验日志均在新证据根；全仓 Ruff/提交门通过。进程内撤掉必需行占位，两例均红，还原后绿；首次错误量具留档，不当证据。这里只是定向追补，后续固定 HEAD 的完整门与 CI 尚待执行/回读。方案取舍、红集和完整原件指针见[CI 追补快照](../handoffs/2026-10-08-river-repair-ci-followup.md)。
+干净 `0154b06d1ed3adcdcc5236d6441155e44d4ab37c` 两文件 **51P**，独立收据 `fulfillment-fixed-code-receipt.json` 及校验日志均在新证据根；全仓 Ruff/提交门通过。进程内撤掉必需行占位，两例均红，还原后绿；首次错误量具留档，不当证据。这里只是定向追补，后续固定 HEAD 的完整门另记如下，旧定向读数不移签。方案取舍、红集和完整原件指针见[CI 追补快照](../handoffs/2026-10-08-river-repair-ci-followup.md)。
+
+### 固定 `4cdefadc1` 完整工程检查
+
+在独占净树 `4cdefadc1f4538468ea04e81253a3921b3a6dbda` 执行，而非沿用旧收据：
+
+| 检查 | 结果 / 原件（同新证据根） |
+|---|---|
+| 全仓 Ruff + pytest | **21071P / 78S / 2X / 0F / 0E**，18 warnings；`fulfillment-full-gate.log`、`fulfillment-full.xml` |
+| 全量收据 | `fulfillment-full/gate-V8uh5wnU/pytest.json`；收集21151，无关键词/标记/排除/提前停止，计数对账；`fulfillment-full-check.log` 经 `--require-full-scope --expect-revision <完整SHA> --base-drift-max 0` 通过 |
+| 前端依赖/lint/typecheck/test/build/E2E | 六步 exit 0；组件 **214P**、E2E **52P/2S**；`fulfillment-frontend/frontend.json`，首尾同SHA、干净、完整、日志哈希复核通过 |
+| 注册表四项及台账交叉校验 | 五项 exit 0；`fulfillment-registry.log`；反向台账101条存量 warning，不称无警告 |
+
+Python 由本树 `.venv-workbench/bin/python` 解析到锁定3.12.13；清洁环境、umask022。pytest 的78S与2X不是通过，18 warnings 含弃用与另一市场模型 toy 测试的数值警告，未为绿灯修改。前端本机Node26，CI Node22，不称环境完全相同。测试服务隔离用户态与部署账本，端口退出，成功后专属basetemp已清。
+
+06:41 CST回读 `4cdefadc1` 的 run `37695980107`：frontend/E2E成功，registry run `37695980295`成功，Python仍运行；**这不是远端全绿**。本节只签上述固定版本，后续文档HEAD有独立身份；最新同SHA完整收据和CI终态回读PR正文/评论，不把本节移签。
 
 ## 未验证 / 不成立的结论
 
-- 本机未跑本轮完整 pytest、前端/E2E 与注册表组合门；远端阶段观察不能改称完整本机验收或合并许可。
+- 完整工程绿灯不等于合并许可、真实模型利用或金融质量；当前版本与CI终态须逐SHA回读，跳过/预期失败不计通过。
 - 未连生产库做教学 build/reset/export，未发布任何数据包，未重启服务、切换部署或运行真实模型问题。
 - `regime_script` 是探索性函数：检查同 ID 隔离不等于日期区间/后续事实区间无重叠；标准化拟合范围、时间顺序、PIT、序列自相关仍要调用方提供证据。逐窗口置换不是时序预测有效性证明，不能把过闸写成“已找到行情规律”。
 - A 开场与 B compose 的 D10 已接镜头，但 B 的 generic owner 早退分支不走 D 块；不能称所有问答路径覆盖。教学 `tf.*`、用户判断台账、环境剧本自动命名/持久化及回检尚未接入新镜头。
@@ -127,6 +142,6 @@ FWP_TEST_RECEIPT_PATH=<本轮独占收据路径> \
 
 ## 后续
 
-1. 回读最新 PR head 的 Actions，另补本机完整工程验收；固定代码与文档收据不移签。草稿状态保留，合并须用户确认。
+1. 回读最新 PR head 的 Actions 与同SHA本机收据；`4cdefadc1` 已有本机完整工程检查，后续文档版本独立记账。草稿状态保留，合并须用户确认。
 2. 在明确授权范围内验证完整 Workbench 入口及模型实际利用；本轮只读真库和接口替身不代替真实研究质量。
 3. 先补教学特征版本/PIT、环境剧本时间合同与概念持久化，再接观察/回检；保留“不命名”的合法空结果。生产写入、部署和真实/付费模型验证分别授权。
