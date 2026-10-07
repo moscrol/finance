@@ -12,6 +12,8 @@ import type { BoardCalendar, BoardCalendarDay } from "../types";
 
 const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
 const DEFAULT_VISIBLE_STOCKS = 8;
+// 超过 5 板（即 ≥6 板）的个股是"高标"，单独用一套色相标注，避免淹没在常规米色筹码里。
+const HIGH_BOARD_THRESHOLD = 5;
 
 function monthLabel(month: string): string {
   const [year, monthNumber] = month.split("-");
@@ -85,14 +87,19 @@ function BoardGroups({
   return (
     <div className="board-calendar-groups">
       {groups.map(({ group, stocks }) => (
-        <section className="board-calendar-group" key={group.boards}>
-          <span className="board-calendar-group-title">{group.boards}板</span>
+        <section
+          className={group.boards > HIGH_BOARD_THRESHOLD ? "board-calendar-group board-calendar-group--x5" : "board-calendar-group"}
+          key={group.boards}
+        >
+          <span className={group.boards > HIGH_BOARD_THRESHOLD ? "board-calendar-group-title board-calendar-group-title--x5" : "board-calendar-group-title"}>
+            {group.boards}板
+          </span>
           <div className="board-calendar-stocks">
             {stocks.map((stock) => (
               <span
-                className="board-calendar-stock"
+                className={stock.boards > HIGH_BOARD_THRESHOLD ? "board-calendar-stock board-calendar-stock--x5" : "board-calendar-stock"}
                 key={stock.stock_ts_code || stock.stock_name}
-                title={`${stock.stock_name} · ${stock.stock_ts_code}${stock.theme ? ` · ${stock.theme}` : ""}`}
+                title={`${stock.stock_name} · ${stock.stock_ts_code}${stock.theme ? ` · ${stock.theme}` : ""}${stock.boards > HIGH_BOARD_THRESHOLD ? " · 超过 5 板高标" : ""}`}
               >
                 {group.boards}-{shortStockCode(stock.stock_ts_code)} {stock.stock_name}
               </span>
@@ -154,6 +161,22 @@ function CalendarDayCell({
                   : "暂不能确认"}
         </p>
       )}
+      {day.calendar_status === "trading" && day.high_board_breaks?.length ? (
+        <section className="board-calendar-group board-calendar-break-group" aria-label="高标断板">
+          <span className="board-calendar-group-title board-calendar-group-title--break">断板</span>
+          <div className="board-calendar-stocks">
+            {day.high_board_breaks.map((breakStock) => (
+              <span
+                key={breakStock.stock_ts_code}
+                className="board-calendar-stock board-calendar-stock--break"
+                title={`${breakStock.stock_name} · ${breakStock.stock_ts_code} · 断于 ${breakStock.height_at_break} 板${breakStock.theme ? ` · ${breakStock.theme}` : ""}`}
+              >
+                断 {breakStock.height_at_break}板 {breakStock.stock_name}
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {onOpenLadder && day.calendar_status === "trading" && (
         <button className="board-calendar-expand" type="button" onClick={() => onOpenLadder(day.date)} aria-label={`查看 ${day.date} 连板梯队`}>同日连板 ↗</button>
       )}
@@ -226,6 +249,8 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
           <h1>哪一天，哪些股走到了几板</h1>
           <p>
             标签按当日连板数展示。休市、未来日期、市场缺口和连板数据缺口分开标记；无明细不等于当日没有连板股。
+            超过 5 板的个股以 <span className="board-calendar-high-swatch">高标</span> 紫色单独标注；
+            某只 ≥5 板个股收盘不再涨停，就在当天用 <span className="board-calendar-stock board-calendar-stock--break board-calendar-legend-swatch">断板</span> 标出。
           </p>
         </div>
         <div className="board-calendar-controls">
@@ -287,6 +312,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
             <div><strong>{tradingCount}</strong><span>个交易日有市场数据</span></div>
             <div><strong>{populatedCount}</strong><span>天有达标个股</span></div>
             <div><strong>{calendar.recommended_min_boards}板</strong><span>系统建议起始门槛</span></div>
+            <div><strong>{calendar.high_board_breaks?.length ?? 0}</strong><span>次 ≥{calendar.high_board_min ?? 5}板 高标断板</span></div>
           </section>
           <div className="board-calendar-grid-scroll">
             <section className="board-calendar-grid" aria-label={`${monthLabel(month)}交易日历`}>
