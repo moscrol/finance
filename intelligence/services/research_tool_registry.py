@@ -1743,16 +1743,16 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "event_date 可以晚于信息截止日）。"
     ),
     # 依据在 ``evidence_search._project_evidence``：它把 ``conclusion`` 与
-    # ``counter_clues`` 合成同一个 evidence 列表，stance（"支持"/"反方"）**只出现在
-    # observation 文本的方括号前缀里**，AgentEvidence 对象本身不带这个字段。
-    # 模型若只从证据列表引用而不看 observation 的前缀，会把反证当成支持性证据——
-    # 这是这个工具独有的、description 完全没警告的误读。
+    # ``counter_clues`` 合成同一个 evidence 列表，逐卡 retrieval_direction 保留
+    # 实际分桶，避免 observation 截断后丢失方向。分桶本身不认证反证或绑定输出。
     # 成本那句来自 2026-08-10 实测：冷调用 28.2s，占满当时 30s 工具批次的 94%。
     "evidence_search": (
         "这是一次调用内跑 narrow→broad→counter 三轮的闭环检索，"
-        "返回的证据列表**同时包含支持与反方两类**，立场只标在观察文本的"
-        "[支持] / [反方] 前缀上，证据条目本身不带立场字段："
-        "引用前必须回观察文本核对该条属于哪一方，不要把反证当成支持性证据。"
+        "返回的证据按支持与反方两类检索方向分桶，逐卡 retrieval_direction "
+        "标明实际分桶：support=支持方向，counter=反方方向；"
+        "观察文本也保留 [支持] / [反方] 前缀。"
+        "分桶不认证独立反证、事实硬度或对某个输出的支持/矛盾；"
+        "引用时仍须根据原正文、来源与时点判断。"
         "它也是最慢的工具（实测冷调用可达 28 秒），"
         "只在确实需要反证或替代解释时用；单纯找资料用 kb_search。"
     ),

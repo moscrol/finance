@@ -31,6 +31,7 @@ import urllib.parse
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Literal
 
 from intelligence.services import (
     closed_loop_retrieval,
@@ -273,6 +274,9 @@ class AgentEvidence:
     # Stamped by the dispatch boundary from the actual runner's audited IO
     # declaration, never inferred from tool/provider names or freshness.
     io_effect: str = "unknown"
+    # Retrieval bucket only, not verified support/counterevidence or an output
+    # binding. Presentation metadata does not change evidence content identity.
+    retrieval_direction: Literal["support", "counter"] | None = None
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(

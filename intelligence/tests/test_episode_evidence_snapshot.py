@@ -58,12 +58,14 @@ def _resign(payload):
 
 
 def _legacy_payload(payload, version):
-    """Reproduce an older wire shape (v3: pre-history_provenance; v1/v2: also
-    pre-io_effect), independently of the new writer."""
+    """Reproduce old wire shapes: v4 predates retrieval direction, v3 also
+    predates history provenance, v1/v2 also predate IO provenance."""
     payload = deepcopy(payload)
     payload["schema_version"] = version
     for entry in (*payload["entries"], *payload.get("presentations", ())):
-        entry["atom"].pop("history_provenance")
+        entry["atom"].pop("retrieval_direction")
+        if version < 4:
+            entry["atom"].pop("history_provenance")
         if version < 3:
             entry["atom"].pop("io_effect")
     if version == 1:
@@ -96,6 +98,67 @@ def test_full_private_roundtrip_keeps_atoms_coverage_owners_and_distinct_citatio
     assert len(ledger.items()) == 2  # not an alias of the source ledger
 
 
+@pytest.mark.parametrize("direction", [None, "support", "counter"])
+def test_retrieval_direction_checkpoint_preserves_original_identity_and_targets(direction):
+    original = _atom(contradicts=(), derived_from=())
+    labelled = replace(original, retrieval_direction=direction)
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    ledger.append(labelled)
+    payload = snapshots.capture_evidence_snapshot(
+        episode_id="episode", ledger=ledger, presented_evidence=(labelled,),
+    )
+
+    assert payload["schema_version"] == 5
+    assert payload["entries"][0]["atom"]["retrieval_direction"] == direction
+    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
+    snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+    assert restored.items() == snapshot.presented_evidence == (labelled,)
+    assert snapshot.to_dict() == payload
+    assert snapshot.presented_evidence[0].to_observation("E1") == original.to_observation("E1")
+    assert resolve_evidence_refs(["E1"], snapshot.presented_evidence) == ("provider-identity",)
+    assert restored.snapshot().evidence_targets == (("provider-identity", ("direct",)),)
+
+
+@pytest.mark.parametrize("location", ["entries", "presentations"])
+@pytest.mark.parametrize("direction", [False, 1, [], {}, "", "conclusion", "support "])
+def test_checkpoint_rejects_invalid_retrieval_directions(location, direction):
+    _, _, payload = _fixture()
+    payload[location][0]["atom"]["retrieval_direction"] = direction
+    _resign(payload)
+    with pytest.raises(ValueError, match="invalid evidence retrieval direction"):
+        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+
+
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
+@pytest.mark.parametrize("direction", ["support", "counter"])
+def test_nonempty_retrieval_direction_cannot_be_silently_exported_to_old_versions(version, direction):
+    atom = _atom(retrieval_direction=direction)
+    ledger = EvidenceLedger()
+    ledger.append(atom)
+    payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(atom,))
+    snapshot = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+    with pytest.raises(ValueError, match="cannot preserve retrieval direction"):
+        replace(snapshot, schema_version=version).to_dict()
+
+
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
+@pytest.mark.parametrize("field", ["retrieval_direction", "unknown_field"])
+def test_old_snapshot_schema_does_not_acquire_new_fields_by_default(version, field):
+    _, _, payload = _fixture()
+    old = _legacy_payload(payload, version)
+    old["entries"][0]["atom"][field] = None
+    _resign(old)
+    with pytest.raises(ValueError, match="atom fields are incomplete or unknown"):
+        snapshots.EpisodeEvidenceSnapshot.from_dict(old, episode_id="episode")
+
+
+def test_snapshot_digest_binds_retrieval_direction_without_changing_content_hash():
+    _, _, payload = _fixture()
+    payload["presentations"][0]["atom"]["retrieval_direction"] = "counter"
+    with pytest.raises(ValueError, match="digest mismatch"):
+        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+
+
 def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
     _, presented, payload = _fixture()
     restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
@@ -112,7 +175,7 @@ def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
 
 
 @pytest.mark.parametrize(("path", "value"), [
-    (("schema_version",), True), (("schema_version",), 5), (("kind",), "public_evidence"),
+    (("schema_version",), True), (("schema_version",), 6), (("kind",), "public_evidence"),
     # A partial or non-record provenance must not restore as an ordinary card.
     (("entries", 0, "atom", "history_provenance"), {"query_id": "forged"}),
     (("entries", 0, "atom", "history_provenance"), "run/history-query-forged.json"),
@@ -154,6 +217,7 @@ def test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest(p
     ("entries", 0, "atom", "observations"), ("entries", 0, "atom", "source_date"),
     ("entries", 0, "atom", "derived_from"), ("entries", 0, "atom", "internal_locator"),
     ("entries", 0, "atom", "history_provenance"),
+    ("entries", 0, "atom", "retrieval_direction"),
 ])
 def test_missing_fields_are_not_filled_from_public_projection_or_defaults(path):
     _, _, payload = _fixture()
