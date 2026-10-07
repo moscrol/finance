@@ -43,7 +43,10 @@ _TOTAL_DATASETS = frozenset(_TOTAL_FIELDS)
 _IDENTITY = ("tool", "title", "detail", "source", "source_date", "independent_key", "evidence_tier")
 _DATE = re.compile(r"(?<!\d)(?:(?P<year>20\d{2})-)?(?P<month>\d{1,2})[-/](?P<day>\d{1,2})(?!\d)")
 _CLAUSE = re.compile(r"[，,。；;！？!?]|但是|然而|不过|而是|但|却|——")
-_NONASSERTED_PREFIX = re.compile(r"不能|无法|不足以|不等于|未能|并非|不是|尚未|并未|未做|没有|并无|未见|缺少|可能|假设|待验证|仍需|需要|是否|若|如果")
+_NONASSERTED_PREFIX = re.compile(
+    r"不能|无法|不足以|不等于|不直接(?:认证|说明|意味着|代表)|"
+    r"未能|并非|不是|尚未|并未|未做|没有|并无|未见|缺少|可能|假设|待验证|仍需|需要|是否|若|如果"
+)
 _REPORTED_QUOTE = re.compile(
     r'(?:旧稿|原文|作者|评论员|他人)(?:中)?(?:称|说|写道|认为)\s*(?:“[^”]*”|「[^」]*」|"[^"]*")'
 )

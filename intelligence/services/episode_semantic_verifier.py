@@ -5788,6 +5788,7 @@ def _novel_numeric_condition_tokens(
         if text in historical or index in memory_restatements:
             continue
         candidate = _mask_market_ratio_definition(text, verified)
+        candidate = _mask_bound_query_provenance(candidate, verified)
         candidate = _mask_bound_short_date_heading(candidate, verified.outcome)
         candidate = _mask_cited_short_dates(candidate, verified.outcome)
         # References remain in the draft for citation validation, but their
@@ -5877,6 +5878,7 @@ def _novel_numeric_condition_tokens(
             for quantity in quantities
             if _normalize_quantity(quantity)
             and _normalize_quantity(quantity) not in question_quantities
+            and not _cited_historical_count_supported(text, quantity, verified)
             and not _quantity_supported_by_evidence(
                 quantity,
                 evidence_quantities,
@@ -5891,12 +5893,175 @@ def _novel_numeric_condition_tokens(
     return unsupported
 
 
+_HISTORICAL_OBSERVATION_RE = re.compile(
+    r"曾|历史(?:上|读数|记录)?|过去|此前|当时|截至|记录为|观测到|当日读数"
+)
+_FORWARD_CONDITION_PREFIX_RE = re.compile(
+    r"若|如果|持续|延续|改判|触发|跌破|站稳|至少|超过|低于|高于"
+)
+
+
+def _cited_historical_count_supported(
+    sentence: str, quantity: str, verified: VerifiedEpisodeOutcome,
+) -> bool:
+    """Match a historical count to its cited, bound market count field."""
+
+    if not cited_evidence_ordinals(sentence) or not _HISTORICAL_OBSERVATION_RE.search(sentence):
+        return False
+    parsed = _parse_quantity(_normalize_quantity(quantity))
+    if parsed is None or parsed[1] != "家" or len(parsed[0]) != 1:
+        return False
+    compact_quantity = re.sub(r"\s+", "", str(quantity))
+    position = sentence.find(compact_quantity)
+    if position < 0:
+        position = sentence.find(str(quantity).strip())
+    prefix = sentence[:position] if position >= 0 else sentence
+    if _FORWARD_CONDITION_PREFIX_RE.search(prefix):
+        return False
+    allowed = _shared_required_evidence_hashes(verified, sentence)
+    by_id = _evidence_by_ordinal(verified.outcome)
+    return any(
+        row is not None and row.content_hash in allowed
+        and row.tool == "finance_query" and row.independent_key.startswith("duckdb:market_daily:")
+        and row.content_hash == evidence_content_hash(row)
+        and any(float(match[1]) == parsed[0][0] for match in re.finditer(
+            r"(?:^|[；;])(?:涨停|跌停|上涨|下跌)家数=(\d+)(?=$|[；;])", row.detail,
+        ))
+        for ordinal in cited_evidence_ordinals(sentence)
+        for row in (by_id.get(ordinal),)
+    )
+
+
+def _shared_required_evidence_hashes(
+    verified: VerifiedEpisodeOutcome, text: str,
+) -> set[str]:
+    """Metadata exemptions require all mandatory evidence slots to bind the row."""
+
+    if verified.contract is None:
+        return set()
+    bindings = {binding.output_id: binding for binding in verified.outcome.bindings}
+    pools = [
+        set(binding.evidence_hashes) if (binding := bindings.get(spec.output_id))
+        and not binding.gap and binding.basis == "evidence" else set()
+        for spec in verified.contract.required_outputs
+        if spec.required and spec.grounding_mode == "evidence"
+    ]
+    if not pools:
+        return set()
+    allowed = set.intersection(*pools)
+    by_id = _evidence_by_ordinal(verified.outcome)
+    cited = cited_evidence_ordinals(text)
+    if any(ordinal not in by_id for ordinal in cited):
+        return set()
+    if cited:
+        allowed.intersection_update(by_id[ordinal].content_hash for ordinal in cited)
+    return allowed
+
+
 _MARKET_RATIO_EXPLANATION_RE = re.compile(
     r"量比\s*(?P<value>\d+(?:\.\d+)?)\s*[%％]\s*[（(]\s*"
     r"(?P<relation>低于|高于|等于)\s*100\s*[%％]\s*[，,]\s*"
     r"即成交额(?P=relation)\s*20\s*日均额(?:水平)?\s*[）)]"
 )
+_MARKET_RATIO_NATURAL_DEFINITION_RE = re.compile(
+    r"量比\s*(?:是|为)\s*成交额\s*(?:相对|相对于)\s*20\s*日均额\s*的\s*"
+    r"(?:百分数|百分比|比例)"
+    r"(?:\s*[，,、；;]\s*(?:因此|所以)\s*这里?表示成交额"
+    r"(?P<relation>低于|高于|等于)\s*20\s*日均额(?:水平)?)?"
+)
 _MARKET_RATIO_FIELD_RE = re.compile(r"(?:^|[；;])量比%=([0-9]+(?:\.[0-9]+)?)(?=$|[；;])")
+
+
+_QUERY_PROVENANCE_RE = re.compile(
+    r"热度查询筛选涨停家数至少\s*(?P<minimum>\d+)\s*家，"
+    r"按家数降序返回\s*(?P<limit>\d+)\s*条记录"
+)
+
+
+def _bound_query_provenance_pairs(
+    verified: VerifiedEpisodeOutcome, text: str,
+) -> frozenset[tuple[str, str]]:
+    """Return numbers explicitly carried by a trusted finance-query receipt.
+
+    Query filters and row limits describe the slice that was executed. They
+    are provenance, not market observations and must never be merged into the
+    general evidence quantity pool (otherwise a ``50`` row limit could
+    authorize a 50-day forecast). The caller only uses these values for the
+    narrowly shaped provenance sentence below.
+    """
+
+    outcome = verified.outcome
+    values: set[tuple[str, str]] = set()
+    allowed = _shared_required_evidence_hashes(verified, text)
+    identity = ("tool", "title", "detail", "source", "source_date", "independent_key")
+    actual = {row.content_hash: row for row in outcome.evidence
+              if row.content_hash in allowed and row.tool == "finance_query"
+              and row.independent_key.startswith("duckdb:theme_limit_heat_daily:")
+              and row.content_hash == evidence_content_hash(row)}
+    for event in outcome.events:
+        payload = event.payload
+        basis = payload.get("query_basis")
+        if not (
+            event.kind == "tool_result"
+            and payload.get("ok") is True
+            and payload.get("tool") == "finance_query"
+            and payload.get("task_frame_hash") == outcome.task_frame_hash
+            and isinstance(basis, Mapping)
+            and basis.get("dataset") == "theme_limit_heat_daily"
+            and isinstance(basis.get("filters"), (list, tuple))
+            and basis.get("group_by") in ([], ())
+            and isinstance(basis.get("order_by"), (list, tuple))
+            and len(basis["order_by"]) == 1
+            and isinstance(basis["order_by"][0], Mapping)
+            and basis["order_by"][0].get("field") == "limit_up_count"
+            and basis["order_by"][0].get("direction") == "desc"
+            and isinstance(payload.get("evidence"), (list, tuple))
+            and isinstance(payload.get("evidence_hashes"), (list, tuple))
+        ):
+            continue
+        if not any(
+            isinstance(emitted, Mapping) and isinstance(emitted.get("content_hash"), str)
+            and (row := actual.get(emitted["content_hash"])) is not None
+            and row.content_hash in payload["evidence_hashes"]
+            and all(emitted.get(key) == getattr(row, key) for key in identity)
+            for emitted in payload["evidence"]
+        ):
+            continue
+        returned = basis.get("returned_row_count")
+        limit = basis.get("applied_limit")
+        if type(returned) is not int or type(limit) is not int or not 0 <= returned <= limit:
+            continue
+        for item in basis["filters"]:
+            if not isinstance(item, Mapping) or item.get("field") != "limit_up_count" or item.get("op") != "gte":
+                continue
+            value = item.get("value")
+            if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+                continue
+            token = _normalize_quantity(str(value))
+            if token and re.fullmatch(r"[+-]?\d+(?:\.\d+)?", token):
+                values.add((token, str(returned)))
+    return frozenset(values)
+
+
+def _mask_bound_query_provenance(text: str, verified: VerifiedEpisodeOutcome) -> str:
+    """Mask only the frozen, executed D4 query-scope wording.
+
+    This keeps the filter and limit visible to the reader while preventing the
+    condition scanner from treating query metadata as a forward threshold.
+    The shape is deliberately narrow; arbitrary prose containing ``至少`` or
+    ``返回`` still goes through the ordinary numeric gate.
+    """
+
+    authorized = _bound_query_provenance_pairs(verified, text)
+    if not authorized:
+        return text
+
+    def replace_provenance(match: re.Match[str]) -> str:
+        if (match["minimum"], match["limit"]) not in authorized:
+            return match.group(0)
+        return re.sub(r"\d", " ", match.group(0))
+
+    return _QUERY_PROVENANCE_RE.sub(replace_provenance, text)
 
 
 def _mask_market_ratio_definition(text: str, verified: VerifiedEpisodeOutcome) -> str:
@@ -5908,7 +6073,13 @@ def _mask_market_ratio_definition(text: str, verified: VerifiedEpisodeOutcome) -
     Explicit citations additionally narrow that intersection. This conservative
     recognition does not assert that the rest of the sentence is sound.
     """
-    if not _MARKET_RATIO_EXPLANATION_RE.search(text) or verified.contract is None:
+    if (
+        not (
+            _MARKET_RATIO_EXPLANATION_RE.search(text)
+            or _MARKET_RATIO_NATURAL_DEFINITION_RE.search(text)
+        )
+        or verified.contract is None
+    ):
         return text
     bindings = {binding.output_id: binding for binding in verified.outcome.bindings}
     required = [spec for spec in verified.contract.required_outputs
@@ -5970,6 +6141,8 @@ def _mask_market_ratio_definition(text: str, verified: VerifiedEpisodeOutcome) -
             ):
                 definition_hashes.add(digest)
     rows = [rows_by_hash[digest] for digest in definition_hashes]
+    if not rows:
+        return text
 
     def replace_definition(match: re.Match[str]) -> str:
         value = Decimal(match.group("value"))
@@ -5984,7 +6157,26 @@ def _mask_market_ratio_definition(text: str, verified: VerifiedEpisodeOutcome) -
         # Leave the actually observed value visible to all existing checks.
         return f"量比{match.group('value')}%（相对均额的定义比较）"
 
-    return _MARKET_RATIO_EXPLANATION_RE.sub(replace_definition, text)
+    projected = _MARKET_RATIO_EXPLANATION_RE.sub(replace_definition, text)
+
+    def replace_natural_definition(match: re.Match[str]) -> str:
+        relation = match.group("relation")
+        if relation is not None:
+            values = [
+                Decimal(field.group(1))
+                for row in rows
+                if (field := _MARKET_RATIO_FIELD_RE.search(row.detail)) is not None
+            ]
+            if not values or any(
+                (value < 100 and relation != "低于")
+                or (value > 100 and relation != "高于")
+                or (value == 100 and relation != "等于")
+                for value in values
+            ):
+                return match.group(0)
+        return "量比（相对均额的定义比较）"
+
+    return _MARKET_RATIO_NATURAL_DEFINITION_RE.sub(replace_natural_definition, projected)
 
 
 def _question_quantities(contract: object) -> frozenset[str]:

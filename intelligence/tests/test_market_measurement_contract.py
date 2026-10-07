@@ -52,8 +52,8 @@ def market_root(tmp_path: Path) -> Path:
             trade_date DATE, leader_name VARCHAR, height INTEGER, fd_amount DOUBLE)""")
         con.execute("INSERT INTO fact_leader_height_daily VALUES ('2026-07-22', '甲股', 5, 23686.2996)")
         con.execute("""CREATE TABLE fact_global_index_daily (
-            trade_date DATE, source_trade_date DATE, code VARCHAR, pct_chg DOUBLE)""")
-        con.execute("INSERT INTO fact_global_index_daily VALUES ('2026-07-22', '2026-07-22', 'IXIC', 0.6214)")
+            trade_date DATE, source_trade_date DATE, code VARCHAR, close DOUBLE, pct_chg DOUBLE)""")
+        con.execute("INSERT INTO fact_global_index_daily VALUES ('2026-07-22', '2026-07-22', 'IXIC', 100, 0.6214)")
     return tmp_path
 
 

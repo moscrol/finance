@@ -171,6 +171,12 @@ def test_hypotheses_boundaries_and_useful_analysis_survive(claim):
     assert claim in _result(frame, verified).public_answer
 
 
+def test_local_negation_of_a_mechanism_is_not_a_mechanism_claim():
+    claim = "增加只表明跌停数量上升，不直接认证恐慌或风险出清状态。"
+    _, verified = _case(SAFE + "\n" + claim)
+    assert _findings(verified) == ()
+
+
 @pytest.mark.parametrize("payload_patch", [
     {"ok": False}, {"task_frame_hash": "other-task"}, {"tool": "memory_lookup"},
     {"query_basis": None}, {"query_basis": {"dataset": "market_daily", "group_by": ["trade_date"]}},
@@ -249,6 +255,108 @@ def test_evidence_threshold_needs_revision_not_just_a_doubt_suffix():
     assert "risk_signals" in result.repair_output_ids
     assert "risk_signals" in result.verified.missing_outputs
     assert SAFE in result.public_answer
+
+
+def test_historical_count_keeps_its_evidence_unit_but_forward_window_stays_unsupported():
+    historical = "**风险信号与观察条件**\n07-20曾达212家（E3），但这是历史读数，不是未来必须达到的风险阈值。"
+    _, verified = _case(historical)
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    ) == {}
+
+    forward = "**风险信号与观察条件**\n若缩量持续212天则改判（E3）。"
+    _, verified = _case(forward)
+    missing = verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
+    assert [token for values in missing.values() for token in values] == ["212天"]
+
+
+@pytest.mark.parametrize("claim", [
+    "07-20曾达999家（E3），但这是历史读数，不是未来必须达到的风险阈值。",
+    "07-20曾达212家（E1），但这是历史读数，不是未来必须达到的风险阈值。",
+    "07-20曾持续212天（E3），但这是历史读数，不是未来必须达到的风险阈值。",
+])
+def test_historical_wording_still_requires_the_cited_field_and_unit(claim):
+    _, verified = _case("**风险信号与观察条件**\n" + claim)
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
+
+
+PROVENANCE = "热度查询筛选涨停家数至少2家，按家数降序返回50条记录，未统计候选全集。"
+
+
+def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=None):
+    _, verified = _case(draft)
+    event = verified.outcome.events[-1]
+    row = replace(verified.outcome.evidence[0],
+                  independent_key="duckdb:theme_limit_heat_daily:2026-07-22",
+                  detail="板块名称=甲；涨停家数=6")
+    row = replace(row, content_hash=evidence_content_hash(row))
+    basis = {
+        "dataset": "theme_limit_heat_daily",
+        "metrics": ["limit_up_count"],
+        "dimensions": ["sector_name", "sector_code", "scope", "dimension"],
+        "filters": [{"field": "limit_up_count", "op": "gte", "value": 2}],
+        "group_by": [],
+        "order_by": [{"field": "limit_up_count", "direction": "desc"}],
+        "applied_limit": 50,
+        "returned_row_count": 50,
+        **(basis_override or {}),
+    }
+    verified = replace(verified, outcome=replace(
+        verified.outcome,
+        evidence=(row,),
+        bindings=tuple(replace(binding, evidence_hashes=(row.content_hash,))
+                       for binding in verified.outcome.bindings),
+        events=(*verified.outcome.events[:-1], replace(
+            event, payload={**event.payload, "query_basis": basis,
+                            "evidence": [public_agent_evidence(row)],
+                            "evidence_hashes": [row.content_hash], **(payload_override or {})},
+        )),
+    ))
+    return verified
+
+
+def test_query_provenance_filter_and_limit_are_not_new_risk_thresholds():
+    verified = _provenance_case()
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    ) == {}
+
+    # A naked risk window with the same numbers must remain a finding.
+    verified = _provenance_case("**风险信号与观察条件**\n若缩量持续50天则改判。")
+    missing = verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
+    assert [token for values in missing.values() for token in values] == ["50天"]
+
+
+@pytest.mark.parametrize("override", [
+    {"dataset": "market_daily"}, {"order_by": []}, {"group_by": ["trade_date"]},
+    {"filters": [{"field": "amount", "op": "gte", "value": 2}]},
+    {"filters": [{"field": "limit_up_count", "op": "lte", "value": 2}]},
+    {"filters": [{"field": "limit_up_count", "op": "gte", "value": 3}]},
+    {"returned_row_count": 5},
+])
+def test_query_provenance_must_match_the_executed_field_operator_and_count(override):
+    verified = _provenance_case(basis_override=override)
+    missing = verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
+    assert "2家" in [token for values in missing.values() for token in values]
+
+
+@pytest.mark.parametrize("override", [
+    {"ok": False}, {"task_frame_hash": "another-task"}, {"evidence": []},
+    {"evidence_hashes": ["unbound"]},
+])
+def test_query_provenance_needs_a_bound_matching_event(override):
+    verified = _provenance_case(payload_override=override)
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
 
 
 def test_a_threshold_in_another_slots_observation_cannot_authorize_risk():

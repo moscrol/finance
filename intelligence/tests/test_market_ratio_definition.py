@@ -59,6 +59,21 @@ def test_known_ratio_definition_is_not_a_new_observation(draft):
     assert _missing(_case(draft)) == (["30天"] if "30天" in draft else [])
 
 
+def test_natural_ratio_definition_is_not_a_new_observation():
+    draft = "量比是成交额相对20日均额的百分数，因此这里表示成交额低于20日均额（E1）。"
+    assert _missing(_case(draft)) == []
+
+
+def test_natural_ratio_definition_with_wrong_metric_keeps_the_lookback_mark():
+    draft = "量比是成交额相对20日均额的百分数，因此这里表示涨幅低于20日均额（E1）。"
+    assert _missing(_case(draft)) == ["20日"]
+
+
+def test_natural_definition_cannot_borrow_a_wrong_event():
+    draft = "量比是成交额相对20日均额的百分数，因此这里表示成交额低于20日均额（E1）。"
+    assert _missing(_case(draft, payload_override={"evidence_hashes": ["unbound"]})) == ["20日", "20日"]
+
+
 @pytest.mark.parametrize("override", [
     {"dataset": "stock_daily"}, {"metrics": ["total_amount"]},
     {"group_by": ["trade_date"]}, {"interpretation_note": "附近有20日和100%"},
