@@ -9,6 +9,7 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
+from intelligence.services.teaching_framework.pit_identity import first_known_at as pit_first_known_at
 from intelligence.services.methodology_backtest.store import open_labels_db
 
 BUILT_AT = datetime(2026, 9, 7, 15, 0, 0)
@@ -16,8 +17,20 @@ FW = "tf-v0.2+test"
 STOCK_NAMES = ("甲甲股份", "乙乙科技", "丙丙电子", "己己新材", "庚庚生物", "子子精密", "丑丑通信", "寅寅汽车")
 
 
-def _label(day: str, label: str, num=None, text=None):
-    return ("market", "market", date.fromisoformat(day), label, num, text, "v-test", FW, "ok", None, BUILT_AT)
+def _label(day: str, label: str, num=None, text=None, entity=("market", "market")):
+    """一行教学标签。
+
+    ``first_known_at`` 按 ``pit_identity`` 的真实判据来（而不是一律写 BUILT_AT）：
+    有前缀一致性证据的标签盖**交易日收盘**，其余盖构建时刻。夹具因此能照实反映
+    「哪些标签在历史切片上看得见、哪些看不见」，不用手工维护两套时间。
+    """
+
+    trade_date = date.fromisoformat(day)
+    known = pit_first_known_at(
+        label=label, entity_type=entity[0], entity_id=entity[1], trade_date=trade_date,
+        value_num=num, value_text=text, previous={}, build_time=BUILT_AT,
+    )
+    return (entity[0], entity[1], trade_date, label, num, text, "v-test", FW, "ok", None, BUILT_AT, known)
 
 
 def build_sidecar(path: Path) -> Path:
@@ -60,14 +73,14 @@ def build_sidecar(path: Path) -> Path:
         rows += [_label(day, "src.sh_index_close", num=3400.0 - 12.5 * i), _label(day, "src.sh_deviation_pct", num=1.0 - 0.4 * i)]
         if day != "2026-01-12":  # 01-12 的这两条已经在上面
             rows += [_label(day, "tf.above_week_ma", num=1 if i < 5 else 0), _label(day, "tf.stage_coarse", text="高位震荡" if i < 5 else "左底向下")]
-    con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
+    con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
     # 02-06 没有叙事读数：两个源各自的缺口行（卖方断更、当日没有晨汇；河对象把原因挂到阶段对象上，带读要说清）。
     con.executemany(
         "INSERT INTO history_teaching_gaps (trade_date, gap_kind, missing_cols, framework_version, status, status_reason, computed_at) VALUES (?, ?, NULL, ?, 'gap', ?, ?)",
         [(date(2026, 2, 6), "tf.narrative_events", FW, "narrative_stale", BUILT_AT), (date(2026, 2, 6), "tf.briefing_tier1_items", FW, "briefing_absent_day", BUILT_AT),
          (date(2026, 1, 12), "tf.briefing_market_confirmed", FW, "briefing_no_market_input", BUILT_AT)],
     )
-    con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [_label("2026-02-06", "tf.stage_coarse", text="左底向下")])
+    con.executemany("INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [_label("2026-02-06", "tf.stage_coarse", text="左底向下")])
     con.executemany(
         """INSERT INTO history_dynasties (wave_idx, rank, wave_start, peak_end, collapse_start, collapse_end, wave_status, stock_ts_code,
            stock_name, wave_gain_pct, sw_l1, max_boards, form, collapse_ret_pct, collapse_max_dd_pct, framework_version, computed_at)

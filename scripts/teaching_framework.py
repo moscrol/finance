@@ -23,8 +23,10 @@ from intelligence.services.methodology_backtest.labels import (  # noqa: E402
     LABEL_VERSION,
 )
 from intelligence.services.methodology_backtest.store import (  # noqa: E402
+    TEACHING_TABLES,
     check_teaching_schema,
     default_labels_db_path,
+    reset_teaching_tables,
     open_labels_db,
 )
 from intelligence.services.river_query import cohort_compare, normalize_stage  # noqa: E402
@@ -49,6 +51,10 @@ from intelligence.services.teaching_framework.readouts import (  # noqa: E402
     receipt_summary,
     stage_handoff_readouts,
     succession_diagnostics,
+)
+from intelligence.services.teaching_framework.pit_identity import (  # noqa: E402
+    first_known_at as pit_first_known_at,
+    previous_first_known,
 )
 from intelligence.services.teaching_framework.receipts import (  # noqa: E402
     canonical_rows_hash,
@@ -822,6 +828,41 @@ def cmd_calibrate_stages(args: argparse.Namespace) -> int:
     return 0
 
 
+#: 标签行的元组布局（三个写入点共用）。``_stamp_first_known`` 按这些下标取值。
+_ROW_ENTITY_TYPE, _ROW_ENTITY_ID, _ROW_TRADE_DATE, _ROW_LABEL = 0, 1, 2, 3
+_ROW_VALUE_NUM, _ROW_VALUE_TEXT = 4, 5
+
+
+def _stamp_first_known(
+    rows: list[tuple[Any, ...]],
+    previous: Mapping[Any, tuple[Any, Any, Any]],
+    build_time: datetime,
+) -> list[tuple[Any, ...]]:
+    """给每行补上 ``first_known_at``（追加为最后一列）。
+
+    ``computed_at`` 回答不了「那天是否已知」——重建会把它整列刷成今天。判据见
+    ``teaching_framework/pit_identity.py``：有前缀一致性证据的标签盖交易日收盘，
+    其余在内容未变时沿用上一次的戳记。``previous`` 必须在 DELETE **之前**读好。
+    """
+
+    return [
+        (
+            *row,
+            pit_first_known_at(
+                label=str(row[_ROW_LABEL]),
+                entity_type=str(row[_ROW_ENTITY_TYPE]),
+                entity_id=str(row[_ROW_ENTITY_ID]),
+                trade_date=row[_ROW_TRADE_DATE],
+                value_num=row[_ROW_VALUE_NUM],
+                value_text=row[_ROW_VALUE_TEXT],
+                previous=previous,
+                build_time=build_time,
+            ),
+        )
+        for row in rows
+    ]
+
+
 def _bulk_insert_labels(side: duckdb.DuckDBPyConnection, rows: list[tuple[Any, ...]]) -> None:
     """Insert label rows through a temporary CSV + COPY: ~2M sector rows a day-by-day INSERT would take minutes."""
     import csv
@@ -835,11 +876,11 @@ def _bulk_insert_labels(side: duckdb.DuckDBPyConnection, rows: list[tuple[Any, .
     try:
         side.execute(
             """INSERT INTO history_teaching_labels
-               (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at)
+               (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at, first_known_at)
                SELECT * FROM read_csv(?, header=false, nullstr='', columns={
                  'entity_type':'VARCHAR','entity_id':'VARCHAR','trade_date':'DATE','label':'VARCHAR','value_num':'DOUBLE',
                  'value_text':'VARCHAR','label_version':'VARCHAR','framework_version':'VARCHAR','status':'VARCHAR',
-                 'status_reason':'VARCHAR','computed_at':'TIMESTAMP'})""",
+                 'status_reason':'VARCHAR','computed_at':'TIMESTAMP','first_known_at':'TIMESTAMP'})""",
             [tmp_path],
         )
     finally:
@@ -918,8 +959,10 @@ def cmd_build_sector_roles(args: argparse.Namespace) -> int:
     try:
         # 只动自己的标签：板块层的结构事件（tf.macd_*，build-structure 所有）与角色标签同住 entity_type = 'sector'。
         own_labels = ", ".join(repr(f"tf.{x}") for x in SECTOR_LABELS)
+        # DELETE 之前把旧戳记读出来：这正是原来每次重建都把 first_known_at 丢掉的地方。
+        previous = previous_first_known(side, where=f"entity_type = 'sector' AND label IN ({own_labels})")
         side.execute(f"DELETE FROM history_teaching_labels WHERE entity_type = 'sector' AND label IN ({own_labels})")
-        _bulk_insert_labels(side, rows)
+        _bulk_insert_labels(side, _stamp_first_known(rows, previous, build_time))
         canonical = canonical_rows_hash(
             side, table="history_teaching_labels", primary_key=("entity_type", "entity_id", "trade_date", "label"),
             where=f"entity_type = 'sector' AND label IN ({own_labels})",
@@ -992,21 +1035,26 @@ def cmd_build_labels(args: argparse.Namespace) -> int:
     readouts["teaching_sources"] = teaching_sources
     side = _open_sidecar_for_write(labels_path)
     try:
+        previous = previous_first_known(side, where="entity_type = 'market'")
         side.execute("DELETE FROM history_teaching_labels WHERE entity_type = 'market'")
         side.execute("DELETE FROM history_teaching_gaps")
         side.executemany(
             """INSERT INTO history_teaching_labels
                (entity_type, entity_id, trade_date, label, value_num, value_text,
-                label_version, framework_version, status, status_reason, computed_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [
-                (
-                    row["entity_type"], row["entity_id"], row["trade_date"], row["label"],
-                    row["value_num"], row["value_text"], LABEL_VERSION, row["label_version"],
-                    "ok", None, build_time.replace(tzinfo=None),
-                )
-                for row in label_rows
-            ],
+                label_version, framework_version, status, status_reason, computed_at, first_known_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            _stamp_first_known(
+                [
+                    (
+                        row["entity_type"], row["entity_id"], row["trade_date"], row["label"],
+                        row["value_num"], row["value_text"], LABEL_VERSION, row["label_version"],
+                        "ok", None, build_time.replace(tzinfo=None),
+                    )
+                    for row in label_rows
+                ],
+                previous,
+                build_time,
+            ),
         )
         if gap_rows:
             side.executemany(
@@ -1335,7 +1383,13 @@ def _series_on_calendar(
 ) -> dict[str, tuple[str, list[float | None], list[str | None]]]:
     """按 key_col 拼到全局日历上，逐日记下当天的 id_col（板块宇宙切换后代码会换，序列按名字接、代码按天取）。
 
-    板块没有收盘价，用 ∏(1 + pct_chg) 从 100 起造合成点位（缺一天少乘一天，与 river_query 同一坑，缺天处留 None）。
+    ``cumulative_pct=True`` 时用 ∏(1 + pct_chg) 从 100 起造合成点位（缺一天少乘一天，与 river_query
+    同一坑，缺天处留 None）。``False`` 时直接取 ``value_col`` 的真实价。
+
+    ⚠ 本函数**不决定**用哪种，由调用方按数据源传参。板块曾经只能走合成（旁路库的
+    ``SECTOR_PX_VIEW`` 回退分支把 close 写死成 NULL），接上 ``fact_sector_kline_daily``
+    的真 OHLC 之后走 ``cumulative_pct=False``——见 ``cmd_build_structure`` 的
+    ``sector_px_is_real`` 分支。别再默认「板块＝合成」。
     """
     idx = {d: i for i, d in enumerate(calendar)}
     out: dict[str, tuple[str, list[float | None], list[str | None]]] = {}
@@ -1373,18 +1427,46 @@ def cmd_build_structure(args: argparse.Namespace) -> int:
     sp = structure_params(params)
     source_path = Path(args.db_path).expanduser()
     labels_path = Path(args.labels_db).expanduser()
-    source = duckdb.connect(str(source_path), read_only=True)
+    # 走 _open_source（= attach_teaching_sources）而不是裸 connect。这条命令原先两个
+    # 视图都绕过，直读 fact_sector_daily / fact_stock_daily：板块侧只有 pct_chg，于是
+    # 用 ∏(1+pct) 合成点位去算背离，而真点位 fact_sector_kline_daily 早已入库、视图
+    # 也早已建好，只是没人走。个股侧同理，裸表是多来源拼接、没有统一复权。
+    # 视图自带回退：hithink 表缺席时 sector_px 退回 fact_sector_daily 的合成口径，
+    # STOCK_VIEW 退回 fact_stock_daily，行为与改之前一致。
+    source, teaching_sources = _open_source(source_path)
     try:
         _, dates = _load_market(source)
         calendar = [str(d)[:10] for d in dates]
-        sectors = _rows(source, "SELECT trade_date, sector_ts_code, sector_name, pct_chg FROM fact_sector_daily WHERE pct_chg IS NOT NULL AND pct_chg > -100 ORDER BY sector_name, trade_date, sector_ts_code")
-        stocks = _rows(source, "SELECT trade_date, stock_ts_code, rtrim(replace(stock_name, chr(0), '')) AS stock_name, close FROM fact_stock_daily WHERE close IS NOT NULL AND close > 0 ORDER BY stock_ts_code, trade_date")
+        # 真收盘 vs 合成点位：显式二选一，不靠 close 是否为 NULL 去猜。
+        # sector_px 退回 fact_sector_daily 时 close 整列是 NULL（视图里写死的），
+        # 若只读 close 就会静默得到 0 条板块序列——比合成点位更糟。
+        sector_px_is_real = teaching_sources.get("sector_px") == "fact_sector_kline_daily"
+        if sector_px_is_real:
+            sectors = _rows(source, f"""
+                SELECT trade_date, sector_ts_code,
+                       COALESCE(sector_name, sector_ts_code) AS sector_name,
+                       close AS series_value
+                FROM {SECTOR_PX_VIEW}
+                WHERE close IS NOT NULL AND close > 0
+                ORDER BY sector_name, trade_date, sector_ts_code""")
+        else:
+            sectors = _rows(source, f"""
+                SELECT trade_date, sector_ts_code,
+                       COALESCE(sector_name, sector_ts_code) AS sector_name,
+                       pct_chg AS series_value
+                FROM {SECTOR_PX_VIEW}
+                WHERE pct_chg IS NOT NULL AND pct_chg > -100
+                ORDER BY sector_name, trade_date, sector_ts_code""")
+        stocks = _rows(source, f"SELECT trade_date, stock_ts_code, rtrim(replace(stock_name, chr(0), '')) AS stock_name, close FROM {STOCK_VIEW} WHERE close IS NOT NULL AND close > 0 ORDER BY stock_ts_code, trade_date")
         source_counts = _source_counts(source)
     finally:
         source.close()
     ts = build_time.replace(tzinfo=None)
-    # 板块按名字接序列：2026-07-27 宇宙快照切换后 630 个 .TI 代码换成 403 个 .FP 代码，按代码算每条只剩 28 天、全被 120 天门槛挡掉。
-    sector_series = _series_on_calendar(sectors, calendar, key_col="sector_name", id_col="sector_ts_code", name_col="sector_name", value_col="pct_chg", cumulative_pct=True)
+    # 板块仍按名字接序列：2026-07-27 宇宙快照切换后 630 个 .TI 代码换成 403 个 .FP 代码，
+    # 按代码算每条只剩 28 天、全被 120 天门槛挡掉。目录缺失导致 sector_name 为 NULL 时
+    # COALESCE 回落到代码——宁可少接一段，也不要把两个不同板块并成一条序列。
+    # 拿到真收盘价时关掉 cumulative_pct：不需要也不应该再合成。
+    sector_series = _series_on_calendar(sectors, calendar, key_col="sector_name", id_col="sector_ts_code", name_col="sector_name", value_col="series_value", cumulative_pct=not sector_px_is_real)
     stock_series = _series_on_calendar(stocks, calendar, key_col="stock_ts_code", id_col="stock_ts_code", name_col="stock_name", value_col="close", cumulative_pct=False)
     spliced = sum(1 for _, _, ids in sector_series.values() if len({x for x in ids if x is not None}) > 1)
     sector_rows = _structure_event_rows("sector", sector_series, calendar, fw=fw, ts=ts, **sp)
@@ -1392,15 +1474,20 @@ def cmd_build_structure(args: argparse.Namespace) -> int:
     side = _open_sidecar_for_write(labels_path)
     try:
         placeholders = ", ".join("?" for _ in STRUCTURE_ENTITY_LABELS)
+        previous = previous_first_known(
+            side,
+            where=f"entity_type IN ('sector', 'stock') AND label IN ({placeholders})",
+            params=list(STRUCTURE_ENTITY_LABELS),
+        )
         for entity_type in ("sector", "stock"):
             side.execute(f"DELETE FROM history_teaching_labels WHERE entity_type = ? AND label IN ({placeholders})", [entity_type, *STRUCTURE_ENTITY_LABELS])
         all_rows = sector_rows + stock_rows
         if all_rows:
             side.executemany(
                 """INSERT INTO history_teaching_labels
-                   (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                all_rows,
+                   (entity_type, entity_id, trade_date, label, value_num, value_text, label_version, framework_version, status, status_reason, computed_at, first_known_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                _stamp_first_known(all_rows, previous, build_time),
             )
         hashes = {
             et: canonical_rows_hash(
@@ -1418,11 +1505,16 @@ def cmd_build_structure(args: argparse.Namespace) -> int:
             for et in ("sector", "stock")
         }
         readouts = {
-            "definition": f"收盘摆动低点（前后各 {sp['swing_k']} 天唯一最低）上的 DIF 背离：两低 = 观察、三低 = 确认、{sp['fail_horizon']} 日内收盘跌破锚点低点 = 失效；顶背离 = DIF 两高（两极值相隔 ≤ {sp['lookback']} 日）。板块按名字接序列、用 ∏(1+pct_chg) 合成点位，entity_id 取事件日当天代码。事件不是买卖点。",
+            "definition": f"收盘摆动低点（前后各 {sp['swing_k']} 天唯一最低）上的 DIF 背离：两低 = 观察、三低 = 确认、{sp['fail_horizon']} 日内收盘跌破锚点低点 = 失效；顶背离 = DIF 两高（两极值相隔 ≤ {sp['lookback']} 日）。板块按名字接序列，点位{'取 ' + str(teaching_sources.get('sector_px')) + ' 的真实收盘价' if sector_px_is_real else '由 ∏(1+pct_chg) 合成（' + str(teaching_sources.get('sector_px')) + ' 没有收盘价列）'}，entity_id 取事件日当天代码。事件不是买卖点。",
             "params": sp,
             "entities": {"sector": len(sector_series), "stock": len(stock_series)},
             "sector_series_spliced_across_codes": spliced,
             "event_rows": counts,
+            "sector_price_is_real_close": sector_px_is_real,
+            # 换源可审计：背离算在哪一份价格序列上，收据里要能直接看出来。
+            # sector_px = fact_sector_kline_daily 是真收盘；退回 fact_sector_daily 则是
+            # ∏(1+pct_chg) 合成点位——同样的标签名，两种完全不同的输入。
+            "teaching_sources": teaching_sources,
         }
         receipt = make_receipt(
             build_kind="structure_events", framework_version=fw, label_version=LABEL_VERSION,
@@ -1773,6 +1865,68 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reset_teaching(args: argparse.Namespace) -> int:
+    """重建 10 张教学表，**保留 legacy 表**。
+
+    为什么需要这个：教学表的 DDL 变了（例如加 ``first_known_at``）之后，
+    ``ensure_schema`` 里全是 ``CREATE TABLE IF NOT EXISTS``，不会改已存在的表；
+    于是 ``check_teaching_schema`` 报不一致，``_open_sidecar_for_write`` fail-closed
+    中止所有构建。原来的提示是「请删除后重跑」——但同一个文件里还住着 legacy 的
+    ``history_calendar`` / ``history_labels``（实测 273 MB），删文件会把它们一起删掉。
+
+    教学表是可丢弃的：内容全部可由 ``build-*`` 从主库重算。legacy 表不是。
+    """
+
+    labels_path = Path(args.labels_db or default_labels_db_path(args.db_path)).expanduser()
+    if not labels_path.is_file():
+        print(json.dumps({"labels_db": str(labels_path), "status": "absent",
+                          "note": "库还不存在，直接跑 build-* 即可"}, ensure_ascii=False))
+        return 0
+    side = open_labels_db(labels_path, read_only=False)
+    try:
+        before = {}
+        for name in TEACHING_TABLES:
+            try:
+                before[name] = int(side.execute(f"SELECT count(*) FROM {name}").fetchone()[0])
+            except duckdb.Error:
+                before[name] = None
+        legacy_before = {}
+        for name in ("history_calendar", "history_labels", "history_data_gaps", "history_outcomes"):
+            try:
+                legacy_before[name] = int(side.execute(f"SELECT count(*) FROM {name}").fetchone()[0])
+            except duckdb.Error:
+                legacy_before[name] = None
+        total = sum(v for v in before.values() if v)
+        if total and not args.yes:
+            print(json.dumps({
+                "status": "refused", "teaching_rows": before,
+                "note": f"教学表里有 {total} 行，重建会丢掉。它们可由 build-* 重算；确认请加 --yes",
+            }, ensure_ascii=False, indent=2))
+            return 1
+        reset_teaching_tables(side)
+        legacy_after = {}
+        for name, n in legacy_before.items():
+            try:
+                legacy_after[name] = int(side.execute(f"SELECT count(*) FROM {name}").fetchone()[0])
+            except duckdb.Error:
+                legacy_after[name] = None
+        problems = check_teaching_schema(side)
+    finally:
+        side.close()
+    out = {
+        "status": "ok" if not problems else "schema_still_stale",
+        "labels_db": str(labels_path),
+        "teaching_rows_dropped": {k: v for k, v in before.items() if v},
+        "legacy_rows_before": legacy_before,
+        "legacy_rows_after": legacy_after,
+        "legacy_untouched": legacy_before == legacy_after,
+        "remaining_schema_problems": problems,
+        "next": "跑 build-labels / build-sector-roles / build-structure 等重新填教学表",
+    }
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    return 0 if not problems else 1
+
+
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Teaching framework slice 1")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -1789,6 +1943,14 @@ def parser() -> argparse.ArgumentParser:
         if name == "build-labels":
             p.add_argument("--kb-wiki", default=None, help="知识库 wiki 目录（消息面：卖方观点事件 → tf.narrative_* 市场级读数）；不给则这些读数记缺口 narrative_source_absent")
         p.set_defaults(func=func)
+    p = sub.add_parser(
+        "reset-teaching",
+        help="只重建 10 张教学表（legacy 表原样保留）；schema 变更后跑这个，不要删整个旁路库文件",
+    )
+    p.add_argument("--labels-db", default=None)
+    p.add_argument("--db-path", default="db/market_feature_store.duckdb")
+    p.add_argument("--yes", action="store_true", help="确认：会丢掉教学表里现有的行（它们可由 build-* 重算）")
+    p.set_defaults(func=cmd_reset_teaching)
     p = sub.add_parser("report")
     p.add_argument("--labels-db", default=None)
     p.set_defaults(func=cmd_report)

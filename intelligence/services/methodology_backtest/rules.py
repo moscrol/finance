@@ -86,6 +86,68 @@ OPS_BY_KIND: dict[str, tuple[str, ...]] = {
     "num": ("==", "!=", ">", ">=", "<", "<=", "in", "not_in"),
     "text": ("==", "!=", "in", "not_in"),
 }
+
+
+# --------------------------------------------------------------------------- #
+# 文本标签的取值域
+#
+# 为什么必须有这一层：文本谓词此前只过字符白名单（不许有 SQL 味），**不查值在不在词表里**。
+# 于是 ``{"label": "lifecycle_stage", "op": "in", "value": ["主升段"]}`` 编译通过、运行零报错、
+# 永远命中 0 天——而「条件从未成立」与「条件今天没成立」在读数上长得一模一样。
+# 这和 derive_streak 对分类标签返回 longest=0 是同一个形状的错：一个看着完全合理的空结果。
+#
+# 两类标签要分开对待，不能一刀切成有限枚举：
+# --------------------------------------------------------------------------- #
+
+def _closed_text_domains() -> dict[str, tuple[str, ...]]:
+    """**本仓自己派生**的文本标签 → 封闭词表。值不在里面就是 bug，可以直接拒。
+
+    词表从各自的 SSOT 现取，不在这里抄第二份——抄一份就等着两边漂移。
+    """
+    from intelligence.services.opinion_stage import STAGES as _OPINION_STAGES
+    from intelligence.services.theme_stage_vocab import CANONICAL_STAGES as _LIFECYCLE_STAGES
+
+    return {
+        # derive_stage 的五段，外加「命中过研报但近 90 日为 0」的 unverifiable。
+        "opinion_stage": (*_OPINION_STAGES, "unverifiable"),
+        # theme_stage_vocab 钦定的七段（八阶段已降为读法层别名，不再是标签值）。
+        "lifecycle_stage": tuple(_LIFECYCLE_STAGES),
+    }
+
+
+# **上游供应商拥有**取值的文本标签：不得声明有限枚举。
+# market_stage 的值来自 fact_market_daily，normalize_market_stage 的 docstring 明写
+# 「the suffix rule is intentionally data-driven rather than a finite alias list so a newly
+# introduced upstream stage gets the same canonical treatment」——硬编一张表会在供应商
+# 新增一个段位时把合法条件判成非法，比漏判更糟。
+#
+# 但有一件事与枚举无关、且一定能查：**值必须已经是归一形式**。绑定层返回的是
+# normalize_market_stage(原值)，所以写成「主升阶段」的条件对着「主升」永远不命中。
+# 这正是 river_derive 自己在注释里点名过的坑。判据是 normalize(v) == v，不需要任何词表。
+OPEN_TEXT_LABELS: tuple[str, ...] = ("market_stage",)
+
+
+def text_domain_error(label: str, value: str) -> str | None:
+    """文本谓词的取值检查。返回 None = 通过，否则返回要报给用户的那句话。"""
+    closed = _closed_text_domains()
+    if label in closed:
+        if value in closed[label]:
+            return None
+        return (
+            f"{value!r} 不在 {label} 的词表里；合法取值：{list(closed[label])}。"
+            " 这个条件即便登记成功也永远不会命中，而「从未成立」与「今天没成立」在读数上长得一样。"
+        )
+    if label in OPEN_TEXT_LABELS:
+        from intelligence.services.market_stage import normalize_market_stage
+
+        canonical = normalize_market_stage(value)
+        if canonical != value:
+            return (
+                f"{value!r} 不是归一形式，绑定层给出的是 {canonical!r}，这个条件永远不会命中。"
+                f" 请写 {canonical!r}。（{label} 的取值由上游供应商决定，本仓不声明有限词表，"
+                " 只检查归一形式。）"
+            )
+    return None
 SET_OPS = ("in", "not_in")
 SUCCESS_OPS = (">", ">=", "<", "<=")
 METRICS = ("fwd_return", "max_return", "days_to_peak", "drawdown_after_peak")
@@ -211,7 +273,7 @@ def _unknown_keys(doc: dict[str, Any], allowed: set[str], path: str, errors: lis
         errors.append(RuleError(f"{path}.{key}" if path else key, "未知字段（白名单外的键一律拒绝）"))
 
 
-def _check_text_value(v: Any, path: str, errors: list[RuleError]) -> bool:
+def _check_text_value(v: Any, path: str, errors: list[RuleError], label: str | None = None) -> bool:
     if not isinstance(v, str):
         errors.append(RuleError(path, f"文本标签的值必须是字符串，得到 {type(v).__name__}"))
         return False
@@ -220,6 +282,12 @@ def _check_text_value(v: Any, path: str, errors: list[RuleError]) -> bool:
             RuleError(path, f"文本值 {v!r} 含白名单外字符（只允许字母数字下划线/中文/·/-；不接受任何 SQL 片段）")
         )
         return False
+    # 字符合法 ≠ 取值合法。不查这一层，写错一个词会得到一条永不命中的规则且全程零报错。
+    if label is not None:
+        msg = text_domain_error(label, v)
+        if msg is not None:
+            errors.append(RuleError(path, msg))
+            return False
     return True
 
 
@@ -267,7 +335,7 @@ def _validate_predicate(doc: Any, path: str, errors: list[RuleError]) -> Predica
         for i, item in enumerate(raw_value):
             item_path = f"{path}.value[{i}]"
             if kind == "text":
-                if not _check_text_value(item, item_path, errors):
+                if not _check_text_value(item, item_path, errors, label=label):
                     return None
                 items.append(item)
             else:
@@ -287,7 +355,7 @@ def _validate_predicate(doc: Any, path: str, errors: list[RuleError]) -> Predica
             return None
         value = float(raw_value)
     else:
-        if not _check_text_value(raw_value, f"{path}.value", errors):
+        if not _check_text_value(raw_value, f"{path}.value", errors, label=label):
             return None
         value = raw_value
     return Predicate(label=label, op=op, value=value, lag=int(lag), entity_type=entity, kind=kind)

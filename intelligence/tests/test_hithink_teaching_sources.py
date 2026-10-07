@@ -249,3 +249,102 @@ def test_auction_zt_is_snapshot_intersect_yesterday_limit(tmp_path: Path) -> Non
     assert ("2026-01-06", "OLD") not in rows
     assert rows[("2026-01-07", "OLD")] == 2.0
     con.close()
+
+
+# --- build-structure 的数据源：背离到底算在哪份价格序列上 -------------------
+#
+# 这条命令原先两个视图都绕过，直读 fact_sector_daily（只有 pct_chg，于是用
+# ∏(1+pct_chg) 合成点位）和 fact_stock_daily（多来源拼接、无统一复权），
+# 而真点位 fact_sector_kline_daily 早已入库、视图也早已建好，只是没人走。
+
+
+def _structure_fixture(path: Path, *, with_kline: bool) -> None:
+    """一个够跑 build-structure 的最小主库。
+
+    关键点：板块的 pct_chg 与真收盘**故意不自洽**——真收盘单调上行，而 pct_chg 全是 0。
+    这样只要看产出的序列是涨是平，就能分辨它读的是哪一份，不用去比对浮点数。
+    """
+
+    con = duckdb.connect(str(path))
+    days = [date(2026, 1, 5) + timedelta(days=i) for i in range(12)]
+    con.execute("CREATE TABLE fact_market_daily (trade_date DATE, sh_index_close DOUBLE)")
+    con.executemany("INSERT INTO fact_market_daily VALUES (?, ?)", [(d, 3000.0) for d in days])
+    con.execute("CREATE TABLE fact_sector_daily (trade_date DATE, sector_ts_code VARCHAR, sector_name VARCHAR, pct_chg DOUBLE, amount DOUBLE)")
+    con.executemany(
+        "INSERT INTO fact_sector_daily VALUES (?, ?, ?, ?, ?)",
+        [(d, "801080.TI", "电子", 0.0, 5.0) for d in days],
+    )
+    con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR, close DOUBLE, high DOUBLE, amount DOUBLE, pct_chg DOUBLE)")
+    con.executemany(
+        "INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(d, "X", "x", 10.0, 11.0, 3.0, 0.0) for d in days],
+    )
+    if with_kline:
+        con.execute("CREATE TABLE fact_sector_kline_daily (trade_date DATE, sector_ts_code VARCHAR, close DOUBLE, high DOUBLE, low DOUBLE, turnover DOUBLE)")
+        con.executemany(
+            "INSERT INTO fact_sector_kline_daily VALUES (?, ?, ?, ?, ?, ?)",
+            [(d, "801080.TI", 1000.0 + 10 * i, 1001.0 + 10 * i, 999.0 + 10 * i, 5e8) for i, d in enumerate(days)],
+        )
+    con.close()
+
+
+@pytest.mark.parametrize("with_kline, expect_real", [(True, True), (False, False)])
+def test_build_structure_reads_real_sector_close_when_available(
+    tmp_path: Path, with_kline: bool, expect_real: bool
+) -> None:
+    """有真 K 线就走真收盘；没有就退回合成点位，行为与改之前一致。"""
+
+    path = tmp_path / f"src-{with_kline}.duckdb"
+    _structure_fixture(path, with_kline=with_kline)
+    source, used = _open_source(path)
+    try:
+        assert used["sector_px"] == ("fact_sector_kline_daily" if with_kline else "fact_sector_daily")
+        rows = source.execute(
+            f"SELECT close FROM {SECTOR_PX_VIEW} ORDER BY trade_date"
+        ).fetchall()
+        if expect_real:
+            closes = [r[0] for r in rows]
+            assert closes == sorted(closes) and closes[0] != closes[-1], (
+                "真 K 线在库里却没拿到单调上行的收盘价 —— 说明还在读合成点位"
+            )
+        else:
+            assert all(r[0] is None for r in rows), (
+                "回退分支的 close 本就是 NULL；若这里不是 NULL，说明视图语义变了，"
+                "build-structure 里那个显式二选一的判断就不再安全"
+            )
+    finally:
+        source.close()
+
+
+def test_structure_receipt_says_which_price_series_was_used(tmp_path: Path) -> None:
+    """收据必须能直接看出背离算在真价还是合成点位上。
+
+    同一个标签名、两种完全不同的输入 —— 看不出来就等于不知道这批读数是什么意思。
+    """
+
+    import json
+
+    from scripts.teaching_framework import main as tf_main
+
+    for with_kline in (True, False):
+        src = tmp_path / f"r-{with_kline}.duckdb"
+        side = tmp_path / f"side-{with_kline}.duckdb"
+        _structure_fixture(src, with_kline=with_kline)
+        import contextlib
+        import io
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = tf_main(["build-structure", "--db-path", str(src), "--labels-db", str(side),
+                          "--computed-at", "2026-09-08T00:00:00Z"])
+        assert rc == 0
+        out = json.loads(buf.getvalue())
+        readouts = out["readouts"]
+        assert readouts["sector_price_is_real_close"] is with_kline
+        assert readouts["teaching_sources"]["sector_px"] == (
+            "fact_sector_kline_daily" if with_kline else "fact_sector_daily"
+        )
+        if with_kline:
+            assert "真实收盘价" in readouts["definition"]
+        else:
+            assert "合成" in readouts["definition"]
