@@ -500,7 +500,15 @@ def _structured_freshness_floor(
     snapshot_date = _iso_date(context.latest_data_date)
     if snapshot_date is None:
         return None
-    return min(snapshot_date, context.information_cutoff.as_of_date)
+    return min(snapshot_date, _structured_target_bound(context))
+
+
+def _structured_target_bound(context: ResearchRunContext) -> date:
+    cutoff = context.information_cutoff.as_of_date
+    temporal = context.temporal_contract
+    if temporal is not None and temporal.market_target is not None:
+        cutoff = min(cutoff, date.fromisoformat(temporal.market_target.end))
+    return cutoff
 
 
 def _should_attach_overnight_leaders(
@@ -574,15 +582,11 @@ def _overnight_news_evidence(
     else:
         cutoff_text = str(as_of)[:10]
     after_cutoff = bool(not result.items and result.after_cutoff_items)
-    source_items = result.items[:6] or result.after_cutoff_items[:6]
+    source_items = result.items[:6]
     evidence = [
         agent_research.AgentEvidence(
             tool="news_search",
-            title=(
-                f"晚于问句日 {cutoff_text}｜{item.title}"
-                if after_cutoff and cutoff_text
-                else item.title
-            ),
+            title=item.title,
             detail=f"{item.date} {item.source}",
             source=item.url,
             source_date=item.date[:10] or None,
@@ -595,12 +599,8 @@ def _overnight_news_evidence(
         replace(item, content_hash=agent_research.evidence_content_hash(item))
         for item in evidence
     ]
-    if after_cutoff and cutoff_text and evidence:
-        listed = "；".join(f"{item.detail}《{item.title}》" for item in evidence)
-        observation = (
-            f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_text}，"
-            f"已标注后交付；不是源里没有。{listed}"
-        )
+    if after_cutoff and cutoff_text:
+        observation = "已检索但内容晚于信息截止日，未交付；不是源里没有。"
     else:
         observation = "；".join(
             f"{item.detail}《{item.title}》" for item in evidence
@@ -618,7 +618,7 @@ def _structured_as_of(context: ResearchRunContext) -> str:
     floor = _structured_freshness_floor(context)
     if floor is not None:
         return floor.isoformat()
-    return context.information_cutoff.as_of_date.isoformat()
+    return _structured_target_bound(context).isoformat()
 
 
 def _is_current_query_stale(

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from functools import partial
 import json
 import re
@@ -1252,6 +1252,8 @@ class ResearchToolRegistry:
         """
 
         spec = self.resolve(name)
+        if context.temporal_contract is not None and context.temporal_contract.errors:
+            raise ValueError("temporal clarification required before research tools")
         denial = self.authorization_denial(spec, context)
         if denial:
             # 错误契约保持不变（仍抛 UnknownResearchTool、消息逐字不变）：
@@ -1396,6 +1398,26 @@ class ResearchToolRegistry:
                     if parsed_trade_date is not None
                     else None
                 )
+            evidence, rejected = closed_loop_retrieval.filter_future_dated(
+                evidence,
+                information_cutoff=effective_context.information_cutoff,
+                date_getter=lambda item: item.source_date,
+            )
+            trace_trade_date = closed_loop_retrieval.parse_source_date(
+                trace.source_trade_date
+            )
+            if (
+                trace_trade_date is not None
+                and trace_trade_date
+                > effective_context.information_cutoff.as_of_date
+            ):
+                undated = [item for item in evidence if closed_loop_retrieval.parse_source_date(item.source_date) is None]
+                rejected.extend(undated)
+                evidence = [item for item in evidence if closed_loop_retrieval.parse_source_date(item.source_date) is not None]
+            undated_future = bool(
+                not evidence and trace_trade_date is not None
+                and trace_trade_date > effective_context.information_cutoff.as_of_date
+            )
             history = effective_context.history_intent
             if history is not None and history.strict_window and spec.name not in {
                 "history_query", "read_history_result", "save_history_research",
@@ -1423,76 +1445,17 @@ class ResearchToolRegistry:
                     gaps = (*gaps, "未取得历史授权范围内可交付的有日期材料；越界或日期未知内容未交付")
                     evidence = kept
                     observation = "；".join(f"{item.title}：{item.detail}" for item in kept) or gaps[-1]
-            evidence, rejected = closed_loop_retrieval.filter_future_dated(
-                evidence,
-                information_cutoff=effective_context.information_cutoff,
-                date_getter=lambda item: item.source_date,
-            )
-            trace_trade_date = closed_loop_retrieval.parse_source_date(
-                trace.source_trade_date
-            )
-            if (
-                trace_trade_date is not None
-                and trace_trade_date
-                > effective_context.information_cutoff.as_of_date
-                and evidence
-                and not any(item.source_date for item in evidence)
-            ):
-                rejected.extend(evidence)
-                evidence = []
-            if (
-                history is not None and not evidence and trace_trade_date is not None
-                and trace_trade_date > effective_context.information_cutoff.as_of_date
-            ):
-                observation = "源已检索但日期晚于信息截止日，未交付内容；不是源里没有。"
-                gaps = (*gaps, observation)
             remaining_after_cutoff_filter = list(evidence)
-            if rejected:
-                cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
-                if remaining_after_cutoff_filter:
-                    observation = (
-                        "；".join(
-                            f"{item.title}：{item.detail[:80]}"
-                            for item in remaining_after_cutoff_filter
-                        )
-                        or observation
-                    )
-                elif history is not None:
-                    # Explicit history research is not a latest-news request.
-                    # A warning label cannot grant permission to consume future facts.
-                    observation = "已取得材料但全部晚于信息截止日，未交付内容；不是源里没有。"
-                    gaps = (*gaps, observation)
-                else:
-                    # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
-                    evidence = [
-                        replace(
-                            item,
-                            title=(
-                                item.title
-                                if "晚于问句日" in item.title
-                                else f"晚于问句日 {cutoff_iso}｜{item.title}"
-                            ),
-                            detail=(
-                                f"{item.detail}（晚于问句日 {cutoff_iso}，不是源里没有）"
-                            ),
-                            content_hash="",
-                        )
-                        for item in rejected
-                    ]
-                    evidence = [
-                        replace(
-                            item,
-                            content_hash=agent_research.evidence_content_hash(item),
-                        )
-                        for item in evidence
-                    ]
-                    listed = "；".join(
-                        f"{item.title}：{item.detail[:80]}" for item in evidence
-                    )
-                    observation = (
-                        f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_iso}，"
-                        f"已标注后交付；不是源里没有。{listed}"
-                    )
+            withheld = bool(rejected) or undated_future
+            withheld_count = len(rejected) or (trace.result_count if undated_future else 0)
+            if withheld:
+                # A warning is not permission, in any research mode. Rebuild
+                # mixed observations only from eligible dated cards.
+                observation = "；".join(f"{item.title}：{item.detail}" for item in evidence)
+                notice = "已检索但内容晚于信息截止日，未交付；不是源里没有。"
+                if not evidence:
+                    observation = notice
+                gaps = (notice,)
             # Render only the explicit trusted control channel after fact gates.
             # Never restore the original prose when its evidence was withheld.
             if run_result.diagnostics:
@@ -1514,12 +1477,12 @@ class ResearchToolRegistry:
                 trace,
                 status=(
                     "future_of_cutoff"
-                    if rejected and not remaining_after_cutoff_filter
+                    if withheld and not remaining_after_cutoff_filter
                     else trace.status
                 ),
                 detail=(
-                    f"{trace.detail}; future_of_cutoff={len(rejected)}".strip("; ")
-                    if rejected
+                    f"{trace.detail}; future_of_cutoff={withheld_count}".strip("; ")
+                    if withheld
                     else trace.detail
                 ),
                 result_count=len(evidence),
@@ -1538,6 +1501,15 @@ class ResearchToolRegistry:
             if spec.name == "kb_search":
                 # 按 cutoff/规范化之后的实际送达计，不写死 800；V3 改管道读数跟上。
                 telemetry = agent_research.kb_delivery_telemetry(evidence, observation)
+            if withheld:
+                telemetry["temporal_withheld"] = {
+                    "evidence": [asdict(item) for item in rejected],
+                    "observation": run_result.observation,
+                    "query_basis": run_result.query_basis,
+                    "gaps": list(run_result.gaps),
+                    "source_trade_date": trace.source_trade_date,
+                    "count": withheld_count,
+                }
             _remember_authorized_trade_dates(context, evidence)
             if scope is not None:
                 emitted = {
@@ -1557,7 +1529,7 @@ class ResearchToolRegistry:
                 }
                 if telemetry:
                     emitted["telemetry"] = telemetry
-                if run_result.query_basis:
+                if run_result.query_basis and not withheld:
                     emitted["query_basis"] = run_result.query_basis
                 scope.emit(TOOL_RESULT, emitted)
             return ToolObservation(
@@ -1573,7 +1545,7 @@ class ResearchToolRegistry:
                 payload_field_names=run_result.payload_field_names,
                 payload_sha256=run_result.payload_sha256,
                 telemetry=telemetry,
-                query_basis=run_result.query_basis,
+                query_basis={} if withheld else run_result.query_basis,
             )
 
         ledger_call = partial(
