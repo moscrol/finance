@@ -47,7 +47,7 @@ or output_id in frame.required_outputs
 ## 3. 验证、评审与交接
 
 - [x] `git diff --check` 与 `.venv-workbench/bin/python -m ruff check .`。
-- [ ] pathspec 提交本次文件；在干净固定提交跑 `scripts/run_main_gate.sh`，显式 basetemp，收据根置于 `.finance-runtime/answer-quality-closeout-1007/`。
-- [ ] 用 `scripts/check_test_receipt.py <本轮收据> --require-full-scope` 自证全量；原件与代码 SHA 单独记录。
-- [ ] code-review 的 Standards / Spec 两轴审阅本次固定提交及设计，处理可复现缺陷。
+- [x] pathspec 提交本次文件；在干净固定提交跑 `scripts/run_main_gate.sh`，显式 basetemp，收据根置于 `.finance-runtime/answer-quality-closeout-1007/`。
+- [x] 用 `scripts/check_test_receipt.py <本轮收据> --require-full-scope` 自证全量；原件与代码 SHA 单独记录。
+- [x] code-review 的 Standards / Spec 两轴审阅本次固定提交及设计，处理可复现缺陷。
 - [ ] 按实际动作更新 #66 主交接和日期快照，普通推送原 PR；CI 绑定最新准确 SHA。主干合入、生产切换与正式盲评仍按各自授权执行。
