@@ -5933,13 +5933,17 @@ def _cited_historical_count_supported(
         end = occurrence.end() + end_match.start() if end_match else len(sentence)
         local = sentence[start:end]
         fields = set(re.findall(r"涨停|跌停|上涨|下跌", local))
+        if not fields:
+            # An omitted field after a comma may inherit an explicit subject,
+            # never whichever unrelated count happens to have the same value.
+            fields = set(re.findall(r"涨停|跌停|上涨|下跌", sentence))
         if len(fields) > 1:
             return False
-        # The last preceding date also covers "07-20，跌停曾达212家".
-        dates = tuple(_HISTORICAL_COUNT_DATE_RE.finditer(prefix))[-1:]
-        dates += tuple(_HISTORICAL_COUNT_DATE_RE.finditer(sentence[occurrence.end():end]))
+        # With no machine-owned count→date coordinate, inconsistent dates in
+        # the sentence cannot be silently reassigned across punctuation.
+        dates = tuple(_HISTORICAL_COUNT_DATE_RE.finditer(sentence))
         supported = False
-        for row, basis in rows:
+        for row, basis, _payload in rows:
             try:
                 day = date.fromisoformat(row.source_date)
             except (TypeError, ValueError):
@@ -5996,7 +6000,7 @@ def _shared_required_evidence_hashes(
 
 def _trusted_query_evidence_rows(
     verified: VerifiedEpisodeOutcome, allowed: set[str], dataset: str,
-) -> tuple[tuple[AgentEvidence, Mapping[str, object]], ...]:
+) -> tuple[tuple[AgentEvidence, Mapping[str, object], Mapping[str, object]], ...]:
     """Match canonical bound cards to a successful same-task query event."""
 
     outcome = verified.outcome
@@ -6029,7 +6033,7 @@ def _trusted_query_evidence_rows(
             if row is not None and row.content_hash in payload["evidence_hashes"] and all(
                 emitted.get(key) == getattr(row, key) for key in identity
             ):
-                rows.append((row, basis))
+                rows.append((row, basis, payload))
     return tuple(rows)
 
 
@@ -6072,7 +6076,7 @@ def _bound_query_provenance_pairs(
     allowed = _shared_required_evidence_hashes(
         verified, text, output_ids=frozenset({"direct_assessment", "supporting_evidence"}),
     )
-    for _row, basis in _trusted_query_evidence_rows(verified, allowed, "theme_limit_heat_daily"):
+    for _row, basis, payload in _trusted_query_evidence_rows(verified, allowed, "theme_limit_heat_daily"):
         if not (
             isinstance(basis.get("filters"), (list, tuple))
             and isinstance(basis.get("order_by"), (list, tuple))
@@ -6085,6 +6089,27 @@ def _bound_query_provenance_pairs(
         returned = basis.get("returned_row_count")
         limit = basis.get("applied_limit")
         if type(returned) is not int or type(limit) is not int or not 0 <= returned <= limit:
+            continue
+        # The producer emits one card per raw, ungrouped heat row. Check the
+        # complete event list, not the (possibly smaller) signed support set.
+        emitted_rows = payload["evidence"]
+        emitted_hashes = payload["evidence_hashes"]
+        if len(emitted_rows) != returned or len(emitted_hashes) != returned:
+            continue
+        hashes = [item.get("content_hash") if isinstance(item, Mapping) else None for item in emitted_rows]
+        if (any(not isinstance(digest, str) for digest in hashes)
+                or any(not isinstance(digest, str) for digest in emitted_hashes)
+                or len(set(hashes)) != returned or set(hashes) != set(emitted_hashes)):
+            continue
+        # Rows dropped by admission/cutoff no longer prove the producer's full
+        # returned count. Canonical identity must still exist for every row.
+        all_cards = {row.content_hash: row for row in verified.outcome.evidence
+                     if row.tool == "finance_query" and row.independent_key.startswith("duckdb:theme_limit_heat_daily:")
+                     and row.content_hash == evidence_content_hash(row)}
+        identity = ("tool", "title", "detail", "source", "source_date", "independent_key")
+        if any((row := all_cards.get(item["content_hash"])) is None
+               or any(item.get(key) != getattr(row, key) for key in identity)
+               for item in emitted_rows):
             continue
         for item in basis["filters"]:
             if not isinstance(item, Mapping) or item.get("field") != "limit_up_count" or item.get("op") != "gte":

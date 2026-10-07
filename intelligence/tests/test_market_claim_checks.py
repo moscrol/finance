@@ -281,6 +281,8 @@ def test_historical_count_keeps_its_evidence_unit_but_forward_window_stays_unsup
     "2025-07-20曾跌停212家（E3），这是历史读数。",
     "历史跌停212家出现在07-22（E3）。",
     "07-20曾跌停212家，但07-22曾涨停212家（E3）。",
+    "历史涨停家数在07-20出现峰值，当时为212家（E3）。",
+    "历史跌停212家（E3），发生在07-22。",
 ])
 def test_historical_wording_still_requires_the_cited_field_and_unit(claim):
     _, verified = _case("**条件**\n" + claim)
@@ -320,6 +322,10 @@ def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=
                   independent_key="duckdb:theme_limit_heat_daily:2026-07-22",
                   detail="板块名称=甲；涨停家数=6")
     row = replace(row, content_hash=evidence_content_hash(row))
+    heat_rows = tuple(replace(row, title=f"题材热度 {index}", detail=f"板块名称=甲{index}；涨停家数=6",
+                              content_hash="") for index in range(50))
+    heat_rows = tuple(replace(card, content_hash=evidence_content_hash(card)) for card in heat_rows)
+    row = heat_rows[0]
     basis = {
         "dataset": "theme_limit_heat_daily",
         "metrics": ["limit_up_count"],
@@ -333,7 +339,7 @@ def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=
     }
     verified = replace(verified, outcome=replace(
         verified.outcome,
-        evidence=(row, market) if heterogeneous_bindings else (row,),
+        evidence=(*heat_rows, market) if heterogeneous_bindings else heat_rows,
         bindings=tuple(replace(binding, evidence_hashes=(market.content_hash,)
                                if heterogeneous_bindings and binding.output_id == "risk_signals"
                                else (row.content_hash, market.content_hash)
@@ -341,8 +347,8 @@ def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=
                        for binding in verified.outcome.bindings),
         events=(*verified.outcome.events[:-1], replace(
             event, payload={**event.payload, "query_basis": basis,
-                            "evidence": [public_agent_evidence(row)],
-                            "evidence_hashes": [row.content_hash], **(payload_override or {})},
+                            "evidence": [public_agent_evidence(card) for card in heat_rows],
+                            "evidence_hashes": [card.content_hash for card in heat_rows], **(payload_override or {})},
         )),
     ))
     return verified
@@ -360,7 +366,7 @@ def test_query_provenance_uses_shared_analysis_bindings_with_separate_risk_evide
 @pytest.mark.parametrize("output_id", ["direct_assessment", "supporting_evidence"])
 def test_query_provenance_cannot_borrow_a_row_absent_from_an_analysis_binding(output_id):
     verified = _provenance_case(heterogeneous_bindings=True)
-    market = verified.outcome.evidence[1]
+    market = verified.outcome.evidence[-1]
     verified = replace(verified, outcome=replace(verified.outcome, bindings=tuple(
         replace(binding, evidence_hashes=(market.content_hash,))
         if binding.output_id == output_id else binding
@@ -383,6 +389,31 @@ def test_query_provenance_filter_and_limit_are_not_new_risk_thresholds():
         verifier._numbered_sentences(verified.outcome.draft), verified,
     )
     assert [token for values in missing.values() for token in values] == ["50天"]
+
+
+@pytest.mark.parametrize("defect", ["one-card", "wrong-count", "duplicate-hash", "bad-hash", "missing-card"])
+def test_query_return_count_needs_the_full_matching_event_card_list(defect):
+    verified = _provenance_case()
+    event = verified.outcome.events[-1]
+    payload = dict(event.payload)
+    if defect == "one-card":
+        payload["evidence"] = payload["evidence"][:1]
+        payload["evidence_hashes"] = payload["evidence_hashes"][:1]
+    elif defect == "duplicate-hash":
+        payload["evidence_hashes"] = (payload["evidence_hashes"][0],) * 50
+    elif defect == "bad-hash":
+        payload["evidence_hashes"] = (*payload["evidence_hashes"][:-1], [])
+    elif defect == "wrong-count":
+        payload["query_basis"] = {**payload["query_basis"], "returned_row_count": 51, "applied_limit": 51}
+    outcome = replace(verified.outcome, events=(
+        *verified.outcome.events[:-1], replace(event, payload=payload),
+    ), draft=PROVENANCE.replace("50", "51") if defect == "wrong-count" else PROVENANCE)
+    if defect == "missing-card":
+        outcome = replace(outcome, evidence=outcome.evidence[:-1])
+    verified = verify_episode_outcome(verified.contract, outcome)
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
 
 
 @pytest.mark.parametrize("override", [
