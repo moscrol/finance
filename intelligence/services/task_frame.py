@@ -166,6 +166,10 @@ class TaskFrame:
     history_intent: HistoryIntent | None = None
     material_contract: MaterialContract | None = None
     conversation_materials: ConversationMaterials | None = None
+    # Concrete additions supplied by a caller, including ids that overlap a
+    # type default. Without this history rebase cannot distinguish the two.
+    # This is contract state, not a claim of natural-language user authority.
+    required_output_additions: tuple[str, ...] = ()
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
@@ -176,6 +180,8 @@ class TaskFrame:
             payload.pop("history_intent", None)
         if self.material_contract is None:
             payload.pop("material_contract", None)
+        if not self.required_output_additions:
+            payload.pop("required_output_additions", None)
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
         else:
@@ -231,13 +237,16 @@ class TaskFrame:
             return None
         try:
             required_outputs = value.get("required_outputs", ())
+            additions = value.get("required_output_additions", ())
             assumptions = value.get("assumptions", ())
             ambiguities = value.get("ambiguities", ())
             if any(
                 not isinstance(items, (list, tuple))
                 or any(not isinstance(item, str) for item in items)
-                for items in (required_outputs, assumptions, ambiguities)
+                for items in (required_outputs, additions, assumptions, ambiguities)
             ):
+                return None
+            if any(item not in required_outputs for item in additions):
                 return None
             subject = value.get("subject")
             timeframe = value.get("timeframe")
@@ -275,6 +284,7 @@ class TaskFrame:
                 market_scope=str(value["market_scope"]),
                 timeframe=timeframe,
                 required_outputs=tuple(required_outputs),
+                required_output_additions=tuple(additions),
                 assumptions=tuple(assumptions),
                 ambiguities=tuple(ambiguities),
                 clarification_question=clarification,
@@ -535,6 +545,9 @@ def build_task_frame(
         market_scope=market_scope,
         timeframe=timeframe,
         required_outputs=outputs,
+        required_output_additions=tuple(
+            item for item in _clean_outputs(tuple(envelope.required_outputs)) if item in outputs
+        ),
         assumptions=_merge_strings(tuple(assumptions)),
         ambiguities=tuple(ambiguities),
         clarification_question=(
@@ -628,6 +641,7 @@ def rebase_task_frame(
         return replace(
             frame, question_type=question_type, subject=_safe_subject(subject, frame.raw_question),
             subject_kind=subject_kind or frame.subject_kind, required_outputs=("prior_recall",),
+            required_output_additions=(),
             evidence_policy="personal_memory_recall", timeframe=timeframe,
         )
 
@@ -641,6 +655,7 @@ def rebase_task_frame(
         required_outputs = frame.required_outputs
 
     explicit_outputs = _explicit_required_outputs(frame.raw_question)
+    additions = _clean_outputs(frame.required_output_additions, required_outputs)
     question_type_changed = question_type != frame.question_type
     canonical_outputs = (
         _default_required_outputs(question_type, frame.raw_question)
@@ -651,8 +666,8 @@ def rebase_task_frame(
         tuple(
             item
             for item in frame.required_outputs
-            if item
-            not in _default_required_outputs(frame.question_type, frame.raw_question)
+            if item not in _default_required_outputs(frame.question_type, frame.raw_question)
+            or item in additions
         )
         if question_type_changed
         else frame.required_outputs
@@ -662,7 +677,7 @@ def rebase_task_frame(
     # inheritance path would score one answer against two different coverage
     # denominators depending on which path built the frame.
     merged_outputs = (
-        explicit_outputs
+        _clean_outputs(explicit_outputs, additions)
         if explicit_outputs
         else _clean_outputs(
             inherited_outputs,
@@ -677,6 +692,7 @@ def rebase_task_frame(
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,
         required_outputs=merged_outputs,
+        required_output_additions=tuple(item for item in additions if item in merged_outputs),
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],

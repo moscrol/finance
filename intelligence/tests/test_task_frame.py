@@ -74,6 +74,7 @@ def test_llm_alignment_can_only_supplement_code_owned_semantics() -> None:
     content = """{
       "user_goal": "判断本轮反弹大致还能延续多久",
       "required_outputs": ["volume_confirmation"],
+      "required_output_additions": ["volume_confirmation"],
       "assumptions": ["把反弹理解为最近一个交易日的市场修复"],
       "ambiguities": ["观察窗口未明确，先按未来五个交易日评估"],
       "subject": "美股",
@@ -90,6 +91,7 @@ def test_llm_alignment_can_only_supplement_code_owned_semantics() -> None:
 
     assert frame.user_goal == "判断本轮反弹大致还能延续多久"
     assert "volume_confirmation" not in frame.required_outputs
+    assert "volume_confirmation" not in frame.required_output_additions
     assert "观察窗口未明确，先按未来五个交易日评估" in frame.ambiguities
     assert frame.clarification_question is None
     assert frame.subject == "A股市场"

@@ -18,7 +18,7 @@ from intelligence.services.episode_protocol import (
 from intelligence.services.query_understanding import understand_query
 from intelligence.services.research_contract import release_root_budget
 from intelligence.services.research_tool_registry import ResearchToolRegistry
-from intelligence.services.task_frame import derive_required_outputs, rebase_task_frame
+from intelligence.services.task_frame import TaskFrame, derive_required_outputs, rebase_task_frame
 
 
 QUESTION = "2026-07-22 复盘高标连板晋级有没有断层？"
@@ -123,6 +123,40 @@ def test_explicit_required_dimension_is_not_demoted(contexts):
     assert validate_episode_finish(
         _finish(extra=("risk_signals",)), context=context, evidence=EVIDENCE,
     ).status == "completed"
+
+
+def test_explicit_requirement_survives_default_collision_restore_and_type_rebase(contexts):
+    frame = _frame("目前市场的主线是什么")
+    assert "risk_signals" in frame.required_outputs
+    frame = rebase_task_frame(
+        frame, question_type=frame.question_type, subject=frame.subject,
+        required_outputs=("risk_signals",),
+    )
+    restored = TaskFrame.from_dict(frame.to_dict())
+    assert restored is not None
+    assert restored.required_output_additions == ("risk_signals",)
+    rebased = rebase_task_frame(
+        restored, question_type="dated_market_review", subject=restored.subject,
+    )
+    context = contexts(rebased)
+    assert "risk_signals" in {item.output_id for item in context.contract.required_outputs if item.required}
+    with pytest.raises(EpisodeFinishRejection, match="risk_signals"):
+        validate_episode_finish(_finish(), context=context, evidence=EVIDENCE)
+
+
+@pytest.mark.parametrize("additions", ("risk_signals", [1], ["not-in-required-outputs"]))
+def test_malformed_restored_additions_are_rejected(additions):
+    payload = _frame().to_dict()
+    payload["required_output_additions"] = additions
+    assert TaskFrame.from_dict(payload) is None
+
+
+def test_empty_additions_do_not_change_legacy_frame_shape():
+    frame = _frame()
+    assert "required_output_additions" not in frame.to_dict()
+    restored = TaskFrame.from_dict(frame.to_dict())
+    assert restored == frame
+    assert restored.task_frame_hash == frame.task_frame_hash
 
 
 def test_multiday_comparison_requirements_keep_priority(contexts):

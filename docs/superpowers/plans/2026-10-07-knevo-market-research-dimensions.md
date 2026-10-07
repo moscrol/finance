@@ -21,6 +21,7 @@ def research_dimensions_for(frame: TaskFrame) -> tuple[str, ...]:
 
 默认 dated 产出改为 `("direct_assessment", "evidence_boundary")`。既有显式语义分支与 `extra` 合并保留；rebase 已使用同一默认函数，不能再加第二份名单。
 `_user_goal` 在既有语义分支之后，对 dated 默认返回本题 `question.strip()`，避免分类器通用目标扩大任务。
+复审发现 id 集合不足以区分默认项与同名调用者要求：补 `TaskFrame.required_output_additions`，由实际调用参数写入，rebase 保留同名要求，`from_dict` 拒绝不合法或不在最终要求内的记录。空值不进旧形状/哈希，对齐模型无写权；加入默认同名冲突及序列化恢复的拒漏反例。
 
 - [x] 修改对应旧默认断言；增加原问、重建题型和明确必需项的回归。
 - [x] 跑 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_task_frame.py`。
