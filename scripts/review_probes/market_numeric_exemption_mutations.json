@@ -1,0 +1,59 @@
+{
+  "file": "intelligence/services/episode_semantic_verifier.py",
+  "pytest": "intelligence/tests/test_market_claim_checks.py",
+  "mutants": [
+    {
+      "name": "historical count borrows a different field",
+      "old": "if (fields and fields.issubset(matching_fields)) or (not fields and len(matching_fields) == 1):",
+      "new": "if matching_fields:",
+      "expected_red": [
+        "test_historical_wording_still_requires_the_cited_field_and_unit[wrong-field]",
+        "test_historical_wording_still_requires_the_cited_field_and_unit[inherited-field]"
+      ]
+    },
+    {
+      "name": "historical count ignores explicit dates",
+      "old": "if any(int(match[\"month\"]) != day.month or int(match[\"day\"]) != day.day",
+      "new": "if False and any(int(match[\"month\"]) != day.month or int(match[\"day\"]) != day.day",
+      "expected_red": [
+        "test_historical_wording_still_requires_the_cited_field_and_unit[wrong-date]",
+        "test_historical_wording_still_requires_the_cited_field_and_unit[deferred-date]"
+      ]
+    },
+    {
+      "name": "failed query event authorizes historical counts",
+      "old": "if not (event.kind == \"tool_result\" and payload.get(\"ok\") is True\n                and payload.get(\"tool\") == \"finance_query\"\n                and payload.get(\"task_frame_hash\") == outcome.task_frame_hash\n                and isinstance(basis, Mapping) and basis.get(\"dataset\") == dataset",
+      "new": "if not (event.kind == \"tool_result\"\n                and payload.get(\"tool\") == \"finance_query\"\n                and payload.get(\"task_frame_hash\") == outcome.task_frame_hash\n                and isinstance(basis, Mapping) and basis.get(\"dataset\") == dataset",
+      "expected_red": [
+        "test_historical_count_needs_the_matching_successful_query_event[patch0]"
+      ]
+    },
+    {
+      "name": "signed analysis intersection becomes union",
+      "old": "    allowed = set.intersection(*pools)\n    by_id = _evidence_by_ordinal(verified.outcome)\n    cited = cited_evidence_ordinals(text)",
+      "new": "    allowed = set.union(*pools)\n    by_id = _evidence_by_ordinal(verified.outcome)\n    cited = cited_evidence_ordinals(text)",
+      "expected_red": [
+        "test_query_provenance_cannot_borrow_a_row_absent_from_an_analysis_binding[direct_assessment]",
+        "test_query_provenance_cannot_borrow_a_row_absent_from_an_analysis_binding[supporting_evidence]"
+      ]
+    },
+    {
+      "name": "risk binding blocks valid analysis query provenance",
+      "old": "        verified, text, output_ids=frozenset({\"direct_assessment\", \"supporting_evidence\"}),",
+      "new": "        verified, text, output_ids=None,",
+      "expected_red": [
+        "test_query_provenance_uses_shared_analysis_bindings_with_separate_risk_evidence"
+      ]
+    },
+    {
+      "name": "returned row count skips full event list proof",
+      "old": "        if len(emitted_rows) != returned or len(emitted_hashes) != returned:\n            continue\n        hashes = [item.get(\"content_hash\") if isinstance(item, Mapping) else None for item in emitted_rows]\n        if (any(not isinstance(digest, str) for digest in hashes)\n                or any(not isinstance(digest, str) for digest in emitted_hashes)\n                or len(set(hashes)) != returned or set(hashes) != set(emitted_hashes)):\n            continue\n",
+      "new": "",
+      "expected_red": [
+        "test_query_return_count_needs_the_full_matching_event_card_list[one-card]",
+        "test_query_return_count_needs_the_full_matching_event_card_list[wrong-count]",
+        "test_query_return_count_needs_the_full_matching_event_card_list[duplicate-hash]"
+      ]
+    }
+  ]
+}

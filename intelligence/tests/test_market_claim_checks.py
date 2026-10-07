@@ -283,7 +283,8 @@ def test_historical_count_keeps_its_evidence_unit_but_forward_window_stays_unsup
     "07-20曾跌停212家，但07-22曾涨停212家（E3）。",
     "历史涨停家数在07-20出现峰值，当时为212家（E3）。",
     "历史跌停212家（E3），发生在07-22。",
-])
+], ids=["wrong-value", "wrong-card", "wrong-unit", "wrong-field", "wrong-date",
+        "wrong-year", "postfix-date", "repeated-value", "inherited-field", "deferred-date"])
 def test_historical_wording_still_requires_the_cited_field_and_unit(claim):
     _, verified = _case("**条件**\n" + claim)
     assert verifier._novel_numeric_condition_tokens(
