@@ -32,6 +32,17 @@ _GOODBYE_PATTERN = re.compile(
 _STATUS_PATTERN = re.compile(
     r"^[\s，。！？,.!?]*(你好吗|你怎么样|在吗|还在吗)[\s，。！？,.!?]*$"
 )
+# Calendar closure can satisfy existing market-data shortcuts, while a
+# multi-source research policy still owns its non-market evidence duties.
+# Keep the legacy general market fallback (C1); its coarse policy is not a
+# certificate that every unknown mixed request is only a calendar question.
+_CALENDAR_TERMINAL_POLICIES = frozenset({
+    "current_a_share_market",
+    "dated_a_share_market",
+    "structured_market_technical",
+    "current_fact_evidence",
+    "general_finance_evidence",
+})
 
 
 @dataclass(frozen=True)
@@ -50,7 +61,7 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     if empty is not None:
         return empty
     frame = decision.task_frame
-    if frame is not None:
+    if frame is not None and frame.evidence_policy in _CALENDAR_TERMINAL_POLICIES:
         # 休市是日历事实，不限 quick_fact。C2 已走这条；C1「2026-07-25 市场
         # 怎么样」是 general_finance_qa/research，旧守卫放它进检索后答证据不足。
         # 区间题（R4）：终点休市仍注入假设，但不能整题 canned，否则周内
