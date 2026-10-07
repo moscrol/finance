@@ -188,7 +188,7 @@ _CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
     r"下周|一阶|二阶|哪些反证|哪些风险)"
 )
 _EXPLICIT_SWITCH_PATTERN = re.compile(
-    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向|换个话题|换个问题|另一个问题)"
+    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向|换题|换个话题|换个问题|另一个问题)"
 )
 _TASK_SWITCH_PATTERNS: dict[str, re.Pattern[str]] = {
     "financial_analysis": re.compile(

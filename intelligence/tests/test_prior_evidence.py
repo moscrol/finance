@@ -20,20 +20,19 @@ from intelligence.tests.test_reasoning_input_boundaries import LOCAL, REVIEW, no
 def _atom(**kwargs):
     return AgentEvidence(
         tool="finance_query", title="市场日频", detail="上涨家数=3126",
-        source="本地结构化数据", source_date="2026-09-14", content_hash="original-local",
+        source="本地结构化数据", source_date="2026-09-14", content_hash="original-local", io_effect="local_read",
         supports=("old_output",), observations=(StructuredObservation("A股", "2026-09-14", "上涨家数", 3126),),
         **kwargs,
     )
 
 
-@pytest.fixture
-def source(tmp_path):
+def _source(tmp_path, *, source_question=LOCAL):
     store = RunStore("alice", root=tmp_path / "runs")
-    run = store.create_run(LOCAL, "ask", session_id="conv")
-    user = Message("old-user", "conv", "user", LOCAL, "2026-09-20", "completed", run_id=run.run_id)
+    run = store.create_run(source_question, "ask", session_id="conv")
+    user = Message("old-user", "conv", "user", source_question, "2026-09-20", "completed", run_id=run.run_id)
     answer = Message("old-answer", "conv", "assistant", "E1证明抛压衰竭。", "2026-09-20", "completed", run_id=run.run_id)
     messages = [user, answer]
-    original = decide_turn(LOCAL, llm_complete=no_llm).task_frame
+    original = decide_turn(source_question, llm_complete=no_llm).task_frame
     frame = decide_turn(REVIEW, conversation_materials=collect_material_turn_history(messages), llm_complete=no_llm).task_frame
     payload = {
         "schema_version": 1, "execution_kind": "continuous_episode",
@@ -52,6 +51,60 @@ def source(tmp_path):
         return load_previous_evidence(frame, messages=messages, store=store,
                                       conversation_id="conv", current_run_id="current", **kwargs)
     return store, run, messages, frame, payload, save, load
+
+
+@pytest.fixture
+def source(tmp_path):
+    return _source(tmp_path)
+
+
+@pytest.mark.parametrize("question", [
+    LOCAL.replace("请只查本地数据，", "请").replace("，不联网。", "。"),
+    "可以查真实数据。" + LOCAL.replace("请只查本地数据，", "请").replace("，不联网。", "。"),
+], ids=["ordinary", "full"])
+def test_frozen_review_can_restore_local_originals_from_ordinary_research(tmp_path, question):
+    _, _, _, frame, _, _, load = _source(tmp_path, source_question=question)
+    snapshot = load()
+    assert snapshot.entries == (("E2", replace(_atom(), supports=())),)
+    assert snapshot.excluded_ordinals == ("E1",)
+    # Original broad permissions do not grant even a local read in this turn.
+    assert build_episode_context(frame, task_id="ordinary-prior").contract.allowed_capabilities == ()
+
+
+@pytest.mark.parametrize("question", [
+    "只分析以下虚构材料，不查其他资料：市场上涨家数3126。为什么？",
+    "假设市场上涨家数3126，只依据给定题设回答。",
+])
+def test_material_sources_cannot_be_promoted_to_original_local_evidence(tmp_path, question):
+    *_, load = _source(tmp_path, source_question=question)
+    with pytest.raises(ValueError, match="original episode identity mismatch"):
+        load()
+
+
+@pytest.mark.parametrize("effect", ["unknown", "external_or_mixed"])
+@pytest.mark.parametrize("broad_source", [False, True])
+def test_a_local_tool_name_does_not_override_the_recorded_execution_effect(source, tmp_path, effect, broad_source):
+    if broad_source:
+        source = _source(
+            tmp_path / "ordinary", source_question=LOCAL.replace("请只查本地数据，", "请").replace("，不联网。", "。"),
+        )
+    _, _, _, _, payload, save, load = source
+    payload["outcome"]["evidence"][1]["io_effect"] = effect
+    save()
+    with pytest.raises(ValueError, match="no admissible"):
+        load()
+
+
+@pytest.mark.parametrize("suffix", [
+    "旧答写‘2026-09-14上涨3126家’。", "仍复核2026-09-11和2026-09-14这两天。",
+], ids=["quoted-date", "same-window"])
+def test_quoted_dates_and_an_unchanged_explicit_window_keep_originals(source, suffix):
+    store, _, messages, _, _, _, _ = source
+    question = REVIEW + suffix
+    frame = decide_turn(question, conversation_materials=collect_material_turn_history(messages), llm_complete=no_llm).task_frame
+    snapshot = load_previous_evidence(frame, messages=messages, store=store,
+                                      conversation_id="conv", current_run_id="current")
+    assert snapshot.entries == (("E2", replace(_atom(), supports=())),)
 
 
 def test_only_original_local_atoms_are_restored_without_old_targets(source):
@@ -190,7 +243,11 @@ def test_unrequested_reuse_never_opens_originals(source, monkeypatch, question):
                                   conversation_id="conv", current_run_id="current") is None
 
 
-@pytest.mark.parametrize("question", [REVIEW + "现在换个问题。", REVIEW + "改为2026年9月18日。"])
+@pytest.mark.parametrize("question", [
+    REVIEW + "现在换个问题。", REVIEW + "现在换题，解释量比的定义。", REVIEW + "改为2026年9月18日。",
+    REVIEW + "以今天为准。", REVIEW + "只复核9月19日的数据。", REVIEW + "只看本周的数据。",
+    REVIEW + "只复核2026-09-11的数据。", REVIEW + "以明天为准。",
+], ids=["new-task", "switch-topic", "full-date", "today", "yearless-date", "this-week", "narrow-window", "tomorrow"])
 def test_changed_scope_does_not_inherit_old_observations(source, monkeypatch, question):
     store, _, messages, frame, _, _, _ = source
     changed = replace(frame, raw_question=question)
@@ -201,7 +258,8 @@ def test_changed_scope_does_not_inherit_old_observations(source, monkeypatch, qu
 
 
 @pytest.mark.parametrize("durable", [False, True])
-def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage(source, tmp_path, durable):
+@pytest.mark.parametrize("broad_source", [False, True])
+def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage(source, tmp_path, durable, broad_source):
     from uuid import uuid4
 
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
@@ -210,6 +268,10 @@ def test_actual_loop_sees_remapped_originals_without_tools_or_inherited_coverage
     from intelligence.services.research_tool_registry import ResearchToolRegistry
     from intelligence.tests.test_agent_episode import ScriptedModel
 
+    if broad_source:
+        source = _source(
+            tmp_path / "ordinary", source_question=LOCAL.replace("请只查本地数据，", "请").replace("，不联网。", "。"),
+        )
     _, _, _, frame, _, _, load = source
     context = replace(build_episode_context(frame, task_id=f"prior-{uuid4().hex}"), prior_evidence=load())
     store = JsonlEpisodeStore(tmp_path / "episodes") if durable else None

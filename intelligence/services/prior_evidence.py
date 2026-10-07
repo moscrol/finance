@@ -16,7 +16,8 @@ from intelligence.services.agent_research import (
     AgentEvidence, HistoricalEvidenceProvenance, StructuredObservation, evidence_content_hash,
 )
 from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
-from intelligence.services.user_task import requests_previous_answer_review, requests_previous_evidence_only
+from intelligence.services.query_understanding import query_time_windows
+from intelligence.services.user_task import requests_previous_answer_review, requests_previous_evidence_only, top_level_message_text
 
 if TYPE_CHECKING:
     from intelligence.services.conversation_store import Message
@@ -171,7 +172,7 @@ def load_previous_evidence(
 ) -> PriorTurnEvidence | None:
     """Select the latest original answer in the authorized window, never scan runs."""
     from intelligence.services.research_contract import _EXPLICIT_SWITCH_PATTERN
-    from intelligence.services.task_frame import TaskFrame, has_explicit_date
+    from intelligence.services.task_frame import TaskFrame
 
     material = frame.material_contract
     if not (material and not material.needs_clarification
@@ -179,8 +180,8 @@ def load_previous_evidence(
             and requests_previous_answer_review(frame.raw_question)
             and requests_previous_evidence_only(frame.raw_question)):
         return None
-    if (history_unavailable or has_explicit_date(frame.raw_question)
-            or _EXPLICIT_SWITCH_PATTERN.search(frame.raw_question)):
+    visible, uncertain = top_level_message_text(frame.raw_question)
+    if history_unavailable or uncertain or _EXPLICIT_SWITCH_PATTERN.search(visible):
         raise ValueError("prior evidence requires an intact history and unchanged date scope")
     if any(m.conversation_id != conversation_id for m in messages):
         raise ValueError("cross-conversation evidence request")
@@ -196,13 +197,23 @@ def load_previous_evidence(
     users = [m for m in messages if m.role == "user" and m.run_id == answer.run_id and m.status == "completed"]
     if len(users) != 1:
         raise ValueError("previous source question unavailable or ambiguous")
+    current_windows = query_time_windows(visible)
+    source_visible, source_uncertain = top_level_message_text(users[0].content)
+    if current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):
+        raise ValueError("prior evidence requires an intact history and unchanged date scope")
     raw, digest = store.read_episode_artifact(answer.run_id, conversation_id=conversation_id)
     source_frame = TaskFrame.from_dict(raw.get("task_frame"))
     contract, outcome = raw.get("contract"), raw.get("outcome")
     if (raw.get("schema_version") != 1 or raw.get("execution_kind") != "continuous_episode"
             or source_frame is None or not isinstance(contract, dict) or not isinstance(outcome, dict)
-            or source_frame.material_contract is None
-            or source_frame.material_contract.data_scope != "local_only"
+            # Ordinary research may contain local originals even when its read
+            # scope was broad. The per-atom allowlist below still excludes every
+            # external/derived atom; old permissions are never restored.
+            or (source_frame.material_contract is not None and (
+                source_frame.material_contract.needs_clarification
+                or source_frame.material_contract.authenticity != "real"
+                or source_frame.material_contract.data_scope not in {"local_only", "full"}
+            ))
             or contract.get("task_id") != f"{answer.run_id}:{answer.message_id}"
             or source_frame.raw_question != users[0].content
             or contract.get("task_frame_hash") != source_frame.task_frame_hash
@@ -230,7 +241,8 @@ def load_previous_evidence(
         except ValueError:
             excluded.append(ref)
             continue
-        if (atom.tool not in LOCAL_READ_CAPABILITIES or day > cutoff or atom.derived_from
+        if (atom.tool not in LOCAL_READ_CAPABILITIES or atom.io_effect != "local_read"
+                or day > cutoff or atom.derived_from
                 or any(date.fromisoformat(o.as_of) > cutoff for o in atom.observations)):
             excluded.append(ref)
             continue

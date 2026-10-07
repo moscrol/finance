@@ -30,6 +30,7 @@ from intelligence.services.query_understanding import (
     market_review_requested_date,
     material_request_question_type,
     project_task_frame,
+    query_time_windows,
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
 from intelligence.services.market_analogs import parse_analog_intent
@@ -1262,6 +1263,24 @@ def decide_turn(
                 frame = replace(frame, clarification_question=question,
                                 ambiguities=(*frame.ambiguities, *material.uncertain_reasons))
             intent = build_turn_intent(query, envelope, task_frame=frame)
+            if (
+                not material.needs_clarification
+                and material.continuation_requested
+                and previous_intent is not None
+                and is_contextual_follow_up(query, envelope, previous_intent)
+            ):
+                # Freeze the current material contract first, then carry only
+                # the prior turn coordinate/date. Its outputs and permissions
+                # must not replace this turn's material authoring contract.
+                current_windows = query_time_windows(parts.regions.control_text if parts.regions else query)
+                if current_windows:
+                    frame = replace(frame, timeframe="、".join(current_windows))
+                elif frame.timeframe is None:
+                    frame = replace(frame, timeframe=previous_intent.timeframe)
+                intent = replace(
+                    intent, inherited_from_turn=previous_turn_id,
+                    timeframe=frame.timeframe, task_frame_hash=frame.task_frame_hash,
+                )
             if frame.clarification_question:
                 # The answer must come back through pending-frame recovery, not
                 # generic routing: without the pending snapshot the interview

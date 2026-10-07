@@ -1,0 +1,85 @@
+{
+  "file": "intelligence/services/prior_evidence.py",
+  "pytest": [
+    "intelligence/tests/test_prior_evidence.py",
+    "intelligence/tests/test_reasoning_input_boundaries.py"
+  ],
+  "mutants": [
+    {
+      "name": "previous answer detail request is not recognized",
+      "file": "intelligence/services/user_task.py",
+      "old": "(?:解释|回答|答案|判断|结论|分析)|上一答)",
+      "new": "(?:解释|回答|答案|判断|结论|分析))",
+      "expected_red": [
+        "test_ladder_review_preserves_date_and_freezes_inputs_before_new_reads"
+      ]
+    },
+    {
+      "name": "conversation evidence ceiling is not recognized",
+      "file": "intelligence/services/user_task.py",
+      "old": "    r\"(?:本次|这次|此次|当前)?会话(?:内|中)?(?:已)?(?:取得|获得|查到))的\"",
+      "new": "    r\"不识别本次会话)的\"",
+      "expected_red": [
+        "test_ladder_review_preserves_date_and_freezes_inputs_before_new_reads"
+      ]
+    },
+    {
+      "name": "frozen review loses the original date",
+      "file": "intelligence/services/turn_controller.py",
+      "old": "frame = replace(frame, timeframe=previous_intent.timeframe)",
+      "new": "frame = replace(frame, timeframe=None)",
+      "expected_red": [
+        "test_ladder_review_preserves_date_and_freezes_inputs_before_new_reads"
+      ]
+    },
+    {
+      "name": "ordinary source loses registered local originals",
+      "old": "            or (source_frame.material_contract is not None and (",
+      "new": "            or source_frame.material_contract is None\n            or (source_frame.material_contract is not None and (",
+      "expected_red": [
+        "test_frozen_review_can_restore_local_originals_from_ordinary_research[ordinary]"
+      ]
+    },
+    {
+      "name": "local tool name masks external execution",
+      "old": " or atom.io_effect != \"local_read\"",
+      "new": "",
+      "expected_red": [
+        "test_a_local_tool_name_does_not_override_the_recorded_execution_effect[True-external_or_mixed]"
+      ]
+    },
+    {
+      "name": "explicit topic switch inherits old inputs",
+      "file": "intelligence/services/research_contract.py",
+      "old": "转向|换题|换个话题",
+      "new": "转向|换个话题",
+      "expected_red": [
+        "test_previous_answer_detail_reviews_keep_quote_and_task_switch_boundaries[previous-answer]"
+      ]
+    },
+    {
+      "name": "quoted date controls input scope",
+      "old": "visible, uncertain = top_level_message_text(frame.raw_question)",
+      "new": "visible, uncertain = frame.raw_question, ()",
+      "expected_red": [
+        "test_quoted_dates_and_an_unchanged_explicit_window_keep_originals[quoted-date]"
+      ]
+    },
+    {
+      "name": "changed date window restores originals",
+      "old": "if current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
+      "new": "if False and current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
+      "expected_red": [
+        "test_changed_scope_does_not_inherit_old_observations[narrow-window]"
+      ]
+    },
+    {
+      "name": "same explicit window is rejected",
+      "old": "if current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
+      "new": "if current_windows or (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
+      "expected_red": [
+        "test_quoted_dates_and_an_unchanged_explicit_window_keep_originals[same-window]"
+      ]
+    }
+  ]
+}

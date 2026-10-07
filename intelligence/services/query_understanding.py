@@ -692,6 +692,57 @@ def _yearless_timeframe(text: str, *, today: date | None = None) -> str | None:
     return market_review_requested_date(match.group(0), today=today)
 
 
+def query_timeframe(text: str, *, today: date | None = None) -> str | None:
+    """Extract date/window metadata without resolving subjects or reading sources.
+
+    Callers that use it as an instruction boundary must pass visible top-level
+    text. This is also the ordinary query parser's timeframe projection.
+    """
+    timeframe_match = _DATE_RE.search(text)
+    month_horizon_match = _MONTH_HORIZON_RE.search(text) or _CHINESE_MONTH_HORIZON_RE.search(text)
+    timeframe = (
+        timeframe_match.group(0)
+        if timeframe_match
+        else next(
+            (term for term in _RELATIVE_TIMEFRAMES if term in text),
+            month_horizon_match.group(0) if month_horizon_match else None,
+        )
+    )
+    return timeframe if timeframe is not None else _yearless_timeframe(text, today=today)
+
+
+def query_time_windows(text: str, *, today: date | None = None) -> tuple[str, ...]:
+    """Canonical visible date/windows for deciding whether old inputs still fit.
+
+    Full days take precedence over embedded month windows. Every mentioned
+    window is retained, so narrowing a two-day task to one day is a scope change.
+    This pure metadata parser grants no reads and resolves no subjects.
+    """
+    matches: list[tuple[int, int, str]] = []
+
+    def overlaps(start: int, end: int) -> bool:
+        return any(start < right and end > left for left, right, _ in matches)
+
+    for pattern in (_FULL_DATE_RE, _YEARLESS_DATE_RE):
+        for match in pattern.finditer(text):
+            if overlaps(*match.span()):
+                continue
+            if pattern is _YEARLESS_DATE_RE and _YEARLESS_QUANTITY_PREFIX_RE.search(text[:match.start()]):
+                continue
+            value = market_review_requested_date(match.group(0), today=today)
+            matches.append((*match.span(), value or match.group(0)))
+    for pattern in (_DATE_RE, _MONTH_HORIZON_RE, _CHINESE_MONTH_HORIZON_RE):
+        for match in pattern.finditer(text):
+            if not overlaps(*match.span()):
+                matches.append((*match.span(), match.group(0)))
+    relative_terms = (*_RELATIVE_TIMEFRAMES, "前天", "前日", "明天", "明日", "上周", "下周", "上个月", "下个月")
+    for term in relative_terms:
+        start = text.find(term)
+        if start >= 0 and not overlaps(start, start + len(term)):
+            matches.append((start, start + len(term), term))
+    return tuple(dict.fromkeys(value for _, _, value in sorted(matches)))
+
+
 @lru_cache(maxsize=1)
 def _theme_aliases() -> tuple[str, ...]:
     try:
@@ -1511,24 +1562,7 @@ def understand_query(
         # all new consumers use the attached canonical frame.
         return replace(legacy, task_frame=frame)
 
-    timeframe_match = _DATE_RE.search(text)
-    month_horizon_match = (
-        _MONTH_HORIZON_RE.search(text)
-        or _CHINESE_MONTH_HORIZON_RE.search(text)
-    )
-    timeframe = (
-        timeframe_match.group(0)
-        if timeframe_match
-        else next(
-            (term for term in _RELATIVE_TIMEFRAMES if term in text),
-            month_horizon_match.group(0) if month_horizon_match else None,
-        )
-    )
-    if timeframe is None:
-        # 无年份日期（8.18 / 8月18日）：此前只有复盘类正则会解析它，「那8.19呢」这种
-        # 追问 timeframe 落 None、继承上一轮日期。这里按不晚于今天的最近同月同日解析，
-        # 但「涨幅8.5」「跌了2.3」这类前面是数量词的数字不算日期。
-        timeframe = _yearless_timeframe(text)
+    timeframe = query_timeframe(text)
 
     material_contract = compile_material_contract(parts.regions) if parts.regions else None
     if (material_contract and material_contract.data_scope == "material_only"

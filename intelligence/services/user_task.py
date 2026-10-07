@@ -500,7 +500,8 @@ _B_NO_NEW_READS_RE = re.compile(
     r"[^：:。！？；，,\n]*(?:什么|哪些|多少|怎么说的|如何表述的)$)"
 )
 _B_PREVIOUS_EVIDENCE_ONLY_HEAD = (
-    r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到)的"
+    r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到|"
+    r"(?:本次|这次|此次|当前)?会话(?:内|中)?(?:已)?(?:取得|获得|查到))的"
     r"(?:本地)?(?:数据|资料|证据)"
 )
 _B_PREVIOUS_EVIDENCE_ONLY_RE = re.compile("^" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD)
@@ -525,8 +526,8 @@ _MATERIAL_CORRECTION_HEAD = (
 _MATERIAL_CORRECTION_RE = re.compile("^" + _MATERIAL_CORRECTION_HEAD)
 _PREVIOUS_ANSWER_REVIEW_RE = re.compile(
     r"^(?:复核|复查|重新审视|检查|重新检查|审查)(?:一下)?(?:你)?"
-    r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
-    r"(?=$|[：:，,。；;！？!?])"
+    r"(?:(?:刚才|上轮|上一轮|上一条|上次|前面)的?(?:解释|回答|答案|判断|结论|分析)|上一答)"
+    r"(?=$|[：:，,。；;！？!?]|的)"
 )
 _PREVIOUS_ANSWER_REFERENCE_RE = re.compile(
     r"^(?:(?:简洁|简要|简单)?(?:复述|重述)(?:一下)?\s*)?"

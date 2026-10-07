@@ -41,6 +41,13 @@ REVIEW = (
 REVIEW_WITH_REREAD = REVIEW.replace(
     "仍只用已取得的本地数据。", "允许在原日期范围内重新查询本地数据。",
 )
+LADDER_QUESTION = "2026-07-22 高标股的晋级情况如何，有没有出现空档"
+LADDER_REVIEW = (
+    "请复核上一答的晋级分母、成功者名单与失败候选覆盖，并修订。"
+    "只用本次会话取得的证据；没有完整候选或失败名单时保留缺口，"
+    "不把成功者名单推成整体晋级率或整体健康程度。"
+    "保留能核验的连板结构、日期、口径和局部引用。"
+)
 SUPPLIED_COMPARISON = (
     "只根据以下虚构题设分析，不查库、不联网、不写记忆。"
     "甲公司收入从100亿元增至130亿元，利润从10亿元增至13亿元，应收账款从20亿元增至45亿元，"
@@ -312,3 +319,87 @@ def test_review_without_user_history_cannot_recover_permissions_from_assistant()
     decision = decide_turn(REVIEW, conversation_materials=history, llm_complete=no_llm)
     assert decision.lane == "clarify"
     assert decision.task_frame.material_contract.classification == "state_unavailable"
+
+
+def test_ladder_review_preserves_date_and_freezes_inputs_before_new_reads():
+    class ForbiddenResolver:
+        def resolve(self, _query):
+            pytest.fail("frozen conversation evidence must precede resolver reads")
+
+    def forbidden_model(*_args, **_kwargs):
+        pytest.fail("input ceiling must precede the controller model")
+
+    first = decide_turn(LADDER_QUESTION, llm_complete=no_llm)
+    history = collect_material_turn_history([
+        message(LADDER_QUESTION), message("5、4、3、2板成功者连续（E1–E12）。", "assistant", "old-answer"),
+    ])
+    second = decide_turn(
+        LADDER_REVIEW, previous_intent=first.turn_intent, previous_turn_id="first",
+        conversation_materials=history, resolver=ForbiddenResolver(), llm_complete=forbidden_model,
+    )
+    frame = second.task_frame
+    assert requests_previous_answer_review(LADDER_REVIEW)
+    assert second.turn_intent.inherited_from_turn == "first"
+    assert frame.timeframe == "2026-07-22"
+    assert frame.material_contract.data_scope == "material_only"
+    assert frame.material_contract.continuation_requested
+    assert frame.conversation_materials.assistant_statements[0].source_message_id == "old-answer"
+    context = build_episode_context(frame, task_id="ladder-review")
+    assert context.contract.allowed_capabilities == ()
+    assert context.contract.evidence_plan.requirements == ()
+
+
+@pytest.mark.parametrize("head", [
+    "请复核上一答的晋级分母", "复查你上一条回答的来源", "审查上次答案的数字",
+], ids=["previous-answer", "previous-message", "previous-result"])
+def test_previous_answer_detail_reviews_keep_quote_and_task_switch_boundaries(head):
+    assert requests_previous_answer_review(head)
+    previous = build_turn_intent(LADDER_QUESTION, understand_query(LADDER_QUESTION))
+    for wrapper in ("“{}”", "> {}", "```text\n{}\n```"):
+        query = wrapper.format(head)
+        assert not requests_previous_answer_review(query)
+        assert material(query) is None
+    for suffix in ("现在换个问题，查询今日数据。", "现在换题，解释量比的定义。"):
+        query = head + "。" + suffix
+        current = build_turn_intent(query, understand_query(query), previous_intent=previous, previous_turn_id="first")
+        assert current.inherited_from_turn is None
+
+
+@pytest.mark.parametrize("text", [
+    "只用本次会话取得的证据。", "仅使用本次会话中已获得的数据。", "只依据会话内查到的资料。",
+])
+def test_conversation_evidence_ceiling_is_frozen_and_cannot_be_quoted(text):
+    assert material(text).data_scope == "material_only"
+    assert material("“" + text + "”") is None
+    assert material(text + "可以查真实数据。").data_scope == "full"
+
+
+@pytest.mark.parametrize("scope", [
+    "以今天为准。", "只复核9月19日的数据。", "改为2026-09-19。", "只看本周的数据。", "以明天为准。",
+])
+def test_frozen_review_with_a_new_time_scope_does_not_inherit_the_old_date(scope):
+    first = decide_turn(LADDER_QUESTION, llm_complete=no_llm)
+    history = collect_material_turn_history([
+        message(LADDER_QUESTION), message("旧答", "assistant", "old-answer"),
+    ])
+    second = decide_turn(
+        LADDER_REVIEW + scope, previous_intent=first.turn_intent, previous_turn_id="first",
+        conversation_materials=history, llm_complete=no_llm,
+    )
+    assert second.task_frame.timeframe != "2026-07-22"
+    if "9月19日" in scope or "2026-09-19" in scope:
+        assert second.task_frame.timeframe.endswith("-09-19")
+    assert build_episode_context(second.task_frame, task_id="new-time-scope").contract.allowed_capabilities == ()
+
+
+def test_quoted_old_dates_do_not_erase_the_ladder_review_date():
+    first = decide_turn(LADDER_QUESTION, llm_complete=no_llm)
+    history = collect_material_turn_history([
+        message(LADDER_QUESTION), message("旧答", "assistant", "old-answer"),
+    ])
+    second = decide_turn(
+        LADDER_REVIEW + "保留原句‘2026-07-22 高标股的晋级情况如何’。",
+        previous_intent=first.turn_intent, previous_turn_id="first",
+        conversation_materials=history, llm_complete=no_llm,
+    )
+    assert second.task_frame.timeframe == "2026-07-22"
