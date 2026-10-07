@@ -509,6 +509,72 @@ def test_oversized_context_fails_closed_before_model_call(market_db, tmp_path, m
     assert result.grounded_fallback_used
 
 
+@pytest.mark.parametrize("oversized", [False, True])
+def test_fulfillment_repair_keeps_full_lens_or_refuses_request(
+    market_db, tmp_path, monkeypatch, oversized,
+):
+    import json
+
+    from intelligence.services import answer_model, ask_synthesis, llm_refine, task_fulfillment
+    from intelligence.services.research_contract import RequiredOutput
+
+    result = _offline_ask(market_db, tmp_path, monkeypatch)
+    spec = result.answer_spec
+    if oversized:
+        spec = replace(spec, candidate_facts=tuple(
+            replace(c, text=c.text * 10) if c.claim_id == "data:D10:context" else c
+            for c in spec.candidate_facts
+        ))
+    # 长资料会挤满旧版 registry；补写须走真实的预算逻辑，而不是 registry 替身。
+    spec = replace(spec, verified_facts=tuple(
+        answer_model.Claim(
+            claim_id=f"synthetic:{i}", text="合成附加行情资料。" * 100,
+            claim_type="market_data", theme="合成市场", status=answer_model.ClaimStatus.VERIFIED,
+            evidence_tier="market_data", evidence_ids=("D1",),
+        ) for i in range(40)
+    ))
+    context = next(c for c in spec.candidate_facts if c.claim_id == "data:D10:context")
+    captured = []
+    rechecked = []
+
+    def capture(messages, **kwargs):
+        captured.append(messages)
+        return llm_refine.SynthesisResult("合成补写文本", "offline", "synthetic", "stop"), ""
+
+    def recheck(**kwargs):
+        rechecked.append(kwargs)
+        return task_fulfillment.FulfillmentVerdict(status="complete", items=())
+
+    monkeypatch.setattr(llm_refine, "synthesize_messages", capture)
+    monkeypatch.setattr(task_fulfillment, "evaluate_answer_spec_fulfillment", recheck)
+    repaired = ask_synthesis.repair_unfulfilled_answer(
+        question=QUESTION, answer_text="合成旧稿", answer_spec=spec,
+        verdict=task_fulfillment.FulfillmentVerdict(
+            status="missing",
+            items=(task_fulfillment.FulfillmentItem(
+                output_id="historical_analogs", status="missing", gap="正文尚未呈现历史比较",
+            ),),
+        ),
+        required_outputs=(RequiredOutput("historical_analogs", "历史比较"),), timeout=30,
+    )
+    assert context.status == answer_model.ClaimStatus.INFERRED
+    if oversized:
+        assert repaired is None
+        assert captured == [] and rechecked == []
+        return
+    assert repaired is not None and repaired[0] == "合成补写文本"
+    assert len(captured) == len(rechecked) == 1
+    assert rechecked[0]["answer_spec"] is spec
+    assert rechecked[0]["answer_text"] == "合成补写文本"
+    prompt = "\n".join(m["content"] for m in captured[0])
+    rows = [json.loads(line) for line in prompt.splitlines() if line.startswith('{"claim_id":')]
+    row = next(row for row in rows if row["claim_id"] == context.claim_id)
+    assert row["text"] == context.text
+    assert row["claim_type"] == "inference"
+    assert "逐维贡献" in row["text"] and "不可嫁接" in row["text"]
+    assert "fact_market_daily.total_amount" in row["text"] and "trade_date_only" in row["text"]
+
+
 def test_episode_passes_same_deadline_to_history_pair(market_db, monkeypatch):
     frame = _frame()
     context = build_episode_context(frame, task_id="river-deadline-propagation", timeout=30)
