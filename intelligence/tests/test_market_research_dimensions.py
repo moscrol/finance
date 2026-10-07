@@ -240,6 +240,14 @@ def test_legacy_intent_adapter_uses_same_continuation_and_narrowing_contract(que
         ("invalidation_conditions", "supporting_evidence")
         if narrowed else first.task_frame.required_outputs
     )
+    assert result.turn_intent.required_outputs == result.task_frame.required_outputs
+    assert result.turn_intent.task_frame_hash == result.task_frame.task_frame_hash
+    third = TurnControlCore().control(
+        "那它呢", previous_intent=result.turn_intent, previous_turn_id="second-turn",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    assert third.task_frame.required_outputs == result.task_frame.required_outputs
+    assert third.turn_intent.required_outputs == third.task_frame.required_outputs
 
 
 def test_multiday_comparison_requirements_keep_priority(contexts):
