@@ -434,10 +434,22 @@ class LensResult:
     knowledge_cutoff: str | None = None
     dropped: tuple[str, ...] = ()
     labels: dict[str, str] = field(default_factory=dict)
+    current_window: tuple[str, str] | None = None
+    standardization_window: tuple[str, str] | None = None
+    upstream_pit_counts: dict[str, int] = field(default_factory=dict)
+    feature_sources: dict[str, str] = field(default_factory=dict)
+    excluded_features: dict[str, str] = field(default_factory=dict)
+    current_missing_features: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "knowledge_cutoff": self.knowledge_cutoff,
+            "current_window": self.current_window,
+            "standardization_window": self.standardization_window,
+            "upstream_pit_counts": dict(self.upstream_pit_counts),
+            "feature_sources": dict(self.feature_sources),
+            "excluded_features": dict(self.excluded_features),
+            "current_missing_features": list(self.current_missing_features),
             "dimension_structure": self.structure.to_dict(),
             "dropped_features": list(self.dropped),
             "current_window_z": {
@@ -494,7 +506,17 @@ def build_lens(
             scored.append((dec.total, label, sig, dec))
     scored.sort(key=lambda x: (x[0], x[1]))
 
+    pit_counts: dict[str, int] = {}
+    for row in daily:
+        grade = row.get("pit_grade")
+        key = grade if grade in {"strict", "trade_date_only"} else "unknown"
+        pit_counts[key] = pit_counts.get(key, 0) + 1
+    days = [row["trade_date"] for row in daily]
     return LensResult(
+        current_window=current,
+        standardization_window=(min(days), max(days)),
+        upstream_pit_counts=pit_counts,
+        current_missing_features=tuple(f for f in live if f not in cur.stats),
         structure=structure,
         current=cur,
         candidates=[(lab, sg, dc) for _, lab, sg, dc in scored[:top]],
@@ -514,15 +536,37 @@ def lens_block(res: LensResult, *, name: str = "LENS") -> str:
 
     out: list[str] = [f"## 多维对照镜头 [{name}]"]
     out.append(
-        "- 口径：逐特征对全历史 z 标准化后压成窗口签名（每维：z 均值 + z 首尾段变化），"
+        "- 口径：逐特征对声明范围内的输入历史做 z 标准化后压成窗口签名（每维：z 均值 + z 首尾段变化），"
         "共有维加权 L1、按覆盖率惩罚。距离口径与 [D10] 同源，未改权重。"
     )
     if res.knowledge_cutoff:
-        out.append(f"- PIT：knowledge_cutoff={res.knowledge_cutoff}，只用该日及之前的行。")
+        out.append(f"- 交易日截断：knowledge_cutoff={res.knowledge_cutoff}；日期截断不等于已证明当时可知。")
+    if res.current_window:
+        out.append(f"- 当前窗口：{res.current_window[0]}~{res.current_window[1]}。")
+    if res.standardization_window:
+        out.append(
+            f"- 标准化拟合范围：{res.standardization_window[0]}~{res.standardization_window[1]}"
+            "（含当前窗；这是截至站立日的横向比较，不是训练/留出验证）。"
+        )
+    counts = "、".join(f"{k}={v}" for k, v in sorted(res.upstream_pit_counts.items())) or "unknown"
+    out.append(
+        f"- 上游 PIT 日行标记：{counts}。判据相对本次 knowledge_cutoff，"
+        "不等于每个历史交易日收盘时已知。仅保留取数层读数，未核验完整历史版本；"
+        "trade_date_only / unknown 不得当作当时已知。即便标 strict，也不自动证明"
+        "全部特征的发布时间与修订历史；本镜头不授予历史回放、方法校准或剧本命名资格。"
+    )
     if res.dropped:
         out.append(
             f"- 整体缺失/常量维（已退出比较，不得臆补）：{'、'.join(nm(f) for f in res.dropped)}"
         )
+    if res.current_missing_features:
+        out.append("- 当前窗覆盖不足的维度：" + "、".join(nm(f) for f in res.current_missing_features))
+    for feature, reason in sorted(res.excluded_features.items()):
+        out.append(f"- 暂停比较 {feature}：{reason}")
+    if res.feature_sources:
+        out.extend(["", "### 特征来源（不是完整行级版本凭据）", "| 特征 | 来源与聚合口径 |", "|---|---|"])
+        for feature, source in res.feature_sources.items():
+            out.append(f"| {nm(feature)} ({feature}) | {source} |")
 
     st = res.structure
     out.append("")
@@ -546,7 +590,7 @@ def lens_block(res: LensResult, *, name: str = "LENS") -> str:
         )
 
     out.append("")
-    out.append("### ② 当前窗口在各维上的位置（z = 相对全历史的位置）")
+    out.append("### ② 当前窗口在各维上的位置（z = 相对声明拟合范围的位置）")
     out.append("| 维度 | 组 | z均值 | 窗口内趋势 |")
     out.append("|---|---|---|---|")
     for f, (m, t) in sorted(res.current.stats.items(), key=lambda kv: -abs(kv[1][0])):
@@ -578,6 +622,26 @@ def lens_block(res: LensResult, *, name: str = "LENS") -> str:
         )
         total = "—" if dec.total is None else f"{dec.total:.2f}"
         out.append(f"| {label} | {total} | {al} | **{len(dec.aligned_groups)}** | {dv} |")
+
+    # 汇总表不能代替逐维读数：没有过阈值的中间维、缺维和覆盖分母同样要送达。
+    for label, _, dec in res.candidates:
+        out.extend(["", f"#### {label} · 逐维贡献"])
+        out.append(
+            f"- 共有维覆盖：{len(dec.shared)}/{dec.total_dims}；"
+            f"候选缺维：{'、'.join(nm(f) for f in dec.only_a) or '无'}；"
+            f"当前缺维：{'、'.join(nm(f) for f in dec.only_b) or '无'}。"
+        )
+        out.append("| 维度 | 当前z均值 | 候选z均值 | 当前趋势 | 候选趋势 | 距离和式贡献 | 判读 |")
+        out.append("|---|---|---|---|---|---|---|")
+        for d in sorted(dec.dims, key=lambda item: -item.contribution):
+            out.append(
+                f"| {nm(d.feature)} | {d.z_mean_a:+.2f} | {d.z_mean_b:+.2f} | "
+                f"{d.z_delta_a:+.2f} | {d.z_delta_b:+.2f} | {d.contribution:.2f} | {d.verdict} |"
+            )
+    out.append(
+        "- 候选之间可能重叠，数量不是独立复现次数。逐维贡献为均值差绝对值 + "
+        f"{_DELTA_WEIGHT}×趋势差绝对值；总距离还含共有维数与覆盖率惩罚，显示数值已四舍五入。"
+    )
 
     out.append("")
     out.append(
@@ -665,7 +729,7 @@ def lens_from_db(
              daily[lo]["trade_date"], daily[hi]["trade_date"])
         )
 
-    return build_lens(
+    result = build_lens(
         daily,
         rw.COMPARABLE_FEATURE_NAMES,
         current=current,
@@ -675,6 +739,12 @@ def lens_from_db(
         labels={f.name: f.label for f in rw.FEATURES},
         top=top,
     )
+    result.feature_sources = {f.name: f"{f.source}；{f.rule}" for f in rw.FEATURES}
+    result.excluded_features = {
+        f: "来源口径变化，标准化口径尚未统一；原值可展示但不进签名与距离"
+        for f in sorted(rw.SUSPENDED_FEATURES)
+    }
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:

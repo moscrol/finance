@@ -31,15 +31,14 @@ from intelligence.services.market_analogs import (
     analog_block_for_llm,
     parse_analog_intent,
 )
-from intelligence.services.market_regime_analogs import (
-    parse_regime_intent,
-    regime_block_for_llm,
-)
+from intelligence.services.market_regime_analogs import parse_regime_intent
+from intelligence.services.market_history_context import market_history_blocks
 from intelligence.services.stock_analogs import (
     parse_stock_analog_intent,
     stock_analog_block_for_llm,
 )
 from intelligence.services.task_frame import is_weekly_calendar_question
+from intelligence.services.research_contract import ResearchDeadline
 
 FERMENTATION_MARKERS = (
     "发酵",
@@ -533,6 +532,7 @@ def _history_analog_items(
     as_of: date,
     as_of_iso: str,
     db_path: Path,
+    deadline: ResearchDeadline | None = None,
 ) -> list[PrefetchItem]:
     """算子命中即供数：D8 / D10 / D11 各自出块或 gap，同一套 as_of 截断。
 
@@ -549,30 +549,16 @@ def _history_analog_items(
     wants_regime = parse_regime_intent(question)
     wants_theme_analog = parse_analog_intent(question) and not wants_regime
     if wants_regime:
-        block = regime_block_for_llm(db_path, as_of=as_of)
-        if str(block or "").strip():
-            items.append(
-                PrefetchItem(
-                    tool="market_data",
-                    title="市场情绪环境类比 [D10]",
-                    detail=block,
-                    source="本地 DuckDB · D10",
-                    source_date=as_of_iso,
-                )
+        items.extend(
+            PrefetchItem(
+                tool="market_data",
+                title=block.title,
+                detail=block.detail,
+                source="本地 DuckDB · D10 / river 多维比较",
+                source_date=as_of_iso,
             )
-        else:
-            items.append(
-                PrefetchItem(
-                    tool="market_data",
-                    title="historical_analogs gap（D10 不可用）",
-                    detail=(
-                        "D10 市场情绪类比不可用（库缺失、历史不足或无可比窗口）。"
-                        "historical_analogs 必须标 gap，禁止用画像或框架原文冒充历史窗口。"
-                    ),
-                    source="本地 DuckDB · D10",
-                    source_date=as_of_iso,
-                )
-            )
+            for block in market_history_blocks(db_path, as_of=as_of, deadline=deadline)
+        )
     elif wants_theme_analog:
         block = analog_block_for_llm(question, None, db_path, as_of=as_of)
         if str(block or "").strip():
@@ -707,6 +693,8 @@ def collect_prefetch_items(
     subject: str,
     as_of: date,
     market_db_path: str | Path | None = None,
+    include_history_analogs: bool = True,
+    deadline: ResearchDeadline | None = None,
 ) -> tuple[PrefetchItem, ...]:
     db_path = (
         Path(market_db_path).expanduser()
@@ -715,7 +703,8 @@ def collect_prefetch_items(
     )
     items: list[PrefetchItem] = []
     as_of_iso = as_of.isoformat()
-    items.extend(_history_analog_items(question, as_of, as_of_iso, db_path))
+    if include_history_analogs:
+        items.extend(_history_analog_items(question, as_of, as_of_iso, db_path, deadline=deadline))
     if question_type == "market_forecast":
         from intelligence.services.forecast_residual_followup import (
             WEEKLY_PACK_REUSE_DETAIL,

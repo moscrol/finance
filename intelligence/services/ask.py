@@ -3121,6 +3121,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             result.clarify = clarify_decision
             result.warnings.append(f"澄清追问：{clarify_decision.reason}，本次未检索")
             return result
+    # 市场历史比较的问句日期要在加载快照/市场上下文之前冻结，而不只是给 D10 盖日期。
+    # 否则同一模型输入会一边比较旧日、一边声明数据截至库尾。
+    if options.date is None and market_regime_analogs.parse_regime_intent(options.query):
+        requested = market_review_requested_date(options.query)
+        if requested:
+            options = replace(options, date=requested)
     with _progress_stage(options, "planning") as stage:
         preliminary_plan = plan_answer_question(
             options.query,
@@ -4398,11 +4404,23 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
 
         def _build_d10():
-            block = market_regime_analogs.regime_block_for_llm(options.market_db_path)
+            from intelligence.services.market_history_context import market_history_blocks
+
+            # 明确问句日期优先于快照/库尾；不能只在块头盖旧日、内部却读最新行情。
+            as_of = options.date or market_review_requested_date(options.query) or result.trade_date
+            if as_of is None:
+                block = "historical_analogs / river_lens gap：无法确定站立日，未读取历史比较。"
+            else:
+                block = "\n\n".join(
+                    item.detail for item in market_history_blocks(
+                        options.market_db_path, as_of=as_of, deadline=options.deadline,
+                    )
+                )
             return block, Citation(
                 "D10",
-                "本地 DuckDB 市场情绪环境类比数据块",
-                f"市场级情绪向量与当前 {market_regime_analogs.DEFAULT_WINDOW} 日环境最相似的历史窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
+                "本地 DuckDB 市场历史类比与多维镜头",
+                "市场情绪类比的后续 5/10/20 日事实 + river 逐维比较；"
+                "两套候选独立，后续事实不可嫁接，非概率预测或环境剧本验证",
             )
 
         providers.append(ask_planner.DataBlockProvider("D10", "市场情绪环境类比", _d10_applies, _build_d10))
