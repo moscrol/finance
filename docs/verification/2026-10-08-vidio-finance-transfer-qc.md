@@ -5,6 +5,8 @@
 代码迁入独立候选分支，已修本轮可复现的边界问题。**尚非全仓验收、生产部署或日常 agent 能力验收**。
 源包不是 finance main 的一部分；审交付必须检出补丁树，干净 main 只作回归对照。
 
+已推公开代码提交 `31fc76f957412ee7f53ea709e4cff5eba8b878e2`，草稿 [PR #75](https://github.com/moscrol/finance/pull/75)。最终本地收据与公开历史隔离过程见 [交接快照](../handoffs/2026-10-08-vidio-finance-transfer-public.md)；接手看 [本分支在途状态](../handoffs/inflight/feat-vidio-finance-transfer-public.md)。
+
 - 来源：vidio `arena/0ee406fa-vidio@7d47cc7`，`archive/finance-transfer/ALL-TWENTY-merged.patch`（20 连）；另有同目录导出与诊断脚本。
 - finance 基线：`82de3fb730a4175170b4e6ba472e130e5ef87ab7`。原作者使用的 `148a09ec` 与本次基线不同。
 - 原样导入：本地 `feat/vidio-finance-transfer-qc@0889c8c9f`，20 个提交无冲突应用；本轮在其上留存反例与修复。
@@ -54,7 +56,9 @@
 | 两个伴随工具 | 修前 7 failed；修后 7 passed | `tools-before.*` / `tools-after.*` |
 | 画像嵌套字段/外置根反例 | 修前 2 failed（原 7 通过） | `profile-before.*` |
 | 原模型/镜头测试 + QC/工具测试 | 49 passed | `qc-final.*` |
-| 公开候选扩大回归 | 1089 passed / 48 skipped / 19888 deselected | `public-final.*` |
+| 实现期公开候选扩大回归 | 1089 passed / 48 skipped / 19888 deselected | `public-final.*` |
+| 最终干净代码提交 `31fc76f95` | **1093 passed / 44 skipped / 19888 deselected** | `public-clean.log/xml` |
+| 同提交全仓 Ruff / 收据校验 | exit 0 / exit 0（明确为定向） | `public-clean-ruff.log` / `public-clean-receipt-check.log` |
 | 同范围干净 main | 912 passed / 44 skipped | `baseline-final.*` |
 | 全仓 Ruff | exit 0 | `public-ruff-final.log` |
 | CLI 冒烟 | lens/export/diagnose `--help`，映射审计 `--all --json` exit 0 | `*-cli-help.txt`、`public-perspective-audit.json` |
@@ -67,11 +71,11 @@
 .venv-workbench/bin/python -m ruff check .
 ```
 
-以上实现期候选日志来自未提交的独占树，且早于最后一次公开内容复查，不能用日志文件名中的基线 SHA 冒充最终版本。固定提交后的复验另记于分支交接；拆分测试不再依赖私人快照，因此最终通过/跳过数量会变化。
+实现期候选日志来自未提交的独占树，且早于最后一次公开内容复查，不能用日志文件名中的基线 SHA 冒充最终版本。最终 `public-clean` 绑定干净 `31fc76f95`：拆分测试的四个私人快照跳过项已由合成样本替代并实际执行，因此较实现期增加 4 passed、减少 4 skipped；不表示已测私人画像。收据为 `~/.finance-runtime/test-receipts/20261007T192253Z-31fc76f9-b43b863edf49.json`，revision、解释器、依赖及基座漂移 0 均核对通过；后续文档提交不自动继承此 revision 身份。
 
 ## 未验证 / 不成立的结论
 
-- 未跑完整 pytest、前端、E2E、注册表集成门；不能称四叶验收齐绿或可合并。
+- 本机未跑完整 pytest、前端、E2E、注册表集成门；PR 创建后远端检查另行运行。阶段观察及 run ID 见交接快照，最新状态须按 PR head 回读，不能称完整验收齐绿或可合并。
 - 未连生产库做教学 build/reset/export，未发布任何数据包，未重启服务、切换部署或运行真实模型问题。
 - `regime_script` 是探索性函数：检查同 ID 隔离不等于日期区间/后续事实区间无重叠；标准化拟合范围、时间顺序、PIT、序列自相关仍要调用方提供证据。逐窗口置换不是时序预测有效性证明，不能把过闸写成“已找到行情规律”。
 - 镜头已有独立 CLI，现有问答仍调用 `regime_block_for_llm`。新环境剧本尚无日常问答消费链；不自动改变产品入口。
@@ -82,6 +86,6 @@
 
 ## 后续
 
-1. 固定候选提交后复跑并回读收据，再走草稿 PR；合并须用户确认及完整工程验收。
+1. 固定代码的定向复验、收据回读和草稿 PR 已完成；接续最新 PR head 的 Actions 与本机完整工程验收。合并仍须用户确认。
 2. 另做只读真库研究与用户题对照，验证 agent 是否真正利用时间演变、多维分歧与后续事实。
 3. 环境剧本接线前补日期区间、标准化/结果可知性的输入合同及时间相关零假设；保留“不命名”的合法空结果。
