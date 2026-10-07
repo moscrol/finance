@@ -16,7 +16,7 @@ from intelligence.services.agent_research import (
     AgentEvidence, HistoricalEvidenceProvenance, StructuredObservation, evidence_content_hash,
 )
 from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
-from intelligence.services.query_understanding import query_time_windows
+from intelligence.services.query_understanding import query_time_scope
 from intelligence.services.user_task import requests_previous_answer_review, requests_previous_evidence_only, top_level_message_text
 
 if TYPE_CHECKING:
@@ -197,10 +197,16 @@ def load_previous_evidence(
     users = [m for m in messages if m.role == "user" and m.run_id == answer.run_id and m.status == "completed"]
     if len(users) != 1:
         raise ValueError("previous source question unavailable or ambiguous")
-    current_windows = query_time_windows(visible)
+    current_scope = query_time_scope(visible)
     source_visible, source_uncertain = top_level_message_text(users[0].content)
-    if current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):
-        raise ValueError("prior evidence requires an intact history and unchanged date scope")
+    if current_scope.labels:
+        try:
+            source_anchor = date.fromisoformat(users[0].created_at[:10])
+        except (TypeError, ValueError):
+            raise ValueError("prior evidence requires an intact history and unchanged date scope") from None
+        source_scope = query_time_scope(source_visible, today=source_anchor)
+        if source_uncertain or not current_scope.same_absolute_window(source_scope):
+            raise ValueError("prior evidence requires an intact history and unchanged date scope")
     raw, digest = store.read_episode_artifact(answer.run_id, conversation_id=conversation_id)
     source_frame = TaskFrame.from_dict(raw.get("task_frame"))
     contract, outcome = raw.get("contract"), raw.get("outcome")

@@ -403,3 +403,19 @@ def test_quoted_old_dates_do_not_erase_the_ladder_review_date():
         conversation_materials=history, llm_complete=no_llm,
     )
     assert second.task_frame.timeframe == "2026-07-22"
+
+
+@pytest.mark.parametrize("ratio_text", [
+    "1/1、1/3和9/116晋级分母", "晋级率 1/1=100%的分母", "晋级率 1/3的分母",
+], ids=["enumerated-ratios", "explicit-equality", "single-ratio"])
+def test_promotion_fractions_are_values_not_calendar_dates(ratio_text):
+    first = decide_turn(LADDER_QUESTION, llm_complete=no_llm)
+    history = collect_material_turn_history([
+        message(LADDER_QUESTION), message("旧答", "assistant", "old-answer"),
+    ])
+    second = decide_turn(
+        LADDER_REVIEW.replace("晋级分母", ratio_text), previous_intent=first.turn_intent,
+        previous_turn_id="first", conversation_materials=history, llm_complete=no_llm,
+    )
+    assert second.task_frame.timeframe == "2026-07-22"
+    assert second.turn_intent.inherited_from_turn == "first"

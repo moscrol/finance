@@ -711,14 +711,34 @@ def query_timeframe(text: str, *, today: date | None = None) -> str | None:
     return timeframe if timeframe is not None else _yearless_timeframe(text, today=today)
 
 
-def query_time_windows(text: str, *, today: date | None = None) -> tuple[str, ...]:
-    """Canonical visible date/windows for deciding whether old inputs still fit.
+@dataclass(frozen=True)
+class QueryTimeScope:
+    days: tuple[date, ...] = ()
+    intervals: tuple[tuple[date, date], ...] = ()
+    boundaries: tuple[tuple[str, date], ...] = ()
+    unresolved_windows: tuple[str, ...] = ()
 
-    Full days take precedence over embedded month windows. Every mentioned
-    window is retained, so narrowing a two-day task to one day is a scope change.
-    This pure metadata parser grants no reads and resolves no subjects.
+    @property
+    def labels(self) -> tuple[str, ...]:
+        return (*[day.isoformat() for day in self.days], *self.unresolved_windows)
+
+    def same_absolute_window(self, other: QueryTimeScope) -> bool:
+        # Relative words have no shared anchor merely because their text matches.
+        # Preserve repeated dates: old-range prose plus a new selector is not an
+        # unambiguous restatement of the old scope.
+        return bool(self.days) and not self.unresolved_windows and not other.unresolved_windows and (
+            sorted(self.days) == sorted(other.days) and self.intervals == other.intervals
+            and self.boundaries == other.boundaries
+        )
+
+
+def query_time_scope(text: str, *, today: date | None = None) -> QueryTimeScope:
+    """Parse visible calendar days and their interval relations without any IO.
+
+    The caller supplies top-level text and the original message's date anchor
+    when parsing historical yearless dates. Fractions remain numerical values.
     """
-    matches: list[tuple[int, int, str]] = []
+    matches: list[tuple[int, int, date | str]] = []
 
     def overlaps(start: int, end: int) -> bool:
         return any(start < right and end > left for left, right, _ in matches)
@@ -727,10 +747,23 @@ def query_time_windows(text: str, *, today: date | None = None) -> tuple[str, ..
         for match in pattern.finditer(text):
             if overlaps(*match.span()):
                 continue
-            if pattern is _YEARLESS_DATE_RE and _YEARLESS_QUANTITY_PREFIX_RE.search(text[:match.start()]):
-                continue
+            if pattern is _YEARLESS_DATE_RE:
+                before, after = text[:match.start()].rstrip(), text[match.end():].lstrip()
+                if _YEARLESS_QUANTITY_PREFIX_RE.search(before):
+                    continue
+                if after.startswith(("%", "倍", "元", "家", "只", "股", "点", "手")):
+                    continue
+                context = text[max(0, match.start() - 24):match.end() + 40]
+                ratio = "/" in match.group(0) and (
+                    after.startswith("=") or any(word in context for word in (
+                        "晋级率", "晋级分母", "成功率", "分母", "分子", "比例", "比率", "比值",
+                    ))
+                )
+                calendar = after.startswith("日") or before.endswith(("日期", "交易日"))
+                if ratio and not calendar:
+                    continue
             value = market_review_requested_date(match.group(0), today=today)
-            matches.append((*match.span(), value or match.group(0)))
+            matches.append((*match.span(), date.fromisoformat(value) if value else match.group(0)))
     for pattern in (_DATE_RE, _MONTH_HORIZON_RE, _CHINESE_MONTH_HORIZON_RE):
         for match in pattern.finditer(text):
             if not overlaps(*match.span()):
@@ -740,7 +773,32 @@ def query_time_windows(text: str, *, today: date | None = None) -> tuple[str, ..
         start = text.find(term)
         if start >= 0 and not overlaps(start, start + len(term)):
             matches.append((start, start + len(term), term))
-    return tuple(dict.fromkeys(value for _, _, value in sorted(matches)))
+    ordered = sorted(matches)
+    intervals = tuple(
+        (left[2], right[2])
+        for left, right in zip(ordered, ordered[1:])
+        if isinstance(left[2], date) and isinstance(right[2], date)
+        and text[left[1]:right[0]].strip() in {"至", "到", "~", "～", "—", "-"}
+    )
+    boundaries: list[tuple[str, date]] = []
+    for left, right, value in ordered:
+        if not isinstance(value, date) or any(value in interval for interval in intervals):
+            continue
+        before, after = text[:left].rstrip(), text[right:].lstrip()
+        if before.endswith(("截至", "截止", "截止至", "不晚于", "早于")) or after.startswith(("之前", "以前", "前")):
+            boundaries.append(("before", value))
+        elif after.startswith(("之后", "以后", "后", "以来", "起")):
+            boundaries.append(("after", value))
+    return QueryTimeScope(
+        tuple(value for _, _, value in ordered if isinstance(value, date)), intervals,
+        tuple(boundaries),
+        tuple(value for _, _, value in ordered if isinstance(value, str)),
+    )
+
+
+def query_time_windows(text: str, *, today: date | None = None) -> tuple[str, ...]:
+    """Project the typed time scope into display metadata without granting reads."""
+    return query_time_scope(text, today=today).labels
 
 
 @lru_cache(maxsize=1)

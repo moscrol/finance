@@ -67,18 +67,62 @@
     },
     {
       "name": "changed date window restores originals",
-      "old": "if current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
-      "new": "if False and current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
+      "old": "if source_uncertain or not current_scope.same_absolute_window(source_scope):",
+      "new": "if source_uncertain:",
       "expected_red": [
         "test_changed_scope_does_not_inherit_old_observations[narrow-window]"
       ]
     },
     {
       "name": "same explicit window is rejected",
-      "old": "if current_windows and (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
-      "new": "if current_windows or (source_uncertain or set(current_windows) != set(query_time_windows(source_visible))):",
+      "old": "if source_uncertain or not current_scope.same_absolute_window(source_scope):",
+      "new": "if current_scope.labels or source_uncertain or not current_scope.same_absolute_window(source_scope):",
       "expected_red": [
         "test_quoted_dates_and_an_unchanged_explicit_window_keep_originals[same-window]"
+      ]
+    },
+    {
+      "name": "continuous interval becomes discrete endpoints",
+      "file": "intelligence/services/query_understanding.py",
+      "old": "and self.intervals == other.intervals",
+      "new": "",
+      "expected_red": [
+        "test_time_scope_relation_and_original_anchor_are_required[interval-endpoints]"
+      ]
+    },
+    {
+      "name": "relative words are accepted without a calendar anchor",
+      "file": "intelligence/services/query_understanding.py",
+      "old": "return bool(self.days) and not self.unresolved_windows and not other.unresolved_windows and (",
+      "new": "return True and (",
+      "expected_red": [
+        "test_time_scope_relation_and_original_anchor_are_required[relative-day]"
+      ]
+    },
+    {
+      "name": "yearless source dates use the current clock",
+      "old": "source_anchor = date.fromisoformat(users[0].created_at[:10])",
+      "new": "source_anchor = date.today()",
+      "expected_red": [
+        "test_yearless_source_days_use_the_original_message_anchor"
+      ]
+    },
+    {
+      "name": "promotion fractions become calendar dates",
+      "file": "intelligence/services/query_understanding.py",
+      "old": "if ratio and not calendar:",
+      "new": "if False and ratio and not calendar:",
+      "expected_red": [
+        "test_promotion_fractions_are_values_not_calendar_dates[enumerated-ratios]"
+      ]
+    },
+    {
+      "name": "open date boundary becomes a single day",
+      "file": "intelligence/services/query_understanding.py",
+      "old": "and self.boundaries == other.boundaries",
+      "new": "",
+      "expected_red": [
+        "test_time_scope_relation_and_original_anchor_are_required[open-window]"
       ]
     }
   ]

@@ -107,6 +107,49 @@ def test_quoted_dates_and_an_unchanged_explicit_window_keep_originals(source, su
     assert snapshot.entries == (("E2", replace(_atom(), supports=())),)
 
 
+@pytest.mark.parametrize("kind", ["relative-day", "interval-endpoints", "old-scope-then-narrow", "open-window"])
+def test_time_scope_relation_and_original_anchor_are_required(tmp_path, monkeypatch, kind):
+    source_question = LOCAL
+    suffix = "旧范围是2026-09-11和2026-09-14，现在只复核2026-09-14。"
+    if kind == "relative-day":
+        source_question = "请只查本地数据，今天A股上涨家数多少，不联网。"
+        suffix = "仍以今天为准。"
+    elif kind == "interval-endpoints":
+        source_question = "请只查本地数据，解释2026年9月11日至2026年9月14日A股成交变化，不联网。"
+        suffix = "仍只复核2026年9月11日和2026年9月14日。"
+    elif kind == "open-window":
+        source_question = "请只查本地数据，截至2026年9月14日的A股成交变化，不联网。"
+        suffix = "只复核2026年9月14日。"
+    store, _, messages, _, _, _, _ = _source(tmp_path, source_question=source_question)
+    frame = decide_turn(REVIEW + suffix, conversation_materials=collect_material_turn_history(messages), llm_complete=no_llm).task_frame
+    monkeypatch.setattr(store, "read_episode_artifact", lambda *a, **k: pytest.fail("changed time scope opened old originals"))
+    with pytest.raises(ValueError, match="unchanged date scope"):
+        load_previous_evidence(frame, messages=messages, store=store,
+                               conversation_id="conv", current_run_id="current")
+
+
+def test_yearless_source_days_use_the_original_message_anchor(tmp_path, monkeypatch):
+    import intelligence.services.prior_evidence as prior_service
+    import intelligence.services.query_understanding as query_service
+
+    store, _, messages, _, _, _, _ = _source(
+        tmp_path, source_question="请只查本地数据，9月14日A股上涨家数多少，不联网。",
+    )
+
+    class NextYear(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 10, 7)
+
+    monkeypatch.setattr(query_service, "date", NextYear)
+    monkeypatch.setattr(prior_service, "date", NextYear)
+    frame = decide_turn(REVIEW + "仍只复核9月14日。", conversation_materials=collect_material_turn_history(messages), llm_complete=no_llm).task_frame
+    monkeypatch.setattr(store, "read_episode_artifact", lambda *a, **k: pytest.fail("new year's scope opened old originals"))
+    with pytest.raises(ValueError, match="unchanged date scope"):
+        load_previous_evidence(frame, messages=messages, store=store,
+                               conversation_id="conv", current_run_id="current")
+
+
 def test_only_original_local_atoms_are_restored_without_old_targets(source):
     _, run, messages, frame, _, _, load = source
     snapshot = load()
