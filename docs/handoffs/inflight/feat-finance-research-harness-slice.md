@@ -13,15 +13,15 @@
 
 ## 当前状态
 
-已合入 #59（main `d5d7c5f6017e`，树与 PR 头 `3826f011a` 相同）；10-06 14:38 CST 已切 8792 并验收，回执 `docs/verification/2026-10-06-cutover-post59.md`。本分支不再续改，新工作从最新 origin/main 另开。决策见 `docs/handoffs/2026-10-05-research-harness-rebuild.md`。
+已合入 #59（main `d5d7c5f6017e`，树与 PR 头 `3826f011a` 相同）；10-06 14:38 记录切到 8792，历史完整验收有证据缺件，见 `docs/verification/2026-10-06-cutover-post59.md` 的 10-07 补查。本分支不续改，新工作从最新 origin/main 另开。决策见 `docs/handoffs/2026-10-05-research-harness-rebuild.md`。
 
 ## 未验证 / 已知边界
 
-真实 provider 数据真值、自然模型投研质量未验收；长电探针 n=1，只证明链路通、该题数字对。白名单外状态一律清证据：新 producer 若用新状态串会被静默判失败（现有 20 处 `ToolRunResult` 构造点已核对）。main 推送 CI 汇总任务因 GitHub 账单未启动，修好后 `gh run rerun 37422443444 --failed`。语义 judge 默认 off。
+真实 provider 真值、自然模型投研质量未验收；长电探针 n=1。白名单外状态清证据，新 producer 状态串须同步白名单。d5 历史汇总受账单阻断；10-07 当前 ea217 的 main CI 已绿。切换 readiness / 三份 health 原件缺失；旧完整模型准入 exit 2，候选解析器重读原件 exit 0，不代表修复已部署。语义 judge 默认 off。
 
 ## 下一步
 
-真实问题验收另冻结模型/材料/预算。修好 GitHub 账单后补跑 main 汇总检查。新增工具状态值时同步 `provider_observability` 白名单与反例测试。
+真实问题验收另冻结模型/材料/预算。新部署留齐原始切换与三读产物。新增状态值时同步 `provider_observability` 白名单与反例。
 
 ## 踩过的坑
 
@@ -29,4 +29,4 @@
 
 ## 已验证
 
-PR 头 `3826f011a` 与 main tip `d5d7c5f6`：Python 20693P/0F/0E/75S/2X，collected 对平，`--require-full-scope`、`--expect-revision origin/main` 均 exit 0；前端 210P、E2E 52P/2S；registry 5 项过；PR CI 五项全绿。8792：readiness 13/13、health 三读、账本 check、长电探针（判官 passed、degrade 0、数字与库一致）。旧底座 `458fd9de3` 的收据与变异见 `docs/verification/2026-10-05-research-harness-rebuild-results.md`。
+历史 PR 头 `3826f011a` / main `d5d7c5f6`：Python 20693P/0F/0E/75S/2X，full-scope 对账通过；复核绑定完整 d5 SHA，不用浮动 origin/main。前端210P、E2E52P/2S、registry过、PR CI齐绿。部署记录称 readiness13/13、health三读；原件未留齐。账本与长电产物保留，10-07 完整模型准入复核收据见回执。旧底座收据见 `docs/verification/2026-10-05-research-harness-rebuild-results.md`。
