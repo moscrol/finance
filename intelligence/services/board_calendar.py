@@ -169,6 +169,12 @@ def _high_board_breaks(
     reported.  Returns per-day break lists (keyed by the break day, height-
     ordered) and a flattened list in the same day-then-height order for the
     month view.
+
+    This is the **per-stock high-board break** (the 连板日历 day-cell mark).  It
+    is NOT the ``LeaderSuccession`` break/birth event — an 事件锚点 in the
+    event-reaction pipeline (``intelligence/services/teaching_framework/
+    leader_succession.py``).  The two share the word 断板 but are different
+    quantities; see ``UBIQUITOUS_LANGUAGE.md`` (Flagged ambiguities).
     """
     report_days = set(trading_dates)
     per_day: dict[date, list[dict[str, Any]]] = {day: [] for day in trading_dates}
